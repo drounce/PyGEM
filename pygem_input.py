@@ -26,7 +26,7 @@ option_glacier_selection = 1
     # Option 3 - glaciers/regions selected via new table (other inventory)
 # OPTION 1: RGI glacier inventory information
 # NOW USING RELATIVE PATHWAY!
-rgi_filepath = os.path.dirname(__file__) + '../RGI/rgi60/00_rgi60_attribs/'
+rgi_filepath = os.path.dirname(__file__) + '/../RGI/rgi60/00_rgi60_attribs/'
     # os.path.dirname(__file__) is getting the directory where the pygem model
     # is running.  '..' goes up a folder and then allows it to enter RGI and
     # find the folders from there.
