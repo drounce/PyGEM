@@ -507,6 +507,8 @@ def surfacetypeglacinitial(option_fxn, option_firn, option_debris, glac_table,
         print("This option for 'option_surfacetype' does not exist. Please "
               "choose an option that exists. Exiting model run.\n")
         exit()
+    # Make sure surface type is integer values
+    glac_surftype = glac_surftype.astype(int)
     # If firn is included, then specify initial firn conditions
     if option_firn == 1:
         glac_surftype[glac_surftype == 2] = 3
