@@ -14,25 +14,24 @@ details come from Radic et al. (2013), Bliss et al. (2014), and Huss and Hock
 # pygem_input.py. It is recommended to not make any changes to this file unless
 # you are a PyGEM developer and making changes to the model architecture.
 #
-#========== IMPORT PACKAGES ==================================================
+# ========== IMPORT PACKAGES ==================================================
 # Various packages are used to provide the proper architecture and framework
 # for the calculations used in this script. Some packages (e.g., datetime) are
 # included in order to speed of calculations and simplify code
 import pandas as pd
-import numpy as np
-from datetime import datetime
-import os # os is used with re to find name matches
-import re # see os
-#========= IMPORT MODEL INPUTS ===============================================
+# import numpy as np
+# from datetime import datetime
+# import os  # os is used with re to find name matches
+# import re  # see os
+# ========= IMPORT MODEL INPUTS ==============================================
 from pygem_input import *
-    # import all data
-    # pygem_input.py contains all the input data
-#========== IMPORT FUNCTIONS FROM MODULES ====================================
+# pygem_input.py contains all the input data
+# ========== IMPORT FUNCTIONS FROM MODULES ===================================
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 
-#========== OTHER STEPS ======================================================
+# ========== OTHER STEPS =====================================================
 # Other steps:
 # Geodetic mass balance file path
 # ???[Create input script full of option list]???
@@ -46,7 +45,7 @@ import pygemfxns_massbalance as massbalance
 #                         (Option 2 - simulation)
 #
 
-#========== LIST OF OUTPUT ===================================================
+# ========== LIST OF OUTPUT ==================================================
 # Create a list of outputs (.csv or .txt files) that the user can choose from
 # depending on what they are using the model for or want to see:
 #    1. Time series of all variables for each grid point (x,y,z) of each glacier
@@ -66,7 +65,7 @@ import pygemfxns_massbalance as massbalance
 # date of model run, model options selected, and any errors that may have come
 # up (e.g., precipitation corrected because negative value, etc.)
 
-#----- STEP ONE: MODEL REGION/GLACIERS ---------------------------------------
+# ----- STEP ONE: MODEL REGION/GLACIERS --------------------------------------
 # Step one involves the selection of the regions and glaciers used in the model.
 # Regions/glacier included in the model run will be defined using the Randolph
 #   Glacier inventory.  For more information, see:
@@ -110,7 +109,7 @@ else:
     exit()
 
 
-#----- STEP TWO: ADDITIONAL MODEL SETUP --------------------------------------
+# ---- STEP TWO: ADDITIONAL MODEL SETUP -------------------------------------
 # Step two runs more functions related to the model setup. This section has been
 #   separated from the selection of the model region/glaciers in order to
 #   keep the input organized and easy to read.
@@ -154,7 +153,7 @@ main_glac_surftypeinit = modelsetup.surfacetypeglacinitial(
                                                 main_glac_hyps)
 
 
-#----- STEP THREE: CLIMATE DATA ----------------------------------------------
+# ---- STEP THREE: CLIMATE DATA ---------------------------------------------
 # Step three imports the climate data that will be used in the model run.
 # Provide options for the selection and downscaling of the data
 #    - default: nearest neighbor
