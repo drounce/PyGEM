@@ -490,10 +490,10 @@ def surfacetypeglacinitial(option_fxn, option_firn, option_debris, glac_table,
     # initial surface type (snow, firn, ice, or debris)
     if option_fxn == 1:
         # glac_surftype[(glac_hyps > 0) &
-        for glac in range(len(glac_table)):
+        for glac in range(glac_surftype.shape[0]):
             elev_med = glac_table.loc[glac,'Zmed']
-            for col in range(len(glac_hyps.loc[0])):
-                elev_bin = int(glac_hyps.columns.values[col])
+            for col in range(glac_surftype.shape[1]):
+                elev_bin = int(glac_surftype.columns.values[col])
                 if glac_hyps.iloc[glac,col] > 0:
                     if elev_bin <= elev_med:
                         glac_surftype.iloc[glac,col] = 1
