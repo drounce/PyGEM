@@ -39,7 +39,7 @@ elev_colname = 'elev'
 # elevation
 indexname = 'GlacNo'
 # glacier number specific to each model run
-rgi_regionsO1 = [13]
+rgi_regionsO1 = [15]
 # 1st order regions defined by RGI V6.0
 # Enter integer(s) in brackets, e.g., [13, 14]
 rgi_regionsO2 = 'all'
@@ -48,7 +48,7 @@ rgi_regionsO2 = 'all'
 # Enter 'all' to include all subregions or enter integer(s) in brackets
 # to specify specific subregions, e.g., [5, 6]. If entering individual
 # glaciers (rgi_glac_number != 'all'), then rgi_regionsO2 should be 'all'.
-rgi_glac_number = ['05000', '07743']
+rgi_glac_number = ['03473', '03733']
 # rgi_glac_number = 'all'
 #     glacier numbers defined by RGI V6.0
 #     Enter 'all' to include all glaciers within (sub)region(s) or enter a
