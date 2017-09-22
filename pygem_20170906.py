@@ -185,12 +185,16 @@ if option_gcm_downscale == 1:
     #     the ablation section.
     gcm_glac_temp = climate.importGCMvarnearestneighbor(gcm_temp_varname,
                                                         main_glac_rgi,
-                                                        dates_table)
+                                                        dates_table,
+                                                        start_date,
+                                                        end_date)
         # gcm nearest neighbor time series for each glacier with GlacNo index
         # rows = # of glaciers, cols = length of time series
     gcm_glac_prec = climate.importGCMvarnearestneighbor(gcm_prec_varname,
                                                         main_glac_rgi,
-                                                        dates_table)
+                                                        dates_table,
+                                                        start_date,
+                                                        end_date)
         # gcm nearest neighbor time series for each glacier with GlacNo index
         # rows = # of glaciers, cols = length of time series
     gcm_glac_elev = climate.importGCMfxnearestneighbor(gcm_elev_varname,

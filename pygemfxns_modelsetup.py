@@ -23,6 +23,7 @@ def datesmodelrun(option_wateryear, option_leapyear):
     """
     Set up a table using the start and end date that has the year, month, day,
     and number of days in the month.
+    Developer's note: ADD OPTIONS FOR CHANGING WATER YEAR FROM OCT 1 - SEPT 30 FOR VARIOUS REGIONS
     """
     # Function Options:
     #  option_wateryear:

@@ -39,7 +39,7 @@ def importGCMfxnearestneighbor(variablename, glac_table):
     # Extract the keys (the variables used within the netcdf file)
     keys = data.variables.keys()
     # print('\n',keys)
-        # prints all information about a given variables
+    # prints all information about a given variables
     # Extract the variable of interest
     variable_data = data.variables[variablename][:]
     # Extract the latitude and longitude
@@ -58,7 +58,7 @@ def importGCMfxnearestneighbor(variablename, glac_table):
     return glac_variable
 
 
-def importGCMvarnearestneighbor(variablename, glac_table, dates_table):
+def importGCMvarnearestneighbor(variablename, glac_table, dates_table, start_date, end_date):
     """
     Import meteorological variables and extract the nearest neighbor time series
     of the variable. Meteorological data from the global climate models were
@@ -72,7 +72,7 @@ def importGCMvarnearestneighbor(variablename, glac_table, dates_table):
     keys = data.variables.keys()
     # print(keys)
     # print(data.variables['tas'])
-        # prints all information about a given variables
+    #   > prints all information about a given variables
     # Extract the variable of interest
     variable_data = data.variables[variablename][:]
     # Extract the latitude and longitude
@@ -81,74 +81,62 @@ def importGCMvarnearestneighbor(variablename, glac_table, dates_table):
     # Extract all data associated with the time variable
     time_var = data.variables['time']
     time = nc.num2date(time_var[:],time_var.units,time_var.calendar)
-    # Convert time from datetime format to YYYY-MM-DD
+    # Convert time to appropriate datetime format to YYYY-MM or YYYY-MM-DD
+    # For monthly timestep conver to YYYY-MM to extract proper positions within the netcdf
     if timestep == 'monthly':
         for step in range(len(time)):
             time[step] = time[step].strftime('%Y-%m')
-        # Find the index position for the start date
-        # Convert start and end year into proper format
-        startdate = str(startyear) + '-01'
-        enddate = str(endyear) + '-12'
-        # Then find the position
-        start_idx = np.where(time == startdate)[0][0]
-        end_idx = np.where(time == enddate)[0][0]
-            # np.where finds where the index where the condition is met and
-            # returns a tuple.  To access, the value need to select the first
-            # value in the first object via [0][0]
+        # Find the index position for the start date within the netcdf
+        start_idx = np.where(time == start_date)[0][0]
+        end_idx = np.where(time == end_date)[0][0]
+        #   np.where finds where the index where the condition is met and returns a tuple.  To access, the value need to select
+        #   the first value in the first object. Hence, the use of [0][0]
+        # Extract the correct time series from the netcdf
         time_series = time[start_idx:end_idx+1]
-            # need to "+ 1" such that the end date is included (python
-            # convention excludes the last value in a range)
+        #   need to "+ 1" such that the end date is included (python convention excludes the last value in a range)
+    # For monthly timestep conver to YYYY-MM to extract proper positions within the netcdf
     elif timestep == 'daily':
         if (data.variables['time'][1] - data.variables['time'][0]) == 1:
             for step in range(len(time)):
                 time[step] = time[step].strftime('%Y-%m-%d')
-            startdate = str(startyear) + '-01-01'
-            enddate = str(endyear) + '-12-31'
-            start_idx = np.where(time == startdate)[0][0]
-            end_idx = np.where(time == enddate)[0][0]
+            start_idx = np.where(time == start_date)[0][0]
+            end_idx = np.where(time == end_date)[0][0]
             time_series = time[start_idx:end_idx+1]
         else:
-            print("\nMODEL ERROR: TIME STEP DOES NOT APPEAR TO BE 'DAILY'.\n"
-                  "Please check the GCM time variable and make sure that it is "
-                  "consistent with the \ntime step specified in model input."
-                  "\n\nExiting the model run.\n\n")
-                # print error if the model time step is not daily as this will
-                # cause the wrong data to be extracted from the GCM
+            # print error if the model time step is not daily as this will cause the wrong data to be extracted from the GCM
+            print("\nMODEL ERROR: TIME STEP OF GCM DOES NOT APPEAR TO BE 'DAILY'.\n"
+                  "Please check the GCM time variable and make sure that it is consistent with the time step.\n"
+                  "specified in model input. Exiting the model run now.\n")
             exit()
-    # Nearest neighbor to extract data for each glacier
-    glac_variable_series = pd.DataFrame(0, index=glac_table.index,
-                                        columns=time_series)
+    # Nearest neighbor used to extract data for each glacier
+    glac_variable_series = pd.DataFrame(0, index=glac_table.index, columns=time_series)
     for glac in range(len(glac_table)):
         # Find index of nearest lat/lon
         lat_nearidx = (abs(lat-glac_table.loc[glac,lat_colname])).argmin()
         lon_nearidx = (abs(lon-glac_table.loc[glac,lon_colname])).argmin()
         # Extract time series of the variable for the given lat/lon
-        glac_variable_series.loc[glac,:] = variable_data[start_idx:end_idx+1,
-                                                     lat_nearidx, lon_nearidx]
-    # Perform necessary corrections to the data
-    # Corrections for surface air temperature
+        glac_variable_series.loc[glac,:] = variable_data[start_idx:end_idx+1, lat_nearidx, lon_nearidx]
+        #   > Use positional indexing to extract data properly
+    # Perform corrections to the data if necessary
+    # Surface air temperature corrections
     if variablename == 'tas':
         glac_variable_series = glac_variable_series - 273.15
-            # Convert from K to deg C
-    # Corrections for precipitation
+        #   Convert from K to deg C
+    # Precipitation corrections
     if variablename == 'pr':
         glac_variable_series = glac_variable_series/1000*3600*24
-        # Convert from kg m-2 s-1 to m day-1
-        # (1 kg m-2 s-1) * (1 m3/1000 kg) * (3600 s / hr) * (24 hr / day)
+        #   Convert from kg m-2 s-1 to m day-1
+        #   (1 kg m-2 s-1) * (1 m3/1000 kg) * (3600 s / hr) * (24 hr / day)
         if timestep == 'monthly':
+            # Convert from meters per day to meters per month
             if 'daysinmonth' in dates_table.columns:
-                glac_variable_series = (glac_variable_series.mul(
-                                        list(dates_table['daysinmonth']),
-                                        axis=1))
+                glac_variable_series = (glac_variable_series.mul(list(dates_table['daysinmonth']), axis=1))
             else:
-                    # Convert from meters per day to meters per month
-                print("\nMODEL ERROR: 'daysinmonth' DOES NOT EXIST IN THE DATES"
-                      " TABLE.\n Please check that the dates_table is formatted"
-                      " properly such that a \n'daysinmonth' column exists.\n\n"
-                      "Exiting the model run.\n\n")
+                print("\nMODEL ERROR: 'daysinmonth' DOES NOT EXIST IN THE DATES TABLE.\n" 
+                      " Please check that the dates_table is formatted properly such that a \n'daysinmonth' column exists.\n\n"
+                      "Exiting the model run.\n")
                 exit()
-    print(f"The 'importGCMvarnearestneighbor' fxn for '{variablename}' has "
-          "finished.")
+    print(f"The 'importGCMvarnearestneighbor' fxn for '{variablename}' has finished.")
     return glac_variable_series
 
 
