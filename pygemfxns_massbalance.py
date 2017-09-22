@@ -292,13 +292,17 @@ def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
     return bin_temp
 
 
-def groupbyyearmean(var, option_wateryear):
+def groupbyyearmean(var):
     """
     Calculate annual mean of variable according to the year in the column header
     Note: need to add in option to use option_wateryear
     """
-    var_annual = var.groupby(pd.DatetimeIndex(var.columns.values).year,
-                             axis=1).mean()
+    if timestep == 'monthly':
+        var_annual = var.groupby(np.arange(var.shape[1]) // 12, axis=1).mean()
+    elif timestep == 'daily':
+        print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
+              'Exiting the model run.\n')
+        exit()
     return var_annual
 
 
@@ -306,8 +310,12 @@ def groupbyyearsum(var):
     """
     Calculate annual sum of variable according to the year in the column header
     """
-    var_annual = var.groupby(pd.DatetimeIndex(var.columns.values).year,
-                             axis=1).sum()
+    if timestep == 'monthly':
+        var_annual = var.groupby(np.arange(var.shape[1]) // 12, axis=1).sum()
+    elif timestep == 'daily':
+        print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
+              'Exiting the model run.\n')
+        exit()
     return var_annual
 
 
