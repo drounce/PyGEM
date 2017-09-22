@@ -19,18 +19,31 @@ from pygem_input import *
     # option_fxn - function option (see specifics within each function)
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def datesmodelrun(option_fxn):
+def datesmodelrun(option_wateryear, option_leapyear):
     """
     Set up a table using the start and end date that has the year, month, day,
     and number of days in the month.
     """
     # Function Options:
+    #  option_wateryear:
+    #   > 1 (default) - use water year
+    #   > 2 - use calendar year
+    #  option_leapyear:
     #   > 1 (default) - leap years are included
     #   > 2 - leap years are excluded (February always has 28 days)
     #
-    # Convert start year into date (start January 1st and end Dec 31st)
-    startdate = str(startyear) + '-01-01'
-    enddate = str(endyear) + '-12-31'
+    # Include spinup time in start year
+    startyear_wspinup = startyear - spinupyears
+    # Convert start year into date depending on option_wateryear
+    if option_wateryear == 1:
+        startdate = str(startyear) + '-10-01'
+        enddate = str(endyear) + '-09-30'
+    elif option_wateryear == 0:
+        startdate = str(startyear) + '-01-01'
+        enddate = str(endyear) + '-12-31'
+    else:
+        print("\n\nError: Please select an option_wateryear that exists. Exiting model run now.\n")
+        exit()
     # Convert input format into proper datetime format
     startdate = datetime(*[int(item) for item in startdate.split('-')])
     enddate = datetime(*[int(item) for item in enddate.split('-')])
@@ -42,43 +55,40 @@ def datesmodelrun(option_fxn):
         enddate = enddate.strftime('%Y-%m-%d')
     # Generate dates_table using date_range function
     if timestep == 'monthly':
-        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate,
-                                   freq='MS')})
-            # dates automatically generated from start_date to end_date
-            # freq = 'MS' generates monthly data using the 1st of each month
+        # Automatically generate dates from start date to end data using a monthly frequency (MS), which generates
+        # monthly data using the 1st of each month 
+        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS')})
+        # Select attributes of DateTimeIndex (dt.year, dt.month, and dt.daysinmonth)
         dates_table['year'] = dates_table['date'].dt.year
         dates_table['month'] = dates_table['date'].dt.month
         dates_table['daysinmonth'] = dates_table['date'].dt.daysinmonth
-            # dt.year, dt.month, and dt.daysinmonth are all attributes of the
-            # DateTimeindex series
         dates_table['timestep'] = np.arange(len(dates_table['date']))
+        # Set date as index
         dates_table.set_index('timestep', inplace=True)
-            # set date as index
-        # Remove leap year days if user selected with option_fxn
-        if option_fxn == 2:
-            mask1 = dates_table['daysinmonth'] == 29
+        # Remove leap year days if user selected this with option_leapyear
+        if option_leapyear == 2:
+            mask1 = (dates_table['daysinmonth'] == 29)
             dates_table.loc[mask1,'daysinmonth'] = 28
     elif timestep == 'daily':
-        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate,
-                                   freq='D')})
-            # dates automatically generated from start_date to end_date
-            # freq = 'MS' generates monthly data using the 1st of each month
+        # Automatically generate daily (freq = 'D') dates
+        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='D')})
+        # Extract attributes for dates_table
         dates_table['year'] = dates_table['date'].dt.year
         dates_table['month'] = dates_table['date'].dt.month
         dates_table['day'] = dates_table['date'].dt.day
         dates_table['daysinmonth'] = dates_table['date'].dt.daysinmonth
+        # Set date as index
         dates_table.set_index('date', inplace=True)
-        # Remove leap year days if user selected with option_fxn
-        if option_fxn == 2:
-            # First change 'daysinmonth' number
+        # Remove leap year days if user selected this with option_leapyear
+        if option_leapyear == 2:
+            # First, change 'daysinmonth' number
             mask1 = dates_table['daysinmonth'] == 29
             dates_table.loc[mask1,'daysinmonth'] = 28
             # Next, remove the 29th days from the dates
             mask2 = ((dates_table['month'] == 2) & (dates_table['day'] == 29))
             dates_table.drop(dates_table[mask2].index, inplace=True)
     else:
-        print("\n\nError: Please select 'daily' or 'monthly' for gcm_timestep."
-              "Exiting model run now.")
+        print("\n\nError: Please select 'daily' or 'monthly' for gcm_timestep. Exiting model run now.\n")
         exit()
     print("The 'datesmodelrun' function has finished.")
     return dates_table, startdate, enddate

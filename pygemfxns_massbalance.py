@@ -295,6 +295,7 @@ def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
 def groupbyyearmean(var, option_wateryear):
     """
     Calculate annual mean of variable according to the year in the column header
+    Note: need to add in option to use option_wateryear
     """
     var_annual = var.groupby(pd.DatetimeIndex(var.columns.values).year,
                              axis=1).mean()

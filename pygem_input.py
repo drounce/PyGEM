@@ -92,9 +92,9 @@ hyps_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/'
 #       model will start on January 1st and end December 31st for the given
 #       start and end year, respectively.
 option_leapyear = 1
-# Option 1 (default) - exclude leap years, i.e., February always has 28 days
-# Option 2 - leap year days are included, i.e., every 4th year Feb 29th is
-#            included in the model, so days_in_month = 29 for these years.
+# Option 1 (default) - leap year days are included, i.e., every 4th year Feb 29th is
+#                      included in the model, so days_in_month = 29 for these years.
+# Option 2 - exclude leap years, i.e., February always has 28 days
 option_wateryear = 1
     # Option 1 (default) - use water year instead of calendar year
     #                      (ex. 2017 extends from Oct 1 2016 - Sept 1 2017)
