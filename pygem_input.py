@@ -108,7 +108,7 @@ timestep = 'monthly'
 # model time step ('monthly' or 'daily')
 startyear = 2000
 # first year of model run
-endyear = 2100
+endyear = 2015
 # last year of model run
 spinupyears = 2
 # model spin up period (years)

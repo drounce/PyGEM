@@ -292,7 +292,7 @@ def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
     return bin_temp
 
 
-def groupbyyearmean(var):
+def groupbyyearmean(var, option_wateryear):
     """
     Calculate annual mean of variable according to the year in the column header
     """

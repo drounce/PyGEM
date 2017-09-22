@@ -299,7 +299,7 @@ for glac in [0]:
     #   specific models (e.g., refreezing) and for accounting purposes
     """ NEED TO REDO THESE GROUPBY TO BE CONSISTENT WITH WATER YEAR
         (See Valentinas code for setting the start month based on latitude)"""
-    # Annual mean air tempearture
+    # Annual mean air temperature
     glac_bin_temp_annual = massbalance.groupbyyearmean(glac_bin_temp)
     # Annual total precipitation
     glac_bin_prec_annual = massbalance.groupbyyearsum(glac_bin_prec)
