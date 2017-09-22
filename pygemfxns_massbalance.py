@@ -294,8 +294,8 @@ def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
 
 def groupbyyearmean(var):
     """
-    Calculate annual mean of variable according to the year in the column header
-    Note: need to add in option to use option_wateryear
+    Calculate annual mean of variable according to the timestep.
+    Example monthly timestep will group every 12 months, so starting month is important.
     """
     if timestep == 'monthly':
         var_annual = var.groupby(np.arange(var.shape[1]) // 12, axis=1).mean()
@@ -308,7 +308,8 @@ def groupbyyearmean(var):
 
 def groupbyyearsum(var):
     """
-    Calculate annual sum of variable according to the year in the column header
+    Calculate annual sum of variable according to the timestep.
+    Example monthly timestep will group every 12 months, so starting month is important.
     """
     if timestep == 'monthly':
         var_annual = var.groupby(np.arange(var.shape[1]) // 12, axis=1).sum()

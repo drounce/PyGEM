@@ -102,17 +102,16 @@ elif option_glacier_selection == 2:
           '\n\tPlease choose an option that exists. Exiting model run.\n')
     exit()
 else:
-    # Should add options to make regions consistent with Brun et al. (2017),
-    # which used ASTER DEMs to get mass balance of 92% of the HMA glaciers.
+    # Should add options to make regions consistent with Brun et al. (2017), which used ASTER DEMs to get mass 
+    # balance of 92% of the HMA glaciers.
     print('\n\tModel Error (selectglaciersrgi): please choose an option'
           '\n\tthat exists for selecting glaciers. Exiting model run.\n')
     exit()
 
 
 # ---- STEP TWO: ADDITIONAL MODEL SETUP -------------------------------------
-# Step two runs more functions related to the model setup. This section has been
-#   separated from the selection of the model region/glaciers in order to
-#   keep the input organized and easy to read.
+# Step two runs more functions related to the model setup. This section has been separated from the selection of the 
+# model region/glaciers in order to keep the input organized and easy to read.
 # In step two, the model will:
 #   > select glacier hypsometry
 #   > define the model time frame
@@ -120,21 +119,18 @@ else:
 
 # Glacier hypsometry
 # main_glac_hyps = modelsetup.hypsometryglaciers(main_glac_rgi)
-    # Note: need to adjust this hypsometry into separate functions such that it
-    #       is easier to follow.
+    # Note: need to adjust this hypsometry into separate functions such that it is easier to follow.
 # AUTOMATE THIS TO LOAD THEM IN INSTEAD OF CHOOSING THEM
 main_glac_hyps = pd.read_csv(hyps_filepath + 'RGI_13_area_test20170905.csv')
 
 # Glacier initial ice thickness
 # AUTOMATE THIS TO LOAD THEM IN INSTEAD OF CHOOSING THEM
-main_glac_icethickness = pd.read_csv(hyps_filepath +
-                                     'RGI_13_thickness_test20170905.csv')
+main_glac_icethickness = pd.read_csv(hyps_filepath + 'RGI_13_thickness_test20170905.csv')
 # ADD OPTION FOR VOLUME-AREA SCALING
 
 # Glacier total initial volume
-main_glac_rgi['Volume'] = (
-    (main_glac_hyps * main_glac_icethickness/1000).sum(axis=1))
-    # volume [km3] = area[km2] * thickness[m] * (1 [km] / 1000 [m])
+main_glac_rgi['Volume'] = (main_glac_hyps * main_glac_icethickness/1000).sum(axis=1)
+# volume [km3] = area[km2] * thickness[m] * (1 [km] / 1000 [m])
 
 print(main_glac_rgi.head(),'\n')
 
@@ -145,12 +141,11 @@ print(main_glac_rgi.head(),'\n')
 dates_table, start_date, end_date = modelsetup.datesmodelrun(option_wateryear, option_leapyear)
 
 # Initial surface type
-main_glac_surftypeinit = modelsetup.surfacetypeglacinitial(
-                                                option_surfacetype_initial,
-                                                option_surfacetype_firn,
-                                                option_surfacetype_debris,
-                                                main_glac_rgi,
-                                                main_glac_hyps)
+main_glac_surftypeinit = modelsetup.surfacetypeglacinitial(option_surfacetype_initial,
+                                                           option_surfacetype_firn,
+                                                           option_surfacetype_debris,
+                                                           main_glac_rgi,
+                                                           main_glac_hyps)
 
 
 # ---- STEP THREE: CLIMATE DATA ---------------------------------------------
@@ -188,19 +183,19 @@ if option_gcm_downscale == 1:
                                                         dates_table,
                                                         start_date,
                                                         end_date)
-        # gcm nearest neighbor time series for each glacier with GlacNo index
-        # rows = # of glaciers, cols = length of time series
+    #   gcm nearest neighbor time series for each glacier with GlacNo index
+    #   rows = # of glaciers, cols = length of time series
     gcm_glac_prec = climate.importGCMvarnearestneighbor(gcm_prec_varname,
                                                         main_glac_rgi,
                                                         dates_table,
                                                         start_date,
                                                         end_date)
-        # gcm nearest neighbor time series for each glacier with GlacNo index
-        # rows = # of glaciers, cols = length of time series
+    #   gcm nearest neighbor time series for each glacier with GlacNo index
+    #   rows = # of glaciers, cols = length of time series
     gcm_glac_elev = climate.importGCMfxnearestneighbor(gcm_elev_varname,
                                                        main_glac_rgi)
-        # gcm nearest neighbor surface altitude for each glacier with GlacNo
-        # index, rows = # of glaciers, cols = 1 (Series)
+    #   gcm nearest neighbor surface altitude for each glacier with GlacNo index, 
+    #   rows = # of glaciers, cols = 1 (Series)
 else:
     print('\n\tModel Error: please choose an option that exists for'
           '\n\tdownscaling climate data. Exiting model run now.\n')
@@ -247,7 +242,7 @@ main_glac_ELA = pd.DataFrame(0, columns=pd.date_range(str(startyear),
                              index=main_glac_rgi.index)
 
 # Compute the mass balance for each glacier (glacier by glacier)
-    # Need to code: print out the desired output at the end of each loop
+# Need to code: print out the desired output at the end of each loop
 # for glac in range(len(main_glac_rgi)):
 for glac in [0]:
     # Downscale the gcm temperature to each bin
@@ -261,96 +256,75 @@ for glac in [0]:
                                                    glac)
     # Downscale the gcm precipitation to each bin
     glac_bin_precsnow = massbalance.downscaleprec2bins(option_prec2bins,
-                                                    option_elev_ref_downscale,
-                                                    main_glac_rgi,
-                                                    main_glac_hyps,
-                                                    main_glac_parameters,
-                                                    gcm_glac_prec,
-                                                    gcm_glac_elev,
-                                                    glac)
-        # glac_bin_precsnow is the precipitation from the gcm for each elevation
-        # bin, but has not been separated into precipitation and snow yet.
+                                                       option_elev_ref_downscale,
+                                                       main_glac_rgi,
+                                                       main_glac_hyps,
+                                                       main_glac_parameters,
+                                                       gcm_glac_prec,
+                                                       gcm_glac_elev,
+                                                       glac)
+    #   glac_bin_precsnow is the precipitation from the gcm for each elevation bin, but has not been separated into 
+    #   precipitation and snow yet.
     # Compute accumulation (snow) and precipitation for each bin
-    glac_bin_prec, glac_bin_snow = massbalance.accumulationbins(
-                                                        option_accumulation,
-                                                        glac_bin_temp,
-                                                        glac_bin_precsnow,
-                                                        main_glac_parameters,
-                                                        glac)
+    glac_bin_prec, glac_bin_snow = massbalance.accumulationbins(option_accumulation,
+                                                                glac_bin_temp,
+                                                                glac_bin_precsnow,
+                                                                main_glac_parameters,
+                                                                glac)
     # Create dataframe for initial surface type
-    glac_bin_surftype = massbalance.surfacetypebinsinitial(
-                                                        main_glac_surftypeinit,
-                                                        glac_bin_temp,
-                                                        glac)
-    # Create dataframe for snow accumulation on surface and other datasets that
-    # need to be recorded
-    glac_bin_snowonsurface = pd.DataFrame(0, index = glac_bin_temp.index,
-                                          columns=glac_bin_temp.columns)
-    glac_bin_melt_snow = pd.DataFrame(0, index = glac_bin_temp.index,
-                                      columns=glac_bin_temp.columns)
-    glac_bin_melt_surf = pd.DataFrame(0, index = glac_bin_temp.index,
-                                      columns=glac_bin_temp.columns)
-    glac_bin_massbal = pd.DataFrame(0, index = glac_bin_temp.index,
-                                    columns=glac_bin_temp.columns)
-    # Mask the variables such that computations are only done on bins that are
-    # on the glacier, i.e., glac_bin_surftype != 0
+    glac_bin_surftype = massbalance.surfacetypebinsinitial(main_glac_surftypeinit,
+                                                           glac_bin_temp,
+                                                           glac)
+    # Mask the variables such that computations are only done on bins that are on the glacier (glac_bin_surftype != 0)
     mask_offglacier = (glac_bin_surftype == 0)
     glac_bin_temp[mask_offglacier] = 0
     glac_bin_prec[mask_offglacier] = 0
     glac_bin_snow[mask_offglacier] = 0
-
-    # Compute annual mean and sum of various datasets, which are needed for
-    #   specific models (e.g., refreezing) and for accounting purposes
-    """ NEED TO REDO THESE GROUPBY TO BE CONSISTENT WITH WATER YEAR
-        (See Valentinas code for setting the start month based on latitude)"""
+    
+    # Compute annual mean and sum of various datasets
     # Annual mean air temperature
     glac_bin_temp_annual = massbalance.groupbyyearmean(glac_bin_temp)
     # Annual total precipitation
     glac_bin_prec_annual = massbalance.groupbyyearsum(glac_bin_prec)
     # Annual total snow
     glac_bin_snow_annual = massbalance.groupbyyearsum(glac_bin_snow)
-    # Annual surface type (needs to be updated each year)
-    glac_bin_surftype_annual = massbalance.groupbyyearmean(glac_bin_surftype)
-    # Annual glacier-bands mass balance
-    glac_bin_massbal_annual = pd.DataFrame(0,index=glac_bin_temp_annual.index,
-                                           columns=glac_bin_temp_annual.columns)
-    # Annual glacier-bands area
-    glac_bin_area_annual = pd.DataFrame(0,index=glac_bin_temp_annual.index,
-                                           columns=glac_bin_temp_annual.columns)
-
-    # Annual glacier-wide specific mass balance
-    main_glac_massbal_annual = pd.DataFrame(0,index=main_glac_rgi.index,
-                                           columns=glac_bin_temp_annual.columns)
-    # Annual total glacier volume
-    main_glac_volume_annual = pd.DataFrame(0,index=main_glac_rgi.index,
-                                           columns=glac_bin_temp_annual.columns)
+    
+    # Datasets that need to be updated each year
+    # Annual total glacier volume at start of each year (update each year)
+    main_glac_volume_annual = pd.DataFrame(0,index=main_glac_rgi.index, columns=glac_bin_temp_annual.columns)
     main_glac_volume_annual.iloc[:,0] = main_glac_rgi['Volume']
-
-    # Annual total glacier area
-    main_glac_area_annual = pd.DataFrame(0,index=main_glac_rgi.index,
-                                           columns=glac_bin_temp_annual.columns)
+    # Annual total glacier area at start of each year (update each year)
+    main_glac_area_annual = pd.DataFrame(0,index=main_glac_rgi.index, columns=glac_bin_temp_annual.columns)
     main_glac_area_annual.iloc[:,0] = main_glac_rgi['Area']
+    # Annual surface type (update each year)  
+    glac_bin_surftype_annual = massbalance.groupbyyearmean(glac_bin_surftype)
+    # Annual glacier-bands mass balance (update each year)  
+    glac_bin_massbal_annual = pd.DataFrame(0,index=glac_bin_temp_annual.index, columns=glac_bin_temp_annual.columns)
+    # Annual glacier-bands area (update each year)  
+    glac_bin_area_annual = pd.DataFrame(0,index=glac_bin_temp_annual.index, columns=glac_bin_temp_annual.columns)
+    # Annual glacier-wide specific mass balance (update each year)  
+    main_glac_massbal_annual = pd.DataFrame(0,index=main_glac_rgi.index, columns=glac_bin_temp_annual.columns)
+    
+    # Create empty dataframes for variables that need to be recorded
+    glac_bin_snowonsurface = pd.DataFrame(0, index = glac_bin_temp.index, columns=glac_bin_temp.columns)
+    glac_bin_melt_snow = pd.DataFrame(0, index = glac_bin_temp.index, columns=glac_bin_temp.columns)
+    glac_bin_melt_surf = pd.DataFrame(0, index = glac_bin_temp.index, columns=glac_bin_temp.columns)
+    glac_bin_massbal = pd.DataFrame(0, index = glac_bin_temp.index, columns=glac_bin_temp.columns)
 
-    # Compute refreezing since this will affect the snow melt, which ultimately
-    # will alter the surface type
+    # Compute refreezing for each bin since this will affect the snow melt and alter the surface type
     # Compute potential refreezing for each bin
     """Refreeze needs to be placed in annual loop, since it depends on surface
        type"""
-    glac_bin_refreeze, glac_bin_refreeze_annual = (
-                        massbalance.refreezingbins(option_refreezing,
-                                                   glac_bin_temp_annual,
-                                                   glac_bin_snow_annual,
-                                                   glac_bin_surftype_annual,
-                                                   glac_bin_temp)
-                                                   )
-        # Note: refreezing is a function of the air temperature, and annual
-        #       surface type. therefore, it will not be affected by anything
-        #       that is within the timestep loop and instead can be calculated
-        #       outside the loop.
-        #       Refreeze is currently treated as additional snow, i.e., it is
-        #       added to the amount of snow on the surface in January of each
-        #       year (option_refreezing == 2) and has to melt along with the
-        #       rest of the snow before the underlying ice or firn melts.
+    glac_bin_refreeze, glac_bin_refreeze_annual = massbalance.refreezingbins(option_refreezing,
+                                                                             glac_bin_temp_annual,
+                                                                             glac_bin_snow_annual,
+                                                                             glac_bin_surftype_annual,
+                                                                             glac_bin_temp)
+    #   Note: refreezing is a function of the air temperature, and annual surface type. Therefore, it will not be 
+    #         affected by anything that is within the timestep loop and instead can be calculated outside the loop.
+    #         Refreeze is currently treated as additional snow, i.e., it is added to the amount of snow on the surface 
+    #         in January of each year (option_refreezing == 2) and has to melt along with the rest of the snow before 
+    #         the underlying ice or firn melts.
 
     ###### testing loop through every timestep ##############################
     print('\n\n Testing new loop through every timestep:\n\n')
