@@ -90,76 +90,13 @@ def datesmodelrun(option_wateryear, option_leapyear):
     else:
         print("\n\nError: Please select 'daily' or 'monthly' for gcm_timestep. Exiting model run now.\n")
         exit()
-    print("The 'datesmodelrun' function has finished.")
-    return dates_table, startdate, enddate
-    # note from previous version:
-        # dates = dates.to_series().apply(lambda x: x.strftime("%Y-%m"))
-        # removes the -DD such that its only YYYY-MM
-
-
-def datesmodelrun_wateryear(option_fxn):
-    """
-    Set up a table using the start and end date that has the year, month, day,
-    and number of days in the month. CURRENTLY IS A COPY OF THE REGULAR CODE -
-    NEED TO ADJUST SUCH THAT IT INCLUDES WATER YEAR, ALTHOUGH WATER YEAR WILL
-    BE DIFFERENT FOR EACH LATITUDE
-    """
-    # Function Options:
-    #   > 1 (default) - leap years are included
-    #   > 2 - leap years are excluded (February always has 28 days)
-    #
-    # Convert start year into date (start January 1st and end Dec 31st)
-    startdate = str(startyear) + '-01-01'
-    enddate = str(endyear) + '-12-31'
-    # Convert input format into proper datetime format
-    startdate = datetime(*[int(item) for item in startdate.split('-')])
-    enddate = datetime(*[int(item) for item in enddate.split('-')])
-    if timestep == 'monthly':
-        startdate = startdate.strftime('%Y-%m')
-        enddate = enddate.strftime('%Y-%m')
-    elif timestep == 'daily':
-        startdate = startdate.strftime('%Y-%m-%d')
-        enddate = enddate.strftime('%Y-%m-%d')
-    # Generate dates_table using date_range function
-    if timestep == 'monthly':
-        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate,
-                                   freq='MS')})
-            # dates automatically generated from start_date to end_date
-            # freq = 'MS' generates monthly data using the 1st of each month
-        dates_table['year'] = dates_table['date'].dt.year
-        dates_table['month'] = dates_table['date'].dt.month
-        dates_table['daysinmonth'] = dates_table['date'].dt.daysinmonth
-            # dt.year, dt.month, and dt.daysinmonth are all attributes of the
-            # DateTimeindex series
-        dates_table['timestep'] = np.arange(len(dates_table['date']))
-        dates_table.set_index('timestep', inplace=True)
-            # set date as index
-        # Remove leap year days if user selected with option_fxn
-        if option_fxn == 2:
-            mask1 = dates_table['daysinmonth'] == 29
-            dates_table.loc[mask1,'daysinmonth'] = 28
-    elif timestep == 'daily':
-        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate,
-                                   freq='D')})
-            # dates automatically generated from start_date to end_date
-            # freq = 'MS' generates monthly data using the 1st of each month
-        dates_table['year'] = dates_table['date'].dt.year
-        dates_table['month'] = dates_table['date'].dt.month
-        dates_table['day'] = dates_table['date'].dt.day
-        dates_table['daysinmonth'] = dates_table['date'].dt.daysinmonth
-        dates_table.set_index('date', inplace=True)
-        # Remove leap year days if user selected with option_fxn
-        if option_fxn == 2:
-            # First change 'daysinmonth' number
-            mask1 = dates_table['daysinmonth'] == 29
-            dates_table.loc[mask1,'daysinmonth'] = 28
-            # Next, remove the 29th days from the dates
-            mask2 = ((dates_table['month'] == 2) & (dates_table['day'] == 29))
-            dates_table.drop(dates_table[mask2].index, inplace=True)
-    else:
-        print("\n\nError: Please select 'daily' or 'monthly' for gcm_timestep."
-              "Exiting model run now.")
-        exit()
+    # Add column for water year
+    # Water year for northern hemisphere using USGS definition (October 1 - September 30th),
+    # e.g., water year for 2000 is from October 1, 1999 - September 30, 2000
+    dates_table['wateryear'] = dates_table['year']
+    for step in range(dates_table.shape[0]):
+        if dates_table.loc[step, 'month'] >= 10:
+            dates_table.loc[step, 'wateryear'] = dates_table.loc[step, 'year'] + 1
     print("The 'datesmodelrun' function has finished.")
     return dates_table, startdate, enddate
     # note from previous version:

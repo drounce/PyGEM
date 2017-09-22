@@ -142,7 +142,7 @@ print(main_glac_rgi.head(),'\n')
 # Model time frame
 #   Set up table of dates. These dates are used as column headers for many other
 #   variables in the model run, so it's important to be an initial step.
-dates_table, start_date, end_date = modelsetup.datesmodelrun(option_leapyear)
+dates_table, start_date, end_date = modelsetup.datesmodelrun(option_wateryear, option_leapyear)
 
 # Initial surface type
 main_glac_surftypeinit = modelsetup.surfacetypeglacinitial(
