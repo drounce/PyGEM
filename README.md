@@ -1,5 +1,8 @@
 # PyGEM
 
+All python code are written using a maximum line length of 120 characters to improve readability particularly with
+respect to longer equations that were difficult to read with the PEP-8 suggestion of 80 characters.
+
 ========== MODEL RUN DETAILS ================================================
 The model is run through a series of steps:
   > Step 01: Region/Glaciers Selection

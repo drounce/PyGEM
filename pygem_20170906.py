@@ -140,7 +140,7 @@ print(main_glac_rgi.head(),'\n')
 #   variables in the model run, so it's important to be an initial step.
 dates_table, start_date, end_date = modelsetup.datesmodelrun(option_wateryear, option_leapyear)
 
-# Initial surface type
+# Initial surface type defined according to being above or below the median glacier elevation
 main_glac_surftypeinit = modelsetup.surfacetypeglacinitial(option_surfacetype_initial,
                                                            option_surfacetype_firn,
                                                            option_surfacetype_debris,

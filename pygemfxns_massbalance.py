@@ -327,11 +327,9 @@ def refreezingbins(option_fxn, glac_temp_annual, snow_annual,
     Calculate the refreezing for every elevation bin on the glacier.
     """
     # Refreezing Options:
-    #   > 1 (default) - monthly refreezing solved by modeling snow and firm
-    #                   temperatures using heat conduction equations according
-    #                   to Huss and Hock (2015)
-    #   > 2 - annual refreezing based on mean air temperature according to
-    #         Woodward et al. (1997)
+    #   > 1 (default) - monthly refreezing solved by modeling snow and firm temperatures using heat conduction equations 
+    #                   according to Huss and Hock (2015)
+    #   > 2 - annual refreezing based on mean air temperature according to Woodward et al. (1997)
     #
     bin_refreeze = pd.DataFrame(0, columns=glac_temp.columns,
                                 index=glac_temp.index)
@@ -343,26 +341,24 @@ def refreezingbins(option_fxn, glac_temp_annual, snow_annual,
         exit()
     elif option_fxn == 2:
         # Compute bin refreeze potential according to Woodward et al. (1997)
-        bin_refreeze_annual = ((-0.69 * glac_temp_annual + 0.0096)
-                                         * 1/100)
-            # R(m) = -0.69 * Tair + 0.0096 * (1 m / 100 cm)
-            # Note: conversion from cm to m is included
+        bin_refreeze_annual = ((-0.69 * glac_temp_annual + 0.0096) * 1/100)
+        #   R(m) = -0.69 * Tair + 0.0096 * (1 m / 100 cm)
+        #   Note: conversion from cm to m is included
         # Apply bounds for refreezing
         # Bound 1: Refreezing cannot be less than 0
         mask1 = (bin_refreeze_annual < 0)
         bin_refreeze_annual[mask1] = 0
-        # Bound 2: In the ablation area (surface type of ice for that year), the
-        #          maximum refreezing is equal to the accumulated snow
-        mask2 = ((surftype_annual == 1) &
-                 (bin_refreeze_annual > snow_annual))
-        bin_refreeze_annual[mask2] = snow_annual[mask2]
+#        # Bound 2: In the ablation area (surface type of ice for that year), the
+#        #          maximum refreezing is equal to the accumulated snow
+#        mask2 = ((surftype_annual == 1) & (bin_refreeze_annual > snow_annual))
+#        bin_refreeze_annual[mask2] = snow_annual[mask2]
         # Lastly, refreezing only occurs on glacier (off-glacier = 0)
         mask3 = (surftype_annual == 0)
         bin_refreeze_annual[mask3] = 0
         # Place annual refreezing in January for accounting and melt purposes
         if timestep == 'monthly':
             for col in range(len(bin_refreeze_annual.iloc[0])):
-                bin_refreeze.iloc[:,col*12] = bin_refreeze_annual.iloc[:,col]
+                bin_refreeze.iloc[:,col*12 + 3] = bin_refreeze_annual.iloc[:,col]
         elif timestep == 'daily':
             print("MODEL ERROR: daily time step not coded for Woodward et al. "
                   "(1997) refreeze function yet.\n\nExiting model run.\n\n")
@@ -445,8 +441,7 @@ def surfacetypebinsinitial(glac_surftype, glac_temp, glac_count):
     # assist logical indexing in ablation calculations despite being constant
     # for each year.  Note: glac_temp is simply a dummy file that is being used
     # for its dataframe attributes (length and column headers)
-    bin_surftype = pd.concat([bin_surftype_series] * len(glac_temp.iloc[0]),
-                             axis=1)
+    bin_surftype = pd.concat([bin_surftype_series] * glac_temp.shape[1], axis=1)
     bin_surftype.columns = glac_temp.columns
     return bin_surftype
 
