@@ -424,6 +424,7 @@ def specificmassbalanceannual(massbal_annual, snow_annual, ablation_annual,
 
 def surfacetypebinsinitial(glac_surftype, glac_temp, glac_count):
     """
+    NOTE THIS FUNCTION IS NO LONGER USED - SHOULD BE ABLE TO DELETE THIS
     Create dataframe for initial surface type.  Note: this is needed for every
     timestep to assist with logical indexing in ablation calculations.
     Otherwise, annual timestep would be sufficient as it is constant each year.
