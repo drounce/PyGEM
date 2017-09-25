@@ -331,8 +331,7 @@ def refreezingbins(option_fxn, glac_temp_annual, snow_annual,
     #                   according to Huss and Hock (2015)
     #   > 2 - annual refreezing based on mean air temperature according to Woodward et al. (1997)
     #
-    bin_refreeze = pd.DataFrame(0, columns=glac_temp.columns,
-                                index=glac_temp.index)
+    bin_refreeze = pd.DataFrame(0, columns=glac_temp.columns, index=glac_temp.index)
     if option_fxn == 1:
         print('This option based on Huss and Hock (2015) is intended to be the '
               'default; however, it has not been coded yet due to its '

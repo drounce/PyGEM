@@ -187,6 +187,8 @@ option_accumulation = 2
 option_refreezing = 2
 # Option 1 (default) - refreezing according to Huss and Hock (2015)
 # Option 2 - annual potential refreezing according to Woodward et al. (1997)
+refreeze_month = 3
+# refreeze_month is the month where the refreeze is included
 option_prec2bins = 1
 # Option 1 (default) - use of a precipitation bias factor to adjust GCM
 #                      value and a precipitation gradient on the glacier
