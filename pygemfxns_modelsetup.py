@@ -37,11 +37,11 @@ def datesmodelrun(option_wateryear, option_leapyear):
     startyear_wspinup = startyear - spinupyears
     # Convert start year into date depending on option_wateryear
     if option_wateryear == 1:
-        startdate = str(startyear) + '-10-01'
-        enddate = str(endyear) + '-09-30'
+        startdate = str(startyear_wspinup) + '-10-01'
+        enddate = str(endyear_wspinup) + '-09-30'
     elif option_wateryear == 0:
-        startdate = str(startyear) + '-01-01'
-        enddate = str(endyear) + '-12-31'
+        startdate = str(startyear_wspinup) + '-01-01'
+        enddate = str(endyear_wspinup) + '-12-31'
     else:
         print("\n\nError: Please select an option_wateryear that exists. Exiting model run now.\n")
         exit()
