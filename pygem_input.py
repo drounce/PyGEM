@@ -110,7 +110,7 @@ startyear = 2000
 # first year of model run
 endyear = 2015
 # last year of model run
-spinupyears = 2
+spinupyears = 0
 # model spin up period (years)
 """ NEED TO CODE THIS IN """
 

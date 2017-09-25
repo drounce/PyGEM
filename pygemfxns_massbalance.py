@@ -303,7 +303,6 @@ def groupbyyearmean(var):
         print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
               'Exiting the model run.\n')
         exit()
-    var_annual.columns = []
     return var_annual
 
 
