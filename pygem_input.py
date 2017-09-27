@@ -108,11 +108,12 @@ timestep = 'monthly'
 # model time step ('monthly' or 'daily')
 startyear = 2000
 # first year of model run
+""" DEVELOPER'S NOTE: NEED TO MAKE DIFFERENCE BETWEEN WATER YEAR AND CALENDAR YEAR CRYSTAL CLEAR """
 endyear = 2015
 # last year of model run
 spinupyears = 0
 # model spin up period (years)
-""" NEED TO CODE THIS IN """
+""" NEED TO CODE THIS IN, ESPECIALLY FOR THE OUTPUT """
 
 # ----- Input required for initial surface type -----
 """ ADD THIS INPUT HERE """
@@ -164,6 +165,7 @@ gcm_filename_fx = '_fx_MPI-ESM-LR_rcp85_r0i0p0.nc'
 # netcdf files downloaded from cmip5-archive at ethz
 gcm_temp_varname = 'tas'
 # variable name for temperature in the GCM
+""" USER NEED TO DEFINE IF TEMPERATURE IS IN KELVIN OR CELCIUS OR THIS IS DONE FROM THE NETCDF """
 gcm_prec_varname = 'pr'
 # variable name for precipitation in the GCM
 gcm_elev_varname = 'orog'
