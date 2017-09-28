@@ -119,7 +119,8 @@ def importGCMvarnearestneighbor(variablename, glac_table, dates_table, start_dat
         #   > Use positional indexing to extract data properly
     # Perform corrections to the data if necessary
     # Surface air temperature corrections
-    """ FROM THE NETCDF GRAB THE UNIT OF TEMPERATURE AND THEN CORRECT ACCORDINGLY FROM THERE """
+    """ FROM THE NETCDF GRAB THE UNIT OF TEMPERATURE AND THEN CORRECT ACCORDINGLY FROM THERE 
+        This should be relatively easy by looking into tas.units? """
     if variablename == 'tas':
         glac_variable_series = glac_variable_series - 273.15
         #   Convert from K to deg C
