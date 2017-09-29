@@ -263,8 +263,7 @@ def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
     # Function Options:
     #   > 1 (default) - lapse rate for gcm and glacier
     #   > no other options currently exist
-    bin_temp = pd.DataFrame(np.zeros(shape=(len(glac_hyps.loc[0]),
-                            len(climate_temp.loc[0]))),
+    bin_temp = pd.DataFrame(np.zeros(shape=(glac_hyps.shape[1], climate_temp.shape[1])),
                             columns=list(climate_temp.columns.values),
                             index=list(glac_hyps.columns.values))
     for row in range(len(glac_hyps.iloc[0])):
@@ -274,13 +273,10 @@ def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
         if option_fxn == 1:
             # Option 1 is the default and uses a lapse rate for the gcm and
             # a glacier lapse rate.
-            bin_temp.loc[bin_elev] = (climate_temp.loc[glac_count] +
-                                     glac_params.loc[glac_count, 'lr_gcm'] * (
-                                     glac_table.loc[glac_count, option_elev_ref]
-                                     - climate_elev.loc[glac_count]) +
-                                     glac_params.loc[glac_count, 'lr_glac'] * (
-                                     int(bin_elev) - glac_table.loc[glac_count,
-                                     option_elev_ref]))
+            bin_temp.loc[bin_elev] = (climate_temp.loc[glac_count] + glac_params.loc[glac_count, 'lr_gcm'] * (
+                                     glac_table.loc[glac_count, option_elev_ref] - climate_elev.loc[glac_count]) +
+                                     glac_params.loc[glac_count, 'lr_glac'] * (int(bin_elev) - 
+                                     glac_table.loc[glac_count, option_elev_ref]))
             # For each elevation bin, this applies the following:
             #   T_bin = T_gcm + lr_gcm * (z_ref - z_gcm)
             #            + lr_glac * (z_bin - z_ref)
