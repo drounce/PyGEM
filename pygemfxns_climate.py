@@ -92,7 +92,8 @@ def importGCMvarnearestneighbor(variablename, glac_table, dates_table, start_dat
         #   np.where finds where the index where the condition is met and returns a tuple.  To access, the value need to select
         #   the first value in the first object. Hence, the use of [0][0]
         # Extract the correct time series from the netcdf
-        time_series = time[start_idx:end_idx+1]
+        time_series = nc.num2date(time_var[:],time_var.units,time_var.calendar)[start_idx:end_idx+1]
+        time_series = pd.Series(time_series).dt.date
         #   need to "+ 1" such that the end date is included (python convention excludes the last value in a range)
     # For monthly timestep conver to YYYY-MM to extract proper positions within the netcdf
     elif timestep == 'daily':
@@ -101,7 +102,8 @@ def importGCMvarnearestneighbor(variablename, glac_table, dates_table, start_dat
                 time[step] = time[step].strftime('%Y-%m-%d')
             start_idx = np.where(time == start_date)[0][0]
             end_idx = np.where(time == end_date)[0][0]
-            time_series = time[start_idx:end_idx+1]
+            time_series = nc.num2date(time_var[:],time_var.units,time_var.calendar)[start_idx:end_idx+1]
+            time_series = pd.Series(time_series).dt.date
         else:
             # print error if the model time step is not daily as this will cause the wrong data to be extracted from the GCM
             print("\nMODEL ERROR: TIME STEP OF GCM DOES NOT APPEAR TO BE 'DAILY'.\n"
