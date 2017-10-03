@@ -96,14 +96,17 @@ option_leapyear = 1
 #                      included in the model, so days_in_month = 29 for these years.
 # Option 2 - exclude leap years, i.e., February always has 28 days
 option_wateryear = 1
-    # Option 1 (default) - use water year instead of calendar year
-    #                      (ex. 2017 extends from Oct 1 2016 - Sept 1 2017)
-    # Option 0 - use calendar year
+# Option 1 (default) - use water year instead of calendar year
+#                      (ex. 2017 extends from Oct 1 2016 - Sept 1 2017)
+# Option 0 - use calendar year
 """ NEED TO CODE THIS IN """
-    # Note: the model will run on full years in order to ensure that refreezing,
-    #       scaling, etc. are consistent for all time periods. Therefore,
-    #       output options are where specific dates for calibration periods,
-    #       etc. will be entered.
+# Note: the model will run on full years in order to ensure that refreezing,
+#       scaling, etc. are consistent for all time periods. Therefore,
+#       output options are where specific dates for calibration periods,
+#       etc. will be entered.
+option_dates = 1
+# Option 1 (default) - use dates associated with the dates_table that user generates (first of each month)
+# Option 2 - use dates associated with the climate data (problem here is that this may differ between products)
 timestep = 'monthly'
 # model time step ('monthly' or 'daily')
 startyear = 2000

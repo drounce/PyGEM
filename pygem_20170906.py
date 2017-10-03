@@ -178,18 +178,18 @@ if option_gcm_downscale == 1:
     #     estimate melt in areas with low monthly mean temperature as is done in
     #     Huss and Hock (2015), then those calculations should be performed in
     #     the ablation section.
-    gcm_glac_temp = climate.importGCMvarnearestneighbor(gcm_temp_varname,
-                                                        main_glac_rgi,
-                                                        dates_table,
-                                                        start_date,
-                                                        end_date)
+    gcm_glac_temp, gcm_time_series = climate.importGCMvarnearestneighbor(gcm_temp_varname,
+                                                                         main_glac_rgi,
+                                                                         dates_table,
+                                                                         start_date,
+                                                                         end_date)
     #   gcm nearest neighbor time series for each glacier with GlacNo index
     #   rows = # of glaciers, cols = length of time series
-    gcm_glac_prec = climate.importGCMvarnearestneighbor(gcm_prec_varname,
-                                                        main_glac_rgi,
-                                                        dates_table,
-                                                        start_date,
-                                                        end_date)
+    gcm_glac_prec, gcm_time_series = climate.importGCMvarnearestneighbor(gcm_prec_varname,
+                                                                         main_glac_rgi,
+                                                                         dates_table,
+                                                                         start_date,
+                                                                         end_date)
     #   gcm nearest neighbor time series for each glacier with GlacNo index
     #   rows = # of glaciers, cols = length of time series
     gcm_glac_elev = climate.importGCMfxnearestneighbor(gcm_elev_varname,
@@ -201,6 +201,8 @@ else:
           '\n\tdownscaling climate data. Exiting model run now.\n')
     exit() # if you have an error, exit the model run
 
+# Add dates from the GCM to the dates_table for record keeping and to provide option to switch
+dates_table['date_gcm'] = gcm_time_series
 
 # ----- STEP FOUR: CALCULATE SPECIFIC MASS BALANCE --------------------------
 # Step four computes the specific mass balance for every bin on each glacier

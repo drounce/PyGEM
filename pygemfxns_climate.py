@@ -112,7 +112,10 @@ def importGCMvarnearestneighbor(variablename, glac_table, dates_table, start_dat
                   "specified in model input. Exiting the model run now.\n")
             exit()
     # Nearest neighbor used to extract data for each glacier
-    glac_variable_series = pd.DataFrame(0, index=glac_table.index, columns=time_series)
+    if option_dates == 1:
+        glac_variable_series = pd.DataFrame(0, index=glac_table.index, columns=dates_table['date'])
+    else:
+        glac_variable_series = pd.DataFrame(0, index=glac_table.index, columns=time_series)
     for glac in range(len(glac_table)):
         # Find index of nearest lat/lon
         lat_nearidx = (abs(lat-glac_table.loc[glac,lat_colname])).argmin()
@@ -142,7 +145,7 @@ def importGCMvarnearestneighbor(variablename, glac_table, dates_table, start_dat
                       "Exiting the model run.\n")
                 exit()
     print(f"The 'importGCMvarnearestneighbor' fxn for '{variablename}' has finished.")
-    return glac_variable_series
+    return glac_variable_series, time_series
 
 
 #========= FUNCTIONS SPECIFIC TO VALENTINA'S DATA (alphabetical order) =======
