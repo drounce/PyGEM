@@ -181,16 +181,21 @@ gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1995_2016.nc'
 gcm_elev_filename = 'ERAInterim_geopotential.nc'
 #gcm_elev_filename = 'orog_fx_MPI-ESM-LR_rcp85_r0i0p0.nc'
 #  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
-gcm_temp_varname = 'tas'
-#  variable name for temperature in the GCM
-gcm_prec_varname = 'pr'
-#  variable name for precipitation in the GCM
+gcm_temp_varname = 't2m'
+#  variable name for temperature in the GCM 
+#  ('t2m' for ERA Interim, 'tas' for CMIP5)
+gcm_prec_varname = 'tp'
+#  variable name for precipitation in the GCM 
+#  ('tp' for ERA Interim, 'pr' for CMIP5)
 gcm_elev_varname = 'z'
-#  variable name for model surface altitude in the GCM ('orog' for CMIP5 data, 'z' for ERA Interim)
+#  variable name for model surface altitude in the GCM 
+#  ('z' for ERA Interim, 'orog' for CMIP5)
 gcm_lat_varname = 'latitude'
 #  variable name for latitude in the GCM
+#  ('latitude' for ERA Interim, 'lat' for CMIP5)
 gcm_lon_varname = 'longitude'
 #  variable name for longitude in the GCM
+#  ('longitude' for ERA Interim, 'lon' for CMIP5)
 gcm_time_varname = 'time'
 #  variable name for longitude in the GCM
 

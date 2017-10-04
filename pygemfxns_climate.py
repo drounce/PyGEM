@@ -63,8 +63,7 @@ def importGCMfxnearestneighbor(variablename, glac_table):
         except:
             glac_variable.loc[glac] = variable_data[lat_nearidx, lon_nearidx]
     if hasattr(data.variables[variablename], 'units') and data.variables[variablename].units == 'm':
-        if option_warningmessages == 1:
-            print('GCM elevation has units of m. Proceed.')        
+        pass      
     elif hasattr(data.variables[variablename], 'units') and data.variables[variablename].units == 'm**2 s**-2':
         # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
         glac_variable = glac_variable / 9.80665
@@ -152,8 +151,7 @@ def importGCMvarnearestneighbor(filename, variablename, glac_table, dates_table,
     # Precipitation corrections
     if variablename == gcm_prec_varname:
         if hasattr(data.variables[variablename], 'units') and data.variables[variablename].units == 'm':
-            if option_warningmessages == 1:
-                print('GCM precipitation has units of m. Proceed.')            
+            pass           
         elif hasattr(data.variables[variablename], 'units') and data.variables[variablename].units == 'kg m-2 s-1':  
             # Convert from kg m-2 s-1 to m day-1
             glac_variable_series = glac_variable_series/1000*3600*24
