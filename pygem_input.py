@@ -10,6 +10,15 @@ of parameters required to run a function.
 #       don't really change.
 
 # ========== LIST OF MODEL INPUT ==============================================
+#------- INPUT FOR CODE ------------------------------------------------------
+option_warningmessages = 1
+# Warning messages are a good check to make sure that the script is running 
+# properly, and small nuances due to differences in input data (e.g., units 
+# associated with GCM air temperature data are correct)
+# Option 1 (default) - print warning messages within script that are meant to
+#                      assist user
+# Option 0 - do not print warning messages within script
+
 #------- INPUT FOR STEP ONE --------------------------------------------------
 # STEP ONE: Model Region/Glaciers
 #   The user needs to define the region/glaciers that will be used in the model
@@ -154,26 +163,40 @@ option_gcm_downscale = 1
 # Option 1 (default) - nearest neighbor
 
 # OPTION 1: Nearest neighbor to select climate data
-gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r1i1p1_monNG/'
+#gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r1i1p1_monNG/'
+gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
 # File path to directory where the gcm data is located
 # Note: _var refers to data associated with a variable and NG refers to New
 #       Generation of CMIP5 data, i.e., a homogenized dataset
-
-gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r0i0p0_fx/'
+#gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r0i0p0_fx/'
+gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
 # File path to directory where the gcm data is located
 # Note: _fx refers to time invariant (constant) data
-gcm_filename_var = '_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
-# netcdf files downloaded from cmip5-archive at ethz
-gcm_filename_fx = '_fx_MPI-ESM-LR_rcp85_r0i0p0.nc'
-# netcdf files downloaded from cmip5-archive at ethz
+## !!!! THESE ARE OLD !!!! - need to separate temp and prec (or enter the same for them), since ERA-Interim and other 
+## users may give these variables in separate netcdf files. Separating them provides the most flexibility.
+##gcm_filename_var = '_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
+## netcdf files downloaded from cmip5-archive at ethz
+##gcm_filename_fx = '_fx_MPI-ESM-LR_rcp85_r0i0p0.nc'
+## netcdf files downloaded from cmip5-archive at ethz
+gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
+# netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
+gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1995_2016.nc'
+# netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
+gcm_elev_filename = 'ERAInterim_geopotential.nc'
+# netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 gcm_temp_varname = 'tas'
 # variable name for temperature in the GCM
-""" USER NEED TO DEFINE IF TEMPERATURE IS IN KELVIN OR CELCIUS OR THIS IS DONE FROM THE NETCDF """
 gcm_prec_varname = 'pr'
 # variable name for precipitation in the GCM
 gcm_elev_varname = 'orog'
 # variable name for model surface altitude in the GCM
-
+gcm_lat_varname = 'latitude'
+# variable name for latitude in the GCM
+gcm_lon_varname = 'longitude'
+# variable name for longitude in the GCM
+gcm_time_varname = 'time'
+# variable name for longitude in the GCM
+""" Make sure that the script uses these varnames as opposed to being hard-coded """
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution
