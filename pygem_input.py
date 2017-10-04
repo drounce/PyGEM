@@ -163,40 +163,36 @@ option_gcm_downscale = 1
 # Option 1 (default) - nearest neighbor
 
 # OPTION 1: Nearest neighbor to select climate data
-#gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r1i1p1_monNG/'
 gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
+#gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r1i1p1_monNG/'
 # File path to directory where the gcm data is located
 # Note: _var refers to data associated with a variable and NG refers to New
 #       Generation of CMIP5 data, i.e., a homogenized dataset
-#gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r0i0p0_fx/'
 gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
+#gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r0i0p0_fx/'
 # File path to directory where the gcm data is located
 # Note: _fx refers to time invariant (constant) data
-## !!!! THESE ARE OLD !!!! - need to separate temp and prec (or enter the same for them), since ERA-Interim and other 
-## users may give these variables in separate netcdf files. Separating them provides the most flexibility.
-##gcm_filename_var = '_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
-## netcdf files downloaded from cmip5-archive at ethz
-##gcm_filename_fx = '_fx_MPI-ESM-LR_rcp85_r0i0p0.nc'
-## netcdf files downloaded from cmip5-archive at ethz
 gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-# netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
+#gcm_temp_filename = 'tas_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
+#  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1995_2016.nc'
-# netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
+#gcm_prec_filename = 'pr_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
+#  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 gcm_elev_filename = 'ERAInterim_geopotential.nc'
-# netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
+#gcm_elev_filename = 'orog_fx_MPI-ESM-LR_rcp85_r0i0p0.nc'
+#  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 gcm_temp_varname = 'tas'
-# variable name for temperature in the GCM
+#  variable name for temperature in the GCM
 gcm_prec_varname = 'pr'
-# variable name for precipitation in the GCM
-gcm_elev_varname = 'orog'
-# variable name for model surface altitude in the GCM
+#  variable name for precipitation in the GCM
+gcm_elev_varname = 'z'
+#  variable name for model surface altitude in the GCM ('orog' for CMIP5 data, 'z' for ERA Interim)
 gcm_lat_varname = 'latitude'
-# variable name for latitude in the GCM
+#  variable name for latitude in the GCM
 gcm_lon_varname = 'longitude'
-# variable name for longitude in the GCM
+#  variable name for longitude in the GCM
 gcm_time_varname = 'time'
-# variable name for longitude in the GCM
-""" Make sure that the script uses these varnames as opposed to being hard-coded """
+#  variable name for longitude in the GCM
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution
