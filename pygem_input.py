@@ -175,7 +175,7 @@ gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
 gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
 #gcm_temp_filename = 'tas_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
 #  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
-gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1995_2016.nc'
+gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
 #gcm_prec_filename = 'pr_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
 #  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 gcm_elev_filename = 'ERAInterim_geopotential.nc'

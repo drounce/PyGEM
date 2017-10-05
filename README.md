@@ -3,6 +3,16 @@
 All python code are written using a maximum line length of 120 characters to improve readability particularly with
 respect to longer equations that were difficult to read with the PEP-8 suggestion of 80 characters.
 
+(Add model user manual or link to model user manual here)
+Things to include in user manual:
+- Prior to running the script, need to know the keys associated with the GCM netcdf files
+  Therefore, it is recommended to open the netcdf file in your own python environment and determine the names that
+  are used for the (1) variable of interest, (2) latitude, (3) longitude, (4) time
+- NetCDF4 automatically "unpacks" the netcdf file, i.e., it automatically applies the scaling_factor and
+  add_offset such that the user is left with the raw product. It's good practice to double check that this has
+  been done properly by comparing the two when you first download the data such that you know you are working with
+  the correct data.
+
 ========== MODEL RUN DETAILS ================================================
 The model is run through a series of steps:
   > Step 01: Region/Glaciers Selection

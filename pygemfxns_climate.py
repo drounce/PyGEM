@@ -86,11 +86,10 @@ def importGCMvarnearestneighbor(filename, variablename, glac_table, dates_table,
     # Import netcdf file
     filefull = gcm_filepath_var + filename
     data = nc.Dataset(filefull)
-    # Extract the keys (the variables used within the netcdf file)
-#    keys = data.variables.keys()
-    # print(keys)
-    # print(data.variables['tas'])
-    #   > prints all information about a given variables
+    # Print the keys (the variables used within the netcdf file)
+#    print(data.variables.keys())
+    # Print the information about the variable of interest
+#    print(data.variables[variablename])
     # Extract the variable of interest
     variable_data = data.variables[variablename][:]
     # Extract the latitude and longitude
