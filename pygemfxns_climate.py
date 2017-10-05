@@ -98,8 +98,8 @@ def importGCMvarnearestneighbor(filename, variablename, glac_table, dates_table,
     # Extract all data associated with the time variable
     time_var = data.variables[gcm_time_varname]
     time = nc.num2date(time_var[:],time_var.units,time_var.calendar)
-    # Convert time to appropriate datetime format to YYYY-MM or YYYY-MM-DD
-    # For monthly timestep conver to YYYY-MM to extract proper positions within the netcdf
+    # Convert time to appropriate format for comparison with start and end dates (YYYY-MM or YYYY-MM-DD)
+    # For monthly timestep convert to YYYY-MM to extract proper positions within the netcdf
     if timestep == 'monthly':
         for step in range(len(time)):
             time[step] = time[step].strftime('%Y-%m')
