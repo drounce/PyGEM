@@ -164,23 +164,16 @@ option_gcm_downscale = 1
 
 # OPTION 1: Nearest neighbor to select climate data
 gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
-#gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r1i1p1_monNG/'
 # File path to directory where the gcm data is located
 # Note: _var refers to data associated with a variable and NG refers to New
 #       Generation of CMIP5 data, i.e., a homogenized dataset
 gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
-#gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r0i0p0_fx/'
 # File path to directory where the gcm data is located
 # Note: _fx refers to time invariant (constant) data
 gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-#gcm_temp_filename = 'tas_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
 #  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-#gcm_prec_filename = 'pr_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
-#  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 gcm_elev_filename = 'ERAInterim_geopotential.nc'
-#gcm_elev_filename = 'orog_fx_MPI-ESM-LR_rcp85_r0i0p0.nc'
-#  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 gcm_temp_varname = 't2m'
 #  variable name for temperature in the GCM 
 #  ('t2m' for ERA Interim, 'tas' for CMIP5)
@@ -198,6 +191,19 @@ gcm_lon_varname = 'longitude'
 #  ('longitude' for ERA Interim, 'lon' for CMIP5)
 gcm_time_varname = 'time'
 #  variable name for longitude in the GCM
+
+## Details for CMIP5 data, so can test model changing between CMIP5 and ERA-Interim quickly
+#gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r1i1p1_monNG/'
+#gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/cmip5/rcp85_r0i0p0_fx/'
+#gcm_temp_filename = 'tas_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
+#gcm_prec_filename = 'pr_mon_MPI-ESM-LR_rcp85_r1i1p1_native.nc'
+#gcm_elev_filename = 'orog_fx_MPI-ESM-LR_rcp85_r0i0p0.nc'
+#gcm_temp_varname = 'tas'
+#gcm_prec_varname = 'pr'
+#gcm_elev_varname = 'orog'
+#gcm_lat_varname = 'lat'
+#gcm_lon_varname = 'lon'
+#gcm_time_varname = 'time'
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution
