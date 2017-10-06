@@ -11,6 +11,9 @@ of parameters required to run a function.
 
 # ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
+option_modelrun_type = 0
+# Option 0 (default) - calibration run (glacier area remains constant)
+# Option 1 - regular model run
 option_warningmessages = 1
 # Warning messages are a good check to make sure that the script is running 
 # properly, and small nuances due to differences in input data (e.g., units 
