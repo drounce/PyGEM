@@ -136,7 +136,8 @@ spinupyears = 0
 """ ADD THIS INPUT HERE """
 option_surfacetype_initial = 1
 # Option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
-# No other options currently exist - could use elevations besides the median
+# Option 2 (Need to code) - use mean elevation instead
+# Option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions 
 option_surfacetype_firn = 1
 # Option 1 (default) - firn is included
 # Option 0 - firn is not included
