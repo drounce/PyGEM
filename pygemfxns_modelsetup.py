@@ -422,7 +422,6 @@ def surfacetypeglacinitial(option_fxn, option_firn, option_debris, glac_table,
     # BETTER TO HAVE OPTION_SURFACETYPE_DEBRIS & OPTION_SURFACETYPE_FIRN, which
     # will be used to state whether or not debris and firn are included
 
-
     #   > 1 (default) - only snow, firn and ice. Ice below the median elevation
     #                   and snow below it.
     #   > 2 (not coded yet) - snow, firn, ice, and debris
@@ -460,8 +459,8 @@ def surfacetypeglacinitial(option_fxn, option_firn, option_debris, glac_table,
     # If firn is included, then specify initial firn conditions
     if option_firn == 1:
         glac_surftype[glac_surftype == 2] = 3
-            # everything initially considered snow is considered firn, i.e., the
-            # model initially assumes there is no snow on the surface anywhere.
+        #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
+        #  on the surface anywhere.
     if option_debris == 1:
         print('Need to code the model to include debris. This option does not '
               'currently exist.  Please choose an option that does.\nExiting '

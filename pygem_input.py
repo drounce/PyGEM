@@ -135,19 +135,16 @@ spinupyears = 0
 # ----- Input required for initial surface type -----
 """ ADD THIS INPUT HERE """
 option_surfacetype_initial = 1
-# Option 1 (default) - use median elevation to classify snow/firn above the
-#                      median and ice below.
-# Option 2 (need to code) - include debris
-#   > Load in Batu's debris maps and specify for each glacier
-#   > Determine how DDF_debris will be included
+# Option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
+# No other options currently exist - could use elevations besides the median
 option_surfacetype_firn = 1
 # Option 1 (default) - firn is included
 # Option 0 - firn is not included
 option_surfacetype_debris = 0
 # Option 0 (default) - debris cover is not included
 # Option 1 - debris cover is included
-# !!! Developer's Note: if debris thickness is included, need to add !!!
-# !!!                   some DDF_debris for it.                      !!!
+#   > Load in Batu's debris maps and specify for each glacier
+#   > Determine how DDF_debris will be included
 
 # ----- Input required for ice thickness estimates
 option_glaciervolume = 1
