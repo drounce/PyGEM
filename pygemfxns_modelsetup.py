@@ -414,22 +414,9 @@ def surfacetypeglacinitial(option_fxn, option_firn, option_debris, glac_table,
         0 - off-glacier
     """
     # Function Options:
-    # option_convention: What surface types will be included?
-    #   > 1 (default) - only snow and ice
-    #   > 2 - include firn
-    #   > 3 - include debris
-    #   > 4 - include firn and debris
-    # BETTER TO HAVE OPTION_SURFACETYPE_DEBRIS & OPTION_SURFACETYPE_FIRN, which
-    # will be used to state whether or not debris and firn are included
-
-    #   > 1 (default) - only snow, firn and ice. Ice below the median elevation
-    #                   and snow below it.
-    #   > 2 (not coded yet) - snow, firn, ice, and debris
-    #           need to import Batu's debris maps to get this started.  Perhaps
-    #           need other options to account for how debris changes?
-    #   > 3 (idea) - snow, firn, ice (and/or debris)
-    #                set snow/ice elevation based on a snow product/imagery from
-    #                initial date, e.g., SRTM - Feb 2002 (ModScag/Landsat?)
+    #   > 1 (default) - use median elevation to classify snow/firn above the median and ice below
+    #   > 2 (Need to code) - use mean elevation instead
+    #   > 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions 
 
     glac_surftype = glac_hyps.copy()
     # Rows are each glacier, and columns are elevation bins
@@ -438,18 +425,24 @@ def surfacetypeglacinitial(option_fxn, option_firn, option_debris, glac_table,
     if option_fxn == 1:
         # glac_surftype[(glac_hyps > 0) &
         for glac in range(glac_surftype.shape[0]):
-            elev_med = glac_table.loc[glac,'Zmed']
+            elev_ref = glac_table.loc[glac,'Zmed']
             for col in range(glac_surftype.shape[1]):
                 elev_bin = int(glac_surftype.columns.values[col])
                 if glac_hyps.iloc[glac,col] > 0:
-                    if elev_bin <= elev_med:
+                    if elev_bin <= elev_ref:
                         glac_surftype.iloc[glac,col] = 1
                     else:
                         glac_surftype.iloc[glac,col] = 2
     elif option_fxn ==2:
-        print("This option to include debris has not been coded yet. Please "
-              "choose an option that exists. Exiting model run.\n")
-        exit()
+        for glac in range(glac_surftype.shape[0]):
+            elev_ref = glac_table.loc[glac,'Zmean']
+            for col in range(glac_surftype.shape[1]):
+                elev_bin = int(glac_surftype.columns.values[col])
+                if glac_hyps.iloc[glac,col] > 0:
+                    if elev_bin <= elev_ref:
+                        glac_surftype.iloc[glac,col] = 1
+                    else:
+                        glac_surftype.iloc[glac,col] = 2
     else:
         print("This option for 'option_surfacetype' does not exist. Please "
               "choose an option that exists. Exiting model run.\n")
