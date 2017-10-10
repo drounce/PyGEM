@@ -136,8 +136,12 @@ spinupyears = 0
 """ ADD THIS INPUT HERE """
 option_surfacetype_initial = 1
 # Option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
+#   > Sakai et al. (2015) found that the decadal ELAs are consistent with the median elevation of nine glaciers in High 
+#     Mountain Asia, and Nuimura et al. (2015) also found that the snow line altitude of glaciers in China corresponded
+#     well with the median elevation.  Therefore, the use of the median elevation for defining the initial surface type
+#     appears to be a fairly reasonable assumption in High Mountain Asia. 
 # Option 2 (Need to code) - use mean elevation instead
-# Option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions 
+# Option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
 option_surfacetype_firn = 1
 # Option 1 (default) - firn is included
 # Option 0 - firn is not included
