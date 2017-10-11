@@ -131,6 +131,10 @@ endyear = 2015
 spinupyears = 0
 # model spin up period (years)
 """ NEED TO CODE THIS IN, ESPECIALLY FOR THE OUTPUT """
+winter_month_start = 10
+#  winter is considered November 1 - April 30
+summer_month_start = 5
+#  summer is considered May 1 - Sept 30
 
 # ----- Input required for initial surface type -----
 """ ADD THIS INPUT HERE """
@@ -246,8 +250,3 @@ option_melt_model = 1
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
-# Specify start of winter and summer months
-winter_month_start = 10
-#  winter is considered November 1 - April 30
-summer_month_start = 5
-#  summer is considered May 1 - Sept 30
