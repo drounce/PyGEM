@@ -243,3 +243,11 @@ option_temp2bins = 1
 # Option 2 (no other options at this moment)
 option_melt_model = 1
 # Option 1 (default) DDF
+
+#------- INPUT FOR STEP FOUR -------------------------------------------------
+# STEP FIVE: Output
+# Specify start of winter and summer months
+winter_month_start = 10
+#  winter is considered November 1 - April 30
+summer_month_start = 5
+#  summer is considered May 1 - Sept 30
