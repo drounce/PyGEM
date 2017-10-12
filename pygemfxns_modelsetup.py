@@ -67,7 +67,7 @@ def datesmodelrun(option_wateryear, option_leapyear):
         # Set date as index
         dates_table.set_index('timestep', inplace=True)
         # Remove leap year days if user selected this with option_leapyear
-        if option_leapyear == 2:
+        if option_leapyear == 0:
             mask1 = (dates_table['daysinmonth'] == 29)
             dates_table.loc[mask1,'daysinmonth'] = 28
     elif timestep == 'daily':
@@ -81,7 +81,7 @@ def datesmodelrun(option_wateryear, option_leapyear):
         # Set date as index
         dates_table.set_index('date', inplace=True)
         # Remove leap year days if user selected this with option_leapyear
-        if option_leapyear == 2:
+        if option_leapyear == 0:
             # First, change 'daysinmonth' number
             mask1 = dates_table['daysinmonth'] == 29
             dates_table.loc[mask1,'daysinmonth'] = 28

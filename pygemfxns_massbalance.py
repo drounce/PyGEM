@@ -294,7 +294,14 @@ def groupbyyearmean(var):
     Example monthly timestep will group every 12 months, so starting month is important.
     """
     if timestep == 'monthly':
-        var_annual = var.groupby(np.arange(var.shape[1]) // 12, axis=1).mean()
+        dayspermonth = pd.Series(var.columns.values).dt.daysinmonth
+        daysperyear = dayspermonth.groupby(np.arange(var.shape[1]) // 12).sum()
+        weights = pd.Series(0, index=var.columns)
+        for step in range(dayspermonth.shape[0]):
+            weights.iloc[step] = dayspermonth.iloc[step] / daysperyear.iloc[step//12]
+            #  // returns the integer (truncated) value of the division
+        var_weighted = var*weights
+        var_annual = var_weighted.groupby(np.arange(var.shape[1]) // 12, axis=1).sum()
     elif timestep == 'daily':
         print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
               'Exiting the model run.\n')
