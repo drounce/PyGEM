@@ -99,8 +99,18 @@ def datesmodelrun(option_wateryear, option_leapyear):
         if dates_table.loc[step, 'month'] >= 10:
             dates_table.loc[step, 'wateryear'] = dates_table.loc[step, 'year'] + 1
     # Add column for seasons
-    dates_table['season'] = dates_table['month'].apply(lambda x: 'summer' if (x >= summer_month_start and x < 
-                                                       winter_month_start) else 'winter')
+    # create a season dictionary to assist groupby functions
+    seasondict = {}
+    month_dict = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    season_dictlist = []
+    for i in range(len(months)):
+        if (month_dict[i] >= summer_month_start and month_dict[i] < winter_month_start):
+            season_dictlist.append('summer')
+            seasondict[months[i]] = season[i]
+        else:
+            season_dictlist.append('winter')
+            seasondict[months[i]] = season[i]
+    dates_table['season'] = dates_table['month'].apply(lambda x: seasondict[x])
     print("The 'datesmodelrun' function has finished.")
     return dates_table, startdate, enddate
     # note from previous version:
