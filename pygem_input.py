@@ -118,6 +118,7 @@ option_wateryear = 1
 #       scaling, etc. are consistent for all time periods. Therefore,
 #       output options are where specific dates for calibration periods,
 #       etc. will be entered.
+wateryear_month_start = 10
 option_dates = 1
 # Option 1 (default) - use dates associated with the dates_table that user generates (first of each month)
 # Option 2 - use dates associated with the climate data (problem here is that this may differ between products)
