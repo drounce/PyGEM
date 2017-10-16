@@ -1,5 +1,5 @@
 """
-fxns_climte.py is a list of functions that are used to facilitate the
+pygemfxns_climate.py is a list of functions that are used to facilitate the
 pre-processing of the climate data associated with each glacier for PyGEM.
 """
 #========= LIST OF PACKAGES ==================================================
