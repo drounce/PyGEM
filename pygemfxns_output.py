@@ -26,6 +26,84 @@ from pygem_input import *
 #     > for annual, user specifies whether using water or calendar year
 
 #========= FUNCTIONS (alphabetical order) ===================================
+def ELA_glacier(netcdf_filename, output_interval, GlacNo):
+    """
+    Compute the Equlibrium Line Altitude (ELA) for a given glacier
+    """
+    # Function Options:
+    #  > output_interval = 'monthly', 'seasonal', or 'annual'
+    #
+    # Open the netcdf containing the model output
+    with xr.open_dataset(netcdf_filename) as ds:
+        # Select data required to compute runoff
+        massbal_spec_monthly = pd.DataFrame(ds['massbal_spec_bin_monthly'][GlacNo,:,:].values, index=ds['binelev'][:], 
+                                    columns=ds['time'][:])
+        if output_interval == 'monthly':
+            ELA_output = pd.DataFrame(0, index=[GlacNo], columns=massbal_spec_monthly.columns)
+            massbal_input = massbal_spec_monthly
+        elif output_interval == 'annual':
+            if timestep == 'monthly':
+                massbal_spec_annual = massbal_spec_monthly.groupby(np.arange(massbal_spec_monthly.shape[1]) // 12, axis=1).sum()
+                massbal_spec_annual.columns = ds['year'].values
+            elif timestep == 'daily':
+                print('\nError: need to code the groupbyyearsum for daily timestep for computing annual output products.'
+                      'Exiting the model run.\n')
+                exit()
+            ELA_output = pd.DataFrame(0, index=[GlacNo], columns=massbal_spec_annual.columns)
+            massbal_input = massbal_spec_annual
+        # Loop through each timestep
+        for step in range(ELA_output.shape[1]):
+            # Select subset of the data based on the timestep
+            series_massbal_spec = massbal_input.iloc[:, step]
+            # Use numpy's sign function to return an array of the sign of the values (1=positive, -1=negative, 0=zero)
+            series_ELA_sign = np.sign(series_massbal_spec)                
+            # Use numpy's where function to determine where the specific mass balance changes from negative to positive
+            series_ELA_signchange = np.where((np.roll(series_ELA_sign,1) - series_ELA_sign) == -2)
+            #   roll is a numpy function that performs a circular shift, so in this case all the values are shifted up one 
+            #   place. Since we are looking for the change from negative to positive, i.e., a value of -1 to +1, we want to 
+            #   find where the value equals -2. numpy's where function is used to find this value of -2.  The ELA will be 
+            #   the mean elevation between this bin and the bin below it.
+            #   Example: bin 4665 m has a negative mass balance and 4675 m has a positive mass balance. The difference with 
+            #            the roll function will give 4675 m a value of -2.  Therefore, the ELA will be 4670 m.
+            #   Note: If there is a bin with no glacier area between the min and max height of the glacier (ex. a very steep 
+            #     section), then this will not be captured.  This only becomes a problem if this bin is technically the ELA, 
+            #     i.e., above it is a positive mass balance, and below it is a negative mass balance.  Using np.roll with a
+            #     larger shift would be one way to work around this issue.
+            # try and except to avoid errors associated with the entire glacier having a positive or negative mass balance
+            try:
+                ELA_output.loc[GlacNo, ELA_output.columns.values[step]] = (
+                    (series_massbal_spec.index.values[series_ELA_signchange[0]][0] - binsize/2).astype(int))
+                #  series_ELA_signchange[0] returns the position of the ELA. series_massbal_annual.index returns an array 
+                #  with one value, so the [0] ais used to accesses the element in that array. The binsize is then used to 
+                #  determine the median elevation between those two bins.
+            except:
+                # This may not work in three cases:
+                #   > The mass balance of the entire glacier is completely positive or negative.
+                #   > The mass balance of the whole glacier is 0 (no accumulation or ablation, i.e., snow=0, temp<0)
+                #   > The ELA falls on a band that does not have any glacier (ex. a very steep section) causing the sign 
+                #     roll method to fail. In this case, using a large shift may solve the issue.
+                try:
+                    # if entire glacier is positive, then set to the glacier's minimum
+                    if series_ELA_sign.iloc[np.where(series_ELA_sign != 0)[0][0]] == 1:
+                            ELA_output.loc[GlacNo, ELA_output.columns.values[step]] = (
+                                series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0][0]] - binsize/2)
+                    # if entire glacier is negative, then set to the glacier's maximum
+                    elif series_ELA_sign.iloc[np.where((series_ELA_sign != 0))[0][0]] == -1:
+                        ELA_output.loc[GlacNo, ELA_output.columns.values[step]] = (
+                            series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0]
+                                                         [np.where(series_ELA_sign != 0)[0].shape[0]-1]] + binsize/2)
+                except:
+                    # if the specific mass balance over the entire glacier is 0, i.e., no ablation or accumulation,
+                    #  then the ELA is the same as the previous timestep
+                    if series_ELA_sign.sum() == 0 and step != 0:
+                        ELA_output.loc[GlacNo, ELA_output.columns.values[step]] = (
+                            ELA_output.loc[GlacNo, ELA_output.columns.values[step - 1]])
+                    # Otherwise, it's likely due to a problem with the shift
+                    else:
+                        ELA_output.loc[GlacNo, ELA_output.columns.values[step]] = 0
+    return ELA_output
+
+
 def runoff_glacier(netcdf_filename, output_interval, GlacNo):
     """
     Compute the monthly, seasonal, or annual runoff for a given glacier based on the data from the netcdf output.
