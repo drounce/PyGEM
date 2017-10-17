@@ -36,7 +36,8 @@ def AAR_glacier(netcdf_filename, output_interval, GlacNo):
     # Open the netcdf containing the model output
     with xr.open_dataset(netcdf_filename) as ds:
         # Select data required to compute AAR
-        area_annual = pd.DataFrame(ds['area_bin_annual'][GlacNo,:,:].values, index=ds['binelev'][:], columns=ds['year'][:])
+        area_annual = pd.DataFrame(ds['area_bin_annual'][GlacNo,:,:].values, index=ds['binelev'][:], 
+                                   columns=ds['year'][:])
     # Compute the ELA and setup the AAR dataframe
     ELA_output = ELA_glacier(netcdf_filename, output_interval, GlacNo)
     AAR_output = pd.DataFrame(0, index=ELA_output.index, columns=ELA_output.columns)
@@ -50,11 +51,11 @@ def AAR_glacier(netcdf_filename, output_interval, GlacNo):
         # use try and except to avoid errors with the ELA not being specified, which would cause error with indexing
         try:
             AAR_output.loc[GlacNo, AAR_output.columns[step]] = (1 - (np.cumsum(series_area)).divide(series_area.sum())
-                                             .iloc[int(ELA_output.loc[GlacNo, AAR_output.columns[step]] / binsize) - 1]) * 100
+                .iloc[int(ELA_output.loc[GlacNo, AAR_output.columns[step]] / binsize) - 1]) * 100
             #  ELA_output.iloc[GlacNo, AAR_output.columns[step]] is the elevation associated with the ELA
             #    dividing this by the binsize returns the column position if the indexing started at 1,
             #    the "-1" accounts for the fact that python starts its indexing at 0, so
-            #    ".iloc[int(ELA_output.loc[GlacNo,AAR_output.columns[step]]/binsize)-1]" gives the column position of the ELA.
+            #    ".iloc[int(ELA_output.loc[GlacNo,AAR_output.columns[step]]/binsize)-1]" gives the column of the ELA.
             #  np.cumsum gives the cumulative sum of the glacier area for the given year
             #    this is divided by the total area to get the cumulative fraction of glacier area.
             #  The column position is then used to select the cumulative fraction of glacier area of the ELA
@@ -86,11 +87,12 @@ def ELA_glacier(netcdf_filename, output_interval, GlacNo):
             massbal_input = massbal_spec_monthly
         elif output_interval == 'annual':
             if timestep == 'monthly':
-                massbal_spec_annual = massbal_spec_monthly.groupby(np.arange(massbal_spec_monthly.shape[1]) // 12, axis=1).sum()
+                massbal_spec_annual = massbal_spec_monthly.groupby(np.arange(massbal_spec_monthly.shape[1]) // 12, 
+                                                                   axis=1).sum()
                 massbal_spec_annual.columns = ds['year'].values
             elif timestep == 'daily':
-                print('\nError: need to code the groupbyyearsum for daily timestep for computing annual output products.'
-                      'Exiting the model run.\n')
+                print('\nError: need to code the groupbyyearsum for daily timestep for computing annual output'
+                      ' products. Exiting the model run.\n')
                 exit()
             ELA_output = pd.DataFrame(0, index=[GlacNo], columns=massbal_spec_annual.columns)
             massbal_input = massbal_spec_annual
