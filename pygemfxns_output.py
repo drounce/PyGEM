@@ -26,18 +26,61 @@ from pygem_input import *
 #     > for annual, user specifies whether using water or calendar year
 
 #========= FUNCTIONS (alphabetical order) ===================================
+def AAR_glacier(netcdf_filename, output_interval, GlacNo):
+    """
+    Compute the Accumulation-Area Ratio (AAR) for a given glacier
+    """
+    # Function Options:
+    #  > output_interval = 'monthly' or 'annual'
+    #
+    # Open the netcdf containing the model output
+    with xr.open_dataset(netcdf_filename) as ds:
+        # Select data required to compute AAR
+        area_annual = pd.DataFrame(ds['area_bin_annual'][GlacNo,:,:].values, index=ds['binelev'][:], columns=ds['year'][:])
+    # Compute the ELA and setup the AAR dataframe
+    ELA_output = ELA_glacier(netcdf_filename, output_interval, GlacNo)
+    AAR_output = pd.DataFrame(0, index=ELA_output.index, columns=ELA_output.columns)
+    
+    # Compute the Accumulation-Area Ratio (AAR) [%]
+    for step in range(AAR_output.shape[1]):
+        if output_interval == 'annual':
+            series_area = area_annual.iloc[:, step]
+        elif output_interval == 'monthly':
+            series_area = area_annual.iloc[:, int(step // 12)]
+        # use try and except to avoid errors with the ELA not being specified, which would cause error with indexing
+        try:
+            AAR_output.loc[GlacNo, AAR_output.columns[step]] = (1 - (np.cumsum(series_area)).divide(series_area.sum())
+                                             .iloc[int(ELA_output.loc[GlacNo, AAR_output.columns[step]] / binsize) - 1]) * 100
+            #  ELA_output.iloc[GlacNo, AAR_output.columns[step]] is the elevation associated with the ELA
+            #    dividing this by the binsize returns the column position if the indexing started at 1,
+            #    the "-1" accounts for the fact that python starts its indexing at 0, so
+            #    ".iloc[int(ELA_output.loc[GlacNo,AAR_output.columns[step]]/binsize)-1]" gives the column position of the ELA.
+            #  np.cumsum gives the cumulative sum of the glacier area for the given year
+            #    this is divided by the total area to get the cumulative fraction of glacier area.
+            #  The column position is then used to select the cumulative fraction of glacier area of the ELA
+            #    since this is the area below the ELA, the value is currently the ablation area as a decimal;
+            #    therefore, "1 - (cumulative_fraction)" gives the fraction of the ablation area,
+            #    and multiplying this by 100 gives the fraction as a percentage.
+        except:
+            # if ELA does not exist, then set AAR = -9.99
+            AAR_output.loc[GlacNo, step] = -9.99
+    return AAR_output
+
+
 def ELA_glacier(netcdf_filename, output_interval, GlacNo):
     """
     Compute the Equlibrium Line Altitude (ELA) for a given glacier
     """
     # Function Options:
     #  > output_interval = 'monthly', 'seasonal', or 'annual'
+    #  > GlacNo = 'all' or a specific GlacNo
     #
     # Open the netcdf containing the model output
     with xr.open_dataset(netcdf_filename) as ds:
-        # Select data required to compute runoff
+        # Select data required to compute ELA
         massbal_spec_monthly = pd.DataFrame(ds['massbal_spec_bin_monthly'][GlacNo,:,:].values, index=ds['binelev'][:], 
                                     columns=ds['time'][:])
+        # Set up the input mass balance data and the output dataframe
         if output_interval == 'monthly':
             ELA_output = pd.DataFrame(0, index=[GlacNo], columns=massbal_spec_monthly.columns)
             massbal_input = massbal_spec_monthly
@@ -100,7 +143,7 @@ def ELA_glacier(netcdf_filename, output_interval, GlacNo):
                             ELA_output.loc[GlacNo, ELA_output.columns.values[step - 1]])
                     # Otherwise, it's likely due to a problem with the shift
                     else:
-                        ELA_output.loc[GlacNo, ELA_output.columns.values[step]] = 0
+                        ELA_output.loc[GlacNo, ELA_output.columns.values[step]] = -9.99
     return ELA_output
 
 
