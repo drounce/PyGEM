@@ -22,6 +22,14 @@ option_warningmessages = 1
 #                      assist user
 # Option 0 - do not print warning messages within script
 
+#------- MODEL PROPERTIES ----------------------------------------------------
+density_water = 1000
+#  kg m**-3
+density_ice = 900
+#  kg m**3
+area_ocean = 362.5 * 10**6
+#  km**2
+
 #------- INPUT FOR STEP ONE --------------------------------------------------
 # STEP ONE: Model Region/Glaciers
 #   The user needs to define the region/glaciers that will be used in the model
