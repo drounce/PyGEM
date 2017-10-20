@@ -181,7 +181,7 @@ def runoff_glacier(netcdf_filename, output_interval, GlacNo):
                                                 prec.loc[:, col]).multiply(glac_bin_area.iloc[:, step//12] * 1000**2)
                                                 .sum())
             #  runoff = Sum of [(melt_surface + melt_snow - refreeze + precipitation) * Area_bin]
-            #  units: m * km**2 * (1000 m / 1 km)**2
+            #  units: m * km**2 * (1000 m / 1 km)**2 = [m**3]
             #  int(step/12) enables the annual glacier area to be used with the monthly time step
     else:
         print('Runoff for daily timestep has not been developed yet. Runoff was unable to be computed.')
