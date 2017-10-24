@@ -106,7 +106,6 @@ binsize = 10
 # hyps_filepath = 'C:/Users/David/Dave_Rounce/HiMAT/RGI/rgi60/'
 # hyps_filepath = 'C:/Users/David/Dave_Rounce/HiMAT/DEMs/WV_example/'
 hyps_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/'
-hyps_unit = 'km**2'
 #  Glacier hypsometry unit - important for units within the model
 #  Note: when stating units, use python conventions, e.g., km^2 is km**2
 # ----- Input required for model time frame -----

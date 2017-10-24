@@ -57,6 +57,27 @@ from pygem_input import *
     #        functions.
 
 #========= FUNCTIONS (alphabetical order) ===================================
+def AAR_glacier(ELA_value, series_area, GlacNo):
+    """
+    Compute the Accumulation-Area Ratio (AAR) for a given glacier based on its ELA
+    """
+    try:
+        AAR_output = (1 - (np.cumsum(series_area)).divide(series_area.sum())
+            .iloc[int(ELA_value / binsize) - 1]) * 100
+        #  ELA_value is the elevation associated with the ELA, so dividing this by the binsize returns the column position 
+        #    if the indexing started at 1, the "-1" accounts for the fact that python starts its indexing at 0, so
+        #    ".iloc[int(ELA_value / binsize) - 1]" gives the column of the ELA.
+        #  np.cumsum gives the cumulative sum of the glacier area for the given year
+        #    this is divided by the total area to get the cumulative fraction of glacier area.
+        #  The column position is then used to select the cumulative fraction of glacier area of the ELA
+        #    since this is the area below the ELA, the value is currently the ablation area as a decimal;
+        #    therefore, "1 - (cumulative_fraction)" gives the fraction of the ablation area,
+        #    and multiplying this by 100 gives the fraction as a percentage.
+    except:
+        # if ELA does not exist, then set AAR = -9.99
+        AAR_output = -9.99
+    return AAR_output
+
 def ablationsurfacebinsmonthly_V2(option_fxn, bin_ablation_mon, glac_temp,
                                  glac_surftype, glac_params, dates_table,
                                  glac_count, year):
@@ -286,6 +307,56 @@ def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
             exit()
     print("The 'downscaletemp2bins' function has finished.")
     return bin_temp
+
+
+def ELA_glacier(series_massbal_spec):
+    """
+    Compute the Equlibrium Line Altitude (ELA) from a series of specific mass balance, i.e., a single column of the 
+    specific mass balance for each elevation bin
+    """
+    # Use numpy's sign function to return an array of the sign of the values (1=positive, -1=negative, 0=zero)
+    series_ELA_sign = np.sign(series_massbal_spec)                
+    # Use numpy's where function to determine where the specific mass balance changes from negative to positive
+    series_ELA_signchange = np.where((np.roll(series_ELA_sign,1) - series_ELA_sign) == -2)
+    #   roll is a numpy function that performs a circular shift, so in this case all the values are shifted up one 
+    #   place. Since we are looking for the change from negative to positive, i.e., a value of -1 to +1, we want to 
+    #   find where the value equals -2. numpy's where function is used to find this value of -2.  The ELA will be 
+    #   the mean elevation between this bin and the bin below it.
+    #   Example: bin 4665 m has a negative mass balance and 4675 m has a positive mass balance. The difference with 
+    #            the roll function will give 4675 m a value of -2.  Therefore, the ELA will be 4670 m.
+    #   Note: If there is a bin with no glacier area between the min and max height of the glacier (ex. a very steep 
+    #     section), then this will not be captured.  This only becomes a problem if this bin is technically the ELA, 
+    #     i.e., above it is a positive mass balance, and below it is a negative mass balance.  Using np.roll with a
+    #     larger shift would be one way to work around this issue.
+    # try and except to avoid errors associated with the entire glacier having a positive or negative mass balance
+    try:
+        ELA_output = (series_massbal_spec.index.values[series_ELA_signchange[0]][0] - binsize/2).astype(int)
+        #  series_ELA_signchange[0] returns the position of the ELA. series_massbal_annual.index returns an array 
+        #  with one value, so the [0] ais used to accesses the element in that array. The binsize is then used to 
+        #  determine the median elevation between those two bins.
+    except:
+        # This may not work in three cases:
+        #   > The mass balance of the entire glacier is completely positive or negative.
+        #   > The mass balance of the whole glacier is 0 (no accumulation or ablation, i.e., snow=0, temp<0)
+        #   > The ELA falls on a band that does not have any glacier (ex. a very steep section) causing the sign 
+        #     roll method to fail. In this case, using a large shift may solve the issue.
+        try:
+            # if entire glacier is positive, then set to the glacier's minimum
+            if series_ELA_sign.iloc[np.where(series_ELA_sign != 0)[0][0]] == 1:
+                    ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0][0]] - binsize/2
+            # if entire glacier is negative, then set to the glacier's maximum
+            elif series_ELA_sign.iloc[np.where((series_ELA_sign != 0))[0][0]] == -1:
+                ELA_output = (series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0]
+                              [np.where(series_ELA_sign != 0)[0].shape[0]-1]] + binsize/2)
+        except:
+            # if the specific mass balance over the entire glacier is 0, i.e., no ablation or accumulation,
+            #  then the ELA is the same as the previous timestep
+            if series_ELA_sign.sum() == 0 and step != 0:
+                ELA_output = ELA_output.loc[GlacNo, ELA_output.columns.values[step - 1]]
+            # Otherwise, it's likely due to a problem with the shift
+            else:
+                ELA_output = -9.99
+    return ELA_output
 
 
 def groupbyyearmean(var):
