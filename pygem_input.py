@@ -255,6 +255,10 @@ option_temp2bins = 1
 # Option 2 (no other options at this moment)
 option_melt_model = 1
 # Option 1 (default) DDF
+option_geometrychange = 1
+# Option 1 (default) - Geometry change computed based on Huss and Hock (2015),
+#                      i.e., volume gain/loss redistributed over the glacier
+#                      using empirical normalized ice thickness change curves
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
