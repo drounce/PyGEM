@@ -309,7 +309,7 @@ def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
     return bin_temp
 
 
-def ELA_glacier(series_massbal_spec):
+def ELA_glacier(series_massbal_spec, ELA_past):
     """
     Compute the Equlibrium Line Altitude (ELA) from a series of specific mass balance, i.e., a single column of the 
     specific mass balance for each elevation bin
@@ -343,19 +343,15 @@ def ELA_glacier(series_massbal_spec):
         try:
             # if entire glacier is positive, then set to the glacier's minimum
             if series_ELA_sign.iloc[np.where(series_ELA_sign != 0)[0][0]] == 1:
-                    ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0][0]] - binsize/2
+                ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0][0]] - binsize/2
             # if entire glacier is negative, then set to the glacier's maximum
             elif series_ELA_sign.iloc[np.where((series_ELA_sign != 0))[0][0]] == -1:
-                ELA_output = (series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0]
-                              [np.where(series_ELA_sign != 0)[0].shape[0]-1]] + binsize/2)
+                ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0]
+                             [np.where(series_ELA_sign != 0)[0].shape[0]-1]] + binsize/2
         except:
             # if the specific mass balance over the entire glacier is 0, i.e., no ablation or accumulation,
             #  then the ELA is the same as the previous timestep
-            if series_ELA_sign.sum() == 0 and step != 0:
-                ELA_output = ELA_output.loc[GlacNo, ELA_output.columns.values[step - 1]]
-            # Otherwise, it's likely due to a problem with the shift
-            else:
-                ELA_output = -9.99
+            ELA_output = ELA_past
     return ELA_output
 
 
