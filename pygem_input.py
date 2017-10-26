@@ -68,17 +68,21 @@ rgi_regionsO2 = 'all'
 # Enter 'all' to include all subregions or enter integer(s) in brackets
 # to specify specific subregions, e.g., [5, 6]. If entering individual
 # glaciers (rgi_glac_number != 'all'), then rgi_regionsO2 should be 'all'.
-rgi_glac_number = ['03473', '03733']
-# rgi_glac_number = 'all'
+#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = 'all'
 #     glacier numbers defined by RGI V6.0
 #     Enter 'all' to include all glaciers within (sub)region(s) or enter a
 #     string of complete glacier number for specific glaciers, e.g.,
 #     ['05000', '07743'] for glaciers '05000' and '07743'
+# Dictionary of hypsometry filenames
+rgi_dict = {
+            13: '13_rgi60_CentralAsia.csv',
+            14: '14_rgi60_SouthAsiaWest.csv',
+            15: '15_rgi60_SouthAsiaEast.csv'}
+# Columns in the RGI tables that are not necessary to include in model run.
+#  This will change as model develops to include ice caps, calving, etc.
 rgi_cols_drop = ['GLIMSId', 'BgnDate', 'EndDate', 'Status', 'Connect', 'Form',
                 'TermType', 'Surging', 'Linkages', 'Name']
-# Columns in the RGI tables that are not necessary to include in model run.
-# This will change as model develops to include ice caps, calving, etc.
-
 # OPTION 2: Select/customize regions based on shapefile(s)
 # Enter shapefiles, etc.
 
@@ -99,15 +103,28 @@ option_glacier_hypsometry = 1
 #            thickness files (area and width included as well)
 # Option 3 - extract glacier hypsometry and mass balance from David Shean's
 #            measurements using high-res DEMs
-binsize = 10
-# elevation band height (m)
-# If using Option 1 for glacier hypsometry, then this is 50 m.
 
-# hyps_filepath = 'C:/Users/David/Dave_Rounce/HiMAT/RGI/rgi60/'
-# hyps_filepath = 'C:/Users/David/Dave_Rounce/HiMAT/DEMs/WV_example/'
-hyps_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/'
-#  Glacier hypsometry unit - important for units within the model
-#  Note: when stating units, use python conventions, e.g., km^2 is km**2
+# Elevation band height [m]
+binsize = 10
+# Filepath for the hypsometry files
+hyps_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/bands_10m_DRR/'
+# Dictionary of hypsometry filenames
+hypsfile_dict = {
+                13: 'area_13_Huss_CentralAsia_10m.csv',
+                14: 'area_14_Huss_SouthAsiaWest_10m.csv',
+                15: 'area_15_Huss_SouthAsiaEast_10m.csv'}
+# Extra columns in hypsometry data that will be dropped
+hyps_cols_drop = ['RGI-ID','Cont_range']
+# Filepath for the ice thickness files
+thickness_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/bands_10m_DRR/'
+# Dictionary of thickness filenames
+thicknessfile_dict = {
+                13: 'thickness_13_Huss_CentralAsia_10m.csv',
+                14: 'thickness_14_Huss_SouthAsiaWest_10m.csv',
+                15: 'thickness_15_Huss_SouthAsiaEast_10m.csv'}
+# Extra columns in ice thickness data that will be dropped
+thickness_cols_drop = ['RGI-ID','Cont_range']
+
 # ----- Input required for model time frame -----
 # Note: models are required to have complete data for each year, i.e., the
 #       model will start on January 1st and end December 31st for the given

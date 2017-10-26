@@ -1,6 +1,6 @@
 """
-fxns_modelsetup.py is a list of functions that are used with the model setup
-for PyGEM.
+pygemfxns_modelsetup.py is a list of functions that are used to set up the model with the required input for the main
+script.
 """
 #========= LIST OF PACKAGES ==================================================
 import pandas as pd
@@ -10,8 +10,7 @@ import re # see os
 from datetime import datetime
 
 #========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
-from pygem_input import *
-    # import all data
+import pygem_input as input
 
 #========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
     # glac_hyps - table of hypsometry for all the glaciers
@@ -21,41 +20,46 @@ from pygem_input import *
 #========= FUNCTIONS (alphabetical order) ===================================
 def datesmodelrun(option_wateryear, option_leapyear):
     """
-    Set up a table using the start and end date that has the year, month, day,
-    and number of days in the month.
+    Set up a table using the start and end year that has the year, month, day, water year, and number of days in the 
+    month.
+    
+    Output is a Pandas DataFrame with a table of dates (rows = timesteps, columns = timestep attributes), as well as 
+    the start date, and end date of the model run.  These two things are useful for grabbing the correct climate data.
+    
+    Function Options:
+    - option_wateryear:
+        > 1 (default) - use water year
+        > 2 - use calendar year
+    -  option_leapyear:
+        > 1 (default) - leap years are included
+        > 2 - leap years are excluded (February always has 28 days)
+        
     Developer's note: ADD OPTIONS FOR CHANGING WATER YEAR FROM OCT 1 - SEPT 30 FOR VARIOUS REGIONS
     """
-    # Function Options:
-    #  option_wateryear:
-    #   > 1 (default) - use water year
-    #   > 2 - use calendar year
-    #  option_leapyear:
-    #   > 1 (default) - leap years are included
-    #   > 2 - leap years are excluded (February always has 28 days)
-    #
+
     # Include spinup time in start year
-    startyear_wspinup = startyear - spinupyears
+    startyear_wspinup = input.startyear - input.spinupyears
     # Convert start year into date depending on option_wateryear
     if option_wateryear == 1:
         startdate = str(startyear_wspinup) + '-10-01'
-        enddate = str(endyear) + '-09-30'
+        enddate = str(input.endyear) + '-09-30'
     elif option_wateryear == 0:
         startdate = str(startyear_wspinup) + '-01-01'
-        enddate = str(endyear) + '-12-31'
+        enddate = str(input.endyear) + '-12-31'
     else:
         print("\n\nError: Please select an option_wateryear that exists. Exiting model run now.\n")
         exit()
     # Convert input format into proper datetime format
     startdate = datetime(*[int(item) for item in startdate.split('-')])
     enddate = datetime(*[int(item) for item in enddate.split('-')])
-    if timestep == 'monthly':
+    if input.timestep == 'monthly':
         startdate = startdate.strftime('%Y-%m')
         enddate = enddate.strftime('%Y-%m')
-    elif timestep == 'daily':
+    elif input.timestep == 'daily':
         startdate = startdate.strftime('%Y-%m-%d')
         enddate = enddate.strftime('%Y-%m-%d')
     # Generate dates_table using date_range function
-    if timestep == 'monthly':
+    if input.timestep == 'monthly':
         # Automatically generate dates from start date to end data using a monthly frequency (MS), which generates
         # monthly data using the 1st of each month 
         dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS')})
@@ -70,7 +74,7 @@ def datesmodelrun(option_wateryear, option_leapyear):
         if option_leapyear == 0:
             mask1 = (dates_table['daysinmonth'] == 29)
             dates_table.loc[mask1,'daysinmonth'] = 28
-    elif timestep == 'daily':
+    elif input.timestep == 'daily':
         # Automatically generate daily (freq = 'D') dates
         dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='D')})
         # Extract attributes for dates_table
@@ -104,7 +108,7 @@ def datesmodelrun(option_wateryear, option_leapyear):
     month_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     season_list = []
     for i in range(len(month_list)):
-        if (month_list[i] >= summer_month_start and month_list[i] < winter_month_start):
+        if (month_list[i] >= input.summer_month_start and month_list[i] < input.winter_month_start):
             season_list.append('summer')
             seasondict[month_list[i]] = season_list[i]
         else:
@@ -127,7 +131,7 @@ def hypsmassbalDShean(glac_table):
     # Create an empty dataframe. main_glac_hyps will store the hypsometry of
     # all the glaciers with the bin size specified by user input. Set index to
     # be consistent with main_glac_rgi as well as 'RGIId'
-    col_bins = (np.arange(int(binsize/2),9001,binsize))
+    col_bins = (np.arange(int(input.binsize/2),9001,input.binsize))
         # creating all columns from 0 to 9000 within given bin size, which
         # enables this to be used for every glacier in the world
     glac_hyps = pd.DataFrame(index=glac_table.index, columns=col_bins)
@@ -144,12 +148,12 @@ def hypsmassbalDShean(glac_table):
         # Choose the end of the string
         hyps_ID_short = hyps_ID_split[1]
         hyps_ID_findname = hyps_ID_short + '_mb_bins.csv'
-        for hyps_file in os.listdir(hyps_filepath):
+        for hyps_file in os.listdir(input.hyps_filepath):
             # For all the files in the give directory (hyps_fil_path) see if
             # there is a match.  If there is, then geodetic mass balance is
             # available for calibration.
             if re.match(hyps_ID_findname, hyps_file):
-                hyps_ID_fullfile = (hyps_filepath + '/' + hyps_file)
+                hyps_ID_fullfile = (input.hyps_filepath + '/' + hyps_file)
                 hyps_ID_csv = pd.read_csv(hyps_ID_fullfile)
         # Insert the hypsometry data into the main hypsometry row
         for nrow in range(len(hyps_ID_csv)):
@@ -165,138 +169,105 @@ def hypsmassbalDShean(glac_table):
     return glac_hyps, glac_mb
 
 
-def hypsometryglaciers(glac_table):
+def hypsometrystats(hyps_table, thickness_table):
+    """Calculate the volume and mean associated with the hypsometry data.
+    
+    Output is a series of the glacier volume [km**3] and mean elevation values [m a.s.l.]. 
     """
-    Select hypsometry from the RGI V6 of all glaciers that are being used in the
-    model run. This function returns hypsometry for each 50 m elevation bin.
+    # Glacier volume [km**3]
+    glac_volume = (hyps_table * thickness_table/1000).sum(axis=1)
+    # Glacier area [km**2]
+    glac_area = hyps_table.sum(axis=1)
+    # Mean glacier elevation
+    glac_hyps_mean = round(((hyps_table.multiply(hyps_table.columns.values, axis=1)).sum(axis=1))/glac_area).astype(int)
+    # Median computations
+#    main_glac_hyps_cumsum = np.cumsum(hyps_table, axis=1)
+#    for glac in range(hyps_table.shape[0]):
+#        # Median glacier elevation
+#        # Computed as the elevation when the normalized cumulative sum of the glacier area exceeds 0.5 (50%)
+#        series_glac_hyps_cumsumnorm = main_glac_hyps_cumsum.loc[glac,:].copy() / glac_area.iloc[glac]
+#        series_glac_hyps_cumsumnorm_positions = (np.where(series_glac_hyps_cumsumnorm > 0.5))[0]
+#        glac_hyps_median = main_glac_hyps.columns.values[series_glac_hyps_cumsumnorm_positions[0]]
+#    NOTE THERE IS A 20 m (+/- 5 m) OFFSET BETWEEN THE 10 m PRODUCT FROM HUSS AND THE RGI INVENTORY """
+    return glac_volume, glac_hyps_mean
+
+
+def import_hypsometry(rgi_table):
+    """Use the hypsometry dictionary specified by the user in the input to extract the correct hypsometry.
+    The hypsometry files must be in the proper units of square kilometers [km**2].
+    
+    Output is a Pandas DataFrame of the hypsometry for all the glaciers in the model run
+    (rows = GlacNo, columns = elevation bins).
     """
-    bins = np.arange(int(binsize/2)-binsize*3,9000,binsize)
-        # note provide 3 rows of negative numbers to rename columns
-    hyps_table = pd.DataFrame(0, index=glac_table.index, columns=bins)
-    hyps_table.rename(columns={hyps_table.columns.values[0]: 'RGIId',
-                               hyps_table.columns.values[1]: 'GLIMSId',
-                               hyps_table.columns.values[2]: 'Area'},
-                               inplace=True)
-    row_count = 0
-        # used to get proper indexing when concatenating over multiple regions
-    if option_glacier_hypsometry == 1:
-        # Check if glacier selection was done using option 1.  If so, then the
-        # rgi_regionsO1 or 'O1Index', which is the index associated with the
-        # RGIId's can be used to extract glacier hypsometry.
-        # This should be much faster computationally.
-        if option_glacier_selection == 1:
-            for x_region in rgi_regionsO1:
-                rgi_regionsO1_findname = str(x_region) + '_rgi60_'
-                # Look up the RGI tables associated with the specific regions
-                # defined above and concatenate all the areas of interest into a
-                # single file
-                for rgi_regionsO1_file in os.listdir(hyps_filepath):
-                    if re.match(rgi_regionsO1_findname, rgi_regionsO1_file):
-                        # if a match for the region is found, then open the file
-                        # and select the subregion(s) and/or glaciers from that
-                        # file
-                        rgi_regionsO1_fullpath = (hyps_filepath +
-                                                  rgi_regionsO1_file)
-                        rgi_regionsO1_fullfile = (rgi_regionsO1_fullpath + '/' +
-                                                  rgi_regionsO1_file +
-                                                  '_hypso.csv')
-                        csv_regionO1 = pd.read_csv(rgi_regionsO1_fullfile)
-                        csv_regionO1.rename(columns={
-                                csv_regionO1.columns.values[0]: 'RGIId',
-                                csv_regionO1.columns.values[2]: 'Area'},
-                                inplace=True)
-                            # Rename 'RGIId' and 'Area' columns to remove the
-                            # extra spaces that exist currently in the column
-                            # headers (ex. 08/25/2017 the header was 'RGIId   '
-                            # as opposed to 'RGIId'
-                        # Populate hyps_table with all glaciers in the study
-                        if rgi_regionsO2 == 'all' and rgi_glac_number == 'all':
-                            hyps_table.iloc[row_count:row_count+len(
-                                csv_regionO1),0:len(csv_regionO1.columns)] = (
-                                csv_regionO1.values)
-                            row_count = row_count + len(csv_regionO1)
-                            # Note: need to use row_count, specify column
-                            # length, and use '.values' in order to populate the
-                            # hyps_table because all of the regional hypsometry
-                            # files have different column lengths
-                        else:
-                            # copy index to enable logical indexing
-                            csv_regionO1['Indexcopy'] = (
-                                csv_regionO1.index.values)
-                            # use logical indexing to select rows based on the
-                            # initial index ('O1Index') and the copied index
-                            hyps_table_raw = csv_regionO1.loc[
-                                            csv_regionO1['Indexcopy'].isin(
-                                            glac_table['O1Index'])]
-                            # Copy hyps_table_raw to avoid issues with
-                            # 'SettingWithCopyWarning'
-                            hyps_table = hyps_table_raw.copy()
-                            # drop the copied index
-                            hyps_table.drop(['Indexcopy'], axis=1, inplace=True)
-                            # reset the index to agree with glac_table
-                            hyps_table.reset_index(drop=True, inplace=True)
+    ds = pd.read_csv(input.hyps_filepath + input.hypsfile_dict[input.rgi_regionsO1[0]])
+    # Select glaciers based on 01Index value from main_glac_rgi table
+    glac_hyps_table = pd.DataFrame()
+    for glacier in range(len(rgi_table)):
+        if glac_hyps_table.empty:
+            glac_hyps_table = ds.loc[rgi_table.loc[glacier,'O1Index']]
         else:
-            print("If option_glacier_selection != 1, then need to code this "
-                  "portion. Right now, no other options exist and this is the "
-                  "fastest way of doing things.\n Exiting model run.")
-            exit()
-        # Format the hyps table and perform calculations such that each bin
-        # shows the glacier area.
-        hyps_table.drop(['RGIId', 'Area', 'GLIMSId'], axis=1, inplace=True)
-            # drop columns such that only have GlacNo index and area hypsometry
-        hyps_table = hyps_table.mul(glac_table.loc[:,'Area'], axis=0)/1000
-            # Convert hyps_table (RGI gives integer in thousandths of the total
-            # area with area in a separate column) to area (km2) in each bin.
-        columns_int = hyps_table.columns.values.astype(int)
-            # convert columns from string to integer such that they can be used
-            # in downscaling computations
-        hyps_table.columns = columns_int
-        print("The 'hypsometryglaciers' function has finished.")
-        return hyps_table
-    elif option_glacier_hypsometry == 2:
-        # Create an empty dataframe glac_hyps that will store the hypsometry of
-        # all the glaciers with the bin size specified by user input. Set index
-        # to be consistent with main_glac_rgi as well as 'RGIId'
-        col_bins = (np.arange(int(binsize/2),9001,binsize))
-            # creating all columns from 0 to 9000 within given bin size, which
-            # enables this to be used for every glacier in the world
-        glac_hyps = pd.DataFrame(index=glac_table.index, columns=col_bins)
-            # rows of table will be the glacier index
-            # columns will be the center elevation of each bin
-        for glac in range(len(glac_hyps)):
-            # Select full RGIId string (needs to be compatible with mb format)
-            hyps_ID_full = glac_table.loc[glac,'RGIId']
-            # Remove the 'RGI60-' from the name to agree with David Shean's
-            # naming convention (This needs to be automatized!)
-            hyps_ID_split = hyps_ID_full.split('-')
-            # Choose the end of the string
-            hyps_ID_short = hyps_ID_split[1]
-            hyps_ID_findname = hyps_ID_short + '_mb_bins.csv'
-            for hyps_file in os.listdir(hyps_filepath):
-                # For all the files in the give directory (hyps_fil_path) see if
-                # there is a match.  If there is, then geodetic mass balance is
-                # available for calibration.
-                if re.match(hyps_ID_findname, hyps_file):
-                    hyps_ID_fullfile = (hyps_filepath + hyps_file)
-                    hyps_ID_csv = pd.read_csv(hyps_ID_fullfile)
-            # Insert the hypsometry data into the main hypsometry row
-            for nrow in range(len(hyps_ID_csv)):
-                # convert elevation bins into integers
-                elev_bin = int(hyps_ID_csv.loc[nrow,'# bin_center_elev'])
-                # add bin count to each elevation bin (or area)
-                glac_hyps.loc[glac,elev_bin] = hyps_ID_csv.loc[nrow,'bin_count']
-        # Fill NaN values with 0
-        glac_hyps.fillna(0, inplace=True)
-        print("The 'hypsometryglaciers' function has finished.")
-        return glac_hyps
-    else:
-        print('\n\tModel Error: please choose an option that exists for'
-              '\n\tglacier hypsometry. Exiting model run now.\n')
-        exit() # if you have an error, exit the model run
+            glac_hyps_table = pd.concat([glac_hyps_table, ds.loc[rgi_table.loc[glacier,'O1Index']]], axis=1)
+    glac_hyps_table = glac_hyps_table.transpose()
+    # Clean up table and re-index
+    # Reset index to be GlacNo
+    glac_hyps_table.reset_index(drop=True, inplace=True)
+    glac_hyps_table.index.name = input.indexname
+    # Drop columns that are not elevation bins
+    glac_hyps_table.drop(input.hyps_cols_drop, axis=1, inplace=True)
+    # Make sure columns are integers
+    glac_hyps_table.columns = glac_hyps_table.columns.values.astype(int)
+    # Change NAN from -99 to 0
+    glac_hyps_table[glac_hyps_table==-99] = 0.
+    # Add empty rows such that bins are consistent for every region
+    bins = np.arange(int(input.binsize/2),9000,input.binsize)
+    # Find when bins agree and enter
+    glac_hyps = pd.DataFrame(0, index=glac_hyps_table.index, columns=bins)
+    for cols in range(glac_hyps.shape[1]):
+        column_value = glac_hyps.columns.values[cols]
+        if column_value in glac_hyps_table.columns:
+            glac_hyps.loc[:, column_value] = glac_hyps_table.loc[:, column_value]
+    return glac_hyps
+
+
+def import_icethickness(rgi_table):
+    """Use the hypsometry dictionary specified by the user in the input to extract the ice thickness.
+    The ice thickness files must be in the proper units [m].
+    
+    Output is a Pandas DataFrame of the ice thickness for all the glaciers in the model run
+    (rows = GlacNo, columns = elevation bins).
+    """
+    ds = pd.read_csv(input.thickness_filepath + input.thicknessfile_dict[input.rgi_regionsO1[0]])
+    # Select glaciers based on 01Index value from main_glac_rgi table
+    glac_thickness_table = pd.DataFrame()
+    for glacier in range(len(rgi_table)):
+        if glac_thickness_table.empty:
+            glac_thickness_table = ds.loc[rgi_table.loc[glacier,'O1Index']]
+        else:
+            glac_thickness_table = pd.concat([glac_thickness_table, ds.loc[rgi_table.loc[glacier,'O1Index']]], axis=1)
+    glac_thickness_table = glac_thickness_table.transpose()
+    # Clean up table and re-index
+    # Reset index to be GlacNo
+    glac_thickness_table.reset_index(drop=True, inplace=True)
+    glac_thickness_table.index.name = input.indexname
+    # Drop columns that are not elevation bins
+    glac_thickness_table.drop(input.thickness_cols_drop, axis=1, inplace=True)
+    # Make sure columns are integers
+    glac_thickness_table.columns = glac_thickness_table.columns.values.astype(int)
+    # Change NAN from -99 to 0
+    glac_thickness_table[glac_thickness_table==-99] = 0.
+    # Add empty rows such that bins are consistent for every region
+    bins = np.arange(int(input.binsize/2),9000,input.binsize)
+    # Find when bins agree and enter
+    glac_thickness = pd.DataFrame(0, index=glac_thickness_table.index, columns=bins)
+    for cols in range(glac_thickness.shape[1]):
+        column_value = glac_thickness.columns.values[cols]
+        if column_value in glac_thickness_table.columns:
+            glac_thickness.loc[:, column_value] = glac_thickness_table.loc[:, column_value]
+    return glac_thickness
 
 
 def importHussfile(filename):
-    filepath = hyps_filepath + 'bands_' + str(binsize) + 'm_DRR/'
+    filepath = input.hyps_filepath + 'bands_' + str(input.binsize) + 'm_DRR/'
     fullpath = filepath + filename
     data_Huss = pd.read_csv(fullpath)
     # # THIS SECTION CHANGES THE RGIID TO MATCH RGI FORMAT
@@ -312,7 +283,7 @@ def importHussfile(filename):
     # ID_RGI.to_csv('RGIIDs_13.csv')
 
     # Create new dataframe with all of it
-    bins = np.arange(int(binsize/2),9000,binsize)
+    bins = np.arange(int(input.binsize/2),9000,input.binsize)
         # note provide 3 rows of negative numbers to rename columns
     data_table = pd.DataFrame(0, index=data_Huss.index, columns=bins)
     data_Huss.drop(['RGIID'], axis=1, inplace=True)
@@ -339,83 +310,99 @@ def importHussfile(filename):
 
 def selectglaciersrgitable():
     """
-    Select all glaciers to be used in the model run according to the regions
-    and glacier numbers defined by the RGI glacier inventory. This function
-    returns the rgi table associated with all of these glaciers.
+    Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI 
+    glacier inventory. This function returns the rgi table associated with all of these glaciers.
+    
+    Output is a Pandas DataFrame of the glacier statistics for each glacier in the model run
+    (rows = GlacNo, columns = glacier statistics).
     """
-    # Select glaciers according to RGI V60 tables.
+    # Glacier Selection Options:
+#   > 1 (default) - enter numbers associated with RGI V6.0 and select
+#                   glaciers accordingly
+#   > 2 - glaciers/regions selected via shapefile
+#   > 3 - glaciers/regions selected via new table (other inventory)
+
+    # Create an empty dataframe
     glacier_table = pd.DataFrame()
-        # Create an empty dataframe. glacier_table is the main rgi glacier
-        # dataframe that will be used as a reference that has all the
-        # important generic glacier characteristics.
-    for x_region in rgi_regionsO1:
-        # print(f"\nRegion: {x_region}")
-        rgi_regionsO1_findname = str(x_region) + '_rgi60_'
-        # print(f"Looking for region {x_region} filename...")
-        # Look up the RGI tables associated with the specific regions
-        # defined above and concatenate all the areas of interest into a
-        # single file
-        for rgi_regionsO1_file in os.listdir(rgi_filepath):
-            if re.match(rgi_regionsO1_findname, rgi_regionsO1_file):
-                # if a match for the region is found, then open the file and
-                # select the subregions and/or glaciers from that file
-                rgi_regionsO1_fullfile = rgi_filepath + rgi_regionsO1_file
-                csv_regionO1 = pd.read_csv(rgi_regionsO1_fullfile)
-                # Populate glacer_table with the glaciers of interest
-                if rgi_regionsO2 == 'all' and rgi_glac_number == 'all':
-                    print(f"\nAll glaciers within region(s) {rgi_regionsO1}"
-                          " are included in this model run.")
-                    if glacier_table.empty:
-                        glacier_table = csv_regionO1
-                    else:
-                        glacier_table = pd.concat([glacier_table,
-                                                   csv_regionO1], axis=0)
-                elif rgi_regionsO2 != 'all' and rgi_glac_number == 'all':
-                    print(f"\nAll glaciers within subregion(s) "
-                          f"{rgi_regionsO2} in region {rgi_regionsO1} are "
-                          "included in this model run.")
-                    for x_regionO2 in rgi_regionsO2:
-                        if glacier_table.empty:
-                            glacier_table = (csv_regionO1.loc[
-                                             csv_regionO1['O2Region']
-                                             == x_regionO2])
-                        else:
-                           glacier_table = (pd.concat([glacier_table,
-                                             csv_regionO1.loc[
-                                             csv_regionO1['O2Region']
-                                             == x_regionO2]], axis=0))
+    for x_region in input.rgi_regionsO1:
+        csv_regionO1 = pd.read_csv(input.rgi_filepath + input.rgi_dict[x_region])
+        # Populate glacer_table with the glaciers of interest
+        if input.rgi_regionsO2 == 'all' and input.rgi_glac_number == 'all':
+            print(f"\nAll glaciers within region(s) {input.rgi_regionsO1} are included in this model run.")
+            if glacier_table.empty:
+                glacier_table = csv_regionO1
+            else:
+                glacier_table = pd.concat([glacier_table, csv_regionO1], axis=0)
+        elif input.rgi_regionsO2 != 'all' and input.rgi_glac_number == 'all':
+            print(f"\nAll glaciers within subregion(s) {input.rgi_regionsO2} in region {input.rgi_regionsO1} "
+                  "are included in this model run.")
+            for x_regionO2 in input.rgi_regionsO2:
+                if glacier_table.empty:
+                    glacier_table = (csv_regionO1.loc[csv_regionO1['O2Region'] == x_regionO2])
                 else:
-                    print(f"\nThis study is only focusing on glaciers "
-                          f"{rgi_glac_number} in region {rgi_regionsO1}.")
-                    for x_glac in rgi_glac_number:
-                        glac_id = ('RGI60-' + str(rgi_regionsO1)[1:-1] +
-                                   '.' + x_glac)
-                        if glacier_table.empty:
-                            glacier_table = (csv_regionO1.loc[
-                                             csv_regionO1['RGIId'] ==
-                                             glac_id])
-                        else:
-                            glacier_table = (pd.concat([glacier_table,
-                                             csv_regionO1.loc[
-                                             csv_regionO1['RGIId'] ==
-                                             glac_id]], axis=0))
-    # glacier_table['O1Index'] = glacier_table.index.values
-    # exit()
+                   glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['O2Region'] == x_regionO2]],
+                                              axis=0))
+        else:
+            print(f"\nThis study is only focusing on glaciers {input.rgi_glac_number} in region "
+                  f"{input.rgi_regionsO1}.")
+            for x_glac in input.rgi_glac_number:
+                glac_id = ('RGI60-' + str(input.rgi_regionsO1)[1:-1] + '.' + x_glac)
+                if glacier_table.empty:
+                    glacier_table = (csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id])
+                else:
+                    glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id]], 
+                                               axis=0))
     glacier_table.reset_index(inplace=True)
         # reset the index so that it is in sequential order (0, 1, 2, etc.)
     glacier_table.rename(columns={'index': 'O1Index'}, inplace=True)
         # change old index to 'O1Index' to be easier to recall what it is
     glacier_table_copy = glacier_table.copy()
         # must make copy; otherwise, drop will cause SettingWithCopyWarning
-    glacier_table_copy.drop(rgi_cols_drop, axis=1, inplace=True)
+    glacier_table_copy.drop(input.rgi_cols_drop, axis=1, inplace=True)
         # drop columns of data that is not being used
-    glacier_table_copy.index.name = indexname
+    glacier_table_copy.index.name = input.indexname
     print("The 'select_rgi_glaciers' function has finished.")
-    return glacier_table_copy
+    return glacier_table_copy        
+    # OPTION 2: CUSTOMIZE REGIONS USING A SHAPEFILE that specifies the
+    #           various regions according to the RGI IDs, i.e., add an
+    #           additional column to the RGI table.
+    # ??? [INSERT CODE FOR IMPORTING A SHAPEFILE] ???
+    #   (1) import shapefile with custom boundaries, (2) grab the RGIIDs
+    #   of glaciers that are in these boundaries, (3) perform calibration
+    #   using these alternative boundaries that may (or may not) be more
+    #   representative of regional processes/climate
+    #   Note: this is really only important for calibration purposes and
+    #         post-processing when you want to show results over specific
+    #         regions.
+    # Development Note: if create another method for selecting glaciers,
+    #                   make sure that update way to select glacier
+    #                   hypsometry as well.
 
 
-def surfacetypeglacinitial(option_fxn, option_firn, option_debris, glac_table,
-                           glac_hyps):
+# EXAMPLE CODE OF SEARCHING FOR A FILENAME
+#def selectglaciersrgitable_old():
+#    """
+#    The upper portion of this code was replaced by a dictionary based on the user input to speed up computation time.
+#    This has been kept as an example code of searching for a filename.
+#    """
+#    # Select glaciers according to RGI V60 tables.
+#    glacier_table = pd.DataFrame()
+#    for x_region in input.rgi_regionsO1:
+#        # print(f"\nRegion: {x_region}")
+#        rgi_regionsO1_findname = str(x_region) + '_rgi60_'
+#        # print(f"Looking for region {x_region} filename...")
+#        # Look up the RGI tables associated with the specific regions
+#        # defined above and concatenate all the areas of interest into a
+#        # single file
+#        for rgi_regionsO1_file in os.listdir(input.rgi_filepath):
+#            if re.match(rgi_regionsO1_findname, rgi_regionsO1_file):
+#                # if a match for the region is found, then open the file and
+#                # select the subregions and/or glaciers from that file
+#                rgi_regionsO1_fullfile = input.rgi_filepath + rgi_regionsO1_file
+#                csv_regionO1 = pd.read_csv(rgi_regionsO1_fullfile)
+
+
+def surfacetypeglacinitial(glac_table, glac_hyps):
     """
     Define initial surface type according to median elevation such that the
     melt can be calculated over snow or ice.
@@ -425,58 +412,69 @@ def surfacetypeglacinitial(option_fxn, option_firn, option_debris, glac_table,
         3 - firn
         4 - debris
         0 - off-glacier
+        
+    Function Options:
+    - option_surfacetype_initial
+        > 1 (default) - use median elevation to classify snow/firn above the median and ice below
+        > 2 (Need to code) - use mean elevation instead
+        > 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
+    - option_surfacetype_firn = 1
+        > 1 (default) - firn is included
+        > 0 - firn is not included
+    - option_surfacetype_debris = 0
+        > 0 (default) - debris cover is not included
+        > 1 - debris cover is included
+    
+    Developer's note: need to add debris maps and determine how DDF_debris will be included.
     """
-    # Function Options:
-    #   > 1 (default) - use median elevation to classify snow/firn above the median and ice below
-    #   > 2 (Need to code) - use mean elevation instead
-    #   > 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions 
-
     glac_surftype = glac_hyps.copy()
     # Rows are each glacier, and columns are elevation bins
-    # Loop through each glacier (row) and elevation bin (column) and define the
-    # initial surface type (snow, firn, ice, or debris)
-    if option_fxn == 1:
-        # glac_surftype[(glac_hyps > 0) &
-        for glac in range(glac_surftype.shape[0]):
-            elev_ref = glac_table.loc[glac,'Zmed']
-            for col in range(glac_surftype.shape[1]):
-                elev_bin = int(glac_surftype.columns.values[col])
-                if glac_hyps.iloc[glac,col] > 0:
-                    if elev_bin <= elev_ref:
-                        glac_surftype.iloc[glac,col] = 1
-                    else:
-                        glac_surftype.iloc[glac,col] = 2
-    elif option_fxn ==2:
-        for glac in range(glac_surftype.shape[0]):
-            elev_ref = glac_table.loc[glac,'Zmean']
-            for col in range(glac_surftype.shape[1]):
-                elev_bin = int(glac_surftype.columns.values[col])
-                if glac_hyps.iloc[glac,col] > 0:
-                    if elev_bin <= elev_ref:
-                        glac_surftype.iloc[glac,col] = 1
-                    else:
-                        glac_surftype.iloc[glac,col] = 2
-    else:
-        print("This option for 'option_surfacetype' does not exist. Please "
-              "choose an option that exists. Exiting model run.\n")
-        exit()
-    # Make sure surface type is integer values
-    glac_surftype = glac_surftype.astype(int)
-    # If firn is included, then specify initial firn conditions
-    if option_firn == 1:
-        glac_surftype[glac_surftype == 2] = 3
-        #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
-        #  on the surface anywhere.
-    if option_debris == 1:
-        print('Need to code the model to include debris. This option does not '
-              'currently exist.  Please choose an option that does.\nExiting '
-              'the model run.')
-        exit()
-        # One way to include debris would be to simply have debris cover maps
-        # and state that the debris retards melting as a fraction of melt.  It
-        # could also be DDF_debris as an additional calibration tool. Lastly,
-        # if debris thickness maps are generated, could be an exponential
-        # function with the DDF_ice as a term that way DDF_debris could capture
-        # the spatial variations in debris thickness that the maps supply.
-    print("The 'initialsurfacetype' function has finished.")
-    return glac_surftype
+    series_elev = glac_surftype.columns.values
+    for glac in range(glac_surftype.shape[0]):
+        print('hello')
+        
+        
+#        # Option 1 - initial surface type based on the median elevation
+#        if input.option_surfacetype_initial == 1:
+#            elev_ref = glac_table.loc[glac, 'Zmed']
+#            for col in range(glac_surftype.shape[1]):
+#                elev_bin = int(glac_surftype.columns.values[col])
+#                if glac_hyps.iloc[glac, col] > 0:
+#                    if elev_bin <= elev_ref:
+#                        glac_surftype.iloc[glac, col] = 1
+#                    else:
+#                        glac_surftype.iloc[glac, col] = 2
+#        # Option 2 - initial surface type based on the mean elevation
+#        elif option_fxn ==2:
+#            elev_ref = glac_table.loc[glac, 'Zmean']
+#            for col in range(glac_surftype.shape[1]):
+#                elev_bin = int(glac_surftype.columns.values[col])
+#                if glac_hyps.iloc[glac, col] > 0:
+#                    if elev_bin <= elev_ref:
+#                        glac_surftype.iloc[glac, col] = 1
+#                    else:
+#                        glac_surftype.iloc[glac, col] = 2
+#    else:
+#        print("This option for 'option_surfacetype' does not exist. Please "
+#              "choose an option that exists. Exiting model run.\n")
+#        exit()
+#    # Make sure surface type is integer values
+#    glac_surftype = glac_surftype.astype(int)
+#    # If firn is included, then specify initial firn conditions
+#    if input.option_surfacetype_firn == 1:
+#        glac_surftype[glac_surftype == 2] = 3
+#        #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
+#        #  on the surface anywhere.
+#    if input.option_surfacetype_debris == 1:
+#        print('Need to code the model to include debris. This option does not '
+#              'currently exist.  Please choose an option that does.\nExiting '
+#              'the model run.')
+#        exit()
+#        # One way to include debris would be to simply have debris cover maps
+#        # and state that the debris retards melting as a fraction of melt.  It
+#        # could also be DDF_debris as an additional calibration tool. Lastly,
+#        # if debris thickness maps are generated, could be an exponential
+#        # function with the DDF_ice as a term that way DDF_debris could capture
+#        # the spatial variations in debris thickness that the maps supply.
+#    print("The 'initialsurfacetype' function has finished.")
+#    return glac_surftype
