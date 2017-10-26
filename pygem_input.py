@@ -8,6 +8,7 @@ of parameters required to run a function.
 # Note: (DEVELOPMENT) Consider structuring the input via steps and/or as
 #       required input or have a separate area for variables, parameters that
 #       don't really change.
+import numpy as np
 
 # ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
@@ -68,8 +69,8 @@ rgi_regionsO2 = 'all'
 # Enter 'all' to include all subregions or enter integer(s) in brackets
 # to specify specific subregions, e.g., [5, 6]. If entering individual
 # glaciers (rgi_glac_number != 'all'), then rgi_regionsO2 should be 'all'.
-#rgi_glac_number = ['03473', '03733']
-rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
 #     glacier numbers defined by RGI V6.0
 #     Enter 'all' to include all glaciers within (sub)region(s) or enter a
 #     string of complete glacier number for specific glaciers, e.g.,
@@ -196,7 +197,15 @@ option_glaciervolume = 1
 #   The user has the option to choose the type of climate data being used in the
 #   model run, and how that data will be downscaled to the glacier and bins.
 option_gcm_downscale = 1
-# Option 1 (default) - nearest neighbor
+# OPTION 1 (default): NEAREST NEIGHBOR
+    # Thoughts on 2017/08/21:
+    #   > Pre-processing functions should be coded and added after the initial
+    #     import such that the initial values can be printed if necessary.
+    #   > Data imported here is monthly, i.e., it is 1 value per month. If the
+    #     data is going to be subsampled to a daily resolution in order to
+    #     estimate melt in areas with low monthly mean temperature as is done in
+    #     Huss and Hock (2015), then those calculations should be performed in
+    #     the ablation section.
 
 # OPTION 1: Nearest neighbor to select climate data
 gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
@@ -244,6 +253,31 @@ gcm_time_varname = 'time'
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution
 #   Enter brief description of user options here.
+
+# lapse rate (K m-1) for gcm to glacier
+lr_gcm = -0.0065
+# lapse rate (K m-1) on glacier for bins
+lr_glac = -0.0065
+# precipitation correction factor (-)
+prec_factor = 0.3
+#   k_p in Radic et al. (2013)
+#   c_prec in Huss and Hock (2015)
+
+prec_grad = 0.0001
+# precipitation gradient on glacier (% m-1)
+DDF_ice = 7.2 * 10**-3
+# DDF ice (m w.e. d-1 degC-1)
+# note: '**' means to the power, so 10**-3 is 0.001
+DDF_snow = 4.0 * 10**-3
+# DDF snow (m w.e. d-1 degC-1)
+T_snow = 0
+# temperature threshold for snow (C)
+#   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
+DDF_firn = np.mean([DDF_ice, DDF_snow])
+# DDF firn (m w.e. d-1 degC-1)
+# DDF_firn is average of DDF_ice and DDF_snow (Huss and Hock, 2015)
+
+
 option_elev_ref_downscale = 'Zmed'
 # Option 1 (default) - 'Zmed', median glacier elevation
 # Option 2 - 'Zmax', maximum glacier elevation

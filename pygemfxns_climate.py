@@ -6,11 +6,11 @@ pre-processing of the climate data associated with each glacier for PyGEM.
 import pandas as pd
 import numpy as np
 import xarray as xr
-import netCDF4 as nc
-from datetime import datetime
+#import netCDF4 as nc
+#from datetime import datetime
 
 #========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
-from pygem_input import *
+import pygem_input as input
     # import all data
 
 #========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
@@ -32,10 +32,13 @@ def importGCMfxnearestneighbor_xarray(filename, variablename, glac_table):
     """
     Import time invariant (constant) variables and extract the nearest neighbor of the variable. Meteorological data 
     from the global climate models were provided by Ben Marzeion and ETH-Zurich for the GlacierMIP Phase II project or
-    from ERA Interim (ECMWF), which uses geopotential instead of surface height
+    from ERA Interim (ECMWF), which uses geopotential instead of surface height.
+    
+    Output: Pandas DataFrame of nearest neighbor time series for all the glacier in the model run
+    (rows = GlacNo, column = variable [ex. elevation])
     """
     # Import netcdf file
-    filefull = gcm_filepath_fx + filename
+    filefull = input.gcm_filepath_fx + filename
     data = xr.open_dataset(filefull)
     # Explore the dataset properties
 #     print('Explore the dataset:\n', data)
@@ -54,20 +57,23 @@ def importGCMfxnearestneighbor_xarray(filename, variablename, glac_table):
     for glac in range(len(glac_table)):
 #     for glac in range(0,1):
         # Find index of nearest lat/lon
-        lat_nearidx = np.asscalar((abs(data.variables[gcm_lat_varname][:] - glac_table.loc[glac,lat_colname])).argmin().values)
-        lon_nearidx = np.asscalar((abs(data.variables[gcm_lon_varname][:] - glac_table.loc[glac,lon_colname])).argmin().values)
+        lat_nearidx = np.asscalar((abs(data.variables[input.gcm_lat_varname][:] - 
+                                       glac_table.loc[glac, input.lat_colname])).argmin().values)
+        lon_nearidx = np.asscalar((abs(data.variables[input.gcm_lon_varname][:] - 
+                                       glac_table.loc[glac, input.lon_colname])).argmin().values)
         #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
         #  .values is used to extract the position's value as opposed to having an array
         #  np.asscalar() is used to convert from a np.array to an integer such that the value can be used as an index
         # Extract the relevant data
         try: 
-            glac_variable.loc[glac] = data[variablename][time_idx,lat_nearidx,lon_nearidx].values
+            glac_variable.loc[glac] = data[variablename][time_idx, lat_nearidx, lon_nearidx].values
         except:
-            glac_variable.loc[glac] = data[variablename][lat_nearidx,lon_nearidx].values
+            glac_variable.loc[glac] = data[variablename][lat_nearidx, lon_nearidx].values
     # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
-    if variablename == gcm_elev_varname:
+    if variablename == input.gcm_elev_varname:
         # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
-        if 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'm**2 s**-2':  
+        if 'units' in data.variables[variablename].attrs and (
+                data.variables[variablename].attrs['units'] == 'm**2 s**-2'):  
             # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
             glac_variable = glac_variable / 9.80665
         # Elseif units already in m.a.s.l., then continue
@@ -87,10 +93,14 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
     from the global climate models were provided by Ben Marzeion and ETH-Zurich for the GlacierMIP Phase II project.
     "NG" refers to their "new generation" products, which are homogenized.  Additionally, ERA-Interim reanalysis data
     were provided by ECMWF.
+    
     Note: prior to running the script, the user should open the netcdf file in python to determine the names of the keys
+    
+    Output: Pandas DataFrame of nearest neighbor time series for all the glacier in the model run
+    (rows = GlacNo, column = time series)
     """
     # Import netcdf file
-    filefull = gcm_filepath_var + filename
+    filefull = input.gcm_filepath_var + filename
     data = xr.open_dataset(filefull)
     # Explore the dataset properties
 #     print('Explore the dataset:\n', data)
@@ -100,37 +110,41 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
 #     print(data.variables[variablename].attrs['units'])
 #     print('\n\nExplore the data in more detail:')
 #     print(data[variablename].isel(time=0, latitude=0, longitude=0))
-    
     # Determine the correct time indices
-    if timestep == 'monthly':
-        start_idx = (np.where(pd.Series(data.variables[gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+    if input.timestep == 'monthly':
+        start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
                              dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
-        end_idx = (np.where(pd.Series(data.variables[gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+        end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
                              dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
         #  np.where finds the index position where to values are equal
-        #  pd.Series(data.variables[gcm_time_varname]) creates a pandas series of the time variable associated with the netcdf
-        #  .apply(lambda x: x.strftime('%Y-%m')) converts the timestamp to a string with YYYY-MM to enable the comparison
-        #    > different climate dta can have different date formats, so this standardization for comparison is important
+        #  pd.Series(data.variables[gcm_time_varname]) creates a pandas series of the time variable associated with the 
+        #  netcdf
+        #  .apply(lambda x: x.strftime('%Y-%m')) converts the timestamp to a string with YYYY-MM to enable the 
+        #  comparison
+        #    > different climate dta can have different date formats, so this standardization for comparison is 
+        #      important
         #      ex. monthly data may provide date from 1st of month or from middle of month, so YYYY-MM-DD would not work
         #  The same processing is done for the dates_table['date'] to facilitate the comparison
         #  [0] is used to access the first date
         #  dates_table.shape[0] - 1 is used to access the last date
-        #  The final indexing [0][0] is used to access the value, which is inside of an array containing extraneous information
-    elif timestep == 'daily':
-        start_idx = (np.where(pd.Series(data.variables[gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m-%d')) == 
-                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m-%d'))[0]))[0][0]
-        end_idx = (np.where(pd.Series(data.variables[gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m-%d')) == 
-                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m-%d'))[dates_table.shape[0] - 1]))[0][0]
+        #  The final indexing [0][0] is used to access the value, which is inside of an array containing extraneous 
+        #  information
+    elif input.timestep == 'daily':
+        start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m-%d'))
+                     == dates_table['date'].apply(lambda x: x.strftime('%Y-%m-%d'))[0]))[0][0]
+        end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m-%d')) == 
+                   dates_table['date'].apply(lambda x: x.strftime('%Y-%m-%d'))[dates_table.shape[0] - 1]))[0][0]
     # Extract the time series
-    time_series = pd.Series(data.variables[gcm_time_varname][start_idx:end_idx+1])
+    time_series = pd.Series(data.variables[input.gcm_time_varname][start_idx:end_idx+1])
 #     print(time_series)
-    
     # Find Nearest Neighbor
     for glac in range(len(glac_table)):
 #     for glac in range(0,1):
         # Find index of nearest lat/lon
-        lat_nearidx = np.asscalar((abs(data.variables[gcm_lat_varname][:] - glac_table.loc[glac,lat_colname])).argmin().values)
-        lon_nearidx = np.asscalar((abs(data.variables[gcm_lon_varname][:] - glac_table.loc[glac,lon_colname])).argmin().values)
+        lat_nearidx = np.asscalar((abs(data.variables[input.gcm_lat_varname][:] - 
+                                       glac_table.loc[glac, input.lat_colname])).argmin().values)
+        lon_nearidx = np.asscalar((abs(data.variables[input.gcm_lon_varname][:] - 
+                                       glac_table.loc[glac, input.lon_colname])).argmin().values)
         #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
         #  .values is used to extract the position's value as opposed to having an array
         #  np.asscalar() is used to convert from a np.array to an integer such that the value can be used as an index
@@ -143,39 +157,41 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
 #         print(data[variablename][start_idx:end_idx+1,lat_nearidx,lon_nearidx].values.shape)
 #         print(data[variablename][start_idx:end_idx+1,lat_nearidx,lon_nearidx].values)
         if glac == 0:
-            glac_variable_series_nparray = data[variablename][start_idx:end_idx+1,lat_nearidx,lon_nearidx].values
+            glac_variable_series_nparray = data[variablename][start_idx:end_idx+1, lat_nearidx, lon_nearidx].values
         else:
-            glac_variable_series_nparray = np.stack((glac_variable_series_nparray, 
-                                                     data[variablename][start_idx:end_idx+1,lat_nearidx,lon_nearidx].values))
+            glac_variable_series_nparray = np.stack((glac_variable_series_nparray,
+                                                     data[variablename]
+                                                     [start_idx:end_idx + 1, lat_nearidx, lon_nearidx].values))
     # Create DataFrame from stacked np.arrays
-    if option_dates == 1:
-        glac_variable_series = pd.DataFrame(glac_variable_series_nparray, index=glac_table.index, columns=dates_table['date'])
+    if input.option_dates == 1:
+        glac_variable_series = pd.DataFrame(glac_variable_series_nparray, index=glac_table.index, 
+                                            columns=dates_table['date'])
     else:
         glac_variable_series = pd.DataFrame(glac_variable_series_nparray, index=glac_table.index, columns=time_series)
-        
     # Perform corrections to the data if necessary
     # Surface air temperature corrections
-    if variablename == gcm_temp_varname:
+    if variablename == input.gcm_temp_varname:
         if 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'K':
             glac_variable_series = glac_variable_series - 273.15
             #   Convert from K to deg C
-        elif option_warningmessages == 1:
+        elif input.option_warningmessages == 1:
             print('Check units of air temperature from GCM is degrees C.')
     # Precipitation corrections
     # If the variable is precipitation
-    if variablename == gcm_prec_varname:
+    if variablename == input.gcm_prec_varname:
         # If the variable has units and those units are meters (ERA Interim)
         if 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'm':
             pass
         # Elseif the variable has units and those units are kg m-2 s-1 (CMIP5)
-        elif 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'kg m-2 s-1':  
+        elif 'units' in data.variables[variablename].attrs and (
+                data.variables[variablename].attrs['units'] == 'kg m-2 s-1'):  
             # Convert from kg m-2 s-1 to m day-1
             glac_variable_series = glac_variable_series/1000*3600*24
             #   (1 kg m-2 s-1) * (1 m3/1000 kg) * (3600 s / hr) * (24 hr / day) = (m day-1)
         # Else check the variables units
         else:
             print('Check units of precipitation from GCM is meters per day.')
-        if timestep == 'monthly':
+        if input.timestep == 'monthly':
             # Convert from meters per day to meters per month
             if 'daysinmonth' in dates_table.columns:
                 glac_variable_series = (glac_variable_series.mul(list(dates_table['daysinmonth']), axis=1))

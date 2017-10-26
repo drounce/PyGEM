@@ -12,7 +12,7 @@ et al. (2014), and Huss and Hock (2015).
 # included in a separate module called pygem_input.py. It is recommended to not make any changes to this file unless
 # you are a PyGEM developer and making changes to the model architecture.
 #
-# ========== IMPORT PACKAGES ==================================================
+# ========== IMPORT PACKAGES ==========================================================================================
 # Various packages are used to provide the proper architecture and framework for the calculations used in this script. 
 # Some packages (e.g., datetime) are included in order to speed of calculations and simplify code.
 import pandas as pd
@@ -24,22 +24,23 @@ import re # see os
 import xarray as xr
 import netCDF4 as nc
 from time import strftime
-#import timeit
+import timeit
 
-#========== IMPORT INPUT AND FUNCTIONS FROM MODULES ==========================
+#========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 import pygemfxns_output as output
 
-#========== DEVELOPER'S TO-DO LIST =============================================
+#========== DEVELOPER'S TO-DO LIST ====================================================================================
 # > Output log file, i.e., file that states input parameters, date of model run, model options selected, 
 #   and any errors that may have come up (e.g., precipitation corrected because negative value, etc.)
 
-
-# ----- STEP ONE: Select glaciers included in model run ----------------------
+# ===== STEP ONE: Select glaciers included in model run ===============================================================
+timestart_step1 = timeit.default_timer()
 if input.option_glacier_selection == 1:
+    # RGI glacier attributes
     main_glac_rgi = modelsetup.selectglaciersrgitable()
 elif input.option_glacier_selection == 2:
     print('\n\tMODEL ERROR (selectglaciersrgi): this option to use shapefiles to select glaciers has not been coded '
@@ -51,12 +52,11 @@ else:
     print('\n\tModel Error (selectglaciersrgi): please choose an option that exists for selecting glaciers.'
           '\n\tExiting model run.\n')
     exit()
+timeelapsed_step1 = timeit.default_timer() - timestart_step1
+print('Step 1 time:', timeelapsed_step1)
 
-#----- STEP TWO: Hypsometry, Ice thickness, Model time frame, Surface Type ---
-
-""" DEVELOPER'S NOTE: importing hypsometry and ice thickness is very slow since it is adding bins beyond the max/min 
-    This could be a preprocessing step as it will cause large delays
-"""
+#===== STEP TWO: HYPSOMETRY, ICE THICKNESS, MODEL TIME FRAME, SURFACE TYPE ============================================
+timestart_step2 = timeit.default_timer()
 # Glacier hypsometry [km**2]
 main_glac_hyps = modelsetup.import_hypsometry(main_glac_rgi)
 # Ice thickness [m]
@@ -66,12 +66,33 @@ main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(mai
 # Model time frame
 dates_table, start_date, end_date = modelsetup.datesmodelrun(input.option_wateryear, input.option_leapyear)
 # Initial surface type
-modelsetup.surfacetypeglacinitial(main_glac_rgi, main_glac_hyps)
+main_glac_surftypeinit = modelsetup.surfacetypeglacinitial(main_glac_rgi, main_glac_hyps)
+# Print time elapsed
+timeelapsed_step2 = timeit.default_timer() - timestart_step2
+print('Step 2 time:', timeelapsed_step2)
 
+#===== STEP THREE: IMPORT CLIMATE DATA ================================================================================
+timestart_step3 = timeit.default_timer()
+if input.option_gcm_downscale == 1:
+    # Air Temperature [degC] and GCM dates
+    gcm_glac_temp, gcm_time_series = climate.importGCMvarnearestneighbor_xarray(
+            input.gcm_temp_filename, input.gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date)
+    # Air Temperature [degC] and GCM dates
+    gcm_glac_prec, gcm_time_series = climate.importGCMvarnearestneighbor_xarray(
+            input.gcm_prec_filename, input.gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date)
+    # Elevation [m a.s.l] associated with air temperature data
+    gcm_glac_elev = climate.importGCMfxnearestneighbor_xarray(
+            input.gcm_elev_filename, input.gcm_elev_varname, main_glac_rgi)
+else:
+    print('\n\tModel Error: please choose an option that exists for downscaling climate data. Exiting model run now.\n')
+    exit()
+# Add GCM time series to the dates_table
+dates_table['date_gcm'] = gcm_time_series
+# Print time elapsed
+timeelapsed_step3 = timeit.default_timer() - timestart_step3
+print('Step 3 time:', timeelapsed_step3)
 
-
-
-
+#===== STEP FOUR: MASS BALANCE CALCULATIONS ===========================================================================
 
 
 

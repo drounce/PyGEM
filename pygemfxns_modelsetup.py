@@ -194,10 +194,13 @@ def hypsometrystats(hyps_table, thickness_table):
 
 def import_hypsometry(rgi_table):
     """Use the hypsometry dictionary specified by the user in the input to extract the correct hypsometry.
-    The hypsometry files must be in the proper units of square kilometers [km**2].
+    The hypsometry files must be in the proper units of square kilometers [km**2] and need to be pre-processed to have 
+    all bins between 0 - 9000 m.
     
     Output is a Pandas DataFrame of the hypsometry for all the glaciers in the model run
     (rows = GlacNo, columns = elevation bins).
+    
+    Line Profiling: Loading in the table takes the most time (~2.3 s)
     """
     ds = pd.read_csv(input.hyps_filepath + input.hypsfile_dict[input.rgi_regionsO1[0]])
     # Select glaciers based on 01Index value from main_glac_rgi table
@@ -218,23 +221,18 @@ def import_hypsometry(rgi_table):
     glac_hyps_table.columns = glac_hyps_table.columns.values.astype(int)
     # Change NAN from -99 to 0
     glac_hyps_table[glac_hyps_table==-99] = 0.
-    # Add empty rows such that bins are consistent for every region
-    bins = np.arange(int(input.binsize/2),9000,input.binsize)
-    # Find when bins agree and enter
-    glac_hyps = pd.DataFrame(0, index=glac_hyps_table.index, columns=bins)
-    for cols in range(glac_hyps.shape[1]):
-        column_value = glac_hyps.columns.values[cols]
-        if column_value in glac_hyps_table.columns:
-            glac_hyps.loc[:, column_value] = glac_hyps_table.loc[:, column_value]
-    return glac_hyps
+    return glac_hyps_table
 
 
 def import_icethickness(rgi_table):
-    """Use the hypsometry dictionary specified by the user in the input to extract the ice thickness.
-    The ice thickness files must be in the proper units [m].
+    """Use the thickness dictionary specified by the user in the input to extract the ice thickness.
+    The ice thickness files must be in the proper units [m] and need to be pre-processed to have all bins
+    between 0 - 9000 m.
     
     Output is a Pandas DataFrame of the ice thickness for all the glaciers in the model run
     (rows = GlacNo, columns = elevation bins).
+    
+    Line Profiling: Loading in the table takes the most time (~2.3 s)
     """
     ds = pd.read_csv(input.thickness_filepath + input.thicknessfile_dict[input.rgi_regionsO1[0]])
     # Select glaciers based on 01Index value from main_glac_rgi table
@@ -255,15 +253,7 @@ def import_icethickness(rgi_table):
     glac_thickness_table.columns = glac_thickness_table.columns.values.astype(int)
     # Change NAN from -99 to 0
     glac_thickness_table[glac_thickness_table==-99] = 0.
-    # Add empty rows such that bins are consistent for every region
-    bins = np.arange(int(input.binsize/2),9000,input.binsize)
-    # Find when bins agree and enter
-    glac_thickness = pd.DataFrame(0, index=glac_thickness_table.index, columns=bins)
-    for cols in range(glac_thickness.shape[1]):
-        column_value = glac_thickness.columns.values[cols]
-        if column_value in glac_thickness_table.columns:
-            glac_thickness.loc[:, column_value] = glac_thickness_table.loc[:, column_value]
-    return glac_thickness
+    return glac_thickness_table
 
 
 def importHussfile(filename):
@@ -313,8 +303,8 @@ def selectglaciersrgitable():
     Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI 
     glacier inventory. This function returns the rgi table associated with all of these glaciers.
     
-    Output is a Pandas DataFrame of the glacier statistics for each glacier in the model run
-    (rows = GlacNo, columns = glacier statistics).
+    Output: Pandas DataFrame of the glacier statistics for each glacier in the model run
+    (rows = GlacNo, columns = glacier statistics)
     """
     # Glacier Selection Options:
 #   > 1 (default) - enter numbers associated with RGI V6.0 and select
@@ -426,55 +416,40 @@ def surfacetypeglacinitial(glac_table, glac_hyps):
         > 1 - debris cover is included
     
     Developer's note: need to add debris maps and determine how DDF_debris will be included.
+    
+    Output: Pandas DataFrame of the initial surface type for each glacier in the model run
+    (rows = GlacNo, columns = elevation bins)
     """
     glac_surftype = glac_hyps.copy()
-    # Rows are each glacier, and columns are elevation bins
     series_elev = glac_surftype.columns.values
     for glac in range(glac_surftype.shape[0]):
-        print('hello')
-        
-        
-#        # Option 1 - initial surface type based on the median elevation
-#        if input.option_surfacetype_initial == 1:
-#            elev_ref = glac_table.loc[glac, 'Zmed']
-#            for col in range(glac_surftype.shape[1]):
-#                elev_bin = int(glac_surftype.columns.values[col])
-#                if glac_hyps.iloc[glac, col] > 0:
-#                    if elev_bin <= elev_ref:
-#                        glac_surftype.iloc[glac, col] = 1
-#                    else:
-#                        glac_surftype.iloc[glac, col] = 2
-#        # Option 2 - initial surface type based on the mean elevation
-#        elif option_fxn ==2:
-#            elev_ref = glac_table.loc[glac, 'Zmean']
-#            for col in range(glac_surftype.shape[1]):
-#                elev_bin = int(glac_surftype.columns.values[col])
-#                if glac_hyps.iloc[glac, col] > 0:
-#                    if elev_bin <= elev_ref:
-#                        glac_surftype.iloc[glac, col] = 1
-#                    else:
-#                        glac_surftype.iloc[glac, col] = 2
-#    else:
-#        print("This option for 'option_surfacetype' does not exist. Please "
-#              "choose an option that exists. Exiting model run.\n")
-#        exit()
-#    # Make sure surface type is integer values
-#    glac_surftype = glac_surftype.astype(int)
-#    # If firn is included, then specify initial firn conditions
-#    if input.option_surfacetype_firn == 1:
-#        glac_surftype[glac_surftype == 2] = 3
-#        #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
-#        #  on the surface anywhere.
-#    if input.option_surfacetype_debris == 1:
-#        print('Need to code the model to include debris. This option does not '
-#              'currently exist.  Please choose an option that does.\nExiting '
-#              'the model run.')
-#        exit()
-#        # One way to include debris would be to simply have debris cover maps
-#        # and state that the debris retards melting as a fraction of melt.  It
-#        # could also be DDF_debris as an additional calibration tool. Lastly,
-#        # if debris thickness maps are generated, could be an exponential
-#        # function with the DDF_ice as a term that way DDF_debris could capture
-#        # the spatial variations in debris thickness that the maps supply.
-#    print("The 'initialsurfacetype' function has finished.")
-#    return glac_surftype
+        # Option 1 - initial surface type based on the median elevation
+        if input.option_surfacetype_initial == 1:
+            glac_surftype.loc[glac, :][(series_elev < glac_table.loc[glac, 'Zmed']) & (glac_hyps.loc[glac, :] > 0)] = 1
+            glac_surftype.loc[glac, :][(series_elev >= glac_table.loc[glac, 'Zmed']) & (glac_hyps.loc[glac, :] > 0)] = 2
+        # Option 2 - initial surface type based on the mean elevation
+        elif input.option_surfacetype_initial ==2:
+            glac_surftype.loc[glac, :][(series_elev < glac_table.loc[glac, 'Zmean']) & (glac_hyps.loc[glac, :] > 0)] = 1
+            glac_surftype.loc[glac, :][(series_elev >= glac_table.loc[glac, 'Zmean']) & (
+                    glac_hyps.loc[glac, :] > 0)] = 2
+        else:
+            print("This option for 'option_surfacetype' does not exist. Please choose an option that exists. "
+                  + "Exiting model run.\n")
+            exit()
+    # If firn is included, then specify initial firn conditions
+    if input.option_surfacetype_firn == 1:
+        glac_surftype[glac_surftype == 2] = 3
+        #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
+        #  on the surface anywhere.
+    if input.option_surfacetype_debris == 1:
+        print("Need to code the model to include debris. This option does not currently exist.  Please choose an option"
+              + " that exists.\nExiting the model run.")
+        exit()
+        # One way to include debris would be to simply have debris cover maps and state that the debris retards melting 
+        # as a fraction of melt.  It could also be DDF_debris as an additional calibration tool. Lastly, if debris 
+        # thickness maps are generated, could be an exponential function with the DDF_ice as a term that way DDF_debris 
+        # could capture the spatial variations in debris thickness that the maps supply.
+    # Make sure surface type is integer values
+    glac_surftype = glac_surftype.astype(int)
+    print("The 'initialsurfacetype' function has finished.")
+    return glac_surftype
