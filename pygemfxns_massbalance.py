@@ -6,8 +6,7 @@ associated with each glacier for PyGEM.
 import pandas as pd
 import numpy as np
 #========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
-from pygem_input import *
-    # import all data
+import pygem_input as input
 
 #========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
     # ablation_annual - annual ablation for each bin on a specific glacier
@@ -198,88 +197,82 @@ def ablationsurfacebinsmonthly(option_fxn, bin_ablation_mon, glac_temp,
     return bin_ablation_mon
 
 
-def accumulationbins(option_fxn, glac_temp, glac_precsnow, glac_params,
-                     glac_count):
+def accumulationbins(glac_temp, glac_precsnow, glac_count):
     # Note: this will only work for monthly time step!
     """
     Calculate the accumulation for every elevation bin on the glacier.
+    
+    Output: Pandas dataframes of precipitation [m] and snow [m w.e.] for each bin for each timestep
+    (rows = bins, columns = dates)
+    
+    DEVELOPER'S NOTE: USE OF MASKS MAY BE SLOW
     """
     # Surface Ablation Options:
     #   > 1 (default) - single threshold (temp below snow, above rain)
-    #   > 2 - linear relationship (fraction of snow prec within +/- 1 deg
-    #         so if temp = threshold, then 50% snow and rain)
-    #
+    #   > 2 - linear relationship (fraction of snow prec within +/- 1 deg)
+    #         ex. if temp = threshold, then 50% snow and rain
+    #    
     bin_prec = pd.DataFrame(0, columns=glac_temp.columns, index=glac_temp.index)
     bin_snow = pd.DataFrame(0, columns=glac_temp.columns, index=glac_temp.index)
-    if option_fxn == 1:
+    if input.option_accumulation == 1:
         mask1 = (glac_temp > glac_params.loc[glac_count,'T_snow'])
         mask2 = (glac_temp <= glac_params.loc[glac_count,'T_snow'])
         bin_prec[mask1] = glac_precsnow[mask1]
         bin_snow[mask2] = glac_precsnow[mask2]
-    elif option_fxn == 2:
-        mask1 = (glac_temp >= (glac_params.loc[glac_count,'T_snow'] + 1))
-        mask2 = (glac_temp <= (glac_params.loc[glac_count,'T_snow'] - 1))
-        mask3 = ((glac_temp < (glac_params.loc[glac_count,'T_snow'] + 1)) & (
-                glac_temp > (glac_params.loc[glac_count,'T_snow'] - 1)))
+    elif input.option_accumulation == 2:
+        mask1 = glac_temp >= input.T_snow + 1
+        mask2 = glac_temp <= input.T_snow - 1
+        mask3 = (glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)
+        # If glac_temp >= T_snow + 1, then precipitation
         bin_prec[mask1] = glac_precsnow[mask1]
-            # If glac_temp >= T_snow + 1, then precipitation
+        # If glac_temp <= T_snow - 1, then snow (precipitation = 0)    
         bin_snow[mask2] = glac_precsnow[mask2]
-            # If glac_temp <= T_snow - 1, then snow (precipitation = 0)
-        bin_prec[mask3] = ((1/2 + (glac_temp[mask3] -
-                          glac_params.loc[glac_count,'T_snow'])/2)
-                          * glac_precsnow[mask3])
-        bin_snow[mask3] = ((1 - (1/2 + (glac_temp[mask3] -
-                          glac_params.loc[glac_count,'T_snow'])/2))
-                          * glac_precsnow[mask3])
+        # Otherwise, apply the linear relationship
+        bin_prec[mask3] = (1/2 + (glac_temp[mask3] - input.T_snow)/2) * glac_precsnow[mask3]
+        bin_snow[mask3] = (1 - (1/2 + (glac_temp[mask3] - input.T_snow)/2)) * glac_precsnow[mask3]
     else:
-        print("This option for 'option_accumulation' does not exist.  Please"
-              " choose an option that exists. Exiting model run.\n")
+        print("This option for 'option_accumulation' does not exist.  Please choose an option that exists."
+              "Exiting model run.\n")
     print("The 'accumulationbins' functions has finished.")
     return bin_prec, bin_snow
 
 
-def downscaleprec2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
-                       glac_params, climate_prec, climate_elev, glac_count):
+def downscaleprec2bins(glac_table, glac_hyps, climate_prec, climate_elev, glac_count):
     """
-    Downscale the global climate model precipitation data to each bin on the
-    glacier using the precipitation bias factor (prec_factor) and the glacier
-    precipitation gradient (prec_grad).
+    Downscale the global climate model precipitation data to each bin on the glacier using the precipitation bias factor
+    (prec_factor) and the glacier precipitation gradient (prec_grad).
+    
+    Output: Pandas dataframe of precipitation [m] in each bin for each time step
+    (rows = bins, columns = dates)
     """
     # Function Options:
-    #   > 1 (default) - precipitation factor bias to correct GCM and a
-    #                   precipitation gradient to adjust precip over the glacier
+    #   > 1 (default) - precip factor bias to correct GCM and a precipitation gradient to adjust precip over the glacier
     #   > 2 (not coded yet) - Huss and Hock (2015), exponential limits, etc.
-    bin_prec = pd.DataFrame(np.zeros(shape=(len(glac_hyps.loc[0]),
-                            len(climate_prec.loc[0]))),
+    bin_prec = pd.DataFrame(np.zeros(shape=(len(glac_hyps.loc[0]), len(climate_prec.loc[0]))),
                             columns=list(climate_prec.columns.values),
                             index=list(glac_hyps.columns.values))
     for row in range(len(glac_hyps.iloc[0])):
-        # each row is a different elevation bin for a particular glacier
-        # the columns are the time series of the precipitation data
+        # rows are elevation bins, columns are the time series of precipitation data
         bin_elev = glac_hyps.columns.values[row]
-        if option_fxn == 1:
-            # Option 1 is the default and uses a precipitation factor and
-            # precipitation gradient over the glacier.
-            bin_prec.loc[bin_elev] = (climate_prec.loc[glac_count] *
-                                 glac_params.loc[glac_count, 'prec_factor'] *
-                                 (1 + glac_params.loc[glac_count, 'prec_grad']
-                                 * (int(bin_elev) -
-                                 glac_table.loc[glac_count, option_elev_ref])))
-            # For each elevation bin, this applies the following:
+        if input.option_prec2bins == 1:
+            # Option 1 is the default and uses a precipitation factor and precipitation gradient over the glacier.
+            bin_prec.loc[bin_elev] = (climate_prec.loc[glac_count] * input.prec_factor * (1 + input.prec_grad *
+                                      (int(bin_elev) - glac_table.loc[glac_count, input.option_elev_ref_downscale])))
             #   P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
         else:
-            print("\nThis option for 'downscaleprec2bins' has not been coded "
-                  "yet. Please choose an existing option. Exiting model run.\n")
+            print("\nThis option for 'downscaleprec2bins' has not been coded yet. Please choose an existing option."
+                  "Exiting model run.\n")
             exit()
     print("The 'downscaleprec2bins' function has finished.")
     return bin_prec
 
-def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
-                       glac_params, climate_temp, climate_elev, glac_count):
+def downscaletemp2bins(glac_table, glac_hyps, climate_temp, climate_elev, glac_count):
     """
-    Downscale the global climate model temperature data to each bin on the
-    glacier using the global climate model lapse rate (lr_gcm) and the glacier
-    lapse rate (lr_glac).
+    Downscale the global climate model temperature data to each bin on the glacier using the global climate model 
+    lapse rate (lr_gcm) and the glacier lapse rate (lr_glac).
+    
+    Output: Pandas dataframe of temperature [degC] in each bin for each time step
+    (rows = bins, columns = dates)
     """
     # Function Options:
     #   > 1 (default) - lapse rate for gcm and glacier
@@ -288,26 +281,21 @@ def downscaletemp2bins(option_fxn, option_elev_ref, glac_table, glac_hyps,
                             columns=list(climate_temp.columns.values),
                             index=list(glac_hyps.columns.values))
     for row in range(len(glac_hyps.iloc[0])):
-        # each row is a different elevation bin for a particular glacier
-        # the columns are the time series of temperature data
+        # rows are elevation bins, columns are the time series of temperature data
         bin_elev = glac_hyps.columns.values[row]
-        if option_fxn == 1:
-            # Option 1 is the default and uses a lapse rate for the gcm and
-            # a glacier lapse rate.
-            bin_temp.loc[bin_elev] = (climate_temp.loc[glac_count] + glac_params.loc[glac_count, 'lr_gcm'] * (
-                                     glac_table.loc[glac_count, option_elev_ref] - climate_elev.loc[glac_count]) +
-                                     glac_params.loc[glac_count, 'lr_glac'] * (int(bin_elev) - 
-                                     glac_table.loc[glac_count, option_elev_ref]))
-            # For each elevation bin, this applies the following:
-            #   T_bin = T_gcm + lr_gcm * (z_ref - z_gcm)
-            #            + lr_glac * (z_bin - z_ref)
+        if input.option_temp2bins == 1:
+            # Option 1 is the default and uses a lapse rate for the gcm and a glacier lapse rate.
+            bin_temp.loc[bin_elev] = (climate_temp.loc[glac_count] + input.lr_gcm * (
+                    glac_table.loc[glac_count, input.option_elev_ref_downscale] - climate_elev.loc[glac_count]) +
+                    input.lr_glac * (int(bin_elev) - glac_table.loc[glac_count, input.option_elev_ref_downscale]))
+            #   T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref)
         else:
-            print("\nThis option for 'downscaletemp2bins' has not been coded "
-                  "yet. Please choose an existing option. Exiting model run.\n")
+            print("\nThis option for 'downscaletemp2bins' has not been coded yet. Please choose an existing option. "
+                  "Exiting model run.\n")
             exit()
     print("The 'downscaletemp2bins' function has finished.")
     return bin_temp
-
+    
 
 def ELA_glacier(series_massbal_spec, ELA_past):
     """

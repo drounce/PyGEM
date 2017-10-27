@@ -53,7 +53,7 @@ else:
           '\n\tExiting model run.\n')
     exit()
 timeelapsed_step1 = timeit.default_timer() - timestart_step1
-print('Step 1 time:', timeelapsed_step1)
+print('Step 1 time:', timeelapsed_step1, "s\n")
 
 #===== STEP TWO: HYPSOMETRY, ICE THICKNESS, MODEL TIME FRAME, SURFACE TYPE ============================================
 timestart_step2 = timeit.default_timer()
@@ -64,12 +64,12 @@ main_glac_icethickness = modelsetup.import_icethickness(main_glac_rgi)
 # Add volume [km**3] and mean elevation [m a.s.l.] to the main glaciers table
 main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
 # Model time frame
-dates_table, start_date, end_date = modelsetup.datesmodelrun(input.option_wateryear, input.option_leapyear)
+dates_table, start_date, end_date, monthly_columns, annual_columns, annual_divisor = modelsetup.datesmodelrun()
 # Initial surface type
 main_glac_surftypeinit = modelsetup.surfacetypeglacinitial(main_glac_rgi, main_glac_hyps)
 # Print time elapsed
 timeelapsed_step2 = timeit.default_timer() - timestart_step2
-print('Step 2 time:', timeelapsed_step2)
+print('Step 2 time:', timeelapsed_step2, "s\n")
 
 #===== STEP THREE: IMPORT CLIMATE DATA ================================================================================
 timestart_step3 = timeit.default_timer()
@@ -90,13 +90,72 @@ else:
 dates_table['date_gcm'] = gcm_time_series
 # Print time elapsed
 timeelapsed_step3 = timeit.default_timer() - timestart_step3
-print('Step 3 time:', timeelapsed_step3)
+print('Step 3 time:', timeelapsed_step3, "s\n")
 
 #===== STEP FOUR: MASS BALANCE CALCULATIONS ===========================================================================
+timestart_step4 = timeit.default_timer()
+# Create output netcdf file
+output.netcdf_output_create(input.rgi_regionsO1[0], main_glac_hyps, dates_table, annual_columns)
 
+# Create empty dataframes for monthly glacier-wide output
+# Monthly glacier-wide accumulation [m w.e.]
+main_glac_acc_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Monthly glacier-wide refreeze [m w.e.]
+main_glac_refreeze_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Monthly glacier-wide melt [m w.e.]
+main_glac_melt_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Monthly glacier-wide frontal ablation [m w.e.]
+main_glac_frontal_ablation_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Monthly glacier-wide specific mass balance [m w.e.]
+main_glac_massbal_clim_mwe_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Monthly total glacier area [km**2]
+main_glac_area_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Monthly Equilibrium Line Altitude (ELA) [m a.s.l.]
+main_glac_ELA_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Monthly Accumulation-Area Ratio (AAR) [%]
+main_glac_AAR_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Monthly Snow Line Altitude [m a.s.l.]
+main_glac_snowline_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Monthly runoff [m**3]
+main_glac_runoff_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+# Empty dataframes for annual glacier-wide output (rows = glaciers, columns = years)
+# Annual glacier-wide specific accumulation [m w.e.]
+main_glac_acc_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual glacier-wide specific refreeze [m w.e.]
+main_glac_refreeze_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual glacier-wide specific melt [m w.e.]
+main_glac_melt_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual glacier-wide specific frontal ablation [m w.e.]
+main_glac_frontal_ablation_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual glacier-wide specific climatic mass balance [m w.e.]
+main_glac_massbal_clim_mwe_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual glacier-wide specific total mass balance [m w.e.]
+main_glac_massbal_total_mwe_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual glacier area at start of each year [km**2]
+main_glac_area_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual glacier volume at start of each year [km**3]
+main_glac_volume_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual Equilibrium Line Altitude (ELA) [m a.s.l.]
+main_glac_ELA_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual Accumulation-Area Ratio (AAR) [m a.s.l.]
+main_glac_AAR_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual snowline altitude [m a.s.l.]
+main_glac_snowline_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+# Annual runoff [m**3]
+main_glac_runoff_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
 
+for glac in range(main_glac_rgi.shape[0]):
+# for glac in [0]:
+    # Downscale the gcm temperature [degC] to each bin
+    glac_bin_temp = massbalance.downscaletemp2bins(main_glac_rgi, main_glac_hyps, gcm_glac_temp, gcm_glac_elev, glac)
+    # Downscale the gcm precipitation [m] to each bin (note: not separated into solid and liquid precipitation yet)
+    glac_bin_precsnow = massbalance.downscaleprec2bins(main_glac_rgi, main_glac_hyps, gcm_glac_prec, gcm_glac_elev, 
+                                                       glac)
+    # Compute accumulation [m w.e.] and precipitation [m] for each bin
+    glac_bin_prec, glac_bin_acc = massbalance.accumulationbins(glac_bin_temp, glac_bin_precsnow, glac)
 
-
+timeelapsed_step4 = timeit.default_timer() - timestart_step4
+print('Step 4 time:', timeelapsed_step4, "s\n")
 
 
 

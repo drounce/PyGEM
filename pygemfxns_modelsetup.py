@@ -18,7 +18,7 @@ import pygem_input as input
     # option_fxn - function option (see specifics within each function)
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def datesmodelrun(option_wateryear, option_leapyear):
+def datesmodelrun():
     """
     Set up a table using the start and end year that has the year, month, day, water year, and number of days in the 
     month.
@@ -40,10 +40,10 @@ def datesmodelrun(option_wateryear, option_leapyear):
     # Include spinup time in start year
     startyear_wspinup = input.startyear - input.spinupyears
     # Convert start year into date depending on option_wateryear
-    if option_wateryear == 1:
+    if input.option_wateryear == 1:
         startdate = str(startyear_wspinup) + '-10-01'
         enddate = str(input.endyear) + '-09-30'
-    elif option_wateryear == 0:
+    elif input.option_wateryear == 0:
         startdate = str(startyear_wspinup) + '-01-01'
         enddate = str(input.endyear) + '-12-31'
     else:
@@ -71,7 +71,7 @@ def datesmodelrun(option_wateryear, option_leapyear):
         # Set date as index
         dates_table.set_index('timestep', inplace=True)
         # Remove leap year days if user selected this with option_leapyear
-        if option_leapyear == 0:
+        if input.option_leapyear == 0:
             mask1 = (dates_table['daysinmonth'] == 29)
             dates_table.loc[mask1,'daysinmonth'] = 28
     elif input.timestep == 'daily':
@@ -85,7 +85,7 @@ def datesmodelrun(option_wateryear, option_leapyear):
         # Set date as index
         dates_table.set_index('date', inplace=True)
         # Remove leap year days if user selected this with option_leapyear
-        if option_leapyear == 0:
+        if input.option_leapyear == 0:
             # First, change 'daysinmonth' number
             mask1 = dates_table['daysinmonth'] == 29
             dates_table.loc[mask1,'daysinmonth'] = 28
@@ -115,8 +115,22 @@ def datesmodelrun(option_wateryear, option_leapyear):
             season_list.append('winter')
             seasondict[month_list[i]] = season_list[i]
     dates_table['season'] = dates_table['month'].apply(lambda x: seasondict[x])
+    # Extract monthly columns
+    monthly_columns = dates_table['date']
+    # Extract annual columns
+    if input.option_wateryear == 1:
+        annual_columns = np.arange(dates_table.loc[0,'wateryear'], dates_table.loc[dates_table.shape[0]-1,'wateryear'] 
+                                   + 1)
+    elif input.option_wateryear == 0:
+        annual_columns = np.arange(dates_table.loc[0,'year'], dates_table.loc[dates_table.shape[0]-1,'year'] + 1)
+    # Compute annual divisor (used to perform calculations)
+    if input.timestep == 'monthly':
+        annual_divisor = 12
+    elif input.timestep == 'daily':
+        print('Need to write according to leapyear.  Code this. Exiting now.')
+        exit()
     print("The 'datesmodelrun' function has finished.")
-    return dates_table, startdate, enddate
+    return dates_table, startdate, enddate, monthly_columns, annual_columns, annual_divisor
     # note from previous version:
         # dates = dates.to_series().apply(lambda x: x.strftime("%Y-%m"))
         # removes the -DD such that its only YYYY-MM

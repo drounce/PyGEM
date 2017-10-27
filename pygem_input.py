@@ -313,3 +313,5 @@ option_geometrychange = 1
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
+netcdf_filenameprefix = 'PyGEM_output_rgiregion'
+netcdf_filepath = '../Output/'
