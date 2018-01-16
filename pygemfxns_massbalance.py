@@ -56,27 +56,6 @@ import pygem_input as input
     #        functions.
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def AAR_glacier(ELA_value, series_area, GlacNo):
-    """
-    Compute the Accumulation-Area Ratio (AAR) for a given glacier based on its ELA
-    """
-    try:
-        AAR_output = (1 - (np.cumsum(series_area)).divide(series_area.sum())
-            .iloc[int(ELA_value / binsize) - 1]) * 100
-        #  ELA_value is the elevation associated with the ELA, so dividing this by the binsize returns the column position 
-        #    if the indexing started at 1, the "-1" accounts for the fact that python starts its indexing at 0, so
-        #    ".iloc[int(ELA_value / binsize) - 1]" gives the column of the ELA.
-        #  np.cumsum gives the cumulative sum of the glacier area for the given year
-        #    this is divided by the total area to get the cumulative fraction of glacier area.
-        #  The column position is then used to select the cumulative fraction of glacier area of the ELA
-        #    since this is the area below the ELA, the value is currently the ablation area as a decimal;
-        #    therefore, "1 - (cumulative_fraction)" gives the fraction of the ablation area,
-        #    and multiplying this by 100 gives the fraction as a percentage.
-    except:
-        # if ELA does not exist, then set AAR = -9.99
-        AAR_output = -9.99
-    return AAR_output
-
 def ablationsurfacebinsmonthly_V2(option_fxn, bin_ablation_mon, glac_temp,
                                  glac_surftype, glac_params, dates_table,
                                  glac_count, year):
@@ -98,7 +77,7 @@ def ablationsurfacebinsmonthly_V2(option_fxn, bin_ablation_mon, glac_temp,
     #   surface type and compute refreezing accordingly.  This loop will be
     #   embedded within the monthly for loop.
     # Steps should be as follows:
-    #   1. Compute accumulation in the bin based
+    #   1. Compute accumulation in the bin
     #       glac_bin_snow + unmelted snow from previous time step
     #   2. Compute energy required to melt all the snow
     #       E_melt_snow_all = accumulation
@@ -125,14 +104,30 @@ def ablationsurfacebinsmonthly_V2(option_fxn, bin_ablation_mon, glac_temp,
     #              or to add bins (change 0 to 1[ice])
     #   7. Repeat with the accumulation, etc.
     #
-    #   Try to keep the framework in this calling function form as much as
-    #   possible.  Many new variable names need to be created.  Keep this
-    #   consistent.
-    #
-    #
-    # First see the surface type:
-    #   > Did snow fall?  If so, then surface type has temporarily changed
-    # Second
+    #   Many new variable names need to be created.  Keep this consistent.
+    
+    
+#========= OLDER SCRIPTS PRE-JANUARY 11, 2018 =========================================================================
+def AAR_glacier(ELA_value, series_area, GlacNo):
+    """
+    Compute the Accumulation-Area Ratio (AAR) for a given glacier based on its ELA
+    """
+    try:
+        AAR_output = (1 - (np.cumsum(series_area)).divide(series_area.sum())
+            .iloc[int(ELA_value / binsize) - 1]) * 100
+        #  ELA_value is the elevation associated with the ELA, so dividing this by the binsize returns the column position 
+        #    if the indexing started at 1, the "-1" accounts for the fact that python starts its indexing at 0, so
+        #    ".iloc[int(ELA_value / binsize) - 1]" gives the column of the ELA.
+        #  np.cumsum gives the cumulative sum of the glacier area for the given year
+        #    this is divided by the total area to get the cumulative fraction of glacier area.
+        #  The column position is then used to select the cumulative fraction of glacier area of the ELA
+        #    since this is the area below the ELA, the value is currently the ablation area as a decimal;
+        #    therefore, "1 - (cumulative_fraction)" gives the fraction of the ablation area,
+        #    and multiplying this by 100 gives the fraction as a percentage.
+    except:
+        # if ELA does not exist, then set AAR = -9.99
+        AAR_output = -9.99
+    return AAR_output    
 
 
 def ablationsurfacebinsmonthly(option_fxn, bin_ablation_mon, glac_temp,
@@ -266,6 +261,7 @@ def downscaleprec2bins(glac_table, glac_hyps, climate_prec, climate_elev, glac_c
     print("The 'downscaleprec2bins' function has finished.")
     return bin_prec
 
+
 def downscaletemp2bins(glac_table, glac_hyps, climate_temp, climate_elev, glac_count):
     """
     Downscale the global climate model temperature data to each bin on the glacier using the global climate model 
@@ -277,24 +273,26 @@ def downscaletemp2bins(glac_table, glac_hyps, climate_temp, climate_elev, glac_c
     # Function Options:
     #   > 1 (default) - lapse rate for gcm and glacier
     #   > no other options currently exist
-    bin_temp = pd.DataFrame(np.zeros(shape=(glac_hyps.shape[1], climate_temp.shape[1])),
-                            columns=list(climate_temp.columns.values),
-                            index=list(glac_hyps.columns.values))
-    for row in range(len(glac_hyps.iloc[0])):
-        # rows are elevation bins, columns are the time series of temperature data
-        bin_elev = glac_hyps.columns.values[row]
-        if input.option_temp2bins == 1:
-            # Option 1 is the default and uses a lapse rate for the gcm and a glacier lapse rate.
-            bin_temp.loc[bin_elev] = (climate_temp.loc[glac_count] + input.lr_gcm * (
-                    glac_table.loc[glac_count, input.option_elev_ref_downscale] - climate_elev.loc[glac_count]) +
-                    input.lr_glac * (int(bin_elev) - glac_table.loc[glac_count, input.option_elev_ref_downscale]))
-            #   T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref)
-        else:
-            print("\nThis option for 'downscaletemp2bins' has not been coded yet. Please choose an existing option. "
-                  "Exiting model run.\n")
-            exit()
+    if input.option_temp2bins == 1:
+        # Option 1 is the default and uses a lapse rate for the gcm and a glacier lapse rate.
+        bin_temp = (climate_temp.values[glac_count,:] + (input.lr_gcm * (
+                    glac_table.loc[glac_count, input.option_elev_ref_downscale] - 
+                    climate_elev.loc[glac_count]) + input.lr_glac * (glac_hyps.columns.values.astype(int) - 
+                    glac_table.loc[glac_count, input.option_elev_ref_downscale]))[:,np.newaxis])
+        #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref)
+        #  Explanation: A + B[:,np.newaxis] adds two one-dimensional matrices together such that the column values of
+        #         matrix A is added to all the rows of the matrix B.  This enables all the calculations to be performed
+        #         on a single line as opposed to looping through each row of the matrix
+        #         ex. A is a 180x1 matrix and B a is 900x1 matrix, then this returns a 900x180 matrix
+        # Add index and column names
+        bin_temp_export = pd.DataFrame(bin_temp, columns=list(climate_temp.columns.values),
+                                       index=list(glac_hyps.columns.values))
+    else:
+        print("\nThis option for 'downscaletemp2bins' has not been coded yet. Please choose an existing option. "
+              "Exiting model run.\n")
+        exit()
     print("The 'downscaletemp2bins' function has finished.")
-    return bin_temp
+    return bin_temp_export
     
 
 def ELA_glacier(series_massbal_spec, ELA_past):

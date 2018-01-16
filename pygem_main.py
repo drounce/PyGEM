@@ -1,20 +1,20 @@
-###############################################################################
+#%% ###################################################################################################################
 """
 Python Glacier Evolution Model "PyGEM" V1.0
 Prepared by David Rounce with support from Regine Hock.
-This work was funded under the NASA HiMAT project (INSERT PROJECT #).
+This work was funded under the NASA-ROSES program (grant no. NNX17AB27G).
 
-PyGEM is an open source glacier evolution model written in python.  Model details come from Radic et al. (2013), Bliss 
-et al. (2014), and Huss and Hock (2015).
+PyGEM is an open source glacier evolution model written in python.  The model expands upon previous models from 
+Radic et al. (2013), Bliss et al. (2014), and Huss and Hock (2015).
 """
 #######################################################################################################################
 # This is the main script that provides the architecture and framework for all of the model runs. All input data is 
 # included in a separate module called pygem_input.py. It is recommended to not make any changes to this file unless
 # you are a PyGEM developer and making changes to the model architecture.
 #
-# ========== IMPORT PACKAGES ==========================================================================================
+#%%========= IMPORT PACKAGES ==========================================================================================
 # Various packages are used to provide the proper architecture and framework for the calculations used in this script. 
-# Some packages (e.g., datetime) are included in order to speed of calculations and simplify code.
+# Some packages (e.g., datetime) are included in order to speed up calculations and simplify code.
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -33,7 +33,7 @@ import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 import pygemfxns_output as output
 
-#========== DEVELOPER'S TO-DO LIST ====================================================================================
+#%%======== DEVELOPER'S TO-DO LIST ====================================================================================
 # > Output log file, i.e., file that states input parameters, date of model run, model options selected, 
 #   and any errors that may have come up (e.g., precipitation corrected because negative value, etc.)
 
@@ -55,7 +55,7 @@ else:
 timeelapsed_step1 = timeit.default_timer() - timestart_step1
 print('Step 1 time:', timeelapsed_step1, "s\n")
 
-#===== STEP TWO: HYPSOMETRY, ICE THICKNESS, MODEL TIME FRAME, SURFACE TYPE ============================================
+#%%=== STEP TWO: HYPSOMETRY, ICE THICKNESS, MODEL TIME FRAME, SURFACE TYPE ============================================
 timestart_step2 = timeit.default_timer()
 # Glacier hypsometry [km**2]
 main_glac_hyps = modelsetup.import_hypsometry(main_glac_rgi)
@@ -71,7 +71,7 @@ main_glac_surftypeinit = modelsetup.surfacetypeglacinitial(main_glac_rgi, main_g
 timeelapsed_step2 = timeit.default_timer() - timestart_step2
 print('Step 2 time:', timeelapsed_step2, "s\n")
 
-#===== STEP THREE: IMPORT CLIMATE DATA ================================================================================
+#%%=== STEP THREE: IMPORT CLIMATE DATA ================================================================================
 timestart_step3 = timeit.default_timer()
 if input.option_gcm_downscale == 1:
     # Air Temperature [degC] and GCM dates
@@ -92,7 +92,7 @@ dates_table['date_gcm'] = gcm_time_series
 timeelapsed_step3 = timeit.default_timer() - timestart_step3
 print('Step 3 time:', timeelapsed_step3, "s\n")
 
-#===== STEP FOUR: MASS BALANCE CALCULATIONS ===========================================================================
+#%%=== STEP FOUR: MASS BALANCE CALCULATIONS ===========================================================================
 timestart_step4 = timeit.default_timer()
 # Create output netcdf file
 output.netcdf_output_create(input.rgi_regionsO1[0], main_glac_hyps, dates_table, annual_columns)
@@ -149,10 +149,10 @@ for glac in range(main_glac_rgi.shape[0]):
     # Downscale the gcm temperature [degC] to each bin
     glac_bin_temp = massbalance.downscaletemp2bins(main_glac_rgi, main_glac_hyps, gcm_glac_temp, gcm_glac_elev, glac)
     # Downscale the gcm precipitation [m] to each bin (note: not separated into solid and liquid precipitation yet)
-    glac_bin_precsnow = massbalance.downscaleprec2bins(main_glac_rgi, main_glac_hyps, gcm_glac_prec, gcm_glac_elev, 
-                                                       glac)
+#    glac_bin_precsnow = massbalance.downscaleprec2bins(main_glac_rgi, main_glac_hyps, gcm_glac_prec, gcm_glac_elev, 
+#                                                       glac)
     # Compute accumulation [m w.e.] and precipitation [m] for each bin
-    glac_bin_prec, glac_bin_acc = massbalance.accumulationbins(glac_bin_temp, glac_bin_precsnow, glac)
+#    glac_bin_prec, glac_bin_acc = massbalance.accumulationbins(glac_bin_temp, glac_bin_precsnow, glac)
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
