@@ -149,8 +149,8 @@ for glac in range(main_glac_rgi.shape[0]):
     # Downscale the gcm temperature [degC] to each bin
     glac_bin_temp = massbalance.downscaletemp2bins(main_glac_rgi, main_glac_hyps, gcm_glac_temp, gcm_glac_elev, glac)
     # Downscale the gcm precipitation [m] to each bin (note: not separated into solid and liquid precipitation yet)
-#    glac_bin_precsnow = massbalance.downscaleprec2bins(main_glac_rgi, main_glac_hyps, gcm_glac_prec, gcm_glac_elev, 
-#                                                       glac)
+    glac_bin_precsnow = massbalance.downscaleprec2bins(main_glac_rgi, main_glac_hyps, gcm_glac_prec, gcm_glac_elev, 
+                                                       glac)
     # Compute accumulation [m w.e.] and precipitation [m] for each bin
 #    glac_bin_prec, glac_bin_acc = massbalance.accumulationbins(glac_bin_temp, glac_bin_precsnow, glac)
 

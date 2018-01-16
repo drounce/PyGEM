@@ -243,23 +243,21 @@ def downscaleprec2bins(glac_table, glac_hyps, climate_prec, climate_elev, glac_c
     # Function Options:
     #   > 1 (default) - precip factor bias to correct GCM and a precipitation gradient to adjust precip over the glacier
     #   > 2 (not coded yet) - Huss and Hock (2015), exponential limits, etc.
-    bin_prec = pd.DataFrame(np.zeros(shape=(len(glac_hyps.loc[0]), len(climate_prec.loc[0]))),
-                            columns=list(climate_prec.columns.values),
-                            index=list(glac_hyps.columns.values))
-    for row in range(len(glac_hyps.iloc[0])):
-        # rows are elevation bins, columns are the time series of precipitation data
-        bin_elev = glac_hyps.columns.values[row]
-        if input.option_prec2bins == 1:
-            # Option 1 is the default and uses a precipitation factor and precipitation gradient over the glacier.
-            bin_prec.loc[bin_elev] = (climate_prec.loc[glac_count] * input.prec_factor * (1 + input.prec_grad *
-                                      (int(bin_elev) - glac_table.loc[glac_count, input.option_elev_ref_downscale])))
-            #   P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
-        else:
-            print("\nThis option for 'downscaleprec2bins' has not been coded yet. Please choose an existing option."
-                  "Exiting model run.\n")
-            exit()
+    if input.option_prec2bins == 1:
+        # Option 1 is the default and uses a precipitation factor and precipitation gradient over the glacier.
+        bin_prec = (climate_prec.values[glac_count,:] * input.prec_factor * (1 + input.prec_grad * (
+                    glac_hyps.columns.values.astype(int) - glac_table.loc[glac_count, input.option_elev_ref_downscale])
+                    )[:,np.newaxis])
+        #   P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
+        # Add index and column names
+        bin_prec_export = pd.DataFrame(bin_prec, columns=list(climate_prec.columns.values),
+                                       index=list(glac_hyps.columns.values))
+    else:
+        print("\nThis option for 'downscaleprec2bins' has not been coded yet. Please choose an existing option."
+              "Exiting model run.\n")
+        exit()
     print("The 'downscaleprec2bins' function has finished.")
-    return bin_prec
+    return bin_prec_export
 
 
 def downscaletemp2bins(glac_table, glac_hyps, climate_temp, climate_elev, glac_count):
