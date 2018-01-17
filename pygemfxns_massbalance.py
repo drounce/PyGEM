@@ -392,11 +392,13 @@ def refreezepotentialbins(glac_temp, dates_table):
         bin_refreeze_annual[bin_refreeze_annual < 0] = 0
         # Place annual refreezing in January for accounting and melt purposes
         if input.timestep == 'monthly':
-            placeholder = 
-            for step in range(glac_temp.shape[1]):
-                if dates_table.loc[step, 'month'] == input.refreeze_month:
-                    bin_refreeze[:,step] = bin_refreeze_annual[:,int(step/12)]
-                    #  int() truncates the value, so int(step/12) selects the position of the corresponding year
+            placeholder = (12 - dates_table.loc[0,'month'] + input.refreeze_month) % 12
+            #  using the month of the first timestep and the refreeze month add the annual values to the monthly data
+            bin_refreeze[:,placeholder::12] = bin_refreeze_annual[:,::1]
+#            for step in range(glac_temp.shape[1]):
+#                if dates_table.loc[step, 'month'] == input.refreeze_month:
+#                    bin_refreeze[:,step] = bin_refreeze_annual[:,int(step/12)]
+#                    #  int() truncates the value, so int(step/12) selects the position of the corresponding year
         elif input.timestep == 'daily':
             print("MODEL ERROR: daily time step not coded for Woodward et al. "
                   "(1997) refreeze function yet.\n\nExiting model run.\n\n")

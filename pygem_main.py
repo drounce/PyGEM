@@ -153,7 +153,6 @@ for glac in [0]:
     # Compute accumulation [m w.e.] and precipitation [m] for each bin
     glac_bin_prec, glac_bin_acc = massbalance.accumulationbins(glac_bin_temp, glac_bin_precsnow)
     # Compute potential refreeze [m w.e.] for each bin
-#    glac_bin_temp_annual = massbalance.annualweightedmean_array(glac_bin_temp, dates_table)
     glac_bin_refreeze = massbalance.refreezepotentialbins(glac_bin_temp, dates_table)
     
 #    # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
