@@ -262,7 +262,6 @@ lr_glac = -0.0065
 prec_factor = 0.3
 #   k_p in Radic et al. (2013)
 #   c_prec in Huss and Hock (2015)
-
 prec_grad = 0.0001
 # precipitation gradient on glacier (% m-1)
 DDF_ice = 7.2 * 10**-3
@@ -286,7 +285,7 @@ option_surfacetype = 1
 # How is surface type considered annually?
 option_surfaceablation = 1
 # Option 1 (default) - DDF for snow, ice, and debris
-option_accumulation = 2
+option_accumulation = 1
 # Option 1 (default) - Single threshold (<= snow, > rain)
 # Option 2 - single threshold +/- 1 deg uses linear interpolation
 option_refreezing = 2

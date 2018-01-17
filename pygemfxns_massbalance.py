@@ -56,14 +56,12 @@ import pygem_input as input
     #        functions.
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def ablationsurfacebinsmonthly_V2(option_fxn, bin_ablation_mon, glac_temp,
-                                 glac_surftype, glac_params, dates_table,
-                                 glac_count, year):
+def massbalance_binsmonthly():
     # Note: this will only work for monthly time step!
     """
-    Calculate the surface ablation of every elevation bin for the glacier.
-    Convention: negative ablation indicates surface lowering.
+    Calculate the mass balance for every elevation bin on the glacier.
     """
+    
     # Need to alter the format of the yearly loops
         # Are we using calendar year or water year?
         #   > Provide options to do both.  This should be relatively simple by
@@ -114,7 +112,7 @@ def AAR_glacier(ELA_value, series_area, GlacNo):
     """
     try:
         AAR_output = (1 - (np.cumsum(series_area)).divide(series_area.sum())
-            .iloc[int(ELA_value / binsize) - 1]) * 100
+            .iloc[int(ELA_value / input.binsize) - 1]) * 100
         #  ELA_value is the elevation associated with the ELA, so dividing this by the binsize returns the column position 
         #    if the indexing started at 1, the "-1" accounts for the fact that python starts its indexing at 0, so
         #    ".iloc[int(ELA_value / binsize) - 1]" gives the column of the ELA.
@@ -210,8 +208,8 @@ def accumulationbins(glac_temp, glac_precsnow, glac_count):
     bin_prec = pd.DataFrame(0, columns=glac_temp.columns, index=glac_temp.index)
     bin_snow = pd.DataFrame(0, columns=glac_temp.columns, index=glac_temp.index)
     if input.option_accumulation == 1:
-        mask1 = (glac_temp > glac_params.loc[glac_count,'T_snow'])
-        mask2 = (glac_temp <= glac_params.loc[glac_count,'T_snow'])
+        mask1 = (glac_temp > input.T_snow)
+        mask2 = (glac_temp <= input.T_snow)
         bin_prec[mask1] = glac_precsnow[mask1]
         bin_snow[mask2] = glac_precsnow[mask2]
     elif input.option_accumulation == 2:
@@ -314,7 +312,7 @@ def ELA_glacier(series_massbal_spec, ELA_past):
     #     larger shift would be one way to work around this issue.
     # try and except to avoid errors associated with the entire glacier having a positive or negative mass balance
     try:
-        ELA_output = (series_massbal_spec.index.values[series_ELA_signchange[0]][0] - binsize/2).astype(int)
+        ELA_output = (series_massbal_spec.index.values[series_ELA_signchange[0]][0] - input.binsize/2).astype(int)
         #  series_ELA_signchange[0] returns the position of the ELA. series_massbal_annual.index returns an array 
         #  with one value, so the [0] ais used to accesses the element in that array. The binsize is then used to 
         #  determine the median elevation between those two bins.
@@ -327,11 +325,11 @@ def ELA_glacier(series_massbal_spec, ELA_past):
         try:
             # if entire glacier is positive, then set to the glacier's minimum
             if series_ELA_sign.iloc[np.where(series_ELA_sign != 0)[0][0]] == 1:
-                ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0][0]] - binsize/2
+                ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0][0]] - input.binsize/2
             # if entire glacier is negative, then set to the glacier's maximum
             elif series_ELA_sign.iloc[np.where((series_ELA_sign != 0))[0][0]] == -1:
                 ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0]
-                             [np.where(series_ELA_sign != 0)[0].shape[0]-1]] + binsize/2
+                             [np.where(series_ELA_sign != 0)[0].shape[0]-1]] + input.binsize/2
         except:
             # if the specific mass balance over the entire glacier is 0, i.e., no ablation or accumulation,
             #  then the ELA is the same as the previous timestep
@@ -342,9 +340,9 @@ def ELA_glacier(series_massbal_spec, ELA_past):
 def groupbyyearmean(var):
     """
     Calculate annual mean of variable according to the timestep.
-    Example monthly timestep will group every 12 months, so starting month is important.
+    Monthly timestep will group every 12 months, so starting month is important.
     """
-    if timestep == 'monthly':
+    if input.timestep == 'monthly':
         dayspermonth = pd.Series(var.columns.values).dt.daysinmonth
         daysperyear = dayspermonth.groupby(np.arange(var.shape[1]) // 12).sum()
         weights = pd.Series(0, index=var.columns)
@@ -353,7 +351,7 @@ def groupbyyearmean(var):
             #  // returns the integer (truncated) value of the division
         var_weighted = var*weights
         var_annual = var_weighted.groupby(np.arange(var.shape[1]) // 12, axis=1).sum()
-    elif timestep == 'daily':
+    elif input.timestep == 'daily':
         print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
               'Exiting the model run.\n')
         exit()
@@ -365,17 +363,16 @@ def groupbyyearsum(var):
     Calculate annual sum of variable according to the timestep.
     Example monthly timestep will group every 12 months, so starting month is important.
     """
-    if timestep == 'monthly':
+    if input.timestep == 'monthly':
         var_annual = var.groupby(np.arange(var.shape[1]) // 12, axis=1).sum()
-    elif timestep == 'daily':
+    elif input.timestep == 'daily':
         print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
               'Exiting the model run.\n')
         exit()
     return var_annual
 
 
-def refreezingbins(option_fxn, glac_temp_annual, snow_annual,
-                   surftype_annual, glac_temp):
+def refreezepotential_bins(glac_temp, dates_table):
     # Note: this will only work for monthly time step!
     """
     Calculate the refreezing for every elevation bin on the glacier.
@@ -386,44 +383,41 @@ def refreezingbins(option_fxn, glac_temp_annual, snow_annual,
     #   > 2 - annual refreezing based on mean air temperature according to Woodward et al. (1997)
     #
     bin_refreeze = pd.DataFrame(0, columns=glac_temp.columns, index=glac_temp.index)
-    if option_fxn == 1:
+    if input.option_refreezing == 1:
         print('This option based on Huss and Hock (2015) is intended to be the '
               'default; however, it has not been coded yet due to its '
               'complexity.  For the time being, please choose an option that '
               'exists.\n\nExiting model run.\n\n')
         exit()
-    elif option_fxn == 2:
+    elif input.option_refreezing == 2:
+        # Compute annual mean temperature
+        glac_temp_annual = groupbyyearmean(glac_temp)
         # Compute bin refreeze potential according to Woodward et al. (1997)
         bin_refreeze_annual = ((-0.69 * glac_temp_annual + 0.0096) * 1/100)
         #   R(m) = -0.69 * Tair + 0.0096 * (1 m / 100 cm)
         #   Note: conversion from cm to m is included
-        # Apply bounds for refreezing
-        # Bound 1: Refreezing cannot be less than 0
-        mask1 = (bin_refreeze_annual < 0)
-        bin_refreeze_annual[mask1] = 0
-#        # Bound 2: In the ablation area (surface type of ice for that year), the
-#        #          maximum refreezing is equal to the accumulated snow
-#        mask2 = ((surftype_annual == 1) & (bin_refreeze_annual > snow_annual))
-#        bin_refreeze_annual[mask2] = snow_annual[mask2]
-        # Lastly, refreezing only occurs on glacier (off-glacier = 0)
-        mask3 = (surftype_annual == 0)
-        bin_refreeze_annual[mask3] = 0
+        # Remove negative refreezing values
+        bin_refreeze_annual[bin_refreeze_annual < 0] = 0
         # Place annual refreezing in January for accounting and melt purposes
-        if timestep == 'monthly':
-            for col in range(len(bin_refreeze_annual.iloc[0])):
-                bin_refreeze.iloc[:,col*12 + 3] = bin_refreeze_annual.iloc[:,col]
-        elif timestep == 'daily':
+        if input.timestep == 'monthly':
+            for step in range(bin_refreeze_annual.shape[1]):
+                if dates_table.loc[step, 'month'] == input.refreeze_month:
+                    bin_refreeze.iloc[:,step] = bin_refreeze_annual.iloc[:,int(step/12)]
+                    #  int() truncates the value, so int(step/12) selects the position of the corresponding year
+        elif input.timestep == 'daily':
             print("MODEL ERROR: daily time step not coded for Woodward et al. "
                   "(1997) refreeze function yet.\n\nExiting model run.\n\n")
             exit()
         else:
             print("MODEL ERROR: please select 'daily' or 'monthly' as the time "
                   "step for the model run.\n\nExiting model run.\n\n")
+            exit()
     else:
         print("This option for 'refreezingbins' does not exist.  Please choose "
               "an option that exists. Exiting model run.\n")
+        exit()
     print("The 'refreezingbins' functions has finished.")
-    return bin_refreeze, bin_refreeze_annual
+    return bin_refreeze
 
 
 def specificmassbalanceannual(massbal_annual, snow_annual, ablation_annual,
@@ -466,7 +460,7 @@ def specificmassbalanceannual(massbal_annual, snow_annual, ablation_annual,
         #   positive mass balance. The difference with the roll function will
         #   give 4675 m a value of -2.  Therefore, the ELA will be 4670 m.
     glac_ELA.loc[glac_count, str(year)] = int((ELA_sign.index[ELA_signchange[0]]
-                                               [0] - binsize/2))
+                                               [0] - input.binsize/2))
         # ELA_signchange[0] returns the position associated with ELA
         # ELA_sign.index returns an array with one value, i.e., the ELA value
         # the [0] after ELA_sign.index accesses the element in that array
@@ -551,7 +545,7 @@ def surfacetypebinsannual(option_fxn, surftype_annual, massbal_annual, year):
     #       Surface types (3): Firn, ice, snow
     #           DDF_firn = average(DDF_ice, DDF_snow)
     if option_fxn == 1:
-        if year >= startyear + 4:
+        if year >= input.startyear + 4:
             # Within 1st 5 years, unable to take average of the preceding 5
             # years, so assume that it is constant.  Don't change anything.
             # Note: this suggests that 5 years for model spinup is a good idea.
