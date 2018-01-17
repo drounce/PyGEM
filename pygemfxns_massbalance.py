@@ -190,39 +190,38 @@ def ablationsurfacebinsmonthly(option_fxn, bin_ablation_mon, glac_temp,
     return bin_ablation_mon
 
 
-def accumulationbins(glac_temp, glac_precsnow, glac_count):
+def accumulationbins(glac_temp, glac_precsnow):
     # Note: this will only work for monthly time step!
     """
     Calculate the accumulation for every elevation bin on the glacier.
     
     Output: Pandas dataframes of precipitation [m] and snow [m w.e.] for each bin for each timestep
     (rows = bins, columns = dates)
-    
-    DEVELOPER'S NOTE: USE OF MASKS MAY BE SLOW
     """
     # Surface Ablation Options:
     #   > 1 (default) - single threshold (temp below snow, above rain)
     #   > 2 - linear relationship (fraction of snow prec within +/- 1 deg)
     #         ex. if temp = threshold, then 50% snow and rain
     #    
-    bin_prec = pd.DataFrame(0, columns=glac_temp.columns, index=glac_temp.index)
-    bin_snow = pd.DataFrame(0, columns=glac_temp.columns, index=glac_temp.index)
+    bin_prec = np.zeros(glac_precsnow.shape)
+    bin_snow = np.zeros(glac_precsnow.shape)
     if input.option_accumulation == 1:
-        mask1 = (glac_temp > input.T_snow)
-        mask2 = (glac_temp <= input.T_snow)
-        bin_prec[mask1] = glac_precsnow[mask1]
-        bin_snow[mask2] = glac_precsnow[mask2]
+        # If temperature above threshold, then rain
+        bin_prec[glac_temp > input.T_snow] = glac_precsnow[glac_temp > input.T_snow]
+        # If temperature below threshold, then snow
+        bin_snow[glac_temp <= input.T_snow] = glac_precsnow[glac_temp <= input.T_snow]
     elif input.option_accumulation == 2:
-        mask1 = glac_temp >= input.T_snow + 1
-        mask2 = glac_temp <= input.T_snow - 1
-        mask3 = (glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)
-        # If glac_temp >= T_snow + 1, then precipitation
-        bin_prec[mask1] = glac_precsnow[mask1]
-        # If glac_temp <= T_snow - 1, then snow (precipitation = 0)    
-        bin_snow[mask2] = glac_precsnow[mask2]
-        # Otherwise, apply the linear relationship
-        bin_prec[mask3] = (1/2 + (glac_temp[mask3] - input.T_snow)/2) * glac_precsnow[mask3]
-        bin_snow[mask3] = (1 - (1/2 + (glac_temp[mask3] - input.T_snow)/2)) * glac_precsnow[mask3]
+        # If temperature above maximum threshold, then all rain
+        bin_prec[glac_temp >= input.T_snow + 1] = glac_precsnow[glac_temp >= input.T_snow + 1]
+        # If temperature below minimum threshold, then all snow
+        bin_snow[glac_temp <= input.T_snow - 1] = glac_precsnow[glac_temp <= input.T_snow - 1]
+        # Otherwise temperature between min/max, then mix of snow/rain using linear relationship between min/max
+        bin_prec[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)] = ((1/2 + (
+            glac_temp[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)] - input.T_snow)/2) * 
+            glac_precsnow[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)])
+        bin_snow[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)] = ((1 - (1/2 + (
+            glac_temp[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)] - input.T_snow)/2)) * 
+            glac_precsnow[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)])
     else:
         print("This option for 'option_accumulation' does not exist.  Please choose an option that exists."
               "Exiting model run.\n")
@@ -247,15 +246,11 @@ def downscaleprec2bins(glac_table, glac_hyps, climate_prec, climate_elev, glac_c
                     glac_hyps.columns.values.astype(int) - glac_table.loc[glac_count, input.option_elev_ref_downscale])
                     )[:,np.newaxis])
         #   P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
-        # Add index and column names
-        bin_prec_export = pd.DataFrame(bin_prec, columns=list(climate_prec.columns.values),
-                                       index=list(glac_hyps.columns.values))
     else:
         print("\nThis option for 'downscaleprec2bins' has not been coded yet. Please choose an existing option."
               "Exiting model run.\n")
         exit()
-    print("The 'downscaleprec2bins' function has finished.")
-    return bin_prec_export
+    return bin_prec
 
 
 def downscaletemp2bins(glac_table, glac_hyps, climate_temp, climate_elev, glac_count):
@@ -280,15 +275,11 @@ def downscaletemp2bins(glac_table, glac_hyps, climate_temp, climate_elev, glac_c
         #         matrix A is added to all the rows of the matrix B.  This enables all the calculations to be performed
         #         on a single line as opposed to looping through each row of the matrix
         #         ex. A is a 180x1 matrix and B a is 900x1 matrix, then this returns a 900x180 matrix
-        # Add index and column names
-        bin_temp_export = pd.DataFrame(bin_temp, columns=list(climate_temp.columns.values),
-                                       index=list(glac_hyps.columns.values))
     else:
         print("\nThis option for 'downscaletemp2bins' has not been coded yet. Please choose an existing option. "
               "Exiting model run.\n")
         exit()
-    print("The 'downscaletemp2bins' function has finished.")
-    return bin_temp_export
+    return bin_temp
     
 
 def ELA_glacier(series_massbal_spec, ELA_past):
@@ -337,20 +328,19 @@ def ELA_glacier(series_massbal_spec, ELA_past):
     return ELA_output
 
 
-def groupbyyearmean(var):
+def annualweightedmean_array(var, dates_table):
     """
     Calculate annual mean of variable according to the timestep.
     Monthly timestep will group every 12 months, so starting month is important.
     """
     if input.timestep == 'monthly':
-        dayspermonth = pd.Series(var.columns.values).dt.daysinmonth
-        daysperyear = dayspermonth.groupby(np.arange(var.shape[1]) // 12).sum()
-        weights = pd.Series(0, index=var.columns)
-        for step in range(dayspermonth.shape[0]):
-            weights.iloc[step] = dayspermonth.iloc[step] / daysperyear.iloc[step//12]
-            #  // returns the integer (truncated) value of the division
-        var_weighted = var*weights
-        var_annual = var_weighted.groupby(np.arange(var.shape[1]) // 12, axis=1).sum()
+        dayspermonth = dates_table['daysinmonth'].values.reshape(-1,12)
+        #  creates matrix (rows-years, columns-months) of the number of days per month
+        daysperyear = dayspermonth.sum(axis=1)
+        weights = (dayspermonth / daysperyear[:,np.newaxis]).reshape(-1)
+        #  computes weights for each element, then reshapes it for next step
+        var_annual = (var*weights[np.newaxis,:]).reshape(-1,12).sum(axis=1).reshape(-1,daysperyear.shape[0])
+        #  computes matrix (rows - bins, columns - year) of weighted average for each year
     elif input.timestep == 'daily':
         print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
               'Exiting the model run.\n')
@@ -360,6 +350,8 @@ def groupbyyearmean(var):
 
 def groupbyyearsum(var):
     """
+    NOTE: UPDATE THIS LIKE ANNUALWEIGHTEDMEAN_ARRAY!!!
+    
     Calculate annual sum of variable according to the timestep.
     Example monthly timestep will group every 12 months, so starting month is important.
     """
@@ -372,7 +364,7 @@ def groupbyyearsum(var):
     return var_annual
 
 
-def refreezepotential_bins(glac_temp, dates_table):
+def refreezepotentialbins(glac_temp, dates_table):
     # Note: this will only work for monthly time step!
     """
     Calculate the refreezing for every elevation bin on the glacier.
@@ -382,7 +374,7 @@ def refreezepotential_bins(glac_temp, dates_table):
     #                   according to Huss and Hock (2015)
     #   > 2 - annual refreezing based on mean air temperature according to Woodward et al. (1997)
     #
-    bin_refreeze = pd.DataFrame(0, columns=glac_temp.columns, index=glac_temp.index)
+    bin_refreeze = np.zeros(glac_temp.shape)
     if input.option_refreezing == 1:
         print('This option based on Huss and Hock (2015) is intended to be the '
               'default; however, it has not been coded yet due to its '
@@ -391,18 +383,19 @@ def refreezepotential_bins(glac_temp, dates_table):
         exit()
     elif input.option_refreezing == 2:
         # Compute annual mean temperature
-        glac_temp_annual = groupbyyearmean(glac_temp)
+        glac_temp_annual = annualweightedmean_array(glac_temp, dates_table)
         # Compute bin refreeze potential according to Woodward et al. (1997)
-        bin_refreeze_annual = ((-0.69 * glac_temp_annual + 0.0096) * 1/100)
+        bin_refreeze_annual = (-0.69 * glac_temp_annual + 0.0096) * 1/100
         #   R(m) = -0.69 * Tair + 0.0096 * (1 m / 100 cm)
         #   Note: conversion from cm to m is included
         # Remove negative refreezing values
         bin_refreeze_annual[bin_refreeze_annual < 0] = 0
         # Place annual refreezing in January for accounting and melt purposes
         if input.timestep == 'monthly':
-            for step in range(bin_refreeze_annual.shape[1]):
+            placeholder = 
+            for step in range(glac_temp.shape[1]):
                 if dates_table.loc[step, 'month'] == input.refreeze_month:
-                    bin_refreeze.iloc[:,step] = bin_refreeze_annual.iloc[:,int(step/12)]
+                    bin_refreeze[:,step] = bin_refreeze_annual[:,int(step/12)]
                     #  int() truncates the value, so int(step/12) selects the position of the corresponding year
         elif input.timestep == 'daily':
             print("MODEL ERROR: daily time step not coded for Woodward et al. "

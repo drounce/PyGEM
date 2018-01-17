@@ -144,17 +144,29 @@ timestart_step4 = timeit.default_timer()
 ## Annual runoff [m**3]
 #main_glac_runoff_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
 
-for glac in range(main_glac_rgi.shape[0]):
-# for glac in [0]:
+#for glac in range(main_glac_rgi.shape[0]):
+for glac in [0]:
     # Downscale the gcm temperature [degC] to each bin
     glac_bin_temp = massbalance.downscaletemp2bins(main_glac_rgi, main_glac_hyps, gcm_glac_temp, gcm_glac_elev, glac)
     # Downscale the gcm precipitation [m] to each bin (includes solid and liquid precipitation)
-    glac_bin_precsnow = massbalance.downscaleprec2bins(main_glac_rgi, main_glac_hyps, gcm_glac_prec, gcm_glac_elev, 
-                                                       glac)
+    glac_bin_precsnow = massbalance.downscaleprec2bins(main_glac_rgi, main_glac_hyps, gcm_glac_prec, gcm_glac_elev,glac)
     # Compute accumulation [m w.e.] and precipitation [m] for each bin
-    glac_bin_prec, glac_bin_acc = massbalance.accumulationbins(glac_bin_temp, glac_bin_precsnow, glac)
+    glac_bin_prec, glac_bin_acc = massbalance.accumulationbins(glac_bin_temp, glac_bin_precsnow)
     # Compute potential refreeze [m w.e.] for each bin
-    glac_bin_refreeze = massbalance.refreezepotential_bins(glac_bin_temp, dates_table)
+#    glac_bin_temp_annual = massbalance.annualweightedmean_array(glac_bin_temp, dates_table)
+    glac_bin_refreeze = massbalance.refreezepotentialbins(glac_bin_temp, dates_table)
+    
+#    # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
+#    for step in range(glac_bin_temp.shape[1]):
+##    for step in range(0,26):
+##    for step in range(0,12):
+#        # For first timestep, there is no previous snow depth.
+#        if step == 0:
+#            glac_bin_refreeze.iloc[:,step]
+#            glac_bin_snowdepth.iloc[:,step] = glac_bin_acc.iloc[:,step] + glac_bin_refreeze
+#        else:
+#            glac_bin_snowdepth.iloc[:,step] = glac_bin_
+        
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
