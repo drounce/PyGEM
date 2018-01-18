@@ -275,14 +275,15 @@ T_snow = 0
 DDF_firn = np.mean([DDF_ice, DDF_snow])
 # DDF firn (m w.e. d-1 degC-1)
 # DDF_firn is average of DDF_ice and DDF_snow (Huss and Hock, 2015)
-
+DDF_debris = DDF_ice
+# DDF debris currently equivalent to ice
 
 option_elev_ref_downscale = 'Zmed'
 # Option 1 (default) - 'Zmed', median glacier elevation
 # Option 2 - 'Zmax', maximum glacier elevation
 # Option 3 - 'Zmin', minimum glacier elevation (terminus)
 option_surfacetype = 1
-# How is surface type considered annually?
+# How is surface type considered, annually?
 option_surfaceablation = 1
 # Option 1 (default) - DDF for snow, ice, and debris
 option_accumulation = 1

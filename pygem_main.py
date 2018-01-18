@@ -154,26 +154,67 @@ for glac in [0]:
     glac_bin_prec, glac_bin_acc = massbalance.accumulationbins(glac_bin_temp, glac_bin_precsnow)
     # Compute potential refreeze [m w.e.] for each bin
     glac_bin_refreeze = massbalance.refreezepotentialbins(glac_bin_temp, dates_table)
+    # Set initial surface type for first timestep [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
+    surfacetype = main_glac_surftypeinit.iloc[glac,:].values
+    
+    # TURN THIS INTO A FUNCTION
+    # Set dictionary for surface type and DDF (will need to revise for calibration)
+    surfacetype_ddf_dict = {
+            1: input.DDF_ice,
+            2: input.DDF_snow,
+            3: input.DDF_firn,
+            4: input.DDF_debris}
     
     # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
 #    for step in range(glac_bin_temp.shape[1]):
 #    for step in range(0,26):
 #    for step in range(0,12):
     # List input matrices to simplify creating a mass balance function:
+    #  - surfacetype
     #  - glac_bin_refreeze
     #  - glac_bin_acc
-    #  - 
+    #  - glac_bin_temp
+    #  - dayspermonth
+    dayspermonth = dates_table['daysinmonth'].values
+    # Variables to export with function
     glac_bin_snowdepth = np.zeros(glac_bin_temp.shape)
+    glac_bin_melt_snow = np.zeros(glac_bin_temp.shape)
+    glac_bin_surftype = np.zeros(glac_bin_temp.shape)
+    # Local variables used within the function
+    snowdepth_remaining = np.zeros(glac_bin_temp.shape[0])
+    melt_energy_available = np.zeros(glac_bin_temp.shape[0])
+    surfacetype_ddf = np.zeros(glac_bin_temp.shape[0])
     for step in [0]:
-        # For first timestep, there is no previous snow depth.        
-        if step == 0:
-            glac_bin_refreeze[glac_bin_refreeze[:,step] > glac_bin_acc[:,step], step] = (
-                glac_bin_acc[glac_bin_refreeze[:,step] > glac_bin_acc[:,step], step])
-            glac_bin_snowdepth[:,step] = glac_bin_acc[:,step] + glac_bin_refreeze[:,step]
-        else:
-            glac_bin_snowdepth[:,step] = (glac_bin_snowdepth_final[:,step] + glac_bin_acc[:,step] + 
-                                          glac_bin_refreeze[:,step])
+        # Refreeze [m w.e.] cannot be greater than snow depth
+        mask_refreeze = glac_bin_refreeze[:,step] > (snowdepth_remaining + glac_bin_acc[:,step])
+        glac_bin_refreeze[mask_refreeze,step] = (snowdepth_remaining[mask_refreeze] + 
+                                                 glac_bin_acc[mask_refreeze,step])
+        # Snow depth [m w.e.] = snow remaining + new snow + refreeze
+        glac_bin_snowdepth[:,step] = snowdepth_remaining + glac_bin_acc[:,step] + glac_bin_refreeze[:,step]
+        # Available energy for melt [degC day]
+        melt_energy_available = glac_bin_temp[:,step]*dayspermonth[step]
+        melt_energy_available[(melt_energy_available < 0) | (surfacetype == 0)] = 0
+        #  remove off-glacier values and those less than zero
+        # Snow melt [m w.e.]
+        glac_bin_melt_snow[:,step] = input.DDF_snow * melt_energy_available
+        glac_bin_melt_snow[glac_bin_melt_snow[:,step] > glac_bin_snowdepth[:,step]] = (
+                glac_bin_snowdepth[glac_bin_melt_snow[:,step] > glac_bin_snowdepth[:,step]])
+        #  snow melt cannot exceed the snow depth
+        # Snow remaining [m w.e.]
+        snowdepth_remaining = glac_bin_snowdepth[:,step] - glac_bin_melt_snow[:,step]
+        # Energy remaining after snow melt [degC day]
+        melt_energy_available = melt_energy_available - glac_bin_melt_snow[:,step] / input.DDF_snow
         
+        # With remaining energy compute snow/firn melt...
+        
+        # DDF values based on surface type
+        surfacetype_ddf[surfacetype == 1]
+        
+        
+        
+        # Record surface type 
+        glac_bin_surftype[:,step] = surfacetype
+
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
