@@ -225,7 +225,6 @@ def accumulationbins(glac_temp, glac_precsnow):
     else:
         print("This option for 'option_accumulation' does not exist.  Please choose an option that exists."
               "Exiting model run.\n")
-    print("The 'accumulationbins' functions has finished.")
     return bin_prec, bin_snow
 
 
@@ -411,7 +410,6 @@ def refreezepotentialbins(glac_temp, dates_table):
         print("This option for 'refreezingbins' does not exist.  Please choose "
               "an option that exists. Exiting model run.\n")
         exit()
-    print("The 'refreezingbins' functions has finished.")
     return bin_refreeze
 
 

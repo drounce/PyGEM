@@ -82,7 +82,6 @@ def importGCMfxnearestneighbor_xarray(filename, variablename, glac_table):
         # Otherwise, provide warning
         else:
             print('Check units of elevation from GCM is m.')
-    print(f"The 'importGCMfxnearestneighbor' fxn for '{variablename}' has finished.")
     return glac_variable
 
 
@@ -201,7 +200,6 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
                       " exists.\n\n"
                       "Exiting the model run.\n")
                 exit()
-    print(f"The 'importGCMvarnearestneighbor' fxn for '{variablename}' has finished.")
     return glac_variable_series, time_series
 
 #========= FUNCTIONS NO LONGER USED (alphabetical order) ==============================================================

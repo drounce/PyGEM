@@ -155,16 +155,24 @@ for glac in [0]:
     # Compute potential refreeze [m w.e.] for each bin
     glac_bin_refreeze = massbalance.refreezepotentialbins(glac_bin_temp, dates_table)
     
-#    # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
+    # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
 #    for step in range(glac_bin_temp.shape[1]):
-##    for step in range(0,26):
-##    for step in range(0,12):
-#        # For first timestep, there is no previous snow depth.
-#        if step == 0:
-#            glac_bin_refreeze.iloc[:,step]
-#            glac_bin_snowdepth.iloc[:,step] = glac_bin_acc.iloc[:,step] + glac_bin_refreeze
-#        else:
-#            glac_bin_snowdepth.iloc[:,step] = glac_bin_
+#    for step in range(0,26):
+#    for step in range(0,12):
+    # List input matrices to simplify creating a mass balance function:
+    #  - glac_bin_refreeze
+    #  - glac_bin_acc
+    #  - 
+    glac_bin_snowdepth = np.zeros(glac_bin_temp.shape)
+    for step in [0]:
+        # For first timestep, there is no previous snow depth.        
+        if step == 0:
+            glac_bin_refreeze[glac_bin_refreeze[:,step] > glac_bin_acc[:,step], step] = (
+                glac_bin_acc[glac_bin_refreeze[:,step] > glac_bin_acc[:,step], step])
+            glac_bin_snowdepth[:,step] = glac_bin_acc[:,step] + glac_bin_refreeze[:,step]
+        else:
+            glac_bin_snowdepth[:,step] = (glac_bin_snowdepth_final[:,step] + glac_bin_acc[:,step] + 
+                                          glac_bin_refreeze[:,step])
         
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4

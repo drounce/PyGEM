@@ -129,7 +129,6 @@ def datesmodelrun():
     elif input.timestep == 'daily':
         print('Need to write according to leapyear.  Code this. Exiting now.')
         exit()
-    print("The 'datesmodelrun' function has finished.")
     return dates_table, startdate, enddate, monthly_columns, annual_columns, annual_divisor
     # note from previous version:
         # dates = dates.to_series().apply(lambda x: x.strftime("%Y-%m"))
@@ -365,7 +364,6 @@ def selectglaciersrgitable():
     glacier_table_copy.drop(input.rgi_cols_drop, axis=1, inplace=True)
         # drop columns of data that is not being used
     glacier_table_copy.index.name = input.indexname
-    print("The 'select_rgi_glaciers' function has finished.")
     return glacier_table_copy        
     # OPTION 2: CUSTOMIZE REGIONS USING A SHAPEFILE that specifies the
     #           various regions according to the RGI IDs, i.e., add an
@@ -465,5 +463,4 @@ def surfacetypeglacinitial(glac_table, glac_hyps):
         # could capture the spatial variations in debris thickness that the maps supply.
     # Make sure surface type is integer values
     glac_surftype = glac_surftype.astype(int)
-    print("The 'initialsurfacetype' function has finished.")
     return glac_surftype
