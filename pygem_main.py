@@ -156,36 +156,33 @@ for glac in [0]:
     glac_bin_refreeze = massbalance.refreezepotentialbins(glac_bin_temp, dates_table)
     # Set initial surface type for first timestep [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
     surfacetype = main_glac_surftypeinit.iloc[glac,:].values
-    
-    # TURN THIS INTO A FUNCTION
-    # Set dictionary for surface type and DDF (will need to revise for calibration)
-    surfacetype_ddf_dict = {
-            1: input.DDF_ice,
-            2: input.DDF_snow,
-            3: input.DDF_firn,
-            4: input.DDF_debris}
+    # Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
+    surfacetype_ddf_dict = modelsetup.surfacetypeDDFdict()
     
     # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
 #    for step in range(glac_bin_temp.shape[1]):
 #    for step in range(0,26):
 #    for step in range(0,12):
     # List input matrices to simplify creating a mass balance function:
-    #  - surfacetype
-    #  - glac_bin_refreeze
-    #  - glac_bin_acc
     #  - glac_bin_temp
+    #  - glac_bin_acc
+    #  - glac_bin_refreeze
+    #  - surfacetype
+    #  -surfacetype_ddf_dict
     #  - dayspermonth
     dayspermonth = dates_table['daysinmonth'].values
     # Variables to export with function
     glac_bin_snowdepth = np.zeros(glac_bin_temp.shape)
-    glac_bin_melt_snow = np.zeros(glac_bin_temp.shape)
-    glac_bin_surftype = np.zeros(glac_bin_temp.shape)
+    glac_bin_melt = np.zeros(glac_bin_temp.shape)
+    glac_bin_meltsnow = np.zeros(glac_bin_temp.shape)
+    glac_bin_meltglac = np.zeros(glac_bin_temp.shape)
+    glac_bin_frontalablation = np.zeros(glac_bin_temp.shape)
     # Local variables used within the function
     snowdepth_remaining = np.zeros(glac_bin_temp.shape[0])
-    melt_energy_available = np.zeros(glac_bin_temp.shape[0])
     surfacetype_ddf = np.zeros(glac_bin_temp.shape[0])
     for step in [0]:
-        # Refreeze [m w.e.] cannot be greater than snow depth
+        # Compute the snow depth and snow melt for each bin...
+        # Refreeze [m w.e.] cannot be greater than snow depth ****WHEN UNDERLAIN BY ICE*****
         mask_refreeze = glac_bin_refreeze[:,step] > (snowdepth_remaining + glac_bin_acc[:,step])
         glac_bin_refreeze[mask_refreeze,step] = (snowdepth_remaining[mask_refreeze] + 
                                                  glac_bin_acc[mask_refreeze,step])
@@ -196,21 +193,27 @@ for glac in [0]:
         melt_energy_available[(melt_energy_available < 0) | (surfacetype == 0)] = 0
         #  remove off-glacier values and those less than zero
         # Snow melt [m w.e.]
-        glac_bin_melt_snow[:,step] = input.DDF_snow * melt_energy_available
-        glac_bin_melt_snow[glac_bin_melt_snow[:,step] > glac_bin_snowdepth[:,step]] = (
-                glac_bin_snowdepth[glac_bin_melt_snow[:,step] > glac_bin_snowdepth[:,step]])
+        glac_bin_meltsnow[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
+        glac_bin_meltsnow[glac_bin_meltsnow[:,step] > glac_bin_snowdepth[:,step]] = (
+                glac_bin_snowdepth[glac_bin_meltsnow[:,step] > glac_bin_snowdepth[:,step]])
         #  snow melt cannot exceed the snow depth
         # Snow remaining [m w.e.]
-        snowdepth_remaining = glac_bin_snowdepth[:,step] - glac_bin_melt_snow[:,step]
+        snowdepth_remaining = glac_bin_snowdepth[:,step] - glac_bin_meltsnow[:,step]
         # Energy remaining after snow melt [degC day]
-        melt_energy_available = melt_energy_available - glac_bin_melt_snow[:,step] / input.DDF_snow
+        melt_energy_available = melt_energy_available - glac_bin_meltsnow[:,step] / input.DDF_snow
+        # DDF based on surface type [m w.e. degC-1 day-1]
+        for k in surfacetype_ddf_dict: surfacetype_ddf[surfacetype == k] = surfacetype_ddf_dict[k]
+        # Glacier melt [m w.e.] based on remaining energy
+        glac_bin_meltglac[:,step] = surfacetype_ddf * melt_energy_available
+        # Total melt (snow + glacier)
+        glac_bin_melt[:,step] = glac_bin_meltglac[:,step] + glac_bin_meltsnow[:,step]
+        # Reset available energy to ensure no energy is carried over into next timestep
+        melt_energy_available = np.zeros(glac_bin_temp.shape)
         
-        # With remaining energy compute snow/firn melt...
+        # Compute frontal ablation
+        #   - INSERT CODE HERE
         
-        # DDF values based on surface type
-        surfacetype_ddf[surfacetype == 1]
-        
-        
+        # 
         
         # Record surface type 
         glac_bin_surftype[:,step] = surfacetype
