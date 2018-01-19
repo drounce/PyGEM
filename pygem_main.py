@@ -217,12 +217,12 @@ for glac in [0]:
         glac_bin_refreeze[:,step] = glac_bin_meltsnow[:,step]
         # refreeze cannot exceed refreeze potential
         glac_bin_refreeze[glac_bin_refreeze[:,step] > refreeze_potential, step] = (
-                refreeze_potential[glac_bin_refreeze[:,step] > refreeze_potential, step])
+                refreeze_potential[glac_bin_refreeze[:,step] > refreeze_potential])
         # Refreeze melt [m w.e.]
         glac_bin_meltrefreeze[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
         # refreeze melt cannot exceed the refreeze
         glac_bin_meltrefreeze[glac_bin_meltrefreeze[:,step] > glac_bin_refreeze[:,step], step] = (
-                glac_bin_refreeze[glac_bin_melt[:,step] > glac_bin_snowdepth[:,step], step])
+                glac_bin_refreeze[glac_bin_meltrefreeze[:,step] > glac_bin_refreeze[:,step], step])
         # Energy remaining after refreeze melt [degC day]
         melt_energy_available = melt_energy_available - glac_bin_meltrefreeze[:,step] / surfacetype_ddf_dict[2]
         # Snow remaining [m w.e.]
@@ -244,7 +244,7 @@ for glac in [0]:
         #  This may be an improvement, since this will need to be updated if more surface types are added in the future.
         # refreeze cannot exceed refreeze potential
         glac_bin_refreeze[glac_bin_refreeze[:,step] > refreeze_potential, step] = (
-                refreeze_potential[glac_bin_refreeze[:,step] > refreeze_potential, step])
+                refreeze_potential[glac_bin_refreeze[:,step] > refreeze_potential])
         # update refreeze potential
         refreeze_potential = refreeze_potential - glac_bin_refreeze[:,step]
         
