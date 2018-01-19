@@ -182,8 +182,9 @@ for glac in [0]:
     surfacetype_ddf = np.zeros(glac_bin_temp.shape[0])
     for step in [0]:
         # Compute the snow depth and snow melt for each bin...
-        # Refreeze [m w.e.] cannot be greater than snow depth ****WHEN UNDERLAIN BY ICE*****
-        mask_refreeze = glac_bin_refreeze[:,step] > (snowdepth_remaining + glac_bin_acc[:,step])
+        # Refreeze [m w.e.] cannot be greater than snow depth in the ablation zone
+        mask_refreeze = ((glac_bin_refreeze[:,step] > (snowdepth_remaining + glac_bin_acc[:,step])) & 
+                         ((surfacetype == 1) | (surfacetype == 4)))
         glac_bin_refreeze[mask_refreeze,step] = (snowdepth_remaining[mask_refreeze] + 
                                                  glac_bin_acc[mask_refreeze,step])
         # Snow depth [m w.e.] = snow remaining + new snow + refreeze
@@ -213,10 +214,7 @@ for glac in [0]:
         # Compute frontal ablation
         #   - INSERT CODE HERE
         
-        # 
-        
-        # Record surface type 
-        glac_bin_surftype[:,step] = surfacetype
+        # Annual computations to adjust surface type, area, volume, and length
 
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
