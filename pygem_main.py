@@ -153,7 +153,7 @@ for glac in [0]:
     # Compute accumulation [m w.e.] and precipitation [m] for each bin
     glac_bin_prec, glac_bin_acc = massbalance.accumulationbins(glac_bin_temp, glac_bin_precsnow)
     # Compute potential refreeze [m w.e.] for each bin
-    glac_bin_refreeze = massbalance.refreezepotentialbins(glac_bin_temp, dates_table)
+    glac_bin_refreezepotential = massbalance.refreezepotentialbins(glac_bin_temp, dates_table)
     # Set initial surface type for first timestep [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
     surfacetype = main_glac_surftypeinit.iloc[glac,:].values
     # Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
@@ -166,9 +166,9 @@ for glac in [0]:
     # List input matrices to simplify creating a mass balance function:
     #  - glac_bin_temp
     #  - glac_bin_acc
-    #  - glac_bin_refreeze
+    #  - glac_bin_refreezepotential
     #  - surfacetype
-    #  -surfacetype_ddf_dict
+    #  - surfacetype_ddf_dict
     #  - dayspermonth
     dayspermonth = dates_table['daysinmonth'].values
     # Variables to export with function
@@ -176,28 +176,35 @@ for glac in [0]:
     glac_bin_melt = np.zeros(glac_bin_temp.shape)
     glac_bin_meltsnow = np.zeros(glac_bin_temp.shape)
     glac_bin_meltglac = np.zeros(glac_bin_temp.shape)
+    glac_bin_refreeze = np.zeros(glac_bin_temp.shape)
     glac_bin_frontalablation = np.zeros(glac_bin_temp.shape)
     # Local variables used within the function
     snowdepth_remaining = np.zeros(glac_bin_temp.shape[0])
+    snowdepth_refreeze = np.zeros(glac_bin_temp.shape[0])
     surfacetype_ddf = np.zeros(glac_bin_temp.shape[0])
+    
+    refreeze_potential = np.zeros(glac_bin_temp.shape[0])
     for step in [0]:
-        # Compute the snow depth and snow melt for each bin...
-        # Refreeze [m w.e.] cannot be greater than snow depth in the ablation zone
-        mask_refreeze = ((glac_bin_refreeze[:,step] > (snowdepth_remaining + glac_bin_acc[:,step])) & 
-                         ((surfacetype == 1) | (surfacetype == 4)))
-        glac_bin_refreeze[mask_refreeze,step] = (snowdepth_remaining[mask_refreeze] + 
-                                                 glac_bin_acc[mask_refreeze,step])
-        # Snow depth [m w.e.] = snow remaining + new snow + refreeze
-        glac_bin_snowdepth[:,step] = snowdepth_remaining + glac_bin_acc[:,step] + glac_bin_refreeze[:,step]
+        # Mask out input that is off-glacier
+        #  this is done for each step, since the glacier extent will vary over time
+        glac_bin_temp[surfacetype==0,step] = 0
+        glac_bin_acc[surfacetype==0,step] = 0
+        glac_bin_refreezepotential[surfacetype==0,step] = 0
+        # Compute the snow depth and melt for each bin...
+        # Snow depth [m w.e.] = snow remaining + refreeze + new snow
+        #  since refreeze is computed at the end of the month, it needs to be included in the next month's snowpack
+        glac_bin_snowdepth[:,step] = snowdepth_remaining + snowdepth_refreeze + glac_bin_acc[:,step]
         # Available energy for melt [degC day]
         melt_energy_available = glac_bin_temp[:,step]*dayspermonth[step]
-        melt_energy_available[(melt_energy_available < 0) | (surfacetype == 0)] = 0
-        #  remove off-glacier values and those less than zero
+        melt_energy_available[melt_energy_available < 0] = 0
         # Snow melt [m w.e.]
         glac_bin_meltsnow[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
         glac_bin_meltsnow[glac_bin_meltsnow[:,step] > glac_bin_snowdepth[:,step]] = (
                 glac_bin_snowdepth[glac_bin_meltsnow[:,step] > glac_bin_snowdepth[:,step]])
         #  snow melt cannot exceed the snow depth
+        
+        # INSERT REFREEZE CALCULATIONS HERE
+        
         # Snow remaining [m w.e.]
         snowdepth_remaining = glac_bin_snowdepth[:,step] - glac_bin_meltsnow[:,step]
         # Energy remaining after snow melt [degC day]
@@ -209,10 +216,45 @@ for glac in [0]:
         # Total melt (snow + glacier)
         glac_bin_melt[:,step] = glac_bin_meltglac[:,step] + glac_bin_meltsnow[:,step]
         # Reset available energy to ensure no energy is carried over into next timestep
-        melt_energy_available = np.zeros(glac_bin_temp.shape)
+        melt_energy_available = np.zeros(glac_bin_temp.shape[0])
+        
+        # Compute the refreeze for each bin...
+        #  refreeze cannot exceed the amount of snow melt, since it needs a source to refreeze; in the accumulation
+        #   zone the only limit is therefore the refreeze potential
+        #  refreeze is computed at the end of the timestep, since the amount of snow melt will control the amount of
+        #   refreeze; the implication is that technically there is some level of refreeze that could occur and should be
+        #   included in that melt
+        
+        # Refreeze potential [m w.e.]
+        #  refreeze potential will vary depending on the method, e.g., Radic and Hock (2011) update the refreeze
+        #  potential each year, while Huss and Hock (2015) update the refreeze potential each month; therefore, need to
+        #  check if the refreeze is being updated (non-zero values) or not
+        if glac_bin_refreezepotential[:,step].max() != 0:
+            refreeze_potential = glac_bin_refreezepotential[:,step]
+        # Refreeze [m w.e.]
+        #  alternatively, could use ELA altitude and reference into the bins - this requires the ELA and bin size such
+        #  that the proper row can be referenced (this would not need to be updated assuming range of bins doesn't 
+        #  change.  This may be an improvement though over the surfacetype options if more surface types are added in 
+        #  the future (this would require updating).
+        # if in ablation area (surfacetype = 1 or 4), then refreeze = snow melt
+        glac_bin_refreeze[(surfacetype == 1) | (surfacetype == 4), step] = (
+                glac_bin_meltsnow[(surfacetype == 1) | (surfacetype == 4), step])
+        # if in accumulation area (surfacetype = 2 or 3), then refreeze = total melt
+        glac_bin_refreeze[(surfacetype == 2) | (surfacetype == 3), step] = (
+                glac_bin_melt[(surfacetype == 2) | (surfacetype == 3), step])
+        # mask values such that refreeze does not exceed refreeze potential
+        glac_bin_refreeze[glac_bin_refreeze[:,step] > refreeze_potential, step] = (
+                refreeze_potential[glac_bin_refreeze[:,step] > refreeze_potential])
+        # update refreeze potential
+        refreeze_potential = refreeze_potential - glac_bin_refreeze[:,step]
+        # Snow depth refreeze [m w.e.]
+        snowdepth_refreeze = glac_bin_refreeze[:,step]
+ 
         
         # Compute frontal ablation
         #   - INSERT CODE HERE
+        
+        # Somewhere need to ensure that only calculating mass balance on the glacier
         
         # Annual computations to adjust surface type, area, volume, and length
 

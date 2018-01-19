@@ -373,7 +373,8 @@ def refreezepotentialbins(glac_temp, dates_table):
     #                   according to Huss and Hock (2015)
     #   > 2 - annual refreezing based on mean air temperature according to Woodward et al. (1997)
     #
-    bin_refreeze = np.zeros(glac_temp.shape)
+    # 1/19/18 - switched to refreeze potential, which is given annually
+    bin_refreezepotential = np.zeros(glac_temp.shape)
     if input.option_refreezing == 1:
         print('This option based on Huss and Hock (2015) is intended to be the '
               'default; however, it has not been coded yet due to its '
@@ -384,16 +385,16 @@ def refreezepotentialbins(glac_temp, dates_table):
         # Compute annual mean temperature
         glac_temp_annual = annualweightedmean_array(glac_temp, dates_table)
         # Compute bin refreeze potential according to Woodward et al. (1997)
-        bin_refreeze_annual = (-0.69 * glac_temp_annual + 0.0096) * 1/100
+        bin_refreezepotential_annual = (-0.69 * glac_temp_annual + 0.0096) * 1/100
         #   R(m) = -0.69 * Tair + 0.0096 * (1 m / 100 cm)
         #   Note: conversion from cm to m is included
         # Remove negative refreezing values
-        bin_refreeze_annual[bin_refreeze_annual < 0] = 0
+        bin_refreezepotential_annual[bin_refreezepotential_annual < 0] = 0
         # Place annual refreezing in January for accounting and melt purposes
         if input.timestep == 'monthly':
             placeholder = (12 - dates_table.loc[0,'month'] + input.refreeze_month) % 12
             #  using the month of the first timestep and the refreeze month add the annual values to the monthly data
-            bin_refreeze[:,placeholder::12] = bin_refreeze_annual[:,::1]
+            bin_refreezepotential[:,placeholder::12] = bin_refreezepotential_annual[:,::1]
 #            for step in range(glac_temp.shape[1]):
 #                if dates_table.loc[step, 'month'] == input.refreeze_month:
 #                    bin_refreeze[:,step] = bin_refreeze_annual[:,int(step/12)]
@@ -410,7 +411,7 @@ def refreezepotentialbins(glac_temp, dates_table):
         print("This option for 'refreezingbins' does not exist.  Please choose "
               "an option that exists. Exiting model run.\n")
         exit()
-    return bin_refreeze
+    return bin_refreezepotential
 
 
 def specificmassbalanceannual(massbal_annual, snow_annual, ablation_annual,
