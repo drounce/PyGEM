@@ -30,6 +30,8 @@ density_water = 1000
 #  kg m**-3
 area_ocean = 362.5 * 10**6
 #  km**2
+tolerance = 1e-12
+#  used to remove very low values caused by rounding errors in calculations
 
 #------- INPUT FOR STEP ONE --------------------------------------------------
 # STEP ONE: Model Region/Glaciers

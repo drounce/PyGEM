@@ -159,10 +159,7 @@ for glac in [0]:
     # Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
     surfacetype_ddf_dict = modelsetup.surfacetypeDDFdict()
     
-    # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
-#    for step in range(glac_bin_temp.shape[1]):
-#    for step in range(0,26):
-#    for step in range(0,12):
+
     # List input matrices to simplify creating a mass balance function:
     #  - glac_bin_temp
     #  - glac_bin_acc
@@ -179,17 +176,28 @@ for glac in [0]:
     glac_bin_meltglac = np.zeros(glac_bin_temp.shape)
     glac_bin_refreeze = np.zeros(glac_bin_temp.shape)
     glac_bin_frontalablation = np.zeros(glac_bin_temp.shape)
+    glac_bin_massbal_clim_mwe = np.zeros(glac_bin_temp.shape)
+    glac_bin_massbal_clim_mwe_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
+    glac_bin_surfacetype_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
     # Local variables used within the function
     snowdepth_remaining = np.zeros(glac_bin_temp.shape[0])
     snowdepth_refreeze = np.zeros(glac_bin_temp.shape[0])
     surfacetype_ddf = np.zeros(glac_bin_temp.shape[0])
-    
     refreeze_potential = np.zeros(glac_bin_temp.shape[0])
-    for step in [0]:
+    
+    # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
+#    for step in range(glac_bin_temp.shape[1]):
+#    for step in range(0,26):
+    for step in range(0,12):
         # Remove input that is off-glacier (required for each timestep as glacier extent may vary over time)
         glac_bin_temp[surfacetype==0,step] = 0
         glac_bin_acc[surfacetype==0,step] = 0
         glac_bin_refreezepotential[surfacetype==0,step] = 0
+        
+        # Indices for rows of glacier (compute for each step to ensure accounting for glacier geometry changes)
+        gbot = np.where(surfacetype!=0)[0][0]
+        gtop = np.where(surfacetype!=0)[0][-1] + 1
+        #  +1 such that top row of glacier is included
         
         # Compute the snow depth and melt for each bin...
         # Snow depth [m w.e.] = snow remaining + new snow
@@ -204,7 +212,7 @@ for glac in [0]:
                 glac_bin_snowdepth[glac_bin_meltsnow[:,step] > glac_bin_snowdepth[:,step], step])
         # Energy remaining after snow melt [degC day]
         melt_energy_available = melt_energy_available - glac_bin_meltsnow[:,step] / surfacetype_ddf_dict[2]
-        
+        melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
         # Compute the refreeze, refreeze melt, and any changes to the snow depth...
         # Refreeze potential [m w.e.]
         #  timing of refreeze potential will vary with the method, e.g., annual air temperature approach updates 
@@ -212,12 +220,12 @@ for glac in [0]:
         if glac_bin_refreezepotential[:,step].max() > 0:
             refreeze_potential = glac_bin_refreezepotential[:,step]
         # Refreeze [m w.e.]
-        #  in ablation zone, refreeze cannot exceed the amount of snow melt, since it needs a source; refreeze in the
-        #  accumulation zone will be modified below
+        #  refreeze cannot exceed the amount of snow melt, since it needs a source (accumulation zone modified below)
         glac_bin_refreeze[:,step] = glac_bin_meltsnow[:,step]
         # refreeze cannot exceed refreeze potential
         glac_bin_refreeze[glac_bin_refreeze[:,step] > refreeze_potential, step] = (
                 refreeze_potential[glac_bin_refreeze[:,step] > refreeze_potential])
+        glac_bin_refreeze[abs(glac_bin_refreeze[:,step]) < input.tolerance, step] = 0
         # Refreeze melt [m w.e.]
         glac_bin_meltrefreeze[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
         # refreeze melt cannot exceed the refreeze
@@ -225,15 +233,20 @@ for glac in [0]:
                 glac_bin_refreeze[glac_bin_meltrefreeze[:,step] > glac_bin_refreeze[:,step], step])
         # Energy remaining after refreeze melt [degC day]
         melt_energy_available = melt_energy_available - glac_bin_meltrefreeze[:,step] / surfacetype_ddf_dict[2]
+        melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
         # Snow remaining [m w.e.]
         snowdepth_remaining = (glac_bin_snowdepth[:,step] + glac_bin_refreeze[:,step] - glac_bin_meltsnow[:,step] - 
                                glac_bin_meltrefreeze[:,step])
-        
         # Compute any remaining melt and any additional refreeze in the accumulation zone...
         # DDF based on surface type [m w.e. degC-1 day-1]
         for k in surfacetype_ddf_dict: surfacetype_ddf[surfacetype == k] = surfacetype_ddf_dict[k]
         # Glacier melt [m w.e.] based on remaining energy
         glac_bin_meltglac[:,step] = surfacetype_ddf * melt_energy_available
+        # Energy remaining after glacier surface melt [degC day]
+        melt_energy_available[surfacetype != 0] = (melt_energy_available[surfacetype != 0] - 
+                             glac_bin_meltglac[surfacetype != 0, step] / surfacetype_ddf[surfacetype != 0])
+        melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
+        #  must specify on-glacier values, otherwise this will divide by zero and cause an error
         # Additional refreeze in the accumulation area [m w.e.]
         #  refreeze in accumulation zone = refreeze of snow + refreeze of underlying snow/firn
         glac_bin_refreeze[(surfacetype == 2) | (surfacetype == 3), step] = (
@@ -247,20 +260,72 @@ for glac in [0]:
                 refreeze_potential[glac_bin_refreeze[:,step] > refreeze_potential])
         # update refreeze potential
         refreeze_potential = refreeze_potential - glac_bin_refreeze[:,step]
-        
+        refreeze_potential[abs(refreeze_potential) < input.tolerance] = 0
         # Total melt (snow + refreeze + glacier)
         glac_bin_melt[:,step] = glac_bin_meltglac[:,step] + glac_bin_meltrefreeze[:,step] + glac_bin_meltsnow[:,step]
         # Reset available energy to ensure no energy is carried over into next timestep
-        melt_energy_available = np.zeros(glac_bin_temp.shape[0]) 
+#        melt_energy_available = np.zeros(glac_bin_temp.shape[0]) 
         
         # Compute frontal ablation
         #   - INSERT CODE HERE
         
-        # CHECK THAT REFREEZE IS PROPERLY INCORPORATED INTO SNOW PACK, MELT CALCULATIONS, ETC.
-        # Somewhere need to ensure that only calculating mass balance on the glacier
+        # Climatic mass balance [m w.e.]
+        glac_bin_massbal_clim_mwe[:,step] = (glac_bin_acc[:,step] + glac_bin_refreeze[:,step] - glac_bin_melt[:,step] -
+                                             glac_bin_frontalablation[:,step])
+        #  climatic mass balance = accumulation + refreeze - melt - frontal ablation
         
         
-        # Annual computations to adjust surface type, area, volume, and length
+        # ENTER ANNUAL LOOP
+        #  at the end of each year, update glacier characteristics (surface type, length, area, volume)
+        if (step + 1) % annual_divisor == 0:
+            # % gives the remainder; since step starts at 0, add 1 such that this switches at end of year
+            # Index year
+            year_index = int(step/annual_divisor)
+            #  Note: year_index*annual_divisor gives initial step of the given year
+            #        step + 1 gives final step of the given year
+            # Annual climatic mass balance [m w.e.]
+            glac_bin_massbal_clim_mwe_annual[:,year_index] = (
+                glac_bin_massbal_clim_mwe[:,year_index*annual_divisor:step+1].sum(1))
+            
+            # Surface type (CONVERT TO ITS OWN FUNCTION)
+            glac_bin_surfacetype_annual[:,year_index] = surfacetype
+            # Compute the surface type for each bin
+            #  Next year's surface type is based on the bin's average annual climatic mass balance over the last 5
+            #  years.  If less than 5 years, then use the average of the existing years.
+            if year_index < 5:
+                # Calculate average annual climatic mass balance since run began
+                massbal_clim_mwe_runningavg = glac_bin_massbal_clim_mwe_annual[:,0:year_index+1].mean(1)
+#                
+#
+#                series_surftype_massbal_clim_mwe_runningavg = (
+#                        glac_bin_massbal_clim_mwe_annual.iloc[:,0:year_position+1].mean(axis=1))
+#            # Otherwise, use 5 year average annual specific climatic mass balance [m w.e.]
+#            # if statement used to avoid errors with the last year, since the model run is over
+#            elif glac_bin_surftype_annual.columns.values[year_position] != endyear:
+#                series_surftype_massbal_clim_mwe_runningavg = (
+#                    glac_bin_massbal_clim_mwe_annual.iloc[:, year_position-4:year_position+1].mean(axis=1))
+#                #  "year_position - 4 : year_position + 1" provides 5 year running average with current year included
+#            # If the average annual specific climatic mass balance is negative, then the surface type is ice (or debris)
+#            mask_surftype_accumulationneg = (series_surftype_massbal_clim_mwe_runningavg <= 0) & (series_surftype > 0)
+#            series_surftype[mask_surftype_accumulationneg] = 1
+#            # If the average annual specific climatic mass balance is positive, then the surface type is snow (or firn)
+#            mask_surftype_accumulationpos = (series_surftype_massbal_clim_mwe_runningavg > 0) & (series_surftype > 0)
+#            series_surftype[mask_surftype_accumulationpos] = 2
+#            # Apply model options for firn and debris
+#            if option_surfacetype_firn == 1:
+#                series_surftype[series_surftype == 2] = 3
+#                #  if firn is included in the model, then change any snow surface to firn
+#            if option_surfacetype_debris == 1:
+#                print('Need to code the model to include debris. This option does not '
+#                      'currently exist.  Please choose an option that does.\nExiting '
+#                      'the model run.')
+#                exit()
+#            # Update the surface type for the following year
+#            # if statement used to avoid error in final year, since model run is over
+#            if glac_bin_surftype_annual.columns.values[year_position] != endyear:
+#                glac_bin_surftype_annual.iloc[:,year_position+1] = series_surftype
+            
+        
 
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
