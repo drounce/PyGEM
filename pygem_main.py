@@ -194,10 +194,10 @@ for glac in [0]:
         glac_bin_acc[surfacetype==0,step] = 0
         glac_bin_refreezepotential[surfacetype==0,step] = 0
         
-        # Indices for rows of glacier (compute for each step to ensure accounting for glacier geometry changes)
-        gbot = np.where(surfacetype!=0)[0][0]
-        gtop = np.where(surfacetype!=0)[0][-1] + 1
-        #  +1 such that top row of glacier is included
+        # INDEXING INTO GLACIER ROWS SPEEDS UP SOME CALCULATIONS AND SLOWS DOWN OTHERS
+        # - using [bot:top] is only tenths of a microsecond slower
+        # - using [surfacetype!=0] is 4x slower
+        
         
         # Compute the snow depth and melt for each bin...
         # Snow depth [m w.e.] = snow remaining + new snow
@@ -295,22 +295,15 @@ for glac in [0]:
             if year_index < 5:
                 # Calculate average annual climatic mass balance since run began
                 massbal_clim_mwe_runningavg = glac_bin_massbal_clim_mwe_annual[:,0:year_index+1].mean(1)
-#                
-#
-#                series_surftype_massbal_clim_mwe_runningavg = (
-#                        glac_bin_massbal_clim_mwe_annual.iloc[:,0:year_position+1].mean(axis=1))
-#            # Otherwise, use 5 year average annual specific climatic mass balance [m w.e.]
-#            # if statement used to avoid errors with the last year, since the model run is over
-#            elif glac_bin_surftype_annual.columns.values[year_position] != endyear:
-#                series_surftype_massbal_clim_mwe_runningavg = (
-#                    glac_bin_massbal_clim_mwe_annual.iloc[:, year_position-4:year_position+1].mean(axis=1))
-#                #  "year_position - 4 : year_position + 1" provides 5 year running average with current year included
-#            # If the average annual specific climatic mass balance is negative, then the surface type is ice (or debris)
-#            mask_surftype_accumulationneg = (series_surftype_massbal_clim_mwe_runningavg <= 0) & (series_surftype > 0)
-#            series_surftype[mask_surftype_accumulationneg] = 1
-#            # If the average annual specific climatic mass balance is positive, then the surface type is snow (or firn)
-#            mask_surftype_accumulationpos = (series_surftype_massbal_clim_mwe_runningavg > 0) & (series_surftype > 0)
-#            series_surftype[mask_surftype_accumulationpos] = 2
+            else:
+                massbal_clim_mwe_runningavg = glac_bin_massbal_clim_mwe_annual[:,year_index-4:year_index+1].mean(1)
+            # If the average annual specific climatic mass balance is negative, then the surface type is ice (or debris)
+            surfacetype[(surfacetype!=0) & (glac_bin_massbal_clim_mwe_annual[:,year_index]<=0)] = 1
+            # If the average annual specific climatic mass balance is positive, then the surface type is snow (or firn)
+            surfacetype[(surfacetype!=0) & (glac_bin_massbal_clim_mwe_annual[:,year_index]>0)] = 2
+
+            #
+            
 #            # Apply model options for firn and debris
 #            if option_surfacetype_firn == 1:
 #                series_surftype[series_surftype == 2] = 3
