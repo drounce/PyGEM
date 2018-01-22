@@ -167,7 +167,7 @@ for glac in [0]:
     #  - surfacetype
     #  - surfacetype_ddf_dict
     #  - dayspermonth
-    dayspermonth = dates_table['daysinmonth'].values
+    #  - main_glac_hyps
     # Variables to export with function
     glac_bin_snowdepth = np.zeros(glac_bin_temp.shape)
     glac_bin_melt = np.zeros(glac_bin_temp.shape)
@@ -181,9 +181,11 @@ for glac in [0]:
     glac_bin_surfacetype_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
     # Local variables used within the function
     snowdepth_remaining = np.zeros(glac_bin_temp.shape[0])
-    snowdepth_refreeze = np.zeros(glac_bin_temp.shape[0])
+    dayspermonth = dates_table['daysinmonth'].values
     surfacetype_ddf = np.zeros(glac_bin_temp.shape[0])
     refreeze_potential = np.zeros(glac_bin_temp.shape[0])
+    glacier_area = main_glac_hyps.iloc[glac,:].values.astype(float)
+    elev_bins = main_glac_hyps.columns.values
     
     # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
 #    for step in range(glac_bin_temp.shape[1]):
@@ -287,7 +289,7 @@ for glac in [0]:
             glac_bin_massbal_clim_mwe_annual[:,year_index] = (
                 glac_bin_massbal_clim_mwe[:,year_index*annual_divisor:step+1].sum(1))
             
-            # Surface type (CONVERT TO ITS OWN FUNCTION)
+            ###### SURFACE TYPE (convert to function) #####
             glac_bin_surfacetype_annual[:,year_index] = surfacetype
             # Compute the surface type for each bin
             #  Next year's surface type is based on the bin's average annual climatic mass balance over the last 5
@@ -309,7 +311,77 @@ for glac in [0]:
                 print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
                       'Exiting the model run.')
                 exit()
+            
+            ##### GLACIER GEOMETRY CHANGE (convert to function) #####
+            # Glacier Area / Ice Thickness
+            # Option 1 (default) for geometry change, Huss and Hock (2015)
+            if input.option_geometrychange == 1:
+                #Select the factors for the normalized ice thickness change curve based on glacier areasize
+                 if glacier_area.sum() > 20:
+                     [gamma, a, b, c] = [6, -0.02, 0.12, 0]
+                 elif glacier_area.sum() > 5:
+                     [gamma, a, b, c] = [4, -0.05, 0.19, 0.01]
+                 else:
+                     [gamma, a, b, c] = [2, -0.30, 0.60, 0.09]
+                 # Compute the normalized elevation range
+                 # reset normalized elevation range values, since calculated using indices
+                 elevrange_norm = np.zeros(elev_bins.shape)
+                 # compute position of index of all bins that are nonzero
+                 elev_idx = glacier_area.nonzero()[0].nonzero()[0]
+                 #  nonzero()[0] returns the position of all nonzero values, so nonzero()[0].nonzero()[0] returns the
+                 #  position of all nonzero values with the values ranging from 0 to the total number of nonzero values.
+                 #  Therefore, to normalize the values you only need to divide by the maximum value
+                 # Normalized elevation range [-]
+                 elevrange_norm[glacier_area > 0] = elev_idx / elev_idx[-1]
+                 #  using indices as opposed to elevations automatically skips bins on the glacier that have no area
+                 #  such that the normalization is done only on bins where the glacier lies
+                 
+
+#                 # Compute the normalized icethickness change [-]
+#                 series_icethicknesschange_norm = (series_elevrange_norm + a)**gamma + b*(series_elevrange_norm + a) + c
+#                 #  delta_h = (h_n + a)**gamma + b*(h_n + a) + c
+#                 # Limit the icethicknesschange_norm to between 0 - 1
+#                 #  (at the ends of the fxns may be slightly above 1 or below 0 because the fxns are not exact)
+#                 series_icethicknesschange_norm[series_icethicknesschange_norm > 1] = 1
+#                 series_icethicknesschange_norm[series_icethicknesschange_norm < 0] = 0
+#                 # remove off-glacier values
+#                 series_icethicknesschange_norm[series_elevrange_norm < 0] = 0
+#                 series_icethicknesschange_norm[series_elevrange_norm > 1] = 0
+#                 # Compute the annual glacier-wide volume change [km**3]
+#                 glacier_volumechange_annual = ((glac_bin_massbal_clim_mwe_annual.iloc[:, year_position] * 
+#                     glac_bin_area_annual.iloc[:, year_position]).sum() / 1000 * density_water / density_ice)
+#                 #  units: [m w.e.] * [km**2] * (1 km / 1000 m) * density_ice / density_water = km**3 ice
+#                 # Compute the Huss volume change scaling factor, fs_huss [km]                    
+#                 fs_huss = glacier_volumechange_annual / (glac_bin_area_annual.iloc[:, year_position] * 
+#                                                          series_icethicknesschange_norm).sum() * 1000
+#                 #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
+#                 # Compute the ice thickness change [m ice] in each bin
+#                 series_icethicknesschange = series_icethicknesschange_norm * fs_huss
+#                 #  units: [-] * [km] * (1000 m / 1 km) = 0
+#                 # Compute the specific total mass balance [m w.e.]
+#                 #   i.e., the mass balance after the redistribution of ice 
+#                 glac_bin_massbal_total_mwe_annual.iloc[:, year_position] = (series_icethicknesschange * density_ice / 
+#                                                                             density_water)
+#                 #  units: [m ice] * [kg / (m_ice * m**2)] / [kg / (m_water * m**2)] = m w.e.
+#                 # if statement used to avoid error in final year, since model run is over
+#                 if glac_bin_icethickness_annual.columns.values[year_position] != endyear:
+#                     # Update the ice thickness [m] for the next year
+#                     glac_bin_icethickness_annual.iloc[:, year_position + 1] = (
+#                         glac_bin_icethickness_annual.iloc[:, year_position] + series_icethicknesschange)
+#                     # Update the volume [km**3] for the next year
+#                     glac_bin_volume_annual.iloc[:, year_position + 1] = (glac_bin_area_annual.iloc[:, year_position + 1] *
+#                         glac_bin_icethickness_annual.iloc[:, year_position + 1] / 1000)
+#                     #  units: [km**2] * [m] * (1 km / 1000 m) = km**3
         
+         # ADD IN CAVEATS FROM HUSS AND HOCK (EX. MINIMUM OF 3 ELEVATION BINS)
+         # ADD IN AREA CHANGES
+         # NOTE: WANT TO HAVE OPTIONS TO USE THESE NORMALIZED ELEVATION CHANGE CURVES OR USE THE REAL THING!
+     
+        
+#            # For calibration run (option_modelruntype = 0), area is constant while ice thickness is changed
+#            if input.option_modelrun_type == 0:
+#                # glacier ice thickness [m] changes according to specific climatic mass balance
+#                #  NOTE: this should also include redistribution!
         
 # While in glacier loop, compile the monthly data into a netcdf
 
