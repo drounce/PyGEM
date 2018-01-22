@@ -323,9 +323,9 @@ for glac in [0]:
                      [gamma, a, b, c] = [4, -0.05, 0.19, 0.01]
                  else:
                      [gamma, a, b, c] = [2, -0.30, 0.60, 0.09]
-                 # Compute the normalized elevation range
                  # reset normalized elevation range values, since calculated using indices
                  elevrange_norm = np.zeros(elev_bins.shape)
+                 icethicknesschange_norm = np.zeros(elev_bins.shape)
                  # compute position of index of all bins that are nonzero
                  elev_idx = glacier_area.nonzero()[0].nonzero()[0]
                  #  nonzero()[0] returns the position of all nonzero values, so nonzero()[0].nonzero()[0] returns the
@@ -335,43 +335,41 @@ for glac in [0]:
                  elevrange_norm[glacier_area > 0] = elev_idx / elev_idx[-1]
                  #  using indices as opposed to elevations automatically skips bins on the glacier that have no area
                  #  such that the normalization is done only on bins where the glacier lies
-                 
+                 # Normalized ice thickness change [-]
+                 icethicknesschange_norm[glacier_area > 0] = ((elevrange_norm[glacier_area > 0] + a)**gamma + 
+                                                              b*(elevrange_norm[glacier_area > 0] + a) + c)
+                 #  delta_h = (h_n + a)**gamma + b*(h_n + a) + c
+                 #  indexing is faster here
+                 # limit the icethicknesschange_norm to between 0 - 1 (ends of fxns not exactly 0 and 1)
+                 icethicknesschange_norm[icethicknesschange_norm > 1] = 1
+                 icethicknesschange_norm[icethicknesschange_norm < 0] = 0
+                 # Annual glacier-wide volume change [km**3]
+                 glacier_volumechange = ((glac_bin_massbal_clim_mwe_annual[:, year_index] * glacier_area).sum() / 
+                                         1000 * input.density_water / input.density_ice)
+                 #  units: [m w.e.] * [km**2] * (1 km / 1000 m) * density_ice / density_water = km**3 ice
 
-#                 # Compute the normalized icethickness change [-]
-#                 series_icethicknesschange_norm = (series_elevrange_norm + a)**gamma + b*(series_elevrange_norm + a) + c
-#                 #  delta_h = (h_n + a)**gamma + b*(h_n + a) + c
-#                 # Limit the icethicknesschange_norm to between 0 - 1
-#                 #  (at the ends of the fxns may be slightly above 1 or below 0 because the fxns are not exact)
-#                 series_icethicknesschange_norm[series_icethicknesschange_norm > 1] = 1
-#                 series_icethicknesschange_norm[series_icethicknesschange_norm < 0] = 0
-#                 # remove off-glacier values
-#                 series_icethicknesschange_norm[series_elevrange_norm < 0] = 0
-#                 series_icethicknesschange_norm[series_elevrange_norm > 1] = 0
-#                 # Compute the annual glacier-wide volume change [km**3]
-#                 glacier_volumechange_annual = ((glac_bin_massbal_clim_mwe_annual.iloc[:, year_position] * 
-#                     glac_bin_area_annual.iloc[:, year_position]).sum() / 1000 * density_water / density_ice)
-#                 #  units: [m w.e.] * [km**2] * (1 km / 1000 m) * density_ice / density_water = km**3 ice
-#                 # Compute the Huss volume change scaling factor, fs_huss [km]                    
-#                 fs_huss = glacier_volumechange_annual / (glac_bin_area_annual.iloc[:, year_position] * 
-#                                                          series_icethicknesschange_norm).sum() * 1000
-#                 #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
-#                 # Compute the ice thickness change [m ice] in each bin
-#                 series_icethicknesschange = series_icethicknesschange_norm * fs_huss
-#                 #  units: [-] * [km] * (1000 m / 1 km) = 0
-#                 # Compute the specific total mass balance [m w.e.]
-#                 #   i.e., the mass balance after the redistribution of ice 
-#                 glac_bin_massbal_total_mwe_annual.iloc[:, year_position] = (series_icethicknesschange * density_ice / 
-#                                                                             density_water)
-#                 #  units: [m ice] * [kg / (m_ice * m**2)] / [kg / (m_water * m**2)] = m w.e.
-#                 # if statement used to avoid error in final year, since model run is over
-#                 if glac_bin_icethickness_annual.columns.values[year_position] != endyear:
-#                     # Update the ice thickness [m] for the next year
-#                     glac_bin_icethickness_annual.iloc[:, year_position + 1] = (
-#                         glac_bin_icethickness_annual.iloc[:, year_position] + series_icethicknesschange)
-#                     # Update the volume [km**3] for the next year
-#                     glac_bin_volume_annual.iloc[:, year_position + 1] = (glac_bin_area_annual.iloc[:, year_position + 1] *
-#                         glac_bin_icethickness_annual.iloc[:, year_position + 1] / 1000)
-#                     #  units: [km**2] * [m] * (1 km / 1000 m) = km**3
+                 
+                 # Compute the Huss volume change scaling factor, fs_huss [km]                    
+                 fs_huss = glacier_volumechange_annual / (glac_bin_area_annual.iloc[:, year_position] * 
+                                                          series_icethicknesschange_norm).sum() * 1000
+                 #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
+                 # Compute the ice thickness change [m ice] in each bin
+                 series_icethicknesschange = series_icethicknesschange_norm * fs_huss
+                 #  units: [-] * [km] * (1000 m / 1 km) = 0
+                 # Compute the specific total mass balance [m w.e.]
+                 #   i.e., the mass balance after the redistribution of ice 
+                 glac_bin_massbal_total_mwe_annual.iloc[:, year_position] = (series_icethicknesschange * density_ice / 
+                                                                             density_water)
+                 #  units: [m ice] * [kg / (m_ice * m**2)] / [kg / (m_water * m**2)] = m w.e.
+                 # if statement used to avoid error in final year, since model run is over
+                 if glac_bin_icethickness_annual.columns.values[year_position] != endyear:
+                     # Update the ice thickness [m] for the next year
+                     glac_bin_icethickness_annual.iloc[:, year_position + 1] = (
+                         glac_bin_icethickness_annual.iloc[:, year_position] + series_icethicknesschange)
+                     # Update the volume [km**3] for the next year
+                     glac_bin_volume_annual.iloc[:, year_position + 1] = (glac_bin_area_annual.iloc[:, year_position + 1] *
+                         glac_bin_icethickness_annual.iloc[:, year_position + 1] / 1000)
+                     #  units: [km**2] * [m] * (1 km / 1000 m) = km**3
         
          # ADD IN CAVEATS FROM HUSS AND HOCK (EX. MINIMUM OF 3 ELEVATION BINS)
          # ADD IN AREA CHANGES
