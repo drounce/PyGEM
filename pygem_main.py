@@ -195,9 +195,9 @@ for glac in [0]:
         glac_bin_refreezepotential[surfacetype==0,step] = 0
         
         # INDEXING INTO GLACIER ROWS SPEEDS UP SOME CALCULATIONS AND SLOWS DOWN OTHERS
+        # - currently running operations across entire column is the fastest
         # - using [bot:top] is only tenths of a microsecond slower
         # - using [surfacetype!=0] is 4x slower
-        
         
         # Compute the snow depth and melt for each bin...
         # Snow depth [m w.e.] = snow remaining + new snow
@@ -301,30 +301,22 @@ for glac in [0]:
             surfacetype[(surfacetype!=0) & (glac_bin_massbal_clim_mwe_annual[:,year_index]<=0)] = 1
             # If the average annual specific climatic mass balance is positive, then the surface type is snow (or firn)
             surfacetype[(surfacetype!=0) & (glac_bin_massbal_clim_mwe_annual[:,year_index]>0)] = 2
-
-            #
-            
-#            # Apply model options for firn and debris
-#            if option_surfacetype_firn == 1:
-#                series_surftype[series_surftype == 2] = 3
-#                #  if firn is included in the model, then change any snow surface to firn
-#            if option_surfacetype_debris == 1:
-#                print('Need to code the model to include debris. This option does not '
-#                      'currently exist.  Please choose an option that does.\nExiting '
-#                      'the model run.')
-#                exit()
-#            # Update the surface type for the following year
-#            # if statement used to avoid error in final year, since model run is over
-#            if glac_bin_surftype_annual.columns.values[year_position] != endyear:
-#                glac_bin_surftype_annual.iloc[:,year_position+1] = series_surftype
-            
+            # Apply surface type model options
+            # If firn surface type option is included, then snow is changed to firn
+            if input.option_surfacetype_firn == 1:
+                surfacetype[surfacetype == 2] = 3
+            if input.option_surfacetype_debris == 1:
+                print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
+                      'Exiting the model run.')
+                exit()
         
-
+        
+# While in glacier loop, compile the monthly data into a netcdf
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
 
-
+#%%=== STEP FIVE: DATA ANALYSIS / OUTPUT ==============================================================================
 
 
 
