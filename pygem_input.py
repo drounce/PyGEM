@@ -308,11 +308,13 @@ option_temp2bins = 1
 # Option 2 (no other options at this moment)
 option_melt_model = 1
 # Option 1 (default) DDF
-option_geometrychange = 1
-# Option 1 (default) - Geometry change computed based on Huss and Hock (2015),
+option_massredistribution = 1
+# Option 1 (default) - Mass redistribution based on Huss and Hock (2015),
 #                      i.e., volume gain/loss redistributed over the glacier
 #                      using empirical normalized ice thickness change curves
-
+icethickness_surgethreshold = 5
+# ice thickness threshold for what defines a surge, i.e., adding a new elevation bin
+#  Huss and Hock (2015) use a threshold of 5 m
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 netcdf_filenameprefix = 'PyGEM_output_rgiregion'

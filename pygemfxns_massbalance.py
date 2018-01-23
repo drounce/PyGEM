@@ -227,6 +227,43 @@ def accumulationbins(glac_temp, glac_precsnow):
               "Exiting model run.\n")
     return bin_prec, bin_snow
 
+def annualweightedmean_array(var, dates_table):
+    """
+    Calculate annual mean of variable according to the timestep.
+    Monthly timestep will group every 12 months, so starting month is important.
+    """
+    if input.timestep == 'monthly':
+        dayspermonth = dates_table['daysinmonth'].values.reshape(-1,12)
+        #  creates matrix (rows-years, columns-months) of the number of days per month
+        daysperyear = dayspermonth.sum(axis=1)
+        weights = (dayspermonth / daysperyear[:,np.newaxis]).reshape(-1)
+        #  computes weights for each element, then reshapes it for next step
+        var_annual = (var*weights[np.newaxis,:]).reshape(-1,12).sum(axis=1).reshape(-1,daysperyear.shape[0])
+        #  computes matrix (rows - bins, columns - year) of weighted average for each year
+    elif input.timestep == 'daily':
+        print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
+              'Exiting the model run.\n')
+        exit()
+    return var_annual
+
+
+# re-write groupbyyearsum using the reshape framework above - much faster!
+def groupbyyearsum(var):
+    print('MUST RE-WRITE FUNCTION USING RESHAPE FRAMEWORK - SEE ANNUALWEIGHTEDMEAN_ARRAY')
+#    """
+#    NOTE: UPDATE THIS LIKE ANNUALWEIGHTEDMEAN_ARRAY!!!
+#    
+#    Calculate annual sum of variable according to the timestep.
+#    Example monthly timestep will group every 12 months, so starting month is important.
+#    """
+#    if input.timestep == 'monthly':
+#        var_annual = var.groupby(np.arange(var.shape[1]) // 12, axis=1).sum()
+#    elif input.timestep == 'daily':
+#        print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
+#              'Exiting the model run.\n')
+#        exit()
+#    return var_annual
+
 
 def downscaleprec2bins(glac_table, glac_hyps, climate_prec, climate_elev, glac_count):
     """
@@ -327,40 +364,63 @@ def ELA_glacier(series_massbal_spec, ELA_past):
     return ELA_output
 
 
-def annualweightedmean_array(var, dates_table):
+def massredistribution(icethickness_t0, glacier_area, elev_bins, glacier_volumechange):
+    """ 
+    Compute the mass redistribution, otherwise known as glacier geometry changes, based on the glacier volume change
+    Function Options:
+    - option_geometrychange
+        > 1 (default) - Huss and Hock (2015); volume gain/loss redistributed over the glacier using empirical normalized
+                        ice thickness change curves
+        > 2 (Need to code) - volume-length scaling
+        > 3 (Need to code) - volume-area scaling
+        > 4 (Need to code) - what previous models have done
+        > 5 (Need to code) - ice dynamics, simple flow model
+    Input:
+        > glacier_area - single column array of glacier area for every bin
+        > elev_bins - single column array of elevation for every bin
+        > massbal_clim_mwe_annual - single column array of annual climatic mass balance [m w.e.] for every bin
+        > icethickness_t0 - single column array of ice thickness for every bin at the start of the time step
     """
-    Calculate annual mean of variable according to the timestep.
-    Monthly timestep will group every 12 months, so starting month is important.
-    """
-    if input.timestep == 'monthly':
-        dayspermonth = dates_table['daysinmonth'].values.reshape(-1,12)
-        #  creates matrix (rows-years, columns-months) of the number of days per month
-        daysperyear = dayspermonth.sum(axis=1)
-        weights = (dayspermonth / daysperyear[:,np.newaxis]).reshape(-1)
-        #  computes weights for each element, then reshapes it for next step
-        var_annual = (var*weights[np.newaxis,:]).reshape(-1,12).sum(axis=1).reshape(-1,daysperyear.shape[0])
-        #  computes matrix (rows - bins, columns - year) of weighted average for each year
-    elif input.timestep == 'daily':
-        print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
-              'Exiting the model run.\n')
-        exit()
-    return var_annual
-
-
-def groupbyyearsum(var):
-    """
-    NOTE: UPDATE THIS LIKE ANNUALWEIGHTEDMEAN_ARRAY!!!
+    # Option 1 (default) for mass redistribution, Huss and Hock (2015)
+    if input.option_massredistribution == 1:
+        #Select the factors for the normalized ice thickness change curve based on glacier areasize
+         if glacier_area.sum() > 20:
+             [gamma, a, b, c] = [6, -0.02, 0.12, 0]
+         elif glacier_area.sum() > 5:
+             [gamma, a, b, c] = [4, -0.05, 0.19, 0.01]
+         else:
+             [gamma, a, b, c] = [2, -0.30, 0.60, 0.09]
+         # reset normalized elevation range values, since calculated using indices
+         elevrange_norm = np.zeros(elev_bins.shape)
+         icethicknesschange_norm = np.zeros(elev_bins.shape)
+         # compute position of index of all bins that are nonzero
+         elev_idx = glacier_area.nonzero()[0].nonzero()[0]
+         #  nonzero()[0] returns the position of all nonzero values, so nonzero()[0].nonzero()[0] returns the
+         #  position of all nonzero values with the values ranging from 0 to the total number of nonzero values.
+         # Normalized elevation range [-]
+         #  (max elevation - bin elevation) / (max_elevation - min_elevation)
+         elevrange_norm[glacier_area > 0] = (elev_idx[-1] - elev_idx) / elev_idx[-1]
+         #  using indices as opposed to elevations automatically skips bins on the glacier that have no area
+         #  such that the normalization is done only on bins where the glacier lies
+         # Normalized ice thickness change [-]
+         icethicknesschange_norm[glacier_area > 0] = ((elevrange_norm[glacier_area > 0] + a)**gamma + 
+                                                      b*(elevrange_norm[glacier_area > 0] + a) + c)
+         #  delta_h = (h_n + a)**gamma + b*(h_n + a) + c
+         #  indexing is faster here
+         # limit the icethicknesschange_norm to between 0 - 1 (ends of fxns not exactly 0 and 1)
+         icethicknesschange_norm[icethicknesschange_norm > 1] = 1
+         icethicknesschange_norm[icethicknesschange_norm < 0] = 0
+         # Huss' ice thickness scaling factor, fs_huss [m ice]         
+         fs_huss = glacier_volumechange / (glacier_area * icethicknesschange_norm).sum() * 1000
+         #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
+         # Ice thickness change [m ice]
+         icethicknesschange = icethicknesschange_norm * fs_huss
+         #  units: [-] * [m ice]
+         # Ice thickness at end of time step [m ice]
+         icethickness_t1 = icethickness_t0 + icethicknesschange
+         # return the updated ice thickness [m ice]
+         return icethickness_t1
     
-    Calculate annual sum of variable according to the timestep.
-    Example monthly timestep will group every 12 months, so starting month is important.
-    """
-    if input.timestep == 'monthly':
-        var_annual = var.groupby(np.arange(var.shape[1]) // 12, axis=1).sum()
-    elif input.timestep == 'daily':
-        print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
-              'Exiting the model run.\n')
-        exit()
-    return var_annual
 
 
 def refreezepotentialbins(glac_temp, dates_table):
