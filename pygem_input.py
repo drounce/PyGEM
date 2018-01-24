@@ -315,6 +315,9 @@ option_massredistribution = 1
 icethickness_surgethreshold = 5
 # ice thickness threshold for what defines a surge, i.e., adding a new elevation bin
 #  Huss and Hock (2015) use a threshold of 5 m
+terminus_percentage = 20
+# percentage of glacier that is used to define the terminus for surges
+#  Huss and Hock (2015) use 20% to calculate new area and ice thickness
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 netcdf_filenameprefix = 'PyGEM_output_rgiregion'
