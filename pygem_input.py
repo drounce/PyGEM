@@ -312,6 +312,11 @@ option_massredistribution = 1
 # Option 1 (default) - Mass redistribution based on Huss and Hock (2015),
 #                      i.e., volume gain/loss redistributed over the glacier
 #                      using empirical normalized ice thickness change curves
+option_glaciershape = 1
+# glacier cross-sectional shape
+# Option 1(default) - parabolic (used by Huss and Hock, 2015)
+# Option 2 - rectangular
+# Option 3 - triangular
 icethickness_surgethreshold = 5
 # ice thickness threshold for what defines a surge, i.e., adding a new elevation bin
 #  Huss and Hock (2015) use a threshold of 5 m

@@ -364,7 +364,7 @@ def ELA_glacier(series_massbal_spec, ELA_past):
     return ELA_output
 
 
-def massredistribution(icethickness_t0, glacier_area, elev_bins, glacier_volumechange):
+def massredistribution(icethickness_t0, glacier_area_t0, glac_idx, glacier_volumechange):
     """ 
     Compute the mass redistribution, otherwise known as glacier geometry changes, based on the glacier volume change
     Function Options:
@@ -376,51 +376,54 @@ def massredistribution(icethickness_t0, glacier_area, elev_bins, glacier_volumec
         > 4 (Need to code) - what previous models have done
         > 5 (Need to code) - ice dynamics, simple flow model
     Input:
-        > glacier_area - single column array of glacier area for every bin
-        > elev_bins - single column array of elevation for every bin
-        > massbal_clim_mwe_annual - single column array of annual climatic mass balance [m w.e.] for every bin
         > icethickness_t0 - single column array of ice thickness for every bin at the start of the time step
+        > glacier_area_t0 - single column array of glacier area for every bin at the start of the time step
+        > glacier_volumechange - value of glacier-wide volume change [km**3] based on the annual climatic mass balance
     """
     # Option 1 (default) for mass redistribution, Huss and Hock (2015)
     if input.option_massredistribution == 1:
-        #Select the factors for the normalized ice thickness change curve based on glacier areasize
-         if glacier_area.sum() > 20:
-             [gamma, a, b, c] = [6, -0.02, 0.12, 0]
-         elif glacier_area.sum() > 5:
-             [gamma, a, b, c] = [4, -0.05, 0.19, 0.01]
-         else:
-             [gamma, a, b, c] = [2, -0.30, 0.60, 0.09]
-         # reset normalized elevation range values, since calculated using indices
-         elevrange_norm = np.zeros(elev_bins.shape)
-         icethicknesschange_norm = np.zeros(elev_bins.shape)
-         # compute position of index of all bins that are nonzero
-         elev_idx = glacier_area.nonzero()[0].nonzero()[0]
-         #  nonzero()[0] returns the position of all nonzero values, so nonzero()[0].nonzero()[0] returns the
-         #  position of all nonzero values with the values ranging from 0 to the total number of nonzero values.
-         # Normalized elevation range [-]
-         #  (max elevation - bin elevation) / (max_elevation - min_elevation)
-         elevrange_norm[glacier_area > 0] = (elev_idx[-1] - elev_idx) / elev_idx[-1]
-         #  using indices as opposed to elevations automatically skips bins on the glacier that have no area
-         #  such that the normalization is done only on bins where the glacier lies
-         # Normalized ice thickness change [-]
-         icethicknesschange_norm[glacier_area > 0] = ((elevrange_norm[glacier_area > 0] + a)**gamma + 
-                                                      b*(elevrange_norm[glacier_area > 0] + a) + c)
-         #  delta_h = (h_n + a)**gamma + b*(h_n + a) + c
-         #  indexing is faster here
-         # limit the icethicknesschange_norm to between 0 - 1 (ends of fxns not exactly 0 and 1)
-         icethicknesschange_norm[icethicknesschange_norm > 1] = 1
-         icethicknesschange_norm[icethicknesschange_norm < 0] = 0
-         # Huss' ice thickness scaling factor, fs_huss [m ice]         
-         fs_huss = glacier_volumechange / (glacier_area * icethicknesschange_norm).sum() * 1000
-         #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
-         # Ice thickness change [m ice]
-         icethicknesschange = icethicknesschange_norm * fs_huss
-         #  units: [-] * [m ice]
-         # Ice thickness at end of time step [m ice]
-         icethickness_t1 = icethickness_t0 + icethicknesschange
-         # return the updated ice thickness [m ice]
-         return icethickness_t1
-    
+        #Select the factors for the normalized ice thickness change curve based on glacier area
+        if glacier_area_t0.sum() > 20:
+            [gamma, a, b, c] = [6, -0.02, 0.12, 0]
+        elif glacier_area_t0.sum() > 5:
+            [gamma, a, b, c] = [4, -0.05, 0.19, 0.01]
+        else:
+            [gamma, a, b, c] = [2, -0.30, 0.60, 0.09]
+         # reset variables
+        elevrange_norm = np.zeros(glacier_area_t0.shape)
+        icethicknesschange_norm = np.zeros(glacier_area_t0.shape)
+        icethickness_t1 = np.zeros(glacier_area_t0.shape)
+        glacier_area_t1 = np.zeros(glacier_area_t0.shape)
+        # Normalized elevation range [-]
+        #  (max elevation - bin elevation) / (max_elevation - min_elevation)
+        elevrange_norm[glacier_area_t0 > 0] = (glac_idx[-1] - glac_idx) / (glac_idx[-1] - glac_idx[0])
+        #  using indices as opposed to elevations automatically skips bins on the glacier that have no area
+        #  such that the normalization is done only on bins where the glacier lies
+        # Normalized ice thickness change [-]
+        icethicknesschange_norm[glacier_area_t0 > 0] = ((elevrange_norm[glacier_area_t0 > 0] + a)**gamma + 
+                                                        b*(elevrange_norm[glacier_area_t0 > 0] + a) + c)
+        #  delta_h = (h_n + a)**gamma + b*(h_n + a) + c
+        #  indexing is faster here
+        # limit the icethicknesschange_norm to between 0 - 1 (ends of fxns not exactly 0 and 1)
+        icethicknesschange_norm[icethicknesschange_norm > 1] = 1
+        icethicknesschange_norm[icethicknesschange_norm < 0] = 0
+        # Huss' ice thickness scaling factor, fs_huss [m ice]         
+        fs_huss = glacier_volumechange / (glacier_area_t0 * icethicknesschange_norm).sum() * 1000
+        #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
+        # Volume change [km**3 ice]
+        bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
+        if input.option_glaciershape == 1:
+            # Ice thickness at end of timestep accounting for cross-sectional shape [m ice]
+            icethickness_t1[glac_idx] = ((((icethickness_t0[glac_idx] / 1000)**1.5 + 
+                           (icethickness_t0[glac_idx] / 1000)**0.5 * bin_volumechange[glac_idx] / 
+                           glacier_area_t0[glac_idx])**(2/3)) * 1000)
+            # Glacier area accounting for cross-sectional shape
+            glacier_area_t1[glac_idx] = (glacier_area_t0[glac_idx] * (icethickness_t1[glac_idx] / 
+                                         icethickness_t0[glac_idx])**0.5) 
+        # Ice thickness change [m ice]
+        icethicknesschange = icethickness_t1 - icethickness_t0
+        # return the ice thickness [m ice] and ice thickness change [m ice]
+        return icethickness_t1, icethicknesschange
 
 
 def refreezepotentialbins(glac_temp, dates_table):

@@ -326,7 +326,7 @@ for glac in [0]:
             glacier_volumechange = ((glac_bin_massbal_clim_mwe_annual[:, year_index] / 1000 * input.density_water / 
                                      input.density_ice * glacier_area_t0).sum())
             # REMOVE WHEN FINISHED TESTING
-            glacier_volumechange = 0.1
+            glacier_volumechange = -1.5
             #  units: [m w.e.] * (1 km / 1000 m) * (1000 kg / (1 m water * m**2) * (1 m ice * m**2 / 900 kg) * [km**2] 
             #         = km**3 ice
             # Reset the annual glacier area and ice thickness
@@ -335,80 +335,134 @@ for glac in [0]:
             # If volume loss is less than the glacier volume, then redistribute mass loss/gains across the glacier;
             #  otherwise, the glacier disappears (area and thickness are set to zero as shown above)
             if -1 * glacier_volumechange < (icethickness_t0 / 1000 * glacier_area_t0).sum():
-                # Ice thickness [m ice] after redistribution of volume gain/loss
-                icethickness_t1 = massbalance.massredistribution(icethickness_t0, glacier_area_t0, elev_bins, 
-                                                                 glacier_volumechange)
+                # Determine where glacier exists
+                glac_idx_t0 = glacier_area_t0.nonzero()[0]
+                # Ice thickness [m ice] and ice thickness change [m ice] after redistribution of volume gain/loss
+#                icethickness_t1, icethickness_change = massbalance.massredistribution(icethickness_t0, glacier_area_t0, 
+#                                                                                      glac_idx_t0, glacier_volumechange)
+                
+                #Select the factors for the normalized ice thickness change curve based on glacier area
+                if glacier_area_t0.sum() > 20:
+                    [gamma, a, b, c] = [6, -0.02, 0.12, 0]
+                elif glacier_area_t0.sum() > 5:
+                    [gamma, a, b, c] = [4, -0.05, 0.19, 0.01]
+                else:
+                    [gamma, a, b, c] = [2, -0.30, 0.60, 0.09]
+                 # reset variables
+                elevrange_norm = np.zeros(glacier_area_t0.shape)
+                icethicknesschange_norm = np.zeros(glacier_area_t0.shape)
+                icethickness_t1 = np.zeros(glacier_area_t0.shape)
+                glacier_area_t1 = np.zeros(glacier_area_t0.shape)
+                # compute position of index of all bins that are nonzero
+                glac_idx = glacier_area_t0.nonzero()[0]
+                #  nonzero()[0] returns the position of all nonzero values
+                # Normalized elevation range [-]
+                #  (max elevation - bin elevation) / (max_elevation - min_elevation)
+                elevrange_norm[glacier_area_t0 > 0] = (glac_idx[-1] - glac_idx) / (glac_idx[-1] - glac_idx[0])
+                #  using indices as opposed to elevations automatically skips bins on the glacier that have no area
+                #  such that the normalization is done only on bins where the glacier lies
+                # Normalized ice thickness change [-]
+                icethicknesschange_norm[glacier_area_t0 > 0] = ((elevrange_norm[glacier_area_t0 > 0] + a)**gamma + 
+                                                                b*(elevrange_norm[glacier_area_t0 > 0] + a) + c)
+                #  delta_h = (h_n + a)**gamma + b*(h_n + a) + c
+                #  indexing is faster here
+                # limit the icethicknesschange_norm to between 0 - 1 (ends of fxns not exactly 0 and 1)
+                icethicknesschange_norm[icethicknesschange_norm > 1] = 1
+                icethicknesschange_norm[icethicknesschange_norm < 0] = 0
+                # Huss' ice thickness scaling factor, fs_huss [m ice]         
+                fs_huss = glacier_volumechange / (glacier_area_t0 * icethicknesschange_norm).sum() * 1000
+                #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
+                # Volume change [km**3 ice]
+                bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
+                if input.option_glaciershape == 1:
+                    # Ice thickness at end of timestep accounting for cross-sectional shape [m ice]
+                    #  run in two steps to avoid errors with negative numbers and fractional exponents
+                    icethickness_t1[glac_idx] = ((icethickness_t0[glac_idx] / 1000)**1.5 + 
+                                   (icethickness_t0[glac_idx] / 1000)**0.5 * bin_volumechange[glac_idx] / 
+                                   glacier_area_t0[glac_idx])
+                    icethickness_t1[icethickness_t1 < 0] = 0
+                    icethickness_t1[glac_idx] = icethickness_t1[glac_idx]**(2/3) * 1000
+                    # Glacier area accounting for cross-sectional shape
+                    glacier_area_t1[glac_idx] = (glacier_area_t0[glac_idx] * (icethickness_t1[glac_idx] / 
+                                                 icethickness_t0[glac_idx])**0.5)
                 # Ice thickness change [m ice]
-                icethickness_change = icethickness_t1 - icethickness_t0
-                # Indices where glacier exists
-                glacier_idx = glacier_area_t0.nonzero()[0]
-                # Glacier retreat
-                #  if glacier retreats (ice thickness < 0), then redistribute mass loss across the rest of the glacier
-                while (icethickness_t1 < 0).any() == True:
-                    # Glacier volume change associated with retreat [km**3]
-                    glacier_volumechange_retreat = (-1*(icethickness_t0[icethickness_t1 < 0] / 1000 * 
-                                                    glacier_area_t0[icethickness_t1 < 0]).sum())
-                    #  multiplying by -1 makes volume change negative
-                    # Glacier volume change remaining [km**3]
-                    glacier_volumechange = glacier_volumechange - glacier_volumechange_retreat
-                    # update glacier area and ice thickness to account for retreat
-                    glacier_area_t0[icethickness_t1 < 0] = 0
-                    icethickness_t0[icethickness_t1 < 0] = 0
-                    # recalculate ice thickness [m ice] after retreat has been removed
-                    icethickness_t1 = massbalance.massredistribution(icethickness_t0, glacier_area_t0, elev_bins, 
-                                                                     glacier_volumechange)                    
-                # Glacier surge
-                #  if glacier surges (ice thickness increase exceeds threshold), then redistribute mass gain in new bins
-                if (icethickness_change > input.icethickness_surgethreshold).any() == True:
-                    # Glacier volume change associated with surge [km**3]
-                    glacier_volumechange_surge = ((
-                            (icethickness_change[icethickness_change > input.icethickness_surgethreshold] - 
-                             input.icethickness_surgethreshold) / 1000 * 
-                             glacier_area_t0[icethickness_change > input.icethickness_surgethreshold]).sum())
-                    #  (Change in ice thickness - threshold) * (1 km / 1000 m) * glacier_area, where threshold exceeded
-                    # Surge characteristics
-                    # Indices that define the glacier terminus
-                    glacier_idx_terminus = (glacier_idx[(glacier_idx - glacier_idx[0] + 1) / glacier_idx.shape[0] * 100 
-                                                        < input.terminus_percentage])
-                    # Average area of glacier terminus [km**2]
-                    terminus_area_avg = glacier_area_t0[glacier_idx_terminus].mean()                
-                    # Average ice thickness of glacier terminus [m]
-                    terminus_icethickness_avg = icethickness_t0[glacier_idx_terminus].mean()
-                    # Maximum surge bin volume [km**3]
-                    surge_bin_volume_max = terminus_icethickness_avg / 1000 * terminus_area_avg
-                    # Number of bins to add for present surge [-]
-                    surge_bins2add = np.ceil(glacier_volumechange_surge / surge_bin_volume_max).astype(int)
-                    # Surge area [km**2]
-                    surge_bin_area = glacier_volumechange_surge / (terminus_icethickness_avg / 1000)
-                    # Add the surge bins
-                    # ice thickness equals the average terminus ice thickness
-                    icethickness_t1[(glacier_idx[0] - surge_bins2add):glacier_idx[0]] = terminus_icethickness_avg 
-                    # glacier area for all filled bins is the average terminus glacier area
-                    glacier_area_t1[(glacier_idx[0] - surge_bins2add + 1):glacier_idx[0]] = terminus_area_avg
-                    # glacier area for the most downglacier bin is based on the remaining volume change
-                    glacier_area_t1[(glacier_idx[0] - surge_bins2add)] = ((glacier_volumechange_surge - (surge_bins2add 
-                                    - 1) * surge_bin_volume_max) / (terminus_icethickness_avg / 1000))
+                icethicknesschange = icethickness_t1 - icethickness_t0
+                
+                
+                
+                
+
+#                # Glacier retreat
+#                #  if glacier retreats (ice thickness < 0), then redistribute mass loss across the rest of the glacier
+#                while (icethickness_t1 < 0).any() == True:
+#                    # Glacier volume change associated with retreat [km**3]
+#                    glacier_volumechange_retreat = (-1*(icethickness_t0[icethickness_t1 < 0] / 1000 * 
+#                                                    glacier_area_t0[icethickness_t1 < 0]).sum())
+#                    #  multiplying by -1 makes volume change negative
+#                    # Glacier volume change remaining [km**3]
+#                    glacier_volumechange = glacier_volumechange - glacier_volumechange_retreat
+#                    # update glacier area and ice thickness to account for retreat
+#                    glacier_area_t0[icethickness_t1 < 0] = 0
+#                    icethickness_t0[icethickness_t1 < 0] = 0
+#                    # recalculate ice thickness [m ice] after retreat has been removed
+#                    icethickness_t1, icethickness_change = massbalance.massredistribution(icethickness_t0, 
+#                                                                          glacier_area_t0, glacier_volumechange)    
                     
-                    # Simple way to ensure that small areas at terminus don't influence the average area of the bins is:
-                    # (1) calculate terminus area and ice thickness average based on all the bins excluding the last one
-                    #     which may not be totally full
-                    # (2) make sure that you fill up the bottom bin, i.e., bins that have been added during surges, 
-                    #     prior to moving to the next bin
-                    # Note:
-                    # If bin retreats and then surges, the area and ice thickness pre-retreat should be used instead
-                    # This will also take care of the cases where you need to skip steep bins at high altitudes, i.e.,
-                    # discontinuous glaciers
-                               
-            # Glacier area [km**2]
-            glacier_area_t1[glacier_idx] = (glacier_area_t0[glacier_idx] * (icethickness_t1[glacier_idx] / 
-                                            icethickness_t0[glacier_idx])**0.5)
-            # NOTE: this should be done when the mass is originally redistributed above.
-            # Then, the extra redistribution or loss can take place.
-            # This means that the changes in ice thickness need to have two limits
-            # ice_thickness_t1 < 0 = 0
-            # ice_thickness_t1 does not have a change greater than 5 m
-            #  icethickness_t1[icethickness_change > threshold] = icethickness_t0[icethickness_change > threshold] + threshold
                     
+#                # Glacier surge
+#                #  if glacier surges (ice thickness increase exceeds threshold), then redistribute mass gain in new bins
+#                if (icethickness_change > input.icethickness_surgethreshold).any() == True:
+#                    # Glacier volume change associated with surge [km**3]
+#                    glacier_volumechange_surge = ((
+#                            (icethickness_change[icethickness_change > input.icethickness_surgethreshold] - 
+#                             input.icethickness_surgethreshold) / 1000 * 
+#                             glacier_area_t0[icethickness_change > input.icethickness_surgethreshold]).sum())
+#                    #  (Change in ice thickness - threshold) * (1 km / 1000 m) * glacier_area, where threshold exceeded
+#                    # Surge characteristics
+#                    # Indices that define the glacier terminus
+#                    glacier_idx_terminus = (glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / 
+#                                                           glac_idx_t0.shape[0] * 100 < input.terminus_percentage])
+#                    # Average area of glacier terminus [km**2]
+#                    terminus_area_avg = glacier_area_t0[glacier_idx_terminus].mean()                
+#                    # Average ice thickness of glacier terminus [m]
+#                    terminus_icethickness_avg = icethickness_t0[glacier_idx_terminus].mean()
+#                    # Maximum surge bin volume [km**3]
+#                    surge_bin_volume_max = terminus_icethickness_avg / 1000 * terminus_area_avg
+#                    # Number of bins to add for present surge [-]
+#                    surge_bins2add = np.ceil(glacier_volumechange_surge / surge_bin_volume_max).astype(int)
+#                    # Surge area [km**2]
+#                    surge_bin_area = glacier_volumechange_surge / (terminus_icethickness_avg / 1000)
+#                    # Add the surge bins
+#                    # ice thickness equals the average terminus ice thickness
+#                    icethickness_t1[(glac_idx_t0[0] - surge_bins2add):glac_idx_t0[0]] = terminus_icethickness_avg 
+#                    # glacier area for all filled bins is the average terminus glacier area
+#                    glacier_area_t1[(glac_idx_t0[0] - surge_bins2add + 1):glac_idx_t0[0]] = terminus_area_avg
+#                    # glacier area for the most downglacier bin is based on the remaining volume change
+#                    glacier_area_t1[(glac_idx_t0[0] - surge_bins2add)] = ((glacier_volumechange_surge - 
+#                                    (surge_bins2add - 1) * surge_bin_volume_max) / (terminus_icethickness_avg / 1000))
+#                    
+#                    # Simple way to ensure that small areas at terminus don't influence the average area of the bins is:
+#                    # (1) calculate terminus area and ice thickness average based on all the bins excluding the last one
+#                    #     which may not be totally full
+#                    # (2) make sure that you fill up the bottom bin, i.e., bins that have been added during surges, 
+#                    #     prior to moving to the next bin
+#                    # Note:
+#                    # If bin retreats and then surges, the area and ice thickness pre-retreat should be used instead
+#                    # This will also take care of the cases where you need to skip steep bins at high altitudes, i.e.,
+#                    # discontinuous glaciers
+#                               
+#                # Glacier area [km**2]
+#                glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * (icethickness_t1[glac_idx_t0] / 
+#                                                   icethickness_t0[glac_idx_t0])**0.5)
+#                # A_i,t+1 = A_i,0 * (H_i,t+1 / H_i,0)**0.5
+#                
+#                # Volume gain due to area changes [km**2]
+#                volume_gain = (glacier_area_t1 - glacier_area_t0) * icethickness_t1/1000
+                
+                
+            # Shape, i.e., the relationship between area and thickness should be an adjustable parameter
+            # - parabola: A_1 / 
+
             # Somewhere we need to update ice thickness and glacier area for the next time step
                      
 
