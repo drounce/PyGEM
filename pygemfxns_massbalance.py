@@ -389,7 +389,7 @@ def massredistribution(icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_vo
             [gamma, a, b, c] = [4, -0.05, 0.19, 0.01]
         else:
             [gamma, a, b, c] = [2, -0.30, 0.60, 0.09]
-         # reset variables
+        # reset variables
         elevrange_norm = np.zeros(glacier_area_t0.shape)
         icethicknesschange_norm = np.zeros(glacier_area_t0.shape)
         icethickness_t1 = np.zeros(glacier_area_t0.shape)
@@ -445,7 +445,6 @@ def massredistribution(icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_vo
             #  A_1 = A_0 * H_1 / H_0
             glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * icethickness_t1[glac_idx_t0] / 
                                             icethickness_t0[glac_idx_t0])
-        
         # Ice thickness change [m ice]
         icethickness_change = icethickness_t1 - icethickness_t0
         # return the ice thickness [m ice] and ice thickness change [m ice]
