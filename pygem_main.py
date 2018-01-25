@@ -97,53 +97,6 @@ timestart_step4 = timeit.default_timer()
 # Create output netcdf file
 #output.netcdf_output_create(input.rgi_regionsO1[0], main_glac_hyps, dates_table, annual_columns)
 
-## Create empty dataframes for monthly glacier-wide output
-## Monthly glacier-wide accumulation [m w.e.]
-#main_glac_acc_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly glacier-wide refreeze [m w.e.]
-#main_glac_refreeze_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly glacier-wide melt [m w.e.]
-#main_glac_melt_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly glacier-wide frontal ablation [m w.e.]
-#main_glac_frontal_ablation_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly glacier-wide specific mass balance [m w.e.]
-#main_glac_massbal_clim_mwe_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly total glacier area [km**2]
-#main_glac_area_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly Equilibrium Line Altitude (ELA) [m a.s.l.]
-#main_glac_ELA_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly Accumulation-Area Ratio (AAR) [%]
-#main_glac_AAR_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly Snow Line Altitude [m a.s.l.]
-#main_glac_snowline_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly runoff [m**3]
-#main_glac_runoff_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Empty dataframes for annual glacier-wide output (rows = glaciers, columns = years)
-## Annual glacier-wide specific accumulation [m w.e.]
-#main_glac_acc_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific refreeze [m w.e.]
-#main_glac_refreeze_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific melt [m w.e.]
-#main_glac_melt_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific frontal ablation [m w.e.]
-#main_glac_frontal_ablation_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific climatic mass balance [m w.e.]
-#main_glac_massbal_clim_mwe_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific total mass balance [m w.e.]
-#main_glac_massbal_total_mwe_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier area at start of each year [km**2]
-#main_glac_area_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier volume at start of each year [km**3]
-#main_glac_volume_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual Equilibrium Line Altitude (ELA) [m a.s.l.]
-#main_glac_ELA_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual Accumulation-Area Ratio (AAR) [m a.s.l.]
-#main_glac_AAR_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual snowline altitude [m a.s.l.]
-#main_glac_snowline_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual runoff [m**3]
-#main_glac_runoff_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-
 #for glac in range(main_glac_rgi.shape[0]):
 for glac in [0]:
     # Downscale the gcm temperature [degC] to each bin
@@ -328,8 +281,7 @@ for glac in [0]:
             
             # REMOVE WHEN FINISHED TESTING!!!!
 #            glacier_volumechange = 0.2
-            glacier_volumechange = -1.5
-            
+            glacier_volumechange = -1.5            
             
             #  units: [m w.e.] * (1 km / 1000 m) * (1000 kg / (1 m water * m**2) * (1 m ice * m**2 / 900 kg) * [km**2] 
             #         = km**3 ice
@@ -342,76 +294,8 @@ for glac in [0]:
                 # Determine where glacier exists
                 glac_idx_t0 = glacier_area_t0.nonzero()[0]
                 # Ice thickness [m ice] and ice thickness change [m ice] after redistribution of volume gain/loss
-#                icethickness_t1, icethickness_change = massbalance.massredistribution(icethickness_t0, glacier_area_t0, 
-#                                                                                      glac_idx_t0, glacier_volumechange)
-                
-                #Select the factors for the normalized ice thickness change curve based on glacier area
-                if glacier_area_t0.sum() > 20:
-                    [gamma, a, b, c] = [6, -0.02, 0.12, 0]
-                elif glacier_area_t0.sum() > 5:
-                    [gamma, a, b, c] = [4, -0.05, 0.19, 0.01]
-                else:
-                    [gamma, a, b, c] = [2, -0.30, 0.60, 0.09]
-                 # reset variables
-                elevrange_norm = np.zeros(glacier_area_t0.shape)
-                icethicknesschange_norm = np.zeros(glacier_area_t0.shape)
-                icethickness_t1 = np.zeros(glacier_area_t0.shape)
-                glacier_area_t1 = np.zeros(glacier_area_t0.shape)
-                # Normalized elevation range [-]
-                #  (max elevation - bin elevation) / (max_elevation - min_elevation)
-                elevrange_norm[glacier_area_t0 > 0] = (glac_idx_t0[-1] - glac_idx_t0) / (glac_idx_t0[-1] - glac_idx_t0[0])
-                #  using indices as opposed to elevations automatically skips bins on the glacier that have no area
-                #  such that the normalization is done only on bins where the glacier lies
-                # Normalized ice thickness change [-]
-                icethicknesschange_norm[glacier_area_t0 > 0] = ((elevrange_norm[glacier_area_t0 > 0] + a)**gamma + 
-                                                                b*(elevrange_norm[glacier_area_t0 > 0] + a) + c)
-                #  delta_h = (h_n + a)**gamma + b*(h_n + a) + c
-                #  indexing is faster here
-                # limit the icethicknesschange_norm to between 0 - 1 (ends of fxns not exactly 0 and 1)
-                icethicknesschange_norm[icethicknesschange_norm > 1] = 1
-                icethicknesschange_norm[icethicknesschange_norm < 0] = 0
-                # Huss' ice thickness scaling factor, fs_huss [m ice]         
-                fs_huss = glacier_volumechange / (glacier_area_t0 * icethicknesschange_norm).sum() * 1000
-                #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
-                # Volume change [km**3 ice]
-                bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
-                if input.option_glaciershape == 1:
-                    # Ice thickness at end of timestep for parabola [m ice]
-                    #  run in two steps to avoid errors with negative numbers and fractional exponents
-                    #  H_1 = (H_0**1.5 + delta_Vol * H_0**0.5 / A_0)**(2/3)
-                    icethickness_t1[glac_idx_t0] = ((icethickness_t0[glac_idx_t0] / 1000)**1.5 + 
-                                   (icethickness_t0[glac_idx_t0] / 1000)**0.5 * bin_volumechange[glac_idx_t0] / 
-                                   glacier_area_t0[glac_idx_t0])
-                    icethickness_t1[icethickness_t1 < 0] = 0
-                    icethickness_t1[glac_idx_t0] = icethickness_t1[glac_idx_t0]**(2/3) * 1000
-                    # Glacier area for parabola [km**2]
-                    #  A_1 = A_0 * (H_1 / H_0)**0.5
-                    glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * (icethickness_t1[glac_idx_t0] / 
-                                                 icethickness_t0[glac_idx_t0])**0.5)
-                elif input.option_glaciershape == 2:
-                    # Ice thickness at end of timestep for rectangle [m ice]
-                    #  H_1 = H_0 + delta_Vol / A_0
-                    icethickness_t1[glac_idx_t0] = (((icethickness_t0[glac_idx_t0] / 1000) + 
-                                   bin_volumechange[glac_idx_t0] / glacier_area_t0[glac_idx_t0]) * 1000)
-                    # Glacier area constant for rectangle [km**2]
-                    #  A_1 = A_0
-                    glacier_area_t1[glac_idx_t0] = glacier_area_t0[glac_idx_t0]
-                elif input.option_glaciershape == 3:
-                    # Ice thickness at end of timestep for triangle [m ice]
-                    #  run in two steps to avoid errors with negative numbers and fractional exponents
-                    icethickness_t1[glac_idx_t0] = ((icethickness_t0[glac_idx_t0] / 1000)**2 + 
-                                   bin_volumechange[glac_idx_t0] * (icethickness_t0[glac_idx_t0] / 1000) / 
-                                   glacier_area_t0[glac_idx_t0])                                   
-                    icethickness_t1[icethickness_t1 < 0] = 0
-                    icethickness_t1[glac_idx_t0] = icethickness_t1[glac_idx_t0]**(1/2) * 1000
-                    # Glacier area for triangle [km**2]
-                    #  A_1 = A_0 * H_1 / H_0
-                    glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * icethickness_t1[glac_idx_t0] / 
-                                                    icethickness_t0[glac_idx_t0])
-                
-                # Ice thickness change [m ice]
-                icethickness_change = icethickness_t1 - icethickness_t0
-
+                icethickness_t1, glacier_area_t1, icethickness_change = massbalance.massredistribution(
+                        icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_volumechange)
 
                 # Glacier retreat
                 #  if glacier retreats (ice thickness < 0), then redistribute mass loss across the rest of the glacier
@@ -427,9 +311,8 @@ for glac in [0]:
                     icethickness_t0[icethickness_t1 <= 0] = 0
                     glac_idx_t0 = glacier_area_t0.nonzero()[0]
                     # recalculate ice thickness [m ice] after retreat has been removed
-                    icethickness_t1, icethickness_change = massbalance.massredistribution(icethickness_t0, 
-                                                                  glacier_area_t0, glac_idx_t0, glacier_volumechange)    
-                    
+                    icethickness_t1, glacier_area_t1, icethickness_change = massbalance.massredistribution(
+                            icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_volumechange) 
                     
                 # Glacier surge
                 #  if glacier surges (ice thickness change exceeds threshold), then redistribute mass gain in new bins
@@ -521,6 +404,53 @@ print('Step 4 time:', timeelapsed_step4, "s\n")
 #%%=== STEP FIVE: DATA ANALYSIS / OUTPUT ==============================================================================
 
 
+#%%=== LEFTOVER LINES OF CODE =========================================================================================
+## Create empty dataframes for monthly glacier-wide output
+## Monthly glacier-wide accumulation [m w.e.]
+#main_glac_acc_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Monthly glacier-wide refreeze [m w.e.]
+#main_glac_refreeze_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Monthly glacier-wide melt [m w.e.]
+#main_glac_melt_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Monthly glacier-wide frontal ablation [m w.e.]
+#main_glac_frontal_ablation_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Monthly glacier-wide specific mass balance [m w.e.]
+#main_glac_massbal_clim_mwe_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Monthly total glacier area [km**2]
+#main_glac_area_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Monthly Equilibrium Line Altitude (ELA) [m a.s.l.]
+#main_glac_ELA_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Monthly Accumulation-Area Ratio (AAR) [%]
+#main_glac_AAR_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Monthly Snow Line Altitude [m a.s.l.]
+#main_glac_snowline_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Monthly runoff [m**3]
+#main_glac_runoff_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
+## Empty dataframes for annual glacier-wide output (rows = glaciers, columns = years)
+## Annual glacier-wide specific accumulation [m w.e.]
+#main_glac_acc_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual glacier-wide specific refreeze [m w.e.]
+#main_glac_refreeze_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual glacier-wide specific melt [m w.e.]
+#main_glac_melt_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual glacier-wide specific frontal ablation [m w.e.]
+#main_glac_frontal_ablation_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual glacier-wide specific climatic mass balance [m w.e.]
+#main_glac_massbal_clim_mwe_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual glacier-wide specific total mass balance [m w.e.]
+#main_glac_massbal_total_mwe_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual glacier area at start of each year [km**2]
+#main_glac_area_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual glacier volume at start of each year [km**3]
+#main_glac_volume_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual Equilibrium Line Altitude (ELA) [m a.s.l.]
+#main_glac_ELA_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual Accumulation-Area Ratio (AAR) [m a.s.l.]
+#main_glac_AAR_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual snowline altitude [m a.s.l.]
+#main_glac_snowline_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
+## Annual runoff [m**3]
+#main_glac_runoff_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
 
 
 
