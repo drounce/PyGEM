@@ -112,21 +112,30 @@ binsize = 10
 # Filepath for the hypsometry files
 hyps_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of hypsometry filenames
-hypsfile_dict = {
+hyps_filedict = {
                 13: 'area_13_Huss_CentralAsia_10m.csv',
                 14: 'area_14_Huss_SouthAsiaWest_10m.csv',
                 15: 'area_15_Huss_SouthAsiaEast_10m.csv'}
 # Extra columns in hypsometry data that will be dropped
-hyps_cols_drop = ['RGI-ID','Cont_range']
+hyps_colsdrop = ['RGI-ID','Cont_range']
 # Filepath for the ice thickness files
 thickness_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of thickness filenames
-thicknessfile_dict = {
+thickness_filedict = {
                 13: 'thickness_13_Huss_CentralAsia_10m.csv',
                 14: 'thickness_14_Huss_SouthAsiaWest_10m.csv',
                 15: 'thickness_15_Huss_SouthAsiaEast_10m.csv'}
 # Extra columns in ice thickness data that will be dropped
-thickness_cols_drop = ['RGI-ID','Cont_range']
+thickness_colsdrop = ['RGI-ID','Cont_range']
+# Filepath for the width files
+width_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/bands_10m_DRR/'
+# Dictionary of thickness filenames
+width_filedict = {
+                13: 'width_13_Huss_CentralAsia_10m.csv',
+                14: 'width_14_Huss_SouthAsiaWest_10m.csv',
+                15: 'width_15_Huss_SouthAsiaEast_10m.csv'}
+# Extra columns in ice thickness data that will be dropped
+width_colsdrop = ['RGI-ID','Cont_range']
 
 # ----- Input required for model time frame -----
 # Note: models are required to have complete data for each year, i.e., the

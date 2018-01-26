@@ -205,110 +205,78 @@ def hypsometrystats(hyps_table, thickness_table):
     return glac_volume, glac_hyps_mean
 
 
-def import_hypsometry(rgi_table):
-    """Use the hypsometry dictionary specified by the user in the input to extract the correct hypsometry.
-    The hypsometry files must be in the proper units of square kilometers [km**2] and need to be pre-processed to have 
-    all bins between 0 - 9000 m.
+def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, indexname, drop_col_names):
+    """Use the dictionary specified by the user to extract the desired variable.
+    The files must be in the proper units (ice thickness [m], area [km2], width [km]) and need to be pre-processed to 
+    have all bins between 0 - 8845 m.
     
-    Output is a Pandas DataFrame of the hypsometry for all the glaciers in the model run
+    Output is a Pandas DataFrame of the variable for all the glaciers in the model run
     (rows = GlacNo, columns = elevation bins).
     
     Line Profiling: Loading in the table takes the most time (~2.3 s)
     """
-    ds = pd.read_csv(input.hyps_filepath + input.hypsfile_dict[input.rgi_regionsO1[0]])
+    ds = pd.read_csv(filepath + filedict[rgi_regionsO1[0]])
     # Select glaciers based on 01Index value from main_glac_rgi table
-    glac_hyps_table = pd.DataFrame()
+    glac_table = pd.DataFrame()
     for glacier in range(len(rgi_table)):
-        if glac_hyps_table.empty:
-            glac_hyps_table = ds.loc[rgi_table.loc[glacier,'O1Index']]
+        if glac_table.empty:
+            glac_table = ds.loc[rgi_table.loc[glacier,'O1Index']]
         else:
-            glac_hyps_table = pd.concat([glac_hyps_table, ds.loc[rgi_table.loc[glacier,'O1Index']]], axis=1)
-    glac_hyps_table = glac_hyps_table.transpose()
+            glac_table = pd.concat([glac_table, ds.loc[rgi_table.loc[glacier,'O1Index']]], axis=1)
+    glac_table = glac_table.transpose()
     # Clean up table and re-index
     # Reset index to be GlacNo
-    glac_hyps_table.reset_index(drop=True, inplace=True)
-    glac_hyps_table.index.name = input.indexname
+    glac_table.reset_index(drop=True, inplace=True)
+    glac_table.index.name = indexname
     # Drop columns that are not elevation bins
-    glac_hyps_table.drop(input.hyps_cols_drop, axis=1, inplace=True)
+    glac_table.drop(drop_col_names, axis=1, inplace=True)
     # Make sure columns are integers
-    glac_hyps_table.columns = glac_hyps_table.columns.values.astype(int)
+    glac_table.columns = glac_table.columns.values.astype(int)
     # Change NAN from -99 to 0
-    glac_hyps_table[glac_hyps_table==-99] = 0.
-    return glac_hyps_table
-
-
-def import_icethickness(rgi_table):
-    """Use the thickness dictionary specified by the user in the input to extract the ice thickness.
-    The ice thickness files must be in the proper units [m] and need to be pre-processed to have all bins
-    between 0 - 9000 m.
+    glac_table[glac_table==-99] = 0.
+    return glac_table
     
-    Output is a Pandas DataFrame of the ice thickness for all the glaciers in the model run
-    (rows = GlacNo, columns = elevation bins).
-    
-    Line Profiling: Loading in the table takes the most time (~2.3 s)
-    """
-    ds = pd.read_csv(input.thickness_filepath + input.thicknessfile_dict[input.rgi_regionsO1[0]])
-    # Select glaciers based on 01Index value from main_glac_rgi table
-    glac_thickness_table = pd.DataFrame()
-    for glacier in range(len(rgi_table)):
-        if glac_thickness_table.empty:
-            glac_thickness_table = ds.loc[rgi_table.loc[glacier,'O1Index']]
-        else:
-            glac_thickness_table = pd.concat([glac_thickness_table, ds.loc[rgi_table.loc[glacier,'O1Index']]], axis=1)
-    glac_thickness_table = glac_thickness_table.transpose()
-    # Clean up table and re-index
-    # Reset index to be GlacNo
-    glac_thickness_table.reset_index(drop=True, inplace=True)
-    glac_thickness_table.index.name = input.indexname
-    # Drop columns that are not elevation bins
-    glac_thickness_table.drop(input.thickness_cols_drop, axis=1, inplace=True)
-    # Make sure columns are integers
-    glac_thickness_table.columns = glac_thickness_table.columns.values.astype(int)
-    # Change NAN from -99 to 0
-    glac_thickness_table[glac_thickness_table==-99] = 0.
-    return glac_thickness_table
 
-
-def importHussfile(filename):
-    filepath = input.hyps_filepath + 'bands_' + str(input.binsize) + 'm_DRR/'
-    fullpath = filepath + filename
-    data_Huss = pd.read_csv(fullpath)
-    # # THIS SECTION CHANGES THE RGIID TO MATCH RGI FORMAT
-    # ID_split = data_Huss['RGIID'].str.split('.').apply(pd.Series).loc[:,2]
-    #     # Grabs the value ex. "13-00001", but need to replace '-' with '.'
-    #     # use .apply(pd.Series) to turn the tuples into a DataFrame,
-    #     # then access normally
-    # ID_split2 = ID_split.str.split('-').apply(pd.Series)
-    #
-    # ID_RGI = 'RGI60-' + ID_split2.loc[:,0] + '.' + ID_split2.loc[:,1]
-    # print(ID_RGI.head())
-    # # OUTPUT TO CSV
-    # ID_RGI.to_csv('RGIIDs_13.csv')
-
-    # Create new dataframe with all of it
-    bins = np.arange(int(input.binsize/2),9000,input.binsize)
-        # note provide 3 rows of negative numbers to rename columns
-    data_table = pd.DataFrame(0, index=data_Huss.index, columns=bins)
-    data_Huss.drop(['RGIID'], axis=1, inplace=True)
-    columns_int = data_Huss.columns.values.astype(int)
-        # convert columns from string to integer such that they can be used
-        # in downscaling computations
-    data_Huss.columns = columns_int
-    data_Huss = data_Huss.astype(float)
-    mask1 = (data_Huss == -99)
-    data_Huss[mask1] = 0
-    print(len(data_Huss.iloc[0]))
-    print(data_Huss.iloc[:,0:760])
-    # data_Huss.iloc[0,0] = 50
-    # data_table.iloc[0,3] = data_Huss.iloc[0,0]
-    # print(data_table)
-    # exit()
-    print('hello')
-    data_table.iloc[:,3:(3+(len(data_Huss.iloc[0])))] = data_Huss.iloc[:,:]
-    # print(data_table)
-    print('again')
-    data_table.to_csv('RGI_13_thickness.csv')
-    # Note: 7625 elevation did not have a value of 0, but was blank
+#def importHussfile(filename):
+#    filepath = input.hyps_filepath + 'bands_' + str(input.binsize) + 'm_DRR/'
+#    fullpath = filepath + filename
+#    data_Huss = pd.read_csv(fullpath)
+#    # # THIS SECTION CHANGES THE RGIID TO MATCH RGI FORMAT
+#    # ID_split = data_Huss['RGIID'].str.split('.').apply(pd.Series).loc[:,2]
+#    #     # Grabs the value ex. "13-00001", but need to replace '-' with '.'
+#    #     # use .apply(pd.Series) to turn the tuples into a DataFrame,
+#    #     # then access normally
+#    # ID_split2 = ID_split.str.split('-').apply(pd.Series)
+#    #
+#    # ID_RGI = 'RGI60-' + ID_split2.loc[:,0] + '.' + ID_split2.loc[:,1]
+#    # print(ID_RGI.head())
+#    # # OUTPUT TO CSV
+#    # ID_RGI.to_csv('RGIIDs_13.csv')
+#
+#    # Create new dataframe with all of it
+#    bins = np.arange(int(input.binsize/2),9000,input.binsize)
+#        # note provide 3 rows of negative numbers to rename columns
+#    data_table = pd.DataFrame(0, index=data_Huss.index, columns=bins)
+#    data_Huss.drop(['RGIID'], axis=1, inplace=True)
+#    columns_int = data_Huss.columns.values.astype(int)
+#        # convert columns from string to integer such that they can be used
+#        # in downscaling computations
+#    data_Huss.columns = columns_int
+#    data_Huss = data_Huss.astype(float)
+#    mask1 = (data_Huss == -99)
+#    data_Huss[mask1] = 0
+#    print(len(data_Huss.iloc[0]))
+#    print(data_Huss.iloc[:,0:760])
+#    # data_Huss.iloc[0,0] = 50
+#    # data_table.iloc[0,3] = data_Huss.iloc[0,0]
+#    # print(data_table)
+#    # exit()
+#    print('hello')
+#    data_table.iloc[:,3:(3+(len(data_Huss.iloc[0])))] = data_Huss.iloc[:,:]
+#    # print(data_table)
+#    print('again')
+#    data_table.to_csv('RGI_13_thickness.csv')
+#    # Note: 7625 elevation did not have a value of 0, but was blank
 
 
 def selectglaciersrgitable():

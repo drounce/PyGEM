@@ -57,10 +57,15 @@ print('Step 1 time:', timeelapsed_step1, "s\n")
 
 #%%=== STEP TWO: HYPSOMETRY, ICE THICKNESS, MODEL TIME FRAME, SURFACE TYPE ============================================
 timestart_step2 = timeit.default_timer()
-# Glacier hypsometry [km**2]
-main_glac_hyps = modelsetup.import_hypsometry(main_glac_rgi)
-# Ice thickness [m]
-main_glac_icethickness = modelsetup.import_icethickness(main_glac_rgi)
+# Glacier hypsometry [km**2], total area
+main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath, 
+                                             input.hyps_filedict, input.indexname, input.hyps_colsdrop)
+# Ice thickness [m], average
+main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.thickness_filepath, 
+                                                 input.thickness_filedict, input.indexname, input.thickness_colsdrop)
+# Width [km], average
+main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.width_filepath, 
+                                              input.width_filedict, input.indexname, input.width_colsdrop)
 # Add volume [km**3] and mean elevation [m a.s.l.] to the main glaciers table
 main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
 # Model time frame
@@ -175,6 +180,7 @@ for glac in [0]:
                 glac_bin_snowdepth[glac_bin_meltsnow[:,step] > glac_bin_snowdepth[:,step], step])
         # Energy remaining after snow melt [degC day]
         melt_energy_available = melt_energy_available - glac_bin_meltsnow[:,step] / surfacetype_ddf_dict[2]
+        # remove low values of energy available cause by rounding errors in the step above (e.g., less than 10**-12)
         melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
         # Compute the refreeze, refreeze melt, and any changes to the snow depth...
         # Refreeze potential [m w.e.]
@@ -196,6 +202,7 @@ for glac in [0]:
                 glac_bin_refreeze[glac_bin_meltrefreeze[:,step] > glac_bin_refreeze[:,step], step])
         # Energy remaining after refreeze melt [degC day]
         melt_energy_available = melt_energy_available - glac_bin_meltrefreeze[:,step] / surfacetype_ddf_dict[2]
+        # remove low values of energy available cause by rounding errors
         melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
         # Snow remaining [m w.e.]
         snowdepth_remaining = (glac_bin_snowdepth[:,step] + glac_bin_refreeze[:,step] - glac_bin_meltsnow[:,step] - 
@@ -207,10 +214,11 @@ for glac in [0]:
         # Glacier melt [m w.e.] based on remaining energy
         glac_bin_meltglac[:,step] = surfacetype_ddf * melt_energy_available
         # Energy remaining after glacier surface melt [degC day]
+        #  must specify on-glacier values, otherwise this will divide by zero and cause an error
         melt_energy_available[surfacetype != 0] = (melt_energy_available[surfacetype != 0] - 
                              glac_bin_meltglac[surfacetype != 0, step] / surfacetype_ddf[surfacetype != 0])
+        # remove low values of energy available cause by rounding errors
         melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
-        #  must specify on-glacier values, otherwise this will divide by zero and cause an error
         # Additional refreeze in the accumulation area [m w.e.]
         #  refreeze in accumulation zone = refreeze of snow + refreeze of underlying snow/firn
         glac_bin_refreeze[(surfacetype == 2) | (surfacetype == 3), step] = (
@@ -227,8 +235,6 @@ for glac in [0]:
         refreeze_potential[abs(refreeze_potential) < input.tolerance] = 0
         # Total melt (snow + refreeze + glacier)
         glac_bin_melt[:,step] = glac_bin_meltglac[:,step] + glac_bin_meltrefreeze[:,step] + glac_bin_meltsnow[:,step]
-        # Reset available energy to ensure no energy is carried over into next timestep
-#        melt_energy_available = np.zeros(glac_bin_temp.shape[0]) 
         
         # Compute frontal ablation
         #   - INSERT CODE HERE
@@ -384,6 +390,10 @@ for glac in [0]:
                     
                 # Update ice thickness change
                 icethickness_change = icethickness_t1 - icethickness_t0
+                # Glacier bin volume change
+                glac_bin_volumechange = ((glacier_area_t1 * icethickness_t1 / 1000) - 
+                                         (glacier_area_t0 * icethickness_t0 / 1000))
+                #  use this and divide by area_t0 to get the total_mwe
                 
             # Update glacier parameters while in annual loop
             # Total specific mass balance [m w.e.] (mass balance after mass redistribution)
@@ -420,7 +430,8 @@ for glac in [0]:
 #            if input.option_modelrun_type == 0:
 #                # glacier ice thickness [m] changes according to specific climatic mass balance
 #                #  NOTE: this should also include redistribution!
-         
+    # Compute "optional" output, i.e., output that is not required for model to run, but may be desired by user
+     
 
         
 # While in glacier loop, compile the monthly data into a netcdf
