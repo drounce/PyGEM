@@ -227,6 +227,7 @@ def accumulationbins(glac_temp, glac_precsnow):
               "Exiting model run.\n")
     return bin_prec, bin_snow
 
+
 def annualweightedmean_array(var, dates_table):
     """
     Calculate annual mean of variable according to the timestep.
@@ -236,33 +237,21 @@ def annualweightedmean_array(var, dates_table):
         dayspermonth = dates_table['daysinmonth'].values.reshape(-1,12)
         #  creates matrix (rows-years, columns-months) of the number of days per month
         daysperyear = dayspermonth.sum(axis=1)
+        #  creates an array of the days per year (includes leap years)
         weights = (dayspermonth / daysperyear[:,np.newaxis]).reshape(-1)
-        #  computes weights for each element, then reshapes it for next step
+        #  computes weights for each element, then reshapes it from matrix (rows-years, columns-months) to an array, 
+        #  where each column (each monthly timestep) is the weight given to that specific month
         var_annual = (var*weights[np.newaxis,:]).reshape(-1,12).sum(axis=1).reshape(-1,daysperyear.shape[0])
         #  computes matrix (rows - bins, columns - year) of weighted average for each year
+        #  explanation: var*weights[np.newaxis,:] multiplies each element by its corresponding weight; .reshape(-1,12) 
+        #    reshapes the matrix to only have 12 columns (1 year), so the size is (rows*cols/12, 12); .sum(axis=1) 
+        #    takes the sum of each year; .reshape(-1,daysperyear.shape[0]) reshapes the matrix back to the proper 
+        #    structure (rows - bins, columns - year)
     elif input.timestep == 'daily':
         print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
               'Exiting the model run.\n')
         exit()
     return var_annual
-
-
-# re-write groupbyyearsum using the reshape framework above - much faster!
-def groupbyyearsum(var):
-    print('MUST RE-WRITE FUNCTION USING RESHAPE FRAMEWORK - SEE ANNUALWEIGHTEDMEAN_ARRAY')
-#    """
-#    NOTE: UPDATE THIS LIKE ANNUALWEIGHTEDMEAN_ARRAY!!!
-#    
-#    Calculate annual sum of variable according to the timestep.
-#    Example monthly timestep will group every 12 months, so starting month is important.
-#    """
-#    if input.timestep == 'monthly':
-#        var_annual = var.groupby(np.arange(var.shape[1]) // 12, axis=1).sum()
-#    elif input.timestep == 'daily':
-#        print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
-#              'Exiting the model run.\n')
-#        exit()
-#    return var_annual
 
 
 def downscaleprec2bins(glac_table, glac_hyps, climate_prec, climate_elev, glac_count):

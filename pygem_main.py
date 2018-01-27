@@ -113,7 +113,7 @@ for glac in [0]:
     # Compute potential refreeze [m w.e.] for each bin
     glac_bin_refreezepotential = massbalance.refreezepotentialbins(glac_bin_temp, dates_table)
     # Set initial surface type for first timestep [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
-    surfacetype = main_glac_surftypeinit.iloc[glac,:].values
+    surfacetype = main_glac_surftypeinit.iloc[glac,:].values.copy()
     # Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
     surfacetype_ddf_dict = modelsetup.surfacetypeDDFdict()
     
@@ -127,21 +127,18 @@ for glac in [0]:
     #  - dayspermonth
     #  - main_glac_hyps
     # Variables to export with function
-    glac_bin_snowdepth = np.zeros(glac_bin_temp.shape)
+    glac_bin_refreeze = np.zeros(glac_bin_temp.shape)
     glac_bin_melt = np.zeros(glac_bin_temp.shape)
     glac_bin_meltsnow = np.zeros(glac_bin_temp.shape)
     glac_bin_meltrefreeze = np.zeros(glac_bin_temp.shape)
     glac_bin_meltglac = np.zeros(glac_bin_temp.shape)
-    glac_bin_refreeze = np.zeros(glac_bin_temp.shape)
     glac_bin_frontalablation = np.zeros(glac_bin_temp.shape)
+    glac_bin_snowdepth = np.zeros(glac_bin_temp.shape)
     glac_bin_massbal_clim_mwe = np.zeros(glac_bin_temp.shape)
     glac_bin_massbal_clim_mwe_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
-    glac_bin_massbal_total_mwe_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0])) 
     glac_bin_surfacetype_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
-    glac_bin_icethickness_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
-    glac_bin_area_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
-    glac_bin_volume_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
-    glac_bin_width_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
+    glac_bin_icethickness_annual = np.zeros((glac_bin_temp.shape[0], annual_columns.shape[0] + 1))
+    glac_bin_area_annual = np.zeros((glac_bin_temp.shape[0], annual_columns.shape[0] + 1))
     
     # Local variables used within the function
     snowdepth_remaining = np.zeros(glac_bin_temp.shape[0])
@@ -150,6 +147,7 @@ for glac in [0]:
     refreeze_potential = np.zeros(glac_bin_temp.shape[0])
     glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
     icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
+    icethickness_initial = main_glac_icethickness.iloc[glac,:].values.astype(float)
     elev_bins = main_glac_hyps.columns.values
     
     
@@ -171,6 +169,10 @@ for glac in [0]:
         # Snow depth [m w.e.] = snow remaining + new snow
         glac_bin_snowdepth[:,step] = snowdepth_remaining + glac_bin_acc[:,step]
         # Available energy for melt [degC day]
+        #  include option to adjust air temperature based on changes in surface elevation as ice melts
+        if input.option_adjusttemp_surfelev == 1:
+            glac_bin_temp[:,step] = glac_bin_temp[:,step] + input.lr_glac * (icethickness_t0 - icethickness_initial)
+            #  T_air = T+air + lr_glac * (icethickness_present - icethickness_initial)
         melt_energy_available = glac_bin_temp[:,step]*dayspermonth[step]
         melt_energy_available[melt_energy_available < 0] = 0
         # Snow melt [m w.e.]
@@ -253,6 +255,10 @@ for glac in [0]:
             year_index = int(step/annual_divisor)
             #  Note: year_index*annual_divisor gives initial step of the given year
             #        step + 1 gives final step of the given year
+            # for first year, need to record glacier area [km**2] and ice thickness [m ice]
+            if year_index == 0:
+                glac_bin_area_annual[:,year_index] = main_glac_hyps.iloc[glac,:].values.astype(float)
+                glac_bin_icethickness_annual[:,year_index] = main_glac_icethickness.iloc[glac,:].values.astype(float)
             # Annual climatic mass balance [m w.e.]
             glac_bin_massbal_clim_mwe_annual[:,year_index] = (
                 glac_bin_massbal_clim_mwe[:,year_index*annual_divisor:step+1].sum(1))
@@ -286,18 +292,15 @@ for glac in [0]:
             #  Simply keep area constant and allow ice thickness to grow
             
             ##### GLACIER GEOMETRY CHANGE (convert to function) #####
+            # Reset the annual glacier area and ice thickness
+            glacier_area_t1 = np.zeros(glacier_area_t0.shape)
+            icethickness_t1 = np.zeros(glacier_area_t0.shape)
             # Annual glacier-wide volume change [km**3]
             glacier_volumechange = ((glac_bin_massbal_clim_mwe_annual[:, year_index] / 1000 * input.density_water / 
                                      input.density_ice * glacier_area_t0).sum())
             #  units: [m w.e.] * (1 km / 1000 m) * (1000 kg / (1 m water * m**2) * (1 m ice * m**2 / 900 kg) * [km**2] 
-            #         = km**3 ice
+            #         = km**3 ice            
             
-            glacier_volumechange = -1.5
-#            glacier_volumechange = 0.2
-            
-            # Reset the annual glacier area and ice thickness
-            glacier_area_t1 = np.zeros(glacier_area_t0.shape)
-            icethickness_t1 = np.zeros(glacier_area_t0.shape)
             # If volume loss is less than the glacier volume, then redistribute mass loss/gains across the glacier;
             #  otherwise, the glacier disappears (area and thickness are set to zero as shown above)
             if -1 * glacier_volumechange < (icethickness_t0 / 1000 * glacier_area_t0).sum():
@@ -308,11 +311,11 @@ for glac in [0]:
                         icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_volumechange)
                 # Glacier retreat
                 #  if glacier retreats (ice thickness < 0), then redistribute mass loss across the rest of the glacier
+                glac_idx_t0_raw = glac_idx_t0.copy()
                 if (icethickness_t1[glac_idx_t0] <= 0).any() == True:
                     # Record glacier area and ice thickness before retreat corrections applied
                     glacier_area_t0_raw = glacier_area_t0.copy()
                     icethickness_t0_raw = icethickness_t0.copy()
-                    glac_idx_t0_raw = glac_idx_t0.copy()
                 while (icethickness_t1[glac_idx_t0_raw] <= 0).any() == True:
                     # Glacier volume change associated with retreat [km**3]
                     glacier_volumechange_retreat = (-1*(icethickness_t0[glac_idx_t0][icethickness_t1[glac_idx_t0] <= 0] 
@@ -388,38 +391,112 @@ for glac in [0]:
                     # This will also take care of the cases where you need to skip steep bins at high altitudes, i.e.,
                     # discontinuous glaciers
                     
-                # Update ice thickness change
-                icethickness_change = icethickness_t1 - icethickness_t0
-                # Glacier bin volume change
-                glac_bin_volumechange = ((glacier_area_t1 * icethickness_t1 / 1000) - 
-                                         (glacier_area_t0 * icethickness_t0 / 1000))
-                #  use this and divide by area_t0 to get the total_mwe
                 
-            # Update glacier parameters while in annual loop
-            # Total specific mass balance [m w.e.] (mass balance after mass redistribution)
-            #  Note: this should factor in the changes in ice thickness AND area or should it?
-            
-#            glac_bin_massbal_total_mwe_annual[:,year_index] = (icethickness_change * input.density_ice / 
-#                                                               input.density_water)
-#            #  units: [m ice] * [kg / (m_ice * m**2)] / [kg / (m_water * m**2)] = m w.e.
+                # When recording values, make sure to use .copy() that way its returning the value at that time and
+                # doesn't automatically update things later.
             
             
-#            # Ice thickness [m ice]
-#            glac_bin_icethickness_annual[:,year_index] = icethickness_t1
-#            # Update the volume [km**3] for the next year
-#            glac_bin_volume_annual.iloc[:, year_position + 1] = (glac_bin_area_annual.iloc[:, year_position + 1] *
-#            glac_bin_icethickness_annual.iloc[:, year_position + 1] / 1000)
-#            #  units: [km**2] * [m] * (1 km / 1000 m) = km**3
-#            
-#            glac_bin_massbal_total_mwe_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0])) 
-#            glac_bin_surfacetype_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
-#            glac_bin_icethickness_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
-#            glac_bin_area_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
-#            glac_bin_volume_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
-#            glac_bin_width_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
+            # Record glacier area [km**2] and ice thickness [m ice]
+            glac_bin_area_annual[:,year_index + 1] = glacier_area_t1
+            glac_bin_icethickness_annual[:,year_index + 1] = icethickness_t1
+            # Update glacier area and ice thickness for next year
+            glacier_area_t0 = glacier_area_t1.copy()
+            icethickness_t0 = icethickness_t1.copy()
+            
+            
+    # Record variables that are specified by the user to be output
+    # Monthly area [km**2] at each bin
+    glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
+    # Monthly ice thickness [m ice] at each bin
+    glac_bin_icethickness = glac_bin_icethickness_annual[:,0:glac_bin_icethickness_annual.shape[1]-1].repeat(12,axis=1)
 
-            # Somewhere we need to update ice thickness and glacier area for the next time step
-                     
+    # Annual outputs at each bin:
+    # Annual volume [km**3]
+    glac_bin_volume_annual = glac_bin_area_annual * glac_bin_icethickness_annual / 1000
+    # Annual accumulation [m w.e.]
+    glac_bin_acc_annual = glac_bin_acc.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
+    # Annual refreeze [m w.e.]
+    glac_bin_refreeze_annual = glac_bin_refreeze.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
+    # Annual melt [m w.e.]
+    glac_bin_melt_annual = glac_bin_melt.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
+    # Annual frontal ablation [m w.e.]
+    glac_bin_frontalablation_annual = (
+            glac_bin_frontalablation.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]))
+    # Annual precipitation [m]
+    glac_bin_prec_annual = glac_bin_prec.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
+    
+    # Annual total specific mass balance [m w.e.] (mass balance after mass redistribution)
+    #  Based on change in glacier volume for each bin divided by the area.  Note: using roll will enable a faster
+    #  computation of the change in glacier volume.  Using indexing may avoid errors associated with areas that were 0, 
+    #  which causes you to divide by zero (this will occur during retreat/surge depending on if using area at the 
+    #  beginning or end of the time step).
+#    glac_bin_massbal_total_mwe_annual = np.zeros((glac_bin_temp.shape[0],annual_columns.shape[0]))
+#    batman_idx = glac_bin_surfacetype_annual > 0
+#    glac_bin_massbal_total_mwe_annual[batman_idx] = (glac_bin_volume_annual - np.roll(glac_bin_volume_annual,-1,axis=1))[batman_idx]
+
+    # Annual width [km]
+#    if input.option_glaciershape == 1 :
+#        # if triangular or parabolic, then w1 = w0*(A1/A0)
+#        # if rectangular, then w is constant
+    
+
+    # Monthly glacier-wide Parameters:
+    # Area [km**2]
+    glac_wide_area = glac_bin_area.sum(axis=0)
+    # Accumulation [m w.e.]
+    glac_wide_acc = np.zeros(glac_wide_area.shape)
+    glac_wide_acc[glac_wide_area > 0] = ((glac_bin_acc * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+                                         glac_wide_area[glac_wide_area > 0])
+    # Refreeze [m w.e.]
+    glac_wide_refreeze = np.zeros(glac_wide_area.shape)
+    glac_wide_refreeze[glac_wide_area > 0] = ((glac_bin_refreeze * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+                                              glac_wide_area[glac_wide_area > 0])
+    # Melt [m w.e.]
+    glac_wide_melt = np.zeros(glac_wide_area.shape)
+    glac_wide_melt[glac_wide_area > 0] = ((glac_bin_melt * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+                                          glac_wide_area[glac_wide_area > 0])
+    # Frontal ablation [m w.e.]
+    glac_wide_frontalablation = np.zeros(glac_wide_area.shape)
+    glac_wide_frontalablation[glac_wide_area > 0] = (
+            (glac_bin_frontalablation * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+            glac_wide_area[glac_wide_area > 0])
+    # Mass balance [m w.e.]
+    #  glacier-wide climatic and total mass balance are the same; use climatic since its required to run the model
+    glac_wide_massbal_mwe = np.zeros(glac_wide_area.shape)
+    glac_wide_massbal_mwe[glac_wide_area > 0] = (
+            (glac_bin_massbal_clim_mwe * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+            glac_wide_area[glac_wide_area > 0])
+    # Melt [m w.e.]
+    glac_wide_melt = np.zeros(glac_wide_area.shape)
+    glac_wide_melt[glac_wide_area > 0] = ((glac_bin_melt * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+                                          glac_wide_area[glac_wide_area > 0])
+    # Precipitation [m]
+    glac_wide_prec = np.zeros(glac_wide_area.shape)
+    glac_wide_prec[glac_wide_area > 0] = ((glac_bin_prec * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+                                          glac_wide_area[glac_wide_area > 0])
+    # Runoff [m**3]
+    glac_wide_runoff = (glac_wide_prec + glac_wide_melt - glac_wide_refreeze) * glac_wide_area * (1000)**2
+    #  runoff = precipitation + melt - refreeze
+    #  units: m w.e. * km**2 * (1000 m / 1 km)**2 = m**3
+    # Volume [km**3]
+    glac_wide_volume = (glac_bin_area * glac_bin_icethickness / 1000).sum(axis=0)
+            
+    # Annual glacier-wide Parameters:
+    # Annual volume [km**3]
+    glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
+    
+    
+#    # Annual accumulation [m w.e.]
+#    glac_wide_acc_annual = 
+#    # Annual refreeze [m w.e.]
+#    glac_wide_refreeze_annual = 
+#    # Annual melt [m w.e.]
+#    glac_wide_melt_annual = 
+#    # Annual frontal ablation [m w.e.]
+#    glac_wide_frontalablation_annual = 
+#    # Annual precipitation [m]
+#    glac_wide_prec_annual = 
+            
         
          # Options to add:
          # - Refreeze via heat conduction
@@ -430,7 +507,10 @@ for glac in [0]:
 #            if input.option_modelrun_type == 0:
 #                # glacier ice thickness [m] changes according to specific climatic mass balance
 #                #  NOTE: this should also include redistribution!
+         
+         
     # Compute "optional" output, i.e., output that is not required for model to run, but may be desired by user
+    # can we pass this into the function? by adding the "-output ______", this would likely make code cleaner
      
 
         
@@ -440,57 +520,5 @@ timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
 
 #%%=== STEP FIVE: DATA ANALYSIS / OUTPUT ==============================================================================
-
-
-#%%=== LEFTOVER LINES OF CODE =========================================================================================
-## Create empty dataframes for monthly glacier-wide output
-## Monthly glacier-wide accumulation [m w.e.]
-#main_glac_acc_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly glacier-wide refreeze [m w.e.]
-#main_glac_refreeze_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly glacier-wide melt [m w.e.]
-#main_glac_melt_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly glacier-wide frontal ablation [m w.e.]
-#main_glac_frontal_ablation_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly glacier-wide specific mass balance [m w.e.]
-#main_glac_massbal_clim_mwe_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly total glacier area [km**2]
-#main_glac_area_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly Equilibrium Line Altitude (ELA) [m a.s.l.]
-#main_glac_ELA_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly Accumulation-Area Ratio (AAR) [%]
-#main_glac_AAR_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly Snow Line Altitude [m a.s.l.]
-#main_glac_snowline_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Monthly runoff [m**3]
-#main_glac_runoff_monthly = pd.DataFrame(0, index=main_glac_rgi.index, columns=monthly_columns)
-## Empty dataframes for annual glacier-wide output (rows = glaciers, columns = years)
-## Annual glacier-wide specific accumulation [m w.e.]
-#main_glac_acc_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific refreeze [m w.e.]
-#main_glac_refreeze_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific melt [m w.e.]
-#main_glac_melt_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific frontal ablation [m w.e.]
-#main_glac_frontal_ablation_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific climatic mass balance [m w.e.]
-#main_glac_massbal_clim_mwe_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier-wide specific total mass balance [m w.e.]
-#main_glac_massbal_total_mwe_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier area at start of each year [km**2]
-#main_glac_area_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual glacier volume at start of each year [km**3]
-#main_glac_volume_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual Equilibrium Line Altitude (ELA) [m a.s.l.]
-#main_glac_ELA_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual Accumulation-Area Ratio (AAR) [m a.s.l.]
-#main_glac_AAR_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual snowline altitude [m a.s.l.]
-#main_glac_snowline_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-## Annual runoff [m**3]
-#main_glac_runoff_annual = pd.DataFrame(0, index=main_glac_rgi.index, columns=annual_columns)
-
-
-
 
 

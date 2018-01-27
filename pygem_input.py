@@ -293,6 +293,10 @@ option_elev_ref_downscale = 'Zmed'
 # Option 1 (default) - 'Zmed', median glacier elevation
 # Option 2 - 'Zmax', maximum glacier elevation
 # Option 3 - 'Zmin', minimum glacier elevation (terminus)
+option_adjusttemp_surfelev = 1
+# Switch to adjust the air temperature as a function of surface elevation as the ice thickness changes over time
+# Option 1 (default) - yes, adjust temperature
+# Option 2 - do not adjust temperature
 option_surfacetype = 1
 # How is surface type considered, annually?
 option_surfaceablation = 1
