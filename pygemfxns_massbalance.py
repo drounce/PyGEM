@@ -469,7 +469,13 @@ def refreezepotentialbins(glac_temp, dates_table):
         bin_refreezepotential_annual[bin_refreezepotential_annual < 0] = 0
         # Place annual refreezing in January for accounting and melt purposes
         if input.timestep == 'monthly':
-            placeholder = (12 - dates_table.loc[0,'month'] + input.refreeze_month) % 12
+            # try/except used to avoid errors with option to adjust air temperature based on surface elevation, i.e., 
+            #  try works for the regular function
+            #  except works when subsets of the glac_temp and dates_table are given
+            try:
+                placeholder = (12 - dates_table.loc[0,'month'] + input.refreeze_month) % 12
+            except:
+                placeholder = (12 - dates_table.iloc[0,2] + input.refreeze_month) % 12
             #  using the month of the first timestep and the refreeze month add the annual values to the monthly data
             bin_refreezepotential[:,placeholder::12] = bin_refreezepotential_annual[:,::1]
 #            for step in range(glac_temp.shape[1]):
