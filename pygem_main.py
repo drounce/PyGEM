@@ -155,22 +155,25 @@ for glac in [0]:
     for step in range(glac_bin_temp.shape[1]):
 #    for step in range(0,26):
 #    for step in range(0,12):
+        
+        # Option to adjust air temperature based on changes in surface elevation
+        if input.option_adjusttemp_surfelev == 1:
+            # Adjust the air temperature
+            glac_bin_temp[:,step] = glac_bin_temp[:,step] + input.lr_glac * (icethickness_t0 - icethickness_initial)
+            #  T_air = T+air + lr_glac * (icethickness_present - icethickness_initial)
+            # Adjust refreeze as well
+            #  refreeze option 2 uses annual temps, so only do this at the start of each year (step % annual_divisor)
+            if (input.option_refreezing == 2) & (step % annual_divisor == 0):
+                glac_bin_refreezepotential[:,step:step+annual_divisor] = massbalance.refreezepotentialbins(
+                        glac_bin_temp[:,step:step+annual_divisor], dates_table.iloc[step:step+annual_divisor,:])
         # Remove input that is off-glacier (required for each timestep as glacier extent may vary over time)
         glac_bin_temp[surfacetype==0,step] = 0
         glac_bin_acc[surfacetype==0,step] = 0
-        glac_bin_refreezepotential[surfacetype==0,step] = 0
-        
+        glac_bin_refreezepotential[surfacetype==0,step] = 0        
         # Compute the snow depth and melt for each bin...
         # Snow depth / 'snowpack' [m w.e.] = snow remaining + new snow
         glac_bin_snowpack[:,step] = snowpack_remaining + glac_bin_acc[:,step]
-        # Available energy for melt [degC day]
-        #  include option to adjust air temperature based on changes in surface elevation as ice melts
-        if input.option_adjusttemp_surfelev == 1:
-            glac_bin_temp[:,step] = glac_bin_temp[:,step] + input.lr_glac * (icethickness_t0 - icethickness_initial)
-            #  T_air = T+air + lr_glac * (icethickness_present - icethickness_initial)
-            
-            # THIS OPTION ALSO NEEDS TO AFFECT REFREEZE, WHICH IS CURRENTLY COMPUTED OUTSIDE THIS LOOP...
-            
+        # Available energy for melt [degC day]    
         melt_energy_available = glac_bin_temp[:,step]*dayspermonth[step]
         melt_energy_available[melt_energy_available < 0] = 0
         # Snow melt [m w.e.]
@@ -288,6 +291,8 @@ for glac in [0]:
             # ADD CALIBRATION OPTION PRE-GEOMETRY CHANGE
             #  Calibration does not require geometry change, so have ability to turn this off with an option!
             #  Simply keep area constant and allow ice thickness to grow
+            # Note: why would we keep the area constant?  The glaciers are changing over time, so we should allow the
+            #       model to change over time as well.
             
             ##### GLACIER GEOMETRY CHANGE (convert to function) #####
             # Reset the annual glacier area and ice thickness
