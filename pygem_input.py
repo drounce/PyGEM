@@ -330,13 +330,50 @@ option_glaciershape = 1
 # Option 1(default) - parabolic (used by Huss and Hock, 2015)
 # Option 2 - rectangular
 # Option 3 - triangular
-icethickness_surgethreshold = 5
-# ice thickness threshold for what defines a surge, i.e., adding a new elevation bin
+option_glaciershape_width = 1
+# include computations of glacier width or not
+# Option 0 (default) - do not include
+# Option 1 - include
+icethickness_advancethreshold = 5
+# ice thickness threshold for what defines a advance, i.e., adding a new elevation bin
 #  Huss and Hock (2015) use a threshold of 5 m
 terminus_percentage = 20
-# percentage of glacier that is used to define the terminus for surges
+# percentage of glacier that is used to define the terminus for glacier advance
 #  Huss and Hock (2015) use 20% to calculate new area and ice thickness
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 netcdf_filenameprefix = 'PyGEM_output_rgiregion'
 netcdf_filepath = '../Output/'
+
+# Output files [bin, bin_annual, glacier, glacier_annual]
+input.output_temp =                 [1, 0, 0, 0]
+input.output_prec =                 [1, 0, 0, 0]
+input.output_acc =                  [0, 0, 1, 0]
+input.output_refreeze =             []
+input.output_melt =                 []
+input.output_melt_glaccomponent =   []
+input.output_melt_snowcomponent =   []
+input.output_melt_refrcomponent =   []
+input.output_frontalablation =      []
+input.massbal_clim =                []
+input.massbal_total =               []
+input.massbal =                     [0, 0, 1, 0]
+input.output_snowdepth =            []
+input.output_area =                 []
+input.output_icethickness =         []
+input.output_volume =               []
+input.output_width =                []
+input.output_surfacetype =          []
+input.output_runoff =               []
+input.output_ELA =                  []
+input.output_AAR =                  []
+input.output_snowline =             []
+
+
+
+
+
+
+
+
+
