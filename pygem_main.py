@@ -520,4 +520,25 @@ print('Step 4 time:', timeelapsed_step4, "s\n")
 
 #%%=== STEP FIVE: DATA ANALYSIS / OUTPUT ==============================================================================
 
+# Must factor in spinup years for model output, i.e., remove spinup years from the model runs
+
+#%% Refreeze
+# Solve the 2-d heat conduction equation to determine the temperature in the snow and/or firn to compute refreezing
+# Temperature profiles are developed for an assumed 10 m of snow/firn
+h = input.refreeze_depth / 10
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

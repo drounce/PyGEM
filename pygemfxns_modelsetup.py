@@ -36,12 +36,11 @@ def datesmodelrun():
         
     Developer's note: ADD OPTIONS FOR CHANGING WATER YEAR FROM OCT 1 - SEPT 30 FOR VARIOUS REGIONS
     """
-
     # Include spinup time in start year
     startyear_wspinup = input.startyear - input.spinupyears
     # Convert start year into date depending on option_wateryear
     if input.option_wateryear == 1:
-        startdate = str(startyear_wspinup) + '-10-01'
+        startdate = str(startyear_wspinup) - 1 + '-10-01'
         enddate = str(input.endyear) + '-09-30'
     elif input.option_wateryear == 0:
         startdate = str(startyear_wspinup) + '-01-01'
