@@ -83,7 +83,7 @@ rgi_dict = {
             14: '14_rgi60_SouthAsiaWest.csv',
             15: '15_rgi60_SouthAsiaEast.csv'}
 # Columns in the RGI tables that are not necessary to include in model run.
-rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Form','TermType', 'Surging', 'Linkages', 'Name']
+rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Surging','Linkages','Name']
 #  this will change as model develops to include ice caps, calving, etc.
 # OPTION 2: Select/customize regions based on shapefile(s)
 # Enter shapefiles, etc.

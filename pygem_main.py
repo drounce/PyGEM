@@ -152,9 +152,9 @@ for glac in [0]:
     elev_bins = main_glac_hyps.columns.values
     
     # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
-    for step in range(glac_bin_temp.shape[1]):
+#    for step in range(glac_bin_temp.shape[1]):
 #    for step in range(0,26):
-#    for step in range(0,12):
+    for step in range(0,12):
         
         # Option to adjust air temperature based on changes in surface elevation
         if input.option_adjusttemp_surfelev == 1:
@@ -238,15 +238,13 @@ for glac in [0]:
         refreeze_potential[abs(refreeze_potential) < input.tolerance] = 0
         # Total melt (snow + refreeze + glacier)
         glac_bin_melt[:,step] = glac_bin_meltglac[:,step] + glac_bin_meltrefreeze[:,step] + glac_bin_meltsnow[:,step]
+        # Climatic mass balance [m w.e.]
+        glac_bin_massbal_clim_mwe[:,step] = glac_bin_acc[:,step] + glac_bin_refreeze[:,step] - glac_bin_melt[:,step]
+        #  climatic mass balance = accumulation + refreeze - melt
         
         # Compute frontal ablation
-        #   - INSERT CODE HERE
-        
-        # Climatic mass balance [m w.e.]
-        glac_bin_massbal_clim_mwe[:,step] = (glac_bin_acc[:,step] + glac_bin_refreeze[:,step] - glac_bin_melt[:,step] -
-                                             glac_bin_frontalablation[:,step])
-        #  climatic mass balance = accumulation + refreeze - melt - frontal ablation
-        
+        if main_glac_rgi.loc[glac,'TermType'] != 0:
+            print('Need to code frontal ablation: includes changes to mass redistribution (uses climatic mass balance)')
         
         # ENTER ANNUAL LOOP
         #  at the end of each year, update glacier characteristics (surface type, length, area, volume)
@@ -254,8 +252,6 @@ for glac in [0]:
             # % gives the remainder; since step starts at 0, add 1 such that this switches at end of year
             # Index year
             year_index = int(step/annual_divisor)
-            #  Note: year_index*annual_divisor gives initial step of the given year
-            #        step + 1 gives final step of the given year
             # for first year, need to record glacier area [km**2] and ice thickness [m ice]
             if year_index == 0:
                 glac_bin_area_annual[:,year_index] = main_glac_hyps.iloc[glac,:].values.astype(float)
@@ -263,6 +259,7 @@ for glac in [0]:
             # Annual climatic mass balance [m w.e.]
             glac_bin_massbal_clim_mwe_annual[:,year_index] = (
                 glac_bin_massbal_clim_mwe[:,year_index*annual_divisor:step+1].sum(1))
+            #  year_index*annual_divisor is initial step of the given year; step + 1 is final step of the given year
             
             ###### SURFACE TYPE (convert to function) #####
             glac_bin_surfacetype_annual[:,year_index] = surfacetype
@@ -303,15 +300,18 @@ for glac in [0]:
                                      input.density_ice * glacier_area_t0).sum())
             #  units: [m w.e.] * (1 km / 1000 m) * (1000 kg / (1 m water * m**2) * (1 m ice * m**2 / 900 kg) * [km**2] 
             #         = km**3 ice            
-            
             # If volume loss is less than the glacier volume, then redistribute mass loss/gains across the glacier;
-            #  otherwise, the glacier disappears (area and thickness are set to zero as shown above)
+            #  otherwise, the glacier disappears (area and thickness were already set to zero above)
             if -1 * glacier_volumechange < (icethickness_t0 / 1000 * glacier_area_t0).sum():
                 # Determine where glacier exists
                 glac_idx_t0 = glacier_area_t0.nonzero()[0]
-                    # Ice thickness [m ice] and ice thickness change [m ice] after redistribution of volume gain/loss
-                icethickness_t1, glacier_area_t1, icethickness_change = massbalance.massredistribution(
-                        icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_volumechange)
+                # Compute ice thickness [m ice], glacier area [km**2] and ice thickness change [m ice] after 
+                #  redistribution of gains/losses
+                if input.option_massredistribution == 1:
+                    # Option 1: apply mass redistribution using Huss' empirical geometry change equations
+                    icethickness_t1, glacier_area_t1, icethickness_change = (massbalance.massredistributionHuss(
+                            icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_volumechange,
+                            glac_bin_massbal_clim_mwe_annual[:, year_index]))
                 # Glacier retreat
                 #  if glacier retreats (ice thickness < 0), then redistribute mass loss across the rest of the glacier
                 glac_idx_t0_raw = glac_idx_t0.copy()
@@ -319,6 +319,7 @@ for glac in [0]:
                     # Record glacier area and ice thickness before retreat corrections applied
                     glacier_area_t0_raw = glacier_area_t0.copy()
                     icethickness_t0_raw = icethickness_t0.copy()
+                    #  this is only used when there are less than 3 bins
                 while (icethickness_t1[glac_idx_t0_raw] <= 0).any() == True:
                     # Glacier volume change associated with retreat [km**3]
                     glacier_volumechange_retreat = (-1*(icethickness_t0[glac_idx_t0][icethickness_t1[glac_idx_t0] <= 0] 
@@ -330,9 +331,18 @@ for glac in [0]:
                     glacier_area_t0_raw[icethickness_t1 <= 0] = 0
                     icethickness_t0_raw[icethickness_t1 <= 0] = 0
                     glac_idx_t0_raw = glacier_area_t0_raw.nonzero()[0]
-                    # recalculate ice thickness [m ice] after retreat has been removed
-                    icethickness_t1, glacier_area_t1, icethickness_change = massbalance.massredistribution(
-                            icethickness_t0_raw, glacier_area_t0_raw, glac_idx_t0_raw, glacier_volumechange)    
+                    # Climatic mass balance for the case when there are less than 3 bins and the glacier is retreating, 
+                    #  distribute the remaining glacier volume change over the entire glacier (the two other bins)
+                    massbal_clim_retreat = np.zeros(glacier_area_t0_raw.shape)
+                    massbal_clim_retreat[glac_idx_t0_raw] = glacier_volumechange/glacier_area_t0_raw.sum() * 1000
+                    # Compute mass redistribution
+                    if input.option_massredistribution == 1:
+                    # Option 1: apply mass redistribution using Huss' empirical geometry change equations - Here we'd 
+                    #           have to recompute the losses in each bin as well...
+                        icethickness_t1, glacier_area_t1, icethickness_change = massbalance.massredistributionHuss(
+                                icethickness_t0_raw, glacier_area_t0_raw, glac_idx_t0_raw, glacier_volumechange, 
+                                massbal_clim_retreat)
+                    
                 # Glacier advances
                 #  if glacier advancess (ice thickness change exceeds threshold), then redistribute mass gain in new bins
                 if (icethickness_change > input.icethickness_advancethreshold).any() == True:                    
@@ -394,7 +404,6 @@ for glac in [0]:
                     # If bin retreats and then advances, the area and ice thickness pre-retreat should be used instead
                     # This will also take care of the cases where you need to skip steep bins at high altitudes, i.e.,
                     # discontinuous glaciers
-            
             
             # Record glacier area [km**2] and ice thickness [m ice]
             glac_bin_area_annual[:,year_index + 1] = glacier_area_t1

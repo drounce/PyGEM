@@ -353,24 +353,30 @@ def ELA_glacier(series_massbal_spec, ELA_past):
     return ELA_output
 
 
-def massredistribution(icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_volumechange):
+def massredistributionHuss(icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_volumechange, 
+                           massbal_clim_mwe_annual):
     """ 
     Compute the mass redistribution, otherwise known as glacier geometry changes, based on the glacier volume change
     Function Options:
-    - option_geometrychange
         > 1 (default) - Huss and Hock (2015); volume gain/loss redistributed over the glacier using empirical normalized
                         ice thickness change curves
         > 2 (Need to code) - volume-length scaling
         > 3 (Need to code) - volume-area scaling
         > 4 (Need to code) - what previous models have done
         > 5 (Need to code) - ice dynamics, simple flow model
+        > 6 - no glacier dynamics
     Input:
         > icethickness_t0 - single column array of ice thickness for every bin at the start of the time step
         > glacier_area_t0 - single column array of glacier area for every bin at the start of the time step
+        > glac_idx_t0 - single column array of the bin index that is part of the glacier
         > glacier_volumechange - value of glacier-wide volume change [km**3] based on the annual climatic mass balance
+        > glac_bin_clim_mwe_annual - single column array of annual climatic mass balance for every bin
     """
-    # Option 1 (default) for mass redistribution, Huss and Hock (2015)
-    if input.option_massredistribution == 1:
+    # Apply Huss redistribution if there are at least 3 elevation bands; otherwise, use the mass balance
+    # reset variables
+    icethickness_t1 = np.zeros(glacier_area_t0.shape)
+    glacier_area_t1 = np.zeros(glacier_area_t0.shape)
+    if glac_idx_t0.shape[0] > 3:
         #Select the factors for the normalized ice thickness change curve based on glacier area
         if glacier_area_t0.sum() > 20:
             [gamma, a, b, c] = [6, -0.02, 0.12, 0]
@@ -381,8 +387,7 @@ def massredistribution(icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_vo
         # reset variables
         elevrange_norm = np.zeros(glacier_area_t0.shape)
         icethicknesschange_norm = np.zeros(glacier_area_t0.shape)
-        icethickness_t1 = np.zeros(glacier_area_t0.shape)
-        glacier_area_t1 = np.zeros(glacier_area_t0.shape)
+        
         # Normalized elevation range [-]
         #  (max elevation - bin elevation) / (max_elevation - min_elevation)
         elevrange_norm[glacier_area_t0 > 0] = (glac_idx_t0[-1] - glac_idx_t0) / (glac_idx_t0[-1] - glac_idx_t0[0])
@@ -401,43 +406,46 @@ def massredistribution(icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_vo
         #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
         # Volume change [km**3 ice]
         bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
-        if input.option_glaciershape == 1:
-            # Ice thickness at end of timestep for parabola [m ice]
-            #  run in two steps to avoid errors with negative numbers and fractional exponents
-            #  H_1 = (H_0**1.5 + delta_Vol * H_0**0.5 / A_0)**(2/3)
-            icethickness_t1[glac_idx_t0] = ((icethickness_t0[glac_idx_t0] / 1000)**1.5 + 
-                           (icethickness_t0[glac_idx_t0] / 1000)**0.5 * bin_volumechange[glac_idx_t0] / 
-                           glacier_area_t0[glac_idx_t0])
-            icethickness_t1[icethickness_t1 < 0] = 0
-            icethickness_t1[glac_idx_t0] = icethickness_t1[glac_idx_t0]**(2/3) * 1000
-            # Glacier area for parabola [km**2]
-            #  A_1 = A_0 * (H_1 / H_0)**0.5
-            glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * (icethickness_t1[glac_idx_t0] / 
-                                         icethickness_t0[glac_idx_t0])**0.5)
-        elif input.option_glaciershape == 2:
-            # Ice thickness at end of timestep for rectangle [m ice]
-            #  H_1 = H_0 + delta_Vol / A_0
-            icethickness_t1[glac_idx_t0] = (((icethickness_t0[glac_idx_t0] / 1000) + 
-                           bin_volumechange[glac_idx_t0] / glacier_area_t0[glac_idx_t0]) * 1000)
-            # Glacier area constant for rectangle [km**2]
-            #  A_1 = A_0
-            glacier_area_t1[glac_idx_t0] = glacier_area_t0[glac_idx_t0]
-        elif input.option_glaciershape == 3:
-            # Ice thickness at end of timestep for triangle [m ice]
-            #  run in two steps to avoid errors with negative numbers and fractional exponents
-            icethickness_t1[glac_idx_t0] = ((icethickness_t0[glac_idx_t0] / 1000)**2 + 
-                           bin_volumechange[glac_idx_t0] * (icethickness_t0[glac_idx_t0] / 1000) / 
-                           glacier_area_t0[glac_idx_t0])                                   
-            icethickness_t1[icethickness_t1 < 0] = 0
-            icethickness_t1[glac_idx_t0] = icethickness_t1[glac_idx_t0]**(1/2) * 1000
-            # Glacier area for triangle [km**2]
-            #  A_1 = A_0 * H_1 / H_0
-            glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * icethickness_t1[glac_idx_t0] / 
-                                            icethickness_t0[glac_idx_t0])
-        # Ice thickness change [m ice]
-        icethickness_change = icethickness_t1 - icethickness_t0
-        # return the ice thickness [m ice] and ice thickness change [m ice]
-        return icethickness_t1, glacier_area_t1, icethickness_change
+    # Otherwise, compute volume change in each bin based on the climatic mass balance
+    else:
+        bin_volumechange = massbal_clim_mwe_annual / 1000 * glacier_area_t0
+    if input.option_glaciershape == 1:
+        # Ice thickness at end of timestep for parabola [m ice]
+        #  run in two steps to avoid errors with negative numbers and fractional exponents
+        #  H_1 = (H_0**1.5 + delta_Vol * H_0**0.5 / A_0)**(2/3)
+        icethickness_t1[glac_idx_t0] = ((icethickness_t0[glac_idx_t0] / 1000)**1.5 + 
+                       (icethickness_t0[glac_idx_t0] / 1000)**0.5 * bin_volumechange[glac_idx_t0] / 
+                       glacier_area_t0[glac_idx_t0])
+        icethickness_t1[icethickness_t1 < 0] = 0
+        icethickness_t1[glac_idx_t0] = icethickness_t1[glac_idx_t0]**(2/3) * 1000
+        # Glacier area for parabola [km**2]
+        #  A_1 = A_0 * (H_1 / H_0)**0.5
+        glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * (icethickness_t1[glac_idx_t0] / 
+                                        icethickness_t0[glac_idx_t0])**0.5)
+    elif input.option_glaciershape == 2:
+        # Ice thickness at end of timestep for rectangle [m ice]
+        #  H_1 = H_0 + delta_Vol / A_0
+        icethickness_t1[glac_idx_t0] = (((icethickness_t0[glac_idx_t0] / 1000) + 
+                                         bin_volumechange[glac_idx_t0] / glacier_area_t0[glac_idx_t0]) * 1000)
+        # Glacier area constant for rectangle [km**2]
+        #  A_1 = A_0
+        glacier_area_t1[glac_idx_t0] = glacier_area_t0[glac_idx_t0]
+    elif input.option_glaciershape == 3:
+        # Ice thickness at end of timestep for triangle [m ice]
+        #  run in two steps to avoid errors with negative numbers and fractional exponents
+        icethickness_t1[glac_idx_t0] = ((icethickness_t0[glac_idx_t0] / 1000)**2 + 
+                       bin_volumechange[glac_idx_t0] * (icethickness_t0[glac_idx_t0] / 1000) / 
+                       glacier_area_t0[glac_idx_t0])                                   
+        icethickness_t1[icethickness_t1 < 0] = 0
+        icethickness_t1[glac_idx_t0] = icethickness_t1[glac_idx_t0]**(1/2) * 1000
+        # Glacier area for triangle [km**2]
+        #  A_1 = A_0 * H_1 / H_0
+        glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * icethickness_t1[glac_idx_t0] / 
+                                        icethickness_t0[glac_idx_t0])
+    # Ice thickness change [m ice]
+    icethickness_change = icethickness_t1 - icethickness_t0
+    # return the ice thickness [m ice] and ice thickness change [m ice]
+    return icethickness_t1, glacier_area_t1, icethickness_change
 
 
 def refreezepotentialbins(glac_temp, dates_table):
