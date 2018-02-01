@@ -387,7 +387,6 @@ def massredistributionHuss(icethickness_t0, glacier_area_t0, glac_idx_t0, glacie
         # reset variables
         elevrange_norm = np.zeros(glacier_area_t0.shape)
         icethicknesschange_norm = np.zeros(glacier_area_t0.shape)
-        
         # Normalized elevation range [-]
         #  (max elevation - bin elevation) / (max_elevation - min_elevation)
         elevrange_norm[glacier_area_t0 > 0] = (glac_idx_t0[-1] - glac_idx_t0) / (glac_idx_t0[-1] - glac_idx_t0[0])
