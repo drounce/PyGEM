@@ -353,7 +353,7 @@ def ELA_glacier(series_massbal_spec, ELA_past):
     return ELA_output
 
 
-def massredistributionHuss(icethickness_t0, glacier_area_t0, glac_idx_t0, glacier_volumechange, 
+def massredistributionHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange, 
                            massbal_clim_mwe_annual):
     """ 
     Compute the mass redistribution, otherwise known as glacier geometry changes, based on the glacier volume change
@@ -376,6 +376,7 @@ def massredistributionHuss(icethickness_t0, glacier_area_t0, glac_idx_t0, glacie
     # reset variables
     icethickness_t1 = np.zeros(glacier_area_t0.shape)
     glacier_area_t1 = np.zeros(glacier_area_t0.shape)
+    width_t1 = np.zeros(glacier_area_t0.shape) 
     if glac_idx_t0.shape[0] > 3:
         #Select the factors for the normalized ice thickness change curve based on glacier area
         if glacier_area_t0.sum() > 20:
@@ -421,6 +422,9 @@ def massredistributionHuss(icethickness_t0, glacier_area_t0, glac_idx_t0, glacie
         #  A_1 = A_0 * (H_1 / H_0)**0.5
         glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * (icethickness_t1[glac_idx_t0] / 
                                         icethickness_t0[glac_idx_t0])**0.5)
+        # Glacier width for parabola [km]
+        #  w_1 = w_0 * (A_1 / A_0)
+        width_t1[glac_idx_t0] = width_t0[glac_idx_t0] * glacier_area_t1[glac_idx_t0] / glacier_area_t0[glac_idx_t0]
     elif input.option_glaciershape == 2:
         # Ice thickness at end of timestep for rectangle [m ice]
         #  H_1 = H_0 + delta_Vol / A_0
@@ -429,6 +433,9 @@ def massredistributionHuss(icethickness_t0, glacier_area_t0, glac_idx_t0, glacie
         # Glacier area constant for rectangle [km**2]
         #  A_1 = A_0
         glacier_area_t1[glac_idx_t0] = glacier_area_t0[glac_idx_t0]
+        # Glacier width constant for rectangle [km]
+        #  w_1 = w_0
+        width_t1[glac_idx_t0] = width_t0[glac_idx_t0]
     elif input.option_glaciershape == 3:
         # Ice thickness at end of timestep for triangle [m ice]
         #  run in two steps to avoid errors with negative numbers and fractional exponents
@@ -441,10 +448,13 @@ def massredistributionHuss(icethickness_t0, glacier_area_t0, glac_idx_t0, glacie
         #  A_1 = A_0 * H_1 / H_0
         glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * icethickness_t1[glac_idx_t0] / 
                                         icethickness_t0[glac_idx_t0])
+        # Glacier width for triangle [km]
+        #  w_1 = w_0 * (A_1 / A_0)
+        width_t1[glac_idx_t0] = width_t0[glac_idx_t0] * glacier_area_t1[glac_idx_t0] / glacier_area_t0[glac_idx_t0]
     # Ice thickness change [m ice]
     icethickness_change = icethickness_t1 - icethickness_t0
     # return the ice thickness [m ice] and ice thickness change [m ice]
-    return icethickness_t1, glacier_area_t1, icethickness_change
+    return icethickness_t1, glacier_area_t1, width_t1, icethickness_change
 
 
 def refreezepotentialbins(glac_temp, dates_table):
