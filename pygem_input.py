@@ -323,32 +323,14 @@ terminus_percentage = 20
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
+# Output package number
+output_package = 1
+    # Option 1 - "raw package" [preferred units: m w.e.]
+    #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, 
+    #                                             massbal_clim)
+    #             annual variables for each bin (area, icethickness, surfacetype)
 netcdf_filenameprefix = 'PyGEM_output_rgiregion'
 netcdf_filepath = '../Output/'
-
-# Output files [bin, bin_annual, glacier, glacier_annual]
-#input.output_temp =                 [1, 0, 0, 0]
-#input.output_prec =                 [1, 0, 0, 0]
-#input.output_acc =                  [0, 0, 1, 0]
-#input.output_refreeze =             []
-#input.output_melt =                 []
-#input.output_melt_glaccomponent =   []
-#input.output_melt_snowcomponent =   []
-#input.output_melt_refrcomponent =   []
-#input.output_frontalablation =      []
-#input.massbal_clim =                []
-#input.massbal_total =               []
-#input.massbal =                     [0, 0, 1, 0]
-#input.output_snowdepth =            []
-#input.output_area =                 []
-#input.output_icethickness =         []
-#input.output_volume =               []
-#input.output_width =                []
-#input.output_surfacetype =          []
-#input.output_runoff =               []
-#input.output_ELA =                  []
-#input.output_AAR =                  []
-#input.output_snowline =             []
 
 
 

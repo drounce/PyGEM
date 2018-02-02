@@ -354,7 +354,7 @@ def ELA_glacier(series_massbal_spec, ELA_past):
 
 
 def massredistributionHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange, 
-                           massbal_clim_mwe_annual):
+                           massbalclim_annual):
     """ 
     Compute the mass redistribution, otherwise known as glacier geometry changes, based on the glacier volume change
     Function Options:
@@ -408,7 +408,7 @@ def massredistributionHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_
         bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
     # Otherwise, compute volume change in each bin based on the climatic mass balance
     else:
-        bin_volumechange = massbal_clim_mwe_annual / 1000 * glacier_area_t0
+        bin_volumechange = massbalclim_annual / 1000 * glacier_area_t0
     if input.option_glaciershape == 1:
         # Ice thickness at end of timestep for parabola [m ice]
         #  run in two steps to avoid errors with negative numbers and fractional exponents
