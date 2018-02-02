@@ -145,10 +145,11 @@ for glac in [0]:
     dayspermonth = dates_table['daysinmonth'].values
     surfacetype_ddf = np.zeros(glac_bin_temp.shape[0])
     refreeze_potential = np.zeros(glac_bin_temp.shape[0])
+    elev_bins = main_glac_hyps.columns.values
     glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
+    # Inclusion of ice thickness and width, i.e., loading the values may be only required for Huss mass redistribution!
     icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
     width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-    elev_bins = main_glac_hyps.columns.values
     if input.option_adjusttemp_surfelev == 1:
         # ice thickness initial is used to adjust temps to changes in surface elevation
         icethickness_adjusttemp = icethickness_t0.copy()
@@ -158,11 +159,10 @@ for glac in [0]:
         #  thickness - 0, which is wrong  Since advancing bins take the thickness of the previous bin, set the initial 
         #  ice thickness of all bins below the terminus to the ice thickness at the terminus.
     
-    
     # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
-#    for step in range(glac_bin_temp.shape[1]):
+    for step in range(glac_bin_temp.shape[1]):
 #    for step in range(0,26):
-    for step in range(0,12):
+#    for step in range(0,12):
         
         # Option to adjust air temperature based on changes in surface elevation
         if input.option_adjusttemp_surfelev == 1:
@@ -315,8 +315,6 @@ for glac in [0]:
                                      input.density_ice * glacier_area_t0).sum())
             #  units: [m w.e.] * (1 km / 1000 m) * (1000 kg / (1 m water * m**2) * (1 m ice * m**2 / 900 kg) * [km**2] 
             #         = km**3 ice         
-            
-            glacier_volumechange = 0.5
             # If volume loss is less than the glacier volume, then redistribute mass loss/gains across the glacier;
             #  otherwise, the glacier disappears (area and thickness were already set to zero above)
             if -1 * glacier_volumechange < (icethickness_t0 / 1000 * glacier_area_t0).sum():
@@ -474,20 +472,21 @@ for glac in [0]:
                                                                        massbal_clim_advance))
                     # update ice thickness change
                     icethickness_change = icethickness_t1 - icethickness_t1_raw
-                                    
 
+            # Note:
+            # If bin retreats and then advances, the area and ice thickness pre-retreat should be used instead
+            # This will also take care of the cases where you need to skip steep bins at high altitudes, i.e.,
+            # discontinuous glaciers
 
-#                    # Note:
-#                    # If bin retreats and then advances, the area and ice thickness pre-retreat should be used instead
-#                    # This will also take care of the cases where you need to skip steep bins at high altitudes, i.e.,
-#                    # discontinuous glaciers
-#            
-#            # Record glacier area [km**2] and ice thickness [m ice]
-#            glac_bin_area_annual[:,year_index + 1] = glacier_area_t1
-#            glac_bin_icethickness_annual[:,year_index + 1] = icethickness_t1
-#            # Update glacier area and ice thickness for next year
-#            glacier_area_t0 = glacier_area_t1.copy()
-#            icethickness_t0 = icethickness_t1.copy()
+            # Record glacier area [km**2] and ice thickness [m ice]
+            glac_bin_area_annual[:,year_index + 1] = glacier_area_t1
+            glac_bin_icethickness_annual[:,year_index + 1] = icethickness_t1
+            # Update surface type for bins that have retreated or advanced
+            surfacetype[glacier_area_t0 == 0] = 0
+            surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = surfacetype[glacier_area_t0.nonzero()[0][0]]
+            # Update glacier area and ice thickness for next year
+            glacier_area_t0 = glacier_area_t1.copy()
+            icethickness_t0 = icethickness_t1.copy()
             
             # NOTE: For glaciers that disappear, need to keep track of the surface type of the top bin such that the
             #       glacier has the ability to grow again...
@@ -595,30 +594,135 @@ for glac in [0]:
 #            if input.option_modelrun_type == 0:
 #                # glacier ice thickness [m] changes according to specific climatic mass balance
 #                #  NOTE: this should also include redistribution!
-         
-         
-    # Compute "optional" output, i.e., output that is not required for model to run, but may be desired by user
-    # can we pass this into the function? by adding the "-output ______", this would likely make code cleaner
-     
-
         
 # While in glacier loop, compile the monthly data into a netcdf
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
 
-##%%=== STEP FIVE: DATA ANALYSIS / OUTPUT ==============================================================================
+#%%=== STEP FIVE: DATA ANALYSIS / OUTPUT ==============================================================================
 #
 ## Must factor in spinup years for model output, i.e., remove spinup years from the model runs
-#
-##%% Refreeze
-## Solve the 2-d heat conduction equation to determine the temperature in the snow and/or firn to compute refreezing
-## Temperature profiles are developed for an assumed 10 m of snow/firn
-#h = input.refreeze_depth / 10
 
+regionO1_number = input.rgi_regionsO1[0]
 
+#output.createnetcdf(regionO1_number, main_glac_hyps, dates_table, annual_columns)
 
+# Note: 'w' creates a new file
+#       'r+' opens an existing file for reading and writing
 
+# netcdf file path, name, and format
+filename = input.netcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
+fullfile = input.netcdf_filepath + filename
+fileformat = 'NETCDF4_CLASSIC'
+# Create the netcdf file open to write ('w') with the netCDF4 classic file format
+netcdf_output = nc.Dataset(fullfile, 'w', format=fileformat)
+# Create global attributes
+netcdf_output.description = 'Results from glacier evolution model'
+netcdf_output.history = 'Created ' + str(strftime("%Y-%m-%d %H:%M:%S"))
+netcdf_output.source = 'Python Glacier Evolution Model'
+# Create dimensions
+glacier = netcdf_output.createDimension('glacier', None)
+binelev = netcdf_output.createDimension('binelev', main_glac_hyps.shape[1])
+time = netcdf_output.createDimension('time', dates_table.shape[0])
+year = netcdf_output.createDimension('year', annual_columns.shape[0])
+glaciertable = netcdf_output.createDimension('glaciertable', main_glac_hyps.shape[0])
+# Create the variables associated with the dimensions
+glaciers = netcdf_output.createVariable('glacier', np.int32, ('glacier',))
+glaciers.long_name = "glacier number associated with model run"
+glaciers.standard_name = "GlacNo"
+glaciers.comment = ("The glacier number is defined for each model run. The user should look at the main_glac_rgi"
+                       + " table to determine the RGIID or other information regarding this particular glacier.")
+binelevs = netcdf_output.createVariable('binelev', np.int32, ('binelev',))
+binelevs.long_name = "center bin elevation"
+binelevs.standard_name = "bin_elevation"
+binelevs.units = "m a.s.l."
+binelevs[:] = main_glac_hyps.columns.values
+binelevs.comment = ("binelev are the bin elevations that were used for the model run.")
+times = netcdf_output.createVariable('time', np.float64, ('time',))
+times.long_name = "date of model run"
+times.standard_name = "date"
+times.units = "days since 1900-01-01 00:00:00"
+times.calendar = "gregorian"
+times[:] = nc.date2num(dates_table['date'].astype(datetime), units = times.units, calendar = times.calendar)
+years = netcdf_output.createVariable('year', np.int32, ('year',))
+years.long_name = "year of model run"
+years.standard_name = "year"
+if input.option_wateryear == 1:
+    years.units = 'water year'
+elif input.option_wateryear == 0:
+    years.units = 'calendar year'
+years[:] = annual_columns
+
+if input.output_package == 1:
+    # Package 1 output [units: m w.e. unless otherwise specified]:
+    # Monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, meltglac, meltsnow, meltrefreeze, 
+    #  frontalablation, massbal_clim)
+    # Annual variables for each bin (massbal_clim, area, icethickness, width, surfacetype)
+    temp_bin_monthly = netcdf_output.createVariable('temp_bin_monthly', np.float64, ('glacier', 'binelev', 'time'))
+    temp_bin_monthly.standard_name = "air temperature"
+    temp_bin_monthly.units = "degC"
+    prec_bin_monthly = netcdf_output.createVariable('prec_bin_monthly', np.float64, ('glacier', 'binelev', 'time'))
+    prec_bin_monthly.standard_name = "liquid precipitation"
+    prec_bin_monthly.units = "m"
+    acc_bin_monthly = netcdf_output.createVariable('acc_bin_monthly', np.float64, ('glacier', 'binelev', 'time'))
+    acc_bin_monthly.standard_name = "accumulation"
+    acc_bin_monthly.units = "m w.e."
+    refreeze_bin_monthly = netcdf_output.createVariable('refreeze_bin_monthly', np.float64, ('glacier', 'binelev', 
+                                                                                             'time'))
+    refreeze_bin_monthly.standard_name = "refreezing"
+    refreeze_bin_monthly.units = "m w.e."
+    snowpack_bin_monthly = netcdf_output.createVariable('snowdepth_bin_monthly', np.float64, ('glacier', 'binelev', 
+                                                                                              'time'))
+    snowpack_bin_monthly.standard_name = "snowpack on the glacier surface"
+    snowpack_bin_monthly.units = "m w.e."
+    snowpack_bin_monthly.comment = ("snowpack represents the snow depth when units are m w.e.")
+    melt_bin_monthly = netcdf_output.createVariable('melt_bin_monthly', np.float64, ('glacier', 'binelev', 'time'))
+    melt_bin_monthly.standard_name = 'surface melt'
+    melt_bin_monthly.units = "m w.e."
+    melt_bin_monthly.comment = ("surface melt is the sum of melt from snow, refreeze, and the underlying glacier")
+    meltglac_bin_monthly = netcdf_output.createVariable('meltglac_bin_monthly', np.float64, ('glacier', 'binelev', 
+                                                                                             'time'))
+    meltglac_bin_monthly.standard_name = "glacier melt"
+    meltglac_bin_monthly.units = "m w.e."
+    meltsnow_bin_monthly = netcdf_output.createVariable('meltsnow_bin_monthly', np.float64, ('glacier', 'binelev', 'time'))
+    meltsnow_bin_monthly.standard_name = "snow melt"
+    meltsnow_bin_monthly.units = "m w.e."
+    meltsnow_bin_monthly.comment = ("only the melt associated with the snow on the surface and refreezing in "
+                                              + "the snow regardless of whether the underlying surface type is snow or "
+                                              + "not")
+    # IN CURRENT FORM IS THERE SEPARATION BETWEEN SNOW MELT AND REFREEZE, WHEN REFREEZE GOES BACK INTO THE SNOW DEPTH?
+    
+    # FINISH ADDING THE REST, THEN PUT IN PROPER PLACE AND START GETTING THEM SET UP.
+    
+
+    
+    
+    
+    frontal_ablation_bin_monthly = netcdf_output.createVariable('frontal_ablation_bin_monthly', np.float64, 
+                                                                ('glacier', 'binelev', 'time'))
+    frontal_ablation_bin_monthly.standard_name = "specific frontal ablation"
+    frontal_ablation_bin_monthly.units = "m w.e."
+    frontal_ablation_bin_monthly.comment = ("mass losses due to calving, subaerial frontal melting, sublimation above "
+                                            + "the waterline and subaqueous frontal melting below the waterline")
+    massbal_clim_mwe_bin_monthly = netcdf_output.createVariable('massbal_clim_mwe_bin_monthly', np.float64, 
+                                                                ('glacier', 'binelev', 'time'))
+    massbal_clim_mwe_bin_monthly.standard_name = "monthly specific climatic mass balance"
+    massbal_clim_mwe_bin_monthly.units = "m w.e."
+    massbal_clim_mwe_bin_monthly.comment = ("climatic mass balance is the sum of the surface mass balance and the "
+                                            + "internal mass balance and accounts for the climatic mass loss over the "
+                                            + "area of the entire bin") 
+    area_bin_monthly = netcdf_output.createVariable('area_bin_monthly', np.float64, ('glacier', 'binelev', 'time'))
+    area_bin_monthly.long_name = "monthly glacier area of each elevation bin updated annually"
+    area_bin_monthly.standard_name = "area"
+    area_bin_monthly.unit = "km**2"
+    area_bin_monthly.comment = ("area for a given year is the area that was used for the duration of the timestep, "
+                                + "i.e., it is the area at the start of the time step")
+    
+    
+    
+    
+#netcdf_output.close()
 
 
 

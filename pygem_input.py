@@ -171,7 +171,7 @@ endyear = 2015
 #  water year example: 2000 would end on September 2000
 #  calendar year example: 2000 would end on December 2000
 # Number of years for model spin up [years]
-spinupyears = 0
+spinupyears = 5
 
 # ----- Input required for initial surface type -----
 # Initial surface type options
