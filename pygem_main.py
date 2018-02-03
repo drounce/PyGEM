@@ -15,15 +15,15 @@ Radic et al. (2013), Bliss et al. (2014), and Huss and Hock (2015).
 #%%========= IMPORT PACKAGES ==========================================================================================
 # Various packages are used to provide the proper architecture and framework for the calculations used in this script. 
 # Some packages (e.g., datetime) are included in order to speed up calculations and simplify code.
-import pandas as pd
+#import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from datetime import datetime
-import os # os is used with re to find name matches
-import re # see os
-import xarray as xr
+#import matplotlib.pyplot as plt
+#from datetime import datetime
+#import os # os is used with re to find name matches
+#import re # see os
+#import xarray as xr
 import netCDF4 as nc
-from time import strftime
+#from time import strftime
 import timeit
 
 #========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
