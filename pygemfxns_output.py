@@ -381,3 +381,87 @@ def netcdfwrite(regionO1_number, glac, main_glac_rgi, elev_bins, glac_bin_temp, 
 #    runoff_glac_annual.standard_name = "annual glacier runoff"
 #    runoff_glac_annual.units = "m a.s.l."
 #    runoff_glac_annual.comment = "annual runoff is jthe total volume of water that is leaving the glacier each year"
+    
+#%% Compute different variables for different output packages based on model-generated variables
+#    # Record variables that are specified by the user to be output
+#    # Monthly area [km**2] at each bin
+#    glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
+#    # Monthly ice thickness [m ice] at each bin
+#    glac_bin_icethickness = glac_bin_icethickness_annual[:,0:glac_bin_icethickness_annual.shape[1]-1].repeat(12,axis=1)
+#
+#    # Annual outputs at each bin:
+#    # Annual volume [km**3]
+#    glac_bin_volume_annual = glac_bin_area_annual * glac_bin_icethickness_annual / 1000
+#    # Annual total specific mass balance [m3] (mass balance after mass redistribution)
+#    glac_bin_massbal_total_m3_annual = (glac_bin_volume_annual - np.roll(glac_bin_volume_annual,-1,axis=1))
+#    # Annual accumulation [m3]
+##    glac_bin_acc_annual = glac_bin_acc.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
+#    glac_bin_acc_annual = (glac_bin_acc.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
+#                           glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
+#    # Annual refreeze [m3]
+##    glac_bin_refreeze_annual = glac_bin_refreeze.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
+#    glac_bin_refreeze_annual = (glac_bin_refreeze.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
+#                                glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
+#    # Annual melt [m3]
+##    glac_bin_melt_annual = glac_bin_melt.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
+#    glac_bin_melt_annual = (glac_bin_melt.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
+#                            glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
+#    # Annual frontal ablation [m3]
+##    glac_bin_frontalablation_annual = (
+##            glac_bin_frontalablation.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]))
+#    glac_bin_frontalablation_annual = (
+#            glac_bin_frontalablation.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
+#            glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
+#    # Annual precipitation [m3]
+##    glac_bin_prec_annual = glac_bin_prec.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
+#    glac_bin_prec_annual = (glac_bin_prec.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
+#                            glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
+#    
+#
+
+
+#    # Refreeze [m w.e.]
+#    glac_wide_refreeze = np.zeros(glac_wide_area.shape)
+#    glac_wide_refreeze[glac_wide_area > 0] = ((glac_bin_refreeze * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+#                                              glac_wide_area[glac_wide_area > 0])
+#    # Melt [m w.e.]
+#    glac_wide_melt = np.zeros(glac_wide_area.shape)
+#    glac_wide_melt[glac_wide_area > 0] = ((glac_bin_melt * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+#                                          glac_wide_area[glac_wide_area > 0])
+#    # Frontal ablation [m w.e.]
+#    glac_wide_frontalablation = np.zeros(glac_wide_area.shape)
+#    glac_wide_frontalablation[glac_wide_area > 0] = (
+#            (glac_bin_frontalablation * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+#            glac_wide_area[glac_wide_area > 0])
+#    # Mass balance [m w.e.]
+#    #  glacier-wide climatic and total mass balance are the same; use climatic since its required to run the model
+#    glac_wide_massbal_mwe = np.zeros(glac_wide_area.shape)
+#    glac_wide_massbal_mwe[glac_wide_area > 0] = (
+#            (glac_bin_massbal_clim_mwe * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+#            glac_wide_area[glac_wide_area > 0])
+#    # Melt [m w.e.]
+#    glac_wide_melt = np.zeros(glac_wide_area.shape)
+#    glac_wide_melt[glac_wide_area > 0] = ((glac_bin_melt * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+#                                          glac_wide_area[glac_wide_area > 0])
+#    # Precipitation [m]
+#    glac_wide_prec = np.zeros(glac_wide_area.shape)
+#    glac_wide_prec[glac_wide_area > 0] = ((glac_bin_prec * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
+#                                          glac_wide_area[glac_wide_area > 0])
+#    # Volume [km**3]
+#    glac_wide_volume = (glac_bin_area * glac_bin_icethickness / 1000).sum(axis=0)
+#            
+#    # Annual glacier-wide Parameters:
+#    # Annual volume [km**3]
+#    glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
+    
+    
+#    # Annual accumulation [m w.e.]
+#    glac_wide_acc_annual = 
+#    # Annual refreeze [m w.e.]
+#    glac_wide_refreeze_annual = 
+#    # Annual melt [m w.e.]
+#    glac_wide_melt_annual = 
+#    # Annual frontal ablation [m w.e.]
+#    glac_wide_frontalablation_annual = 
+#    # Annual precipitation [m]
+#    glac_wide_prec_annual = 

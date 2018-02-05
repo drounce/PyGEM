@@ -109,8 +109,8 @@ output.netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns
 # CREATE A SEPARATE OUTPUT FOR CALIBRATION with only data relevant to calibration
 #   - annual glacier-wide massbal, area, ice thickness, snowline
 
-for glac in range(main_glac_rgi.shape[0]):
-#for glac in [0]:
+#for glac in range(main_glac_rgi.shape[0]):
+for glac in [0]:
     # Downscale the gcm temperature [degC] to each bin
     glac_bin_temp = massbalance.downscaletemp2bins(main_glac_rgi, main_glac_hyps, gcm_glac_temp, gcm_glac_elev, glac)
     # Downscale the gcm precipitation [m] to each bin (includes solid and liquid precipitation)
@@ -469,9 +469,8 @@ for glac in range(main_glac_rgi.shape[0]):
                     width_t1_raw = width_t1.copy()
                     # If a full bin has been added and volume still remains, then redistribute mass across the
                     #  glacier, thereby enabling the bins to get thicker once again prior to adding a new bin.
-                    #  This is important for glacier that have very thin ice at the terminus, which would otherwise
-                    #  have to keep adding a large number of bins, which would enable a thin layer of ice to advance
-                    #  tremendously far down valley.
+                    #  This is important for glaciers that have very thin ice at the terminus as this prevents the 
+                    #  glacier from having a thin layer of ice advance tremendously far down valley without thickening.
                     if advance_volume > 0:
                         if input.option_massredistribution == 1:
                             # Option 1: apply mass redistribution using Huss' empirical geometry change equations
@@ -483,15 +482,22 @@ for glac in range(main_glac_rgi.shape[0]):
                     icethickness_change = icethickness_t1 - icethickness_t1_raw
             
 
-            # Record glacier area [km**2] and ice thickness [m ice]
-            glac_bin_area_annual[:,year_index + 1] = glacier_area_t1
-            glac_bin_icethickness_annual[:,year_index + 1] = icethickness_t1
+            
             # Update surface type for bins that have retreated or advanced
             surfacetype[glacier_area_t0 == 0] = 0
             surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = surfacetype[glacier_area_t0.nonzero()[0][0]]
-            # Update glacier area and ice thickness for next year
-            glacier_area_t0 = glacier_area_t1.copy()
-            icethickness_t0 = icethickness_t1.copy()
+            # Record and update glacier area and ice thickness for next year
+            if year_index < input.spinupyears:
+                # For spinup years, glacier area and volume are constant
+                glac_bin_area_annual[:,year_index + 1] = glacier_area_t0
+                glac_bin_icethickness_annual[:,year_index + 1] = icethickness_t0
+            else:
+                # Record glacier area [km**2] and ice thickness [m ice]
+                glac_bin_area_annual[:,year_index + 1] = glacier_area_t1
+                glac_bin_icethickness_annual[:,year_index + 1] = icethickness_t1
+                # Update glacier area [km**2] and ice thickness [m ice]
+                glacier_area_t0 = glacier_area_t1.copy()
+                icethickness_t0 = icethickness_t1.copy()
             
             # NOTE: 
             # For glaciers that disappear, need to keep track of the surface type of the top bin such that the
@@ -510,114 +516,16 @@ for glac in range(main_glac_rgi.shape[0]):
 #                #  NOTE: this should also include redistribution!
 
     # Record variables from output package here - need to be in glacier loop since the variables will be overwritten 
-    output.netcdfwrite(regionO1_number, glac, main_glac_rgi, elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc, 
-                       glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, 
-                       glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-                       glac_bin_icethickness_annual, glac_bin_surfacetype_annual)
+#    output.netcdfwrite(regionO1_number, glac, main_glac_rgi, elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc, 
+#                       glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, 
+#                       glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+#                       glac_bin_icethickness_annual, glac_bin_surfacetype_annual)
     #  WILL NEED TO UPDATE HOW THE GLACIER PARAMETERS ARE STRUCTURED ONCE THEY ARE CALIBRATED FOR EACH GLACIER
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
 
 #%%=== STEP FIVE: DATA ANALYSIS / OUTPUT ==============================================================================
-#
-## Must factor in spinup years for model output, i.e., remove spinup years from the model runs
-
-
-netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')
-
-
-##netcdf_output.close()
-
-#%% Compute different variables for different output packages based on model-generated variables
-#    # Record variables that are specified by the user to be output
-#    # Monthly area [km**2] at each bin
-#    glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
-#    # Monthly ice thickness [m ice] at each bin
-#    glac_bin_icethickness = glac_bin_icethickness_annual[:,0:glac_bin_icethickness_annual.shape[1]-1].repeat(12,axis=1)
-#
-#    # Annual outputs at each bin:
-#    # Annual volume [km**3]
-#    glac_bin_volume_annual = glac_bin_area_annual * glac_bin_icethickness_annual / 1000
-#    # Annual total specific mass balance [m3] (mass balance after mass redistribution)
-#    glac_bin_massbal_total_m3_annual = (glac_bin_volume_annual - np.roll(glac_bin_volume_annual,-1,axis=1))
-#    # Annual accumulation [m3]
-##    glac_bin_acc_annual = glac_bin_acc.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
-#    glac_bin_acc_annual = (glac_bin_acc.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
-#                           glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
-#    # Annual refreeze [m3]
-##    glac_bin_refreeze_annual = glac_bin_refreeze.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
-#    glac_bin_refreeze_annual = (glac_bin_refreeze.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
-#                                glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
-#    # Annual melt [m3]
-##    glac_bin_melt_annual = glac_bin_melt.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
-#    glac_bin_melt_annual = (glac_bin_melt.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
-#                            glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
-#    # Annual frontal ablation [m3]
-##    glac_bin_frontalablation_annual = (
-##            glac_bin_frontalablation.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]))
-#    glac_bin_frontalablation_annual = (
-#            glac_bin_frontalablation.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
-#            glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
-#    # Annual precipitation [m3]
-##    glac_bin_prec_annual = glac_bin_prec.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0])
-#    glac_bin_prec_annual = (glac_bin_prec.reshape(-1,12).sum(axis=1).reshape(-1,annual_columns.shape[0]) * 
-#                            glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1] * 1000**2)
-#    
-#
-
-
-#    # Refreeze [m w.e.]
-#    glac_wide_refreeze = np.zeros(glac_wide_area.shape)
-#    glac_wide_refreeze[glac_wide_area > 0] = ((glac_bin_refreeze * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
-#                                              glac_wide_area[glac_wide_area > 0])
-#    # Melt [m w.e.]
-#    glac_wide_melt = np.zeros(glac_wide_area.shape)
-#    glac_wide_melt[glac_wide_area > 0] = ((glac_bin_melt * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
-#                                          glac_wide_area[glac_wide_area > 0])
-#    # Frontal ablation [m w.e.]
-#    glac_wide_frontalablation = np.zeros(glac_wide_area.shape)
-#    glac_wide_frontalablation[glac_wide_area > 0] = (
-#            (glac_bin_frontalablation * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
-#            glac_wide_area[glac_wide_area > 0])
-#    # Mass balance [m w.e.]
-#    #  glacier-wide climatic and total mass balance are the same; use climatic since its required to run the model
-#    glac_wide_massbal_mwe = np.zeros(glac_wide_area.shape)
-#    glac_wide_massbal_mwe[glac_wide_area > 0] = (
-#            (glac_bin_massbal_clim_mwe * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
-#            glac_wide_area[glac_wide_area > 0])
-#    # Melt [m w.e.]
-#    glac_wide_melt = np.zeros(glac_wide_area.shape)
-#    glac_wide_melt[glac_wide_area > 0] = ((glac_bin_melt * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
-#                                          glac_wide_area[glac_wide_area > 0])
-#    # Precipitation [m]
-#    glac_wide_prec = np.zeros(glac_wide_area.shape)
-#    glac_wide_prec[glac_wide_area > 0] = ((glac_bin_prec * glac_bin_area).sum(axis=0)[glac_wide_area > 0] / 
-#                                          glac_wide_area[glac_wide_area > 0])
-#    # Volume [km**3]
-#    glac_wide_volume = (glac_bin_area * glac_bin_icethickness / 1000).sum(axis=0)
-#            
-#    # Annual glacier-wide Parameters:
-#    # Annual volume [km**3]
-#    glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
-    
-    
-#    # Annual accumulation [m w.e.]
-#    glac_wide_acc_annual = 
-#    # Annual refreeze [m w.e.]
-#    glac_wide_refreeze_annual = 
-#    # Annual melt [m w.e.]
-#    glac_wide_melt_annual = 
-#    # Annual frontal ablation [m w.e.]
-#    glac_wide_frontalablation_annual = 
-#    # Annual precipitation [m]
-#    glac_wide_prec_annual = 
-
-
-
-
-
-
-
-
+#netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')
+#netcdf_output.close()
 
