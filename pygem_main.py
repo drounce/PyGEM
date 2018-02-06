@@ -104,7 +104,8 @@ timestart_step4 = timeit.default_timer()
 #  each loop to reduce file size and make files easier to read/share
 regionO1_number = input.rgi_regionsO1[0]
 # Create output netcdf file
-output.netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns)
+if input.output_package != 0:
+    output.netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns)
 
 # CREATE A SEPARATE OUTPUT FOR CALIBRATION with only data relevant to calibration
 #   - annual glacier-wide massbal, area, ice thickness, snowline
@@ -154,6 +155,7 @@ for glac in [0]:
     refreeze_potential = np.zeros(glac_bin_temp.shape[0])
     elev_bins = main_glac_hyps.columns.values
     glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
+    glac_idx_initial = glacier_area_t0.nonzero()[0]    
     # Inclusion of ice thickness and width, i.e., loading the values may be only required for Huss mass redistribution!
     icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
     width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
@@ -282,40 +284,19 @@ for glac in [0]:
             # Annual climatic mass balance [m w.e.]
             glac_bin_massbalclim_annual[:,year_index] = glac_bin_massbalclim[:,year_index*annual_divisor:step+1].sum(1)
             #  year_index*annual_divisor is initial step of the given year; step + 1 is final step of the given year
-            
-            ###### SURFACE TYPE (convert to function) #####
+            # Annual surface type [-]
             glac_bin_surfacetype_annual[:,year_index] = surfacetype
             # Compute the surface type for each bin
-            #  Next year's surface type is based on the bin's average annual climatic mass balance over the last 5
-            #  years.  If less than 5 years, then use the average of the existing years.
-            if year_index < 5:
-                # Calculate average annual climatic mass balance since run began
-                massbal_clim_mwe_runningavg = glac_bin_massbalclim_annual[:,0:year_index+1].mean(1)
-            else:
-                massbal_clim_mwe_runningavg = glac_bin_massbalclim_annual[:,year_index-4:year_index+1].mean(1)
-            # If the average annual specific climatic mass balance is negative, then the surface type is ice (or debris)
-            surfacetype[(surfacetype!=0) & (glac_bin_massbalclim_annual[:,year_index]<=0)] = 1
-            # If the average annual specific climatic mass balance is positive, then the surface type is snow (or firn)
-            surfacetype[(surfacetype!=0) & (glac_bin_massbalclim_annual[:,year_index]>0)] = 2
-            # Apply surface type model options
-            # If firn surface type option is included, then snow is changed to firn
-            if input.option_surfacetype_firn == 1:
-                surfacetype[surfacetype == 2] = 3
-            if input.option_surfacetype_debris == 1:
-                print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
-                      'Exiting the model run.')
-                exit()
-            
-            
+            surfacetype = massbalance.surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year_index)
             # Glacier geometry change is dependent on whether model is being calibrated (option_calibration = 1) or not
             if input.option_calibration == 0:
-                # Apply glacier geometry changes
+                # Mass redistribution according to Huss empirical curves
                 glacier_area_t1, icethickness_t1 = massbalance.massredistributionHuss(glacier_area_t0, icethickness_t0, 
                                                                                       width_t0, 
                                                                                       glac_bin_massbalclim_annual, 
-                                                                                      year_index)
+                                                                                      year_index, glac_idx_initial)
                 # Update surface type for bins that have retreated or advanced
-                surfacetype[glacier_area_t0 == 0] = 0
+                surfacetype[glacier_area_t1 == 0] = 0
                 surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = surfacetype[glacier_area_t0.nonzero()[0][0]]
                 # Record and update ice thickness and glacier area for next year
                 if year_index < input.spinupyears:
@@ -329,22 +310,13 @@ for glac in [0]:
                     # Update glacier area [km**2] and ice thickness [m ice]
                     icethickness_t0 = icethickness_t1.copy()
                     glacier_area_t0 = glacier_area_t1.copy()
-        
-                
-    
-        # NOTE: 
-        # If bin retreats and then advances over a discontinuous section of glacier, then how is this avoided in
-        #  future time steps?  Is this an issue?
-            
-        # Options to add:
-        # - Refreeze via heat conduction
-        # - Volume-Area, Volume-Length scaling
 
     # Record variables from output package here - need to be in glacier loop since the variables will be overwritten 
-#    output.netcdfwrite(regionO1_number, glac, main_glac_rgi, elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc, 
-#                       glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, 
-#                       glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-#                       glac_bin_icethickness_annual, glac_bin_surfacetype_annual)
+    if input.output_package != 0:
+        output.netcdfwrite(regionO1_number, glac, main_glac_rgi, elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc, 
+                           glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, 
+                           glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+                           glac_bin_icethickness_annual, glac_bin_surfacetype_annual)
     #  WILL NEED TO UPDATE HOW THE GLACIER PARAMETERS ARE STRUCTURED ONCE THEY ARE CALIBRATED FOR EACH GLACIER
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4

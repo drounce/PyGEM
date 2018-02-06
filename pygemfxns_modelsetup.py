@@ -371,10 +371,24 @@ def selectglaciersrgitable():
 #                csv_regionO1 = pd.read_csv(rgi_regionsO1_fullfile)
 
 
+def surfacetypeDDFdict():
+    """
+    Create a dictionary of surface type and its respective DDF
+    Convention: [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
+    """
+    surfacetype_ddf_dict = {
+            1: input.DDF_ice,
+            2: input.DDF_snow}
+    if input.option_surfacetype_firn == 1:
+        surfacetype_ddf_dict[3] = input.DDF_firn
+    if input.option_surfacetype_debris == 1:
+        surfacetype_ddf_dict[4] = input.DDF_debris
+    return surfacetype_ddf_dict
+
+
 def surfacetypeglacinitial(glac_table, glac_hyps):
     """
-    Define initial surface type according to median elevation such that the
-    melt can be calculated over snow or ice.
+    Define initial surface type according to median elevation such that the melt can be calculated over snow or ice.
     Convention:
         1 - ice
         2 - snow
@@ -431,18 +445,3 @@ def surfacetypeglacinitial(glac_table, glac_hyps):
     # Make sure surface type is integer values
     glac_surftype = glac_surftype.astype(int)
     return glac_surftype
-
-
-def surfacetypeDDFdict():
-    """
-    Create a dictionary of surface type and its respective DDF
-    Convention: [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
-    """
-    surfacetype_ddf_dict = {
-            1: input.DDF_ice,
-            2: input.DDF_snow}
-    if input.option_surfacetype_firn == 1:
-        surfacetype_ddf_dict[3] = input.DDF_firn
-    if input.option_surfacetype_debris == 1:
-        surfacetype_ddf_dict[4] = input.DDF_debris
-    return surfacetype_ddf_dict

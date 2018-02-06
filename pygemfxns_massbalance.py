@@ -56,140 +56,6 @@ import pygem_input as input
     #        functions.
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def massbalance_binsmonthly():
-    # Note: this will only work for monthly time step!
-    """
-    Calculate the mass balance for every elevation bin on the glacier.
-    """
-    
-    # Need to alter the format of the yearly loops
-        # Are we using calendar year or water year?
-        #   > Provide options to do both.  This should be relatively simple by
-        #     applying the "roll"(?) function that was used recently in another
-        #     function.
-    # Any update to underlying surface type should not impact accumulation rates
-    #   or the amount of accumulation that is carried over, i.e., accumulation
-    #   needs to be carried over each month regardless of surface type
-    # What we really need to do is have a loop at the end that checks if the
-    #   last month of the year is reached.  If it is December, then update
-    #   surface type and compute refreezing accordingly.  This loop will be
-    #   embedded within the monthly for loop.
-    # Steps should be as follows:
-    #   1. Compute accumulation in the bin
-    #       glac_bin_snow + unmelted snow from previous time step
-    #   2. Compute energy required to melt all the snow
-    #       E_melt_snow_all = accumulation
-    #   3. Compute energy available for melting
-    #       E_available = Tair_mean * n_days
-    #       (provide option to use standard deviation like Huss and Hock (2015))
-    #   4. Compute difference between energy available and for snow melt
-    #       E_leftover = E_available - E_melt_snow_all
-    #           If E_leftover > 0,
-    #               then E_leftover used to melt ice or firn
-    #                   melt_ice/firn = DDF_ice/firn * E_leftover
-    #                   snow_leftover = 0
-    #           If E_leftover < 0,
-    #               then the negative energy represents the unmelted snow
-    #                   melt_ice/firn = 0
-    #                   snow_leftover = -1 * E_leftover * DDF_snow
-    #   5. Repeat for each month in the year
-    #   6. Reach the end of the year (if month = December)
-    #       a. Calculate refreezing
-    #       b. Calculate specific mass balance
-    #       c. Update surface type according to mass balance over last 5 years
-    #       d. Volume-length scaling (add remove elevation bins)
-    #            > Simply modify the surface type to remove bins (change to 0)
-    #              or to add bins (change 0 to 1[ice])
-    #   7. Repeat with the accumulation, etc.
-    #
-    #   Many new variable names need to be created.  Keep this consistent.
-    
-    
-#========= OLDER SCRIPTS PRE-JANUARY 11, 2018 =========================================================================
-def AAR_glacier(ELA_value, series_area, GlacNo):
-    """
-    Compute the Accumulation-Area Ratio (AAR) for a given glacier based on its ELA
-    """
-    try:
-        AAR_output = (1 - (np.cumsum(series_area)).divide(series_area.sum())
-            .iloc[int(ELA_value / input.binsize) - 1]) * 100
-        #  ELA_value is the elevation associated with the ELA, so dividing this by the binsize returns the column position 
-        #    if the indexing started at 1, the "-1" accounts for the fact that python starts its indexing at 0, so
-        #    ".iloc[int(ELA_value / binsize) - 1]" gives the column of the ELA.
-        #  np.cumsum gives the cumulative sum of the glacier area for the given year
-        #    this is divided by the total area to get the cumulative fraction of glacier area.
-        #  The column position is then used to select the cumulative fraction of glacier area of the ELA
-        #    since this is the area below the ELA, the value is currently the ablation area as a decimal;
-        #    therefore, "1 - (cumulative_fraction)" gives the fraction of the ablation area,
-        #    and multiplying this by 100 gives the fraction as a percentage.
-    except:
-        # if ELA does not exist, then set AAR = -9.99
-        AAR_output = -9.99
-    return AAR_output    
-
-
-def ablationsurfacebinsmonthly(option_fxn, bin_ablation_mon, glac_temp,
-                                 glac_surftype, glac_params, dates_table,
-                                 glac_count, year):
-    # Note: this will only work for monthly time step!
-    """
-    Calculate the surface ablation of every elevation bin for the glacier.
-    Convention: negative ablation indicates surface lowering.
-    """
-    # Surface Ablation Options:
-    #   > 1 (default) - degree day factor model for snow and ice with no
-    #                   manipulation of the temperature data
-    #   > 2 - degree day factor model for snow and ice with daily variations
-    #         built in via daily standard deviations (Huss and Hock, 2015)
-    #   > 3 - addition of a third model parameter for debris cover?
-    #
-    # Create an empty dataframe to record monthly ablation
-    bin_ablation_perday = pd.DataFrame(0, columns=glac_temp.columns,
-                                       index=glac_temp.index)
-    bin_ablation_monraw = pd.DataFrame(0, columns=glac_temp.columns,
-                                         index=glac_temp.index)
-    if option_fxn == 1:
-        # Option 1: DDF model for snow and ice (no adjustments)
-        #   ablation_bin,m = DDF_ice,snow,debris * T_m_pos * n_timestep
-        # Note: ablation is computed for each element using logical indexing.
-        #   Then, a subset of the data is extracted according to the model year.
-        #   While the computations may seem longer, the use of logical indexing
-        #   instead of for loops greatly speeds up the computational time, which
-        #   is why this is done.
-        # Note: "-1" is used for convention such that negative ablation
-        #   indicates surface lowering.
-        # Compute ablation per day over ice
-        mask1 = ((glac_surftype == 1) & (glac_temp > 0))
-        bin_ablation_perday[mask1] = (-1 * glac_temp[mask1] *
-                                      glac_params.loc[glac_count, 'DDF_ice'])
-            # a = -1 * DDF_ice * T_m
-            # Note: conversion from per day to month below
-        # Compute ablation per day over snow
-        mask2 = ((glac_surftype == 2) & (glac_temp > 0))
-        bin_ablation_perday[mask2] = (-1 * glac_temp[mask2] *
-                                      glac_params.loc[glac_count, 'DDF_snow'])
-            # a = -1 * DDF_snow * T_m
-            # (conversion from per day to month below)
-        # Convert daily ablation rate to monthly ablation rate
-        bin_ablation_monraw = (
-            bin_ablation_perday.mul(list(dates_table['daysinmonth']), axis=1)
-            )
-            # 'list' needed to multiply each row by the column 'daysinmonth'
-        bin_ablation_monsubset = bin_ablation_monraw.filter(regex=str(year))
-        bin_ablation_mon[bin_ablation_monsubset.columns] = (
-                                                        bin_ablation_monsubset)
-    elif option_fxn == 2:
-        print("\nThis option for 'option_surfaceablation' has not been coded "
-              "yet. Please choose an option that exists. Exiting model run.\n")
-        exit()
-    else:
-        print("\nThis option for 'option_surfaceablation' does not exist. "
-              " Please choose an option that exists. Exiting model run.\n")
-        exit()
-    print("The 'ablationsurfacebins' function has finished.")
-    return bin_ablation_mon
-
-
 def accumulationbins(glac_temp, glac_precsnow):
     # Note: this will only work for monthly time step!
     """
@@ -305,55 +171,10 @@ def downscaletemp2bins(glac_table, glac_hyps, climate_temp, climate_elev, glac_c
               "Exiting model run.\n")
         exit()
     return bin_temp
-    
+   
 
-def ELA_glacier(series_massbal_spec, ELA_past):
-    """
-    Compute the Equlibrium Line Altitude (ELA) from a series of specific mass balance, i.e., a single column of the 
-    specific mass balance for each elevation bin
-    """
-    # Use numpy's sign function to return an array of the sign of the values (1=positive, -1=negative, 0=zero)
-    series_ELA_sign = np.sign(series_massbal_spec)                
-    # Use numpy's where function to determine where the specific mass balance changes from negative to positive
-    series_ELA_signchange = np.where((np.roll(series_ELA_sign,1) - series_ELA_sign) == -2)
-    #   roll is a numpy function that performs a circular shift, so in this case all the values are shifted up one 
-    #   place. Since we are looking for the change from negative to positive, i.e., a value of -1 to +1, we want to 
-    #   find where the value equals -2. numpy's where function is used to find this value of -2.  The ELA will be 
-    #   the mean elevation between this bin and the bin below it.
-    #   Example: bin 4665 m has a negative mass balance and 4675 m has a positive mass balance. The difference with 
-    #            the roll function will give 4675 m a value of -2.  Therefore, the ELA will be 4670 m.
-    #   Note: If there is a bin with no glacier area between the min and max height of the glacier (ex. a very steep 
-    #     section), then this will not be captured.  This only becomes a problem if this bin is technically the ELA, 
-    #     i.e., above it is a positive mass balance, and below it is a negative mass balance.  Using np.roll with a
-    #     larger shift would be one way to work around this issue.
-    # try and except to avoid errors associated with the entire glacier having a positive or negative mass balance
-    try:
-        ELA_output = (series_massbal_spec.index.values[series_ELA_signchange[0]][0] - input.binsize/2).astype(int)
-        #  series_ELA_signchange[0] returns the position of the ELA. series_massbal_annual.index returns an array 
-        #  with one value, so the [0] ais used to accesses the element in that array. The binsize is then used to 
-        #  determine the median elevation between those two bins.
-    except:
-        # This may not work in three cases:
-        #   > The mass balance of the entire glacier is completely positive or negative.
-        #   > The mass balance of the whole glacier is 0 (no accumulation or ablation, i.e., snow=0, temp<0)
-        #   > The ELA falls on a band that does not have any glacier (ex. a very steep section) causing the sign 
-        #     roll method to fail. In this case, using a large shift may solve the issue.
-        try:
-            # if entire glacier is positive, then set to the glacier's minimum
-            if series_ELA_sign.iloc[np.where(series_ELA_sign != 0)[0][0]] == 1:
-                ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0][0]] - input.binsize/2
-            # if entire glacier is negative, then set to the glacier's maximum
-            elif series_ELA_sign.iloc[np.where((series_ELA_sign != 0))[0][0]] == -1:
-                ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0]
-                             [np.where(series_ELA_sign != 0)[0].shape[0]-1]] + input.binsize/2
-        except:
-            # if the specific mass balance over the entire glacier is 0, i.e., no ablation or accumulation,
-            #  then the ELA is the same as the previous timestep
-            ELA_output = ELA_past
-    return ELA_output
-
-
-def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year_index):
+def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year_index, 
+                           glac_idx_initial):
     # Reset the annual glacier area and ice thickness
     glacier_area_t1 = np.zeros(glacier_area_t0.shape)
     icethickness_t1 = np.zeros(glacier_area_t0.shape)
@@ -362,7 +183,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
     glacier_volumechange = ((glac_bin_massbalclim_annual[:, year_index] / 1000 * input.density_water / 
                              input.density_ice * glacier_area_t0).sum())
     #  units: [m w.e.] * (1 km / 1000 m) * (1000 kg / (1 m water * m**2) * (1 m ice * m**2 / 900 kg) * [km**2] 
-    #         = km**3 ice         
+    #         = km**3 ice          
     # If volume loss is less than the glacier volume, then redistribute mass loss/gains across the glacier;
     #  otherwise, the glacier disappears (area and thickness were already set to zero above)
     if -1 * glacier_volumechange < (icethickness_t0 / 1000 * glacier_area_t0).sum():
@@ -472,7 +293,14 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
                     advance_volume = advance_volume - advance_volume_fillbin
             # With remaining advance volume, add a bin
             if advance_volume > 0:
+                # Index for additional bin below the terminus
                 glac_idx_bin2add = np.array([glac_idx_terminus[0] - 1])
+                # Check if bin2add is in a discontinuous section of the initial glacier
+                while ((glac_idx_bin2add > glac_idx_initial.min()) & 
+                       ((glac_idx_bin2add == glac_idx_initial).any() == False)):
+                    # Advance should not occur in a discontinuous section of the glacier (e.g., vertical drop),
+                    #  so change the bin2add to the next bin down valley
+                    glac_idx_bin2add = glac_idx_bin2add - 1
                 # if the added bin would be below sea-level, then volume is distributed over the glacier without
                 #  any adjustments
                 if glac_idx_bin2add < 0:
@@ -678,145 +506,118 @@ def refreezepotentialbins(glac_temp, dates_table):
               "an option that exists. Exiting model run.\n")
         exit()
     return bin_refreezepotential
+    
 
-
-def specificmassbalanceannual(massbal_annual, snow_annual, ablation_annual,
-                              refreeze_annual, surftype_annual, year,
-                              glac_count, glac_ELA):
+def surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year_index):
     """
-    Calculate the annual specific mass balance for every elevation bin on the
-    glacier for a given year.  Also, extract the equilibrium line altitude for
-    the given year.
-    """
-    massbal_annual_raw = massbal_annual.copy()
-    # Compute surface mass balance for all elevation bins of the glacier
-    mask1 = (surftype_annual > 0)
-        # elements that are not on the glacier are excluded
-        # !!! WARNING: this inherently means that the model is not able to !!!
-        # !!!          grow any glaciers from scratch                      !!!
-    massbal_annual_raw[mask1] = (snow_annual[mask1] + ablation_annual[mask1] +
-                                 refreeze_annual[mask1])
-    # Extract the data for the given loop year
-    massbal_annual_subset = massbal_annual_raw.filter(regex=str(year))
-    # Update the mass balance dataset with the subset
-    massbal_annual[massbal_annual_subset.columns] = massbal_annual_subset
-    # Determine the ELA
-    # Use when the sign of the specific mass balance changes
-    ELA_sign = np.sign(massbal_annual_subset)
-        # returns array of values for positive(1), negative(-1), or zero(0)
-    # ELA_signchange = ((np.roll(ELA_sign,1) - ELA_sign) == -2).astype(int)
-    ELA_signchange = np.where((np.roll(ELA_sign,1) - ELA_sign) == -2)
-        # roll is a numpy function to perform a circular shift, so in this case
-        # all the values are shifted up one place.  Since we are looking for the
-        # change from negative to positive, i.e., a value of -1 to +1, we really
-        # are looking for a value of -2. numpy where is used to find this value
-        # of -2.  The ELA will be the mean elevation between this bin and the
-        # bin below it.  It's important to note that we use -2 as opposed to not
-        # equal to zero because there will be sign changes at the min glacier
-        # altitude and the max glacier altitude. Additionally, if there is a
-        # bin, that does not have a glacier (very steep section), then that will
-        # not show up as a false ELA.
-        #   Example: bin 4665 m has a negative mass balance and 4675 m has a
-        #   positive mass balance. The difference with the roll function will
-        #   give 4675 m a value of -2.  Therefore, the ELA will be 4670 m.
-    glac_ELA.loc[glac_count, str(year)] = int((ELA_sign.index[ELA_signchange[0]]
-                                               [0] - input.binsize/2))
-        # ELA_signchange[0] returns the position associated with ELA
-        # ELA_sign.index returns an array with one value, i.e., the ELA value
-        # the [0] after ELA_sign.index accesses the element in that array
-        # The binsize is then reduced
-    print("The 'specificmassbalanceannual' function has finished.")
-    return massbal_annual, glac_ELA
-
-
-def surfacetypebinsinitial(glac_surftype, glac_temp, glac_count):
-    """
-    NOTE THIS FUNCTION IS NO LONGER USED - SHOULD BE ABLE TO DELETE THIS
-    Create dataframe for initial surface type.  Note: this is needed for every
-    timestep to assist with logical indexing in ablation calculations.
-    Otherwise, annual timestep would be sufficient as it is constant each year.
-    Convention:
-        1 - ice
-        2 - snow
-        3 - firn
-        4 - debris
-        0 - off-glacier
-    """
-    # Select initial glacier surface type from the main table that has initial
-    # surface type for each glacier based on median altitude
-    bin_surftype_series = glac_surftype.iloc[glac_count,:]
-    # Create dataframe for surface type for every timestep, which is needed to
-    # assist logical indexing in ablation calculations despite being constant
-    # for each year.  Note: glac_temp is simply a dummy file that is being used
-    # for its dataframe attributes (length and column headers)
-    bin_surftype = pd.concat([bin_surftype_series] * glac_temp.shape[1], axis=1)
-    bin_surftype.columns = glac_temp.columns
-    return bin_surftype
-
-
-def surfacetypebinsannual(option_fxn, surftype_annual, massbal_annual, year):
-    """
-    Update surface type according to mass balance each year.
-        mass balance = accumulation - ablation + refreezing
-    if mass balance is positive --> snow/firn
-    if mass balance is negative --> ice
-    where mass balance is zero (or switches) --> ELA
-    Output:
-        > monthly and annual surface type
-        > annual ELA
-    Convention:
-        1 - ice
-        2 - snow
-        3 - firn
-        4 - debris
-        0 - off-glacier
+    Update surface type according to climatic mass balance over the last five years.  If positive, then snow/firn.  If 
+    negative, then ice/debris.
+    Convention: 0 = off-glacier, 1 = ice, 2 = snow, 3 = firn, 4 = debris
     """
     # Function Options:
     #   > 1 (default) - update surface type according to Huss and Hock (2015)
     #   > 2 - Radic and Hock (2011)
-    # Radic and Hock (2011): "DDF_snow is used above the ELA regardless of
-    #   snow cover.  Below the ELA, use DDF_ice is used only when snow cover is
-    #   0.  ELA is calculated from the observed annual mass balance profiles
-    #   averaged over the observational period and is kept constant in time for
-    #   the calibration period.  For the future projections, ELA is set to the
-    #   mean glacier height and is time dependent since glacier volume, area,
-    #   and length are time dependent (volume-area-length scaling).
-    #       > 1 - ELA is constant.  ELA is calculated from annual mass balance
-    #             profiles over observational period.  However, these profiles
-    #             Problem: these profiles will change depending on where you set
-    #                      the ELA, so now you're in a loop?
-    #       > 2 - ELA is the mean glacier elevation.  Changes every year as the
-    #             glacier changes (volume-area-length scaling).
-    #       Surface types (2): snow, ice
-    # Bliss et al. (2014) uses the same as Valentina's model
-    # Huss and Hock (2015): Initially, above median glacier elevation is firn
-    #   and below is ice. Surface type updated for each elevation band and month
-    #   depending on the specific mass balance.  If the cumulative balance since
-    #   the start of the mass balance year is positive, then snow is assigned.
-    #   If the cumulative mass balance is negative (i.e., all snow of current
-    #   mass balance year has melted), then bare ice or firn is exposed.
-    #   Surface type is assumed to be firn if the elevation band's average
-    #   annual balance over the preceding 5 years (B_t-5_avg) is positive. If
+    # Huss and Hock (2015): Initially, above median glacier elevation is firn and below is ice. Surface type updated for
+    #   each elevation band and month depending on the specific mass balance.  If the cumulative balance since the start 
+    #   of the mass balance year is positive, then snow is assigned. If the cumulative mass balance is negative (i.e., 
+    #   all snow of current mass balance year has melted), then bare ice or firn is exposed. Surface type is assumed to 
+    #   be firn if the elevation band's average annual balance over the preceding 5 years (B_t-5_avg) is positive. If
     #   B_t-5_avg is negative, surface type is ice.
-    #       > 1 - specific mass balance calculated at each bin and used with
-    #             the mass balance over the last 5 years to determine whether
-    #             the surface is firn or ice.  Snow is separate based on each
-    #             month.
-    #       Surface types (3): Firn, ice, snow
-    #           DDF_firn = average(DDF_ice, DDF_snow)
-    if option_fxn == 1:
-        if year >= input.startyear + 4:
-            # Within 1st 5 years, unable to take average of the preceding 5
-            # years, so assume that it is constant.  Don't change anything.
-            # Note: this suggests that 5 years for model spinup is a good idea.
-            #
-            # Compute average mass balance over the last 5 years for each bin
-            massbal_annual_avg = massbal_annual.loc[:,year-4:year].mean(axis=1)
-                # returns a Series for the given year
-            # Update surface type according to the average annual mass balance
-            surftype_annual[year][massbal_annual_avg < 0] = 1
-            surftype_annual[year][massbal_annual_avg > 0] = 2
-                # logical indexing used in conjunction with year column
-        # NEED TO ADD OPTION FOR FIRN
-        # NEED TO ADD OPTION FOR DEBRIS
-    return surftype_annual
+    #       > climatic mass balance calculated at each bin and used with the mass balance over the last 5 years to 
+    #         determine whether the surface is firn or ice.  Snow is separate based on each month.
+    # Radic and Hock (2011): "DDF_snow is used above the ELA regardless of snow cover.  Below the ELA, use DDF_ice is 
+    #   used only when snow cover is 0.  ELA is calculated from the observed annual mass balance profiles averaged over 
+    #   the observational period and is kept constant in time for the calibration period.  For the future projections, 
+    #   ELA is set to the mean glacier height and is time dependent since glacier volume, area, and length are time 
+    #   dependent (volume-area-length scaling).
+    #   Bliss et al. (2014) uses the same as Valentina's model
+    #
+    # Next year's surface type is based on the bin's average annual climatic mass balance over the last 5 years.  If 
+    #  less than 5 years, then use the average of the existing years.
+    if year_index < 5:
+        # Calculate average annual climatic mass balance since run began
+        massbal_clim_mwe_runningavg = glac_bin_massbalclim_annual[:,0:year_index+1].mean(1)
+    else:
+        massbal_clim_mwe_runningavg = glac_bin_massbalclim_annual[:,year_index-4:year_index+1].mean(1)
+    # If the average annual specific climatic mass balance is negative, then the surface type is ice (or debris)
+    surfacetype[(surfacetype !=0 ) & (massbal_clim_mwe_runningavg <= 0)] = 1
+    # If the average annual specific climatic mass balance is positive, then the surface type is snow (or firn)
+    surfacetype[(surfacetype != 0) & (massbal_clim_mwe_runningavg > 0)] = 2
+    # Apply surface type model options
+    # If firn surface type option is included, then snow is changed to firn
+    if input.option_surfacetype_firn == 1:
+        surfacetype[surfacetype == 2] = 3
+    if input.option_surfacetype_debris == 1:
+        print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
+              'Exiting the model run.')
+        exit()
+    return surfacetype
+
+
+#========= OLDER SCRIPTS PRE-JANUARY 11, 2018 =========================================================================
+#def AAR_glacier(ELA_value, series_area, GlacNo):
+#    """
+#    Compute the Accumulation-Area Ratio (AAR) for a given glacier based on its ELA
+#    """
+#    try:
+#        AAR_output = (1 - (np.cumsum(series_area)).divide(series_area.sum())
+#            .iloc[int(ELA_value / input.binsize) - 1]) * 100
+#        #  ELA_value is the elevation associated with the ELA, so dividing this by the binsize returns the column position 
+#        #    if the indexing started at 1, the "-1" accounts for the fact that python starts its indexing at 0, so
+#        #    ".iloc[int(ELA_value / binsize) - 1]" gives the column of the ELA.
+#        #  np.cumsum gives the cumulative sum of the glacier area for the given year
+#        #    this is divided by the total area to get the cumulative fraction of glacier area.
+#        #  The column position is then used to select the cumulative fraction of glacier area of the ELA
+#        #    since this is the area below the ELA, the value is currently the ablation area as a decimal;
+#        #    therefore, "1 - (cumulative_fraction)" gives the fraction of the ablation area,
+#        #    and multiplying this by 100 gives the fraction as a percentage.
+#    except:
+#        # if ELA does not exist, then set AAR = -9.99
+#        AAR_output = -9.99
+#    return AAR_output    
+#
+#
+#def ELA_glacier(series_massbal_spec, ELA_past):
+#    """
+#    Compute the Equlibrium Line Altitude (ELA) from a series of specific mass balance, i.e., a single column of the 
+#    specific mass balance for each elevation bin
+#    """
+#    # Use numpy's sign function to return an array of the sign of the values (1=positive, -1=negative, 0=zero)
+#    series_ELA_sign = np.sign(series_massbal_spec)                
+#    # Use numpy's where function to determine where the specific mass balance changes from negative to positive
+#    series_ELA_signchange = np.where((np.roll(series_ELA_sign,1) - series_ELA_sign) == -2)
+#    #   roll is a numpy function that performs a circular shift, so in this case all the values are shifted up one 
+#    #   place. Since we are looking for the change from negative to positive, i.e., a value of -1 to +1, we want to 
+#    #   find where the value equals -2. numpy's where function is used to find this value of -2.  The ELA will be 
+#    #   the mean elevation between this bin and the bin below it.
+#    #   Example: bin 4665 m has a negative mass balance and 4675 m has a positive mass balance. The difference with 
+#    #            the roll function will give 4675 m a value of -2.  Therefore, the ELA will be 4670 m.
+#    #   Note: If there is a bin with no glacier area between the min and max height of the glacier (ex. a very steep 
+#    #     section), then this will not be captured.  This only becomes a problem if this bin is technically the ELA, 
+#    #     i.e., above it is a positive mass balance, and below it is a negative mass balance.  Using np.roll with a
+#    #     larger shift would be one way to work around this issue.
+#    # try and except to avoid errors associated with the entire glacier having a positive or negative mass balance
+#    try:
+#        ELA_output = (series_massbal_spec.index.values[series_ELA_signchange[0]][0] - input.binsize/2).astype(int)
+#        #  series_ELA_signchange[0] returns the position of the ELA. series_massbal_annual.index returns an array 
+#        #  with one value, so the [0] ais used to accesses the element in that array. The binsize is then used to 
+#        #  determine the median elevation between those two bins.
+#    except:
+#        # This may not work in three cases:
+#        #   > The mass balance of the entire glacier is completely positive or negative.
+#        #   > The mass balance of the whole glacier is 0 (no accumulation or ablation, i.e., snow=0, temp<0)
+#        #   > The ELA falls on a band that does not have any glacier (ex. a very steep section) causing the sign 
+#        #     roll method to fail. In this case, using a large shift may solve the issue.
+#        try:
+#            # if entire glacier is positive, then set to the glacier's minimum
+#            if series_ELA_sign.iloc[np.where(series_ELA_sign != 0)[0][0]] == 1:
+#                ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0][0]] - input.binsize/2
+#            # if entire glacier is negative, then set to the glacier's maximum
+#            elif series_ELA_sign.iloc[np.where((series_ELA_sign != 0))[0][0]] == -1:
+#                ELA_output = series_ELA_sign.index.values[np.where(series_ELA_sign != 0)[0]
+#                             [np.where(series_ELA_sign != 0)[0].shape[0]-1]] + input.binsize/2
+#        except:
+#            # if the specific mass balance over the entire glacier is 0, i.e., no ablation or accumulation,
+#            #  then the ELA is the same as the previous timestep
+#            ELA_output = ELA_past
+#    return ELA_output
