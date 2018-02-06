@@ -353,7 +353,173 @@ def ELA_glacier(series_massbal_spec, ELA_past):
     return ELA_output
 
 
-def massredistributionHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange, 
+def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year_index):
+    # Reset the annual glacier area and ice thickness
+    glacier_area_t1 = np.zeros(glacier_area_t0.shape)
+    icethickness_t1 = np.zeros(glacier_area_t0.shape)
+    width_t1 = np.zeros(glacier_area_t0.shape)
+    # Annual glacier-wide volume change [km**3]
+    glacier_volumechange = ((glac_bin_massbalclim_annual[:, year_index] / 1000 * input.density_water / 
+                             input.density_ice * glacier_area_t0).sum())
+    #  units: [m w.e.] * (1 km / 1000 m) * (1000 kg / (1 m water * m**2) * (1 m ice * m**2 / 900 kg) * [km**2] 
+    #         = km**3 ice         
+    # If volume loss is less than the glacier volume, then redistribute mass loss/gains across the glacier;
+    #  otherwise, the glacier disappears (area and thickness were already set to zero above)
+    if -1 * glacier_volumechange < (icethickness_t0 / 1000 * glacier_area_t0).sum():
+        # Determine where glacier exists
+        glac_idx_t0 = glacier_area_t0.nonzero()[0]
+        # Compute ice thickness [m ice], glacier area [km**2] and ice thickness change [m ice] after 
+        #  redistribution of gains/losses
+        if input.option_massredistribution == 1:
+            # Option 1: apply mass redistribution using Huss' empirical geometry change equations
+            icethickness_t1, glacier_area_t1, width_t1, icethickness_change = massredistributioncurveHuss(
+                    icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange,
+                    glac_bin_massbalclim_annual[:, year_index])
+        # Glacier retreat
+        #  if glacier retreats (ice thickness < 0), then redistribute mass loss across the rest of the glacier
+        glac_idx_t0_raw = glac_idx_t0.copy()
+        if (icethickness_t1[glac_idx_t0] <= 0).any() == True:
+            # Record glacier area and ice thickness before retreat corrections applied
+            glacier_area_t0_raw = glacier_area_t0.copy()
+            icethickness_t0_raw = icethickness_t0.copy()
+            width_t0_raw = width_t0.copy()
+            #  this is only used when there are less than 3 bins
+        while (icethickness_t1[glac_idx_t0_raw] <= 0).any() == True:
+            # Glacier volume change associated with retreat [km**3]
+            glacier_volumechange_retreat = (-1*(icethickness_t0[glac_idx_t0][icethickness_t1[glac_idx_t0] <= 0] 
+                    / 1000 * glacier_area_t0[glac_idx_t0][icethickness_t1[glac_idx_t0] <= 0]).sum())
+            #  multiplying by -1 makes volume change negative
+            # Glacier volume change remaining [km**3]
+            glacier_volumechange = glacier_volumechange - glacier_volumechange_retreat
+            # update glacier area and ice thickness to account for retreat
+            glacier_area_t0_raw[icethickness_t1 <= 0] = 0
+            icethickness_t0_raw[icethickness_t1 <= 0] = 0
+            width_t0_raw[icethickness_t1 <= 0] = 0
+            glac_idx_t0_raw = glacier_area_t0_raw.nonzero()[0]
+            # Climatic mass balance for the case when there are less than 3 bins and the glacier is retreating, 
+            #  distribute the remaining glacier volume change over the entire glacier (remaining bins)
+            massbal_clim_retreat = np.zeros(glacier_area_t0_raw.shape)
+            massbal_clim_retreat[glac_idx_t0_raw] = glacier_volumechange/glacier_area_t0_raw.sum() * 1000
+            # Compute mass redistribution
+            if input.option_massredistribution == 1:
+                # Option 1: apply mass redistribution using Huss' empirical geometry change equations
+                icethickness_t1, glacier_area_t1, width_t1, icethickness_change = massredistributioncurveHuss(
+                        icethickness_t0_raw, glacier_area_t0_raw, width_t0_raw, glac_idx_t0_raw, glacier_volumechange,
+                        massbal_clim_retreat)
+        # Glacier advances
+        #  if glacier advances (ice thickness change exceeds threshold), then redistribute mass gain in new bins
+        while (icethickness_change > input.icethickness_advancethreshold).any() == True:     
+            # Record glacier area and ice thickness before advance corrections applied
+            glacier_area_t1_raw = glacier_area_t1.copy()
+            icethickness_t1_raw = icethickness_t1.copy()
+            width_t1_raw = width_t1.copy()
+            # Index bins that are surging
+            icethickness_change[icethickness_change <= input.icethickness_advancethreshold] = 0
+            glac_idx_advance = icethickness_change.nonzero()[0]
+            # Update ice thickness based on maximum advance threshold [m ice]
+            icethickness_t1[glac_idx_advance] = (icethickness_t1[glac_idx_advance] - 
+                           (icethickness_change[glac_idx_advance] - input.icethickness_advancethreshold))
+            # Update glacier area based on reduced ice thicknesses [km**2]
+            if input.option_glaciershape == 1:
+                # Glacier area for parabola [km**2] (A_1 = A_0 * (H_1 / H_0)**0.5)
+                glacier_area_t1[glac_idx_advance] = (glacier_area_t1_raw[glac_idx_advance] * 
+                               (icethickness_t1[glac_idx_advance] / icethickness_t1_raw[glac_idx_advance])**0.5)
+                # Glacier width for parabola [km] (w_1 = w_0 * A_1 / A_0)
+                width_t1[glac_idx_advance] = (width_t1_raw[glac_idx_advance] * glacier_area_t1[glac_idx_advance] 
+                                              / glacier_area_t1_raw[glac_idx_advance])
+            elif input.option_glaciershape == 2:
+                # Glacier area constant for rectangle [km**2] (A_1 = A_0)
+                glacier_area_t1[glac_idx_advance] = glacier_area_t1_raw[glac_idx_advance]
+                # Glacier with constant for rectangle [km] (w_1 = w_0)
+                width_t1[glac_idx_advance] = width_t1_raw[glac_idx_advance]
+            elif input.option_glaciershape == 3:
+                # Glacier area for triangle [km**2] (A_1 = A_0 * H_1 / H_0)
+                glacier_area_t1[glac_idx_t0] = (glacier_area_t1_raw[glac_idx_t0] * 
+                               icethickness_t1[glac_idx_t0] / icethickness_t1_raw[glac_idx_t0])
+                # Glacier width for triangle [km] (w_1 = w_0 * A_1 / A_0)
+                width_t1[glac_idx_advance] = (width_t1_raw[glac_idx_advance] * glacier_area_t1[glac_idx_advance] 
+                                              / glacier_area_t1_raw[glac_idx_advance])
+            # Advance volume [km**3]
+            advance_volume = ((glacier_area_t1_raw[glac_idx_advance] * 
+                              icethickness_t1_raw[glac_idx_advance] / 1000).sum() - 
+                              (glacier_area_t1[glac_idx_advance] * icethickness_t1[glac_idx_advance] / 
+                               1000).sum())
+            # Advance characteristics
+            # Indices that define the glacier terminus
+            glac_idx_terminus = (glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / 
+                                             glac_idx_t0.shape[0] * 100 < input.terminus_percentage])
+            # Average area of glacier terminus [km**2]
+            terminus_area_avg = glacier_area_t0[glac_idx_terminus[1]:
+                                                glac_idx_terminus[glac_idx_terminus.shape[0]-1]+1].mean()    
+            #  exclude the bin at the terminus, since this bin may need to be filled first
+            # Check if the last bin's area is below the terminus' average and fill it up if it is
+            if glacier_area_t1[glac_idx_terminus[0]] < terminus_area_avg:
+                # Volume required to fill the bin at the terminus
+                advance_volume_fillbin = (icethickness_t1[glac_idx_terminus[0]] / 1000 * (terminus_area_avg - 
+                                          glacier_area_t1[glac_idx_terminus[0]]))
+                # If the advance volume is less than that required to fill the bin, then fill the bin as much as
+                #  possible by adding area (thickness remains the same - glacier front is only thing advancing)
+                if advance_volume < advance_volume_fillbin:
+                    # add advance volume to the bin (area increases, thickness and width constant)
+                    glacier_area_t1[glac_idx_terminus[0]] = (glacier_area_t1[glac_idx_terminus[0]] + 
+                                   advance_volume / (icethickness_t1[glac_idx_terminus[0]] / 1000))
+                    # set advance volume equal to zero
+                    advance_volume = 0
+                else:
+                    # fill the bin (area increases, thickness and width constant)
+                    glacier_area_t1[glac_idx_terminus[0]] = (glacier_area_t1[glac_idx_terminus[0]] + 
+                                   advance_volume_fillbin / (icethickness_t1[glac_idx_terminus[0]] / 1000))
+                    advance_volume = advance_volume - advance_volume_fillbin
+            # With remaining advance volume, add a bin
+            if advance_volume > 0:
+                glac_idx_bin2add = np.array([glac_idx_terminus[0] - 1])
+                # if the added bin would be below sea-level, then volume is distributed over the glacier without
+                #  any adjustments
+                if glac_idx_bin2add < 0:
+                    glacier_area_t1 = glacier_area_t1_raw
+                    icethickness_t1 = icethickness_t1_raw
+                    width_t1 = width_t1_raw
+                    advance_volume = 0
+                # otherwise, add a bin with thickness and width equal to the previous bin and fill it up
+                else:
+                    # ice thickness of new bin equals ice thickness of bin at the terminus
+                    icethickness_t1[glac_idx_bin2add] = icethickness_t1[glac_idx_terminus[0]]
+                    width_t1[glac_idx_bin2add] = width_t1[glac_idx_terminus[0]]
+                    # volume required to fill the bin at the terminus
+                    advance_volume_fillbin = icethickness_t1[glac_idx_bin2add] / 1000 * terminus_area_avg 
+                    # If the advance volume is unable to fill entire bin, then fill it as much as possible
+                    if advance_volume < advance_volume_fillbin:
+                        # add advance volume to the bin (area increases, thickness and width constant)
+                        glacier_area_t1[glac_idx_bin2add] = (advance_volume / (icethickness_t1[glac_idx_bin2add]
+                                                             / 1000))
+                        advance_volume = 0
+                    else:
+                        # fill the bin (area increases, thickness and width constant)
+                        glacier_area_t1[glac_idx_bin2add] = terminus_area_avg
+                        advance_volume = advance_volume - advance_volume_fillbin
+            # update the glacier indices
+            glac_idx_t0 = glacier_area_t1.nonzero()[0]
+            massbal_clim_advance = np.zeros(glacier_area_t1.shape)
+            # Record glacier area and ice thickness before advance corrections applied
+            glacier_area_t1_raw = glacier_area_t1.copy()
+            icethickness_t1_raw = icethickness_t1.copy()
+            width_t1_raw = width_t1.copy()
+            # If a full bin has been added and volume still remains, then redistribute mass across the
+            #  glacier, thereby enabling the bins to get thicker once again prior to adding a new bin.
+            #  This is important for glaciers that have very thin ice at the terminus as this prevents the 
+            #  glacier from having a thin layer of ice advance tremendously far down valley without thickening.
+            if advance_volume > 0:
+                if input.option_massredistribution == 1:
+                    # Option 1: apply mass redistribution using Huss' empirical geometry change equations
+                    icethickness_t1, glacier_area_t1, width_t1, icethickness_change = massredistributioncurveHuss(
+                            icethickness_t1, glacier_area_t1, width_t1, glac_idx_t0, advance_volume,
+                            massbal_clim_advance)
+            # update ice thickness change
+            icethickness_change = icethickness_t1 - icethickness_t1_raw
+    return glacier_area_t1, icethickness_t1
+
+
+def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange, 
                            massbalclim_annual):
     """ 
     Compute the mass redistribution, otherwise known as glacier geometry changes, based on the glacier volume change

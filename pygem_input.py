@@ -13,10 +13,10 @@ import numpy as np
 
 # ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
-# Model run option - calibration or simulation
-option_modelrun_type = 0
-#  Option 0 (default) - calibration run (glacier area remains constant)
-#  Option 1 - regular model run
+# Calibration option
+option_calibration = 0
+#  Option 0 (default) - regular model simulation (variables defined)
+#  Option 1 - calibration run (glacier area remains constant)
 # Warning message option
 option_warningmessages = 1
 #  Warning messages are a good check to make sure that the script is running properly, and small nuances due to 
@@ -320,6 +320,10 @@ icethickness_advancethreshold = 5
 # Percentage of glacier considered to be terminus
 terminus_percentage = 20
 #  Huss and Hock (2015) use 20% to calculate new area and ice thickness
+## Constant area or allow geometry changes
+#option_areaconstant = 1
+##  Option 0 (default simulation) - area is not constant, glacier can widen/narrow and retreat/advance
+##  Option 1 (default calibration) - area is constant to avoid retreat/advance mass balance feedbacks  
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
