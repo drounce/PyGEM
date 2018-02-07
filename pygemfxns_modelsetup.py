@@ -262,9 +262,8 @@ def selectglaciersrgitable():
 # ----- FILES TO BE USED FOR CALIBRATION ------------------------------------------------------------------------------
 def hypsmassbalDShean(glac_table):
     """
-    Select hypsometry and mass balance of all glaciers that are being used in
-    the model from the csv files David Shean is producing. This function returns
-    hypsometry and mass balance for each elevation bin.
+    Select geodetic mass balance of all glaciers in the model run that have a geodetic mass balance.  The geodetic mass
+    balances are stored in a csv file.
     """
     # Create an empty dataframe. main_glac_hyps will store the hypsometry of
     # all the glaciers with the bin size specified by user input. Set index to

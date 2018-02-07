@@ -14,7 +14,7 @@ import numpy as np
 # ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
 # Calibration option
-option_calibration = 0
+option_calibration = 1
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Warning message option
@@ -328,7 +328,7 @@ terminus_percentage = 20
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 # Output package number
-output_package = 2
+output_package = 0
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, 
