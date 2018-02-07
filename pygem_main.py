@@ -140,87 +140,109 @@ for glac in [0]:
     # Inclusion of ice thickness and width, i.e., loading the values may be only required for Huss mass redistribution!
     icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
     width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-#    # Run the mass balance function (spinup years have been removed from output)
-#    (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-#     glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-#     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, annual_columns, dates_table) = (
-#             massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, glacier_area_t0, 
-#                                        icethickness_t0, width_t0, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-#                                        elev_bins, dates_table, annual_columns, annual_divisor))
-#    # Record variables from output package here - need to be in glacier loop since the variables will be overwritten 
-#    if input.output_package != 0:
-#        output.netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
-#                           glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-#                           glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
-#                           glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual, 
-#                           glac_bin_surfacetype_annual)
-    #  ADJUST NETCDF FILE FOR CALIBRAITON
-    # Note: use constraints equal to a specific input, if the variable is not being calibrated
-
     
-    # Define the function that you are trying to minimize
-    #  modelparameters are the "x values" that will be optimized
-    #  the returned value 'massbal_difference' is the value that will be minimized
-    def objective(modelparameters):
+    if input.option_calibration == 0:    
+        # Run the mass balance function (spinup years have been removed from output)
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
          glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
                  massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, glacier_area_t0, 
                                             icethickness_t0, width_t0, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                                             elev_bins, dates_table, annual_columns, annual_divisor))
-        
-        # Compute the glacier-wide climatic mass balance for all years
         glac_wide_massbalclim_allyrs = (glac_bin_area_annual[:,0:glac_bin_massbalclim_annual.shape[1]] * 
                                         glac_bin_massbalclim_annual).sum(axis=1).sum()/glacier_area_t0.sum()
-        #  units: m w.e. based on initial area
-        # Difference between geodetic and modeled mass balance
-        massbal_difference = abs(main_glac_calmassbal[glac] - glac_wide_massbalclim_allyrs)
-        return massbal_difference
-    massbal_difference = objective(modelparameters)
-
-    # Define constraints
-    #  everything goes on one side of the equation compared to zero
-    #  ex. return x[0] - input.lr_gcm with an equality means x[0] = input.lr_gcm
-    def constraint1(modelparameters):
-        return modelparameters[0] - input.lr_gcm
-    def constraint2(modelparameters):
-        return modelparameters[1] - input.lr_glac
-    def constraint3(modelparameters):
-        return modelparameters[2] - input.prec_factor
-    def constraint4(modelparameters):
-        return modelparameters[3] - input.prec_grad
-    def constraint5(modelparameters):
-        return modelparameters[4] - input.DDF_snow
-    def constraint6(modelparameters):
-        return modelparameters[5] - input.DDF_ice
-    def constraint7(modelparameters):
-        return modelparameters[6] - input.T_snow
-
-    # Define the initial guess
-    modelparameters0 = ([input.lr_gcm, input.lr_glac, input.prec_factor, input.prec_grad, input.DDF_snow, input.DDF_ice, 
-                         input.T_snow])
-    # Define bounds
-    lrgcm_bnds = (-0.007,-0.006)
-    lrglac_bnds = (-0.007,-0.006)
-    precfactor_bnds = (0.8,2.0)
-    precgrad_bnds = (0.0001,0.00025)
-    ddfsnow_bnds = (0.002, 0.005)
-    ddfice_bnds = (0.005, 0.009)
-    tempsnow_bnds = (0,2) 
-    modelparameter_bnds = (lrgcm_bnds,lrglac_bnds,precfactor_bnds,precgrad_bnds,ddfsnow_bnds,ddfice_bnds,tempsnow_bnds)
-    
-    # Define constraints
-    con1 = {'type':'eq', 'fun':constraint1}
-    con2 = {'type':'eq', 'fun':constraint2}
-    con3 = {'type':'eq', 'fun':constraint3}
-    con4 = {'type':'eq', 'fun':constraint4}
-    con5 = {'type':'eq', 'fun':constraint5}
-    con6 = {'type':'eq', 'fun':constraint6}
-    con7 = {'type':'eq', 'fun':constraint7}
-    cons = [con1,con2,con4,con5,con6,con7]
-    
-    modelparameters_optimized = minimize(objective,modelparameters0,method='SLSQP',bounds=modelparameter_bnds,constraints=cons)
-
+        # Record variables from output package here - need to be in glacier loop since the variables will be overwritten 
+        if input.output_package != 0:
+            output.netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
+                               glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+                               glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
+                               glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual, 
+                               glac_bin_surfacetype_annual)
+        #  ADJUST NETCDF FILE FOR CALIBRATION
+    elif input.option_calibration == 1:
+        # Define the function that you are trying to minimize
+        #  modelparameters are the parameters that will be optimized
+        #  the return value is the value is the value used to run the optimization
+        def objective(modelparameters):
+            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
+                     massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, 
+                                                glacier_area_t0, icethickness_t0, width_t0, glacier_gcm_temp, 
+                                                glacier_gcm_prec, glacier_gcm_elev, elev_bins, dates_table, 
+                                                annual_columns, annual_divisor))
+            
+            # Compute the glacier-wide climatic mass balance for all years
+            glac_wide_massbalclim_allyrs = (glac_bin_area_annual[:,0:glac_bin_massbalclim_annual.shape[1]] * 
+                                            glac_bin_massbalclim_annual).sum(axis=1).sum()/glacier_area_t0.sum()
+            #  units: m w.e. based on initial area
+            # Difference between geodetic and modeled mass balance
+            massbal_difference = abs(main_glac_calmassbal[glac] - glac_wide_massbalclim_allyrs)
+            return massbal_difference
+        # Define constraints
+        #  everything goes on one side of the equation compared to zero
+        #  ex. return x[0] - input.lr_gcm with an equality means x[0] = input.lr_gcm
+        def constraint1(modelparameters):
+            return modelparameters[0] - input.lr_gcm
+        def constraint2(modelparameters):
+            return modelparameters[1] - input.lr_glac
+        def constraint3(modelparameters):
+            return modelparameters[2] - input.prec_factor
+        def constraint4(modelparameters):
+            return modelparameters[3] - input.prec_grad
+        def constraint5(modelparameters):
+            return modelparameters[4] - input.DDF_snow
+        def constraint6(modelparameters):
+            return modelparameters[5] - input.DDF_ice
+        def constraint7(modelparameters):
+            return modelparameters[6] - input.T_snow
+        def ddfice2xsnow(modelparameters):
+            return modelparameters[4] - 0.5*modelparameters[5] 
+        def ddficegtsnow(modelparameters):
+            return modelparameters[5] - modelparameters[4]
+        # Define the initial guess
+        modelparameters0 = ([input.lr_gcm, input.lr_glac, input.prec_factor, input.prec_grad, input.DDF_snow, 
+                             input.DDF_ice, input.T_snow])
+        # Define bounds
+        lrgcm_bnds = (-0.007,-0.006)
+        lrglac_bnds = (-0.007,-0.006)
+        precfactor_bnds = (0.8,2.0)
+        precgrad_bnds = (0.0001,0.00025)
+        ddfsnow_bnds = (0.00175, 0.0045)
+        ddfice_bnds = (0.003, 0.009)
+        tempsnow_bnds = (0,2) 
+        modelparameters_bnds = (lrgcm_bnds,lrglac_bnds,precfactor_bnds,precgrad_bnds,ddfsnow_bnds,ddfice_bnds,
+                               tempsnow_bnds)
+        # Define constraints
+        con1 = {'type':'eq', 'fun':constraint1}
+        con2 = {'type':'eq', 'fun':constraint2}
+        con3 = {'type':'eq', 'fun':constraint3}
+        con4 = {'type':'eq', 'fun':constraint4}
+        con5 = {'type':'eq', 'fun':constraint5}
+        con6 = {'type':'eq', 'fun':constraint6}
+        con7 = {'type':'eq', 'fun':constraint7}
+        con8 = {'type':'eq', 'fun':ddfice2xsnow}
+        con9 = {'type':'ineq', 'fun':ddficegtsnow}
+        # Select constraints used for calibration:
+        if input.option_calibration_constraints == 1:
+            # Option 1 - optimize all parameters
+            cons = []
+        elif input.option_calibration_constraints == 2: 
+            # Option 2 - only optimize precfactor
+            cons = [con1,con2,con4,con5,con6,con7]
+        elif input.option_calibration_constraints == 3:
+            # Option 3 - only optimize precfactor, DDFsnow, DDFice
+            cons = [con1,con2,con4,con7]
+        elif input.option_calibration_constraints == 4:
+            # Option 4 - only optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
+            cons = [con1,con2,con4,con7,con8]
+        elif input.option_calibration_constraints == 5:
+            # Option 4 - only optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
+            cons = [con1,con2,con4,con7,con9]
+        # Calibrate: all
+        modelparameters_opt = minimize(objective,modelparameters0,method='SLSQP',bounds=modelparameters_bnds,constraints=cons)
+        print(modelparameters_opt.x)
+        
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
 

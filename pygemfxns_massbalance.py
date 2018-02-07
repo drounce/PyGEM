@@ -285,8 +285,8 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
     return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual)
-    
-    
+
+
 #=======================================================================================================================
 def accumulationbins(glac_temp, glac_precsnow, modelparameters):
     # Note: this will only work for monthly time step!

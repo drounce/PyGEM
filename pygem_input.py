@@ -243,16 +243,16 @@ lr_gcm = -0.0065
 # Lapse rate on glacier for bins [K m-1]
 lr_glac = -0.0065
 # Precipitation correction factor [-]
-prec_factor = 0.3
+prec_factor = 1
 #  k_p in Radic et al. (2013)
 #  c_prec in Huss and Hock (2015)
 # Precipitation gradient on glacier [% m-1]
 prec_grad = 0.0001
 # Degree-day factor of ice [m w.e. d-1 degC-1]
-DDF_ice = 7.2 * 10**-3
+DDF_ice = 6 * 10**-3
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-DDF_snow = 4.0 * 10**-3
+DDF_snow = 3.6 * 10**-3
 # Temperature threshold for snow (C)
 T_snow = 0
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
@@ -324,6 +324,11 @@ terminus_percentage = 20
 #option_areaconstant = 1
 ##  Option 0 (default simulation) - area is not constant, glacier can widen/narrow and retreat/advance
 ##  Option 1 (default calibration) - area is constant to avoid retreat/advance mass balance feedbacks  
+
+# Calibration constraint packages
+option_calibration_constraints = 5
+#  Option 1 (default): optimize all values within their given bounds
+#  Option 2: 
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
