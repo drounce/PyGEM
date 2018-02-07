@@ -56,13 +56,11 @@ import pygem_input as input
     #        functions.
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def accumulationbins(glac_temp, glac_precsnow):
+def accumulationbins(glac_temp, glac_precsnow, modelparameters):
     # Note: this will only work for monthly time step!
     """
-    Calculate the accumulation for every elevation bin on the glacier.
-    
-    Output: Pandas dataframes of precipitation [m] and snow [m w.e.] for each bin for each timestep
-    (rows = bins, columns = dates)
+    Calculate the accumulation and precipitation for every elevation bin on the glacier.
+    Output: numpy array of precipitation [m] and snow [m w.e.] (rows = bins, columns = dates)
     """
     # Surface Ablation Options:
     #   > 1 (default) - single threshold (temp below snow, above rain)
@@ -73,21 +71,21 @@ def accumulationbins(glac_temp, glac_precsnow):
     bin_snow = np.zeros(glac_precsnow.shape)
     if input.option_accumulation == 1:
         # If temperature above threshold, then rain
-        bin_prec[glac_temp > input.T_snow] = glac_precsnow[glac_temp > input.T_snow]
+        bin_prec[glac_temp > modelparameters[6]] = glac_precsnow[glac_temp > modelparameters[6]]
         # If temperature below threshold, then snow
-        bin_snow[glac_temp <= input.T_snow] = glac_precsnow[glac_temp <= input.T_snow]
+        bin_snow[glac_temp <= modelparameters[6]] = glac_precsnow[glac_temp <= modelparameters[6]]
     elif input.option_accumulation == 2:
         # If temperature above maximum threshold, then all rain
-        bin_prec[glac_temp >= input.T_snow + 1] = glac_precsnow[glac_temp >= input.T_snow + 1]
+        bin_prec[glac_temp >= modelparameters[6] + 1] = glac_precsnow[glac_temp >= modelparameters[6] + 1]
         # If temperature below minimum threshold, then all snow
-        bin_snow[glac_temp <= input.T_snow - 1] = glac_precsnow[glac_temp <= input.T_snow - 1]
+        bin_snow[glac_temp <= modelparameters[6] - 1] = glac_precsnow[glac_temp <= modelparameters[6] - 1]
         # Otherwise temperature between min/max, then mix of snow/rain using linear relationship between min/max
-        bin_prec[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)] = ((1/2 + (
-            glac_temp[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)] - input.T_snow)/2) * 
-            glac_precsnow[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)])
-        bin_snow[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)] = ((1 - (1/2 + (
-            glac_temp[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)] - input.T_snow)/2)) * 
-            glac_precsnow[(glac_temp < input.T_snow + 1) & (glac_temp > input.T_snow - 1)])
+        bin_prec[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)] = ((1/2 + (
+            glac_temp[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)] - modelparameters[6])
+            / 2) * glac_precsnow[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)])
+        bin_snow[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)] = ((1 - (1/2 + (
+            glac_temp[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)] - modelparameters[6]) 
+            / 2)) * glac_precsnow[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)])
     else:
         print("This option for 'option_accumulation' does not exist.  Please choose an option that exists."
               "Exiting model run.\n")
@@ -120,22 +118,19 @@ def annualweightedmean_array(var, dates_table):
     return var_annual
 
 
-def downscaleprec2bins(glac_table, glac_hyps, climate_prec, climate_elev, glac_count):
+def downscaleprec2bins(glacier_table, gcm_prec, gcm_elev, elev_bins, modelparameters):
     """
     Downscale the global climate model precipitation data to each bin on the glacier using the precipitation bias factor
     (prec_factor) and the glacier precipitation gradient (prec_grad).
-    
-    Output: Pandas dataframe of precipitation [m] in each bin for each time step
-    (rows = bins, columns = dates)
+    Output: numpy array of precipitation [m] in each bin (rows = bins, columns = dates)
     """
     # Function Options:
     #   > 1 (default) - precip factor bias to correct GCM and a precipitation gradient to adjust precip over the glacier
     #   > 2 (not coded yet) - Huss and Hock (2015), exponential limits, etc.
     if input.option_prec2bins == 1:
         # Option 1 is the default and uses a precipitation factor and precipitation gradient over the glacier.
-        bin_prec = (climate_prec.values[glac_count,:] * input.prec_factor * (1 + input.prec_grad * (
-                    glac_hyps.columns.values.astype(int) - glac_table.loc[glac_count, input.option_elev_ref_downscale])
-                    )[:,np.newaxis])
+        bin_prec = (gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
+                    glacier_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
         #   P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
     else:
         print("\nThis option for 'downscaleprec2bins' has not been coded yet. Please choose an existing option."
@@ -144,23 +139,20 @@ def downscaleprec2bins(glac_table, glac_hyps, climate_prec, climate_elev, glac_c
     return bin_prec
 
 
-def downscaletemp2bins(glac_table, glac_hyps, climate_temp, climate_elev, glac_count):
+def downscaletemp2bins(glacier_table, gcm_temp, gcm_elev, elev_bins, modelparameters):
     """
     Downscale the global climate model temperature data to each bin on the glacier using the global climate model 
     lapse rate (lr_gcm) and the glacier lapse rate (lr_glac).
-    
-    Output: Pandas dataframe of temperature [degC] in each bin for each time step
-    (rows = bins, columns = dates)
+    Output: numpy array of temperature [degC] in each bin (rows = bins, columns = dates)
     """
     # Function Options:
     #   > 1 (default) - lapse rate for gcm and glacier
     #   > no other options currently exist
     if input.option_temp2bins == 1:
         # Option 1 is the default and uses a lapse rate for the gcm and a glacier lapse rate.
-        bin_temp = (climate_temp.values[glac_count,:] + (input.lr_gcm * (
-                    glac_table.loc[glac_count, input.option_elev_ref_downscale] - 
-                    climate_elev.loc[glac_count]) + input.lr_glac * (glac_hyps.columns.values.astype(int) - 
-                    glac_table.loc[glac_count, input.option_elev_ref_downscale]))[:,np.newaxis])
+        bin_temp = (gcm_temp + (modelparameters[0] * (glacier_table.loc[input.option_elev_ref_downscale] - gcm_elev) + 
+                    modelparameters[1] * (elev_bins - glacier_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis]
+                    )
         #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref)
         #  Explanation: A + B[:,np.newaxis] adds two one-dimensional matrices together such that the column values of
         #         matrix A is added to all the rows of the matrix B.  This enables all the calculations to be performed
@@ -344,7 +336,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
                             massbal_clim_advance)
             # update ice thickness change
             icethickness_change = icethickness_t1 - icethickness_t1_raw
-    return glacier_area_t1, icethickness_t1
+    return glacier_area_t1, icethickness_t1, width_t1
 
 
 def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange, 
@@ -543,6 +535,13 @@ def surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year_index):
     surfacetype[(surfacetype !=0 ) & (massbal_clim_mwe_runningavg <= 0)] = 1
     # If the average annual specific climatic mass balance is positive, then the surface type is snow (or firn)
     surfacetype[(surfacetype != 0) & (massbal_clim_mwe_runningavg > 0)] = 2
+    # Compute the firnline index
+    try:
+        # firn in bins >= firnline_idx
+        firnline_idx = np.where(surfacetype==2)[0][0]
+    except:
+        # avoid errors if there is no firn, i.e., the entire glacier is melting
+        firnline_idx = np.where(surfacetype!=0)[0][-1]
     # Apply surface type model options
     # If firn surface type option is included, then snow is changed to firn
     if input.option_surfacetype_firn == 1:
@@ -551,7 +550,80 @@ def surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year_index):
         print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
               'Exiting the model run.')
         exit()
-    return surfacetype
+    return surfacetype, firnline_idx
+
+
+def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
+    """
+    Define initial surface type according to median elevation such that the melt can be calculated over snow or ice.
+    Convention: (0 = off-glacier, 1 = ice, 2 = snow, 3 = firn, 4 = debris)
+    Function Options:
+    - option_surfacetype_initial
+        > 1 (default) - use median elevation to classify snow/firn above the median and ice below
+        > 2 (Need to code) - use mean elevation instead
+        > 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
+    - option_surfacetype_firn = 1
+        > 1 (default) - firn is included
+        > 0 - firn is not included
+    - option_surfacetype_debris = 0
+        > 0 (default) - debris cover is not included
+        > 1 - debris cover is included
+    Output: Pandas DataFrame of the initial surface type for each glacier in the model run
+    (rows = GlacNo, columns = elevation bins)
+    """
+    surfacetype = np.zeros(glacier_area.shape)
+    # Option 1 - initial surface type based on the median elevation
+    if input.option_surfacetype_initial == 1:
+        surfacetype[(elev_bins < glacier_table.loc['Zmed']) & (glacier_area > 0)] = 1
+        surfacetype[(elev_bins >= glacier_table.loc['Zmed']) & (glacier_area > 0)] = 2
+    # Option 2 - initial surface type based on the mean elevation
+    elif input.option_surfacetype_initial ==2:
+        surfacetype[(elev_bins < glacier_table['Zmean']) & (glacier_area > 0)] = 1
+        surfacetype[(elev_bins >= glacier_table['Zmean']) & (glacier_area > 0)] = 2
+    else:
+        print("This option for 'option_surfacetype' does not exist. Please choose an option that exists. "
+              + "Exiting model run.\n")
+        exit()
+    # Compute firnline index
+    try:
+        # firn in bins >= firnline_idx
+        firnline_idx = np.where(surfacetype==2)[0][0]
+    except:
+        # avoid errors if there is no firn, i.e., the entire glacier is melting
+        firnline_idx = np.where(surfacetype!=0)[0][-1]
+    # If firn is included, then specify initial firn conditions
+    if input.option_surfacetype_firn == 1:
+        surfacetype[surfacetype == 2] = 3
+        #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
+        #  on the surface anywhere.
+    if input.option_surfacetype_debris == 1:
+        print("Need to code the model to include debris. This option does not currently exist.  Please choose an option"
+              + " that exists.\nExiting the model run.")
+        exit()
+        # One way to include debris would be to simply have debris cover maps and state that the debris retards melting 
+        # as a fraction of melt.  It could also be DDF_debris as an additional calibration tool. Lastly, if debris 
+        # thickness maps are generated, could be an exponential function with the DDF_ice as a term that way DDF_debris 
+        # could capture the spatial variations in debris thickness that the maps supply.
+    return surfacetype, firnline_idx
+
+
+def surfacetypeDDFdict(modelparameters):
+    """
+    Create a dictionary of surface type and its respective DDF
+    Convention: [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
+    modelparameters[lr_gcm, lr_glac, prec_factor, prec_grad, DDF_snow, DDF_ice, T_snow]
+    """
+    surfacetype_ddf_dict = {
+            1: modelparameters[5],
+            2: modelparameters[4]}
+    if input.option_surfacetype_firn == 1:
+        if input.option_DDF_firn == 0:
+            surfacetype_ddf_dict[3] = modelparameters[4]
+        elif input.option_DDF_firn == 1:
+            surfacetype_ddf_dict[3] = np.mean([modelparameters[4],modelparameters[5]])
+    if input.option_surfacetype_debris == 1:
+        surfacetype_ddf_dict[4] = input.DDF_debris
+    return surfacetype_ddf_dict
 
 
 #========= OLDER SCRIPTS PRE-JANUARY 11, 2018 =========================================================================

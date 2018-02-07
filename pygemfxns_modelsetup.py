@@ -134,53 +134,6 @@ def datesmodelrun():
         # removes the -DD such that its only YYYY-MM
 
 
-def hypsmassbalDShean(glac_table):
-    """
-    Select hypsometry and mass balance of all glaciers that are being used in
-    the model from the csv files David Shean is producing. This function returns
-    hypsometry and mass balance for each elevation bin.
-    """
-    # Create an empty dataframe. main_glac_hyps will store the hypsometry of
-    # all the glaciers with the bin size specified by user input. Set index to
-    # be consistent with main_glac_rgi as well as 'RGIId'
-    col_bins = (np.arange(int(input.binsize/2),9001,input.binsize))
-        # creating all columns from 0 to 9000 within given bin size, which
-        # enables this to be used for every glacier in the world
-    glac_hyps = pd.DataFrame(index=glac_table.index, columns=col_bins)
-        # rows of table will be the glacier index
-        # columns will be the center elevation of each bin
-    glac_mb = glac_hyps.copy()
-        # geodetic mass balance will also be extracted
-    for glac in range(len(glac_hyps)):
-        # Select full RGIId string, which needs to be compatible with mb format
-        hyps_ID_full = glac_table.loc[glac,'RGIId']
-        # Remove the 'RGI60-' from the name to agree with David Shean's
-        # naming convention (This needs to be automatized!)
-        hyps_ID_split = hyps_ID_full.split('-')
-        # Choose the end of the string
-        hyps_ID_short = hyps_ID_split[1]
-        hyps_ID_findname = hyps_ID_short + '_mb_bins.csv'
-        for hyps_file in os.listdir(input.hyps_filepath):
-            # For all the files in the give directory (hyps_fil_path) see if
-            # there is a match.  If there is, then geodetic mass balance is
-            # available for calibration.
-            if re.match(hyps_ID_findname, hyps_file):
-                hyps_ID_fullfile = (input.hyps_filepath + '/' + hyps_file)
-                hyps_ID_csv = pd.read_csv(hyps_ID_fullfile)
-        # Insert the hypsometry data into the main hypsometry row
-        for nrow in range(len(hyps_ID_csv)):
-            # convert elevation bins into integers
-            elev_bin = int(hyps_ID_csv.loc[nrow,'# bin_center_elev'])
-            # add bin count to each elevation bin (or area)
-            glac_hyps.loc[glac,elev_bin] = hyps_ID_csv.loc[nrow,'bin_count']
-            glac_mb.loc[glac,elev_bin] = hyps_ID_csv.loc[nrow,'mb_bin_med']
-    # Fill NaN values with 0
-    glac_hyps.fillna(0, inplace=True)
-    glac_mb.fillna(0, inplace=True)
-    print("The 'hypsmassbalDShean' function has finished.")
-    return glac_hyps, glac_mb
-
-
 def hypsometrystats(hyps_table, thickness_table):
     """Calculate the volume and mean associated with the hypsometry data.
     
@@ -234,48 +187,6 @@ def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, indexname, dr
     # Change NAN from -99 to 0
     glac_table[glac_table==-99] = 0.
     return glac_table
-    
-
-#def importHussfile(filename):
-#    filepath = input.hyps_filepath + 'bands_' + str(input.binsize) + 'm_DRR/'
-#    fullpath = filepath + filename
-#    data_Huss = pd.read_csv(fullpath)
-#    # # THIS SECTION CHANGES THE RGIID TO MATCH RGI FORMAT
-#    # ID_split = data_Huss['RGIID'].str.split('.').apply(pd.Series).loc[:,2]
-#    #     # Grabs the value ex. "13-00001", but need to replace '-' with '.'
-#    #     # use .apply(pd.Series) to turn the tuples into a DataFrame,
-#    #     # then access normally
-#    # ID_split2 = ID_split.str.split('-').apply(pd.Series)
-#    #
-#    # ID_RGI = 'RGI60-' + ID_split2.loc[:,0] + '.' + ID_split2.loc[:,1]
-#    # print(ID_RGI.head())
-#    # # OUTPUT TO CSV
-#    # ID_RGI.to_csv('RGIIDs_13.csv')
-#
-#    # Create new dataframe with all of it
-#    bins = np.arange(int(input.binsize/2),9000,input.binsize)
-#        # note provide 3 rows of negative numbers to rename columns
-#    data_table = pd.DataFrame(0, index=data_Huss.index, columns=bins)
-#    data_Huss.drop(['RGIID'], axis=1, inplace=True)
-#    columns_int = data_Huss.columns.values.astype(int)
-#        # convert columns from string to integer such that they can be used
-#        # in downscaling computations
-#    data_Huss.columns = columns_int
-#    data_Huss = data_Huss.astype(float)
-#    mask1 = (data_Huss == -99)
-#    data_Huss[mask1] = 0
-#    print(len(data_Huss.iloc[0]))
-#    print(data_Huss.iloc[:,0:760])
-#    # data_Huss.iloc[0,0] = 50
-#    # data_table.iloc[0,3] = data_Huss.iloc[0,0]
-#    # print(data_table)
-#    # exit()
-#    print('hello')
-#    data_table.iloc[:,3:(3+(len(data_Huss.iloc[0])))] = data_Huss.iloc[:,:]
-#    # print(data_table)
-#    print('again')
-#    data_table.to_csv('RGI_13_thickness.csv')
-#    # Note: 7625 elevation did not have a value of 0, but was blank
 
 
 def selectglaciersrgitable():
@@ -348,7 +259,55 @@ def selectglaciersrgitable():
     #                   hypsometry as well.
 
 
-# EXAMPLE CODE OF SEARCHING FOR A FILENAME
+# ----- FILES TO BE USED FOR CALIBRATION ------------------------------------------------------------------------------
+def hypsmassbalDShean(glac_table):
+    """
+    Select hypsometry and mass balance of all glaciers that are being used in
+    the model from the csv files David Shean is producing. This function returns
+    hypsometry and mass balance for each elevation bin.
+    """
+    # Create an empty dataframe. main_glac_hyps will store the hypsometry of
+    # all the glaciers with the bin size specified by user input. Set index to
+    # be consistent with main_glac_rgi as well as 'RGIId'
+    col_bins = (np.arange(int(input.binsize/2),9001,input.binsize))
+        # creating all columns from 0 to 9000 within given bin size, which
+        # enables this to be used for every glacier in the world
+    glac_hyps = pd.DataFrame(index=glac_table.index, columns=col_bins)
+        # rows of table will be the glacier index
+        # columns will be the center elevation of each bin
+    glac_mb = glac_hyps.copy()
+        # geodetic mass balance will also be extracted
+    for glac in range(len(glac_hyps)):
+        # Select full RGIId string, which needs to be compatible with mb format
+        hyps_ID_full = glac_table.loc[glac,'RGIId']
+        # Remove the 'RGI60-' from the name to agree with David Shean's
+        # naming convention (This needs to be automatized!)
+        hyps_ID_split = hyps_ID_full.split('-')
+        # Choose the end of the string
+        hyps_ID_short = hyps_ID_split[1]
+        hyps_ID_findname = hyps_ID_short + '_mb_bins.csv'
+        for hyps_file in os.listdir(input.hyps_filepath):
+            # For all the files in the give directory (hyps_fil_path) see if
+            # there is a match.  If there is, then geodetic mass balance is
+            # available for calibration.
+            if re.match(hyps_ID_findname, hyps_file):
+                hyps_ID_fullfile = (input.hyps_filepath + '/' + hyps_file)
+                hyps_ID_csv = pd.read_csv(hyps_ID_fullfile)
+        # Insert the hypsometry data into the main hypsometry row
+        for nrow in range(len(hyps_ID_csv)):
+            # convert elevation bins into integers
+            elev_bin = int(hyps_ID_csv.loc[nrow,'# bin_center_elev'])
+            # add bin count to each elevation bin (or area)
+            glac_hyps.loc[glac,elev_bin] = hyps_ID_csv.loc[nrow,'bin_count']
+            glac_mb.loc[glac,elev_bin] = hyps_ID_csv.loc[nrow,'mb_bin_med']
+    # Fill NaN values with 0
+    glac_hyps.fillna(0, inplace=True)
+    glac_mb.fillna(0, inplace=True)
+    print("The 'hypsmassbalDShean' function has finished.")
+    return glac_hyps, glac_mb
+
+#========= FUNCTIONS NO LONGER USED (alphabetical order) ==============================================================
+  # EXAMPLE CODE OF SEARCHING FOR A FILENAME
 #def selectglaciersrgitable_old():
 #    """
 #    The upper portion of this code was replaced by a dictionary based on the user input to speed up computation time.
@@ -369,79 +328,44 @@ def selectglaciersrgitable():
 #                # select the subregions and/or glaciers from that file
 #                rgi_regionsO1_fullfile = input.rgi_filepath + rgi_regionsO1_file
 #                csv_regionO1 = pd.read_csv(rgi_regionsO1_fullfile)
-
-
-def surfacetypeDDFdict():
-    """
-    Create a dictionary of surface type and its respective DDF
-    Convention: [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
-    """
-    surfacetype_ddf_dict = {
-            1: input.DDF_ice,
-            2: input.DDF_snow}
-    if input.option_surfacetype_firn == 1:
-        surfacetype_ddf_dict[3] = input.DDF_firn
-    if input.option_surfacetype_debris == 1:
-        surfacetype_ddf_dict[4] = input.DDF_debris
-    return surfacetype_ddf_dict
-
-
-def surfacetypeglacinitial(glac_table, glac_hyps):
-    """
-    Define initial surface type according to median elevation such that the melt can be calculated over snow or ice.
-    Convention:
-        1 - ice
-        2 - snow
-        3 - firn
-        4 - debris
-        0 - off-glacier
-        
-    Function Options:
-    - option_surfacetype_initial
-        > 1 (default) - use median elevation to classify snow/firn above the median and ice below
-        > 2 (Need to code) - use mean elevation instead
-        > 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
-    - option_surfacetype_firn = 1
-        > 1 (default) - firn is included
-        > 0 - firn is not included
-    - option_surfacetype_debris = 0
-        > 0 (default) - debris cover is not included
-        > 1 - debris cover is included
-    
-    Developer's note: need to add debris maps and determine how DDF_debris will be included.
-    
-    Output: Pandas DataFrame of the initial surface type for each glacier in the model run
-    (rows = GlacNo, columns = elevation bins)
-    """
-    glac_surftype = glac_hyps.copy()
-    series_elev = glac_surftype.columns.values
-    for glac in range(glac_surftype.shape[0]):
-        # Option 1 - initial surface type based on the median elevation
-        if input.option_surfacetype_initial == 1:
-            glac_surftype.loc[glac, :][(series_elev < glac_table.loc[glac, 'Zmed']) & (glac_hyps.loc[glac, :] > 0)] = 1
-            glac_surftype.loc[glac, :][(series_elev >= glac_table.loc[glac, 'Zmed']) & (glac_hyps.loc[glac, :] > 0)] = 2
-        # Option 2 - initial surface type based on the mean elevation
-        elif input.option_surfacetype_initial ==2:
-            glac_surftype.loc[glac, :][(series_elev < glac_table.loc[glac, 'Zmean']) & (glac_hyps.loc[glac, :] > 0)] = 1
-            glac_surftype.loc[glac, :][(series_elev >= glac_table.loc[glac, 'Zmean']) & (
-                    glac_hyps.loc[glac, :] > 0)] = 2
-        else:
-            print("This option for 'option_surfacetype' does not exist. Please choose an option that exists. "
-                  + "Exiting model run.\n")
-            exit()
-    # If firn is included, then specify initial firn conditions
-    if input.option_surfacetype_firn == 1:
-        glac_surftype[glac_surftype == 2] = 3
-        #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
-        #  on the surface anywhere.
-    if input.option_surfacetype_debris == 1:
-        print("Need to code the model to include debris. This option does not currently exist.  Please choose an option"
-              + " that exists.\nExiting the model run.")
-        exit()
-        # One way to include debris would be to simply have debris cover maps and state that the debris retards melting 
-        # as a fraction of melt.  It could also be DDF_debris as an additional calibration tool. Lastly, if debris 
-        # thickness maps are generated, could be an exponential function with the DDF_ice as a term that way DDF_debris 
-        # could capture the spatial variations in debris thickness that the maps supply.
-    # Make sure surface type is integer values
-    glac_surftype = glac_surftype.astype(int)
-    return glac_surftype
+  
+#def importHussfile(filename):
+#    filepath = input.hyps_filepath + 'bands_' + str(input.binsize) + 'm_DRR/'
+#    fullpath = filepath + filename
+#    data_Huss = pd.read_csv(fullpath)
+#    # # THIS SECTION CHANGES THE RGIID TO MATCH RGI FORMAT
+#    # ID_split = data_Huss['RGIID'].str.split('.').apply(pd.Series).loc[:,2]
+#    #     # Grabs the value ex. "13-00001", but need to replace '-' with '.'
+#    #     # use .apply(pd.Series) to turn the tuples into a DataFrame,
+#    #     # then access normally
+#    # ID_split2 = ID_split.str.split('-').apply(pd.Series)
+#    #
+#    # ID_RGI = 'RGI60-' + ID_split2.loc[:,0] + '.' + ID_split2.loc[:,1]
+#    # print(ID_RGI.head())
+#    # # OUTPUT TO CSV
+#    # ID_RGI.to_csv('RGIIDs_13.csv')
+#
+#    # Create new dataframe with all of it
+#    bins = np.arange(int(input.binsize/2),9000,input.binsize)
+#        # note provide 3 rows of negative numbers to rename columns
+#    data_table = pd.DataFrame(0, index=data_Huss.index, columns=bins)
+#    data_Huss.drop(['RGIID'], axis=1, inplace=True)
+#    columns_int = data_Huss.columns.values.astype(int)
+#        # convert columns from string to integer such that they can be used
+#        # in downscaling computations
+#    data_Huss.columns = columns_int
+#    data_Huss = data_Huss.astype(float)
+#    mask1 = (data_Huss == -99)
+#    data_Huss[mask1] = 0
+#    print(len(data_Huss.iloc[0]))
+#    print(data_Huss.iloc[:,0:760])
+#    # data_Huss.iloc[0,0] = 50
+#    # data_table.iloc[0,3] = data_Huss.iloc[0,0]
+#    # print(data_table)
+#    # exit()
+#    print('hello')
+#    data_table.iloc[:,3:(3+(len(data_Huss.iloc[0])))] = data_Huss.iloc[:,:]
+#    # print(data_table)
+#    print('again')
+#    data_table.to_csv('RGI_13_thickness.csv')
+#    # Note: 7625 elevation did not have a value of 0, but was blank

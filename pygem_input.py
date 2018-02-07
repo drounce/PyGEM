@@ -248,21 +248,21 @@ prec_factor = 0.3
 #  c_prec in Huss and Hock (2015)
 # Precipitation gradient on glacier [% m-1]
 prec_grad = 0.0001
-
+# Degree-day factor of ice [m w.e. d-1 degC-1]
 DDF_ice = 7.2 * 10**-3
-# DDF ice (m w.e. d-1 degC-1)
-# note: '**' means to the power, so 10**-3 is 0.001
-# DDF snow (m w.e. d-1 degC-1)
+#  note: '**' means to the power, so 10**-3 is 0.001
+# Degree-day factor of snow [m w.e. d-1 degC-1]
 DDF_snow = 4.0 * 10**-3
 # Temperature threshold for snow (C)
 T_snow = 0
-
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
-DDF_firn = np.mean([DDF_ice, DDF_snow])
-# DDF firn (m w.e. d-1 degC-1)
-# DDF_firn is average of DDF_ice and DDF_snow (Huss and Hock, 2015)
+
+# DDF firn 
+option_DDF_firn = 1
+#  Option 1 (default) - DDF_firn is average of DDF_ice and DDF_snow (Huss and Hock, 2015)
+#  Option 0 - DDF_firn equal to DDF_snow (m w.e. d-1 degC-1)
+# DDF debris
 DDF_debris = DDF_ice
-#  debris DDF is currently equivalent to ice
 # Reference elevation options for downscaling climate variables
 option_elev_ref_downscale = 'Zmed'
 #  Option 1 (default) - 'Zmed', median glacier elevation
@@ -328,7 +328,7 @@ terminus_percentage = 20
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 # Output package number
-output_package = 0
+output_package = 2
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, 

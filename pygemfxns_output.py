@@ -85,7 +85,7 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
     if input.output_package == 1:
         # Package 1 "Raw Package" output [units: m w.e. unless otherwise specified]:
         #  monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, massbal_clim)
-        #  annual variables for each bin (area, icethickness, surfacetype)
+        #  annual variables for each bin (area, icethickness, width, surfacetype)
         temp_bin_monthly = netcdf_output.createVariable('temp_bin_monthly', np.float64, ('glacier', 'binelev', 'time'))
         temp_bin_monthly.standard_name = "air temperature"
         temp_bin_monthly.units = "degC"
@@ -131,6 +131,11 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
         icethickness_bin_annual.standard_name = "ice thickness"
         icethickness_bin_annual.unit = "m ice"
         icethickness_bin_annual.comment = "the ice thickness that was used for the duration of the year"
+        width_bin_annual = netcdf_output.createVariable('width_bin_annual', np.float64, 
+                                                        ('glacier', 'binelev', 'year_plus1'))
+        width_bin_annual.standard_name = "glacier width"
+        width_bin_annual.unit = "km"
+        width_bin_annual.comment = "the width that was used for the duration of the year"
         surfacetype_bin_annual = netcdf_output.createVariable('surfacetype_bin_annual', np.float64, 
                                                               ('glacier', 'binelev', 'year'))
         surfacetype_bin_annual.standard_name = "surface type"
@@ -185,7 +190,7 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
 
 def netcdfwrite(regionO1_number, glac, main_glac_rgi, elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc, 
                 glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, glac_bin_massbalclim, 
-                glac_bin_massbalclim_annual, glac_bin_area_annual, glac_bin_icethickness_annual, 
+                glac_bin_massbalclim_annual, glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
                 glac_bin_surfacetype_annual):
     """Write to the netcdf file that has already been generated to store the desired output
     Output: netcdf with desired variables filled in
@@ -220,6 +225,8 @@ def netcdfwrite(regionO1_number, glac, main_glac_rgi, elev_bins, glac_bin_temp, 
                 glac_bin_area_annual[input.spinupyears:glac_bin_area_annual.shape[1]+1])
         netcdf_output.variables['icethickness_bin_annual'][glac,:,:] = (
                 glac_bin_icethickness_annual[input.spinupyears:glac_bin_area_annual.shape[1]+1])
+        netcdf_output.variables['width_bin_annual'][glac,:,:] = (
+                glac_bin_width_annual[input.spinupyears:glac_bin_area_annual.shape[1]+1])
         netcdf_output.variables['surfacetype_bin_annual'][glac,:,:] = (
                 glac_bin_surfacetype_annual[:,input.spinupyears:glac_bin_area_annual.shape[1]+1])
     elif input.output_package == 2:
