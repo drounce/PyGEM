@@ -14,7 +14,7 @@ import numpy as np
 # ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
 # Calibration option
-option_calibration = 1
+option_calibration = 0
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Warning message option
@@ -249,7 +249,7 @@ prec_factor = 1
 # Precipitation gradient on glacier [% m-1]
 prec_grad = 0.0001
 # Degree-day factor of ice [m w.e. d-1 degC-1]
-DDF_ice = 6 * 10**-3
+DDF_ice = 7.2 * 10**-3
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Degree-day factor of snow [m w.e. d-1 degC-1]
 DDF_snow = 3.6 * 10**-3
@@ -326,9 +326,13 @@ terminus_percentage = 20
 ##  Option 1 (default calibration) - area is constant to avoid retreat/advance mass balance feedbacks  
 
 # Calibration constraint packages
-option_calibration_constraints = 5
+option_calibration_constraints = 2
 #  Option 1 (default): optimize all values within their given bounds
-#  Option 2: 
+# Option 1 - optimize all parameters
+# Option 2 - only optimize precfactor
+# Option 3 - only optimize precfactor, DDFsnow, DDFice
+# Option 4 - only optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
+# Option 5 - only optimize precfactor, DDFsnow, DDFice; DDFice > DDFsnow
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output

@@ -26,6 +26,7 @@ import netCDF4 as nc
 #from time import strftime
 import timeit
 from scipy.optimize import minimize
+import matplotlib.pyplot as plt
 
 #========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
 import pygem_input as input
@@ -121,16 +122,27 @@ if input.output_package != 0:
 #   - annual glacier-wide massbal, area, ice thickness, snowline
 
 #for glac in range(main_glac_rgi.shape[0]):
-for glac in [0]:
-    lr_gcm = input.lr_gcm
-    lr_glac = input.lr_glac
-    prec_factor = input.prec_factor
-    prec_grad = input.prec_grad
-    ddf_snow = input.DDF_snow
-    ddf_ice = input.DDF_ice
-    temp_snow = input.T_snow
-    modelparameters = [lr_gcm, lr_glac, prec_factor, prec_grad, ddf_snow, ddf_ice, temp_snow]
+#for glac in [0]:
+glac = 0
+
+lr_gcm = input.lr_gcm
+lr_glac = input.lr_glac
+prec_factor = input.prec_factor
+prec_grad = input.prec_grad
+ddf_snow = input.DDF_snow
+ddf_ice = input.DDF_ice
+temp_snow = input.T_snow
+
+prec_factor_low = 0.8
+prec_factor_high = 2.0
+prec_factor_step = 0.005
+prec_factor_range = np.arange(prec_factor_low, prec_factor_high + prec_factor_step, prec_factor_step)
+glac_wide_massbal_clim_range = np.zeros(prec_factor_range.shape)
+for n in range(len(prec_factor_range)):
+    prec_factor = prec_factor_range[n]
     
+    # Set model parameters
+    modelparameters = [lr_gcm, lr_glac, prec_factor, prec_grad, ddf_snow, ddf_ice, temp_snow]
     # Select subset of variables to reduce the amount of data being passed to the function
     glacier_rgi_table = main_glac_rgi.loc[glac, :]
     glacier_gcm_elev = main_glac_gcmelev.iloc[glac]
@@ -151,6 +163,7 @@ for glac in [0]:
                                             elev_bins, dates_table, annual_columns, annual_divisor))
         glac_wide_massbalclim_allyrs = (glac_bin_area_annual[:,0:glac_bin_massbalclim_annual.shape[1]] * 
                                         glac_bin_massbalclim_annual).sum(axis=1).sum()/glacier_area_t0.sum()
+        glac_wide_massbal_clim_range[n] = glac_wide_massbalclim_allyrs.copy()
         # Record variables from output package here - need to be in glacier loop since the variables will be overwritten 
         if input.output_package != 0:
             output.netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
@@ -158,7 +171,7 @@ for glac in [0]:
                                glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
                                glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual, 
                                glac_bin_surfacetype_annual)
-        #  ADJUST NETCDF FILE FOR CALIBRATION
+    #  ADJUST NETCDF FILE FOR CALIBRATION
     elif input.option_calibration == 1:
         # Define the function that you are trying to minimize
         #  modelparameters are the parameters that will be optimized
@@ -171,13 +184,13 @@ for glac in [0]:
                                                 glacier_area_t0, icethickness_t0, width_t0, glacier_gcm_temp, 
                                                 glacier_gcm_prec, glacier_gcm_elev, elev_bins, dates_table, 
                                                 annual_columns, annual_divisor))
-            
             # Compute the glacier-wide climatic mass balance for all years
             glac_wide_massbalclim_allyrs = (glac_bin_area_annual[:,0:glac_bin_massbalclim_annual.shape[1]] * 
                                             glac_bin_massbalclim_annual).sum(axis=1).sum()/glacier_area_t0.sum()
             #  units: m w.e. based on initial area
             # Difference between geodetic and modeled mass balance
             massbal_difference = abs(main_glac_calmassbal[glac] - glac_wide_massbalclim_allyrs)
+#            print(modelparameters[2], massbal_difference)
             return massbal_difference
         # Define constraints
         #  everything goes on one side of the equation compared to zero
@@ -237,12 +250,28 @@ for glac in [0]:
             # Option 4 - only optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
             cons = [con1,con2,con4,con7,con8]
         elif input.option_calibration_constraints == 5:
-            # Option 4 - only optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
+            # Option 5 - only optimize precfactor, DDFsnow, DDFice; DDFice > DDFsnow
             cons = [con1,con2,con4,con7,con9]
-        # Calibrate: all
-        modelparameters_opt = minimize(objective,modelparameters0,method='SLSQP',bounds=modelparameters_bnds,constraints=cons)
+        # Run optimization
+        modelparameters_opt = minimize(objective,modelparameters0,method='SLSQP',bounds=modelparameters_bnds,
+                                       constraints=cons, tol=1e-3)
+        #  'L-BFGS-B' - much slower
+        # Print the optimal parameter set
         print(modelparameters_opt.x)
         
+# Plot the results
+difference = abs(glac_wide_massbal_clim_range - main_glac_calmassbal[glac])
+
+fig, ax1 = plt.subplots()
+ax2 = ax1.twinx()
+ax1.plot(prec_factor_range, glac_wide_massbal_clim_range, 'g-')
+ax2.plot(prec_factor_range, difference, 'b-')
+ax1.set_xlabel('prec_factor')
+ax1.set_ylabel('glac_wide_massbalclim', color='g')
+ax2.set_ylabel('Model - Measured', color='b')
+ax2.set_ylim(0,5)
+plt.show()
+
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
 
