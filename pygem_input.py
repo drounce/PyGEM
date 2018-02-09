@@ -85,6 +85,7 @@ rgi_dict = {
 # Columns in the RGI tables that are not necessary to include in model run.
 rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Surging','Linkages','Name']
 #  this will change as model develops to include ice caps, calving, etc.
+rgi_O1Id_colname = 'RGIId-O1No'
 # OPTION 2: Select/customize regions based on shapefile(s)
 # Enter shapefiles, etc.
 
@@ -233,6 +234,17 @@ gcm_lon_varname = 'longitude'
 # Time variable name given by GCM
 gcm_time_varname = 'time'
 
+
+# Calibration datasets
+# Geodetic mass balance dataset
+# Filepath
+cal_mb_filepath = os.path.dirname(__file__) + '/../DEMs/'
+# Filename
+cal_mb_filename = 'geodetic_glacwide_DShean20170207_15_SouthAsiaEast.csv'
+# RGIId column name
+cal_rgi_colname = 'RGIId'
+# Mass balance column name
+massbal_colname = 'mb_mwea'
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution

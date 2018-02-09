@@ -99,17 +99,16 @@ timeelapsed_step3 = timeit.default_timer() - timestart_step3
 print('Step 3 time:', timeelapsed_step3, "s\n")
 
 #%%=== STEP FOUR: IMPORT CALIBRATION DATASETS (IF NECESSARY) ==========================================================
+timestart_step4 = timeit.default_timer()
 
-## Import .csv file
-#cal_filepath = os.path.dirname(__file__) + '/../DEMs/'
-## Dictionary of hypsometry filenames
-#cal_filename = 'hma_mb_20170717_1846.csv'
-#ds = pd.read_csv(cal_filepath + cal_filename)
-#main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],3))
-main_glac_calmassbal = np.array([-0.39, -0.7])
+# Import geodetic mass balance from David Shean
+main_glac_calmassbal = modelsetup.selectcalibrationdata(main_glac_rgi)
+
+timeelapsed_step4 = timeit.default_timer() - timestart_step4
+print('Step 4 time:', timeelapsed_step4, "s\n")
 
 #%%=== STEP FIVE: MASS BALANCE CALCULATIONS ===========================================================================
-timestart_step4 = timeit.default_timer()
+timestart_step5 = timeit.default_timer()
 
 # Insert regional loop here if want to do all regions at the same time.  Separate netcdf files will be generated for
 #  each loop to reduce file size and make files easier to read/share
@@ -122,24 +121,24 @@ if input.output_package != 0:
 #   - annual glacier-wide massbal, area, ice thickness, snowline
 
 #for glac in range(main_glac_rgi.shape[0]):
-#for glac in [0]:
-glac = 0
+for glac in [0]:
+#glac = 0
 
-lr_gcm = input.lr_gcm
-lr_glac = input.lr_glac
-prec_factor = input.prec_factor
-prec_grad = input.prec_grad
-ddf_snow = input.DDF_snow
-ddf_ice = input.DDF_ice
-temp_snow = input.T_snow
+    lr_gcm = input.lr_gcm
+    lr_glac = input.lr_glac
+    prec_factor = input.prec_factor
+    prec_grad = input.prec_grad
+    ddf_snow = input.DDF_snow
+    ddf_ice = input.DDF_ice
+    temp_snow = input.T_snow
 
-prec_factor_low = 0.8
-prec_factor_high = 2.0
-prec_factor_step = 0.005
-prec_factor_range = np.arange(prec_factor_low, prec_factor_high + prec_factor_step, prec_factor_step)
-glac_wide_massbal_clim_range = np.zeros(prec_factor_range.shape)
-for n in range(len(prec_factor_range)):
-    prec_factor = prec_factor_range[n]
+#prec_factor_low = 0.8
+#prec_factor_high = 2.0
+#prec_factor_step = 0.005
+#prec_factor_range = np.arange(prec_factor_low, prec_factor_high + prec_factor_step, prec_factor_step)
+#glac_wide_massbal_clim_range = np.zeros(prec_factor_range.shape)
+#for n in range(len(prec_factor_range)):
+#    prec_factor = prec_factor_range[n]
     
     # Set model parameters
     modelparameters = [lr_gcm, lr_glac, prec_factor, prec_grad, ddf_snow, ddf_ice, temp_snow]
@@ -163,7 +162,7 @@ for n in range(len(prec_factor_range)):
                                             elev_bins, dates_table, annual_columns, annual_divisor))
         glac_wide_massbalclim_allyrs = (glac_bin_area_annual[:,0:glac_bin_massbalclim_annual.shape[1]] * 
                                         glac_bin_massbalclim_annual).sum(axis=1).sum()/glacier_area_t0.sum()
-        glac_wide_massbal_clim_range[n] = glac_wide_massbalclim_allyrs.copy()
+#        glac_wide_massbal_clim_range[n] = glac_wide_massbalclim_allyrs.copy()
         # Record variables from output package here - need to be in glacier loop since the variables will be overwritten 
         if input.output_package != 0:
             output.netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
@@ -259,21 +258,21 @@ for n in range(len(prec_factor_range)):
         # Print the optimal parameter set
         print(modelparameters_opt.x)
         
-# Plot the results
-difference = abs(glac_wide_massbal_clim_range - main_glac_calmassbal[glac])
+## Plot the results
+#difference = abs(glac_wide_massbal_clim_range - main_glac_calmassbal[glac])
+#
+#fig, ax1 = plt.subplots()
+#ax2 = ax1.twinx()
+#ax1.plot(prec_factor_range, glac_wide_massbal_clim_range, 'g-')
+#ax2.plot(prec_factor_range, difference, 'b-')
+#ax1.set_xlabel('prec_factor')
+#ax1.set_ylabel('glac_wide_massbalclim', color='g')
+#ax2.set_ylabel('Model - Measured', color='b')
+#ax2.set_ylim(0,5)
+#plt.show()
 
-fig, ax1 = plt.subplots()
-ax2 = ax1.twinx()
-ax1.plot(prec_factor_range, glac_wide_massbal_clim_range, 'g-')
-ax2.plot(prec_factor_range, difference, 'b-')
-ax1.set_xlabel('prec_factor')
-ax1.set_ylabel('glac_wide_massbalclim', color='g')
-ax2.set_ylabel('Model - Measured', color='b')
-ax2.set_ylim(0,5)
-plt.show()
-
-timeelapsed_step4 = timeit.default_timer() - timestart_step4
-print('Step 4 time:', timeelapsed_step4, "s\n")
+timeelapsed_step5 = timeit.default_timer() - timestart_step5
+print('Step 5 time:', timeelapsed_step5, "s\n")
 
 #%%=== STEP SIX: DATA ANALYSIS / OUTPUT ===============================================================================
 #netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')

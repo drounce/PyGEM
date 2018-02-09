@@ -189,6 +189,32 @@ def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, indexname, dr
     return glac_table
 
 
+def selectcalibrationdata(main_glac_rgi):
+    """
+    Select geodetic mass balance of all glaciers in the model run that have a geodetic mass balance.  The geodetic mass
+    balances are stored in a csv file.
+    """
+    # Import .csv file
+    ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filename)
+    main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0]))
+    ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
+    ds_rgiid_mb = ds[[input.rgi_O1Id_colname,input.massbal_colname]].values
+    rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
+    for glac in range(rgi_O1Id.shape[0]):
+        try:
+            # Grab the mass balance based on the RGIId Order 1 glacier number
+            main_glac_calmassbal[glac] = ds_rgiid_mb[np.where(np.in1d(ds_rgiid_mb[:,0],rgi_O1Id[glac])==True)[0][0],1]
+            #  np.in1d searches if there is a match in the first array with the second array provided and returns an
+            #   array with same length as first array and True/False values. np.where then used to identify the index
+            #   where there is a match, which is then used to select the massbalance value
+            #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
+            #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
+        except:
+            # If there is no mass balance data available for the glacier, then set as NaN
+            main_glac_calmassbal[glac] = float('NaN')
+    return main_glac_calmassbal
+
+
 def selectglaciersrgitable():
     """
     Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI 
@@ -233,14 +259,17 @@ def selectglaciersrgitable():
                 else:
                     glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id]], 
                                                axis=0))
+    # reset the index so that it is in sequential order (0, 1, 2, etc.)
     glacier_table.reset_index(inplace=True)
-        # reset the index so that it is in sequential order (0, 1, 2, etc.)
+    # change old index to 'O1Index' to be easier to recall what it is
     glacier_table.rename(columns={'index': 'O1Index'}, inplace=True)
-        # change old index to 'O1Index' to be easier to recall what it is
+    # add column with the O1 glacier numbers
+    glacier_table[input.rgi_O1Id_colname] = glacier_table['RGIId'].str.split('.').apply(pd.Series).loc[:,1].astype(int)
+    # must make copy; otherwise, drop will cause SettingWithCopyWarning
     glacier_table_copy = glacier_table.copy()
-        # must make copy; otherwise, drop will cause SettingWithCopyWarning
+    # drop columns of data that is not being used
     glacier_table_copy.drop(input.rgi_cols_drop, axis=1, inplace=True)
-        # drop columns of data that is not being used
+    # set index name
     glacier_table_copy.index.name = input.indexname
     return glacier_table_copy        
     # OPTION 2: CUSTOMIZE REGIONS USING A SHAPEFILE that specifies the
@@ -257,53 +286,7 @@ def selectglaciersrgitable():
     # Development Note: if create another method for selecting glaciers,
     #                   make sure that update way to select glacier
     #                   hypsometry as well.
-
-
-# ----- FILES TO BE USED FOR CALIBRATION ------------------------------------------------------------------------------
-def hypsmassbalDShean(glac_table):
-    """
-    Select geodetic mass balance of all glaciers in the model run that have a geodetic mass balance.  The geodetic mass
-    balances are stored in a csv file.
-    """
-    # Create an empty dataframe. main_glac_hyps will store the hypsometry of
-    # all the glaciers with the bin size specified by user input. Set index to
-    # be consistent with main_glac_rgi as well as 'RGIId'
-    col_bins = (np.arange(int(input.binsize/2),9001,input.binsize))
-        # creating all columns from 0 to 9000 within given bin size, which
-        # enables this to be used for every glacier in the world
-    glac_hyps = pd.DataFrame(index=glac_table.index, columns=col_bins)
-        # rows of table will be the glacier index
-        # columns will be the center elevation of each bin
-    glac_mb = glac_hyps.copy()
-        # geodetic mass balance will also be extracted
-    for glac in range(len(glac_hyps)):
-        # Select full RGIId string, which needs to be compatible with mb format
-        hyps_ID_full = glac_table.loc[glac,'RGIId']
-        # Remove the 'RGI60-' from the name to agree with David Shean's
-        # naming convention (This needs to be automatized!)
-        hyps_ID_split = hyps_ID_full.split('-')
-        # Choose the end of the string
-        hyps_ID_short = hyps_ID_split[1]
-        hyps_ID_findname = hyps_ID_short + '_mb_bins.csv'
-        for hyps_file in os.listdir(input.hyps_filepath):
-            # For all the files in the give directory (hyps_fil_path) see if
-            # there is a match.  If there is, then geodetic mass balance is
-            # available for calibration.
-            if re.match(hyps_ID_findname, hyps_file):
-                hyps_ID_fullfile = (input.hyps_filepath + '/' + hyps_file)
-                hyps_ID_csv = pd.read_csv(hyps_ID_fullfile)
-        # Insert the hypsometry data into the main hypsometry row
-        for nrow in range(len(hyps_ID_csv)):
-            # convert elevation bins into integers
-            elev_bin = int(hyps_ID_csv.loc[nrow,'# bin_center_elev'])
-            # add bin count to each elevation bin (or area)
-            glac_hyps.loc[glac,elev_bin] = hyps_ID_csv.loc[nrow,'bin_count']
-            glac_mb.loc[glac,elev_bin] = hyps_ID_csv.loc[nrow,'mb_bin_med']
-    # Fill NaN values with 0
-    glac_hyps.fillna(0, inplace=True)
-    glac_mb.fillna(0, inplace=True)
-    print("The 'hypsmassbalDShean' function has finished.")
-    return glac_hyps, glac_mb
+    
 
 #========= FUNCTIONS NO LONGER USED (alphabetical order) ==============================================================
   # EXAMPLE CODE OF SEARCHING FOR A FILENAME
