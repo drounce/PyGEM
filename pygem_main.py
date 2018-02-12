@@ -21,7 +21,7 @@ import numpy as np
 #from datetime import datetime
 import os # os is used with re to find name matches
 #import re # see os
-#import xarray as xr
+import xarray as xr
 import netCDF4 as nc
 #from time import strftime
 import timeit
@@ -62,7 +62,7 @@ timestart_step2 = timeit.default_timer()
 # Glacier hypsometry [km**2], total area
 main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath, 
                                              input.hyps_filedict, input.indexname, input.hyps_colsdrop)
-elev_bins = main_glac_hyps.columns.values
+elev_bins = main_glac_hyps.columns.values.astype(int)
 # Ice thickness [m], average
 main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.thickness_filepath, 
                                                  input.thickness_filedict, input.indexname, input.thickness_colsdrop)
@@ -83,6 +83,32 @@ if input.option_gcm_downscale == 1:
     # Air Temperature [degC] and GCM dates
     main_glac_gcmtemp, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
             input.gcm_temp_filename, input.gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date)
+
+#    variablename = input.gcm_temp_varname
+#    glac_table = main_glac_rgi.copy()
+#    
+#    # Import netcdf file
+#    filefull = input.gcm_filepath_var + input.gcm_temp_filename
+#    data = xr.open_dataset(filefull)
+#    glac_variable_series_nparray = np.zeros((glac_table.shape[0],dates_table.shape[0]))
+#    # Determine the correct time indices
+#    if input.timestep == 'monthly':
+#        start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+#                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+#        end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+#                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
+#    # Extract the time series
+#    time_series = pd.Series(data.variables[input.gcm_time_varname][start_idx:end_idx+1])
+#    # Find Nearest Neighbor
+#    lat_nearidx = np.abs(main_glac_rgi[input.lat_colname].values[:,np.newaxis] - data.variables[input.gcm_lat_varname][:].values).argmin(axis=1)
+#    lon_nearidx = np.abs(main_glac_rgi[input.lon_colname].values[:,np.newaxis] - data.variables[input.gcm_lon_varname][:].values).argmin(axis=1)
+#    latlon_nearest = np.column_stack((lat_nearidx, lon_nearidx))
+#    unique_rows = np.unique(latlon_nearest, axis=0)
+##    for glac in range(len(glac_table)):
+#        # Select the slice of GCM data for each glacier
+##        glac_variable_series_nparray[glac,:] = data[variablename][start_idx:end_idx+1, lat_nearidx[glac], lon_nearidx[glac]].values
+#    
+    
     # Precipitation [m] and GCM dates
     main_glac_gcmprec, main_glac_gcmtimedate = climate.importGCMvarnearestneighbor_xarray(
             input.gcm_prec_filename, input.gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date)
@@ -92,8 +118,8 @@ if input.option_gcm_downscale == 1:
 else:
     print('\n\tModel Error: please choose an option that exists for downscaling climate data. Exiting model run now.\n')
     exit()
-# Add GCM time series to the dates_table
-dates_table['date_gcm'] = main_glac_gcmdate
+## Add GCM time series to the dates_table
+#dates_table['date_gcm'] = main_glac_gcmdate
 # Print time elapsed
 timeelapsed_step3 = timeit.default_timer() - timestart_step3
 print('Step 3 time:', timeelapsed_step3, "s\n")

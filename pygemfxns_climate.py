@@ -101,6 +101,7 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
     # Import netcdf file
     filefull = input.gcm_filepath_var + filename
     data = xr.open_dataset(filefull)
+    glac_variable_series_nparray = np.zeros((glac_table.shape[0],dates_table.shape[0]))
     # Explore the dataset properties
 #     print('Explore the dataset:\n', data)
     # Explore the variable of interest
@@ -137,30 +138,15 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
     time_series = pd.Series(data.variables[input.gcm_time_varname][start_idx:end_idx+1])
 #     print(time_series)
     # Find Nearest Neighbor
+    # Find Nearest Neighbor
+    lat_nearidx = (np.abs(glac_table[input.lat_colname].values[:,np.newaxis] - 
+                          data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
+    lon_nearidx = (np.abs(glac_table[input.lon_colname].values[:,np.newaxis] - 
+                          data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
     for glac in range(len(glac_table)):
-#     for glac in range(0,1):
-        # Find index of nearest lat/lon
-        lat_nearidx = np.asscalar((abs(data.variables[input.gcm_lat_varname][:] - 
-                                       glac_table.loc[glac, input.lat_colname])).argmin().values)
-        lon_nearidx = np.asscalar((abs(data.variables[input.gcm_lon_varname][:] - 
-                                       glac_table.loc[glac, input.lon_colname])).argmin().values)
-        #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
-        #  .values is used to extract the position's value as opposed to having an array
-        #  np.asscalar() is used to convert from a np.array to an integer such that the value can be used as an index
-        # Print the lat/lon indexes
-#         print(lat_nearidx, lon_nearidx)
-        # Print the actual latitude and longitude as a check
-#         print(data.variables[gcm_lat_varname][lat_nearidx].values, data.variables[gcm_lon_varname][lon_nearidx].values)
-        
         # Select the slice of GCM data for each glacier
-#         print(data[variablename][start_idx:end_idx+1,lat_nearidx,lon_nearidx].values.shape)
-#         print(data[variablename][start_idx:end_idx+1,lat_nearidx,lon_nearidx].values)
-        if glac == 0:
-            glac_variable_series_nparray = data[variablename][start_idx:end_idx+1, lat_nearidx, lon_nearidx].values
-        else:
-            glac_variable_series_nparray = np.stack((glac_variable_series_nparray,
-                                                     data[variablename]
-                                                     [start_idx:end_idx + 1, lat_nearidx, lon_nearidx].values))
+        glac_variable_series_nparray[glac,:] = data[variablename][start_idx:end_idx+1, lat_nearidx[glac], 
+                                                                  lon_nearidx[glac]].values
     # Create DataFrame from stacked np.arrays
     if input.option_dates == 1:
         glac_variable_series = pd.DataFrame(glac_variable_series_nparray, index=glac_table.index, 

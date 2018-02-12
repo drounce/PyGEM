@@ -141,10 +141,9 @@ def hypsometrystats(hyps_table, thickness_table):
     """
     # Glacier volume [km**3]
     glac_volume = (hyps_table * thickness_table/1000).sum(axis=1)
-    # Glacier area [km**2]
-    glac_area = hyps_table.sum(axis=1)
     # Mean glacier elevation
-    glac_hyps_mean = round(((hyps_table.multiply(hyps_table.columns.values, axis=1)).sum(axis=1))/glac_area).astype(int)
+    glac_hyps_mean = ((hyps_table.values * hyps_table.columns.values.astype(int)).sum(axis=1) / 
+                      hyps_table.values.sum(axis=1))
     # Median computations
 #    main_glac_hyps_cumsum = np.cumsum(hyps_table, axis=1)
 #    for glac in range(hyps_table.shape[0]):
@@ -169,24 +168,31 @@ def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, indexname, dr
     """
     ds = pd.read_csv(filepath + filedict[rgi_regionsO1[0]])
     # Select glaciers based on 01Index value from main_glac_rgi table
-    glac_table = pd.DataFrame()
-    for glacier in range(len(rgi_table)):
-        if glac_table.empty:
-            glac_table = ds.loc[rgi_table.loc[glacier,'O1Index']]
-        else:
-            glac_table = pd.concat([glac_table, ds.loc[rgi_table.loc[glacier,'O1Index']]], axis=1)
-    glac_table = glac_table.transpose()
+    #  as long as Huss tables have all rows associated with rgi attribute table, then this shortcut works and saves time
+    glac_table = ds.iloc[rgi_table['O1Index'].values]
+#    glac_table = pd.DataFrame()
+#    if input.rgi_regionsO2 == 'all' and input.rgi_glac_number == 'all':
+#        glac_table = ds   
+#    elif input.rgi_regionsO2 != 'all' and input.rgi_glac_number == 'all':
+#        glac_table = ds.iloc[rgi_table['O1Index'].values]
+#    elif input.rgi_regionsO2 == 'all' and input.rgi_glac_number != 'all':
+#        for glacier in range(len(rgi_table)):
+#            if glac_table.empty:
+#                glac_table = ds.loc[rgi_table.loc[glacier,'O1Index']]
+#            else:
+#                glac_table = pd.concat([glac_table, ds.loc[rgi_table.loc[glacier,'O1Index']]], axis=1)
+#        glac_table = glac_table.transpose()
+    # must make copy; otherwise, drop will cause SettingWithCopyWarning
+    glac_table_copy = glac_table.copy()
     # Clean up table and re-index
     # Reset index to be GlacNo
-    glac_table.reset_index(drop=True, inplace=True)
-    glac_table.index.name = indexname
+    glac_table_copy.reset_index(drop=True, inplace=True)
+    glac_table_copy.index.name = indexname
     # Drop columns that are not elevation bins
-    glac_table.drop(drop_col_names, axis=1, inplace=True)
-    # Make sure columns are integers
-    glac_table.columns = glac_table.columns.values.astype(int)
+    glac_table_copy.drop(drop_col_names, axis=1, inplace=True)
     # Change NAN from -99 to 0
-    glac_table[glac_table==-99] = 0.
-    return glac_table
+    glac_table_copy[glac_table_copy==-99] = 0.
+    return glac_table_copy
 
 
 def selectcalibrationdata(main_glac_rgi):
@@ -245,28 +251,29 @@ def selectglaciersrgitable():
                   "are included in this model run.")
             for x_regionO2 in input.rgi_regionsO2:
                 if glacier_table.empty:
-                    glacier_table = (csv_regionO1.loc[csv_regionO1['O2Region'] == x_regionO2])
+                    glacier_table = csv_regionO1.loc[csv_regionO1['O2Region'] == x_regionO2]
                 else:
-                   glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['O2Region'] == x_regionO2]],
-                                              axis=0))
+                    glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['O2Region'] == 
+                                                                                x_regionO2]], axis=0))
         else:
             print(f"\nThis study is only focusing on glaciers {input.rgi_glac_number} in region "
                   f"{input.rgi_regionsO1}.")
             for x_glac in input.rgi_glac_number:
                 glac_id = ('RGI60-' + str(input.rgi_regionsO1)[1:-1] + '.' + x_glac)
                 if glacier_table.empty:
-                    glacier_table = (csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id])
+                    glacier_table = csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id]
                 else:
                     glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id]], 
                                                axis=0))
-    # reset the index so that it is in sequential order (0, 1, 2, etc.)
-    glacier_table.reset_index(inplace=True)
-    # change old index to 'O1Index' to be easier to recall what it is
-    glacier_table.rename(columns={'index': 'O1Index'}, inplace=True)
-    # add column with the O1 glacier numbers
-    glacier_table[input.rgi_O1Id_colname] = glacier_table['RGIId'].str.split('.').apply(pd.Series).loc[:,1].astype(int)
     # must make copy; otherwise, drop will cause SettingWithCopyWarning
     glacier_table_copy = glacier_table.copy()
+    # reset the index so that it is in sequential order (0, 1, 2, etc.)
+    glacier_table_copy.reset_index(inplace=True)
+    # change old index to 'O1Index' to be easier to recall what it is
+    glacier_table_copy.rename(columns={'index': 'O1Index'}, inplace=True)
+    # add column with the O1 glacier numbers
+    glacier_table_copy[input.rgi_O1Id_colname] = (
+            glacier_table['RGIId'].str.split('.').apply(pd.Series).loc[:,1].astype(int))
     # drop columns of data that is not being used
     glacier_table_copy.drop(input.rgi_cols_drop, axis=1, inplace=True)
     # set index name
