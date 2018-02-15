@@ -84,7 +84,7 @@ if input.option_gcm_downscale == 1:
     main_glac_gcmtemp, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
             input.gcm_temp_filename, input.gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date)
     # Precipitation [m] and GCM dates
-    main_glac_gcmprec, main_glac_gcmtimedate = climate.importGCMvarnearestneighbor_xarray(
+    main_glac_gcmprec, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
             input.gcm_prec_filename, input.gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date)
     # Elevation [m a.s.l] associated with air temperature data
     main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(input.gcm_elev_filename, input.gcm_elev_varname, 
@@ -112,25 +112,16 @@ timestart_step4 = timeit.default_timer()
 
 # Import geodetic mass balance from David Shean
 main_glac_calmassbal = modelsetup.selectcalibrationdata(main_glac_rgi)
-## Import .csv file
+
+## add start and end date
 #ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filename)
-#main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0]))
+#main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],3))
 #ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-#ds_rgiid_mb = ds[[input.rgi_O1Id_colname,input.massbal_colname]].values
+#ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_time1, input.massbal_time2]].values
 #rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
-#for glac in range(rgi_O1Id.shape[0]):
-#    main_glac_calmassbal[glac] = ds_rgiid_mb[np.where(np.in1d(ds_rgiid_mb[:,0],rgi_O1Id[glac])==True)[0][0],1]
-#    try:
-#        # Grab the mass balance based on the RGIId Order 1 glacier number
-#        main_glac_calmassbal[glac] = ds_rgiid_mb[np.where(np.in1d(ds_rgiid_mb[:,0],rgi_O1Id[glac])==True)[0][0],1]
-#        #  np.in1d searches if there is a match in the first array with the second array provided and returns an
-#        #   array with same length as first array and True/False values. np.where then used to identify the index
-#        #   where there is a match, which is then used to select the massbalance value
-#        #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
-#        #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
-#    except:
-#        # If there is no mass balance data available for the glacier, then set as NaN
-#        main_glac_calmassbal[glac] = float('NaN')
+#glac = 1
+## Grab the mass balance based on the RGIId Order 1 glacier number
+#main_glac_calmassbal[glac,:] = ds_subset[np.where(np.in1d(ds_subset[:,0],rgi_O1Id[glac])==True)[0][0],1:]
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
@@ -148,18 +139,20 @@ if input.output_package != 0:
 # CREATE A SEPARATE OUTPUT FOR CALIBRATION with only data relevant to calibration
 #   - annual glacier-wide massbal, area, ice thickness, snowline
 
+# Model parameter output
+if input.option_calibration == 1:
+    main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], 7))
+    main_glac_massbal_compare = np.zeros((main_glac_rgi.shape[0],3))
+
+# Test range
 #glac = 0
 #prec_factor_low = 0.8
 #prec_factor_high = 2.0
 #prec_factor_step = 0.005
 #prec_factor_range = np.arange(prec_factor_low, prec_factor_high + prec_factor_step, prec_factor_step)
-#glac_wide_massbal_clim_range = np.zeros(prec_factor_range.shape)
+#glac_wide_massbal_record = np.zeros(prec_factor_range.shape)
 #for n in range(len(prec_factor_range)):
 #    prec_factor = prec_factor_range[n]
-
-# Model parameter output
-if input.option_calibration == 1:
-    main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], 7))    
 
 for glac in range(main_glac_rgi.shape[0]):
 #for glac in [0]:
@@ -192,8 +185,16 @@ for glac in range(main_glac_rgi.shape[0]):
                  massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, glacier_area_t0, 
                                             icethickness_t0, width_t0, glacier_gcm_temp, glacier_gcm_prec, 
                                             glacier_gcm_elev, elev_bins, dates_table, annual_columns, annual_divisor))
-        glac_wide_massbalclim_allyrs = (glac_bin_area_annual[:,0:glac_bin_massbalclim_annual.shape[1]] * 
-                                        glac_bin_massbalclim_annual).sum(axis=1).sum()/glacier_area_t0.sum()
+        # Column index for start and end year based on dates of geodetic mass balance observations
+        massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
+        massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
+                           main_glac_calmassbal[glac,1] + 1).astype(int)
+        massbal_years = massbal_idx_end - massbal_idx_start
+        # Average annual glacier-wide mass balance [m w.e.]
+        glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] * 
+                                       glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() / 
+                                       glacier_area_t0.sum() / massbal_years)
+#        glac_wide_massbal_record[n] = glac_wide_massbalclim_mwea
         # Record variables from output package here - need to be in glacier loop since the variables will be overwritten 
         if input.output_package != 0:
             output.netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
@@ -215,15 +216,18 @@ for glac in range(main_glac_rgi.shape[0]):
                                                 glacier_area_t0, icethickness_t0, width_t0, glacier_gcm_temp, 
                                                 glacier_gcm_prec, glacier_gcm_elev, elev_bins, dates_table, 
                                                 annual_columns, annual_divisor))
-            # Compute the glacier-wide climatic mass balance for all years
-            glac_wide_massbalclim_allyrs = (glac_bin_area_annual[:,0:glac_bin_massbalclim_annual.shape[1]] * 
-                                            glac_bin_massbalclim_annual).sum(axis=1).sum()/glacier_area_t0.sum()
-            
-            # THIS MUST BE MASSBAL ALL YEARS IN M.W.E. PER YEAR!!!!!!
-            
+            # Column index for start and end year based on dates of geodetic mass balance observations
+            massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
+            massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
+                               main_glac_calmassbal[glac,1] + 1).astype(int)
+            massbal_years = massbal_idx_end - massbal_idx_start
+            # Average annual glacier-wide mass balance [m w.e.]
+            glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] * 
+                                           glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() / 
+                                           glacier_area_t0.sum() / massbal_years)
             #  units: m w.e. based on initial area
             # Difference between geodetic and modeled mass balance
-            massbal_difference = abs(main_glac_calmassbal[glac] - glac_wide_massbalclim_allyrs)
+            massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
 #            print(modelparameters[2], massbal_difference)
             return massbal_difference
         # Define constraints
@@ -271,48 +275,85 @@ for glac in range(main_glac_rgi.shape[0]):
         con8 = {'type':'eq', 'fun':ddfice2xsnow}
         con9 = {'type':'ineq', 'fun':ddficegtsnow}
         # Select constraints used for calibration:
-        if input.option_calibration_constraints == 1:
-            # Option 1 - optimize all parameters
-            cons = []
-        elif input.option_calibration_constraints == 2: 
-            # Option 2 - only optimize precfactor
-            cons = [con1,con2,con4,con5,con6,con7]
-        elif input.option_calibration_constraints == 3:
-            # Option 3 - only optimize precfactor, DDFsnow, DDFice
-            cons = [con1,con2,con4,con7]
-        elif input.option_calibration_constraints == 4:
-            # Option 4 - only optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
-            cons = [con1,con2,con4,con7,con8]
-        elif input.option_calibration_constraints == 5:
-            # Option 5 - only optimize precfactor, DDFsnow, DDFice; DDFice > DDFsnow
-            cons = [con1,con2,con4,con7,con9]
+#        # Optimize all parameters
+#        cons = []
+        # Optimize precfactor
+        cons = [con1,con2,con4,con5,con6,con7]
+#        # Optimize precfactor, DDFsnow, DDFice
+#        cons = [con1,con2,con4,con7]
+#        # Optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
+#        cons = [con1,con2,con4,con7,con8]
+#        # Optimize precfactor, DDFsnow, DDFice; DDFice > DDFsnow
+#        cons = [con1,con2,con4,con7,con9]
         # Run optimization
         modelparameters_opt = minimize(objective, modelparameters_init, method='SLSQP', bounds=modelparameters_bnds,
-                                       constraints=cons, tol=1e-3)
+                                       constraints=cons, tol=input.cal_tolerance)
         #  'L-BFGS-B' - much slower
         # Print the optimal parameter set
         print(modelparameters_opt.x)
         main_glac_modelparamsopt[glac,:] = modelparameters_opt.x
-        
         # Re-run the optimized parameters in order to see the mass balance
-#        (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-#             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-#             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
-#                     massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, 
-#                                                glacier_area_t0, icethickness_t0, width_t0, glacier_gcm_temp, 
-#                                                glacier_gcm_prec, glacier_gcm_elev, elev_bins, dates_table, 
-#                                                annual_columns, annual_divisor))
-#        # Compute the glacier-wide climatic mass balance for all years
-#        glac_wide_massbalclim_allyrs = (glac_bin_area_annual[:,0:glac_bin_massbalclim_annual.shape[1]] * 
-#                                        glac_bin_massbalclim_annual).sum(axis=1).sum()/glacier_area_t0.sum()
-#        #  units: m w.e. based on initial area
-#        # Difference between geodetic and modeled mass balance
-#        massbal_difference = abs(main_glac_calmassbal[glac] - glac_wide_massbalclim_allyrs)
-#        print(glac_wide_massbalclim_allyrs, main_glac_calmassbal[glac], massbal_difference)
+        (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+         glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+         glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
+                 massbalance.runmassbalance(glac, main_glac_modelparamsopt[glac], regionO1_number, glacier_rgi_table, 
+                                            glacier_area_t0, icethickness_t0, width_t0, glacier_gcm_temp, 
+                                            glacier_gcm_prec, glacier_gcm_elev, elev_bins, dates_table, annual_columns, 
+                                            annual_divisor))
+        # Column index for start and end year based on dates of geodetic mass balance observations
+        massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
+        massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
+                           main_glac_calmassbal[glac,1] + 1).astype(int)
+        massbal_years = massbal_idx_end - massbal_idx_start
+        # Average annual glacier-wide mass balance [m w.e.]
+        glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] * 
+                                       glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() / 
+                                       glacier_area_t0.sum() / massbal_years)
+        massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
+        main_glac_massbal_compare[glac,:] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
+                                             massbal_difference]
+        print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
         
+        # If tolerance not reached, then vary precfactor, DDFsnow/ice
+        if massbal_difference > input.massbal_tolerance:
+            # Optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
+            cons = [con1,con2,con4,con7,con8]
+#            cons = []
+            # Run optimization
+            modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
+                                           bounds=modelparameters_bnds, constraints=cons, tol=input.cal_tolerance)
+            #  'L-BFGS-B' - much slower
+            # Print the optimal parameter set
+            print(modelparameters_opt.x)
+            main_glac_modelparamsopt[glac,:] = modelparameters_opt.x
+            # Re-run the optimized parameters in order to see the mass balance
+            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
+                     massbalance.runmassbalance(glac, main_glac_modelparamsopt[glac], regionO1_number, 
+                                                glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
+                                                glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, elev_bins, 
+                                                dates_table, annual_columns, annual_divisor))
+            # Column index for start and end year based on dates of geodetic mass balance observations
+            massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
+            massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
+                               main_glac_calmassbal[glac,1] + 1).astype(int)
+            massbal_years = massbal_idx_end - massbal_idx_start
+            # Average annual glacier-wide mass balance [m w.e.]
+            glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] * 
+                                           glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() / 
+                                           glacier_area_t0.sum() / massbal_years)
+            massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
+            main_glac_massbal_compare[glac,:] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
+                                                 massbal_difference]
+            print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
+            
+            
+            
+            
+            
+            
         # create parameter matrix for each optimized glacier - fill the rest with NaN
-        # record glacier mass balance with the optimal parameters as well
-        # perhaps the geodetic as well
         
 ## Plot the results
 #difference = abs(glac_wide_massbal_clim_range - main_glac_calmassbal[glac])

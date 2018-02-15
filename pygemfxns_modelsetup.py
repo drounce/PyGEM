@@ -202,14 +202,14 @@ def selectcalibrationdata(main_glac_rgi):
     """
     # Import .csv file
     ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filename)
-    main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0]))
+    main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],3))
     ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-    ds_rgiid_mb = ds[[input.rgi_O1Id_colname,input.massbal_colname]].values
+    ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_time1, input.massbal_time2]].values
     rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
     for glac in range(rgi_O1Id.shape[0]):
         try:
             # Grab the mass balance based on the RGIId Order 1 glacier number
-            main_glac_calmassbal[glac] = ds_rgiid_mb[np.where(np.in1d(ds_rgiid_mb[:,0],rgi_O1Id[glac])==True)[0][0],1]
+            main_glac_calmassbal[glac,:] = ds_subset[np.where(np.in1d(ds_subset[:,0],rgi_O1Id[glac])==True)[0][0],1:]
             #  np.in1d searches if there is a match in the first array with the second array provided and returns an
             #   array with same length as first array and True/False values. np.where then used to identify the index
             #   where there is a match, which is then used to select the massbalance value

@@ -11,10 +11,6 @@ import os
 
 # ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
-# Calibration option
-option_calibration = 1
-#  Option 0 (default) - regular model simulation (variables defined)
-#  Option 1 - calibration run (glacier area remains constant)
 # Warning message option
 option_warningmessages = 1
 #  Warning messages are a good check to make sure that the script is running properly, and small nuances due to 
@@ -235,7 +231,10 @@ gcm_lon_varname = 'longitude'
 # Time variable name given by GCM
 gcm_time_varname = 'time'
 
-
+# Calibration option
+option_calibration = 1
+#  Option 0 (default) - regular model simulation (variables defined)
+#  Option 1 - calibration run (glacier area remains constant)
 # Calibration datasets
 # Geodetic mass balance dataset
 # Filepath
@@ -246,6 +245,14 @@ cal_mb_filename = 'geodetic_glacwide_DShean20170207_15_SouthAsiaEast.csv'
 cal_rgi_colname = 'RGIId'
 # Mass balance column name
 massbal_colname = 'mb_mwea'
+# Mass balance date 1 column name
+massbal_time1 = 'year1'
+# Mass balance date 1 column name
+massbal_time2 = 'year2'
+# Mass balance tolerance [m w.e.a]
+massbal_tolerance = 0.1
+# Calibration optimization tolerance
+cal_tolerance = 1e-3
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution
@@ -338,14 +345,14 @@ terminus_percentage = 20
 ##  Option 0 (default simulation) - area is not constant, glacier can widen/narrow and retreat/advance
 ##  Option 1 (default calibration) - area is constant to avoid retreat/advance mass balance feedbacks  
 
-# Calibration constraint packages
-option_calibration_constraints = 2
-#  Option 1 (default): optimize all values within their given bounds
-# Option 1 - optimize all parameters
-# Option 2 - only optimize precfactor
-# Option 3 - only optimize precfactor, DDFsnow, DDFice
-# Option 4 - only optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
-# Option 5 - only optimize precfactor, DDFsnow, DDFice; DDFice > DDFsnow
+## Calibration constraint packages
+#option_calibration_constraints = 2
+##  Option 1 (default): optimize all values within their given bounds
+## Option 1 - optimize all parameters
+## Option 2 - only optimize precfactor
+## Option 3 - only optimize precfactor, DDFsnow, DDFice
+## Option 4 - only optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
+## Option 5 - only optimize precfactor, DDFsnow, DDFice; DDFice > DDFsnow
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
