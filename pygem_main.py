@@ -233,30 +233,32 @@ for glac in range(main_glac_rgi.shape[0]):
         # Define constraints
         #  everything goes on one side of the equation compared to zero
         #  ex. return x[0] - input.lr_gcm with an equality means x[0] = input.lr_gcm
-        def constraint1(modelparameters):
+        def constraint_lrgcm(modelparameters):
             return modelparameters[0] - input.lr_gcm
-        def constraint2(modelparameters):
+        def constraint_lrglac(modelparameters):
             return modelparameters[1] - input.lr_glac
-        def constraint3(modelparameters):
+        def constraint_precfactor(modelparameters):
             return modelparameters[2] - input.prec_factor
-        def constraint4(modelparameters):
+        def constraint_precgrad(modelparameters):
             return modelparameters[3] - input.prec_grad
-        def constraint5(modelparameters):
+        def constraint_ddfsnow(modelparameters):
             return modelparameters[4] - input.DDF_snow
-        def constraint6(modelparameters):
+        def constraint_ddfice(modelparameters):
             return modelparameters[5] - input.DDF_ice
-        def constraint7(modelparameters):
+        def constraint_tempsnow(modelparameters):
             return modelparameters[6] - input.T_snow
-        def ddfice2xsnow(modelparameters):
+        def constraint_ddfice2xsnow(modelparameters):
             return modelparameters[4] - 0.5*modelparameters[5] 
-        def ddficegtsnow(modelparameters):
+        def constraint_ddficegtsnow(modelparameters):
             return modelparameters[5] - modelparameters[4]
+        def constraint_lrsequal(modelparameters):
+            return modelparameters[0] - modelparameters[1]
         # Define the initial guess
         modelparameters_init = ([input.lr_gcm, input.lr_glac, input.prec_factor, input.prec_grad, input.DDF_snow, 
                                  input.DDF_ice, input.T_snow])
         # Define bounds
-        lrgcm_bnds = (-0.007,-0.006)
-        lrglac_bnds = (-0.007,-0.006)
+        lrgcm_bnds = (-0.008,-0.004)
+        lrglac_bnds = (-0.008,-0.004)
         precfactor_bnds = (0.8,2.0)
         precgrad_bnds = (0.0001,0.00025)
         ddfsnow_bnds = (0.00175, 0.0045)
@@ -265,29 +267,24 @@ for glac in range(main_glac_rgi.shape[0]):
         modelparameters_bnds = (lrgcm_bnds,lrglac_bnds,precfactor_bnds,precgrad_bnds,ddfsnow_bnds,ddfice_bnds,
                                tempsnow_bnds)
         # Define constraints
-        con1 = {'type':'eq', 'fun':constraint1}
-        con2 = {'type':'eq', 'fun':constraint2}
-        con3 = {'type':'eq', 'fun':constraint3}
-        con4 = {'type':'eq', 'fun':constraint4}
-        con5 = {'type':'eq', 'fun':constraint5}
-        con6 = {'type':'eq', 'fun':constraint6}
-        con7 = {'type':'eq', 'fun':constraint7}
-        con8 = {'type':'eq', 'fun':ddfice2xsnow}
-        con9 = {'type':'ineq', 'fun':ddficegtsnow}
+        con_lrgcm = {'type':'eq', 'fun':constraint_lrgcm}
+        con_lrglac = {'type':'eq', 'fun':constraint_lrglac}
+        con_precfactor = {'type':'eq', 'fun':constraint_precfactor}
+        con_precgrad = {'type':'eq', 'fun':constraint_precgrad}
+        con_ddfsnow = {'type':'eq', 'fun':constraint_ddfsnow}
+        con_ddfice = {'type':'eq', 'fun':constraint_ddfice}
+        con_tempsnow = {'type':'eq', 'fun':constraint_tempsnow}
+        con_ddfice2xsnow = {'type':'eq', 'fun':constraint_ddfice2xsnow}
+        con_ddficegtsnow = {'type':'ineq', 'fun':constraint_ddficegtsnow}
+        con_lrsequal = {'type':'eq', 'fun':constraint_lrsequal}
         # Select constraints used for calibration:
 #        # Optimize all parameters
 #        cons = []
         # Optimize precfactor
-        cons = [con1,con2,con4,con5,con6,con7]
-#        # Optimize precfactor, DDFsnow, DDFice
-#        cons = [con1,con2,con4,con7]
-#        # Optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
-#        cons = [con1,con2,con4,con7,con8]
-#        # Optimize precfactor, DDFsnow, DDFice; DDFice > DDFsnow
-#        cons = [con1,con2,con4,con7,con9]
-        # Run optimization
+        cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddfsnow, con_ddfice, con_tempsnow]
+        # Optimization Round #1: vary precfactor
         modelparameters_opt = minimize(objective, modelparameters_init, method='SLSQP', bounds=modelparameters_bnds,
-                                       constraints=cons, tol=input.cal_tolerance)
+                                       constraints=cons, tol=1e-3)
         #  'L-BFGS-B' - much slower
         # Print the optimal parameter set
         print(modelparameters_opt.x)
@@ -314,14 +311,13 @@ for glac in range(main_glac_rgi.shape[0]):
                                              massbal_difference]
         print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
         
-        # If tolerance not reached, then vary precfactor, DDFsnow/ice
+        # Optimization Round #2: if tolerance not reached, vary precfactor, DDFsnow/ice
         if massbal_difference > input.massbal_tolerance:
             # Optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
-            cons = [con1,con2,con4,con7,con8]
-#            cons = []
+            cons = [con_lrgcm, con_lrglac, con_precgrad, con_tempsnow, con_ddfice2xsnow]
             # Run optimization
             modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
-                                           bounds=modelparameters_bnds, constraints=cons, tol=input.cal_tolerance)
+                                           bounds=modelparameters_bnds, constraints=cons, tol=1e-3)
             #  'L-BFGS-B' - much slower
             # Print the optimal parameter set
             print(modelparameters_opt.x)
@@ -348,11 +344,41 @@ for glac in range(main_glac_rgi.shape[0]):
                                                  massbal_difference]
             print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
             
+        # Optimization Round #3: if tolerance not reached, vary precfactor, DDFsnow/ice, and lr_gcm
+        if massbal_difference > input.massbal_tolerance:
+            # Optimize precfactor, DDFsnow, DDFice, and lr_gcm; DDFice = 2 x DDFsnow
+            cons = [con_precgrad, con_tempsnow, con_ddfice2xsnow, con_lrsequal]
+            # Run optimization
+            modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
+                                           bounds=modelparameters_bnds, constraints=cons, tol=1e-4)
+            #  requires higher tolerance due to the increase in parameters being optimized
+            #  'L-BFGS-B' - much slower
+            # Print the optimal parameter set
+            print(modelparameters_opt.x)
+            main_glac_modelparamsopt[glac,:] = modelparameters_opt.x
+            # Re-run the optimized parameters in order to see the mass balance
+            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
+                     massbalance.runmassbalance(glac, main_glac_modelparamsopt[glac], regionO1_number, 
+                                                glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
+                                                glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, elev_bins, 
+                                                dates_table, annual_columns, annual_divisor))
+            # Column index for start and end year based on dates of geodetic mass balance observations
+            massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
+            massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
+                               main_glac_calmassbal[glac,1] + 1).astype(int)
+            massbal_years = massbal_idx_end - massbal_idx_start
+            # Average annual glacier-wide mass balance [m w.e.]
+            glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] * 
+                                           glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() / 
+                                           glacier_area_t0.sum() / massbal_years)
+            massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
+            main_glac_massbal_compare[glac,:] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
+                                                 massbal_difference]
+            print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
             
-            
-            
-            
-            
+
         # create parameter matrix for each optimized glacier - fill the rest with NaN
         
 ## Plot the results

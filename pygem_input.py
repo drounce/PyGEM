@@ -252,7 +252,7 @@ massbal_time2 = 'year2'
 # Mass balance tolerance [m w.e.a]
 massbal_tolerance = 0.1
 # Calibration optimization tolerance
-cal_tolerance = 1e-3
+#cal_tolerance = 1e-4
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution
