@@ -271,11 +271,11 @@ def selectglaciersrgitable():
     glacier_table_copy.reset_index(inplace=True)
     # change old index to 'O1Index' to be easier to recall what it is
     glacier_table_copy.rename(columns={'index': 'O1Index'}, inplace=True)
-    # add column with the O1 glacier numbers
-    glacier_table_copy[input.rgi_O1Id_colname] = (
-            glacier_table['RGIId'].str.split('.').apply(pd.Series).loc[:,1].astype(int))
     # drop columns of data that is not being used
     glacier_table_copy.drop(input.rgi_cols_drop, axis=1, inplace=True)
+    # add column with the O1 glacier numbers
+    glacier_table_copy[input.rgi_O1Id_colname] = (
+            glacier_table_copy['RGIId'].str.split('.').apply(pd.Series).loc[:,1].astype(int))
     # set index name
     glacier_table_copy.index.name = input.indexname
     return glacier_table_copy        

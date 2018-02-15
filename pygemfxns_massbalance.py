@@ -116,8 +116,6 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
     surfacetype_ddf_dict = surfacetypeDDFdict(modelparameters)
     # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
     for step in range(glac_bin_temp.shape[1]):
-#    for step in range(0,26):
-#    for step in range(0,12):
         # Option to adjust air temperature based on changes in surface elevation
         if input.option_adjusttemp_surfelev == 1:
             # Adjust the air temperature
@@ -274,14 +272,7 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
     glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,input.spinupyears:annual_columns.shape[0]+1]
     glac_bin_width_annual = glac_bin_width_annual[:,input.spinupyears:annual_columns.shape[0]+1]
     glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,input.spinupyears:annual_columns.shape[0]+1]
-#    # Update annual_columns last; otherwise, it will influence the indexing above removing spinup years
-#    annual_columns = annual_columns[input.spinupyears:annual_columns.shape[0]+1]
-#    dates_table = dates_table.iloc[colstart:colend,:]
     # Return the desired output
-#    return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-#            glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-#            glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, annual_columns, 
-#            dates_table)
     return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual)

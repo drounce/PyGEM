@@ -6,6 +6,7 @@ pre-processing of the climate data associated with each glacier for PyGEM.
 import pandas as pd
 import numpy as np
 import xarray as xr
+import os
 #import netCDF4 as nc
 #from datetime import datetime
 
@@ -28,6 +29,29 @@ import pygem_input as input
     # resolution - resolution of the gcm data (required for Valentina's data)
 
 #========= FUNCTIONS (alphabetical order) ===================================
+def createcsv_GCMvarnearestneighbor(filename, variablename, dates_table, glac_table, output_csvfullfilename):
+    # Import netcdf file
+    filefull = input.gcm_filepath_var + filename
+    data = xr.open_dataset(filefull)
+    glac_variable_series_nparray = np.zeros((glac_table.shape[0],dates_table.shape[0]))
+    # Determine the correct time indices
+    if input.timestep == 'monthly':
+        start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+        end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
+    # Find Nearest Neighbor
+    lat_nearidx = (np.abs(glac_table[input.lat_colname].values[:,np.newaxis] - 
+                          data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
+    lon_nearidx = (np.abs(glac_table[input.lon_colname].values[:,np.newaxis] - 
+                          data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
+    for glac in range(glac_table.shape[0]):
+        # Select the slice of GCM data for each glacier
+        glac_variable_series_nparray[glac,:] = (data[variablename][start_idx:end_idx+1, lat_nearidx[glac], 
+                                                                   lon_nearidx[glac]].values)
+    np.savetxt(output_csvfullfilename, glac_variable_series_nparray, delimiter=",") 
+
+
 def importGCMfxnearestneighbor_xarray(filename, variablename, glac_table):
     """
     Import time invariant (constant) variables and extract the nearest neighbor of the variable. Meteorological data 
@@ -52,23 +76,19 @@ def importGCMfxnearestneighbor_xarray(filename, variablename, glac_table):
     if 'time' in data[variablename].coords:
         time_idx = 0
         #  ERA Interim has only 1 value of time, so index is 0
-    glac_variable = pd.Series(0, index=glac_table.index)
+    glac_variable = np.zeros(glac_table.shape[0])
     # Find Nearest Neighbor
-    for glac in range(len(glac_table)):
-#     for glac in range(0,1):
-        # Find index of nearest lat/lon
-        lat_nearidx = np.asscalar((abs(data.variables[input.gcm_lat_varname][:] - 
-                                       glac_table.loc[glac, input.lat_colname])).argmin().values)
-        lon_nearidx = np.asscalar((abs(data.variables[input.gcm_lon_varname][:] - 
-                                       glac_table.loc[glac, input.lon_colname])).argmin().values)
-        #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
-        #  .values is used to extract the position's value as opposed to having an array
-        #  np.asscalar() is used to convert from a np.array to an integer such that the value can be used as an index
-        # Extract the relevant data
-        try: 
-            glac_variable.loc[glac] = data[variablename][time_idx, lat_nearidx, lon_nearidx].values
+    lat_nearidx = (np.abs(glac_table[input.lat_colname].values[:,np.newaxis] - 
+                          data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
+    lon_nearidx = (np.abs(glac_table[input.lon_colname].values[:,np.newaxis] - 
+                          data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
+    #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
+    for glac in range(glac_table.shape[0]):
+        # Select the slice of GCM data for each glacier
+        try:
+            glac_variable[glac] = data[variablename][time_idx, lat_nearidx[glac], lon_nearidx[glac]].values
         except:
-            glac_variable.loc[glac] = data[variablename][lat_nearidx, lon_nearidx].values
+            glac_variable[glac] = data[variablename][lat_nearidx[glac], lon_nearidx[glac]].values
     # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
     if variablename == input.gcm_elev_varname:
         # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
@@ -98,10 +118,10 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
     Output: Pandas DataFrame of nearest neighbor time series for all the glacier in the model run
     (rows = GlacNo, column = time series)
     """
-    # Import netcdf file
+# Import netcdf file
     filefull = input.gcm_filepath_var + filename
     data = xr.open_dataset(filefull)
-    glac_variable_series_nparray = np.zeros((glac_table.shape[0],dates_table.shape[0]))
+    glac_variable_series = np.zeros((glac_table.shape[0],dates_table.shape[0]))
     # Explore the dataset properties
 #     print('Explore the dataset:\n', data)
     # Explore the variable of interest
@@ -136,23 +156,17 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
                    dates_table['date'].apply(lambda x: x.strftime('%Y-%m-%d'))[dates_table.shape[0] - 1]))[0][0]
     # Extract the time series
     time_series = pd.Series(data.variables[input.gcm_time_varname][start_idx:end_idx+1])
-#     print(time_series)
-    # Find Nearest Neighbor
     # Find Nearest Neighbor
     lat_nearidx = (np.abs(glac_table[input.lat_colname].values[:,np.newaxis] - 
                           data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
     lon_nearidx = (np.abs(glac_table[input.lon_colname].values[:,np.newaxis] - 
                           data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
-    for glac in range(len(glac_table)):
+    #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
+    #  extract the position's value as opposed to having an array
+    for glac in range(glac_table.shape[0]):
         # Select the slice of GCM data for each glacier
-        glac_variable_series_nparray[glac,:] = data[variablename][start_idx:end_idx+1, lat_nearidx[glac], 
-                                                                  lon_nearidx[glac]].values
-    # Create DataFrame from stacked np.arrays
-    if input.option_dates == 1:
-        glac_variable_series = pd.DataFrame(glac_variable_series_nparray, index=glac_table.index, 
-                                            columns=dates_table['date'])
-    else:
-        glac_variable_series = pd.DataFrame(glac_variable_series_nparray, index=glac_table.index, columns=time_series)
+        glac_variable_series[glac,:] = data[variablename][start_idx:end_idx+1, lat_nearidx[glac], 
+                                                          lon_nearidx[glac]].values
     # Perform corrections to the data if necessary
     # Surface air temperature corrections
     if variablename == input.gcm_temp_varname:
@@ -179,7 +193,7 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
         if input.timestep == 'monthly':
             # Convert from meters per day to meters per month
             if 'daysinmonth' in dates_table.columns:
-                glac_variable_series = (glac_variable_series.mul(list(dates_table['daysinmonth']), axis=1))
+                glac_variable_series = glac_variable_series * dates_table['daysinmonth'].values[np.newaxis,:]
             else:
                 print("\nMODEL ERROR: 'daysinmonth' DOES NOT EXIST IN THE DATES TABLE.\n" 
                       " Please check that the dates_table is formatted properly such that a \n'daysinmonth' column"
@@ -187,6 +201,7 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
                       "Exiting the model run.\n")
                 exit()
     return glac_variable_series, time_series
+    
 
 #========= FUNCTIONS NO LONGER USED (alphabetical order) ==============================================================
 ##def importGCMfxnearestneighbor_netcdf4(variablename, glac_table):

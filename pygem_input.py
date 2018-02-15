@@ -5,16 +5,14 @@ These inputs are separated from the main script, so that they can easily be
 configured. Other modules can also import these variables to reduce the number
 of parameters required to run a function.
 """
-# Note: (DEVELOPMENT) Consider structuring the input via steps and/or as
-#       required input or have a separate area for variables, parameters that
-#       don't really change.
+# DEVELOPER'S NOTE: Consider structuring the input via steps and/or as required input or have a separate area for 
+#   variables, parameters that don't really change.
 import os
-import numpy as np
 
 # ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
 # Calibration option
-option_calibration = 0
+option_calibration = 1
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Warning message option
@@ -52,8 +50,10 @@ option_glacier_selection = 1
 #  Option 2 - glaciers/regions selected via shapefile
 #  Option 3 - glaciers/regions selected via new table (other inventory)
 # OPTION 1: RGI glacier inventory information
+# Directory name
+main_directory = os.path.dirname(__file__)
 # Filepath for RGI files
-rgi_filepath = os.path.dirname(__file__) + '/../RGI/rgi60/00_rgi60_attribs/'
+rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
 #  file path where the rgi tables are located on the computer
 #  os.path.dirname(__file__) is getting the directory where the pygem model is running.  '..' goes up a folder and then 
 #  allows it to enter RGI and find the folders from there.
@@ -70,11 +70,11 @@ rgi_regionsO1 = [15]
 #  enter integer(s) in brackets, e.g., [13, 14]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
-#rgi_regionsO2 = [1]
+#rgi_regionsO2 = [2]
 #  enter 'all' to include all subregions or enter integer(s) in brackets to specify specific subregions, e.g., [5, 6]. 
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = ['03473', '03733']
-rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
 #  enter 'all' to include all glaciers within (sub)region(s) or enter a string of complete glacier number for specific 
 #  glaciers, e.g., ['05000', '07743'] for glaciers '05000' and '07743'
 # Dictionary of hypsometry filenames
@@ -102,7 +102,7 @@ rgi_O1Id_colname = 'RGIId-O1No'
 # Elevation band height [m]
 binsize = 10
 # Filepath for the hypsometry files
-hyps_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/bands_10m_DRR/'
+hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of hypsometry filenames
 hyps_filedict = {
                 13: 'area_13_Huss_CentralAsia_10m.csv',
@@ -111,7 +111,7 @@ hyps_filedict = {
 # Extra columns in hypsometry data that will be dropped
 hyps_colsdrop = ['RGI-ID','Cont_range']
 # Filepath for the ice thickness files
-thickness_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/bands_10m_DRR/'
+thickness_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of thickness filenames
 thickness_filedict = {
                 13: 'thickness_13_Huss_CentralAsia_10m.csv',
@@ -120,7 +120,7 @@ thickness_filedict = {
 # Extra columns in ice thickness data that will be dropped
 thickness_colsdrop = ['RGI-ID','Cont_range']
 # Filepath for the width files
-width_filepath = os.path.dirname(__file__) + '/../IceThickness_Huss/bands_10m_DRR/'
+width_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of thickness filenames
 width_filedict = {
                 13: 'width_13_Huss_CentralAsia_10m.csv',
@@ -202,12 +202,13 @@ option_surfacetype_debris = 0
 #   model run, and how that data will be downscaled to the glacier and bins.
 # Option to downscale GCM data
 option_gcm_downscale = 1
-# Option 1 (default): select climate data based on nearest neighbor
+#  Option 1 (default): select climate data based on nearest neighbor
+#  Option 2: import prepared csv files (saves time)
 # Filepath to GCM variable files
-gcm_filepath_var = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
+gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
 #  _var refers to variable data; NG refers to New Generation of CMIP5 data, i.e., a homogenized dataset
 # Filepath to GCM fixed variable files
-gcm_filepath_fx = os.path.dirname(__file__) + '/../Climate_data/ERA_Interim/'
+gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
 #  _fx refers to time invariant (constant) data
 # Temperature filename
 gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
@@ -238,7 +239,7 @@ gcm_time_varname = 'time'
 # Calibration datasets
 # Geodetic mass balance dataset
 # Filepath
-cal_mb_filepath = os.path.dirname(__file__) + '/../DEMs/'
+cal_mb_filepath = main_directory + '/../DEMs/'
 # Filename
 cal_mb_filename = 'geodetic_glacwide_DShean20170207_15_SouthAsiaEast.csv'
 # RGIId column name
@@ -266,7 +267,7 @@ DDF_ice = 7.2 * 10**-3
 # Degree-day factor of snow [m w.e. d-1 degC-1]
 DDF_snow = 3.6 * 10**-3
 # Temperature threshold for snow (C)
-T_snow = 0
+T_snow = 1.5
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 
 # DDF firn 
@@ -291,7 +292,7 @@ option_surfacetype = 1
 option_surfaceablation = 1
 #  Option 1 (default) - DDF for snow, ice, and debris
 # Surface accumulation options
-option_accumulation = 1
+option_accumulation = 2
 #  Option 1 (default) - Single threshold (<= snow, > rain)
 #  Option 2 - single threshold +/- 1 deg uses linear interpolation
 # Refreezing model options
