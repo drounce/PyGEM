@@ -429,8 +429,11 @@ print('Step 5 time:', timeelapsed_step5, "s\n")
 #                                 glac_idx_t0.shape[0] * 100 < input.terminus_percentage])
 
 
-
-
+#gcm_prec = glacier_gcm_prec.copy()
+#bin_precsnow = (gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
+#bin_precsnow[glac_bin_surfacetype_annual[:,0] == 0] = 0
+#bin_acc = np.zeros(bin_precsnow.shape)
+#bin_acc[glac_bin_temp < modelparameters[6] - 1] = bin_precsnow[glac_bin_temp < modelparameters[6] - 1]
 
 
 
