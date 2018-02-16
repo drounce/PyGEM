@@ -100,20 +100,19 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
         #  bins that advance need to have an initial ice thickness; otherwise, the temp adjustment will be based on ice
         #  thickness - 0, which is wrong  Since advancing bins take the thickness of the previous bin, set the initial 
         #  ice thickness of all bins below the terminus to the ice thickness at the terminus.
-    # Downscale the gcm temperature [degC] to each bin
-    glac_bin_temp = downscaletemp2bins(glacier_rgi_table, glacier_gcm_temp, glacier_gcm_elev, elev_bins,
-                                       modelparameters)
-    # Downscale the gcm precipitation [m] to each bin (includes solid and liquid precipitation)
-    glac_bin_precsnow = downscaleprec2bins(glacier_rgi_table, glacier_gcm_prec, glacier_gcm_elev, elev_bins, 
-                                           modelparameters)
-    # Compute accumulation [m w.e.] and precipitation [m] for each bin
-    glac_bin_prec, glac_bin_acc = accumulationbins(glac_bin_temp, glac_bin_precsnow, modelparameters)
-    # Compute potential refreeze [m w.e.] for each bin
-    glac_bin_refreezepotential = refreezepotentialbins(glac_bin_temp, dates_table)
     # Compute the initial surface type [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
     surfacetype, firnline_idx = surfacetypebinsinitial(glacier_area_t0, glacier_rgi_table, elev_bins)
     # Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
     surfacetype_ddf_dict = surfacetypeDDFdict(modelparameters)
+    # Downscale the gcm temperature [degC] to each bin
+    glac_bin_temp = downscaletemp2bins(glacier_rgi_table, glacier_gcm_temp, glacier_gcm_elev, elev_bins,
+                                       modelparameters)
+    # Downscale the gcm precipitation to each bin and separate into liquid and solid precipitation, i.e., 
+    #  precipitation [m] and accumulation [m w.e.]
+    glac_bin_prec, glac_bin_acc = downscaleprec2bins(glacier_rgi_table, glacier_gcm_prec, glacier_gcm_elev, 
+                                                     glac_bin_temp, elev_bins, modelparameters)
+    # Compute potential refreeze [m w.e.] for each bin
+    glac_bin_refreezepotential = refreezepotentialbins(glac_bin_temp, dates_table)
     # Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
     for step in range(glac_bin_temp.shape[1]):
         # Option to adjust air temperature based on changes in surface elevation
@@ -122,6 +121,10 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
             glac_bin_temp[:,step] = (glac_bin_temp[:,step] + modelparameters[1] * (icethickness_t0 - 
                                      icethickness_adjusttemp))
             #  T_air = T+air + lr_glac * (icethickness_present - icethickness_initial)
+            # Adjust precipitation and accumulation as well
+            
+            
+            
             # Adjust refreeze as well
             #  refreeze option 2 uses annual temps, so only do this at the start of each year (step % annual_divisor)
             if (input.option_refreezing == 2) & (step % annual_divisor == 0):
@@ -279,42 +282,6 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
 
 
 #=======================================================================================================================
-def accumulationbins(glac_temp, glac_precsnow, modelparameters):
-    # Note: this will only work for monthly time step!
-    """
-    Calculate the accumulation and precipitation for every elevation bin on the glacier.
-    Output: numpy array of precipitation [m] and snow [m w.e.] (rows = bins, columns = dates)
-    """
-    # Surface Ablation Options:
-    #   > 1 (default) - single threshold (temp below snow, above rain)
-    #   > 2 - linear relationship (fraction of snow prec within +/- 1 deg)
-    #         ex. if temp = threshold, then 50% snow and rain
-    #    
-    bin_prec = np.zeros(glac_precsnow.shape)
-    bin_snow = np.zeros(glac_precsnow.shape)
-    if input.option_accumulation == 1:
-        # If temperature above threshold, then rain
-        bin_prec[glac_temp > modelparameters[6]] = glac_precsnow[glac_temp > modelparameters[6]]
-        # If temperature below threshold, then snow
-        bin_snow[glac_temp <= modelparameters[6]] = glac_precsnow[glac_temp <= modelparameters[6]]
-    elif input.option_accumulation == 2:
-        # If temperature above maximum threshold, then all rain
-        bin_prec[glac_temp >= modelparameters[6] + 1] = glac_precsnow[glac_temp >= modelparameters[6] + 1]
-        # If temperature below minimum threshold, then all snow
-        bin_snow[glac_temp <= modelparameters[6] - 1] = glac_precsnow[glac_temp <= modelparameters[6] - 1]
-        # Otherwise temperature between min/max, then mix of snow/rain using linear relationship between min/max
-        bin_prec[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)] = ((1/2 + (
-            glac_temp[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)] - modelparameters[6])
-            / 2) * glac_precsnow[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)])
-        bin_snow[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)] = ((1 - (1/2 + (
-            glac_temp[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)] - modelparameters[6]) 
-            / 2)) * glac_precsnow[(glac_temp < modelparameters[6] + 1) & (glac_temp > modelparameters[6] - 1)])
-    else:
-        print("This option for 'option_accumulation' does not exist.  Please choose an option that exists."
-              "Exiting model run.\n")
-    return bin_prec, bin_snow
-
-
 def annualweightedmean_array(var, dates_table):
     """
     Calculate annual mean of variable according to the timestep.
@@ -341,25 +308,64 @@ def annualweightedmean_array(var, dates_table):
     return var_annual
 
 
-def downscaleprec2bins(glacier_table, gcm_prec, gcm_elev, elev_bins, modelparameters):
+def downscaleprec2bins(glacier_table, gcm_prec, gcm_elev, glac_bin_temp, elev_bins, modelparameters):
     """
     Downscale the global climate model precipitation data to each bin on the glacier using the precipitation bias factor
-    (prec_factor) and the glacier precipitation gradient (prec_grad).
-    Output: numpy array of precipitation [m] in each bin (rows = bins, columns = dates)
+    (prec_factor) and the glacier precipitation gradient (prec_grad). Then calculate the amount of accumulation and 
+    precipitation in each bin based on the temperature threshold (temp_snow).
+    Output: numpy array of precipitation [m] and accumulation [m w.e.] in each bin (rows = bins, columns = dates)
     """
-    # Function Options:
+    # option_prec2bins:
     #   > 1 (default) - precip factor bias to correct GCM and a precipitation gradient to adjust precip over the glacier
     #   > 2 (not coded yet) - Huss and Hock (2015), exponential limits, etc.
+    # option_accumulation:
+    #   > 1 (default) - single threshold (temp below snow, above rain)
+    #   > 2 - linear relationship (fraction of snow prec within +/- 1 deg)
+    #         ex. if temp = threshold, then 50% snow and rain
+    # Downscale the precipitation (liquid and solid) to each elevation bin
     if input.option_prec2bins == 1:
-        # Option 1 is the default and uses a precipitation factor and precipitation gradient over the glacier.
+        # Precipitation using precipitation factor and precipitation gradient
         bin_prec = (gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
                     glacier_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
         #   P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
+    elif input.option_prec2bins == 2:
+        # Precipitation using precipitation factor and precipitation gradient
+        bin_prec = (gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
+                    glacier_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
+        # Apply corrections over uppermost 25% of glacier in accordance with Huss and Hock (2015); this is supposed to 
+        #  account for decreased moisture content and wind erosion at higher elevation
     else:
         print("\nThis option for 'downscaleprec2bins' has not been coded yet. Please choose an existing option."
               "Exiting model run.\n")
         exit()
-    return bin_prec
+    # Preallocate accumulation bins
+    bin_acc = np.zeros(bin_prec.shape)
+    # Separate total precipitation into liquid (bin_prec) and solid (bin_acc)
+    if input.option_accumulation == 1:
+        # If temperature above threshold, then rain
+        bin_prec[glac_bin_temp > modelparameters[6]] = bin_prec[glac_bin_temp > modelparameters[6]]
+        # If temperature below threshold, then snow
+        bin_acc[glac_bin_temp <= modelparameters[6]] = bin_prec[glac_bin_temp <= modelparameters[6]]
+        bin_prec[glac_bin_temp <= modelparameters[6]] = 0
+    elif input.option_accumulation == 2:
+        # If temperature above maximum threshold, then all rain
+        bin_prec[glac_bin_temp >= modelparameters[6] + 1] = bin_prec[glac_bin_temp >= modelparameters[6] + 1]
+        # If temperature below minimum threshold, then all snow
+        bin_acc[glac_bin_temp <= modelparameters[6] - 1] = bin_prec[glac_bin_temp <= modelparameters[6] - 1]
+        bin_prec[glac_bin_temp <= modelparameters[6] - 1] = 0
+        # Otherwise temperature between min/max, then mix of snow/rain using linear relationship between min/max
+        bin_prec[(glac_bin_temp < modelparameters[6] + 1) & (glac_bin_temp > modelparameters[6] - 1)] = ((1/2 + (
+            glac_bin_temp[(glac_bin_temp < modelparameters[6] + 1) & (glac_bin_temp > modelparameters[6] - 1)] - 
+            modelparameters[6]) / 2) * bin_prec[(glac_bin_temp < modelparameters[6] + 1) & (glac_bin_temp > 
+            modelparameters[6] - 1)])
+        bin_acc[(glac_bin_temp < modelparameters[6] + 1) & (glac_bin_temp > modelparameters[6] - 1)] = ((1 - (1/2 + (
+            glac_bin_temp[(glac_bin_temp < modelparameters[6] + 1) & (glac_bin_temp > modelparameters[6] - 1)] - 
+            modelparameters[6]) / 2)) * bin_prec[(glac_bin_temp < modelparameters[6] + 1) & (glac_bin_temp > 
+            modelparameters[6] - 1)])
+    else:
+        print("This option for 'option_accumulation' does not exist.  Please choose an option that exists."
+              "Exiting model run.\n")
+    return bin_prec, bin_acc
 
 
 def downscaletemp2bins(glacier_table, gcm_temp, gcm_elev, elev_bins, modelparameters):

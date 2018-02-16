@@ -154,17 +154,17 @@ if input.option_calibration == 1:
 #for n in range(len(prec_factor_range)):
 #    prec_factor = prec_factor_range[n]
 
-for glac in range(main_glac_rgi.shape[0]):
+#for glac in range(main_glac_rgi.shape[0]):
 #for glac in range(50):
-#for glac in [0]:
+for glac in [0]:
 
     lr_gcm = input.lr_gcm
     lr_glac = input.lr_glac
     prec_factor = input.prec_factor
     prec_grad = input.prec_grad
-    ddf_snow = input.DDF_snow
-    ddf_ice = input.DDF_ice
-    temp_snow = input.T_snow
+    ddf_snow = input.ddf_snow
+    ddf_ice = input.ddf_ice
+    temp_snow = input.temp_snow
     
     # Set model parameters
     modelparameters = [lr_gcm, lr_glac, prec_factor, prec_grad, ddf_snow, ddf_ice, temp_snow]
@@ -408,3 +408,42 @@ print('Step 5 time:', timeelapsed_step5, "s\n")
 #climate.createcsv_GCMvarnearestneighbor(input.gcm_prec_filename, input.gcm_prec_varname, dates_table, main_glac_rgi, 
 #                                        output_csvfullfilename)
 #np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
+
+## Write precipitation corrections
+#glacier_table = glacier_rgi_table.copy()
+#gcm_prec = glacier_gcm_prec.copy()
+#gcm_elev = glacier_gcm_elev.copy()
+#
+## Precipitation using precipitation factor and precipitation gradient
+#bin_prec = (gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - glacier_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
+#
+#
+## Apply corrections over uppermost 25% of glacier in accordance with Huss and Hock (2015); this is supposed to 
+##  account for decreased moisture content and wind erosion at higher elevation
+#surfacetype, firnline_idx = massbalance.surfacetypebinsinitial(glacier_area_t0, glacier_rgi_table, elev_bins)
+#bin_prec[surfacetype == 0] = 0
+#
+#glac_idx_
+## Indices that define the glacier terminus
+#glac_idx_upper25 = (glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / 
+#                                 glac_idx_t0.shape[0] * 100 < input.terminus_percentage])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -65,12 +65,12 @@ indexname = 'GlacNo'
 rgi_regionsO1 = [15]
 #  enter integer(s) in brackets, e.g., [13, 14]
 # 2nd order region numbers (RGI V6.0)
-#rgi_regionsO2 = 'all'
-rgi_regionsO2 = [2]
+rgi_regionsO2 = 'all'
+#rgi_regionsO2 = [2]
 #  enter 'all' to include all subregions or enter integer(s) in brackets to specify specific subregions, e.g., [5, 6]. 
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = ['03473', '03733']
-rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
 #  enter 'all' to include all glaciers within (sub)region(s) or enter a string of complete glacier number for specific 
 #  glaciers, e.g., ['05000', '07743'] for glaciers '05000' and '07743'
 # Dictionary of hypsometry filenames
@@ -232,7 +232,7 @@ gcm_lon_varname = 'longitude'
 gcm_time_varname = 'time'
 
 # Calibration option
-option_calibration = 1
+option_calibration = 0
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Calibration datasets
@@ -269,12 +269,12 @@ prec_factor = 1
 # Precipitation gradient on glacier [% m-1]
 prec_grad = 0.0001
 # Degree-day factor of ice [m w.e. d-1 degC-1]
-DDF_ice = 7.2 * 10**-3
+ddf_ice = 7.2 * 10**-3
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-DDF_snow = 3.6 * 10**-3
+ddf_snow = 3.6 * 10**-3
 # Temperature threshold for snow (C)
-T_snow = 1.5
+temp_snow = 1.5
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 
 # DDF firn 
@@ -282,7 +282,7 @@ option_DDF_firn = 1
 #  Option 1 (default) - DDF_firn is average of DDF_ice and DDF_snow (Huss and Hock, 2015)
 #  Option 0 - DDF_firn equal to DDF_snow (m w.e. d-1 degC-1)
 # DDF debris
-DDF_debris = DDF_ice
+ddf_debris = ddf_ice
 # Reference elevation options for downscaling climate variables
 option_elev_ref_downscale = 'Zmed'
 #  Option 1 (default) - 'Zmed', median glacier elevation
