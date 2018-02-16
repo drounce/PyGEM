@@ -155,6 +155,7 @@ if input.option_calibration == 1:
 #    prec_factor = prec_factor_range[n]
 
 for glac in range(main_glac_rgi.shape[0]):
+#for glac in range(50):
 #for glac in [0]:
 
     lr_gcm = input.lr_gcm
@@ -177,7 +178,7 @@ for glac in range(main_glac_rgi.shape[0]):
     icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
     width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
     
-    if input.option_calibration == 0:    
+    if input.option_calibration == 0:  
         # Run the mass balance function (spinup years have been removed from output)
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
@@ -203,7 +204,7 @@ for glac in range(main_glac_rgi.shape[0]):
                                glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual, 
                                glac_bin_surfacetype_annual)
     #  ADJUST NETCDF FILE FOR CALIBRATION
-    elif input.option_calibration == 1:
+    elif input.option_calibration == 1 and np.isnan(main_glac_calmassbal[glac,0]) == False:
         # Optimized parameters
         # Define the function that you are trying to minimize
         #  modelparameters are the parameters that will be optimized
@@ -288,7 +289,7 @@ for glac in range(main_glac_rgi.shape[0]):
         #  'L-BFGS-B' - much slower
         # Print the optimal parameter set
         print(modelparameters_opt.x)
-        main_glac_modelparamsopt[glac,:] = modelparameters_opt.x
+        main_glac_modelparamsopt[glac] = modelparameters_opt.x
         # Re-run the optimized parameters in order to see the mass balance
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
@@ -307,7 +308,7 @@ for glac in range(main_glac_rgi.shape[0]):
                                        glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() / 
                                        glacier_area_t0.sum() / massbal_years)
         massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
-        main_glac_massbal_compare[glac,:] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
+        main_glac_massbal_compare[glac] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
                                              massbal_difference]
         print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
         
@@ -321,7 +322,7 @@ for glac in range(main_glac_rgi.shape[0]):
             #  'L-BFGS-B' - much slower
             # Print the optimal parameter set
             print(modelparameters_opt.x)
-            main_glac_modelparamsopt[glac,:] = modelparameters_opt.x
+            main_glac_modelparamsopt[glac] = modelparameters_opt.x
             # Re-run the optimized parameters in order to see the mass balance
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
@@ -340,8 +341,8 @@ for glac in range(main_glac_rgi.shape[0]):
                                            glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() / 
                                            glacier_area_t0.sum() / massbal_years)
             massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
-            main_glac_massbal_compare[glac,:] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
-                                                 massbal_difference]
+            main_glac_massbal_compare[glac] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
+                                               massbal_difference]
             print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
             
         # Optimization Round #3: if tolerance not reached, vary precfactor, DDFsnow/ice, and lr_gcm
@@ -355,7 +356,7 @@ for glac in range(main_glac_rgi.shape[0]):
             #  'L-BFGS-B' - much slower
             # Print the optimal parameter set
             print(modelparameters_opt.x)
-            main_glac_modelparamsopt[glac,:] = modelparameters_opt.x
+            main_glac_modelparamsopt[glac] = modelparameters_opt.x
             # Re-run the optimized parameters in order to see the mass balance
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
@@ -374,11 +375,12 @@ for glac in range(main_glac_rgi.shape[0]):
                                            glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() / 
                                            glacier_area_t0.sum() / massbal_years)
             massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
-            main_glac_massbal_compare[glac,:] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
-                                                 massbal_difference]
+            main_glac_massbal_compare[glac] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
+                                               massbal_difference]
             print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
-            
-
+    else:
+        main_glac_modelparamsopt[glac] = float('NaN')
+        main_glac_massbal_compare[glac] = float('NaN')
         # create parameter matrix for each optimized glacier - fill the rest with NaN
         
 ## Plot the results
