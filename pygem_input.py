@@ -288,6 +288,19 @@ option_elev_ref_downscale = 'Zmed'
 #  Option 1 (default) - 'Zmed', median glacier elevation
 #  Option 2 - 'Zmax', maximum glacier elevation
 #  Option 3 - 'Zmin', minimum glacier elevation (terminus)
+# Downscale temperature to bins options
+option_temp2bins = 1
+#  Option 1 (default) - lr_gcm and lr_glac to adjust temperature from gcm to the glacier bins
+# Downscale precipitation to bins options
+option_prec2bins = 1
+#  Option 1 (default) - prec_factor and prec_grad to adjust precipitation from gcm to the glacier bins
+# Accumulation erosion
+option_preclimit = 1
+#  Option 1 (default) - limit the uppermost 25% using an expontial fxn
+# Accumulation options
+option_accumulation = 2
+#  Option 1 (default) - Single threshold (<= snow, > rain)
+#  Option 2 - single threshold +/- 1 deg uses linear interpolation
 # Temperature adjustment options
 option_adjusttemp_surfelev = 1
 #  Option 1 (default) - yes, adjust temperature
@@ -298,10 +311,6 @@ option_surfacetype = 1
 # Surface ablation options
 option_surfaceablation = 1
 #  Option 1 (default) - DDF for snow, ice, and debris
-# Surface accumulation options
-option_accumulation = 2
-#  Option 1 (default) - Single threshold (<= snow, > rain)
-#  Option 2 - single threshold +/- 1 deg uses linear interpolation
 # Refreezing model options
 option_refreezing = 2
 #  Option 1 (default) - heat conduction approach (Huss and Hock, 2015)
@@ -311,13 +320,6 @@ refreeze_depth = 10
 # Refreeze month
 refreeze_month = 10
 #  required for air temperature approach to set when the refreeze is included
-# Downscale precipitation to bins options
-option_prec2bins = 1
-#  Option 1 (default) - use of precipitation bias factor to adjust GCM value and precipitation gradient on the glacier
-#  Option 2 (need to code) - Huss and Hock (2015), exponential limits, etc.
-# Downscale temperature to bins options
-option_temp2bins = 1
-#  Option 1 (default) - lr_gcm and lr_glac to adjust temperature from gcm to the glacier reference (default: median), 
 # Melt model options
 option_melt_model = 1
 #  Option 1 (default) DDF

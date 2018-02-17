@@ -158,7 +158,10 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
         glac_bin_temp[surfacetype==0,step] = 0
         glac_bin_prec[surfacetype==0,step] = 0
         glac_bin_acc[surfacetype==0,step] = 0
-        glac_bin_refreezepotential[surfacetype==0,step] = 0        
+        glac_bin_refreezepotential[surfacetype==0,step] = 0   
+        # Adjust precipitation of uppermost 25% of glacier for wind erosion and reduced moisture content
+        if input.option_preclimit:
+            print('ADD OPTION TO REDUCE PRECIPITATION')
         # Compute the snow depth and melt for each bin...
         # Snow depth / 'snowpack' [m w.e.] = snow remaining + new snow
         glac_bin_snowpack[:,step] = snowpack_remaining + glac_bin_acc[:,step]
@@ -353,16 +356,12 @@ def downscaleprec2bins(glacier_table, gcm_prec, gcm_elev, bin_temp, elev_bins, m
         bin_precsnow = (gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
                         glacier_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
         #   P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
-#    elif input.option_prec2bins == 2:
-#        # Precipitation using precipitation factor and precipitation gradient
-#        bin_prec = (gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
-#                    glacier_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
-#        # Apply corrections over uppermost 25% of glacier in accordance with Huss and Hock (2015); this is supposed to 
-#        #  account for decreased moisture content and wind erosion at higher elevation
     else:
         print("\nThis option for 'downscaleprec2bins' has not been coded yet. Please choose an existing option."
               "Exiting model run.\n")
         exit()
+    # Option to adjust precipitation of uppermost 25% of glacier in accordance with Huss and Hock (2015) due to 
+    #  decreased moisture content and wind erosion at higher elevations
     # Preallocate accumulation bins
     bin_prec = np.zeros(bin_precsnow.shape)
     bin_acc = np.zeros(bin_precsnow.shape)
@@ -377,11 +376,11 @@ def downscaleprec2bins(glacier_table, gcm_prec, gcm_elev, bin_temp, elev_bins, m
         bin_prec = (1/2 + (bin_temp - modelparameters[6]) / 2) * bin_precsnow
         bin_acc = bin_precsnow - bin_prec
         # If temperature above maximum threshold, then all rain
-        bin_prec[bin_temp >= modelparameters[6] + 1] = bin_precsnow[bin_temp >= modelparameters[6] + 1]
-        bin_acc[bin_temp >= modelparameters[6] + 1] = 0
+        bin_prec[bin_temp > modelparameters[6] + 1] = bin_precsnow[bin_temp > modelparameters[6] + 1]
+        bin_acc[bin_temp > modelparameters[6] + 1] = 0
         # If temperature below minimum threshold, then all snow
-        bin_acc[bin_temp < modelparameters[6] - 1] = bin_precsnow[bin_temp < modelparameters[6] - 1]
-        bin_prec[bin_temp < modelparameters[6] - 1] = 0
+        bin_acc[bin_temp <= modelparameters[6] - 1] = bin_precsnow[bin_temp <= modelparameters[6] - 1]
+        bin_prec[bin_temp <= modelparameters[6] - 1] = 0
     else:
         print("This option for 'option_accumulation' does not exist.  Please choose an option that exists."
               "Exiting model run.\n")
