@@ -87,11 +87,12 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
     glac_bin_area_annual = np.zeros((elev_bins.shape[0], annual_columns.shape[0] + 1))
     glac_bin_width_annual = np.zeros((elev_bins.shape[0], annual_columns.shape[0] + 1))
     # Local variables
-    glac_idx_initial = glacier_area_t0.nonzero()[0] 
     snowpack_remaining = np.zeros(elev_bins.shape[0])
     dayspermonth = dates_table['daysinmonth'].values
     surfacetype_ddf = np.zeros(elev_bins.shape[0])
     refreeze_potential = np.zeros(elev_bins.shape[0])
+    glac_idx_initial = glacier_area_t0.nonzero()[0]
+    #  glac_idx_initial is used with advancing glaciers to ensure no bands added in discontinuous part of glacier
     if input.option_adjusttemp_surfelev == 1:
         # ice thickness initial is used to adjust temps to changes in surface elevation
         icethickness_adjusttemp = icethickness_t0.copy()
@@ -160,8 +161,18 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
         glac_bin_acc[surfacetype==0,step] = 0
         glac_bin_refreezepotential[surfacetype==0,step] = 0   
         # Adjust precipitation of uppermost 25% of glacier for wind erosion and reduced moisture content
+        #  (include in time step, since glacier elevation range may change over time)
         if input.option_preclimit:
+            # Glacier indices
+            glac_idx_t0 = glacier_area_t0.nonzero()[0]
+            # If elevation range is greater than 1000 m, then apply limits
+            if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
+                # Upper 25% indices
+                glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]   
+            
+            
             print('ADD OPTION TO REDUCE PRECIPITATION')
+            
         # Compute the snow depth and melt for each bin...
         # Snow depth / 'snowpack' [m w.e.] = snow remaining + new snow
         glac_bin_snowpack[:,step] = snowpack_remaining + glac_bin_acc[:,step]

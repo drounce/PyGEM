@@ -409,34 +409,36 @@ print('Step 5 time:', timeelapsed_step5, "s\n")
 #                                        output_csvfullfilename)
 #np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
 
-## Write precipitation corrections
-#glacier_table = glacier_rgi_table.copy()
-#gcm_prec = glacier_gcm_prec.copy()
-#gcm_elev = glacier_gcm_elev.copy()
-#
-## Precipitation using precipitation factor and precipitation gradient
-#bin_prec = (gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - glacier_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
-#
-#
-## Apply corrections over uppermost 25% of glacier in accordance with Huss and Hock (2015); this is supposed to 
-##  account for decreased moisture content and wind erosion at higher elevation
-#surfacetype, firnline_idx = massbalance.surfacetypebinsinitial(glacier_area_t0, glacier_rgi_table, elev_bins)
-#bin_prec[surfacetype == 0] = 0
-#
-#glac_idx_
-## Indices that define the glacier terminus
-#glac_idx_upper25 = (glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / 
-#                                 glac_idx_t0.shape[0] * 100 < input.terminus_percentage])
+step = 0
+
+# Apply corrections over uppermost 25% of glacier in accordance with Huss and Hock (2015); this is supposed to 
+#  account for decreased moisture content and wind erosion at higher elevation
+# Glacier indices
+glac_idx_t0 = glacier_area_t0.nonzero()[0]
+# If elevation range is greater than 1000 m, then apply limits
+if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
+    # Upper 25% indices
+    glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]
+    # Exponential decay according to elevation difference from the 75% elevation
+    glac_bin_acc[glac_idx_upper25,step] = (glac_bin_acc[glac_idx_upper25[0],step] * 
+            np.exp(-((elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / (elev_bins[glac_idx_upper25[-1]] - 
+                     elev_bins[glac_idx_upper25[0]]))))
+    # prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
+    # Change in precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
+#    glac_bin_acc[glac_idx_upper25,step][glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max()] = (.875 * glac_bin_acc[glac_idx_t0,step].max())
+    A = glac_bin_acc.copy()
+    B = glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max()
+    C = A[glac_idx_upper25,step]
+    C[B] = 999
+    D = glac_bin_acc.copy()
+    D[glac_idx_upper25,step][glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max()] = 0
+    B = (glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max())
+
+    
+    glac_bin_acc[glac_idx_upper25,step][glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max()] = 0
 
 
-#gcm_prec = glacier_gcm_prec.copy()
-#bin_precsnow = (gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
-#bin_precsnow[glac_bin_surfacetype_annual[:,0] == 0] = 0
-#bin_acc = np.zeros(bin_precsnow.shape)
-#bin_acc[glac_bin_temp < modelparameters[6] - 1] = bin_precsnow[glac_bin_temp < modelparameters[6] - 1]
-
-
-
+  
 
 
 
