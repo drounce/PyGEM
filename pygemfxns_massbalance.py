@@ -165,14 +165,25 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
         if input.option_preclimit:
             # Glacier indices
             glac_idx_t0 = glacier_area_t0.nonzero()[0]
-            # If elevation range is greater than 1000 m, then apply limits
+            # If elevation range is greater than 1000 m, then apply corrections over uppermost 25% of glacier (Huss and 
+            #  Hock, 2015) to account for decreased moisture content and wind erosion at higher elevations
             if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
                 # Upper 25% indices
                 glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]   
-            
-            
-            print('ADD OPTION TO REDUCE PRECIPITATION')
-            
+                # Exponential decay according to elevation difference from the 75% elevation
+                glac_bin_acc[glac_idx_upper25,step] = (glac_bin_acc[glac_idx_upper25[0],step] * 
+                            np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
+                                   (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]])))
+                glac_bin_prec[glac_idx_upper25,step] = (glac_bin_prec[glac_idx_upper25[0],step] * 
+                            np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
+                                   (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]])))
+                #  prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
+                # Change in precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
+                glac_bin_acc[glac_idx_upper25[(glac_bin_acc[glac_idx_upper25,step] < 0.875 * glac_bin_acc[:,step].max()) 
+                             & (glac_bin_acc[glac_idx_upper25,step] != 0)]] = 0.875 * glac_bin_acc[:,step].max()
+                glac_bin_prec[glac_idx_upper25[(glac_bin_prec[glac_idx_upper25,step] < 0.875 * 
+                              glac_bin_prec[:,step].max()) & (glac_bin_prec[glac_idx_upper25,step] != 0)]] = (
+                                  0.875 * glac_bin_prec[:,step].max())            
         # Compute the snow depth and melt for each bin...
         # Snow depth / 'snowpack' [m w.e.] = snow remaining + new snow
         glac_bin_snowpack[:,step] = snowpack_remaining + glac_bin_acc[:,step]

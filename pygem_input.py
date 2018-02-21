@@ -32,6 +32,8 @@ ch_ice = 1.89 * 10**6
 k_ice = 2.33
 # Model tolerance (used to remove low values caused by rounding errors)
 tolerance = 1e-12
+# Gravity [m s-2]
+gravity = 9.81
 
 #------- INPUT FOR STEP ONE --------------------------------------------------
 # STEP ONE: Model Region/Glaciers
@@ -168,7 +170,7 @@ endyear = 2015
 #  water year example: 2000 would end on September 2000
 #  calendar year example: 2000 would end on December 2000
 # Number of years for model spin up [years]
-spinupyears = 0
+spinupyears = 5
 
 # ----- Input required for initial surface type -----
 # Initial surface type options

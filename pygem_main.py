@@ -26,6 +26,7 @@ import netCDF4 as nc
 #from time import strftime
 import timeit
 from scipy.optimize import minimize
+from scipy.stats import linregress
 import matplotlib.pyplot as plt
 
 #========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
@@ -409,46 +410,84 @@ print('Step 5 time:', timeelapsed_step5, "s\n")
 #                                        output_csvfullfilename)
 #np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
 
-step = 0
+gcm_filepath_var = os.getcwd() + '/../Climate_data/ERA_Interim/'
+#  _var refers to variable data; NG refers to New Generation of CMIP5 data, i.e., a homogenized dataset
+# Temperature filename
+gcm_temp_pressurelevels_filename = 'ERAInterim_2015_temp_pressurelevels.nc'
+#  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 
-# Apply corrections over uppermost 25% of glacier in accordance with Huss and Hock (2015); this is supposed to 
-#  account for decreased moisture content and wind erosion at higher elevation
-# Glacier indices
-glac_idx_t0 = glacier_area_t0.nonzero()[0]
-# If elevation range is greater than 1000 m, then apply limits
-if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
-    # Upper 25% indices
-    glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]
-    # Exponential decay according to elevation difference from the 75% elevation
-    glac_bin_acc[glac_idx_upper25,step] = (glac_bin_acc[glac_idx_upper25[0],step] * 
-            np.exp(-((elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / (elev_bins[glac_idx_upper25[-1]] - 
-                     elev_bins[glac_idx_upper25[0]]))))
-    # prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
-    # Change in precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
-#    glac_bin_acc[glac_idx_upper25,step][glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max()] = (.875 * glac_bin_acc[glac_idx_t0,step].max())
-    A = glac_bin_acc.copy()
-    B = glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max()
-    C = A[glac_idx_upper25,step]
-    C[B] = 999
-    D = glac_bin_acc.copy()
-    D[glac_idx_upper25,step][glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max()] = 0
-    B = (glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max())
+## Temperature variable name given by GCM
+#gcm_temp_varname = 't2m'
+##  't2m' for ERA Interim, 'tas' for CMIP5
+#gcm_lat_varname = 'latitude'
+##  'latitude' for ERA Interim, 'lat' for CMIP5
+## Longitude variable name given by GCM
+#gcm_lon_varname = 'longitude'
+##  'longitude' for ERA Interim, 'lon' for CMIP5
+## Time variable name given by GCM
+#gcm_time_varname = 'time'
 
+filefull = gcm_filepath_var + gcm_temp_pressurelevels_filename
+data = xr.open_dataset(filefull)
+glac_variable_series = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
+variablename = 't'
+
+# Explore the dataset properties
+#print('Explore the dataset:\n', data)
+# Explore the variable of interest
+#print('\nExplore the variable of interest:\n', data[variablename])
+# Extract the variable's attributes (ex. units)
+#print(data.variables[variablename].attrs['units'])
+#print('\n\nExplore the data in more detail:')
+#print(data[variablename].isel(time=0, latitude=0, longitude=0))
+
+A_dates = pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m'))
+A_levels = data['level'].values
+A_elev = -8.3144598*288/(9.81*0.0289644)*np.log(A_levels*100/101325)
+for step in range(0,12):
+    print(step)
+    B = data[variablename].isel(time=step,latitude=0,longitude=0).values
+    plt.figure()
+    plt.plot(A_levels,B)
+    ## evenly sampled time at 200ms intervals
+    #t = np.arange(0., 5., 0.2)
     
-    glac_bin_acc[glac_idx_upper25,step][glac_bin_acc[glac_idx_upper25,step] < .875 * glac_bin_acc[glac_idx_t0,step].max()] = 0
+    # red dashes, blue squares and green triangles
+    #plt.plot(t, t, 'r--', t, t**2, 'bs', t, t**3, 'g^')
+    plt.show()
 
+A = data[variablename].isel(latitude=0,longitude=0).values
+A_slope = ((A_elev*A).mean(axis=1) - A_elev.mean()*A.mean(axis=1)) / ((A_elev**2).mean() - (A_elev.mean())**2)
+linregress(A_elev, A[0,:])
 
-  
+#A = pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m'))
+#B = dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]
+## Determine the correct time indices
+#start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+#if input.timestep == 'monthly':
+#    start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+#                         dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+#    end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+#                         dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
 
-
-
-
-
-
-
-
-
-
-
-
-
+## Extract the time series
+#time_series = pd.Series(data.variables[input.gcm_time_varname][:])
+## Find Nearest Neighbor
+#lat_nearidx = (np.abs(main_glac_rgi[input.lat_colname].values[:,np.newaxis] - 
+#                      data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
+#lon_nearidx = (np.abs(main_glac_rgi[input.lon_colname].values[:,np.newaxis] - 
+#                      data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
+##  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
+##  extract the position's value as opposed to having an array
+#for glac in range(main_glac_rgi.shape[0]):
+#    # Select the slice of GCM data for each glacier
+#    glac_variable_series[glac,:] = data[variablename][start_idx:end_idx+1, lat_nearidx[glac], 
+#                                                      lon_nearidx[glac]].values
+## Perform corrections to the data if necessary
+## Surface air temperature corrections
+#if variablename == input.gcm_temp_varname:
+#    if 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'K':
+#        glac_variable_series = glac_variable_series - 273.15
+#        #   Convert from K to deg C
+#    elif input.option_warningmessages == 1:
+#        print('Check units of air temperature from GCM is degrees C.')
