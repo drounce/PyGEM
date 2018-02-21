@@ -34,6 +34,14 @@ k_ice = 2.33
 tolerance = 1e-12
 # Gravity [m s-2]
 gravity = 9.81
+# Standard pressure [Pa]
+pressure_std = 101325
+# Standard temperature [K]
+temp_std = 288.15
+# Universal gas constant [J mol-1 K-1]
+R_gas = 8.3144598
+# Molar mass of Earth's air [kg mol-1]
+molarmass_air = 0.0289644
 
 #------- INPUT FOR STEP ONE --------------------------------------------------
 # STEP ONE: Model Region/Glaciers
@@ -49,7 +57,7 @@ option_glacier_selection = 1
 #  Option 3 - glaciers/regions selected via new table (other inventory)
 # OPTION 1: RGI glacier inventory information
 # Directory name
-main_directory = os.path.dirname(__file__)
+main_directory = os.getcwd()
 # Filepath for RGI files
 rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
 #  file path where the rgi tables are located on the computer

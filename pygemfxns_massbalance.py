@@ -92,7 +92,7 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
     surfacetype_ddf = np.zeros(elev_bins.shape[0])
     refreeze_potential = np.zeros(elev_bins.shape[0])
     glac_idx_initial = glacier_area_t0.nonzero()[0]
-    #  glac_idx_initial is used with advancing glaciers to ensure no bands added in discontinuous part of glacier
+    #  glac_idx_initial is used with advancing glaciers to ensure no bands are added in a discontinuous section
     if input.option_adjusttemp_surfelev == 1:
         # ice thickness initial is used to adjust temps to changes in surface elevation
         icethickness_adjusttemp = icethickness_t0.copy()

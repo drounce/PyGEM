@@ -441,53 +441,57 @@ variablename = 't'
 #print('\n\nExplore the data in more detail:')
 #print(data[variablename].isel(time=0, latitude=0, longitude=0))
 
+# Function question???
+# Add a minimum number of pressure levels?
+#A_elev_idx_range = abs(A_elev_idx_max - A_elev_idx_min) + 1
+
+
+# Extract the pressure levels [Pa]
+if data['level'].attrs['units'] == 'millibars':
+    # Convert pressure levels from millibars to Pa
+    A_levels = data['level'].values * 100
+# Compute the elevation [m a.s.l] of the pressure levels using the barometric pressure formula (pressure in Pa)
+A_elev = -input.R_gas*input.temp_std/(input.gravity*input.molarmass_air)*np.log(A_levels/input.pressure_std)
+# Grab minimum and maximum elevation bands from 
+A_elev_min = main_glac_rgi['Zmin'].min()
+A_elev_max = main_glac_rgi['Zmax'].max()
+# Pressure level indices that span min and max elevations
+A_elev_idx_max = np.where(A_elev_max - A_elev <= 0)[0][-1]
+# if minimum elevation below minimum pressure level, then use lowest pressure level
+if A_elev_min < A_elev[-1]:
+    A_elev_idx_min = A_elev.shape[0] - 1
+else:
+    A_elev_idx_min = np.where(A_elev - A_elev_min <= 0)[0][0]
+# Latitude and longitude indices (nearest neighbor)
+lat_nearidx = (np.abs(main_glac_rgi[input.lat_colname].values[:,np.newaxis] - 
+                      data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
+lon_nearidx = (np.abs(main_glac_rgi[input.lon_colname].values[:,np.newaxis] - 
+                      data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
+#  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
+#  extract the position's value as opposed to having an array
+
+# Extract the dates [month-year]
 A_dates = pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m'))
-A_levels = data['level'].values
-A_elev = -8.3144598*288/(9.81*0.0289644)*np.log(A_levels*100/101325)
-for step in range(0,12):
-    print(step)
-    B = data[variablename].isel(time=step,latitude=0,longitude=0).values
-    plt.figure()
-    plt.plot(A_levels,B)
-    ## evenly sampled time at 200ms intervals
-    #t = np.arange(0., 5., 0.2)
-    
-    # red dashes, blue squares and green triangles
-    #plt.plot(t, t, 'r--', t, t**2, 'bs', t, t**3, 'g^')
-    plt.show()
+# For each year, for each glacier ...
+#for year in range(...) # must account for spinup!
+for year in [0]:
+    #for glac in range(main_glac_rgi.shape[0]):
+    for glac in [0]:
+        # Add in the function to grab data from that particular year...
+        A = data[variablename].isel(level=range(A_elev_idx_max,A_elev_idx_min+1),latitude=lat_nearidx[glac],longitude=lon_nearidx[glac]).values
+        A_slope = ((A_elev[A_elev_idx_max:A_elev_idx_min+1]*A).mean(axis=1) - A_elev[A_elev_idx_max:A_elev_idx_min+1].mean()*A.mean(axis=1)) / ((A_elev[A_elev_idx_max:A_elev_idx_min+1]**2).mean() - (A_elev[A_elev_idx_max:A_elev_idx_min+1].mean())**2)
+        # Extract the dates [month-year]
+        A_dates = pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m'))
+        glac_variable_series[glac,year*12:(year+1)*12] = A_slope
 
-A = data[variablename].isel(latitude=0,longitude=0).values
-A_slope = ((A_elev*A).mean(axis=1) - A_elev.mean()*A.mean(axis=1)) / ((A_elev**2).mean() - (A_elev.mean())**2)
-linregress(A_elev, A[0,:])
-
-#A = pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m'))
-#B = dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]
-## Determine the correct time indices
-#start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
-#if input.timestep == 'monthly':
-#    start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
-#                         dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
-#    end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
-#                         dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
-
-## Extract the time series
-#time_series = pd.Series(data.variables[input.gcm_time_varname][:])
-## Find Nearest Neighbor
-#lat_nearidx = (np.abs(main_glac_rgi[input.lat_colname].values[:,np.newaxis] - 
-#                      data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
-#lon_nearidx = (np.abs(main_glac_rgi[input.lon_colname].values[:,np.newaxis] - 
-#                      data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
-##  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
-##  extract the position's value as opposed to having an array
-#for glac in range(main_glac_rgi.shape[0]):
-#    # Select the slice of GCM data for each glacier
-#    glac_variable_series[glac,:] = data[variablename][start_idx:end_idx+1, lat_nearidx[glac], 
-#                                                      lon_nearidx[glac]].values
-## Perform corrections to the data if necessary
-## Surface air temperature corrections
-#if variablename == input.gcm_temp_varname:
-#    if 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'K':
-#        glac_variable_series = glac_variable_series - 273.15
-#        #   Convert from K to deg C
-#    elif input.option_warningmessages == 1:
-#        print('Check units of air temperature from GCM is degrees C.')
+#for step in range(0,12):
+#    print(step)
+#    B = data[variablename].isel(time=step,latitude=0,longitude=0).values
+#    plt.figure()
+#    plt.plot(A_levels,B)
+#    ## evenly sampled time at 200ms intervals
+#    #t = np.arange(0., 5., 0.2)
+#    
+#    # red dashes, blue squares and green triangles
+#    #plt.plot(t, t, 'r--', t, t**2, 'bs', t, t**3, 'g^')
+#    plt.show()
