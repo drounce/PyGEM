@@ -154,7 +154,7 @@ if input.option_calibration == 1:
 #glac_wide_massbal_record = np.zeros(prec_factor_range.shape)
 #for n in range(len(prec_factor_range)):
 #    prec_factor = prec_factor_range[n]
-
+#
 #for glac in range(main_glac_rgi.shape[0]):
 #for glac in range(50):
 for glac in [0]:
@@ -412,6 +412,183 @@ print('Step 5 time:', timeelapsed_step5, "s\n")
 ##                                        output_csvfullfilename)
 ##np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
        
+#    
+## Insert regional loop here if want to do all regions at the same time.  Separate netcdf files will be generated for
+##  each loop to reduce file size and make files easier to read/share
+#regionO1_number = input.rgi_regionsO1[0]
+## Create output netcdf file
+#if input.output_package != 0:
+#    output.netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns)
+#
+## CREATE A SEPARATE OUTPUT FOR CALIBRATION with only data relevant to calibration
+##   - annual glacier-wide massbal, area, ice thickness, snowline
+#
+## Model parameter output
+#if input.option_calibration == 1:
+#    main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], 7))
+#    main_glac_massbal_compare = np.zeros((main_glac_rgi.shape[0],3))
+#
+## Test range
+##glac = 0
+##prec_factor_low = 0.8
+##prec_factor_high = 2.0
+##prec_factor_step = 0.005
+##prec_factor_range = np.arange(prec_factor_low, prec_factor_high + prec_factor_step, prec_factor_step)
+##glac_wide_massbal_record = np.zeros(prec_factor_range.shape)
+##for n in range(len(prec_factor_range)):
+##    prec_factor = prec_factor_range[n]
+#
+##for glac in range(main_glac_rgi.shape[0]):
+##for glac in range(50):
+#for glac in [0]:
+#
+#    lr_gcm = input.lr_gcm
+#    lr_glac = input.lr_glac
+#    prec_factor = input.prec_factor
+#    prec_grad = input.prec_grad
+#    ddf_snow = input.ddf_snow
+#    ddf_ice = input.ddf_ice
+#    temp_snow = input.temp_snow
+#    
+#    # Set model parameters
+#    modelparameters = [lr_gcm, lr_glac, prec_factor, prec_grad, ddf_snow, ddf_ice, temp_snow]
+#    # Select subset of variables to reduce the amount of data being passed to the function
+#    glacier_rgi_table = main_glac_rgi.loc[glac, :]
+#    glacier_gcm_elev = main_glac_gcmelev[glac]
+#    glacier_gcm_prec = main_glac_gcmprec[glac,:]
+#    glacier_gcm_temp = main_glac_gcmtemp[glac,:]
+#    glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
+#    # Inclusion of ice thickness and width, i.e., loading the values may be only required for Huss mass redistribution!
+#    icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
+#    width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
+#    
+#    A = (glacier_gcm_temp + (modelparameters[0] * (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
+#                    modelparameters[1] * (elev_bins - glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis]
+#                    )
+#massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+#                   width_t0, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, elev_bins, dates_table, 
+#                   annual_columns, annual_divisor)
+#glac = 0
+## Variables to export
+#glac_bin_temp = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_precsnow = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_prec = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_acc = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_refreezepotential = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_refreeze = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_melt = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_meltsnow = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_meltrefreeze = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_meltglac = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_frontalablation = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_snowpack = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_massbalclim = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+#glac_bin_massbalclim_annual = np.zeros((elev_bins.shape[0],annual_columns.shape[0]))
+#glac_bin_surfacetype_annual = np.zeros((elev_bins.shape[0],annual_columns.shape[0]))
+#glac_bin_icethickness_annual = np.zeros((elev_bins.shape[0], annual_columns.shape[0] + 1))
+#glac_bin_area_annual = np.zeros((elev_bins.shape[0], annual_columns.shape[0] + 1))
+#glac_bin_width_annual = np.zeros((elev_bins.shape[0], annual_columns.shape[0] + 1))
+## Local variables
+#snowpack_remaining = np.zeros(elev_bins.shape[0])
+#dayspermonth = dates_table['daysinmonth'].values
+#surfacetype_ddf = np.zeros(elev_bins.shape[0])
+#refreeze_potential = np.zeros(elev_bins.shape[0])
+#glac_idx_initial = glacier_area_t0.nonzero()[0]
+##  glac_idx_initial is used with advancing glaciers to ensure no bands are added in a discontinuous section
+#if input.option_adjusttemp_surfelev == 1:
+#    # ice thickness initial is used to adjust temps to changes in surface elevation
+#    icethickness_adjusttemp = icethickness_t0.copy()
+#    icethickness_adjusttemp[0:icethickness_adjusttemp.nonzero()[0][0]] = (
+#            icethickness_adjusttemp[icethickness_adjusttemp.nonzero()[0][0]])
+#    #  bins that advance need to have an initial ice thickness; otherwise, the temp adjustment will be based on ice
+#    #  thickness - 0, which is wrong  Since advancing bins take the thickness of the previous bin, set the initial 
+#    #  ice thickness of all bins below the terminus to the ice thickness at the terminus.
+## Compute the initial surface type [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
+#surfacetype, firnline_idx = massbalance.surfacetypebinsinitial(glacier_area_t0, glacier_rgi_table, elev_bins)
+## Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
+#surfacetype_ddf_dict = massbalance.surfacetypeDDFdict(modelparameters)
+### Downscale the gcm temperature [degC] to each bin
+##glac_bin_temp = downscaletemp2bins(glacier_rgi_table, glacier_gcm_temp, glacier_gcm_elev, elev_bins,
+##                                   modelparameters)
+### Downscale the gcm precipitation to each bin and separate into liquid and solid precipitation, i.e., 
+###  precipitation [m] and accumulation [m w.e.]
+##glac_bin_prec, glac_bin_acc = downscaleprec2bins(glacier_rgi_table, glacier_gcm_prec, glacier_gcm_elev, 
+##                                                 glac_bin_temp, elev_bins, modelparameters)
+### Compute potential refreeze [m w.e.] for each bin
+##glac_bin_refreezepotential = refreezepotentialbins(glac_bin_temp, dates_table)
+## Enter loop for each timestep (required to allow for snow accumulation which may alter surface type)
+##for step in range(glac_bin_temp.shape[1]):
+#for step in [0]:
+#    # Downscale the gcm temperature [deg C] to each bin
+#    if input.option_temp2bins == 1:
+#        # Downscale using gcm and glacier lapse rates
+#        #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref)
+#        glac_bin_temp[:,step] = (glacier_gcm_temp[step] + modelparameters[0] * 
+#                (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + modelparameters[1] * 
+#                (elev_bins - glacier_rgi_table.loc[input.option_elev_ref_downscale]))
+#    # Option to adjust air temperature based on changes in surface elevation
+#    if input.option_adjusttemp_surfelev == 1:
+#        # Adjust the air temperature
+#        #  T_air = T+air + lr_glac * (icethickness_present - icethickness_initial)
+#        glac_bin_temp[:,step] = (glac_bin_temp[:,step] + modelparameters[1] * (icethickness_t0 - 
+#                                 icethickness_adjusttemp))       
+#        
+#    glac_bin_temp[:,step] = glac_bin_temp[:,step] + 4
+#    
+#    # Downscale the precipitation (liquid and solid) to each elevation bin    
+#    if input.option_prec2bins == 1:
+#        # Downscale using precipitation factor and precipitation gradient
+#        #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
+#        glac_bin_precsnow[:,step] = (glacier_gcm_prec[step] * modelparameters[2] * (1 + modelparameters[3] * 
+#                                     (elev_bins - glacier_rgi_table.loc[input.option_elev_ref_downscale])))
+#    # Option to adjust precipitation of uppermost 25% of glacier for wind erosion and reduced moisture content
+#    if input.option_preclimit:
+#        # Glacier indices
+#        glac_idx_t0 = glacier_area_t0.nonzero()[0]
+#        # If elevation range > 1000 m, then apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
+#        if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
+#            # Indices of upper 25%
+#            glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]   
+#            # Exponential decay according to elevation difference from the 75% elevation
+#            #  prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
+#            glac_bin_precsnow[glac_idx_upper25,step] = (glac_bin_precsnow[glac_idx_upper25[0],step] * 
+#                    np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
+#                           (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]])))
+#            # Precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
+#            glac_bin_precsnow[glac_idx_upper25[(glac_bin_precsnow[glac_idx_upper25,step] < 0.875 * 
+#                    glac_bin_precsnow[glac_idx_t0,step].max()) & (glac_bin_precsnow[glac_idx_upper25,step] != 0)]] = (
+#                    0.875 * glac_bin_precsnow[glac_idx_t0,step].max())
+#    # Separate total precipitation into liquid (glac_bin_prec) and solid (glac_bin_acc)
+#    if input.option_accumulation == 1:
+#        # If temperature above threshold, then rain
+#        glac_bin_prec[glac_bin_temp[:,step] > modelparameters[6], step] = (
+#                glac_bin_precsnow[glac_bin_temp[:,step] > modelparameters[6], step])
+#        # If temperature below threshold, then snow
+#        glac_bin_acc[glac_bin_temp[:,step] <= modelparameters[6], step] = (
+#                glac_bin_precsnow[glac_bin_temp[:,step] <= modelparameters[6], step])
+#    elif input.option_accumulation == 2:
+#        # If temperature between min/max, then mix of snow/rain using linear relationship between min/max
+#        glac_bin_prec[:,step] = (1/2 + (glac_bin_temp[:,step] - modelparameters[6]) / 2) * glac_bin_precsnow[:,step]
+#        glac_bin_acc[:,step] = glac_bin_precsnow[:,step] - glac_bin_prec[:,step]
+#        # If temperature above maximum threshold, then all rain
+#        glac_bin_prec[glac_bin_temp[:,step] > modelparameters[6] + 1, step] = (
+#                glac_bin_precsnow[glac_bin_temp[:,step] > modelparameters[6] + 1, step])
+#        glac_bin_acc[glac_bin_temp[:,step] > modelparameters[6] + 1, step] = 0
+#        # If temperature below minimum threshold, then all snow
+#        glac_bin_acc[glac_bin_temp[:,step] <= modelparameters[6] - 1, step] = (
+#                glac_bin_precsnow[glac_bin_temp[:,step] <= modelparameters[6] - 1, step])
+#        glac_bin_prec[glac_bin_temp[:,step] <= modelparameters[6] - 1, step] = 0
+#        
+##    # Adjust refreeze as well
+##    #  refreeze option 2 uses annual temps, so only do this at the start of each year (step % annual_divisor)
+##    if (input.option_refreezing == 2) & (step % annual_divisor == 0):
+##        glac_bin_refreezepotential[:,step:step+annual_divisor] = refreezepotentialbins(
+##                glac_bin_temp[:,step:step+annual_divisor], dates_table.iloc[step:step+annual_divisor,:])
+#    # Remove input that is off-glacier (required for each timestep as glacier extent may vary over time)
+#    glac_bin_temp[surfacetype==0,step] = 0
+#    glac_bin_prec[surfacetype==0,step] = 0
+#    glac_bin_acc[surfacetype==0,step] = 0
+#    glac_bin_refreezepotential[surfacetype==0,step] = 0   
 
 
 #timeelapsed_step6 = timeit.default_timer() - timestart_step6
