@@ -3,11 +3,9 @@ fxns_massbalance.py is a list of functions that are used to compute the mass
 associated with each glacier for PyGEM.
 """
 #========= LIST OF PACKAGES ==================================================
-import pandas as pd
 import numpy as np
 #========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
 import pygem_input as input
-import pygemfxns_output as output
 #========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
     # ablation_annual - annual ablation for each bin on a specific glacier
     # bin_ablation_mon - monthly surface ablation, which is calculated each year
@@ -331,7 +329,7 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual)
 
 
-#=======================================================================================================================
+#%% ===================================================================================================================
 def annualweightedmean_array(var, dates_table):
     """
     Calculate annual mean of variable according to the timestep.
