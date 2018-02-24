@@ -70,6 +70,7 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
     # Set count to keep track of time position
     count = 0
     for year in range(startyear,endyear+1):
+        print(year)
         fullfilename_year = gcm_filepath + gcm_filename_prefix + str(year) + '.nc'
         data_year = xr.open_dataset(fullfilename_year)
         count = count + 1
