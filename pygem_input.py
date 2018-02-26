@@ -178,7 +178,7 @@ endyear = 2015
 #  water year example: 2000 would end on September 2000
 #  calendar year example: 2000 would end on December 2000
 # Number of years for model spin up [years]
-spinupyears = 0
+spinupyears = 5
 
 # ----- Input required for initial surface type -----
 # Initial surface type options
@@ -240,6 +240,10 @@ gcm_lon_varname = 'longitude'
 #  'longitude' for ERA Interim, 'lon' for CMIP5
 # Time variable name given by GCM
 gcm_time_varname = 'time'
+# Option to use lapse rates derived from pressure levels
+option_lapserate_pressurelevel = 1
+#  Option 0: lapse rates are a calibrated parameter
+#  Option 1: lapse rates are set by the temperatures associated with pressure level data
 
 # Calibration option
 option_calibration = 0
