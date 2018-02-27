@@ -13,6 +13,14 @@ from datetime import datetime
 #========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
 import pygem_input as input
 
+#%% Write csv file from model results
+# Create csv such that not importing the air temperature each time (takes 90 seconds for 13,119 glaciers)
+#output_csvfullfilename = input.main_directory + '/../Output/ERAInterim_elev_15_SouthAsiaEast.csv'
+#climate.createcsv_GCMvarnearestneighbor(input.gcm_prec_filename, input.gcm_prec_varname, dates_table, main_glac_rgi, 
+#                                        output_csvfullfilename)
+#np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
+
+
 #%% Create netcdf file of lapse rates from temperature pressure level data
 def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
                             elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix):

@@ -113,8 +113,8 @@ timeelapsed_step3 = timeit.default_timer() - timestart_step3
 print('Step 3 time:', timeelapsed_step3, "s\n")
 
 #%%=== STEP FOUR: CALIBRATION =========================================================================================
+timestart_step4 = timeit.default_timer()
 if input.option_calibration == 1:
-    timestart_step4a = timeit.default_timer()
 
     #----- IMPORT CALIBRATION DATASETS --------------------------------------------------------------------------------
     # Import geodetic mass balance from David Shean
@@ -129,13 +129,8 @@ if input.option_calibration == 1:
     #glac = 1
     ## Grab the mass balance based on the RGIId Order 1 glacier number
     #main_glac_calmassbal[glac,:] = ds_subset[np.where(np.in1d(ds_subset[:,0],rgi_O1Id[glac])==True)[0][0],1:]
-    
-    timeelapsed_step4a = timeit.default_timer() - timestart_step4a
-    print('Step 4a time:', timeelapsed_step4a, "s\n")
-    
+
     #----- ENTER CALIBRATION RUN --------------------------------------------------------------------------------------
-    timestart_step4b = timeit.default_timer()
-    
     # [INSERT REGIONAL LOOP HERE] if want to do all regions at the same time.  Separate netcdf files will be generated
     #  for each loop to reduce file size and make files easier to read/share
     regionO1_number = input.rgi_regionsO1[0]
@@ -349,11 +344,11 @@ if input.option_calibration == 1:
             main_glac_modelparamsopt[glac] = float('NaN')
             main_glac_massbal_compare[glac] = float('NaN')
 
-    timeelapsed_step4b = timeit.default_timer() - timestart_step4b
-    print('Step 4 time:', timeelapsed_step4b, "s\n")
+timeelapsed_step4 = timeit.default_timer() - timestart_step4
+print('Step 4 time:', timeelapsed_step4, "s\n")
 
-#%%=== STEP FOUR: SIMULATION RUN ======================================================================================
-timestart_step4 = timeit.default_timer()
+#%%=== STEP FIVE: SIMULATION RUN ======================================================================================
+timestart_step5 = timeit.default_timer()
 
 if input.option_calibration == 0:
     # [INSERT REGIONAL LOOP HERE] if want to do all regions at the same time.  Separate netcdf files will be generated
@@ -425,77 +420,17 @@ if input.option_calibration == 0:
 #ax2.set_ylim(0,5)
 #plt.show()
 
-timeelapsed_step4 = timeit.default_timer() - timestart_step4
-print('Step 4 time:', timeelapsed_step4, "s\n")
+timeelapsed_step5 = timeit.default_timer() - timestart_step5
+print('Step 5 time:', timeelapsed_step5, "s\n")
 
 #%%=== Model testing ===============================================================================
 #timestart_step6 = timeit.default_timer()
 #netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')
 #netcdf_output.close()
 #
-### Create csv such that not importing the air temperature each time (takes 90 seconds for 13,119 glaciers)
-###output_csvfullfilename = input.main_directory + '/../Output/ERAInterim_elev_15_SouthAsiaEast.csv'
-###climate.createcsv_GCMvarnearestneighbor(input.gcm_prec_filename, input.gcm_prec_varname, dates_table, main_glac_rgi, 
-###                                        output_csvfullfilename)
-###np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
-#       
-#    
-## Insert regional loop here if want to do all regions at the same time.  Separate netcdf files will be generated for
-##  each loop to reduce file size and make files easier to read/share
-#regionO1_number = input.rgi_regionsO1[0]
-## Create output netcdf file
-#if input.output_package != 0:
-#    output.netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns)
-#
-## CREATE A SEPARATE OUTPUT FOR CALIBRATION with only data relevant to calibration
-##   - annual glacier-wide massbal, area, ice thickness, snowline
-#
-## Model parameter output
-#if input.option_calibration == 1:
-#    main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], 7))
-#    main_glac_massbal_compare = np.zeros((main_glac_rgi.shape[0],3))
-#
-## Test range
-##glac = 0
-##prec_factor_low = 0.8
-##prec_factor_high = 2.0
-##prec_factor_step = 0.005
-##prec_factor_range = np.arange(prec_factor_low, prec_factor_high + prec_factor_step, prec_factor_step)
-##glac_wide_massbal_record = np.zeros(prec_factor_range.shape)
-##for n in range(len(prec_factor_range)):
-##    prec_factor = prec_factor_range[n]
-#
-##for glac in range(main_glac_rgi.shape[0]):
-##for glac in range(50):
-#for glac in [0]:
-#
-#    # Input model parameters for each glacier
-#    lr_gcm = input.lr_gcm
-#    lr_glac = input.lr_glac
-#    prec_factor = input.prec_factor
-#    prec_grad = input.prec_grad
-#    ddf_snow = input.ddf_snow
-#    ddf_ice = input.ddf_ice
-#    temp_snow = input.temp_snow
-#    # Set model parameters
-#    modelparameters = [lr_gcm, lr_glac, prec_factor, prec_grad, ddf_snow, ddf_ice, temp_snow]
-#    
-#    # Select subset of variables to reduce the amount of data being passed to the function
-#    glacier_rgi_table = main_glac_rgi.loc[glac, :]
-#    glacier_gcm_elev = main_glac_gcmelev[glac]
-#    glacier_gcm_prec = main_glac_gcmprec[glac,:]
-#    glacier_gcm_temp = main_glac_gcmtemp[glac,:]
-#    glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
-#    # Inclusion of ice thickness and width, i.e., loading the values may be only required for Huss mass redistribution!
-#    icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
-#    width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-#    
-#    (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-#     glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-#     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
-#             massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, glacier_area_t0, 
-#                                        icethickness_t0, width_t0, glacier_gcm_temp, glacier_gcm_prec, 
-#                                        glacier_gcm_elev, elev_bins, dates_table, annual_columns, annual_divisor))
-#
+
+       
+    
+
 #timeelapsed_step6 = timeit.default_timer() - timestart_step6
 #print('Step 6 time:', timeelapsed_step6, "s\n")
