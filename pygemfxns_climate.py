@@ -113,12 +113,11 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates
     "NG" refers to their "new generation" products, which are homogenized.  Additionally, ERA-Interim reanalysis data
     were provided by ECMWF.
     
-    Note: prior to running the script, the user should open the netcdf file in python to determine the names of the keys
-    
-    Output: Pandas DataFrame of nearest neighbor time series for all the glacier in the model run
-    (rows = GlacNo, column = time series)
+    Note: The function is setup to select netcdf data using the dimensions: time, latitude, longitude (in that order).
+          Prior to running the script, the user must check that this is the correct order of the dimensions and the user
+          should open the netcdf file to determine the names of each dimension as they may vary.
     """
-# Import netcdf file
+    # Import netcdf file
     filefull = input.gcm_filepath_var + filename
     data = xr.open_dataset(filefull)
     glac_variable_series = np.zeros((glac_table.shape[0],dates_table.shape[0]))

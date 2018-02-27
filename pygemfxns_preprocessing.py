@@ -64,7 +64,7 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
     time.units = "hours since 1900-01-01 00:00:00"
     time.calendar = "gregorian"
     time[:] = nc.date2num(dates, units=time.units, calendar=time.calendar)
-    lapserate = netcdf_output.createVariable('lapserate', np.float64, ('latitude', 'longitude', 'time'))
+    lapserate = netcdf_output.createVariable('lapserate', np.float64, ('time', 'latitude', 'longitude'))
     lapserate.long_name = "lapse rate"
     lapserate.units = "degC m-1"
     # Set count to keep track of time position
@@ -82,12 +82,12 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
                                      elev[elev_idx_max:elev_idx_min+1].mean() * data_subset.mean(axis=1)) / 
                                     ((elev[elev_idx_max:elev_idx_min+1]**2).mean() - 
                                      (elev[elev_idx_max:elev_idx_min+1].mean())**2))
-                lapserate[lat,lon,12*(count-1):12*count] = lapserate_subset
+                lapserate[12*(count-1):12*count,lat,lon] = lapserate_subset
                 # Takes roughly 4 minutes per year to compute the lapse rate for each lat/lon combo in HMA
     netcdf_output.close()
         
 # Application of the lapserate_createnetcdf function
-gcm_filepath = os.getcwd() + '/../Climate_data/ERA_Interim/'
+gcm_filepath = os.getcwd() + '/../Climate_data/ERA_Interim/HMA_temp_pressurelevel_data/'
 gcm_filename_prefix = 'HMA_EraInterim_temp_pressurelevels_'
 tempname = 't'
 levelname = 'level'
@@ -101,3 +101,51 @@ output_filepath = '../Output/'
 output_filename_prefix = 'HMA_Regions13_14_15_ERAInterim_lapserates'
 lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
                         elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
+
+#%% Conslidate the WGMS data into a single csv file for a given WGMS-defined region
+##def WGMS_consolidate_data():
+##    """
+##    Consolidate data associated with WGMS calibration
+##    """
+##    # Application of the lapserate_createnetcdf function
+##
+##    fullfilename = gcm_filepath + gcm_filename_prefix + str(startyear) + '.nc'
+#    
+## Application of the WGMS_consolidate_data fxn
+#filepath = os.getcwd() + '/../WGMS/Asia_South_East_MB_glac_method/'
+#filename_prefix = 'FoG_MB_'
+#    
+#data = None
+#for filename in os.listdir(filepath):
+#    try:
+#        # try reading csv with default encoding
+#        data_subset = pd.read_csv(filepath + filename, delimiter = ';', skiprows=13, quotechar='"')
+#    except:
+#        # except try reading with latin1, which handles accents
+#        data_subset = pd.read_csv(filepath + filename, delimiter = ';', skiprows=13, quotechar='"', encoding='latin1')
+#        
+#    # Append data to create one dataframe
+#    if data is None:
+#        data = data_subset
+#    else:
+#        data = data.append(data_subset)
+## Sort data according to ID and survey year
+#data = data.sort_values(by=['WGMS_ID', 'SURVEY_YEAR'])     
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

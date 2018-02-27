@@ -90,10 +90,9 @@ if input.option_gcm_downscale == 1:
     # Elevation [m a.s.l] associated with air temperature data
     main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(input.gcm_elev_filename, input.gcm_elev_varname, 
                                                                   main_glac_rgi)
-    # Lapse rates [degC m-1]
-
-                
-                
+    
+    # ADD IN LAPSE RATES AND THEN ADD TO REGULAR FUNCTIONS
+    # Lapse rates [degC m-1]  
     
     # Add GCM time series to the dates_table
     dates_table['date_gcm'] = main_glac_gcmdate
@@ -406,62 +405,6 @@ if input.option_calibration == 1:
 #print('Step 5 time:', timeelapsed_step5, "s\n")
 
 #%%=== Model testing ===============================================================================
-    # Lapse Rate [degC m-1]
-#    main_glac_gcmlapserate = 
-    
-    
-#filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
-#variablename = 'lapserate'
-filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-variablename = 't2m'
-glac_table = main_glac_rgi
-# Import netcdf file
-filefull = input.gcm_filepath_var + filename
-data = xr.open_dataset(filefull)
-glac_variable_series = np.zeros((glac_table.shape[0],dates_table.shape[0]))
-## Explore the dataset properties
-# print('Explore the dataset:\n', data)
-## Explore the variable of interest
-# print('\nExplore the variable of interest:\n', data[variablename])
-## Extract the variable's attributes (ex. units)
-# print(data.variables[variablename].attrs['units'])
-# print('\n\nExplore the data in more detail:')
-# print(data[variablename].isel(time=0, latitude=0, longitude=0))
-# Determine the correct time indices
-if input.timestep == 'monthly':
-    start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
-                         dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
-    end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
-                         dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
-    #  np.where finds the index position where to values are equal
-    #  pd.Series(data.variables[gcm_time_varname]) creates a pandas series of the time variable associated with the 
-    #  netcdf
-    #  .apply(lambda x: x.strftime('%Y-%m')) converts the timestamp to a string with YYYY-MM to enable the 
-    #  comparison
-    #    > different climate dta can have different date formats, so this standardization for comparison is 
-    #      important
-    #      ex. monthly data may provide date from 1st of month or from middle of month, so YYYY-MM-DD would not work
-    #  The same processing is done for the dates_table['date'] to facilitate the comparison
-    #  [0] is used to access the first date
-    #  dates_table.shape[0] - 1 is used to access the last date
-    #  The final indexing [0][0] is used to access the value, which is inside of an array containing extraneous 
-    #  information
-# Extract the time series
-time_series = pd.Series(data.variables[input.gcm_time_varname][start_idx:end_idx+1])
-# Find Nearest Neighbor
-lat_nearidx = (np.abs(glac_table[input.lat_colname].values[:,np.newaxis] - 
-                      data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
-lon_nearidx = (np.abs(glac_table[input.lon_colname].values[:,np.newaxis] - 
-                      data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
-#  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
-#  extract the position's value as opposed to having an array
-batman = np.zeros(glac_variable_series.shape)
-for glac in range(glac_table.shape[0]):
-    # Select the slice of GCM data for each glacier
-#    glac_variable_series[glac,:] = data[variablename][lat_nearidx[glac], lon_nearidx[glac],start_idx:end_idx+1,].values
-#    glac_variable_series[glac,:] = data[variablename][start_idx:end_idx+1, lat_nearidx[glac], lon_nearidx[glac]].values
-    batman[glac,:] = data[variablename].isel(time=range(start_idx,end_idx+1), latitude=lat_nearidx[glac], longitude=lon_nearidx[glac]).values
-
 #timestart_step6 = timeit.default_timer()
 #
 ###netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')
