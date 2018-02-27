@@ -86,43 +86,44 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
                 # Takes roughly 4 minutes per year to compute the lapse rate for each lat/lon combo in HMA
     netcdf_output.close()
         
-# Application of the lapserate_createnetcdf function
-gcm_filepath = os.getcwd() + '/../Climate_data/ERA_Interim/HMA_temp_pressurelevel_data/'
-gcm_filename_prefix = 'HMA_EraInterim_temp_pressurelevels_'
-tempname = 't'
-levelname = 'level'
-latname = 'latitude'
-lonname = 'longitude'
-elev_idx_max = 1
-elev_idx_min = 10
-startyear = 1979
-endyear = 2017
-output_filepath = '../Output/'
-output_filename_prefix = 'HMA_Regions13_14_15_ERAInterim_lapserates'
-lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
-                        elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
+## Application of the lapserate_createnetcdf function
+#gcm_filepath = os.getcwd() + '/../Climate_data/ERA_Interim/HMA_temp_pressurelevel_data/'
+#gcm_filename_prefix = 'HMA_EraInterim_temp_pressurelevels_'
+#tempname = 't'
+#levelname = 'level'
+#latname = 'latitude'
+#lonname = 'longitude'
+#elev_idx_max = 1
+#elev_idx_min = 10
+#startyear = 1979
+#endyear = 2017
+#output_filepath = '../Output/'
+#output_filename_prefix = 'HMA_Regions13_14_15_ERAInterim_lapserates'
+#lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
+#                        elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
 
-#%% Conslidate the WGMS data into a single csv file for a given WGMS-defined region
-##def WGMS_consolidate_data():
-##    """
-##    Consolidate data associated with WGMS calibration
-##    """
-##    # Application of the lapserate_createnetcdf function
-##
-##    fullfilename = gcm_filepath + gcm_filename_prefix + str(startyear) + '.nc'
-#    
-## Application of the WGMS_consolidate_data fxn
-#filepath = os.getcwd() + '/../WGMS/Asia_South_East_MB_glac_method/'
-#filename_prefix = 'FoG_MB_'
+#%% Conslidate the WGMS data into a single csv file for a given WGMS-defined region  
+### Inputs for mass balance glaciological method
+###filepath = os.getcwd() + '/../WGMS/Asia_South_East_MB_glac_method/'
+##filepath = os.getcwd() + '/../WGMS/Asia_South_West_MB_glac_method/'
+##filename_prefix = 'FoG_MB_'
+##skiprows_value = 13
+#
+## Inputs for mass balance (glacier thickness change) from geodetic approach
+##filepath = os.getcwd() + '/../WGMS/Asia_South_East_Thickness_change_geodetic/'
+#filepath = os.getcwd() + '/../WGMS/Asia_South_West_Thickness_change_geodetic/'
+#filename_prefix = 'FoG_TC_'
+#skiprows_value = 16
 #    
 #data = None
 #for filename in os.listdir(filepath):
+#    print(filename)
 #    try:
 #        # try reading csv with default encoding
-#        data_subset = pd.read_csv(filepath + filename, delimiter = ';', skiprows=13, quotechar='"')
+#        data_subset = pd.read_csv(filepath + filename, delimiter = ';', skiprows=skiprows_value, quotechar='"')
 #    except:
 #        # except try reading with latin1, which handles accents
-#        data_subset = pd.read_csv(filepath + filename, delimiter = ';', skiprows=13, quotechar='"', encoding='latin1')
+#        data_subset = pd.read_csv(filepath + filename, delimiter = ';', skiprows=skiprows_value, quotechar='"', encoding='latin1')
 #        
 #    # Append data to create one dataframe
 #    if data is None:
