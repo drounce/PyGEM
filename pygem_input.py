@@ -221,6 +221,8 @@ gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
 #  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
 # Precipitation filename
 gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
+# Lapse rate filename
+gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
 # Elevation filename
 gcm_elev_filename = 'ERAInterim_geopotential.nc'
 # Temperature variable name given by GCM
@@ -229,6 +231,8 @@ gcm_temp_varname = 't2m'
 # Precipitation variable name given by GCM
 gcm_prec_varname = 'tp'
 #  'tp' for ERA Interim, 'pr' for CMIP5
+# Lapse rate variable name
+gcm_lapserate_varname = 'lapserate'
 # Elevation variable name given by GCM
 gcm_elev_varname = 'z'
 #  'z' for ERA Interim, 'orog' for CMIP5
