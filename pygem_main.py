@@ -90,12 +90,13 @@ if input.option_gcm_downscale == 1:
     # Elevation [m a.s.l] associated with air temperature  and precipitation data
     main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(input.gcm_elev_filename, input.gcm_elev_varname, 
                                                                   main_glac_rgi)
-    # Lapse rates [degC m-1]  
-    main_glac_gcmlapserate, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-            input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, dates_table, start_date, end_date)
-    
     # Add GCM time series to the dates_table
     dates_table['date_gcm'] = main_glac_gcmdate
+    # Lapse rates [degC m-1]  
+    if input.option_lapserate_fromgcm == 1:
+        main_glac_gcmlapserate, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
+                input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, dates_table, start_date, 
+                end_date)
 elif input.option_gcm_downscale == 2:
     # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
     #  this simply saves time from re-running the fxns above
@@ -145,24 +146,30 @@ if input.option_calibration == 1:
     main_glac_massbal_compare = np.zeros((main_glac_rgi.shape[0],3))
 
     #for glac in range(main_glac_rgi.shape[0]):
-    #for glac in range(50):
+#    for glac in range(50):
     for glac in [0]:
     
-        lr_gcm = input.lr_gcm
-        lr_glac = input.lr_glac
-        prec_factor = input.prec_factor
-        prec_grad = input.prec_grad
-        ddf_snow = input.ddf_snow
-        ddf_ice = input.ddf_ice
-        temp_snow = input.temp_snow
+        lrgcm = input.lrgcm
+        lrglac = input.lrglac
+        precfactor = input.precfactor
+        precgrad = input.precgrad
+        ddfsnow = input.ddfsnow
+        ddfice = input.ddfice
+        tempsnow = input.tempsnow
         
         # Set model parameters
-        modelparameters = [lr_gcm, lr_glac, prec_factor, prec_grad, ddf_snow, ddf_ice, temp_snow]
+        modelparameters = [lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow]
         # Select subset of variables to reduce the amount of data being passed to the function
         glacier_rgi_table = main_glac_rgi.loc[glac, :]
         glacier_gcm_elev = main_glac_gcmelev[glac]
         glacier_gcm_prec = main_glac_gcmprec[glac,:]
         glacier_gcm_temp = main_glac_gcmtemp[glac,:]
+        if input.option_lapserate_fromgcm == 1:
+            glacier_gcm_lrgcm = main_glac_gcmlapserate[glac]
+            glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        else:
+            glacier_gcm_lrgcm = np.zeros(glacier_gcm_temp.shape) + modelparameters[0]
+            glacier_gcm_lrglac = np.zeros(glacier_gcm_temp.shape) + modelparameters[1]
         glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
         # Inclusion of ice thickness and width, i.e., loading values may be only required for Huss mass redistribution!
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
@@ -179,8 +186,9 @@ if input.option_calibration == 1:
                  glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
                          massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, 
                                                     glacier_area_t0, icethickness_t0, width_t0, glacier_gcm_temp, 
-                                                    glacier_gcm_prec, glacier_gcm_elev, elev_bins, dates_table, 
-                                                    annual_columns, annual_divisor))
+                                                    glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                                    glacier_gcm_lrglac, elev_bins, dates_table, annual_columns, 
+                                                    annual_divisor))
                 # Column index for start and end year based on dates of geodetic mass balance observations
                 massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
                 massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
@@ -198,19 +206,19 @@ if input.option_calibration == 1:
             #  everything goes on one side of the equation compared to zero
             #  ex. return x[0] - input.lr_gcm with an equality constraint means x[0] = input.lr_gcm (see below)
             def constraint_lrgcm(modelparameters):
-                return modelparameters[0] - input.lr_gcm
+                return modelparameters[0] - lrgcm
             def constraint_lrglac(modelparameters):
-                return modelparameters[1] - input.lr_glac
+                return modelparameters[1] - lrglac
             def constraint_precfactor(modelparameters):
-                return modelparameters[2] - input.prec_factor
+                return modelparameters[2] - precfactor
             def constraint_precgrad(modelparameters):
-                return modelparameters[3] - input.prec_grad
+                return modelparameters[3] - precgrad
             def constraint_ddfsnow(modelparameters):
-                return modelparameters[4] - input.DDF_snow
+                return modelparameters[4] - ddfsnow
             def constraint_ddfice(modelparameters):
-                return modelparameters[5] - input.DDF_ice
+                return modelparameters[5] - ddfice
             def constraint_tempsnow(modelparameters):
-                return modelparameters[6] - input.T_snow
+                return modelparameters[6] - tempsnow
             def constraint_ddfice2xsnow(modelparameters):
                 return modelparameters[4] - 0.5*modelparameters[5] 
             def constraint_ddficegtsnow(modelparameters):
@@ -229,8 +237,7 @@ if input.option_calibration == 1:
             con_ddficegtsnow = {'type':'ineq', 'fun':constraint_ddficegtsnow}
             con_lrsequal = {'type':'eq', 'fun':constraint_lrsequal}
             # INITIAL GUESS
-            modelparameters_init = ([input.lr_gcm, input.lr_glac, input.prec_factor, input.prec_grad, input.DDF_snow, 
-                                     input.DDF_ice, input.T_snow])
+            modelparameters_init = ([lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow])
             # PARAMETER BOUNDS
             lrgcm_bnds = (-0.008,-0.004)
             lrglac_bnds = (-0.008,-0.004)
@@ -239,8 +246,8 @@ if input.option_calibration == 1:
             ddfsnow_bnds = (0.00175, 0.0045)
             ddfice_bnds = (0.003, 0.009)
             tempsnow_bnds = (0,2) 
-            modelparameters_bnds = (lrgcm_bnds,lrglac_bnds,precfactor_bnds,precgrad_bnds,ddfsnow_bnds,ddfice_bnds,
-                                   tempsnow_bnds)            
+            modelparameters_bnds = (lrgcm_bnds, lrglac_bnds, precfactor_bnds, precgrad_bnds, ddfsnow_bnds, ddfice_bnds,
+                                    tempsnow_bnds)            
             # OPTIMIZATION ROUND #1: optimize precfactor
             # Select constraints used to optimize precfactor
             cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddfsnow, con_ddfice, con_tempsnow]
@@ -257,8 +264,9 @@ if input.option_calibration == 1:
              glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
                      massbalance.runmassbalance(glac, main_glac_modelparamsopt[glac], regionO1_number, 
                                                 glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
-                                                glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, elev_bins, 
-                                                dates_table, annual_columns, annual_divisor))
+                                                glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                                glacier_gcm_lrglac, elev_bins, dates_table, annual_columns, 
+                                                annual_divisor))
             # Column index for start and end year based on dates of geodetic mass balance observations
             massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
             massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
@@ -290,8 +298,9 @@ if input.option_calibration == 1:
                  glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
                          massbalance.runmassbalance(glac, main_glac_modelparamsopt[glac], regionO1_number, 
                                                     glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
-                                                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, elev_bins, 
-                                                    dates_table, annual_columns, annual_divisor))
+                                                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                                                    glacier_gcm_lrgcm, glacier_gcm_lrglac, elev_bins, dates_table, 
+                                                    annual_columns, annual_divisor))
                 # Column index for start and end year based on dates of geodetic mass balance observations
                 massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
                 massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
@@ -324,8 +333,9 @@ if input.option_calibration == 1:
                  glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
                          massbalance.runmassbalance(glac, main_glac_modelparamsopt[glac], regionO1_number, 
                                                     glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
-                                                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, elev_bins, 
-                                                    dates_table, annual_columns, annual_divisor))
+                                                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                                                    glacier_gcm_lrgcm, glacier_gcm_lrglac, elev_bins, dates_table, 
+                                                    annual_columns, annual_divisor))
                 # Column index for start and end year based on dates of geodetic mass balance observations
                 massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
                 massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
@@ -343,6 +353,24 @@ if input.option_calibration == 1:
         # if calibration data not available for a glacier, then insert NaN into calibration output
             main_glac_modelparamsopt[glac] = float('NaN')
             main_glac_massbal_compare[glac] = float('NaN')
+            
+        # Write output to a .csv - make sure to label columns
+        # It should include the following:
+        #  - main_glac_modelparamsopt
+        #  - main_glac_massbal_compare
+        #  - main_glac_rgi
+        main_glac_caloutput = main_glac_rgi.copy()
+        main_glac_caloutput['MB_model'] = main_glac_massbal_compare[:,0] 
+        main_glac_caloutput['MB_geodetic'] = main_glac_massbal_compare[:,1] 
+        main_glac_caloutput['MB_difference'] = main_glac_massbal_compare[:,2]
+        main_glac_caloutput['lrgcm'] = main_glac_modelparamsopt[:,0] 
+        main_glac_caloutput['lrglac'] = main_glac_modelparamsopt[:,1] 
+        main_glac_caloutput['precfactor'] = main_glac_modelparamsopt[:,2] 
+        main_glac_caloutput['precgrad'] = main_glac_modelparamsopt[:,3] 
+        main_glac_caloutput['ddfsnow'] = main_glac_modelparamsopt[:,4] 
+        main_glac_caloutput['ddfice'] = main_glac_modelparamsopt[:,5] 
+        main_glac_caloutput['tempsnow'] = main_glac_modelparamsopt[:,6] 
+        # OUTPUT TO CSV
 
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
@@ -372,34 +400,42 @@ if input.option_calibration == 0:
     #for glac in range(main_glac_rgi.shape[0]):
     for glac in [0]:
     
-        lr_gcm = input.lr_gcm
-        lr_glac = input.lr_glac
-        prec_factor = input.prec_factor
-        prec_grad = input.prec_grad
-        ddf_snow = input.ddf_snow
-        ddf_ice = input.ddf_ice
-        temp_snow = input.temp_snow
+        lrgcm = input.lrgcm
+        lrglac = input.lrglac
+        precfactor = input.precfactor
+        precgrad = input.precgrad
+        ddfsnow = input.ddfsnow
+        ddfice = input.ddfice
+        tempsnow = input.tempsnow
         
         # Set model parameters
-        modelparameters = [lr_gcm, lr_glac, prec_factor, prec_grad, ddf_snow, ddf_ice, temp_snow]
+        modelparameters = [lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow]
         # Select subset of variables to reduce the amount of data being passed to the function
         glacier_rgi_table = main_glac_rgi.loc[glac, :]
         glacier_gcm_elev = main_glac_gcmelev[glac]
         glacier_gcm_prec = main_glac_gcmprec[glac,:]
         glacier_gcm_temp = main_glac_gcmtemp[glac,:]
+        if input.option_lapserate_fromgcm == 1:
+            glacier_gcm_lrgcm = main_glac_gcmlapserate[glac]
+            glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        else:
+            glacier_gcm_lrgcm = np.zeros(glacier_gcm_temp.shape) + modelparameters[0]
+            glacier_gcm_lrglac = np.zeros(glacier_gcm_temp.shape) + modelparameters[1]
         glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
         # Inclusion of ice thickness and width, i.e., loading values may be only required for Huss mass redistribution!
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-        
+        # MASS BALANCE:
         # Run the mass balance function (spinup years have been removed from output)
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
          glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
                  massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, glacier_area_t0, 
                                             icethickness_t0, width_t0, glacier_gcm_temp, glacier_gcm_prec, 
-                                            glacier_gcm_elev, elev_bins, dates_table, annual_columns, annual_divisor))
-        # Record variables from output package here - need to be in glacier loop since the variables will be overwritten 
+                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, elev_bins, 
+                                            dates_table, annual_columns, annual_divisor))
+        # OUTPUT: Record variables according to output package
+        #  must be done within glacier loop since the variables will be overwritten 
         if input.output_package != 0:
             output.netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
                                glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
@@ -427,10 +463,19 @@ print('Step 5 time:', timeelapsed_step5, "s\n")
 #timestart_step6 = timeit.default_timer()
 #netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')
 #netcdf_output.close()
-#
 
-       
-    
+# Create histograms of the output for each region!
+#filepath = os.getcwd() + '/../Output/'
+#filename = 'calibration_R15O2_20180216.csv'
+#    
+#data = pd.read_csv(filepath + filename)
+#data.hist(column='MB Difference', bins=50)
+#data.hist(column='precfactor', bins=50)
+#data[data['ddfsnow'] != 0.0036].hist(column='ddfsnow', bins=50)
+#data[data['lr_gcm'] != -0.0065].hist(column='lr_gcm', bins=50)
+
+# count() counts the number of non-nan values
+#data.count()
 
 #timeelapsed_step6 = timeit.default_timer() - timestart_step6
 #print('Step 6 time:', timeelapsed_step6, "s\n")

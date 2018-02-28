@@ -250,7 +250,7 @@ option_lapserate_pressurelevel = 1
 #  Option 1: lapse rates are set by the temperatures associated with pressure level data
 
 # Calibration option
-option_calibration = 0
+option_calibration = 1
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Calibration datasets
@@ -277,22 +277,22 @@ massbal_tolerance = 0.1
 #   Enter brief description of user options here.
 
 # Lapse rate from gcm to glacier [K m-1]
-lr_gcm = -0.0065
+lrgcm = -0.0065
 # Lapse rate on glacier for bins [K m-1]
-lr_glac = -0.0065
+lrglac = -0.0065
 # Precipitation correction factor [-]
-prec_factor = 1
+precfactor = 1
 #  k_p in Radic et al. (2013)
 #  c_prec in Huss and Hock (2015)
 # Precipitation gradient on glacier [% m-1]
-prec_grad = 0.0001
+precgrad = 0.0001
 # Degree-day factor of ice [m w.e. d-1 degC-1]
-ddf_ice = 7.2 * 10**-3
+ddfice = 7.2 * 10**-3
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-ddf_snow = 3.6 * 10**-3
+ddfsnow = 3.6 * 10**-3
 # Temperature threshold for snow (C)
-temp_snow = 1.5
+tempsnow = 1.5
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 
 # DDF firn 
@@ -300,7 +300,7 @@ option_DDF_firn = 1
 #  Option 1 (default) - DDF_firn is average of DDF_ice and DDF_snow (Huss and Hock, 2015)
 #  Option 0 - DDF_firn equal to DDF_snow (m w.e. d-1 degC-1)
 # DDF debris
-ddf_debris = ddf_ice
+ddfdebris = ddfice
 # Reference elevation options for downscaling climate variables
 option_elev_ref_downscale = 'Zmed'
 #  Option 1 (default) - 'Zmed', median glacier elevation
@@ -309,6 +309,14 @@ option_elev_ref_downscale = 'Zmed'
 # Downscale temperature to bins options
 option_temp2bins = 1
 #  Option 1 (default) - lr_gcm and lr_glac to adjust temperature from gcm to the glacier bins
+# Adjust temperatures based on changes in surface elevation option
+option_adjusttemp_surfelev = 1
+#  Option 1 (default) - yes, adjust temperature
+#  Option 0 - do not adjust temperature
+# Lapse rates from pressure level temperatures or given value option
+option_lapserate_fromgcm = 1
+#  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
+#  Option 0 - lapse rates are constant defined by input
 # Downscale precipitation to bins options
 option_prec2bins = 1
 #  Option 1 (default) - prec_factor and prec_grad to adjust precipitation from gcm to the glacier bins
@@ -320,9 +328,7 @@ option_accumulation = 2
 #  Option 1 (default) - Single threshold (<= snow, > rain)
 #  Option 2 - single threshold +/- 1 deg uses linear interpolation
 # Temperature adjustment options
-option_adjusttemp_surfelev = 1
-#  Option 1 (default) - yes, adjust temperature
-#  Option 2 - do not adjust temperature
+
 # Surface type options
 option_surfacetype = 1
 #  How is surface type considered, annually?

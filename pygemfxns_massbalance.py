@@ -55,8 +55,8 @@ import pygem_input as input
 
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                   width_t0, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, elev_bins, dates_table, 
-                   annual_columns, annual_divisor):
+                   width_t0, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                   glacier_gcm_lrglac, elev_bins, dates_table, annual_columns, annual_divisor):
     # Variables to export
     glac_bin_temp = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
     glac_bin_prec = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
@@ -104,10 +104,10 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
             if input.option_temp2bins == 1:
                 # Downscale using gcm and glacier lapse rates
                 #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref)
-                glac_bin_temp[:,12*year:12*(year+1)] = (glacier_gcm_temp[12*year:12*(year+1)] + (modelparameters[0] * 
-                     (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + modelparameters[1] * 
-                     (elev_bins - glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
-                #  note: A + B[:,np.newaxis] adds two arrays together to produce a matrix adding together all combos
+                glac_bin_temp[:,12*year:12*(year+1)] = (glacier_gcm_temp[12*year:12*(year+1)] + 
+                     glacier_gcm_lrgcm[12*year:12*(year+1)] * (glacier_rgi_table.loc[input.option_elev_ref_downscale] - 
+                     glacier_gcm_elev) + glacier_gcm_lrglac[12*year:12*(year+1)] * (elev_bins - 
+                     glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis])
             # Option to adjust air temperature based on changes in surface elevation
             if input.option_adjusttemp_surfelev == 1:
                 # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)
@@ -321,7 +321,7 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
             icethickness_t0 = icethickness_t1.copy()
             glacier_area_t0 = glacier_area_t1.copy()
             width_t0 = width_t1.copy()  
-#    # Remove the spinup years of the variables that are being exported
+    # Remove the spinup years of the variables that are being exported
 #    if input.timestep == 'monthly':
 #        colstart = input.spinupyears * annual_divisor
 #        colend = glacier_gcm_temp.shape[0] + 1
@@ -338,7 +338,7 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
 #    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,input.spinupyears:annual_columns.shape[0]+1]
 #    glac_bin_width_annual = glac_bin_width_annual[:,input.spinupyears:annual_columns.shape[0]+1]
 #    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,input.spinupyears:annual_columns.shape[0]+1]
-#    # Return the desired output
+    # Return the desired output
     return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual)
