@@ -465,52 +465,67 @@ timeelapsed_step5 = timeit.default_timer() - timestart_step5
 print('Step 5 time:', timeelapsed_step5, "s\n")
 
 #%%=== Model testing ===============================================================================
-#timestart_step6 = timeit.default_timer()
-#netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')
-#netcdf_output.close()
-
-# Create histograms of the output for each region!
-#import os
-#import pandas as pd
+##netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')
+##netcdf_output.close()
+#
+## Create histograms of the output for each region!
 #filepath = os.getcwd() + '/../Output/'
 #filename = 'calibration_R15O2_20180216.csv'
 #    
 #data = pd.read_csv(filepath + filename)
-## Plot histograms
-#data.hist(column='MB Difference', bins=50)
-#plt.title('Mass Balance Difference (mwea)')
-#data.hist(column='precfactor', bins=50)
-#data['precfactor'][data['precfactor'] == 0.8].count()
-#data['precfactor'][data['precfactor'] == 2].count()
+### Plot histograms
+##data.hist(column='MB Difference', bins=50)
+##plt.title('Mass Balance Difference (mwea)')
+##data.hist(column='precfactor', bins=50)
+##data[data['ddfsnow'] != 0.0036].hist(column='ddfsnow', bins=50)
+##data['ddfsnow'][data['ddfsnow'] != 0.0036].count()
+##data[data['lr_gcm'] != -0.0065].hist(column='lr_gcm', bins=50)
 #
-#data[data['ddfsnow'] != 0.0036].hist(column='ddfsnow', bins=50)
-#data['ddfsnow'][data['ddfsnow'] != 0.0036].count()
-#data[data['lr_gcm'] != -0.0065].hist(column='lr_gcm', bins=50)
-
-#import cartopy.crs as ccrs
-#ax = plt.axes(projection=ccrs.PlateCarree())
-#ax.coastlines()
-#plt.show()
-import cartopy
-#import cartopy.crs as ccrs
-# Set extent
-east = 80
-west = 90
-south = 25
-north = 35
-
-# drop NaN values
-data_subset = data.dropna()
-#lats = data[]
-ax = plt.axes(projection=cartopy.crs.PlateCarree())
-ax.coastlines()
-ax.add_feature(cartopy.feature.BORDERS)
-ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
-plt.show()
-
-
-## count() counts the number of non-nan values
-#data['precfactor'][data['precfactor']!=0.8].count()
-#data[data['precfactor'] == 0.8].count()
-#timeelapsed_step6 = timeit.default_timer() - timestart_step6
-#print('Step 6 time:', timeelapsed_step6, "s\n")
+#
+#import cartopy
+##import cartopy.crs as ccrs
+## Set extent
+#east = 84
+#west = 96
+#south = 25
+#north = 30
+#xtick = 1
+#ytick = 1
+#
+## Drop NaN values
+#data = data.dropna()
+## Select relevant data
+#lats = data['CenLat'][:]
+#lons = data['CenLon'][:]
+#precfactor = data['precfactor'][:]
+#massbal = data['MB Geodetic']
+#
+#def plot_latlonvar(lons, lats, variable, title, xlabel, ylabel, east, west, south, north, xtick, ytick):
+#    """
+#    Plot a variable according to its latitude and longitude
+#    """
+#    # Create the projection
+#    ax = plt.axes(projection=cartopy.crs.PlateCarree())
+#    # Add country borders for reference
+#    ax.add_feature(cartopy.feature.BORDERS)
+#    # Set the extent
+#    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
+#    # Label title, x, and y axes
+#    plt.title(title)
+#    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+#    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+#    plt.xlabel(xlabel)
+#    plt.ylabel(ylabel)
+#    # Plot the data 
+#    plt.scatter(lons, lats, c=variable)
+#    #  plotting x, y, size [s=__], color bar [c=__]
+##    plt.colorbar()
+#    plt.colorbar(fraction=0.02, pad=0.04)
+#    #  fraction resizes the colorbar, pad is the space between the plot and colorbar
+#    plt.show()
+#
+#plot_latlonvar(lons, lats, precfactor, 'precipitation factor', 'longitude [deg]', 'latitude [deg]', east, west, south,
+#               north, xtick, ytick)
+#plot_latlonvar(lons, lats, massbal, 'Geodetic mass balance [mwea]', 'longitude [deg]', 'latitude [deg]', east, west, 
+#               south, north, xtick, ytick)
+#
