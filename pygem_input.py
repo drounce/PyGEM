@@ -389,8 +389,10 @@ output_package = 0
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, 
     #                                             massbal_clim)
     #             annual variables for each bin (area, icethickness, surfacetype)
+output_filepath = '../Output/'
+calibrationcsv_filenameprefix = 'calibration_'
 netcdf_filenameprefix = 'PyGEM_output_rgiregion'
-netcdf_filepath = '../Output/'
+
 
 
 

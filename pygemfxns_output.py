@@ -27,7 +27,7 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
     """
     # Netcdf file path and name
     filename = input.netcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
-    fullfile = input.netcdf_filepath + filename
+    fullfile = input.output_filepath + filename
     # Create netcdf file ('w' will overwrite existing files, 'r+' will open existing file to write)
     netcdf_output = nc.Dataset(fullfile, 'w', format='NETCDF4')
     # Global attributes
@@ -197,7 +197,7 @@ def netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_
     """
     # Netcdf file path and name
     filename = input.netcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
-    fullfile = input.netcdf_filepath + filename
+    fullfile = input.output_filepath + filename
     # Open netcdf file to write to existing file ('r+')
     netcdf_output = nc.Dataset(fullfile, 'r+')
     # Record the variables for each glacier (remove data associated with spinup years)

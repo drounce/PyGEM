@@ -35,6 +35,7 @@ import pygemfxns_modelsetup as modelsetup
 import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 import pygemfxns_output as output
+#import cartopy
 
 #%%======== DEVELOPER'S TO-DO LIST ====================================================================================
 # > Output log file, i.e., file that states input parameters, date of model run, model options selected, 
@@ -143,7 +144,7 @@ if input.option_calibration == 1:
     #   - annual glacier-wide massbal, area, ice thickness, snowline
     # Model parameter output
     main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], 7))
-    main_glac_massbal_compare = np.zeros((main_glac_rgi.shape[0],3))
+    main_glac_massbal_compare = np.zeros((main_glac_rgi.shape[0],4))
 
     #for glac in range(main_glac_rgi.shape[0]):
 #    for glac in range(50):
@@ -175,6 +176,8 @@ if input.option_calibration == 1:
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
         
+        # Record the calibration round
+        calround = 0
         # Run calibration only for glaciers that have calibration data 
         if np.isnan(main_glac_calmassbal[glac,0]) == False:
             # OPTIMIZATION FUNCTION: Define the function that you are trying to minimize
@@ -241,7 +244,7 @@ if input.option_calibration == 1:
             # PARAMETER BOUNDS
             lrgcm_bnds = (-0.008,-0.004)
             lrglac_bnds = (-0.008,-0.004)
-            precfactor_bnds = (0.8,2.0)
+            precfactor_bnds = (0.5,2.0)
             precgrad_bnds = (0.0001,0.00025)
             ddfsnow_bnds = (0.00175, 0.0045)
             ddfice_bnds = (0.003, 0.009)
@@ -252,11 +255,12 @@ if input.option_calibration == 1:
             # Select constraints used to optimize precfactor
             cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddfsnow, con_ddfice, con_tempsnow]
             # Run the optimization
+            #  'L-BFGS-B' - much slower
             modelparameters_opt = minimize(objective, modelparameters_init, method='SLSQP', bounds=modelparameters_bnds,
                                            constraints=cons, tol=1e-3)
-            #  'L-BFGS-B' - much slower
-            # Print the optimal parameter set
-            print(modelparameters_opt.x)
+            # Record the calibration round
+            calround = calround + 1
+            # Record the optimized parameters
             main_glac_modelparamsopt[glac] = modelparameters_opt.x
             # Re-run the optimized parameters in order to see the mass balance
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
@@ -278,7 +282,7 @@ if input.option_calibration == 1:
                                            glacier_area_t0.sum() / massbal_years)
             massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
             main_glac_massbal_compare[glac] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
-                                                 massbal_difference]
+                                               massbal_difference, calround]
             print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
             
             # OPTIMIZATION ROUND #2: if tolerance not reached, vary precfactor, DDFsnow/ice
@@ -288,9 +292,9 @@ if input.option_calibration == 1:
                 # Run optimization
                 modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
                                                bounds=modelparameters_bnds, constraints=cons, tol=1e-3)
-                #  'L-BFGS-B' - much slower
-                # Print the optimal parameter set
-                print(modelparameters_opt.x)
+                # Record the calibration round
+                calround = calround + 1
+                # Record the optimized parameters
                 main_glac_modelparamsopt[glac] = modelparameters_opt.x
                 # Re-run the optimized parameters in order to see the mass balance
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
@@ -312,7 +316,7 @@ if input.option_calibration == 1:
                                                glacier_area_t0.sum() / massbal_years)
                 massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
                 main_glac_massbal_compare[glac] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
-                                                   massbal_difference]
+                                                   massbal_difference, calround]
                 print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
                 
             # OPTIMIZATION ROUND #3: if tolerance not reached, vary precfactor, DDFsnow/ice, and lr_gcm
@@ -323,9 +327,9 @@ if input.option_calibration == 1:
                 modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
                                                bounds=modelparameters_bnds, constraints=cons, tol=1e-4)
                 #  requires higher tolerance due to the increase in parameters being optimized
-                #  'L-BFGS-B' - much slower
-                # Print the optimal parameter set
-                print(modelparameters_opt.x)
+                # Record the calibration round
+                calround = calround + 1
+                # Record the optimized parameters
                 main_glac_modelparamsopt[glac] = modelparameters_opt.x
                 # Re-run the optimized parameters in order to see the mass balance
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
@@ -347,22 +351,20 @@ if input.option_calibration == 1:
                                                glacier_area_t0.sum() / massbal_years)
                 massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
                 main_glac_massbal_compare[glac] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
-                                                   massbal_difference]
+                                                   massbal_difference, calround]
                 print(glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], massbal_difference, '\n')
         else:
         # if calibration data not available for a glacier, then insert NaN into calibration output
             main_glac_modelparamsopt[glac] = float('NaN')
             main_glac_massbal_compare[glac] = float('NaN')
             
-        # Write output to a .csv - make sure to label columns
-        # It should include the following:
-        #  - main_glac_modelparamsopt
-        #  - main_glac_massbal_compare
-        #  - main_glac_rgi
+        # Output calibration results to .csv file
+        #  pandas dataframe used instead of numpy arrays here, so column headings can be exported
         main_glac_caloutput = main_glac_rgi.copy()
-        main_glac_caloutput['MB_model'] = main_glac_massbal_compare[:,0] 
-        main_glac_caloutput['MB_geodetic'] = main_glac_massbal_compare[:,1] 
-        main_glac_caloutput['MB_difference'] = main_glac_massbal_compare[:,2]
+        main_glac_caloutput['MB_model_mwea'] = main_glac_massbal_compare[:,0] 
+        main_glac_caloutput['MB_geodetic_mwea'] = main_glac_massbal_compare[:,1] 
+        main_glac_caloutput['MB_difference_mwea'] = main_glac_massbal_compare[:,2]
+        main_glac_caloutput['Cal_rounds'] = main_glac_massbal_compare[:,3]
         main_glac_caloutput['lrgcm'] = main_glac_modelparamsopt[:,0] 
         main_glac_caloutput['lrglac'] = main_glac_modelparamsopt[:,1] 
         main_glac_caloutput['precfactor'] = main_glac_modelparamsopt[:,2] 
@@ -370,8 +372,11 @@ if input.option_calibration == 1:
         main_glac_caloutput['ddfsnow'] = main_glac_modelparamsopt[:,4] 
         main_glac_caloutput['ddfice'] = main_glac_modelparamsopt[:,5] 
         main_glac_caloutput['tempsnow'] = main_glac_modelparamsopt[:,6] 
-        # OUTPUT TO CSV
-
+        # export csv
+        cal_output_fullfile = (input.output_filepath + input.calibrationcsv_filenameprefix + 'R' + str(regionO1_number) 
+                               + '_' + str(strftime("%Y%m%d")) + '.csv')
+        main_glac_caloutput.to_csv(cal_output_fullfile)
+        
 timeelapsed_step4 = timeit.default_timer() - timestart_step4
 print('Step 4 time:', timeelapsed_step4, "s\n")
 
@@ -465,17 +470,47 @@ print('Step 5 time:', timeelapsed_step5, "s\n")
 #netcdf_output.close()
 
 # Create histograms of the output for each region!
+#import os
+#import pandas as pd
 #filepath = os.getcwd() + '/../Output/'
 #filename = 'calibration_R15O2_20180216.csv'
 #    
 #data = pd.read_csv(filepath + filename)
+## Plot histograms
 #data.hist(column='MB Difference', bins=50)
+#plt.title('Mass Balance Difference (mwea)')
 #data.hist(column='precfactor', bins=50)
+#data['precfactor'][data['precfactor'] == 0.8].count()
+#data['precfactor'][data['precfactor'] == 2].count()
+#
 #data[data['ddfsnow'] != 0.0036].hist(column='ddfsnow', bins=50)
+#data['ddfsnow'][data['ddfsnow'] != 0.0036].count()
 #data[data['lr_gcm'] != -0.0065].hist(column='lr_gcm', bins=50)
 
-# count() counts the number of non-nan values
-#data.count()
+#import cartopy.crs as ccrs
+#ax = plt.axes(projection=ccrs.PlateCarree())
+#ax.coastlines()
+#plt.show()
+import cartopy
+#import cartopy.crs as ccrs
+# Set extent
+east = 80
+west = 90
+south = 25
+north = 35
 
+# drop NaN values
+data_subset = data.dropna()
+#lats = data[]
+ax = plt.axes(projection=cartopy.crs.PlateCarree())
+ax.coastlines()
+ax.add_feature(cartopy.feature.BORDERS)
+ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
+plt.show()
+
+
+## count() counts the number of non-nan values
+#data['precfactor'][data['precfactor']!=0.8].count()
+#data[data['precfactor'] == 0.8].count()
 #timeelapsed_step6 = timeit.default_timer() - timestart_step6
 #print('Step 6 time:', timeelapsed_step6, "s\n")
