@@ -41,7 +41,7 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
         time = netcdf_output.createDimension('time', dates_table.shape[0] - input.spinupyears * 12)
     year = netcdf_output.createDimension('year', annual_columns.shape[0] - input.spinupyears)
     year_plus1 = netcdf_output.createDimension('year_plus1', annual_columns.shape[0] - input.spinupyears + 1)
-    glacierparameter = netcdf_output.createDimension('glacierparameter', 10)
+    glacierparameter = netcdf_output.createDimension('glacierparameter', 11)
     # Variables associated with dimensions 
     glaciers = netcdf_output.createVariable('glacier', np.int32, ('glacier',))
     glaciers.long_name = "glacier number associated with model run"
@@ -78,8 +78,8 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
                                   np.array([annual_columns[annual_columns.shape[0]-1]+1])))
     glacierparameters = netcdf_output.createVariable('glacierparameters',str,('glacierparameter',))
     glacierparameters.standard_name = "important parameters associated with the glacier for the model run"
-    glacierparameters[:] = np.array(['RGIID','lat','lon','lr_gcm','lr_glac','prec_factor','prec_grad','DDF_ice',
-                                     'DDF_snow','T_snow'])
+    glacierparameters[:] = np.array(['RGIID','lat','lon','lrgcm','lrglac','precfactor','precgrad','ddfice',
+                                     'ddfsnow','tempsnow', 'tempchange'])
     glacierparameter = netcdf_output.createVariable('glacierparameter',str,('glacier','glacierparameter',))
     # Variables associated with the output
     if input.output_package == 1:
@@ -205,7 +205,7 @@ def netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_
     netcdf_output.variables['glacierparameter'][glac,:] = np.array([glacier_rgi_table.loc['RGIId'],
         glacier_rgi_table.loc[input.lat_colname],glacier_rgi_table.loc[input.lon_colname], modelparameters[0], 
         modelparameters[1], modelparameters[2], modelparameters[3], modelparameters[4], modelparameters[5], 
-        modelparameters[6]])
+        modelparameters[6], modelparameters[7]])
     if input.output_package == 1:
         # Package 1 "Raw Package" output [units: m w.e. unless otherwise specified]:
         #  monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, massbal_clim)

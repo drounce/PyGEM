@@ -107,7 +107,7 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
                 glac_bin_temp[:,12*year:12*(year+1)] = (glacier_gcm_temp[12*year:12*(year+1)] + 
                      glacier_gcm_lrgcm[12*year:12*(year+1)] * (glacier_rgi_table.loc[input.option_elev_ref_downscale] - 
                      glacier_gcm_elev) + glacier_gcm_lrglac[12*year:12*(year+1)] * (elev_bins - 
-                     glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis])
+                     glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis] + modelparameters[7])
             # Option to adjust air temperature based on changes in surface elevation
             if input.option_adjusttemp_surfelev == 1:
                 # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)
