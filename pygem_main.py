@@ -226,8 +226,8 @@ if input.option_calibration == 1:
                 return modelparameters[6] - tempsnow
             def constraint_tempchange(modelparameters):
                 return modelparameters[7] - tempchange
-            def constraint_ddfice2xsnow(modelparameters):
-                return modelparameters[4] - 0.5*modelparameters[5] 
+            def constraint_ddficefxsnow(modelparameters):
+                return modelparameters[4] - input.ddfsnow_iceratio * modelparameters[5] 
             def constraint_ddficegtsnow(modelparameters):
                 return modelparameters[5] - modelparameters[4]
             def constraint_lrsequal(modelparameters):
@@ -241,7 +241,7 @@ if input.option_calibration == 1:
             con_ddfice = {'type':'eq', 'fun':constraint_ddfice}
             con_tempsnow = {'type':'eq', 'fun':constraint_tempsnow}
             con_tempchange = {'type':'eq', 'fun':constraint_tempchange}
-            con_ddfice2xsnow = {'type':'eq', 'fun':constraint_ddfice2xsnow}
+            con_ddficefxsnow = {'type':'eq', 'fun':constraint_ddficefxsnow}
             con_ddficegtsnow = {'type':'ineq', 'fun':constraint_ddficegtsnow}
             con_lrsequal = {'type':'eq', 'fun':constraint_lrsequal}
             # INITIAL GUESS
@@ -249,17 +249,17 @@ if input.option_calibration == 1:
             # PARAMETER BOUNDS
             lrgcm_bnds = (-0.008,-0.004)
             lrglac_bnds = (-0.008,-0.004)
-            precfactor_bnds = (0.8,2)
+            precfactor_bnds = (0.95,1.25)
             precgrad_bnds = (0.0001,0.00025)
-            ddfsnow_bnds = (0.00175, 0.0045)
-            ddfice_bnds = (0.003, 0.009)
+            ddfsnow_bnds = (0.0036, 0.0056)
+            ddfice_bnds = (0.0036/input.ddfsnow_iceratio, 0.0056/input.ddfsnow_iceratio)
             tempsnow_bnds = (0,2) 
             tempchange_bnds = (-2,2)
             modelparameters_bnds = (lrgcm_bnds, lrglac_bnds, precfactor_bnds, precgrad_bnds, ddfsnow_bnds, ddfice_bnds,
                                     tempsnow_bnds, tempchange_bnds)            
-            # OPTIMIZATION ROUND #1: optimize precfactor
+            # OPTIMIZATION ROUND #1: optimize precfactor, DDFsnow, tempchange
             # Select constraints used to optimize precfactor
-            cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddfsnow, con_ddfice, con_tempsnow, con_tempchange]
+            cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddficefxsnow, con_tempsnow]
             # Run the optimization
             #  'L-BFGS-B' - much slower
             modelparameters_opt = minimize(objective, modelparameters_init, method='SLSQP', bounds=modelparameters_bnds,
@@ -290,12 +290,25 @@ if input.option_calibration == 1:
             main_glac_massbal_compare[glac] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
                                                massbal_difference, calround]
             print('precfactor:', main_glac_modelparamsopt[glac,2])
+            print('ddfsnow:', main_glac_modelparamsopt[glac,4])
+            print('tempchange:', main_glac_modelparamsopt[glac,7])
             print(main_glac_massbal_compare[glac], '\n')
             
-            # OPTIMIZATION ROUND #2: if tolerance not reached, vary precfactor, DDFsnow/ice
+            # OPTIMIZATION ROUND #2: if tolerance not reached, increase bounds
             if massbal_difference > input.massbal_tolerance:
-                # Optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
-                cons = [con_lrgcm, con_lrglac, con_precgrad, con_tempsnow, con_ddfice2xsnow, con_tempchange]
+                # Constraints
+                cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddficefxsnow, con_tempsnow]
+                # Bounds
+                lrgcm_bnds = (-0.008,-0.004)
+                lrglac_bnds = (-0.008,-0.004)
+                precfactor_bnds = (0.9,1.5)
+                precgrad_bnds = (0.0001,0.00025)
+                ddfsnow_bnds = (0.0036, 0.0056)
+                ddfice_bnds = (0.0036/input.ddfsnow_iceratio, 0.0056/input.ddfsnow_iceratio)
+                tempsnow_bnds = (0,2) 
+                tempchange_bnds = (-5,5)
+                modelparameters_bnds = (lrgcm_bnds, lrglac_bnds, precfactor_bnds, precgrad_bnds, ddfsnow_bnds, 
+                                        ddfice_bnds, tempsnow_bnds, tempchange_bnds)  
                 # Run optimization
                 modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
                                                bounds=modelparameters_bnds, constraints=cons, tol=1e-3)
@@ -326,12 +339,24 @@ if input.option_calibration == 1:
                                                    massbal_difference, calround]
                 print('precfactor:', main_glac_modelparamsopt[glac,2])
                 print('ddfsnow:', main_glac_modelparamsopt[glac,4])
+                print('tempchange:', main_glac_modelparamsopt[glac,7])
                 print(main_glac_massbal_compare[glac], '\n')
                 
-            # OPTIMIZATION ROUND #3: if tolerance not reached, vary precfactor, DDFsnow/ice, and lr_gcm
+            # OPTIMIZATION ROUND #3: if tolerance not reached, increase bounds again
             if massbal_difference > input.massbal_tolerance:
-                # Optimize precfactor, DDFsnow, DDFice, and lr_gcm; DDFice = 2 x DDFsnow
-                cons = [con_precgrad, con_tempsnow, con_ddfice2xsnow, con_lrsequal]
+                # Constraints
+                cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddficefxsnow, con_tempsnow]
+                # Bounds
+                lrgcm_bnds = (-0.008,-0.004)
+                lrglac_bnds = (-0.008,-0.004)
+                precfactor_bnds = (0.8,2)
+                precgrad_bnds = (0.0001,0.00025)
+                ddfsnow_bnds = (0.0036, 0.0056)
+                ddfice_bnds = (0.0036/input.ddfsnow_iceratio, 0.0056/input.ddfsnow_iceratio)
+                tempsnow_bnds = (0,2) 
+                tempchange_bnds = (-10,10)
+                modelparameters_bnds = (lrgcm_bnds, lrglac_bnds, precfactor_bnds, precgrad_bnds, ddfsnow_bnds, 
+                                        ddfice_bnds, tempsnow_bnds, tempchange_bnds)  
                 # Run optimization
                 modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
                                                bounds=modelparameters_bnds, constraints=cons, tol=1e-4)
@@ -365,51 +390,6 @@ if input.option_calibration == 1:
                 print('ddfsnow:', main_glac_modelparamsopt[glac,4])
                 print('tempchange:', main_glac_modelparamsopt[glac,7])
                 print(main_glac_massbal_compare[glac], '\n')
-                
-#            # OPTIMIZATION ROUND #4: if tolerance not reached, expand bounds; vary precfactor, DDFsnow/ice, and lr_gcm
-#            if massbal_difference > input.massbal_tolerance:
-#                # Optimize precfactor, DDFsnow, DDFice, and lr_gcm; DDFice = 2 x DDFsnow
-#                cons = [con_precgrad, con_tempsnow, con_ddfice2xsnow, con_lrsequal]
-#                # Expand parameter bounds
-#                precfactor_bnds = (0.3,3)
-#                ddfsnow_bnds = (0.001, 0.006)
-#                ddfice_bnds = (0.002, 0.012)
-#                tempchange_bnds = (-5,5)
-#                modelparameters_bnds = (lrgcm_bnds, lrglac_bnds, precfactor_bnds, precgrad_bnds, ddfsnow_bnds, 
-#                                        ddfice_bnds,tempsnow_bnds, tempchange_bnds)       
-#                # Run optimization
-#                modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
-#                                               bounds=modelparameters_bnds, constraints=cons, tol=1e-4)
-#                #  requires higher tolerance due to the increase in parameters being optimized
-#                # Record the calibration round
-#                calround = calround + 1
-#                # Record the optimized parameters
-#                main_glac_modelparamsopt[glac] = modelparameters_opt.x
-#                # Re-run the optimized parameters in order to see the mass balance
-#                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-#                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-#                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
-#                         massbalance.runmassbalance(glac, main_glac_modelparamsopt[glac], regionO1_number, 
-#                                                    glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
-#                                                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-#                                                    glacier_gcm_lrgcm, glacier_gcm_lrglac, elev_bins, dates_table, 
-#                                                    annual_columns, annual_divisor))
-#                # Column index for start and end year based on dates of geodetic mass balance observations
-#                massbal_idx_start = (main_glac_calmassbal[glac,1] - input.startyear).astype(int)
-#                massbal_idx_end = (massbal_idx_start + main_glac_calmassbal[glac,2] - 
-#                                   main_glac_calmassbal[glac,1] + 1).astype(int)
-#                massbal_years = massbal_idx_end - massbal_idx_start
-#                # Average annual glacier-wide mass balance [m w.e.]
-#                glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] * 
-#                                               glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() / 
-#                                               glacier_area_t0.sum() / massbal_years)
-#                massbal_difference = abs(main_glac_calmassbal[glac,0] - glac_wide_massbalclim_mwea)
-#                main_glac_massbal_compare[glac] = [glac_wide_massbalclim_mwea, main_glac_calmassbal[glac,0], 
-#                                                   massbal_difference, calround]
-#                print('precfactor:', main_glac_modelparamsopt[glac,2])
-#                print('ddfsnow:', main_glac_modelparamsopt[glac,4])
-#                print('tempchange:', main_glac_modelparamsopt[glac,7])
-#                print(main_glac_massbal_compare[glac], '\n')
         else:
         # if calibration data not available for a glacier, then insert NaN into calibration output
             main_glac_modelparamsopt[glac] = float('NaN')

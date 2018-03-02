@@ -77,6 +77,7 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
     glac_bin_width_annual = np.zeros((elev_bins.shape[0], annual_columns.shape[0] + 1))
     # Local variables
     glac_bin_precsnow = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    refreeze_potential = np.zeros(elev_bins.shape[0])
     snowpack_remaining = np.zeros(elev_bins.shape[0])
     dayspermonth = dates_table['daysinmonth'].values
     surfacetype_ddf = np.zeros(elev_bins.shape[0])
@@ -97,8 +98,11 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
     
     # ANNUAL LOOP (daily or monthly timestep contained within loop)
     for year in range(0, annual_columns.shape[0]):
+        # Glacier indices
+        glac_idx_t0 = glacier_area_t0.nonzero()[0]
         # Functions currently set up for monthly timestep
-        if input.timestep == 'monthly':
+        #  only compute mass balance while glacier exists
+        if (input.timestep == 'monthly') and (glac_idx_t0.shape[0] != 0):      
             
             # AIR TEMPERATURE: Downscale the gcm temperature [deg C] to each bin
             if input.option_temp2bins == 1:
@@ -125,8 +129,6 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
                         glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
             # Option to adjust precipitation of uppermost 25% of glacier for wind erosion and reduced moisture content
             if input.option_preclimit:
-                # Glacier indices
-                glac_idx_t0 = glacier_area_t0.nonzero()[0]
                 # If elevation range > 1000 m, then apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
                 if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
                     # Indices of upper 25%
@@ -322,22 +324,22 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
             glacier_area_t0 = glacier_area_t1.copy()
             width_t0 = width_t1.copy()  
     # Remove the spinup years of the variables that are being exported
-#    if input.timestep == 'monthly':
-#        colstart = input.spinupyears * annual_divisor
-#        colend = glacier_gcm_temp.shape[0] + 1
-#    glac_bin_temp = glac_bin_temp[:,colstart:colend]
-#    glac_bin_prec = glac_bin_prec[:,colstart:colend]
-#    glac_bin_acc = glac_bin_acc[:,colstart:colend]
-#    glac_bin_refreeze = glac_bin_refreeze[:,colstart:colend]
-#    glac_bin_snowpack = glac_bin_snowpack[:,colstart:colend]
-#    glac_bin_melt = glac_bin_melt[:,colstart:colend]
-#    glac_bin_frontalablation = glac_bin_frontalablation[:,colstart:colend]
-#    glac_bin_massbalclim = glac_bin_massbalclim[:,colstart:colend]
-#    glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,input.spinupyears:annual_columns.shape[0]+1]
-#    glac_bin_area_annual = glac_bin_area_annual[:,input.spinupyears:annual_columns.shape[0]+1]
-#    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,input.spinupyears:annual_columns.shape[0]+1]
-#    glac_bin_width_annual = glac_bin_width_annual[:,input.spinupyears:annual_columns.shape[0]+1]
-#    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    if input.timestep == 'monthly':
+        colstart = input.spinupyears * annual_divisor
+        colend = glacier_gcm_temp.shape[0] + 1
+    glac_bin_temp = glac_bin_temp[:,colstart:colend]
+    glac_bin_prec = glac_bin_prec[:,colstart:colend]
+    glac_bin_acc = glac_bin_acc[:,colstart:colend]
+    glac_bin_refreeze = glac_bin_refreeze[:,colstart:colend]
+    glac_bin_snowpack = glac_bin_snowpack[:,colstart:colend]
+    glac_bin_melt = glac_bin_melt[:,colstart:colend]
+    glac_bin_frontalablation = glac_bin_frontalablation[:,colstart:colend]
+    glac_bin_massbalclim = glac_bin_massbalclim[:,colstart:colend]
+    glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    glac_bin_area_annual = glac_bin_area_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    glac_bin_width_annual = glac_bin_width_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,input.spinupyears:annual_columns.shape[0]+1]
     # Return the desired output
     return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 

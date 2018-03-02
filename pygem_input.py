@@ -80,8 +80,8 @@ rgi_regionsO2 = 'all'
 #  enter 'all' to include all subregions or enter integer(s) in brackets to specify specific subregions, e.g., [5, 6]. 
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = ['03473', '03733']
-#rgi_glac_number = ['01142']
-rgi_glac_number = 'all'
+rgi_glac_number = ['01204']
+#rgi_glac_number = 'all'
 #  enter 'all' to include all glaciers within (sub)region(s) or enter a string of complete glacier number for specific 
 #  glaciers, e.g., ['05000', '07743'] for glaciers '05000' and '07743'
 # Dictionary of hypsometry filenames
@@ -291,9 +291,11 @@ precgrad = 0.0001
 ddfice = 7.2 * 10**-3
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 3.6 * 10**-3
+ddfsnow = 4.1 * 10**-3
+# Ratio degree-day factor snow snow to ice
+ddfsnow_iceratio = 0.7
 # Temperature threshold for snow [deg C]
-tempsnow = 1.5
+tempsnow = 1
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 # Temperature adjustment [deg C]
 tempchange = 0
