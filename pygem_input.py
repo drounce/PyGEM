@@ -80,7 +80,7 @@ rgi_regionsO2 = 'all'
 #  enter 'all' to include all subregions or enter integer(s) in brackets to specify specific subregions, e.g., [5, 6]. 
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = ['03473', '03733']
-rgi_glac_number = ['01204']
+rgi_glac_number = ['10678']
 #rgi_glac_number = 'all'
 #  enter 'all' to include all glaciers within (sub)region(s) or enter a string of complete glacier number for specific 
 #  glaciers, e.g., ['05000', '07743'] for glaciers '05000' and '07743'

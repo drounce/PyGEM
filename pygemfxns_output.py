@@ -14,13 +14,16 @@ import numpy as np
 import netCDF4 as nc
 from time import strftime
 from datetime import datetime
+import matplotlib.pyplot as plt
 #========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
 import pygem_input as input
+import cartopy
 
 #========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
 # Add description of variables...
 
 #========= FUNCTIONS (alphabetical order) ===================================
+#%%===== NETCDF FUNCTIONS =============================================================================================
 def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
     """Create a netcdf file to store the desired output
     Output: empty netcdf file with the proper setup to be filled in by the model
@@ -263,6 +266,77 @@ def netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_
     netcdf_output.close()
 
 
+#%%===== PLOT FUNCTIONS =============================================================================================
+def plot_latlonvar(lons, lats, variable, title, xlabel, ylabel, east, west, south, north, xtick, ytick):
+    """
+    Plot a variable according to its latitude and longitude
+    """
+    # Create the projection
+    ax = plt.axes(projection=cartopy.crs.PlateCarree())
+    # Add country borders for reference
+    ax.add_feature(cartopy.feature.BORDERS)
+    # Set the extent
+    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
+    # Label title, x, and y axes
+    plt.title(title)
+    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    # Plot the data 
+    plt.scatter(lons, lats, c=variable)
+    #  plotting x, y, size [s=__], color bar [c=__]
+    plt.colorbar(fraction=0.02, pad=0.04)
+    #  fraction resizes the colorbar, pad is the space between the plot and colorbar
+    plt.show()
+    
+
+def plot_caloutput(data):
+    """
+    Plot maps and histograms of the calibration parameters to visualize results
+    """
+    # Set extent
+    east = int(round(data['CenLon'].min())) - 1
+    west = int(round(data['CenLon'].max())) + 1
+    south = int(round(data['CenLat'].min())) - 1
+    north = int(round(data['CenLat'].max())) + 1
+    xtick = 1
+    ytick = 1
+    # Select relevant data
+    lats = data['CenLat'][:]
+    lons = data['CenLon'][:]
+    precfactor = data['precfactor'][:]
+    tempchange = data['tempchange'][:]
+    ddfsnow = data['ddfsnow'][:]
+    calround = data['calround'][:]
+    massbal = data['MB_geodetic_mwea']
+    # Plot regional maps
+    plot_latlonvar(lons, lats, massbal, 'Geodetic mass balance [mwea]', 'longitude [deg]', 'latitude [deg]', east, west, 
+               south, north, xtick, ytick)
+    plot_latlonvar(lons, lats, precfactor, 'precipitation factor', 'longitude [deg]', 'latitude [deg]', east, west, 
+                   south, north, xtick, ytick)
+    plot_latlonvar(lons, lats, tempchange, 'Temperature bias [degC]', 'longitude [deg]', 'latitude [deg]', east, west, 
+                   south, north, xtick, ytick)
+    plot_latlonvar(lons, lats, ddfsnow, 'DDF_snow [m w.e. d-1 degC-1]', 'longitude [deg]', 'latitude [deg]', east, west, 
+                   south, north, xtick, ytick)
+    plot_latlonvar(lons, lats, calround, 'Calibration round', 'longitude [deg]', 'latitude [deg]', east, west, 
+                   south, north, xtick, ytick)
+    # Plot histograms
+    data.hist(column='MB_difference_mwea', bins=50)
+    plt.title('Mass Balance Difference [mwea]')
+    data.hist(column='precfactor', bins=50)
+    plt.title('Precipitation factor [-]')
+    data.hist(column='tempchange', bins=50)
+    plt.title('Temperature bias [degC]')
+    data.hist(column='ddfsnow', bins=50)
+    plt.title('DDFsnow [mwe d-1 degC-1]')
+    plt.xticks(rotation=60)
+    data.hist(column='calround', bins = [0.5, 1.5, 2.5, 3.5])
+    plt.title('Calibration round')
+    plt.xticks([1, 2, 3])
+
+
+#%%===== EXTRAS =============================================================================================
 # Extras for writing netcdf:
 #    # Annual variables being recorded for each bin of each glacier
 #    acc_bin_annual = netcdf_output.createVariable('acc_bin_annual', np.float64, ('glacier', 'binelev', 'year'))
