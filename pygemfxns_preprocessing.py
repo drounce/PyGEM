@@ -110,6 +110,80 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
 #lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
 #                        elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
 
+#%% Connect the WGMS point mass balance datasets with the RGIIds and relevant elevation bands
+# Bounding box
+lat_bndN = 46
+lat_bndS = 26
+lon_bndW = 65
+lon_bndE = 105
+
+# Load RGI lookup table 
+rgilookup_filename = input.main_directory + '/../RGI/rgi60/00_rgi60_links/00_rgi60_links.csv'
+rgilookup = pd.read_csv(rgilookup_filename, skiprows=2)
+rgidict = dict(zip(rgilookup['FoGId'], rgilookup['RGIId']))
+# Load WGMS lookup table
+wgmslookup_filename = (input.main_directory + 
+                       '/../Calibration_datasets\DOI-WGMS-FoG-2017-10\WGMS-FoG-2017-10-AA-GLACIER-ID-LUT.csv')
+wgmslookup = pd.read_csv(wgmslookup_filename, encoding='latin1')
+wgmsdict = dict(zip(wgmslookup['WGMS_ID'], wgmslookup['RGI_ID']))
+
+# WGMS POINT MASS BALANCE DATA
+# Load WGMS point mass balance data
+wgms_massbal_pt_filename = (input.main_directory + 
+                            '/../Calibration_datasets\DOI-WGMS-FoG-2017-10/WGMS-FoG-2017-10-EEE-MASS-BALANCE-POINT.csv')
+wgms_massbal_pt = pd.read_csv(wgms_massbal_pt_filename, encoding='latin1')
+
+# Select values based on the bounding box
+wgms_massbal_pt = wgms_massbal_pt[(wgms_massbal_pt['POINT_LAT'] <= lat_bndN) & 
+                                  (wgms_massbal_pt['POINT_LAT'] >= lat_bndS) & 
+                                  (wgms_massbal_pt['POINT_LON'] <= lon_bndE) &
+                                  (wgms_massbal_pt['POINT_LON'] >= lon_bndW)]
+# Remove values without an elevation
+wgms_massbal_pt = wgms_massbal_pt[wgms_massbal_pt['POINT_ELEVATION'].isnull() == False]
+# Select values within yearly range
+wgms_massbal_pt = wgms_massbal_pt[(wgms_massbal_pt['YEAR'] >= input.startyear) & 
+                                  (wgms_massbal_pt['YEAR'] <= input.endyear)]
+# Count unique values
+wgms_massbal_pt_Ids = pd.DataFrame()
+wgms_massbal_pt_Ids['WGMS_ID'] = wgms_massbal_pt['WGMS_ID'].value_counts().index.values
+wgms_massbal_pt_Ids['RGIId'] = np.nan
+wgms_massbal_pt_Ids['RGIId_wgms'] = wgms_massbal_pt_Ids['WGMS_ID'].map(wgmsdict)
+wgms_massbal_pt_Ids['RGIId_rgi'] = wgms_massbal_pt_Ids['WGMS_ID'].map(rgidict)
+# Manually add additional points
+manualdict = {10402: 'RGI60-13.10093'}
+wgms_massbal_pt_Ids['RGIId_manual'] = wgms_massbal_pt_Ids['WGMS_ID'].map(manualdict)
+
+for glac in range(wgms_massbal_pt_Ids.shape[0]):
+    if pd.isnull(wgms_massbal_pt_Ids.loc[glac,'RGIId_wgms']) == False:
+        wgms_massbal_pt_Ids.loc[glac,'RGIId'] = wgms_massbal_pt_Ids.loc[glac,'RGIId_wgms']
+    elif pd.isnull(wgms_massbal_pt_Ids.loc[glac,'RGIId_rgi']) == False:
+        wgms_massbal_pt_Ids.loc[glac,'RGIId'] = wgms_massbal_pt_Ids.loc[glac,'RGIId_rgi']
+    elif pd.isnull(wgms_massbal_pt_Ids.loc[glac,'RGIId_manual']) == False:
+        wgms_massbal_pt_Ids.loc[glac,'RGIId'] = wgms_massbal_pt_Ids.loc[glac,'RGIId_manual']
+
+# WGMS GEODETIC MASS BALANCE DATA 
+# Load WGMS geodetic mass balance data
+wgms_massbal_geo_filename = (input.main_directory + 
+                            '/../Calibration_datasets\DOI-WGMS-FoG-2017-10/WGMS-FoG-2017-10-EE-MASS-BALANCE.csv')
+wgms_massbal_geo = pd.read_csv(wgms_massbal_geo_filename, encoding='latin1')
+# Load WGMS glacier table to look up lat/lon that goes with the glacier
+wgms_massbal_geo_lookup_filename = (input.main_directory + 
+                            '/../Calibration_datasets\DOI-WGMS-FoG-2017-10/WGMS-FoG-2017-10-A-GLACIER.csv')
+wgms_massbal_geo_lookup = pd.read_csv(wgms_massbal_geo_lookup_filename, encoding='latin1')
+# Create WGMSID - lat/lon dictionaries
+wgms_latdict = dict(zip(wgms_massbal_geo_lookup['WGMS_ID'], wgms_massbal_geo_lookup['LATITUDE']))
+wgms_londict = dict(zip(wgms_massbal_geo_lookup['WGMS_ID'], wgms_massbal_geo_lookup['LONGITUDE']))
+# Add latitude and longitude to wgms_massbal_measurements
+wgms_massbal_geo['LATITUDE'] = wgms_massbal_geo['WGMS_ID'].map(wgms_latdict)
+wgms_massbal_geo['LONGITUDE'] = wgms_massbal_geo['WGMS_ID'].map(wgms_londict)
+# Select values based on the bounding box
+wgms_massbal_geo = wgms_massbal_geo[(wgms_massbal_geo['LATITUDE'] <= lat_bndN) & 
+                                    (wgms_massbal_geo['LATITUDE'] >= lat_bndS) & 
+                                    (wgms_massbal_geo['LONGITUDE'] <= lon_bndE) &
+                                    (wgms_massbal_geo['LONGITUDE'] >= lon_bndW)]
+# Select only glacier-wide values ()
+#
+
 #%% Conslidate the WGMS data into a single csv file for a given WGMS-defined region  
 ### Inputs for mass balance glaciological method
 ###filepath = os.getcwd() + '/../WGMS/Asia_South_East_MB_glac_method/'

@@ -99,8 +99,6 @@ if input.option_gcm_downscale == 1:
         main_glac_gcmlapserate, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
                 input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, dates_table, start_date, 
                 end_date)
-
-# CHECK THAT THESE MATCH UP WITH THOSE PRODUCED ABOVE ... 
 elif input.option_gcm_downscale == 2:
     # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
     #  this simply saves time from re-running the fxns above
@@ -110,6 +108,10 @@ elif input.option_gcm_downscale == 2:
                                       delimiter=',')
     main_glac_gcmelev = np.genfromtxt(input.gcm_filepath_var + 'csv_ERAInterim_elev_15_SouthAsiaEast.csv', 
                                       delimiter=',')
+    # Lapse rates [degC m-1]  
+    if input.option_lapserate_fromgcm == 1:
+        main_glac_gcmlapserate = np.genfromtxt(input.gcm_filepath_var + 
+                                               'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv', delimiter=',')
 else:
     print('\n\tModel Error: please choose an option that exists for downscaling climate data. Exiting model run now.\n')
     exit()
@@ -506,99 +508,99 @@ if input.option_calibration == 0:
 timeelapsed_step5 = timeit.default_timer() - timestart_step5
 print('Step 5 time:', timeelapsed_step5, "s\n")
 
-#%%=== Model testing ===============================================================================
-##netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')
-##netcdf_output.close()
-
-# Plot histograms and regional variations
-data = pd.read_csv(input.output_filepath + 'calibration_R15_20180302.csv')
-# drop NaN values and select subset of data
-data = data.dropna()
-data = data.iloc[0:1757,:]
-
-def plot_latlonvar(lons, lats, variable, title, xlabel, ylabel, east, west, south, north, xtick, ytick):
-    """
-    Plot a variable according to its latitude and longitude
-    """
-    # Create the projection
-    ax = plt.axes(projection=cartopy.crs.PlateCarree())
-    # Add country borders for reference
-    ax.add_feature(cartopy.feature.BORDERS)
-    # Set the extent
-    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
-    # Label title, x, and y axes
-    plt.title(title)
-    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
-    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    # Plot the data 
-    plt.scatter(lons, lats, c=variable)
-    #  plotting x, y, size [s=__], color bar [c=__]
-    plt.colorbar(fraction=0.02, pad=0.04)
-    #  fraction resizes the colorbar, pad is the space between the plot and colorbar
-    plt.show()
-    
-
-# Set extent
-east = int(round(data['CenLon'].min())) - 1
-west = int(round(data['CenLon'].max())) + 1
-south = int(round(data['CenLat'].min())) - 1
-north = int(round(data['CenLat'].max())) + 1
-xtick = 1
-ytick = 1
-# Select relevant data
-lats = data['CenLat'][:]
-lons = data['CenLon'][:]
-precfactor = data['precfactor'][:]
-tempchange = data['tempchange'][:]
-ddfsnow = data['ddfsnow'][:]
-calround = data['calround'][:]
-massbal = data['MB_geodetic_mwea']
-# Plot regional maps
-plot_latlonvar(lons, lats, massbal, 'Geodetic mass balance [mwea]', 'longitude [deg]', 'latitude [deg]', east, west, 
-           south, north, xtick, ytick)
-
-# Plot precipitation with different scale
-ax = plt.axes(projection=cartopy.crs.PlateCarree())
-# Add country borders for reference
-ax.add_feature(cartopy.feature.BORDERS)
-# Set the extent
-ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
-# Label title, x, and y axes
-plt.title('Precipitation factor [-]')
-ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
-ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
-plt.xlabel('longitude [deg]')
-plt.ylabel('latitude [deg]')
-# Plot the data 
-plt.scatter(lons, lats, c=precfactor)
-#  plotting x, y, size [s=__], color bar [c=__]
-plt.clim(0.8,1.4)
-plt.colorbar(fraction=0.02, pad=0.04)
-#  fraction resizes the colorbar, pad is the space between the plot and colorbar
-plt.show()
-
-## Plot others
-#plot_latlonvar(lons, lats, tempchange, 'Temperature bias [degC]', 'longitude [deg]', 'latitude [deg]', east, west, 
-#               south, north, xtick, ytick)
-#plot_latlonvar(lons, lats, ddfsnow, 'DDF_snow [m w.e. d-1 degC-1]', 'longitude [deg]', 'latitude [deg]', east, west, 
-#               south, north, xtick, ytick)
-#plot_latlonvar(lons, lats, calround, 'Calibration round', 'longitude [deg]', 'latitude [deg]', east, west, 
-#               south, north, xtick, ytick)
-## Plot histograms
-#data.hist(column='MB_difference_mwea', bins=50)
-#plt.title('Mass Balance Difference [mwea]')
-#data.hist(column='precfactor', bins=50)
+##%%=== Model testing ===============================================================================
+###netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180202.nc', 'r+')
+###netcdf_output.close()
+#
+## Plot histograms and regional variations
+#data = pd.read_csv(input.output_filepath + 'calibration_R15_20180302.csv')
+## drop NaN values and select subset of data
+#data = data.dropna()
+#data = data.iloc[0:1757,:]
+#
+#def plot_latlonvar(lons, lats, variable, title, xlabel, ylabel, east, west, south, north, xtick, ytick):
+#    """
+#    Plot a variable according to its latitude and longitude
+#    """
+#    # Create the projection
+#    ax = plt.axes(projection=cartopy.crs.PlateCarree())
+#    # Add country borders for reference
+#    ax.add_feature(cartopy.feature.BORDERS)
+#    # Set the extent
+#    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
+#    # Label title, x, and y axes
+#    plt.title(title)
+#    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+#    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+#    plt.xlabel(xlabel)
+#    plt.ylabel(ylabel)
+#    # Plot the data 
+#    plt.scatter(lons, lats, c=variable)
+#    #  plotting x, y, size [s=__], color bar [c=__]
+#    plt.colorbar(fraction=0.02, pad=0.04)
+#    #  fraction resizes the colorbar, pad is the space between the plot and colorbar
+#    plt.show()
+#    
+#
+## Set extent
+#east = int(round(data['CenLon'].min())) - 1
+#west = int(round(data['CenLon'].max())) + 1
+#south = int(round(data['CenLat'].min())) - 1
+#north = int(round(data['CenLat'].max())) + 1
+#xtick = 1
+#ytick = 1
+## Select relevant data
+#lats = data['CenLat'][:]
+#lons = data['CenLon'][:]
+#precfactor = data['precfactor'][:]
+#tempchange = data['tempchange'][:]
+#ddfsnow = data['ddfsnow'][:]
+#calround = data['calround'][:]
+#massbal = data['MB_geodetic_mwea']
+## Plot regional maps
+#plot_latlonvar(lons, lats, massbal, 'Geodetic mass balance [mwea]', 'longitude [deg]', 'latitude [deg]', east, west, 
+#           south, north, xtick, ytick)
+#
+## Plot precipitation with different scale
+#ax = plt.axes(projection=cartopy.crs.PlateCarree())
+## Add country borders for reference
+#ax.add_feature(cartopy.feature.BORDERS)
+## Set the extent
+#ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
+## Label title, x, and y axes
 #plt.title('Precipitation factor [-]')
-#data.hist(column='tempchange', bins=50)
-#plt.title('Temperature bias [degC]')
-#data.hist(column='ddfsnow', bins=50)
-#plt.title('DDFsnow [mwe d-1 degC-1]')
-#plt.xticks(rotation=60)
-#data.hist(column='calround', bins = [0.5, 1.5, 2.5, 3.5])
-#plt.title('Calibration round')
-#plt.xticks([1, 2, 3])
-    
-## run plot function
-#output.plot_caloutput(data)
+#ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+#ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+#plt.xlabel('longitude [deg]')
+#plt.ylabel('latitude [deg]')
+## Plot the data 
+#plt.scatter(lons, lats, c=precfactor)
+##  plotting x, y, size [s=__], color bar [c=__]
+#plt.clim(0.8,1.4)
+#plt.colorbar(fraction=0.02, pad=0.04)
+##  fraction resizes the colorbar, pad is the space between the plot and colorbar
+#plt.show()
+#
+### Plot others
+##plot_latlonvar(lons, lats, tempchange, 'Temperature bias [degC]', 'longitude [deg]', 'latitude [deg]', east, west, 
+##               south, north, xtick, ytick)
+##plot_latlonvar(lons, lats, ddfsnow, 'DDF_snow [m w.e. d-1 degC-1]', 'longitude [deg]', 'latitude [deg]', east, west, 
+##               south, north, xtick, ytick)
+##plot_latlonvar(lons, lats, calround, 'Calibration round', 'longitude [deg]', 'latitude [deg]', east, west, 
+##               south, north, xtick, ytick)
+### Plot histograms
+##data.hist(column='MB_difference_mwea', bins=50)
+##plt.title('Mass Balance Difference [mwea]')
+##data.hist(column='precfactor', bins=50)
+##plt.title('Precipitation factor [-]')
+##data.hist(column='tempchange', bins=50)
+##plt.title('Temperature bias [degC]')
+##data.hist(column='ddfsnow', bins=50)
+##plt.title('DDFsnow [mwe d-1 degC-1]')
+##plt.xticks(rotation=60)
+##data.hist(column='calround', bins = [0.5, 1.5, 2.5, 3.5])
+##plt.title('Calibration round')
+##plt.xticks([1, 2, 3])
+#    
+### run plot function
+##output.plot_caloutput(data)

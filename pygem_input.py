@@ -80,8 +80,8 @@ rgi_regionsO2 = 'all'
 #  enter 'all' to include all subregions or enter integer(s) in brackets to specify specific subregions, e.g., [5, 6]. 
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = ['03473', '03733']
-rgi_glac_number = ['10678']
-#rgi_glac_number = 'all'
+#rgi_glac_number = ['10678']
+rgi_glac_number = 'all'
 #  enter 'all' to include all glaciers within (sub)region(s) or enter a string of complete glacier number for specific 
 #  glaciers, e.g., ['05000', '07743'] for glaciers '05000' and '07743'
 # Dictionary of hypsometry filenames
@@ -208,7 +208,7 @@ option_surfacetype_debris = 0
 #   The user has the option to choose the type of climate data being used in the
 #   model run, and how that data will be downscaled to the glacier and bins.
 # Option to downscale GCM data
-option_gcm_downscale = 1
+option_gcm_downscale = 2
 #  Option 1 (default): select climate data based on nearest neighbor
 #  Option 2: import prepared csv files (saves time)
 # Filepath to GCM variable files
