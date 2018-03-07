@@ -455,6 +455,9 @@ def annualweightedmean_array(var, dates_table):
 
 def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
                            glac_idx_initial):
+    """
+    ENTER EXPLANATION OF FUNCTION
+    """
     # Reset the annual glacier area and ice thickness
     glacier_area_t1 = np.zeros(glacier_area_t0.shape)
     icethickness_t1 = np.zeros(glacier_area_t0.shape)
@@ -645,7 +648,7 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
         > glac_idx_t0 - single column array of the bin index that is part of the glacier
         > glacier_volumechange - value of glacier-wide volume change [km**3] based on the annual climatic mass balance
         > glac_bin_clim_mwe_annual - single column array of annual climatic mass balance for every bin
-    """
+    """    
     # Apply Huss redistribution if there are at least 3 elevation bands; otherwise, use the mass balance
     # reset variables
     icethickness_t1 = np.zeros(glacier_area_t0.shape)
@@ -677,12 +680,13 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
         icethicknesschange_norm[icethicknesschange_norm < 0] = 0
         # Huss' ice thickness scaling factor, fs_huss [m ice]         
         fs_huss = glacier_volumechange / (glacier_area_t0 * icethicknesschange_norm).sum() * 1000
+        print('fs_huss:',fs_huss)
         #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
         # Volume change [km**3 ice]
         bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
     # Otherwise, compute volume change in each bin based on the climatic mass balance
     else:
-        bin_volumechange = massbalclim_annual / 1000 * glacier_area_t0
+        bin_volumechange = massbalclim_annual / 1000 * glacier_area_t0        
     if input.option_glaciershape == 1:
         # Ice thickness at end of timestep for parabola [m ice]
         #  run in two steps to avoid errors with negative numbers and fractional exponents
@@ -727,8 +731,15 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
         width_t1[glac_idx_t0] = width_t0[glac_idx_t0] * glacier_area_t1[glac_idx_t0] / glacier_area_t0[glac_idx_t0]
     # Ice thickness change [m ice]
     icethickness_change = icethickness_t1 - icethickness_t0
-    # return the ice thickness [m ice] and ice thickness change [m ice]
-    return icethickness_t1, glacier_area_t1, width_t1, icethickness_change
+    # Compute the remaining volume change
+    bin_volumechange_remaining = bin_volumechange - ((glacier_area_t1 * icethickness_t1 - glacier_area_t0 * 
+                                                      icethickness_t0) / 1000)
+    # remove values below tolerance to avoid rounding errors
+    bin_volumechange_remaining[abs(bin_volumechange_remaining) < input.tolerance] = 0
+    # Glacier volume change remaining - if less than zero, then needed for retreat
+    glacier_volumechange_remaining = bin_volumechange_remaining.sum()
+    # return desired output
+    return icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining
 
 
 def refreezepotentialbins(glac_temp, dates_table):
