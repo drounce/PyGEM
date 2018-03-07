@@ -456,7 +456,10 @@ def annualweightedmean_array(var, dates_table):
 def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
                            glac_idx_initial):
     """
-    ENTER EXPLANATION OF FUNCTION
+    Mass is redistributed according to the empirical equations from Huss and Hock (2015).
+    The function will return the updated glacier area, ice thickness, and width.
+    glac_idx_initial is required for advance portion of the function to ensure that the glacier cannot advance to bins
+    where there was no glacier during an advance (e.g., retreat and advance over a steep slope)
     """
     # Reset the annual glacier area and ice thickness
     glacier_area_t1 = np.zeros(glacier_area_t0.shape)
@@ -476,40 +479,31 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
         #  redistribution of gains/losses
         if input.option_massredistribution == 1:
             # Option 1: apply mass redistribution using Huss' empirical geometry change equations
-            icethickness_t1, glacier_area_t1, width_t1, icethickness_change = massredistributioncurveHuss(
-                    icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange,
-                    glac_bin_massbalclim_annual[:, year])
+            icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining = (
+                    massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0,
+                                                glacier_volumechange, glac_bin_massbalclim_annual[:, year]))
         # Glacier retreat
-        #  if glacier retreats (ice thickness < 0), then redistribute mass loss across the rest of the glacier
-        glac_idx_t0_raw = glac_idx_t0.copy()
-        if (icethickness_t1[glac_idx_t0] <= 0).any() == True:
-            # Record glacier area and ice thickness before retreat corrections applied
-            glacier_area_t0_raw = glacier_area_t0.copy()
-            icethickness_t0_raw = icethickness_t0.copy()
-            width_t0_raw = width_t0.copy()
-            #  this is only used when there are less than 3 bins
-        while (icethickness_t1[glac_idx_t0_raw] <= 0).any() == True:
-            # Glacier volume change associated with retreat [km**3]
-            glacier_volumechange_retreat = (-1*(icethickness_t0[glac_idx_t0][icethickness_t1[glac_idx_t0] <= 0] 
-                    / 1000 * glacier_area_t0[glac_idx_t0][icethickness_t1[glac_idx_t0] <= 0]).sum())
-            #  multiplying by -1 makes volume change negative
-            # Glacier volume change remaining [km**3]
-            glacier_volumechange = glacier_volumechange - glacier_volumechange_retreat
-            # update glacier area and ice thickness to account for retreat
-            glacier_area_t0_raw[icethickness_t1 <= 0] = 0
-            icethickness_t0_raw[icethickness_t1 <= 0] = 0
-            width_t0_raw[icethickness_t1 <= 0] = 0
-            glac_idx_t0_raw = glacier_area_t0_raw.nonzero()[0]
-            # Climatic mass balance for the case when there are less than 3 bins and the glacier is retreating, 
+        #  if glacier retreats (ice thickness < 0), then ice thickness is set to zero, and some volume change will need 
+        #   to be redistributed across the rest of the glacier
+        while glacier_volumechange_remaining < 0:
+            glacier_area_t0_retreated = glacier_area_t1.copy()
+            icethickness_t0_retreated = icethickness_t1.copy()
+            width_t0_retreated = width_t1.copy()
+            glacier_volumechange_remaining_retreated = glacier_volumechange_remaining.copy()
+            glac_idx_t0_retreated = glacier_area_t0_retreated.nonzero()[0]            
+            # Set climatic mass balance for the case when there are less than 3 bins  
             #  distribute the remaining glacier volume change over the entire glacier (remaining bins)
-            massbal_clim_retreat = np.zeros(glacier_area_t0_raw.shape)
-            massbal_clim_retreat[glac_idx_t0_raw] = glacier_volumechange/glacier_area_t0_raw.sum() * 1000
-            # Compute mass redistribution
+            massbal_clim_retreat = np.zeros(glacier_area_t0_retreated.shape)
+            massbal_clim_retreat[glac_idx_t0_retreated] = (glacier_volumechange_remaining / 
+                                                           glacier_area_t0_retreated.sum() * 1000)
+            # Mass redistribution 
             if input.option_massredistribution == 1:
                 # Option 1: apply mass redistribution using Huss' empirical geometry change equations
-                icethickness_t1, glacier_area_t1, width_t1, icethickness_change = massredistributioncurveHuss(
-                        icethickness_t0_raw, glacier_area_t0_raw, width_t0_raw, glac_idx_t0_raw, glacier_volumechange,
-                        massbal_clim_retreat)
+                icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining = (
+                        massredistributioncurveHuss(icethickness_t0_retreated, glacier_area_t0_retreated, 
+                                                    width_t0_retreated, glac_idx_t0_retreated, 
+                                                    glacier_volumechange_remaining_retreated, massbal_clim_retreat))                   
+
         # Glacier advances
         #  if glacier advances (ice thickness change exceeds threshold), then redistribute mass gain in new bins
         while (icethickness_change > input.icethickness_advancethreshold).any() == True:     
@@ -680,7 +674,6 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
         icethicknesschange_norm[icethicknesschange_norm < 0] = 0
         # Huss' ice thickness scaling factor, fs_huss [m ice]         
         fs_huss = glacier_volumechange / (glacier_area_t0 * icethicknesschange_norm).sum() * 1000
-        print('fs_huss:',fs_huss)
         #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
         # Volume change [km**3 ice]
         bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
