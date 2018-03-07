@@ -453,14 +453,14 @@ def annualweightedmean_array(var, dates_table):
 #    return bin_temp
    
 
-def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year_index, 
+def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
                            glac_idx_initial):
     # Reset the annual glacier area and ice thickness
     glacier_area_t1 = np.zeros(glacier_area_t0.shape)
     icethickness_t1 = np.zeros(glacier_area_t0.shape)
     width_t1 = np.zeros(glacier_area_t0.shape)
     # Annual glacier-wide volume change [km**3]
-    glacier_volumechange = ((glac_bin_massbalclim_annual[:, year_index] / 1000 * input.density_water / 
+    glacier_volumechange = ((glac_bin_massbalclim_annual[:, year] / 1000 * input.density_water / 
                              input.density_ice * glacier_area_t0).sum())
     #  units: [m w.e.] * (1 km / 1000 m) * (1000 kg / (1 m water * m**2) * (1 m ice * m**2 / 900 kg) * [km**2] 
     #         = km**3 ice          
@@ -475,7 +475,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             # Option 1: apply mass redistribution using Huss' empirical geometry change equations
             icethickness_t1, glacier_area_t1, width_t1, icethickness_change = massredistributioncurveHuss(
                     icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange,
-                    glac_bin_massbalclim_annual[:, year_index])
+                    glac_bin_massbalclim_annual[:, year])
         # Glacier retreat
         #  if glacier retreats (ice thickness < 0), then redistribute mass loss across the rest of the glacier
         glac_idx_t0_raw = glac_idx_t0.copy()
@@ -628,7 +628,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
 
 
 def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange, 
-                           massbalclim_annual):
+                                massbalclim_annual):
     """ 
     Compute the mass redistribution, otherwise known as glacier geometry changes, based on the glacier volume change
     Function Options:
@@ -652,7 +652,7 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
     glacier_area_t1 = np.zeros(glacier_area_t0.shape)
     width_t1 = np.zeros(glacier_area_t0.shape) 
     if glac_idx_t0.shape[0] > 3:
-        #Select the factors for the normalized ice thickness change curve based on glacier area
+        # Select the factors for the normalized ice thickness change curve based on glacier area
         if glacier_area_t0.sum() > 20:
             [gamma, a, b, c] = [6, -0.02, 0.12, 0]
         elif glacier_area_t0.sum() > 5:

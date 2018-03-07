@@ -20,9 +20,9 @@ option_warningmessages = 1
 #  Option 0 - do not print warning messages within script
 
 #------- MODEL PROPERTIES ----------------------------------------------------
-# Density of ice [km m-3]
+# Density of ice [kg m-3]
 density_ice = 900
-# Density of water [km m-3]
+# Density of water [kg m-3]
 density_water = 1000
 # Area of ocean [km2]
 area_ocean = 362.5 * 10**6
@@ -80,8 +80,8 @@ rgi_regionsO2 = 'all'
 #  enter 'all' to include all subregions or enter integer(s) in brackets to specify specific subregions, e.g., [5, 6]. 
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = ['03473', '03733']
-#rgi_glac_number = ['10678']
-rgi_glac_number = 'all'
+rgi_glac_number = ['00535']
+#rgi_glac_number = 'all'
 #  enter 'all' to include all glaciers within (sub)region(s) or enter a string of complete glacier number for specific 
 #  glaciers, e.g., ['05000', '07743'] for glaciers '05000' and '07743'
 # Dictionary of hypsometry filenames
@@ -208,7 +208,7 @@ option_surfacetype_debris = 0
 #   The user has the option to choose the type of climate data being used in the
 #   model run, and how that data will be downscaled to the glacier and bins.
 # Option to downscale GCM data
-option_gcm_downscale = 2
+option_gcm_downscale = 1
 #  Option 1 (default): select climate data based on nearest neighbor
 #  Option 2: import prepared csv files (saves time)
 # Filepath to GCM variable files
@@ -251,7 +251,7 @@ option_lapserate_pressurelevel = 1
 #  Option 1: lapse rates are set by the temperatures associated with pressure level data
 
 # Calibration option
-option_calibration = 1
+option_calibration = 0
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Calibration datasets
@@ -277,28 +277,37 @@ massbal_tolerance = 0.1
 # STEP FOUR: Glacier Evolution
 #   Enter brief description of user options here.
 
+# Option to load calibration parameters for each glacier
+option_loadparameters = 0
+#  Option 1 (default) - csv of glacier parameters
+#  Option 0 - use the parameters set by the input
+# Model parameters filepath, filename, and column names
+modelparams_filepath = main_directory + '/../Calibration_datasets/'
+modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
+modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
+
 # Lapse rate from gcm to glacier [K m-1]
 lrgcm = -0.0065
 # Lapse rate on glacier for bins [K m-1]
 lrglac = -0.0065
 # Precipitation correction factor [-]
-precfactor = 1
+precfactor = 1.09803
 #  k_p in Radic et al. (2013)
 #  c_prec in Huss and Hock (2015)
 # Precipitation gradient on glacier [% m-1]
 precgrad = 0.0001
 # Degree-day factor of ice [m w.e. d-1 degC-1]
-ddfice = 7.2 * 10**-3
+ddfice = 5.49724 * 10**-3
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 4.1 * 10**-3
+ddfsnow = 3.84052 * 10**-3
 # Ratio degree-day factor snow snow to ice
 ddfsnow_iceratio = 0.7
 # Temperature threshold for snow [deg C]
 tempsnow = 1
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 # Temperature adjustment [deg C]
-tempchange = 0
+tempchange = -0.409839
 #  facilitates calibration similar to Huss and Hock (2015)
 
 # DDF firn 
@@ -389,7 +398,7 @@ terminus_percentage = 20
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 # Output package number
-output_package = 0
+output_package = 2
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, 

@@ -145,8 +145,11 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
         surfacetype_bin_annual.comment = "surface types: 0 = off-glacier, 1 = ice, 2 = snow, 3 = firn, 4 = debris"
     elif input.output_package == 2:
         # Package 2 "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
-        #  monthly glacier-wide variables (acc, refreeze, melt, frontalablation, massbal_total, runoff, snowline)
+        #  monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, snowline)
         #  annual glacier-wide variables (area, volume, ELA)
+        prec_glac_monthly = netcdf_output.createVariable('prec_glac_monthly', np.float64, ('glacier', 'time'))
+        prec_glac_monthly.standard_name = "glacier-wide precipitation"
+        prec_glac_monthly.units = "m"
         acc_glac_monthly = netcdf_output.createVariable('acc_glac_monthly', np.float64, ('glacier', 'time'))
         acc_glac_monthly.standard_name = "glacier-wide accumulation"
         acc_glac_monthly.units = "m w.e."
@@ -228,17 +231,33 @@ def netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_
         netcdf_output.variables['surfacetype_bin_annual'][glac,:,:] = glac_bin_surfacetype_annual
     elif input.output_package == 2:
         # Package 2 "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
-        #  monthly glacier-wide variables (acc, refreeze, melt, frontalablation, massbal_total, runoff, snowline)
+        #  monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, snowline)
         #  annual glacier-wide variables (area, volume, ELA)
-        # Compute that desired output
+        # Preset desired output (needed to avoid dividing by zero)
+        glac_wide_prec = np.zeros(glac_bin_temp.shape[1])
+        glac_wide_acc = np.zeros(glac_bin_temp.shape[1])
+        glac_wide_refreeze = np.zeros(glac_bin_temp.shape[1])
+        glac_wide_melt = np.zeros(glac_bin_temp.shape[1])
+        glac_wide_frontalablation = np.zeros(glac_bin_temp.shape[1])
+        # Compute desired output
         glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
         glac_wide_area = glac_bin_area.sum(axis=0)
-        glac_wide_prec = (glac_bin_prec * glac_bin_area).sum(axis=0) / glac_wide_area[np.newaxis,:]
-        glac_wide_acc = (glac_bin_acc * glac_bin_area).sum(axis=0) / glac_wide_area[np.newaxis,:]
-        glac_wide_refreeze = (glac_bin_refreeze * glac_bin_area).sum(axis=0) / glac_wide_area[np.newaxis,:]
-        glac_wide_melt = (glac_bin_melt * glac_bin_area).sum(axis=0) / glac_wide_area[np.newaxis,:]
-        glac_wide_frontalablation = ((glac_bin_frontalablation * glac_bin_area).sum(axis=0) / 
-                                     glac_wide_area[np.newaxis,:])
+        glac_wide_prec_mkm2 = (glac_bin_prec * glac_bin_area).sum(axis=0)
+        glac_wide_prec[glac_wide_prec_mkm2 > 0] = (glac_wide_prec_mkm2[glac_wide_prec_mkm2 > 0] / 
+                                                   glac_wide_area[glac_wide_prec_mkm2 > 0])
+        glac_wide_acc_mkm2 = (glac_bin_acc * glac_bin_area).sum(axis=0)
+        glac_wide_acc[glac_wide_acc_mkm2 > 0] = (glac_wide_acc_mkm2[glac_wide_acc_mkm2 > 0] / 
+                                                 glac_wide_area[glac_wide_acc_mkm2 > 0])
+        glac_wide_refreeze_mkm2 = (glac_bin_refreeze * glac_bin_area).sum(axis=0)
+        glac_wide_refreeze[glac_wide_refreeze_mkm2 > 0] = (glac_wide_refreeze_mkm2[glac_wide_refreeze_mkm2 > 0] / 
+                                                           glac_wide_area[glac_wide_refreeze_mkm2 > 0])
+        glac_wide_melt_mkm2 = (glac_bin_melt * glac_bin_area).sum(axis=0)
+        glac_wide_melt[glac_wide_melt_mkm2 > 0] = (glac_wide_melt_mkm2[glac_wide_melt_mkm2 > 0] / 
+                                                   glac_wide_area[glac_wide_melt_mkm2 > 0])
+        glac_wide_frontalablation_mkm2 = (glac_bin_frontalablation * glac_bin_area).sum(axis=0)
+        glac_wide_frontalablation[glac_wide_frontalablation_mkm2 > 0] = (
+                glac_wide_frontalablation_mkm2[glac_wide_frontalablation_mkm2 > 0] / 
+                glac_wide_area[glac_wide_frontalablation_mkm2 > 0])
         glac_wide_massbalclim = glac_wide_acc + glac_wide_refreeze - glac_wide_melt
         glac_wide_massbaltotal = glac_wide_massbalclim - glac_wide_frontalablation
         glac_wide_runoff = (glac_wide_prec + glac_wide_melt - glac_wide_refreeze) * glac_wide_area * (1000)**2
@@ -252,6 +271,7 @@ def netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_
         glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
                                                           input.binsize/2)
         # Write variables to netcdf
+        netcdf_output.variables['prec_glac_monthly'][glac,:] = glac_wide_prec
         netcdf_output.variables['acc_glac_monthly'][glac,:] = glac_wide_acc
         netcdf_output.variables['refreeze_glac_monthly'][glac,:] = glac_wide_refreeze
         netcdf_output.variables['melt_glac_monthly'][glac,:] = glac_wide_melt
