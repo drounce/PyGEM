@@ -463,16 +463,20 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             # Indices that define the glacier terminus
             glac_idx_terminus = (glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / 
                                              glac_idx_t0.shape[0] * 100 < input.terminus_percentage])
+            print('glacier index terminus:',glac_idx_terminus)
+            print('glacier index:',glac_idx_t0)
             # For glaciers with so few bands that the terminus is not identified (ex. <= 4 bands for 20% threshold),
             #  then use the information from all the bands
-            if glac_idx_terminus.shape[0] == 0:
+            if glac_idx_terminus.shape[0] <= 1:
                 glac_idx_terminus = glac_idx_t0.copy()
             # Average area of glacier terminus [km**2]
             terminus_area_avg = glacier_area_t0[glac_idx_terminus[1]:
                                                 glac_idx_terminus[glac_idx_terminus.shape[0]-1]+1].mean()
             #  exclude the bin at the terminus, since this bin may need to be filled first
             # Check if the last bin's area is below the terminus' average and fill it up if it is
-            if glacier_area_t1[glac_idx_terminus[0]] < terminus_area_avg:
+            if (glacier_area_t1[glac_idx_terminus[0]] < terminus_area_avg) and (icethickness_t0[glac_idx_terminus[0]] <
+               icethickness_t0[glac_idx_t0].mean()):
+#            if glacier_area_t1[glac_idx_terminus[0]] < terminus_area_avg:
                 # Volume required to fill the bin at the terminus
                 advance_volume_fillbin = (icethickness_t1[glac_idx_terminus[0]] / 1000 * (terminus_area_avg - 
                                           glacier_area_t1[glac_idx_terminus[0]]))
