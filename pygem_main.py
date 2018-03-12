@@ -104,18 +104,20 @@ if input.option_gcm_downscale == 1:
                 input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, dates_table, start_date, 
                 end_date)
 elif input.option_gcm_downscale == 2:
+    ## AUTOMATE THIS WITH DICTIONARY
+    
     # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
     #  this simply saves time from re-running the fxns above
-    main_glac_gcmtemp = np.genfromtxt(input.gcm_filepath_var + 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv', 
+    main_glac_gcmtemp = np.genfromtxt(input.gcm_filepath_var + input.gcmtemp_filedict[input.rgi_regionsO1[0]], 
                                       delimiter=',')
-    main_glac_gcmprec = np.genfromtxt(input.gcm_filepath_var + 'csv_ERAInterim_prec_19952015_15_SouthAsiaEast.csv', 
+    main_glac_gcmprec = np.genfromtxt(input.gcm_filepath_var + input.gcmprec_filedict[input.rgi_regionsO1[0]], 
                                       delimiter=',')
-    main_glac_gcmelev = np.genfromtxt(input.gcm_filepath_var + 'csv_ERAInterim_elev_15_SouthAsiaEast.csv', 
+    main_glac_gcmelev = np.genfromtxt(input.gcm_filepath_var + input.gcmelev_filedict[input.rgi_regionsO1[0]], 
                                       delimiter=',')
     # Lapse rates [degC m-1]  
     if input.option_lapserate_fromgcm == 1:
         main_glac_gcmlapserate = np.genfromtxt(input.gcm_filepath_var + 
-                                               'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv', delimiter=',')
+                                               input.gcmlapserate_filedict[input.rgi_regionsO1[0]], delimiter=',')
 else:
     print('\n\tModel Error: please choose an option that exists for downscaling climate data. Exiting model run now.\n')
     exit()

@@ -72,7 +72,7 @@ elev_colname = 'elev'
 # Index name
 indexname = 'GlacNo'
 # 1st order region numbers (RGI V6.0)
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [14]
 #  enter integer(s) in brackets, e.g., [13, 14]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
@@ -249,9 +249,27 @@ gcm_time_varname = 'time'
 option_lapserate_pressurelevel = 1
 #  Option 0: lapse rates are a calibrated parameter
 #  Option 1: lapse rates are set by the temperatures associated with pressure level data
+# FILENAMES IF IMPORTING VIA CSV
+# Dictionary of filenames for temperature, precipitation, lapse rate, and elevation data
+gcmtemp_filedict = {
+                    13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
+                    14: 'csv_ERAInterim_temp_19952015_14_SouthAsiaWest.csv',
+                    15: 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv'}
+gcmprec_filedict = {
+                    13: 'csv_ERAInterim_prec_19952015_13_CentralAsia.csv',
+                    14: 'csv_ERAInterim_prec_19952015_14_SouthAsiaWest.csv',
+                    15: 'csv_ERAInterim_prec_19952015_15_SouthAsiaEast.csv'}
+gcmelev_filedict = {
+                    13: 'csv_ERAInterim_elev_13_CentralAsia.csv',
+                    14: 'csv_ERAInterim_elev_14_SouthAsiaWest.csv',
+                    15: 'csv_ERAInterim_elev_15_SouthAsiaEast.csv'}
+gcmlapserate_filedict = {
+                         13: 'csv_ERAInterim_lapserate_19952015_13_CentralAsia.csv',
+                         14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
+                         15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
 # Calibration option
-option_calibration = 0
+option_calibration = 1
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Calibration datasets
@@ -259,7 +277,8 @@ option_calibration = 0
 # Filepath
 cal_mb_filepath = main_directory + '/../DEMs/'
 # Filename
-cal_mb_filename = 'geodetic_glacwide_DShean20170207_15_SouthAsiaEast.csv'
+cal_mb_filename = 'geodetic_glacwide_DShean20170207_14_SouthAsiaWest.csv'
+#cal_mb_filename = 'geodetic_glacwide_DShean20170207_15_SouthAsiaEast.csv'
 # RGIId column name
 cal_rgi_colname = 'RGIId'
 # Mass balance column name

@@ -142,8 +142,10 @@ def hypsometrystats(hyps_table, thickness_table):
     # Glacier volume [km**3]
     glac_volume = (hyps_table * thickness_table/1000).sum(axis=1)
     # Mean glacier elevation
-    glac_hyps_mean = ((hyps_table.values * hyps_table.columns.values.astype(int)).sum(axis=1) / 
-                      hyps_table.values.sum(axis=1))
+    glac_hyps_mean = np.zeros(glac_volume.shape)
+    glac_hyps_mean[glac_volume > 0] = ((hyps_table[glac_volume > 0].values * 
+                                        hyps_table[glac_volume > 0].columns.values.astype(int)).sum(axis=1) / 
+                                       hyps_table[glac_volume > 0].values.sum(axis=1))
     # Median computations
 #    main_glac_hyps_cumsum = np.cumsum(hyps_table, axis=1)
 #    for glac in range(hyps_table.shape[0]):
