@@ -112,36 +112,36 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
 #                        elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
 
 #%% NEAREST NEIGHBOR CALIBRATION PARAMETERS
-## Load csv
-#ds = pd.read_csv(input.main_directory + '/../Output/calibration_R14_20180313_Opt01solutionspaceexpanding.csv', 
-#                 index_col='GlacNo')
-## Select data of interest
-#data = ds[['CenLon', 'CenLat', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']].copy()
-## Drop nan data to retain only glaciers with calibrated parameters
-#data_cal = data.dropna()
-#A = data_cal.mean(0)
-## Select latitude and longitude of calibrated parameters for distance estimate
-#data_cal_lonlat = data_cal.iloc[:,0:2].values
-## Loop through each glacier and select the parameters based on the nearest neighbor
-#for glac in range(data.shape[0]):
-#    # Avoid applying this to any glaciers that already were optimized
-#    if data.iloc[glac, :].isnull().values.any() == True:
-#        # Select the latitude and longitude of the glacier's center
-#        glac_lonlat = data.iloc[glac,0:2].values
-#        # Set point to be compatible with cdist function (from scipy)
-#        pt = [[glac_lonlat[0],glac_lonlat[1]]]
-#        # scipy function to calculate distance
-#        distances = cdist(pt, data_cal_lonlat)
-#        # Find minimum index (could be more than one)
-#        idx_min = np.where(distances == distances.min())[1]
-#        # Set new parameters
-#        data.iloc[glac,2:] = data_cal.iloc[idx_min,2:].values.mean(0)
-#        #  use mean in case multiple points are equidistant from the glacier
-## Remove latitude and longitude to create csv file
-#parameters_export = data.iloc[:,2:].values
-## Export csv file
-#np.savetxt(input.main_directory + '/../Calibration_datasets/calparams_R14_20180313_nearest.csv', parameters_export,
-#           delimiter = ',')
+# Load csv
+ds = pd.read_csv(input.main_directory + '/../Output/calibration_R14_20180313_Opt01solutionspaceexpanding.csv', 
+                 index_col='GlacNo')
+# Select data of interest
+data = ds[['CenLon', 'CenLat', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']].copy()
+# Drop nan data to retain only glaciers with calibrated parameters
+data_cal = data.dropna()
+A = data_cal.mean(0)
+# Select latitude and longitude of calibrated parameters for distance estimate
+data_cal_lonlat = data_cal.iloc[:,0:2].values
+# Loop through each glacier and select the parameters based on the nearest neighbor
+for glac in range(data.shape[0]):
+    # Avoid applying this to any glaciers that already were optimized
+    if data.iloc[glac, :].isnull().values.any() == True:
+        # Select the latitude and longitude of the glacier's center
+        glac_lonlat = data.iloc[glac,0:2].values
+        # Set point to be compatible with cdist function (from scipy)
+        pt = [[glac_lonlat[0],glac_lonlat[1]]]
+        # scipy function to calculate distance
+        distances = cdist(pt, data_cal_lonlat)
+        # Find minimum index (could be more than one)
+        idx_min = np.where(distances == distances.min())[1]
+        # Set new parameters
+        data.iloc[glac,2:] = data_cal.iloc[idx_min,2:].values.mean(0)
+        #  use mean in case multiple points are equidistant from the glacier
+# Remove latitude and longitude to create csv file
+parameters_export = data.iloc[:,2:]
+# Export csv file
+parameters_export.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R14_20180313_nearest_v3.csv', 
+                         index=False)
 
 
 #%% Connect the WGMS point mass balance datasets with the RGIIds and relevant elevation bands
