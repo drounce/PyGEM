@@ -269,7 +269,7 @@ gcmlapserate_filedict = {
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
 # Calibration option
-option_calibration = 1
+option_calibration = 0
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Calibration datasets
@@ -297,12 +297,15 @@ massbal_tolerance = 0.1
 #   Enter brief description of user options here.
 
 # Option to load calibration parameters for each glacier
-option_loadparameters = 0
+option_loadparameters = 1
 #  Option 1 (default) - csv of glacier parameters
 #  Option 0 - use the parameters set by the input
 # Model parameters filepath, filename, and column names
 modelparams_filepath = main_directory + '/../Calibration_datasets/'
-modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
+#modelparams_filename = 'calparams_R15_20180306_nearest.csv'
+#modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
+modelparams_filename = 'calparams_R14_20180313_nearest.csv'
+#modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 
 # Lapse rate from gcm to glacier [K m-1]
@@ -310,23 +313,23 @@ lrgcm = -0.0065
 # Lapse rate on glacier for bins [K m-1]
 lrglac = -0.0065
 # Precipitation correction factor [-]
-precfactor = 1.09803
+precfactor = 1.05488
 #  k_p in Radic et al. (2013)
 #  c_prec in Huss and Hock (2015)
 # Precipitation gradient on glacier [% m-1]
 precgrad = 0.0001
 # Degree-day factor of ice [m w.e. d-1 degC-1]
-ddfice = 5.49724 * 10**-3
+ddfice = 5.96724 * 10**-3
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 3.84052 * 10**-3
+ddfsnow = 4.17661 * 10**-3
 # Ratio degree-day factor snow snow to ice
 ddfsnow_iceratio = 0.7
 # Temperature threshold for snow [deg C]
 tempsnow = 1
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 # Temperature adjustment [deg C]
-tempchange = -0.409839
+tempchange = 0.0919581
 #  facilitates calibration similar to Huss and Hock (2015)
 
 # DDF firn 

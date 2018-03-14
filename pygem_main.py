@@ -104,8 +104,6 @@ if input.option_gcm_downscale == 1:
                 input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, dates_table, start_date, 
                 end_date)
 elif input.option_gcm_downscale == 2:
-    ## AUTOMATE THIS WITH DICTIONARY
-    
     # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
     #  this simply saves time from re-running the fxns above
     main_glac_gcmtemp = np.genfromtxt(input.gcm_filepath_var + input.gcmtemp_filedict[input.rgi_regionsO1[0]], 
@@ -158,7 +156,7 @@ if input.option_calibration == 1:
     main_glac_massbal_compare = np.zeros((main_glac_rgi.shape[0],4))
 
     for glac in range(main_glac_rgi.shape[0]):
-#    for glac in range(50):
+#    for glac in range(25):
 #    for glac in [0]:
         print(glac)
         
@@ -214,21 +212,21 @@ if input.option_calibration == 1:
             #  everything goes on one side of the equation compared to zero
             #  ex. return x[0] - input.lr_gcm with an equality constraint means x[0] = input.lr_gcm (see below)
             def constraint_lrgcm(modelparameters):
-                return modelparameters[0] - lrgcm
+                return modelparameters[0] - input.lrgcm
             def constraint_lrglac(modelparameters):
-                return modelparameters[1] - lrglac
+                return modelparameters[1] - input.lrglac
             def constraint_precfactor(modelparameters):
-                return modelparameters[2] - precfactor
+                return modelparameters[2] - input.precfactor
             def constraint_precgrad(modelparameters):
-                return modelparameters[3] - precgrad
+                return modelparameters[3] - input.precgrad
             def constraint_ddfsnow(modelparameters):
-                return modelparameters[4] - ddfsnow
+                return modelparameters[4] - input.ddfsnow
             def constraint_ddfice(modelparameters):
-                return modelparameters[5] - ddfice
+                return modelparameters[5] - input.ddfice
             def constraint_tempsnow(modelparameters):
-                return modelparameters[6] - tempsnow
+                return modelparameters[6] - input.tempsnow
             def constraint_tempchange(modelparameters):
-                return modelparameters[7] - tempchange
+                return modelparameters[7] - input.tempchange
             def constraint_ddficefxsnow(modelparameters):
                 return modelparameters[4] - input.ddfsnow_iceratio * modelparameters[5] 
             def constraint_ddficegtsnow(modelparameters):
@@ -248,7 +246,8 @@ if input.option_calibration == 1:
             con_ddficegtsnow = {'type':'ineq', 'fun':constraint_ddficegtsnow}
             con_lrsequal = {'type':'eq', 'fun':constraint_lrsequal}
             # INITIAL GUESS
-            modelparameters_init = ([lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow, tempchange])
+#            modelparameters_init = ([lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow, tempchange])
+            modelparameters_init = modelparameters
             # PARAMETER BOUNDS
             lrgcm_bnds = (-0.008,-0.004)
             lrglac_bnds = (-0.008,-0.004)
@@ -428,15 +427,15 @@ timestart_step5 = timeit.default_timer()
 if input.option_calibration == 0:
     # [INSERT REGIONAL LOOP HERE] if want to do all regions at the same time.  Separate netcdf files will be generated
     #  for each loop to reduce file size and make files easier to read/share
+    
     regionO1_number = input.rgi_regionsO1[0]
     # Create output netcdf file
     if input.output_package != 0:
         output.netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns)
-    
+        
     # Load model parameters
     if input.option_loadparameters == 1:
-        main_glac_modelparams = pd.read_csv(input.modelparams_filepath + input.modelparams_filename, 
-                                            index_col=input.indexname) 
+        main_glac_modelparams = pd.read_csv(input.modelparams_filepath + input.modelparams_filename) 
     else:
         main_glac_modelparams = pd.DataFrame(np.repeat([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, 
             input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange], main_glac_rgi.shape[0]).reshape(-1, 
@@ -508,21 +507,7 @@ timeelapsed_step5 = timeit.default_timer() - timestart_step5
 print('Step 5 time:', timeelapsed_step5, "s\n")
 
 #%%=== Model testing ===============================================================================
-#netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_transferAvg_20180308.nc', 'r+')
-#area = netcdf_output['area_glac_annual'][1806,:]
-#volume = netcdf_output['volume_glac_annual'][1806,:]
-#glacierinfo = netcdf_output['glacierparameter'][1806,:]
-#year = netcdf_output['year'][:]
-#print(area)
-#print(volume)
-#print(glacierinfo)
-#print(year)
-#netcdf_output.close()
-
-## Plot histograms and regional variations
-#data = pd.read_csv(input.output_filepath + 'calibration_R15_20180306.csv')
-## drop NaN values and select subset of data
-#data = data.dropna()
+#netcdf_output = nc.Dataset('../Output/PyGEM_output_rgiregion15_20180313.nc', 'r+')
 #
 #def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, ylabel, east, west, south, north, xtick, 
 #                   ytick):
@@ -549,8 +534,79 @@ print('Step 5 time:', timeelapsed_step5, "s\n")
 #    plt.colorbar(fraction=0.02, pad=0.04)
 #    #  fraction resizes the colorbar, pad is the space between the plot and colorbar
 #    plt.show()
-#    
 #
+## Select relevant data
+#glacier_data = pd.DataFrame(netcdf_output['glacierparameter'][:])
+#glacier_data.columns = netcdf_output['glacierparameters'][:]
+#lat = glacier_data['lat'].values.astype(float)
+#lon = glacier_data['lon'].values.astype(float)
+#massbal_total = netcdf_output['massbaltotal_glac_monthly'][:]
+#massbal_total_mwea = massbal_total.sum(axis=1)/(massbal_total.shape[1]/12)
+#
+## Set extent
+#east = int(round(lon.min())) - 1
+#west = int(round(lon.max())) + 1
+#south = int(round(lat.min())) - 1
+#north = int(round(lat.max())) + 1
+#xtick = 1
+#ytick = 1
+## Plot regional maps
+#plot_latlonvar(lon, lat, massbal_total_mwea, -1.5, 0.5, 'Geodetic mass balance [mwea]', 'longitude [deg]', 'latitude [deg]', 
+#               east, west, south, north, xtick, ytick)
+
+#%%### ====== PLOTTING FOR CALIBRATION FUNCTION ======================================================================
+#area = netcdf_output['area_glac_annual'][3472,:]
+#volume = netcdf_output['volume_glac_annual'][3472,:]
+#glacierinfo = netcdf_output['glacierparameter'][3472,:]
+#year = netcdf_output['year'][:]
+#print(area)
+#print(volume)
+#print(glacierinfo)
+#print(year)
+#netcdf_output.close()
+
+# Plot histograms and regional variations
+#data = pd.read_csv(input.output_filepath + 'calibration_R14_20180313_Opt01solutionspaceexpanding.csv')
+#data = pd.read_csv(input.output_filepath + 'calibration_R15_20180306_Opt01solutionspaceexpanding.csv')
+# drop NaN values and select subset of data
+#data = data.dropna()
+
+## Fill in values with average 
+## Subset all values that have data
+#data_subset = data.dropna()
+#data_subset_params = data_subset[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow','tempchange']]
+#data_subset_paramsavg = data_subset_params.mean()
+#paramsfilled = data[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow','tempchange']]
+#paramsfilled = paramsfilled.fillna(data_subset_paramsavg)
+
+
+#def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, ylabel, east, west, south, north, xtick, 
+#                   ytick):
+#    """
+#    Plot a variable according to its latitude and longitude
+#    """
+#    # Create the projection
+#    ax = plt.axes(projection=cartopy.crs.PlateCarree())
+#    # Add country borders for reference
+#    ax.add_feature(cartopy.feature.BORDERS)
+#    # Set the extent
+#    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
+#    # Label title, x, and y axes
+#    plt.title(title)
+#    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+#    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+#    plt.xlabel(xlabel)
+#    plt.ylabel(ylabel)
+#    # Plot the data 
+#    plt.scatter(lons, lats, c=variable, cmap='jet')
+#    #  plotting x, y, size [s=__], color bar [c=__]
+#    plt.clim(rangelow,rangehigh)
+#    #  set the range of the color bar
+#    plt.colorbar(fraction=0.02, pad=0.04)
+#    #  fraction resizes the colorbar, pad is the space between the plot and colorbar
+#    plt.show()
+    
+
 ## Set extent
 #east = int(round(data['CenLon'].min())) - 1
 #west = int(round(data['CenLon'].max())) + 1
@@ -591,6 +647,6 @@ print('Step 5 time:', timeelapsed_step5, "s\n")
 #data.hist(column='calround', bins = [0.5, 1.5, 2.5, 3.5])
 #plt.title('Calibration round')
 #plt.xticks([1, 2, 3])
-    
-## run plot function
-#output.plot_caloutput(data)
+#    
+### run plot function
+##output.plot_caloutput(data)
