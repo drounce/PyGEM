@@ -72,16 +72,16 @@ elev_colname = 'elev'
 # Index name
 indexname = 'GlacNo'
 # 1st order region numbers (RGI V6.0)
-rgi_regionsO1 = [14]
+rgi_regionsO1 = [15]
 #  enter integer(s) in brackets, e.g., [13, 14]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 #rgi_regionsO2 = [2]
 #  enter 'all' to include all subregions or enter integer(s) in brackets to specify specific subregions, e.g., [5, 6]. 
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['11875']
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #  enter 'all' to include all glaciers within (sub)region(s) or enter a string of complete glacier number for specific 
 #  glaciers, e.g., ['05000', '07743'] for glaciers '05000' and '07743'
 # Dictionary of hypsometry filenames
@@ -297,14 +297,14 @@ massbal_tolerance = 0.1
 #   Enter brief description of user options here.
 
 # Option to load calibration parameters for each glacier
-option_loadparameters = 1
+option_loadparameters = 0
 #  Option 1 (default) - csv of glacier parameters
 #  Option 0 - use the parameters set by the input
 # Model parameters filepath, filename, and column names
 modelparams_filepath = main_directory + '/../Calibration_datasets/'
-#modelparams_filename = 'calparams_R15_20180306_nearest.csv'
+modelparams_filename = 'calparams_R15_20180306_nearest.csv'
 #modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
-modelparams_filename = 'calparams_R14_20180313_nearest.csv'
+#modelparams_filename = 'calparams_R14_20180313_nearest.csv'
 #modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 
