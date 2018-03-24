@@ -72,7 +72,7 @@ elev_colname = 'elev'
 # Index name
 indexname = 'GlacNo'
 # 1st order region numbers (RGI V6.0)
-rgi_regionsO1 = [14]
+rgi_regionsO1 = [15]
 #  enter integer(s) in brackets, e.g., [13, 14]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
@@ -269,7 +269,7 @@ gcmlapserate_filedict = {
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
 # Calibration option
-option_calibration = 0
+option_calibration = 2
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Calibration datasets
@@ -277,7 +277,8 @@ option_calibration = 0
 # Filepath
 cal_mb_filepath = main_directory + '/../DEMs/'
 # Filename
-cal_mb_filename = 'geodetic_glacwide_DShean20170207_14_SouthAsiaWest.csv'
+cal_mb_filename = 'geodetic_glacwide_DShean20170207_13_CentralAsia.csv'
+#cal_mb_filename = 'geodetic_glacwide_DShean20170207_14_SouthAsiaWest.csv'
 #cal_mb_filename = 'geodetic_glacwide_DShean20170207_15_SouthAsiaEast.csv'
 # RGIId column name
 cal_rgi_colname = 'RGIId'
@@ -428,6 +429,7 @@ output_package = 2
     #             annual variables for each bin (area, icethickness, surfacetype)
 output_filepath = '../Output/'
 calibrationcsv_filenameprefix = 'calibration_'
+calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
 netcdf_filenameprefix = 'PyGEM_output_rgiregion'
 
 
