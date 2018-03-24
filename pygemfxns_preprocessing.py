@@ -11,6 +11,7 @@ import netCDF4 as nc
 from time import strftime
 from datetime import datetime
 from scipy.spatial.distance import cdist
+import matplotlib.pyplot as plt
 #========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
 import pygem_input as input
 
@@ -273,21 +274,25 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
 #        data = data.append(data_subset)
 ## Sort data according to ID and survey year
 #data = data.sort_values(by=['WGMS_ID', 'SURVEY_YEAR'])     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+#%% Mass redistribution parameters based on geodetic mass balances
+mb_filepath = os.getcwd() + '/../../HiMAT/DEMs/mb_bins_sample_20180323/'
+mb_filename = '13.05000_mb_bins.csv'
+
+data = pd.read_csv(mb_filepath + mb_filename)
+elev = data['# bin_center_elev_m']
+elev_norm = (elev - elev.min()) / (elev.max() - elev.min())
+mb = data[' dhdt_bin_mean_ma']
+mb_norm = (mb - mb.min()) / (mb.max() - mb.min())
+sl = -1*mb
+sl_norm = sl / sl.max()
+
+plt.scatter(elev_norm, mb_norm, cmap='jet_r')
+#  plotting x, y, size [s=__], color bar [c=__]
+#  set the range of the color bar
+plt.colorbar(fraction=0.02, pad=0.04)
+#  fraction resizes the colorbar, pad is the space between the plot and colorbar
+
+plt.show()
     
     

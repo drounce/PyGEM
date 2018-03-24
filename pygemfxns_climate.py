@@ -6,7 +6,6 @@ pre-processing of the climate data associated with each glacier for PyGEM.
 import pandas as pd
 import numpy as np
 import xarray as xr
-import os
 #import netCDF4 as nc
 #from datetime import datetime
 
