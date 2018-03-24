@@ -5,8 +5,6 @@ script.
 #========= LIST OF PACKAGES ==================================================
 import pandas as pd
 import numpy as np
-import os # os is used with re to find name matches
-import re # see os
 from datetime import datetime
 
 #========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
@@ -197,16 +195,26 @@ def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, indexname, dr
     return glac_table_copy
 
 
+#def import_Husstable_glac(glac, glacier_rgi_table, filepath, filedict, drop_col_names):
+#    ds = pd.read_csv(filepath + filedict[input.rgi_regionsO1[0]])
+#    # Select glaciers based on 01Index value from main_glac_rgi table
+#    #  as long as Huss tables have all rows associated with rgi attribute table, then this shortcut works and saves time
+#    glac_table = ds.iloc[glacier_rgi_table['O1Index']]
+#    glac_table_dropped = glac_table.drop(drop_col_names)
+#    glac_table_dropped[glac_table_dropped == -99] = 0.
+#    return glac_table_dropped
+
+
 def selectcalibrationdata(main_glac_rgi):
     """
     Select geodetic mass balance of all glaciers in the model run that have a geodetic mass balance.  The geodetic mass
     balances are stored in a csv file.
     """
     # Import .csv file
-    ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filename)
-    main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],3))
+    ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[input.rgi_regionsO1[0]])
+    main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],4))
     ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-    ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_time1, input.massbal_time2]].values
+    ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_uncertainty_colname, input.massbal_time1, input.massbal_time2]].values
     rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
     for glac in range(rgi_O1Id.shape[0]):
         try:
@@ -219,7 +227,10 @@ def selectcalibrationdata(main_glac_rgi):
             #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
         except:
             # If there is no mass balance data available for the glacier, then set as NaN
-            main_glac_calmassbal[glac] = float('NaN')
+            main_glac_calmassbal[glac,:] = np.empty(4)
+            main_glac_calmassbal[glac,:] = np.nan
+    main_glac_calmassbal = pd.DataFrame(main_glac_calmassbal, columns=[input.massbal_colname, input.massbal_uncertainty_colname, input.massbal_time1, 
+                                                                       input.massbal_time2])
     return main_glac_calmassbal
 
 

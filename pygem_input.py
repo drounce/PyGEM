@@ -28,9 +28,9 @@ tempchange = 0.0
 rgi_regionsO1 = [15]
 #  regions - 13, 14, 15
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['03473', '03733']
 #  these are associated with rgi_regionsO1 [15]
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #  use 'all' to include all glaciers within the region
 
 
