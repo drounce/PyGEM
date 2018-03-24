@@ -5,15 +5,58 @@ These inputs are separated from the main script, so that they can easily be
 configured. Other modules can also import these variables to reduce the number
 of parameters required to run a function.
 """
-# DEVELOPER'S NOTE: Consider structuring the input via steps and/or as required input or have a separate area for 
+# DEVELOPER'S NOTE: Consider structuring the input via steps and/or as required input or have a separate area for
 #   variables, parameters that don't really change.
 import os
+
+# ===== MODEL PARAMETERS T0 ADJUST ==========================================
+# Precipitation correction factor [-]
+precfactor = 1.0
+#  range 0.5 - 2
+# Precipitation gradient on glacier [% m-1]
+precgrad = 0.0001
+#  range 0.0001 - 0.0010
+# Degree-day factor of snow [m w.e. d-1 degC-1]
+ddfsnow = 4.1 * 10**-3
+#  range 2.6 - 5.1 * 10^-3
+# Temperature adjustment [deg C]
+tempchange = 0.0
+#  range -10 to 10
+
+# ===== GLACIER SELECTION =====
+# 1st order region numbers (RGI V6.0)
+rgi_regionsO1 = [15]
+#  regions - 13, 14, 15
+# RGI glacier number (RGI V6.0)
+#rgi_glac_number = ['03473', '03733']
+#  these are associated with rgi_regionsO1 [15]
+rgi_glac_number = 'all'
+#  use 'all' to include all glaciers within the region
+
+
+# ===== MODEL PARAMETERS THAT ARE CONSTANT ==================================
+# Lapse rate from gcm to glacier [K m-1]
+lrgcm = -0.0065
+# Lapse rate on glacier for bins [K m-1]
+lrglac = -0.0065
+#  k_p in Radic et al. (2013)
+#  c_prec in Huss and Hock (2015)
+# Degree-day factor of ice [m w.e. d-1 degC-1]
+ddfice = 4.1 / 0.7 * 10**-3
+#  note: '**' means to the power, so 10**-3 is 0.001
+# Ratio degree-day factor snow snow to ice
+ddfsnow_iceratio = 0.7
+# Temperature threshold for snow [deg C]
+tempsnow = 1.0
+#   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
+#  facilitates calibration similar to Huss and Hock (2015)
+
 
 # ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
 # Warning message option
 option_warningmessages = 1
-#  Warning messages are a good check to make sure that the script is running properly, and small nuances due to 
+#  Warning messages are a good check to make sure that the script is running properly, and small nuances due to
 #  differences in input data (e.g., units associated with GCM air temperature data are correct)
 #  Option 1 (default) - print warning messages within script that are meant to
 #                      assist user
@@ -61,7 +104,7 @@ main_directory = os.getcwd()
 # Filepath for RGI files
 rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
 #  file path where the rgi tables are located on the computer
-#  os.path.dirname(__file__) is getting the directory where the pygem model is running.  '..' goes up a folder and then 
+#  os.path.dirname(__file__) is getting the directory where the pygem model is running.  '..' goes up a folder and then
 #  allows it to enter RGI and find the folders from there.
 # Latitude column name
 lat_colname = 'CenLat'
@@ -71,19 +114,9 @@ lon_colname = 'CenLon'
 elev_colname = 'elev'
 # Index name
 indexname = 'GlacNo'
-# 1st order region numbers (RGI V6.0)
-rgi_regionsO1 = [15]
-#  enter integer(s) in brackets, e.g., [13, 14]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
-#rgi_regionsO2 = [2]
-#  enter 'all' to include all subregions or enter integer(s) in brackets to specify specific subregions, e.g., [5, 6]. 
-# RGI glacier number (RGI V6.0)
-#rgi_glac_number = ['03473', '03733']
-#rgi_glac_number = ['11875']
-rgi_glac_number = 'all'
-#  enter 'all' to include all glaciers within (sub)region(s) or enter a string of complete glacier number for specific 
-#  glaciers, e.g., ['05000', '07743'] for glaciers '05000' and '07743'
+#  do not change this
 # Dictionary of hypsometry filenames
 rgi_dict = {
             13: '13_rgi60_CentralAsia.csv',
@@ -99,7 +132,7 @@ rgi_O1Id_colname = 'RGIId-O1No'
 
 #------- INPUT FOR STEP TWO --------------------------------------------------
 # STEP TWO: Additional model setup
-#   Additional model setup that has been separated from the glacier selection in step one in order to keep the input 
+#   Additional model setup that has been separated from the glacier selection in step one in order to keep the input
 #   organized and easy to read.
 #
 # ----- Input required for glacier hypsometry -----
@@ -144,11 +177,11 @@ width_colsdrop = ['RGI-ID','Cont_range']
 
 
 # ----- Input required for model time frame -----
-# Note: models are required to have complete data for each year such that refreezing, scaling, etc. are consistent for 
+# Note: models are required to have complete data for each year such that refreezing, scaling, etc. are consistent for
 #       all time periods.
 # Leap year option
 option_leapyear = 1
-#  Option 1 (default) - leap year days are included, i.e., every 4th year Feb 29th is included in the model, so 
+#  Option 1 (default) - leap year days are included, i.e., every 4th year Feb 29th is included in the model, so
 #                       days_in_month = 29 for these years.
 #  Option 0 - exclude leap years, i.e., February always has 28 days
 # Water year option
@@ -185,10 +218,10 @@ spinupyears = 5
 # Initial surface type options
 option_surfacetype_initial = 1
 #  Option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
-#   > Sakai et al. (2015) found that the decadal ELAs are consistent with the median elevation of nine glaciers in High 
+#   > Sakai et al. (2015) found that the decadal ELAs are consistent with the median elevation of nine glaciers in High
 #     Mountain Asia, and Nuimura et al. (2015) also found that the snow line altitude of glaciers in China corresponded
 #     well with the median elevation.  Therefore, the use of the median elevation for defining the initial surface type
-#     appears to be a fairly reasonable assumption in High Mountain Asia. 
+#     appears to be a fairly reasonable assumption in High Mountain Asia.
 #  Option 2 (Need to code) - use mean elevation instead
 #  Option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
 # Firn surface type option
@@ -208,7 +241,7 @@ option_surfacetype_debris = 0
 #   The user has the option to choose the type of climate data being used in the
 #   model run, and how that data will be downscaled to the glacier and bins.
 # Option to downscale GCM data
-option_gcm_downscale = 2
+option_gcm_downscale = 1
 #  Option 1 (default): select climate data based on nearest neighbor
 #  Option 2: import prepared csv files (saves time)
 # Filepath to GCM variable files
@@ -269,7 +302,7 @@ gcmlapserate_filedict = {
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
 # Calibration option
-option_calibration = 2
+option_calibration = 1
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (glacier area remains constant)
 # Calibration datasets
@@ -277,13 +310,16 @@ option_calibration = 2
 # Filepath
 cal_mb_filepath = main_directory + '/../DEMs/'
 # Filename
-cal_mb_filename = 'geodetic_glacwide_DShean20170207_13_CentralAsia.csv'
-#cal_mb_filename = 'geodetic_glacwide_DShean20170207_14_SouthAsiaWest.csv'
-#cal_mb_filename = 'geodetic_glacwide_DShean20170207_15_SouthAsiaEast.csv'
+cal_mb_filedict = {
+                   13: 'geodetic_glacwide_DShean20170207_13_CentralAsia.csv',
+                   14: 'geodetic_glacwide_DShean20170207_14_SouthAsiaWest.csv',
+                   15: 'geodetic_glacwide_DShean20170207_15_SouthAsiaEast.csv'}
 # RGIId column name
 cal_rgi_colname = 'RGIId'
 # Mass balance column name
 massbal_colname = 'mb_mwea'
+# Mass balance uncertainty column name
+massbal_uncertainty_colname = 'mb_mwea_sigma'
 # Mass balance date 1 column name
 massbal_time1 = 'year1'
 # Mass balance date 1 column name
@@ -298,7 +334,7 @@ massbal_tolerance = 0.1
 #   Enter brief description of user options here.
 
 # Option to load calibration parameters for each glacier
-option_loadparameters = 1
+option_loadparameters = 0
 #  Option 1 (default) - csv of glacier parameters
 #  Option 0 - use the parameters set by the input
 # Model parameters filepath, filename, and column names
@@ -309,31 +345,31 @@ modelparams_filename = 'calparams_R14_20180313_nearest.csv'
 #modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 
-# Lapse rate from gcm to glacier [K m-1]
-lrgcm = -0.0065
-# Lapse rate on glacier for bins [K m-1]
-lrglac = -0.0065
-# Precipitation correction factor [-]
-precfactor = 1.05488
-#  k_p in Radic et al. (2013)
-#  c_prec in Huss and Hock (2015)
-# Precipitation gradient on glacier [% m-1]
-precgrad = 0.0001
-# Degree-day factor of ice [m w.e. d-1 degC-1]
-ddfice = 5.96724 * 10**-3
-#  note: '**' means to the power, so 10**-3 is 0.001
-# Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 4.17661 * 10**-3
-# Ratio degree-day factor snow snow to ice
-ddfsnow_iceratio = 0.7
-# Temperature threshold for snow [deg C]
-tempsnow = 1
-#   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
-# Temperature adjustment [deg C]
-tempchange = 0.0919581
-#  facilitates calibration similar to Huss and Hock (2015)
+## Lapse rate from gcm to glacier [K m-1]
+#lrgcm = -0.0065
+## Lapse rate on glacier for bins [K m-1]
+#lrglac = -0.0065
+## Precipitation correction factor [-]
+#precfactor = 1.0
+##  k_p in Radic et al. (2013)
+##  c_prec in Huss and Hock (2015)
+## Precipitation gradient on glacier [% m-1]
+#precgrad = 0.0001
+## Degree-day factor of ice [m w.e. d-1 degC-1]
+#ddfice = 4.1 / 0.7 * 10**-3
+##  note: '**' means to the power, so 10**-3 is 0.001
+## Degree-day factor of snow [m w.e. d-1 degC-1]
+#ddfsnow = 4.1 * 10**-3
+## Ratio degree-day factor snow snow to ice
+#ddfsnow_iceratio = 0.7
+## Temperature threshold for snow [deg C]
+#tempsnow = 1.0
+##   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
+## Temperature adjustment [deg C]
+#tempchange = 0.0
+##  facilitates calibration similar to Huss and Hock (2015)
 
-# DDF firn 
+# DDF firn
 option_DDF_firn = 1
 #  Option 1 (default) - DDF_firn is average of DDF_ice and DDF_snow (Huss and Hock, 2015)
 #  Option 0 - DDF_firn equal to DDF_snow (m w.e. d-1 degC-1)
@@ -387,7 +423,7 @@ option_melt_model = 1
 #  Option 1 (default) DDF
 # Mass redistribution / Glacier geometry change options
 option_massredistribution = 1
-#  Option 1 (default) - Mass redistribution based on Huss and Hock (2015), i.e., volume gain/loss redistributed over the 
+#  Option 1 (default) - Mass redistribution based on Huss and Hock (2015), i.e., volume gain/loss redistributed over the
 #                       glacier using empirical normalized ice thickness change curves
 # Cross-sectional glacier shape options
 option_glaciershape = 1
@@ -407,7 +443,7 @@ terminus_percentage = 20
 ## Constant area or allow geometry changes
 #option_areaconstant = 1
 ##  Option 0 (default simulation) - area is not constant, glacier can widen/narrow and retreat/advance
-##  Option 1 (default calibration) - area is constant to avoid retreat/advance mass balance feedbacks  
+##  Option 1 (default calibration) - area is constant to avoid retreat/advance mass balance feedbacks
 
 ## Calibration constraint packages
 #option_calibration_constraints = 2
@@ -424,20 +460,10 @@ terminus_percentage = 20
 output_package = 2
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
-    #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, 
+    #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,
     #                                             massbal_clim)
     #             annual variables for each bin (area, icethickness, surfacetype)
 output_filepath = '../Output/'
 calibrationcsv_filenameprefix = 'calibration_'
 calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
 netcdf_filenameprefix = 'PyGEM_output_rgiregion'
-
-
-
-
-
-
-
-
-
-
