@@ -18,6 +18,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 #========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
 import pygem_input as input
+import pygemfxns_modelsetup as modelsetup
 import cartopy
 
 #========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
@@ -31,9 +32,9 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
     """
     # Netcdf file path and name
     filename = input.netcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
-    fullfile = input.output_filepath + filename
+    fullfilename = input.output_filepath + filename
     # Create netcdf file ('w' will overwrite existing files, 'r+' will open existing file to write)
-    netcdf_output = nc.Dataset(fullfile, 'w', format='NETCDF4')
+    netcdf_output = nc.Dataset(fullfilename, 'w', format='NETCDF4')
     # Global attributes
     netcdf_output.description = 'Results from glacier evolution model'
     netcdf_output.history = 'Created ' + str(strftime("%Y-%m-%d %H:%M:%S"))
@@ -193,20 +194,136 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
         ELA_glac_annual.units = "m a.s.l."
         ELA_glac_annual.comment = "equilibrium line altitude is the elevation where the climatic mass balance is zero"
     netcdf_output.close()
+    return fullfilename
 
 
-def netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, glac_bin_prec, 
+def netcdfcreate_calgridsearch(regionO1_number, main_glac_hyps, dates_table, annual_columns, modelparameters):
+    # Netcdf file path and name
+    filename = input.calibrationnetcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
+    fullfilename = input.output_filepath + filename
+    # Create netcdf file ('w' will overwrite existing files, 'r+' will open existing file to write)
+    netcdf_output = nc.Dataset(fullfilename, 'w', format='NETCDF4')
+    # Global attributes
+    netcdf_output.description = 'Results from glacier evolution model'
+    netcdf_output.history = 'Created ' + str(strftime("%Y-%m-%d %H:%M:%S"))
+    netcdf_output.source = 'Python Glacier Evolution Model'
+    # Dimensions
+    glacier = netcdf_output.createDimension('glacier', None)
+    binelev = netcdf_output.createDimension('binelev', main_glac_hyps.shape[1])
+    if input.timestep == 'monthly':
+        time = netcdf_output.createDimension('time', dates_table.shape[0] - input.spinupyears * 12)
+    year = netcdf_output.createDimension('year', annual_columns.shape[0] - input.spinupyears)
+    year_plus1 = netcdf_output.createDimension('year_plus1', annual_columns.shape[0] - input.spinupyears + 1)
+    gridround = netcdf_output.createDimension('gridround', modelparameters.shape[0])
+    gridparam = netcdf_output.createDimension('gridparam', modelparameters.shape[1])
+    glacierinfo = netcdf_output.createDimension('glacierinfo', 3)
+    # Variables associated with dimensions 
+    glaciers = netcdf_output.createVariable('glacier', np.int32, ('glacier',))
+    glaciers.long_name = "glacier number associated with model run"
+    glaciers.standard_name = "GlacNo"
+    glaciers.comment = ("The glacier number is defined for each model run. The user should look at the main_glac_rgi"
+                           + " table to determine the RGIID or other information regarding this particular glacier.")
+    binelevs = netcdf_output.createVariable('binelev', np.int32, ('binelev',))
+    binelevs.standard_name = "center bin_elevation"
+    binelevs.units = "m a.s.l."
+    binelevs[:] = main_glac_hyps.columns.values
+    binelevs.comment = ("binelev are the bin elevations that were used for the model run.")
+    times = netcdf_output.createVariable('time', np.float64, ('time',))
+    times.standard_name = "date"
+    times.units = "days since 1900-01-01 00:00:00"
+    times.calendar = "gregorian"
+    if input.timestep == 'monthly':
+        times[:] = (nc.date2num(dates_table.loc[input.spinupyears*12:dates_table.shape[0]+1,'date'].astype(datetime), 
+                                units = times.units, calendar = times.calendar))
+    years = netcdf_output.createVariable('year', np.int32, ('year',))
+    years.standard_name = "year"
+    if input.option_wateryear == 1:
+        years.units = 'water year'
+    elif input.option_wateryear == 0:
+        years.units = 'calendar year'
+    years[:] = annual_columns[input.spinupyears:annual_columns.shape[0]]
+    # years_plus1 adds an additional year such that the change in glacier dimensions (area, etc.) is recorded
+    years_plus1 = netcdf_output.createVariable('year_plus1', np.int32, ('year_plus1',))
+    years_plus1.standard_name = "year with additional year to record glacier dimension changes"
+    if input.option_wateryear == 1:
+        years_plus1.units = 'water year'
+    elif input.option_wateryear == 0:
+        years_plus1.units = 'calendar year'
+    years_plus1 = np.concatenate((annual_columns[input.spinupyears:annual_columns.shape[0]], 
+                                  np.array([annual_columns[annual_columns.shape[0]-1]+1])))
+    gridrounds = netcdf_output.createVariable('gridround', np.int32, ('gridround',))
+    gridrounds.long_name = "number associated with the calibration grid search"
+    glacierinfoheader = netcdf_output.createVariable('glacierinfoheader', str, ('glacierinfo',))
+    glacierinfoheader.standard_name = "information about each glacier from main_glac_rgi"
+    glacierinfoheader[:] = np.array(['RGIID','lat','lon'])
+    glacierinfo = netcdf_output.createVariable('glacierinfo',str,('glacier','glacierinfo',))
+    # Variables associated with the output
+    #  monthly glacier-wide variables (massbal_total, runoff, snowline, snowpack)
+    #  annual glacier-wide variables (area, volume, ELA)
+    grid_modelparameters = netcdf_output.createVariable('grid_modelparameters', np.float64, ('gridround', 'gridparam'))
+    grid_modelparameters.standard_name = ("grid model parameters [lrglac, lrgcm, precfactor, precgrad, ddfsnow, ddfice,"
+                                          + " tempsnow, tempchange]")
+    grid_modelparameters[:] = modelparameters
+    massbaltotal_glac_monthly = netcdf_output.createVariable('massbaltotal_glac_monthly', np.float64, ('glacier', 'gridround', 'time'))
+    massbaltotal_glac_monthly.standard_name = "glacier-wide total mass balance"
+    massbaltotal_glac_monthly.units = "m w.e."
+    massbaltotal_glac_monthly.comment = ("total mass balance is the sum of the climatic mass balance and frontal "
+                                         + "ablation.") 
+    runoff_glac_monthly = netcdf_output.createVariable('runoff_glac_monthly', np.float64, ('glacier', 'gridround', 'time'))
+    runoff_glac_monthly.standard_name = "glacier runoff"
+    runoff_glac_monthly.units = "m**3"
+    runoff_glac_monthly.comment = "runoff from the glacier terminus, which moves over time"
+    snowline_glac_monthly = netcdf_output.createVariable('snowline_glac_monthly', np.float64, ('glacier', 'gridround', 'time'))
+    snowline_glac_monthly.standard_name = "transient snowline"
+    snowline_glac_monthly.units = "m a.s.l."
+    snowline_glac_monthly.comment = "transient snowline is the line separating the snow from ice/firn"
+    snowpack_glac_monthly = netcdf_output.createVariable('snowpack_glac_monthly', np.float64, ('glacier', 'gridround', 'time'))
+    snowpack_glac_monthly.standard_name = "snowpack volume"
+    snowpack_glac_monthly.units = "km**3 w.e."
+    snowpack_glac_monthly.comment = "m w.e. multiplied by the area converted to km**3"
+    area_glac_annual = netcdf_output.createVariable('area_glac_annual', np.float64, ('glacier', 'gridround', 'year_plus1'))
+    area_glac_annual.standard_name = "glacier area"
+    area_glac_annual.units = "km**2"
+    area_glac_annual.comment = "the area that was used for the duration of the year"
+    volume_glac_annual = netcdf_output.createVariable('volume_glac_annual', np.float64, ('glacier', 'gridround', 'year_plus1'))
+    volume_glac_annual.standard_name = "glacier volume"
+    volume_glac_annual.units = "km**3 ice"
+    volume_glac_annual.comment = "the volume based on area and ice thickness used for that year"
+    ELA_glac_annual = netcdf_output.createVariable('ELA_glac_annual', np.float64, ('glacier', 'gridround', 'year'))
+    ELA_glac_annual.standard_name = "annual equilibrium line altitude"
+    ELA_glac_annual.units = "m a.s.l."
+    ELA_glac_annual.comment = "equilibrium line altitude is the elevation where the climatic mass balance is zero"
+    netcdf_output.close()
+    return fullfilename
+    
+def netcdfwrite_calgridsearch(fullfilename, glac, glacier_rgi_table, output_glac_wide_massbaltotal, 
+                              output_glac_wide_runoff, output_glac_wide_snowline, output_glac_wide_snowpack,
+                              output_glac_wide_area_annual, output_glac_wide_volume_annual, 
+                              output_glac_wide_ELA_annual):
+    # Open netcdf file to write to existing file ('r+')
+    netcdf_output = nc.Dataset(fullfilename, 'r+')
+    # Write variables to netcdf
+    netcdf_output.variables['glacierinfo'][glac,:] = np.array([glacier_rgi_table.loc['RGIId'],
+            glacier_rgi_table.loc[input.lat_colname], glacier_rgi_table.loc[input.lon_colname]])
+    netcdf_output.variables['massbaltotal_glac_monthly'][glac,:,:] = output_glac_wide_massbaltotal
+    netcdf_output.variables['runoff_glac_monthly'][glac,:,:] = output_glac_wide_runoff
+    netcdf_output.variables['snowline_glac_monthly'][glac,:,:] = output_glac_wide_snowline
+    netcdf_output.variables['snowpack_glac_monthly'][glac,:,:] = output_glac_wide_snowpack
+    netcdf_output.variables['area_glac_annual'][glac,:,:] = output_glac_wide_area_annual
+    netcdf_output.variables['volume_glac_annual'][glac,:,:] = output_glac_wide_volume_annual
+    netcdf_output.variables['ELA_glac_annual'][glac,:,:] = output_glac_wide_ELA_annual
+    netcdf_output.close()
+    
+    
+def netcdfwrite(fullfilename, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, glac_bin_prec, 
                 glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, 
                 glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, glac_bin_icethickness_annual, 
                 glac_bin_width_annual,glac_bin_surfacetype_annual):
     """Write to the netcdf file that has already been generated to store the desired output
     Output: netcdf with desired variables filled in
     """
-    # Netcdf file path and name
-    filename = input.netcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
-    fullfile = input.output_filepath + filename
     # Open netcdf file to write to existing file ('r+')
-    netcdf_output = nc.Dataset(fullfile, 'r+')
+    netcdf_output = nc.Dataset(fullfilename, 'r+')
     # Record the variables for each glacier (remove data associated with spinup years)
     # glaciers parameters
     netcdf_output.variables['glacierparameter'][glac,:] = np.array([glacier_rgi_table.loc['RGIId'],
@@ -359,14 +476,55 @@ def plot_caloutput(data):
     plt.title('Calibration round')
     plt.xticks([1, 2, 3])
 
-#%%===== GRID SEARCH ======
+##%%===== GRID SEARCH ======
 #data = nc.Dataset(input.main_directory + '/../Output/calibration_gridsearchcoarse_R15_20180319.nc', 'r+')
-glac = 3732
-massbaltotal_mwea = data['massbaltotal_glac_monthly'][glac,:,:].sum(axis=1) / (main_glac_calmassbal[glac,2] - main_glac_calmassbal[glac,1] + 1)
-massbaltotal_mwea_cal = main_glac_calmassbal[glac,0]
-difference = massbaltotal_mwea - massbaltotal_mwea_cal
-plt.scatter(massbaltotal_mwea, grid_modelparameters[:,2])
-plt.show()
+## RGI glacier attributes
+#main_glac_rgi = modelsetup.selectglaciersrgitable()
+## Select calibration data from geodetic mass balance from David Shean
+#main_glac_calmassbal = modelsetup.selectcalibrationdata(main_glac_rgi)
+## Concatenate massbal data to the main glacier
+#main_glac_rgi = pd.concat([main_glac_rgi, main_glac_calmassbal], axis=1)
+## Drop those with nan values
+#main_glac_calmassbal = main_glac_calmassbal.dropna()
+#main_glac_rgi = main_glac_rgi.dropna()
+## Create grid of all parameter sets
+#grid_precfactor = np.arange(0.75, 2, 0.25)
+#grid_tempbias = np.arange(-4, 6, 2)
+#grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
+#grid_precgrad = np.arange(0.001, 0.007, 0.002)
+#grid_modelparameters = np.zeros((grid_precfactor.shape[0] * grid_tempbias.shape[0] * grid_ddfsnow.shape[0] * 
+#                                 grid_precgrad.shape[0],8))
+#grid_count = 0
+#for n_precfactor in range(grid_precfactor.shape[0]):
+#    for n_tempbias in range(grid_tempbias.shape[0]):
+#        for n_ddfsnow in range(grid_ddfsnow.shape[0]):
+#            for n_precgrad in range(grid_precgrad.shape[0]):
+#                # Set grid of model parameters
+#                grid_modelparameters[grid_count,:] = [input.lrgcm, input.lrglac, grid_precfactor[n_precfactor], 
+#                      grid_precgrad[n_precgrad], grid_ddfsnow[n_ddfsnow], grid_ddfsnow[n_ddfsnow] / 0.7, 
+#                      input.tempsnow, grid_tempbias[n_tempbias]]
+#                grid_count = grid_count + 1
+#glac = 1
+#massbaltotal_mwea = data['massbaltotal_glac_monthly'][glac,:,:].sum(axis=1) / (main_glac_calmassbal.iloc[glac,2] - main_glac_calmassbal.iloc[glac,1] + 1)
+#massbaltotal_mwea_cal = main_glac_calmassbal.iloc[glac,0]
+#difference = np.zeros((massbaltotal_mwea.shape[0],1))
+#difference[:,0] = massbaltotal_mwea - massbaltotal_mwea_cal
+#grid_modelparams_subset = np.concatenate((grid_modelparameters, difference), axis=1)
+#grid_modelparams_subset = grid_modelparams_subset[grid_modelparameters[:,3] == 0.001]
+#grid_modelparams_subset = grid_modelparams_subset[grid_modelparams_subset[:,4] == 4.1*10**-3]
+## Plot map of calibration parameters
+## Label title, x, and y axes
+#plt.title('parameter space - DDFsnow, precgrad constant')
+#plt.xlabel('precfactor')
+#plt.ylabel('tempchange')
+## Plot the data 
+#plt.scatter(grid_modelparams_subset[:,2], grid_modelparams_subset[:,7], c=grid_modelparams_subset[:,8])
+##  plotting x, y, size [s=__], color bar [c=__]
+##plt.clim(rangelow,rangehigh)
+##  set the range of the color bar
+#plt.colorbar(fraction=0.02, pad=0.04)
+##  fraction resizes the colorbar, pad is the space between the plot and colorbar
+#plt.show()
 
 
 #%%===== PLOTTING ===========================================================================================

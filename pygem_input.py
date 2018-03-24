@@ -8,9 +8,22 @@ of parameters required to run a function.
 # DEVELOPER'S NOTE: Consider structuring the input via steps and/or as required input or have a separate area for
 #   variables, parameters that don't really change.
 import os
+import numpy as np
 
 # ===== MODEL PARAMETERS T0 ADJUST ==========================================
-# Precipitation correction factor [-]
+# ===== GLACIER SELECTION =====
+# Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
+rgi_regionsO1 = [15]
+# RGI glacier number (RGI V6.0)
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
+#  example numbers are associated with rgi_regionsO1 [15]; 'all' includes all glaciers iwthin a region
+
+# ===== MODEL PARAMETERS =====
+# Option to load calibration parameters for each glacier
+option_loadparameters = 0
+#  Option 1 (default) - csv of glacier parameters
+#  Option 0 - use the parameters set by the input
 precfactor = 1.0
 #  range 0.5 - 2
 # Precipitation gradient on glacier [% m-1]
@@ -23,16 +36,17 @@ ddfsnow = 4.1 * 10**-3
 tempchange = 0.0
 #  range -10 to 10
 
-# ===== GLACIER SELECTION =====
-# 1st order region numbers (RGI V6.0)
-rgi_regionsO1 = [15]
-#  regions - 13, 14, 15
-# RGI glacier number (RGI V6.0)
-#rgi_glac_number = ['03473', '03733']
-#  these are associated with rgi_regionsO1 [15]
-rgi_glac_number = 'all'
-#  use 'all' to include all glaciers within the region
-
+# ===== CALIBRATION OPTIONS =====
+option_calibration = 1
+#  Option 0 (default) - regular model simulation (variables defined)
+#  Option 1 - grid search calibration run (glacier area remains constant)
+#  Option 2 - scipy optimization
+# Precipitation correction factor [-]
+# ===== Grid search parameters =====
+grid_precfactor = np.arange(0.75, 2, 0.25)
+grid_tempbias = np.arange(-4, 6, 2)
+grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
+grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
 
 # ===== MODEL PARAMETERS THAT ARE CONSTANT ==================================
 # Lapse rate from gcm to glacier [K m-1]
@@ -301,10 +315,7 @@ gcmlapserate_filedict = {
                          14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
-# Calibration option
-option_calibration = 1
-#  Option 0 (default) - regular model simulation (variables defined)
-#  Option 1 - calibration run (glacier area remains constant)
+
 # Calibration datasets
 # Geodetic mass balance dataset
 # Filepath
@@ -333,10 +344,6 @@ massbal_tolerance = 0.1
 # STEP FOUR: Glacier Evolution
 #   Enter brief description of user options here.
 
-# Option to load calibration parameters for each glacier
-option_loadparameters = 0
-#  Option 1 (default) - csv of glacier parameters
-#  Option 0 - use the parameters set by the input
 # Model parameters filepath, filename, and column names
 modelparams_filepath = main_directory + '/../Calibration_datasets/'
 #modelparams_filename = 'calparams_R15_20180306_nearest.csv'
