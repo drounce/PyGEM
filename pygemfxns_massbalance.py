@@ -6,57 +6,11 @@ associated with each glacier for PyGEM.
 import numpy as np
 #========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
 import pygem_input as input
-#========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
-    # ablation_annual - annual ablation for each bin on a specific glacier
-    # bin_ablation_mon - monthly surface ablation, which is calculated each year
-    #                    according to temperature and potentially changing
-    #                    surface type
-    # climate_elev - table of elevation of the nearest neighbor cell for
-    #                each glacier
-    # climate_prec - time series of precipitation for every glacier based on
-    #                user-specified option (nearest neighbor default)
-    # climate_temp - time series of temperature for every glacier based on
-    #                user-specified option (nearest neighbor default)
-    # dates_table - table of dates (used for column headers), which includes the
-    #               year, month, and number of days in each month
-    # glac_count - the glacier number, which is used to keep track of the
-    #              glaciers within the for loops.
-    # glac_ELA - table of annual ELA for all glaciers in model run
-    # glac_hyps - table of hypsometry for all the glaciers
-    # glac_params - table of calibrated parameters for all the glaciers, which
-    #               includes lapse rates, bias factors, etc.
-    # glac_surftype - table of surface type for every bin of every glacier
-    # glac_table - main table of glaciers in model run with RGI information
-    # glac_temp - table of temperature data on the glacier for each bin for the
-    #             entire timeseries
-    # glac_temp_annual - table of annual mean temperature data on the glacier
-    #                    for each bin for the entire timeseries
-    # glac_precsnow - table of the total precipitation (liquid and solid) for
-    #                 each bin for the entire time series
-    # massbal_annual - table of annual specific mass balance for each bin for
-    #                  the entire time series for a given glacier
-    # option_elev_ref - reference elevation on the glacier (median is the
-    #                   default)
-    # option_fxn - function option (see specifics within each function)
-    # refreeze_annual - table of annual refreezing for each bin of a glacier
-    # snow_annual - table of annual total snow data on the glacier for each bin
-    #               for the entire timeseries
-    # surftype_annual - table of annual surface type on the glacier for each bin
-    #                   for the entire timeseries
-    # var - generic variable commonly used with simple tasks, e.g., annual mean
-    #       or annual sum of a variable
-    # year - the year associated with the for loop
-
-    # Commonly used variables within the functions:
-    # mask - "masks" refer to a specific condition being met and are used in
-    #        functions to apply logical indexing, which speeds up the
-    #        computational time. These masks also make it easier to read the
-    #        functions.
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                   width_t0, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
-                   glacier_gcm_lrglac, elev_bins, dates_table, annual_columns, annual_divisor):
+def runmassbalance(glac, modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
+                   glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
+                   dates_table, annual_columns, annual_divisor):
     # Variables to export
     glac_bin_temp = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
     glac_bin_prec = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
@@ -132,7 +86,7 @@ def runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, gl
                             modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
-                if input.option_preclimit:
+                if input.option_preclimit == 1:
                     # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
                     if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
                         # Indices of upper 25%
@@ -999,3 +953,50 @@ def surfacetypeDDFdict(modelparameters):
 #            #  then the ELA is the same as the previous timestep
 #            ELA_output = ELA_past
 #    return ELA_output
+    
+#========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
+    # ablation_annual - annual ablation for each bin on a specific glacier
+    # bin_ablation_mon - monthly surface ablation, which is calculated each year
+    #                    according to temperature and potentially changing
+    #                    surface type
+    # climate_elev - table of elevation of the nearest neighbor cell for
+    #                each glacier
+    # climate_prec - time series of precipitation for every glacier based on
+    #                user-specified option (nearest neighbor default)
+    # climate_temp - time series of temperature for every glacier based on
+    #                user-specified option (nearest neighbor default)
+    # dates_table - table of dates (used for column headers), which includes the
+    #               year, month, and number of days in each month
+    # glac_count - the glacier number, which is used to keep track of the
+    #              glaciers within the for loops.
+    # glac_ELA - table of annual ELA for all glaciers in model run
+    # glac_hyps - table of hypsometry for all the glaciers
+    # glac_params - table of calibrated parameters for all the glaciers, which
+    #               includes lapse rates, bias factors, etc.
+    # glac_surftype - table of surface type for every bin of every glacier
+    # glac_table - main table of glaciers in model run with RGI information
+    # glac_temp - table of temperature data on the glacier for each bin for the
+    #             entire timeseries
+    # glac_temp_annual - table of annual mean temperature data on the glacier
+    #                    for each bin for the entire timeseries
+    # glac_precsnow - table of the total precipitation (liquid and solid) for
+    #                 each bin for the entire time series
+    # massbal_annual - table of annual specific mass balance for each bin for
+    #                  the entire time series for a given glacier
+    # option_elev_ref - reference elevation on the glacier (median is the
+    #                   default)
+    # option_fxn - function option (see specifics within each function)
+    # refreeze_annual - table of annual refreezing for each bin of a glacier
+    # snow_annual - table of annual total snow data on the glacier for each bin
+    #               for the entire timeseries
+    # surftype_annual - table of annual surface type on the glacier for each bin
+    #                   for the entire timeseries
+    # var - generic variable commonly used with simple tasks, e.g., annual mean
+    #       or annual sum of a variable
+    # year - the year associated with the for loop
+
+    # Commonly used variables within the functions:
+    # mask - "masks" refer to a specific condition being met and are used in
+    #        functions to apply logical indexing, which speeds up the
+    #        computational time. These masks also make it easier to read the
+    #        functions.

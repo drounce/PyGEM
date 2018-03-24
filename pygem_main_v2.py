@@ -121,15 +121,28 @@ for glac in range(main_glac_rgi.shape[0]):
     # Run the mass balance function (spinup years have been removed from output)
     (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
      glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-     glac_wide_massbalclim_mwea, massbal_difference) = (
-             massbalance.runmassbalance_v3(glac, modelparameters, glacier_rgi_table, glacier_area_t0, 
-                                           icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                                           dates_table, annual_columns, annual_divisor))
-    # Output: Measured mass balance, Measured mass balance uncertainty, modeled mass balance, mass balance difference
-    print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
-          glac_wide_massbalclim_mwea, massbal_difference)
+     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
+             massbalance.runmassbalance(glac, modelparameters, glacier_rgi_table, glacier_area_t0, 
+                                        icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                        glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
+                                        dates_table, annual_columns, annual_divisor))
+    if input.option_calibration == 1:
+        # Compare calibration data
+        # Column index for start and end year based on dates of geodetic mass balance observations
+        massbal_idx_start = (glacier_rgi_table.loc[input.massbal_time1] - input.startyear).astype(int)
+        massbal_idx_end = (massbal_idx_start + glacier_rgi_table.loc[input.massbal_time2] - 
+                           glacier_rgi_table.loc[input.massbal_time1] + 1).astype(int)
+        massbal_years = massbal_idx_end - massbal_idx_start
+        # Average annual glacier-wide mass balance [m w.e.]
+        glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] *
+                                       glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() /
+                                       glacier_area_t0.sum() / massbal_years)
+        #  units: m w.e. based on initial area
+        # Difference between geodetic and modeled mass balance
+        massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbalclim_mwea)
+        # Output: Measured mass balance, Measured mass balance uncertainty, modeled mass balance, mass balance difference
+        print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
+              glac_wide_massbalclim_mwea, massbal_difference)
 
 timeelapsed_step1 = timeit.default_timer() - timestart_step1
 print('\ntime:', timeelapsed_step1, "s\n")
