@@ -73,8 +73,9 @@ def runmassbalance(glac, modelparameters, glacier_rgi_table, glacier_area_t0, ic
                 # Option to adjust air temperature based on changes in surface elevation
                 if input.option_adjusttemp_surfelev == 1:
                     # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)
-                    glac_bin_temp[:,12*year:12*(year+1)] = (glac_bin_temp[:,12*year:12*(year+1)] + (modelparameters[1] * 
-                                                            (icethickness_t0 - icethickness_adjusttemp))[:,np.newaxis])
+                    glac_bin_temp[:,12*year:12*(year+1)] = (glac_bin_temp[:,12*year:12*(year+1)] + 
+                                                            glacier_gcm_lrglac[12*year:12*(year+1)] * 
+                                                            (icethickness_t0 - icethickness_adjusttemp)[:,np.newaxis])
                  # remove off-glacier values
                 glac_bin_temp[surfacetype==0,12*year:12*(year+1)] = 0
                 
@@ -301,49 +302,67 @@ def runmassbalance(glac, modelparameters, glacier_rgi_table, glacier_area_t0, ic
     glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,input.spinupyears:annual_columns.shape[0]+1]
     glac_bin_width_annual = glac_bin_width_annual[:,input.spinupyears:annual_columns.shape[0]+1]
     glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    # Additional output:
+    glac_wide_prec = np.zeros(glac_bin_temp.shape[1])
+    glac_wide_acc = np.zeros(glac_bin_temp.shape[1])
+    glac_wide_refreeze = np.zeros(glac_bin_temp.shape[1])
+    glac_wide_melt = np.zeros(glac_bin_temp.shape[1])
+    glac_wide_frontalablation = np.zeros(glac_bin_temp.shape[1])
+    # Compute desired output
+    glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
+    glac_wide_area = glac_bin_area.sum(axis=0)
+    glac_wide_prec_mkm2 = (glac_bin_prec * glac_bin_area).sum(axis=0)
+    glac_wide_prec[glac_wide_prec_mkm2 > 0] = (glac_wide_prec_mkm2[glac_wide_prec_mkm2 > 0] / 
+                                               glac_wide_area[glac_wide_prec_mkm2 > 0])
+    glac_wide_acc_mkm2 = (glac_bin_acc * glac_bin_area).sum(axis=0)
+    glac_wide_acc[glac_wide_acc_mkm2 > 0] = (glac_wide_acc_mkm2[glac_wide_acc_mkm2 > 0] / 
+                                             glac_wide_area[glac_wide_acc_mkm2 > 0])
+    glac_wide_snowpack = glac_wide_acc_mkm2 / 1000
+    glac_wide_refreeze_mkm2 = (glac_bin_refreeze * glac_bin_area).sum(axis=0)
+    glac_wide_refreeze[glac_wide_refreeze_mkm2 > 0] = (glac_wide_refreeze_mkm2[glac_wide_refreeze_mkm2 > 0] / 
+                                                       glac_wide_area[glac_wide_refreeze_mkm2 > 0])
+    glac_wide_melt_mkm2 = (glac_bin_melt * glac_bin_area).sum(axis=0)
+    glac_wide_melt[glac_wide_melt_mkm2 > 0] = (glac_wide_melt_mkm2[glac_wide_melt_mkm2 > 0] / 
+                                               glac_wide_area[glac_wide_melt_mkm2 > 0])
+    glac_wide_frontalablation_mkm2 = (glac_bin_frontalablation * glac_bin_area).sum(axis=0)
+    glac_wide_frontalablation[glac_wide_frontalablation_mkm2 > 0] = (
+            glac_wide_frontalablation_mkm2[glac_wide_frontalablation_mkm2 > 0] / 
+            glac_wide_area[glac_wide_frontalablation_mkm2 > 0])
+    glac_wide_massbalclim = glac_wide_acc + glac_wide_refreeze - glac_wide_melt
+    glac_wide_massbaltotal = glac_wide_massbalclim - glac_wide_frontalablation
+    glac_wide_runoff = (glac_wide_prec + glac_wide_melt - glac_wide_refreeze) * glac_wide_area * (1000)**2
+    #  units: (m + m w.e. - m w.e.) * km**2 * (1000 m / 1 km)**2 = m**3
+    glac_wide_snowline = (glac_bin_snowpack > 0).argmax(axis=0)
+    glac_wide_snowline[glac_wide_snowline > 0] = (elev_bins[glac_wide_snowline[glac_wide_snowline > 0]] - 
+                                                  input.binsize/2)
+    glac_wide_area_annual = glac_bin_area_annual.sum(axis=0)
+    glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
+    glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
+    glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
+                                                      input.binsize/2)
+    if input.option_calibration == 2:
+        # Compare calibration data
+        # Column index for start and end year based on dates of geodetic mass balance observations
+        massbal_idx_start = (glacier_rgi_table.loc[input.massbal_time1] - input.startyear).astype(int)
+        massbal_idx_end = (massbal_idx_start + glacier_rgi_table.loc[input.massbal_time2] - 
+                           glacier_rgi_table.loc[input.massbal_time1] + 1).astype(int)
+        massbal_years = massbal_idx_end - massbal_idx_start
+        # Average annual glacier-wide mass balance [m w.e.]
+        glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] *
+                                       glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() /
+                                       glacier_area_t0.sum() / massbal_years)
+    #  units: m w.e. based on initial area
+    # Difference between geodetic and modeled mass balance
+    massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbalclim_mwea)
+    
     # Return the desired output
     if input.option_calibration == 0:
         return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-                glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual)
+                glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+                glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
+                glac_wide_volume_annual, glac_wide_ELA_annual)
     elif input.option_calibration == 1:
-        glac_wide_prec = np.zeros(glac_bin_temp.shape[1])
-        glac_wide_acc = np.zeros(glac_bin_temp.shape[1])
-        glac_wide_refreeze = np.zeros(glac_bin_temp.shape[1])
-        glac_wide_melt = np.zeros(glac_bin_temp.shape[1])
-        glac_wide_frontalablation = np.zeros(glac_bin_temp.shape[1])
-        # Compute desired output
-        glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
-        glac_wide_area = glac_bin_area.sum(axis=0)
-        glac_wide_prec_mkm2 = (glac_bin_prec * glac_bin_area).sum(axis=0)
-        glac_wide_prec[glac_wide_prec_mkm2 > 0] = (glac_wide_prec_mkm2[glac_wide_prec_mkm2 > 0] / 
-                                                   glac_wide_area[glac_wide_prec_mkm2 > 0])
-        glac_wide_acc_mkm2 = (glac_bin_acc * glac_bin_area).sum(axis=0)
-        glac_wide_acc[glac_wide_acc_mkm2 > 0] = (glac_wide_acc_mkm2[glac_wide_acc_mkm2 > 0] / 
-                                                 glac_wide_area[glac_wide_acc_mkm2 > 0])
-        glac_wide_snowpack = glac_wide_acc_mkm2 / 1000
-        glac_wide_refreeze_mkm2 = (glac_bin_refreeze * glac_bin_area).sum(axis=0)
-        glac_wide_refreeze[glac_wide_refreeze_mkm2 > 0] = (glac_wide_refreeze_mkm2[glac_wide_refreeze_mkm2 > 0] / 
-                                                           glac_wide_area[glac_wide_refreeze_mkm2 > 0])
-        glac_wide_melt_mkm2 = (glac_bin_melt * glac_bin_area).sum(axis=0)
-        glac_wide_melt[glac_wide_melt_mkm2 > 0] = (glac_wide_melt_mkm2[glac_wide_melt_mkm2 > 0] / 
-                                                   glac_wide_area[glac_wide_melt_mkm2 > 0])
-        glac_wide_frontalablation_mkm2 = (glac_bin_frontalablation * glac_bin_area).sum(axis=0)
-        glac_wide_frontalablation[glac_wide_frontalablation_mkm2 > 0] = (
-                glac_wide_frontalablation_mkm2[glac_wide_frontalablation_mkm2 > 0] / 
-                glac_wide_area[glac_wide_frontalablation_mkm2 > 0])
-        glac_wide_massbalclim = glac_wide_acc + glac_wide_refreeze - glac_wide_melt
-        glac_wide_massbaltotal = glac_wide_massbalclim - glac_wide_frontalablation
-        glac_wide_runoff = (glac_wide_prec + glac_wide_melt - glac_wide_refreeze) * glac_wide_area * (1000)**2
-        #  units: (m + m w.e. - m w.e.) * km**2 * (1000 m / 1 km)**2 = m**3
-        glac_wide_snowline = (glac_bin_snowpack > 0).argmax(axis=0)
-        glac_wide_snowline[glac_wide_snowline > 0] = (elev_bins[glac_wide_snowline[glac_wide_snowline > 0]] - 
-                                                      input.binsize/2)
-        glac_wide_area_annual = glac_bin_area_annual.sum(axis=0)
-        glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
-        glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
-        glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
-                                                          input.binsize/2)
         return (glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
                 glac_wide_volume_annual, glac_wide_ELA_annual)
 

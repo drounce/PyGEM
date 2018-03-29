@@ -147,11 +147,16 @@ for glac in range(main_glac_rgi.shape[0]):
         # Run the mass balance function (spinup years have been removed from output)
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-         glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
+         glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, glac_wide_massbaltotal, 
+         glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, glac_wide_volume_annual, 
+         glac_wide_ELA_annual) = (
                  massbalance.runmassbalance(glac, modelparameters, glacier_rgi_table, glacier_area_t0, 
                                             icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                             glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
                                             dates_table, annual_columns, annual_divisor))
+#        # Output for Shane: Measured mass balance, Measured mass balance uncertainty, modeled mass balance, mass balance difference
+#        print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
+#              glac_wide_massbalclim_mwea, massbal_difference)
         # OUTPUT: Record variables according to output package
         #  must be done within glacier loop since the variables will be overwritten 
         if input.output_package != 0:
@@ -198,6 +203,23 @@ for glac in range(main_glac_rgi.shape[0]):
                      output_glac_wide_massbaltotal, output_glac_wide_runoff, output_glac_wide_snowline, 
                      output_glac_wide_snowpack, output_glac_wide_area_annual, output_glac_wide_volume_annual, 
                      output_glac_wide_ELA_annual)
+#    # Single run
+#    elif input.option_calibration == 2:
+#        # Select model parameters
+#        modelparameters = main_glac_modelparams.loc[glac,:].values
+#        # Run the mass balance function (spinup years have been removed from output)
+#        (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+#         glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+#         glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, glac_wide_massbaltotal, 
+#         glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, glac_wide_volume_annual, 
+#         glac_wide_ELA_annual) = (
+#                 massbalance.runmassbalance(glac, modelparameters, glacier_rgi_table, glacier_area_t0, 
+#                                            icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+#                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
+#                                            dates_table, annual_columns, annual_divisor))
+#        # Output for Shane: Measured mass balance, Measured mass balance uncertainty, modeled mass balance, mass balance difference
+#        print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
+#              glac_wide_massbalclim_mwea, massbal_difference)
 #            # Compare calibration data
 #            # Column index for start and end year based on dates of geodetic mass balance observations
 #            massbal_idx_start = (glacier_rgi_table.loc[input.massbal_time1] - input.startyear).astype(int)

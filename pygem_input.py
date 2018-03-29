@@ -15,8 +15,8 @@ import numpy as np
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
 #  example numbers are associated with rgi_regionsO1 [15]; 'all' includes all glaciers iwthin a region
 
 # ===== MODEL PARAMETERS =====
@@ -37,7 +37,7 @@ tempchange = 0.0
 #  range -10 to 10
 
 # ===== CALIBRATION OPTIONS =====
-option_calibration = 1
+option_calibration = 0
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - grid search calibration run (glacier area remains constant)
 #  Option 2 - scipy optimization
@@ -464,7 +464,7 @@ terminus_percentage = 20
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 # Output package number
-output_package = 2
+output_package = 0
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,
