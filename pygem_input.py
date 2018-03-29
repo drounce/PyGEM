@@ -15,8 +15,8 @@ import numpy as np
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['03473', '03733']
 #  example numbers are associated with rgi_regionsO1 [15]; 'all' includes all glaciers iwthin a region
 
 # ===== MODEL PARAMETERS =====

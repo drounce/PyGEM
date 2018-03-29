@@ -476,57 +476,6 @@ def plot_caloutput(data):
     plt.title('Calibration round')
     plt.xticks([1, 2, 3])
 
-##%%===== GRID SEARCH ======
-#data = nc.Dataset(input.main_directory + '/../Output/calibration_gridsearchcoarse_R15_20180319.nc', 'r+')
-## RGI glacier attributes
-#main_glac_rgi = modelsetup.selectglaciersrgitable()
-## Select calibration data from geodetic mass balance from David Shean
-#main_glac_calmassbal = modelsetup.selectcalibrationdata(main_glac_rgi)
-## Concatenate massbal data to the main glacier
-#main_glac_rgi = pd.concat([main_glac_rgi, main_glac_calmassbal], axis=1)
-## Drop those with nan values
-#main_glac_calmassbal = main_glac_calmassbal.dropna()
-#main_glac_rgi = main_glac_rgi.dropna()
-## Create grid of all parameter sets
-#grid_precfactor = np.arange(0.75, 2, 0.25)
-#grid_tempbias = np.arange(-4, 6, 2)
-#grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
-#grid_precgrad = np.arange(0.001, 0.007, 0.002)
-#grid_modelparameters = np.zeros((grid_precfactor.shape[0] * grid_tempbias.shape[0] * grid_ddfsnow.shape[0] * 
-#                                 grid_precgrad.shape[0],8))
-#grid_count = 0
-#for n_precfactor in range(grid_precfactor.shape[0]):
-#    for n_tempbias in range(grid_tempbias.shape[0]):
-#        for n_ddfsnow in range(grid_ddfsnow.shape[0]):
-#            for n_precgrad in range(grid_precgrad.shape[0]):
-#                # Set grid of model parameters
-#                grid_modelparameters[grid_count,:] = [input.lrgcm, input.lrglac, grid_precfactor[n_precfactor], 
-#                      grid_precgrad[n_precgrad], grid_ddfsnow[n_ddfsnow], grid_ddfsnow[n_ddfsnow] / 0.7, 
-#                      input.tempsnow, grid_tempbias[n_tempbias]]
-#                grid_count = grid_count + 1
-#glac = 1
-#massbaltotal_mwea = data['massbaltotal_glac_monthly'][glac,:,:].sum(axis=1) / (main_glac_calmassbal.iloc[glac,2] - main_glac_calmassbal.iloc[glac,1] + 1)
-#massbaltotal_mwea_cal = main_glac_calmassbal.iloc[glac,0]
-#difference = np.zeros((massbaltotal_mwea.shape[0],1))
-#difference[:,0] = massbaltotal_mwea - massbaltotal_mwea_cal
-#grid_modelparams_subset = np.concatenate((grid_modelparameters, difference), axis=1)
-#grid_modelparams_subset = grid_modelparams_subset[grid_modelparameters[:,3] == 0.001]
-#grid_modelparams_subset = grid_modelparams_subset[grid_modelparams_subset[:,4] == 4.1*10**-3]
-## Plot map of calibration parameters
-## Label title, x, and y axes
-#plt.title('parameter space - DDFsnow, precgrad constant')
-#plt.xlabel('precfactor')
-#plt.ylabel('tempchange')
-## Plot the data 
-#plt.scatter(grid_modelparams_subset[:,2], grid_modelparams_subset[:,7], c=grid_modelparams_subset[:,8])
-##  plotting x, y, size [s=__], color bar [c=__]
-##plt.clim(rangelow,rangehigh)
-##  set the range of the color bar
-#plt.colorbar(fraction=0.02, pad=0.04)
-##  fraction resizes the colorbar, pad is the space between the plot and colorbar
-#plt.show()
-
-
 #%%===== PLOTTING ===========================================================================================
 ##netcdf_output15 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180306.nc', 'r+')
 #netcdf_output15 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_transferAvg_20180306.nc', 'r+')
