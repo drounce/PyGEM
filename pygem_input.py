@@ -16,7 +16,9 @@ import numpy as np
 rgi_regionsO1 = [15]
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = ['09991']
+rgi_glac_number = ['10070']
 #  example numbers are associated with rgi_regionsO1 [15]; 'all' includes all glaciers iwthin a region
 
 # ===== MODEL PARAMETERS =====
@@ -24,16 +26,16 @@ rgi_glac_number = ['03473', '03733']
 option_loadparameters = 0
 #  Option 1 (default) - csv of glacier parameters
 #  Option 0 - use the parameters set by the input
-precfactor = 1.0
+precfactor = 1.75
 #  range 0.5 - 2
 # Precipitation gradient on glacier [% m-1]
 precgrad = 0.0001
 #  range 0.0001 - 0.0010
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 4.1 * 10**-3
+ddfsnow = 4.6 * 10**-3
 #  range 2.6 - 5.1 * 10^-3
 # Temperature adjustment [deg C]
-tempchange = 0.0
+tempchange = 4.0
 #  range -10 to 10
 
 # ===== CALIBRATION OPTIONS =====

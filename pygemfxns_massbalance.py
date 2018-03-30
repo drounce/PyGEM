@@ -340,20 +340,20 @@ def runmassbalance(glac, modelparameters, glacier_rgi_table, glacier_area_t0, ic
     glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
     glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
                                                       input.binsize/2)
-    if input.option_calibration == 2:
-        # Compare calibration data
-        # Column index for start and end year based on dates of geodetic mass balance observations
-        massbal_idx_start = (glacier_rgi_table.loc[input.massbal_time1] - input.startyear).astype(int)
-        massbal_idx_end = (massbal_idx_start + glacier_rgi_table.loc[input.massbal_time2] - 
-                           glacier_rgi_table.loc[input.massbal_time1] + 1).astype(int)
-        massbal_years = massbal_idx_end - massbal_idx_start
-        # Average annual glacier-wide mass balance [m w.e.]
-        glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] *
-                                       glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() /
-                                       glacier_area_t0.sum() / massbal_years)
-    #  units: m w.e. based on initial area
-    # Difference between geodetic and modeled mass balance
-    massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbalclim_mwea)
+#    if input.option_calibration == 2:
+#        # Compare calibration data
+#        # Column index for start and end year based on dates of geodetic mass balance observations
+#        massbal_idx_start = (glacier_rgi_table.loc[input.massbal_time1] - input.startyear).astype(int)
+#        massbal_idx_end = (massbal_idx_start + glacier_rgi_table.loc[input.massbal_time2] - 
+#                           glacier_rgi_table.loc[input.massbal_time1] + 1).astype(int)
+#        massbal_years = massbal_idx_end - massbal_idx_start
+#        # Average annual glacier-wide mass balance [m w.e.]
+#        glac_wide_massbalclim_mwea = ((glac_bin_massbalclim_annual[:, massbal_idx_start:massbal_idx_end] *
+#                                       glac_bin_area_annual[:, massbal_idx_start:massbal_idx_end]).sum() /
+#                                       glacier_area_t0.sum() / massbal_years)
+#    #  units: m w.e. based on initial area
+#    # Difference between geodetic and modeled mass balance
+#    massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbalclim_mwea)
     
     # Return the desired output
     if input.option_calibration == 0:
