@@ -15,8 +15,8 @@ def runmassbalance_v2(RGIId, modelparameters, dir_modelsetup, climate_fn, dates_
     glacier_rgi_table = pd.to_numeric(glacier_rgi_table_raw, errors='coerce')
     glacier_rgi_table['RGIId'] = glacier_rgi_table_raw['RGIId']
     glacier_properties = np.genfromtxt(dir_modelsetup + RGIId + '_glacierproperties.csv')
-    glacier_climate = np.genfromtxt(dir_modelsetup + RGIId + '_ERAInterim_tple_19952015.csv')
-    dates_table = pd.read_csv(dir_modelsetup + 'dates_table_19952015_monthly.csv')
+    glacier_climate = np.genfromtxt(dir_modelsetup + RGIId + climate_fn)
+    dates_table = pd.read_csv(dir_modelsetup + dates_table_fn)
     
     # Extract glacier properties
     elev_bins = glacier_properties[0,:]

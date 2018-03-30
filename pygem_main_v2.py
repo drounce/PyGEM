@@ -44,20 +44,28 @@ import pygemfxns_massbalance as massbalance
 def getparser():
     parser = argparse.ArgumentParser(description="run glacier mass balance model for a given glacier")
     # Add arguments to the parser
-    parser.add_argument('precfactor', type=float, default=input.precfactor, help='Precipitation factor')
-    parser.add_argument('precgrad', type=float, default=input.precgrad, help='Precipitation gradient (% m-1)')
-    parser.add_argument('ddfsnow', type=float, default=input.ddfsnow, 
+    #  '--' before an argument indicates it's optional
+    parser.add_argument('--precfactor', type=float, default=input.precfactor, help='Precipitation factor')
+    parser.add_argument('--precgrad', type=float, default=input.precgrad, help='Precipitation gradient (% m-1)')
+    parser.add_argument('--ddfsnow', type=float, default=input.ddfsnow, 
                         help='Degree day factor of snow (m w.e. degC-1 day-1')
-    parser.add_argument('tempchange', type=float, default=input.tempchange, 
+    parser.add_argument('--tempchange', type=float, default=input.tempchange, 
                         help='Temperature change to correct for bias between GCM and glacier (degC)')
+#    parser.add_argument('--lrgcm', type=float, default=input.lrgcm, help='Lapse rate from GCM to glacier')
+#    parser.add_argument('--lrglac', type=float, default=input.lrglac, help='Lapse rate on the glacier')
+    parser.add_argument('--dir_modelsetup', type=str, default=input.main_directory + '/../PyGEM_modelsetup/')
+    # ADD RGIID, CLIMATE FILENAME, AND DATES TABLE FILENAME AS NON-OPTIONAL ARGUMENTS
+    # ADD MODEL SETUP FILE DIRECTORY AS OPTIONAL ARGUMENT
+    
+    return parser
 
 def main():
     parser = getparser()
     args = parser.parse_args()
-    print(args.precfactor)
+    print(args.precfactor, args.precgrad, args.ddfsnow, args.tempchange)
     
-    modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, 
-                   input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange]
+    modelparameters = [input.lrgcm, input.lrglac, args.precfactor, args.precgrad, 
+                       args.ddfsnow, input.ddfice, input.tempsnow, input.tempchange]
 
 #    glacier_list = np.genfromtxt(input.main_directory + '/../PyGEM_modelsetup/glacier_list_R15_calmbonly.csv', dtype=str)
     RGIId = 'RGI60-15.03473'
@@ -67,8 +75,8 @@ def main():
      glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
      glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
      glac_wide_volume_annual, glac_wide_ELA_annual) = (
-        massbalance.runmassbalance_v2(RGIId, modelparameters, input.main_directory + '/../PyGEM_modelsetup/', 
-                                      '_ERAinterim_tple_19952015', 'dates_table_19952015_monthly'))
+        massbalance.runmassbalance_v2(RGIId, modelparameters, args.dir_modelsetup, 
+                                      '_ERAinterim_tple_1995_2015.csv', 'dates_table_1995_2015_monthly.csv'))
 
 if __name__ == "__main__":
     main()
