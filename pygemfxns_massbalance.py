@@ -4,13 +4,36 @@ associated with each glacier for PyGEM.
 """
 #========= LIST OF PACKAGES ==================================================
 import numpy as np
+import pandas as pd
 #========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
 import pygem_input as input
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def runmassbalance_v2(glac, modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
-                      glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                      dates_table, annual_divisor):
+def runmassbalance_v2(RGIId, modelparameters, dir_modelsetup, climate_fn, dates_table_fn):
+    # Load glacier and climate files
+    glacier_rgi_table_raw = pd.Series.from_csv(dir_modelsetup + RGIId + '_RGIinfo.csv', index_col = 0)
+    glacier_rgi_table = pd.to_numeric(glacier_rgi_table_raw, errors='coerce')
+    glacier_rgi_table['RGIId'] = glacier_rgi_table_raw['RGIId']
+    glacier_properties = np.genfromtxt(dir_modelsetup + RGIId + '_glacierproperties.csv')
+    glacier_climate = np.genfromtxt(dir_modelsetup + RGIId + '_ERAInterim_tple_19952015.csv')
+    dates_table = pd.read_csv(dir_modelsetup + 'dates_table_19952015_monthly.csv')
+    
+    # Extract glacier properties
+    elev_bins = glacier_properties[0,:]
+    glacier_area_t0 = glacier_properties[1,:]
+    icethickness_t0 = glacier_properties[2,:]
+    width_t0 = glacier_properties[3,:] 
+    # Extract climate data
+    glacier_gcm_temp = glacier_climate[0,:]
+    glacier_gcm_prec = glacier_climate[1,:]
+    glacier_gcm_lrgcm = glacier_climate[2,:]
+    glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+    glacier_gcm_elev = glacier_climate[3,:][0]
+    # Select annual divisor and columns
+    if input.timestep == 'monthly':
+        annual_divisor = 12
+    annual_columns = np.unique(dates_table['wateryear'].values)
+
     # Variables to export
     glac_bin_temp = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
     glac_bin_prec = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
@@ -36,7 +59,6 @@ def runmassbalance_v2(glac, modelparameters, glacier_rgi_table, glacier_area_t0,
     dayspermonth = dates_table['daysinmonth'].values
     surfacetype_ddf = np.zeros(elev_bins.shape[0])
     glac_idx_initial = glacier_area_t0.nonzero()[0]
-    annual_columns = np.unique(dates_table['wateryear'].values)
     #  glac_idx_initial is used with advancing glaciers to ensure no bands are added in a discontinuous section
     # Run mass balance only on pixels that have an ice thickness (some glaciers do not have an ice thickness)
     #  otherwise causes indexing errors causing the model to fail
@@ -366,6 +388,9 @@ def runmassbalance_v2(glac, modelparameters, glacier_rgi_table, glacier_area_t0,
     elif input.option_calibration == 1:
         return (glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
                 glac_wide_volume_annual, glac_wide_ELA_annual)
+    
+    
+    
 
 # ===== BEFORE 3/30/18 CONVERTING TO ONE LINE OF CODE =====
 #def runmassbalance(glac, modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 

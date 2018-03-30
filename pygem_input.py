@@ -20,6 +20,15 @@ rgi_glac_number = 'all'
 #rgi_glac_number = ['09991']
 #rgi_glac_number = ['10070']
 #  example numbers are associated with rgi_regionsO1 [15]; 'all' includes all glaciers iwthin a region
+# Remove NaN values (glaciers without calibration data)
+option_removeNaNcal = 1
+#  Option 0 (default) - do not remove these glaciers
+#  Option 1 - remove glaciers without cal data
+# Model setup directory
+main_directory = os.getcwd()
+modelsetup_dir = main_directory + '/../PyGEM_modelsetup/'
+# Glacier list name
+glacier_list_name = 'glacier_list_R15_all'
 
 # ===== MODEL PARAMETERS =====
 # Option to load calibration parameters for each glacier
@@ -115,8 +124,6 @@ option_glacier_selection = 1
 #  Option 2 - glaciers/regions selected via shapefile
 #  Option 3 - glaciers/regions selected via new table (other inventory)
 # OPTION 1: RGI glacier inventory information
-# Directory name
-main_directory = os.getcwd()
 # Filepath for RGI files
 rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
 #  file path where the rgi tables are located on the computer
