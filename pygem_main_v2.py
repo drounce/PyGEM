@@ -17,7 +17,7 @@ Radic et al. (2013), Bliss et al. (2014), and Huss and Hock (2015).
 #%%========= IMPORT PACKAGES ==========================================================================================
 # Various packages are used to provide the proper architecture and framework for the calculations used in this script.
 # Some packages (e.g., datetime) are included in order to speed up calculations and simplify code.
-#import pandas as pd
+import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
 #from datetime import datetime
@@ -32,10 +32,12 @@ import timeit
 #import matplotlib.pyplot as plt
 #import cartopy
 import argparse
+import csv
+import itertools
 
 #========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
 import pygem_input as input
-#import pygemfxns_modelsetup as modelsetup
+import pygemfxns_modelsetup as modelsetup
 #import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 #import pygemfxns_output as output
@@ -46,16 +48,25 @@ def getparser():
     # Add arguments to the parser
     #  '--' before an argument indicates it's optional
     parser.add_argument('--precfactor', type=float, default=input.precfactor, help='Precipitation factor')
-    parser.add_argument('--precgrad', type=float, default=input.precgrad, help='Precipitation gradient (% m-1)')
+    parser.add_argument('--precgrad', type=float, default=input.precgrad, help='Precipitation gradient [% m-1]')
     parser.add_argument('--ddfsnow', type=float, default=input.ddfsnow, 
-                        help='Degree day factor of snow (m w.e. degC-1 day-1')
+                        help='Degree day factor of snow [m w.e. d-1 degC-1]')
+    parser.add_argument('--ddfice', type=float, default=input.ddfsnow / input.ddfsnow_iceratio, 
+                        help='Degree day factor of ice [m w.e. d-1 degC-1]')
     parser.add_argument('--tempchange', type=float, default=input.tempchange, 
-                        help='Temperature change to correct for bias between GCM and glacier (degC)')
-#    parser.add_argument('--lrgcm', type=float, default=input.lrgcm, help='Lapse rate from GCM to glacier')
-#    parser.add_argument('--lrglac', type=float, default=input.lrglac, help='Lapse rate on the glacier')
-    parser.add_argument('--dir_modelsetup', type=str, default=input.main_directory + '/../PyGEM_modelsetup/')
+                        help='Temperature adjustment to correct for bias between GCM and glacier [degC]')
+    parser.add_argument('--lrgcm', type=float, default=input.lrgcm, help='Lapse rate from gcm to glacier [K m-1]')
+    parser.add_argument('--lrglac', type=float, default=input.lrglac, help='Lapse rate on the glacier for bins [K m-1]')
+    parser.add_argument('--tempsnow', type=float, default=input.tempsnow, 
+                        help='Temperature threshold to determine liquid or solid precipitation')
+    parser.add_argument('--dir_modelsetup', type=str, default=input.modelsetup_dir, 
+                        help='Directory to model setup files')
+    parser.add_argument('RGIId', type=str, help='RGIId (ex. RGI60-15.03473)')
+    parser.add_argument('--climate_fn', type=str, default=input.climate_fn, 
+                        help='Climate filename for files in model setup')
+    parser.add_argument('--datestable_fn', type=str, default=input.datestable_fn, 
+                        help='Dates table filename for files in model setup')
     # ADD RGIID, CLIMATE FILENAME, AND DATES TABLE FILENAME AS NON-OPTIONAL ARGUMENTS
-    # ADD MODEL SETUP FILE DIRECTORY AS OPTIONAL ARGUMENT
     
     return parser
 
@@ -64,22 +75,87 @@ def main():
     args = parser.parse_args()
     print(args.precfactor, args.precgrad, args.ddfsnow, args.tempchange)
     
-    modelparameters = [input.lrgcm, input.lrglac, args.precfactor, args.precgrad, 
-                       args.ddfsnow, input.ddfice, input.tempsnow, input.tempchange]
+    modelparameters = [args.lrgcm, args.lrglac, args.precfactor, args.precgrad, args.ddfsnow, args.ddfice, 
+                       args.tempsnow, args.tempchange]
 
 #    glacier_list = np.genfromtxt(input.main_directory + '/../PyGEM_modelsetup/glacier_list_R15_calmbonly.csv', dtype=str)
     RGIId = 'RGI60-15.03473'
-    
-    (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-     glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-     glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
-     glac_wide_volume_annual, glac_wide_ELA_annual) = (
-        massbalance.runmassbalance_v2(RGIId, modelparameters, args.dir_modelsetup, 
-                                      '_ERAinterim_tple_1995_2015.csv', 'dates_table_1995_2015_monthly.csv'))
+
+    # REPLACE THIS WITH PREVIOUS VERSIONS SINCE NO LONGER NEEDS TO LOAD THOSE INDIVIDUAL FILES
+    #  - loading individual files might still be faster though...
+    #  - may want to generate the files as pickles    
+#    (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+#     glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+#     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+#     glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
+#     glac_wide_volume_annual, glac_wide_ELA_annual) = (
+#        massbalance.runmassbalance_v2(RGIId, modelparameters, args.dir_modelsetup, args.climate_fn, args.datestable_fn))
 
 if __name__ == "__main__":
     main()
+      
+    
+
+
+RGIId = 'RGI60-15.03473'
+# ===== RGI INFO =====
+with open(input.rgi_filepath + input.rgi_dict[input.rgi_regionsO1[0]], 'r') as file_rgi:
+    rgi_reader = csv.reader(file_rgi, delimiter=',')
+    header = next(itertools.islice(rgi_reader, 0, None))
+    for row in rgi_reader:
+        if RGIId == row[0]:
+            glacier_rgi_table_raw = pd.Series(row, index=header)
+            # convert values to floats
+            glacier_rgi_table = pd.to_numeric(glacier_rgi_table_raw, errors='coerce')
+            # overwrite RGIId (otherwise it would be NaN)
+            glacier_rgi_table['RGIId'] = glacier_rgi_table_raw['RGIId']
+            # record position number to index climate and glacier data
+            #  subtract 1 to account for line_num returning 1 for python's 0 row
+            glacier_rgi_table['O1Line'] = rgi_reader.line_num - 1
+
+# ===== GLACIER PROPERTIES ===== 
+# Ice thickness [m]
+with open(input.thickness_filepath + input.thickness_filedict[input.rgi_regionsO1[0]], 'r') as file_thickness:
+    icethickness_t0 = np.array(next(itertools.islice(csv.reader(file_thickness), glacier_rgi_table.loc['O1Line'], None))[2:]).astype(float)
+    icethickness_t0[icethickness_t0==-99] = 0
+# Glacier area [km**2]
+with open(input.hyps_filepath + input.hyps_filedict[input.rgi_regionsO1[0]], 'r') as file_hyps:
+    elev_bins = np.array(next(itertools.islice(csv.reader(file_hyps), 0, None))[2:]).astype(int)
+    glacier_area_t0 = np.array(next(itertools.islice(csv.reader(file_hyps), glacier_rgi_table.loc['O1Line'], None))[2:]).astype(float)
+    glacier_area_t0[glacier_area_t0==-99] = 0
+    # if ice thickness = 0, glacier area = 0 (problem identified by glacier RGIV6-15.00016 on 03/06/2018)
+    glacier_area_t0[icethickness_t0==0] = 0
+# Glacier width [km]
+with open(input.width_filepath + input.width_filedict[input.rgi_regionsO1[0]], 'r') as file_width:
+    width_t0 = np.array(next(itertools.islice(csv.reader(file_width), glacier_rgi_table.loc['O1Line'], None))[2:]).astype(float)
+    width_t0[width_t0==-99] = 0.
+# Add volume [km**3] and mean elevation [m a.s.l.] to glacier table
+glacier_rgi_table['Volume'] = (glacier_area_t0 * icethickness_t0/1000).sum()
+glacier_rgi_table['Zmean'] = (glacier_area_t0 * elev_bins).sum() / glacier_area_t0.sum()
+
+# ===== CLIMATE DATA =====
+#  Subtract one from the 'O1Line' to account for the climate data not having a header
+# Temperature [degC]
+with open(input.gcm_filepath_var + input.gcmtemp_filedict[input.rgi_regionsO1[0]], 'r') as file_temp:
+    glacier_gcm_temp = (np.array(next(itertools.islice(csv.reader(file_temp), glacier_rgi_table.loc['O1Line'] - 1, None))
+                        ).astype(float))
+# Precipitation [m]
+with open(input.gcm_filepath_var + input.gcmprec_filedict[input.rgi_regionsO1[0]], 'r') as file_prec:
+    glacier_gcm_prec = (np.array(next(itertools.islice(csv.reader(file_prec), glacier_rgi_table.loc['O1Line'] - 1, None))
+                        ).astype(float))
+# Elevation [m a.s.l] associated with air temperature  and precipitation data
+with open(input.gcm_filepath_var + input.gcmelev_filedict[input.rgi_regionsO1[0]], 'r') as file_elev:
+    glacier_gcm_elev = float(next(itertools.islice(csv.reader(file_elev), glacier_rgi_table.loc['O1Line'] - 1, None))[0])
+# Lapse rates [degC m-1] 
+with open(input.gcm_filepath_var + input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 'r') as file_lr:
+    glacier_gcm_lrgcm = (np.array(next(itertools.islice(csv.reader(file_lr), glacier_rgi_table.loc['O1Line'] - 1, None))
+                         ).astype(float)) 
+# ===== MODEL TIME FRAME =====
+dates_table, start_date, end_date, monthly_columns, annual_columns, annual_divisor = modelsetup.datesmodelrun()
+
+
+timeelapsed_step1 = timeit.default_timer() - timestart_step1
+print('\ntime:', timeelapsed_step1, "s\n")
 
 #%% ===== OLD SETUP (pre-03/30/2018) ==================================================================================
 ## ===== OUTPUT FILE =====

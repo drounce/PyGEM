@@ -86,9 +86,8 @@ dates_table, start_date, end_date, monthly_columns, annual_columns, annual_divis
 ## Precipitation [m] and GCM dates
 #main_glac_gcmprec, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
 #        input.gcm_prec_filename, input.gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date)
-## Elevation [m a.s.l] associated with air temperature  and precipitation data
-#main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(input.gcm_elev_filename, input.gcm_elev_varname, 
-#                                                              main_glac_rgi)
+# Elevation [m a.s.l] associated with air temperature  and precipitation data
+main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(input.gcm_elev_filename, input.gcm_elev_varname, main_glac_rgi)
 ## Add GCM time series to the dates_table
 #dates_table['date_gcm'] = main_glac_gcmdate
 ## Lapse rates [degC m-1]  
@@ -97,14 +96,14 @@ dates_table, start_date, end_date, monthly_columns, annual_columns, annual_divis
 #            input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, dates_table, start_date, 
 #            end_date)
 # LOAD CLIMATE DATA ALREADY IN CSV FILES
-main_glac_gcmtemp = np.genfromtxt(input.gcm_filepath_var + input.gcmtemp_filedict[input.rgi_regionsO1[0]], 
-                                  delimiter=',')
-main_glac_gcmprec = np.genfromtxt(input.gcm_filepath_var + input.gcmprec_filedict[input.rgi_regionsO1[0]], 
-                                  delimiter=',')
-main_glac_gcmelev = np.genfromtxt(input.gcm_filepath_var + input.gcmelev_filedict[input.rgi_regionsO1[0]], 
-                                  delimiter=',')
-main_glac_gcmlapserate = np.genfromtxt(input.gcm_filepath_var + 
-                                       input.gcmlapserate_filedict[input.rgi_regionsO1[0]], delimiter=',')
+#main_glac_gcmtemp = np.genfromtxt(input.gcm_filepath_var + input.gcmtemp_filedict[input.rgi_regionsO1[0]], 
+#                                  delimiter=',')
+#main_glac_gcmprec = np.genfromtxt(input.gcm_filepath_var + input.gcmprec_filedict[input.rgi_regionsO1[0]], 
+#                                  delimiter=',')
+#main_glac_gcmelev = np.genfromtxt(input.gcm_filepath_var + input.gcmelev_filedict[input.rgi_regionsO1[0]], 
+#                                  delimiter=',')
+#main_glac_gcmlapserate = np.genfromtxt(input.gcm_filepath_var + 
+#                                       input.gcmlapserate_filedict[input.rgi_regionsO1[0]], delimiter=',')
     
 #%% ===== WRITE CSV FILES OF INPUT DATA ===============================================================================
 # Write list of glaciers    
@@ -118,24 +117,25 @@ np.savetxt(glacier_list_fn, glacier_list, fmt='%s')
 dates_table_fn = input.modelsetup_dir + 'dates_table_1995_2015_monthly.csv'
 dates_table.to_csv(dates_table_fn)
 # Write datasets for all other glaciers
+# ERROR ASSOCIATED WITH THE SELECTINO OF THE GLACIER NUMBER!
 for glac in range(main_glac_rgi.shape[0]):
-    # Write glacier data
-    glacier_properties = np.zeros((4,main_glac_hyps.shape[1]))
-    glacier_properties[0,:] = elev_bins
-    glacier_properties[1,:] = main_glac_hyps.loc[glac,:].values
-    glacier_properties[2,:] = main_glac_icethickness.loc[glac,:].values
-    glacier_properties[3,:] = main_glac_width.loc[glac,:].values
-    glacier_properties_fn = input.modelsetup_dir + main_glac_rgi.loc[glac,'RGIId'] + '_glacierproperties.csv'
-    np.savetxt(glacier_properties_fn, glacier_properties)
-    
-    # Write climate data
-    glacier_climate = np.zeros((4,main_glac_gcmtemp.shape[1]))
-    glacier_climate[0,:] = main_glac_gcmtemp[glac,:]
-    glacier_climate[1,:] = main_glac_gcmprec[glac,:]
-    glacier_climate[2,:] = main_glac_gcmlapserate[glac,:]
-    glacier_climate[3,:] = main_glac_gcmelev[glac]
-    glacier_climate_fn = input.modelsetup_dir + main_glac_rgi.loc[glac,'RGIId'] + '_ERAInterim_tple_1995_2015.csv'
-    np.savetxt(glacier_climate_fn, glacier_climate)
+#    # Write glacier data
+#    glacier_properties = np.zeros((4,main_glac_hyps.shape[1]))
+#    glacier_properties[0,:] = elev_bins
+#    glacier_properties[1,:] = main_glac_hyps.loc[glac,:].values
+#    glacier_properties[2,:] = main_glac_icethickness.loc[glac,:].values
+#    glacier_properties[3,:] = main_glac_width.loc[glac,:].values
+#    glacier_properties_fn = input.modelsetup_dir + main_glac_rgi.loc[glac,'RGIId'] + '_glacierproperties.csv'
+#    np.savetxt(glacier_properties_fn, glacier_properties)
+#    
+#    # Write climate data
+#    glacier_climate = np.zeros((4,main_glac_gcmtemp.shape[1]))
+#    glacier_climate[0,:] = main_glac_gcmtemp[glac,:]
+#    glacier_climate[1,:] = main_glac_gcmprec[glac,:]
+#    glacier_climate[2,:] = main_glac_gcmlapserate[glac,:]
+#    glacier_climate[3,:] = main_glac_gcmelev[glac]
+#    glacier_climate_fn = input.modelsetup_dir + main_glac_rgi.loc[glac,'RGIId'] + '_ERAInterim_tple_1995_2015.csv'
+#    np.savetxt(glacier_climate_fn, glacier_climate)
     
     # Write rgi info
     glacier_rgi = main_glac_rgi.loc[glac,:]
