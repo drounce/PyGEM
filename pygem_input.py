@@ -39,20 +39,20 @@ glacier_list_name = 'glacier_list_R15_all'
 option_loadparameters = 0
 #  Option 1 (default) - csv of glacier parameters
 #  Option 0 - use the parameters set by the input
-precfactor = 1.75
+precfactor = 1
 #  range 0.5 - 2
 # Precipitation gradient on glacier [% m-1]
 precgrad = 0.0001
 #  range 0.0001 - 0.0010
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 4.6 * 10**-3
+ddfsnow = 4.1 * 10**-3
 #  range 2.6 - 5.1 * 10^-3
 # Temperature adjustment [deg C]
-tempchange = 4.0
+tempchange = 0
 #  range -10 to 10
 
 # ===== CALIBRATION OPTIONS =====
-option_calibration = 0
+option_calibration = 1
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - grid search calibration run (glacier area remains constant)
 #  Option 2 - scipy optimization

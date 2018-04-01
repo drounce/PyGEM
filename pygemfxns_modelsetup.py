@@ -112,21 +112,22 @@ def datesmodelrun():
             season_list.append('winter')
             seasondict[month_list[i]] = season_list[i]
     dates_table['season'] = dates_table['month'].apply(lambda x: seasondict[x])
-    # Extract monthly columns
-    monthly_columns = dates_table['date']
-    # Extract annual columns
-    if input.option_wateryear == 1:
-        annual_columns = np.arange(dates_table.loc[0,'wateryear'], dates_table.loc[dates_table.shape[0]-1,'wateryear'] 
-                                   + 1)
-    elif input.option_wateryear == 0:
-        annual_columns = np.arange(dates_table.loc[0,'year'], dates_table.loc[dates_table.shape[0]-1,'year'] + 1)
-    # Compute annual divisor (used to perform calculations)
-    if input.timestep == 'monthly':
-        annual_divisor = 12
-    elif input.timestep == 'daily':
-        print('Need to write according to leapyear.  Code this. Exiting now.')
-        exit()
-    return dates_table, startdate, enddate, monthly_columns, annual_columns, annual_divisor
+#    # Extract monthly columns
+#    monthly_columns = dates_table['date']
+#    # Extract annual columns
+#    if input.option_wateryear == 1:
+#        annual_columns = np.arange(dates_table.loc[0,'wateryear'], dates_table.loc[dates_table.shape[0]-1,'wateryear'] 
+#                                   + 1)
+#    elif input.option_wateryear == 0:
+#        annual_columns = np.arange(dates_table.loc[0,'year'], dates_table.loc[dates_table.shape[0]-1,'year'] + 1)
+#    # Compute annual divisor (used to perform calculations)
+#    if input.timestep == 'monthly':
+#        annual_divisor = 12
+#    elif input.timestep == 'daily':
+#        print('Need to write according to leapyear.  Code this. Exiting now.')
+#        exit()
+#    return dates_table, startdate, enddate, monthly_columns, annual_columns, annual_divisor
+    return dates_table, startdate, enddate
     # note from previous version:
         # dates = dates.to_series().apply(lambda x: x.strftime("%Y-%m"))
         # removes the -DD such that its only YYYY-MM

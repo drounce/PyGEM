@@ -107,13 +107,13 @@ main_glac_rgi = pd.DataFrame(data['glacierinfo'][:], columns=data['glacierinfohe
 main_glac_calmassbal = pd.read_csv(input.main_directory + '/../Output/R15_shean_geodeticmb_sorted.csv')
 # Set glacier number
 # Ngozumpa Glacier
-#glac = 595
+glac = 595
 # Khumbu Glacier
 #glac = 667
 # Rongbuk Glacier
 #glac = 1582
 # East Rongbuk Glacier
-glac = 1607
+#glac = 1607
 
 # Select model parameters
 grid_modelparameters = data['grid_modelparameters'][:]
