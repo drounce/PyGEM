@@ -27,9 +27,6 @@ option_removeNaNcal = 1
 # Model setup directory
 main_directory = os.getcwd()
 modelsetup_dir = main_directory + '/../PyGEM_modelsetup/'
-# Climate filename from model setup
-climate_fn = '_ERAinterim_tple_1995_2015.csv'
-datestable_fn = 'dates_table_1995_2015_monthly.csv'
 # Glacier list name
 glacier_list_name = 'glacier_list_R15_all'
 

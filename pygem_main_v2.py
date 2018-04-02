@@ -21,12 +21,12 @@ import pandas as pd
 import numpy as np
 #import matplotlib.pyplot as plt
 #from datetime import datetime
-#import os # os is used with re to find name matches
+import os # os is used with re to find name matches
 #import re # see os
 #import xarray as xr
 #import netCDF4 as nc
 #from time import strftime
-#import timeit
+import timeit
 #from scipy.optimize import minimize
 #from scipy.stats import linregress
 #import matplotlib.pyplot as plt
@@ -34,6 +34,7 @@ import numpy as np
 import argparse
 import csv
 import itertools
+import pickle
 
 #========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
 import pygem_input as input
@@ -68,87 +69,134 @@ def main():
     
     modelparameters = [args.lrgcm, args.lrglac, args.precfactor, args.precgrad, args.ddfsnow, args.ddfice, 
                        args.tempsnow, args.tempchange]
-
+    
     # LOAD DATA 
     # ===== RGI INFO =====
-    with open(input.rgi_filepath + input.rgi_dict[input.rgi_regionsO1[0]], 'r') as file_rgi:
-        rgi_reader = csv.reader(file_rgi, delimiter=',')
-        header = next(itertools.islice(rgi_reader, 0, None))
-        for row in rgi_reader:
-            if args.RGIId == row[0]:
-                glacier_rgi_table_raw = pd.Series(row, index=header)
-                # convert values to floats
-                glacier_rgi_table = pd.to_numeric(glacier_rgi_table_raw, errors='coerce')
-                # overwrite RGIId (otherwise it would be NaN)
-                glacier_rgi_table['RGIId'] = glacier_rgi_table_raw['RGIId']
-                # record position number to index climate and glacier data
-                #  subtract 1 to account for line_num returning 1 for python's 0 row
-                glacier_rgi_table['O1Line'] = rgi_reader.line_num - 1
-#    # Load calibration data and append to glacier table
-    if input.option_calibration == 1:
-        # Import .csv file
-        ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[input.rgi_regionsO1[0]])
-        ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-        ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_uncertainty_colname, 
-                        input.massbal_time1, input.massbal_time2]].values
-        try:
-            glacier_calmassbal = (ds_subset[np.where(np.in1d(ds_subset[:,0], 
-                                                             glacier_rgi_table.loc['O1Line'])==True)[0][0],1:])
-        except:
-            glacier_calmassbal = np.empty(4)
-            glacier_calmassbal = np.nan
-        glacier_rgi_table[input.massbal_colname] = glacier_calmassbal[0]
-        glacier_rgi_table[input.massbal_uncertainty_colname] = glacier_calmassbal[1]
-        glacier_rgi_table[input.massbal_time1] = glacier_calmassbal[2]
-        glacier_rgi_table[input.massbal_time2] = glacier_calmassbal[3]
-    # Pickle data (add option to load from pickle instead)
-    #with open(input.modelsetup_dir + 'glacier_rgi_table.pk', 'wb') as pickle_rgi:
-    #    # dump your data into the file
-    #    pickle.dump(glacier_rgi_table, pickle_rgi)
-    # ===== GLACIER PROPERTIES ===== 
-    # Ice thickness [m]
-    with open(input.thickness_filepath + input.thickness_filedict[input.rgi_regionsO1[0]], 'r') as file_thickness:
-        icethickness_t0 = (np.array(next(itertools.islice(csv.reader(file_thickness), glacier_rgi_table.loc['O1Line'], 
-                                                          None))[2:]).astype(float))
-        icethickness_t0[icethickness_t0==-99] = 0
-    # Glacier area [km**2]
-    with open(input.hyps_filepath + input.hyps_filedict[input.rgi_regionsO1[0]], 'r') as file_hyps:
-        elev_bins = np.array(next(itertools.islice(csv.reader(file_hyps), 0, None))[2:]).astype(int)
-        glacier_area_t0 = (np.array(next(itertools.islice(csv.reader(file_hyps), glacier_rgi_table.loc['O1Line'], 
-                                                          None))[2:]).astype(float))
-        glacier_area_t0[glacier_area_t0==-99] = 0
-        # if ice thickness = 0, glacier area = 0 (problem identified by glacier RGIV6-15.00016 on 03/06/2018)
-        glacier_area_t0[icethickness_t0==0] = 0
-    # Glacier width [km]
-    with open(input.width_filepath + input.width_filedict[input.rgi_regionsO1[0]], 'r') as file_width:
-        width_t0 = (np.array(next(itertools.islice(csv.reader(file_width), glacier_rgi_table.loc['O1Line'], 
-                                                   None))[2:]).astype(float))
-        width_t0[width_t0==-99] = 0.
-    # Add volume [km**3] and mean elevation [m a.s.l.] to glacier table
-    glacier_rgi_table['Volume'] = (glacier_area_t0 * icethickness_t0/1000).sum()
-    glacier_rgi_table['Zmean'] = (glacier_area_t0 * elev_bins).sum() / glacier_area_t0.sum()
-    
-    # ===== CLIMATE DATA =====
-    #  Subtract one from the 'O1Line' to account for the climate data not having a header
-    # Temperature [degC]
-    with open(input.gcm_filepath_var + input.gcmtemp_filedict[input.rgi_regionsO1[0]], 'r') as file_temp:
-        glacier_gcm_temp = (np.array(next(itertools.islice(csv.reader(file_temp), glacier_rgi_table.loc['O1Line'] - 1, 
-                                                           None))).astype(float))
-    # Precipitation [m]
-    with open(input.gcm_filepath_var + input.gcmprec_filedict[input.rgi_regionsO1[0]], 'r') as file_prec:
-        glacier_gcm_prec = (np.array(next(itertools.islice(csv.reader(file_prec), glacier_rgi_table.loc['O1Line'] - 1, 
-                                                           None))).astype(float))
-    # Elevation [m a.s.l] associated with air temperature  and precipitation data
-    with open(input.gcm_filepath_var + input.gcmelev_filedict[input.rgi_regionsO1[0]], 'r') as file_elev:
-        glacier_gcm_elev = float(next(itertools.islice(csv.reader(file_elev), glacier_rgi_table.loc['O1Line'] - 1, 
-                                                       None))[0])
-    # Lapse rates [degC m-1] 
-    with open(input.gcm_filepath_var + input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 'r') as file_lr:
-        glacier_gcm_lrgcm = (np.array(next(itertools.islice(csv.reader(file_lr), glacier_rgi_table.loc['O1Line'] - 1, 
-                                                            None))).astype(float)) 
+    if os.path.exists(input.modelsetup_dir + args.RGIId + '_rgi_table.pk') == True:
+        glacier_rgi_table = pd.read_pickle(input.modelsetup_dir + args.RGIId + '_rgi_table.pk')
+        icethickness_t0 = pd.read_pickle(input.modelsetup_dir + args.RGIId + '_icethickness.pk')
+        glacier_area_t0 = pd.read_pickle(input.modelsetup_dir + args.RGIId + '_glacierarea.pk')
+        width_t0 = pd.read_pickle(input.modelsetup_dir + args.RGIId + '_width.pk')
+        elev_bins = np.load(input.modelsetup_dir + 'elevbins.pk')
+        glacier_gcm_temp = np.load(input.modelsetup_dir + args.RGIId + '_gcmtemp.pk')
+        glacier_gcm_prec = np.load(input.modelsetup_dir + args.RGIId + '_gcmprec.pk')
+        glacier_gcm_elev = np.load(input.modelsetup_dir + args.RGIId + '_gcmelev.pk')
+        glacier_gcm_lrgcm = np.load(input.modelsetup_dir + args.RGIId + '_gcmlr.pk')
         glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
-    # ===== MODEL TIME FRAME =====
-    dates_table, start_date, end_date = modelsetup.datesmodelrun()
+        dates_table = pd.read_pickle(input.modelsetup_dir + 'dates_table.pk')
+        print('Imported pickled data')
+    else:
+        with open(input.rgi_filepath + input.rgi_dict[input.rgi_regionsO1[0]], 'r') as file_rgi:
+            rgi_reader = csv.reader(file_rgi, delimiter=',')
+            header = next(itertools.islice(rgi_reader, 0, None))
+            for row in rgi_reader:
+                if args.RGIId == row[0]:
+                    glacier_rgi_table_raw = pd.Series(row, index=header)
+                    # convert values to floats
+                    glacier_rgi_table = pd.to_numeric(glacier_rgi_table_raw, errors='coerce')
+                    # overwrite RGIId (otherwise it would be NaN)
+                    glacier_rgi_table['RGIId'] = glacier_rgi_table_raw['RGIId']
+                    # record position number to index climate and glacier data
+                    #  subtract 1 to account for line_num returning 1 for python's 0 row
+                    glacier_rgi_table['O1Line'] = rgi_reader.line_num - 1                
+        # Load calibration data and append to glacier table
+        if input.option_calibration == 1:
+            # Import .csv file
+            ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[input.rgi_regionsO1[0]])
+            ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
+            ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_uncertainty_colname, 
+                            input.massbal_time1, input.massbal_time2]].values
+            try:
+                glacier_calmassbal = (ds_subset[np.where(np.in1d(ds_subset[:,0], 
+                                                                 glacier_rgi_table.loc['O1Line'])==True)[0][0],1:])
+            except:
+                glacier_calmassbal = np.empty(4)
+                glacier_calmassbal = np.nan
+            glacier_rgi_table[input.massbal_colname] = glacier_calmassbal[0]
+            glacier_rgi_table[input.massbal_uncertainty_colname] = glacier_calmassbal[1]
+            glacier_rgi_table[input.massbal_time1] = glacier_calmassbal[2]
+            glacier_rgi_table[input.massbal_time2] = glacier_calmassbal[3]
+            
+        # ===== GLACIER PROPERTIES ===== 
+        # Ice thickness [m]
+        with open(input.thickness_filepath + input.thickness_filedict[input.rgi_regionsO1[0]], 'r') as file_thickness:
+            icethickness_t0 = (np.array(next(itertools.islice(csv.reader(file_thickness), glacier_rgi_table.loc['O1Line'], 
+                                                              None))[2:]).astype(float))
+            icethickness_t0[icethickness_t0==-99] = 0
+        # Glacier area [km**2]
+        with open(input.hyps_filepath + input.hyps_filedict[input.rgi_regionsO1[0]], 'r') as file_hyps:
+            glacier_area_t0 = (np.array(next(itertools.islice(csv.reader(file_hyps), glacier_rgi_table.loc['O1Line'], 
+                                                              None))[2:]).astype(float))
+            glacier_area_t0[glacier_area_t0==-99] = 0
+            # if ice thickness = 0, glacier area = 0 (problem identified by glacier RGIV6-15.00016 on 03/06/2018)
+            glacier_area_t0[icethickness_t0==0] = 0
+        # Elevation bins
+        #  requires separate open or else the iterator is thrown off and it does not return the proper value
+        with open(input.hyps_filepath + input.hyps_filedict[input.rgi_regionsO1[0]], 'r') as file_hyps2:
+            elev_bins = np.array(next(itertools.islice(csv.reader(file_hyps2), 0, None))[2:]).astype(int)
+        # Glacier width [km]
+        with open(input.width_filepath + input.width_filedict[input.rgi_regionsO1[0]], 'r') as file_width:
+            width_t0 = (np.array(next(itertools.islice(csv.reader(file_width), glacier_rgi_table.loc['O1Line'], 
+                                                       None))[2:]).astype(float))
+            width_t0[width_t0==-99] = 0.
+        # Add volume [km**3] and mean elevation [m a.s.l.] to glacier table
+        glacier_rgi_table['Volume'] = (glacier_area_t0 * icethickness_t0/1000).sum()
+        glacier_rgi_table['Zmean'] = (glacier_area_t0 * elev_bins).sum() / glacier_area_t0.sum()
+        
+        # ===== CLIMATE DATA =====
+        #  Subtract one from the 'O1Line' to account for the climate data not having a header
+        # Temperature [degC]
+        with open(input.gcm_filepath_var + input.gcmtemp_filedict[input.rgi_regionsO1[0]], 'r') as file_temp:
+            glacier_gcm_temp = (np.array(next(itertools.islice(csv.reader(file_temp), glacier_rgi_table.loc['O1Line'] - 1, 
+                                                               None))).astype(float))
+        # Precipitation [m]
+        with open(input.gcm_filepath_var + input.gcmprec_filedict[input.rgi_regionsO1[0]], 'r') as file_prec:
+            glacier_gcm_prec = (np.array(next(itertools.islice(csv.reader(file_prec), glacier_rgi_table.loc['O1Line'] - 1, 
+                                                               None))).astype(float))
+        # Elevation [m a.s.l] associated with air temperature  and precipitation data
+        with open(input.gcm_filepath_var + input.gcmelev_filedict[input.rgi_regionsO1[0]], 'r') as file_elev:
+            glacier_gcm_elev = float(next(itertools.islice(csv.reader(file_elev), glacier_rgi_table.loc['O1Line'] - 1, 
+                                                           None))[0])
+        # Lapse rates [degC m-1] 
+        with open(input.gcm_filepath_var + input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 'r') as file_lr:
+            glacier_gcm_lrgcm = (np.array(next(itertools.islice(csv.reader(file_lr), glacier_rgi_table.loc['O1Line'] - 1, 
+                                                                None))).astype(float)) 
+            glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        # ===== MODEL TIME FRAME =====
+        dates_table, start_date, end_date = modelsetup.datesmodelrun()
+    
+        # PICKLE DATA
+        with open(input.modelsetup_dir + args.RGIId + '_rgi_table.pk', 'wb') as pickle_rgi:
+            # dump your data into the file
+            pickle.dump(glacier_rgi_table, pickle_rgi)
+            print('Data pickled')
+        with open(input.modelsetup_dir + args.RGIId + '_icethickness.pk', 'wb') as pickle_icethickness:
+            # dump your data into the file
+            pickle.dump(icethickness_t0, pickle_icethickness)
+        with open(input.modelsetup_dir + args.RGIId + '_glacierarea.pk', 'wb') as pickle_glacierarea:
+            # dump your data into the file
+            pickle.dump(glacier_area_t0, pickle_glacierarea)    
+        with open(input.modelsetup_dir + args.RGIId + '_width.pk', 'wb') as pickle_width:
+            # dump your data into the file
+            pickle.dump(width_t0, pickle_width)
+        with open(input.modelsetup_dir + 'elevbins.pk', 'wb') as pickle_elevbins:
+            # dump your data into the file
+            pickle.dump(elev_bins, pickle_elevbins)
+        with open(input.modelsetup_dir + args.RGIId + '_gcmtemp.pk', 'wb') as pickle_gcmtemp:
+            # dump your data into the file
+            pickle.dump(glacier_gcm_temp, pickle_gcmtemp)
+        with open(input.modelsetup_dir + args.RGIId + '_gcmprec.pk', 'wb') as pickle_gcmprec:
+            # dump your data into the file
+            pickle.dump(glacier_gcm_prec, pickle_gcmprec)
+        with open(input.modelsetup_dir + args.RGIId + '_gcmelev.pk', 'wb') as pickle_gcmelev:
+            # dump your data into the file
+            pickle.dump(glacier_gcm_elev, pickle_gcmelev)
+        with open(input.modelsetup_dir + args.RGIId + '_gcmlr.pk', 'wb') as pickle_gcmlr:
+            # dump your data into the file
+            pickle.dump(glacier_gcm_lrgcm, pickle_gcmlr)
+        with open(input.modelsetup_dir + 'dates_table.pk', 'wb') as pickle_datestable:
+            # dump your data into the file
+            pickle.dump(dates_table, pickle_datestable)
 
 
     # ===== RUN MASS BALANCE MODEL ===== 
@@ -159,12 +207,15 @@ def main():
                                    glacier_gcm_lrglac, dates_table))
     # Return desired output
     return (glacier_rgi_table, icethickness_t0, glacier_area_t0, width_t0, elev_bins, glacier_gcm_temp, 
-            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, glac_wide_massbaltotal, 
-            glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, glac_wide_volume_annual, 
-            glac_wide_ELA_annual)
+            glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+            glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
+            glac_wide_volume_annual, glac_wide_ELA_annual)
+    
     
 if __name__ == "__main__":
-    (glacier_rgi_table, icethickness_t0, glacier_area_t0, width_t0, elev_bins, glacier_gcm_temp, 
+    timestart_step1 = timeit.default_timer()
+    
+    (glacier_rgi_table, icethickness_t0, glacier_area_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
      glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, glac_wide_massbaltotal, 
      glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, glac_wide_volume_annual, 
      glac_wide_ELA_annual) = main()
@@ -186,8 +237,11 @@ if __name__ == "__main__":
     
     print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
           glac_wide_massbaltotal_annual_avg, massbal_difference)
-     
 
+
+    timeelapsed_step1 = timeit.default_timer() - timestart_step1
+    print('\ntime:', timeelapsed_step1, "s\n")
+    
 #%% ===== OLD SETUP (keep for output) =================================================================================
 ## ===== OUTPUT FILE =====
 ## Create output netcdf file
