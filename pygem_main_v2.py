@@ -70,6 +70,10 @@ def main():
     modelparameters = [args.lrgcm, args.lrglac, args.precfactor, args.precgrad, args.ddfsnow, args.ddfice, 
                        args.tempsnow, args.tempchange]
     
+    # Set up directory for files
+    if os.path.exists(input.modelsetup_dir) == False:
+        os.makedirs(input.modelsetup_dir)    
+    
     # LOAD DATA 
     # ===== RGI INFO =====
     if os.path.exists(input.modelsetup_dir + args.RGIId + '_rgi_table.pk') == True:

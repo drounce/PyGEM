@@ -26,7 +26,7 @@ option_removeNaNcal = 1
 #  Option 1 - remove glaciers without cal data
 # Model setup directory
 main_directory = os.getcwd()
-modelsetup_dir = main_directory + '/../PyGEM_modelsetup/'
+modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 # Glacier list name
 glacier_list_name = 'glacier_list_R15_all'
 
