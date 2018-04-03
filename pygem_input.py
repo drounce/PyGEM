@@ -18,6 +18,7 @@ rgi_regionsO1 = [15]
 rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
+#rgi_glac_number = ['01204']
 #rgi_glac_number = ['09991']
 #rgi_glac_number = ['10070']
 #  example numbers are associated with rgi_regionsO1 [15]; 'all' includes all glaciers iwthin a region
