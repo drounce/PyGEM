@@ -67,8 +67,9 @@ def main():
     parser = getparser()
     args = parser.parse_args()
     
-    modelparameters = [args.lrgcm, args.lrglac, args.precfactor, args.precgrad, args.ddfsnow, args.ddfice, 
+    modelparameters = [args.lrgcm, args.lrglac, args.precfactor, args.precgrad, args.ddfsnow, args.ddfsnow / 0.7, 
                        args.tempsnow, args.tempchange]
+    print(modelparameters)
     # Set up directory for files
     if os.path.exists(input.modelsetup_dir) == False:
         os.makedirs(input.modelsetup_dir)    
@@ -203,7 +204,6 @@ def main():
 
 
     # ===== RUN MASS BALANCE MODEL ===== 
-#    print('hello')
     (glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
      glac_wide_volume_annual, glac_wide_ELA_annual) = (
         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 

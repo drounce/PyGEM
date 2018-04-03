@@ -46,9 +46,9 @@ if input.option_calibration == 1:
     main_glac_calmassbal = modelsetup.selectcalibrationdata(main_glac_rgi)
     # Concatenate massbal data to the main glacier
     main_glac_rgi = pd.concat([main_glac_rgi, main_glac_calmassbal], axis=1)
-    # Drop those with nan values
-    main_glac_calmassbal = main_glac_calmassbal.dropna()
-    main_glac_rgi = main_glac_rgi.dropna()
+#    # Drop those with nan values
+#    main_glac_calmassbal = main_glac_calmassbal.dropna()
+#    main_glac_rgi = main_glac_rgi.dropna()
 # Glacier hypsometry [km**2], total area
 main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath, 
                                              input.hyps_filedict, input.indexname, input.hyps_colsdrop)
@@ -115,9 +115,10 @@ if input.option_calibration == 1:
     main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], 8))
     main_glac_massbal_compare = np.zeros((main_glac_rgi.shape[0],4))
 
-    for glac in range(main_glac_rgi.shape[0]):
+#    for glac in range(main_glac_rgi.shape[0]):
 #    for glac in range(25):
-#    for glac in [0]:
+    for glac in [0]:
+        glac = 3472
         print(main_glac_rgi.loc[glac,'RGIId'])
 
         # Set model parameters
@@ -272,12 +273,16 @@ if input.option_calibration == 1:
             massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbaltotal_annual_avg)
             main_glac_massbal_compare[glac] = [glac_wide_massbaltotal_annual_avg, glacier_rgi_table.loc[input.massbal_colname], 
                                                massbal_difference, calround]
+            
             print('precfactor:', main_glac_modelparamsopt[glac,2])
             print('precgrad:', main_glac_modelparamsopt[glac,3])
             print('ddfsnow:', main_glac_modelparamsopt[glac,4])
             print('tempchange:', main_glac_modelparamsopt[glac,7])
-            print(main_glac_massbal_compare[glac], '\n')
- 
+#            print(main_glac_modelparamsopt[glac,:])
+#            print(main_glac_massbal_compare[glac], '\n')
+            print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
+                  glac_wide_massbaltotal_annual_avg, massbal_difference)
+    
 #            # OPTIMIZATION ROUND #2: if tolerance not reached, increase bounds
 #            if massbal_difference > input.massbal_tolerance:
 #                # Constraints
@@ -374,10 +379,10 @@ if input.option_calibration == 1:
 #                print('ddfsnow:', main_glac_modelparamsopt[glac,4])
 #                print('tempchange:', main_glac_modelparamsopt[glac,7])
 #                print(main_glac_massbal_compare[glac], '\n')
-#        else:
-#        # if calibration data not available for a glacier, then insert NaN into calibration output
-#            main_glac_modelparamsopt[glac] = float('NaN')
-#            main_glac_massbal_compare[glac] = float('NaN')
+        else:
+        # if calibration data not available for a glacier, then insert NaN into calibration output
+            main_glac_modelparamsopt[glac] = float('NaN')
+            main_glac_massbal_compare[glac] = float('NaN')
             
         # Output calibration results to .csv file
         #  pandas dataframe used instead of numpy arrays here, so column headings can be exported
