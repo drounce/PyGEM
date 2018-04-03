@@ -113,90 +113,90 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
 #                        elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
 
 
-#%% Mass redistribution parameters based on geodetic mass balances
-mb_filepath = os.getcwd() + '/../../HiMAT/DEMs/mb_bins_sample_20180323/'
-mb_filename = '15.10070_CN5O193B0118EastRongbukGlacier_mb_bins.csv'
-
-data = pd.read_csv(mb_filepath + mb_filename)
-elev = data['# bin_center_elev_m']
-elev_norm = (elev.max() - elev) / (elev.max() - elev.min())
-dhdt = data[' dhdt_bin_mean_ma']
-dhdt_norm = (dhdt.max() - dhdt) / (dhdt.max() - dhdt.min())
-
-#plt.scatter(elev_norm, dhdt_norm, cmap='jet_r')
-##  plotting x, y, size [s=__], color bar [c=__]
-##  set the range of the color bar
-#plt.colorbar(fraction=0.02, pad=0.04)
-##  fraction resizes the colorbar, pad is the space between the plot and colorbar
+##%% Mass redistribution parameters based on geodetic mass balances
+#mb_filepath = os.getcwd() + '/../../HiMAT/DEMs/mb_bins_sample_20180323/'
+#mb_filename = '15.10070_CN5O193B0118EastRongbukGlacier_mb_bins.csv'
+#
+#data = pd.read_csv(mb_filepath + mb_filename)
+#elev = data['# bin_center_elev_m']
+#elev_norm = (elev.max() - elev) / (elev.max() - elev.min())
+#dhdt = data[' dhdt_bin_mean_ma']
+#dhdt_norm = (dhdt.max() - dhdt) / (dhdt.max() - dhdt.min())
+#
+##plt.scatter(elev_norm, dhdt_norm, cmap='jet_r')
+###  plotting x, y, size [s=__], color bar [c=__]
+###  set the range of the color bar
+##plt.colorbar(fraction=0.02, pad=0.04)
+###  fraction resizes the colorbar, pad is the space between the plot and colorbar
+##plt.show()
+#
+#fig, ax = plt.subplots(1,1, figsize=(5,5))  
+#markers = ['o','v','^']
+#labels = ['15.100070', '0.0003', '0.0005']
+### define the colormap
+##cmap = plt.cm.jet_r
+### extract all colors from the .jet map
+##cmaplist = [cmap(i) for i in range(cmap.N)]
+### create the new map
+##cmap = cmap.from_list('Custom cmap', cmaplist, cmap.N)
+### define the bins and normalize
+##stepmin = 0
+##stepmax = 1
+##stepsize = 0.2
+##bounds = np.arange(stepmin, stepmax, stepsize)
+##norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+#
+## make the scatter
+#scat = ax.scatter(elev_norm, dhdt_norm, marker=markers[0], label=labels[0])
+## create the colorbar
+##cb = plt.colorbar(scat, spacing='proportional', ticks=bounds)
+##cb = plt.colorbar()
+##tick_loc = bounds + stepsize/2
+##cb.set_ticks(tick_loc)
+##cb.set_ticklabels((bounds + stepsize/2).astype(int))
+##cb.set_label('Tempchange [degC]')
+##ax.set_title('TITLE')
+#plt.xlabel('Normalized elevation range')
+#plt.xlim((0, 1))
+##plt.xticks(np.arange(0,1.1,0.2))
+#plt.ylabel('Normalized ice thickness change')
+#plt.ylim((1,0))
+##plt.legend(loc=2)
 #plt.show()
-
-fig, ax = plt.subplots(1,1, figsize=(5,5))  
-markers = ['o','v','^']
-labels = ['15.100070', '0.0003', '0.0005']
-## define the colormap
-#cmap = plt.cm.jet_r
-## extract all colors from the .jet map
-#cmaplist = [cmap(i) for i in range(cmap.N)]
-## create the new map
-#cmap = cmap.from_list('Custom cmap', cmaplist, cmap.N)
-## define the bins and normalize
-#stepmin = 0
-#stepmax = 1
-#stepsize = 0.2
-#bounds = np.arange(stepmin, stepmax, stepsize)
-#norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-
-# make the scatter
-scat = ax.scatter(elev_norm, dhdt_norm, marker=markers[0], label=labels[0])
-# create the colorbar
-#cb = plt.colorbar(scat, spacing='proportional', ticks=bounds)
-#cb = plt.colorbar()
-#tick_loc = bounds + stepsize/2
-#cb.set_ticks(tick_loc)
-#cb.set_ticklabels((bounds + stepsize/2).astype(int))
-#cb.set_label('Tempchange [degC]')
-#ax.set_title('TITLE')
-plt.xlabel('Normalized elevation range')
-plt.xlim((0, 1))
-#plt.xticks(np.arange(0,1.1,0.2))
-plt.ylabel('Normalized ice thickness change')
-plt.ylim((1,0))
-#plt.legend(loc=2)
-plt.show()
-#fig.savefig(input.main_directory + '/../output/' + main_glac_rgi.loc[glac,'RGIID'] + '_gridsearch.png')
+##fig.savefig(input.main_directory + '/../output/' + main_glac_rgi.loc[glac,'RGIID'] + '_gridsearch.png')
 
 
 #%% NEAREST NEIGHBOR CALIBRATION PARAMETERS
-## Load csv
-#ds = pd.read_csv(input.main_directory + '/../Output/calibration_R14_20180313_Opt01solutionspaceexpanding.csv', 
-#                 index_col='GlacNo')
-## Select data of interest
-#data = ds[['CenLon', 'CenLat', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']].copy()
-## Drop nan data to retain only glaciers with calibrated parameters
-#data_cal = data.dropna()
-#A = data_cal.mean(0)
-## Select latitude and longitude of calibrated parameters for distance estimate
-#data_cal_lonlat = data_cal.iloc[:,0:2].values
-## Loop through each glacier and select the parameters based on the nearest neighbor
-#for glac in range(data.shape[0]):
-#    # Avoid applying this to any glaciers that already were optimized
-#    if data.iloc[glac, :].isnull().values.any() == True:
-#        # Select the latitude and longitude of the glacier's center
-#        glac_lonlat = data.iloc[glac,0:2].values
-#        # Set point to be compatible with cdist function (from scipy)
-#        pt = [[glac_lonlat[0],glac_lonlat[1]]]
-#        # scipy function to calculate distance
-#        distances = cdist(pt, data_cal_lonlat)
-#        # Find minimum index (could be more than one)
-#        idx_min = np.where(distances == distances.min())[1]
-#        # Set new parameters
-#        data.iloc[glac,2:] = data_cal.iloc[idx_min,2:].values.mean(0)
-#        #  use mean in case multiple points are equidistant from the glacier
-## Remove latitude and longitude to create csv file
-#parameters_export = data.iloc[:,2:]
-## Export csv file
-#parameters_export.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R14_20180313_nearest_v3.csv', 
-#                         index=False)
+# Load csv
+ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
+                 index_col='GlacNo')
+# Select data of interest
+data = ds[['CenLon', 'CenLat', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']].copy()
+# Drop nan data to retain only glaciers with calibrated parameters
+data_cal = data.dropna()
+A = data_cal.mean(0)
+# Select latitude and longitude of calibrated parameters for distance estimate
+data_cal_lonlat = data_cal.iloc[:,0:2].values
+# Loop through each glacier and select the parameters based on the nearest neighbor
+for glac in range(data.shape[0]):
+    # Avoid applying this to any glaciers that already were optimized
+    if data.iloc[glac, :].isnull().values.any() == True:
+        # Select the latitude and longitude of the glacier's center
+        glac_lonlat = data.iloc[glac,0:2].values
+        # Set point to be compatible with cdist function (from scipy)
+        pt = [[glac_lonlat[0],glac_lonlat[1]]]
+        # scipy function to calculate distance
+        distances = cdist(pt, data_cal_lonlat)
+        # Find minimum index (could be more than one)
+        idx_min = np.where(distances == distances.min())[1]
+        # Set new parameters
+        data.iloc[glac,2:] = data_cal.iloc[idx_min,2:].values.mean(0)
+        #  use mean in case multiple points are equidistant from the glacier
+# Remove latitude and longitude to create csv file
+parameters_export = data.iloc[:,2:]
+# Export csv file
+parameters_export.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nearest.csv', 
+                         index=False)
 
 
 #%% Connect the WGMS point mass balance datasets with the RGIIds and relevant elevation bands

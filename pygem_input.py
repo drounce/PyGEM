@@ -35,7 +35,7 @@ glacier_list_name = 'glacier_list_R15_all'
 
 # ===== MODEL PARAMETERS =====
 # Option to load calibration parameters for each glacier
-option_loadparameters = 0
+option_loadparameters = 1
 #  Option 1 (default) - csv of glacier parameters
 #  Option 0 - use the parameters set by the input
 precfactor = 1
@@ -51,7 +51,7 @@ tempchange = 0
 #  range -10 to 10
 
 # ===== CALIBRATION OPTIONS =====
-option_calibration = 1
+option_calibration = 0
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - grid search calibration run (glacier area remains constant)
 #  Option 2 - scipy optimization
@@ -360,7 +360,7 @@ massbal_tolerance = 0.1
 modelparams_filepath = main_directory + '/../Calibration_datasets/'
 #modelparams_filename = 'calparams_R15_20180306_nearest.csv'
 #modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
-modelparams_filename = 'calparams_R14_20180313_nearest.csv'
+modelparams_filename = 'calparams_R15_20180403_nearest.csv'
 #modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 
@@ -476,7 +476,7 @@ terminus_percentage = 20
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 # Output package number
-output_package = 0
+output_package = 2
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,

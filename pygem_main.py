@@ -628,78 +628,79 @@ if input.option_calibration == 1:
 #        
 #timeelapsed_step4 = timeit.default_timer() - timestart_step4
 #print('Step 4 time:', timeelapsed_step4, "s\n")
-#
-##%%=== STEP FIVE: SIMULATION RUN ======================================================================================
-#timestart_step5 = timeit.default_timer()
-#
-#if input.option_calibration == 0:
-#    # [INSERT REGIONAL LOOP HERE] if want to do all regions at the same time.  Separate netcdf files will be generated
-#    #  for each loop to reduce file size and make files easier to read/share
-#    
-#    regionO1_number = input.rgi_regionsO1[0]
-#    # Create output netcdf file
-#    if input.output_package != 0:
-#        output.netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns)
-#        
-#    # Load model parameters
-#    if input.option_loadparameters == 1:
-#        main_glac_modelparams = pd.read_csv(input.modelparams_filepath + input.modelparams_filename) 
-#    else:
-#        main_glac_modelparams = pd.DataFrame(np.repeat([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, 
-#            input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange], main_glac_rgi.shape[0]).reshape(-1, 
-#            main_glac_rgi.shape[0]).transpose(), columns=input.modelparams_colnames)
-#    # Test range
-#    #glac = 0
-#    #prec_factor_low = 0.8
-#    #prec_factor_high = 2.0
-#    #prec_factor_step = 0.005
-#    #prec_factor_range = np.arange(prec_factor_low, prec_factor_high + prec_factor_step, prec_factor_step)
-#    #glac_wide_massbal_record = np.zeros(prec_factor_range.shape)
-#    #for n in range(len(prec_factor_range)):
-#    #    prec_factor = prec_factor_range[n]
-#        
-#    # ENTER GLACIER LOOP
-#    for glac in range(main_glac_rgi.shape[0]):
-##    for glac in [0]:
-#        print(glac)
-#        # Select subset of variables to reduce the amount of data being passed to the function
-#        modelparameters = main_glac_modelparams.loc[glac,:].values
-#        glacier_rgi_table = main_glac_rgi.loc[glac, :]
-#        glacier_gcm_elev = main_glac_gcmelev[glac]
-#        glacier_gcm_prec = main_glac_gcmprec[glac,:]
-#        glacier_gcm_temp = main_glac_gcmtemp[glac,:]
-#        if input.option_lapserate_fromgcm == 1:
-#            glacier_gcm_lrgcm = main_glac_gcmlapserate[glac]
-#            glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
-#        else:
-#            glacier_gcm_lrgcm = np.zeros(glacier_gcm_temp.shape) + modelparameters[0]
-#            glacier_gcm_lrglac = np.zeros(glacier_gcm_temp.shape) + modelparameters[1]
-#        glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
-#        # Inclusion of ice thickness and width, i.e., loading values may be only required for Huss mass redistribution!
-#        icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
-#        width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-#        # MASS BALANCE
-#        # Run the mass balance function (spinup years have been removed from output)
-#        (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-#         glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-#         glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual) = (
-#                 massbalance.runmassbalance(glac, modelparameters, regionO1_number, glacier_rgi_table, glacier_area_t0, 
-#                                            icethickness_t0, width_t0, glacier_gcm_temp, glacier_gcm_prec, 
-#                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, elev_bins, 
-#                                            dates_table, annual_columns, annual_divisor))
-#        # OUTPUT: Record variables according to output package
-#        #  must be done within glacier loop since the variables will be overwritten 
-#        if input.output_package != 0:
-#            output.netcdfwrite(regionO1_number, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
-#                               glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-#                               glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
-#                               glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual, 
-#                               glac_bin_surfacetype_annual)
-#            # POTENTIAL IMPROVEMENT: OPEN THE FILE WITHIN THE MAIN SCRIPT AND THEN GO INTO THE FUNCTION TO WRITE TO THE
-#            #                        NETCDF FILE - THIS WAY NO LONGER HAVE TO OPEN AND CLOSE EACH TIME
-#            
-#timeelapsed_step5 = timeit.default_timer() - timestart_step5
-#print('Step 5 time:', timeelapsed_step5, "s\n")
-#
-##%%=== Model testing ===============================================================================
-##netcdf_output = nc.Dataset(input.main_directory + '/../Output/calibration_gridsearchcoarse_R15_20180319.nc', 'r+')
+
+#%%=== STEP FIVE: SIMULATION RUN ======================================================================================
+timestart_step5 = timeit.default_timer()
+
+if input.option_calibration == 0:
+    # [INSERT REGIONAL LOOP HERE] if want to do all regions at the same time.  Separate netcdf files will be generated
+    #  for each loop to reduce file size and make files easier to read/share
+    
+    regionO1_number = input.rgi_regionsO1[0]
+    # Create output netcdf file
+    if input.output_package != 0:
+        netcdf_fullfilename = output.netcdfcreate(regionO1_number, main_glac_hyps, dates_table)
+        
+    # Load model parameters
+    if input.option_loadparameters == 1:
+        main_glac_modelparams = pd.read_csv(input.modelparams_filepath + input.modelparams_filename) 
+    else:
+        main_glac_modelparams = pd.DataFrame(np.repeat([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, 
+            input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange], main_glac_rgi.shape[0]).reshape(-1, 
+            main_glac_rgi.shape[0]).transpose(), columns=input.modelparams_colnames)
+    # Test range
+    #glac = 0
+    #prec_factor_low = 0.8
+    #prec_factor_high = 2.0
+    #prec_factor_step = 0.005
+    #prec_factor_range = np.arange(prec_factor_low, prec_factor_high + prec_factor_step, prec_factor_step)
+    #glac_wide_massbal_record = np.zeros(prec_factor_range.shape)
+    #for n in range(len(prec_factor_range)):
+    #    prec_factor = prec_factor_range[n]
+        
+    # ENTER GLACIER LOOP
+    for glac in range(main_glac_rgi.shape[0]):
+#    for glac in [0]:
+        print(main_glac_rgi.loc[glac,'RGIId'])
+        # Select subset of variables to reduce the amount of data being passed to the function
+        modelparameters = main_glac_modelparams.loc[glac,:].values
+        glacier_rgi_table = main_glac_rgi.loc[glac, :]
+        glacier_gcm_elev = main_glac_gcmelev[glac]
+        glacier_gcm_prec = main_glac_gcmprec[glac,:]
+        glacier_gcm_temp = main_glac_gcmtemp[glac,:]
+        if input.option_lapserate_fromgcm == 1:
+            glacier_gcm_lrgcm = main_glac_gcmlapserate[glac]
+            glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        else:
+            glacier_gcm_lrgcm = np.zeros(glacier_gcm_temp.shape) + modelparameters[0]
+            glacier_gcm_lrglac = np.zeros(glacier_gcm_temp.shape) + modelparameters[1]
+        glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
+        # Inclusion of ice thickness and width, i.e., loading values may be only required for Huss mass redistribution!
+        icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
+        width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
+        # MASS BALANCE
+        # Run the mass balance function (spinup years have been removed from output)
+        (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+         glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+         glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+         glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
+         glac_wide_volume_annual, glac_wide_ELA_annual) = (
+            massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
+                                       elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                       glacier_gcm_lrglac, dates_table))
+        # OUTPUT: Record variables according to output package
+        #  must be done within glacier loop since the variables will be overwritten 
+        if input.output_package != 0:
+            output.netcdfwrite(netcdf_fullfilename, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
+                               glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+                               glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
+                               glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
+                               glac_bin_surfacetype_annual)
+            # POTENTIAL IMPROVEMENT: OPEN THE FILE WITHIN THE MAIN SCRIPT AND THEN GO INTO THE FUNCTION TO WRITE TO THE
+            #                        NETCDF FILE - THIS WAY NO LONGER HAVE TO OPEN AND CLOSE EACH TIME
+            
+timeelapsed_step5 = timeit.default_timer() - timestart_step5
+print('Step 5 time:', timeelapsed_step5, "s\n")
+
+#%%=== Model testing ===============================================================================
+#netcdf_output = nc.Dataset(input.main_directory + '/' + netcdf_fullfilename, 'r+')

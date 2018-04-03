@@ -26,10 +26,13 @@ import cartopy
 
 #========= FUNCTIONS (alphabetical order) ===================================
 #%%===== NETCDF FUNCTIONS =============================================================================================
-def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
+def netcdfcreate(regionO1_number, main_glac_hyps, dates_table):
     """Create a netcdf file to store the desired output
     Output: empty netcdf file with the proper setup to be filled in by the model
     """
+    # Annual columns
+    annual_columns = np.unique(dates_table['wateryear'].values)
+    
     # Netcdf file path and name
     filename = input.netcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
     fullfilename = input.output_filepath + filename
@@ -197,7 +200,9 @@ def netcdfcreate(regionO1_number, main_glac_hyps, dates_table, annual_columns):
     return fullfilename
 
 
-def netcdfcreate_calgridsearch(regionO1_number, main_glac_hyps, dates_table, annual_columns, modelparameters):
+def netcdfcreate_calgridsearch(regionO1_number, main_glac_hyps, dates_table, modelparameters):
+    # Annual columns
+    annual_columns = np.unique(dates_table['wateryear'].values)
     # Netcdf file path and name
     filename = input.calibrationnetcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
     fullfilename = input.output_filepath + filename
