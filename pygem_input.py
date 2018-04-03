@@ -15,8 +15,9 @@ import numpy as np
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['03473']
 #rgi_glac_number = ['09991']
 #rgi_glac_number = ['10070']
 #  example numbers are associated with rgi_regionsO1 [15]; 'all' includes all glaciers iwthin a region
@@ -42,7 +43,7 @@ precfactor = 1
 precgrad = 0.0001
 #  range 0.0001 - 0.0010
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 4.1 * 10**-3
+ddfsnow = 0.0041
 #  range 2.6 - 5.1 * 10^-3
 # Temperature adjustment [deg C]
 tempchange = 0
@@ -68,7 +69,7 @@ lrglac = -0.0065
 #  k_p in Radic et al. (2013)
 #  c_prec in Huss and Hock (2015)
 # Degree-day factor of ice [m w.e. d-1 degC-1]
-ddfice = 4.1 / 0.7 * 10**-3
+ddfice = 0.0041 / 0.7
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Ratio degree-day factor snow snow to ice
 ddfsnow_iceratio = 0.7
@@ -265,7 +266,7 @@ option_surfacetype_debris = 0
 #   The user has the option to choose the type of climate data being used in the
 #   model run, and how that data will be downscaled to the glacier and bins.
 # Option to downscale GCM data
-option_gcm_downscale = 1
+option_gcm_downscale = 2
 #  Option 1 (default): select climate data based on nearest neighbor
 #  Option 2: import prepared csv files (saves time)
 # Filepath to GCM variable files

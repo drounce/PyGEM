@@ -69,7 +69,6 @@ def main():
     
     modelparameters = [args.lrgcm, args.lrglac, args.precfactor, args.precgrad, args.ddfsnow, args.ddfice, 
                        args.tempsnow, args.tempchange]
-    
     # Set up directory for files
     if os.path.exists(input.modelsetup_dir) == False:
         os.makedirs(input.modelsetup_dir)    
@@ -204,32 +203,17 @@ def main():
 
 
     # ===== RUN MASS BALANCE MODEL ===== 
+#    print('hello')
     (glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
      glac_wide_volume_annual, glac_wide_ELA_annual) = (
         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
                                    elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
                                    glacier_gcm_lrglac, dates_table))
-    # Return desired output
-    return (glacier_rgi_table, icethickness_t0, glacier_area_t0, width_t0, elev_bins, glacier_gcm_temp, 
-            glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-            glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
-            glac_wide_volume_annual, glac_wide_ELA_annual)
-    
-    
-if __name__ == "__main__":
-    timestart_step1 = timeit.default_timer()
-    
-    (glacier_rgi_table, icethickness_t0, glacier_area_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
-     glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, glac_wide_massbaltotal, 
-     glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, glac_wide_volume_annual, 
-     glac_wide_ELA_annual) = main()
-    
     # Compare calibration data
     # Column index for start and end year based on dates of geodetic mass balance observations
     massbal_idx_start = int(glacier_rgi_table.loc[input.massbal_time1] - input.startyear)
     massbal_idx_end = int(massbal_idx_start + glacier_rgi_table.loc[input.massbal_time2] - 
                           glacier_rgi_table.loc[input.massbal_time1] + 1)
-    massbal_years = massbal_idx_end - massbal_idx_start
     # Annual glacier-wide mass balance [m w.e.]
     glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
     # Average annual glacier-wide mass balance [m w.e.a.]
@@ -241,11 +225,43 @@ if __name__ == "__main__":
     
     print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
           glac_wide_massbaltotal_annual_avg, massbal_difference)
-
-
-    timeelapsed_step1 = timeit.default_timer() - timestart_step1
-    print('\ntime:', timeelapsed_step1, "s\n")
     
+    # Return desired output
+    return (glacier_rgi_table, icethickness_t0, glacier_area_t0, width_t0, elev_bins, glacier_gcm_temp, 
+            glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+            glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
+            glac_wide_volume_annual, glac_wide_ELA_annual, modelparameters)
+    
+    
+if __name__ == "__main__":
+#    timestart_step1 = timeit.default_timer()
+    
+    (glacier_rgi_table, icethickness_t0, glacier_area_t0, width_t0, elev_bins, glacier_gcm_temp, 
+    glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+    glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
+    glac_wide_volume_annual, glac_wide_ELA_annual, modelparameters) = main()
+    
+#    # Compare calibration data
+#    # Column index for start and end year based on dates of geodetic mass balance observations
+#    massbal_idx_start = int(glacier_rgi_table.loc[input.massbal_time1] - input.startyear)
+#    massbal_idx_end = int(massbal_idx_start + glacier_rgi_table.loc[input.massbal_time2] - 
+#                          glacier_rgi_table.loc[input.massbal_time1] + 1)
+#    # Annual glacier-wide mass balance [m w.e.]
+#    glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+#    # Average annual glacier-wide mass balance [m w.e.a.]
+#    glac_wide_massbaltotal_annual_avg = glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean()
+#
+#    #  units: m w.e. based on initial area
+#    # Difference between geodetic and modeled mass balance
+#    massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbaltotal_annual_avg)
+#    
+#    print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
+#          glac_wide_massbaltotal_annual_avg, massbal_difference)
+#
+#
+#    timeelapsed_step1 = timeit.default_timer() - timestart_step1
+#    print('\ntime:', timeelapsed_step1, "s\n")
+#    
 #%% ===== OLD SETUP (keep for output) =================================================================================
 ## ===== OUTPUT FILE =====
 ## Create output netcdf file
