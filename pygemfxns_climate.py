@@ -105,7 +105,6 @@ def importGCMfxnearestneighbor_xarray(filename, variablename, glac_table):
 
 
 def importGCMvarnearestneighbor_xarray(filename, variablename, glac_table, dates_table, start_date, end_date):
-    # OPTION 1: Nearest neighbor to select climate data
     """
     Import meteorological variables and extract the nearest neighbor time series of the variable. Meteorological data 
     from the global climate models were provided by Ben Marzeion and ETH-Zurich for the GlacierMIP Phase II project.

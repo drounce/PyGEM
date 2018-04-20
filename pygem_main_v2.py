@@ -26,7 +26,7 @@ import os # os is used with re to find name matches
 #import xarray as xr
 #import netCDF4 as nc
 #from time import strftime
-import timeit
+#import timeit
 #from scipy.optimize import minimize
 #from scipy.stats import linregress
 #import matplotlib.pyplot as plt
@@ -88,7 +88,7 @@ def main():
         glacier_gcm_lrgcm = np.load(input.modelsetup_dir + args.RGIId + '_gcmlr.pk')
         glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
         dates_table = pd.read_pickle(input.modelsetup_dir + 'dates_table.pk')
-        print('Imported pickled data')
+#        print('Imported pickled data')
     else:
         with open(input.rgi_filepath + input.rgi_dict[input.rgi_regionsO1[0]], 'r') as file_rgi:
             rgi_reader = csv.reader(file_rgi, delimiter=',')
@@ -161,11 +161,14 @@ def main():
         with open(input.gcm_filepath_var + input.gcmelev_filedict[input.rgi_regionsO1[0]], 'r') as file_elev:
             glacier_gcm_elev = float(next(itertools.islice(csv.reader(file_elev), glacier_rgi_table.loc['O1Line'] - 1, 
                                                            None))[0])
-        # Lapse rates [degC m-1] 
-        with open(input.gcm_filepath_var + input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 'r') as file_lr:
-            glacier_gcm_lrgcm = (np.array(next(itertools.islice(csv.reader(file_lr), glacier_rgi_table.loc['O1Line'] - 1, 
-                                                                None))).astype(float)) 
-            glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        # Lapse rates [degC m-1]
+        if input.option_lapserate_fromgcm == 1:
+            with open(input.gcm_filepath_var + input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 'r') as file_lr:
+                glacier_gcm_lrgcm = (np.array(next(itertools.islice(csv.reader(file_lr), glacier_rgi_table.loc['O1Line']
+                                                                    - 1, None))).astype(float)) 
+        elif input.option_lapserate_fromgcm == 0:
+            glacier_gcm_lrgcm = np.zeros(glacier_gcm_temp.shape) + modelparameters[0]
+        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
         # ===== MODEL TIME FRAME =====
         dates_table, start_date, end_date = modelsetup.datesmodelrun()
     
@@ -173,7 +176,7 @@ def main():
         with open(input.modelsetup_dir + args.RGIId + '_rgi_table.pk', 'wb') as pickle_rgi:
             # dump your data into the file
             pickle.dump(glacier_rgi_table, pickle_rgi)
-            print('Data pickled')
+#            print('Data pickled')
         with open(input.modelsetup_dir + args.RGIId + '_icethickness.pk', 'wb') as pickle_icethickness:
             # dump your data into the file
             pickle.dump(icethickness_t0, pickle_icethickness)
@@ -223,45 +226,26 @@ def main():
     # Difference between geodetic and modeled mass balance
     massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbaltotal_annual_avg)
     
-    print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
-          glac_wide_massbaltotal_annual_avg, massbal_difference)
-    
     # Return desired output
     return (glacier_rgi_table, icethickness_t0, glacier_area_t0, width_t0, elev_bins, glacier_gcm_temp, 
             glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
-            glac_wide_volume_annual, glac_wide_ELA_annual, modelparameters)
+            glac_wide_volume_annual, glac_wide_ELA_annual, modelparameters, glac_wide_massbaltotal_annual_avg,
+            massbal_difference)
     
     
 if __name__ == "__main__":
-#    timestart_step1 = timeit.default_timer()
     
     (glacier_rgi_table, icethickness_t0, glacier_area_t0, width_t0, elev_bins, glacier_gcm_temp, 
     glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
     glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
-    glac_wide_volume_annual, glac_wide_ELA_annual, modelparameters) = main()
+    glac_wide_volume_annual, glac_wide_ELA_annual, modelparameters, glac_wide_massbaltotal_annual_avg,
+    massbal_difference) = main()
     
-#    # Compare calibration data
-#    # Column index for start and end year based on dates of geodetic mass balance observations
-#    massbal_idx_start = int(glacier_rgi_table.loc[input.massbal_time1] - input.startyear)
-#    massbal_idx_end = int(massbal_idx_start + glacier_rgi_table.loc[input.massbal_time2] - 
-#                          glacier_rgi_table.loc[input.massbal_time1] + 1)
-#    # Annual glacier-wide mass balance [m w.e.]
-#    glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-#    # Average annual glacier-wide mass balance [m w.e.a.]
-#    glac_wide_massbaltotal_annual_avg = glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean()
-#
-#    #  units: m w.e. based on initial area
-#    # Difference between geodetic and modeled mass balance
-#    massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbaltotal_annual_avg)
-#    
-#    print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
-#          glac_wide_massbaltotal_annual_avg, massbal_difference)
-#
-#
-#    timeelapsed_step1 = timeit.default_timer() - timestart_step1
-#    print('\ntime:', timeelapsed_step1, "s\n")
-#    
+    print(glacier_rgi_table.loc[input.massbal_colname], glacier_rgi_table.loc[input.massbal_uncertainty_colname], 
+          glac_wide_massbaltotal_annual_avg, massbal_difference)
+    
+
 #%% ===== OLD SETUP (keep for output) =================================================================================
 ## ===== OUTPUT FILE =====
 ## Create output netcdf file

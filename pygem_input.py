@@ -10,7 +10,11 @@ of parameters required to run a function.
 import os
 import numpy as np
 
-# ===== MODEL PARAMETERS T0 ADJUST ==========================================
+#%% ===== MODEL PARAMETERS T0 ADJUST ==========================================
+# ===== CALIBRATION OPTIONS =====
+option_calibration = 0
+#  Option 0 (default) - regular model simulation (variables defined)
+#  Option 1 - calibration run (output differs and calibration data selected)
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
@@ -50,11 +54,7 @@ ddfsnow = 0.0041
 tempchange = 0
 #  range -10 to 10
 
-# ===== CALIBRATION OPTIONS =====
-option_calibration = 0
-#  Option 0 (default) - regular model simulation (variables defined)
-#  Option 1 - grid search calibration run (glacier area remains constant)
-#  Option 2 - scipy optimization
+
 # Precipitation correction factor [-]
 # ===== Grid search parameters =====
 grid_precfactor = np.arange(0.75, 2, 0.25)
@@ -62,7 +62,7 @@ grid_tempbias = np.arange(-4, 6, 2)
 grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
 grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
 
-# ===== MODEL PARAMETERS THAT ARE CONSTANT ==================================
+#%% ===== MODEL PARAMETERS THAT ARE CONSTANT ==================================
 # Lapse rate from gcm to glacier [K m-1]
 lrgcm = -0.0065
 # Lapse rate on glacier for bins [K m-1]
@@ -80,7 +80,7 @@ tempsnow = 1.0
 #  facilitates calibration similar to Huss and Hock (2015)
 
 
-# ========== LIST OF MODEL INPUT ==============================================
+#%% ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
 # Warning message option
 option_warningmessages = 1
@@ -90,7 +90,7 @@ option_warningmessages = 1
 #                      assist user
 #  Option 0 - do not print warning messages within script
 
-#------- MODEL PROPERTIES ----------------------------------------------------
+#%% ------- MODEL PROPERTIES ----------------------------------------------------
 # Density of ice [kg m-3]
 density_ice = 900
 # Density of water [kg m-3]
@@ -114,7 +114,7 @@ R_gas = 8.3144598
 # Molar mass of Earth's air [kg mol-1]
 molarmass_air = 0.0289644
 
-#------- INPUT FOR STEP ONE --------------------------------------------------
+#%% ------- INPUT FOR STEP ONE --------------------------------------------------
 # STEP ONE: Model Region/Glaciers
 #   The user needs to define the region/glaciers that will be used in the model run. The user has the option of choosing
 #   the standard RGI regions or defining their own regions.
@@ -156,7 +156,7 @@ rgi_O1Id_colname = 'RGIId-O1No'
 # Enter shapefiles, etc.
 
 
-#------- INPUT FOR STEP TWO --------------------------------------------------
+#%% ------- INPUT FOR STEP TWO --------------------------------------------------
 # STEP TWO: Additional model setup
 #   Additional model setup that has been separated from the glacier selection in step one in order to keep the input
 #   organized and easy to read.
@@ -262,52 +262,54 @@ option_surfacetype_debris = 0
 #   > Determine how DDF_debris will be included
 
 
-#------- INPUT FOR STEP THREE ------------------------------------------------
+#%% ------- INPUT FOR STEP THREE ------------------------------------------------
 # STEP THREE: Climate Data
-#   The user has the option to choose the type of climate data being used in the
-#   model run, and how that data will be downscaled to the glacier and bins.
-# Option to downscale GCM data
+#   User has the climate data and how it is downscaled to glacier and bins.
+# Information regarding climate data
+#  - netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
+#  - NG refers to New Generation of CMIP5 data, i.e., a homogenized dataset
+#  - _var refers to variables
+#  - _fx refers to time invariant (constant/fixed) data
+#  - temp      variable name is 't2m'       for ERAInterim and 'tas'  for CMIP5
+#  - prec      variable name is 'tp'        for ERAInterim and 'pr'   for CMIP5
+#  - elev      variable name is 'z'         for ERAInterim and 'orog' for CMIP5 
+#  - latitude  variable name is 'latitude'  for ERAInterim and 'lat'  for CMIP5
+#  - longitude variable name is 'longitude' for ERAInterim and 'lon'  for CMIP5
+#  - time      variable name is 'time'      for both
+
+# Downscale GCM data option
 option_gcm_downscale = 2
 #  Option 1 (default): select climate data based on nearest neighbor
 #  Option 2: import prepared csv files (saves time)
+# Lapse rate option
+option_lapserate_fromgcm = 1
+#  Option 0 - lapse rates are constant defined by input
+#  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
+#  Option 2 (NEED TO CODE) - lapse rates derived from surrounding pixels (varies spatially and temporally)
+
+# ERAINTERIM CLIMATE DATA (Reference data)
 # Filepath to GCM variable files
 gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
-#  _var refers to variable data; NG refers to New Generation of CMIP5 data, i.e., a homogenized dataset
 # Filepath to GCM fixed variable files
 gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
-#  _fx refers to time invariant (constant) data
-# Temperature filename
+# Temperature filename and variable name
 gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-#  netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
-# Precipitation filename
-gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-# Lapse rate filename
-gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
-# Elevation filename
-gcm_elev_filename = 'ERAInterim_geopotential.nc'
-# Temperature variable name given by GCM
 gcm_temp_varname = 't2m'
-#  't2m' for ERA Interim, 'tas' for CMIP5
-# Precipitation variable name given by GCM
+# Precipitation filename and variable name
+gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
 gcm_prec_varname = 'tp'
-#  'tp' for ERA Interim, 'pr' for CMIP5
-# Lapse rate variable name
-gcm_lapserate_varname = 'lapserate'
-# Elevation variable name given by GCM
+# Elevation filename and variable name
+gcm_elev_filename = 'ERAInterim_geopotential.nc'
 gcm_elev_varname = 'z'
-#  'z' for ERA Interim, 'orog' for CMIP5
+# Lapse rate filename and variable name
+gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
+gcm_lapserate_varname = 'lapserate'
 # Latitude variable name given by GCM
 gcm_lat_varname = 'latitude'
-#  'latitude' for ERA Interim, 'lat' for CMIP5
 # Longitude variable name given by GCM
 gcm_lon_varname = 'longitude'
-#  'longitude' for ERA Interim, 'lon' for CMIP5
 # Time variable name given by GCM
 gcm_time_varname = 'time'
-# Option to use lapse rates derived from pressure levels
-option_lapserate_pressurelevel = 1
-#  Option 0: lapse rates are a calibrated parameter
-#  Option 1: lapse rates are set by the temperatures associated with pressure level data
 # FILENAMES IF IMPORTING VIA CSV
 # Dictionary of filenames for temperature, precipitation, lapse rate, and elevation data
 gcmtemp_filedict = {
@@ -326,6 +328,30 @@ gcmlapserate_filedict = {
                          13: 'csv_ERAInterim_lapserate_19952015_13_CentralAsia.csv',
                          14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
+
+## CMIP5 INPUT CLIMATE DATA
+## Filepath to GCM variable files
+#gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
+## Filepath to GCM fixed variable files
+#gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
+## Temperature filename and variable name
+#gcm_temp_filename = 'tas_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
+#gcm_temp_varname = 'tas'
+## Precipitation filename and variable name
+#gcm_prec_filename = 'pr_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
+#gcm_prec_varname = 'pr'
+## Elevation filename and variable name
+#gcm_elev_filename = 'orog_fx_MPI-ESM-LR_rcp26_r0i0p0.nc'
+#gcm_elev_varname = 'orog'
+### Lapse rate filename and variable name
+##gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
+##gcm_lapserate_varname = 'lapserate'
+## Latitude variable name given by GCM
+#gcm_lat_varname = 'lat'
+## Longitude variable name given by GCM
+#gcm_lon_varname = 'lon'
+## Time variable name given by GCM
+#gcm_time_varname = 'time'
 
 
 # Calibration datasets
@@ -352,7 +378,7 @@ massbal_tolerance = 0.1
 # Calibration optimization tolerance
 #cal_tolerance = 1e-4
 
-#------- INPUT FOR STEP FOUR -------------------------------------------------
+#%% ------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution
 #   Enter brief description of user options here.
 
@@ -406,10 +432,6 @@ option_temp2bins = 1
 option_adjusttemp_surfelev = 1
 #  Option 1 (default) - yes, adjust temperature
 #  Option 0 - do not adjust temperature
-# Lapse rates from pressure level temperatures or given value option
-option_lapserate_fromgcm = 1
-#  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
-#  Option 0 - lapse rates are constant defined by input
 # Downscale precipitation to bins options
 option_prec2bins = 1
 #  Option 1 (default) - prec_factor and prec_grad to adjust precipitation from gcm to the glacier bins

@@ -23,6 +23,83 @@ import pygem_input as input
 #np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
 
 
+#%% Temperature bias correction between GCM and reference climate datasets
+# Reference datasets
+filepath_ref = input.main_directory + '/../Climate_data/ERA_Interim/'
+filename_ref_temp = 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv'
+filename_ref_elev = 'csv_ERAInterim_elev_15_SouthAsiaEast.csv'
+filename_ref_lr = 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'
+# GCM datasets being bias corrected
+filepath_gcm = input.main_directory + '/../Climate_data/cmip5/csv_19952015/'
+filename_gcm_temp = 'tas_mon_MPI-ESM-LR_rcp26_r1i1p1_native_15_SouthAsiaEast.csv'
+filename_gcm_elev = 'orog_fx_MPI-ESM-LR_rcp26_r1i1p1_native_15_SouthAsiaEast.csv'
+
+# Load csv files
+ref_temp = np.genfromtxt(filepath_ref + filename_ref_temp, delimiter=',')
+ref_elev = np.genfromtxt(filepath_ref + filename_ref_elev, delimiter=',')
+ref_lr = np.genfromtxt(filepath_ref + filename_ref_lr, delimiter=',')
+gcm_temp = np.genfromtxt(filepath_gcm + filename_gcm_temp, delimiter=',')
+gcm_elev = np.genfromtxt(filepath_gcm + filename_gcm_elev, delimiter=',')
+
+# Example with a subset
+ref_temp = ref_temp[[3472,3732],:]
+ref_elev = ref_elev[[3472,3732]]
+ref_lr = ref_lr[[3472,3732],:]
+gcm_temp = gcm_temp[[3472,3732],:]
+gcm_elev = gcm_elev[[3472,3732]]
+
+option_bias_adjustment = 3
+#  Option 1 - adjust so the mean temperature is the same for both datasets
+#             (cumulative positive degree days [degC*day] can be significantly different)
+#  Option 2 - adjust the mean monthly temperature to be the same for both datasets
+#             (cumulative positive degree days [degC*day] is closer than Option 1)
+#  Option 3 - adjust the mean monthly tempearture and incorporate variance (Huss and Hock, 2015)
+
+if option_bias_adjustment == 1:
+    # Adjust reference temperature to same elevation as GCM using the lapse rate
+    ref_temp_adjusted = ref_temp + ref_lr*(gcm_elev - ref_elev)[:,np.newaxis]
+    # Reference - GCM difference
+    difference = ref_temp_adjusted - gcm_temp
+    difference_mean = difference.mean(axis=1)
+    # Add the difference to correct for the mean difference
+    gcm_temp_bias_adj = gcm_temp + difference_mean[:,np.newaxis]
+elif option_bias_adjustment == 2:
+    # Adjust reference temperature to same elevation as GCM using the lapse rate
+    ref_temp_adjusted = ref_temp + ref_lr*(gcm_elev - ref_elev)[:,np.newaxis]
+    # Calculate monthly mean temperature
+    ref_temp_monthly_avg = (ref_temp_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1).reshape(12,-1).transpose())
+    gcm_temp_monthly_avg = (gcm_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1).reshape(12,-1).transpose())
+    monthly_avg_difference = ref_temp_monthly_avg - gcm_temp_monthly_avg
+    # Add the difference for each month to correct for the mean monthly difference
+    gcm_temp_bias_adj = np.zeros(gcm_temp.shape)
+    for glac in range(ref_temp.shape[0]):
+        gcm_temp_bias_adj[glac,:] = (gcm_temp[glac,:].reshape(-1,12) + monthly_avg_difference[glac,:]).reshape(-1)
+elif option_bias_adjustment == 3:
+    # Adjust reference temperature to same elevation as GCM using the lapse rate
+    ref_temp_adjusted = ref_temp + ref_lr*(gcm_elev - ref_elev)[:,np.newaxis]
+    # Calculate monthly mean temperature
+    ref_temp_monthly_avg = (ref_temp_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1).reshape(12,-1).transpose())
+    gcm_temp_monthly_avg = (gcm_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1).reshape(12,-1).transpose())
+    monthly_avg_difference = ref_temp_monthly_avg - gcm_temp_monthly_avg
+    # Calculate monthly standard deviation of temperature
+    ref_temp_monthly_std = (ref_temp_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).std(1).reshape(12,-1).transpose())
+    gcm_temp_monthly_std = (gcm_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).std(1).reshape(12,-1).transpose())
+    monthly_std_variability = ref_temp_monthly_std / gcm_temp_monthly_std
+    # Add the difference for each month to correct for the mean monthly difference
+    gcm_temp_bias_adj_monthly_avg = gcm_temp_monthly_avg + monthly_avg_difference
+    gcm_temp_bias_adjmean = np.zeros(gcm_temp.shape)
+    gcm_temp_bias_adjvar = np.zeros(gcm_temp.shape)
+    for glac in range(ref_temp.shape[0]):
+        glac = 0 
+        gcm_temp_bias_adjmean[glac,:] = (gcm_temp[glac,:].reshape(-1,12) + monthly_avg_difference[glac,:]).reshape(-1)
+        
+        # NOTE: gcm_temp_bias_adjmean is the T_m,t (Huss and Hock, eqn 1)
+        #       monthly_std_variability is the std_era,m / std_gcm,m
+        #       gcm_temp_bias_adj_monthly_avg is the T_m,25_avg
+        # All the components are here to finish Equation 1 and compare it to the other 2 options
+        
+        # Additional option - simple adjust the temperature such that the PDD are equal...
+
 #%% Create netcdf file of lapse rates from temperature pressure level data
 def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
                             elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix):
@@ -113,7 +190,7 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
 #                        elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
 
 
-##%% Mass redistribution parameters based on geodetic mass balances
+#%% Mass redistribution parameters based on geodetic mass balances
 #mb_filepath = os.getcwd() + '/../../HiMAT/DEMs/mb_bins_sample_20180323/'
 #mb_filename = '15.10070_CN5O193B0118EastRongbukGlacier_mb_bins.csv'
 #
@@ -167,36 +244,36 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
 
 
 #%% NEAREST NEIGHBOR CALIBRATION PARAMETERS
-# Load csv
-ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
-                 index_col='GlacNo')
-# Select data of interest
-data = ds[['CenLon', 'CenLat', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']].copy()
-# Drop nan data to retain only glaciers with calibrated parameters
-data_cal = data.dropna()
-A = data_cal.mean(0)
-# Select latitude and longitude of calibrated parameters for distance estimate
-data_cal_lonlat = data_cal.iloc[:,0:2].values
-# Loop through each glacier and select the parameters based on the nearest neighbor
-for glac in range(data.shape[0]):
-    # Avoid applying this to any glaciers that already were optimized
-    if data.iloc[glac, :].isnull().values.any() == True:
-        # Select the latitude and longitude of the glacier's center
-        glac_lonlat = data.iloc[glac,0:2].values
-        # Set point to be compatible with cdist function (from scipy)
-        pt = [[glac_lonlat[0],glac_lonlat[1]]]
-        # scipy function to calculate distance
-        distances = cdist(pt, data_cal_lonlat)
-        # Find minimum index (could be more than one)
-        idx_min = np.where(distances == distances.min())[1]
-        # Set new parameters
-        data.iloc[glac,2:] = data_cal.iloc[idx_min,2:].values.mean(0)
-        #  use mean in case multiple points are equidistant from the glacier
-# Remove latitude and longitude to create csv file
-parameters_export = data.iloc[:,2:]
-# Export csv file
-parameters_export.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nearest.csv', 
-                         index=False)
+## Load csv
+#ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
+#                 index_col='GlacNo')
+## Select data of interest
+#data = ds[['CenLon', 'CenLat', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']].copy()
+## Drop nan data to retain only glaciers with calibrated parameters
+#data_cal = data.dropna()
+#A = data_cal.mean(0)
+## Select latitude and longitude of calibrated parameters for distance estimate
+#data_cal_lonlat = data_cal.iloc[:,0:2].values
+## Loop through each glacier and select the parameters based on the nearest neighbor
+#for glac in range(data.shape[0]):
+#    # Avoid applying this to any glaciers that already were optimized
+#    if data.iloc[glac, :].isnull().values.any() == True:
+#        # Select the latitude and longitude of the glacier's center
+#        glac_lonlat = data.iloc[glac,0:2].values
+#        # Set point to be compatible with cdist function (from scipy)
+#        pt = [[glac_lonlat[0],glac_lonlat[1]]]
+#        # scipy function to calculate distance
+#        distances = cdist(pt, data_cal_lonlat)
+#        # Find minimum index (could be more than one)
+#        idx_min = np.where(distances == distances.min())[1]
+#        # Set new parameters
+#        data.iloc[glac,2:] = data_cal.iloc[idx_min,2:].values.mean(0)
+#        #  use mean in case multiple points are equidistant from the glacier
+## Remove latitude and longitude to create csv file
+#parameters_export = data.iloc[:,2:]
+## Export csv file
+#parameters_export.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nearest.csv', 
+#                         index=False)
 
 
 #%% Connect the WGMS point mass balance datasets with the RGIIds and relevant elevation bands
