@@ -53,52 +53,47 @@ option_bias_adjustment = 3
 #             (cumulative positive degree days [degC*day] can be significantly different)
 #  Option 2 - adjust the mean monthly temperature to be the same for both datasets
 #             (cumulative positive degree days [degC*day] is closer than Option 1)
-#  Option 3 - adjust the mean monthly tempearture and incorporate variance (Huss and Hock, 2015)
+#  Option 3 - adjust the mean monthly tempearture and incorporate interannual variability [Huss and Hock, 2015]
+#             (cumulative positive degree days [degC*day] is closer than Options 1 & 2)
 
 if option_bias_adjustment == 1:
     # Adjust reference temperature to same elevation as GCM using the lapse rate
     ref_temp_adjusted = ref_temp + ref_lr*(gcm_elev - ref_elev)[:,np.newaxis]
     # Reference - GCM difference
-    difference = ref_temp_adjusted - gcm_temp
-    difference_mean = difference.mean(axis=1)
-    # Add the difference to correct for the mean difference
-    gcm_temp_bias_adj = gcm_temp + difference_mean[:,np.newaxis]
+    difference_all_mean = (ref_temp_adjusted - gcm_temp).mean(axis=1)
+    # Bias adjusted temperature accounting for mean of entire time period
+    gcm_temp_bias_adj = gcm_temp + difference_all_mean[:,np.newaxis]
 elif option_bias_adjustment == 2:
     # Adjust reference temperature to same elevation as GCM using the lapse rate
     ref_temp_adjusted = ref_temp + ref_lr*(gcm_elev - ref_elev)[:,np.newaxis]
     # Calculate monthly mean temperature
     ref_temp_monthly_avg = (ref_temp_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1).reshape(12,-1).transpose())
     gcm_temp_monthly_avg = (gcm_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1).reshape(12,-1).transpose())
-    monthly_avg_difference = ref_temp_monthly_avg - gcm_temp_monthly_avg
-    # Add the difference for each month to correct for the mean monthly difference
-    gcm_temp_bias_adj = np.zeros(gcm_temp.shape)
-    for glac in range(ref_temp.shape[0]):
-        gcm_temp_bias_adj[glac,:] = (gcm_temp[glac,:].reshape(-1,12) + monthly_avg_difference[glac,:]).reshape(-1)
+    difference_monthly_avg = ref_temp_monthly_avg - gcm_temp_monthly_avg
+    # Bias adjusted temperature accounting for monthly mean
+    gcm_temp_bias_adj = gcm_temp + np.tile(difference_monthly_avg, int(ref_temp.shape[1]/12))
 elif option_bias_adjustment == 3:
     # Adjust reference temperature to same elevation as GCM using the lapse rate
     ref_temp_adjusted = ref_temp + ref_lr*(gcm_elev - ref_elev)[:,np.newaxis]
     # Calculate monthly mean temperature
-    ref_temp_monthly_avg = (ref_temp_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1).reshape(12,-1).transpose())
-    gcm_temp_monthly_avg = (gcm_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1).reshape(12,-1).transpose())
-    monthly_avg_difference = ref_temp_monthly_avg - gcm_temp_monthly_avg
+    ref_temp_monthly_avg = (ref_temp_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1)
+                            .reshape(12,-1).transpose())
+    gcm_temp_monthly_avg = (gcm_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1)
+                            .reshape(12,-1).transpose())
+    difference_monthly_avg = ref_temp_monthly_avg - gcm_temp_monthly_avg
+    # Monthly temperature bias adjusted according to monthly average
+    T_mt = gcm_temp + np.tile(difference_monthly_avg, int(ref_temp.shape[1]/12))
+    # Mean monthly temperature bias adjusted according to monthly average
+    T_m25avg = np.tile(gcm_temp_monthly_avg + difference_monthly_avg, int(ref_temp.shape[1]/12))
     # Calculate monthly standard deviation of temperature
-    ref_temp_monthly_std = (ref_temp_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).std(1).reshape(12,-1).transpose())
-    gcm_temp_monthly_std = (gcm_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).std(1).reshape(12,-1).transpose())
-    monthly_std_variability = ref_temp_monthly_std / gcm_temp_monthly_std
-    # Add the difference for each month to correct for the mean monthly difference
-    gcm_temp_bias_adj_monthly_avg = gcm_temp_monthly_avg + monthly_avg_difference
-    gcm_temp_bias_adjmean = np.zeros(gcm_temp.shape)
-    gcm_temp_bias_adjvar = np.zeros(gcm_temp.shape)
-    for glac in range(ref_temp.shape[0]):
-        glac = 0 
-        gcm_temp_bias_adjmean[glac,:] = (gcm_temp[glac,:].reshape(-1,12) + monthly_avg_difference[glac,:]).reshape(-1)
-        
-        # NOTE: gcm_temp_bias_adjmean is the T_m,t (Huss and Hock, eqn 1)
-        #       monthly_std_variability is the std_era,m / std_gcm,m
-        #       gcm_temp_bias_adj_monthly_avg is the T_m,25_avg
-        # All the components are here to finish Equation 1 and compare it to the other 2 options
-        
-        # Additional option - simple adjust the temperature such that the PDD are equal...
+    ref_temp_monthly_std = (ref_temp_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).std(1)
+                            .reshape(12,-1).transpose())
+    gcm_temp_monthly_std = (gcm_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).std(1)
+                            .reshape(12,-1).transpose())
+    variability_monthly_std = ref_temp_monthly_std / gcm_temp_monthly_std
+    # Bias adjusted temperature accounting for monthly mean and variability
+    gcm_temp_bias_adj = T_m25avg + (T_mt - T_m25avg) * np.tile(variability_monthly_std, int(ref_temp.shape[1]/12))
+    
 
 #%% Create netcdf file of lapse rates from temperature pressure level data
 def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
