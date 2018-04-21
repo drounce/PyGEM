@@ -62,7 +62,7 @@ main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1
 # Add volume [km**3] and mean elevation [m a.s.l.] to the main glaciers table
 main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
 # Model time frame
-dates_table, start_date, end_date = modelsetup.datesmodelrun()
+dates_table, start_date, end_date = modelsetup.datesmodelrun(input.startyear, input.endyear, input.spinupyears)
 # Quality control - if ice thickness = 0, glacier area = 0 (problem identified by glacier RGIV6-15.00016 on 03/06/2018)
 main_glac_hyps[main_glac_icethickness == 0] = 0
 
@@ -70,20 +70,22 @@ main_glac_hyps[main_glac_icethickness == 0] = 0
 if input.option_gcm_downscale == 1:  
     # Air Temperature [degC] and GCM dates
     main_glac_gcmtemp, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-            input.gcm_temp_filename, input.gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date)
+            input.gcm_filepath_var, input.gcm_temp_filename, input.gcm_temp_varname, main_glac_rgi, dates_table, 
+            start_date, end_date)
     # Precipitation [m] and GCM dates
     main_glac_gcmprec, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-            input.gcm_prec_filename, input.gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date)
+            input.gcm_filepath_var, input.gcm_prec_filename, input.gcm_prec_varname, main_glac_rgi, dates_table, 
+            start_date, end_date)
     # Elevation [m a.s.l] associated with air temperature  and precipitation data
-    main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(input.gcm_elev_filename, input.gcm_elev_varname, 
-                                                                  main_glac_rgi)
+    main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(
+            input.gcm_filepath_fx, input.gcm_elev_filename, input.gcm_elev_varname, main_glac_rgi)
     # Add GCM time series to the dates_table
     dates_table['date_gcm'] = main_glac_gcmdate
     # Lapse rates [degC m-1]  
     if input.option_lapserate_fromgcm == 1:
         main_glac_gcmlapserate, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-                input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, dates_table, start_date, 
-                end_date)
+                input.gcm_filepath_var, input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, 
+                dates_table, start_date, end_date)
 elif input.option_gcm_downscale == 2:
     # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
     #  this simply saves time from re-running the fxns above

@@ -278,7 +278,7 @@ option_surfacetype_debris = 0
 #  - time      variable name is 'time'      for both
 
 # Downscale GCM data option
-option_gcm_downscale = 2
+option_gcm_downscale = 1
 #  Option 1 (default): select climate data based on nearest neighbor
 #  Option 2: import prepared csv files (saves time)
 # Lapse rate option
@@ -287,30 +287,10 @@ option_lapserate_fromgcm = 1
 #  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  Option 2 (NEED TO CODE) - lapse rates derived from surrounding pixels (varies spatially and temporally)
 
-# ERAINTERIM CLIMATE DATA (Reference data)
-# Filepath to GCM variable files
-gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
-# Filepath to GCM fixed variable files
-gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
-# Temperature filename and variable name
-gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-gcm_temp_varname = 't2m'
-# Precipitation filename and variable name
-gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-gcm_prec_varname = 'tp'
-# Elevation filename and variable name
-gcm_elev_filename = 'ERAInterim_geopotential.nc'
-gcm_elev_varname = 'z'
-# Lapse rate filename and variable name
-gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
-gcm_lapserate_varname = 'lapserate'
-# Latitude variable name given by GCM
-gcm_lat_varname = 'latitude'
-# Longitude variable name given by GCM
-gcm_lon_varname = 'longitude'
-# Time variable name given by GCM
-gcm_time_varname = 'time'
-# FILENAMES IF IMPORTING VIA CSV
+# REFERENCE DATA INFORMATION
+# Reference climate data filepath
+filepath_ref = main_directory + '/../Climate_data/ERA_Interim/'
+# Reference climate data csvs
 # Dictionary of filenames for temperature, precipitation, lapse rate, and elevation data
 gcmtemp_filedict = {
                     13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
@@ -329,29 +309,55 @@ gcmlapserate_filedict = {
                          14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
-## CMIP5 INPUT CLIMATE DATA
+# CLIMATE DATA INFORMATION
+## ERAINTERIM CLIMATE DATA (Reference data)
 ## Filepath to GCM variable files
-#gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
+#gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
 ## Filepath to GCM fixed variable files
-#gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
+#gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
 ## Temperature filename and variable name
-#gcm_temp_filename = 'tas_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
-#gcm_temp_varname = 'tas'
+#gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
+#gcm_temp_varname = 't2m'
 ## Precipitation filename and variable name
-#gcm_prec_filename = 'pr_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
-#gcm_prec_varname = 'pr'
+#gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
+#gcm_prec_varname = 'tp'
 ## Elevation filename and variable name
-#gcm_elev_filename = 'orog_fx_MPI-ESM-LR_rcp26_r0i0p0.nc'
-#gcm_elev_varname = 'orog'
-### Lapse rate filename and variable name
-##gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
-##gcm_lapserate_varname = 'lapserate'
+#gcm_elev_filename = 'ERAInterim_geopotential.nc'
+#gcm_elev_varname = 'z'
+## Lapse rate filename and variable name
+#gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
+#gcm_lapserate_varname = 'lapserate'
 ## Latitude variable name given by GCM
-#gcm_lat_varname = 'lat'
+#gcm_lat_varname = 'latitude'
 ## Longitude variable name given by GCM
-#gcm_lon_varname = 'lon'
+#gcm_lon_varname = 'longitude'
 ## Time variable name given by GCM
 #gcm_time_varname = 'time'
+
+
+# CMIP5 INPUT CLIMATE DATA
+# Filepath to GCM variable files
+gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
+# Filepath to GCM fixed variable files
+gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
+# Temperature filename and variable name
+gcm_temp_filename = 'tas_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
+gcm_temp_varname = 'tas'
+# Precipitation filename and variable name
+gcm_prec_filename = 'pr_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
+gcm_prec_varname = 'pr'
+# Elevation filename and variable name
+gcm_elev_filename = 'orog_fx_MPI-ESM-LR_rcp26_r0i0p0.nc'
+gcm_elev_varname = 'orog'
+## Lapse rate filename and variable name
+#gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
+#gcm_lapserate_varname = 'lapserate'
+# Latitude variable name given by GCM
+gcm_lat_varname = 'lat'
+# Longitude variable name given by GCM
+gcm_lon_varname = 'lon'
+# Time variable name given by GCM
+gcm_time_varname = 'time'
 
 
 # Calibration datasets

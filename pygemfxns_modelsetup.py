@@ -2,24 +2,17 @@
 pygemfxns_modelsetup.py is a list of functions that are used to set up the model with the required input for the main
 script.
 """
-#========= LIST OF PACKAGES ==================================================
+
 import pandas as pd
 import numpy as np
 from datetime import datetime
 
-#========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
 import pygem_input as input
 
-#========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
-    # glac_hyps - table of hypsometry for all the glaciers
-    # glac_table - main table of glaciers in model run with RGI information
-    # option_fxn - function option (see specifics within each function)
-
 #========= FUNCTIONS (alphabetical order) ===================================
-def datesmodelrun():
+def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=input.spinupyears):
     """
-    Set up a table using the start and end year that has the year, month, day, water year, and number of days in the 
-    month.
+    Create table of year, month, day, water year, season and number of days in the month.
     
     Output is a Pandas DataFrame with a table of dates (rows = timesteps, columns = timestep attributes), as well as 
     the start date, and end date of the model run.  These two things are useful for grabbing the correct climate data.
@@ -35,14 +28,14 @@ def datesmodelrun():
     Developer's note: ADD OPTIONS FOR CHANGING WATER YEAR FROM OCT 1 - SEPT 30 FOR VARIOUS REGIONS
     """
     # Include spinup time in start year
-    startyear_wspinup = input.startyear - input.spinupyears
+    startyear_wspinup = startyear - spinupyears
     # Convert start year into date depending on option_wateryear
     if input.option_wateryear == 1:
         startdate = str(startyear_wspinup - 1) + '-10-01'
-        enddate = str(input.endyear) + '-09-30'
+        enddate = str(endyear) + '-09-30'
     elif input.option_wateryear == 0:
         startdate = str(startyear_wspinup) + '-01-01'
-        enddate = str(input.endyear) + '-12-31'
+        enddate = str(endyear) + '-12-31'
     else:
         print("\n\nError: Please select an option_wateryear that exists. Exiting model run now.\n")
         exit()
@@ -112,25 +105,7 @@ def datesmodelrun():
             season_list.append('winter')
             seasondict[month_list[i]] = season_list[i]
     dates_table['season'] = dates_table['month'].apply(lambda x: seasondict[x])
-#    # Extract monthly columns
-#    monthly_columns = dates_table['date']
-#    # Extract annual columns
-#    if input.option_wateryear == 1:
-#        annual_columns = np.arange(dates_table.loc[0,'wateryear'], dates_table.loc[dates_table.shape[0]-1,'wateryear'] 
-#                                   + 1)
-#    elif input.option_wateryear == 0:
-#        annual_columns = np.arange(dates_table.loc[0,'year'], dates_table.loc[dates_table.shape[0]-1,'year'] + 1)
-#    # Compute annual divisor (used to perform calculations)
-#    if input.timestep == 'monthly':
-#        annual_divisor = 12
-#    elif input.timestep == 'daily':
-#        print('Need to write according to leapyear.  Code this. Exiting now.')
-#        exit()
-#    return dates_table, startdate, enddate, monthly_columns, annual_columns, annual_divisor
     return dates_table, startdate, enddate
-    # note from previous version:
-        # dates = dates.to_series().apply(lambda x: x.strftime("%Y-%m"))
-        # removes the -DD such that its only YYYY-MM
 
 
 def hypsometrystats(hyps_table, thickness_table):
@@ -194,16 +169,6 @@ def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, indexname, dr
     # Change NAN from -99 to 0
     glac_table_copy[glac_table_copy==-99] = 0.
     return glac_table_copy
-
-
-#def import_Husstable_glac(glac, glacier_rgi_table, filepath, filedict, drop_col_names):
-#    ds = pd.read_csv(filepath + filedict[input.rgi_regionsO1[0]])
-#    # Select glaciers based on 01Index value from main_glac_rgi table
-#    #  as long as Huss tables have all rows associated with rgi attribute table, then this shortcut works and saves time
-#    glac_table = ds.iloc[glacier_rgi_table['O1Index']]
-#    glac_table_dropped = glac_table.drop(drop_col_names)
-#    glac_table_dropped[glac_table_dropped == -99] = 0.
-#    return glac_table_dropped
 
 
 def selectcalibrationdata(main_glac_rgi):
@@ -310,7 +275,7 @@ def selectglaciersrgitable():
     
 
 #========= FUNCTIONS NO LONGER USED (alphabetical order) ==============================================================
-  # EXAMPLE CODE OF SEARCHING FOR A FILENAME
+# EXAMPLE CODE OF SEARCHING FOR A FILENAME
 #def selectglaciersrgitable_old():
 #    """
 #    The upper portion of this code was replaced by a dictionary based on the user input to speed up computation time.
@@ -331,44 +296,3 @@ def selectglaciersrgitable():
 #                # select the subregions and/or glaciers from that file
 #                rgi_regionsO1_fullfile = input.rgi_filepath + rgi_regionsO1_file
 #                csv_regionO1 = pd.read_csv(rgi_regionsO1_fullfile)
-  
-#def importHussfile(filename):
-#    filepath = input.hyps_filepath + 'bands_' + str(input.binsize) + 'm_DRR/'
-#    fullpath = filepath + filename
-#    data_Huss = pd.read_csv(fullpath)
-#    # # THIS SECTION CHANGES THE RGIID TO MATCH RGI FORMAT
-#    # ID_split = data_Huss['RGIID'].str.split('.').apply(pd.Series).loc[:,2]
-#    #     # Grabs the value ex. "13-00001", but need to replace '-' with '.'
-#    #     # use .apply(pd.Series) to turn the tuples into a DataFrame,
-#    #     # then access normally
-#    # ID_split2 = ID_split.str.split('-').apply(pd.Series)
-#    #
-#    # ID_RGI = 'RGI60-' + ID_split2.loc[:,0] + '.' + ID_split2.loc[:,1]
-#    # print(ID_RGI.head())
-#    # # OUTPUT TO CSV
-#    # ID_RGI.to_csv('RGIIDs_13.csv')
-#
-#    # Create new dataframe with all of it
-#    bins = np.arange(int(input.binsize/2),9000,input.binsize)
-#        # note provide 3 rows of negative numbers to rename columns
-#    data_table = pd.DataFrame(0, index=data_Huss.index, columns=bins)
-#    data_Huss.drop(['RGIID'], axis=1, inplace=True)
-#    columns_int = data_Huss.columns.values.astype(int)
-#        # convert columns from string to integer such that they can be used
-#        # in downscaling computations
-#    data_Huss.columns = columns_int
-#    data_Huss = data_Huss.astype(float)
-#    mask1 = (data_Huss == -99)
-#    data_Huss[mask1] = 0
-#    print(len(data_Huss.iloc[0]))
-#    print(data_Huss.iloc[:,0:760])
-#    # data_Huss.iloc[0,0] = 50
-#    # data_table.iloc[0,3] = data_Huss.iloc[0,0]
-#    # print(data_table)
-#    # exit()
-#    print('hello')
-#    data_table.iloc[:,3:(3+(len(data_Huss.iloc[0])))] = data_Huss.iloc[:,:]
-#    # print(data_table)
-#    print('again')
-#    data_table.to_csv('RGI_13_thickness.csv')
-#    # Note: 7625 elevation did not have a value of 0, but was blank
