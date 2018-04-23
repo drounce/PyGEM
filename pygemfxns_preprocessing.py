@@ -31,24 +31,52 @@ import pygemfxns_climate as climate
 option_bias_adjustment = 1
 gcm_endyear = 2100
 output_filepath = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
-output_filename_temp = 'biasadjusted_1995_2100_tas_mon_MPI-ESM-LR_rcp26_r1i1p1_native.csv'
+output_filename_temp = 'tas_biasadj_1995_2100_tas_mon_MPI-ESM-LR_rcp26_r1i1p1_native.csv'
+output_filename_prec = 'pr_biasadj_1995_2100_pr_mon_MPI-ESM-LR_rcp26_r1i1p1_native.csv'
+output_filename_elev = 'elev_MPI-ESM-LR_rcp26_r1i1p1_native.csv'
+output_filename_lr = 'lr_1995_2100_mon.csv'
 
-def gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath, output_filename_temp,
+# Filepath to GCM variable files
+gcm_filepath_var = input.main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
+# Filepath to GCM fixed variable files
+gcm_filepath_fx = input.main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
+# Temperature filename and variable name
+gcm_temp_filename = 'tas_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
+gcm_temp_varname = 'tas'
+# Precipitation filename and variable name
+gcm_prec_filename = 'pr_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
+gcm_prec_varname = 'pr'
+# Elevation filename and variable name
+gcm_elev_filename = 'orog_fx_MPI-ESM-LR_rcp26_r0i0p0.nc'
+gcm_elev_varname = 'orog'
+#modelparams_filename = 'calparams_R15_20180403_nearest.csv'
+
+gcm_startyear=input.startyear
+gcm_spinupyears=input.spinupyears
+
+A = os.path.splitext(output_filename_temp)[0]
+
+def gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath,
                          gcm_startyear=input.startyear, 
                          gcm_spinupyears=input.spinupyears,
                          filepath_ref=input.filepath_ref, 
                          filename_ref_temp=input.gcmtemp_filedict[input.rgi_regionsO1[0]], 
+                         filename_ref_prec=input.gcmprec_filedict[input.rgi_regionsO1[0]],
                          filename_ref_elev=input.gcmelev_filedict[input.rgi_regionsO1[0]], 
                          filename_ref_lr=input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 
                          gcm_filepath_var=input.gcm_filepath_var,
                          gcm_filepath_fx=input.gcm_filepath_fx,
                          gcm_temp_filename=input.gcm_temp_filename, 
                          gcm_temp_varname=input.gcm_temp_varname,
+                         gcm_prec_filename=input.gcm_prec_filename,
+                         gcm_prec_varname=input.gcm_prec_varname, 
                          gcm_elev_filename=input.gcm_elev_filename,
                          gcm_elev_varname=input.gcm_elev_varname,
                          gcm_lat_varname=input.gcm_lat_varname,
                          gcm_lon_varname=input.gcm_lon_varname,
-                         gcm_time_varname=input.gcm_time_varname):
+                         gcm_time_varname=input.gcm_time_varname,
+                         filepath_modelparams=input.modelparams_filepath,
+                         filename_modelparams=input.modelparams_filename):
     """
     Temperature bias corrections for future GCM projections given a calibrated reference time period
     Adjustment Options:
@@ -58,7 +86,7 @@ def gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath, o
                  (cumulative positive degree days [degC*day] can be significantly different)
       Option 3 - adjust the mean monthly temperature to be the same for both datasets
                  (cumulative positive degree days [degC*day] is closer than Option 1)
-      Option 4 - adjust the mean monthly tempearture and incorporate interannual variability [Huss and Hock, 2015]
+      Option 4 - adjust the mean monthly temperature and incorporate interannual variability [Huss and Hock, 2015]
                  (cumulative positive degree days [degC*day] is closer than Options 1 & 2)
       
     """
@@ -67,38 +95,47 @@ def gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath, o
     main_glac_rgi = modelsetup.selectglaciersrgitable()
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(endyear=gcm_endyear)
-#    # Load reference data
-#    ref_temp = np.genfromtxt(filepath_ref + filename_ref_temp, delimiter=',')
-#    ref_elev = np.genfromtxt(filepath_ref + filename_ref_elev, delimiter=',')
-#    ref_lr = np.genfromtxt(filepath_ref + filename_ref_lr, delimiter=',')
-    # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
-    #  this simply saves time from re-running the fxns above
+    # Load reference data
+    # Import air temperature, precipitation, lapse rates, and elevation from pre-processed csv files for a given region
+    #  This saves time as opposed to running the nearest neighbor for the reference data as well
     ref_temp_all = np.genfromtxt(filepath_ref + filename_ref_temp, delimiter=',')
+    ref_prec_all = np.genfromtxt(filepath_ref + filename_ref_prec, delimiter=',')
     ref_elev_all = np.genfromtxt(filepath_ref + filename_ref_elev, delimiter=',')
     ref_lr_all = np.genfromtxt(filepath_ref + filename_ref_lr, delimiter=',')
+    modelparams_all = pd.read_csv(input.modelparams_filepath + input.modelparams_filename) 
     # Select the climate data for the glaciers included in the study
     if input.rgi_glac_number == 'all':
         ref_temp = ref_temp_all
+        ref_prec = ref_prec_all
         ref_elev = ref_elev_all
         ref_lr = ref_lr_all
+        modelparams = modelparams_all
     else:
         ref_temp = np.zeros((main_glac_rgi.shape[0], ref_temp_all.shape[1]))
+        ref_prec = np.zeros((main_glac_rgi.shape[0], ref_temp_all.shape[1]))
         ref_elev = np.zeros((main_glac_rgi.shape[0]))
         ref_lr = np.zeros((main_glac_rgi.shape[0], ref_temp_all.shape[1]))
+        modelparams = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], modelparams_all.shape[1])), columns=input.modelparams_colnames)
         # Select climate data for each glacier using O1Index
         for glac in range(main_glac_rgi.shape[0]):
             ref_temp[glac,:] = ref_temp_all[main_glac_rgi.loc[glac,'O1Index'],:]
+            ref_prec[glac,:] = ref_prec_all[main_glac_rgi.loc[glac,'O1Index'],:]
             ref_elev[glac] = ref_elev_all[main_glac_rgi.loc[glac,'O1Index']]
             ref_lr[glac,:] = ref_lr_all[main_glac_rgi.loc[glac,'O1Index'],:]
+            modelparams.iloc[glac,:] = modelparams_all.iloc[main_glac_rgi.loc[glac,'O1Index'],:]
     # GCM data
     gcm_temp, gcm_dates = climate.importGCMvarnearestneighbor_xarray(
             gcm_temp_filename, gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date, 
+            filepath=gcm_filepath_var, gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)
+    gcm_prec, gcm_dates = climate.importGCMvarnearestneighbor_xarray(
+            gcm_prec_filename, gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date, 
             filepath=gcm_filepath_var, gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)
     gcm_elev = climate.importGCMfxnearestneighbor_xarray(
             gcm_elev_filename, gcm_elev_varname, main_glac_rgi, filepath=gcm_filepath_fx, 
             gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)
     # GCM subset to agree with reference time period to calculate bias corrections
     gcm_temp_subset = gcm_temp[:,0:ref_temp.shape[1]]
+    gcm_prec_subset = gcm_prec[:,0:ref_temp.shape[1]]
     # Perform bias corrections
     if option_bias_adjustment == 1:
         # Adjust reference temperature to same elevation as GCM using the lapse rate
@@ -130,9 +167,9 @@ def gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath, o
         # Adjust reference temperature to same elevation as GCM using the lapse rate
         ref_temp_adjusted = ref_temp + ref_lr*(gcm_elev - ref_elev)[:,np.newaxis]
         # Reference - GCM difference
-        difference_all_mean = (ref_temp_adjusted - gcm_temp_subset).mean(axis=1)
+        difference_temp_all_mean = (ref_temp_adjusted - gcm_temp_subset).mean(axis=1)
         # Bias adjusted temperature accounting for mean of entire time period
-        gcm_temp_bias_adj = gcm_temp + difference_all_mean[:,np.newaxis]
+        gcm_temp_bias_adj = gcm_temp + difference_temp_all_mean[:,np.newaxis]
     elif option_bias_adjustment == 3:
         # Adjust reference temperature to same elevation as GCM using the lapse rate
         ref_temp_adjusted = ref_temp + ref_lr*(gcm_elev - ref_elev)[:,np.newaxis]
@@ -141,9 +178,9 @@ def gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath, o
                                 .mean(1).reshape(12,-1).transpose())
         gcm_temp_monthly_avg = (gcm_temp_subset.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12))
                                 .mean(1).reshape(12,-1).transpose())
-        difference_monthly_avg = ref_temp_monthly_avg - gcm_temp_monthly_avg
+        difference_temp_monthly_avg = ref_temp_monthly_avg - gcm_temp_monthly_avg
         # Bias adjusted temperature accounting for monthly mean
-        gcm_temp_bias_adj = gcm_temp + np.tile(difference_monthly_avg, int(gcm_temp.shape[1]/12))
+        gcm_temp_bias_adj = gcm_temp + np.tile(difference_temp_monthly_avg, int(gcm_temp.shape[1]/12))
     elif option_bias_adjustment == 4:
         # Adjust reference temperature to same elevation as GCM using the lapse rate
         ref_temp_adjusted = ref_temp + ref_lr*(gcm_elev - ref_elev)[:,np.newaxis]
@@ -152,11 +189,11 @@ def gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath, o
                                 .mean(1).reshape(12,-1).transpose())
         gcm_temp_monthly_avg = (gcm_temp_subset.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12))
                                 .mean(1).reshape(12,-1).transpose())
-        difference_monthly_avg = ref_temp_monthly_avg - gcm_temp_monthly_avg
+        difference_temp_monthly_avg = ref_temp_monthly_avg - gcm_temp_monthly_avg
         # Monthly temperature bias adjusted according to monthly average
-        t_mt = gcm_temp + np.tile(difference_monthly_avg, int(gcm_temp.shape[1]/12))
+        t_mt = gcm_temp + np.tile(difference_temp_monthly_avg, int(gcm_temp.shape[1]/12))
         # Mean monthly temperature bias adjusted according to monthly average
-        t_m25avg = np.tile(gcm_temp_monthly_avg + difference_monthly_avg, int(gcm_temp.shape[1]/12))
+        t_m25avg = np.tile(gcm_temp_monthly_avg + difference_temp_monthly_avg, int(gcm_temp.shape[1]/12))
         # Calculate monthly standard deviation of temperature
         ref_temp_monthly_std = (ref_temp_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12))
                                 .std(1).reshape(12,-1).transpose())
@@ -165,21 +202,35 @@ def gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath, o
         variability_monthly_std = ref_temp_monthly_std / gcm_temp_monthly_std
         # Bias adjusted temperature accounting for monthly mean and variability
         gcm_temp_bias_adj = t_m25avg + (t_mt - t_m25avg) * np.tile(variability_monthly_std, int(gcm_temp.shape[1]/12))
-    # Calculate monthly mean lapse rate
+    # BIAS ADJUSTED PRECIPITATION
+    # Adjust reference precipitation to same elevation as GCM using the precipitation gradient
+    ref_prec_adjusted = ref_prec * (1 + modelparams['precgrad'].values[:,np.newaxis] * (gcm_elev - ref_elev)[:,np.newaxis])
+    # Calculate monthly mean precipitation
+    ref_prec_monthly_avg = (ref_prec_adjusted.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12))
+                            .mean(1).reshape(12,-1).transpose())
+    gcm_prec_monthly_avg = (gcm_prec_subset.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12))
+                            .mean(1).reshape(12,-1).transpose())
+    difference_prec_monthly_avg = ref_prec_monthly_avg / gcm_prec_monthly_avg
+    # Bias adjusted precipitation accounting for differences in monthly mean
+    gcm_prec_bias_adj = gcm_prec * np.tile(difference_prec_monthly_avg, int(gcm_temp.shape[1]/12))
+    # LAPSE RATE - MONTHLY MEAN
     ref_lr_monthly_avg = (ref_lr.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1).reshape(12,-1)
                           .transpose())
     gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-    
-    # EXPORT LAPSE RATE
-    # ADD PRECIPITATION BIAS CORRECTION
-    # AUTOMATE PROCESS FOR SINGLE COMMAND LINE FOR ALL GCMS
-    
-    # Write bias adjusted GCM temperature data to csv
+    # OUTPUT FILES TO CSV
+    output_prefix = 'biasadj_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_'
+    output_filename_temp = output_prefix + os.path.splitext(gcm_temp_filename)[0] + '.csv'
+    output_filename_prec = output_prefix + os.path.splitext(gcm_prec_filename)[0] + '.csv'
+    output_filename_elev = output_prefix + os.path.splitext(gcm_elev_filename)[0] + '.csv'
+    output_filename_lr =   output_prefix + 'lr_mon.csv' 
     np.savetxt(output_filepath + output_filename_temp, gcm_temp_bias_adj, delimiter=",") 
-    return gcm_temp_bias_adj, gcm_lr
+    np.savetxt(output_filepath + output_filename_prec, gcm_prec_bias_adj, delimiter=",") 
+    np.savetxt(output_filepath + output_filename_elev, gcm_elev, delimiter=",") 
+    np.savetxt(output_filepath + output_filename_lr, gcm_lr, delimiter=",") 
+    return gcm_temp_bias_adj, gcm_prec_bias_adj, gcm_elev, gcm_lr, modelparams
 
-gcm_temp_bias_adj, gcm_lr = gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath, 
-                                                 output_filename_temp)
+gcm_temp_bias_adj, gcm_prec_bias_adj, gcm_elev, gcm_lr, modelparams = gcm_bias_corrections(
+        option_bias_adjustment, gcm_endyear, output_filepath)
 
 
 #%% Create netcdf file of lapse rates from temperature pressure level data
