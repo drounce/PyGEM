@@ -69,7 +69,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 # AIR TEMPERATURE: Downscale the gcm temperature [deg C] to each bin
                 if input.option_temp2bins == 1:
                     # Downscale using gcm and glacier lapse rates
-                    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref)
+                    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
                     glac_bin_temp[:,12*year:12*(year+1)] = (glacier_gcm_temp[12*year:12*(year+1)] + 
                          glacier_gcm_lrgcm[12*year:12*(year+1)] * 
                          (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
