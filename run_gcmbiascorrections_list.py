@@ -1,7 +1,37 @@
-"""
+r"""
 preprocessing_gcmbiascorrections.py outputs the adjustment parameters for temperature and precipitation as well as the
 mean monthly lapse rates derived via comparisons with the calibration climate dataset.  These will be used to correct 
 the GCM climate data for future simulations.
+
+How to run file?
+  - In command line:
+      change directory to folder with script
+      python run_gcmbiascorrections_list.py C:\Users\David\Dave_Rounce\HiMAT\Climate_data\cmip5\gcm_rcpXX_filenames.txt
+  - In spyder:
+      %run run_gcmbiascorrections_list.py C:\Users\David\Dave_Rounce\HiMAT\Climate_data\cmip5\gcm_rcpXX_filenames.txt
+
+Adjustment Options:
+  Option 1 (default) - adjust the mean tempearture such that the cumulative positive degree days [degC*day] is equal
+                       (cumulative positive degree days [degC*day] are exact, but mean temperature is different and does
+                        a poor job handling all negative values)
+  Option 2 - adjust mean monthly temperature and incorporate interannual variability and
+             adjust mean monthly precipitation [Huss and Hock, 2015]
+             (cumulative positive degree days [degC*day] is closer than Options 3 & 4, mean temp similar)
+  Option 3 - adjust so the mean temperature is the same for both datasets
+             (cumulative positive degree days [degC*day] can be significantly different, mean temp similar)
+  Option 4 - adjust the mean monthly temperature to be the same for both datasets
+             (cumulative positive degree days [degC*day] is closer than Option 1, mean temp similar)
+
+Why use Option 1 instead of Huss and Hock [2015]?
+      The model estimates mass balance, which is a function of melt, refreeze, and accumulation.  Another way of
+      interpreting this is the cumulative positive degree days, mean temperature, and precipitation as a function of the
+      temperature compared to the snow threshold temperature.  The default option applies a single temperature bias
+      adjustment to ensure that the cumulative positive degree days is consistent, i.e., the melt over the calibration
+      period should be consistent.  Similarly, adjusting the precipitation ensures the accumulation is consistent.  The 
+      mean annual temperature may change, but the impact of this is considered to be negligible since refreeze
+      contributes the least to the mass balance.  Huss and Hock [2015] on the other hand make the mean temperature
+      fairly consistent while trying to capture the interannual variability, but the changes to melt and accumulation
+      could still be significant.
 """
 
 import pandas as pd
@@ -20,10 +50,17 @@ rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
 rgi_glac_number = ['03473', '03733']
 
+# RCP Scenario
+rcp_scenario = 'rcp26'
+
 # Required input
 option_bias_adjustment = 1
 gcm_endyear = 2100
 output_filepath = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
+gcm_filepath_var_prefix = input.main_directory + '/../Climate_data/cmip5/'
+gcm_filepath_var_ending = '_r1i1p1_monNG/'
+gcm_filepath_fx_prefix = input.main_directory + '/../Climate_data/cmip5/'
+gcm_filepath_fx_ending = '_r0i0p0_fx/'
 tas_prefix = 'tas_mon_'
 pr_prefix  = 'pr_mon_'
 var_ending = '_r1i1p1_native.nc'
@@ -101,48 +138,27 @@ ref_prec = (ref_prec_raw * (modelparameters[:,2] * (1 + modelparameters[:,3] *
                             (glac_elev4prec - ref_elev)))[:,np.newaxis])
 
 #%% GCM bias corrections function
-def gcm_bias_corrections_solo(option_bias_adjustment, gcm_endyear, output_filepath,
-                              gcm_temp_filename=input.gcm_temp_filename, 
-                              gcm_prec_filename=input.gcm_prec_filename,
-                              gcm_elev_filename=input.gcm_elev_filename,
-                              gcm_filepath_var=input.gcm_filepath_var,
-                              gcm_filepath_fx=input.gcm_filepath_fx,
-                              gcm_startyear=input.startyear, 
-                              gcm_spinupyears=input.spinupyears,
-                              glac_elev_name4temp='Zmin',
-                              glac_elev_name4prec=input.option_elev_ref_downscale,
-                              gcm_temp_varname=input.gcm_temp_varname,
-                              gcm_prec_varname=input.gcm_prec_varname, 
-                              gcm_elev_varname=input.gcm_elev_varname,
-                              gcm_lat_varname=input.gcm_lat_varname,
-                              gcm_lon_varname=input.gcm_lon_varname,
-                              gcm_time_varname=input.gcm_time_varname,
-                              filepath_modelparams=input.modelparams_filepath,
-                              filename_modelparams=input.modelparams_filename):
+def gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath,
+                         gcm_temp_filename=input.gcm_temp_filename, 
+                         gcm_prec_filename=input.gcm_prec_filename,
+                         gcm_elev_filename=input.gcm_elev_filename,
+                         gcm_filepath_var=input.gcm_filepath_var,
+                         gcm_filepath_fx=input.gcm_filepath_fx,
+                         gcm_startyear=input.startyear, 
+                         gcm_spinupyears=input.spinupyears,
+                         glac_elev_name4temp='Zmin',
+                         glac_elev_name4prec=input.option_elev_ref_downscale,
+                         gcm_temp_varname=input.gcm_temp_varname,
+                         gcm_prec_varname=input.gcm_prec_varname, 
+                         gcm_elev_varname=input.gcm_elev_varname,
+                         gcm_lat_varname=input.gcm_lat_varname,
+                         gcm_lon_varname=input.gcm_lon_varname,
+                         gcm_time_varname=input.gcm_time_varname,
+                         filepath_modelparams=input.modelparams_filepath,
+                         filename_modelparams=input.modelparams_filename):
     """
     Temperature and precipitation bias corrections for future GCM projections given a calibrated reference time period.
     Function exports the adjustment parameters as opposed to the climate data to reduce file size (~30x smaller).
-    Adjustment Options:
-      Option 1 (default) - adjust the mean tempearture such that the cumulative positive degree days [degC*day] is equal
-                 (cumulative positive degree days [degC*day] are exact, but mean temperature is different and does a 
-                  poor job handling all negative values)
-      Option 2 - adjust mean monthly temperature and incorporate interannual variability and
-                 adjust mean monthly precipitation [Huss and Hock, 2015]
-                 (cumulative positive degree days [degC*day] is closer than Options 3 & 4, mean temp similar)
-      Option 3 - adjust so the mean temperature is the same for both datasets
-                 (cumulative positive degree days [degC*day] can be significantly different, mean temp similar)
-      Option 4 - adjust the mean monthly temperature to be the same for both datasets
-                 (cumulative positive degree days [degC*day] is closer than Option 1, mean temp similar)
-    Why use Option 1 instead of Huss and Hock [2015]?
-      The model estimates mass balance, which is a function of melt, refreeze, and accumulation.  Another way of
-      interpreting this is the cumulative positive degree days, mean temperature, and precipitation as a function of the
-      temperature compared to the snow threshold temperature.  The default option applies a single temperature bias
-      adjustment to ensure that the cumulative positive degree days is consistent, i.e., the melt over the calibration
-      period should be consistent.  Similarly, adjusting the precipitation ensures the accumulation is consistent.  The 
-      mean annual temperature may change, but the impact of this is considered to be negligible since refreeze
-      contributes the least to the mass balance.  Huss and Hock [2015] on the other hand make the mean temperature
-      fairly consistent while trying to capture the interannual variability, but the changes to melt and accumulation
-      could still be significant.
     """
     # GCM data
     gcm_temp_raw, gcm_dates = climate.importGCMvarnearestneighbor_xarray(
@@ -277,35 +293,29 @@ def gcm_bias_corrections_solo(option_bias_adjustment, gcm_endyear, output_filepa
     # Temperature and precipitation parameters
     if (option_bias_adjustment == 1) or (option_bias_adjustment == 3) or (option_bias_adjustment == 4):
         # Temperature parameters
-        prefix_tempadj = 'biasadj_temp_opt1_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_'
-        output_tempadj = prefix_tempadj + os.path.splitext(gcm_temp_filename)[0] + '.csv'
+        output_tempadj = (gcm_name + '_temp_biasadj_opt1_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
         np.savetxt(output_filepath + output_tempadj, bias_adj_temp, delimiter=",")
         # Precipitation parameters
-        prefix_precadj = 'biasadj_prec_opt1_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_'
-        output_precadj = prefix_precadj + os.path.splitext(gcm_temp_filename)[0] + '.csv'
+        output_precadj = (gcm_name + '_prec_biasadj_opt1_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
         np.savetxt(output_filepath + output_precadj, bias_adj_prec, delimiter=",")
     elif option_bias_adjustment == 2:
         # Temperature parameters
-        prefix_tempvar = ('biasadj_HH2015_mon_tempvar_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) 
-                          + '_')
-        prefix_tempavg = ('biasadj_HH2015_mon_tempavg_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear)
-                          + '_')
-        prefix_tempadj = ('biasadj_HH2015_mon_tempadj_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear)
-                          + '_')
-        output_tempvar = prefix_tempvar + os.path.splitext(gcm_temp_filename)[0] + '.csv'
-        output_tempavg = prefix_tempavg + os.path.splitext(gcm_temp_filename)[0] + '.csv'
-        output_tempadj = prefix_tempadj + os.path.splitext(gcm_temp_filename)[0] + '.csv'
+        output_tempvar = (gcm_name + '_biasadj_HH2015_mon_tempvar_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                          str(gcm_endyear) + '.csv')
+        output_tempavg = (gcm_name + '_biasadj_HH2015_mon_tempavg_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                          str(gcm_endyear) + '.csv')
+        output_tempadj = (gcm_name + '_biasadj_HH2015_mon_tempadj_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                          str(gcm_endyear) + '.csv')
         np.savetxt(output_filepath + output_tempvar, variability_monthly_std, delimiter=",") 
         np.savetxt(output_filepath + output_tempavg, gcm_temp_monthly_avg, delimiter=",") 
         np.savetxt(output_filepath + output_tempadj, gcm_temp_monthly_adj, delimiter=",")
         # Precipitation parameters
-        prefix_precadj = ('biasadj_HH2015_mon_precadj_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) 
-                          + '_')
-        output_precadj = prefix_precadj + os.path.splitext(gcm_temp_filename)[0] + '.csv'
+        output_precadj = (gcm_name + '_biasadj_HH2015_mon_precadj_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                          str(gcm_endyear) + '.csv')
         np.savetxt(output_filepath + output_precadj, bias_adj_prec, delimiter=",")    
     
     # RETURN CLIMATE DATA
-    return gcm_temp_bias_adj, gcm_prec_bias_adj, gcm_elev, gcm_lr, modelparameters
+    return gcm_temp_bias_adj, gcm_prec_bias_adj, gcm_elev, gcm_lr
 
 #%% Setting up to run in parallels
     
@@ -328,19 +338,22 @@ print('Found %d gcms to process'%(len(gcm_list)))
 # Number of simultaneous processes
 num_simultaneous_processes = args.num_simultaneous_processes
 
-rcp_scenario = args.gcm_file.split("_")[1]
-
 # GCM filepaths
-gcm_filepath_var = input.main_directory + '/../Climate_data/cmip5/' + rcp_scenario + '_r1i1p1_monNG/'
-gcm_filepath_fx = input.main_directory + '/../Climate_data/cmip5/' + rcp_scenario + '_r0i0p0_fx/'
+gcm_filepath_var = gcm_filepath_var_prefix + rcp_scenario + gcm_filepath_var_ending
+gcm_filepath_fx = gcm_filepath_fx_prefix + rcp_scenario + gcm_filepath_fx_ending
 
-#for n_gcm in range(len(gcm_list)):
-for n_gcm in [0]:
+for n_gcm in range(len(gcm_list)):
+#for n_gcm in [0]:
+    print(gcm_list[n_gcm])
+    gcm_name = gcm_list[n_gcm]
     gcm_temp_fn = tas_prefix + gcm_list[n_gcm] + '_' + rcp_scenario + var_ending
     gcm_prec_fn = pr_prefix + gcm_list[n_gcm] + '_' + rcp_scenario + var_ending 
     gcm_elev_fn = fx_prefix + gcm_list[n_gcm] + '_' + rcp_scenario + fx_ending
     
-    gcm_temp_bias_adj, gcm_prec_bias_adj, gcm_elev, gcm_lr, modelparameters = (
+    print(gcm_filepath_var)
+    print(gcm_temp_fn)
+    
+    gcm_temp_bias_adj, gcm_prec_bias_adj, gcm_elev, gcm_lr = (
             gcm_bias_corrections(option_bias_adjustment, gcm_endyear, output_filepath,
                                  gcm_temp_filename=gcm_temp_fn,
                                  gcm_prec_filename=gcm_prec_fn,
