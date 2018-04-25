@@ -200,7 +200,14 @@ def selectcalibrationdata(main_glac_rgi):
     return main_glac_calmassbal
 
 
-def selectglaciersrgitable():
+def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, 
+                           rgi_regionsO2=input.rgi_regionsO2, 
+                           rgi_glac_number=input.rgi_glac_number,
+                           rgi_filepath=input.rgi_filepath,
+                           rgi_dict=input.rgi_dict,
+                           rgi_cols_drop=input.rgi_cols_drop,
+                           rgi_O1Id_colname=input.rgi_O1Id_colname,
+                           indexname=input.indexname):
     """
     Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI 
     glacier inventory. This function returns the rgi table associated with all of these glaciers.
@@ -216,29 +223,28 @@ def selectglaciersrgitable():
 
     # Create an empty dataframe
     glacier_table = pd.DataFrame()
-    for x_region in input.rgi_regionsO1:
-        csv_regionO1 = pd.read_csv(input.rgi_filepath + input.rgi_dict[x_region])
+    for x_region in rgi_regionsO1:
+        csv_regionO1 = pd.read_csv(rgi_filepath + rgi_dict[x_region])
         # Populate glacer_table with the glaciers of interest
-        if input.rgi_regionsO2 == 'all' and input.rgi_glac_number == 'all':
-            print(f"\nAll glaciers within region(s) {input.rgi_regionsO1} are included in this model run.")
+        if rgi_regionsO2 == 'all' and rgi_glac_number == 'all':
+            print(f"\nAll glaciers within region(s) {rgi_regionsO1} are included in this model run.")
             if glacier_table.empty:
                 glacier_table = csv_regionO1
             else:
                 glacier_table = pd.concat([glacier_table, csv_regionO1], axis=0)
-        elif input.rgi_regionsO2 != 'all' and input.rgi_glac_number == 'all':
-            print(f"\nAll glaciers within subregion(s) {input.rgi_regionsO2} in region {input.rgi_regionsO1} "
+        elif rgi_regionsO2 != 'all' and rgi_glac_number == 'all':
+            print(f"\nAll glaciers within subregion(s) {rgi_regionsO2} in region {rgi_regionsO1} "
                   "are included in this model run.")
-            for x_regionO2 in input.rgi_regionsO2:
+            for x_regionO2 in rgi_regionsO2:
                 if glacier_table.empty:
                     glacier_table = csv_regionO1.loc[csv_regionO1['O2Region'] == x_regionO2]
                 else:
                     glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['O2Region'] == 
                                                                                 x_regionO2]], axis=0))
         else:
-            print(f"\nThis study is only focusing on glaciers {input.rgi_glac_number} in region "
-                  f"{input.rgi_regionsO1}.")
-            for x_glac in input.rgi_glac_number:
-                glac_id = ('RGI60-' + str(input.rgi_regionsO1)[1:-1] + '.' + x_glac)
+            print(f"\nThis study is only focusing on glaciers {rgi_glac_number} in region {rgi_regionsO1}.")
+            for x_glac in rgi_glac_number:
+                glac_id = ('RGI60-' + str(rgi_regionsO1)[1:-1] + '.' + x_glac)
                 if glacier_table.empty:
                     glacier_table = csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id]
                 else:
@@ -251,12 +257,12 @@ def selectglaciersrgitable():
     # change old index to 'O1Index' to be easier to recall what it is
     glacier_table_copy.rename(columns={'index': 'O1Index'}, inplace=True)
     # drop columns of data that is not being used
-    glacier_table_copy.drop(input.rgi_cols_drop, axis=1, inplace=True)
+    glacier_table_copy.drop(rgi_cols_drop, axis=1, inplace=True)
     # add column with the O1 glacier numbers
-    glacier_table_copy[input.rgi_O1Id_colname] = (
+    glacier_table_copy[rgi_O1Id_colname] = (
             glacier_table_copy['RGIId'].str.split('.').apply(pd.Series).loc[:,1].astype(int))
     # set index name
-    glacier_table_copy.index.name = input.indexname
+    glacier_table_copy.index.name = indexname
     return glacier_table_copy        
     # OPTION 2: CUSTOMIZE REGIONS USING A SHAPEFILE that specifies the
     #           various regions according to the RGI IDs, i.e., add an
