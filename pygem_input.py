@@ -79,41 +79,6 @@ tempsnow = 1.0
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 #  facilitates calibration similar to Huss and Hock (2015)
 
-
-#%% ========== LIST OF MODEL INPUT ==============================================
-#------- INPUT FOR CODE ------------------------------------------------------
-# Warning message option
-option_warningmessages = 1
-#  Warning messages are a good check to make sure that the script is running properly, and small nuances due to
-#  differences in input data (e.g., units associated with GCM air temperature data are correct)
-#  Option 1 (default) - print warning messages within script that are meant to
-#                      assist user
-#  Option 0 - do not print warning messages within script
-
-#%% ------- MODEL PROPERTIES ----------------------------------------------------
-# Density of ice [kg m-3]
-density_ice = 900
-# Density of water [kg m-3]
-density_water = 1000
-# Area of ocean [km2]
-area_ocean = 362.5 * 10**6
-# Heat capacity of ice [J K-1 kg-1]
-ch_ice = 1.89 * 10**6
-# Thermal conductivity of ice [W K-1 m-1]
-k_ice = 2.33
-# Model tolerance (used to remove low values caused by rounding errors)
-tolerance = 1e-12
-# Gravity [m s-2]
-gravity = 9.81
-# Standard pressure [Pa]
-pressure_std = 101325
-# Standard temperature [K]
-temp_std = 288.15
-# Universal gas constant [J mol-1 K-1]
-R_gas = 8.3144598
-# Molar mass of Earth's air [kg mol-1]
-molarmass_air = 0.0289644
-
 #%% ------- INPUT FOR STEP ONE --------------------------------------------------
 # STEP ONE: Model Region/Glaciers
 #   The user needs to define the region/glaciers that will be used in the model run. The user has the option of choosing
@@ -155,7 +120,6 @@ rgi_O1Id_colname = 'RGIId-O1No'
 # OPTION 2: Select/customize regions based on shapefile(s)
 # Enter shapefiles, etc.
 
-
 #%% ------- INPUT FOR STEP TWO --------------------------------------------------
 # STEP TWO: Additional model setup
 #   Additional model setup that has been separated from the glacier selection in step one in order to keep the input
@@ -195,13 +159,6 @@ width_filedict = {
 # Extra columns in ice thickness data that will be dropped
 width_colsdrop = ['RGI-ID','Cont_range']
 
-""" NEED TO CODE VOLUME-LENGTH SCALING """
-# Option - volume-length scaling
-#   V_init = c_v * Area_init ^ VA_constant_exponent
-#   where L is the change in
-#   Need to define c_l and q, which are volume length scaling constants
-
-
 # ----- Input required for model time frame -----
 # Note: models are required to have complete data for each year such that refreezing, scaling, etc. are consistent for
 #       all time periods.
@@ -234,7 +191,7 @@ startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2015
+endyear = 2100
 #  water year example: 2000 would end on September 2000
 #  calendar year example: 2000 would end on December 2000
 # Number of years for model spin up [years]
@@ -359,7 +316,6 @@ gcm_lon_varname = 'lon'
 # Time variable name given by GCM
 gcm_time_varname = 'time'
 
-
 # Calibration datasets
 # Geodetic mass balance dataset
 # Filepath
@@ -396,30 +352,6 @@ modelparams_filename = 'calparams_R15_20180403_nearest.csv'
 #modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 
-## Lapse rate from gcm to glacier [K m-1]
-#lrgcm = -0.0065
-## Lapse rate on glacier for bins [K m-1]
-#lrglac = -0.0065
-## Precipitation correction factor [-]
-#precfactor = 1.0
-##  k_p in Radic et al. (2013)
-##  c_prec in Huss and Hock (2015)
-## Precipitation gradient on glacier [% m-1]
-#precgrad = 0.0001
-## Degree-day factor of ice [m w.e. d-1 degC-1]
-#ddfice = 4.1 / 0.7 * 10**-3
-##  note: '**' means to the power, so 10**-3 is 0.001
-## Degree-day factor of snow [m w.e. d-1 degC-1]
-#ddfsnow = 4.1 * 10**-3
-## Ratio degree-day factor snow snow to ice
-#ddfsnow_iceratio = 0.7
-## Temperature threshold for snow [deg C]
-#tempsnow = 1.0
-##   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
-## Temperature adjustment [deg C]
-#tempchange = 0.0
-##  facilitates calibration similar to Huss and Hock (2015)
-
 # DDF firn
 option_DDF_firn = 1
 #  Option 1 (default) - DDF_firn is average of DDF_ice and DDF_snow (Huss and Hock, 2015)
@@ -448,7 +380,6 @@ option_preclimit = 1
 option_accumulation = 2
 #  Option 1 (default) - Single threshold (<= snow, > rain)
 #  Option 2 - single threshold +/- 1 deg uses linear interpolation
-# Temperature adjustment options
 
 # Surface type options
 option_surfacetype = 1
@@ -487,19 +418,6 @@ icethickness_advancethreshold = 5
 # Percentage of glacier considered to be terminus
 terminus_percentage = 20
 #  Huss and Hock (2015) use 20% to calculate new area and ice thickness
-## Constant area or allow geometry changes
-#option_areaconstant = 1
-##  Option 0 (default simulation) - area is not constant, glacier can widen/narrow and retreat/advance
-##  Option 1 (default calibration) - area is constant to avoid retreat/advance mass balance feedbacks
-
-## Calibration constraint packages
-#option_calibration_constraints = 2
-##  Option 1 (default): optimize all values within their given bounds
-## Option 1 - optimize all parameters
-## Option 2 - only optimize precfactor
-## Option 3 - only optimize precfactor, DDFsnow, DDFice
-## Option 4 - only optimize precfactor, DDFsnow, DDFice; DDFice = 2 x DDFsnow
-## Option 5 - only optimize precfactor, DDFsnow, DDFice; DDFice > DDFsnow
 
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
@@ -514,3 +432,37 @@ output_filepath = '../Output/'
 calibrationcsv_filenameprefix = 'calibration_'
 calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
 netcdf_filenameprefix = 'PyGEM_output_rgiregion'
+
+#%% ========== LIST OF MODEL INPUT ==============================================
+#------- INPUT FOR CODE ------------------------------------------------------
+# Warning message option
+option_warningmessages = 1
+#  Warning messages are a good check to make sure that the script is running properly, and small nuances due to
+#  differences in input data (e.g., units associated with GCM air temperature data are correct)
+#  Option 1 (default) - print warning messages within script that are meant to
+#                      assist user
+#  Option 0 - do not print warning messages within script
+
+#%% ------- MODEL PROPERTIES ----------------------------------------------------
+# Density of ice [kg m-3]
+density_ice = 900
+# Density of water [kg m-3]
+density_water = 1000
+# Area of ocean [km2]
+area_ocean = 362.5 * 10**6
+# Heat capacity of ice [J K-1 kg-1]
+ch_ice = 1.89 * 10**6
+# Thermal conductivity of ice [W K-1 m-1]
+k_ice = 2.33
+# Model tolerance (used to remove low values caused by rounding errors)
+tolerance = 1e-12
+# Gravity [m s-2]
+gravity = 9.81
+# Standard pressure [Pa]
+pressure_std = 101325
+# Standard temperature [K]
+temp_std = 288.15
+# Universal gas constant [J mol-1 K-1]
+R_gas = 8.3144598
+# Molar mass of Earth's air [kg mol-1]
+molarmass_air = 0.0289644
