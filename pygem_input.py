@@ -19,8 +19,8 @@ option_calibration = 0
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['01204']
 #rgi_glac_number = ['09991']
@@ -239,7 +239,7 @@ option_gcm_downscale = 1
 #  Option 1 (default): select climate data based on nearest neighbor
 #  Option 2: import prepared csv files (saves time)
 # Lapse rate option
-option_lapserate_fromgcm = 1
+option_lapserate_fromgcm = 0
 #  Option 0 - lapse rates are constant defined by input
 #  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  Option 2 (NEED TO CODE) - lapse rates derived from surrounding pixels (varies spatially and temporally)
@@ -293,28 +293,31 @@ gcmlapserate_filedict = {
 
 
 # CMIP5 INPUT CLIMATE DATA
-# Filepath to GCM variable files
+gcm_name = 'MPI-ESM-LR'
+rcp_scenario = 'rcp26'
+# Filepath to GCM data
 gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
-# Filepath to GCM fixed variable files
 gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
-# Temperature filename and variable name
-gcm_temp_filename = 'tas_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
+# Climate file and variable names
+gcm_temp_filename = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
 gcm_temp_varname = 'tas'
-# Precipitation filename and variable name
-gcm_prec_filename = 'pr_mon_MPI-ESM-LR_rcp26_r1i1p1_native.nc'
+gcm_prec_filename = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
 gcm_prec_varname = 'pr'
-# Elevation filename and variable name
-gcm_elev_filename = 'orog_fx_MPI-ESM-LR_rcp26_r0i0p0.nc'
+gcm_elev_filename = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
 gcm_elev_varname = 'orog'
-## Lapse rate filename and variable name
-#gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
-#gcm_lapserate_varname = 'lapserate'
-# Latitude variable name given by GCM
 gcm_lat_varname = 'lat'
-# Longitude variable name given by GCM
 gcm_lon_varname = 'lon'
-# Time variable name given by GCM
 gcm_time_varname = 'time'
+
+# Bias adjustments option (required for future simulations)
+option_bias_adjustment = 1
+#  Option 0 - ignore bias adjustments
+#  Option 1 - bias adjustments using new technique 
+#  Option 2 - bias adjustments using Huss and Hock [2015] methods
+biasadj_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_bias_adjusted_1995_2100/'
+biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
+biasadj_fn_temp = gcm_name + '_' + rcp_scenario + '_temp_biasadj_opt1_1995_2100.csv'
+biasadj_fn_prec = gcm_name + '_' + rcp_scenario + '_prec_biasadj_opt1_1995_2100.csv' 
 
 # Calibration datasets
 # Geodetic mass balance dataset
@@ -422,12 +425,16 @@ terminus_percentage = 20
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 # Output package number
-output_package = 2
+output_package = 0
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,
     #                                             massbal_clim)
     #             annual variables for each bin (area, icethickness, surfacetype)
+    # Option 2 - "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
+    #             monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, 
+    #                                             snowline)
+    #             annual glacier-wide variables (area, volume, ELA)
 output_filepath = '../Output/'
 calibrationcsv_filenameprefix = 'calibration_'
 calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'

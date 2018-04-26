@@ -361,15 +361,14 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
 #    massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbalclim_mwea)
     
     # Return the desired output
-    if input.option_calibration == 0:
-        return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-                glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-                glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-                glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
-                glac_wide_volume_annual, glac_wide_ELA_annual)
-    elif input.option_calibration == 1:
-        return (glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
-                glac_wide_volume_annual, glac_wide_ELA_annual)
+    return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+            glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+            glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+            glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
+            glac_wide_volume_annual, glac_wide_ELA_annual)
+#    elif input.option_calibration == 1:
+#        return (glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
+#                glac_wide_volume_annual, glac_wide_ELA_annual)
 
 
 #%% ===================================================================================================================

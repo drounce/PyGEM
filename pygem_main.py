@@ -70,19 +70,18 @@ main_glac_hyps[main_glac_icethickness == 0] = 0
 if input.option_gcm_downscale == 1:  
     # Air Temperature [degC] and GCM dates
     main_glac_gcmtemp, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-            input.gcm_filepath_var, input.gcm_temp_filename, input.gcm_temp_varname, main_glac_rgi, dates_table, 
-            start_date, end_date)
+            input.gcm_temp_filename, input.gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date)
     # Precipitation [m] and GCM dates
     main_glac_gcmprec, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-            input.gcm_filepath_var, input.gcm_prec_filename, input.gcm_prec_varname, main_glac_rgi, dates_table, 
-            start_date, end_date)
+            input.gcm_prec_filename, input.gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date)
     # Elevation [m a.s.l] associated with air temperature  and precipitation data
     main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(
-            input.gcm_filepath_fx, input.gcm_elev_filename, input.gcm_elev_varname, main_glac_rgi)
+            input.gcm_elev_filename, input.gcm_elev_varname, main_glac_rgi)
     # Add GCM time series to the dates_table
     dates_table['date_gcm'] = main_glac_gcmdate
     # Lapse rates [degC m-1]  
     if input.option_lapserate_fromgcm == 1:
+        print('Likely need to update this function with new importGCMvar input sequence')
         main_glac_gcmlapserate, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
                 input.gcm_filepath_var, input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, 
                 dates_table, start_date, end_date)
@@ -96,10 +95,9 @@ elif input.option_gcm_downscale == 2:
     main_glac_gcmelev_all = np.genfromtxt(input.gcm_filepath_var + input.gcmelev_filedict[input.rgi_regionsO1[0]], 
                                           delimiter=',')
     # Lapse rates [degC m-1]  
-    if input.option_lapserate_fromgcm == 1:
-        main_glac_gcmlapserate_all = np.genfromtxt(input.gcm_filepath_var + 
-                                                   input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 
-                                                   delimiter=',')
+    main_glac_gcmlapserate_all = np.genfromtxt(input.gcm_filepath_var + 
+                                               input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 
+                                               delimiter=',')
     # Select the climate data for the glaciers included in the study
     if input.rgi_glac_number == 'all':
         main_glac_gcmtemp = main_glac_gcmtemp_all
