@@ -49,28 +49,7 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_climate as climate
 
-time_start = time.time()
-#%% ARGUMENT PARSER 
-parser = argparse.ArgumentParser(description="run commands in command_file on num_simultaneous_processes processors")
-# add arguments
-parser.add_argument('gcm_file', action='store', type=str, default='gcm_rcpXX_filenames.txt', 
-                    help='text file full of commands to run')
-parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=5, 
-                    help='number of simultaneous processes (cores) to use')
-# select arguments
-args = parser.parse_args()
-# Read GCM names from command file
-with open(args.gcm_file, 'r') as gcm_fn:
-    gcm_list = gcm_fn.read().splitlines()
-print('Found %d gcms to process'%(len(gcm_list)))
-# RCP scenario
-rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
-# Number of simultaneous processes
-num_simultaneous_processes = args.num_simultaneous_processes
-
-#%% INPUT
-# Parallels switch (1 = run parallels)
-option_parallels = 1
+#%% INPUT 
 # Glacier selection
 rgi_regionsO1 = [15]
 rgi_glac_number = 'all'
@@ -97,7 +76,6 @@ gcm_prec_varname = 'pr'
 gcm_elev_varname = 'orog'
 gcm_lat_varname = 'lat'
 gcm_lon_varname = 'lon'
-gcm_time_varname = 'time'
 # Reference data
 filepath_ref = input.main_directory + '/../Climate_data/ERA_Interim/' 
 filename_ref_temp = input.gcmtemp_filedict[rgi_regionsO1[0]]
@@ -108,68 +86,76 @@ filename_ref_lr = input.gcmlapserate_filedict[rgi_regionsO1[0]]
 filepath_modelparams = input.main_directory + '/../Calibration_datasets/'
 filename_modelparams = 'calparams_R15_20180403_nearest.csv'
 
-# GCM filepaths
-gcm_filepath_var = gcm_filepath_var_prefix + rcp_scenario + gcm_filepath_var_ending
-gcm_filepath_fx = gcm_filepath_fx_prefix + rcp_scenario + gcm_filepath_fx_ending
+#%% FUNCTIONS
+def getparser():
+    parser = argparse.ArgumentParser(description="run gcm bias corrections from gcm list in parallel")
+    # add arguments
+    parser.add_argument('gcm_file', action='store', type=str, default='gcm_rcpXX_filenames.txt', 
+                        help='text file full of commands to run')
+    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=5, 
+                        help='number of simultaneous processes (cores) to use')
+    parser.add_argument('-option_parallels', action='store', type=int, default=1,
+                        help='Switch to use or not use paralles (1 - use parallels, 0 - do not)')
+    return parser
 
-#%% LOAD REFERENCE DATA 
-print('loading data')
-# Select glaciers that adjustment is being performed on
-main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_glac_number=rgi_glac_number)
-# Select glacier elevations used for the temperature and precipitation corrections
-#  default for temperature is 'Zmin' since this is assumed to have maximum melt (cumulative positive degree days)
-#  default for precipitation is 'Zmed' since this is assumed to be around the ELA and have snow accumulation
-glac_elev4temp = main_glac_rgi[glac_elev_name4temp].values
-glac_elev4prec = main_glac_rgi[glac_elev_name4prec].values
-# Select dates including future projections
-dates_table, start_date, end_date = modelsetup.datesmodelrun(endyear=gcm_endyear)
-# Load reference data
-# Import air temperature, precipitation, lapse rates, and elevation from pre-processed csv files for a given region
-#  This saves time as opposed to running the nearest neighbor for the reference data as well
-ref_temp_all = np.genfromtxt(filepath_ref + filename_ref_temp, delimiter=',')
-ref_prec_all = np.genfromtxt(filepath_ref + filename_ref_prec, delimiter=',')
-ref_elev_all = np.genfromtxt(filepath_ref + filename_ref_elev, delimiter=',')
-ref_lr_all = np.genfromtxt(filepath_ref + filename_ref_lr, delimiter=',')
-modelparameters_all = pd.read_csv(filepath_modelparams + filename_modelparams)
-modelparameters_all = modelparameters_all.values
-# Select the climate data for the glaciers included in the study
-if input.rgi_glac_number == 'all':
-    ref_temp_raw = ref_temp_all
-    ref_prec_raw = ref_prec_all
-    ref_elev = ref_elev_all
-    ref_lr = ref_lr_all
-    modelparameters = modelparameters_all
-else:
-    ref_temp_raw = np.zeros((main_glac_rgi.shape[0], ref_temp_all.shape[1]))
-    ref_prec_raw = np.zeros((main_glac_rgi.shape[0], ref_temp_all.shape[1]))
-    ref_elev = np.zeros((main_glac_rgi.shape[0]))
-    ref_lr = np.zeros((main_glac_rgi.shape[0], ref_temp_all.shape[1]))
-    modelparameters = np.zeros((main_glac_rgi.shape[0], modelparameters_all.shape[1]))
-    # Select climate data for each glacier using O1Index
-    for glac in range(main_glac_rgi.shape[0]):
-        ref_temp_raw[glac,:] = ref_temp_all[main_glac_rgi.loc[glac,'O1Index'],:]
-        ref_prec_raw[glac,:] = ref_prec_all[main_glac_rgi.loc[glac,'O1Index'],:]
-        ref_elev[glac] = ref_elev_all[main_glac_rgi.loc[glac,'O1Index']]
-        ref_lr[glac,:] = ref_lr_all[main_glac_rgi.loc[glac,'O1Index'],:]
-        modelparameters[glac,:] = modelparameters_all[main_glac_rgi.loc[glac,'O1Index'],:]
-# Monthly lapse rate
-ref_lr_monthly_avg = (ref_lr.reshape(-1,12).transpose().reshape(-1,int(ref_temp_raw.shape[1]/12)).mean(1).reshape(12,-1)
-                      .transpose())
-# Adjust temperature and precipitation to glacier elevation using the model parameters
-#  T = T_gcm + lr_gcm * (z_ref - z_gcm) + tempchange    
-ref_temp = (ref_temp_raw + ref_lr*(glac_elev4temp - ref_elev)[:,np.newaxis]) + modelparameters[:,7][:,np.newaxis]
-#  P = P_gcm * prec_factor * (1 + prec_grad * (z_glac - z_ref))
-ref_prec = (ref_prec_raw * (modelparameters[:,2] * (1 + modelparameters[:,3] * 
-                            (glac_elev4prec - ref_elev)))[:,np.newaxis])
-
-#%% GCM BIAS CORRECTION FUNCTION
-def gcm_bias_corrections(gcm_name):
-    """
-    Temperature and precipitation bias corrections for future GCM projections given a calibrated reference time period.
-    Function exports the adjustment parameters as opposed to the climate data to reduce file size (~30x smaller).
-    """
-    print('Starting to process', gcm_name)
-    time_start_gcm = time.time()
+def main(gcm_name):
+    time_start = time.time()
+    parser = getparser()
+    args = parser.parse_args()
+    # RCP scenario
+    rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
+    
+    # LOAD REFERENCE DATA 
+    # Select glaciers that adjustment is being performed on
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_glac_number=rgi_glac_number)
+    # Select glacier elevations used for the temperature and precipitation corrections
+    #  default for temperature is 'Zmin' since this is assumed to have maximum melt (cumulative positive degree days)
+    #  default for precipitation is 'Zmed' since this is assumed to be around the ELA and have snow accumulation
+    glac_elev4temp = main_glac_rgi[glac_elev_name4temp].values
+    glac_elev4prec = main_glac_rgi[glac_elev_name4prec].values
+    # Select dates including future projections
+    dates_table, start_date, end_date = modelsetup.datesmodelrun(endyear=gcm_endyear)
+    # Load reference data
+    # Import air temperature, precipitation, lapse rates, and elevation from pre-processed csv files for a given region
+    #  This saves time as opposed to running the nearest neighbor for the reference data as well
+    ref_temp_all = np.genfromtxt(filepath_ref + filename_ref_temp, delimiter=',')
+    ref_prec_all = np.genfromtxt(filepath_ref + filename_ref_prec, delimiter=',')
+    ref_elev_all = np.genfromtxt(filepath_ref + filename_ref_elev, delimiter=',')
+    ref_lr_all = np.genfromtxt(filepath_ref + filename_ref_lr, delimiter=',')
+    modelparameters_all = pd.read_csv(filepath_modelparams + filename_modelparams)
+    modelparameters_all = modelparameters_all.values
+    # Select the climate data for the glaciers included in the study
+    if rgi_glac_number == 'all':
+        ref_temp_raw = ref_temp_all
+        ref_prec_raw = ref_prec_all
+        ref_elev = ref_elev_all
+        ref_lr = ref_lr_all
+        modelparameters = modelparameters_all
+    else:
+        ref_temp_raw = np.zeros((main_glac_rgi.shape[0], ref_temp_all.shape[1]))
+        ref_prec_raw = np.zeros((main_glac_rgi.shape[0], ref_temp_all.shape[1]))
+        ref_elev = np.zeros((main_glac_rgi.shape[0]))
+        ref_lr = np.zeros((main_glac_rgi.shape[0], ref_temp_all.shape[1]))
+        modelparameters = np.zeros((main_glac_rgi.shape[0], modelparameters_all.shape[1]))
+        # Select climate data for each glacier using O1Index
+        for glac in range(main_glac_rgi.shape[0]):
+            ref_temp_raw[glac,:] = ref_temp_all[main_glac_rgi.loc[glac,'O1Index'],:]
+            ref_prec_raw[glac,:] = ref_prec_all[main_glac_rgi.loc[glac,'O1Index'],:]
+            ref_elev[glac] = ref_elev_all[main_glac_rgi.loc[glac,'O1Index']]
+            ref_lr[glac,:] = ref_lr_all[main_glac_rgi.loc[glac,'O1Index'],:]
+            modelparameters[glac,:] = modelparameters_all[main_glac_rgi.loc[glac,'O1Index'],:]
+    # Monthly lapse rate
+    ref_lr_monthly_avg = (ref_lr.reshape(-1,12).transpose().reshape(-1,int(ref_temp_raw.shape[1]/12)).mean(1).reshape(12,-1)
+                          .transpose())
+    # Adjust temperature and precipitation to glacier elevation using the model parameters
+    #  T = T_gcm + lr_gcm * (z_ref - z_gcm) + tempchange    
+    ref_temp = (ref_temp_raw + ref_lr*(glac_elev4temp - ref_elev)[:,np.newaxis]) + modelparameters[:,7][:,np.newaxis]
+    #  P = P_gcm * prec_factor * (1 + prec_grad * (z_glac - z_ref))
+    ref_prec = (ref_prec_raw * (modelparameters[:,2] * (1 + modelparameters[:,3] * 
+                                (glac_elev4prec - ref_elev)))[:,np.newaxis])
+    # GCM filepaths
+    gcm_filepath_var = gcm_filepath_var_prefix + rcp_scenario + gcm_filepath_var_ending
+    gcm_filepath_fx = gcm_filepath_fx_prefix + rcp_scenario + gcm_filepath_fx_ending
     # GCM filenames
     gcm_temp_filename = gcm_temp_fn_prefix + gcm_name + '_' + rcp_scenario + gcm_var_ending
     gcm_prec_filename = gcm_prec_fn_prefix + gcm_name + '_' + rcp_scenario + gcm_var_ending
@@ -300,6 +286,9 @@ def gcm_bias_corrections(gcm_name):
 #        gcm_prec_bias_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
     
     # EXPORT THE ADJUSTMENT VARIABLES (greatly reduces space)
+    # Set up directory to store climate data
+    if os.path.exists(output_filepath) == False:
+        os.makedirs(output_filepath)
     # Lapse rate parameters (same for all GCMs - only need to export once)
     output_filename_lr = 'biasadj_mon_lravg_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv'
     if os.path.exists(output_filepath + output_filename_lr) == False:
@@ -307,40 +296,47 @@ def gcm_bias_corrections(gcm_name):
     # Temperature and precipitation parameters
     if (option_bias_adjustment == 1) or (option_bias_adjustment == 3) or (option_bias_adjustment == 4):
         # Temperature parameters
-        output_tempadj = (gcm_name + '_' + rcp_scenario + '_temp_biasadj_opt1_' + str(gcm_startyear - gcm_spinupyears) 
-                          + '_' + str(gcm_endyear) + '.csv')
+        output_tempadj = (gcm_name + '_' + rcp_scenario + '_temp_biasadjparam_opt1_' + 
+                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
         np.savetxt(output_filepath + output_tempadj, bias_adj_temp, delimiter=",")
         # Precipitation parameters
-        output_precadj = (gcm_name + '_' + rcp_scenario + '_prec_biasadj_opt1_' + str(gcm_startyear - gcm_spinupyears) 
-                          + '_' + str(gcm_endyear) + '.csv')
+        output_precadj = (gcm_name + '_' + rcp_scenario + '_prec_biasadjparam_opt1_' + 
+                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
         np.savetxt(output_filepath + output_precadj, bias_adj_prec, delimiter=",")
     elif option_bias_adjustment == 2:
         # Temperature parameters
-        output_tempvar = (gcm_name + '_' + rcp_scenario + '_biasadj_HH2015_mon_tempvar_' + 
+        output_tempvar = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_tempvar_' + 
                           str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-        output_tempavg = (gcm_name + '_' + rcp_scenario + '_biasadj_HH2015_mon_tempavg_' + 
+        output_tempavg = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_tempavg_' + 
                           str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-        output_tempadj = (gcm_name + '_' + rcp_scenario + '_biasadj_HH2015_mon_tempadj_' + 
+        output_tempadj = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_tempadj_' + 
                           str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
         np.savetxt(output_filepath + output_tempvar, variability_monthly_std, delimiter=",") 
         np.savetxt(output_filepath + output_tempavg, gcm_temp_monthly_avg, delimiter=",") 
         np.savetxt(output_filepath + output_tempadj, gcm_temp_monthly_adj, delimiter=",")
         # Precipitation parameters
-        output_precadj = (gcm_name + '_' + rcp_scenario + '_biasadj_HH2015_mon_precadj_' + 
+        output_precadj = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_precadj_' + 
                           str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
         np.savetxt(output_filepath + output_precadj, bias_adj_prec, delimiter=",")  
-    print('\nProcessing time of',gcm_name,':',time.time()-time_start_gcm, 's')
+    print('\nProcessing time of',gcm_name,':',time.time()-time_start, 's')
 
 #%% PARALLEL PROCESSING
 if __name__ == '__main__':
-    if option_parallels == 1:
-        with multiprocessing.Pool(num_simultaneous_processes) as p:
-            p.map(gcm_bias_corrections,gcm_list)
+    time_start = time.time()
+    parser = getparser()
+    args = parser.parse_args()
+    # Read GCM names from command file
+    with open(args.gcm_file, 'r') as gcm_fn:
+        gcm_list = gcm_fn.read().splitlines()
+    print('Found %d gcms to process'%(len(gcm_list)))
+    
+    if args.option_parallels != 0:
+        with multiprocessing.Pool(args.num_simultaneous_processes) as p:
+            p.map(main,gcm_list)
     else:
         # Loop through GCMs and export bias adjustments
         for n_gcm in range(len(gcm_list)):
             gcm_name = gcm_list[n_gcm]
             # Perform GCM Bias adjustments
-            gcm_bias_corrections(gcm_name)
-    print('Total processing time:', time.time()-time_start, 's')
-            
+            main(gcm_name)
+    print('Total processing time:', time.time()-time_start, 's')            

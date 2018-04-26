@@ -15,6 +15,11 @@ import numpy as np
 option_calibration = 0
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (output differs and calibration data selected)
+# ===== PARALLELS OPTION =====
+option_parallels = 1
+#  Option 0 - do not use parallels
+#  Option 1 - Use parallels for a single gcm run
+#  Option 2 - Use parallels for multiple sets of gcms simulations
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
@@ -314,7 +319,8 @@ option_bias_adjustment = 1
 #  Option 0 - ignore bias adjustments
 #  Option 1 - bias adjustments using new technique 
 #  Option 2 - bias adjustments using Huss and Hock [2015] methods
-biasadj_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_bias_adjusted_1995_2100/'
+biasadj_data_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_1995_2100/'
+biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_biasadj_params_1995_2100/'
 biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
 biasadj_fn_temp = gcm_name + '_' + rcp_scenario + '_temp_biasadj_opt1_1995_2100.csv'
 biasadj_fn_prec = gcm_name + '_' + rcp_scenario + '_prec_biasadj_opt1_1995_2100.csv' 
@@ -425,7 +431,7 @@ terminus_percentage = 20
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 # Output package number
-output_package = 0
+output_package = 2
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,
