@@ -444,7 +444,7 @@ output_package = 2
 output_filepath = '../Output/'
 calibrationcsv_filenameprefix = 'calibration_'
 calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
-netcdf_filenameprefix = 'PyGEM_output_rgiregion'
+netcdf_fn_prefix = 'PyGEM_R'
 
 #%% ========== LIST OF MODEL INPUT ==============================================
 #------- INPUT FOR CODE ------------------------------------------------------
