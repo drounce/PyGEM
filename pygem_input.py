@@ -24,8 +24,8 @@ option_parallels = 1
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['01204']
 #rgi_glac_number = ['09991']
@@ -298,17 +298,17 @@ gcmlapserate_filedict = {
 
 
 # CMIP5 INPUT CLIMATE DATA
-gcm_name = 'MPI-ESM-LR'
-rcp_scenario = 'rcp26'
+#gcm_name = 'MPI-ESM-LR'
+#rcp_scenario = 'rcp26'
 # Filepath to GCM data
 gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
 gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
 # Climate file and variable names
-gcm_temp_filename = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
+#gcm_temp_filename = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
 gcm_temp_varname = 'tas'
-gcm_prec_filename = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
+#gcm_prec_filename = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
 gcm_prec_varname = 'pr'
-gcm_elev_filename = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
+#gcm_elev_filename = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
 gcm_elev_varname = 'orog'
 gcm_lat_varname = 'lat'
 gcm_lon_varname = 'lon'
@@ -322,8 +322,7 @@ option_bias_adjustment = 1
 biasadj_data_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_1995_2100/'
 biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_biasadj_params_1995_2100/'
 biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
-biasadj_fn_temp = gcm_name + '_' + rcp_scenario + '_temp_biasadj_opt1_1995_2100.csv'
-biasadj_fn_prec = gcm_name + '_' + rcp_scenario + '_prec_biasadj_opt1_1995_2100.csv' 
+biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
 
 # Calibration datasets
 # Geodetic mass balance dataset

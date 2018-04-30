@@ -35,8 +35,10 @@ def createcsv_GCMvarnearestneighbor(filename, variablename, dates_table, glac_ta
     np.savetxt(output_csvfullfilename, glac_variable_series_nparray, delimiter=",") 
 
 
-def importGCMfxnearestneighbor_xarray(filename, variablename, main_glac_rgi, filepath=input.gcm_filepath_fx, 
-                                      gcm_lon_varname=input.gcm_lon_varname, gcm_lat_varname=input.gcm_lat_varname):
+def importGCMfxnearestneighbor_xarray(filename, variablename, main_glac_rgi, 
+                                      filepath=input.gcm_filepath_fx, 
+                                      gcm_lon_varname=input.gcm_lon_varname, 
+                                      gcm_lat_varname=input.gcm_lat_varname):
     """
     Import time invariant (constant) variables and extract the nearest neighbor of the variable. Meteorological data 
     from the global climate models were provided by Ben Marzeion and ETH-Zurich for the GlacierMIP Phase II project or
@@ -87,7 +89,8 @@ def importGCMfxnearestneighbor_xarray(filename, variablename, main_glac_rgi, fil
 
 
 def importGCMvarnearestneighbor_xarray(filename, variablename, main_glac_rgi, dates_table, start_date, end_date, 
-                                       filepath=input.gcm_filepath_var, gcm_lon_varname=input.gcm_lon_varname, 
+                                       filepath=input.gcm_filepath_var, 
+                                       gcm_lon_varname=input.gcm_lon_varname, 
                                        gcm_lat_varname=input.gcm_lat_varname):
     """
     Import meteorological variables and extract the nearest neighbor time series of the variable. Meteorological data 

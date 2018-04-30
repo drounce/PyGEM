@@ -11,7 +11,7 @@ import pygem_input as input
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                   dates_table):
+                   dates_table, biasadj_temp=0, biasadj_prec=1):
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12
@@ -75,13 +75,15 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                          (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
                          glacier_gcm_lrglac[12*year:12*(year+1)] * (elev_bins - 
                          glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis] + modelparameters[7])
+                if input.option_bias_adjustment == 1:
+                    glac_bin_temp[:,12*year:12*(year+1)] = glac_bin_temp[:,12*year:12*(year+1)] + biasadj_temp
                 # Option to adjust air temperature based on changes in surface elevation
                 if input.option_adjusttemp_surfelev == 1:
                     # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)
                     glac_bin_temp[:,12*year:12*(year+1)] = (glac_bin_temp[:,12*year:12*(year+1)] + 
                                                             glacier_gcm_lrglac[12*year:12*(year+1)] * 
                                                             (icethickness_t0 - icethickness_adjusttemp)[:,np.newaxis])
-                 # remove off-glacier values
+                # remove off-glacier values
                 glac_bin_temp[surfacetype==0,12*year:12*(year+1)] = 0
                 
                 # PRECIPITATION/ACCUMULATION: Downscale the precipitation (liquid and solid) to each bin
@@ -91,6 +93,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     glac_bin_precsnow[:,12*year:12*(year+1)] = (glacier_gcm_prec[12*year:12*(year+1)] * 
                             modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
+                if input.option_bias_adjustment == 1:
+                    glac_bin_precsnow[:,12*year:12*(year+1)] = glac_bin_precsnow[:,12*year:12*(year+1)] * biasadj_prec
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
                 if input.option_preclimit == 1:
                     # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)

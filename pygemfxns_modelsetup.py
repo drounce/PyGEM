@@ -132,7 +132,8 @@ def hypsometrystats(hyps_table, thickness_table):
     return glac_volume, glac_hyps_mean
 
 
-def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, indexname, drop_col_names):
+def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, drop_col_names,
+                     indexname=input.indexname):
     """Use the dictionary specified by the user to extract the desired variable.
     The files must be in the proper units (ice thickness [m], area [km2], width [km]) and need to be pre-processed to 
     have all bins between 0 - 8845 m.
@@ -227,14 +228,13 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
         csv_regionO1 = pd.read_csv(rgi_filepath + rgi_dict[x_region])
         # Populate glacer_table with the glaciers of interest
         if rgi_regionsO2 == 'all' and rgi_glac_number == 'all':
-            print(f"\nAll glaciers within region(s) {rgi_regionsO1} are included in this model run.")
+            print(f"All glaciers within region(s) {rgi_regionsO1} are included in this model run.")
             if glacier_table.empty:
                 glacier_table = csv_regionO1
             else:
                 glacier_table = pd.concat([glacier_table, csv_regionO1], axis=0)
         elif rgi_regionsO2 != 'all' and rgi_glac_number == 'all':
-            print(f"\nAll glaciers within subregion(s) {rgi_regionsO2} in region {rgi_regionsO1} "
-                  "are included in this model run.")
+            print(f"All glaciers within subregion(s) {rgi_regionsO2} in region {rgi_regionsO1} are included.")
             for x_regionO2 in rgi_regionsO2:
                 if glacier_table.empty:
                     glacier_table = csv_regionO1.loc[csv_regionO1['O2Region'] == x_regionO2]
@@ -242,7 +242,7 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
                     glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['O2Region'] == 
                                                                                 x_regionO2]], axis=0))
         else:
-            print(f"\nThis study is only focusing on glaciers {rgi_glac_number} in region {rgi_regionsO1}.")
+            print(f"This study is only focusing on glaciers {rgi_glac_number} in region {rgi_regionsO1}.")
             for x_glac in rgi_glac_number:
                 glac_id = ('RGI60-' + str(rgi_regionsO1)[1:-1] + '.' + x_glac)
                 if glacier_table.empty:

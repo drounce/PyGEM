@@ -40,6 +40,7 @@ import pandas as pd
 import numpy as np
 import os
 import argparse
+import inspect
 #import subprocess as sp
 import multiprocessing
 from scipy.optimize import minimize
@@ -52,8 +53,8 @@ import pygemfxns_climate as climate
 #%% INPUT 
 # Glacier selection
 rgi_regionsO1 = [15]
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
 # Required input
 option_bias_adjustment = 1
 gcm_endyear = 2100
@@ -226,20 +227,20 @@ def main(gcm_name):
         variability_monthly_std = ref_temp_monthly_std / gcm_temp_monthly_std
         # Bias adjusted temperature accounting for monthly mean and variability
 #        gcm_temp_bias_adj = t_m25avg + (t_mt - t_m25avg) * np.tile(variability_monthly_std, int(gcm_temp.shape[1]/12))
-    elif option_bias_adjustment == 3:
-        # Reference - GCM difference
-        bias_adj_temp= (ref_temp - gcm_temp_subset).mean(axis=1)
-        # Bias adjusted temperature accounting for mean of entire time period
-#        gcm_temp_bias_adj = gcm_temp + bias_adj_temp[:,np.newaxis]
-    elif option_bias_adjustment == 4:
-        # Calculate monthly mean temperature
-        ref_temp_monthly_avg = (ref_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1)
-                                .reshape(12,-1).transpose())
-        gcm_temp_monthly_avg = (gcm_temp_subset.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1)
-                                .reshape(12,-1).transpose())
-        bias_adj_temp = ref_temp_monthly_avg - gcm_temp_monthly_avg
-        # Bias adjusted temperature accounting for monthly mean
-#        gcm_temp_bias_adj = gcm_temp + np.tile(bias_adj_temp, int(gcm_temp.shape[1]/12))
+#    elif option_bias_adjustment == 3:
+#        # Reference - GCM difference
+#        bias_adj_temp= (ref_temp - gcm_temp_subset).mean(axis=1)
+#        # Bias adjusted temperature accounting for mean of entire time period
+##        gcm_temp_bias_adj = gcm_temp + bias_adj_temp[:,np.newaxis]
+#    elif option_bias_adjustment == 4:
+#        # Calculate monthly mean temperature
+#        ref_temp_monthly_avg = (ref_temp.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1)
+#                                .reshape(12,-1).transpose())
+#        gcm_temp_monthly_avg = (gcm_temp_subset.reshape(-1,12).transpose().reshape(-1,int(ref_temp.shape[1]/12)).mean(1)
+#                                .reshape(12,-1).transpose())
+#        bias_adj_temp = ref_temp_monthly_avg - gcm_temp_monthly_avg
+#        # Bias adjusted temperature accounting for monthly mean
+##        gcm_temp_bias_adj = gcm_temp + np.tile(bias_adj_temp, int(gcm_temp.shape[1]/12))
     
     # PRECIPITATION BIAS CORRECTIONS
     if option_bias_adjustment == 1:
@@ -285,39 +286,44 @@ def main(gcm_name):
         # Bias adjusted precipitation accounting for differences in monthly mean
 #        gcm_prec_bias_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
     
-    # EXPORT THE ADJUSTMENT VARIABLES (greatly reduces space)
-    # Set up directory to store climate data
-    if os.path.exists(output_filepath) == False:
-        os.makedirs(output_filepath)
-    # Lapse rate parameters (same for all GCMs - only need to export once)
-    output_filename_lr = 'biasadj_mon_lravg_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv'
-    if os.path.exists(output_filepath + output_filename_lr) == False:
-        np.savetxt(output_filepath + output_filename_lr, ref_lr_monthly_avg, delimiter=",")
-    # Temperature and precipitation parameters
-    if (option_bias_adjustment == 1) or (option_bias_adjustment == 3) or (option_bias_adjustment == 4):
-        # Temperature parameters
-        output_tempadj = (gcm_name + '_' + rcp_scenario + '_temp_biasadjparam_opt1_' + 
-                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-        np.savetxt(output_filepath + output_tempadj, bias_adj_temp, delimiter=",")
-        # Precipitation parameters
-        output_precadj = (gcm_name + '_' + rcp_scenario + '_prec_biasadjparam_opt1_' + 
-                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-        np.savetxt(output_filepath + output_precadj, bias_adj_prec, delimiter=",")
-    elif option_bias_adjustment == 2:
-        # Temperature parameters
-        output_tempvar = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_tempvar_' + 
-                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-        output_tempavg = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_tempavg_' + 
-                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-        output_tempadj = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_tempadj_' + 
-                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-        np.savetxt(output_filepath + output_tempvar, variability_monthly_std, delimiter=",") 
-        np.savetxt(output_filepath + output_tempavg, gcm_temp_monthly_avg, delimiter=",") 
-        np.savetxt(output_filepath + output_tempadj, gcm_temp_monthly_adj, delimiter=",")
-        # Precipitation parameters
-        output_precadj = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_precadj_' + 
-                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-        np.savetxt(output_filepath + output_precadj, bias_adj_prec, delimiter=",")  
+#    # EXPORT THE ADJUSTMENT VARIABLES (greatly reduces space)
+#    # Set up directory to store climate data
+#    if os.path.exists(output_filepath) == False:
+#        os.makedirs(output_filepath)
+#    # Lapse rate parameters (same for all GCMs - only need to export once)
+#    output_filename_lr = 'biasadj_mon_lravg_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv'
+#    if os.path.exists(output_filepath + output_filename_lr) == False:
+#        np.savetxt(output_filepath + output_filename_lr, ref_lr_monthly_avg, delimiter=",")
+#    # Temperature and precipitation parameters
+#    if (option_bias_adjustment == 1) or (option_bias_adjustment == 3) or (option_bias_adjustment == 4):
+#        # Temperature parameters
+#        output_tempadj = (gcm_name + '_' + rcp_scenario + '_temp_biasadjparam_opt1_' + 
+#                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
+#        np.savetxt(output_filepath + output_tempadj, bias_adj_temp, delimiter=",")
+#        # Precipitation parameters
+#        output_precadj = (gcm_name + '_' + rcp_scenario + '_prec_biasadjparam_opt1_' + 
+#                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
+#        np.savetxt(output_filepath + output_precadj, bias_adj_prec, delimiter=",")
+#    elif option_bias_adjustment == 2:
+#        # Temperature parameters
+#        output_tempvar = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_tempvar_' + 
+#                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
+#        output_tempavg = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_tempavg_' + 
+#                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
+#        output_tempadj = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_tempadj_' + 
+#                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
+#        np.savetxt(output_filepath + output_tempvar, variability_monthly_std, delimiter=",") 
+#        np.savetxt(output_filepath + output_tempavg, gcm_temp_monthly_avg, delimiter=",") 
+#        np.savetxt(output_filepath + output_tempadj, gcm_temp_monthly_adj, delimiter=",")
+#        # Precipitation parameters
+#        output_precadj = (gcm_name + '_' + rcp_scenario + '_biasadjparam_HH2015_mon_precadj_' + 
+#                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
+#        np.savetxt(output_filepath + output_precadj, bias_adj_prec, delimiter=",")  
+        
+    # Export variables as global to view in variable explorer
+    global main_vars
+    main_vars = inspect.currentframe().f_locals
+    
     print('\nProcessing time of',gcm_name,':',time.time()-time_start, 's')
 
 #%% PARALLEL PROCESSING
@@ -339,4 +345,30 @@ if __name__ == '__main__':
             gcm_name = gcm_list[n_gcm]
             # Perform GCM Bias adjustments
             main(gcm_name)
+            
+            # Place local variables in variable explorer
+            vars_list = list(main_vars.keys())
+            gcm_name = main_vars['gcm_name']
+            rcp_scenario = main_vars['rcp_scenario']
+            main_glac_rgi = main_vars['main_glac_rgi']
+#            main_glac_hyps = main_vars['main_glac_hyps']
+#            main_glac_icethickness = main_vars['main_glac_icethickness']
+#            main_glac_width = main_vars['main_glac_width']
+#            elev_bins = main_vars['elev_bins']
+#            main_glac_gcmtemp = main_vars['main_glac_gcmtemp']
+#            main_glac_gcmprec = main_vars['main_glac_gcmprec']
+#            main_glac_gcmelev = main_vars['main_glac_gcmelev']
+#            main_glac_gcmlapserate = main_vars['main_glac_gcmlapserate']
+#            main_glac_modelparams = main_vars['main_glac_modelparams']
+#            end_date = main_vars['end_date']
+#            start_date = main_vars['start_date']
+#            dates_table = main_vars['dates_table']
+#            glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
+#            glac_wide_area_annual = main_vars['glac_wide_area_annual']
+#            glac_bin_area_annual = main_vars['glac_bin_area_annual']
+#            glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
+#            glac_bin_massbalclim_annual = main_vars['glac_bin_massbalclim_annual']
+#            biasadj_temp = main_vars['biasadj_temp']
+#            biasadj_prec = main_vars['biasadj_prec']  
+            
     print('Total processing time:', time.time()-time_start, 's')            
