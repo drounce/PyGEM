@@ -858,7 +858,9 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
     return surfacetype, firnline_idx
 
 
-def surfacetypeDDFdict(modelparameters):
+def surfacetypeDDFdict(modelparameters, 
+                       option_surfacetype_firn=input.option_surfacetype_firn,
+                       option_DDF_firn=input.option_DDF_firn):
     """
     Create a dictionary of surface type and its respective DDF
     Convention: [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
@@ -867,10 +869,10 @@ def surfacetypeDDFdict(modelparameters):
     surfacetype_ddf_dict = {
             1: modelparameters[5],
             2: modelparameters[4]}
-    if input.option_surfacetype_firn == 1:
-        if input.option_DDF_firn == 0:
+    if option_surfacetype_firn == 1:
+        if option_DDF_firn == 0:
             surfacetype_ddf_dict[3] = modelparameters[4]
-        elif input.option_DDF_firn == 1:
+        elif option_DDF_firn == 1:
             surfacetype_ddf_dict[3] = np.mean([modelparameters[4],modelparameters[5]])
     if input.option_surfacetype_debris == 1:
         surfacetype_ddf_dict[4] = input.DDF_debris

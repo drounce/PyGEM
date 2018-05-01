@@ -97,10 +97,15 @@ def main(gcm_name):
     biasadj_lr   = biasadj_lr_all[main_glac_rgi['O1Index'].values]
     if input.option_bias_adjustment == 2:
         print('Check that importing correctly for Huss and Hock [2015] bias corrections')
-    biasadj_temp[0] = 0.219348
-    biasadj_temp[1] = 0.032539
-    biasadj_prec[0] = 0.655619
-    biasadj_prec[1] = 0.619703
+#    biasadj_temp[0] = 3.18839
+#    biasadj_temp[1] = 0.522224
+#    biasadj_prec[0] = 0.743466
+#    biasadj_prec[1] = 0.661326
+    
+    biasadj_temp[0] = 3.17144
+    biasadj_temp[1] = 0.530207
+    biasadj_prec[0] = 0.74225
+    biasadj_prec[1] = 0.661966
         
     # Select the climate data for a given gcm
     if input.option_gcm_downscale == 1:  
@@ -171,6 +176,19 @@ def main(gcm_name):
                                        elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                                        glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                        biasadj_temp=glacier_biasadj_temp, biasadj_prec=glacier_biasadj_prec))
+        
+#        # Compare calibration data (mass balance)
+#        # Column index for start and end year based on dates of geodetic mass balance observations
+        massbal_idx_start = 0
+        massbal_idx_end = 16
+#        # Annual glacier-wide mass balance [m w.e.]
+        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+        # Average annual glacier-wide mass balance [m w.e.a.]
+        glac_wide_massbaltotal_annual_avg = (glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
+        #  units: m w.e. based on initial area
+#        # Difference between geodetic and modeled mass balance
+#        massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbaltotal_annual_avg)
+        
         # OUTPUT: Record variables according to output package
         #  must be done within glacier loop since the variables will be overwritten 
         if input.output_package != 0:
@@ -180,8 +198,8 @@ def main(gcm_name):
                                glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
                                glac_bin_surfacetype_annual)
         
-        cal_massbal = (glac_wide_volume_annual[15] - glac_wide_volume_annual[0]) / 15 / glac_wide_area_annual[0] * 1000
-        print('Mass balance 2000-2015 [mwea]:', cal_massbal)
+        cal_massbal = (glac_wide_volume_annual[16] - glac_wide_volume_annual[0]) / 17 / glac_wide_area_annual[0] * 1000
+        print('Mass balance 2000-2015 [mwea]:', glac_wide_massbaltotal_annual_avg, cal_massbal)
 #        print('Bias adjustment temp, prec:' bias)
             
     # Export variables as global to view in variable explorer

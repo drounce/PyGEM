@@ -49,6 +49,7 @@ import time
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_climate as climate
+import pygemfxns_massbalance as massbalance
 
 #%% INPUT 
 # Glacier selection
@@ -180,6 +181,13 @@ for n_gcm in range(len(gcm_list)):
         glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float) 
         modelparameters = main_glac_modelparams[glac,:]
         glac_idx_t0 = glacier_area_t0.nonzero()[0]
+        surfacetype, firnline_idx = massbalance.surfacetypebinsinitial(glacier_area_t0, glacier_rgi_table, elev_bins)
+        surfacetype_ddf_dict = massbalance.surfacetypeDDFdict(modelparameters, option_DDF_firn=0)
+        #  option_DDF_firn=0 uses DDF_snow in accumulation area because not account for snow vs. firn here
+        surfacetype_ddf = np.zeros(glacier_area_t0.shape)
+        for surfacetype_idx in surfacetype_ddf_dict: 
+            surfacetype_ddf[surfacetype == surfacetype_idx] = surfacetype_ddf_dict[surfacetype_idx]
+
         # Reference data
         glacier_ref_temp = ref_temp[glac,:]
         glacier_ref_prec = ref_prec[glac,:]
@@ -213,17 +221,32 @@ for n_gcm in range(len(gcm_list)):
         # BIAS CORRECTIONS: OPTION 1
         if option_bias_adjustment == 1:
             # TEMPERATURE BIAS CORRECTIONS
+            # Energy available for melt [degC day]    
+            melt_energy_available_ref = glac_bin_temp_ref * daysinmonth
+            melt_energy_available_ref[melt_energy_available_ref < 0] = 0
+            # Melt [mwe for each month]
+            melt_ref = melt_energy_available_ref * surfacetype_ddf[:,np.newaxis]
+            # Melt volume total [mwe * km2]
+            melt_vol_ref = (melt_ref * glacier_area_t0[:,np.newaxis]).sum()
             # Remove negative values for positive degree day calculation
             glac_bin_temp_ref_pos = glac_bin_temp_ref.copy()
             glac_bin_temp_ref_pos[glac_bin_temp_ref < 0] = 0
+            # weight for glacier area
+            glac_bin_temp_ref_pos_warea = glac_bin_temp_ref_pos * glacier_area_t0[:,np.newaxis]
             # Cumulative positive degree days [degC*day] for reference period
-            glac_bin_temp_ref_PDD = (glac_bin_temp_ref_pos * daysinmonth).sum()
+            glac_bin_temp_ref_PDD_warea = (glac_bin_temp_ref_pos_warea * daysinmonth).sum()
             # Optimize bias adjustment such that PDD are equal                
             def objective(bias_adj_glac):
                 glac_bin_temp_gcm_adj = glac_bin_temp_gcm + bias_adj_glac
-                glac_bin_temp_gcm_adj[glac_bin_temp_gcm_adj < 0] = 0
-                glac_bin_temp_gcm_PDD = (glac_bin_temp_gcm_adj * daysinmonth).sum()
-                return abs(glac_bin_temp_ref_PDD - glac_bin_temp_gcm_PDD)
+#                glac_bin_temp_gcm_adj[glac_bin_temp_gcm_adj < 0] = 0
+                melt_energy_available_gcm = glac_bin_temp_gcm_adj * daysinmonth
+                melt_energy_available_gcm[melt_energy_available_gcm < 0] = 0
+                melt_gcm = melt_energy_available_gcm * surfacetype_ddf[:,np.newaxis]
+                melt_vol_gcm = (melt_gcm * glacier_area_t0[:,np.newaxis]).sum()
+#                glac_bin_temp_gcm_adj_warea = glac_bin_temp_gcm_adj * glacier_area_t0[:,np.newaxis]
+#                glac_bin_temp_gcm_PDD_warea = (glac_bin_temp_gcm_adj_warea * daysinmonth).sum()
+#                return abs(glac_bin_temp_ref_PDD_warea - glac_bin_temp_gcm_PDD_warea)
+                return abs(melt_vol_ref - melt_vol_gcm)
             # - initial guess
             bias_adj_init = 0      
             # - run optimization
@@ -307,10 +330,12 @@ for n_gcm in range(len(gcm_list)):
             glac_bin_prec_ref[glacier_area_t0==0,:] = 0
             glac_bin_prec_gcm[glacier_area_t0==0,:] = 0
             
+            # account for hypsometry
+            glac_bin_acc_ref_warea = glac_bin_acc_ref * glacier_area_t0[:,np.newaxis]
+            glac_bin_acc_gcm_warea = glac_bin_acc_gcm * glacier_area_t0[:,np.newaxis]
+            
             # precipitation bias adjustment
-            A = glac_bin_acc_ref.sum()
-            B = glac_bin_acc_gcm.sum()
-            bias_adj_prec[glac] = glac_bin_acc_ref.sum() / glac_bin_acc_gcm.sum()
+            bias_adj_prec[glac] = glac_bin_acc_ref_warea.sum() / glac_bin_acc_gcm_warea.sum()
             glac_bin_acc_gcm_adj = glac_bin_acc_gcm * bias_adj_prec[glac]
 
 #        # Snow accumulation should be consistent for reference and gcm datasets
