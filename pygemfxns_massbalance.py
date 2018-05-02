@@ -11,7 +11,10 @@ import pygem_input as input
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                   dates_table, biasadj_temp=0, biasadj_prec=1):
+                   dates_table, 
+                   biasadj_temp=0, 
+                   biasadj_prec=1, 
+                   option_calibration=input.option_calibration):
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12
@@ -265,7 +268,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 
                 # MASS REDISTRIBUTION
                 # Mass redistribution ignored for calibration and spinup years (glacier properties constant) 
-                if (input.option_calibration == 1) or (year < input.spinupyears):
+                if (option_calibration == 1) or (year < input.spinupyears):
                     glacier_area_t1 = glacier_area_t0
                     icethickness_t1 = icethickness_t0
                     width_t1 = width_t0

@@ -412,7 +412,7 @@ option_massredistribution = 1
 #  Option 1 (default) - Mass redistribution based on Huss and Hock (2015), i.e., volume gain/loss redistributed over the
 #                       glacier using empirical normalized ice thickness change curves
 # Cross-sectional glacier shape options
-option_glaciershape = 2
+option_glaciershape = 1
 #  Option 1(default) - parabolic (used by Huss and Hock, 2015)
 #  Option 2 - rectangular, i.e., glacier lowering but area and width does not change
 #  Option 3 - triangular

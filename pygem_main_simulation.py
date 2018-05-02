@@ -102,10 +102,20 @@ def main(gcm_name):
 #    biasadj_prec[0] = 0.743466
 #    biasadj_prec[1] = 0.661326
     
-    biasadj_temp[0] = 3.17144
-    biasadj_temp[1] = 0.530207
-    biasadj_prec[0] = 0.74225
-    biasadj_prec[1] = 0.661966
+#    biasadj_temp[0] = 3.17144
+#    biasadj_temp[1] = 0.530207
+#    biasadj_prec[0] = 0.74225
+#    biasadj_prec[1] = 0.661966
+
+#    biasadj_temp[0] = 3.09813
+#    biasadj_temp[1] = 0.517108
+#    biasadj_prec[0] = 0.768704
+#    biasadj_prec[1] = 0.659544
+
+    biasadj_temp[0] = 3.09749
+    biasadj_temp[1] = 0.516973
+    biasadj_prec[0] = 0.767995
+    biasadj_prec[1] = 0.657676
         
     # Select the climate data for a given gcm
     if input.option_gcm_downscale == 1:  
@@ -186,8 +196,7 @@ def main(gcm_name):
         # Average annual glacier-wide mass balance [m w.e.a.]
         glac_wide_massbaltotal_annual_avg = (glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
         #  units: m w.e. based on initial area
-#        # Difference between geodetic and modeled mass balance
-#        massbal_difference = abs(glacier_rgi_table[input.massbal_colname] - glac_wide_massbaltotal_annual_avg)
+        print('Mass balance 2000-2015 [mwea]:', glac_wide_massbaltotal_annual_avg)
         
         # OUTPUT: Record variables according to output package
         #  must be done within glacier loop since the variables will be overwritten 
@@ -198,10 +207,6 @@ def main(gcm_name):
                                glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
                                glac_bin_surfacetype_annual)
         
-        cal_massbal = (glac_wide_volume_annual[16] - glac_wide_volume_annual[0]) / 17 / glac_wide_area_annual[0] * 1000
-        print('Mass balance 2000-2015 [mwea]:', glac_wide_massbaltotal_annual_avg, cal_massbal)
-#        print('Bias adjustment temp, prec:' bias)
-            
     # Export variables as global to view in variable explorer
     global main_vars
     main_vars = inspect.currentframe().f_locals
