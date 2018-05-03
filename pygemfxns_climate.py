@@ -179,5 +179,6 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, main_glac_rgi, da
                       "Exiting the model run.\n")
                 exit()
     else:
-        print('If variable is air temperature or precipitation, then check units')
+        if variablename != input.gcm_lapserate_varname:
+            print('Check units of air temperature or precipitation')
     return glac_variable_series, time_series

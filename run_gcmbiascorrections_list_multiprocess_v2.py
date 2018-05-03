@@ -54,8 +54,8 @@ import pygemfxns_massbalance as massbalance
 #%% INPUT 
 # Glacier selection
 rgi_regionsO1 = [15]
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
 # Required input
 option_bias_adjustment = 1
 gcm_endyear = 2100

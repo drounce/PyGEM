@@ -101,16 +101,6 @@ def main(gcm_name):
 #    biasadj_temp[1] = 0.522224
 #    biasadj_prec[0] = 0.743466
 #    biasadj_prec[1] = 0.661326
-    
-#    biasadj_temp[0] = 3.17144
-#    biasadj_temp[1] = 0.530207
-#    biasadj_prec[0] = 0.74225
-#    biasadj_prec[1] = 0.661966
-
-#    biasadj_temp[0] = 3.09813
-#    biasadj_temp[1] = 0.517108
-#    biasadj_prec[0] = 0.768704
-#    biasadj_prec[1] = 0.659544
 
     biasadj_temp[0] = 3.09749
     biasadj_temp[1] = 0.516973
