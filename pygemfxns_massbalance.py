@@ -465,7 +465,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             glacier_area_t1_raw = glacier_area_t1.copy()
             icethickness_t1_raw = icethickness_t1.copy()
             width_t1_raw = width_t1.copy()
-            # Index bins that are surging
+            # Index bins that are advancing
             icethickness_change[icethickness_change <= input.icethickness_advancethreshold] = 0
             glac_idx_advance = icethickness_change.nonzero()[0]
             # Update ice thickness based on maximum advance threshold [m ice]

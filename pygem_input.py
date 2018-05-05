@@ -23,9 +23,13 @@ option_parallels = 1
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
+# 2nd order region numbers (RGI V6.0)
+rgi_regionsO2 = 'all'
+#rgi_regionsO2 = [2]
+#  do not change this
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['01204']
 #rgi_glac_number = ['09991']
@@ -37,7 +41,7 @@ startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2015
+endyear = 2100
 
 # Remove NaN values (glaciers without calibration data)
 option_removeNaNcal = 1
@@ -47,7 +51,8 @@ option_removeNaNcal = 1
 main_directory = os.getcwd()
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 # Glacier list name
-glacier_list_name = 'glacier_list_R15_all'
+#glacier_list_name = 'glacier_list_R15_all'
+#  CAN DELETE!
 
 
 # ===== MODEL PARAMETERS =====
@@ -118,9 +123,6 @@ lon_colname = 'CenLon'
 elev_colname = 'elev'
 # Index name
 indexname = 'GlacNo'
-# 2nd order region numbers (RGI V6.0)
-rgi_regionsO2 = 'all'
-#  do not change this
 # Dictionary of hypsometry filenames
 rgi_dict = {
             13: '13_rgi60_CentralAsia.csv',
@@ -273,41 +275,41 @@ gcmlapserate_filedict = {
                          14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
-# CLIMATE DATA INFORMATION
-# ERAINTERIM CLIMATE DATA (Reference data)
-# Climate data filepath
-gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
-gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
-# Climate file and variable names
-gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-gcm_temp_varname = 't2m'
-gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-gcm_prec_varname = 'tp'
-gcm_elev_filename = 'ERAInterim_geopotential.nc'
-gcm_elev_varname = 'z'
-gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
-gcm_lapserate_varname = 'lapserate'
-gcm_lat_varname = 'latitude'
-gcm_lon_varname = 'longitude'
-gcm_time_varname = 'time'
-
-
-## CMIP5 INPUT CLIMATE DATA
-##gcm_name = 'MPI-ESM-LR'
-##rcp_scenario = 'rcp26'
+## CLIMATE DATA INFORMATION
+## ERAINTERIM CLIMATE DATA (Reference data)
 ## Climate data filepath
-#gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
-#gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
+#gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
+#gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
 ## Climate file and variable names
-##gcm_temp_filename = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
-#gcm_temp_varname = 'tas'
-##gcm_prec_filename = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
-#gcm_prec_varname = 'pr'
-##gcm_elev_filename = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
-#gcm_elev_varname = 'orog'
-#gcm_lat_varname = 'lat'
-#gcm_lon_varname = 'lon'
+#gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
+#gcm_temp_varname = 't2m'
+#gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
+#gcm_prec_varname = 'tp'
+#gcm_elev_filename = 'ERAInterim_geopotential.nc'
+#gcm_elev_varname = 'z'
+#gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
+#gcm_lapserate_varname = 'lapserate'
+#gcm_lat_varname = 'latitude'
+#gcm_lon_varname = 'longitude'
 #gcm_time_varname = 'time'
+
+
+# CMIP5 INPUT CLIMATE DATA
+#gcm_name = 'MPI-ESM-LR'
+#rcp_scenario = 'rcp26'
+# Climate data filepath
+gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
+gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
+# Climate file and variable names
+#gcm_temp_filename = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
+gcm_temp_varname = 'tas'
+#gcm_prec_filename = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
+gcm_prec_varname = 'pr'
+#gcm_elev_filename = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
+gcm_elev_varname = 'orog'
+gcm_lat_varname = 'lat'
+gcm_lon_varname = 'lon'
+gcm_time_varname = 'time'
 
 # Bias adjustments option (required for future simulations)
 option_bias_adjustment = 1
@@ -315,7 +317,7 @@ option_bias_adjustment = 1
 #  Option 1 - bias adjustments using new technique 
 #  Option 2 - bias adjustments using Huss and Hock [2015] methods
 biasadj_data_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_1995_2100/'
-biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_biasadj_params_1995_2100/'
+biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/Final_20180501/'
 biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
 biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
 
@@ -425,7 +427,7 @@ terminus_percentage = 20
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 # Output package number
-output_package = 0
+output_package = 2
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,

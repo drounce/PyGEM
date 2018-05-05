@@ -722,5 +722,5 @@ if input.option_calibration == 0:
 #timeelapsed_step5 = timeit.default_timer() - timestart_step5
 #print('Step 5 time:', timeelapsed_step5, "s\n")
 
-#%%=== Model testing ===============================================================================
-#netcdf_output = nc.Dataset(input.main_directory + '/' + netcdf_fullfilename, 'r+')
+##%%=== Model testing ===============================================================================
+##netcdf_output = nc.Dataset(input.main_directory + '/' + netcdf_fullfilename, 'r+')

@@ -185,12 +185,83 @@ def plot_caloutput(data):
 #fig.savefig(input.main_directory + '/../output/' + main_glac_rgi.loc[glac,'RGIID'] + '_gridsearch.png')
 
 
-#%%===== PLOTTING ===========================================================================================
-##netcdf_output15 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180306.nc', 'r+')
-#netcdf_output15 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180403.nc', 'r+')
-##netcdf_output14 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_nearest_20180313.nc', 'r+')
-##netcdf_output14 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_transferAvg_20180313.nc', 'r+')
+#%% ===== PLOTTING: Future simulations =====
+#netcdf_output = nc.Dataset(input.main_directory + '/../Output/PyGEM_R15O2_MPI-ESM-LR_rcp26_2000_2100_20180504.nc.')
+## Select relevant data
+#glacier_data = pd.DataFrame(netcdf_output['glacierparameter'][:])
+#glacier_data.columns = netcdf_output['glacierparameters'][:]
+#lats = glacier_data['lat'].values.astype(float)
+#lons = glacier_data['lon'].values.astype(float)
+#massbal_total = netcdf_output['massbaltotal_glac_monthly'][:]
+#massbal_total_mwea = massbal_total.sum(axis=1)/(massbal_total.shape[1]/12)
+#volume_glac_annual = netcdf_output['volume_glac_annual'][:]
+#volume_reg_annual = volume_glac_annual.sum(axis=0)
+#volume_reg_annualnorm = volume_reg_annual / volume_reg_annual[0]
+#runoff_glac_monthly = netcdf_output['runoff_glac_monthly'][:]
+#runoff_reg_monthly = runoff_glac_monthly.mean(axis=0)
+#acc_glac_monthly = netcdf_output['acc_glac_monthly'][:]
+#acc_reg_monthly = acc_glac_monthly.mean(axis=0)
+#acc_reg_annual = np.sum(acc_reg_monthly.reshape(-1,12), axis=1)
+#refreeze_glac_monthly = netcdf_output['refreeze_glac_monthly'][:]
+#refreeze_reg_monthly = refreeze_glac_monthly.mean(axis=0)
+#refreeze_reg_annual = np.sum(refreeze_reg_monthly.reshape(-1,12), axis=1)
+#melt_glac_monthly = netcdf_output['melt_glac_monthly'][:]
+#melt_reg_monthly = melt_glac_monthly.mean(axis=0)
+#melt_reg_annual = np.sum(melt_reg_monthly.reshape(-1,12), axis=1)
+#massbaltotal_glac_monthly = netcdf_output['massbaltotal_glac_monthly'][:]
+#massbaltotal_reg_monthly = massbaltotal_glac_monthly.mean(axis=0)
+#massbaltotal_reg_annual = np.sum(massbaltotal_reg_monthly.reshape(-1,12), axis=1)
 #
+#years = np.arange(2000, 2100 + 1)
+#years_plus1 = np.arange(2000, 2100 + 2)
+#month = np.arange(2000, 2100 + 1, 1/12)
+#plt.plot(years_plus1,volume_reg_annualnorm, label='Region 15 O2')
+##plt.plot(years,volume_reg_annualnorm14, label='Region 14')
+#plt.ylabel('Volume normalized [-]', size=15)
+#plt.legend()
+#plt.show()
+##plt.plot(month,runoff_reg_monthly, label='Region 15 O2')
+##plt.ylabel('Runoff [m3 / month]', size=15)
+##plt.legend()
+##plt.show()
+##plt.plot(month, massbaltotal_reg_monthly, label='massbal_total')
+##plt.plot(month, acc_reg_monthly, label='accumulation')
+##plt.plot(month, refreeze_reg_monthly, label='refreeze')
+##plt.plot(month, -1*melt_reg_monthly, label='melt')
+##plt.ylabel('monthly regional mean [m.w.e.] / month')
+##plt.legend()
+##plt.show()
+#plt.plot(years, massbaltotal_reg_annual, label='massbal_total')
+#plt.plot(years, acc_reg_annual, label='accumulation')
+#plt.plot(years, refreeze_reg_annual, label='refreeze')
+#plt.plot(years, -1*melt_reg_annual, label='melt')
+#plt.ylabel('Region 15 O2 annual mean [m.w.e.]', size=15)
+#plt.legend()
+#plt.show()
+#
+## Set extent
+#east = int(round(lons.min())) - 1
+#west = int(round(lons.max())) + 1
+#south = int(round(lats.min())) - 1
+#north = int(round(lats.max())) + 1
+#xtick = 1
+#ytick = 1
+## Plot regional maps
+#plot_latlonvar(lons, lats, massbal_total_mwea, -1.5, 0.5, 'Modeled mass balance [mwea]', 'longitude [deg]', 
+#               'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick)
+## Plot only positive mass balance
+#lons_pos = lons[massbal_total_mwea > 0]
+#lats_pos = lats[massbal_total_mwea > 0]
+#massbal_total_mwea_pos = massbal_total_mwea[massbal_total_mwea > 0]
+#plot_latlonvar(lons_pos, lats_pos, massbal_total_mwea_pos, 0, 0.5, 'Modeled mass balance [mwea]', 'longitude [deg]', 
+#               'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick)
+
+#%%===== PLOTTING ===========================================================================================
+#netcdf_output15 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180306.nc', 'r+')
+#netcdf_output15 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180403.nc', 'r+')
+#netcdf_output14 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_nearest_20180313.nc', 'r+')
+#netcdf_output14 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_transferAvg_20180313.nc', 'r+')
+
 ## Select relevant data
 #glacier_data15 = pd.DataFrame(netcdf_output15['glacierparameter'][:])
 #glacier_data15.columns = netcdf_output15['glacierparameters'][:]
