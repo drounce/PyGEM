@@ -148,7 +148,8 @@ rgi_O1Id_colname = 'RGIId-O1No'
 binsize = 10
 # Filepath for the hypsometry files
 hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
-# Dictionary of hypsometry filenames
+# Dictionary of hypsometry filenames 
+# (FILES SHOULD BE PRE-PROCESSED TO BE 'RGI-ID', 'Cont_range' and bins starting at 5)
 hyps_filedict = {
                 13: 'area_13_Huss_CentralAsia_10m.csv',
                 14: 'area_14_Huss_SouthAsiaWest_10m.csv',
@@ -256,7 +257,7 @@ option_lapserate_fromgcm = 1
 # REFERENCE DATA INFORMATION
 # Reference climate data filepath
 filepath_ref = main_directory + '/../Climate_data/ERA_Interim/'
-# Reference climate data csvs
+# Reference climate data csvs (THESE ARE ALL GENERATED IN PRE-PROCESSING)
 # Dictionary of filenames for temperature, precipitation, lapse rate, and elevation data
 gcmtemp_filedict = {
                     13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
@@ -287,7 +288,7 @@ gcmlapserate_filedict = {
 #gcm_prec_varname = 'tp'
 #gcm_elev_filename = 'ERAInterim_geopotential.nc'
 #gcm_elev_varname = 'z'
-#gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc'
+#gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
 #gcm_lapserate_varname = 'lapserate'
 #gcm_lat_varname = 'latitude'
 #gcm_lon_varname = 'longitude'
@@ -312,12 +313,12 @@ gcm_lon_varname = 'lon'
 gcm_time_varname = 'time'
 
 # Bias adjustments option (required for future simulations)
-option_bias_adjustment = 1
+option_bias_adjustment = 2
 #  Option 0 - ignore bias adjustments
 #  Option 1 - bias adjustments using new technique 
 #  Option 2 - bias adjustments using Huss and Hock [2015] methods
 biasadj_data_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_1995_2100/'
-biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/Final_20180501/'
+biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
 biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
 biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
 

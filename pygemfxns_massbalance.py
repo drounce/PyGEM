@@ -12,8 +12,6 @@ import pygem_input as input
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
                    dates_table, 
-                   biasadj_temp=0, 
-                   biasadj_prec=1, 
                    option_calibration=input.option_calibration):
     # Select annual divisor and columns
     if input.timestep == 'monthly':
@@ -78,8 +76,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                          (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
                          glacier_gcm_lrglac[12*year:12*(year+1)] * (elev_bins - 
                          glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis] + modelparameters[7])
-                if input.option_bias_adjustment == 1:
-                    glac_bin_temp[:,12*year:12*(year+1)] = glac_bin_temp[:,12*year:12*(year+1)] + biasadj_temp
                 # Option to adjust air temperature based on changes in surface elevation
                 if input.option_adjusttemp_surfelev == 1:
                     # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)

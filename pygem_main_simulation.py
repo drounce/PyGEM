@@ -94,40 +94,7 @@ for batman in [0]:
     main_glac_modelparams.reset_index(drop=True, inplace=True)
     main_glac_modelparams.index.name = input.indexname
     
-    #%% ===== BIAS ADJUSTED CLIMATE DATA =====
-    # Future simulations require bias adjusted data
-    #  (otherwise, calibration would need to be done on every individual GCM and climate scenario)
-    # Select climate data and perform bias adjustments
-    if input.option_bias_adjustment == 1:
-        main_glac_biasadjparams_all = pd.read_csv(
-                input.biasadj_params_filepath + gcm_name + '_' + rcp_scenario + '_biasadjparams_opt1_' + 
-                str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv', index_col=0)
-        main_glac_lapserate_monthly_avg_all = np.genfromtxt(
-                input.biasadj_params_filepath + 'biasadj_mon_lravg_' + str(input.startyear - input.spinupyears) + '_' + 
-                str(input.endyear) + '.csv', delimiter=',')
-        # Select data from glaciers in simulation
-        main_glac_biasadjparams = main_glac_biasadjparams_all.iloc[main_glac_rgi['O1Index'].values]
-        main_glac_gcmlapserate = np.tile(main_glac_lapserate_monthly_avg_all[main_glac_rgi['O1Index'].values],
-                                         int(dates_table.shape[0]/12))
-    
-    elif input.option_bias_adjustment != 2:
-        print('Check that importing bias adjustment parameters correctly')
-    
-#    # Select the lapse rates for the respective glaciers included in the simulation
-#    biasadj_temp = biasadj_temp_all[main_glac_rgi['O1Index'].values]
-#    biasadj_prec = biasadj_prec_all[main_glac_rgi['O1Index'].values]
-#    biasadj_lr   = biasadj_lr_all[main_glac_rgi['O1Index'].values]
-    
-#    biasadj_temp[0] = 3.18839
-#    biasadj_temp[1] = 0.522224
-#    biasadj_prec[0] = 0.743466
-#    biasadj_prec[1] = 0.661326
-
-#    biasadj_temp[0] = 3.09749
-#    biasadj_temp[1] = 0.516973
-#    biasadj_prec[0] = 0.767995
-#    biasadj_prec[1] = 0.657676
-        
+    #%% ===== LOAD CLIMATE DATA =====
     # Select the climate data for a given gcm
     if input.option_gcm_downscale == 1:  
         # Air Temperature [degC] and GCM dates
@@ -135,10 +102,10 @@ for batman in [0]:
         gcm_prec_fn = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
         gcm_elev_fn = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
         
-        main_glac_gcmtemp, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
+        main_glac_gcmtemp_raw, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
                 gcm_temp_fn, input.gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date)
         # Precipitation [m] and GCM dates
-        main_glac_gcmprec, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
+        main_glac_gcmprec_raw, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
                 gcm_prec_fn, input.gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date)
         # Elevation [m a.s.l] associated with air temperature  and precipitation data
         main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(
@@ -150,7 +117,67 @@ for batman in [0]:
             main_glac_gcmlapserate, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
                     input.gcm_lapserate_filename, input.gcm_lapserate_varname, main_glac_rgi, dates_table, start_date, 
                     end_date)
+        # If no bias adjustments, set 'raw' temp and precip as the values to be used
+        if input.option_bias_adjustment == 0:
+            main_glac_gcmtemp = main_glac_gcmtemp_raw
+            main_glac_gcmtemp = main_glac_gcmtemp_raw
     
+    #%% ===== BIAS CORRECTIONS =====
+    # Future simulations require bias adjusted data
+    #  (otherwise, calibration would need to be done on every individual GCM and climate scenario)
+    # Load bias adjustment parameters
+    if input.option_bias_adjustment == 1:
+        main_glac_biasadjparams_all = pd.read_csv(
+                input.biasadj_params_filepath + gcm_name + '_' + rcp_scenario + '_biasadjparams_opt1_' + 
+                str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv', index_col=0)
+        main_glac_lapserate_monthly_avg_all = np.genfromtxt(
+                input.biasadj_params_filepath + 'biasadj_mon_lravg_' + str(input.startyear - input.spinupyears) + '_' + 
+                str(input.endyear) + '.csv', delimiter=',')
+        # Select data from glaciers in simulation
+        main_glac_biasadjparams = main_glac_biasadjparams_all.iloc[main_glac_rgi['O1Index'].values]
+        main_glac_gcmlapserate = np.tile(main_glac_lapserate_monthly_avg_all[main_glac_rgi['O1Index'].values],
+                                         int(dates_table.shape[0]/12))
+    elif input.option_bias_adjustment == 2:
+        main_glac_hh2015_mon_precadj_all = np.genfromtxt(
+                input.biasadj_params_filepath + gcm_name + '_' + rcp_scenario + '_biasadjparams_hh2015_mon_precadj_' + 
+                str(input.startyear - input.spinupyears) + '_' + str(2100) + '.csv', delimiter=',')
+        main_glac_hh2015_mon_tempadj_all = np.genfromtxt(
+                input.biasadj_params_filepath + gcm_name + '_' + rcp_scenario + '_biasadjparams_hh2015_mon_tempadj_' + 
+                str(input.startyear - input.spinupyears) + '_' + str(2100) + '.csv', delimiter=',')
+        main_glac_hh2015_mon_tempavg_all = np.genfromtxt(
+                input.biasadj_params_filepath + gcm_name + '_' + rcp_scenario + '_biasadjparams_hh2015_mon_tempavg_' + 
+                str(input.startyear - input.spinupyears) + '_' + str(2100) + '.csv', delimiter=',')
+        main_glac_hh2015_mon_tempvar_all = np.genfromtxt(
+                input.biasadj_params_filepath + gcm_name + '_' + rcp_scenario + '_biasadjparams_hh2015_mon_tempvar_' + 
+                str(input.startyear - input.spinupyears) + '_' + str(2100) + '.csv', delimiter=',')
+        main_glac_lapserate_monthly_avg_all = np.genfromtxt(
+                input.biasadj_params_filepath + 'biasadj_mon_lravg_' + 
+                str(input.startyear - input.spinupyears) + '_' + str(2100) + '.csv', delimiter=',')
+        main_glac_gcmelev_all = np.genfromtxt(
+                input.biasadj_params_filepath + 'biasadj_elev.csv', delimiter=',')
+        # Select data from glaciers in simulation
+        main_glac_hh2015_mon_precadj = main_glac_hh2015_mon_precadj_all[main_glac_rgi['O1Index'].values]
+        main_glac_hh2015_mon_tempadj = main_glac_hh2015_mon_tempadj_all[main_glac_rgi['O1Index'].values]
+        main_glac_hh2015_mon_tempavg = main_glac_hh2015_mon_tempavg_all[main_glac_rgi['O1Index'].values]
+        main_glac_hh2015_mon_tempvar = main_glac_hh2015_mon_tempvar_all[main_glac_rgi['O1Index'].values]
+        main_glac_gcmelev = main_glac_gcmelev_all[main_glac_rgi['O1Index'].values]
+        main_glac_gcmlapserate = np.tile(main_glac_lapserate_monthly_avg_all[main_glac_rgi['O1Index'].values],
+                                         int(dates_table.shape[0]/12))
+    # Perform bias adjustments
+    if input.option_bias_adjustment == 1:
+        main_glac_gcmtemp = main_glac_gcmtemp_raw + main_glac_biasadjparams.iloc[:,0].values[:,np.newaxis]
+        main_glac_gcmprec = main_glac_gcmprec_raw * main_glac_biasadjparams.iloc[:,1].values[:,np.newaxis]
+    elif input.option_bias_adjustment == 2:
+        # Correct for monthly temperature bias adjusted based on the monthly average
+        t_mt = main_glac_gcmtemp_raw + np.tile(main_glac_hh2015_mon_tempadj, int(dates_table.shape[0]/12))
+        # Mean monthly temperature after bias adjusted for monthly average            
+        t_mt_refavg = np.tile(main_glac_hh2015_mon_tempavg + main_glac_hh2015_mon_tempadj, int(dates_table.shape[0]/12))
+        # Bias adjusted temperature accounting for monthly mean and variability
+        main_glac_gcmtemp = (t_mt_refavg + (t_mt - t_mt_refavg) * 
+                             np.tile(main_glac_hh2015_mon_tempvar, int(dates_table.shape[0]/12)))
+        # Bias adjusted precipitation accounting for monthly mean
+        main_glac_gcmprec = main_glac_gcmprec_raw * np.tile(main_glac_hh2015_mon_precadj, int(dates_table.shape[0]/12))
+
     print('Loading time:', time.time()-time_start, 's')
         
     
@@ -163,6 +190,7 @@ for batman in [0]:
         
     main_glac_wide_massbaltotal_annual_avg = np.zeros(main_glac_rgi.shape[0])
     main_glac_wide_volume_loss_perc = np.zeros(main_glac_rgi.shape[0])
+    main_glac_wide_volume_loss_total = np.zeros(main_glac_rgi.shape[0])
     # ENTER GLACIER LOOP
     for glac in range(main_glac_rgi.shape[0]):
     #    for glac in [0]:
@@ -178,8 +206,6 @@ for batman in [0]:
         glacier_gcm_temp = main_glac_gcmtemp[glac,:]
         glacier_gcm_lrgcm = main_glac_gcmlapserate[glac]
         glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
-        glacier_biasadj_temp = main_glac_biasadjparams.iloc[glac,0]
-        glacier_biasadj_prec = main_glac_biasadjparams.iloc[glac,1]
         glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
         # Inclusion of ice thickness and width, i.e., loading values may be only required for Huss mass redistribution!
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
@@ -193,11 +219,15 @@ for batman in [0]:
          glac_wide_volume_annual, glac_wide_ELA_annual) = (
             massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
                                        elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-                                       glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                       biasadj_temp=glacier_biasadj_temp, biasadj_prec=glacier_biasadj_prec))
+                                       glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table))
         
 #        # Compare calibration data (mass balance)
 #        # Column index for start and end year based on dates of geodetic mass balance observations
+        # Total volume loss
+        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+        main_glac_wide_volume_loss_total[glac] = (
+                np.cumsum(glac_wide_area_annual[glac_wide_massbaltotal_annual.shape] * 
+                          glac_wide_massbaltotal_annual / 1000)[-1])
         massbal_idx_start = 0
         massbal_idx_end = 16
 #        # Annual glacier-wide mass balance [m w.e.]
