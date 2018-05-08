@@ -510,8 +510,8 @@ if __name__ == '__main__':
 #        print(reg_annual_volume[100])
 #        output.close()
     
-#    gcm_fn = output_filepath + 'PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180428.nc'
-    gcm_fn = output_filepath + 'PyGEM_R15_NorESM1-ME_rcp26_2000_2100_20180428.nc'
+    gcm_fn = output_filepath + 'PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180428.nc'
+#    gcm_fn = output_filepath + 'PyGEM_R15_NorESM1-ME_rcp26_2000_2100_20180428.nc'
     output = nc.Dataset(gcm_fn)
     glac_annual_volume = output['volume_glac_annual'][:][:,:-1]
     reg_annual_volume = glac_annual_volume.sum(axis=0)

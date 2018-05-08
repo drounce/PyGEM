@@ -240,6 +240,7 @@ for batman in [0]:
         main_glac_wide_volume_loss_perc[glac] = (
                 (glac_wide_volume_annual[-1]-glac_wide_volume_annual[0])/glac_wide_volume_annual[0] * 100)
 #        print('Volume loss 2000-2100 [%]:', main_glac_wide_volume_loss_perc[glac])
+        print(glac_wide_volume_annual[0], glac_wide_volume_annual[-1])
         
         
         # OUTPUT: Record variables according to output package
