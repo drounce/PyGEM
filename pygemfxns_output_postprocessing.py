@@ -17,16 +17,23 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 import pickle
+import scipy
 from scipy.spatial.distance import cdist
+from scipy.spatial.distance import pdist, squareform
+from sklearn.gaussian_process import GaussianProcess
+
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import cartopy
 
-option_plot_futuresim = 0
+option_plot_futuresim = 1
 option_calc_nearestneighbor = 0
 option_plot_MBdata = 0
+option_geodeticMB_loadcompare = 0
+option_kriging = 0
 
 
 #%%===== PLOT FUNCTIONS =============================================================================================
@@ -152,153 +159,181 @@ if option_plot_MBdata == 1:
     
 
 #%% ===== ALL GEODETIC MB DATA LOAD & COMPARE (Shean, Brun, Mauer) =====
-main_glac_rgi = modelsetup.selectglaciersrgitable()
-
-
-# Mass balance column name
-massbal_colname = 'mb_mwea'
-# Mass balance uncertainty column name
-massbal_uncertainty_colname = 'mb_mwea_sigma'
-# Mass balance date 1 column name
-massbal_time1 = 'year1'
-# Mass balance date 1 column name
-massbal_time2 = 'year2'
-# Mass balance tolerance [m w.e.a]
-massbal_tolerance = 0.1
-# Calibration optimization tolerance
-
-# SHEAN DATA
-# Import .csv file
-ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[input.rgi_regionsO1[0]])
-main_glac_calmassbal_shean = np.zeros((main_glac_rgi.shape[0],4))
-ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_uncertainty_colname, input.massbal_time1, input.massbal_time2]].values
-rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
-for glac in range(rgi_O1Id.shape[0]):
-    try:
-        # Grab the mass balance based on the RGIId Order 1 glacier number
-        main_glac_calmassbal_shean[glac,:] = ds_subset[np.where(np.in1d(ds_subset[:,0],rgi_O1Id[glac])==True)[0][0],1:]
-        #  np.in1d searches if there is a match in the first array with the second array provided and returns an
-        #   array with same length as first array and True/False values. np.where then used to identify the index
-        #   where there is a match, which is then used to select the massbalance value
-        #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
-        #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
-    except:
-        # If there is no mass balance data available for the glacier, then set as NaN
-        main_glac_calmassbal_shean[glac,:] = np.empty(4)
-        main_glac_calmassbal_shean[glac,:] = np.nan
-main_glac_calmassbal_shean = pd.DataFrame(main_glac_calmassbal_shean, 
-                                         columns=[input.massbal_colname, input.massbal_uncertainty_colname, 
-                                                  input.massbal_time1, input.massbal_time2])
-
-main_glac_rgi['Shean_MB_mwea'] = main_glac_calmassbal_shean[input.massbal_colname]
-main_glac_rgi['Shean_MB_mwea_sigma'] = main_glac_calmassbal_shean[input.massbal_uncertainty_colname]
-main_glac_rgi['Shean_MB_year1'] = main_glac_calmassbal_shean[input.massbal_time1]
-main_glac_rgi['Shean_MB_year2'] = main_glac_calmassbal_shean[input.massbal_time2]
+if option_geodeticMB_loadcompare == 1:
+    main_glac_rgi = modelsetup.selectglaciersrgitable()
     
-# BRUN DATA
-# Import .csv file
-# RGIId column name
-cal_rgi_colname = 'GLA_ID'
-ds_all_raw = pd.read_csv(input.cal_mb_filepath + 'Brun_Nature2017_MB_glacier-wide.csv')
-ds_all = ds_all_raw[ds_all_raw['Measured GLA area [percent]'] >= 60]
-# Subset glaciers based on region
-ds = ds_all[ds_all[cal_rgi_colname].values.astype(int) == input.rgi_regionsO1[0]].copy()
-ds[input.rgi_O1Id_colname] = ((ds[cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
-ds_Id = ds[input.rgi_O1Id_colname].values
-main_glac_calmassbal_Brun = np.zeros((main_glac_rgi.shape[0],ds.shape[1]))
+    # Mass balance column name
+    massbal_colname = 'mb_mwea'
+    # Mass balance uncertainty column name
+    massbal_uncertainty_colname = 'mb_mwea_sigma'
+    # Mass balance date 1 column name
+    massbal_time1 = 'year1'
+    # Mass balance date 1 column name
+    massbal_time2 = 'year2'
+    # Mass balance tolerance [m w.e.a]
+    massbal_tolerance = 0.1
+    # Calibration optimization tolerance
+    
+    # SHEAN DATA
+    # Import .csv file
+    ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[input.rgi_regionsO1[0]])
+    main_glac_calmassbal_shean = np.zeros((main_glac_rgi.shape[0],4))
+    ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
+    ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_uncertainty_colname, 
+                    input.massbal_time1, input.massbal_time2]].values
+    rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
+    for glac in range(rgi_O1Id.shape[0]):
+        try:
+            # Grab the mass balance based on the RGIId Order 1 glacier number
+            main_glac_calmassbal_shean[glac,:] = (
+                    ds_subset[np.where(np.in1d(ds_subset[:,0],rgi_O1Id[glac])==True)[0][0],1:])
+            #  np.in1d searches if there is a match in the first array with the second array provided and returns an
+            #   array with same length as first array and True/False values. np.where then used to identify the index
+            #   where there is a match, which is then used to select the massbalance value
+            #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
+            #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
+        except:
+            # If there is no mass balance data available for the glacier, then set as NaN
+            main_glac_calmassbal_shean[glac,:] = np.empty(4)
+            main_glac_calmassbal_shean[glac,:] = np.nan
+    main_glac_calmassbal_shean = pd.DataFrame(main_glac_calmassbal_shean, 
+                                             columns=[input.massbal_colname, input.massbal_uncertainty_colname, 
+                                                      input.massbal_time1, input.massbal_time2])
+    
+    main_glac_rgi['Shean_MB_mwea'] = main_glac_calmassbal_shean[input.massbal_colname]
+    main_glac_rgi['Shean_MB_mwea_sigma'] = main_glac_calmassbal_shean[input.massbal_uncertainty_colname]
+    main_glac_rgi['Shean_MB_year1'] = main_glac_calmassbal_shean[input.massbal_time1]
+    main_glac_rgi['Shean_MB_year2'] = main_glac_calmassbal_shean[input.massbal_time2]
+        
+    # BRUN DATA
+    # Import .csv file
+    # RGIId column name
+    cal_rgi_colname = 'GLA_ID'
+    ds_all_raw = pd.read_csv(input.cal_mb_filepath + 'Brun_Nature2017_MB_glacier-wide.csv')
+    ds_all = ds_all_raw[ds_all_raw['Measured GLA area [percent]'] >= 60]
+    # Subset glaciers based on region
+    ds = ds_all[ds_all[cal_rgi_colname].values.astype(int) == input.rgi_regionsO1[0]].copy()
+    ds[input.rgi_O1Id_colname] = ((ds[cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
+    rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
+    ds_Id = ds[input.rgi_O1Id_colname].values
+    main_glac_calmassbal_Brun = np.zeros((main_glac_rgi.shape[0],ds.shape[1]))
+    
+    for glac in range(rgi_O1Id.shape[0]):
+        try:
+            # Grab the mass balance based on the RGIId Order 1 glacier number
+            main_glac_calmassbal_Brun[glac,:] = ds.iloc[np.where(np.in1d(ds_Id,rgi_O1Id[glac])==True)[0][0],:].values
+            #  np.in1d searches if there is a match in the first array with the second array provided and returns an
+            #   array with same length as first array and True/False values. np.where then used to identify the index
+            #   where there is a match, which is then used to select the massbalance value
+            #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
+            #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
+        except:
+            # If there is no mass balance data available for the glacier, then set as NaN
+            main_glac_calmassbal_Brun[glac,:] = np.empty(6)
+            main_glac_calmassbal_Brun[glac,:] = np.nan
+    main_glac_calmassbal_Brun = pd.DataFrame(main_glac_calmassbal_Brun, columns=ds.columns)
+    
+    main_glac_rgi['Brun_MB_mwea'] = main_glac_calmassbal_Brun['MB [m w.a a-1]']
+    main_glac_rgi['Brun_Tot_GLA_area[km2]'] = main_glac_calmassbal_Brun['Tot_GLA_area [km2]']
+    main_glac_rgi['Brun_GLA_area_measured[%]'] = main_glac_calmassbal_Brun['Measured GLA area [percent]']
+    main_glac_rgi['Brun_MB_err[mwea]'] = main_glac_calmassbal_Brun['err. on MB [m w.e a-1]']
+    
+    # MAUER DATA
+    cal_rgi_colname = 'id'
+    # Import .csv file
+    ds_all_raw = pd.read_csv(input.cal_mb_filepath + 'RupperMauer_GeodeticMassBalance_Himalayas_2000_2016.csv')
+    ds_all = ds_all_raw[ds_all_raw['percentCov'] >= 60]
+    # Subset glaciers based on region
+    ds = ds_all[ds_all[cal_rgi_colname].values.astype(int) == input.rgi_regionsO1[0]].copy()
+    ds[input.rgi_O1Id_colname] = ((ds[cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
+    rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
+    ds_Id = ds[input.rgi_O1Id_colname].values
+    main_glac_calmassbal_Mauer = np.zeros((main_glac_rgi.shape[0],ds.shape[1]))
+    
+    for glac in range(rgi_O1Id.shape[0]):
+        try:
+            # Grab the mass balance based on the RGIId Order 1 glacier number
+            main_glac_calmassbal_Mauer[glac,:] = ds.iloc[np.where(np.in1d(ds_Id,rgi_O1Id[glac])==True)[0][0],:].values
+            #  np.in1d searches if there is a match in the first array with the second array provided and returns an
+            #   array with same length as first array and True/False values. np.where then used to identify the index
+            #   where there is a match, which is then used to select the massbalance value
+            #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
+            #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
+        except:
+            # If there is no mass balance data available for the glacier, then set as NaN
+            main_glac_calmassbal_Mauer[glac,:] = np.empty(ds.shape[1])
+            main_glac_calmassbal_Mauer[glac,:] = np.nan
+    main_glac_calmassbal_Mauer = pd.DataFrame(main_glac_calmassbal_Mauer, columns=ds.columns)
+    
+    main_glac_rgi['Mauer_MB_mwea'] = main_glac_calmassbal_Mauer['geoMassBal']
+    main_glac_rgi['Mauer_MB_mwea_sigma'] = main_glac_calmassbal_Mauer['geoMassBalSig']
+    main_glac_rgi['Mauer_GLA_area_measured[%]'] = main_glac_calmassbal_Mauer['percentCov']
+    main_glac_rgi['Mauer_MB_year1'] = main_glac_calmassbal_Mauer['Year1']
+    main_glac_rgi['Mauer_MB_year2'] = main_glac_calmassbal_Mauer['Year2']
+    
+    # Differences
+    main_glac_rgi['Dif_Shean-Mauer[mwea]'] = (
+            main_glac_calmassbal_shean[input.massbal_colname] - main_glac_calmassbal_Mauer['geoMassBal'])
+    main_glac_rgi['Dif_Shean-Brun[mwea]'] = (
+            main_glac_calmassbal_shean[input.massbal_colname] - main_glac_calmassbal_Brun['MB [m w.a a-1]'])
+    main_glac_rgi['Dif_Mauer-Brun[mwea]'] = (
+            main_glac_calmassbal_Mauer['geoMassBal'] - main_glac_calmassbal_Brun['MB [m w.a a-1]'])
+    # Statistics
+    print('# of MB [Shean]:',main_glac_calmassbal_shean.copy().dropna().shape[0])
+    print('# of MB [Brun]:',main_glac_calmassbal_Brun.copy().dropna().shape[0])
+    print('# of MB [Mauer]:',main_glac_calmassbal_Mauer.copy().dropna().shape[0])
+    print('# same glaciers (All 3):',main_glac_rgi.copy().dropna().shape[0])      
+    print('# same glaciers (Shean/Mauer):',main_glac_rgi['Dif_Shean-Mauer[mwea]'].copy().dropna().shape[0])
+    print('# same glaciers (Shean/Brun)',main_glac_rgi['Dif_Shean-Brun[mwea]'].copy().dropna().shape[0])
+    print('# same glaciers (Mauer/Brun)',main_glac_rgi['Dif_Mauer-Brun[mwea]'].copy().dropna().shape[0])
+    print('Mean difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].mean())
+    print('Min difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].min())
+    print('Max difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].max())
+    print('Mean difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].mean())
+    print('Min difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].min())
+    print('Max difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].max())
+    print('Mean difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].mean())
+    print('Min difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].min())
+    print('Max difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].max())
+    # Plot histograms of the differences
+    plt.hist(main_glac_rgi['Dif_Shean-Mauer[mwea]'].copy().dropna().values)
+    plt.xlabel('MB Shean - Mauer [mwea]', size=12)
+    plt.show()
+    plt.hist(main_glac_rgi['Dif_Shean-Brun[mwea]'].copy().dropna().values)
+    plt.xlabel('MB Shean - Brun [mwea]', size=12)
+    plt.show()
+    plt.hist(main_glac_rgi['Dif_Mauer-Brun[mwea]'].copy().dropna().values)
+    plt.xlabel('MB Mauer - Brun [mwea]', size=12)
+    plt.show()
+    # Plot differences vs. percent area
+    #  Fairly consistent; only two 'outliers' 
+    compare_shean_brun = (
+            main_glac_rgi[['RGIId', 'Area', 'Dif_Shean-Brun[mwea]','Brun_GLA_area_measured[%]']].copy().dropna())
+    compare_shean_mauer = (
+            main_glac_rgi[['RGIId', 'Area', 'Dif_Shean-Mauer[mwea]','Mauer_GLA_area_measured[%]']].copy().dropna())
+    plt.scatter(compare_shean_brun['Brun_GLA_area_measured[%]'].values, 
+                compare_shean_brun['Dif_Shean-Brun[mwea]'].values)
+    plt.xlabel('Brun % Glacier area measured', size=12)
+    plt.ylabel('MB Shean - Brun [mwea]', size=12)
+    plt.show()
+    plt.scatter(compare_shean_brun['Area'].values, compare_shean_brun['Dif_Shean-Brun[mwea]'].values)
+    plt.xlabel('Glacier area [km2]', size=12)
+    plt.ylabel('MB Shean - Brun [mwea]', size=12)
+    plt.show()
+    plt.scatter(compare_shean_mauer['Mauer_GLA_area_measured[%]'].values, 
+                compare_shean_mauer['Dif_Shean-Mauer[mwea]'].values)
+    plt.xlabel('Mauer % Glacier area measured', size=12)
+    plt.ylabel('MB Shean - Mauer [mwea]', size=12)
+    plt.show()
+    plt.scatter(compare_shean_mauer['Area'].values, compare_shean_mauer['Dif_Shean-Mauer[mwea]'].values)
+    plt.xlabel('Glacier area [km2]', size=12)
+    plt.ylabel('MB Shean - Mauer [mwea]', size=12)
+    plt.show()
 
-for glac in range(rgi_O1Id.shape[0]):
-    try:
-        # Grab the mass balance based on the RGIId Order 1 glacier number
-        main_glac_calmassbal_Brun[glac,:] = ds.iloc[np.where(np.in1d(ds_Id,rgi_O1Id[glac])==True)[0][0],:].values
-        #  np.in1d searches if there is a match in the first array with the second array provided and returns an
-        #   array with same length as first array and True/False values. np.where then used to identify the index
-        #   where there is a match, which is then used to select the massbalance value
-        #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
-        #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
-    except:
-        # If there is no mass balance data available for the glacier, then set as NaN
-        main_glac_calmassbal_Brun[glac,:] = np.empty(6)
-        main_glac_calmassbal_Brun[glac,:] = np.nan
-main_glac_calmassbal_Brun = pd.DataFrame(main_glac_calmassbal_Brun, columns=ds.columns)
-
-main_glac_rgi['Brun_MB_mwea'] = main_glac_calmassbal_Brun['MB [m w.a a-1]']
-main_glac_rgi['Brun_Tot_GLA_area[km2]'] = main_glac_calmassbal_Brun['Tot_GLA_area [km2]']
-main_glac_rgi['Brun_GLA_area_measured[%]'] = main_glac_calmassbal_Brun['Measured GLA area [percent]']
-main_glac_rgi['Brun_MB_err[mwea]'] = main_glac_calmassbal_Brun['err. on MB [m w.e a-1]']
-
-# MAUER DATA
-cal_rgi_colname = 'id'
-# Import .csv file
-ds_all_raw = pd.read_csv(input.cal_mb_filepath + 'RupperMauer_GeodeticMassBalance_Himalayas_2000_2016.csv')
-ds_all = ds_all_raw[ds_all_raw['percentCov'] >= 60]
-# Subset glaciers based on region
-ds = ds_all[ds_all[cal_rgi_colname].values.astype(int) == input.rgi_regionsO1[0]].copy()
-ds[input.rgi_O1Id_colname] = ((ds[cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
-ds_Id = ds[input.rgi_O1Id_colname].values
-main_glac_calmassbal_Mauer = np.zeros((main_glac_rgi.shape[0],ds.shape[1]))
-
-for glac in range(rgi_O1Id.shape[0]):
-    try:
-        # Grab the mass balance based on the RGIId Order 1 glacier number
-        main_glac_calmassbal_Mauer[glac,:] = ds.iloc[np.where(np.in1d(ds_Id,rgi_O1Id[glac])==True)[0][0],:].values
-        #  np.in1d searches if there is a match in the first array with the second array provided and returns an
-        #   array with same length as first array and True/False values. np.where then used to identify the index
-        #   where there is a match, which is then used to select the massbalance value
-        #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
-        #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
-    except:
-        # If there is no mass balance data available for the glacier, then set as NaN
-        main_glac_calmassbal_Mauer[glac,:] = np.empty(ds.shape[1])
-        main_glac_calmassbal_Mauer[glac,:] = np.nan
-main_glac_calmassbal_Mauer = pd.DataFrame(main_glac_calmassbal_Mauer, columns=ds.columns)
-
-main_glac_rgi['Mauer_MB_mwea'] = main_glac_calmassbal_Mauer['geoMassBal']
-main_glac_rgi['Mauer_MB_mwea_sigma'] = main_glac_calmassbal_Mauer['geoMassBalSig']
-main_glac_rgi['Mauer_GLA_area_measured[%]'] = main_glac_calmassbal_Mauer['percentCov']
-main_glac_rgi['Mauer_MB_year1'] = main_glac_calmassbal_Mauer['Year1']
-main_glac_rgi['Mauer_MB_year2'] = main_glac_calmassbal_Mauer['Year2']
-
-# Differences
-main_glac_rgi['Dif_Shean-Mauer[mwea]'] = (
-        main_glac_calmassbal_shean[input.massbal_colname] - main_glac_calmassbal_Mauer['geoMassBal'])
-main_glac_rgi['Dif_Shean-Brun[mwea]'] = (
-        main_glac_calmassbal_shean[input.massbal_colname] - main_glac_calmassbal_Brun['MB [m w.a a-1]'])
-main_glac_rgi['Dif_Mauer-Brun[mwea]'] = (
-        main_glac_calmassbal_Mauer['geoMassBal'] - main_glac_calmassbal_Brun['MB [m w.a a-1]'])
-# Statistics
-print('# of MB [Shean]:',main_glac_calmassbal_shean.copy().dropna().shape[0])
-print('# of MB [Brun]:',main_glac_calmassbal_Brun.copy().dropna().shape[0])
-print('# of MB [Mauer]:',main_glac_calmassbal_Mauer.copy().dropna().shape[0])
-print('# same glaciers (All 3):',main_glac_rgi.copy().dropna().shape[0])      
-print('# same glaciers (Shean/Mauer):',main_glac_rgi['Dif_Shean-Mauer[mwea]'].copy().dropna().shape[0])
-print('# same glaciers (Shean/Brun)',main_glac_rgi['Dif_Shean-Brun[mwea]'].copy().dropna().shape[0])
-print('# same glaciers (Mauer/Brun)',main_glac_rgi['Dif_Mauer-Brun[mwea]'].copy().dropna().shape[0])
-print('Mean difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].mean())
-print('Min difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].min())
-print('Max difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].max())
-print('Mean difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].mean())
-print('Min difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].min())
-print('Max difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].max())
-print('Mean difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].mean())
-print('Min difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].min())
-print('Max difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].max())
-plt.hist(main_glac_rgi['Dif_Shean-Mauer[mwea]'].copy().dropna().values)
-plt.xlabel('MB Shean - Mauer [mwea]', size=12)
-plt.show()
-plt.hist(main_glac_rgi['Dif_Shean-Brun[mwea]'].copy().dropna().values)
-plt.xlabel('MB Shean - Brun [mwea]', size=12)
-plt.show()
-plt.hist(main_glac_rgi['Dif_Mauer-Brun[mwea]'].copy().dropna().values)
-plt.xlabel('MB Mauer - Brun [mwea]', size=12)
-plt.show()
 
 #%% ===== PLOTTING: Future simulations =====
 if option_plot_futuresim == 1:
-    netcdf_output = nc.Dataset(input.main_directory + '/../Output/PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180507.nc')
+    netcdf_output = nc.Dataset(input.main_directory + '/../Output/PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180509.nc')
     main_glac_rgi_calonly = pd.read_csv(input.main_directory + '/../DEMs/main_glac_rgi_OnlySheanMB.csv')
     # Select relevant data
     glacier_data = pd.DataFrame(netcdf_output['glacierparameter'][:])
@@ -376,7 +411,8 @@ if option_calc_nearestneighbor == 1:
     ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
                      index_col='GlacNo')
     # Select data of interest
-    data = ds[['CenLon', 'CenLat', 'mb_mwea', 'mb_mwea_sigma', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']].copy()
+    data = ds[['CenLon', 'CenLat', 'mb_mwea', 'mb_mwea_sigma', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
+               'ddfice', 'tempsnow', 'tempchange']].copy()
     # Drop nan data to retain only glaciers with calibrated parameters
     data_cal = data.dropna()
     A = data_cal.mean(0)
@@ -403,6 +439,285 @@ if option_calc_nearestneighbor == 1:
     ## Export csv file
     #parameters_export.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nearest.csv', 
     #                         index=False)
+    
+
+#%% ===== KRIGING OF MODEL PARAMETERS =====
+if option_kriging == 1:
+    # Set parameters within this little batch script
+    option_nearestneighbor_export = 0
+    
+    # Load csv
+    ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
+                     index_col='GlacNo')
+    # Select data of interest
+    data_all = ds[['RGIId', 'Area', 'CenLon', 'CenLat', 'mb_mwea', 'mb_mwea_sigma', 'lrgcm', 'lrglac', 'precfactor', 
+                   'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']].copy()
+    # Drop nan data to retain only glaciers with calibrated parameters
+    data = data_all.dropna()
+    
+    # Plot Glacier Area vs. MB
+    plt.scatter(data['Area'], data['mb_mwea'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('MB 2000-2015 [mwea]', size=12)
+    plt.xlabel('Glacier area [km2]', size=12)
+    plt.legend()
+    plt.show()
+    # zoomed in
+    plt.scatter(data['Area'], data['mb_mwea'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('MB 2000-2015 [mwea]', size=12)
+    plt.xlabel('Glacier area [km2]', size=12)
+    plt.xlim(0.1,2)
+    plt.legend()
+    plt.show()
+    
+    # Histogram of MB data
+    plt.hist(data['mb_mwea'], bins=50)
+    plt.show()
+    
+    # Compute statistics
+    mb_mean = data['mb_mwea'].mean()
+    mb_std = data['mb_mwea'].std()
+    mb_95 = [mb_mean - 1.96 * mb_std, mb_mean + 1.96 * mb_std]
+    # Remove data outside of 95% confidence bounds
+    data_95 = data[(data['mb_mwea'] >= mb_95[0]) & (data['mb_mwea'] <= mb_95[1])]
+    # Plot Glacier Area vs. MB
+    plt.scatter(data_95['Area'], data_95['mb_mwea'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('MB 2000-2015 [mwea]', size=12)
+    plt.xlabel('Glacier area [km2]', size=12)
+    plt.ylim(-3,1.5)
+    plt.legend()
+    plt.show()
+    
+    # KRIGING
+    fig, ax = plt.subplots()
+    ax.scatter(data_95['CenLon'].values, data_95['CenLat'].values, c=data_95['tempchange'].values, cmap='RdBu')
+    ax.set_aspect(1)
+    ax.set_xlabel('Longitude [deg]')
+    ax.set_ylabel('Latitude [deg]')
+    ax.set_title('Temperature change')
+    
+    def SVh(P, h, bw):
+        "Experimental semivariogram for a single lag"
+        pd = squareform(pdist( P[:,:2]))
+        N = pd.shape[0]
+        Z = list()
+        for i in range(N):
+            for j in range(i+1, N):
+                if ((pd[i,j] >= h-bw) and (pd[i,j] <= h+bw)):
+                    Z.append((P[i,2] - P[j,2])**2.0)
+        svh = np.sum(Z) / (2 * len(Z))
+        return svh
+
+    def SV( P, hs, bw ):
+        "Experimental variogram for a collection of lags"
+        sv = list()
+        for h in hs:
+            sv.append( SVh( P, h, bw ) )
+        sv = [ [ hs[i], sv[i] ] for i in range( len( hs ) ) if sv[i] > 0 ]
+        return np.array( sv ).T     
+    
+    def covariancefxn(P, h, bw):
+        "Calculate the sill"
+        c0 = np.var(P[:,2])
+        if h == 0:
+            return c0
+        return c0 - SVh(P,h,bw)
+    
+    # Select x, y, and z data 
+    P = data_95[['CenLon', 'CenLat', 'tempchange']].values
+    # bandwidth +/- 250 m
+    bw = 0.025
+    # lags in 500 m increments from zero to 10,000
+    hs = np.arange(0,bw*10+1,bw)
+    # semivariogram
+    sv = SV(P, hs, bw )
+    # plot semivariogram
+    fig2, ax2 = plt.subplots()
+    plt.plot(sv[0], sv[1], '.-')
+    ax2.set_xlabel('Lag [deg]')
+    ax2.set_ylabel('Semivariance')
+    
+    # Steps to fit model to semivariogram
+    # Function to determine optimal parameter
+    def optModel(fct, x, y, C0, parameterRange=None, meshSize=1000 ):
+        if parameterRange == None:
+            parameterRange = [ x[1], x[-1] ]
+#        print('parameter range:', parameterRange)
+        mse = np.zeros( meshSize )
+#        print('mesh size:', meshSize)
+        a = np.linspace( parameterRange[0], parameterRange[1], meshSize )
+#        print('size a:', a.shape)
+        for i in range( meshSize ):
+#            print('i:', i)
+#            print('y:', y)
+#            print('a[i]:', a[i])
+#            print('C0:', C0)
+#            print('x:', x)
+#            print('size x:', x.shape)
+#            print('size y:', y.shape)
+            mse[i] = np.mean( ( y - fct( x, a[i], C0 ) )**2.0 )
+        return a[ mse.argmin() ]
+    # Spherical model
+    def spherical( h, a, C0 ):
+        "Spherical model of the semivariogram"
+        # if h is a single digit
+        if type(h) == np.float64:
+            # calculate the spherical function
+            if h <= a:
+                return C0*( 1.5*h/a - 0.5*(h/a)**3.0 )
+            else:
+                return C0
+        # if h is an iterable
+        else:
+            # calculate the spherical function for all elements
+            a = np.ones( h.size ) * a
+            C0 = np.ones( h.size ) * C0
+            return list(map( spherical, h, a, C0 ))
+        
+    # THIS WRAPS EVERYTHING TOGETHER
+    def cvmodel( P, model, hs, bw ):
+        """
+        Input:  (P)      ndarray, data
+                (model)  modeling function
+                          - spherical
+                          - exponential
+                          - gaussian
+                (hs)     distances
+                (bw)     bandwidth
+        Output: (covfct) function modeling the covariance
+        """
+        # calculate the semivariogram
+        sv = SV( P, hs, bw )
+        # calculate the sill
+        C0 = covariancefxn( P, hs[0], bw )
+        # calculate the optimal parameters
+        param = optModel( model, sv[0], sv[1], C0 )
+        # return a covariance function
+#        covfct = lambda h: C0 - model( h, param, C0 )
+        covfct = lambda h: model(h,param,C0)
+        return covfct
+    
+    # Breakdown cvmodel into pieces
+    # Calculate the sill
+    C0 = covariancefxn( P, hs[0], bw )
+    # Calculate optimal parameter
+    param = optModel( spherical, sv[0], sv[1], C0 )
+    # Multiple ways of getting the covariance values
+    # Calculate values of spherical function
+    sp_values = np.zeros(sv.shape[1])
+    for i in range(sv.shape[1]):
+        sp_values[i] = spherical(sv[0,i], param, C0)
+    # Covariance function written out
+#    sp = lambda h: spherical( h, param, C0 )
+#    sp_values2 = sp(sv[0])
+    # Using the function does it all at once
+    sp = cvmodel( P, model=spherical, hs=np.arange(0,bw*10+1,bw), bw=0.025 )
+    
+    # plot semivariogram
+    fig3, ax3 = plt.subplots()
+    plt.plot(sv[0], sv[1], '.-')
+    plt.plot(sv[0], sp(sv[0]))
+#    plt.plot(sv[0], sp2(sv[0]))
+    ax3.set_xlabel('Lag [deg]')
+    ax3.set_ylabel('Semivariance')
+    ax3.set_title('Spherical Model')
+#    savefig('semivariogram_model.png',fmt='png',dpi=200)
+    
+    def krige( P, covfct, hs, bw, u, N ):
+        '''
+        Input  (P)     ndarray, data
+               (model) modeling function
+                        - spherical
+                        - exponential
+                        - gaussian
+               (hs)    kriging distances
+               (bw)    kriging bandwidth
+               (u)     unsampled point
+               (N)     number of neighboring
+                       points to consider
+        '''
+     
+        # covariance function
+#        covfct = cvmodel( P, model, hs, bw )
+        # mean of the variable
+        mu = np.mean( P[:,2] )
+     
+        # distance between u and each data point in P
+        d = np.sqrt( ( P[:,0]-u[0] )**2.0 + ( P[:,1]-u[1] )**2.0 )
+        # add these distances to P
+        P = np.vstack(( P.T, d )).T
+        # sort P by these distances
+        # take the first N of them
+        P = P[d.argsort()[:N]]
+     
+        # apply the covariance model to the distances
+        k = covfct( P[:,3] )
+        # cast as a matrix
+        k = np.matrix( k ).T
+     
+        # form a matrix of distances between existing data points
+        K = squareform( pdist( P[:,:2] ) )
+        # apply the covariance model to these distances
+        K = covfct( K.ravel() )
+        # re-cast as a NumPy array -- thanks M.L.
+        K = np.array( K )
+        # reshape into an array
+        K = K.reshape(N,N)
+        # cast as a matrix
+        K = np.matrix( K )
+     
+        # calculate the kriging weights
+        weights = np.linalg.inv( K ) * k
+        weights = np.array( weights )
+     
+        # calculate the residuals
+        residuals = P[:,2] - mu
+     
+        # calculate the estimation
+        estimation = np.dot( weights.T, residuals ) + mu
+     
+        return float( estimation )
+
+    gridsize = [80, 100]
+    X0, X1 = P[:,0].min(), P[:,0].max()
+    Y0, Y1 = P[:,1].min(), P[:,1].max()
+    Z = np.zeros((gridsize[0],gridsize[1]))
+    dx, dy = (X1-X0)/gridsize[1], (Y1-Y0)/gridsize[0]
+    for i in range( gridsize[0] ):
+        if i%100 == 0:
+            print(i)
+        for j in range( gridsize[1] ):
+            Z[i,j] = krige( P, sp, hs, bw, (dy*j,dx*i), 16 )
+    # CURRENTLY RETURNS SAME VALUES EVERYWHERE!!
+
+    
+
+    
+    if option_nearestneighbor_export == 1:
+        # Select latitude and longitude of calibrated parameters for distance estimate
+        data_95_lonlat = data_95[['CenLon', 'CenLat']].values
+        # Loop through each glacier and select the parameters based on the nearest neighbor
+        for glac in range(data_all.shape[0]):
+            # Avoid applying this to any glaciers that already were optimized
+            if data_all.iloc[glac, :].isnull().values.any() == True:
+                # Select the latitude and longitude of the glacier's center
+                glac_lonlat = (data_all[['CenLon', 'CenLat']].values)[glac,:]
+                # Set point to be compatible with cdist function (from scipy)
+                pt = [[glac_lonlat[0],glac_lonlat[1]]]
+                # scipy function to calculate distance
+                distances = cdist(pt, data_95_lonlat)
+                # Find minimum index (could be more than one)
+                idx_min = np.where(distances == distances.min())[1]
+                # Set new parameters
+                data_all.iloc[glac,4:] = data_95.iloc[idx_min,4:].values.mean(0)
+                #  use mean in case multiple points are equidistant from the glacier
+        # Select only parameters to export to csv file
+        parameters_export = data_all.iloc[:,6:]
+        # Export csv file
+        parameters_export.to_csv(input.main_directory + 
+                                 '/../Calibration_datasets/calparams_R15_20180403_nearest_95confonly.csv', index=False)
+    
+
+    
 
 
 #%%===== PLOTTING GRID SEARCH FOR A GLACIER ======
@@ -430,13 +745,15 @@ if option_calc_nearestneighbor == 1:
 #ddfsnow_unique = np.unique(ddfsnow)
 #precgrad_unique = np.unique(precgrad)
 ## Calculate mass balance and difference between modeled and measured
-#massbaltotal_mwea = data['massbaltotal_glac_monthly'][glac,:,:].sum(axis=1) / (main_glac_calmassbal.loc[glac,'year2'] - main_glac_calmassbal.loc[glac,'year1'] + 1)
+#massbaltotal_mwea = (data['massbaltotal_glac_monthly'][glac,:,:].sum(axis=1) / 
+#    (main_glac_calmassbal.loc[glac,'year2'] - main_glac_calmassbal.loc[glac,'year1'] + 1))
 #massbaltotal_mwea_cal = main_glac_calmassbal.loc[glac,'mb_mwea']
 #difference = np.zeros((grid_modelparameters.shape[0],1))
 #difference[:,0] = massbaltotal_mwea - massbaltotal_mwea_cal
 #
 #data_hist = np.concatenate((grid_modelparameters, difference), axis=1)
-#data_hist = pd.DataFrame(data_hist, columns=['lrglac','lrgcm','precfactor','precgrad','ddfsnow','ddfice','tempsnow','tempchange','difference'])
+#data_hist = pd.DataFrame(data_hist, columns=['lrglac','lrgcm','precfactor','precgrad','ddfsnow','ddfice','tempsnow',
+#                                             'tempchange','difference'])
 ## Plot histograms
 ##data_hist.hist(column='difference', bins=20)
 ##plt.title('Mass Balance Difference [mwea]')
@@ -475,7 +792,8 @@ if option_calc_nearestneighbor == 1:
 #    ddfsnow_norm[ddfsnow_subset == ddfsnow_unique[3]] = 70
 #    ddfsnow_norm[ddfsnow_subset == ddfsnow_unique[4]] = 90
 #    # make the scatter
-#    scat = ax.scatter(precfactor_subset, difference_subset, s=ddfsnow_norm, marker=markers[n], c=tempchange_subset, cmap=cmap, norm=norm, label=labels[n])
+#    scat = ax.scatter(precfactor_subset, difference_subset, s=ddfsnow_norm, marker=markers[n], c=tempchange_subset, 
+#                      cmap=cmap, norm=norm, label=labels[n])
 ## create the colorbar
 #cb = plt.colorbar(scat, spacing='proportional', ticks=bounds)
 ##cb = plt.colorbar()
@@ -495,10 +813,14 @@ if option_calc_nearestneighbor == 1:
     
 
 #%%===== PLOTTING ===========================================================================================
-#netcdf_output15 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180306.nc', 'r+')
-#netcdf_output15 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180403.nc', 'r+')
-#netcdf_output14 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_nearest_20180313.nc', 'r+')
-#netcdf_output14 = nc.Dataset(input.main_directory + '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_transferAvg_20180313.nc', 'r+')
+#netcdf_output15 = nc.Dataset(input.main_directory + 
+#                              '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180306.nc', 'r+')
+#netcdf_output15 = nc.Dataset(input.main_directory 
+#                             + '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180403.nc', 'r+')
+#netcdf_output14 = nc.Dataset(input.main_directory + 
+#                             '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_nearest_20180313.nc', 'r+')
+#netcdf_output14 = nc.Dataset(input.main_directory + 
+#                             '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_transferAvg_20180313.nc', 'r+')
 
 ## Select relevant data
 #glacier_data15 = pd.DataFrame(netcdf_output15['glacierparameter'][:])

@@ -44,7 +44,7 @@ startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2015
+endyear = 2100
 
 # Remove NaN values (glaciers without calibration data)
 option_removeNaNcal = 1
@@ -357,7 +357,8 @@ massbal_tolerance = 0.1
 modelparams_filepath = main_directory + '/../Calibration_datasets/'
 #modelparams_filename = 'calparams_R15_20180306_nearest.csv'
 #modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
-modelparams_filename = 'calparams_R15_20180403_nearest.csv'
+#modelparams_filename = 'calparams_R15_20180403_nearest.csv'
+modelparams_filename = 'calparams_R15_20180403_nearest_95confonly.csv'
 #modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 

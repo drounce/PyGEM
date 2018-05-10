@@ -221,26 +221,26 @@ for batman in [0]:
                                        elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                                        glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table))
         
-#        # Compare calibration data (mass balance)
-#        # Column index for start and end year based on dates of geodetic mass balance observations
-        # Total volume loss
-        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-        main_glac_wide_volume_loss_total[glac] = (
-                np.cumsum(glac_wide_area_annual[glac_wide_massbaltotal_annual.shape] * 
-                          glac_wide_massbaltotal_annual / 1000)[-1])
-        massbal_idx_start = 0
-        massbal_idx_end = 16
-#        # Annual glacier-wide mass balance [m w.e.]
-        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-        # Average annual glacier-wide mass balance [m w.e.a.]
-        main_glac_wide_massbaltotal_annual_avg[glac] = (
-                glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
-        #  units: m w.e. based on initial area
-#        print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
-        main_glac_wide_volume_loss_perc[glac] = (
-                (glac_wide_volume_annual[-1]-glac_wide_volume_annual[0])/glac_wide_volume_annual[0] * 100)
-#        print('Volume loss 2000-2100 [%]:', main_glac_wide_volume_loss_perc[glac])
-        print(glac_wide_volume_annual[0], glac_wide_volume_annual[-1])
+##        # Compare calibration data (mass balance)
+##        # Column index for start and end year based on dates of geodetic mass balance observations
+#        # Total volume loss
+#        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+#        main_glac_wide_volume_loss_total[glac] = (
+#                np.cumsum(glac_wide_area_annual[glac_wide_massbaltotal_annual.shape] * 
+#                          glac_wide_massbaltotal_annual / 1000)[-1])
+#        massbal_idx_start = 0
+#        massbal_idx_end = 16
+##        # Annual glacier-wide mass balance [m w.e.]
+#        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+#        # Average annual glacier-wide mass balance [m w.e.a.]
+#        main_glac_wide_massbaltotal_annual_avg[glac] = (
+#                glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
+#        #  units: m w.e. based on initial area
+##        print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
+#        main_glac_wide_volume_loss_perc[glac] = (
+#                (glac_wide_volume_annual[-1]-glac_wide_volume_annual[0])/glac_wide_volume_annual[0] * 100)
+##        print('Volume loss 2000-2100 [%]:', main_glac_wide_volume_loss_perc[glac])
+#        print(glac_wide_volume_annual[0], glac_wide_volume_annual[-1])
         
         
         # OUTPUT: Record variables according to output package
