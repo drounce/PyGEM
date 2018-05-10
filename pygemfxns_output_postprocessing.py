@@ -29,11 +29,11 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import cartopy
 
-option_plot_futuresim = 1
+option_plot_futuresim = 0
 option_calc_nearestneighbor = 0
 option_plot_MBdata = 0
 option_geodeticMB_loadcompare = 0
-option_kriging = 0
+option_kriging = 1
 
 
 #%%===== PLOT FUNCTIONS =============================================================================================
@@ -689,9 +689,7 @@ if option_kriging == 1:
             Z[i,j] = krige( P, sp, hs, bw, (dy*j,dx*i), 16 )
     # CURRENTLY RETURNS SAME VALUES EVERYWHERE!!
 
-    
 
-    
     if option_nearestneighbor_export == 1:
         # Select latitude and longitude of calibrated parameters for distance estimate
         data_95_lonlat = data_95[['CenLon', 'CenLat']].values

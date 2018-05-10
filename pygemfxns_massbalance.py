@@ -92,8 +92,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     glac_bin_precsnow[:,12*year:12*(year+1)] = (glacier_gcm_prec[12*year:12*(year+1)] * 
                             modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
-                if input.option_bias_adjustment == 1:
-                    glac_bin_precsnow[:,12*year:12*(year+1)] = glac_bin_precsnow[:,12*year:12*(year+1)] * biasadj_prec
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
                 if input.option_preclimit == 1:
                     # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
