@@ -455,6 +455,18 @@ if option_kriging == 1:
     # Drop nan data to retain only glaciers with calibrated parameters
     data = data_all.dropna()
     
+    main_glac_rgi = modelsetup.selectglaciersrgitable()
+    # Select calibration data from geodetic mass balance from David Shean
+    main_glac_calmassbal = modelsetup.selectcalibrationdata(main_glac_rgi)
+    # Concatenate massbal data to the main glacier
+    main_glac_rgi = pd.concat([main_glac_rgi, main_glac_calmassbal], axis=1)
+    # Drop those with nan values
+    main_glac_calmassbal = main_glac_calmassbal.dropna()
+    main_glac_rgi = main_glac_rgi.dropna()
+    
+    main_glac_rgi[['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']] = (
+            data[['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']])
+    
     # Plot Glacier Area vs. MB
     plt.scatter(data['Area'], data['mb_mwea'], facecolors='none', edgecolors='black', label='Region 15')
     plt.ylabel('MB 2000-2015 [mwea]', size=12)
@@ -467,10 +479,6 @@ if option_kriging == 1:
     plt.xlabel('Glacier area [km2]', size=12)
     plt.xlim(0.1,2)
     plt.legend()
-    plt.show()
-    
-    # Histogram of MB data
-    plt.hist(data['mb_mwea'], bins=50)
     plt.show()
     
     # Compute statistics
@@ -487,232 +495,323 @@ if option_kriging == 1:
     plt.legend()
     plt.show()
     
-    # KRIGING
-    fig, ax = plt.subplots()
-    ax.scatter(data_95['CenLon'].values, data_95['CenLat'].values, c=data_95['tempchange'].values, cmap='RdBu')
-    ax.set_aspect(1)
-    ax.set_xlabel('Longitude [deg]')
-    ax.set_ylabel('Latitude [deg]')
-    ax.set_title('Temperature change')
+    # Plot Glacier Area vs. MB
+    plt.scatter(data['mb_mwea'], data['Area'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('Glacier area [km2]', size=12)
+    plt.xlabel('MB 2000-2015 [mwea]', size=12)
+    plt.legend()
+    plt.show()
+     # Plot Glacier Area vs. MB
+    plt.scatter(data_95['mb_mwea'], data_95['Area'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('Glacier area [km2]', size=12)
+    plt.xlabel('MB 2000-2015 [mwea]', size=12)
+    plt.xlim(-3,1.75)
+    plt.legend()
+    plt.show()
     
-    def SVh(P, h, bw):
-        "Experimental semivariogram for a single lag"
-        pd = squareform(pdist( P[:,:2]))
-        N = pd.shape[0]
-        Z = list()
-        for i in range(N):
-            for j in range(i+1, N):
-                if ((pd[i,j] >= h-bw) and (pd[i,j] <= h+bw)):
-                    Z.append((P[i,2] - P[j,2])**2.0)
-        svh = np.sum(Z) / (2 * len(Z))
-        return svh
+    # Histogram of MB data
+    plt.hist(data['mb_mwea'], bins=50)
+    plt.show()
+    
+    # Mass balance versus various parameters
+    # Median elevation
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Zmed'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('Median Elevation [masl]', size=12)
+    plt.xlabel('MB 2000-2015 [mwea]', size=12)
+    plt.legend()
+    plt.show()
+    # Elevation range
+    main_glac_rgi['elev_range'] = main_glac_rgi['Zmax'] - main_glac_rgi['Zmin']
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['elev_range'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('Elevation range [m]', size=12)
+    plt.xlabel('MB 2000-2015 [mwea]', size=12)
+    plt.legend()
+    plt.show()
+    plt.scatter(main_glac_rgi['Area'], main_glac_rgi['elev_range'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('Elevation range [m]', size=12)
+    plt.xlabel('Area [km2]', size=12)
+    plt.legend()
+    plt.show()
+    # Length
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Lmax'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('Length [m]', size=12)
+    plt.xlabel('MB 2000-2015 [mwea]', size=12)
+    plt.legend()
+    plt.show()
+    # Slope
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Slope'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('Slope [deg]', size=12)
+    plt.xlabel('MB 2000-2015 [mwea]', size=12)
+    plt.legend()
+    plt.show()
+    # Aspect
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Aspect'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('Aspect [deg]', size=12)
+    plt.xlabel('MB 2000-2015 [mwea]', size=12)
+    plt.legend()
+    plt.show()
+    plt.scatter(main_glac_rgi['Aspect'], main_glac_rgi['precfactor'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.ylabel('precfactor [-]', size=12)
+    plt.xlabel('Aspect [deg]', size=12)
+    plt.legend()
+    plt.show()
+    # tempchange
+    # Line of best fit
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['mb_mwea'], main_glac_rgi['tempchange'])
+    xplot = np.arange(-3,1.5)
+    line = slope*xplot+intercept
+#    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['tempchange'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.plot(main_glac_rgi['mb_mwea'], main_glac_rgi['tempchange'], 'o', mfc='none', mec='black')
+    plt.plot(xplot, line)
+    plt.ylabel('tempchange [deg]', size=12)
+    plt.xlabel('MB 2000-2015 [mwea]', size=12)
+    plt.legend()
+    plt.show()
+    # precfactor
+    # Line of best fit
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['mb_mwea'], main_glac_rgi['precfactor'])
+    xplot = np.arange(-3,1.5)
+    line = slope*xplot+intercept
+#    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['tempchange'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.plot(main_glac_rgi['mb_mwea'], main_glac_rgi['precfactor'], 'o', mfc='none', mec='black')
+    plt.plot(xplot, line)
+    plt.ylabel('precfactor [-]', size=12)
+    plt.xlabel('MB 2000-2015 [mwea]', size=12)
+    plt.legend()
+    plt.show()
+    
+    
+    
+    
+    
+    
+    
+#    # KRIGING
+#    fig, ax = plt.subplots()
+#    ax.scatter(data_95['CenLon'].values, data_95['CenLat'].values, c=data_95['tempchange'].values, cmap='RdBu')
+#    ax.set_aspect(1)
+#    ax.set_xlabel('Longitude [deg]')
+#    ax.set_ylabel('Latitude [deg]')
+#    ax.set_title('Temperature change')
+#    
+#    def SVh(P, h, bw):
+#        "Experimental semivariogram for a single lag"
+#        pd = squareform(pdist( P[:,:2]))
+#        N = pd.shape[0]
+#        Z = list()
+#        for i in range(N):
+#            for j in range(i+1, N):
+#                if ((pd[i,j] >= h-bw) and (pd[i,j] <= h+bw)):
+#                    Z.append((P[i,2] - P[j,2])**2.0)
+#        svh = np.sum(Z) / (2 * len(Z))
+#        return svh
+#
+#    def SV( P, hs, bw ):
+#        "Experimental variogram for a collection of lags"
+#        sv = list()
+#        for h in hs:
+#            sv.append( SVh( P, h, bw ) )
+#        sv = [ [ hs[i], sv[i] ] for i in range( len( hs ) ) if sv[i] > 0 ]
+#        return np.array( sv ).T     
+#    
+#    def covariancefxn(P, h, bw):
+#        "Calculate the sill"
+#        c0 = np.var(P[:,2])
+#        if h == 0:
+#            return c0
+#        return c0 - SVh(P,h,bw)
+#    
+#    # Select x, y, and z data 
+#    P = data_95[['CenLon', 'CenLat', 'tempchange']].values
+#    # bandwidth +/- 250 m
+#    bw = 0.025
+#    # lags in 500 m increments from zero to 10,000
+#    hs = np.arange(0,bw*10+1,bw)
+#    # semivariogram
+#    sv = SV(P, hs, bw )
+#    # plot semivariogram
+#    fig2, ax2 = plt.subplots()
+#    plt.plot(sv[0], sv[1], '.-')
+#    ax2.set_xlabel('Lag [deg]')
+#    ax2.set_ylabel('Semivariance')
+#    
+#    # Steps to fit model to semivariogram
+#    # Function to determine optimal parameter
+#    def optModel(fct, x, y, C0, parameterRange=None, meshSize=1000 ):
+#        if parameterRange == None:
+#            parameterRange = [ x[1], x[-1] ]
+##        print('parameter range:', parameterRange)
+#        mse = np.zeros( meshSize )
+##        print('mesh size:', meshSize)
+#        a = np.linspace( parameterRange[0], parameterRange[1], meshSize )
+##        print('size a:', a.shape)
+#        for i in range( meshSize ):
+##            print('i:', i)
+##            print('y:', y)
+##            print('a[i]:', a[i])
+##            print('C0:', C0)
+##            print('x:', x)
+##            print('size x:', x.shape)
+##            print('size y:', y.shape)
+#            mse[i] = np.mean( ( y - fct( x, a[i], C0 ) )**2.0 )
+#        return a[ mse.argmin() ]
+#    # Spherical model
+#    def spherical( h, a, C0 ):
+#        "Spherical model of the semivariogram"
+#        # if h is a single digit
+#        if type(h) == np.float64:
+#            # calculate the spherical function
+#            if h <= a:
+#                return C0*( 1.5*h/a - 0.5*(h/a)**3.0 )
+#            else:
+#                return C0
+#        # if h is an iterable
+#        else:
+#            # calculate the spherical function for all elements
+#            a = np.ones( h.size ) * a
+#            C0 = np.ones( h.size ) * C0
+#            return list(map( spherical, h, a, C0 ))
+#        
+#    # THIS WRAPS EVERYTHING TOGETHER
+#    def cvmodel( P, model, hs, bw ):
+#        """
+#        Input:  (P)      ndarray, data
+#                (model)  modeling function
+#                          - spherical
+#                          - exponential
+#                          - gaussian
+#                (hs)     distances
+#                (bw)     bandwidth
+#        Output: (covfct) function modeling the covariance
+#        """
+#        # calculate the semivariogram
+#        sv = SV( P, hs, bw )
+#        # calculate the sill
+#        C0 = covariancefxn( P, hs[0], bw )
+#        # calculate the optimal parameters
+#        param = optModel( model, sv[0], sv[1], C0 )
+#        # return a covariance function
+##        covfct = lambda h: C0 - model( h, param, C0 )
+#        covfct = lambda h: model(h,param,C0)
+#        return covfct
+#    
+#    # Breakdown cvmodel into pieces
+#    # Calculate the sill
+#    C0 = covariancefxn( P, hs[0], bw )
+#    # Calculate optimal parameter
+#    param = optModel( spherical, sv[0], sv[1], C0 )
+#    # Multiple ways of getting the covariance values
+#    # Calculate values of spherical function
+#    sp_values = np.zeros(sv.shape[1])
+#    for i in range(sv.shape[1]):
+#        sp_values[i] = spherical(sv[0,i], param, C0)
+#    # Covariance function written out
+##    sp = lambda h: spherical( h, param, C0 )
+##    sp_values2 = sp(sv[0])
+#    # Using the function does it all at once
+#    sp = cvmodel( P, model=spherical, hs=np.arange(0,bw*10+1,bw), bw=0.025 )
+#    
+#    # plot semivariogram
+#    fig3, ax3 = plt.subplots()
+#    plt.plot(sv[0], sv[1], '.-')
+#    plt.plot(sv[0], sp(sv[0]))
+##    plt.plot(sv[0], sp2(sv[0]))
+#    ax3.set_xlabel('Lag [deg]')
+#    ax3.set_ylabel('Semivariance')
+#    ax3.set_title('Spherical Model')
+##    savefig('semivariogram_model.png',fmt='png',dpi=200)
+#    
+#    def krige( P, covfct, hs, bw, u, N ):
+#        '''
+#        Input  (P)     ndarray, data
+#               (model) modeling function
+#                        - spherical
+#                        - exponential
+#                        - gaussian
+#               (hs)    kriging distances
+#               (bw)    kriging bandwidth
+#               (u)     unsampled point
+#               (N)     number of neighboring
+#                       points to consider
+#        '''
+#     
+#        # covariance function
+##        covfct = cvmodel( P, model, hs, bw )
+#        # mean of the variable
+#        mu = np.mean( P[:,2] )
+#     
+#        # distance between u and each data point in P
+#        d = np.sqrt( ( P[:,0]-u[0] )**2.0 + ( P[:,1]-u[1] )**2.0 )
+#        # add these distances to P
+#        P = np.vstack(( P.T, d )).T
+#        # sort P by these distances
+#        # take the first N of them
+#        P = P[d.argsort()[:N]]
+#     
+#        # apply the covariance model to the distances
+#        k = covfct( P[:,3] )
+#        # cast as a matrix
+#        k = np.matrix( k ).T
+#     
+#        # form a matrix of distances between existing data points
+#        K = squareform( pdist( P[:,:2] ) )
+#        # apply the covariance model to these distances
+#        K = covfct( K.ravel() )
+#        # re-cast as a NumPy array -- thanks M.L.
+#        K = np.array( K )
+#        # reshape into an array
+#        K = K.reshape(N,N)
+#        # cast as a matrix
+#        K = np.matrix( K )
+#     
+#        # calculate the kriging weights
+#        weights = np.linalg.inv( K ) * k
+#        weights = np.array( weights )
+#     
+#        # calculate the residuals
+#        residuals = P[:,2] - mu
+#     
+#        # calculate the estimation
+#        estimation = np.dot( weights.T, residuals ) + mu
+#     
+#        return float( estimation )
+#
+#    gridsize = [80, 100]
+#    X0, X1 = P[:,0].min(), P[:,0].max()
+#    Y0, Y1 = P[:,1].min(), P[:,1].max()
+#    Z = np.zeros((gridsize[0],gridsize[1]))
+#    dx, dy = (X1-X0)/gridsize[1], (Y1-Y0)/gridsize[0]
+#    for i in range( gridsize[0] ):
+#        if i%100 == 0:
+#            print(i)
+#        for j in range( gridsize[1] ):
+#            Z[i,j] = krige( P, sp, hs, bw, (dy*j,dx*i), 16 )
+#    # CURRENTLY RETURNS SAME VALUES EVERYWHERE!!
 
-    def SV( P, hs, bw ):
-        "Experimental variogram for a collection of lags"
-        sv = list()
-        for h in hs:
-            sv.append( SVh( P, h, bw ) )
-        sv = [ [ hs[i], sv[i] ] for i in range( len( hs ) ) if sv[i] > 0 ]
-        return np.array( sv ).T     
-    
-    def covariancefxn(P, h, bw):
-        "Calculate the sill"
-        c0 = np.var(P[:,2])
-        if h == 0:
-            return c0
-        return c0 - SVh(P,h,bw)
-    
-    # Select x, y, and z data 
-    P = data_95[['CenLon', 'CenLat', 'tempchange']].values
-    # bandwidth +/- 250 m
-    bw = 0.025
-    # lags in 500 m increments from zero to 10,000
-    hs = np.arange(0,bw*10+1,bw)
-    # semivariogram
-    sv = SV(P, hs, bw )
-    # plot semivariogram
-    fig2, ax2 = plt.subplots()
-    plt.plot(sv[0], sv[1], '.-')
-    ax2.set_xlabel('Lag [deg]')
-    ax2.set_ylabel('Semivariance')
-    
-    # Steps to fit model to semivariogram
-    # Function to determine optimal parameter
-    def optModel(fct, x, y, C0, parameterRange=None, meshSize=1000 ):
-        if parameterRange == None:
-            parameterRange = [ x[1], x[-1] ]
-#        print('parameter range:', parameterRange)
-        mse = np.zeros( meshSize )
-#        print('mesh size:', meshSize)
-        a = np.linspace( parameterRange[0], parameterRange[1], meshSize )
-#        print('size a:', a.shape)
-        for i in range( meshSize ):
-#            print('i:', i)
-#            print('y:', y)
-#            print('a[i]:', a[i])
-#            print('C0:', C0)
-#            print('x:', x)
-#            print('size x:', x.shape)
-#            print('size y:', y.shape)
-            mse[i] = np.mean( ( y - fct( x, a[i], C0 ) )**2.0 )
-        return a[ mse.argmin() ]
-    # Spherical model
-    def spherical( h, a, C0 ):
-        "Spherical model of the semivariogram"
-        # if h is a single digit
-        if type(h) == np.float64:
-            # calculate the spherical function
-            if h <= a:
-                return C0*( 1.5*h/a - 0.5*(h/a)**3.0 )
-            else:
-                return C0
-        # if h is an iterable
-        else:
-            # calculate the spherical function for all elements
-            a = np.ones( h.size ) * a
-            C0 = np.ones( h.size ) * C0
-            return list(map( spherical, h, a, C0 ))
-        
-    # THIS WRAPS EVERYTHING TOGETHER
-    def cvmodel( P, model, hs, bw ):
-        """
-        Input:  (P)      ndarray, data
-                (model)  modeling function
-                          - spherical
-                          - exponential
-                          - gaussian
-                (hs)     distances
-                (bw)     bandwidth
-        Output: (covfct) function modeling the covariance
-        """
-        # calculate the semivariogram
-        sv = SV( P, hs, bw )
-        # calculate the sill
-        C0 = covariancefxn( P, hs[0], bw )
-        # calculate the optimal parameters
-        param = optModel( model, sv[0], sv[1], C0 )
-        # return a covariance function
-#        covfct = lambda h: C0 - model( h, param, C0 )
-        covfct = lambda h: model(h,param,C0)
-        return covfct
-    
-    # Breakdown cvmodel into pieces
-    # Calculate the sill
-    C0 = covariancefxn( P, hs[0], bw )
-    # Calculate optimal parameter
-    param = optModel( spherical, sv[0], sv[1], C0 )
-    # Multiple ways of getting the covariance values
-    # Calculate values of spherical function
-    sp_values = np.zeros(sv.shape[1])
-    for i in range(sv.shape[1]):
-        sp_values[i] = spherical(sv[0,i], param, C0)
-    # Covariance function written out
-#    sp = lambda h: spherical( h, param, C0 )
-#    sp_values2 = sp(sv[0])
-    # Using the function does it all at once
-    sp = cvmodel( P, model=spherical, hs=np.arange(0,bw*10+1,bw), bw=0.025 )
-    
-    # plot semivariogram
-    fig3, ax3 = plt.subplots()
-    plt.plot(sv[0], sv[1], '.-')
-    plt.plot(sv[0], sp(sv[0]))
-#    plt.plot(sv[0], sp2(sv[0]))
-    ax3.set_xlabel('Lag [deg]')
-    ax3.set_ylabel('Semivariance')
-    ax3.set_title('Spherical Model')
-#    savefig('semivariogram_model.png',fmt='png',dpi=200)
-    
-    def krige( P, covfct, hs, bw, u, N ):
-        '''
-        Input  (P)     ndarray, data
-               (model) modeling function
-                        - spherical
-                        - exponential
-                        - gaussian
-               (hs)    kriging distances
-               (bw)    kriging bandwidth
-               (u)     unsampled point
-               (N)     number of neighboring
-                       points to consider
-        '''
-     
-        # covariance function
-#        covfct = cvmodel( P, model, hs, bw )
-        # mean of the variable
-        mu = np.mean( P[:,2] )
-     
-        # distance between u and each data point in P
-        d = np.sqrt( ( P[:,0]-u[0] )**2.0 + ( P[:,1]-u[1] )**2.0 )
-        # add these distances to P
-        P = np.vstack(( P.T, d )).T
-        # sort P by these distances
-        # take the first N of them
-        P = P[d.argsort()[:N]]
-     
-        # apply the covariance model to the distances
-        k = covfct( P[:,3] )
-        # cast as a matrix
-        k = np.matrix( k ).T
-     
-        # form a matrix of distances between existing data points
-        K = squareform( pdist( P[:,:2] ) )
-        # apply the covariance model to these distances
-        K = covfct( K.ravel() )
-        # re-cast as a NumPy array -- thanks M.L.
-        K = np.array( K )
-        # reshape into an array
-        K = K.reshape(N,N)
-        # cast as a matrix
-        K = np.matrix( K )
-     
-        # calculate the kriging weights
-        weights = np.linalg.inv( K ) * k
-        weights = np.array( weights )
-     
-        # calculate the residuals
-        residuals = P[:,2] - mu
-     
-        # calculate the estimation
-        estimation = np.dot( weights.T, residuals ) + mu
-     
-        return float( estimation )
 
-    gridsize = [80, 100]
-    X0, X1 = P[:,0].min(), P[:,0].max()
-    Y0, Y1 = P[:,1].min(), P[:,1].max()
-    Z = np.zeros((gridsize[0],gridsize[1]))
-    dx, dy = (X1-X0)/gridsize[1], (Y1-Y0)/gridsize[0]
-    for i in range( gridsize[0] ):
-        if i%100 == 0:
-            print(i)
-        for j in range( gridsize[1] ):
-            Z[i,j] = krige( P, sp, hs, bw, (dy*j,dx*i), 16 )
-    # CURRENTLY RETURNS SAME VALUES EVERYWHERE!!
-
-
-    if option_nearestneighbor_export == 1:
-        # Select latitude and longitude of calibrated parameters for distance estimate
-        data_95_lonlat = data_95[['CenLon', 'CenLat']].values
-        # Loop through each glacier and select the parameters based on the nearest neighbor
-        for glac in range(data_all.shape[0]):
-            # Avoid applying this to any glaciers that already were optimized
-            if data_all.iloc[glac, :].isnull().values.any() == True:
-                # Select the latitude and longitude of the glacier's center
-                glac_lonlat = (data_all[['CenLon', 'CenLat']].values)[glac,:]
-                # Set point to be compatible with cdist function (from scipy)
-                pt = [[glac_lonlat[0],glac_lonlat[1]]]
-                # scipy function to calculate distance
-                distances = cdist(pt, data_95_lonlat)
-                # Find minimum index (could be more than one)
-                idx_min = np.where(distances == distances.min())[1]
-                # Set new parameters
-                data_all.iloc[glac,4:] = data_95.iloc[idx_min,4:].values.mean(0)
-                #  use mean in case multiple points are equidistant from the glacier
-        # Select only parameters to export to csv file
-        parameters_export = data_all.iloc[:,6:]
-        # Export csv file
-        parameters_export.to_csv(input.main_directory + 
-                                 '/../Calibration_datasets/calparams_R15_20180403_nearest_95confonly.csv', index=False)
+#    if option_nearestneighbor_export == 1:
+#        # Select latitude and longitude of calibrated parameters for distance estimate
+#        data_95_lonlat = data_95[['CenLon', 'CenLat']].values
+#        # Loop through each glacier and select the parameters based on the nearest neighbor
+#        for glac in range(data_all.shape[0]):
+#            # Avoid applying this to any glaciers that already were optimized
+#            if data_all.iloc[glac, :].isnull().values.any() == True:
+#                # Select the latitude and longitude of the glacier's center
+#                glac_lonlat = (data_all[['CenLon', 'CenLat']].values)[glac,:]
+#                # Set point to be compatible with cdist function (from scipy)
+#                pt = [[glac_lonlat[0],glac_lonlat[1]]]
+#                # scipy function to calculate distance
+#                distances = cdist(pt, data_95_lonlat)
+#                # Find minimum index (could be more than one)
+#                idx_min = np.where(distances == distances.min())[1]
+#                # Set new parameters
+#                data_all.iloc[glac,4:] = data_95.iloc[idx_min,4:].values.mean(0)
+#                #  use mean in case multiple points are equidistant from the glacier
+#        # Select only parameters to export to csv file
+#        parameters_export = data_all.iloc[:,6:]
+#        # Export csv file
+#        parameters_export.to_csv(input.main_directory + 
+#                                 '/../Calibration_datasets/calparams_R15_20180403_nearest_95confonly.csv', index=False)
     
 
     
