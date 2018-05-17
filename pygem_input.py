@@ -28,16 +28,11 @@ rgi_regionsO2 = 'all'
 #rgi_regionsO2 = [2]
 #  do not change this
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
+rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
-#rgi_glac_number = ['02760']
-rgi_glac_number = ['06881']
-#rgi_glac_number = ['09249']
-#rgi_glac_number = ['01204']
-#rgi_glac_number = ['09991']
-#rgi_glac_number = ['10070']
-#  example numbers are associated with rgi_regionsO1 [15]; 'all' includes all glaciers iwthin a region
+#rgi_glac_number = ['06881']
+#rgi_glac_number = ['00341']
 
 # First year of model run
 startyear = 2000
