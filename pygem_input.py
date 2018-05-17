@@ -57,6 +57,8 @@ modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 #glacier_list_name = 'glacier_list_R15_all'
 #  CAN DELETE!
 
+# Limit potential mass balance for future simulations option
+option_mb_envelope = 1
 
 # ===== MODEL PARAMETERS =====
 # Option to load calibration parameters for each glacier
