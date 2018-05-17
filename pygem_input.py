@@ -28,11 +28,11 @@ rgi_regionsO2 = 'all'
 #rgi_regionsO2 = [2]
 #  do not change this
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['02760']
-#rgi_glac_number = ['06881']
+rgi_glac_number = ['06881']
 #rgi_glac_number = ['09249']
 #rgi_glac_number = ['01204']
 #rgi_glac_number = ['09991']
@@ -358,7 +358,7 @@ modelparams_filepath = main_directory + '/../Calibration_datasets/'
 #modelparams_filename = 'calparams_R15_20180306_nearest.csv'
 #modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
 #modelparams_filename = 'calparams_R15_20180403_nearest.csv'
-modelparams_filename = 'calparams_R15_20180403_nearest_95confonly.csv'
+modelparams_filename = 'calparams_R15_20180403_nnbridx.csv'
 #modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 

@@ -16,6 +16,8 @@ import argparse
 import multiprocessing
 from scipy.optimize import minimize
 from scipy.stats import linregress
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.pyplot as plt
 import cartopy
 import inspect
@@ -192,14 +194,100 @@ for batman in [0]:
     main_glac_wide_volume_loss_perc = np.zeros(main_glac_rgi.shape[0])
     main_glac_wide_volume_loss_total = np.zeros(main_glac_rgi.shape[0])
     # ENTER GLACIER LOOP
-    for glac in range(main_glac_rgi.shape[0]):
-    #    for glac in [0]:
+#    for glac in range(main_glac_rgi.shape[0]):
+#    #    for glac in [0]:
 #        print(main_glac_rgi.loc[glac,'RGIId'])
-        # Print every 100th glacier
-        if glac%100 == 0:
-            print(main_glac_rgi.loc[glac,'RGIId'])
+#        # Print every 100th glacier
+#        if glac%100 == 0:
+#            print(main_glac_rgi.loc[glac,'RGIId'])
+    glac = 0       
+        # Select model parameters based on nearest neighbor index
+    for n in [1,2,3,4,5,6,7,8,9,10]:
+#    for n in [1]:
+        glac_idx = main_glac_modelparams.loc[glac,'O1Index']
+        # Select individual nearest neighbor and cycle through them
+        nbr_idx_count = n
+        nbr_idx = main_glac_modelparams.loc[glac,'nearidx_' + str(nbr_idx_count)].astype(int)
+        
+        # Select all nearest neighbors
+        nbr_idx_cols = [col for col in main_glac_modelparams_all if col.startswith('nearidx')]
+        nbr_idx_all = (main_glac_modelparams_all.loc[glac_idx,nbr_idx_cols]).values.astype(int)
+        modelparams_nbrs = main_glac_modelparams_all.loc[nbr_idx_all, ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 
+                                                                       'ddfsnow','ddfice', 'tempsnow', 'tempchange']]
+        modelparameters = main_glac_modelparams_all.loc[nbr_idx,['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow',
+                                                             'ddfice', 'tempsnow', 'tempchange']]
+
+#    # Cluster analysis
+#    plt.hist(modelparams_nbrs['tempchange'], bins=8)
+#    plt.show()
+#    
+#    silhouette_threshold = 0.5
+#    
+#    range_n_clusters = [2, 3]
+#    
+#    x = modelparams_nbrs['tempchange'].values.reshape(-1,1)  
+#    clusterer = KMeans(n_clusters=2).fit(x)    
+#    tempchange_values = clusterer.cluster_centers_
+#    cluster_labels = clusterer.fit_predict(x)
+#    print(tempchange_values)
+#
+#    for n_clusters in range_n_clusters:
+#        clusterer = KMeans(n_clusters=n_clusters, random_state=10)
+#        cluster_labels = clusterer.fit_predict(x)
+#    
+#        # The silhouette_score gives the average value for all the samples. This gives a perspective into the density 
+#        #  and separation of the formed clusters.  A score > 0.6 is a good cluster.  
+#        silhouette_avg = silhouette_score(x, cluster_labels)
+#        print("For n_clusters =", n_clusters,
+#              "The average silhouette_score is :", silhouette_avg)
+#        # Compute the silhouette scores for each sample
+#        sample_silhouette_values = silhouette_samples(x, cluster_labels)
+#    
+#    x = modelparams_nbrs['precfactor'].values.reshape(-1,1)  
+#    clusterer = KMeans(n_clusters=2).fit(x)    
+#    precfactor_values = np.flip(clusterer.cluster_centers_, axis=0)
+#    cluster_labels = clusterer.fit_predict(x)
+#    print(precfactor_values)
+#    
+#    for n_clusters in range_n_clusters:
+#        clusterer = KMeans(n_clusters=n_clusters, random_state=10)
+#        cluster_labels = clusterer.fit_predict(x)
+#    
+#        # The silhouette_score gives the average value for all the samples. This gives a perspective into the density 
+#        #  and separation of the formed clusters.  A score > 0.6 is a good cluster.  
+#        silhouette_avg = silhouette_score(x, cluster_labels)
+#        print("For n_clusters =", n_clusters,
+#              "The average silhouette_score is :", silhouette_avg)
+#        # Compute the silhouette scores for each sample
+#        sample_silhouette_values = silhouette_samples(x, cluster_labels)
+#        
+#    x = modelparams_nbrs['ddfsnow'].values.reshape(-1,1)  
+#    clusterer = KMeans(n_clusters=2).fit(x)    
+#    ddfsnow_values = clusterer.cluster_centers_
+#    cluster_labels = clusterer.fit_predict(x)
+#    print(ddfsnow_values)
+#    
+#    for n_clusters in range_n_clusters:
+#        clusterer = KMeans(n_clusters=n_clusters, random_state=10)
+#        cluster_labels = clusterer.fit_predict(x)
+#    
+#        # The silhouette_score gives the average value for all the samples. This gives a perspective into the density 
+#        #  and separation of the formed clusters.  A score > 0.6 is a good cluster.  
+#        silhouette_avg = silhouette_score(x, cluster_labels)
+#        print("For n_clusters =", n_clusters,
+#              "The average silhouette_score is :", silhouette_avg)
+#        # Compute the silhouette scores for each sample
+#        sample_silhouette_values = silhouette_samples(x, cluster_labels)
+#        
+#    for n in [0,1]:
+#        modelparameters['precfactor'] = precfactor_values[n]
+#        modelparameters['tempchange'] = tempchange_values[n]
+#        modelparameters['ddfsnow'] = ddfsnow_values[n]
+        
+        print(modelparameters['tempchange'], modelparameters['precfactor'], modelparameters['ddfsnow'])
+
+        print(main_glac_modelparams_all.loc[nbr_idx,['RGIId','Area']].values)
         # Select subset of variables to reduce the amount of data being passed to the function
-        modelparameters = main_glac_modelparams.loc[glac,:].values
         glacier_rgi_table = main_glac_rgi.loc[glac, :]
         glacier_gcm_elev = main_glac_gcmelev[glac]
         glacier_gcm_prec = main_glac_gcmprec[glac,:]
@@ -221,42 +309,42 @@ for batman in [0]:
                                        elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                                        glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table))
         
-##        # Compare calibration data (mass balance)
-##        # Column index for start and end year based on dates of geodetic mass balance observations
-#        # Total volume loss
-#        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-#        main_glac_wide_volume_loss_total[glac] = (
-#                np.cumsum(glac_wide_area_annual[glac_wide_massbaltotal_annual.shape] * 
-#                          glac_wide_massbaltotal_annual / 1000)[-1])
-#        massbal_idx_start = 0
-#        massbal_idx_end = 16
-##        # Annual glacier-wide mass balance [m w.e.]
-#        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-#        # Average annual glacier-wide mass balance [m w.e.a.]
-#        main_glac_wide_massbaltotal_annual_avg[glac] = (
-#                glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
-#        #  units: m w.e. based on initial area
-##        print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
+        # Compare calibration data (mass balance)
+        # Column index for start and end year based on dates of geodetic mass balance observations
+        # Total volume loss
+        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+        main_glac_wide_volume_loss_total[glac] = (
+                np.cumsum(glac_wide_area_annual[glac_wide_massbaltotal_annual.shape] * 
+                          glac_wide_massbaltotal_annual / 1000)[-1])
+        massbal_idx_start = 0
+        massbal_idx_end = 16
+#        # Annual glacier-wide mass balance [m w.e.]
+        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+        # Average annual glacier-wide mass balance [m w.e.a.]
+        main_glac_wide_massbaltotal_annual_avg[glac] = (
+                glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
+        #  units: m w.e. based on initial area
+        print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
 #        main_glac_wide_volume_loss_perc[glac] = (
 #                (glac_wide_volume_annual[-1]-glac_wide_volume_annual[0])/glac_wide_volume_annual[0] * 100)
-##        print('Volume loss 2000-2100 [%]:', main_glac_wide_volume_loss_perc[glac])
+#        print('Volume loss 2000-2100 [%]:', main_glac_wide_volume_loss_perc[glac])
 #        print(glac_wide_volume_annual[0], glac_wide_volume_annual[-1])
         
         
-        # OUTPUT: Record variables according to output package
-        #  must be done within glacier loop since the variables will be overwritten 
-        if input.output_package != 0:
-            output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
-                               glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-                               glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
-                               glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
-                               glac_bin_surfacetype_annual)
-        
+#        # OUTPUT: Record variables according to output package
+#        #  must be done within glacier loop since the variables will be overwritten 
+#        if input.output_package != 0:
+#            output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
+#                               glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+#                               glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
+#                               glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
+#                               glac_bin_surfacetype_annual)
+#        
 #    # Export variables as global to view in variable explorer
 #    global main_vars
 #    main_vars = inspect.currentframe().f_locals
-    
-    print('Processing time:', time.time()-time_start, 's')
+#    
+#    print('Processing time:', time.time()-time_start, 's')
 
 #%% ====== PARALLEL COMPUTING =====
 #if input.option_parallels == 1:

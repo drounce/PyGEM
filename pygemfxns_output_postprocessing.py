@@ -23,17 +23,17 @@ import scipy
 from scipy.spatial.distance import cdist
 from scipy.spatial.distance import pdist, squareform
 from sklearn.gaussian_process import GaussianProcess
-
+from sklearn.neighbors import NearestNeighbors
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import cartopy
 
 option_plot_futuresim = 0
-option_calc_nearestneighbor = 0
+option_calc_nearestneighbor = 1
 option_plot_MBdata = 0
 option_geodeticMB_loadcompare = 0
-option_kriging = 1
+option_kriging = 0
 
 
 #%%===== PLOT FUNCTIONS =============================================================================================
@@ -410,35 +410,43 @@ if option_calc_nearestneighbor == 1:
     # Load csv
     ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
                      index_col='GlacNo')
-    # Select data of interest
-    data = ds[['CenLon', 'CenLat', 'mb_mwea', 'mb_mwea_sigma', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
-               'ddfice', 'tempsnow', 'tempchange']].copy()
     # Drop nan data to retain only glaciers with calibrated parameters
-    data_cal = data.dropna()
-    A = data_cal.mean(0)
-    # Select latitude and longitude of calibrated parameters for distance estimate
-    data_cal_lonlat = data_cal.iloc[:,0:2].values
-    # Loop through each glacier and select the parameters based on the nearest neighbor
-    for glac in range(data.shape[0]):
+    ds_cal = ds.dropna()
+    ds_cal_lonlat = ds_cal.loc[:,['CenLon','CenLat']].values
+    
+    # Set number of nearest neighbors
+    n_nbrs = 20
+    # Create dictionary between cal indices and all the glacier indices
+    cal_dict = dict(zip(np.arange(0,ds_cal.shape[0]),ds_cal.index.values))
+    # Add columns to pandas dataframe
+    col_name_list = []
+    for n in range(n_nbrs):
+        col_name = 'nearidx_' + str(n+1)
+        ds[col_name] = np.nan
+        col_name_list.append(col_name)
+    
+    # Loop through each glacier and select the closest 10 glaciers
+    for glac in range(ds.shape[0]):
+#    for glac in [6880]:
         # Avoid applying this to any glaciers that already were optimized
-        if data.iloc[glac, :].isnull().values.any() == True:
-            # Select the latitude and longitude of the glacier's center
-            glac_lonlat = data.iloc[glac,0:2].values
-            # Set point to be compatible with cdist function (from scipy)
-            pt = [[glac_lonlat[0],glac_lonlat[1]]]
-            # scipy function to calculate distance
-            distances = cdist(pt, data_cal_lonlat)
-            # Find minimum index (could be more than one)
-            idx_min = np.where(distances == distances.min())[1]
-            # Set new parameters
-            data.iloc[glac,2:] = data_cal.iloc[idx_min,2:].values.mean(0)
-            #  use mean in case multiple points are equidistant from the glacier
-    MB_pos_count = np.where(data['mb_mwea'] > 0)[0].shape[0]
-    ## Remove latitude and longitude to create csv file
-    #parameters_export = data.iloc[:,2:]
+        if ds.iloc[glac, :].isnull().values.any() == True:
+            print(ds.loc[glac,'RGIId'])
+            # Select the lon/lat of the glacier's center
+            glac_lonlat = np.zeros((1,2))
+            glac_lonlat[:] = ds.loc[glac,['CenLon','CenLat']].values
+            # Append the lon/lat
+            glac_lonlat_wcal = np.append(glac_lonlat, ds_cal_lonlat, axis=0)
+            # Calculate nearest neighbors (set neighbors + 1 to account for itself)
+            nbrs = NearestNeighbors(n_neighbors=n_nbrs+1, algorithm='brute').fit(glac_lonlat_wcal)
+            distances_raw, indices_raw = nbrs.kneighbors(glac_lonlat_wcal)
+            # Select glacier (row 0) and remove itself (col 0), so left with indices for nearest neighbors
+            indices_raw2 = indices_raw[0,:][indices_raw[0,:] > 0] - 1
+            indices = np.array([cal_dict[n] for n in indices_raw2])
+            # Add indices to columns
+            ds.loc[glac, col_name_list] = indices            
+    
     ## Export csv file
-    #parameters_export.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nearest.csv', 
-    #                         index=False)
+#    ds.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nnbridx.csv', index=False)
     
 
 #%% ===== KRIGING OF MODEL PARAMETERS =====
