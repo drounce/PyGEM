@@ -652,10 +652,11 @@ if input.option_calibration == 0:
     # [INSERT REGIONAL LOOP HERE] if want to do all regions at the same time.  Separate netcdf files will be generated
     #  for each loop to reduce file size and make files easier to read/share
     
-    regionO1_number = input.rgi_regionsO1[0]
     # Create output netcdf file
     if input.output_package != 0:
-        netcdf_fullfilename = output.netcdfcreate(regionO1_number, main_glac_hyps, dates_table)
+        netcdf_fn = (input.netcdf_fn_prefix + str(input.rgi_regionsO1[0]) + '_' + str(input.startyear) + '_' + 
+                     str(input.endyear) + '_' + str(strftime("%Y%m%d")) + '.nc')
+        output.netcdfcreate(netcdf_fn, main_glac_rgi, main_glac_hyps, dates_table)
         
     # Load model parameters
     if input.option_loadparameters == 1:
@@ -711,7 +712,7 @@ if input.option_calibration == 0:
         # OUTPUT: Record variables according to output package
         #  must be done within glacier loop since the variables will be overwritten 
         if input.output_package != 0:
-            output.netcdfwrite(netcdf_fullfilename, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
+            output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
                                glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
                                glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
                                glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,

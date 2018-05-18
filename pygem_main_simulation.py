@@ -188,7 +188,7 @@ for batman in [0]:
     if input.output_package != 0:
         netcdf_fn = (input.netcdf_fn_prefix + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_' +
                      str(input.startyear) + '_' + str(input.endyear) + '_' + str(strftime("%Y%m%d")) + '.nc')
-        output.netcdfcreate(netcdf_fn, main_glac_hyps, dates_table)
+        output.netcdfcreate(netcdf_fn, main_glac_rgi, main_glac_hyps, dates_table)
         
     # Import mass balance envelope function
     if input.option_mb_envelope == 1:
@@ -201,8 +201,11 @@ for batman in [0]:
     main_glac_nbr_count = np.zeros(main_glac_rgi.shape[0])
     # ENTER GLACIER LOOP
     for glac in range(main_glac_rgi.shape[0]):
-#    #    for glac in [0]:
-#        print(main_glac_rgi.loc[glac,'RGIId'])
+#    for glac in [0]:
+#    for glac in [325,326,327,328,329,330,331,332,333,334,336,337,338,339,340,342,343,344,345,346,347,348]:
+#    for glac in [469, 470, 498, 502]:
+#    for glac in [1272, 1277, 1308,1309, 1310,1311,1312,1315,1316, 1317, 1318, 1319, 1320, 1441, 1446, 1449, 1450, 1481]:
+        print(main_glac_rgi.loc[glac,'RGIId'])
         # Print every 100th glacier
         if glac%100 == 0:
             print(main_glac_rgi.loc[glac,'RGIId'])
@@ -220,8 +223,6 @@ for batman in [0]:
         modelparameters['tempchange'] = modelparameters['tempchange'] + 0.002594 * (glac_zmed - nbr_zmed)
         modelparameters['precfactor'] = modelparameters['precfactor'] - 0.0005451 * (glac_zmed - nbr_zmed)
         modelparameters['ddfsnow'] = modelparameters['ddfsnow'] + 1.31e-06 * (glac_zmed - nbr_zmed)
-        
-        
         
 #        print(main_glac_modelparams_all.loc[nbr_idx,['RGIId','Area', 'Zmed']].values)
 #        print(modelparameters['tempchange'], modelparameters['precfactor'], modelparameters['ddfsnow'])
@@ -263,7 +264,7 @@ for batman in [0]:
         main_glac_wide_massbaltotal_annual_avg[glac] = (
                 glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
         #  units: m w.e. based on initial area
-#        print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
+        print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
         main_glac_wide_volume_loss_perc[glac] = (
                 (glac_wide_volume_annual[-1]-glac_wide_volume_annual[0])/glac_wide_volume_annual[0] * 100)
 #        print('Volume loss 2000-2100 [%]:', main_glac_wide_volume_loss_perc[glac])
@@ -271,14 +272,21 @@ for batman in [0]:
         
         mb_mwea = main_glac_wide_massbaltotal_annual_avg[glac]
         area = glacier_rgi_table.Area
-        mb_envelope_idx = np.where(area < mb_envelope[:,0])[0][0]
-        mb_envelope_lower = mb_envelope[mb_envelope_idx,1]
-        mb_envelope_upper = mb_envelope[mb_envelope_idx,2]
+#        mb_envelope_idx = np.where(area < mb_envelope[:,0])[0][0]
+#        mb_envelope_lower = mb_envelope[mb_envelope_idx,1]
+#        mb_envelope_upper = mb_envelope[mb_envelope_idx,2]
         # Select all nearest neighbors
         nbr_idx_cols = [col for col in main_glac_modelparams_all if col.startswith('nearidx')]
         n_nbrs = len(nbr_idx_cols)
+        nbr_idx_all = main_glac_modelparams.loc[glac, nbr_idx_cols].values.astype(int)
+        mb_nbrs = main_glac_modelparams_all.loc[nbr_idx_all,'mb_mwea']
+        mb_nbrs_mean = mb_nbrs.mean()
+        mb_nbrs_std = mb_nbrs.std()
+        mb_envelope_lower = mb_nbrs_mean - mb_nbrs_std
+        mb_envelope_upper = mb_nbrs_mean + mb_nbrs_std
         
-        
+        print('mb envelope:', mb_envelope_lower, mb_envelope_upper)
+#        print('mb envelope2:', mb_envelope_lower2, mb_envelope_upper2)
         while ((mb_mwea > mb_envelope_upper) or (mb_mwea < mb_envelope_lower)) and (nbr_idx_count < n_nbrs):
 #        for n in [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]:
             nbr_idx_count = nbr_idx_count + 1
@@ -330,9 +338,11 @@ for batman in [0]:
             main_glac_wide_massbaltotal_annual_avg[glac] = (
                     glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
             #  units: m w.e. based on initial area
-            if nbr_idx_count == n_nbrs:
-                print(glacier_rgi_table.RGIId, nbr_idx_count)
-                print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
+#            if nbr_idx_count == n_nbrs:
+#                print(glacier_rgi_table.RGIId, nbr_idx_count)
+#                print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
+            print(glacier_rgi_table.RGIId, nbr_idx_count)
+            print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
             main_glac_wide_volume_loss_perc[glac] = (
                     (glac_wide_volume_annual[-1]-glac_wide_volume_annual[0])/glac_wide_volume_annual[0] * 100)
 #            print('Volume loss 2000-2100 [%]:', main_glac_wide_volume_loss_perc[glac])
@@ -447,4 +457,6 @@ for batman in [0]:
 
 
 #%%=== Model testing ===============================================================================
-#netcdf_output = nc.Dataset(input.main_directory + '/' + netcdf_fullfilename, 'r+')
+#output = nc.Dataset(input.output_filepath + netcdf_fn, 'r+')
+#dates = nc.num2date(output['time'][:], units=output['time'].units, calendar=output['time'].calendar).tolist()
+

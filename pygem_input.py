@@ -28,11 +28,14 @@ rgi_regionsO2 = 'all'
 #rgi_regionsO2 = [2]
 #  do not change this
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
-#rgi_glac_number = ['00341']
+#rgi_glac_number = ['00326']
+#rgi_glac_number = ['00470', '00471', '00499', '00503']
+rgi_glac_number = ['00328', '00329', '00330', '00331', '00332', '00333', '00334', '00335', '00344']
+#rgi_glac_number = ['00327']
 
 # First year of model run
 startyear = 2000
@@ -429,7 +432,7 @@ terminus_percentage = 20
 #------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FIVE: Output
 # Output package number
-output_package = 2
+output_package = 0
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
     #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,
