@@ -16,8 +16,8 @@ import argparse
 import multiprocessing
 from scipy.optimize import minimize
 from scipy.stats import linregress
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_samples, silhouette_score
+#from sklearn.cluster import KMeans
+#from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.pyplot as plt
 import cartopy
 import inspect
@@ -286,15 +286,16 @@ for batman in [0]:
         while (((mb_mwea > mb_envelope_upper) or (mb_mwea < mb_envelope_lower)) and (nbr_idx_count <= len(nbr_idx_cols))
                and (break_while_loop==False)):
 #        for n in [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]:
-            nbr_idx_count = nbr_idx_count + 1
             main_glac_nbr_count[glac] = nbr_idx_count
+            nbr_idx_count = nbr_idx_count + 1
             # If cycled through all neighbors without being in MB envelope, then select nearest neighbor with closest 
             #  MB to the envelope and exit the loop after
             if nbr_idx_count > len(nbr_idx_cols):
                 mb_abs = np.zeros((nbrs_data.shape[0],2)) 
                 mb_abs[:,0] = abs(nbrs_data[:,3] - mb_envelope_lower)
                 mb_abs[:,1] = abs(nbrs_data[:,3] - mb_envelope_upper)
-                nbr_idx_count = np.where(mb_abs == mb_abs.min())[0][0]
+                nbr_idx_count = np.where(mb_abs == mb_abs.min())[0][0] + 1
+                #  + 1 accounts for the index column names starting with 1 instead of 0
                 break_while_loop = True
             # Model parameters
             nbr_idx = main_glac_modelparams.loc[glac,'nearidx_' + str(nbr_idx_count)].astype(int)
@@ -362,7 +363,7 @@ for batman in [0]:
                                glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
                                glac_bin_surfacetype_annual)
     
-    np.savetxt(input.main_directory + '/../Output/main_glac_nbr_count', main_glac_nbr_count, delimiter=',')
+    np.savetxt(input.main_directory + '/../Output/main_glac_nbr_count.csv', main_glac_nbr_count, delimiter=',')
     
     # Export variables as global to view in variable explorer
     global main_vars
@@ -457,5 +458,6 @@ for batman in [0]:
 
 #%%=== Model testing ===============================================================================
 #output = nc.Dataset(input.output_filepath + netcdf_fn, 'r+')
+output = nc.Dataset(input.output_filepath + 'PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180518.nc', 'r+')
 #dates = nc.num2date(output['time'][:], units=output['time'].units, calendar=output['time'].calendar).tolist()
 
