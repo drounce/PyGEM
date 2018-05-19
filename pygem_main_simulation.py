@@ -190,42 +190,47 @@ for batman in [0]:
                      str(input.startyear) + '_' + str(input.endyear) + '_' + str(strftime("%Y%m%d")) + '.nc')
         output.netcdfcreate(netcdf_fn, main_glac_rgi, main_glac_hyps, dates_table)
         
-    # Import mass balance envelope function
-    if input.option_mb_envelope == 1:
-        mb_envelope = np.genfromtxt(input.main_directory + '/../Calibration_datasets/bins_area_mb_bounds_1std.csv', 
-                                    delimiter=',')
         
     main_glac_wide_massbaltotal_annual_avg = np.zeros(main_glac_rgi.shape[0])
     main_glac_wide_volume_loss_perc = np.zeros(main_glac_rgi.shape[0])
     main_glac_wide_volume_loss_total = np.zeros(main_glac_rgi.shape[0])
     main_glac_nbr_count = np.zeros(main_glac_rgi.shape[0])
+    
     # ENTER GLACIER LOOP
     for glac in range(main_glac_rgi.shape[0]):
 #    for glac in [0]:
-#    for glac in [325,326,327,328,329,330,331,332,333,334,336,337,338,339,340,342,343,344,345,346,347,348]:
-#    for glac in [469, 470, 498, 502]:
-#    for glac in [1272, 1277, 1308,1309, 1310,1311,1312,1315,1316, 1317, 1318, 1319, 1320, 1441, 1446, 1449, 1450, 1481]:
-        print(main_glac_rgi.loc[glac,'RGIId'])
+#        print(main_glac_rgi.loc[glac,'RGIId'])
         # Print every 100th glacier
         if glac%100 == 0:
             print(main_glac_rgi.loc[glac,'RGIId'])
             
-        # Select model parameters based on nearest neighbor index
-        glac_idx = main_glac_modelparams.loc[glac,'O1Index']
-        nbr_idx_count = 1
-        nbr_idx = main_glac_modelparams.loc[glac,'nearidx_' + str(nbr_idx_count)].astype(int)
-        modelparameters = main_glac_modelparams_all.loc[nbr_idx,['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow',
-                                                             'ddfice', 'tempsnow', 'tempchange']]
+        # Nearest neighbors: mass balance envelope
+        nbr_idx_cols = [col for col in main_glac_modelparams_all if col.startswith('nearidx')]
+        nbrs_data = np.zeros((len(nbr_idx_cols),4))
+        #  Col 0 - index count
+        #  Col 1 - index value
+        #  Col 2 - MB
+        #  Col 3 - MB modeled using neighbor's parameter
+        nbrs_data[:,0] = np.arange(1,len(nbr_idx_cols)+1) 
+        nbrs_data[:,1] = main_glac_modelparams.loc[glac, nbr_idx_cols].values.astype(int)
+        nbrs_data[:,2] = main_glac_modelparams_all.loc[nbrs_data[:,1], input.massbal_colname]
+        mb_nbrs_mean = nbrs_data[:,2].mean()
+        mb_nbrs_std = nbrs_data[:,2].std()
+        mb_envelope_lower = mb_nbrs_mean - mb_nbrs_std
+        mb_envelope_upper = mb_nbrs_mean + mb_nbrs_std
         
+        # Nearest neighbor: select model parameters
+        glac_idx = main_glac_modelparams.loc[glac,'O1Index']
+        nbr_idx_count = 0
+        nbr_idx = nbrs_data[nbr_idx_count,1]
+        modelparameters = main_glac_modelparams_all.loc[nbr_idx,['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow',
+                                                                 'ddfice', 'tempsnow', 'tempchange']]
         # Adjust model parameters for differences in Zmed
         glac_zmed = main_glac_rgi.loc[glac,'Zmed']
         nbr_zmed = main_glac_modelparams_all.loc[nbr_idx,'Zmed']
         modelparameters['tempchange'] = modelparameters['tempchange'] + 0.002594 * (glac_zmed - nbr_zmed)
         modelparameters['precfactor'] = modelparameters['precfactor'] - 0.0005451 * (glac_zmed - nbr_zmed)
         modelparameters['ddfsnow'] = modelparameters['ddfsnow'] + 1.31e-06 * (glac_zmed - nbr_zmed)
-        
-#        print(main_glac_modelparams_all.loc[nbr_idx,['RGIId','Area', 'Zmed']].values)
-#        print(modelparameters['tempchange'], modelparameters['precfactor'], modelparameters['ddfsnow'])
         
         # Select subset of variables to reduce the amount of data being passed to the function
         glacier_rgi_table = main_glac_rgi.loc[glac, :]
@@ -248,7 +253,6 @@ for batman in [0]:
             massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
                                        elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                                        glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table))
-        
         # Compare calibration data (mass balance)
         # Column index for start and end year based on dates of geodetic mass balance observations
         # Total volume loss
@@ -258,38 +262,41 @@ for batman in [0]:
                           glac_wide_massbaltotal_annual / 1000)[-1])
         massbal_idx_start = 0
         massbal_idx_end = 16
-#        # Annual glacier-wide mass balance [m w.e.]
+        # Annual glacier-wide mass balance [m w.e.]
         glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
         # Average annual glacier-wide mass balance [m w.e.a.]
         main_glac_wide_massbaltotal_annual_avg[glac] = (
                 glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
         #  units: m w.e. based on initial area
-        print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
         main_glac_wide_volume_loss_perc[glac] = (
                 (glac_wide_volume_annual[-1]-glac_wide_volume_annual[0])/glac_wide_volume_annual[0] * 100)
+        
+        # Print desired output
+#        print('mb envelope:', mb_envelope_lower, mb_envelope_upper)
+#        print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
 #        print('Volume loss 2000-2100 [%]:', main_glac_wide_volume_loss_perc[glac])
 #        print(glac_wide_volume_annual[0], glac_wide_volume_annual[-1])
         
         mb_mwea = main_glac_wide_massbaltotal_annual_avg[glac]
-        area = glacier_rgi_table.Area
-#        mb_envelope_idx = np.where(area < mb_envelope[:,0])[0][0]
-#        mb_envelope_lower = mb_envelope[mb_envelope_idx,1]
-#        mb_envelope_upper = mb_envelope[mb_envelope_idx,2]
-        # Select all nearest neighbors
-        nbr_idx_cols = [col for col in main_glac_modelparams_all if col.startswith('nearidx')]
-        n_nbrs = len(nbr_idx_cols)
-        nbr_idx_all = main_glac_modelparams.loc[glac, nbr_idx_cols].values.astype(int)
-        mb_nbrs = main_glac_modelparams_all.loc[nbr_idx_all,'mb_mwea']
-        mb_nbrs_mean = mb_nbrs.mean()
-        mb_nbrs_std = mb_nbrs.std()
-        mb_envelope_lower = mb_nbrs_mean - mb_nbrs_std
-        mb_envelope_upper = mb_nbrs_mean + mb_nbrs_std
+        nbrs_data[nbr_idx_count-1,3] = mb_mwea
         
-        print('mb envelope:', mb_envelope_lower, mb_envelope_upper)
-#        print('mb envelope2:', mb_envelope_lower2, mb_envelope_upper2)
-        while ((mb_mwea > mb_envelope_upper) or (mb_mwea < mb_envelope_lower)) and (nbr_idx_count < n_nbrs):
+        # Loop through nearest neighbors until find set of model parameters that returns MB in MB envelope
+        # Break loop used to exit loop if unable to find parameter set that satisfies criteria
+        break_while_loop = False
+        while (((mb_mwea > mb_envelope_upper) or (mb_mwea < mb_envelope_lower)) and (nbr_idx_count <= len(nbr_idx_cols))
+               and (break_while_loop==False)):
 #        for n in [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]:
             nbr_idx_count = nbr_idx_count + 1
+            main_glac_nbr_count[glac] = nbr_idx_count
+            # If cycled through all neighbors without being in MB envelope, then select nearest neighbor with closest 
+            #  MB to the envelope and exit the loop after
+            if nbr_idx_count > len(nbr_idx_cols):
+                mb_abs = np.zeros((nbrs_data.shape[0],2)) 
+                mb_abs[:,0] = abs(nbrs_data[:,3] - mb_envelope_lower)
+                mb_abs[:,1] = abs(nbrs_data[:,3] - mb_envelope_upper)
+                nbr_idx_count = np.where(mb_abs == mb_abs.min())[0][0]
+                break_while_loop = True
+            # Model parameters
             nbr_idx = main_glac_modelparams.loc[glac,'nearidx_' + str(nbr_idx_count)].astype(int)
             modelparameters = main_glac_modelparams_all.loc[nbr_idx,['lrgcm', 'lrglac', 'precfactor', 'precgrad', 
                                                                      'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']]
@@ -297,11 +304,7 @@ for batman in [0]:
             modelparameters['tempchange'] = modelparameters['tempchange'] + 0.002594 * (glac_zmed - nbr_zmed)
             modelparameters['precfactor'] = modelparameters['precfactor'] - 0.0005451 * (glac_zmed - nbr_zmed)
             modelparameters['ddfsnow'] = modelparameters['ddfsnow'] + 1.31e-06 * (glac_zmed - nbr_zmed)
-
-#            print(main_glac_modelparams_all.loc[nbr_idx,['RGIId','Area', 'Zmed']].values)
-#            print(modelparameters['tempchange'], modelparameters['precfactor'], modelparameters['ddfsnow'])
-            
-            # Select subset of variables to reduce the amount of data being passed to the function
+            # Reset variables
             glacier_rgi_table = main_glac_rgi.loc[glac, :]
             glacier_gcm_elev = main_glac_gcmelev[glac]
             glacier_gcm_prec = main_glac_gcmprec[glac,:]
@@ -309,7 +312,6 @@ for batman in [0]:
             glacier_gcm_lrgcm = main_glac_gcmlapserate[glac]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
-            # Inclusion of ice thickness and width, i.e., loading values may be only required for Huss mass redistribution!
             icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
             width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
             # MASS BALANCE
@@ -322,7 +324,6 @@ for batman in [0]:
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
                                            elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                                            glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table))
-            
             # Compare calibration data (mass balance)
             # Column index for start and end year based on dates of geodetic mass balance observations
             # Total volume loss
@@ -332,27 +333,25 @@ for batman in [0]:
                               glac_wide_massbaltotal_annual / 1000)[-1])
             massbal_idx_start = 0
             massbal_idx_end = 16
-    #        # Annual glacier-wide mass balance [m w.e.]
+            # Annual glacier-wide mass balance [m w.e.]
             glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
             # Average annual glacier-wide mass balance [m w.e.a.]
             main_glac_wide_massbaltotal_annual_avg[glac] = (
                     glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean())
             #  units: m w.e. based on initial area
-#            if nbr_idx_count == n_nbrs:
-#                print(glacier_rgi_table.RGIId, nbr_idx_count)
-#                print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
-            print(glacier_rgi_table.RGIId, nbr_idx_count)
-            print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])
             main_glac_wide_volume_loss_perc[glac] = (
                     (glac_wide_volume_annual[-1]-glac_wide_volume_annual[0])/glac_wide_volume_annual[0] * 100)
-#            print('Volume loss 2000-2100 [%]:', main_glac_wide_volume_loss_perc[glac])
-#            print(glac_wide_volume_annual[0], glac_wide_volume_annual[-1])
             mb_mwea = main_glac_wide_massbaltotal_annual_avg[glac]
+            nbrs_data[nbr_idx_count-1,3] = mb_mwea
             
-        # Record count
-        main_glac_nbr_count[glac] = nbr_idx_count
-        
-        # EXPORT MAIN_GLAC_NBR_COUNT to CSV or better yet, add to netcdf file!
+#            print(glacier_rgi_table.RGIId, nbr_idx_count)
+#            print('Mass balance 2000-2015 [mwea]:', main_glac_wide_massbaltotal_annual_avg[glac])      
+            
+            # Prior to breaking loop print RGIId and z score
+            if break_while_loop == True:
+                # Compute z score and print out value
+                z_score = (mb_mwea - mb_nbrs_mean) / mb_nbrs_std
+                print(glacier_rgi_table.RGIId, 'z_score:', np.round(z_score,2))
         
         # OUTPUT: Record variables according to output package
         #  must be done within glacier loop since the variables will be overwritten 

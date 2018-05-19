@@ -30,8 +30,8 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import cartopy
 
-option_plot_futuresim = 0
-option_calc_nearestneighbor = 1
+option_plot_futuresim = 1
+option_calc_nearestneighbor = 0
 option_mb_shean_analysis = 0
 option_geodeticMB_loadcompare = 0
 
@@ -122,6 +122,8 @@ if option_plot_futuresim == 1:
     # Select relevant data
     main_glac_rgi = pd.DataFrame(output['glac_table'][:], columns=output['glac_table_header'][:])
     main_glac_rgi['RGIId'] = 'RGI60-' + main_glac_rgi['RGIId'].astype(str)
+    years = output['year'][:]
+    years_plus1 = output['year_plus1'][:]
     massbal_total = output['massbaltotal_glac_monthly'][:]
     massbal_total_mwea = massbal_total.sum(axis=1)/(massbal_total.shape[1]/12)
     volume_glac_annual = output['volume_glac_annual'][:]
@@ -143,10 +145,8 @@ if option_plot_futuresim == 1:
     massbaltotal_reg_monthly = massbaltotal_glac_monthly.mean(axis=0)
     massbaltotal_reg_annual = np.sum(massbaltotal_reg_monthly.reshape(-1,12), axis=1)
     
-#    years = np.arange(2000, 2100 + 1)
-#    years_plus1 = np.arange(2000, 2100 + 2)
-#    month = np.arange(2000, 2100 + 1, 1/12)
-#    plt.plot(years_plus1,volume_reg_annualnorm, label='Region 15')
+
+    plt.plot(years_plus1,volume_reg_annualnorm, label='Region 15')
 #    #plt.plot(years,volume_reg_annualnorm14, label='Region 14')
 #    plt.ylabel('Volume normalized [-]', size=15)
 #    plt.legend()
