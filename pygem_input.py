@@ -28,15 +28,15 @@ rgi_regionsO2 = 'all'
 #rgi_regionsO2 = [2]
 #  do not change this
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number = ['00326']
 #rgi_glac_number = ['00470', '00471', '00499', '00503']
 #rgi_glac_number = ['00328', '00329', '00330', '00331', '00332', '00333', '00334', '00335', '00344']
 #rgi_glac_number = ['00329']
-#rgi_glac_number = ['01273']
+#rgi_glac_number = ['12433']
 
 # First year of model run
 startyear = 2000
@@ -303,8 +303,10 @@ gcmlapserate_filedict = {
 #gcm_name = 'MPI-ESM-LR'
 #rcp_scenario = 'rcp26'
 # Climate data filepath
-gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
-gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
+#gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
+#gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
+gcm_filepath_var = main_directory + '/../Climate_data/cmip5/'
+gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/'
 # Climate file and variable names
 #gcm_temp_filename = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
 gcm_temp_varname = 'tas'
@@ -443,7 +445,7 @@ output_package = 2
     #             monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, 
     #                                             snowline)
     #             annual glacier-wide variables (area, volume, ELA)
-output_filepath = '../Output/'
+output_filepath = main_directory + '/../Output/'
 calibrationcsv_filenameprefix = 'calibration_'
 calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
 netcdf_fn_prefix = 'PyGEM_R'

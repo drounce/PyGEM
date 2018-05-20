@@ -99,19 +99,26 @@ for batman in [0]:
     #%% ===== LOAD CLIMATE DATA =====
     # Select the climate data for a given gcm
     if input.option_gcm_downscale == 1:  
-        # Air Temperature [degC] and GCM dates
+        
+        # Climate data filepaths and filenames
+        gcm_fp_var = input.gcm_filepath_var + rcp_scenario + '_r1i1p1_monNG/'
+        gcm_fp_fx = input.gcm_filepath_fx + rcp_scenario + '_r0i0p0_fx/'
         gcm_temp_fn = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
         gcm_prec_fn = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
         gcm_elev_fn = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
-        
+
+        # Air Temperature [degC] and GCM dates
         main_glac_gcmtemp_raw, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-                gcm_temp_fn, input.gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date)
+                gcm_temp_fn, input.gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date,
+                filepath=gcm_fp_var)
         # Precipitation [m] and GCM dates
         main_glac_gcmprec_raw, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-                gcm_prec_fn, input.gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date)
+                gcm_prec_fn, input.gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date,
+                filepath=gcm_fp_var)
         # Elevation [m a.s.l] associated with air temperature  and precipitation data
         main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(
-                gcm_elev_fn, input.gcm_elev_varname, main_glac_rgi)
+                gcm_elev_fn, input.gcm_elev_varname, main_glac_rgi,
+                filepath=gcm_fp_fx)
         # Add GCM time series to the dates_table
         dates_table['date_gcm'] = main_glac_gcmdate
         # Lapse rate[degC m-1] 
@@ -274,8 +281,9 @@ for batman in [0]:
                                            glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table))
             # Additional output
             # Volume change [%]
-            main_glac_results.loc[glac,'vol_change_perc'] = (
-                    (glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / glac_wide_volume_annual[0] * 100)
+            if icethickness_t0.max() > 0:
+                main_glac_results.loc[glac,'vol_change_perc'] = (
+                        (glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / glac_wide_volume_annual[0] * 100)
             # Annual glacier-wide mass balance [m w.e.]
             glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
             # Average annual glacier-wide mass balance [m w.e.a.]
@@ -293,7 +301,8 @@ for batman in [0]:
             if break_while_loop == True:
                 # Compute z score and print out value
                 z_score = (mb_mwea - mb_nbrs_mean) / mb_nbrs_std
-                print(glacier_rgi_table.RGIId, 'z_score:', mb_mwea, np.round(z_score,2))
+                if abs(z_score) > 1.96:
+                    print(glacier_rgi_table.RGIId, 'z_score:', mb_mwea, np.round(z_score,2))
                
             # If mass balance falls within envelope, then end while loop
             if (mb_mwea <= mb_envelope_upper) and (mb_mwea >= mb_envelope_lower):
@@ -309,8 +318,13 @@ for batman in [0]:
                                glac_bin_surfacetype_annual)
     
     if input.output_package != 0:
-        main_glac_results.to_csv(input.main_directory + '/../Output/main_glac_results_' + str(strftime("%Y%m%d")) + 
-                                 '.csv', sep=',')
+        # Add z-score
+        main_glac_results['z_score'] = ((main_glac_results['mb_mwea'] - main_glac_results['nbr_mb_mean']) / 
+                                        main_glac_results['nbr_mb_std'])
+        csv_output_fn = (input.netcdf_fn_prefix + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
+                         '_' + str(input.startyear) + '_' + str(input.endyear) + '_' + str(strftime("%Y%m%d")) + 
+                         '_main_glac_results.csv')
+        main_glac_results.to_csv(input.output_filepath + csv_output_fn, sep=',')
     
     # Export variables as global to view in variable explorer
 #    global main_vars
@@ -405,6 +419,6 @@ for batman in [0]:
 
 #%%=== Model testing ===============================================================================
 #output = nc.Dataset(input.output_filepath + netcdf_fn, 'r+')
-output = nc.Dataset(input.output_filepath + 'PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180518.nc', 'r+')
+#output = nc.Dataset(input.output_filepath + 'PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180518.nc', 'r+')
 #dates = nc.num2date(output['time'][:], units=output['time'].units, calendar=output['time'].calendar).tolist()
 

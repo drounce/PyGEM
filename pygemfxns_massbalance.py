@@ -290,7 +290,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 glacier_area_t0 = glacier_area_t1.copy()
                 width_t0 = width_t1.copy()   
     else:
-        print('Glacier did not have any ice thickness')
+        print(glacier_rgi_table['RGIId'],'did not have any ice thickness')
     # Remove the spinup years of the variables that are being exported
     if input.timestep == 'monthly':
         colstart = input.spinupyears * annual_divisor

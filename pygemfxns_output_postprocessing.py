@@ -118,18 +118,26 @@ def plot_caloutput(data):
 
 #%% ===== PLOTTING: Future simulations =====
 if option_plot_futuresim == 1:
-    output = nc.Dataset(input.main_directory + '/../Output/' + 'PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180518.nc')
+#    output = nc.Dataset(input.output_filepath + '/../Output/' + 'PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180519.nc')
+    output = nc.Dataset(input.output_filepath + 'R15_finalsims/PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180519.nc')
+    plot_label = 'Region 15'
+    
     # Select relevant data
     main_glac_rgi = pd.DataFrame(output['glac_table'][:], columns=output['glac_table_header'][:])
     main_glac_rgi['RGIId'] = 'RGI60-' + main_glac_rgi['RGIId'].astype(str)
+    lats = main_glac_rgi['CenLat']
+    lons = main_glac_rgi['CenLon']
+    dates = nc.num2date(output['time'][:], units=output['time'].units, calendar=output['time'].calendar).tolist()
     years = output['year'][:]
     years_plus1 = output['year_plus1'][:]
     massbal_total = output['massbaltotal_glac_monthly'][:]
     massbal_total_mwea = massbal_total.sum(axis=1)/(massbal_total.shape[1]/12)
     volume_glac_annual = output['volume_glac_annual'][:]
-    volume_glac_annualnorm = volume_glac_annual / volume_glac_annual[:,0][:,np.newaxis]
-    volume_reg_annual = volume_glac_annual.sum(axis=0)
-    volume_reg_annualnorm = volume_reg_annual / volume_reg_annual[0]
+    volume_glac_annual[volume_glac_annual[:,0] == 0] = np.nan
+    volume_glac_annualnorm = volume_glac_annual / volume_glac_annual[:,0][:,np.newaxis] * 100
+    volume_reg_annual = output['volume_glac_annual'][:].sum(axis=0)
+    volume_reg_annualnorm = volume_reg_annual / volume_reg_annual[0] * 100
+    slr_reg_annual_mm = ((volume_reg_annual[0] - volume_reg_annual) * input.density_ice / input.density_water / input.area_ocean * 10**6)
     runoff_glac_monthly = output['runoff_glac_monthly'][:]
     runoff_reg_monthly = runoff_glac_monthly.mean(axis=0)
     acc_glac_monthly = output['acc_glac_monthly'][:]
@@ -145,16 +153,46 @@ if option_plot_futuresim == 1:
     massbaltotal_reg_monthly = massbaltotal_glac_monthly.mean(axis=0)
     massbaltotal_reg_annual = np.sum(massbaltotal_reg_monthly.reshape(-1,12), axis=1)
     
+    # Plot: Regional volume change [%]
+    plt.plot(years_plus1, volume_reg_annualnorm, label=plot_label)
+    plt.ylabel('Regional volume change [%]')
+    plt.xlim(2000,2101)
+    plt.legend()
+    plt.show()
+    
+    # Plot: Regional sea-level rise [mm]
+    plt.plot(years_plus1, slr_reg_annual_mm, label=plot_label)
+    plt.ylabel('Sea-level rise [mm]')
+    plt.xlim(2000,2101)
+    plt.legend()
+    plt.show()
+    
+    # Plot: Regional specific mass balance rate [mwea]
+    
+    
+    # Plot: Regional map of volume change by glacier
+    volume_change_glac_perc = output['volume_glac_annual'][:][:,0]
+    volume_change_glac_perc[volume_change_glac_perc > 0] = (
+            (volume_glac_annual[volume_change_glac_perc > 0,-1] - volume_glac_annual[volume_change_glac_perc > 0, 0]) 
+            / volume_glac_annual[volume_change_glac_perc > 0, 0] * 100)
+#    volume_change_glac_perc[volume_glac_annual[:,0] == 0] = np.nan
+    # Set extent
+    east = int(round(lons.min())) - 1
+    west = int(round(lons.max())) + 1
+    south = int(round(lats.min())) - 1
+    north = int(round(lats.max())) + 1
+    xtick = 1
+    ytick = 1
+    # Plot regional maps
+    plot_latlonvar(lons, lats, volume_change_glac_perc, -100, 100, 'Volume change from 2000 - 2100 [%]', 
+                   'longitude [deg]', 'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick, marker_size=20)
+    
+    
 
-    plt.plot(years_plus1,volume_reg_annualnorm, label='Region 15')
-#    #plt.plot(years,volume_reg_annualnorm14, label='Region 14')
-#    plt.ylabel('Volume normalized [-]', size=15)
+#    plt.plot(dates, runoff_reg_monthly, label='Region 15')
+#    plt.ylabel('Runoff [m3 / month]', size=15)
 #    plt.legend()
 #    plt.show()
-#    #plt.plot(month,runoff_reg_monthly, label='Region 15 O2')
-#    #plt.ylabel('Runoff [m3 / month]', size=15)
-#    #plt.legend()
-#    #plt.show()
 #    #plt.plot(month, massbaltotal_reg_monthly, label='massbal_total')
 #    #plt.plot(month, acc_reg_monthly, label='accumulation')
 #    #plt.plot(month, refreeze_reg_monthly, label='refreeze')
@@ -169,17 +207,8 @@ if option_plot_futuresim == 1:
 #    plt.ylabel('Region 15 annual mean [m.w.e.]', size=15)
 #    plt.legend()
 #    plt.show()
-#    
-#    # Set extent
-#    east = int(round(lons.min())) - 1
-#    west = int(round(lons.max())) + 1
-#    south = int(round(lats.min())) - 1
-#    north = int(round(lats.max())) + 1
-#    xtick = 1
-#    ytick = 1
-#    # Plot regional maps
-#    plot_latlonvar(lons, lats, massbal_total_mwea, -1.5, 0.5, 'Modeled mass balance [mwea]', 'longitude [deg]', 
-#                   'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick)
+    
+
 
 #%% ===== NEAREST NEIGHBOR MB MWEA PARAMETERS =====
 if option_calc_nearestneighbor == 1:
