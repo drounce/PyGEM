@@ -45,6 +45,7 @@ import inspect
 import multiprocessing
 from scipy.optimize import minimize
 import time
+from time import strftime
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -55,9 +56,9 @@ import pygemfxns_massbalance as massbalance
 # Glacier selection
 rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']  # Ngozumpa
-rgi_glac_number = ['02760']
+#rgi_glac_number = ['02760']
 #rgi_glac_number = ['06881']
 #rgi_glac_number = ['09249']
 # Required input
@@ -112,8 +113,8 @@ with open(args.gcm_file, 'r') as gcm_fn:
     gcm_list = gcm_fn.read().splitlines()
     gcm_name = gcm_list[0]
 print('Found %d gcms to process'%(len(gcm_list)))
-for batman in [0]:
-    
+for batman in [0]:    
+
 #def main(gcm_name):
     print(gcm_name)
     time_start = time.time()
@@ -246,14 +247,10 @@ for batman in [0]:
             # Optimize bias adjustment such that PDD are equal                
             def objective(bias_adj_glac):
                 glac_bin_temp_gcm_adj = glac_bin_temp_gcm + bias_adj_glac
-#                glac_bin_temp_gcm_adj[glac_bin_temp_gcm_adj < 0] = 0
                 melt_energy_available_gcm = glac_bin_temp_gcm_adj * daysinmonth
                 melt_energy_available_gcm[melt_energy_available_gcm < 0] = 0
                 melt_gcm = melt_energy_available_gcm * surfacetype_ddf[:,np.newaxis]
                 melt_vol_gcm = (melt_gcm * glacier_area_t0[:,np.newaxis]).sum()
-#                glac_bin_temp_gcm_adj_warea = glac_bin_temp_gcm_adj * glacier_area_t0[:,np.newaxis]
-#                glac_bin_temp_gcm_PDD_warea = (glac_bin_temp_gcm_adj_warea * daysinmonth).sum()
-#                return abs(glac_bin_temp_ref_PDD_warea - glac_bin_temp_gcm_PDD_warea)
                 return abs(melt_vol_ref - melt_vol_gcm)
             # - initial guess
             bias_adj_init = 0      
@@ -348,7 +345,8 @@ for batman in [0]:
             bias_adj_params[1] = bias_adj_prec_init        
             
             def objective_2(bias_adj_params):
-                # Mass balance for reference data
+                # Reference data
+                # Mass balance
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
                  glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
@@ -366,14 +364,19 @@ for batman in [0]:
                 glac_wide_volume_loss_total_ref_perc = (
                         glac_wide_volume_loss_total_ref / glac_wide_volume_annual[0] * 100)
                 
-                # Mass balance for GCM data
+                # GCM data
+                # Bias corrections
+                glacier_gcm_temp_adj = glacier_gcm_temp + bias_adj_params[0]
+                glacier_gcm_prec_adj = glacier_gcm_prec * bias_adj_params[1]
+                
+                # Mass balance
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
                  glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
                  glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
                  glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
                     massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                               width_t0, elev_bins, glacier_gcm_temp_adj, glacier_gcm_prec_adj, 
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
                                                dates_table_subset, option_calibration=1))
                 # Total volume loss
@@ -392,7 +395,7 @@ for batman in [0]:
             main_glac_bias_adj_params[glac] = bias_adj_params_opt.x
         
             # Compute mass balances to have output data
-            # Mass balance for reference data
+            # Reference data
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
              glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
@@ -408,14 +411,18 @@ for batman in [0]:
                     np.cumsum(glac_wide_area_annual[glac_wide_massbaltotal_annual_ref.shape] * 
                               glac_wide_massbaltotal_annual_ref / 1000)[-1])
             glac_wide_volume_loss_total_ref_perc = glac_wide_volume_loss_total_ref / glac_wide_volume_annual[0] * 100
-            # Mass balance for GCM data
+            
+            # Climate data
+            # Bias corrections
+            glacier_gcm_temp_adj = glacier_gcm_temp + main_glac_bias_adj_params[glac,0]
+            glacier_gcm_prec_adj = glacier_gcm_prec * main_glac_bias_adj_params[glac,1]
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
              glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
              glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
              glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                           width_t0, elev_bins, glacier_gcm_temp_adj, glacier_gcm_prec_adj, 
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
                                            dates_table_subset, option_calibration=1))
             # Glacier volume loss
@@ -425,26 +432,22 @@ for batman in [0]:
                               glac_wide_massbaltotal_annual_gcm / 1000)[-1])
             glac_wide_volume_loss_total_gcm_perc = glac_wide_volume_loss_total_gcm / glac_wide_volume_annual[0] * 100
             
-#        # EXPORT THE ADJUSTMENT VARIABLES (greatly reduces space)
-#        # Set up directory to store climate data
-#        if os.path.exists(output_filepath) == False:
-#            os.makedirs(output_filepath)
-#        # Temperature and precipitation parameters
-#        output_biasadjparams = (gcm_name + '_' + rcp_scenario + '_biasadjparams_opt1_' + 
-#                                str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-##        main_glac_bias_adj_params_wRGIID = np.concatenate((main_glac_rgi['O1Index'].values, main_glac_bias_adj_params),axis=1)
-##        A = main_glac_rgi['O1Index'].values.reshape((main_glac_rgi.shape[0],1))
-##        B = main_glac_bias_adj_params.copy()
-##        C = np.concatenate((A,B),axis=1)
-##        D = pd.DataFrame(C, columns=['GlacNo', 'temp_biasadj', 'prec_biasadj'])
-##        D.set_index('GlacNo', inplace=True)
-#        main_glac_bias_adj_params_export = pd.DataFrame(main_glac_bias_adj_params, columns=['temp_biasadj', 'prec_biasadj'])
-#        main_glac_bias_adj_params_export.to_csv(output_filepath + output_biasadjparams)
-#        # Lapse rate parameters (same for all GCMs - only need to export once)
-#        output_filename_lr = ('biasadj_mon_lravg_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) +
-#                              '.csv')
-#        if os.path.exists(output_filepath + output_filename_lr) == False:
-#            np.savetxt(output_filepath + output_filename_lr, ref_lr_monthly_avg, delimiter=",")
+        # EXPORT THE ADJUSTMENT VARIABLES (greatly reduces space)
+        # Set up directory to store climate data
+        if os.path.exists(output_filepath) == False:
+            os.makedirs(output_filepath)
+        # Temperature and precipitation parameters
+        output_biasadjparams_fn = (gcm_name + '_' + rcp_scenario + '_biasadjparams_opt1_' + 
+                                   str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
+                                   str(strftime("%Y%m%d")) + '.csv')
+        main_glac_bias_adj_params_export = pd.DataFrame(main_glac_bias_adj_params, 
+                                                        columns=['temp_biasadj', 'prec_biasadj'])
+        main_glac_bias_adj_params_export.to_csv(output_filepath + output_biasadjparams_fn)
+        # Lapse rate parameters (same for all GCMs - only need to export once)
+        output_filename_lr = ('biasadj_mon_lravg_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) +
+                              '.csv')
+        if os.path.exists(output_filepath + output_filename_lr) == False:
+            np.savetxt(output_filepath + output_filename_lr, ref_lr_monthly_avg, delimiter=",")
             
     elif option_bias_adjustment == 2:
         # Huss and Hock (2015)
@@ -571,11 +574,12 @@ for batman in [0]:
     
         
 
-#    # Export variables as global to view in variable explorer
-#    global main_vars
-#    main_vars = inspect.currentframe().f_locals
-#    
-#    print('\nProcessing time of',gcm_name,':',time.time()-time_start, 's')
+    # Export variables as global to view in variable explorer
+    if args.option_parallels == 0:
+        global main_vars
+        main_vars = inspect.currentframe().f_locals
+    
+    print('\nProcessing time of',gcm_name,':',time.time()-time_start, 's')
 
 #%% PARALLEL PROCESSING
 #if __name__ == '__main__':
@@ -611,5 +615,7 @@ for batman in [0]:
 #            end_date = main_vars['end_date']
 #            start_date = main_vars['start_date']
 #            dates_table = main_vars['dates_table']
+#            glac_wide_volume_loss_total_ref_perc = main_vars['glac_wide_volume_loss_total_ref_perc'] 
+#            glac_wide_volume_loss_total_gcm_perc = main_vars['glac_wide_volume_loss_total_gcm_perc'] 
 #            
 #    print('Total processing time:', time.time()-time_start, 's')            

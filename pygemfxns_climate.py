@@ -104,7 +104,6 @@ def importGCMvarnearestneighbor_xarray(filename, variablename, main_glac_rgi, da
     """
     # Import netcdf file
     filefull = filepath + filename
-    print(filefull)
     data = xr.open_dataset(filefull)
     glac_variable_series = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
 #     print('Explore the dataset:\n', data)

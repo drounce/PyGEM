@@ -99,14 +99,12 @@ for batman in [0]:
     #%% ===== LOAD CLIMATE DATA =====
     # Select the climate data for a given gcm
     if input.option_gcm_downscale == 1:  
-        
         # Climate data filepaths and filenames
         gcm_fp_var = input.gcm_filepath_var + rcp_scenario + '_r1i1p1_monNG/'
         gcm_fp_fx = input.gcm_filepath_fx + rcp_scenario + '_r0i0p0_fx/'
         gcm_temp_fn = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
         gcm_prec_fn = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
         gcm_elev_fn = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
-
         # Air Temperature [degC] and GCM dates
         main_glac_gcmtemp_raw, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
                 gcm_temp_fn, input.gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date,
@@ -146,6 +144,10 @@ for batman in [0]:
         main_glac_biasadjparams = main_glac_biasadjparams_all.iloc[main_glac_rgi['O1Index'].values]
         main_glac_gcmlapserate = np.tile(main_glac_lapserate_monthly_avg_all[main_glac_rgi['O1Index'].values],
                                          int(dates_table.shape[0]/12))
+        # Perform bias adjustments
+        main_glac_gcmtemp = main_glac_gcmtemp_raw + main_glac_biasadjparams.iloc[:,0].values[:,np.newaxis]
+        main_glac_gcmprec = main_glac_gcmprec_raw * main_glac_biasadjparams.iloc[:,1].values[:,np.newaxis]
+        
     elif input.option_bias_adjustment == 2:
         main_glac_hh2015_mon_precadj_all = np.genfromtxt(
                 input.biasadj_params_filepath + gcm_name + '_' + rcp_scenario + '_biasadjparams_hh2015_mon_precadj_' + 
@@ -172,11 +174,7 @@ for batman in [0]:
         main_glac_gcmelev = main_glac_gcmelev_all[main_glac_rgi['O1Index'].values]
         main_glac_gcmlapserate = np.tile(main_glac_lapserate_monthly_avg_all[main_glac_rgi['O1Index'].values],
                                          int(dates_table.shape[0]/12))
-    # Perform bias adjustments
-    if input.option_bias_adjustment == 1:
-        main_glac_gcmtemp = main_glac_gcmtemp_raw + main_glac_biasadjparams.iloc[:,0].values[:,np.newaxis]
-        main_glac_gcmprec = main_glac_gcmprec_raw * main_glac_biasadjparams.iloc[:,1].values[:,np.newaxis]
-    elif input.option_bias_adjustment == 2:
+        # Perform bias adjustments
         # Correct for monthly temperature bias adjusted based on the monthly average
         t_mt = main_glac_gcmtemp_raw + np.tile(main_glac_hh2015_mon_tempadj, int(dates_table.shape[0]/12))
         # Mean monthly temperature after bias adjusted for monthly average            
@@ -188,7 +186,6 @@ for batman in [0]:
         main_glac_gcmprec = main_glac_gcmprec_raw * np.tile(main_glac_hh2015_mon_precadj, int(dates_table.shape[0]/12))
 
     print('Loading time:', time.time()-time_start, 's')
-        
     
     #%%===== SIMULATION RUN =====
     # Create output netcdf file
