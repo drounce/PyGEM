@@ -29,7 +29,8 @@ rgi_regionsO2 = 'all'
 #  do not change this
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['00001']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number = ['00326']
@@ -43,7 +44,7 @@ startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2100
+endyear = 2015
 
 # Remove NaN values (glaciers without calibration data)
 option_removeNaNcal = 1
@@ -249,7 +250,7 @@ option_surfacetype_debris = 0
 #  - time      variable name is 'time'      for both
 
 # Downscale GCM data option
-option_gcm_downscale = 1
+option_gcm_downscale = 2
 #  Option 1 (default): select climate data based on nearest neighbor
 #  Option 2: import prepared csv files (saves time)
 # Lapse rate option
@@ -280,43 +281,43 @@ gcmlapserate_filedict = {
                          14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
-## CLIMATE DATA INFORMATION
-## ERAINTERIM CLIMATE DATA (Reference data)
-## Climate data filepath
-#gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
-#gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
-## Climate file and variable names
-#gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-#gcm_temp_varname = 't2m'
-#gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-#gcm_prec_varname = 'tp'
-#gcm_elev_filename = 'ERAInterim_geopotential.nc'
-#gcm_elev_varname = 'z'
-#gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
-#gcm_lapserate_varname = 'lapserate'
-#gcm_lat_varname = 'latitude'
-#gcm_lon_varname = 'longitude'
-#gcm_time_varname = 'time'
-
-
-# CMIP5 INPUT CLIMATE DATA
-#gcm_name = 'MPI-ESM-LR'
-#rcp_scenario = 'rcp26'
+# CLIMATE DATA INFORMATION
+# ERAINTERIM CLIMATE DATA (Reference data)
 # Climate data filepath
-#gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
-#gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
-gcm_filepath_var = main_directory + '/../Climate_data/cmip5/'
-gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/'
+gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
+gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
 # Climate file and variable names
-#gcm_temp_filename = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
-gcm_temp_varname = 'tas'
-#gcm_prec_filename = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
-gcm_prec_varname = 'pr'
-#gcm_elev_filename = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
-gcm_elev_varname = 'orog'
-gcm_lat_varname = 'lat'
-gcm_lon_varname = 'lon'
+gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
+gcm_temp_varname = 't2m'
+gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
+gcm_prec_varname = 'tp'
+gcm_elev_filename = 'ERAInterim_geopotential.nc'
+gcm_elev_varname = 'z'
+gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
+gcm_lapserate_varname = 'lapserate'
+gcm_lat_varname = 'latitude'
+gcm_lon_varname = 'longitude'
 gcm_time_varname = 'time'
+
+
+## CMIP5 INPUT CLIMATE DATA
+##gcm_name = 'MPI-ESM-LR'
+##rcp_scenario = 'rcp26'
+## Climate data filepath
+##gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
+##gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
+#gcm_filepath_var = main_directory + '/../Climate_data/cmip5/'
+#gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/'
+## Climate file and variable names
+##gcm_temp_filename = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
+#gcm_temp_varname = 'tas'
+##gcm_prec_filename = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
+#gcm_prec_varname = 'pr'
+##gcm_elev_filename = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
+#gcm_elev_varname = 'orog'
+#gcm_lat_varname = 'lat'
+#gcm_lon_varname = 'lon'
+#gcm_time_varname = 'time'
 
 # Bias adjustments option (required for future simulations)
 option_bias_adjustment = 2

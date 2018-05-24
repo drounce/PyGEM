@@ -30,9 +30,9 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import cartopy
 
-option_plot_futuresim = 1
+option_plot_futuresim = 0
 option_calc_nearestneighbor = 0
-option_mb_shean_analysis = 0
+option_mb_shean_analysis = 1
 option_geodeticMB_loadcompare = 0
 
 #%%===== PLOT FUNCTIONS =============================================================================================
@@ -207,59 +207,6 @@ if option_plot_futuresim == 1:
 #    plt.ylabel('Region 15 annual mean [m.w.e.]', size=15)
 #    plt.legend()
 #    plt.show()
-    
-
-
-#%% ===== NEAREST NEIGHBOR MB MWEA PARAMETERS =====
-if option_calc_nearestneighbor == 1:
-    # Load csv
-    ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
-                     index_col='GlacNo')
-    # Drop nan data to retain only glaciers with calibrated parameters
-    ds_cal = ds.dropna()
-    ds_cal_lonlat = ds_cal.loc[:,['CenLon','CenLat']].values
-    
-    # Set number of nearest neighbors
-    n_nbrs = 20
-    
-    # Create dictionary between cal indices and all the glacier indices
-    cal_dict = dict(zip(np.arange(0,ds_cal.shape[0]),ds_cal.index.values))
-    # Add columns to pandas dataframe
-    col_name_list = []
-    for n in range(n_nbrs):
-        col_name = 'nearidx_' + str(n+1)
-        ds[col_name] = np.nan
-        col_name_list.append(col_name)
-    
-    # Loop through each glacier and select the closest 10 glaciers
-#    for glac in range(ds.shape[0]):
-#    for glac in [325,326,327,328,329,330,331,332,333,334,336,337,338,339,340,342,343,344,345,346,347,348]:
-#    for glac in [469, 470, 498, 502]:
-    for glac in [1272, 1277, 1308,1309, 1310,1311,1312,1315,1316, 1317, 1318, 1319, 1320, 1441, 1446, 1449, 1450, 1481]:
-        # Avoid applying this to any glaciers that already were optimized
-        if ds.iloc[glac, :].isnull().values.any() == True:
-            print(ds.loc[glac,'RGIId'])
-            # Select the lon/lat of the glacier's center
-            glac_lonlat = np.zeros((1,2))
-            glac_lonlat[:] = ds.loc[glac,['CenLon','CenLat']].values
-            # Append the lon/lat
-            glac_lonlat_wcal = np.append(glac_lonlat, ds_cal_lonlat, axis=0)
-            # Calculate nearest neighbors (set neighbors + 1 to account for itself)
-            nbrs = NearestNeighbors(n_neighbors=n_nbrs+1, algorithm='brute').fit(glac_lonlat_wcal)
-            distances_raw, indices_raw = nbrs.kneighbors(glac_lonlat_wcal)
-            # Select glacier (row 0) and remove itself (col 0), so left with indices for nearest neighbors
-            indices_raw2 = indices_raw[0,:][indices_raw[0,:] > 0] - 1
-            indices = np.array([cal_dict[n] for n in indices_raw2])
-            # Add indices to columns
-            ds.loc[glac, col_name_list] = indices            
-            
-            mb_nbrs = ds.loc[indices,'MB_geodetic_mwea']
-            mb_nbrs_mean = mb_nbrs.mean()
-            mb_nbrs_std = mb_nbrs.std()
-            print(mb_nbrs_mean, mb_nbrs_std)
-    
-    ## Export csv file
-#    ds.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nnbridx.csv', index=False)
     
 
 #%% ===== MASS BALANCE ANALYSIS =====
@@ -470,40 +417,19 @@ if option_mb_shean_analysis == 1:
     plt.legend()
     plt.show()
     equation = 'ddfsnow = ' + str(round(slope,12)) + ' * Zmed + ' + str(round(intercept,5)) 
-    print(equation, ' , R2 =', round(r_value**2,2))
+    print(equation, ' , R2 =', round(r_value**2,2))  
     
-## Old plot script
-#    data_raw = pd.read_csv(input.main_directory + '/../DEMs/main_glac_rgi_OnlySheanMB.csv')
-##    data = data_raw[(data_raw['Area']>5) & (data_raw['Area']<20)]
-#    data = data_raw
-#    lat = data['CenLat']
-#    lon = data['CenLon']
-#    area = data['Area']
-#    mb = data['mb_mwea']
-#    area4markers = area.copy()
-#    area4markers[area > 0.1] = 10
-##    area4markers[area > 1] = 20
-#    area4markers[area > 5] = 100
-#    area4markers[area > 20] = 300
-##    area4markers = 100
-#    # Plot Glacier Area vs. MB
-#    plt.scatter(area, mb, facecolors='none', edgecolors='black', label='Region 15')
-#    plt.ylabel('MB 2000-2015 [mwea]', size=12)
-#    plt.xlabel('Glacier area [km2]', size=12)
-#    plt.legend()
-#    plt.show()
-##    plt.savefig('test_fig.png')
-#    # Plot spatial distribution of mass balance data    
-#    # Set extent
-#    east = int(round(lon.min())) - 1
-#    west = int(round(lon.max())) + 1
-#    south = int(round(lat.min())) - 1
-#    north = int(round(lat.max())) + 1
-#    
-#    plot_latlonvar(lon, lat, mb, -1, 1, 'MB 2000-2015 [mwea]', 'longitude [deg]', 
-#                   'latitude [deg]', 'jet_r', east, west, south, north,
-#                   option_savefig=1, fig_fn='Samplefig_fn.png', marker_size=area4markers)
-  
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['Zmed'], main_glac_rgi['precgrad'])
+    xplot = np.arange(4000,6500)
+    line = slope*xplot+intercept
+    plt.plot(main_glac_rgi['Zmed'], main_glac_rgi['precgrad'], 'o', mfc='none', mec='black')
+    plt.plot(xplot, line)
+    plt.xlabel('Zmed [masl]', size=12)
+    plt.ylabel('precgrad [% m-1]', size=12)
+    plt.legend()
+    plt.show()
+    equation = 'precgrad = ' + str(round(slope,12)) + ' * Zmed + ' + str(round(intercept,5)) 
+    print(equation, ' , R2 =', round(r_value**2,2))  
 
 
 #%% ===== ALL GEODETIC MB DATA LOAD & COMPARE (Shean, Brun, Mauer) =====
@@ -679,320 +605,6 @@ if option_geodeticMB_loadcompare == 1:
     plt.show()
     
     
-#%% Envelope function
-#    # Find envelope function
-#    import statsmodels.formula.api as smf
-#    data2 = data[['Area','mb_mwea']]
-#    mod = smf.quantreg('mb_mwea ~ Area + I(Area ** 2.0)', data2)
-#    res = mod.fit(q=0.5)
-#    print(res.summary())
-#    
-#    quantiles = [0.01, 0.25, 0.50, 0.75, 0.99]
-#    res_all = [mod.fit(q=q) for q in quantiles]
-#    
-#    res_ols = smf.ols('mb_mwea ~ Area + I(Area ** 2.0)', data2).fit()
-#    
-#    plt.figure()
-#    
-#    x_p = np.linspace(data2.Area.min(), data2.Area.max())
-#    df_p = pd.DataFrame({'Area': x_p})
-#    
-#    for qm, res in zip(quantiles, res_all):
-#        # get prediction from the model and plot
-#        # here we use a dict which works the same way as the df in ols
-#        plt.plot(x_p, res.predict({'Area': x_p}), linestyle='--', lw=1, color='k', label='q=%0.2F' % qm, zorder=2)
-#    
-#    y_ols_predicted = res_ols.predict(df_p)
-#    plt.plot(x_p, y_ols_predicted, color='red', zorder=1)
-#    #plt.scatter(df.temp, df.dens, alpha=.2)
-#    plt.plot(data2.Area, data2.mb_mwea, 'o', alpha=.2, zorder=0)
-#    plt.xlim((0.1, 80))
-#    plt.ylim((-2, 4))
-#    #plt.legend(loc="upper center")
-#    plt.xlabel('Area [km2]')
-#    plt.ylabel('MB [mwea]')
-#    plt.title('')
-#    plt.show()
-    
-#    # Logarythmic function
-#    import statsmodels.formula.api as smf
-#    data2 = data[['Area','mb_mwea']]
-#    mod = smf.quantreg('mb_mwea ~ Area + I*np.log(Area) + I', data2)
-#    res = mod.fit(q=0.5)
-#    print(res.summary())
-#    
-#    quantiles = [0.01, 0.25, 0.50, 0.75, 0.99]
-#    res_all = [mod.fit(q=q) for q in quantiles]
-#    
-#    res_ols = smf.ols('mb_mwea ~ Area + I*np.log(Area) + I', data2).fit()
-#    
-#    plt.figure()
-#    
-#    x_p = np.linspace(data2.Area.min(), data2.Area.max())
-#    df_p = pd.DataFrame({'Area': x_p})
-#    
-#    for qm, res in zip(quantiles, res_all):
-#        # get prediction from the model and plot
-#        # here we use a dict which works the same way as the df in ols
-#        plt.plot(x_p, res.predict({'Area': x_p}), linestyle='--', lw=1, color='k', label='q=%0.2F' % qm, zorder=2)
-#    
-#    y_ols_predicted = res_ols.predict(df_p)
-#    plt.plot(x_p, y_ols_predicted, color='red', zorder=1)
-#    #plt.scatter(df.temp, df.dens, alpha=.2)
-#    plt.plot(data2.Area, data2.mb_mwea, 'o', alpha=.2, zorder=0)
-#    plt.xlim((0.1, 80))
-#    plt.ylim((-2, 4))
-#    #plt.legend(loc="upper center")
-#    plt.xlabel('Area [km2]')
-#    plt.ylabel('MB [mwea]')
-#    plt.title('')
-#    plt.show()
-    
-    
-##    # Exponential decay
-##    def func(x, a, b, c):
-##        return a * np.exp(-b * x) + c
-##    popt, pcov = curve_fit(func, mb_max2[:,0], mb_max2[:,1])
-##    y = func(A, popt[0], popt[1], popt[2])
-#    
-#    # Gaussian
-#    def func(x, a, b, c):
-#        return a * np.exp(-0.5 * (x - b)**2 / c**2)
-#    popt, pcov = curve_fit(func, mb_max2[:,0], mb_max2[:,1])
-#    y = func(A, popt[0], popt[1], popt[2])
-#    plt.plot(mb_max2[:,0], mb_max2[:,1], 'o', mfc='none', mec='black')
-#    plt.plot(A,y)
-#    plt.plot()
-#    plt.show()
-    
-    
-#%%    # KRIGING
-#    fig, ax = plt.subplots()
-#    ax.scatter(data_95['CenLon'].values, data_95['CenLat'].values, c=data_95['tempchange'].values, cmap='RdBu')
-#    ax.set_aspect(1)
-#    ax.set_xlabel('Longitude [deg]')
-#    ax.set_ylabel('Latitude [deg]')
-#    ax.set_title('Temperature change')
-#    
-#    def SVh(P, h, bw):
-#        "Experimental semivariogram for a single lag"
-#        pd = squareform(pdist( P[:,:2]))
-#        N = pd.shape[0]
-#        Z = list()
-#        for i in range(N):
-#            for j in range(i+1, N):
-#                if ((pd[i,j] >= h-bw) and (pd[i,j] <= h+bw)):
-#                    Z.append((P[i,2] - P[j,2])**2.0)
-#        svh = np.sum(Z) / (2 * len(Z))
-#        return svh
-#
-#    def SV( P, hs, bw ):
-#        "Experimental variogram for a collection of lags"
-#        sv = list()
-#        for h in hs:
-#            sv.append( SVh( P, h, bw ) )
-#        sv = [ [ hs[i], sv[i] ] for i in range( len( hs ) ) if sv[i] > 0 ]
-#        return np.array( sv ).T     
-#    
-#    def covariancefxn(P, h, bw):
-#        "Calculate the sill"
-#        c0 = np.var(P[:,2])
-#        if h == 0:
-#            return c0
-#        return c0 - SVh(P,h,bw)
-#    
-#    # Select x, y, and z data 
-#    P = data_95[['CenLon', 'CenLat', 'tempchange']].values
-#    # bandwidth +/- 250 m
-#    bw = 0.025
-#    # lags in 500 m increments from zero to 10,000
-#    hs = np.arange(0,bw*10+1,bw)
-#    # semivariogram
-#    sv = SV(P, hs, bw )
-#    # plot semivariogram
-#    fig2, ax2 = plt.subplots()
-#    plt.plot(sv[0], sv[1], '.-')
-#    ax2.set_xlabel('Lag [deg]')
-#    ax2.set_ylabel('Semivariance')
-#    
-#    # Steps to fit model to semivariogram
-#    # Function to determine optimal parameter
-#    def optModel(fct, x, y, C0, parameterRange=None, meshSize=1000 ):
-#        if parameterRange == None:
-#            parameterRange = [ x[1], x[-1] ]
-##        print('parameter range:', parameterRange)
-#        mse = np.zeros( meshSize )
-##        print('mesh size:', meshSize)
-#        a = np.linspace( parameterRange[0], parameterRange[1], meshSize )
-##        print('size a:', a.shape)
-#        for i in range( meshSize ):
-##            print('i:', i)
-##            print('y:', y)
-##            print('a[i]:', a[i])
-##            print('C0:', C0)
-##            print('x:', x)
-##            print('size x:', x.shape)
-##            print('size y:', y.shape)
-#            mse[i] = np.mean( ( y - fct( x, a[i], C0 ) )**2.0 )
-#        return a[ mse.argmin() ]
-#    # Spherical model
-#    def spherical( h, a, C0 ):
-#        "Spherical model of the semivariogram"
-#        # if h is a single digit
-#        if type(h) == np.float64:
-#            # calculate the spherical function
-#            if h <= a:
-#                return C0*( 1.5*h/a - 0.5*(h/a)**3.0 )
-#            else:
-#                return C0
-#        # if h is an iterable
-#        else:
-#            # calculate the spherical function for all elements
-#            a = np.ones( h.size ) * a
-#            C0 = np.ones( h.size ) * C0
-#            return list(map( spherical, h, a, C0 ))
-#        
-#    # THIS WRAPS EVERYTHING TOGETHER
-#    def cvmodel( P, model, hs, bw ):
-#        """
-#        Input:  (P)      ndarray, data
-#                (model)  modeling function
-#                          - spherical
-#                          - exponential
-#                          - gaussian
-#                (hs)     distances
-#                (bw)     bandwidth
-#        Output: (covfct) function modeling the covariance
-#        """
-#        # calculate the semivariogram
-#        sv = SV( P, hs, bw )
-#        # calculate the sill
-#        C0 = covariancefxn( P, hs[0], bw )
-#        # calculate the optimal parameters
-#        param = optModel( model, sv[0], sv[1], C0 )
-#        # return a covariance function
-##        covfct = lambda h: C0 - model( h, param, C0 )
-#        covfct = lambda h: model(h,param,C0)
-#        return covfct
-#    
-#    # Breakdown cvmodel into pieces
-#    # Calculate the sill
-#    C0 = covariancefxn( P, hs[0], bw )
-#    # Calculate optimal parameter
-#    param = optModel( spherical, sv[0], sv[1], C0 )
-#    # Multiple ways of getting the covariance values
-#    # Calculate values of spherical function
-#    sp_values = np.zeros(sv.shape[1])
-#    for i in range(sv.shape[1]):
-#        sp_values[i] = spherical(sv[0,i], param, C0)
-#    # Covariance function written out
-##    sp = lambda h: spherical( h, param, C0 )
-##    sp_values2 = sp(sv[0])
-#    # Using the function does it all at once
-#    sp = cvmodel( P, model=spherical, hs=np.arange(0,bw*10+1,bw), bw=0.025 )
-#    
-#    # plot semivariogram
-#    fig3, ax3 = plt.subplots()
-#    plt.plot(sv[0], sv[1], '.-')
-#    plt.plot(sv[0], sp(sv[0]))
-##    plt.plot(sv[0], sp2(sv[0]))
-#    ax3.set_xlabel('Lag [deg]')
-#    ax3.set_ylabel('Semivariance')
-#    ax3.set_title('Spherical Model')
-##    savefig('semivariogram_model.png',fmt='png',dpi=200)
-#    
-#    def krige( P, covfct, hs, bw, u, N ):
-#        '''
-#        Input  (P)     ndarray, data
-#               (model) modeling function
-#                        - spherical
-#                        - exponential
-#                        - gaussian
-#               (hs)    kriging distances
-#               (bw)    kriging bandwidth
-#               (u)     unsampled point
-#               (N)     number of neighboring
-#                       points to consider
-#        '''
-#     
-#        # covariance function
-##        covfct = cvmodel( P, model, hs, bw )
-#        # mean of the variable
-#        mu = np.mean( P[:,2] )
-#     
-#        # distance between u and each data point in P
-#        d = np.sqrt( ( P[:,0]-u[0] )**2.0 + ( P[:,1]-u[1] )**2.0 )
-#        # add these distances to P
-#        P = np.vstack(( P.T, d )).T
-#        # sort P by these distances
-#        # take the first N of them
-#        P = P[d.argsort()[:N]]
-#     
-#        # apply the covariance model to the distances
-#        k = covfct( P[:,3] )
-#        # cast as a matrix
-#        k = np.matrix( k ).T
-#     
-#        # form a matrix of distances between existing data points
-#        K = squareform( pdist( P[:,:2] ) )
-#        # apply the covariance model to these distances
-#        K = covfct( K.ravel() )
-#        # re-cast as a NumPy array -- thanks M.L.
-#        K = np.array( K )
-#        # reshape into an array
-#        K = K.reshape(N,N)
-#        # cast as a matrix
-#        K = np.matrix( K )
-#     
-#        # calculate the kriging weights
-#        weights = np.linalg.inv( K ) * k
-#        weights = np.array( weights )
-#     
-#        # calculate the residuals
-#        residuals = P[:,2] - mu
-#     
-#        # calculate the estimation
-#        estimation = np.dot( weights.T, residuals ) + mu
-#     
-#        return float( estimation )
-#
-#    gridsize = [80, 100]
-#    X0, X1 = P[:,0].min(), P[:,0].max()
-#    Y0, Y1 = P[:,1].min(), P[:,1].max()
-#    Z = np.zeros((gridsize[0],gridsize[1]))
-#    dx, dy = (X1-X0)/gridsize[1], (Y1-Y0)/gridsize[0]
-#    for i in range( gridsize[0] ):
-#        if i%100 == 0:
-#            print(i)
-#        for j in range( gridsize[1] ):
-#            Z[i,j] = krige( P, sp, hs, bw, (dy*j,dx*i), 16 )
-#    # CURRENTLY RETURNS SAME VALUES EVERYWHERE!!
-
-
-#    if option_nearestneighbor_export == 1:
-#        # Select latitude and longitude of calibrated parameters for distance estimate
-#        data_95_lonlat = data_95[['CenLon', 'CenLat']].values
-#        # Loop through each glacier and select the parameters based on the nearest neighbor
-#        for glac in range(data_all.shape[0]):
-#            # Avoid applying this to any glaciers that already were optimized
-#            if data_all.iloc[glac, :].isnull().values.any() == True:
-#                # Select the latitude and longitude of the glacier's center
-#                glac_lonlat = (data_all[['CenLon', 'CenLat']].values)[glac,:]
-#                # Set point to be compatible with cdist function (from scipy)
-#                pt = [[glac_lonlat[0],glac_lonlat[1]]]
-#                # scipy function to calculate distance
-#                distances = cdist(pt, data_95_lonlat)
-#                # Find minimum index (could be more than one)
-#                idx_min = np.where(distances == distances.min())[1]
-#                # Set new parameters
-#                data_all.iloc[glac,4:] = data_95.iloc[idx_min,4:].values.mean(0)
-#                #  use mean in case multiple points are equidistant from the glacier
-#        # Select only parameters to export to csv file
-#        parameters_export = data_all.iloc[:,6:]
-#        # Export csv file
-#        parameters_export.to_csv(input.main_directory + 
-#                                 '/../Calibration_datasets/calparams_R15_20180403_nearest_95confonly.csv', index=False)
-
 #%%===== PLOTTING GRID SEARCH FOR A GLACIER ======
 #data = nc.Dataset(input.main_directory + '/../Output/calibration_gridsearchcoarse_R15_20180324.nc', 'r+')
 ## Extract glacier information
@@ -1259,26 +871,3 @@ if option_geodeticMB_loadcompare == 1:
 #    
 ## run plot function
 #output.plot_caloutput(data)
-
-
-#%% ===== Plotting Anna =====
-#output = nc.Dataset(input.main_directory + '/../Output/6.nc', 'r+')
-#
-### Select relevant data
-#glacier_data = pd.DataFrame(output['glacierparameter'][:])
-#glacier_data.columns = output['glacierparameters'][:]
-#lats = glacier_data['lat'].values.astype(float)
-#lons = glacier_data['lon'].values.astype(float)
-#massbal_total = output['massbaltotal_glac_monthly'][:]
-#massbal_total_mwea = massbal_total.sum(axis=1)/(massbal_total.shape[1]/12)
-#
-## Set extent
-#east = int(round(lons.min())) - 1
-#west = int(round(lons.max())) + 1
-#south = int(round(lats.min())) - 1
-#north = int(round(lats.max())) + 1
-#xtick = 1
-#ytick = 1
-## Plot regional maps
-#plot_latlonvar(lons, lats, massbal_total_mwea, -1.5, 0.5, 'Modeled mass balance [mwea]', 'longitude [deg]', 
-#               'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick)

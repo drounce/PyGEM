@@ -660,10 +660,13 @@ if input.option_calibration == 0:
         
     # Load model parameters
     if input.option_loadparameters == 1:
-        main_glac_modelparams_all = pd.read_csv(input.modelparams_filepath + input.modelparams_filename) 
-        main_glac_modelparams = main_glac_modelparams_all.iloc[main_glac_rgi['O1Index'].values]
-        main_glac_modelparams.reset_index(drop=True, inplace=True)
-        main_glac_modelparams.index.name = input.indexname
+        # Model parameters
+        main_glac_modelparams_all = pd.read_csv(input.modelparams_filepath + input.modelparams_filename, index_col=0)
+        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
+#        main_glac_modelparams_all = pd.read_csv(input.modelparams_filepath + input.modelparams_filename) 
+#        main_glac_modelparams = main_glac_modelparams_all.iloc[main_glac_rgi['O1Index'].values]
+#        main_glac_modelparams.reset_index(drop=True, inplace=True)
+#        main_glac_modelparams.index.name = input.indexname
     else:
         main_glac_modelparams = pd.DataFrame(np.repeat([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, 
             input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange], main_glac_rgi.shape[0]).reshape(-1, 
@@ -684,7 +687,8 @@ if input.option_calibration == 0:
 #    for glac in [0]:  # for testing a single glacier
         print(main_glac_rgi.loc[glac,'RGIId'])
         # Select subset of variables to reduce the amount of data being passed to the function
-        modelparameters = main_glac_modelparams.loc[glac,:].values
+#        modelparameters = main_glac_modelparams.loc[glac,:].values
+        modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],input.modelparams_colnames]
         glacier_rgi_table = main_glac_rgi.loc[glac, :]
         glacier_gcm_elev = main_glac_gcmelev[glac]
         glacier_gcm_prec = main_glac_gcmprec[glac,:]
@@ -706,9 +710,19 @@ if input.option_calibration == 0:
          glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
          glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
          glac_wide_volume_annual, glac_wide_ELA_annual) = (
-            massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, 
-                                       elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+            massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                       width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                                        glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table))
+        # Volume change [%]
+        if icethickness_t0.max() > 0:
+            glac_vol_change_prec = (
+                (glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / glac_wide_volume_annual[0] * 100)
+        # Annual glacier-wide mass balance [m w.e.]
+        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+        # Average annual glacier-wide mass balance [m w.e.a.]
+        massbal_idx_start = 0
+        massbal_idx_end = 16
+        mb_mwea = glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean()
         # OUTPUT: Record variables according to output package
         #  must be done within glacier loop since the variables will be overwritten 
         if input.output_package != 0:

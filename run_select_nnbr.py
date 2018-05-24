@@ -194,7 +194,8 @@ for glac in range(main_glac_rgi.shape[0]):
             modelparameters['tempchange'] = modelparameters['tempchange'] + 0.002594 * (glac_zmed - nbr_zmed)
             modelparameters['precfactor'] = modelparameters['precfactor'] - 0.0005451 * (glac_zmed - nbr_zmed)
             modelparameters['ddfsnow'] = modelparameters['ddfsnow'] + 1.31e-06 * (glac_zmed - nbr_zmed)
-            # Reset variables
+            modelparameters['ddfice'] = modelparameters['ddfsnow'] / input.ddfsnow_iceratio
+            # Select subsets of data
             glacier_rgi_table = main_glac_rgi.loc[glac, :]
             glacier_gcm_elev = main_glac_gcmelev[glac]
             glacier_gcm_prec = main_glac_gcmprec[glac,:]
@@ -213,22 +214,19 @@ for glac in range(main_glac_rgi.shape[0]):
              glac_wide_volume_annual, glac_wide_ELA_annual) = (
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-                                           glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table))
-            # Volume change [%]
-            if icethickness_t0.max() > 0:
-                glac_vol_change_prec = (
-                    (glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / glac_wide_volume_annual[0] * 100)
+                                           glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_calibration=1))
             # Annual glacier-wide mass balance [m w.e.]
             glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
             # Average annual glacier-wide mass balance [m w.e.a.]
-            massbal_idx_start = 0
-            massbal_idx_end = 16
-            mb_mwea = glac_wide_massbaltotal_annual[massbal_idx_start:massbal_idx_end].mean()
+            mb_mwea = glac_wide_massbaltotal_annual.mean()
             #  units: m w.e. based on initial area
             nbrs_data[nbr_idx_count,3] = mb_mwea
+            # Volume change [%]
+            if icethickness_t0.max() > 0:
+                glac_vol_change_perc = (mb_mwea / 1000 * glac_wide_area_annual[0] * 
+                                        glac_wide_massbaltotal_annual.shape[0] / glac_wide_volume_annual[0] * 100)
             
-#            print(nbr_idx_count, ds_cal_all_wnnbrs.loc[nbr_idx,'RGIId'])
-#            print('Mass balance 2000-2015 [mwea]:', mb_mwea)      
+#            print(mb_mwea, glac_vol_change_perc)
            
             # Prior to breaking loop print RGIId and z score
             if break_while_loop == True:
@@ -245,7 +243,7 @@ for glac in range(main_glac_rgi.shape[0]):
             if break_while_loop == True:
                 z_score = (mb_mwea - mb_nbrs_mean) / mb_nbrs_std
                 ds_cal_all_wnnbrs.loc[glac, 'MB_model_mwea'] = mb_mwea
-                ds_cal_all_wnnbrs.loc[glac, 'vol_change_perc_model'] = glac_vol_change_prec
+                ds_cal_all_wnnbrs.loc[glac, 'vol_change_perc_model'] = glac_vol_change_perc
                 ds_cal_all_wnnbrs.loc[glac, 'nbr_idx'] = nbr_idx
                 ds_cal_all_wnnbrs.loc[glac, 'nbr_idx_count'] = nbr_idx_count + 1
                 ds_cal_all_wnnbrs.loc[glac, 'nbr_mb_mean'] = mb_nbrs_mean
@@ -253,12 +251,13 @@ for glac in range(main_glac_rgi.shape[0]):
                 ds_cal_all_wnnbrs.loc[glac, 'z_score'] = z_score
                 ds_cal_all_wnnbrs.loc[glac, 'lrgcm'] = ds_cal_all.loc[nbr_idx, 'lrgcm']
                 ds_cal_all_wnnbrs.loc[glac, 'lrglac'] = ds_cal_all.loc[nbr_idx, 'lrglac']
-                ds_cal_all_wnnbrs.loc[glac, 'precfactor'] = ds_cal_all.loc[nbr_idx, 'precfactor']
+                ds_cal_all_wnnbrs.loc[glac, 'precfactor'] = modelparameters['precfactor']
                 ds_cal_all_wnnbrs.loc[glac, 'precgrad'] = ds_cal_all.loc[nbr_idx, 'precgrad']
-                ds_cal_all_wnnbrs.loc[glac, 'ddfsnow'] = ds_cal_all.loc[nbr_idx, 'ddfsnow']
-                ds_cal_all_wnnbrs.loc[glac, 'ddfice'] = ds_cal_all.loc[nbr_idx, 'ddfice']
+                ds_cal_all_wnnbrs.loc[glac, 'ddfsnow'] = modelparameters['ddfsnow']
+                ds_cal_all_wnnbrs.loc[glac, 'ddfice'] = modelparameters['ddfice']
                 ds_cal_all_wnnbrs.loc[glac, 'tempsnow'] = ds_cal_all.loc[nbr_idx, 'tempsnow']
-                ds_cal_all_wnnbrs.loc[glac, 'tempchange'] = ds_cal_all.loc[nbr_idx, 'tempchange']
+                ds_cal_all_wnnbrs.loc[glac, 'tempchange'] = modelparameters['tempchange']
+                
 
 csv_output_fullfn = cal_modelparams_fullfn.replace('.csv', '_wnnbrs_' + str(strftime("%Y%m%d")) + '.csv')
 ds_cal_all_wnnbrs.to_csv(csv_output_fullfn, sep=',')
