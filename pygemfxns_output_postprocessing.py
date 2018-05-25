@@ -33,7 +33,8 @@ import cartopy
 option_plot_futuresim = 0
 option_calc_nearestneighbor = 0
 option_mb_shean_analysis = 0
-option_geodeticMB_loadcompare = 1
+option_geodeticMB_loadcompare = 0
+option_check_biasadj = 1
 
 #%%===== PLOT FUNCTIONS =============================================================================================
 def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, ylabel, colormap, east, west, south, north, 
@@ -137,7 +138,8 @@ if option_plot_futuresim == 1:
     volume_glac_annualnorm = volume_glac_annual / volume_glac_annual[:,0][:,np.newaxis] * 100
     volume_reg_annual = output['volume_glac_annual'][:].sum(axis=0)
     volume_reg_annualnorm = volume_reg_annual / volume_reg_annual[0] * 100
-    slr_reg_annual_mm = ((volume_reg_annual[0] - volume_reg_annual) * input.density_ice / input.density_water / input.area_ocean * 10**6)
+    slr_reg_annual_mm = ((volume_reg_annual[0] - volume_reg_annual) * input.density_ice / input.density_water / 
+                         input.area_ocean * 10**6)
     runoff_glac_monthly = output['runoff_glac_monthly'][:]
     runoff_reg_monthly = runoff_glac_monthly.mean(axis=0)
     acc_glac_monthly = output['acc_glac_monthly'][:]
@@ -317,52 +319,59 @@ if option_mb_shean_analysis == 1:
             data[['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']])
     # Mass balance versus various parameters
     # Median elevation
-    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Zmed'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Zmed'], facecolors='none', edgecolors='black', 
+                label='Region 15')
     plt.ylabel('Median Elevation [masl]', size=12)
     plt.xlabel('MB 2000-2015 [mwea]', size=12)
     plt.legend()
     plt.show()
     # Elevation range
     main_glac_rgi['elev_range'] = main_glac_rgi['Zmax'] - main_glac_rgi['Zmin']
-    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['elev_range'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['elev_range'], facecolors='none', edgecolors='black', 
+                label='Region 15')
     plt.ylabel('Elevation range [m]', size=12)
     plt.xlabel('MB 2000-2015 [mwea]', size=12)
     plt.legend()
     plt.show()
-    plt.scatter(main_glac_rgi['Area'], main_glac_rgi['elev_range'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.scatter(main_glac_rgi['Area'], main_glac_rgi['elev_range'], facecolors='none', edgecolors='black', 
+                label='Region 15')
     plt.ylabel('Elevation range [m]', size=12)
     plt.xlabel('Area [km2]', size=12)
     plt.legend()
     plt.show()
     # Length
-    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Lmax'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Lmax'], facecolors='none', edgecolors='black', 
+                label='Region 15')
     plt.ylabel('Length [m]', size=12)
     plt.xlabel('MB 2000-2015 [mwea]', size=12)
     plt.legend()
     plt.show()
     # Slope
-    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Slope'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Slope'], facecolors='none', edgecolors='black', 
+                label='Region 15')
     plt.ylabel('Slope [deg]', size=12)
     plt.xlabel('MB 2000-2015 [mwea]', size=12)
     plt.legend()
     plt.show()
     # Aspect
-    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Aspect'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['Aspect'], facecolors='none', edgecolors='black', 
+                label='Region 15')
     plt.ylabel('Aspect [deg]', size=12)
     plt.xlabel('MB 2000-2015 [mwea]', size=12)
     plt.legend()
     plt.show()
-    plt.scatter(main_glac_rgi['Aspect'], main_glac_rgi['precfactor'], facecolors='none', edgecolors='black', label='Region 15')
+    plt.scatter(main_glac_rgi['Aspect'], main_glac_rgi['precfactor'], facecolors='none', edgecolors='black', 
+                label='Region 15')
     plt.ylabel('precfactor [-]', size=12)
     plt.xlabel('Aspect [deg]', size=12)
     plt.legend()
     plt.show()
     # tempchange
     # Line of best fit
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['mb_mwea'], main_glac_rgi['tempchange'])
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['mb_mwea'], 
+                                                                         main_glac_rgi['tempchange'])
     xplot = np.arange(-3,1.5)
     line = slope*xplot+intercept
-#    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['tempchange'], facecolors='none', edgecolors='black', label='Region 15')
     plt.plot(main_glac_rgi['mb_mwea'], main_glac_rgi['tempchange'], 'o', mfc='none', mec='black')
     plt.plot(xplot, line)
     plt.ylabel('tempchange [deg]', size=12)
@@ -371,10 +380,10 @@ if option_mb_shean_analysis == 1:
     plt.show()
     # precfactor
     # Line of best fit
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['mb_mwea'], main_glac_rgi['precfactor'])
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['mb_mwea'], 
+                                                                         main_glac_rgi['precfactor'])
     xplot = np.arange(-3,1.5)
     line = slope*xplot+intercept
-#    plt.scatter(main_glac_rgi['mb_mwea'], main_glac_rgi['tempchange'], facecolors='none', edgecolors='black', label='Region 15')
     plt.plot(main_glac_rgi['mb_mwea'], main_glac_rgi['precfactor'], 'o', mfc='none', mec='black')
     plt.plot(xplot, line)
     plt.ylabel('precfactor [-]', size=12)
@@ -383,7 +392,8 @@ if option_mb_shean_analysis == 1:
     plt.show()
     
     # Relationship between model parameters and elevation?
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['Zmed'], main_glac_rgi['tempchange'])
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['Zmed'], 
+                                                                         main_glac_rgi['tempchange'])
     xplot = np.arange(4000,6500)
     line = slope*xplot+intercept
     plt.plot(main_glac_rgi['Zmed'], main_glac_rgi['tempchange'], 'o', mfc='none', mec='black')
@@ -395,7 +405,8 @@ if option_mb_shean_analysis == 1:
     equation = 'tempchange = ' + str(round(slope,7)) + ' * Zmed + ' + str(round(intercept,5)) 
     print(equation, ' , R2 =', round(r_value**2,2))
     
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['Zmed'], main_glac_rgi['precfactor'])
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['Zmed'], 
+                                                                         main_glac_rgi['precfactor'])
     xplot = np.arange(4000,6500)
     line = slope*xplot+intercept
     plt.plot(main_glac_rgi['Zmed'], main_glac_rgi['precfactor'], 'o', mfc='none', mec='black')
@@ -407,7 +418,8 @@ if option_mb_shean_analysis == 1:
     equation = 'precfactor = ' + str(round(slope,7)) + ' * Zmed + ' + str(round(intercept,5)) 
     print(equation, ' , R2 =', round(r_value**2,2))
     
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['Zmed'], main_glac_rgi['ddfsnow'])
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['Zmed'], 
+                                                                         main_glac_rgi['ddfsnow'])
     xplot = np.arange(4000,6500)
     line = slope*xplot+intercept
     plt.plot(main_glac_rgi['Zmed'], main_glac_rgi['ddfsnow'], 'o', mfc='none', mec='black')
@@ -419,7 +431,8 @@ if option_mb_shean_analysis == 1:
     equation = 'ddfsnow = ' + str(round(slope,12)) + ' * Zmed + ' + str(round(intercept,5)) 
     print(equation, ' , R2 =', round(r_value**2,2))  
     
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['Zmed'], main_glac_rgi['precgrad'])
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(main_glac_rgi['Zmed'], 
+                                                                         main_glac_rgi['precgrad'])
     xplot = np.arange(4000,6500)
     line = slope*xplot+intercept
     plt.plot(main_glac_rgi['Zmed'], main_glac_rgi['precgrad'], 'o', mfc='none', mec='black')
@@ -665,7 +678,7 @@ if option_geodeticMB_loadcompare == 1:
                                    (pd.isnull(main_glac_rgi['Brun_MB_mwea']) == False))].sum())
     main_glac_summary['% reg count'] = main_glac_summary['count'] / main_glac_summary['reg count'] * 100
     main_glac_summary['% total area'] = main_glac_summary['area'] / main_glac_summary['reg area'] * 100
-    
+  
     
 #%%===== PLOTTING GRID SEARCH FOR A GLACIER ======
 #data = nc.Dataset(input.main_directory + '/../Output/calibration_gridsearchcoarse_R15_20180324.nc', 'r+')
@@ -878,7 +891,8 @@ if option_geodeticMB_loadcompare == 1:
 ### Fill in values with average 
 ### Subset all values that have data
 ##data_subset = data.dropna()
-##data_subset_params = data_subset[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow','tempchange']]
+##data_subset_params = data_subset[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow',
+#                                    'tempchange']]
 ##data_subset_paramsavg = data_subset_params.mean()
 ##paramsfilled = data[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow','tempchange']]
 ##paramsfilled = paramsfilled.fillna(data_subset_paramsavg)    
@@ -907,8 +921,8 @@ if option_geodeticMB_loadcompare == 1:
 #               'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick)
 #plot_latlonvar(lons, lats, precfactor, 0.85, 1.3, 'Precipitation factor [-]', 'longitude [deg]', 'latitude [deg]', 
 #               'jet_r', east, west, south, north, xtick, ytick)
-#plot_latlonvar(lons, lats, precgrad, 0.0001, 0.0002, 'Precipitation gradient [% m-1]', 'longitude [deg]', 'latitude [deg]', 
-#               'jet_r', east, west, south, north, xtick, ytick)
+#plot_latlonvar(lons, lats, precgrad, 0.0001, 0.0002, 'Precipitation gradient [% m-1]', 'longitude [deg]', 
+#               'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick)
 #plot_latlonvar(lons, lats, tempchange, -2, 2, 'Temperature bias [degC]', 'longitude [deg]', 'latitude [deg]', 
 #               'jet', east, west, south, north, xtick, ytick)
 #plot_latlonvar(lons, lats, ddfsnow, 0.003, 0.005, 'DDF_snow [m w.e. d-1 degC-1]', 'longitude [deg]', 'latitude [deg]', 

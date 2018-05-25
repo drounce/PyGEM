@@ -394,10 +394,25 @@ def main(list_packed_vars):
                     # Average annual glacier-wide mass balance [m w.e.a.]
                     mb_mwea_gcm = glac_wide_massbaltotal_annual_gcm.mean()
                     return abs(mb_mwea_ref - mb_mwea_gcm)
+                # CONSTRAINTS
+                #  everything goes on one side of the equation compared to zero
+                def constraint_temp_prec(bias_adj_params):
+                    return -1 * (bias_adj_params[0] * (bias_adj_params[1] - 1))
+                    #  To avoid increases/decreases in temp compensating for increases/decreases in prec, respectively,
+                    #  ensure that if temp increases, then prec decreases, and vice versa.  This works because
+                    #  (prec_adj - 1) is positive or negative for increases or decrease, respectively, so multiplying 
+                    #  this by temp_adj gives a positive or negative value.  We want it to always be negative, but since 
+                    #  inequality constraint is for >= 0, we multiply it by -1.
+                # Define constraint type for each function
+                con_temp_prec = {'type':'ineq', 'fun':constraint_temp_prec}
+                #  inequalities are non-negative, i.e., >= 0
+                # Select constraints used to optimize precfactor
+                cons = [con_temp_prec]
                 # INITIAL GUESS
                 bias_adj_params_init = bias_adj_params          
                 # Run the optimization
-                bias_adj_params_opt_raw = minimize(objective_2, bias_adj_params_init, method='SLSQP', tol=1e-3)
+                bias_adj_params_opt_raw = minimize(objective_2, bias_adj_params_init, method='SLSQP', constraints=cons,
+                                                   tol=1e-3)
                 # Record the optimized parameters
                 bias_adj_params_opt = bias_adj_params_opt_raw.x
                 main_glac_bias_adj.loc[glac, ['temp_adj', 'prec_adj']] = bias_adj_params_opt 
@@ -485,8 +500,6 @@ if __name__ == '__main__':
     parser = getparser()
     args = parser.parse_args()
     
-    print('/n/nFIX ORDER COMBINES FILES\n\n')
-    
     # Select glaciers and define chunks
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
                                                           rgi_glac_number=rgi_glac_number)
@@ -559,35 +572,36 @@ if __name__ == '__main__':
             np.savetxt(output_filepath + lr_all_fn, lr_all, delimiter=",")
             
                 
-    # Place local variables in variable explorer
-    main_vars_list = list(main_vars.keys())
-    gcm_name = main_vars['gcm_name']
-    rcp_scenario = main_vars['rcp_scenario']
-    main_glac_rgi = main_vars['main_glac_rgi']
-    main_glac_hyps = main_vars['main_glac_hyps']
-    main_glac_icethickness = main_vars['main_glac_icethickness']
-    main_glac_width = main_vars['main_glac_width']
-    elev_bins = main_vars['elev_bins']
-    main_glac_bias_adj = main_vars['main_glac_bias_adj']
-    dates_table = main_vars['dates_table']
-    glacier_ref_temp = main_vars['glacier_ref_temp']
-    glacier_ref_prec = main_vars['glacier_ref_prec']
-    glacier_gcm_temp_adj = main_vars['glacier_gcm_temp_adj']
-    glacier_gcm_prec_adj = main_vars['glacier_gcm_prec_adj']
-    
-    # Plot reference vs. GCM temperature and precipitation
-    time = dates_table['date']
-    plt.plot(time, glacier_ref_temp, label='ref temp')
-    plt.plot(time, glacier_gcm_temp_adj, label='gcm_temp')
-    plt.ylabel('Temperature [degC]')
-    plt.legend()
-    plt.show()
-    
-    plt.plot(time, glacier_ref_prec, label='ref prec')
-    plt.plot(time, glacier_gcm_prec_adj, label='gcm_prec')
-    plt.ylabel('Precipitation [m]')
-    plt.legend()
-    plt.show()
+#    # Place local variables in variable explorer
+#    main_vars_list = list(main_vars.keys())
+#    gcm_name = main_vars['gcm_name']
+#    rcp_scenario = main_vars['rcp_scenario']
+#    main_glac_rgi = main_vars['main_glac_rgi']
+#    main_glac_hyps = main_vars['main_glac_hyps']
+#    main_glac_icethickness = main_vars['main_glac_icethickness']
+#    main_glac_width = main_vars['main_glac_width']
+#    elev_bins = main_vars['elev_bins']
+#    main_glac_bias_adj = main_vars['main_glac_bias_adj']
+#    dates_table = main_vars['dates_table']
+#    glacier_ref_temp = main_vars['glacier_ref_temp']
+#    glacier_ref_prec = main_vars['glacier_ref_prec']
+#    glacier_gcm_temp_adj = main_vars['glacier_gcm_temp_adj']
+#    glacier_gcm_prec_adj = main_vars['glacier_gcm_prec_adj']
+#    bias_adj_temp_init = main_vars['bias_adj_temp_init']
+#    
+#    # Plot reference vs. GCM temperature and precipitation
+#    dates = dates_table['date']
+#    plt.plot(dates, glacier_ref_temp, label='ref temp')
+#    plt.plot(dates, glacier_gcm_temp_adj, label='gcm_temp')
+#    plt.ylabel('Temperature [degC]')
+#    plt.legend()
+#    plt.show()
+#    
+#    plt.plot(dates, glacier_ref_prec, label='ref prec')
+#    plt.plot(dates, glacier_gcm_prec_adj, label='gcm_prec')
+#    plt.ylabel('Precipitation [m]')
+#    plt.legend()
+#    plt.show()
     
     
             
