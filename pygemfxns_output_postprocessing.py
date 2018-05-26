@@ -30,11 +30,11 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import cartopy
 
-option_plot_futuresim = 0
+option_plot_futuresim = 1
 option_calc_nearestneighbor = 0
 option_mb_shean_analysis = 0
 option_geodeticMB_loadcompare = 0
-option_check_biasadj = 1
+option_check_biasadj = 0
 
 #%%===== PLOT FUNCTIONS =============================================================================================
 def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, ylabel, colormap, east, west, south, north, 
@@ -120,7 +120,8 @@ def plot_caloutput(data):
 #%% ===== PLOTTING: Future simulations =====
 if option_plot_futuresim == 1:
 #    output = nc.Dataset(input.output_filepath + '/../Output/' + 'PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180519.nc')
-    output = nc.Dataset(input.output_filepath + 'R15_finalsims/PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180519.nc')
+#    output = nc.Dataset(input.output_filepath + 'R15_finalsims/PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180519.nc')
+    output = nc.Dataset(input.output_filepath + 'PyGEM_R15_MPI-ESM-LR_rcp26_biasadj_opt1_1995_2100_1.nc')
     plot_label = 'Region 15'
     
     # Select relevant data

@@ -29,14 +29,14 @@ import cartopy
 #========= FUNCTIONS (alphabetical order) ===================================
 #%%===== NETCDF FUNCTIONS =============================================================================================
 # ===== Standard read and write functions for model runs =====
-def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table):
+def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_filepath=input.output_filepath):
     """Create a netcdf file to store the desired output
     Output: empty netcdf file with the proper setup to be filled in by the model
     """
     # Annual columns
     annual_columns = np.unique(dates_table['wateryear'].values)
     # Netcdf file path and name
-    fullfilename = input.output_filepath + filename
+    fullfilename = output_filepath + filename
     # Create netcdf file ('w' will overwrite existing files, 'r+' will open existing file to write)
     netcdf_output = nc.Dataset(fullfilename, 'w', format='NETCDF4')
     # ===== Global attributes =====
@@ -87,10 +87,7 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table):
     glacier_table = netcdf_output.createVariable('glac_table',np.float64,('glac_idx','glac_table',))
     glacier_table.long_name = "glacier table values"
     # convert RGIId from string to float in order to store in netcdf properly
-    main_glac_rgi_float = main_glac_rgi.copy()
-    main_glac_rgi_float['RGIId'] = (np.array([np.str.split(main_glac_rgi['RGIId'][x],'-')[1] 
-                                              for x in range(main_glac_rgi.shape[0])]).astype(float))
-    glacier_table[:] = main_glac_rgi_float.values
+    glacier_table[:] = main_glac_rgi.values
     glacier_table.comment = "Values of RGI table and any added columns. See 'glac_table_header' for column names"
     elevbins = netcdf_output.createVariable('elevbin', np.int32, ('elevbin',))
     elevbins.long_name = "center of elevation bin"
@@ -213,12 +210,12 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table):
 def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, glac_bin_prec, 
                 glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, 
                 glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, glac_bin_icethickness_annual, 
-                glac_bin_width_annual,glac_bin_surfacetype_annual):
+                glac_bin_width_annual,glac_bin_surfacetype_annual, output_filepath=input.output_filepath):
     """Write to the netcdf file that has already been generated to store the desired output
     Output: netcdf with desired variables filled in
     """
     # Open netcdf file to write to existing file ('r+')
-    netcdf_output = nc.Dataset(input.output_filepath + netcdf_fn, 'r+')
+    netcdf_output = nc.Dataset(output_filepath + netcdf_fn, 'r+')
     # Record the variables for each glacier (remove data associated with spinup years)
     if input.output_package == 1:
         # Package 1 "Raw Package" output [units: m w.e. unless otherwise specified]:
