@@ -320,7 +320,7 @@ gcm_time_varname = 'time'
 #gcm_time_varname = 'time'
 
 # Bias adjustments option (required for future simulations)
-option_bias_adjustment = 2
+option_bias_adjustment = 1
 #  Option 0 - ignore bias adjustments
 #  Option 1 - bias adjustments using new technique 
 #  Option 2 - bias adjustments using Huss and Hock [2015] methods
