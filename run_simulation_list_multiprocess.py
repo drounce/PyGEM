@@ -271,7 +271,7 @@ if __name__ == '__main__':
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
     
-    if (args.option_parallels != 0) and (len(rgi_glac_number) >= 2 * args.num_simultaneous_processes):
+    if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
         chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / args.num_simultaneous_processes))
     else:
         chunk_size = main_glac_rgi_all.shape[0]

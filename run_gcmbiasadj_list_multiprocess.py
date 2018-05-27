@@ -717,7 +717,7 @@ if __name__ == '__main__':
     # Select glaciers and define chunks
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
                                                           rgi_glac_number=rgi_glac_number)
-    if (args.option_parallels != 0) and (len(rgi_glac_number) >= 2 * args.num_simultaneous_processes):
+    if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
         chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / args.num_simultaneous_processes))
     else:
         chunk_size = main_glac_rgi_all.shape[0]
@@ -730,7 +730,6 @@ if __name__ == '__main__':
         
     # Loop through all GCMs
     for gcm_name in gcm_list:
-        print('Processing:', gcm_name)
         # Pack variables for multiprocessing
         list_packed_vars = [] 
         n = 0
@@ -740,11 +739,13 @@ if __name__ == '__main__':
         
         # Parallel processing
         if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
+            print('Processing', gcm_name, 'in parallel')
             with multiprocessing.Pool(args.num_simultaneous_processes) as p:
                 p.map(main,list_packed_vars)
         
         # No parallel processing
         else:
+            print('Processing', gcm_name, 'without parallel')
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
