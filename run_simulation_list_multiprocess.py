@@ -23,11 +23,12 @@ import pygemfxns_output as output
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-#rgi_glac_number = 'all'
+rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
-rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
+rgi_glac_number=['10694']
+#rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
 
 # Required input
 # Time period
@@ -54,9 +55,9 @@ gcm_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 option_bias_adjustment = 1
 #  0 - means no bias adjustment
 modelparams_fp = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
-modelparams_fn_body1 = '_biasadj_opt'
-modelparams_fn_body2 = '_1995_2015_R'
-#modelparams_fn_body = '_biasadj_opt' + str(option_bias_adjustment) + '_1995_2015_R' + str(rgi_regionsO1[0])
+#modelparams_fn_body1 = '_biasadj_opt'
+#modelparams_fn_body2 = '_1995_2015_R'
+modelparams_fn_ending = '_biasadj_opt' + str(option_bias_adjustment) + '_1995_2015_R' + str(rgi_regionsO1[0]) + '.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Output
 output_package = 2
@@ -96,13 +97,13 @@ def main(list_packed_vars):
     # Ice thickness [m], average
     main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.thickness_filepath, 
                                                          input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
     main_glac_width = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.width_filepath, 
                                                   input.width_filedict, input.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
     # Model parameters
-    modelparams_fn = (gcm_name + '_' + rcp_scenario + modelparams_fn_body1 + str(option_bias_adjustment) + 
-                      modelparams_fn_body2 + str(rgi_regionsO1[0]) + '.csv')
+    modelparams_fn = (gcm_name + '_' + rcp_scenario + modelparams_fn_ending)
     main_glac_modelparams_all = pd.read_csv(modelparams_fp + modelparams_fn, index_col=0)    
     main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
     
@@ -200,7 +201,7 @@ def main(list_packed_vars):
 
     # ===== RUN MASS BALANCE =====
     for glac in range(main_glac_rgi.shape[0]):
-        if glac%200 == 0:
+        if glac%50 == 0:
             print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
@@ -213,7 +214,7 @@ def main(list_packed_vars):
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
         modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],modelparams_colnames]
-            
+        
         # Mass balance calcs
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
@@ -234,7 +235,7 @@ def main(list_packed_vars):
                                     glac_wide_volume_annual[0] * 100)
             
 #        print(mb_mwea, glac_vol_change_perc)
-        
+
         if output_package != 0:
             output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
                                glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
@@ -296,83 +297,84 @@ if __name__ == '__main__':
     print('Total processing time:', time.time()-time_start, 's')
             
 #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          
-#    # Place local variables in variable explorer
-#    main_vars_list = list(main_vars.keys())
-#    gcm_name = main_vars['gcm_name']
-#    rcp_scenario = main_vars['rcp_scenario']
-#    main_glac_rgi = main_vars['main_glac_rgi']
-#    main_glac_hyps = main_vars['main_glac_hyps']
-#    main_glac_icethickness = main_vars['main_glac_icethickness']
-#    main_glac_width = main_vars['main_glac_width']
-#    main_glac_modelparams = main_vars['main_glac_modelparams']
-#    elev_bins = main_vars['elev_bins']
-#    dates_table = main_vars['dates_table']
-#    gcm_temp = main_vars['gcm_temp']
-#    gcm_prec = main_vars['gcm_prec']
-#    gcm_elev = main_vars['gcm_elev']
-#    gcm_temp_adj = main_vars['gcm_temp_adj']
-#    gcm_prec_adj = main_vars['gcm_prec_adj']
-#    gcm_elev_adj = main_vars['gcm_elev_adj']
-#    modelparameters = main_vars['modelparameters']
-#    glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
-#    glac_wide_area_annual = main_vars['glac_wide_area_annual']
-#    glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
-#    glacier_rgi_table = main_vars['glacier_rgi_table']
-#    glacier_gcm_temp = main_vars['glacier_gcm_temp'][gcm_spinupyears*12:]
-#    glacier_gcm_prec = main_vars['glacier_gcm_prec'][gcm_spinupyears*12:]
-#    glacier_gcm_elev = main_vars['glacier_gcm_elev']
-#    glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm'][gcm_spinupyears*12:]    
-    
-#    # Adjust temperature and precipitation to 'Zmed' so variables can properly be compared
-#    glacier_elev_zmed = glacier_rgi_table.loc['Zmed']  
-#    glacier_gcm_temp_zmed = glacier_gcm_temp + glacier_gcm_lrgcm * (glacier_elev_zmed - glacier_gcm_elev)
-#    glacier_gcm_prec_zmed = glacier_gcm_prec * modelparameters['precfactor']
-#    
-#    glac_wide_massbaltotal_annual = glac_wide_massbaltotal.reshape(-1,12).sum(axis=1)
-#    # Plot reference vs. GCM temperature and precipitation
-#    # Monthly trends
-#    months = dates_table['date'][gcm_spinupyears*12:]
-#    years = np.unique(dates_table['wateryear'].values)[gcm_spinupyears:]
-#    
-#    # Temperature
-#    plt.plot(months, glacier_gcm_temp_zmed, label='gcm_temp')
-#    plt.ylabel('Monthly temperature [degC]')
-#    plt.legend()
-#    plt.show()
-#    # Precipitation
-#    plt.plot(months, glacier_gcm_prec_zmed, label='gcm_prec')
-#    plt.ylabel('Monthly precipitation [m]')
-#    plt.legend()
-#    plt.show()
-#    
-#    # Annual trends
-#    glacier_gcm_temp_zmed_annual = glacier_gcm_temp_zmed.reshape(-1,12).mean(axis=1)
-#    glacier_gcm_prec_zmed_annual = glacier_gcm_prec_zmed.reshape(-1,12).sum(axis=1)
-#    # Temperature
-#    plt.plot(years, glacier_gcm_temp_zmed_annual, label='gcm_temp')
-#    plt.ylabel('Mean annual temperature [degC]')
-#    plt.legend()
-#    plt.show()
-#    # Precipitation
-#    plt.plot(years, glacier_gcm_prec_zmed_annual, label='gcm_prec')
-#    plt.ylabel('Total annual precipitation [m]')
-#    plt.legend()
-#    plt.show()
-#    # Mass balance - bar plot
-#    bar_width = 0.35
-#    plt.bar(years+bar_width, glac_wide_massbaltotal_annual, bar_width, label='gcm_MB')
-#    plt.ylabel('Glacier-wide mass balance [mwea]')
-#    plt.legend()
-#    plt.show()
-#    # Cumulative mass balance - bar plot
-#    glac_wide_massbaltotal_annual_cumsum = np.cumsum(glac_wide_massbaltotal_annual)
-#    bar_width = 0.35
-#    plt.bar(years+bar_width, glac_wide_massbaltotal_annual_cumsum, bar_width, label='gcm_MB')
-#    plt.ylabel('Cumulative glacier-wide mass balance [mwe]')
-#    plt.legend()
-#    plt.show() 
-    
-#    # Histogram of differences
-#    mb_dif = main_glac_bias_adj['ref_mb_mwea'] - main_glac_bias_adj['gcm_mb_mwea']
-#    plt.hist(mb_dif)
-#    plt.show()      
+    # Place local variables in variable explorer
+    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
+        main_vars_list = list(main_vars.keys())
+        gcm_name = main_vars['gcm_name']
+        rcp_scenario = main_vars['rcp_scenario']
+        main_glac_rgi = main_vars['main_glac_rgi']
+        main_glac_hyps = main_vars['main_glac_hyps']
+        main_glac_icethickness = main_vars['main_glac_icethickness']
+        main_glac_width = main_vars['main_glac_width']
+        main_glac_modelparams = main_vars['main_glac_modelparams']
+        elev_bins = main_vars['elev_bins']
+        dates_table = main_vars['dates_table']
+        gcm_temp = main_vars['gcm_temp']
+        gcm_prec = main_vars['gcm_prec']
+        gcm_elev = main_vars['gcm_elev']
+        gcm_temp_adj = main_vars['gcm_temp_adj']
+        gcm_prec_adj = main_vars['gcm_prec_adj']
+        gcm_elev_adj = main_vars['gcm_elev_adj']
+        modelparameters = main_vars['modelparameters']
+        glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
+        glac_wide_area_annual = main_vars['glac_wide_area_annual']
+        glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
+        glacier_rgi_table = main_vars['glacier_rgi_table']
+        glacier_gcm_temp = main_vars['glacier_gcm_temp'][gcm_spinupyears*12:]
+        glacier_gcm_prec = main_vars['glacier_gcm_prec'][gcm_spinupyears*12:]
+        glacier_gcm_elev = main_vars['glacier_gcm_elev']
+        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm'][gcm_spinupyears*12:]    
+        
+    #    # Adjust temperature and precipitation to 'Zmed' so variables can properly be compared
+    #    glacier_elev_zmed = glacier_rgi_table.loc['Zmed']  
+    #    glacier_gcm_temp_zmed = glacier_gcm_temp + glacier_gcm_lrgcm * (glacier_elev_zmed - glacier_gcm_elev)
+    #    glacier_gcm_prec_zmed = glacier_gcm_prec * modelparameters['precfactor']
+    #    
+    #    glac_wide_massbaltotal_annual = glac_wide_massbaltotal.reshape(-1,12).sum(axis=1)
+    #    # Plot reference vs. GCM temperature and precipitation
+    #    # Monthly trends
+    #    months = dates_table['date'][gcm_spinupyears*12:]
+    #    years = np.unique(dates_table['wateryear'].values)[gcm_spinupyears:]
+    #    
+    #    # Temperature
+    #    plt.plot(months, glacier_gcm_temp_zmed, label='gcm_temp')
+    #    plt.ylabel('Monthly temperature [degC]')
+    #    plt.legend()
+    #    plt.show()
+    #    # Precipitation
+    #    plt.plot(months, glacier_gcm_prec_zmed, label='gcm_prec')
+    #    plt.ylabel('Monthly precipitation [m]')
+    #    plt.legend()
+    #    plt.show()
+    #    
+    #    # Annual trends
+    #    glacier_gcm_temp_zmed_annual = glacier_gcm_temp_zmed.reshape(-1,12).mean(axis=1)
+    #    glacier_gcm_prec_zmed_annual = glacier_gcm_prec_zmed.reshape(-1,12).sum(axis=1)
+    #    # Temperature
+    #    plt.plot(years, glacier_gcm_temp_zmed_annual, label='gcm_temp')
+    #    plt.ylabel('Mean annual temperature [degC]')
+    #    plt.legend()
+    #    plt.show()
+    #    # Precipitation
+    #    plt.plot(years, glacier_gcm_prec_zmed_annual, label='gcm_prec')
+    #    plt.ylabel('Total annual precipitation [m]')
+    #    plt.legend()
+    #    plt.show()
+    #    # Mass balance - bar plot
+    #    bar_width = 0.35
+    #    plt.bar(years+bar_width, glac_wide_massbaltotal_annual, bar_width, label='gcm_MB')
+    #    plt.ylabel('Glacier-wide mass balance [mwea]')
+    #    plt.legend()
+    #    plt.show()
+    #    # Cumulative mass balance - bar plot
+    #    glac_wide_massbaltotal_annual_cumsum = np.cumsum(glac_wide_massbaltotal_annual)
+    #    bar_width = 0.35
+    #    plt.bar(years+bar_width, glac_wide_massbaltotal_annual_cumsum, bar_width, label='gcm_MB')
+    #    plt.ylabel('Cumulative glacier-wide mass balance [mwe]')
+    #    plt.legend()
+    #    plt.show() 
+        
+    #    # Histogram of differences
+    #    mb_dif = main_glac_bias_adj['ref_mb_mwea'] - main_glac_bias_adj['gcm_mb_mwea']
+    #    plt.hist(mb_dif)
+    #    plt.show()      

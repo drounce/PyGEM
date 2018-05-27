@@ -210,7 +210,7 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
 def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, glac_bin_prec, 
                 glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, 
                 glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, glac_bin_icethickness_annual, 
-                glac_bin_width_annual,glac_bin_surfacetype_annual, output_filepath=input.output_filepath):
+                glac_bin_width_annual, glac_bin_surfacetype_annual, output_filepath=input.output_filepath):
     """Write to the netcdf file that has already been generated to store the desired output
     Output: netcdf with desired variables filled in
     """

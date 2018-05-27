@@ -66,7 +66,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
             # Functions currently set up for monthly timestep
             #  only compute mass balance while glacier exists
             if (input.timestep == 'monthly') and (glac_idx_t0.shape[0] != 0):      
-                
                 # AIR TEMPERATURE: Downscale the gcm temperature [deg C] to each bin
                 if input.option_temp2bins == 1:
                     # Downscale using gcm and glacier lapse rates
@@ -434,7 +433,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
                                                     glacier_volumechange_remaining_retreated, massbal_clim_retreat))                   
         # Glacier advances
         #  if glacier advances (ice thickness change exceeds threshold), then redistribute mass gain in new bins
-        while (icethickness_change > input.icethickness_advancethreshold).any() == True:     
+        while (icethickness_change > input.icethickness_advancethreshold).any() == True:  
             # Record glacier area and ice thickness before advance corrections applied
             glacier_area_t1_raw = glacier_area_t1.copy()
             icethickness_t1_raw = icethickness_t1.copy()

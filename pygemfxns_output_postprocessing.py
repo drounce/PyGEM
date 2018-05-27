@@ -126,7 +126,7 @@ if option_plot_futuresim == 1:
     
     # Select relevant data
     main_glac_rgi = pd.DataFrame(output['glac_table'][:], columns=output['glac_table_header'][:])
-    main_glac_rgi['RGIId'] = 'RGI60-' + main_glac_rgi['RGIId'].astype(str)
+    main_glac_rgi['RGIId'] = 'RGI60-' + main_glac_rgi['RGIId_float'].astype(str)
     lats = main_glac_rgi['CenLat']
     lons = main_glac_rgi['CenLon']
     dates = nc.num2date(output['time'][:], units=output['time'].units, calendar=output['time'].calendar).tolist()

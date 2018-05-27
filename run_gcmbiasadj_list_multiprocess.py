@@ -193,7 +193,7 @@ def main(list_packed_vars):
         main_glac_bias_adj['ref'] = ref_name
         main_glac_bias_adj['GCM'] = gcm_name
         main_glac_bias_adj['rcp_scenario'] = rcp_scenario
-        main_glac_bias_adj[input.modelparams_colnames] = main_glac_modelparams[input.modelparams_colnames].values
+        main_glac_bias_adj[modelparams_colnames] = main_glac_modelparams[modelparams_colnames].values
 
         # BIAS ADJUSTMENT CALCULATIONS
         for glac in range(main_glac_rgi.shape[0]): 
@@ -474,7 +474,8 @@ def main(list_packed_vars):
     elif option_bias_adjustment == 2:
         # Bias adjustment parameters
         main_glac_bias_adj_colnames = ['RGIId', 'ref', 'GCM', 'rcp_scenario', 'ref_mb_mwea', 'ref_vol_change_perc', 
-                                       'gcm_mb_mwea', 'gcm_vol_change_perc', 'new_gcmelev']
+                                       'gcm_mb_mwea', 'gcm_vol_change_perc', 'new_gcmelev', 'lrgcm', 'lrglac', 
+                                       'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
         main_glac_bias_adj = pd.DataFrame(np.zeros((main_glac_rgi.shape[0],len(main_glac_bias_adj_colnames))), 
                                           columns=main_glac_bias_adj_colnames)
         main_glac_bias_adj['RGIId'] = main_glac_rgi['RGIId'].values
@@ -482,6 +483,7 @@ def main(list_packed_vars):
         main_glac_bias_adj['GCM'] = gcm_name
         main_glac_bias_adj['rcp_scenario'] = rcp_scenario
         main_glac_bias_adj['new_gcmelev'] = ref_elev
+        main_glac_bias_adj[modelparams_colnames] = main_glac_modelparams[modelparams_colnames].values
         
         tempvar_cols = []
         tempavg_cols = []
@@ -553,7 +555,8 @@ def main(list_packed_vars):
     elif option_bias_adjustment == 3:
         # Bias adjustment parameters
         main_glac_bias_adj_colnames = ['RGIId', 'ref', 'GCM', 'rcp_scenario', 'ref_mb_mwea', 'ref_vol_change_perc', 
-                                       'gcm_mb_mwea', 'gcm_vol_change_perc', 'new_gcmelev']
+                                       'gcm_mb_mwea', 'gcm_vol_change_perc', 'new_gcmelev', 'lrgcm', 'lrglac', 
+                                       'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
         main_glac_bias_adj = pd.DataFrame(np.zeros((main_glac_rgi.shape[0],len(main_glac_bias_adj_colnames))), 
                                           columns=main_glac_bias_adj_colnames)
         main_glac_bias_adj['RGIId'] = main_glac_rgi['RGIId'].values
@@ -561,9 +564,8 @@ def main(list_packed_vars):
         main_glac_bias_adj['GCM'] = gcm_name
         main_glac_bias_adj['rcp_scenario'] = rcp_scenario
         main_glac_bias_adj['new_gcmelev'] = ref_elev
+        main_glac_bias_adj[modelparams_colnames] = main_glac_modelparams[modelparams_colnames].values
         
-        tempvar_cols = []
-        tempavg_cols = []
         tempadj_cols = []
         precadj_cols = []
         # Monthly temperature adjustment
