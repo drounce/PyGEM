@@ -13,6 +13,8 @@ from scipy.optimize import minimize
 import time
 import matplotlib.pyplot as plt
 from time import strftime
+import xarray as xr
+import netCDF4 as nc
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -27,7 +29,7 @@ rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
-rgi_glac_number=['10694']
+#rgi_glac_number=['10694']
 #rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
 
 # Required input
@@ -201,7 +203,7 @@ def main(list_packed_vars):
 
     # ===== RUN MASS BALANCE =====
     for glac in range(main_glac_rgi.shape[0]):
-        if glac%50 == 0:
+        if glac%200 == 0:
             print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
@@ -259,9 +261,16 @@ if __name__ == '__main__':
     # Select glaciers and define chunks
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
                                                           rgi_glac_number=rgi_glac_number)
-    # Add float value (needed for netcdf)
+    # Processing needed for netcdf files
     main_glac_rgi_all['RGIId_float'] = (np.array([np.str.split(main_glac_rgi_all['RGIId'][x],'-')[1] 
                                               for x in range(main_glac_rgi_all.shape[0])]).astype(float))
+    main_glac_rgi_all_float = main_glac_rgi_all.copy()
+    main_glac_rgi_all_float.drop(labels=['RGIId'], axis=1, inplace=True)
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, input.hyps_filepath, 
+                                                 input.hyps_filedict, input.hyps_colsdrop)
+    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
+                                                                 spinupyears=gcm_spinupyears)
+    
     if (args.option_parallels != 0) and (len(rgi_glac_number) >= 2 * args.num_simultaneous_processes):
         chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / args.num_simultaneous_processes))
     else:
@@ -293,7 +302,70 @@ if __name__ == '__main__':
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
+    
+         # Combine output into single package and export lapse rate if necessary
+        if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
+            # Netcdf outputs
+            output_prefix = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
+                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                             str(gcm_endyear) + '_' + 'test')
+            output_all_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
+                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                             str(gcm_endyear) + '_all.nc')
+            
+            # Select netcdf files produced in parallel
+            output_list = []
+            for i in os.listdir(output_filepath):
+                # Append bias adjustment results
+                if i.startswith(output_prefix) == True:
+                    output_list.append(i)
+            
+            # Merge netcdfs together
+            if (len(output_list) > 1) and (output_package != 0):
+                # Create netcdf that will have them all together
+                output.netcdfcreate(output_all_fn, main_glac_rgi_all_float, main_glac_hyps, dates_table, 
+                                    output_filepath=input.output_filepath)
+                # Open file to write
+                netcdf_output = nc.Dataset(output_filepath + output_all_fn, 'r+')
                 
+                glac_count = -1
+                for n in range(len(output_list)):
+                    ds = nc.Dataset(output_filepath + output_list[n])
+                    for glac in range(ds['glac_idx'][:].shape[0]):
+                        glac_count = glac_count + 1
+                        if output_package == 2:
+                            netcdf_output.variables['temp_glac_monthly'][glac_count,:] = (
+                                    ds['temp_glac_monthly'][glac,:])
+                            netcdf_output.variables['prec_glac_monthly'][glac_count,:] = (
+                                    ds['prec_glac_monthly'][glac,:])
+                            netcdf_output.variables['acc_glac_monthly'][glac_count,:] = (
+                                    ds['acc_glac_monthly'][glac,:])
+                            netcdf_output.variables['refreeze_glac_monthly'][glac_count,:] = (
+                                    ds['refreeze_glac_monthly'][glac,:])
+                            netcdf_output.variables['melt_glac_monthly'][glac_count,:] = (
+                                    ds['melt_glac_monthly'][glac,:])
+                            netcdf_output.variables['frontalablation_glac_monthly'][glac_count,:] = (
+                                    ds['frontalablation_glac_monthly'][glac,:])
+                            netcdf_output.variables['massbaltotal_glac_monthly'][glac_count,:] = (
+                                    ds['massbaltotal_glac_monthly'][glac,:])
+                            netcdf_output.variables['runoff_glac_monthly'][glac_count,:] = (
+                                    ds['runoff_glac_monthly'][glac,:])
+                            netcdf_output.variables['snowline_glac_monthly'][glac_count,:] = (
+                                    ds['snowline_glac_monthly'][glac,:])
+                            netcdf_output.variables['area_glac_annual'][glac_count,:] = (
+                                    ds['area_glac_annual'][glac,:])
+                            netcdf_output.variables['volume_glac_annual'][glac_count,:] = (
+                                    ds['volume_glac_annual'][glac,:])
+                            netcdf_output.variables['ELA_glac_annual'][glac_count,:] = (
+                                    ds['ELA_glac_annual'][glac,:])
+                        else:
+                            print('Code merge for output package')  
+                    ds.close()
+                    # Remove file after its been merged
+                    os.remove(output_filepath + output_list[n])
+                # Close the netcdf file
+                netcdf_output.close()
+        
     print('Total processing time:', time.time()-time_start, 's')
             
 #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          

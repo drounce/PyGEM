@@ -18,10 +18,11 @@ import netCDF4 as nc
 from time import strftime
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-#========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
+import cartopy
+
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
-import cartopy
+
 
 #========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
 # Add description of variables...
@@ -80,13 +81,12 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
         years_plus1.units = 'calendar year'
     years_plus1[:] = np.concatenate((annual_columns[input.spinupyears:annual_columns.shape[0]], 
                                      np.array([annual_columns[annual_columns.shape[0]-1]+1])))
-    glacier_table_header = netcdf_output.createVariable('glac_table_header',str,('glac_table',))
+    glacier_table_header = netcdf_output.createVariable('glacier_table_header',str,('glac_table',))
     glacier_table_header.long_name = "glacier table header"
     glacier_table_header[:] = main_glac_rgi.columns.values
     glacier_table_header.comment = "Column names of RGI table and any added columns. See 'glac_table' for values."
-    glacier_table = netcdf_output.createVariable('glac_table',np.float64,('glac_idx','glac_table',))
+    glacier_table = netcdf_output.createVariable('glacier_table',np.float64,('glac_idx','glac_table',))
     glacier_table.long_name = "glacier table values"
-    # convert RGIId from string to float in order to store in netcdf properly
     glacier_table[:] = main_glac_rgi.values
     glacier_table.comment = "Values of RGI table and any added columns. See 'glac_table_header' for column names"
     elevbins = netcdf_output.createVariable('elevbin', np.int32, ('elevbin',))

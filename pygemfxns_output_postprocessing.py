@@ -121,11 +121,11 @@ def plot_caloutput(data):
 if option_plot_futuresim == 1:
 #    output = nc.Dataset(input.output_filepath + '/../Output/' + 'PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180519.nc')
 #    output = nc.Dataset(input.output_filepath + 'R15_finalsims/PyGEM_R15_MPI-ESM-LR_rcp26_2000_2100_20180519.nc')
-    output = nc.Dataset(input.output_filepath + 'PyGEM_R15_MPI-ESM-LR_rcp26_biasadj_opt1_1995_2100_1.nc')
+    output = nc.Dataset(input.output_filepath + 'PyGEM_R15_MPI-ESM-LR_rcp26_biasadj_opt1_1995_2100_all.nc')
     plot_label = 'Region 15'
     
     # Select relevant data
-    main_glac_rgi = pd.DataFrame(output['glac_table'][:], columns=output['glac_table_header'][:])
+    main_glac_rgi = pd.DataFrame(output['glacier_table'][:], columns=output['glacier_table_header'][:])
     main_glac_rgi['RGIId'] = 'RGI60-' + main_glac_rgi['RGIId_float'].astype(str)
     lats = main_glac_rgi['CenLat']
     lons = main_glac_rgi['CenLon']
