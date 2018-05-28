@@ -116,15 +116,11 @@ def main(list_packed_vars):
     
     # ===== LOAD CLIMATE DATA =====
     gcm = climate_class.GCM(gcm_name)
-    gcm_temp, gcm_dates = climate.importGCMvarnearestneighbor_xarray(
-            gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table, start_date, end_date, 
-            filepath=gcm.var_fp, gcm_lon_varname=gcm.lon_vn, gcm_lat_varname=gcm.lat_vn)
-    gcm_prec, gcm_dates = climate.importGCMvarnearestneighbor_xarray(
-            gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table, start_date, end_date, 
-            filepath=gcm.var_fp, gcm_lon_varname=gcm.lon_vn, gcm_lat_varname=gcm.lat_vn)
-    gcm_elev = climate.importGCMfxnearestneighbor_xarray(
-            gcm.elev_fn, gcm.elev_vn, main_glac_rgi, filepath=gcm.fx_fp, 
-            gcm_lon_varname=gcm.lon_vn, gcm_lat_varname=gcm.lat_vn)    
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table, 
+                                                                 start_date, end_date)
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table, 
+                                                                 start_date, end_date)
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)    
     # Monthly lapse rate
     ref_lr_monthly_avg = np.genfromtxt(modelparams_fp + gcm.lr_fn, delimiter=',')
     gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
