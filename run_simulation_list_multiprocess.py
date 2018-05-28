@@ -21,12 +21,13 @@ import pygemfxns_modelsetup as modelsetup
 import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 import pygemfxns_output as output
+import climate_class
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number=['10694']
@@ -114,22 +115,18 @@ def main(list_packed_vars):
                                                                  spinupyears=gcm_spinupyears)
     
     # ===== LOAD CLIMATE DATA =====
-    gcm_filepath_var = gcm_filepath_var_prefix + rcp_scenario + gcm_filepath_var_ending
-    gcm_filepath_fx = gcm_filepath_fx_prefix + rcp_scenario + gcm_filepath_fx_ending
-    gcm_temp_fn = gcm_temp_fn_prefix + gcm_name + '_' + rcp_scenario + gcm_var_ending
-    gcm_prec_fn = gcm_prec_fn_prefix + gcm_name + '_' + rcp_scenario + gcm_var_ending
-    gcm_elev_fn = gcm_elev_fn_prefix + gcm_name + '_' + rcp_scenario + gcm_fx_ending
+    gcm = climate_class.GCM(gcm_name)
     gcm_temp, gcm_dates = climate.importGCMvarnearestneighbor_xarray(
-            gcm_temp_fn, gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date, 
-            filepath=gcm_filepath_var, gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)
+            gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table, start_date, end_date, 
+            filepath=gcm.var_fp, gcm_lon_varname=gcm.lon_vn, gcm_lat_varname=gcm.lat_vn)
     gcm_prec, gcm_dates = climate.importGCMvarnearestneighbor_xarray(
-            gcm_prec_fn, gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date, 
-            filepath=gcm_filepath_var, gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)
+            gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table, start_date, end_date, 
+            filepath=gcm.var_fp, gcm_lon_varname=gcm.lon_vn, gcm_lat_varname=gcm.lat_vn)
     gcm_elev = climate.importGCMfxnearestneighbor_xarray(
-            gcm_elev_fn, gcm_elev_varname, main_glac_rgi, filepath=gcm_filepath_fx, 
-            gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)    
+            gcm.elev_fn, gcm.elev_vn, main_glac_rgi, filepath=gcm.fx_fp, 
+            gcm_lon_varname=gcm.lon_vn, gcm_lat_varname=gcm.lat_vn)    
     # Monthly lapse rate
-    ref_lr_monthly_avg = np.genfromtxt(modelparams_fp + gcm_lr_fn, delimiter=',')
+    ref_lr_monthly_avg = np.genfromtxt(modelparams_fp + gcm.lr_fn, delimiter=',')
     gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 
     # ===== BIAS CORRECTIONS =====
@@ -236,7 +233,7 @@ def main(list_packed_vars):
             glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / 
                                     glac_wide_volume_annual[0] * 100)
             
-#        print(mb_mwea, glac_vol_change_perc)
+        print(mb_mwea, glac_vol_change_perc)
 
         if output_package != 0:
             output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 

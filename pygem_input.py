@@ -281,8 +281,25 @@ gcmlapserate_filedict = {
                          14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
-# CLIMATE DATA INFORMATION
+# CLIMATE DATA CLASS INFORMATION (05/28/2018)
 # ERAINTERIM CLIMATE DATA (Reference data)
+#  fp = 'filepath'
+#  fn = 'filename'
+ref_fp_var = main_directory + '/../Climate_data/ERA_Interim/'
+ref_fp_fx = main_directory + '/../Climate_data/ERA_Interim/'
+ref_temp_fn = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
+ref_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
+ref_elev_fn = 'ERAInterim_geopotential.nc'
+ref_lr_fn = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
+## CMIP5 INPUT CLIMATE DATA
+gcm_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
+gcm_fp_var_ending = '_r1i1p1_monNG/'
+gcm_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
+gcm_fp_fx_ending = '_r0i0p0_fx/'
+gcm_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
+# END DATA FOR CLASS INFORMATION (05/28/2018)
+
+# Input data used before trying classes
 # Climate data filepath
 gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
 gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'

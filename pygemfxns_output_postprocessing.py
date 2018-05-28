@@ -118,8 +118,8 @@ def plot_caloutput(data):
 #%% ===== PLOTTING: Future simulations =====
 if option_plot_futuresim == 1:
     output_fp = input.output_filepath + 'R15_sims_20180527/'
-#    gcm_list = ['MPI-ESM-LR', 'GFDL-CM3']
-    gcm_list = ['GFDL-CM3']
+    gcm_list = ['MPI-ESM-LR', 'GFDL-CM3', 'CanESM2', 'GISS-E2-R']
+#    gcm_list = ['NorESM1-M']
     rcp_scenario = 'rcp26'
     rgi_regionO1 = [15]
     output_all = []
