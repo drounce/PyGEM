@@ -77,7 +77,6 @@ ddfsnow = 0.0041
 tempchange = 0
 #  range -10 to 10
 
-
 # Precipitation correction factor [-]
 # ===== Grid search parameters =====
 grid_precfactor = np.arange(0.75, 2, 0.25)
@@ -259,6 +258,24 @@ option_lapserate_fromgcm = 1
 #  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  Option 2 (NEED TO CODE) - lapse rates derived from surrounding pixels (varies spatially and temporally)
 
+# CLIMATE DATA CLASS INFORMATION (05/28/2018)
+# ERAINTERIM CLIMATE DATA (Reference data)
+#  fp = 'filepath'
+#  fn = 'filename'
+ref_fp_var = main_directory + '/../Climate_data/ERA_Interim/'
+ref_fp_fx = main_directory + '/../Climate_data/ERA_Interim/'
+ref_temp_fn = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
+ref_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
+ref_elev_fn = 'ERAInterim_geopotential.nc'
+ref_lr_fn = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
+## CMIP5 INPUT CLIMATE DATA
+gcm_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
+gcm_fp_var_ending = '_r1i1p1_monNG/'
+gcm_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
+gcm_fp_fx_ending = '_r0i0p0_fx/'
+gcm_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
+# END DATA FOR CLASS INFORMATION (05/28/2018)
+
 # REFERENCE DATA INFORMATION
 # Reference climate data filepath
 filepath_ref = main_directory + '/../Climate_data/ERA_Interim/'
@@ -281,42 +298,23 @@ gcmlapserate_filedict = {
                          14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
-# CLIMATE DATA CLASS INFORMATION (05/28/2018)
-# ERAINTERIM CLIMATE DATA (Reference data)
-#  fp = 'filepath'
-#  fn = 'filename'
-ref_fp_var = main_directory + '/../Climate_data/ERA_Interim/'
-ref_fp_fx = main_directory + '/../Climate_data/ERA_Interim/'
-ref_temp_fn = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-ref_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-ref_elev_fn = 'ERAInterim_geopotential.nc'
-ref_lr_fn = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
-## CMIP5 INPUT CLIMATE DATA
-gcm_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
-gcm_fp_var_ending = '_r1i1p1_monNG/'
-gcm_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
-gcm_fp_fx_ending = '_r0i0p0_fx/'
-gcm_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
-# END DATA FOR CLASS INFORMATION (05/28/2018)
-
-# Input data used before trying classes
-# Climate data filepath
-gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
-gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
-# Climate file and variable names
-gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-gcm_temp_varname = 't2m'
-gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-gcm_prec_varname = 'tp'
-gcm_elev_filename = 'ERAInterim_geopotential.nc'
-gcm_elev_varname = 'z'
-gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
-gcm_lapserate_varname = 'lapserate'
-gcm_lat_varname = 'latitude'
-gcm_lon_varname = 'longitude'
-gcm_time_varname = 'time'
-
-
+## Input data used before trying classes
+## Climate data filepath
+#gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
+#gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
+## Climate file and variable names
+#gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
+#gcm_temp_varname = 't2m'
+#gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
+#gcm_prec_varname = 'tp'
+#gcm_elev_filename = 'ERAInterim_geopotential.nc'
+#gcm_elev_varname = 'z'
+#gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
+#gcm_lapserate_varname = 'lapserate'
+#gcm_lat_varname = 'latitude'
+#gcm_lon_varname = 'longitude'
+#gcm_time_varname = 'time'
+#
 ## CMIP5 INPUT CLIMATE DATA
 ##gcm_name = 'MPI-ESM-LR'
 ##rcp_scenario = 'rcp26'

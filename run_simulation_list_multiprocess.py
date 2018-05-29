@@ -18,7 +18,7 @@ import netCDF4 as nc
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
-import pygemfxns_climate as climate
+#import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 import pygemfxns_output as output
 import climate_class
@@ -38,24 +38,9 @@ rgi_glac_number = ['03473', '03733']
 gcm_startyear = 2000
 gcm_endyear = 2100
 gcm_spinupyears = 5
-# GCM data
-gcm_filepath_var_prefix = input.main_directory + '/../Climate_data/cmip5/'
-gcm_filepath_var_ending = '_r1i1p1_monNG/'
-gcm_filepath_fx_prefix = input.main_directory + '/../Climate_data/cmip5/'
-gcm_filepath_fx_ending = '_r0i0p0_fx/'
-gcm_temp_fn_prefix = 'tas_mon_'
-gcm_prec_fn_prefix = 'pr_mon_'
-gcm_var_ending = '_r1i1p1_native.nc'
-gcm_elev_fn_prefix  = 'orog_fx_'
-gcm_fx_ending  = '_r0i0p0.nc'
-gcm_temp_varname = 'tas'
-gcm_prec_varname = 'pr'
-gcm_elev_varname = 'orog'
-gcm_lat_varname = 'lat'
-gcm_lon_varname = 'lon'
-gcm_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
+
 # Calibrated model parameters
-option_bias_adjustment = 1
+option_bias_adjustment = 0
 #  0 - means no bias adjustment
 modelparams_fp = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
 #modelparams_fn_body1 = '_biasadj_opt'
@@ -65,6 +50,23 @@ modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
 # Output
 output_package = 2
 output_filepath = input.main_directory + '/../Output/'
+
+# GCM data
+#gcm_filepath_var_prefix = input.main_directory + '/../Climate_data/cmip5/'
+#gcm_filepath_var_ending = '_r1i1p1_monNG/'
+#gcm_filepath_fx_prefix = input.main_directory + '/../Climate_data/cmip5/'
+#gcm_filepath_fx_ending = '_r0i0p0_fx/'
+#gcm_temp_fn_prefix = 'tas_mon_'
+#gcm_prec_fn_prefix = 'pr_mon_'
+#gcm_var_ending = '_r1i1p1_native.nc'
+#gcm_elev_fn_prefix  = 'orog_fx_'
+#gcm_fx_ending  = '_r0i0p0.nc'
+#gcm_temp_varname = 'tas'
+#gcm_prec_varname = 'pr'
+#gcm_elev_varname = 'orog'
+#gcm_lat_varname = 'lat'
+#gcm_lon_varname = 'lon'
+#gcm_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 
 #%% FUNCTIONS
 def getparser():
@@ -106,9 +108,12 @@ def main(list_packed_vars):
                                                   input.width_filedict, input.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
     # Model parameters
-    modelparams_fn = (gcm_name + '_' + rcp_scenario + modelparams_fn_ending)
-    main_glac_modelparams_all = pd.read_csv(modelparams_fp + modelparams_fn, index_col=0)    
-    main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
+    if (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
+        print('code model parameter import for ERA-Interim')
+    else:
+        modelparams_fn = (gcm_name + '_' + rcp_scenario + modelparams_fn_ending)
+        main_glac_modelparams_all = pd.read_csv(modelparams_fp + modelparams_fn, index_col=0)    
+        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
     
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
@@ -120,12 +125,17 @@ def main(list_packed_vars):
                                                                  start_date, end_date)
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table, 
                                                                  start_date, end_date)
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)    
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)   
     # Monthly lapse rate
     ref_lr_monthly_avg = np.genfromtxt(modelparams_fp + gcm.lr_fn, delimiter=',')
     gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 
     # ===== BIAS CORRECTIONS =====
+    # ERA-Interim does not have any bias corrections
+    if (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
+        gcm_temp_adj = gcm_temp
+        gcm_prec_adj = gcm_prec
+        gcm_elev_adj = gcm_elev
     # Option 1
     if option_bias_adjustment == 1:
         gcm_temp_adj = gcm_temp + main_glac_modelparams['temp_adj'].values[:,np.newaxis]
@@ -179,11 +189,6 @@ def main(list_packed_vars):
         gcm_prec_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
         # Updated elevation, since adjusted according to reference elevation
         gcm_elev_adj = main_glac_modelparams['new_gcmelev'].values
-    # Otherwise, no bias adjustment
-    else:
-        gcm_temp_adj = gcm_temp
-        gcm_prec_adj = gcm_prec
-        gcm_elev_adj = gcm_elev
         
     # ===== CREATE OUTPUT FILE =====
     if output_package != 0:

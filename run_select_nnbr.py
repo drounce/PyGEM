@@ -15,6 +15,7 @@ import pygemfxns_modelsetup as modelsetup
 import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 #import pygemfxns_output as output
+import climate_class
 
 #%% INPUT 
 rgi_regionsO1 = [15]
@@ -30,21 +31,9 @@ modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
 n_nbrs = 20
 
 # Reference climate data
+gcm_name = 'ERA-Interim'
 option_gcm_downscale = 2
 option_lapserate_fromgcm = 1
-gcm_filepath_var = input.main_directory + '/../Climate_data/ERA_Interim/'
-gcm_filepath_fx = input.main_directory + '/../Climate_data/ERA_Interim/'
-gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-gcm_temp_varname = 't2m'
-gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-gcm_prec_varname = 'tp'
-gcm_elev_filename = 'ERAInterim_geopotential.nc'
-gcm_elev_varname = 'z'
-gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
-gcm_lapserate_varname = 'lapserate'
-gcm_lat_varname = 'latitude'
-gcm_lon_varname = 'longitude'
-gcm_time_varname = 'time'
 
 time_start = time.time()
 
@@ -60,6 +49,7 @@ elev_bins = main_glac_hyps.columns.values.astype(int)
 # Ice thickness [m], average
 main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.thickness_filepath, 
                                                      input.thickness_filedict, input.thickness_colsdrop)
+main_glac_hyps[main_glac_icethickness == 0] = 0
 # Width [km], average
 main_glac_width = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.width_filepath, 
                                               input.width_filedict, input.width_colsdrop)
@@ -71,38 +61,32 @@ dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear, endyear,
 main_glac_hyps[main_glac_icethickness == 0] = 0
 
 #%% ===== LOAD CLIMATE DATA =====
+gcm = climate_class.GCM(gcm_name)
 if option_gcm_downscale == 1:  
     # Air Temperature [degC] and GCM dates
-    main_glac_gcmtemp, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-            gcm_temp_filename, gcm_temp_varname, main_glac_rgi, dates_table, start_date, end_date,
-            filepath=gcm_filepath_var, gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)
+    main_glac_gcmtemp, main_glac_gcmdate = gcm.importGCMvarnearestneighbor_xarray(
+            gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table, start_date, end_date)
     # Precipitation [m] and GCM dates
-    main_glac_gcmprec, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-            gcm_prec_filename, gcm_prec_varname, main_glac_rgi, dates_table, start_date, end_date,
-            filepath=gcm_filepath_var, gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)
+    main_glac_gcmprec, main_glac_gcmdate = gcm.importGCMvarnearestneighbor_xarray(
+            gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table, start_date, end_date)
     # Elevation [m a.s.l] associated with air temperature  and precipitation data
-    main_glac_gcmelev = climate.importGCMfxnearestneighbor_xarray(
-            gcm_elev_filename, gcm_elev_varname, main_glac_rgi,
-            filepath=gcm_filepath_fx, gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)
+    main_glac_gcmelev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Add GCM time series to the dates_table
     dates_table['date_gcm'] = main_glac_gcmdate
-    # Lapse rates [degC m-1]  
+    # Lapse rates [degC m-1]
     if option_lapserate_fromgcm == 1:
         main_glac_gcmlapserate, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-                gcm_lapserate_filename, gcm_lapserate_varname, main_glac_rgi, dates_table, start_date, end_date,
-                filepath=gcm_filepath_var, gcm_lon_varname=gcm_lon_varname, gcm_lat_varname=gcm_lat_varname)
+                gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table, start_date, end_date)
+        
 elif option_gcm_downscale == 2:
     # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
     #  this simply saves time from re-running the fxns above
-    main_glac_gcmtemp_all = np.genfromtxt(gcm_filepath_var + input.gcmtemp_filedict[input.rgi_regionsO1[0]], 
-                                          delimiter=',')
-    main_glac_gcmprec_all = np.genfromtxt(gcm_filepath_var + input.gcmprec_filedict[input.rgi_regionsO1[0]], 
-                                          delimiter=',')
-    main_glac_gcmelev_all = np.genfromtxt(gcm_filepath_var + input.gcmelev_filedict[input.rgi_regionsO1[0]], 
-                                          delimiter=',')
+    main_glac_gcmtemp_all = np.genfromtxt(gcm.var_fp + input.gcmtemp_filedict[input.rgi_regionsO1[0]], delimiter=',')
+    main_glac_gcmprec_all = np.genfromtxt(gcm.var_fp + input.gcmprec_filedict[input.rgi_regionsO1[0]], delimiter=',')
+    main_glac_gcmelev_all = np.genfromtxt(gcm.fx_fp + input.gcmelev_filedict[input.rgi_regionsO1[0]], delimiter=',')
     # Lapse rates [degC m-1]  
-    main_glac_gcmlapserate_all = np.genfromtxt(gcm_filepath_var + 
-                                               input.gcmlapserate_filedict[input.rgi_regionsO1[0]], delimiter=',')
+    main_glac_gcmlapserate_all = np.genfromtxt(gcm.var_fp + input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 
+                                               delimiter=',')
     # Select the climate data for the glaciers included in the study
     main_glac_gcmtemp = main_glac_gcmtemp_all[main_glac_rgi['O1Index'].values]
     main_glac_gcmprec = main_glac_gcmprec_all[main_glac_rgi['O1Index'].values]

@@ -37,7 +37,7 @@ import itertools
 import pickle
 
 #========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
-import pygem_input_shane as input
+import shane_pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 #import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance

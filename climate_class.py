@@ -103,7 +103,7 @@ class GCM():
             except:
                 glac_variable[glac] = data[variablename][lat_nearidx[glac], lon_nearidx[glac]].values
         # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
-        if variablename == input.gcm_elev_varname:
+        if variablename == self.elev_vn:
             # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
             if 'units' in data.variables[variablename].attrs and (
                     data.variables[variablename].attrs['units'] == 'm**2 s**-2'):  
@@ -138,10 +138,10 @@ class GCM():
     #     print('\nExplore the variable of interest:\n', data[variablename])
         # Determine the correct time indices
         if input.timestep == 'monthly':
-            start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname])
+            start_idx = (np.where(pd.Series(data.variables[self.time_vn])
                                   .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
                                   .apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
-            end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname])
+            end_idx = (np.where(pd.Series(data.variables[self.time_vn])
                                 .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
                                 .apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
             #  np.where finds the index position where to values are equal
@@ -158,14 +158,14 @@ class GCM():
             #  The final indexing [0][0] is used to access the value, which is inside of an array containing extraneous 
             #  information
         elif input.timestep == 'daily':
-            start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname])
+            start_idx = (np.where(pd.Series(data.variables[self.time_vn])
                                   .apply(lambda x: x.strftime('%Y-%m-%d')) == dates_table['date']
                                   .apply(lambda x: x.strftime('%Y-%m-%d'))[0]))[0][0]
-            end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname])
+            end_idx = (np.where(pd.Series(data.variables[self.time_vn])
                                 .apply(lambda x: x.strftime('%Y-%m-%d')) == dates_table['date']
                                 .apply(lambda x: x.strftime('%Y-%m-%d'))[dates_table.shape[0] - 1]))[0][0]
         # Extract the time series
-        time_series = pd.Series(data.variables[input.gcm_time_varname][start_idx:end_idx+1])
+        time_series = pd.Series(data.variables[self.time_vn][start_idx:end_idx+1])
         # Find Nearest Neighbor
         lat_nearidx = (np.abs(main_glac_rgi[input.lat_colname].values[:,np.newaxis] - 
                               data.variables[self.lat_vn][:].values).argmin(axis=1))
@@ -214,26 +214,27 @@ class GCM():
             if variablename != input.gcm_lapserate_varname:
                 print('Check units of air temperature or precipitation')
         return glac_variable_series, time_series
+    
 
 #%% ===== FUNCTIONS FROM PREVIOUS SETUP NOT ASSOCIATED WITH CLASSES =====
-def createcsv_GCMvarnearestneighbor(filename, variablename, dates_table, glac_table, output_csvfullfilename):
-    # Import netcdf file
-    filefull = input.gcm_filepath_var + filename
-    data = xr.open_dataset(filefull)
-    glac_variable_series_nparray = np.zeros((glac_table.shape[0],dates_table.shape[0]))
-    # Determine the correct time indices
-    if input.timestep == 'monthly':
-        start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
-                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
-        end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
-                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
-    # Find Nearest Neighbor
-    lat_nearidx = (np.abs(glac_table[input.lat_colname].values[:,np.newaxis] - 
-                          data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
-    lon_nearidx = (np.abs(glac_table[input.lon_colname].values[:,np.newaxis] - 
-                          data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
-    for glac in range(glac_table.shape[0]):
-        # Select the slice of GCM data for each glacier
-        glac_variable_series_nparray[glac,:] = (data[variablename][start_idx:end_idx+1, lat_nearidx[glac], 
-                                                                   lon_nearidx[glac]].values)
-    np.savetxt(output_csvfullfilename, glac_variable_series_nparray, delimiter=",") 
+#def createcsv_GCMvarnearestneighbor(filename, variablename, dates_table, glac_table, output_csvfullfilename):
+#    # Import netcdf file
+#    filefull = input.gcm_filepath_var + filename
+#    data = xr.open_dataset(filefull)
+#    glac_variable_series_nparray = np.zeros((glac_table.shape[0],dates_table.shape[0]))
+#    # Determine the correct time indices
+#    if input.timestep == 'monthly':
+#        start_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+#                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+#        end_idx = (np.where(pd.Series(data.variables[input.gcm_time_varname]).apply(lambda x: x.strftime('%Y-%m')) == 
+#                             dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
+#    # Find Nearest Neighbor
+#    lat_nearidx = (np.abs(glac_table[input.lat_colname].values[:,np.newaxis] - 
+#                          data.variables[input.gcm_lat_varname][:].values).argmin(axis=1))
+#    lon_nearidx = (np.abs(glac_table[input.lon_colname].values[:,np.newaxis] - 
+#                          data.variables[input.gcm_lon_varname][:].values).argmin(axis=1))
+#    for glac in range(glac_table.shape[0]):
+#        # Select the slice of GCM data for each glacier
+#        glac_variable_series_nparray[glac,:] = (data[variablename][start_idx:end_idx+1, lat_nearidx[glac], 
+#                                                                   lon_nearidx[glac]].values)
+#    np.savetxt(output_csvfullfilename, glac_variable_series_nparray, delimiter=",") 
