@@ -24,10 +24,11 @@ class GCM():
                  ref_prec_fn=input.ref_prec_fn,
                  ref_elev_fn=input.ref_elev_fn,
                  ref_lr_fn=input.ref_lr_fn,
-                 gcm_fp_var_prefix = input.gcm_fp_var_prefix,
-                 gcm_fp_var_ending = input.gcm_fp_var_ending,
-                 gcm_fp_fx_prefix = input.gcm_fp_fx_prefix,
-                 gcm_fp_fx_ending = input.gcm_fp_fx_ending,
+                 gcm_fp_var_prefix=input.gcm_fp_var_prefix,
+                 gcm_fp_var_ending=input.gcm_fp_var_ending,
+                 gcm_fp_fx_prefix=input.gcm_fp_fx_prefix,
+                 gcm_fp_fx_ending=input.gcm_fp_fx_ending,
+                 gcm_fp_lr=input.gcm_fp_lr,
                  gcm_lr_fn=input.gcm_lr_fn):
         
         # Source of climate data
@@ -66,7 +67,8 @@ class GCM():
             self.lr_fn = gcm_lr_fn
             # Variable filepaths
             self.var_fp = gcm_fp_var_prefix + rcp_scenario + gcm_fp_var_ending
-            self.fx_fp = gcm_fp_fx_prefix + rcp_scenario + gcm_fp_fx_ending 
+            self.fx_fp = gcm_fp_fx_prefix + rcp_scenario + gcm_fp_fx_ending
+            self.lr_fp = gcm_fp_lr
             
     def importGCMfxnearestneighbor_xarray(self, filename, variablename, main_glac_rgi):
         """
@@ -211,7 +213,7 @@ class GCM():
                           "Exiting the model run.\n")
                     exit()
         else:
-            if variablename != input.gcm_lapserate_varname:
+            if variablename != self.lr_fn:
                 print('Check units of air temperature or precipitation')
         return glac_variable_series, time_series
     

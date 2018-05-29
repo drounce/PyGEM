@@ -45,7 +45,6 @@ from time import strftime
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
-import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 import climate_class
 
@@ -59,27 +58,12 @@ rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
 
 # Required input
-option_bias_adjustment = 1
+option_bias_adjustment = 2
 # Time period
 gcm_startyear = 2000
 gcm_endyear = 2015
 gcm_spinupyears = 5
-# GCM data
-#gcm_filepath_var_prefix = input.main_directory + '/../Climate_data/cmip5/'
-#gcm_filepath_var_ending = '_r1i1p1_monNG/'
-#gcm_filepath_fx_prefix = input.main_directory + '/../Climate_data/cmip5/'
-#gcm_filepath_fx_ending = '_r0i0p0_fx/'
-#gcm_temp_fn_prefix = 'tas_mon_'
-#gcm_prec_fn_prefix = 'pr_mon_'
-#gcm_var_ending = '_r1i1p1_native.nc'
-#gcm_elev_fn_prefix  = 'orog_fx_'
-#gcm_fx_ending  = '_r0i0p0.nc'
-#gcm_temp_varname = 'tas'
-#gcm_prec_varname = 'pr'
-#gcm_elev_varname = 'orog'
-#gcm_lat_varname = 'lat'
-#gcm_lon_varname = 'lon'
-# Reference data
+# Reference climate data
 ref_name = 'ERA-Interim'
 filepath_ref = input.main_directory + '/../Climate_data/ERA_Interim/' 
 filename_ref_temp = input.gcmtemp_filedict[rgi_regionsO1[0]]
@@ -87,12 +71,13 @@ filename_ref_prec = input.gcmprec_filedict[rgi_regionsO1[0]]
 filename_ref_elev = input.gcmelev_filedict[rgi_regionsO1[0]]
 filename_ref_lr = input.gcmlapserate_filedict[rgi_regionsO1[0]]
 # Calibrated model parameters
+#  calibrated parameters are the same for all climate datasets (only bias adjustments differ for each climate dataset)
 filepath_modelparams = input.main_directory + '/../Calibration_datasets/'
 filename_modelparams = 'calibration_R15_20180403_Opt02solutionspaceexpanding_wnnbrs_20180523.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Output
 output_filepath = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
-option_export = 1
+option_export = 0
 option_run_mb = 1 # only for options 2 and 3
 
 

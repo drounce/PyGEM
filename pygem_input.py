@@ -61,8 +61,8 @@ modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 option_mb_envelope = 1
 
 # ===== MODEL PARAMETERS =====
-# Option to load calibration parameters for each glacier
-option_loadparameters = 1
+# Option to import calibration parameters for each glacier
+option_import_modelparams = 1
 #  Option 1 (default) - csv of glacier parameters
 #  Option 0 - use the parameters set by the input
 precfactor = 1
@@ -262,6 +262,7 @@ option_lapserate_fromgcm = 1
 # ERAINTERIM CLIMATE DATA (Reference data)
 #  fp = 'filepath'
 #  fn = 'filename'
+ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
 ref_fp_var = main_directory + '/../Climate_data/ERA_Interim/'
 ref_fp_fx = main_directory + '/../Climate_data/ERA_Interim/'
 ref_temp_fn = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
@@ -273,6 +274,7 @@ gcm_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
 gcm_fp_var_ending = '_r1i1p1_monNG/'
 gcm_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
 gcm_fp_fx_ending = '_r0i0p0_fx/'
+gcm_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
 gcm_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 # END DATA FOR CLASS INFORMATION (05/28/2018)
 

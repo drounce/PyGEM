@@ -18,7 +18,6 @@ import netCDF4 as nc
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
-#import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 import pygemfxns_output as output
 import climate_class
@@ -36,43 +35,28 @@ rgi_glac_number = ['03473', '03733']
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_endyear = 2015
 gcm_spinupyears = 5
 
-# Calibrated model parameters
-option_bias_adjustment = 0
-#  0 - means no bias adjustment
-modelparams_fp = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
-#modelparams_fn_body1 = '_biasadj_opt'
-#modelparams_fn_body2 = '_1995_2015_R'
-modelparams_fn_ending = '_biasadj_opt' + str(option_bias_adjustment) + '_1995_2015_R' + str(rgi_regionsO1[0]) + '.csv'
-modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Output
 output_package = 2
 output_filepath = input.main_directory + '/../Output/'
 
-# GCM data
-#gcm_filepath_var_prefix = input.main_directory + '/../Climate_data/cmip5/'
-#gcm_filepath_var_ending = '_r1i1p1_monNG/'
-#gcm_filepath_fx_prefix = input.main_directory + '/../Climate_data/cmip5/'
-#gcm_filepath_fx_ending = '_r0i0p0_fx/'
-#gcm_temp_fn_prefix = 'tas_mon_'
-#gcm_prec_fn_prefix = 'pr_mon_'
-#gcm_var_ending = '_r1i1p1_native.nc'
-#gcm_elev_fn_prefix  = 'orog_fx_'
-#gcm_fx_ending  = '_r0i0p0.nc'
-#gcm_temp_varname = 'tas'
-#gcm_prec_varname = 'pr'
-#gcm_elev_varname = 'orog'
-#gcm_lat_varname = 'lat'
-#gcm_lon_varname = 'lon'
-#gcm_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
+# Bias adjustment option (options defined in run_gcmbiasadj script; 0 means no correction)
+option_bias_adjustment = 1
+# Calibrated model parameters
+#  calibrated parameters are the same for all climate datasets (only bias adjustments differ for each climate dataset)
+ref_modelparams_fp = input.main_directory + '/../Calibration_datasets/'
+ref_modelparams_fn = 'calibration_R15_20180403_Opt02solutionspaceexpanding_wnnbrs_20180523.csv'
+gcm_modelparams_fp = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
+gcm_modelparams_fn_ending = ('_biasadj_opt' + str(option_bias_adjustment) + '_1995_2015_R' + str(rgi_regionsO1[0]) + 
+                             '.csv')
 
 #%% FUNCTIONS
 def getparser():
     parser = argparse.ArgumentParser(description="run gcm bias corrections from gcm list in parallel")
     # add arguments
-    parser.add_argument('gcm_file', action='store', type=str, default='gcm_rcpXX_filenames.txt', 
+    parser.add_argument('-gcm_file', action='store', type=str, default=input.ref_gcm_name, 
                         help='text file full of commands to run')
     parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=5, 
                         help='number of simultaneous processes (cores) to use')
@@ -92,10 +76,11 @@ def main(list_packed_vars):
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
-    rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
+    if gcm_name != input.ref_gcm_name:
+        rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
 
     # ===== LOAD OTHER GLACIER DATA ===== 
-    main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :]
+    main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
     # Glacier hypsometry [km**2], total area
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath, 
                                                  input.hyps_filedict, input.hyps_colsdrop)
@@ -107,28 +92,44 @@ def main(list_packed_vars):
     main_glac_width = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.width_filepath, 
                                                   input.width_filedict, input.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
+    # Volume [km**3] and mean elevation [m a.s.l.]
+    main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
+
     # Model parameters
-    if (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
-        print('code model parameter import for ERA-Interim')
+    if input.option_import_modelparams == 0:
+        main_glac_modelparams_all = pd.DataFrame(np.repeat([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, 
+            input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange], main_glac_rgi_all.shape[0]).reshape(-1, 
+            main_glac_rgi.shape[0]).transpose(), columns=input.modelparams_colnames)
+    elif (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
+        main_glac_modelparams_all = pd.read_csv(ref_modelparams_fp + ref_modelparams_fn, index_col=0)
     else:
-        modelparams_fn = (gcm_name + '_' + rcp_scenario + modelparams_fn_ending)
-        main_glac_modelparams_all = pd.read_csv(modelparams_fp + modelparams_fn, index_col=0)    
-        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
-    
+        gcm_modelparams_fn = (gcm_name + '_' + rcp_scenario + gcm_modelparams_fn_ending)
+        main_glac_modelparams_all = pd.read_csv(gcm_modelparams_fp + gcm_modelparams_fn, index_col=0)  
+    main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
+        
+
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
     
     # ===== LOAD CLIMATE DATA =====
     gcm = climate_class.GCM(gcm_name)
+    # Air temperature [degC]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table, 
                                                                  start_date, end_date)
+    # Precipitation [m]
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table, 
                                                                  start_date, end_date)
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)   
-    # Monthly lapse rate
-    ref_lr_monthly_avg = np.genfromtxt(modelparams_fp + gcm.lr_fn, delimiter=',')
-    gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+    # Elevation [m asl]
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)  
+    # Lapse rate
+    if gcm_name == 'ERA-Interim':
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table, 
+                                                                   start_date, end_date)
+    else:
+        # Mean monthly lapse rate
+        ref_lr_monthly_avg = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
+        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 
     # ===== BIAS CORRECTIONS =====
     # ERA-Interim does not have any bias corrections
@@ -137,26 +138,16 @@ def main(list_packed_vars):
         gcm_prec_adj = gcm_prec
         gcm_elev_adj = gcm_elev
     # Option 1
-    if option_bias_adjustment == 1:
+    elif option_bias_adjustment == 1:
         gcm_temp_adj = gcm_temp + main_glac_modelparams['temp_adj'].values[:,np.newaxis]
         gcm_prec_adj = gcm_prec * main_glac_modelparams['prec_adj'].values[:,np.newaxis]
         gcm_elev_adj = gcm_elev
     # Option 2
     elif option_bias_adjustment == 2:
-        tempvar_cols = []
-        tempavg_cols = []
-        tempadj_cols = []
-        precadj_cols = []
-        # Monthly adjustment parameters
-        for n in range(1,13):
-            tempvar_colname = 'tempvar_' + str(n)
-            tempvar_cols.append(tempvar_colname)
-            tempavg_colname = 'tempavg_' + str(n)
-            tempavg_cols.append(tempavg_colname)
-            tempadj_colname = 'tempadj_' + str(n)
-            tempadj_cols.append(tempadj_colname)
-            precadj_colname = 'precadj_' + str(n)
-            precadj_cols.append(precadj_colname)
+        tempvar_cols = ['tempvar_' + str(n) for n in range(1,13)]
+        tempavg_cols = ['tempavg_' + str(n) for n in range(1,13)]
+        tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
+        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]            
         bias_adj_prec = main_glac_modelparams[precadj_cols].values
         variability_monthly_std = main_glac_modelparams[tempvar_cols].values
         gcm_temp_monthly_avg = main_glac_modelparams[tempavg_cols].values
@@ -173,14 +164,8 @@ def main(list_packed_vars):
         gcm_elev_adj = main_glac_modelparams['new_gcmelev'].values
     # Option 3
     elif option_bias_adjustment == 3:
-        tempadj_cols = []
-        precadj_cols = []
-        # Monthly adjustment parameters
-        for n in range(1,13):
-            tempadj_colname = 'tempadj_' + str(n)
-            tempadj_cols.append(tempadj_colname)
-            precadj_colname = 'precadj_' + str(n)
-            precadj_cols.append(precadj_colname)
+        tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
+        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]     
         bias_adj_prec = main_glac_modelparams[precadj_cols].values
         bias_adj_temp = main_glac_modelparams[tempadj_cols].values
         # Bias adjusted temperature
@@ -192,9 +177,13 @@ def main(list_packed_vars):
         
     # ===== CREATE OUTPUT FILE =====
     if output_package != 0:
-        netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
-                     str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) 
-                     + '_' + str(count) + '.nc')
+        if gcm_name == 'ERA-Interim':
+            netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) 
+                         + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
+        else:
+            netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
+                         str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                         str(gcm_endyear) + '_' + str(count) + '.nc')
         main_glac_rgi_float = main_glac_rgi.copy()
         main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
         output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table)
@@ -213,7 +202,7 @@ def main(list_packed_vars):
         glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-        modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],modelparams_colnames]
+        modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],input.modelparams_colnames]
         
         # Mass balance calcs
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
@@ -275,10 +264,13 @@ if __name__ == '__main__':
         chunk_size = main_glac_rgi_all.shape[0]
     
     # Read GCM names from command file
-    with open(args.gcm_file, 'r') as gcm_fn:
-        gcm_list = gcm_fn.read().splitlines()
-        rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
-        print('Found %d gcms to process'%(len(gcm_list)))
+    if args.gcm_file == input.ref_gcm_name:
+        gcm_list = [input.ref_gcm_name]
+    else:
+        with open(args.gcm_file, 'r') as gcm_fn:
+            gcm_list = gcm_fn.read().splitlines()
+            rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
+            print('Found %d gcms to process'%(len(gcm_list)))
         
     # Loop through all GCMs
     for gcm_name in gcm_list:
@@ -371,7 +363,7 @@ if __name__ == '__main__':
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
         main_vars_list = list(main_vars.keys())
         gcm_name = main_vars['gcm_name']
-        rcp_scenario = main_vars['rcp_scenario']
+#        rcp_scenario = main_vars['rcp_scenario']
         main_glac_rgi = main_vars['main_glac_rgi']
         main_glac_hyps = main_vars['main_glac_hyps']
         main_glac_icethickness = main_vars['main_glac_icethickness']
