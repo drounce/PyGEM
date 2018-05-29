@@ -1,5 +1,14 @@
 r"""
-run_simulation_list_multiprocess.py runs simulations for gcms and stores results in netcdf files.
+run_simulation_list_multiprocess.py runs simulations for gcms and stores results in netcdf files.  The script can be 
+used to run ERA-Interim or cmip5 simulations.  The default simulation is ERA-Interim.  To run simulations with cmip5
+add a filename to the argument:
+    
+    (Command line) python run_simulation_list_multiprocess.py -gcm_file=C:\...\gcm_rcpXX_filenames.txt
+      - Default is running ERA-Interim in parallel with five processors.
+
+    (Spyder) %run run_simulation_list_multiprocess.py C:\...\gcm_rcpXX_filenames.txt -option_parallels=0
+      - Spyder cannot run parallels, so always set -option_parallels=0 when testing in Spyder.
+      
 """
 
 import pandas as pd

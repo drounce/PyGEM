@@ -51,14 +51,14 @@ import climate_class
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-#rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
 
 # Required input
-option_bias_adjustment = 2
+option_bias_adjustment = 1
 # Time period
 gcm_startyear = 2000
 gcm_endyear = 2015
@@ -77,7 +77,7 @@ filename_modelparams = 'calibration_R15_20180403_Opt02solutionspaceexpanding_wnn
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Output
 output_filepath = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
-option_export = 0
+option_export = 1
 option_run_mb = 1 # only for options 2 and 3
 
 
@@ -732,7 +732,8 @@ if __name__ == '__main__':
                                                 
          
         # Combine output into single package and export lapse rate if necessary
-        if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
+        if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
+            (option_export == 1)):
             # Bias adjustment parameters
             output_biasadj_prefix = (gcm_name + '_' + rcp_scenario + '_biasadj_opt' + str(option_bias_adjustment) + '_' 
                                      + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' +  'R' + 
