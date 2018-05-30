@@ -2,7 +2,7 @@
 pygemfxns_preprocessing.py is a list of the model functions that are used to preprocess the data into the proper format.
 
 """
-#========== IMPORT MODULES USED IN FUNCTIONS ==========================================================================
+
 import pandas as pd
 import numpy as np
 import os
@@ -13,20 +13,30 @@ from datetime import datetime
 from scipy.spatial.distance import cdist
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-#========== IMPORT INPUT AND FUNCTIONS FROM MODULES ===================================================================
+
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_climate as climate
 
-#%% Write csv file from model results
-# Create csv such that not importing the air temperature each time (takes 90 seconds for 13,119 glaciers)
-#output_csvfullfilename = input.main_directory + '/../Output/ERAInterim_elev_15_SouthAsiaEast.csv'
-#climate.createcsv_GCMvarnearestneighbor(input.gcm_prec_filename, input.gcm_prec_varname, dates_table, main_glac_rgi, 
-#                                        output_csvfullfilename)
-#np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
-    
-
 #%% Create netcdf file of lapse rates from temperature pressure level data
+# Option to run the function
+option_createlapserates = 0
+
+if option_createlapserates == 1:
+    # Input data
+    gcm_filepath = os.getcwd() + '/../Climate_data/ERA_Interim/HMA_temp_pressurelevel_data/'
+    gcm_filename_prefix = 'HMA_EraInterim_temp_pressurelevels_'
+    tempname = 't'
+    levelname = 'level'
+    latname = 'latitude'
+    lonname = 'longitude'
+    elev_idx_max = 1
+    elev_idx_min = 10
+    startyear = 1979
+    endyear = 2017
+    output_filepath = '../Output/'
+    output_filename_prefix = 'HMA_Regions13_14_15_ERAInterim_lapserates'
+
 def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
                             elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix):
     """
@@ -99,22 +109,19 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
                 # Takes roughly 4 minutes per year to compute the lapse rate for each lat/lon combo in HMA
     netcdf_output.close()
         
-## Application of the lapserate_createnetcdf function
-#gcm_filepath = os.getcwd() + '/../Climate_data/ERA_Interim/HMA_temp_pressurelevel_data/'
-#gcm_filename_prefix = 'HMA_EraInterim_temp_pressurelevels_'
-#tempname = 't'
-#levelname = 'level'
-#latname = 'latitude'
-#lonname = 'longitude'
-#elev_idx_max = 1
-#elev_idx_min = 10
-#startyear = 1979
-#endyear = 2017
-#output_filepath = '../Output/'
-#output_filename_prefix = 'HMA_Regions13_14_15_ERAInterim_lapserates'
-#lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
-#                        elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
+# Application of the lapserate_createnetcdf function
+if option_createlapserates == 1:
+    lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
+                            elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
 
+
+#%% Write csv file from model results
+# Create csv such that not importing the air temperature each time (takes 90 seconds for 13,119 glaciers)
+#output_csvfullfilename = input.main_directory + '/../Output/ERAInterim_elev_15_SouthAsiaEast.csv'
+#climate.createcsv_GCMvarnearestneighbor(input.gcm_prec_filename, input.gcm_prec_varname, dates_table, main_glac_rgi, 
+#                                        output_csvfullfilename)
+#np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
+    
 
 #%% Mass redistribution parameters based on geodetic mass balances
 #mb_filepath = os.getcwd() + '/../../HiMAT/DEMs/mb_bins_sample_20180323/'

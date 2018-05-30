@@ -6,30 +6,14 @@ pre-processing of the climate data associated with each glacier for PyGEM.
 import pandas as pd
 import numpy as np
 import xarray as xr
-#import netCDF4 as nc
-#from datetime import datetime
 
 import pygem_input as input
 
 class GCM():
     # GCM is the global climate model for a glacier evolution model run
-    # When calling ERA-Interim, should be able to use defaults
-    # When calling 
     def __init__(self, 
-                 name='ERA-Interim',
-                 rcp_scenario='rcp26',
-                 ref_fp_var=input.ref_fp_var, 
-                 ref_fp_fx=input.ref_fp_fx,
-                 ref_temp_fn=input.ref_temp_fn, 
-                 ref_prec_fn=input.ref_prec_fn,
-                 ref_elev_fn=input.ref_elev_fn,
-                 ref_lr_fn=input.ref_lr_fn,
-                 gcm_fp_var_prefix=input.gcm_fp_var_prefix,
-                 gcm_fp_var_ending=input.gcm_fp_var_ending,
-                 gcm_fp_fx_prefix=input.gcm_fp_fx_prefix,
-                 gcm_fp_fx_ending=input.gcm_fp_fx_ending,
-                 gcm_fp_lr=input.gcm_fp_lr,
-                 gcm_lr_fn=input.gcm_lr_fn):
+                 name=str(),
+                 rcp_scenario=str()):
         
         # Source of climate data
         self.name = name
@@ -44,13 +28,17 @@ class GCM():
             self.time_vn = 'time'
             self.lr_vn = 'lapserate'
             # Variable filenames
-            self.temp_fn = ref_temp_fn
-            self.prec_fn = ref_prec_fn
-            self.elev_fn = ref_elev_fn
-            self.lr_fn = ref_lr_fn
+            self.temp_fn = input.eraint_temp_fn
+            self.prec_fn = input.eraint_prec_fn
+            self.elev_fn = input.eraint_elev_fn
+            self.lr_fn = input.eraint_lr_fn
             # Variable filepaths
-            self.var_fp = ref_fp_var
-            self.fx_fp = ref_fp_fx
+            self.var_fp = input.eraint_fp_var
+            self.fx_fp = input.eraint_fp_fx
+            # Extra information
+            self.timestep = input.timestep
+            self.rgi_lat_colname=input.rgi_lat_colname
+            self.rgi_lon_colname=input.rgi_lon_colname
         # Other options are currently all from standardized CMIP5 format
         else:
             # Variable names
@@ -64,11 +52,16 @@ class GCM():
             self.temp_fn = self.temp_vn + '_mon_' + name + '_' + rcp_scenario + '_r1i1p1_native.nc'
             self.prec_fn = self.prec_vn + '_mon_' + name + '_' + rcp_scenario + '_r1i1p1_native.nc'
             self.elev_fn = self.elev_vn + '_fx_' + name + '_' + rcp_scenario + '_r0i0p0.nc'
-            self.lr_fn = gcm_lr_fn
+            self.lr_fn = input.cmip5_lr_fn
             # Variable filepaths
-            self.var_fp = gcm_fp_var_prefix + rcp_scenario + gcm_fp_var_ending
-            self.fx_fp = gcm_fp_fx_prefix + rcp_scenario + gcm_fp_fx_ending
-            self.lr_fp = gcm_fp_lr
+            self.var_fp = input.cmip5_fp_var_prefix + rcp_scenario + input.cmip5_fp_var_ending
+            self.fx_fp = input.cmip5_fp_fx_prefix + rcp_scenario + input.cmip5_fp_fx_ending
+            self.lr_fp = input.cmip5_fp_lr
+            # Extra information
+            self.timestep = input.timestep
+            self.rgi_lat_colname=input.rgi_lat_colname
+            self.rgi_lon_colname=input.rgi_lon_colname
+            self.rcp_scenario = rcp_scenario
             
     def importGCMfxnearestneighbor_xarray(self, filename, variablename, main_glac_rgi):
         """
@@ -93,9 +86,9 @@ class GCM():
             #  ERA Interim has only 1 value of time, so index is 0
         glac_variable = np.zeros(main_glac_rgi.shape[0])
         # Find Nearest Neighbor
-        lat_nearidx = (np.abs(main_glac_rgi[input.lat_colname].values[:,np.newaxis] - 
+        lat_nearidx = (np.abs(main_glac_rgi[self.rgi_lat_colname].values[:,np.newaxis] - 
                               data.variables[self.lat_vn][:].values).argmin(axis=1))
-        lon_nearidx = (np.abs(main_glac_rgi[input.lon_colname].values[:,np.newaxis] - 
+        lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 
                               data.variables[self.lon_vn][:].values).argmin(axis=1))
         #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
         for glac in range(main_glac_rgi.shape[0]):
@@ -120,8 +113,7 @@ class GCM():
         return glac_variable
     
     
-    def importGCMvarnearestneighbor_xarray(self, filename, variablename, main_glac_rgi, dates_table, start_date, 
-                                           end_date):
+    def importGCMvarnearestneighbor_xarray(self, filename, variablename, main_glac_rgi, dates_table):
         """
         Import meteorological variables and extract the nearest neighbor time series of the variable. Meteorological 
         data from the global climate models were provided by Ben Marzeion and ETH-Zurich for the GlacierMIP Phase II 
@@ -139,7 +131,7 @@ class GCM():
     #     print('Explore the dataset:\n', data)
     #     print('\nExplore the variable of interest:\n', data[variablename])
         # Determine the correct time indices
-        if input.timestep == 'monthly':
+        if self.timestep == 'monthly':
             start_idx = (np.where(pd.Series(data.variables[self.time_vn])
                                   .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
                                   .apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
@@ -159,7 +151,7 @@ class GCM():
             #  dates_table.shape[0] - 1 is used to access the last date
             #  The final indexing [0][0] is used to access the value, which is inside of an array containing extraneous 
             #  information
-        elif input.timestep == 'daily':
+        elif self.timestep == 'daily':
             start_idx = (np.where(pd.Series(data.variables[self.time_vn])
                                   .apply(lambda x: x.strftime('%Y-%m-%d')) == dates_table['date']
                                   .apply(lambda x: x.strftime('%Y-%m-%d'))[0]))[0][0]
@@ -169,9 +161,9 @@ class GCM():
         # Extract the time series
         time_series = pd.Series(data.variables[self.time_vn][start_idx:end_idx+1])
         # Find Nearest Neighbor
-        lat_nearidx = (np.abs(main_glac_rgi[input.lat_colname].values[:,np.newaxis] - 
+        lat_nearidx = (np.abs(main_glac_rgi[self.rgi_lat_colname].values[:,np.newaxis] - 
                               data.variables[self.lat_vn][:].values).argmin(axis=1))
-        lon_nearidx = (np.abs(main_glac_rgi[input.lon_colname].values[:,np.newaxis] - 
+        lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 
                               data.variables[self.lon_vn][:].values).argmin(axis=1))
         #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
         #  extract the position's value as opposed to having an array
@@ -183,9 +175,9 @@ class GCM():
         # Surface air temperature corrections
         if (variablename == 'tas') or (variablename == 't2m'):
             if 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'K':
+                # Convert from K to deg C
                 glac_variable_series = glac_variable_series - 273.15
-                #   Convert from K to deg C
-            elif input.option_warningmessages == 1:
+            else:
                 print('Check units of air temperature from GCM is degrees C.')
         # Precipitation corrections
         # If the variable is precipitation
@@ -202,19 +194,12 @@ class GCM():
             # Else check the variables units
             else:
                 print('Check units of precipitation from GCM is meters per day.')
-            if input.timestep == 'monthly':
+            if self.timestep == 'monthly':
                 # Convert from meters per day to meters per month
                 if 'daysinmonth' in dates_table.columns:
                     glac_variable_series = glac_variable_series * dates_table['daysinmonth'].values[np.newaxis,:]
-                else:
-                    print("\nMODEL ERROR: 'daysinmonth' DOES NOT EXIST IN THE DATES TABLE.\n" 
-                          " Please check that the dates_table is formatted properly such that a \n'daysinmonth' column"
-                          " exists.\n\n"
-                          "Exiting the model run.\n")
-                    exit()
-        else:
-            if variablename != self.lr_fn:
-                print('Check units of air temperature or precipitation')
+        elif variablename != self.lr_vn:
+            print('Check units of air temperature or precipitation')
         return glac_variable_series, time_series
     
 

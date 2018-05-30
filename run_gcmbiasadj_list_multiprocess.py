@@ -147,11 +147,9 @@ def main(list_packed_vars):
     dates_table_subset = dates_table.iloc[0:ref_temp.shape[1],:]
     
     # LOAD GCM DATA
-    gcm = climate_class.GCM(gcm_name)
-    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table, 
-                                                                 start_date, end_date)
-    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table, 
-                                                                 start_date, end_date)
+    gcm = climate_class.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)    
     gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
     
@@ -348,7 +346,7 @@ def main(list_packed_vars):
                         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                                    width_t0, elev_bins, glacier_ref_temp, glacier_ref_prec, 
                                                    glacier_ref_elev, glacier_ref_lrgcm, glacier_ref_lrglac, 
-                                                   dates_table_subset, option_calibration=1))
+                                                   dates_table_subset, option_areaconstant=1))
                     # Annual glacier-wide mass balance [m w.e.]
                     glac_wide_massbaltotal_annual_ref = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
                     # Average annual glacier-wide mass balance [m w.e.a.]
@@ -368,7 +366,7 @@ def main(list_packed_vars):
                         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                                    width_t0, elev_bins, glacier_gcm_temp_adj, glacier_gcm_prec_adj, 
                                                    glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                                                   dates_table_subset, option_calibration=1))
+                                                   dates_table_subset, option_areaconstant=1))
                     # Annual glacier-wide mass balance [m w.e.]
                     glac_wide_massbaltotal_annual_gcm = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
                     # Average annual glacier-wide mass balance [m w.e.a.]
@@ -407,7 +405,7 @@ def main(list_packed_vars):
                     massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                                width_t0, elev_bins, glacier_ref_temp, glacier_ref_prec, 
                                                glacier_ref_elev, glacier_ref_lrgcm, glacier_ref_lrglac, 
-                                               dates_table_subset, option_calibration=1))
+                                               dates_table_subset, option_areaconstant=1))
                 # Annual glacier-wide mass balance [m w.e.]
                 glac_wide_massbaltotal_annual_ref = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
                 # Average annual glacier-wide mass balance [m w.e.a.]
@@ -434,7 +432,7 @@ def main(list_packed_vars):
                     massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                                width_t0, elev_bins, glacier_gcm_temp_adj, glacier_gcm_prec_adj, 
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                                               dates_table_subset, option_calibration=1))
+                                               dates_table_subset, option_areaconstant=1))
                 # Annual glacier-wide mass balance [m w.e.]
                 glac_wide_massbaltotal_annual_gcm = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
                 # Average annual glacier-wide mass balance [m w.e.a.]
@@ -625,7 +623,7 @@ def main(list_packed_vars):
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                            width_t0, elev_bins, glacier_ref_temp, glacier_ref_prec, 
                                            glacier_ref_elev, glacier_ref_lrgcm, glacier_ref_lrglac, 
-                                           dates_table_subset, option_calibration=1))
+                                           dates_table_subset, option_areaconstant=1))
             # Annual glacier-wide mass balance [m w.e.]
             glac_wide_massbaltotal_annual_ref = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
             # Average annual glacier-wide mass balance [m w.e.a.]
@@ -648,7 +646,7 @@ def main(list_packed_vars):
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                            width_t0, elev_bins, glacier_gcm_temp_adj, glacier_gcm_prec_adj, 
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                                           dates_table_subset, option_calibration=1))
+                                           dates_table_subset, option_areaconstant=1))
             # Annual glacier-wide mass balance [m w.e.]
             glac_wide_massbaltotal_annual_gcm = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
             # Average annual glacier-wide mass balance [m w.e.a.]
@@ -808,21 +806,25 @@ if __name__ == '__main__':
         glac_wide_massbaltotal_annual_gcm = main_vars['glac_wide_massbaltotal_annual_gcm']
         glac_wide_massbaltotal_annual_ref = main_vars['glac_wide_massbaltotal_annual_ref']
         main_glac_bias_adj = main_vars['main_glac_bias_adj']
-        
-        # Adjust temperature and precipitation to 'Zmed' so variables can properly be compared
-        glacier_elev_zmed = glacier_rgi_table.loc['Zmed']  
-        glacier_ref_temp_zmed = ((glacier_ref_temp + glacier_ref_lrgcm * (glacier_elev_zmed - glacier_ref_elev)
-                                  )[gcm_spinupyears*12:])
-        glacier_ref_prec_zmed = (glacier_ref_prec * modelparameters['precfactor'])[gcm_spinupyears*12:]
-        #  recall 'precfactor' is used to adjust for precipitation differences between gcm elev and zmed    
-        if option_bias_adjustment == 1:
-            glacier_gcm_temp_zmed = ((glacier_gcm_temp_adj + glacier_gcm_lrgcm * (glacier_elev_zmed - glacier_gcm_elev)
-                                      )[gcm_spinupyears*12:])
-            glacier_gcm_prec_zmed = (glacier_gcm_prec_adj * modelparameters['precfactor'])[gcm_spinupyears*12:]
-        elif (option_bias_adjustment == 2) or (option_bias_adjustment == 3):
-            glacier_gcm_temp_zmed = ((glacier_gcm_temp_adj + glacier_gcm_lrgcm * (glacier_elev_zmed - glacier_ref_elev)
-                                      )[gcm_spinupyears*12:])
-            glacier_gcm_prec_zmed = (glacier_gcm_prec_adj * modelparameters['precfactor'])[gcm_spinupyears*12:]
+        glacier_area_t0 = main_vars['glacier_area_t0']
+        icethickness_t0 = main_vars['icethickness_t0']
+        width_t0 = main_vars['width_t0']
+        dates_table_subset = main_vars['dates_table_subset']
+    
+#        # Adjust temperature and precipitation to 'Zmed' so variables can properly be compared
+#        glacier_elev_zmed = glacier_rgi_table.loc['Zmed']  
+#        glacier_ref_temp_zmed = ((glacier_ref_temp + glacier_ref_lrgcm * (glacier_elev_zmed - glacier_ref_elev)
+#                                  )[gcm_spinupyears*12:])
+#        glacier_ref_prec_zmed = (glacier_ref_prec * modelparameters['precfactor'])[gcm_spinupyears*12:]
+#        #  recall 'precfactor' is used to adjust for precipitation differences between gcm elev and zmed    
+#        if option_bias_adjustment == 1:
+#            glacier_gcm_temp_zmed = ((glacier_gcm_temp_adj + glacier_gcm_lrgcm * (glacier_elev_zmed - glacier_gcm_elev)
+#                                      )[gcm_spinupyears*12:])
+#            glacier_gcm_prec_zmed = (glacier_gcm_prec_adj * modelparameters['precfactor'])[gcm_spinupyears*12:]
+#        elif (option_bias_adjustment == 2) or (option_bias_adjustment == 3):
+#            glacier_gcm_temp_zmed = ((glacier_gcm_temp_adj + glacier_gcm_lrgcm * (glacier_elev_zmed - glacier_ref_elev)
+#                                      )[gcm_spinupyears*12:])
+#            glacier_gcm_prec_zmed = (glacier_gcm_prec_adj * modelparameters['precfactor'])[gcm_spinupyears*12:]
         
     #    # Plot reference vs. GCM temperature and precipitation
     #    # Monthly trends

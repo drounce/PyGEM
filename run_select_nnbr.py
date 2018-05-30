@@ -65,10 +65,10 @@ gcm = climate_class.GCM(gcm_name)
 if option_gcm_downscale == 1:  
     # Air Temperature [degC] and GCM dates
     main_glac_gcmtemp, main_glac_gcmdate = gcm.importGCMvarnearestneighbor_xarray(
-            gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table, start_date, end_date)
+            gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     # Precipitation [m] and GCM dates
     main_glac_gcmprec, main_glac_gcmdate = gcm.importGCMvarnearestneighbor_xarray(
-            gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table, start_date, end_date)
+            gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     # Elevation [m a.s.l] associated with air temperature  and precipitation data
     main_glac_gcmelev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Add GCM time series to the dates_table
@@ -76,7 +76,7 @@ if option_gcm_downscale == 1:
     # Lapse rates [degC m-1]
     if option_lapserate_fromgcm == 1:
         main_glac_gcmlapserate, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-                gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table, start_date, end_date)
+                gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
         
 elif option_gcm_downscale == 2:
     # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
@@ -198,7 +198,7 @@ for glac in range(main_glac_rgi.shape[0]):
              glac_wide_volume_annual, glac_wide_ELA_annual) = (
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-                                           glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_calibration=1))
+                                           glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=1))
             # Annual glacier-wide mass balance [m w.e.]
             glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
             # Average annual glacier-wide mass balance [m w.e.a.]

@@ -39,6 +39,9 @@ rgi_glac_number = ['00001']
 #rgi_glac_number = ['00329']
 #rgi_glac_number = ['12433']
 
+# Reference climate dataset
+ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
+
 # First year of model run
 startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
@@ -101,6 +104,25 @@ tempsnow = 1.0
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 #  facilitates calibration similar to Huss and Hock (2015)
 
+#%% CLIMATE DATA CLASS INFORMATION (05/28/2018)
+#  for each climate dataset, store the information regarding the filepaths and variable names here
+#  fp = 'filepath'
+#  fn = 'filename'
+# ERAINTERIM CLIMATE DATA (Reference data)
+eraint_fp_var = main_directory + '/../Climate_data/ERA_Interim/'
+eraint_fp_fx = main_directory + '/../Climate_data/ERA_Interim/'
+eraint_temp_fn = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
+eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
+eraint_elev_fn = 'ERAInterim_geopotential.nc'
+eraint_lr_fn = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
+# CMIP5 CLIMATE DATA
+cmip5_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
+cmip5_fp_var_ending = '_r1i1p1_monNG/'
+cmip5_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
+cmip5_fp_fx_ending = '_r0i0p0_fx/'
+cmip5_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
+cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
+
 #%% ------- INPUT FOR STEP ONE --------------------------------------------------
 # STEP ONE: Model Region/Glaciers
 #   The user needs to define the region/glaciers that will be used in the model run. The user has the option of choosing
@@ -120,9 +142,9 @@ rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
 #  os.path.dirname(__file__) is getting the directory where the pygem model is running.  '..' goes up a folder and then
 #  allows it to enter RGI and find the folders from there.
 # Latitude column name
-lat_colname = 'CenLat'
+rgi_lat_colname = 'CenLat'
 # Longitude column name
-lon_colname = 'CenLon'
+rgi_lon_colname = 'CenLon'
 # Elevation column name
 elev_colname = 'elev'
 # Index name
@@ -258,26 +280,6 @@ option_lapserate_fromgcm = 1
 #  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  Option 2 (NEED TO CODE) - lapse rates derived from surrounding pixels (varies spatially and temporally)
 
-# CLIMATE DATA CLASS INFORMATION (05/28/2018)
-# ERAINTERIM CLIMATE DATA (Reference data)
-#  fp = 'filepath'
-#  fn = 'filename'
-ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
-ref_fp_var = main_directory + '/../Climate_data/ERA_Interim/'
-ref_fp_fx = main_directory + '/../Climate_data/ERA_Interim/'
-ref_temp_fn = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-ref_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-ref_elev_fn = 'ERAInterim_geopotential.nc'
-ref_lr_fn = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
-## CMIP5 INPUT CLIMATE DATA
-gcm_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
-gcm_fp_var_ending = '_r1i1p1_monNG/'
-gcm_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
-gcm_fp_fx_ending = '_r0i0p0_fx/'
-gcm_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
-gcm_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
-# END DATA FOR CLASS INFORMATION (05/28/2018)
-
 # REFERENCE DATA INFORMATION
 # Reference climate data filepath
 filepath_ref = main_directory + '/../Climate_data/ERA_Interim/'
@@ -348,14 +350,21 @@ biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
 biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
 
 # Calibration datasets
+#  for each mass balance dataset, store the parameters here and add to the class
+# Glacier-wide geodetic mass balance (Shean)
+shean_fp = main_directory + '/../DEMs/'
+
+brun_fp = main_directory + '/../DEMs/'
+
+
 # Geodetic mass balance dataset
 # Filepath
 cal_mb_filepath = main_directory + '/../DEMs/'
 # Filename
 cal_mb_filedict = {
-                   13: 'geodetic_glacwide_DShean20170207_13_CentralAsia.csv',
-                   14: 'geodetic_glacwide_DShean20170207_14_SouthAsiaWest.csv',
-                   15: 'geodetic_glacwide_DShean20170207_15_SouthAsiaEast.csv'}
+                   13: 'geodetic_glacwide_DShean20171211_13_CentralAsia.csv',
+                   14: 'geodetic_glacwide_DShean20171211_14_SouthAsiaWest.csv',
+                   15: 'geodetic_glacwide_DShean20171211_15_SouthAsiaEast.csv'}
 # RGIId column name
 cal_rgi_colname = 'RGIId'
 # Mass balance column name
@@ -370,6 +379,9 @@ massbal_time2 = 'year2'
 massbal_tolerance = 0.1
 # Calibration optimization tolerance
 #cal_tolerance = 1e-4
+
+
+
 
 #%% ------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution

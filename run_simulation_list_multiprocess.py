@@ -13,17 +13,12 @@ add a filename to the argument:
 
 import pandas as pd
 import numpy as np
+import netCDF4 as nc
 import os
 import argparse
 import inspect
-#import subprocess as sp
 import multiprocessing
-from scipy.optimize import minimize
 import time
-import matplotlib.pyplot as plt
-from time import strftime
-import xarray as xr
-import netCDF4 as nc
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -34,8 +29,8 @@ import climate_class
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-#rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number=['10694']
@@ -44,7 +39,7 @@ rgi_glac_number = ['03473', '03733']
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2015
+gcm_endyear = 2100
 gcm_spinupyears = 5
 
 # Output
@@ -63,7 +58,7 @@ gcm_modelparams_fn_ending = ('_biasadj_opt' + str(option_bias_adjustment) + '_19
 
 #%% FUNCTIONS
 def getparser():
-    parser = argparse.ArgumentParser(description="run gcm bias corrections from gcm list in parallel")
+    parser = argparse.ArgumentParser(description="run simulations from gcm list in parallel")
     # add arguments
     parser.add_argument('-gcm_file', action='store', type=str, default=input.ref_gcm_name, 
                         help='text file full of commands to run')
@@ -88,7 +83,7 @@ def main(list_packed_vars):
     if gcm_name != input.ref_gcm_name:
         rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
 
-    # ===== LOAD OTHER GLACIER DATA ===== 
+    # ===== LOAD GLACIER DATA ===== 
     main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
     # Glacier hypsometry [km**2], total area
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath, 
@@ -114,32 +109,33 @@ def main(list_packed_vars):
     else:
         gcm_modelparams_fn = (gcm_name + '_' + rcp_scenario + gcm_modelparams_fn_ending)
         main_glac_modelparams_all = pd.read_csv(gcm_modelparams_fp + gcm_modelparams_fn, index_col=0)  
-    main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
-        
+    main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]         
 
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
     
     # ===== LOAD CLIMATE DATA =====
-    gcm = climate_class.GCM(gcm_name)
+    if gcm_name == input.ref_gcm_name:
+        gcm = climate_class.GCM(name=gcm_name)
+    else:
+        gcm = climate_class.GCM(name=gcm_name, rcp_scenario=rcp_scenario)    
     # Air temperature [degC]
-    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table, 
-                                                                 start_date, end_date)
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     # Precipitation [m]
-    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table, 
-                                                                 start_date, end_date)
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     # Elevation [m asl]
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)  
     # Lapse rate
     if gcm_name == 'ERA-Interim':
-        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table, 
-                                                                   start_date, end_date)
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     else:
         # Mean monthly lapse rate
-        ref_lr_monthly_avg = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
+        ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
+        ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
         gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-
+        
+        
     # ===== BIAS CORRECTIONS =====
     # ERA-Interim does not have any bias corrections
     if (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
@@ -221,7 +217,7 @@ def main(list_packed_vars):
          glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
             massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-                                       glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_calibration=0))
+                                       glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0))
         # Annual glacier-wide mass balance [m w.e.]
         glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
         # Average annual glacier-wide mass balance [m w.e.a.]
@@ -233,6 +229,7 @@ def main(list_packed_vars):
                                     glac_wide_volume_annual[0] * 100)
             
         print(mb_mwea, glac_vol_change_perc)
+        
 
         if output_package != 0:
             output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
@@ -391,10 +388,16 @@ if __name__ == '__main__':
         glac_wide_area_annual = main_vars['glac_wide_area_annual']
         glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
         glacier_rgi_table = main_vars['glacier_rgi_table']
-        glacier_gcm_temp = main_vars['glacier_gcm_temp'][gcm_spinupyears*12:]
-        glacier_gcm_prec = main_vars['glacier_gcm_prec'][gcm_spinupyears*12:]
+#        glacier_gcm_temp = main_vars['glacier_gcm_temp'][gcm_spinupyears*12:]
+#        glacier_gcm_prec = main_vars['glacier_gcm_prec'][gcm_spinupyears*12:]
+        glacier_gcm_temp = main_vars['glacier_gcm_temp']
+        glacier_gcm_prec = main_vars['glacier_gcm_prec']
         glacier_gcm_elev = main_vars['glacier_gcm_elev']
-        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm'][gcm_spinupyears*12:]    
+        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm'][gcm_spinupyears*12:]  
+        glacier_area_t0 = main_vars['glacier_area_t0']
+        icethickness_t0 = main_vars['icethickness_t0']
+        width_t0 = main_vars['width_t0']   
+        ref_lr_monthly_avg = main_vars['ref_lr_monthly_avg']
         
     #    # Adjust temperature and precipitation to 'Zmed' so variables can properly be compared
     #    glacier_elev_zmed = glacier_rgi_table.loc['Zmed']  
