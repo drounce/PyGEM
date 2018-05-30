@@ -166,7 +166,6 @@ def main(list_packed_vars):
             print(glac_wide_massbaltotal_annual.mean())
             
             
-            
             # Record the calibration round
             calround = 0
             

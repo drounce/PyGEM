@@ -12,7 +12,7 @@ from sklearn.neighbors import NearestNeighbors
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
-import pygemfxns_climate as climate
+#import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 #import pygemfxns_output as output
 import climate_class
@@ -26,14 +26,15 @@ endyear = 2015
 spinupyears = 5
 # Calibrated model parameters full filename (needs to include 'all' glaciers in a region)
 cal_modelparams_fullfn = input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv'
-modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Number of nearest neighbors
 n_nbrs = 20
 
 # Reference climate data
 gcm_name = 'ERA-Interim'
-option_gcm_downscale = 2
+option_gcm_downscale = 1
 option_lapserate_fromgcm = 1
+
+option_export = 0
 
 time_start = time.time()
 
@@ -61,37 +62,35 @@ dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear, endyear,
 main_glac_hyps[main_glac_icethickness == 0] = 0
 
 #%% ===== LOAD CLIMATE DATA =====
-gcm = climate_class.GCM(gcm_name)
+gcm = climate_class.GCM(name=gcm_name)
 if option_gcm_downscale == 1:  
     # Air Temperature [degC] and GCM dates
-    main_glac_gcmtemp, main_glac_gcmdate = gcm.importGCMvarnearestneighbor_xarray(
-            gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     # Precipitation [m] and GCM dates
-    main_glac_gcmprec, main_glac_gcmdate = gcm.importGCMvarnearestneighbor_xarray(
-            gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     # Elevation [m a.s.l] associated with air temperature  and precipitation data
-    main_glac_gcmelev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Add GCM time series to the dates_table
-    dates_table['date_gcm'] = main_glac_gcmdate
+    dates_table['date_gcm'] = gcm_dates
     # Lapse rates [degC m-1]
     if option_lapserate_fromgcm == 1:
-        main_glac_gcmlapserate, main_glac_gcmdate = climate.importGCMvarnearestneighbor_xarray(
-                gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
         
 elif option_gcm_downscale == 2:
+    # 32 seconds for Region 15
     # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
     #  this simply saves time from re-running the fxns above
-    main_glac_gcmtemp_all = np.genfromtxt(gcm.var_fp + input.gcmtemp_filedict[input.rgi_regionsO1[0]], delimiter=',')
-    main_glac_gcmprec_all = np.genfromtxt(gcm.var_fp + input.gcmprec_filedict[input.rgi_regionsO1[0]], delimiter=',')
-    main_glac_gcmelev_all = np.genfromtxt(gcm.fx_fp + input.gcmelev_filedict[input.rgi_regionsO1[0]], delimiter=',')
+    gcm_temp_all = np.genfromtxt(gcm.var_fp + input.gcmtemp_filedict[input.rgi_regionsO1[0]], delimiter=',')
+    gcm_prec_all = np.genfromtxt(gcm.var_fp + input.gcmprec_filedict[input.rgi_regionsO1[0]], delimiter=',')
+    gcm_elev_all = np.genfromtxt(gcm.fx_fp + input.gcmelev_filedict[input.rgi_regionsO1[0]], delimiter=',')
     # Lapse rates [degC m-1]  
-    main_glac_gcmlapserate_all = np.genfromtxt(gcm.var_fp + input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 
+    gcm_lr_all = np.genfromtxt(gcm.var_fp + input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 
                                                delimiter=',')
     # Select the climate data for the glaciers included in the study
-    main_glac_gcmtemp = main_glac_gcmtemp_all[main_glac_rgi['O1Index'].values]
-    main_glac_gcmprec = main_glac_gcmprec_all[main_glac_rgi['O1Index'].values]
-    main_glac_gcmelev = main_glac_gcmelev_all[main_glac_rgi['O1Index'].values]
-    main_glac_gcmlapserate = main_glac_gcmlapserate_all[main_glac_rgi['O1Index'].values]
+    gcm_temp = gcm_temp_all[main_glac_rgi['O1Index'].values]
+    gcm_prec = gcm_prec_all[main_glac_rgi['O1Index'].values]
+    gcm_elev = gcm_elev_all[main_glac_rgi['O1Index'].values]
+    gcm_lr = gcm_lr_all[main_glac_rgi['O1Index'].values]
 
 print('Loading time:', time.time()-time_start, 's')
 
@@ -118,7 +117,7 @@ for n in range(n_nbrs):
 # Loop through each glacier and select the n_nbrs closest glaciers
 for glac in range(main_glac_rgi.shape[0]):
     # Select nnbrs only for uncalibrated glaciers
-    if ds_cal_all.loc[glac, modelparams_colnames].isnull().values.any() == True:
+    if ds_cal_all.loc[glac, input.modelparams_colnames].isnull().values.any() == True:
         # Print every 100th glacier
         if glac%500 == 0:
             print(main_glac_rgi.loc[glac,'RGIId'])
@@ -181,10 +180,10 @@ for glac in range(main_glac_rgi.shape[0]):
             modelparameters['ddfice'] = modelparameters['ddfsnow'] / input.ddfsnow_iceratio
             # Select subsets of data
             glacier_rgi_table = main_glac_rgi.loc[glac, :]
-            glacier_gcm_elev = main_glac_gcmelev[glac]
-            glacier_gcm_prec = main_glac_gcmprec[glac,:]
-            glacier_gcm_temp = main_glac_gcmtemp[glac,:]
-            glacier_gcm_lrgcm = main_glac_gcmlapserate[glac]
+            glacier_gcm_elev = gcm_elev[glac]
+            glacier_gcm_prec = gcm_prec[glac,:]
+            glacier_gcm_temp = gcm_temp[glac,:]
+            glacier_gcm_lrgcm = gcm_lr[glac,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
             icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
@@ -243,7 +242,8 @@ for glac in range(main_glac_rgi.shape[0]):
                 ds_cal_all_wnnbrs.loc[glac, 'tempchange'] = modelparameters['tempchange']
                 
 
-csv_output_fullfn = cal_modelparams_fullfn.replace('.csv', '_wnnbrs_' + str(strftime("%Y%m%d")) + '.csv')
-ds_cal_all_wnnbrs.to_csv(csv_output_fullfn, sep=',')
+if option_export == 1:
+    csv_output_fullfn = cal_modelparams_fullfn.replace('.csv', '_wnnbrs_' + str(strftime("%Y%m%d")) + '.csv')
+    ds_cal_all_wnnbrs.to_csv(csv_output_fullfn, sep=',')
 
 print('Processing time:', time.time()-time_start, 's')

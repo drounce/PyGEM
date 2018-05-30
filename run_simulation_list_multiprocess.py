@@ -228,7 +228,7 @@ def main(list_packed_vars):
             glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / 
                                     glac_wide_volume_annual[0] * 100)
             
-        print(mb_mwea, glac_vol_change_perc)
+#        print(mb_mwea, glac_vol_change_perc)
         
 
         if output_package != 0:
@@ -304,7 +304,7 @@ if __name__ == '__main__':
             # Netcdf outputs
             output_prefix = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
-                             str(gcm_endyear) + '_' + 'test')
+                             str(gcm_endyear) + '_')
             output_all_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
                              str(gcm_endyear) + '_all.nc')
