@@ -29,8 +29,8 @@ import climate_class
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number=['10694']
@@ -39,7 +39,7 @@ rgi_glac_number = 'all'
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_endyear = 2015
 gcm_spinupyears = 5
 
 # Output
@@ -255,8 +255,8 @@ if __name__ == '__main__':
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
                                                           rgi_glac_number=rgi_glac_number)
     # Processing needed for netcdf files
-    main_glac_rgi_all['RGIId_float'] = (np.array([np.str.split(main_glac_rgi_all['RGIId'][x],'-')[1] 
-                                              for x in range(main_glac_rgi_all.shape[0])]).astype(float))
+#    main_glac_rgi_all['RGIId_float'] = (np.array([np.str.split(main_glac_rgi_all['RGIId'][x],'-')[1] 
+#                                              for x in range(main_glac_rgi_all.shape[0])]).astype(float))
     main_glac_rgi_all_float = main_glac_rgi_all.copy()
     main_glac_rgi_all_float.drop(labels=['RGIId'], axis=1, inplace=True)
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, input.hyps_filepath, 
@@ -397,7 +397,6 @@ if __name__ == '__main__':
         glacier_area_t0 = main_vars['glacier_area_t0']
         icethickness_t0 = main_vars['icethickness_t0']
         width_t0 = main_vars['width_t0']   
-        ref_lr_monthly_avg = main_vars['ref_lr_monthly_avg']
         
     #    # Adjust temperature and precipitation to 'Zmed' so variables can properly be compared
     #    glacier_elev_zmed = glacier_rgi_table.loc['Zmed']  

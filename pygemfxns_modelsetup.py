@@ -181,7 +181,8 @@ def selectcalibrationdata(main_glac_rgi):
     ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[input.rgi_regionsO1[0]])
     main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],4))
     ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-    ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_uncertainty_colname, input.massbal_time1, input.massbal_time2]].values
+    ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_uncertainty_colname, 
+                    input.massbal_time1, input.massbal_time2]].values
     rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
     for glac in range(rgi_O1Id.shape[0]):
         try:
@@ -196,8 +197,9 @@ def selectcalibrationdata(main_glac_rgi):
             # If there is no mass balance data available for the glacier, then set as NaN
             main_glac_calmassbal[glac,:] = np.empty(4)
             main_glac_calmassbal[glac,:] = np.nan
-    main_glac_calmassbal = pd.DataFrame(main_glac_calmassbal, columns=[input.massbal_colname, input.massbal_uncertainty_colname, input.massbal_time1, 
-                                                                       input.massbal_time2])
+    main_glac_calmassbal = pd.DataFrame(main_glac_calmassbal, 
+                                        columns=[input.massbal_colname, input.massbal_uncertainty_colname, 
+                                                 input.massbal_time1, input.massbal_time2])
     return main_glac_calmassbal
 
 
@@ -208,6 +210,7 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
                            rgi_dict=input.rgi_dict,
                            rgi_cols_drop=input.rgi_cols_drop,
                            rgi_O1Id_colname=input.rgi_O1Id_colname,
+                           rgi_glacno_float_colname=input.rgi_glacno_float_colname,
                            indexname=input.indexname):
     """
     Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI 
@@ -261,6 +264,8 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
     # add column with the O1 glacier numbers
     glacier_table_copy[rgi_O1Id_colname] = (
             glacier_table_copy['RGIId'].str.split('.').apply(pd.Series).loc[:,1].astype(int))
+    glacier_table_copy[rgi_glacno_float_colname] = (np.array([np.str.split(glacier_table_copy['RGIId'][x],'-')[1] 
+                                                    for x in range(glacier_table_copy.shape[0])]).astype(float))
     # set index name
     glacier_table_copy.index.name = indexname
     return glacier_table_copy        

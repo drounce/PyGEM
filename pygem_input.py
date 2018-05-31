@@ -15,29 +15,15 @@ import numpy as np
 option_calibration = 0
 #  Option 0 (default) - regular model simulation (variables defined)
 #  Option 1 - calibration run (output differs and calibration data selected)
-# ===== PARALLELS OPTION =====
-option_parallels = 1
-#  Option 0 - do not use parallels
-#  Option 1 - Use parallels for a single gcm run
-#  Option 2 - Use parallels for multiple sets of gcms simulations
+
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
-#rgi_regionsO2 = [2]
-#  do not change this
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
-rgi_glac_number = ['00001']
-#rgi_glac_number = ['03473']
-#rgi_glac_number = ['06881']
-#rgi_glac_number = ['00326']
-#rgi_glac_number = ['00470', '00471', '00499', '00503']
-#rgi_glac_number = ['00328', '00329', '00330', '00331', '00332', '00333', '00334', '00335', '00344']
-#rgi_glac_number = ['00329']
-#rgi_glac_number = ['12433']
+rgi_glac_number = ['03473', '03733']
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -56,9 +42,6 @@ option_removeNaNcal = 1
 # Model setup directory
 main_directory = os.getcwd()
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
-# Glacier list name
-#glacier_list_name = 'glacier_list_R15_all'
-#  CAN DELETE!
 
 # Limit potential mass balance for future simulations option
 option_mb_envelope = 1
@@ -123,6 +106,46 @@ cmip5_fp_fx_ending = '_r0i0p0_fx/'
 cmip5_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
 cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 
+#%% MASS BALANCE CLASS INFORMATION (05/30/2018)
+# Calibration datasets
+#  for each mass balance dataset, store the parameters here and add to the class
+# Glacier-wide geodetic mass balance (Shean)
+shean_fp = main_directory + '/../DEMs/'
+shean_fn = 'hma_mb_20171211_1343.csv'
+shean_rgi_colname = 'RGIId'
+shean_mb_colname = 'mb_mwea'
+shean_mb_err_colname = 'mb_mwea_sigma'
+shean_time1_colname = 't1'
+shean_time2_colname = 't2'
+shean_area_colname = 'area_m2'
+shean_vol_colname = 'mb_m3wea'
+shean_vol_err_colname = 'mb_m3wea_sigma'
+
+
+brun_fp = main_directory + '/../DEMs/'
+
+# Mass change tolerance [%] - required for calibration
+masschange_tolerance = 0.1
+
+# Geodetic mass balance dataset
+# Filepath
+cal_mb_filepath = main_directory + '/../DEMs/'
+# Filename
+cal_mb_filedict = {
+                   13: 'geodetic_glacwide_DShean20171211_13_CentralAsia.csv',
+                   14: 'geodetic_glacwide_DShean20171211_14_SouthAsiaWest.csv',
+                   15: 'geodetic_glacwide_DShean20171211_15_SouthAsiaEast.csv'}
+# RGIId column name
+cal_rgi_colname = 'RGIId'
+# Mass balance column name
+massbal_colname = 'mb_mwea'
+# Mass balance uncertainty column name
+massbal_uncertainty_colname = 'mb_mwea_sigma'
+# Mass balance date 1 column name
+massbal_time1 = 'year1'
+# Mass balance date 1 column name
+massbal_time2 = 'year2'
+
 #%% ------- INPUT FOR STEP ONE --------------------------------------------------
 # STEP ONE: Model Region/Glaciers
 #   The user needs to define the region/glaciers that will be used in the model run. The user has the option of choosing
@@ -138,28 +161,22 @@ option_glacier_selection = 1
 # OPTION 1: RGI glacier inventory information
 # Filepath for RGI files
 rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
-#  file path where the rgi tables are located on the computer
-#  os.path.dirname(__file__) is getting the directory where the pygem model is running.  '..' goes up a folder and then
-#  allows it to enter RGI and find the folders from there.
-# Latitude column name
+
+# Column names
 rgi_lat_colname = 'CenLat'
-# Longitude column name
 rgi_lon_colname = 'CenLon'
-# Elevation column name
 elev_colname = 'elev'
-# Index name
 indexname = 'GlacNo'
+rgi_O1Id_colname = 'RGIId_glacno'
+rgi_glacno_float_colname = 'RGIId_float'
+# Column names from table to drop
+rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Surging','Linkages','Name']
 # Dictionary of hypsometry filenames
 rgi_dict = {
             13: '13_rgi60_CentralAsia.csv',
             14: '14_rgi60_SouthAsiaWest.csv',
             15: '15_rgi60_SouthAsiaEast.csv'}
-# Columns in the RGI tables that are not necessary to include in model run.
-rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Surging','Linkages','Name']
-#  this will change as model develops to include ice caps, calving, etc.
-rgi_O1Id_colname = 'RGIId-O1No'
-# OPTION 2: Select/customize regions based on shapefile(s)
-# Enter shapefiles, etc.
+
 
 #%% ------- INPUT FOR STEP TWO --------------------------------------------------
 # STEP TWO: Additional model setup
@@ -348,40 +365,6 @@ biasadj_data_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_1995_
 biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
 biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
 biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
-
-# Calibration datasets
-#  for each mass balance dataset, store the parameters here and add to the class
-# Glacier-wide geodetic mass balance (Shean)
-shean_fp = main_directory + '/../DEMs/'
-
-brun_fp = main_directory + '/../DEMs/'
-
-
-# Geodetic mass balance dataset
-# Filepath
-cal_mb_filepath = main_directory + '/../DEMs/'
-# Filename
-cal_mb_filedict = {
-                   13: 'geodetic_glacwide_DShean20171211_13_CentralAsia.csv',
-                   14: 'geodetic_glacwide_DShean20171211_14_SouthAsiaWest.csv',
-                   15: 'geodetic_glacwide_DShean20171211_15_SouthAsiaEast.csv'}
-# RGIId column name
-cal_rgi_colname = 'RGIId'
-# Mass balance column name
-massbal_colname = 'mb_mwea'
-# Mass balance uncertainty column name
-massbal_uncertainty_colname = 'mb_mwea_sigma'
-# Mass balance date 1 column name
-massbal_time1 = 'year1'
-# Mass balance date 1 column name
-massbal_time2 = 'year2'
-# Mass balance tolerance [m w.e.a]
-massbal_tolerance = 0.1
-# Calibration optimization tolerance
-#cal_tolerance = 1e-4
-
-
-
 
 #%% ------- INPUT FOR STEP FOUR -------------------------------------------------
 # STEP FOUR: Glacier Evolution
