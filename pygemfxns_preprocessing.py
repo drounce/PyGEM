@@ -123,59 +123,6 @@ if option_createlapserates == 1:
 #np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
     
 
-#%% Mass redistribution parameters based on geodetic mass balances
-#mb_filepath = os.getcwd() + '/../../HiMAT/DEMs/mb_bins_sample_20180323/'
-#mb_filename = '15.10070_CN5O193B0118EastRongbukGlacier_mb_bins.csv'
-#
-#data = pd.read_csv(mb_filepath + mb_filename)
-#elev = data['# bin_center_elev_m']
-#elev_norm = (elev.max() - elev) / (elev.max() - elev.min())
-#dhdt = data[' dhdt_bin_mean_ma']
-#dhdt_norm = (dhdt.max() - dhdt) / (dhdt.max() - dhdt.min())
-#
-##plt.scatter(elev_norm, dhdt_norm, cmap='jet_r')
-###  plotting x, y, size [s=__], color bar [c=__]
-###  set the range of the color bar
-##plt.colorbar(fraction=0.02, pad=0.04)
-###  fraction resizes the colorbar, pad is the space between the plot and colorbar
-##plt.show()
-#
-#fig, ax = plt.subplots(1,1, figsize=(5,5))  
-#markers = ['o','v','^']
-#labels = ['15.100070', '0.0003', '0.0005']
-### define the colormap
-##cmap = plt.cm.jet_r
-### extract all colors from the .jet map
-##cmaplist = [cmap(i) for i in range(cmap.N)]
-### create the new map
-##cmap = cmap.from_list('Custom cmap', cmaplist, cmap.N)
-### define the bins and normalize
-##stepmin = 0
-##stepmax = 1
-##stepsize = 0.2
-##bounds = np.arange(stepmin, stepmax, stepsize)
-##norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-#
-## make the scatter
-#scat = ax.scatter(elev_norm, dhdt_norm, marker=markers[0], label=labels[0])
-## create the colorbar
-##cb = plt.colorbar(scat, spacing='proportional', ticks=bounds)
-##cb = plt.colorbar()
-##tick_loc = bounds + stepsize/2
-##cb.set_ticks(tick_loc)
-##cb.set_ticklabels((bounds + stepsize/2).astype(int))
-##cb.set_label('Tempchange [degC]')
-##ax.set_title('TITLE')
-#plt.xlabel('Normalized elevation range')
-#plt.xlim((0, 1))
-##plt.xticks(np.arange(0,1.1,0.2))
-#plt.ylabel('Normalized ice thickness change')
-#plt.ylim((1,0))
-##plt.legend(loc=2)
-#plt.show()
-##fig.savefig(input.main_directory + '/../output/' + main_glac_rgi.loc[glac,'RGIID'] + '_gridsearch.png')
-
-
 #%% NEAREST NEIGHBOR CALIBRATION PARAMETERS
 ## Load csv
 #ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
@@ -308,35 +255,4 @@ if option_createlapserates == 1:
 ## Remove values without a RGIId
 #wgms_massbal_geo = wgms_massbal_geo[wgms_massbal_geo['RGIId'].isnull() == False]
 
-#%% Conslidate the WGMS data into a single csv file for a given WGMS-defined region  
-### Inputs for mass balance glaciological method
-###filepath = os.getcwd() + '/../WGMS/Asia_South_East_MB_glac_method/'
-##filepath = os.getcwd() + '/../WGMS/Asia_South_West_MB_glac_method/'
-##filename_prefix = 'FoG_MB_'
-##skiprows_value = 13
-#
-## Inputs for mass balance (glacier thickness change) from geodetic approach
-##filepath = os.getcwd() + '/../WGMS/Asia_South_East_Thickness_change_geodetic/'
-#filepath = os.getcwd() + '/../WGMS/Asia_South_West_Thickness_change_geodetic/'
-#filename_prefix = 'FoG_TC_'
-#skiprows_value = 16
-#    
-#data = None
-#for filename in os.listdir(filepath):
-#    print(filename)
-#    try:
-#        # try reading csv with default encoding
-#        data_subset = pd.read_csv(filepath + filename, delimiter = ';', skiprows=skiprows_value, quotechar='"')
-#    except:
-#        # except try reading with latin1, which handles accents
-#        data_subset = pd.read_csv(filepath + filename, delimiter = ';', skiprows=skiprows_value, quotechar='"', encoding='latin1')
-#        
-#    # Append data to create one dataframe
-#    if data is None:
-#        data = data_subset
-#    else:
-#        data = data.append(data_subset)
-## Sort data according to ID and survey year
-#data = data.sort_values(by=['WGMS_ID', 'SURVEY_YEAR'])     
-    
     

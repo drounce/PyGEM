@@ -38,16 +38,13 @@ rgi_regionsO1 = [15]
 rgi_glac_number = ['03473', '03733']
 
 # Required input
-# Time period
 gcm_startyear = 2000
 gcm_endyear = 2015
 gcm_spinupyears = 5
-
 option_calibration = 1
 
-## Output
-#output_package = 2
-#output_filepath = input.main_directory + '/../Output/'
+# Export option
+option_export = 1
 
 #%% FUNCTIONS
 def getparser():
@@ -117,13 +114,12 @@ def main(list_packed_vars):
         ref_lr_monthly_avg = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
         gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 
-
     # ===== CALIBRATION =====
     # Option 1: mimize mass balance difference using three-step approach to expand solution space
     if option_calibration == 1:
     
         # Model parameter output
-        output_cols = ['mb_gt', 'mb_perc', 'model_mb_gt', 'model_mb_perc']
+        output_cols = ['mb_gt', 'mb_perc', 'model_mb_gt', 'model_mb_perc', 'calround']
         main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], 8))
         main_glac_massbal_compare = pd.DataFrame(np.zeros((main_glac_rgi.shape[0],len(output_cols))), 
                                                  columns=output_cols)
@@ -378,34 +374,33 @@ def main(list_packed_vars):
                 
                 
             main_glac_massbal_compare.iloc[glac,:] = [mb1.mbdata.loc[glac, 'mb_gt'], mb1_gt_perc, masschange_total, 
-                                                      masschange_total_perc]
+                                                      masschange_total_perc, calround]
 
             print('precfactor:', modelparameters[2])
             print('precgrad:', modelparameters[3])
             print('ddfsnow:', modelparameters[4])
             print('tempchange:', modelparameters[7])
-            print(masschange_total_perc, mb1_gt_perc, mb1_gt_err_perc)
-
-#        if output_package != 0:
-#            # Output calibration results to .csv file
-#            #  pandas dataframe used instead of numpy arrays here, so column headings can be exported
-#            main_glac_caloutput = main_glac_rgi.copy()
-#            main_glac_caloutput['MB_model_mwea'] = main_glac_massbal_compare[:,0] 
-#            main_glac_caloutput['MB_geodetic_mwea'] = main_glac_massbal_compare[:,1] 
-#            main_glac_caloutput['MB_difference_mwea'] = main_glac_massbal_compare[:,2]
-#            main_glac_caloutput['calround'] = main_glac_massbal_compare[:,3]
-#            main_glac_caloutput['lrgcm'] = main_glac_modelparamsopt[:,0] 
-#            main_glac_caloutput['lrglac'] = main_glac_modelparamsopt[:,1] 
-#            main_glac_caloutput['precfactor'] = main_glac_modelparamsopt[:,2] 
-#            main_glac_caloutput['precgrad'] = main_glac_modelparamsopt[:,3] 
-#            main_glac_caloutput['ddfsnow'] = main_glac_modelparamsopt[:,4] 
-#            main_glac_caloutput['ddfice'] = main_glac_modelparamsopt[:,5] 
-#            main_glac_caloutput['tempsnow'] = main_glac_modelparamsopt[:,6]
-#            main_glac_caloutput['tempchange'] = main_glac_modelparamsopt[:,7]
-#            # export csv
+            print('calround:', calround)
+            print('modeled mass change [%]:',masschange_total_perc)
+            print('measured mass change [%]:', mb1_gt_perc)
+            print('measured mass change error [%]:', mb1_gt_err_perc, '\n')
+            
+        # ===== EXPORT OUTPUT =====
+        main_glac_output = main_glac_rgi.copy()
+        main_glac_modelparamsopt_pd = pd.DataFrame(main_glac_modelparamsopt, columns=input.modelparams_colnames)
+        main_glac_output = pd.concat([main_glac_output, main_glac_massbal_compare, main_glac_modelparamsopt_pd], axis=1)
+        # Export
+        if option_calibration == 1:
+            output_fn = ('cal_opt' + str(option_calibration) + '_' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+                         str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + str(count) + '.csv')
+        # Export csv
+        if option_export == 1:
+            # Output calibration results to .csv file
+            #  pandas dataframe used instead of numpy arrays here, so column headings can be exported
+            # export csv
 #            cal_output_fullfile = (input.output_filepath + input.calibrationcsv_filenameprefix + 'R' + str(regionO1_number) 
 #                                   + '_' + str(strftime("%Y%m%d")) + '.csv')
-#            main_glac_caloutput.to_csv(cal_output_fullfile)
+##            main_glac_caloutput.to_csv(cal_output_fullfile)
 
     # Export variables as global to view in variable explorer
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
@@ -542,7 +537,6 @@ if __name__ == '__main__':
         main_glac_hyps = main_vars['main_glac_hyps']
         main_glac_icethickness = main_vars['main_glac_icethickness']
         main_glac_width = main_vars['main_glac_width']
-#        main_glac_modelparams = main_vars['main_glac_modelparams']
         elev_bins = main_vars['elev_bins']
         dates_table = main_vars['dates_table']
         gcm_temp = main_vars['gcm_temp']
@@ -555,6 +549,7 @@ if __name__ == '__main__':
         glacier_rgi_table = main_vars['glacier_rgi_table']
         main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
         main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
+        main_glac_output = main_vars['main_glac_output']
 #        glacier_gcm_temp = main_vars['glacier_gcm_temp'][gcm_spinupyears*12:]
 #        glacier_gcm_prec = main_vars['glacier_gcm_prec'][gcm_spinupyears*12:]
 #        glacier_gcm_elev = main_vars['glacier_gcm_elev']

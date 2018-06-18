@@ -29,8 +29,8 @@ import climate_class
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-#rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number=['10694']
@@ -39,7 +39,7 @@ rgi_glac_number = ['03473', '03733']
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2015
+gcm_endyear = 2100
 gcm_spinupyears = 5
 
 # Output

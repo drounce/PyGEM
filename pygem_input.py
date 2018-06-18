@@ -10,11 +10,11 @@ of parameters required to run a function.
 import os
 import numpy as np
 
-#%% ===== MODEL PARAMETERS T0 ADJUST ==========================================
+#%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # ===== CALIBRATION OPTIONS =====
 option_calibration = 0
-#  Option 0 (default) - regular model simulation (variables defined)
-#  Option 1 - calibration run (output differs and calibration data selected)
+#  Option 0 (default) - model simulation
+#  Option 1 - calibrate based on minimization (returns a single parameter set)
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
@@ -34,6 +34,8 @@ startyear = 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
 endyear = 2015
+# Spin up time [years]
+spinupyears = 5
 
 # Remove NaN values (glaciers without calibration data)
 option_removeNaNcal = 1
@@ -43,10 +45,7 @@ option_removeNaNcal = 1
 main_directory = os.getcwd()
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 
-# Limit potential mass balance for future simulations option
-option_mb_envelope = 1
-
-# ===== MODEL PARAMETERS =====
+#%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
 option_import_modelparams = 1
 #  Option 1 (default) - csv of glacier parameters
@@ -62,15 +61,6 @@ ddfsnow = 0.0041
 # Temperature adjustment [deg C]
 tempchange = 0
 #  range -10 to 10
-
-# Precipitation correction factor [-]
-# ===== Grid search parameters =====
-grid_precfactor = np.arange(0.75, 2, 0.25)
-grid_tempbias = np.arange(-4, 6, 2)
-grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
-grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
-
-#%% ===== MODEL PARAMETERS THAT ARE CONSTANT ==================================
 # Lapse rate from gcm to glacier [K m-1]
 lrgcm = -0.0065
 # Lapse rate on glacier for bins [K m-1]
@@ -121,11 +111,15 @@ shean_area_colname = 'area_m2'
 shean_vol_colname = 'mb_m3wea'
 shean_vol_err_colname = 'mb_m3wea_sigma'
 
-
 brun_fp = main_directory + '/../DEMs/'
+#  NEED TO FINISH SETTING UP FOR BRUN AND MAUER
+
+# Limit potential mass balance for future simulations option
+option_mb_envelope = 1
 
 # Mass change tolerance [%] - required for calibration
 masschange_tolerance = 0.1
+
 
 # Geodetic mass balance dataset
 # Filepath
@@ -146,22 +140,19 @@ massbal_time1 = 'year1'
 # Mass balance date 1 column name
 massbal_time2 = 'year2'
 
-#%% ------- INPUT FOR STEP ONE --------------------------------------------------
-# STEP ONE: Model Region/Glaciers
-#   The user needs to define the region/glaciers that will be used in the model run. The user has the option of choosing
-#   the standard RGI regions or defining their own regions.
-#   Note: Make sure that all input variables are defined for the chosen option
 
-# ----- Input required for glacier selection options -----
+# Calibration output filename prefix (grid search)
+calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
+
+#%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
+# ===== RGI DATA =====
 # Glacier selection option
 option_glacier_selection = 1
 #  Option 1 (default) - enter numbers associated with RGI V6.0
 #  Option 2 - glaciers/regions selected via shapefile
 #  Option 3 - glaciers/regions selected via new table (other inventory)
-# OPTION 1: RGI glacier inventory information
 # Filepath for RGI files
 rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
-
 # Column names
 rgi_lat_colname = 'CenLat'
 rgi_lon_colname = 'CenLon'
@@ -177,22 +168,13 @@ rgi_dict = {
             14: '14_rgi60_SouthAsiaWest.csv',
             15: '15_rgi60_SouthAsiaEast.csv'}
 
-
-#%% ------- INPUT FOR STEP TWO --------------------------------------------------
-# STEP TWO: Additional model setup
-#   Additional model setup that has been separated from the glacier selection in step one in order to keep the input
-#   organized and easy to read.
-#
-# ----- Input required for glacier hypsometry -----
-# extract glacier hypsometry according to Matthias Huss's ice thickness files (area and width included as well)
-#  Potential option - automatically extract 50m hypsometry from RGI60
-#  Potential option - extract glacier hypsometry and mass balance from David Shean's measurements using high-res DEMs
+# ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
 # Elevation band height [m]
 binsize = 10
 # Filepath for the hypsometry files
 hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of hypsometry filenames 
-# (FILES SHOULD BE PRE-PROCESSED TO BE 'RGI-ID', 'Cont_range' and bins starting at 5)
+# (Files from Matthias Huss should be manually pre-processed to be 'RGI-ID', 'Cont_range', and bins starting at 5)
 hyps_filedict = {
                 13: 'area_13_Huss_CentralAsia_10m.csv',
                 14: 'area_14_Huss_SouthAsiaWest_10m.csv',
@@ -218,7 +200,7 @@ width_filedict = {
 # Extra columns in ice thickness data that will be dropped
 width_colsdrop = ['RGI-ID','Cont_range']
 
-# ----- Input required for model time frame -----
+#%% MODEL TIME FRAME DATA
 # Note: models are required to have complete data for each year such that refreezing, scaling, etc. are consistent for
 #       all time periods.
 # Leap year option
@@ -247,10 +229,8 @@ timestep = 'monthly'
 #  enter 'monthly' or 'daily'
 #  water year example: 2000 would end on September 2000
 #  calendar year example: 2000 would end on December 2000
-# Number of years for model spin up [years]
-spinupyears = 5
 
-# ----- Input required for initial surface type -----
+#%% SURFACE TYPE OPTIONS
 # Initial surface type options
 option_surfacetype_initial = 1
 #  Option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
@@ -271,8 +251,7 @@ option_surfacetype_debris = 0
 #   > Load in Batu's debris maps and specify for each glacier
 #   > Determine how DDF_debris will be included
 
-
-#%% ------- INPUT FOR STEP THREE ------------------------------------------------
+#%% CLIMATE DATA
 # STEP THREE: Climate Data
 #   User has the climate data and how it is downscaled to glacier and bins.
 # Information regarding climate data
@@ -319,43 +298,7 @@ gcmlapserate_filedict = {
                          14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
                          15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
-## Input data used before trying classes
-## Climate data filepath
-#gcm_filepath_var = main_directory + '/../Climate_data/ERA_Interim/'
-#gcm_filepath_fx = main_directory + '/../Climate_data/ERA_Interim/'
-## Climate file and variable names
-#gcm_temp_filename = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-#gcm_temp_varname = 't2m'
-#gcm_prec_filename = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
-#gcm_prec_varname = 'tp'
-#gcm_elev_filename = 'ERAInterim_geopotential.nc'
-#gcm_elev_varname = 'z'
-#gcm_lapserate_filename = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
-#gcm_lapserate_varname = 'lapserate'
-#gcm_lat_varname = 'latitude'
-#gcm_lon_varname = 'longitude'
-#gcm_time_varname = 'time'
-#
-## CMIP5 INPUT CLIMATE DATA
-##gcm_name = 'MPI-ESM-LR'
-##rcp_scenario = 'rcp26'
-## Climate data filepath
-##gcm_filepath_var = main_directory + '/../Climate_data/cmip5/rcp26_r1i1p1_monNG/'
-##gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/rcp26_r0i0p0_fx/'
-#gcm_filepath_var = main_directory + '/../Climate_data/cmip5/'
-#gcm_filepath_fx = main_directory + '/../Climate_data/cmip5/'
-## Climate file and variable names
-##gcm_temp_filename = 'tas_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
-#gcm_temp_varname = 'tas'
-##gcm_prec_filename = 'pr_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc'
-#gcm_prec_varname = 'pr'
-##gcm_elev_filename = 'orog_fx_' + gcm_name + '_' + rcp_scenario + '_r0i0p0.nc'
-#gcm_elev_varname = 'orog'
-#gcm_lat_varname = 'lat'
-#gcm_lon_varname = 'lon'
-#gcm_time_varname = 'time'
-
-# Bias adjustments option (required for future simulations)
+#%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
 option_bias_adjustment = 1
 #  Option 0 - ignore bias adjustments
 #  Option 1 - bias adjustments using new technique 
@@ -367,9 +310,6 @@ biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
 biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
 
 #%% ------- INPUT FOR STEP FOUR -------------------------------------------------
-# STEP FOUR: Glacier Evolution
-#   Enter brief description of user options here.
-
 # Model parameters filepath, filename, and column names
 modelparams_filepath = main_directory + '/../Calibration_datasets/'
 #modelparams_filename = 'calparams_R15_20180306_nearest.csv'
@@ -378,6 +318,12 @@ modelparams_filepath = main_directory + '/../Calibration_datasets/'
 modelparams_filename = 'calparams_R15_20180403_nnbridx.csv'
 #modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
+
+# Grid search parameters (old)
+grid_precfactor = np.arange(0.75, 2, 0.25)
+grid_tempbias = np.arange(-4, 6, 2)
+grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
+grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
 
 # DDF firn
 option_DDF_firn = 1
@@ -446,9 +392,12 @@ icethickness_advancethreshold = 5
 terminus_percentage = 20
 #  Huss and Hock (2015) use 20% to calculate new area and ice thickness
 
-#------- INPUT FOR STEP FOUR -------------------------------------------------
-# STEP FIVE: Output
-# Output package number
+#%% OUTPUT OPTIONS
+# Output filepath
+output_filepath = main_directory + '/../Output/'
+# Netcdf filename prefix
+netcdf_fn_prefix = 'PyGEM_R'
+# Netcdf output package number
 output_package = 2
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]
@@ -459,22 +408,17 @@ output_package = 2
     #             monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, 
     #                                             snowline)
     #             annual glacier-wide variables (area, volume, ELA)
-output_filepath = main_directory + '/../Output/'
-calibrationcsv_filenameprefix = 'calibration_'
-calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
-netcdf_fn_prefix = 'PyGEM_R'
 
-#%% ========== LIST OF MODEL INPUT ==============================================
-#------- INPUT FOR CODE ------------------------------------------------------
-# Warning message option
+
+#%% WARNING MESSAGE OPTION
 option_warningmessages = 1
 #  Warning messages are a good check to make sure that the script is running properly, and small nuances due to
 #  differences in input data (e.g., units associated with GCM air temperature data are correct)
-#  Option 1 (default) - print warning messages within script that are meant to
-#                      assist user
+#  Option 1 (default) - print warning messages within script that are meant to assist user
+#                       currently these messages are only included in a few scripts (e.g., climate data)
 #  Option 0 - do not print warning messages within script
 
-#%% ------- MODEL PROPERTIES ----------------------------------------------------
+#%% MODEL PROPERTIES 
 # Density of ice [kg m-3]
 density_ice = 900
 # Density of water [kg m-3]

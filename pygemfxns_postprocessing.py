@@ -120,10 +120,13 @@ if option_plot_futuresim == 1:
     output_fp = input.output_filepath + 'R15_sims_20180530/'
     gcm_list = ['MPI-ESM-LR', 'GFDL-CM3', 'CanESM2', 'GISS-E2-R']
 #    gcm_list = ['NorESM1-M']
+#    gcm_list = ['MPI-ESM-LR']
     rcp_scenario = 'rcp26'
     rgi_regionO1 = [15]
     output_all = []
+    gcm = gcm_list[0]
     for gcm in gcm_list:
+#    for rcp_scenario in ['rcp26', 'rcp85']:
         print(gcm)
         output_fn = 'PyGEM_R' + str(rgi_regionO1[0]) + '_' + gcm + '_' + rcp_scenario + '_biasadj_opt1_1995_2100.nc'
         output = nc.Dataset(output_fp + output_fn)
@@ -168,7 +171,7 @@ if option_plot_futuresim == 1:
         plt.subplot(2,1,1)
         plt.plot(years_plus1, volume_reg_annualnorm, label=gcm)
         plt.title('Region ' + str(rgi_regionO1[0]))
-        plt.ylabel('Volume change [%]')
+        plt.ylabel('Volume [%]')
         plt.xlim(2000,2101)
         plt.legend()
         
@@ -205,7 +208,7 @@ if option_plot_futuresim == 1:
     xtick = 1
     ytick = 1
     # Plot regional maps
-    plot_latlonvar(lons, lats, volume_change_glac_perc, -100, 100, gcm + ' volume change (2000-2100) [%]', 
+    plot_latlonvar(lons, lats, volume_change_glac_perc, -100, 100, gcm + ' Volume [%]', 
                    'longitude [deg]', 'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick, 
                    marker_size=20)
         
