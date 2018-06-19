@@ -35,7 +35,8 @@ import mbdata_class
 # Glacier selection
 rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
 
 # Required input
 gcm_startyear = 2000
@@ -45,6 +46,7 @@ option_calibration = 1
 
 # Export option
 option_export = 1
+output_filepath = input.main_directory + '/../Output/'
 
 #%% FUNCTIONS
 def getparser():
@@ -113,7 +115,7 @@ def main(list_packed_vars):
         # Mean monthly lapse rate
         ref_lr_monthly_avg = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
         gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-
+        
     # ===== CALIBRATION =====
     # Option 1: mimize mass balance difference using three-step approach to expand solution space
     if option_calibration == 1:
@@ -123,11 +125,12 @@ def main(list_packed_vars):
         main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], 8))
         main_glac_massbal_compare = pd.DataFrame(np.zeros((main_glac_rgi.shape[0],len(output_cols))), 
                                                  columns=output_cols)
+        main_glac_massbal_compare.index = main_glac_rgi.index.values
         
         for glac in range(main_glac_rgi.shape[0]):
-    #        if glac%200 == 0:
-    #            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
-            print(main_glac_rgi.loc[glac,'RGIId'])
+#            if glac%200 == 0:
+#                print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
+            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
             
             # Set model parameters
             modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice, 
@@ -162,8 +165,8 @@ def main(list_packed_vars):
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=1))
                 # Time indices associated with mass balance data
-                t1_idx = mb1.mbdata.loc[glac,'t1_idx'].astype(int)
-                t2_idx = mb1.mbdata.loc[glac,'t2_idx'].astype(int)
+                t1_idx = mb1.mbdata.loc[main_glac_rgi.index.values[glac],'t1_idx'].astype(int)
+                t2_idx = mb1.mbdata.loc[main_glac_rgi.index.values[glac],'t2_idx'].astype(int)
                 # Total mass change [Gt, %] consistent with geodetic measurement
                 glac_wide_area = np.repeat(glac_wide_area_annual[0:-1],16)
                 masschange_total =  ((glac_wide_massbaltotal[t1_idx:t2_idx] * glac_wide_area[t1_idx:t2_idx]).sum() 
@@ -171,8 +174,8 @@ def main(list_packed_vars):
                 masschange_total_perc = (masschange_total / (glac_wide_volume_annual[0] * input.density_water / 1000) 
                                          * 100)
                 # Geodetic total mass change [%]
-                mb1_gt_perc = (mb1.mbdata.loc[glac,'mb_gt'] / (glac_wide_volume_annual[0] * input.density_water / 1000) 
-                               * 100)
+                mb1_gt_perc = (mb1.mbdata.loc[main_glac_rgi.index.values[glac],'mb_gt'] / (glac_wide_volume_annual[0] 
+                               * input.density_water / 1000) * 100)
                 # Difference between geodetic and modeled mass balance
                 masschange_difference = abs(mb1_gt_perc - masschange_total_perc)
                 return masschange_difference
@@ -251,8 +254,8 @@ def main(list_packed_vars):
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                            option_areaconstant=1))
             # Time indices associated with mass balance data
-            t1_idx = mb1.mbdata.loc[glac,'t1_idx'].astype(int)
-            t2_idx = mb1.mbdata.loc[glac,'t2_idx'].astype(int)
+            t1_idx = mb1.mbdata.loc[main_glac_rgi.index.values[glac],'t1_idx'].astype(int)
+            t2_idx = mb1.mbdata.loc[main_glac_rgi.index.values[glac],'t2_idx'].astype(int)
             # Total mass change [Gt, %] consistent with geodetic measurement
             glac_wide_area = np.repeat(glac_wide_area_annual[0:-1],16)
             masschange_total =  ((glac_wide_massbaltotal[t1_idx:t2_idx] * glac_wide_area[t1_idx:t2_idx]).sum() 
@@ -260,10 +263,10 @@ def main(list_packed_vars):
             masschange_total_perc = (masschange_total / (glac_wide_volume_annual[0] * input.density_water / 1000) 
                                      * 100)
             # Geodetic total mass change [%]
-            mb1_gt_perc = (mb1.mbdata.loc[glac,'mb_gt'] / (glac_wide_volume_annual[0] * input.density_water / 1000) 
-                           * 100)
-            mb1_gt_err_perc = (mb1.mbdata.loc[glac,'mb_gt_err'] / (glac_wide_volume_annual[0] * input.density_water 
-                               / 1000) * 100)
+            mb1_gt_perc = (mb1.mbdata.loc[main_glac_rgi.index.values[glac],'mb_gt'] / (glac_wide_volume_annual[0] 
+                           * input.density_water / 1000) * 100)
+            mb1_gt_err_perc = (mb1.mbdata.loc[main_glac_rgi.index.values[glac],'mb_gt_err'] / 
+                               (glac_wide_volume_annual[0] * input.density_water / 1000) * 100)
             # Difference between geodetic and modeled mass balance
             masschange_difference = abs(mb1_gt_perc - masschange_total_perc)
             
@@ -304,8 +307,8 @@ def main(list_packed_vars):
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=1))
                 # Time indices associated with mass balance data
-                t1_idx = mb1.mbdata.loc[glac,'t1_idx'].astype(int)
-                t2_idx = mb1.mbdata.loc[glac,'t2_idx'].astype(int)
+                t1_idx = mb1.mbdata.loc[main_glac_rgi.index.values[glac],'t1_idx'].astype(int)
+                t2_idx = mb1.mbdata.loc[main_glac_rgi.index.values[glac],'t2_idx'].astype(int)
                 # Total mass change [Gt, %] consistent with geodetic measurement
                 glac_wide_area = np.repeat(glac_wide_area_annual[0:-1],16)
                 masschange_total =  ((glac_wide_massbaltotal[t1_idx:t2_idx] * glac_wide_area[t1_idx:t2_idx]).sum() 
@@ -313,10 +316,10 @@ def main(list_packed_vars):
                 masschange_total_perc = (masschange_total / (glac_wide_volume_annual[0] * input.density_water / 1000) 
                                          * 100)
                 # Geodetic total mass change [%]
-                mb1_gt_perc = (mb1.mbdata.loc[glac,'mb_gt'] / (glac_wide_volume_annual[0] * input.density_water / 1000) 
-                               * 100)
-                mb1_gt_err_perc = (mb1.mbdata.loc[glac,'mb_gt_err'] / (glac_wide_volume_annual[0] * input.density_water 
-                                   / 1000) * 100)
+                mb1_gt_perc = (mb1.mbdata.loc[main_glac_rgi.index.values[glac],'mb_gt'] / (glac_wide_volume_annual[0] 
+                               * input.density_water / 1000) * 100)
+                mb1_gt_err_perc = (mb1.mbdata.loc[main_glac_rgi.index.values[glac],'mb_gt_err'] / 
+                                   (glac_wide_volume_annual[0] * input.density_water / 1000) * 100)
                 # Difference between geodetic and modeled mass balance
                 masschange_difference = abs(mb1_gt_perc - masschange_total_perc)
                 
@@ -356,8 +359,8 @@ def main(list_packed_vars):
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=1))
                 # Time indices associated with mass balance data
-                t1_idx = mb1.mbdata.loc[glac,'t1_idx'].astype(int)
-                t2_idx = mb1.mbdata.loc[glac,'t2_idx'].astype(int)
+                t1_idx = mb1.mbdata.loc[main_glac_rgi.index.values[glac],'t1_idx'].astype(int)
+                t2_idx = mb1.mbdata.loc[main_glac_rgi.index.values[glac],'t2_idx'].astype(int)
                 # Total mass change [Gt, %] consistent with geodetic measurement
                 glac_wide_area = np.repeat(glac_wide_area_annual[0:-1],16)
                 masschange_total =  ((glac_wide_massbaltotal[t1_idx:t2_idx] * glac_wide_area[t1_idx:t2_idx]).sum() 
@@ -365,17 +368,18 @@ def main(list_packed_vars):
                 masschange_total_perc = (masschange_total / (glac_wide_volume_annual[0] * input.density_water / 1000) 
                                          * 100)
                 # Geodetic total mass change [%]
-                mb1_gt_perc = (mb1.mbdata.loc[glac,'mb_gt'] / (glac_wide_volume_annual[0] * input.density_water / 1000) 
-                               * 100)
-                mb1_gt_err_perc = (mb1.mbdata.loc[glac,'mb_gt_err'] / (glac_wide_volume_annual[0] * input.density_water 
-                                   / 1000) * 100)
+                mb1_gt_perc = (mb1.mbdata.loc[main_glac_rgi.index.values[glac],'mb_gt'] / (glac_wide_volume_annual[0] 
+                               * input.density_water / 1000) * 100)
+                mb1_gt_err_perc = (mb1.mbdata.loc[main_glac_rgi.index.values[glac],'mb_gt_err'] / 
+                                   (glac_wide_volume_annual[0] * input.density_water / 1000) * 100)
                 # Difference between geodetic and modeled mass balance
                 masschange_difference = abs(mb1_gt_perc - masschange_total_perc)
                 
                 
-            main_glac_massbal_compare.iloc[glac,:] = [mb1.mbdata.loc[glac, 'mb_gt'], mb1_gt_perc, masschange_total, 
-                                                      masschange_total_perc, calround]
-
+            main_glac_massbal_compare.loc[main_glac_rgi.index.values[glac],:] = (
+                    [mb1.mbdata.loc[main_glac_rgi.index.values[glac], 'mb_gt'], mb1_gt_perc, masschange_total, 
+                     masschange_total_perc, calround])
+            
             print('precfactor:', modelparameters[2])
             print('precgrad:', modelparameters[3])
             print('ddfsnow:', modelparameters[4])
@@ -388,19 +392,13 @@ def main(list_packed_vars):
         # ===== EXPORT OUTPUT =====
         main_glac_output = main_glac_rgi.copy()
         main_glac_modelparamsopt_pd = pd.DataFrame(main_glac_modelparamsopt, columns=input.modelparams_colnames)
+        main_glac_modelparamsopt_pd.index = main_glac_rgi.index.values
         main_glac_output = pd.concat([main_glac_output, main_glac_massbal_compare, main_glac_modelparamsopt_pd], axis=1)
-        # Export
-        if option_calibration == 1:
-            output_fn = ('cal_opt' + str(option_calibration) + '_' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+        # Export output
+        if (option_calibration == 1) and (option_export == 1):
+            output_fn = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
                          str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + str(count) + '.csv')
-        # Export csv
-        if option_export == 1:
-            # Output calibration results to .csv file
-            #  pandas dataframe used instead of numpy arrays here, so column headings can be exported
-            # export csv
-#            cal_output_fullfile = (input.output_filepath + input.calibrationcsv_filenameprefix + 'R' + str(regionO1_number) 
-#                                   + '_' + str(strftime("%Y%m%d")) + '.csv')
-##            main_glac_caloutput.to_csv(cal_output_fullfile)
+            main_glac_output.to_csv(input.output_filepath + output_fn)
 
     # Export variables as global to view in variable explorer
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
@@ -415,19 +413,10 @@ if __name__ == '__main__':
     parser = getparser()
     args = parser.parse_args()
     
-    # Select glaciers and define chunks
+    # Select glaciers
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
                                                           rgi_glac_number=rgi_glac_number)
-    # Processing needed for netcdf files
-    main_glac_rgi_all['RGIId_float'] = (np.array([np.str.split(main_glac_rgi_all['RGIId'][x],'-')[1] 
-                                              for x in range(main_glac_rgi_all.shape[0])]).astype(float))
-    main_glac_rgi_all_float = main_glac_rgi_all.copy()
-    main_glac_rgi_all_float.drop(labels=['RGIId'], axis=1, inplace=True)
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, input.hyps_filepath, 
-                                                 input.hyps_filedict, input.hyps_colsdrop)
-    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
-                                                                 spinupyears=gcm_spinupyears)
-    
+    # Define chunks
     if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
         chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / args.num_simultaneous_processes))
     else:
@@ -455,80 +444,41 @@ if __name__ == '__main__':
         # Parallel processing
         if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
             with multiprocessing.Pool(args.num_simultaneous_processes) as p:
-                p.map(main,list_packed_vars)
-        
+                p.map(main,list_packed_vars)        
         # No parallel processing
         else:
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
+            
     
-#         # Combine output into single package and export lapse rate if necessary
-#        if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
-#            # Netcdf outputs
-#            output_prefix = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
-#                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
-#                             str(gcm_endyear) + '_' + 'test')
-#            output_all_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
-#                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
-#                             str(gcm_endyear) + '_all.nc')
-#            
-#            # Select netcdf files produced in parallel
-#            output_list = []
-#            for i in os.listdir(output_filepath):
-#                # Append bias adjustment results
-#                if i.startswith(output_prefix) == True:
-#                    output_list.append(i)
-#            
-#            # Merge netcdfs together
-#            if (len(output_list) > 1) and (output_package != 0):
-#                # Create netcdf that will have them all together
-#                output.netcdfcreate(output_all_fn, main_glac_rgi_all_float, main_glac_hyps, dates_table, 
-#                                    output_filepath=input.output_filepath)
-#                # Open file to write
-#                netcdf_output = nc.Dataset(output_filepath + output_all_fn, 'r+')
-#                
-#                glac_count = -1
-#                for n in range(len(output_list)):
-#                    ds = nc.Dataset(output_filepath + output_list[n])
-#                    for glac in range(ds['glac_idx'][:].shape[0]):
-#                        glac_count = glac_count + 1
-#                        if output_package == 2:
-#                            netcdf_output.variables['temp_glac_monthly'][glac_count,:] = (
-#                                    ds['temp_glac_monthly'][glac,:])
-#                            netcdf_output.variables['prec_glac_monthly'][glac_count,:] = (
-#                                    ds['prec_glac_monthly'][glac,:])
-#                            netcdf_output.variables['acc_glac_monthly'][glac_count,:] = (
-#                                    ds['acc_glac_monthly'][glac,:])
-#                            netcdf_output.variables['refreeze_glac_monthly'][glac_count,:] = (
-#                                    ds['refreeze_glac_monthly'][glac,:])
-#                            netcdf_output.variables['melt_glac_monthly'][glac_count,:] = (
-#                                    ds['melt_glac_monthly'][glac,:])
-#                            netcdf_output.variables['frontalablation_glac_monthly'][glac_count,:] = (
-#                                    ds['frontalablation_glac_monthly'][glac,:])
-#                            netcdf_output.variables['massbaltotal_glac_monthly'][glac_count,:] = (
-#                                    ds['massbaltotal_glac_monthly'][glac,:])
-#                            netcdf_output.variables['runoff_glac_monthly'][glac_count,:] = (
-#                                    ds['runoff_glac_monthly'][glac,:])
-#                            netcdf_output.variables['snowline_glac_monthly'][glac_count,:] = (
-#                                    ds['snowline_glac_monthly'][glac,:])
-#                            netcdf_output.variables['area_glac_annual'][glac_count,:] = (
-#                                    ds['area_glac_annual'][glac,:])
-#                            netcdf_output.variables['volume_glac_annual'][glac_count,:] = (
-#                                    ds['volume_glac_annual'][glac,:])
-#                            netcdf_output.variables['ELA_glac_annual'][glac_count,:] = (
-#                                    ds['ELA_glac_annual'][glac,:])
-#                        else:
-#                            print('Code merge for output package')  
-#                    ds.close()
-#                    # Remove file after its been merged
-#                    os.remove(output_filepath + output_list[n])
-#                # Close the netcdf file
-#                netcdf_output.close()
+        # Combine output into single csv
+        if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
+            (option_export == 1)):
+            # Single output file
+            output_prefix = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+                             str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
+            output_list = []
+            for i in os.listdir(output_filepath):
+                # Append results
+                if i.startswith(output_prefix) == True:
+                    output_list.append(i)
+                    if len(output_list) == 1:
+                        output_all = pd.read_csv(output_filepath + i, index_col=0)
+                    else:
+                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
+                        output_all = output_all.append(output_2join, ignore_index=True)
+                    # Remove file after its been merged
+                    os.remove(output_filepath + i)
+            # Export joined files
+            output_all_fn = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+                             str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
+                             str(strftime("%Y%m%d")) + '.csv')
+            output_all.to_csv(output_filepath + output_all_fn)
         
     print('Total processing time:', time.time()-time_start, 's')
             
-#%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          
+    #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          
     # Place local variables in variable explorer
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
         main_vars_list = list(main_vars.keys())
@@ -550,61 +500,3 @@ if __name__ == '__main__':
         main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
         main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
         main_glac_output = main_vars['main_glac_output']
-#        glacier_gcm_temp = main_vars['glacier_gcm_temp'][gcm_spinupyears*12:]
-#        glacier_gcm_prec = main_vars['glacier_gcm_prec'][gcm_spinupyears*12:]
-#        glacier_gcm_elev = main_vars['glacier_gcm_elev']
-#        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm'][gcm_spinupyears*12:]    
-        
-    #    # Adjust temperature and precipitation to 'Zmed' so variables can properly be compared
-    #    glacier_elev_zmed = glacier_rgi_table.loc['Zmed']  
-    #    glacier_gcm_temp_zmed = glacier_gcm_temp + glacier_gcm_lrgcm * (glacier_elev_zmed - glacier_gcm_elev)
-    #    glacier_gcm_prec_zmed = glacier_gcm_prec * modelparameters['precfactor']
-    #    
-    #    glac_wide_massbaltotal_annual = glac_wide_massbaltotal.reshape(-1,12).sum(axis=1)
-    #    # Plot reference vs. GCM temperature and precipitation
-    #    # Monthly trends
-    #    months = dates_table['date'][gcm_spinupyears*12:]
-    #    years = np.unique(dates_table['wateryear'].values)[gcm_spinupyears:]
-    #    
-    #    # Temperature
-    #    plt.plot(months, glacier_gcm_temp_zmed, label='gcm_temp')
-    #    plt.ylabel('Monthly temperature [degC]')
-    #    plt.legend()
-    #    plt.show()
-    #    # Precipitation
-    #    plt.plot(months, glacier_gcm_prec_zmed, label='gcm_prec')
-    #    plt.ylabel('Monthly precipitation [m]')
-    #    plt.legend()
-    #    plt.show()
-    #    
-    #    # Annual trends
-    #    glacier_gcm_temp_zmed_annual = glacier_gcm_temp_zmed.reshape(-1,12).mean(axis=1)
-    #    glacier_gcm_prec_zmed_annual = glacier_gcm_prec_zmed.reshape(-1,12).sum(axis=1)
-    #    # Temperature
-    #    plt.plot(years, glacier_gcm_temp_zmed_annual, label='gcm_temp')
-    #    plt.ylabel('Mean annual temperature [degC]')
-    #    plt.legend()
-    #    plt.show()
-    #    # Precipitation
-    #    plt.plot(years, glacier_gcm_prec_zmed_annual, label='gcm_prec')
-    #    plt.ylabel('Total annual precipitation [m]')
-    #    plt.legend()
-    #    plt.show()
-    #    # Mass balance - bar plot
-    #    bar_width = 0.35
-    #    plt.bar(years+bar_width, glac_wide_massbaltotal_annual, bar_width, label='gcm_MB')
-    #    plt.ylabel('Glacier-wide mass balance [mwea]')
-    #    plt.legend()
-    #    plt.show()
-    #    # Cumulative mass balance - bar plot
-    #    glac_wide_massbaltotal_annual_cumsum = np.cumsum(glac_wide_massbaltotal_annual)
-    #    bar_width = 0.35
-    #    plt.bar(years+bar_width, glac_wide_massbaltotal_annual_cumsum, bar_width, label='gcm_MB')
-    #    plt.ylabel('Cumulative glacier-wide mass balance [mwe]')
-    #    plt.legend()
-    #    plt.show() 
-        
-    #    # Histogram of differences
-    #    mb_dif = main_glac_bias_adj['ref_mb_mwea'] - main_glac_bias_adj['gcm_mb_mwea']
-    #    plt.hist(mb_dif)
-    #    plt.show()      

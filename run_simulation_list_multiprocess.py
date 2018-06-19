@@ -299,7 +299,7 @@ if __name__ == '__main__':
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
     
-         # Combine output into single package and export lapse rate if necessary
+         # Combine output into single netcdf
         if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
             # Netcdf outputs
             output_prefix = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
