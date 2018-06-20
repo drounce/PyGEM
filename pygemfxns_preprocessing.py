@@ -6,6 +6,7 @@ pygemfxns_preprocessing.py is a list of the model functions that are used to pre
 import pandas as pd
 import numpy as np
 import os
+import glob
 import xarray as xr
 import netCDF4 as nc
 from time import strftime
@@ -16,12 +17,15 @@ import matplotlib.pyplot as plt
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
-import pygemfxns_climate as climate
+#import pygemfxns_climate as climate
 
-#%% Create netcdf file of lapse rates from temperature pressure level data
-# Option to run the function
+#%% INPUT OPTIONS
+# Lapse rate function option
 option_createlapserates = 0
+# WGMS process option
+option_wgms = 1
 
+# Input data for lapse rate function
 if option_createlapserates == 1:
     # Input data
     gcm_filepath = os.getcwd() + '/../Climate_data/ERA_Interim/HMA_temp_pressurelevel_data/'
@@ -36,7 +40,160 @@ if option_createlapserates == 1:
     endyear = 2017
     output_filepath = '../Output/'
     output_filename_prefix = 'HMA_Regions13_14_15_ERAInterim_lapserates'
+    
 
+# Input data for WGMS processing
+if option_wgms == 1:
+    # RGI region
+    rgi_regionO1 = 15
+    # Bounding box
+    lat_bndN = 46
+    lat_bndS = 26
+    lon_bndW = 65
+    lon_bndE = 105
+    # Filenames
+    rgilookup_fn = input.main_directory + '/../RGI/rgi60/00_rgi60_links/00_rgi60_links.csv'
+    rgiv6_fn_prefix = input.main_directory + '/../RGI/rgi60/00_rgi60_attribs/' + str(rgi_regionO1) + '*'
+    rgiv5_fn_prefix = input.main_directory + '/../RGI/00_rgi50_attribs/' + str(rgi_regionO1) + '*'
+    
+    wgmslookup_fn = input.main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/WGMS-FoG-2018-06-AA-GLACIER-ID-LUT.csv'
+    wgms_mb_d_fn = input.main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/WGMS-FoG-2018-06-D-CHANGE.csv'
+    wgms_mb_ee_fn = input.main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/WGMS-FoG-2018-06-EE-MASS-BALANCE.csv'
+
+#%% Connect the WGMS mass balance datasets with the RGIIds and relevant elevation bands
+# Load RGI version 5 & 6 and create dictionary linking the two
+#  -required to avoid errors associated with changes in RGIId between the two versions in some regions
+rgiv6_fn = glob.glob(rgiv6_fn_prefix)[0]
+rgiv6 = pd.read_csv(rgiv6_fn)
+rgiv5_fn = glob.glob(rgiv5_fn_prefix)[0]
+rgiv5 = pd.read_csv(rgiv5_fn)
+
+rgi_version_compare = rgiv5[['RGIId', 'GLIMSId']].copy()
+rgi_version_compare['RGIIdv6'] = np.nan
+
+for r in range(rgiv5.shape[0]):
+    try:
+        # Use GLIMSID
+        rgi_version_compare.iloc[r,2] = rgiv6.iloc[rgiv6['GLIMSId'].values == rgiv5.loc[r,'GLIMSId'],0].values[0]
+#        # Use Lat/Lon
+#        latlon_dif = abs(rgiv6[['CenLon', 'CenLat']].values - rgiv5[['CenLon', 'CenLat']].values[r,:])
+#        latlon_dif[abs(latlon_dif) < 1e-6] = 0
+#        rgi_version_compare.iloc[r,2] = rgiv6.iloc[np.where(latlon_dif[:,0] + latlon_dif[:,1] < 0.001)[0][0],0]
+    except:
+        rgi_version_compare.iloc[r,2] = np.nan
+rgiv56_dict = dict(zip(rgi_version_compare['RGIId'], rgi_version_compare['RGIIdv6']))
+    
+# RGI Lookup table
+rgilookup = pd.read_csv(rgilookup_fn, skiprows=2)
+rgidict = dict(zip(rgilookup['FoGId'], rgilookup['RGIId']))
+# WGMS Lookup table
+wgmslookup = pd.read_csv(wgmslookup_fn, encoding='latin1')
+wgmsdict = dict(zip(wgmslookup['WGMS_ID'], wgmslookup['RGI_ID']))
+# Manual lookup table
+mandict = {10402: 'RGI60-13.10093',
+              10401: 'RGI60-15.03734',
+              6846: 'RGI60-15.12707'}
+# WGMS Geodetic mass balance data
+wgms_mb_geo = pd.read_csv(wgms_mb_d_fn, encoding='latin1')
+wgms_mb_geo['RGIId_rgidict'] = wgms_mb_geo['WGMS_ID'].map(rgidict)
+wgms_mb_geo['RGIId_mandict'] = wgms_mb_geo['WGMS_ID'].map(mandict)
+wgms_mb_geo['RGIId_wgmsdict'] = wgms_mb_geo['WGMS_ID'].map(wgmsdict)
+wgms_mb_geo['RGIId_wgmsdictv6'] = wgms_mb_geo['RGIId_wgmsdict'].map(rgiv56_dict)
+
+wgms_mb_geo_RGIIds_all_raw = wgms_mb_geo[['RGIId_rgidict', 'RGIId_mandict','RGIId_wgmsdictv6']]
+wgms_mb_geo_RGIIds_all = wgms_mb_geo_RGIIds_all_raw.apply(lambda x: sorted(x, key=pd.isnull), 1).iloc[:,0]
+
+
+
+# NEED TO FIGURE OUT HOW TO SEPARATE THE RGI REGION AND DROP ALL REGIONS THAT WE ARE NOT INTERESTED IN!
+
+
+
+A = wgms_mb_geo_RGIIds_all.str.split('-').dropna()
+#  Need to be careful here about comparing RGIIds from version 5 to version 6!
+
+# WGMS reports the RGI in terms of V5 as opposed to V6.  Some of the glaciers have changed their RGIId between these
+# two versions, which would cause an error in the file (examples: see index 10437, 15645).  Therefore, we need to load 
+# the version 5 and version 6 attributes, compare the GLIMSId which is constant, and then have links for RGIV5 and V6.
+
+
+
+
+## Select values based on the bounding box
+#wgms_massbal_geo = wgms_massbal_geo[(wgms_massbal_geo['POINT_LAT'] <= lat_bndN) & 
+#                                   (wgms_massbal_geo['POINT_LAT'] >= lat_bndS) & 
+#                                   (wgms_massbal_geo['POINT_LON'] <= lon_bndE) &
+#                                   (wgms_massbal_geo['POINT_LON'] >= lon_bndW)]
+## Remove values without an elevation
+#wgms_massbal_pt = wgms_massbal_pt[wgms_massbal_pt['POINT_ELEVATION'].isnull() == False]
+## Select values within yearly range
+#wgms_massbal_pt = wgms_massbal_pt[(wgms_massbal_pt['YEAR'] >= input.startyear) & 
+#                                  (wgms_massbal_pt['YEAR'] <= input.endyear)]
+## Find the RGIId for each WGMS glacier
+#wgms_massbal_pt_Ids = pd.DataFrame()
+#wgms_massbal_pt_Ids['WGMS_ID'] = wgms_massbal_pt['WGMS_ID'].value_counts().index.values
+#wgms_massbal_pt_Ids['RGIId'] = np.nan
+#wgms_massbal_pt_Ids['RGIId_wgms'] = wgms_massbal_pt_Ids['WGMS_ID'].map(wgmsdict)
+#wgms_massbal_pt_Ids['RGIId_rgi'] = wgms_massbal_pt_Ids['WGMS_ID'].map(rgidict)
+#wgms_massbal_pt_Ids['RGIId_manual'] = wgms_massbal_pt_Ids['WGMS_ID'].map(manualdict)
+#
+#for glac in range(wgms_massbal_pt_Ids.shape[0]):
+#    if pd.isnull(wgms_massbal_pt_Ids.loc[glac,'RGIId_wgms']) == False:
+#        wgms_massbal_pt_Ids.loc[glac,'RGIId'] = wgms_massbal_pt_Ids.loc[glac,'RGIId_wgms']
+#    elif pd.isnull(wgms_massbal_pt_Ids.loc[glac,'RGIId_rgi']) == False:
+#        wgms_massbal_pt_Ids.loc[glac,'RGIId'] = wgms_massbal_pt_Ids.loc[glac,'RGIId_rgi']
+#    elif pd.isnull(wgms_massbal_pt_Ids.loc[glac,'RGIId_manual']) == False:
+#        wgms_massbal_pt_Ids.loc[glac,'RGIId'] = wgms_massbal_pt_Ids.loc[glac,'RGIId_manual']
+#
+## WGMS GEODETIC MASS BALANCE DATA 
+## Load WGMS geodetic mass balance data
+#wgms_massbal_geo_filename = (input.main_directory + 
+#                            '/../Calibration_datasets\DOI-WGMS-FoG-2017-10/WGMS-FoG-2017-10-EE-MASS-BALANCE.csv')
+#wgms_massbal_geo = pd.read_csv(wgms_massbal_geo_filename, encoding='latin1')
+## Load WGMS glacier table to look up lat/lon that goes with the glacier
+#wgms_massbal_geo_lookup_filename = (input.main_directory + 
+#                            '/../Calibration_datasets\DOI-WGMS-FoG-2017-10/WGMS-FoG-2017-10-A-GLACIER.csv')
+#wgms_massbal_geo_lookup = pd.read_csv(wgms_massbal_geo_lookup_filename, encoding='latin1')
+## Create WGMSID - lat/lon dictionaries
+#wgms_latdict = dict(zip(wgms_massbal_geo_lookup['WGMS_ID'], wgms_massbal_geo_lookup['LATITUDE']))
+#wgms_londict = dict(zip(wgms_massbal_geo_lookup['WGMS_ID'], wgms_massbal_geo_lookup['LONGITUDE']))
+## Add latitude and longitude to wgms_massbal_measurements
+#wgms_massbal_geo['LATITUDE'] = wgms_massbal_geo['WGMS_ID'].map(wgms_latdict)
+#wgms_massbal_geo['LONGITUDE'] = wgms_massbal_geo['WGMS_ID'].map(wgms_londict)
+## Select values based on the bounding box
+#wgms_massbal_geo = wgms_massbal_geo[(wgms_massbal_geo['LATITUDE'] <= lat_bndN) & 
+#                                    (wgms_massbal_geo['LATITUDE'] >= lat_bndS) & 
+#                                    (wgms_massbal_geo['LONGITUDE'] <= lon_bndE) &
+#                                    (wgms_massbal_geo['LONGITUDE'] >= lon_bndW)]
+## Select only glacier-wide values (LOWER_BOUND / UPPER_BOUND = 9999)
+#wgms_massbal_geo = wgms_massbal_geo[wgms_massbal_geo['LOWER_BOUND'] == 9999]
+## Select values within yearly range
+#wgms_massbal_geo = wgms_massbal_geo[(wgms_massbal_geo['YEAR'] >= input.startyear) & 
+#                                    (wgms_massbal_geo['YEAR'] <= input.endyear)]
+## Find the RGIId for each WGMS glacier
+#wgms_massbal_geo_Ids = pd.DataFrame()
+#wgms_massbal_geo_Ids['WGMS_ID'] = wgms_massbal_geo['WGMS_ID'].value_counts().index.values
+#wgms_massbal_geo_Ids['RGIId'] = np.nan
+#wgms_massbal_geo_Ids['RGIId_wgms'] = wgms_massbal_geo_Ids['WGMS_ID'].map(wgmsdict)
+#wgms_massbal_geo_Ids['RGIId_rgi'] = wgms_massbal_geo_Ids['WGMS_ID'].map(rgidict)
+#wgms_massbal_geo_Ids['RGIId_manual'] = wgms_massbal_geo_Ids['WGMS_ID'].map(manualdict)
+## Consolidate dictionaries to one RGIID
+#for glac in range(wgms_massbal_geo_Ids.shape[0]):
+#    if pd.isnull(wgms_massbal_geo_Ids.loc[glac,'RGIId_wgms']) == False:
+#        wgms_massbal_geo_Ids.loc[glac,'RGIId'] = wgms_massbal_geo_Ids.loc[glac,'RGIId_wgms']
+#    elif pd.isnull(wgms_massbal_geo_Ids.loc[glac,'RGIId_rgi']) == False:
+#        wgms_massbal_geo_Ids.loc[glac,'RGIId'] = wgms_massbal_geo_Ids.loc[glac,'RGIId_rgi']
+#    elif pd.isnull(wgms_massbal_geo_Ids.loc[glac,'RGIId_manual']) == False:
+#        wgms_massbal_geo_Ids.loc[glac,'RGIId'] = wgms_massbal_geo_Ids.loc[glac,'RGIId_manual']
+## Create dictionary from WGMS_ID to RGIID
+#wgms_massbal_geo_dict = dict(zip(wgms_massbal_geo_Ids['WGMS_ID'], wgms_massbal_geo_Ids['RGIId']))
+## Add RGIID to geodetic measurements
+#wgms_massbal_geo['RGIId'] = wgms_massbal_geo['WGMS_ID'].map(wgms_massbal_geo_dict)
+## Remove values without a RGIId
+#wgms_massbal_geo = wgms_massbal_geo[wgms_massbal_geo['RGIId'].isnull() == False]
+
+
+#%% Create netcdf file of lapse rates from temperature pressure level data
 def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
                             elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix):
     """
@@ -153,106 +310,4 @@ if option_createlapserates == 1:
 #parameters_export = data.iloc[:,2:]
 ## Export csv file
 #parameters_export.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nearest.csv', 
-#                         index=False)
-
-
-#%% Connect the WGMS point mass balance datasets with the RGIIds and relevant elevation bands
-## Bounding box
-#lat_bndN = 46
-#lat_bndS = 26
-#lon_bndW = 65
-#lon_bndE = 105
-#
-## Load RGI lookup table 
-#rgilookup_filename = input.main_directory + '/../RGI/rgi60/00_rgi60_links/00_rgi60_links.csv'
-#rgilookup = pd.read_csv(rgilookup_filename, skiprows=2)
-#rgidict = dict(zip(rgilookup['FoGId'], rgilookup['RGIId']))
-## Load WGMS lookup table
-#wgmslookup_filename = (input.main_directory + 
-#                       '/../Calibration_datasets\DOI-WGMS-FoG-2017-10\WGMS-FoG-2017-10-AA-GLACIER-ID-LUT.csv')
-#wgmslookup = pd.read_csv(wgmslookup_filename, encoding='latin1')
-#wgmsdict = dict(zip(wgmslookup['WGMS_ID'], wgmslookup['RGI_ID']))
-## Manual lookup table
-#manualdict = {10402: 'RGI60-13.10093',
-#              10401: 'RGI60-15.03734',
-#              6846: 'RGI60-15.12707'}
-## WGMS POINT MASS BALANCE DATA
-## Load WGMS point mass balance data
-#wgms_massbal_pt_filename = (input.main_directory + 
-#                            '/../Calibration_datasets\DOI-WGMS-FoG-2017-10/WGMS-FoG-2017-10-EEE-MASS-BALANCE-POINT.csv')
-#wgms_massbal_pt = pd.read_csv(wgms_massbal_pt_filename, encoding='latin1')
-#
-## Select values based on the bounding box
-#wgms_massbal_pt = wgms_massbal_pt[(wgms_massbal_pt['POINT_LAT'] <= lat_bndN) & 
-#                                  (wgms_massbal_pt['POINT_LAT'] >= lat_bndS) & 
-#                                  (wgms_massbal_pt['POINT_LON'] <= lon_bndE) &
-#                                  (wgms_massbal_pt['POINT_LON'] >= lon_bndW)]
-## Remove values without an elevation
-#wgms_massbal_pt = wgms_massbal_pt[wgms_massbal_pt['POINT_ELEVATION'].isnull() == False]
-## Select values within yearly range
-#wgms_massbal_pt = wgms_massbal_pt[(wgms_massbal_pt['YEAR'] >= input.startyear) & 
-#                                  (wgms_massbal_pt['YEAR'] <= input.endyear)]
-## Find the RGIId for each WGMS glacier
-#wgms_massbal_pt_Ids = pd.DataFrame()
-#wgms_massbal_pt_Ids['WGMS_ID'] = wgms_massbal_pt['WGMS_ID'].value_counts().index.values
-#wgms_massbal_pt_Ids['RGIId'] = np.nan
-#wgms_massbal_pt_Ids['RGIId_wgms'] = wgms_massbal_pt_Ids['WGMS_ID'].map(wgmsdict)
-#wgms_massbal_pt_Ids['RGIId_rgi'] = wgms_massbal_pt_Ids['WGMS_ID'].map(rgidict)
-#wgms_massbal_pt_Ids['RGIId_manual'] = wgms_massbal_pt_Ids['WGMS_ID'].map(manualdict)
-#
-#for glac in range(wgms_massbal_pt_Ids.shape[0]):
-#    if pd.isnull(wgms_massbal_pt_Ids.loc[glac,'RGIId_wgms']) == False:
-#        wgms_massbal_pt_Ids.loc[glac,'RGIId'] = wgms_massbal_pt_Ids.loc[glac,'RGIId_wgms']
-#    elif pd.isnull(wgms_massbal_pt_Ids.loc[glac,'RGIId_rgi']) == False:
-#        wgms_massbal_pt_Ids.loc[glac,'RGIId'] = wgms_massbal_pt_Ids.loc[glac,'RGIId_rgi']
-#    elif pd.isnull(wgms_massbal_pt_Ids.loc[glac,'RGIId_manual']) == False:
-#        wgms_massbal_pt_Ids.loc[glac,'RGIId'] = wgms_massbal_pt_Ids.loc[glac,'RGIId_manual']
-#
-## WGMS GEODETIC MASS BALANCE DATA 
-## Load WGMS geodetic mass balance data
-#wgms_massbal_geo_filename = (input.main_directory + 
-#                            '/../Calibration_datasets\DOI-WGMS-FoG-2017-10/WGMS-FoG-2017-10-EE-MASS-BALANCE.csv')
-#wgms_massbal_geo = pd.read_csv(wgms_massbal_geo_filename, encoding='latin1')
-## Load WGMS glacier table to look up lat/lon that goes with the glacier
-#wgms_massbal_geo_lookup_filename = (input.main_directory + 
-#                            '/../Calibration_datasets\DOI-WGMS-FoG-2017-10/WGMS-FoG-2017-10-A-GLACIER.csv')
-#wgms_massbal_geo_lookup = pd.read_csv(wgms_massbal_geo_lookup_filename, encoding='latin1')
-## Create WGMSID - lat/lon dictionaries
-#wgms_latdict = dict(zip(wgms_massbal_geo_lookup['WGMS_ID'], wgms_massbal_geo_lookup['LATITUDE']))
-#wgms_londict = dict(zip(wgms_massbal_geo_lookup['WGMS_ID'], wgms_massbal_geo_lookup['LONGITUDE']))
-## Add latitude and longitude to wgms_massbal_measurements
-#wgms_massbal_geo['LATITUDE'] = wgms_massbal_geo['WGMS_ID'].map(wgms_latdict)
-#wgms_massbal_geo['LONGITUDE'] = wgms_massbal_geo['WGMS_ID'].map(wgms_londict)
-## Select values based on the bounding box
-#wgms_massbal_geo = wgms_massbal_geo[(wgms_massbal_geo['LATITUDE'] <= lat_bndN) & 
-#                                    (wgms_massbal_geo['LATITUDE'] >= lat_bndS) & 
-#                                    (wgms_massbal_geo['LONGITUDE'] <= lon_bndE) &
-#                                    (wgms_massbal_geo['LONGITUDE'] >= lon_bndW)]
-## Select only glacier-wide values (LOWER_BOUND / UPPER_BOUND = 9999)
-#wgms_massbal_geo = wgms_massbal_geo[wgms_massbal_geo['LOWER_BOUND'] == 9999]
-## Select values within yearly range
-#wgms_massbal_geo = wgms_massbal_geo[(wgms_massbal_geo['YEAR'] >= input.startyear) & 
-#                                    (wgms_massbal_geo['YEAR'] <= input.endyear)]
-## Find the RGIId for each WGMS glacier
-#wgms_massbal_geo_Ids = pd.DataFrame()
-#wgms_massbal_geo_Ids['WGMS_ID'] = wgms_massbal_geo['WGMS_ID'].value_counts().index.values
-#wgms_massbal_geo_Ids['RGIId'] = np.nan
-#wgms_massbal_geo_Ids['RGIId_wgms'] = wgms_massbal_geo_Ids['WGMS_ID'].map(wgmsdict)
-#wgms_massbal_geo_Ids['RGIId_rgi'] = wgms_massbal_geo_Ids['WGMS_ID'].map(rgidict)
-#wgms_massbal_geo_Ids['RGIId_manual'] = wgms_massbal_geo_Ids['WGMS_ID'].map(manualdict)
-## Consolidate dictionaries to one RGIID
-#for glac in range(wgms_massbal_geo_Ids.shape[0]):
-#    if pd.isnull(wgms_massbal_geo_Ids.loc[glac,'RGIId_wgms']) == False:
-#        wgms_massbal_geo_Ids.loc[glac,'RGIId'] = wgms_massbal_geo_Ids.loc[glac,'RGIId_wgms']
-#    elif pd.isnull(wgms_massbal_geo_Ids.loc[glac,'RGIId_rgi']) == False:
-#        wgms_massbal_geo_Ids.loc[glac,'RGIId'] = wgms_massbal_geo_Ids.loc[glac,'RGIId_rgi']
-#    elif pd.isnull(wgms_massbal_geo_Ids.loc[glac,'RGIId_manual']) == False:
-#        wgms_massbal_geo_Ids.loc[glac,'RGIId'] = wgms_massbal_geo_Ids.loc[glac,'RGIId_manual']
-## Create dictionary from WGMS_ID to RGIID
-#wgms_massbal_geo_dict = dict(zip(wgms_massbal_geo_Ids['WGMS_ID'], wgms_massbal_geo_Ids['RGIId']))
-## Add RGIID to geodetic measurements
-#wgms_massbal_geo['RGIId'] = wgms_massbal_geo['WGMS_ID'].map(wgms_massbal_geo_dict)
-## Remove values without a RGIId
-#wgms_massbal_geo = wgms_massbal_geo[wgms_massbal_geo['RGIId'].isnull() == False]
-
-    
+#                         index=False)    

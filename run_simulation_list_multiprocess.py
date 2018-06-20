@@ -29,8 +29,8 @@ import climate_class
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number=['10694']
@@ -39,7 +39,7 @@ rgi_glac_number = 'all'
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_endyear = 2015
 gcm_spinupyears = 5
 
 # Output
@@ -101,15 +101,16 @@ def main(list_packed_vars):
 
     # Model parameters
     if input.option_import_modelparams == 0:
-        main_glac_modelparams_all = pd.DataFrame(np.repeat([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, 
+        main_glac_modelparams = pd.DataFrame(np.repeat([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, 
             input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange], main_glac_rgi_all.shape[0]).reshape(-1, 
             main_glac_rgi.shape[0]).transpose(), columns=input.modelparams_colnames)
     elif (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
         main_glac_modelparams_all = pd.read_csv(ref_modelparams_fp + ref_modelparams_fn, index_col=0)
+        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]   
     else:
         gcm_modelparams_fn = (gcm_name + '_' + rcp_scenario + gcm_modelparams_fn_ending)
         main_glac_modelparams_all = pd.read_csv(gcm_modelparams_fp + gcm_modelparams_fn, index_col=0)  
-    main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]         
+        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]         
 
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
@@ -118,6 +119,9 @@ def main(list_packed_vars):
     # ===== LOAD CLIMATE DATA =====
     if gcm_name == input.ref_gcm_name:
         gcm = climate_class.GCM(name=gcm_name)
+        # Check that end year is reasonable
+        if (gcm_name == 'ERA-Interim') and (gcm_endyear > 2016):
+            print('\n\nEND YEAR BEYOND AVAILABLE DATA FOR ERA-INTERIM. CHANGE END YEAR.\n\n')
     else:
         gcm = climate_class.GCM(name=gcm_name, rcp_scenario=rcp_scenario)    
     # Air temperature [degC]

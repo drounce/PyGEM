@@ -77,6 +77,22 @@ tempsnow = 1.0
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 #  facilitates calibration similar to Huss and Hock (2015)
 
+# Model parameters filepath, filename, and column names
+modelparams_filepath = main_directory + '/../Calibration_datasets/'
+#modelparams_filename = 'calparams_R15_20180306_nearest.csv'
+#modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
+#modelparams_filename = 'calparams_R15_20180403_nearest.csv'
+modelparams_filename = 'calparams_R15_20180403_nnbridx.csv'
+#modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
+modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
+
+# Grid search parameters (old)
+grid_precfactor = np.arange(0.75, 2, 0.25)
+grid_tempbias = np.arange(-4, 6, 2)
+grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
+grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
+
+
 #%% CLIMATE DATA CLASS INFORMATION (05/28/2018)
 #  for each climate dataset, store the information regarding the filepaths and variable names here
 #  fp = 'filepath'
@@ -96,53 +112,35 @@ cmip5_fp_fx_ending = '_r0i0p0_fx/'
 cmip5_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
 cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 
-#%% MASS BALANCE CLASS INFORMATION (05/30/2018)
-# Calibration datasets
-#  for each mass balance dataset, store the parameters here and add to the class
-# Glacier-wide geodetic mass balance (Shean)
-shean_fp = main_directory + '/../DEMs/'
-shean_fn = 'hma_mb_20171211_1343.csv'
-shean_rgi_colname = 'RGIId'
-shean_mb_colname = 'mb_mwea'
-shean_mb_err_colname = 'mb_mwea_sigma'
-shean_time1_colname = 't1'
-shean_time2_colname = 't2'
-shean_area_colname = 'area_m2'
-shean_vol_colname = 'mb_m3wea'
-shean_vol_err_colname = 'mb_m3wea_sigma'
+# Lapse rate option
+option_lapserate_fromgcm = 1
+#  Option 0 - lapse rates are constant defined by input
+#  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
+#  Option 2 (NEED TO CODE) - lapse rates derived from surrounding pixels (varies spatially and temporally)
 
-brun_fp = main_directory + '/../DEMs/'
-#  NEED TO FINISH SETTING UP FOR BRUN AND MAUER
-
-# Limit potential mass balance for future simulations option
-option_mb_envelope = 1
-
-# Mass change tolerance [%] - required for calibration
-masschange_tolerance = 0.1
-
-
-# Geodetic mass balance dataset
-# Filepath
-cal_mb_filepath = main_directory + '/../DEMs/'
-# Filename
-cal_mb_filedict = {
-                   13: 'geodetic_glacwide_DShean20171211_13_CentralAsia.csv',
-                   14: 'geodetic_glacwide_DShean20171211_14_SouthAsiaWest.csv',
-                   15: 'geodetic_glacwide_DShean20171211_15_SouthAsiaEast.csv'}
-# RGIId column name
-cal_rgi_colname = 'RGIId'
-# Mass balance column name
-massbal_colname = 'mb_mwea'
-# Mass balance uncertainty column name
-massbal_uncertainty_colname = 'mb_mwea_sigma'
-# Mass balance date 1 column name
-massbal_time1 = 'year1'
-# Mass balance date 1 column name
-massbal_time2 = 'year2'
-
-
-# Calibration output filename prefix (grid search)
-calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
+# Downscale GCM data option
+#option_gcm_downscale = 2
+#  Option 1 (default): select climate data based on nearest neighbor
+#  Option 2: import prepared csv files (saves time)
+# Reference climate data filepath
+#filepath_ref = main_directory + '/../Climate_data/ERA_Interim/'
+# Dictionary of filenames for temperature, precipitation, lapse rate, and elevation data
+#gcmtemp_filedict = {
+#                    13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
+#                    14: 'csv_ERAInterim_temp_19952015_14_SouthAsiaWest.csv',
+#                    15: 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv'}
+#gcmprec_filedict = {
+#                    13: 'csv_ERAInterim_prec_19952015_13_CentralAsia.csv',
+#                    14: 'csv_ERAInterim_prec_19952015_14_SouthAsiaWest.csv',
+#                    15: 'csv_ERAInterim_prec_19952015_15_SouthAsiaEast.csv'}
+#gcmelev_filedict = {
+#                    13: 'csv_ERAInterim_elev_13_CentralAsia.csv',
+#                    14: 'csv_ERAInterim_elev_14_SouthAsiaWest.csv',
+#                    15: 'csv_ERAInterim_elev_15_SouthAsiaEast.csv'}
+#gcmlapserate_filedict = {
+#                         13: 'csv_ERAInterim_lapserate_19952015_13_CentralAsia.csv',
+#                         14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
+#                         15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
 # ===== RGI DATA =====
@@ -230,7 +228,64 @@ timestep = 'monthly'
 #  water year example: 2000 would end on September 2000
 #  calendar year example: 2000 would end on December 2000
 
-#%% SURFACE TYPE OPTIONS
+#%% CALIBRATION DATA (05/30/2018)
+#  for each mass balance dataset, store the parameters here and add to the class
+# Glacier-wide geodetic mass balance (Shean)
+shean_fp = main_directory + '/../DEMs/'
+shean_fn = 'hma_mb_20171211_1343.csv'
+shean_rgi_colname = 'RGIId'
+shean_mb_colname = 'mb_mwea'
+shean_mb_err_colname = 'mb_mwea_sigma'
+shean_time1_colname = 't1'
+shean_time2_colname = 't2'
+shean_area_colname = 'area_m2'
+shean_vol_colname = 'mb_m3wea'
+shean_vol_err_colname = 'mb_m3wea_sigma'
+
+brun_fp = main_directory + '/../DEMs/'
+#  NEED TO FINISH SETTING UP FOR BRUN AND MAUER
+
+# Limit potential mass balance for future simulations option
+option_mb_envelope = 1
+
+# Mass change tolerance [%] - required for calibration
+masschange_tolerance = 0.1
+
+
+# Geodetic mass balance dataset
+# Filepath
+cal_mb_filepath = main_directory + '/../DEMs/'
+# Filename
+cal_mb_filedict = {
+                   13: 'geodetic_glacwide_DShean20171211_13_CentralAsia.csv',
+                   14: 'geodetic_glacwide_DShean20171211_14_SouthAsiaWest.csv',
+                   15: 'geodetic_glacwide_DShean20171211_15_SouthAsiaEast.csv'}
+# RGIId column name
+cal_rgi_colname = 'RGIId'
+# Mass balance column name
+massbal_colname = 'mb_mwea'
+# Mass balance uncertainty column name
+massbal_uncertainty_colname = 'mb_mwea_sigma'
+# Mass balance date 1 column name
+massbal_time1 = 'year1'
+# Mass balance date 1 column name
+massbal_time2 = 'year2'
+
+# Calibration output filename prefix (grid search)
+calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
+
+#%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
+option_bias_adjustment = 1
+#  Option 0 - ignore bias adjustments
+#  Option 1 - bias adjustments using new technique 
+#  Option 2 - bias adjustments using Huss and Hock [2015] methods
+#  Option 3 - bias adjustments using monthly temp and prec
+biasadj_data_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_1995_2100/'
+biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
+biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
+biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
+
+#%% Mass balance model options
 # Initial surface type options
 option_surfacetype_initial = 1
 #  Option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
@@ -250,80 +305,6 @@ option_surfacetype_debris = 0
 #  Option 1 - debris cover is included
 #   > Load in Batu's debris maps and specify for each glacier
 #   > Determine how DDF_debris will be included
-
-#%% CLIMATE DATA
-# STEP THREE: Climate Data
-#   User has the climate data and how it is downscaled to glacier and bins.
-# Information regarding climate data
-#  - netcdf files downloaded from cmip5-archive at ethz or ERA-Interim reanalysis data (ECMWF)
-#  - NG refers to New Generation of CMIP5 data, i.e., a homogenized dataset
-#  - _var refers to variables
-#  - _fx refers to time invariant (constant/fixed) data
-#  - temp      variable name is 't2m'       for ERAInterim and 'tas'  for CMIP5
-#  - prec      variable name is 'tp'        for ERAInterim and 'pr'   for CMIP5
-#  - elev      variable name is 'z'         for ERAInterim and 'orog' for CMIP5 
-#  - latitude  variable name is 'latitude'  for ERAInterim and 'lat'  for CMIP5
-#  - longitude variable name is 'longitude' for ERAInterim and 'lon'  for CMIP5
-#  - time      variable name is 'time'      for both
-
-# Downscale GCM data option
-option_gcm_downscale = 2
-#  Option 1 (default): select climate data based on nearest neighbor
-#  Option 2: import prepared csv files (saves time)
-# Lapse rate option
-option_lapserate_fromgcm = 1
-#  Option 0 - lapse rates are constant defined by input
-#  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
-#  Option 2 (NEED TO CODE) - lapse rates derived from surrounding pixels (varies spatially and temporally)
-
-# REFERENCE DATA INFORMATION
-# Reference climate data filepath
-filepath_ref = main_directory + '/../Climate_data/ERA_Interim/'
-# Reference climate data csvs (THESE ARE ALL GENERATED IN PRE-PROCESSING)
-# Dictionary of filenames for temperature, precipitation, lapse rate, and elevation data
-gcmtemp_filedict = {
-                    13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
-                    14: 'csv_ERAInterim_temp_19952015_14_SouthAsiaWest.csv',
-                    15: 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv'}
-gcmprec_filedict = {
-                    13: 'csv_ERAInterim_prec_19952015_13_CentralAsia.csv',
-                    14: 'csv_ERAInterim_prec_19952015_14_SouthAsiaWest.csv',
-                    15: 'csv_ERAInterim_prec_19952015_15_SouthAsiaEast.csv'}
-gcmelev_filedict = {
-                    13: 'csv_ERAInterim_elev_13_CentralAsia.csv',
-                    14: 'csv_ERAInterim_elev_14_SouthAsiaWest.csv',
-                    15: 'csv_ERAInterim_elev_15_SouthAsiaEast.csv'}
-gcmlapserate_filedict = {
-                         13: 'csv_ERAInterim_lapserate_19952015_13_CentralAsia.csv',
-                         14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
-                         15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
-
-#%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
-option_bias_adjustment = 1
-#  Option 0 - ignore bias adjustments
-#  Option 1 - bias adjustments using new technique 
-#  Option 2 - bias adjustments using Huss and Hock [2015] methods
-#  Option 3 - bias adjustments using monthly temp and prec
-biasadj_data_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_1995_2100/'
-biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
-biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
-biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
-
-#%% ------- INPUT FOR STEP FOUR -------------------------------------------------
-# Model parameters filepath, filename, and column names
-modelparams_filepath = main_directory + '/../Calibration_datasets/'
-#modelparams_filename = 'calparams_R15_20180306_nearest.csv'
-#modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
-#modelparams_filename = 'calparams_R15_20180403_nearest.csv'
-modelparams_filename = 'calparams_R15_20180403_nnbridx.csv'
-#modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
-modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
-
-# Grid search parameters (old)
-grid_precfactor = np.arange(0.75, 2, 0.25)
-grid_tempbias = np.arange(-4, 6, 2)
-grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
-grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
 
 # DDF firn
 option_DDF_firn = 1
