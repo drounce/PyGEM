@@ -28,8 +28,8 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
 import pygemfxns_output as output
-import climate_class
-import mbdata_class
+import class_climate
+import class_mbdata
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
@@ -77,7 +77,7 @@ def main(list_packed_vars):
     main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
     
     # Load calibration data and add to main_glac_rgi
-    mb1 = mbdata_class.MBData(name='shean')
+    mb1 = class_mbdata.MBData(name='shean')
     mb1.mbdata = mb1.masschange_total(main_glac_rgi, gcm_startyear, gcm_endyear)
     # Merge datasets
     main_glac_rgi = pd.concat([main_glac_rgi, mb1.mbdata], axis=1)
@@ -101,7 +101,7 @@ def main(list_packed_vars):
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
     # ===== LOAD CLIMATE DATA =====
-    gcm = climate_class.GCM(name=gcm_name)
+    gcm = class_climate.GCM(name=gcm_name)
     # Air temperature [degC]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     # Precipitation [m]

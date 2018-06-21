@@ -46,7 +46,7 @@ from time import strftime
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
-import climate_class
+import class_climate
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
@@ -147,7 +147,7 @@ def main(list_packed_vars):
     dates_table_subset = dates_table.iloc[0:ref_temp.shape[1],:]
     
     # LOAD GCM DATA
-    gcm = climate_class.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
+    gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)    

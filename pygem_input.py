@@ -230,17 +230,31 @@ timestep = 'monthly'
 
 #%% CALIBRATION DATA (05/30/2018)
 #  for each mass balance dataset, store the parameters here and add to the class
-# Glacier-wide geodetic mass balance (Shean)
+
+# Shean glacier-wide geodetic mass balance
 shean_fp = main_directory + '/../DEMs/'
 shean_fn = 'hma_mb_20171211_1343.csv'
-shean_rgi_colname = 'RGIId'
-shean_mb_colname = 'mb_mwea'
-shean_mb_err_colname = 'mb_mwea_sigma'
-shean_time1_colname = 't1'
-shean_time2_colname = 't2'
-shean_area_colname = 'area_m2'
-shean_vol_colname = 'mb_m3wea'
-shean_vol_err_colname = 'mb_m3wea_sigma'
+shean_rgi_cn = 'RGIId'
+shean_mb_cn = 'mb_mwea'
+shean_mb_err_cn = 'mb_mwea_sigma'
+shean_time1_cn = 't1'
+shean_time2_cn = 't2'
+shean_area_cn = 'area_m2'
+shean_vol_cn = 'mb_m3wea'
+shean_vol_err_cn = 'mb_m3wea_sigma'
+
+# WGMS (ee) glaciological mass balance
+wgms_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
+wgms_fn_ending = 'wgms_ee_rgiv6_preprocessed.csv' 
+wgms_rgi_cn = 'glacno'
+wgms_mb_cn = 'BALANCE'
+wgms_mb_err_cn = 'BALANCE_UNC'
+wgms_t1_cn = 'YEAR'
+wgms_z1_cn = 'LOWER_BOUND'
+wgms_z2_cn = 'UPPER_BOUND'
+wgms_period_cn = 'period'
+
+
 
 brun_fp = main_directory + '/../DEMs/'
 #  NEED TO FINISH SETTING UP FOR BRUN AND MAUER

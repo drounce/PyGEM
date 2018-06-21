@@ -15,7 +15,7 @@ import pygemfxns_modelsetup as modelsetup
 #import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
 #import pygemfxns_output as output
-import climate_class
+import class_climate
 
 #%% INPUT 
 rgi_regionsO1 = [15]
@@ -62,7 +62,7 @@ dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear, endyear,
 main_glac_hyps[main_glac_icethickness == 0] = 0
 
 #%% ===== LOAD CLIMATE DATA =====
-gcm = climate_class.GCM(name=gcm_name)
+gcm = class_climate.GCM(name=gcm_name)
 if option_gcm_downscale == 1:  
     # Air Temperature [degC] and GCM dates
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)

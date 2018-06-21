@@ -24,7 +24,7 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
 import pygemfxns_output as output
-import climate_class
+import class_climate
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
@@ -118,12 +118,12 @@ def main(list_packed_vars):
     
     # ===== LOAD CLIMATE DATA =====
     if gcm_name == input.ref_gcm_name:
-        gcm = climate_class.GCM(name=gcm_name)
+        gcm = class_climate.GCM(name=gcm_name)
         # Check that end year is reasonable
         if (gcm_name == 'ERA-Interim') and (gcm_endyear > 2016):
             print('\n\nEND YEAR BEYOND AVAILABLE DATA FOR ERA-INTERIM. CHANGE END YEAR.\n\n')
     else:
-        gcm = climate_class.GCM(name=gcm_name, rcp_scenario=rcp_scenario)    
+        gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)    
     # Air temperature [degC]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     # Precipitation [m]
