@@ -51,100 +51,162 @@ class MBData():
             self.period_cn = input.wgms_period_cn
             self.z1_cn = input.wgms_z1_cn
             self.z2_cn = input.wgms_z2_cn
+            self.obs_type_cn = input.wgms_obs_type_cn
 
             
-    def masschange_total(self, main_glac_rgi, gcm_startyear, gcm_endyear):
+    def masschange_total(self, main_glac_rgi, main_glac_hyps, dates_table):
         """
         Calculate the total mass change for various datasets and output it in a format that is useful for calibration
         """       
         if self.name == 'shean':
             # Column names of output
-            ds_cols = [input.rgi_O1Id_colname, 'mb_gt', 'mb_gt_err',  self.area_cn, self.t1_cn, self.t2_cn, 't1_idx', 
-                       't2_idx']
+            ds_output_cols = ['RGIId', 'glacno', 'WGMS_ID', 'obs_type', 'mb_gt', 'mb_gt_err', 'sla_m',  'z1_idx', 
+                              'z2_idx', 'z1', 'z2', 't1_idx', 't2_idx', 't1_year', 't1_month', 't1_day', 't2_year', 
+                              't2_month', 't2_day', 'area_km2']
             # Load all data
             ds_all = pd.read_csv(self.ds_fp + self.ds_fn)
             ds_all['RegO1'] = ds_all[self.rgi_cn].values.astype(int)
             # Select data for specific region
             ds = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
-            # Glacier number for comparison
-            ds[input.rgi_O1Id_colname] = ((ds[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
+            ds.reset_index(drop=True, inplace=True)
+            # Glacier number and index for comparison
+            ds['glacno'] = ((ds[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
+            ds['O1Index'] = (ds['glacno'] - 1).astype(int)
+            # Elevation indices
+            elev_bins = main_glac_hyps.columns.values.astype(int)
+            elev_bin_interval = elev_bins[1] - elev_bins[0]
+            ds['z1_idx'] = (
+                    (main_glac_hyps.iloc[ds['O1Index']].values != 0).argmax(axis=1).astype(int))
+            ds['z2_idx'] = (
+                    (main_glac_hyps.iloc[ds['O1Index']].values.cumsum(1)).argmax(axis=1).astype(int))
+            # Lower and upper bin elevations [masl]
+            ds['z1'] = elev_bins[ds['z1_idx'].values] - elev_bin_interval/2
+            ds['z2'] = elev_bins[ds['z2_idx'].values] + elev_bin_interval/2
+            # Area [km2]
+            ds['area_km2'] = np.nan
+            for x in range(ds.shape[0]):
+                ds.loc[x,'area_km2'] = (
+                        main_glac_hyps.iloc[ds.loc[x,'O1Index'], ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
+            # Time indices
+            ds['t1_year_decimal'] = ds[self.t1_cn]
+            ds['t2_year_decimal'] = ds[self.t2_cn]
+            ds['t1_year'] = ds['t1_year_decimal'].astype(int)
+            ds['t1_month'] = (ds['t1_year_decimal'] % ds['t1_year'] * 12 + 1).astype(int)
+            ds['t1_day'] = ((ds['t1_year_decimal'] % ds['t1_year'] * 12 + 1) % 1 * 29).astype(int)
+            ds['t2_year'] = ds['t2_year_decimal'].astype(int)
+            ds['t2_month'] = int(9)
+            ds['t2_day'] = int(1)
+            year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
+            year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
+                                (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
+            ds = ds[ds['t1_year_decimal'] > year_decimal_min]
+            ds = ds[ds['t2_year_decimal'] < year_decimal_max]
+            ds.reset_index(drop=True, inplace=True)            
+            # Determine time indices (exclude spinup years, since massbal fxn discards spinup years)
+            ds['t1_idx'] = np.nan
+            ds['t2_idx'] = np.nan
+            for x in range(ds.shape[0]):
+                ds.loc[x,'t1_idx'] = (dates_table[(ds.loc[x, 't1_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
+                ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
             # Total mass change [Gt]
-            ds['mb_gt'] = (ds_all[self.mb_vol_cn] * (ds_all[self.t2_cn] - ds_all[self.t1_cn]) * (1/1000)**3 * 
+            ds['mb_gt'] = (ds[self.mb_vol_cn] * (ds['t1_year_decimal'] - ds['t2_year_decimal']) * (1/1000)**3 * 
                            input.density_water / 1000)
-            ds['mb_gt_err'] = (ds_all[self.mb_vol_err_cn] * (ds_all[self.t2_cn] - ds_all[self.t1_cn]) * (1/1000)**3 * 
+            ds['mb_gt_err'] = (ds[self.mb_vol_err_cn] * (ds['t1_year_decimal'] - ds['t2_year_decimal']) * (1/1000)**3 * 
                                input.density_water / 1000)
-            # Determine dates_table_idx that coincides with data
-            dates_table, start_date, end_date = modelsetup.datesmodelrun(gcm_startyear, gcm_endyear, spinupyears=0)
-            #  ignore spinup years because modeled output used for comparison will not include them
-            dates_table['year_decimal'] = dates_table['year'] + dates_table['month'] / 12
-            ds['t1_idx'] = [(np.abs(dates_table['year_decimal'] - x)).argmin() for x in ds[self.t1_cn]]
-            ds['t2_idx'] = [(np.abs(dates_table['year_decimal'] - x)).argmin() for x in ds[self.t2_cn]]
-            # Subset of glaciers in standardized format
-            ds_subset = ds[ds_cols]
-            # Select glaciers and their mass change data
-            rgi_glacno = main_glac_rgi[input.rgi_O1Id_colname].values
-            # Mass balance data for each glacier
-            main_glac_mbdata = pd.DataFrame(np.empty((main_glac_rgi.shape[0], len(ds_cols))), 
-                                            index=main_glac_rgi.index.values, columns=ds_cols)
-            for glac in range(rgi_glacno.shape[0]):
-                if (np.in1d(ds[input.rgi_O1Id_colname],rgi_glacno[glac])==True).any():
-                    main_glac_mbdata.iloc[glac,:] = (
-                            ds_subset.iloc[np.where(np.in1d(ds[input.rgi_O1Id_colname],rgi_glacno[glac])==True)[0][0]])
+            ds['obs_type'] = 'mb'
+            # Select output
+            ds_output = ds.loc[:, ds_output_cols]
         elif self.name == 'brun':
             print('code brun')
         elif self.name == 'mauer':
             print('code mauer')
         elif self.name == 'wgms_ee':
             # Column names of output
-            ds_cols = ['RGIId_glacno', 'area', 'mb_gt', 'mb_gt_err', 'z1', 'z2', 't1', 't2', 't1_idx', 't2_idx']
+            ds_output_cols = ['RGIId', 'glacno', 'WGMS_ID', 'obs_type', 'mb_gt', 'mb_gt_err', 'sla_m',  'z1_idx', 
+                              'z2_idx', 'z1', 'z2', 't1_idx', 't2_idx', 't1_year', 't1_month', 't1_day', 't2_year', 
+                              't2_month', 't2_day', 'area_km2']
             # Load all data
             ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')
             ds_all['RegO1'] = ds_all[self.rgi_cn].values.astype(int)
             # Select data for specific region
             ds = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
-            # Glacier number for comparison
-            ds[input.rgi_O1Id_colname] = ((ds[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
+            # Drop periods without reference data
+            ds = ds[np.isfinite(ds['BEGIN_PERIOD']) & np.isfinite(ds['END_PERIOD'])]
+            ds.reset_index(drop=True, inplace=True)
+            # Glacier number and index for comparison
+            ds['glacno'] = ((ds[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
+            ds['O1Index'] = (ds['glacno'] - 1).astype(int)
+            # Elevation indices
+            elev_bins = main_glac_hyps.columns.values.astype(int)
+            elev_bin_interval = elev_bins[1] - elev_bins[0]
+            ds['z1_idx'] = np.nan
+            ds['z2_idx'] = np.nan
+            ds.loc[ds[self.z1_cn] == 9999, 'z1_idx'] = (
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'O1Index']].values != 0).argmax(axis=1))
+            ds.loc[ds[self.z2_cn] == 9999, 'z2_idx'] = (
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'O1Index']].values.cumsum(1)).argmax(axis=1))
+            ds.loc[ds[self.z1_cn] != 9999, 'z1_idx'] = (
+                    ((np.tile(elev_bins, (ds.loc[ds[self.z1_cn] != 9999, self.z1_cn].shape[0],1)) - 
+                      ds.loc[ds[input.wgms_z1_cn] != 9999, self.z1_cn][:,np.newaxis]) > 0).argmax(axis=1))
+            ds.loc[ds[self.z2_cn] != 9999, 'z2_idx'] = (
+                    ((np.tile(elev_bins, (ds.loc[ds[self.z2_cn] != 9999, self.z2_cn].shape[0],1)) - 
+                      ds.loc[ds[input.wgms_z1_cn] != 9999, self.z2_cn][:,np.newaxis]) > 0).argmax(axis=1) - 1)
+            ds['z1_idx'] = ds['z1_idx'].values.astype(int)
+            ds['z2_idx'] = ds['z2_idx'].values.astype(int)
+            # Lower and upper bin elevations [masl]
+            ds['z1'] = elev_bins[ds['z1_idx'].values] - elev_bin_interval/2
+            ds['z2'] = elev_bins[ds['z2_idx'].values] + elev_bin_interval/2
+            # Area [km2]
+            ds['area_km2'] = np.nan
+            for x in range(ds.shape[0]):
+                ds.loc[x,'area_km2'] = (
+                        main_glac_hyps.iloc[ds.loc[x,'O1Index'], ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
+            ds = ds[ds['area_km2'] > 0]
+            ds.reset_index(drop=True, inplace=True)
+            # Time indices
+            ds['t1_year'] = ds['BEGIN_PERIOD'].astype(str).str.split('.').str[0].str[:4].astype(int)
+            ds['t1_month'] = ds['BEGIN_PERIOD'].astype(str).str.split('.').str[0].str[4:6].astype(int)
+            ds['t1_day'] = ds['BEGIN_PERIOD'].astype(str).str.split('.').str[0].str[6:].astype(int)
+            ds['t2_year'] = ds['END_PERIOD'].astype(str).str.split('.').str[0].str[:4].astype(int)
+            ds['t2_month'] = ds['END_PERIOD'].astype(str).str.split('.').str[0].str[4:6].astype(int)
+            ds['t2_day'] = ds['END_PERIOD'].astype(str).str.split('.').str[0].str[6:].astype(int)
+            # if annual measurement and month/day unknown for start or end period, then replace with water year
+            ds.loc[(ds['t1_month'] == 99) & (ds['period'] == 'annual'), 't1_month'] = input.winter_month_start
+            ds.loc[(ds['t1_day'] == 99) & (ds['period'] == 'annual'), 't1_day'] = 1
+            ds.loc[(ds['t2_month'] == 99) & (ds['period'] == 'annual'), 't2_month'] = input.winter_month_start - 1
+            ds.loc[(ds['t2_day'] == 99) & (ds['period'] == 'annual'), 't2_day'] = 30
+            # drop measurements outside of calibration period
+            ds['t1_year_decimal'] = ds['t1_year'] + ds['t1_month'] / 12 + ds['t1_day'] / 30
+            ds['t2_year_decimal'] = ds['t2_year'] + ds['t2_month'] / 12 + ds['t1_day'] / 30
+            year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
+            year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
+                                (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
+            ds = ds[ds['t1_year_decimal'] > year_decimal_min]
+            ds = ds[ds['t2_year_decimal'] < year_decimal_max]
+            ds.reset_index(drop=True, inplace=True)
+            # Determine time indices (exclude spinup years, since massbal fxn discards spinup years)
+            ds['t1_idx'] = np.nan
+            ds['t2_idx'] = np.nan
+            for x in range(ds.shape[0]):
+                ds.loc[x,'t1_idx'] = (dates_table[(ds.loc[x, 't1_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
+                ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
+            # Total mass change [Gt]
+            ds['mb_gt'] = ds[self.mb_cn] / 1000 * ds['area_km2'] * 1000**2 * (1/1000)**3 * input.density_water / 1000
+            ds['mb_gt_err'] = (ds[self.mb_err_cn] / 1000 * ds['area_km2'] * 1000**2 * (1/1000)**3 * input.density_water 
+                               / 1000)
+            # Select output
+            ds_output = ds.loc[:, ds_output_cols]
             
-            
-            
-            # NEXT STEPS:
-            #  - Check that Shean still works
-            #  - Convert from mm we to Gt
-            #    This is going to require linking with the RGI and/or glacier hypsometries
-            #  - Set time periods for summer, winter, and annual, and see the time indices
-            
-            
-            
-#            # Total mass change [Gt]
-#            ds['mb_gt'] = (ds_all[self.mb_vol_cn] * (ds_all[self.t2_cn] - ds_all[self.t1_cn]) * (1/1000)**3 * 
-#                           input.density_water / 1000)
-#            ds['mb_gt_err'] = (ds_all[self.mb_vol_err_cn] * (ds_all[self.t2_cn] - ds_all[self.t1_cn]) * (1/1000)**3 * 
-#                               input.density_water / 1000)
-#            # Determine dates_table_idx that coincides with data
-#            dates_table, start_date, end_date = modelsetup.datesmodelrun(gcm_startyear, gcm_endyear, spinupyears=0)
-#            #  ignore spinup years because modeled output used for comparison will not include them
-#            dates_table['year_decimal'] = dates_table['year'] + dates_table['month'] / 12
-#            ds['t1_idx'] = [(np.abs(dates_table['year_decimal'] - x)).argmin() for x in ds[self.t1_cn]]
-#            ds['t2_idx'] = [(np.abs(dates_table['year_decimal'] - x)).argmin() for x in ds[self.t2_cn]]
-#            # Subset of glaciers in standardized format
-#            ds_subset = ds[ds_cols]
-#            # Select glaciers and their mass change data
-#            rgi_glacno = main_glac_rgi[input.rgi_O1Id_colname].values
-            # Mass balance data for each glacier
-            main_glac_mbdata = pd.DataFrame(np.empty((main_glac_rgi.shape[0], len(ds_cols))), 
-                                            index=main_glac_rgi.index.values, columns=ds_cols)
-#            for glac in range(rgi_glacno.shape[0]):
-#                if (np.in1d(ds[input.rgi_O1Id_colname],rgi_glacno[glac])==True).any():
-#                    main_glac_mbdata.iloc[glac,:] = (
-#                            ds_subset.iloc[np.where(np.in1d(ds[input.rgi_O1Id_colname],rgi_glacno[glac])==True)[0][0]])
-#        return main_glac_mbdata
-        return ds
+        return ds_all, ds, ds_output
 
 
 #%% Converting decimal years to month and year
 #ds['t1_year'] = ds['t1'].values.astype(int)
 #ds['t1_month'] = [(datetime.datetime(int(x),1,1) + datetime.timedelta((x - int(x))*365)).month for x in ds['t1']]   
-
 
 #%% Testing
 # Glacier selection
@@ -159,10 +221,21 @@ gcm_endyear = 2015
 gcm_spinupyears = 5
 option_calibration = 1
 
+# Select glaciers
 main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
                                                   rgi_glac_number=rgi_glac_number)
- 
+# Glacier hypsometry [km**2], total area
+main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath, 
+                                             input.hyps_filedict, input.hyps_colsdrop)
+# Determine dates_table_idx that coincides with data
+dates_table, start_date, end_date = modelsetup.datesmodelrun(gcm_startyear, gcm_endyear, spinupyears=0)
+
+elev_bins = main_glac_hyps.columns.values.astype(int)
+elev_bin_interval = elev_bins[1] - elev_bins[0]
+
 # Testing    
 #mb1 = MBData(name='shean')
 mb1 = MBData(name='wgms_ee')
-mb1.mbdata = mb1.masschange_total(main_glac_rgi, gcm_startyear, gcm_endyear)
+ds_all, ds, ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
+
+#%%

@@ -52,6 +52,7 @@ if option_wgms == 1:
     wgmslookup_fn = input.main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/WGMS-FoG-2018-06-AA-GLACIER-ID-LUT.csv'
     wgms_mb_d_fn = input.main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/WGMS-FoG-2018-06-D-CHANGE.csv'
     wgms_mb_ee_fn = input.main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/WGMS-FoG-2018-06-EE-MASS-BALANCE.csv'
+    wgms_mb_e_fn = input.main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/WGMS-FoG-2018-06-E-MASS-BALANCE-OVERVIEW.csv'
 
 #%% Connect the WGMS mass balance datasets with the RGIIds and relevant elevation bands
 # Note: WGMS reports the RGI in terms of V5 as opposed to V6.  Some of the glaciers have changed their RGIId between the
@@ -70,6 +71,7 @@ rgiv5_fn_all = glob.glob(rgiv5_fn_prefix)
 #  - regions that didn't change between versions (ex. 13, 14, 15) will all the be same.  Others that have changed may
 #    vary greatly.
 for n in range(len(rgiv6_fn_all)):
+#for n in [14]:
     print(n)
     rgiv6_fn = glob.glob(rgiv6_fn_prefix)[n]
     rgiv6 = pd.read_csv(rgiv6_fn, encoding='latin1')
@@ -131,6 +133,9 @@ mandict = {10402: 'RGI60-13.10093',
 #wgms_mb_glac_export_fn = input.main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/R' + str(rgi_regionsO1[0]) + '_wgms_ee.csv'
 #wgms_mb_glac_export.to_csv(wgms_mb_glac_export_fn)
 
+# SEE SURVEY DATE AND REFERENCE DATE FOR BEFORE AND AFTER! Link these to dates_table for analysis
+
+
 # ===== WGMS (EE) Geodetic mass balance data =====
 wgms_mb_glac_all = pd.read_csv(wgms_mb_ee_fn, encoding='latin1')
 wgms_mb_glac_all['RGIId_rgidict'] = wgms_mb_glac_all['WGMS_ID'].map(rgidict)
@@ -140,24 +145,37 @@ wgms_mb_glac_all['RGIId_wgmsdictv6'] = wgms_mb_glac_all['RGIId_wgmsdict'].map(rg
 # Use dictionaries to convert wgms data to RGIIds
 wgms_mb_glac_RGIIds_all_raw_wdicts = wgms_mb_glac_all[['RGIId_rgidict', 'RGIId_mandict','RGIId_wgmsdictv6']]
 wgms_mb_glac_RGIIds_all_raw = wgms_mb_glac_RGIIds_all_raw_wdicts.apply(lambda x: sorted(x, key=pd.isnull), 1).iloc[:,0]
-# Select data for specific region
+# Determine regions and glacier numbers
 wgms_mb_glac_all['RGIId'] = wgms_mb_glac_RGIIds_all_raw.values
 wgms_mb_glac_all['version'], wgms_mb_glac_all['glacno'] = wgms_mb_glac_RGIIds_all_raw.str.split('-').dropna().str
 wgms_mb_glac_all['glacno'] = wgms_mb_glac_all['glacno'].apply(pd.to_numeric)
 wgms_mb_glac_all['region'] = wgms_mb_glac_all['glacno'].apply(np.floor)
 wgms_mb_glac = wgms_mb_glac_all[np.isfinite(wgms_mb_glac_all['glacno'])].sort_values('glacno')
+wgms_mb_glac.reset_index(drop=True, inplace=True)
+# Import MB overview data to extract survey dates
+wgms_mb_overview = pd.read_csv(wgms_mb_e_fn, encoding='latin1')
+wgms_mb_glac['BEGIN_PERIOD'] = np.nan 
+wgms_mb_glac['END_PERIOD'] = np.nan 
+for x in range(wgms_mb_glac.shape[0]):
+    wgms_mb_glac.loc[x,'BEGIN_PERIOD'] = (
+            wgms_mb_overview[(wgms_mb_glac.loc[x,'WGMS_ID'] == wgms_mb_overview['WGMS_ID']) & 
+                             (wgms_mb_glac.loc[x,'YEAR'] == wgms_mb_overview['Year'])]['BEGIN_PERIOD'].values)
+    wgms_mb_glac.loc[x,'END_PERIOD'] = (
+            wgms_mb_overview[(wgms_mb_glac.loc[x,'WGMS_ID'] == wgms_mb_overview['WGMS_ID']) & 
+                             (wgms_mb_glac.loc[x,'YEAR'] == wgms_mb_overview['Year'])]['END_PERIOD'].values)
 
-# Test on a single region
+
+## Test on a single region
 #wgms_mb_glac = wgms_mb_glac_all.loc[wgms_mb_glac_all['region'] == n + 1].sort_values('glacno')
 
 # Split summer, winter, and annual into separate rows such that each becomes a data point in the calibration scheme
 #  if summer and winter exist, then discard annual to avoid double-counting the annual measurement
-export_cols_annual = ['RGIId', 'glacno', 'YEAR', 'LOWER_BOUND', 'UPPER_BOUND', 'AREA', 'ANNUAL_BALANCE', 
-                      'ANNUAL_BALANCE_UNC']
-export_cols_summer = ['RGIId', 'glacno', 'YEAR', 'LOWER_BOUND', 'UPPER_BOUND', 'AREA', 'SUMMER_BALANCE', 
-                      'SUMMER_BALANCE_UNC']
-export_cols_winter = ['RGIId', 'glacno', 'YEAR', 'LOWER_BOUND', 'UPPER_BOUND', 'AREA', 'WINTER_BALANCE', 
-                      'WINTER_BALANCE_UNC']
+export_cols_annual = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'BEGIN_PERIOD', 'END_PERIOD', 'LOWER_BOUND', 'UPPER_BOUND', 
+                      'ANNUAL_BALANCE', 'ANNUAL_BALANCE_UNC']
+export_cols_summer = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'BEGIN_PERIOD', 'END_PERIOD', 'LOWER_BOUND', 'UPPER_BOUND', 
+                      'SUMMER_BALANCE', 'SUMMER_BALANCE_UNC']
+export_cols_winter = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'BEGIN_PERIOD', 'END_PERIOD', 'LOWER_BOUND', 'UPPER_BOUND', 
+                      'WINTER_BALANCE', 'WINTER_BALANCE_UNC']
 wgms_mb_glac_annual = wgms_mb_glac.loc[((np.isnan(wgms_mb_glac['WINTER_BALANCE'])) & 
                                         (np.isnan(wgms_mb_glac['SUMMER_BALANCE']))), export_cols_annual]
 wgms_mb_glac_summer = wgms_mb_glac.loc[np.isfinite(wgms_mb_glac['SUMMER_BALANCE']), export_cols_summer]
@@ -173,10 +191,11 @@ wgms_mb_glac_winter.rename(columns={'WINTER_BALANCE': 'BALANCE', 'WINTER_BALANCE
 # Export relevant information
 wgms_mb_glac_export = (pd.concat([wgms_mb_glac_annual, wgms_mb_glac_summer, wgms_mb_glac_winter])
                                  .sort_values(['glacno', 'YEAR']))
+# Add observation type for comparison (massbalance, snowline, etc.)
+wgms_mb_glac_export['obs_type'] = 'mb'
 wgms_mb_glac_export.reset_index(drop=True, inplace=True)
 wgms_mb_glac_export_fn = input.main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/wgms_ee_rgiv6_preprocessed.csv'
 wgms_mb_glac_export.to_csv(wgms_mb_glac_export_fn)
-
 
 
 #%% Create netcdf file of lapse rates from temperature pressure level data

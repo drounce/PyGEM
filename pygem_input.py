@@ -253,8 +253,7 @@ wgms_t1_cn = 'YEAR'
 wgms_z1_cn = 'LOWER_BOUND'
 wgms_z2_cn = 'UPPER_BOUND'
 wgms_period_cn = 'period'
-
-
+wgms_obs_type_cn = 'obs_type'
 
 brun_fp = main_directory + '/../DEMs/'
 #  NEED TO FINISH SETTING UP FOR BRUN AND MAUER
