@@ -58,27 +58,33 @@ class MBData():
         """
         Calculate the total mass change for various datasets and output it in a format that is useful for calibration
         """       
+        # Column names of output
+        ds_output_cols = ['RGIId', 'glacno', 'obs_type', 'mb_gt', 'mb_gt_err', 'sla_m',  'z1_idx', 'z2_idx', 'z1', 
+                          'z2', 't1_idx', 't2_idx', 't1_year', 't1_month', 't1_day', 't2_year', 't2_month', 
+                          't2_day', 'area_km2', 'WGMS_ID']
+        # Dictionary linking O1Index to Index
+        indexdict = dict(zip(main_glac_rgi['O1Index'], main_glac_rgi.index.values)) 
+            
         if self.name == 'shean':
-            # Column names of output
-            ds_output_cols = ['RGIId', 'glacno', 'WGMS_ID', 'obs_type', 'mb_gt', 'mb_gt_err', 'sla_m',  'z1_idx', 
-                              'z2_idx', 'z1', 'z2', 't1_idx', 't2_idx', 't1_year', 't1_month', 't1_day', 't2_year', 
-                              't2_month', 't2_day', 'area_km2']
             # Load all data
             ds_all = pd.read_csv(self.ds_fp + self.ds_fn)
             ds_all['RegO1'] = ds_all[self.rgi_cn].values.astype(int)
             # Select data for specific region
-            ds = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
-            ds.reset_index(drop=True, inplace=True)
+            ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
+            ds_reg.reset_index(drop=True, inplace=True)
             # Glacier number and index for comparison
-            ds['glacno'] = ((ds[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
-            ds['O1Index'] = (ds['glacno'] - 1).astype(int)
+            ds_reg['glacno'] = ((ds_reg[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
+            ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
+            # Select glaciers with mass balance data
+            ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi['RGIId_glacno']) == True)[0],:]).copy()
+            ds.reset_index(drop=True, inplace=True)
             # Elevation indices
             elev_bins = main_glac_hyps.columns.values.astype(int)
             elev_bin_interval = elev_bins[1] - elev_bins[0]
             ds['z1_idx'] = (
-                    (main_glac_hyps.iloc[ds['O1Index']].values != 0).argmax(axis=1).astype(int))
+                    (main_glac_hyps.iloc[ds['O1Index'].map(indexdict)].values != 0).argmax(axis=1).astype(int))
             ds['z2_idx'] = (
-                    (main_glac_hyps.iloc[ds['O1Index']].values.cumsum(1)).argmax(axis=1).astype(int))
+                    (main_glac_hyps.iloc[ds['O1Index'].map(indexdict)].values.cumsum(1)).argmax(axis=1).astype(int))
             # Lower and upper bin elevations [masl]
             ds['z1'] = elev_bins[ds['z1_idx'].values] - elev_bin_interval/2
             ds['z2'] = elev_bins[ds['z2_idx'].values] + elev_bin_interval/2
@@ -86,7 +92,8 @@ class MBData():
             ds['area_km2'] = np.nan
             for x in range(ds.shape[0]):
                 ds.loc[x,'area_km2'] = (
-                        main_glac_hyps.iloc[ds.loc[x,'O1Index'], ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
+                        main_glac_hyps.iloc[indexdict[ds.loc[x,'O1Index']], 
+                                            ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
             # Time indices
             ds['t1_year_decimal'] = ds[self.t1_cn]
             ds['t2_year_decimal'] = ds[self.t2_cn]
@@ -111,48 +118,56 @@ class MBData():
                 ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
                                                   (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
             # Total mass change [Gt]
-            ds['mb_gt'] = (ds[self.mb_vol_cn] * (ds['t1_year_decimal'] - ds['t2_year_decimal']) * (1/1000)**3 * 
+            ds['mb_gt'] = (ds[self.mb_vol_cn] * (ds['t2_year_decimal'] - ds['t1_year_decimal']) * (1/1000)**3 * 
                            input.density_water / 1000)
-            ds['mb_gt_err'] = (ds[self.mb_vol_err_cn] * (ds['t1_year_decimal'] - ds['t2_year_decimal']) * (1/1000)**3 * 
+            ds['mb_gt_err'] = (ds[self.mb_vol_err_cn] * (ds['t2_year_decimal'] - ds['t1_year_decimal']) * (1/1000)**3 * 
                                input.density_water / 1000)
             ds['obs_type'] = 'mb'
-            # Select output
-            ds_output = ds.loc[:, ds_output_cols]
+            
         elif self.name == 'brun':
             print('code brun')
+            
         elif self.name == 'mauer':
             print('code mauer')
+            
         elif self.name == 'wgms_ee':
             # Column names of output
-            ds_output_cols = ['RGIId', 'glacno', 'WGMS_ID', 'obs_type', 'mb_gt', 'mb_gt_err', 'sla_m',  'z1_idx', 
-                              'z2_idx', 'z1', 'z2', 't1_idx', 't2_idx', 't1_year', 't1_month', 't1_day', 't2_year', 
-                              't2_month', 't2_day', 'area_km2']
+            ds_output_cols = ['RGIId', 'glacno', 'obs_type', 'mb_gt', 'mb_gt_err', 'sla_m',  'z1_idx', 'z2_idx', 'z1', 
+                              'z2', 't1_idx', 't2_idx', 't1_year', 't1_month', 't1_day', 't2_year', 't2_month', 
+                              't2_day', 'area_km2', 'WGMS_ID']
+            # Dictionary linking O1Index to Index
+            indexdict = dict(zip(main_glac_rgi['O1Index'], main_glac_rgi.index.values)) 
             # Load all data
             ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')
             ds_all['RegO1'] = ds_all[self.rgi_cn].values.astype(int)
             # Select data for specific region
-            ds = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
+            ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
             # Drop periods without reference data
-            ds = ds[np.isfinite(ds['BEGIN_PERIOD']) & np.isfinite(ds['END_PERIOD'])]
-            ds.reset_index(drop=True, inplace=True)
+            ds_reg = ds_reg[np.isfinite(ds_reg['BEGIN_PERIOD']) & np.isfinite(ds_reg['END_PERIOD'])]
+            ds_reg.reset_index(drop=True, inplace=True)
             # Glacier number and index for comparison
-            ds['glacno'] = ((ds[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
-            ds['O1Index'] = (ds['glacno'] - 1).astype(int)
+            ds_reg['glacno'] = ((ds_reg[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
+            ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
+            # Select glaciers with mass balance data
+            ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi['RGIId_glacno']) == True)[0],:]).copy()
+            ds.reset_index(drop=True, inplace=True)
             # Elevation indices
             elev_bins = main_glac_hyps.columns.values.astype(int)
             elev_bin_interval = elev_bins[1] - elev_bins[0]
             ds['z1_idx'] = np.nan
             ds['z2_idx'] = np.nan
             ds.loc[ds[self.z1_cn] == 9999, 'z1_idx'] = (
-                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'O1Index']].values != 0).argmax(axis=1))
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'O1Index'].map(indexdict)].values != 0)
+                     .argmax(axis=1))
             ds.loc[ds[self.z2_cn] == 9999, 'z2_idx'] = (
-                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'O1Index']].values.cumsum(1)).argmax(axis=1))
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'O1Index'].map(indexdict)].values.cumsum(1))
+                     .argmax(axis=1))
             ds.loc[ds[self.z1_cn] != 9999, 'z1_idx'] = (
                     ((np.tile(elev_bins, (ds.loc[ds[self.z1_cn] != 9999, self.z1_cn].shape[0],1)) - 
-                      ds.loc[ds[input.wgms_z1_cn] != 9999, self.z1_cn][:,np.newaxis]) > 0).argmax(axis=1))
+                      ds.loc[ds[self.z1_cn] != 9999, self.z1_cn][:,np.newaxis]) > 0).argmax(axis=1))
             ds.loc[ds[self.z2_cn] != 9999, 'z2_idx'] = (
                     ((np.tile(elev_bins, (ds.loc[ds[self.z2_cn] != 9999, self.z2_cn].shape[0],1)) - 
-                      ds.loc[ds[input.wgms_z1_cn] != 9999, self.z2_cn][:,np.newaxis]) > 0).argmax(axis=1) - 1)
+                      ds.loc[ds[self.z2_cn] != 9999, self.z2_cn][:,np.newaxis]) > 0).argmax(axis=1) - 1)
             ds['z1_idx'] = ds['z1_idx'].values.astype(int)
             ds['z2_idx'] = ds['z2_idx'].values.astype(int)
             # Lower and upper bin elevations [masl]
@@ -162,7 +177,8 @@ class MBData():
             ds['area_km2'] = np.nan
             for x in range(ds.shape[0]):
                 ds.loc[x,'area_km2'] = (
-                        main_glac_hyps.iloc[ds.loc[x,'O1Index'], ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
+                        main_glac_hyps.iloc[indexdict[ds.loc[x,'O1Index']], 
+                                            ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
             ds = ds[ds['area_km2'] > 0]
             ds.reset_index(drop=True, inplace=True)
             # Time indices
@@ -195,25 +211,21 @@ class MBData():
                 ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
                                                   (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
             # Total mass change [Gt]
-            ds['mb_gt'] = ds[self.mb_cn] / 1000 * ds['area_km2'] * 1000**2 * (1/1000)**3 * input.density_water / 1000
-            ds['mb_gt_err'] = (ds[self.mb_err_cn] / 1000 * ds['area_km2'] * 1000**2 * (1/1000)**3 * input.density_water 
-                               / 1000)
-            # Select output
-            ds_output = ds.loc[:, ds_output_cols]
+            ds['mb_gt'] = ds[self.mb_cn] / 1000 * ds['area_km2'] * 1000**2 * input.density_water / 1000 / 10**9
+            ds['mb_gt_err'] = ds[self.mb_err_cn] / 1000 * ds['area_km2'] * 1000**2 * input.density_water / 1000 / 10**9
             
-        return ds_all, ds, ds_output
+        # Select output
+        ds_output = ds.loc[:, ds_output_cols].sort_values(['glacno', 't1_idx'])
+        return ds_output
 
-
-#%% Converting decimal years to month and year
-#ds['t1_year'] = ds['t1'].values.astype(int)
-#ds['t1_month'] = [(datetime.datetime(int(x),1,1) + datetime.timedelta((x - int(x))*365)).month for x in ds['t1']]   
 
 #%% Testing
 # Glacier selection
 rgi_regionsO1 = [15]
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
+rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733', '03734']
 
 # Required input
 gcm_startyear = 2000
@@ -234,8 +246,8 @@ elev_bins = main_glac_hyps.columns.values.astype(int)
 elev_bin_interval = elev_bins[1] - elev_bins[0]
 
 # Testing    
-#mb1 = MBData(name='shean')
-mb1 = MBData(name='wgms_ee')
-ds_all, ds, ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
+mb1 = MBData(name='shean')
+#mb1 = MBData(name='wgms_ee')
+ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
 
 #%%
