@@ -25,7 +25,7 @@ class MBData():
             self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.shean_fp
             self.ds_fn = input.shean_fn
-            self.rgi_cn = input.shean_rgi_cn
+            self.rgi_glacno_cn = input.shean_rgi_glacno_cn
             self.mb_mwea_cn = input.shean_mb_cn
             self.mb_mwea_err_cn = input.shean_mb_err_cn
             self.t1_cn = input.shean_time1_cn
@@ -44,7 +44,7 @@ class MBData():
             self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.wgms_fp
             self.ds_fn = input.wgms_fn_ending
-            self.rgi_cn = input.wgms_rgi_cn
+            self.rgi_glacno_cn = input.wgms_rgi_glacno_cn
             self.mb_cn = input.wgms_mb_cn
             self.mb_err_cn = input.wgms_mb_err_cn
             self.t1_cn = input.wgms_t1_cn
@@ -68,15 +68,18 @@ class MBData():
         if self.name == 'shean':
             # Load all data
             ds_all = pd.read_csv(self.ds_fp + self.ds_fn)
-            ds_all['RegO1'] = ds_all[self.rgi_cn].values.astype(int)
+            ds_all['RegO1'] = ds_all[self.rgi_glacno_cn].values.astype(int)
             # Select data for specific region
             ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
             ds_reg.reset_index(drop=True, inplace=True)
             # Glacier number and index for comparison
-            ds_reg['glacno'] = ((ds_reg[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
+            ds_reg['glacno'] = ((ds_reg[self.rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
             ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
+            ds_reg['RGIId'] = ('RGI60-' + str(input.rgi_regionsO1[0]) + '.' + 
+                               (ds_reg['glacno'] / 10**5).astype(str).str.split('.').str[1])
             # Select glaciers with mass balance data
-            ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi['RGIId_glacno']) == True)[0],:]).copy()
+            ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi[input.rgi_O1Id_colname]) == True)[0],:]
+                  ).copy()
             ds.reset_index(drop=True, inplace=True)
             # Elevation indices
             elev_bins = main_glac_hyps.columns.values.astype(int)
@@ -103,6 +106,7 @@ class MBData():
             ds['t2_year'] = ds['t2_year_decimal'].astype(int)
             ds['t2_month'] = int(9)
             ds['t2_day'] = int(1)
+            ds['t2_year_decimal'] = ds['t2_year'] + ds['t2_month'] / 12
             year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
             year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
                                 (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
@@ -139,17 +143,18 @@ class MBData():
             indexdict = dict(zip(main_glac_rgi['O1Index'], main_glac_rgi.index.values)) 
             # Load all data
             ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')
-            ds_all['RegO1'] = ds_all[self.rgi_cn].values.astype(int)
+            ds_all['RegO1'] = ds_all[self.rgi_glacno_cn].values.astype(int)
             # Select data for specific region
             ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
             # Drop periods without reference data
             ds_reg = ds_reg[np.isfinite(ds_reg['BEGIN_PERIOD']) & np.isfinite(ds_reg['END_PERIOD'])]
             ds_reg.reset_index(drop=True, inplace=True)
             # Glacier number and index for comparison
-            ds_reg['glacno'] = ((ds_reg[self.rgi_cn] % 1) * 10**5).round(0).astype(int)
+            ds_reg['glacno'] = ((ds_reg[self.rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
             ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
             # Select glaciers with mass balance data
-            ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi['RGIId_glacno']) == True)[0],:]).copy()
+            ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi[input.rgi_O1Id_colname]) == True)[0],:]
+                  ).copy()
             ds.reset_index(drop=True, inplace=True)
             # Elevation indices
             elev_bins = main_glac_hyps.columns.values.astype(int)
@@ -216,38 +221,51 @@ class MBData():
             
         # Select output
         ds_output = ds.loc[:, ds_output_cols].sort_values(['glacno', 't1_idx'])
+        ds_output.reset_index(drop=True, inplace=True)
         return ds_output
 
 
 #%% Testing
-# Glacier selection
-rgi_regionsO1 = [15]
-#rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
-#rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
-rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733', '03734']
-
-# Required input
-gcm_startyear = 2000
-gcm_endyear = 2015
-gcm_spinupyears = 5
-option_calibration = 1
-
-# Select glaciers
-main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
-                                                  rgi_glac_number=rgi_glac_number)
-# Glacier hypsometry [km**2], total area
-main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath, 
-                                             input.hyps_filedict, input.hyps_colsdrop)
-# Determine dates_table_idx that coincides with data
-dates_table, start_date, end_date = modelsetup.datesmodelrun(gcm_startyear, gcm_endyear, spinupyears=0)
-
-elev_bins = main_glac_hyps.columns.values.astype(int)
-elev_bin_interval = elev_bins[1] - elev_bins[0]
-
-# Testing    
-mb1 = MBData(name='shean')
-#mb1 = MBData(name='wgms_ee')
-ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
+if __name__ == '__main__':
+    # Glacier selection
+    rgi_regionsO1 = [15]
+    #rgi_glac_number = 'all'
+    #rgi_glac_number = ['03473', '03733']
+    #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
+    rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733', '03734']
+    #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733']
+    
+    # Required input
+    gcm_startyear = 2000
+    gcm_endyear = 2015
+    gcm_spinupyears = 5
+    option_calibration = 1
+    
+    # Select glaciers
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
+                                                      rgi_glac_number=rgi_glac_number)
+    # Glacier hypsometry [km**2], total area
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath, 
+                                                 input.hyps_filedict, input.hyps_colsdrop)
+    # Determine dates_table_idx that coincides with data
+    dates_table, start_date, end_date = modelsetup.datesmodelrun(gcm_startyear, gcm_endyear, spinupyears=0)
+    
+    elev_bins = main_glac_hyps.columns.values.astype(int)
+    elev_bin_interval = elev_bins[1] - elev_bins[0]
+    
+    # Testing    
+    mb1 = MBData(name='shean')
+    #mb1 = MBData(name='wgms_ee')
+    ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
+    
+    cal_datasets = ['shean', 'wgms_ee']
+    
+    cal_data = pd.DataFrame()
+    for dataset in cal_datasets:
+        cal_subset = MBData(name=dataset)
+        cal_subset_data = cal_subset.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
+        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+    cal_data.reset_index(drop=True, inplace=True)
 
 #%%
