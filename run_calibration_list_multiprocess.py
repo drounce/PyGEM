@@ -48,9 +48,9 @@ gcm_spinupyears = 5
 option_calibration = 1
 
 # Calibration datasets
-#cal_datasets = ['shean', 'wgms_ee']
+cal_datasets = ['shean', 'wgms_ee']
 #cal_datasets = ['shean']
-cal_datasets = ['wgms_ee']
+#cal_datasets = ['wgms_ee']
 
 # Export option
 option_export = 1
@@ -60,7 +60,7 @@ output_filepath = input.main_directory + '/../Output/'
 def getparser():
     parser = argparse.ArgumentParser(description="run calibration in parallel")
     # add arguments
-    parser.add_argument('-gcm_file', action='store', type=str, default=input.ref_gcm_name, 
+    parser.add_argument('-ref_gcm_name', action='store', type=str, default=input.ref_gcm_name, 
                         help='text file full of commands to run')
     parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=5, 
                         help='number of simultaneous processes (cores) to use')
@@ -69,41 +69,12 @@ def getparser():
     return parser
 
 
-def main(list_packed_vars):
-    
-###### DELETE FROM HERE #####
-#time_start = time.time()
-#parser = getparser()
-#args = parser.parse_args()
-#
-## Select glaciers
-#main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
-#                                                      rgi_glac_number=rgi_glac_number)
-## Define chunks
-#if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
-#    chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / args.num_simultaneous_processes))
-#else:
-#    chunk_size = main_glac_rgi_all.shape[0]    
-#    
-#gcm_name = input.ref_gcm_name
-## Pack variables for multiprocessing
-#list_packed_vars = [] 
-#n = 0
-#for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-#    n = n + 1
-#    list_packed_vars.append([n, chunk, main_glac_rgi_all, chunk_size, gcm_name])
-#
-#list_packed_vars = list_packed_vars[0]    
-#
-#for batman in [0]:
-###### DELETE TO HERE #####
-    
-    
+def main(list_packed_vars):    
     # Unpack variables
     count = list_packed_vars[0]
     chunk = list_packed_vars[1]
-    main_glac_rgi_all = list_packed_vars[2]
-    chunk_size = list_packed_vars[3]
+    chunk_size = list_packed_vars[2]
+    main_glac_rgi_all = list_packed_vars[3]
     gcm_name = list_packed_vars[4]
     
     time_start = time.time()
@@ -131,10 +102,10 @@ def main(list_packed_vars):
             modelsetup.hypsometrystats(main_glac_hyps_raw, main_glac_icethickness_raw))
     # Select dates including future projections
     #  - nospinup dates_table needed to get the proper time indices
+    dates_table_nospinup, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
+                                                                          spinupyears=0)
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
-    dates_table_nospinup, start_date_nospinup, end_date_nospinup = (
-            modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, spinupyears=0))
     
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()
@@ -187,8 +158,8 @@ def main(list_packed_vars):
         
         for glac in range(main_glac_rgi.shape[0]):
 #            if glac%200 == 0:
-#                print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
-            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+#                print(count,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
+#            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
             
             # Set model parameters
             modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice, 
@@ -528,6 +499,7 @@ def main(list_packed_vars):
             output_cols = ['glacno', 'obs_type', 'mb_gt', 'mb_perc', 'model_mb_gt', 'model_mb_perc', 'abs_dif_perc', 
                            'calround']
             
+            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
             print('precfactor:', modelparameters[2])
             print('precgrad:', modelparameters[3])
             print('ddfsnow:', modelparameters[4])
@@ -536,7 +508,7 @@ def main(list_packed_vars):
             print('modeled mass change [%]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'mb_perc'].values)
             print('measured mass change [%]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'model_mb_perc'].values)
             print('measured mass change error [%]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'abs_dif_perc'].values)
-            print('\n')
+            print(' ')
             
 #        # ===== EXPORT OUTPUT =====
 #        main_glac_output = main_glac_rgi.copy()
@@ -562,72 +534,62 @@ if __name__ == '__main__':
     parser = getparser()
     args = parser.parse_args()
     
-    # Select glaciers
+    # Reference GCM name
+    gcm_name = args.ref_gcm_name
+    print('Reference climate data is:', gcm_name)
+    
+    # Select all glaciers in a region
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
                                                           rgi_glac_number=rgi_glac_number)
-    # Define chunks
+    # Define chunk size for parallel processing
     if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
         chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / args.num_simultaneous_processes))
     else:
+        # if not running in parallel, chunk size is all glaciers
         chunk_size = main_glac_rgi_all.shape[0]
-    
-    # Read GCM names from command file
-    if args.gcm_file == input.ref_gcm_name:
-        gcm_list = [input.ref_gcm_name]
+
+    # Pack variables for parallel processing
+    list_packed_vars = [] 
+    n = 0
+    for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
+        n = n + 1
+        list_packed_vars.append([n, chunk, chunk_size, main_glac_rgi_all, gcm_name])
+        
+    # Parallel processing
+    if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
+        print('Processing in parallel...')
+        with multiprocessing.Pool(args.num_simultaneous_processes) as p:
+            p.map(main,list_packed_vars)      
+    # If not in parallel, then only should be one loop
     else:
-        with open(args.gcm_file, 'r') as gcm_fn:
-            gcm_list = gcm_fn.read().splitlines()
-            rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
-            print('Found %d gcms to process'%(len(gcm_list)))
-        
-        
-    # FOR CALIBRATION THERE ARE NO GCMS, SO DON'T NEED THIS LOOP 
-    # Loop through all GCMs
-    for gcm_name in gcm_list:
-        print('Processing:', gcm_name)
-        # Pack variables for multiprocessing
-        list_packed_vars = [] 
-        n = 0
-        for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-            n = n + 1
-            list_packed_vars.append([n, chunk, main_glac_rgi_all, chunk_size, gcm_name])
-        
-        # Parallel processing
-        if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
-            with multiprocessing.Pool(args.num_simultaneous_processes) as p:
-                p.map(main,list_packed_vars)        
-        # No parallel processing
-        else:
-            # Loop through the chunks and export bias adjustments
-            for n in range(len(list_packed_vars)):
-                main(list_packed_vars[n])
-            
+        for n in range(len(list_packed_vars)):
+            main(list_packed_vars[n])
     
-#        # Combine output into single csv
-#        if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
-#            (option_export == 1)):
-#            # Single output file
-#            output_prefix = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
-#                             str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
-#            output_list = []
-#            for i in os.listdir(output_filepath):
-#                # Append results
-#                if i.startswith(output_prefix) == True:
-#                    output_list.append(i)
-#                    if len(output_list) == 1:
-#                        output_all = pd.read_csv(output_filepath + i, index_col=0)
-#                    else:
-#                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
-#                        output_all = output_all.append(output_2join, ignore_index=True)
-#                    # Remove file after its been merged
-#                    os.remove(output_filepath + i)
-#            # Export joined files
-#            output_all_fn = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
-#                             str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
-#                             str(strftime("%Y%m%d")) + '.csv')
-#            output_all.to_csv(output_filepath + output_all_fn)
-#        
-#    print('Total processing time:', time.time()-time_start, 's')
+#    # Combine output into single csv
+#    if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
+#        (option_export == 1)):
+#        # Single output file
+#        output_prefix = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+#                         str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
+#        output_list = []
+#        for i in os.listdir(output_filepath):
+#            # Append results
+#            if i.startswith(output_prefix) == True:
+#                output_list.append(i)
+#                if len(output_list) == 1:
+#                    output_all = pd.read_csv(output_filepath + i, index_col=0)
+#                else:
+#                    output_2join = pd.read_csv(output_filepath + i, index_col=0)
+#                    output_all = output_all.append(output_2join, ignore_index=True)
+#                # Remove file after its been merged
+#                os.remove(output_filepath + i)
+#        # Export joined files
+#        output_all_fn = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+#                         str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
+#                         str(strftime("%Y%m%d")) + '.csv')
+#        output_all.to_csv(output_filepath + output_all_fn)
+        
+    print('Total processing time:', time.time()-time_start, 's')
             
     #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          
     # Place local variables in variable explorer

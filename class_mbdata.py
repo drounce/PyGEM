@@ -62,6 +62,8 @@ class MBData():
         ds_output_cols = ['RGIId', 'glacno', 'obs_type', 'mb_gt', 'mb_gt_err', 'sla_m',  'z1_idx', 'z2_idx', 'z1', 
                           'z2', 't1_idx', 't2_idx', 't1_year', 't1_month', 't1_day', 't2_year', 't2_month', 
                           't2_day', 'area_km2', 'WGMS_ID']
+        # Reset rgi index so it is consistent with hyps and other data
+        main_glac_rgi.reset_index(drop=True, inplace=True)
         # Dictionary linking O1Index to Index
         indexdict = dict(zip(main_glac_rgi['O1Index'], main_glac_rgi.index.values)) 
             
