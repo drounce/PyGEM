@@ -37,9 +37,9 @@ rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
-#rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
+rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
-rgi_glac_number = ['03591']
+#rgi_glac_number = ['03591']
 
 # Required input
 gcm_startyear = 2000
@@ -70,6 +70,35 @@ def getparser():
 
 
 def main(list_packed_vars):
+    
+###### DELETE FROM HERE #####
+#time_start = time.time()
+#parser = getparser()
+#args = parser.parse_args()
+#
+## Select glaciers
+#main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
+#                                                      rgi_glac_number=rgi_glac_number)
+## Define chunks
+#if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
+#    chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / args.num_simultaneous_processes))
+#else:
+#    chunk_size = main_glac_rgi_all.shape[0]    
+#    
+#gcm_name = input.ref_gcm_name
+## Pack variables for multiprocessing
+#list_packed_vars = [] 
+#n = 0
+#for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
+#    n = n + 1
+#    list_packed_vars.append([n, chunk, main_glac_rgi_all, chunk_size, gcm_name])
+#
+#list_packed_vars = list_packed_vars[0]    
+#
+#for batman in [0]:
+###### DELETE TO HERE #####
+    
+    
     # Unpack variables
     count = list_packed_vars[0]
     chunk = list_packed_vars[1]
@@ -101,14 +130,17 @@ def main(list_packed_vars):
     main_glac_rgi_raw['Volume'], main_glac_rgi_raw['Zmean'] = (
             modelsetup.hypsometrystats(main_glac_hyps_raw, main_glac_icethickness_raw))
     # Select dates including future projections
+    #  - nospinup dates_table needed to get the proper time indices
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
+    dates_table_nospinup, start_date_nospinup, end_date_nospinup = (
+            modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, spinupyears=0))
     
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()
     for dataset in cal_datasets:
         cal_subset = class_mbdata.MBData(name=dataset)
-        cal_subset_data = cal_subset.masschange_total(main_glac_rgi_raw, main_glac_hyps_raw, dates_table)
+        cal_subset_data = cal_subset.masschange_total(main_glac_rgi_raw, main_glac_hyps_raw, dates_table_nospinup)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])
     cal_data.reset_index(drop=True, inplace=True)
@@ -124,8 +156,6 @@ def main(list_packed_vars):
     main_glac_hyps.reset_index(drop=True, inplace=True)
     main_glac_icethickness.reset_index(drop=True, inplace=True)
     main_glac_width.reset_index(drop=True, inplace=True)
-    
-    print(main_glac_rgi['RGIId'])
     
     # ===== LOAD CLIMATE DATA =====
     gcm = class_climate.GCM(name=gcm_name)
@@ -163,7 +193,6 @@ def main(list_packed_vars):
             # Set model parameters
             modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice, 
                                input.tempsnow, input.tempchange]
-            
             # Select subsets of data
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
             glacier_gcm_elev = gcm_elev[glac]
@@ -186,9 +215,9 @@ def main(list_packed_vars):
             # OPTIMIZATION FUNCTION: Define the function that you are trying to minimize
             #  - modelparameters are the parameters that will be optimized
             #  - return value is the value is the value used to run the optimization
-            # ONE WAY TO IMPROVE THE OBJECTIVE FUNCTION SUCH THAT IT CAN INCLUDE SNOWLINES, ETC. IS TO NORMALIZE THE 
-            # MEASURED AND MODELED DIFFERENCE BY THE ESTIMATED ERROR... This would essentially mean that you are 
-            # minimizing the cumulative absolute z-score.
+            # One way to improve objective function to include other observations (snowlines, etc.) is to normalize the
+            # measured and modeled difference by the estimated error - this would mean we are minimizing the cumulative
+            # absolute z-score.
             def objective(modelparameters):
                 # Mass balance calculations
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
@@ -199,7 +228,7 @@ def main(list_packed_vars):
                     massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                                width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                               option_areaconstant=1))   
+                                               option_areaconstant=1))  
                 # Record glacier number and observation type
                 glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
                 # Monthly glacier area and ice thickness for each bin
@@ -574,31 +603,31 @@ if __name__ == '__main__':
                 main(list_packed_vars[n])
             
     
-        # Combine output into single csv
-        if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
-            (option_export == 1)):
-            # Single output file
-            output_prefix = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
-                             str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
-            output_list = []
-            for i in os.listdir(output_filepath):
-                # Append results
-                if i.startswith(output_prefix) == True:
-                    output_list.append(i)
-                    if len(output_list) == 1:
-                        output_all = pd.read_csv(output_filepath + i, index_col=0)
-                    else:
-                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
-                        output_all = output_all.append(output_2join, ignore_index=True)
-                    # Remove file after its been merged
-                    os.remove(output_filepath + i)
-            # Export joined files
-            output_all_fn = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
-                             str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
-                             str(strftime("%Y%m%d")) + '.csv')
-            output_all.to_csv(output_filepath + output_all_fn)
-        
-    print('Total processing time:', time.time()-time_start, 's')
+#        # Combine output into single csv
+#        if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
+#            (option_export == 1)):
+#            # Single output file
+#            output_prefix = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+#                             str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
+#            output_list = []
+#            for i in os.listdir(output_filepath):
+#                # Append results
+#                if i.startswith(output_prefix) == True:
+#                    output_list.append(i)
+#                    if len(output_list) == 1:
+#                        output_all = pd.read_csv(output_filepath + i, index_col=0)
+#                    else:
+#                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
+#                        output_all = output_all.append(output_2join, ignore_index=True)
+#                    # Remove file after its been merged
+#                    os.remove(output_filepath + i)
+#            # Export joined files
+#            output_all_fn = ('cal_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+#                             str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
+#                             str(strftime("%Y%m%d")) + '.csv')
+#            output_all.to_csv(output_filepath + output_all_fn)
+#        
+#    print('Total processing time:', time.time()-time_start, 's')
             
     #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          
     # Place local variables in variable explorer

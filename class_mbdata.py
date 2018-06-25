@@ -42,16 +42,16 @@ class MBData():
             
         elif self.name == 'wgms_ee':
             self.rgi_regionO1 = rgi_regionO1
-            self.ds_fp = input.wgms_fp
-            self.ds_fn = input.wgms_fn_ending
-            self.rgi_glacno_cn = input.wgms_rgi_glacno_cn
-            self.mb_cn = input.wgms_mb_cn
-            self.mb_err_cn = input.wgms_mb_err_cn
-            self.t1_cn = input.wgms_t1_cn
-            self.period_cn = input.wgms_period_cn
-            self.z1_cn = input.wgms_z1_cn
-            self.z2_cn = input.wgms_z2_cn
-            self.obs_type_cn = input.wgms_obs_type_cn
+            self.ds_fp = input.wgms_ee_fp
+            self.ds_fn = input.wgms_ee_fn
+            self.rgi_glacno_cn = input.wgms_ee_rgi_glacno_cn
+            self.mb_cn = input.wgms_ee_mb_cn
+            self.mb_err_cn = input.wgms_ee_mb_err_cn
+            self.t1_cn = input.wgms_ee_t1_cn
+            self.period_cn = input.wgms_ee_period_cn
+            self.z1_cn = input.wgms_ee_z1_cn
+            self.z2_cn = input.wgms_ee_z2_cn
+            self.obs_type_cn = input.wgms_ee_obs_type_cn
 
             
     def masschange_total(self, main_glac_rgi, main_glac_hyps, dates_table):
@@ -232,8 +232,9 @@ if __name__ == '__main__':
     #rgi_glac_number = 'all'
     #rgi_glac_number = ['03473', '03733']
     #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
-    rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733', '03734']
+#    rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733', '03734']
     #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733']
+    rgi_glac_number = ['03591']
     
     # Required input
     gcm_startyear = 2000

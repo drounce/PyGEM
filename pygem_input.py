@@ -244,16 +244,17 @@ shean_vol_cn = 'mb_m3wea'
 shean_vol_err_cn = 'mb_m3wea_sigma'
 
 # WGMS (ee) glaciological mass balance
-wgms_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
-wgms_fn_ending = 'wgms_ee_rgiv6_preprocessed.csv' 
-wgms_rgi_glacno_cn = 'glacno'
-wgms_mb_cn = 'BALANCE'
-wgms_mb_err_cn = 'BALANCE_UNC'
-wgms_t1_cn = 'YEAR'
-wgms_z1_cn = 'LOWER_BOUND'
-wgms_z2_cn = 'UPPER_BOUND'
-wgms_period_cn = 'period'
-wgms_obs_type_cn = 'obs_type'
+wgms_ee_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
+wgms_ee_fn = 'wgms_ee_rgiv6_preprocessed.csv' 
+wgms_ee_rgi_glacno_cn = 'glacno'
+wgms_ee_mb_cn = 'BALANCE'
+wgms_ee_mb_err_cn = 'BALANCE_UNC'
+wgms_ee_t1_cn = 'YEAR'
+wgms_ee_z1_cn = 'LOWER_BOUND'
+wgms_ee_z2_cn = 'UPPER_BOUND'
+wgms_ee_period_cn = 'period'
+wgms_ee_obs_type_cn = 'obs_type'
+
 
 brun_fp = main_directory + '/../DEMs/'
 #  NEED TO FINISH SETTING UP FOR BRUN AND MAUER
