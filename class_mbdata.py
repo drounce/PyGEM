@@ -212,8 +212,8 @@ class MBData():
                         ds.loc[x, 't2_day'] = 28
             # Add latitude to set summer and winter dates
             ds['CenLat'] = ds['RGIId'].map(latdict)
-            for x in range(ds.shape[0]):
-                if ds.loc[x, 'period'] == 'summer':
+#            for x in range(ds.shape[0]):
+#                if ds.loc[x, 'period'] == 'summer':
                     
             
             # If period is summer/winter, adjust dates accordingly
