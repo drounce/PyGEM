@@ -228,6 +228,20 @@ timestep = 'monthly'
 #  water year example: 2000 would end on September 2000
 #  calendar year example: 2000 would end on December 2000
 
+# Annual and seasonal dictionaries for WGMS data that is not provided
+dict_annual_start = {13: [10, 1],
+                     14: [10, 1],
+                     15: [10, 1]
+                     }
+dict_winter_start = {13: [11, 1],
+                     14: [11, 1],
+                     15: [11, 1]
+                     }
+dict_summer_start = {13: [5, 1],
+                     14: [5, 1],
+                     15: [5, 1]
+                     }
+
 #%% CALIBRATION DATA (05/30/2018)
 #  for each mass balance dataset, store the parameters here and add to the class
 
