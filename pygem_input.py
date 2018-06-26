@@ -229,46 +229,25 @@ timestep = 'monthly'
 #  calendar year example: 2000 would end on December 2000
 
 # Seasonal dictionaries for WGMS data that is not provided
-dict_winter_start = {1:  [10, 1],
-                     2:  [10, 1],
-                     3:  [9, ],
-                     4:  [],
-                     5:  [],
-                     6:  [],
-                     7:  [],
-                     8:  [],
-                     9:  [],
-                     10: [],
-                     11: [],
-                     12: [],
-                     13: [11, 1],
-                     14: [11, 1],
-                     15: [11, 1],
-                     16: [],
-                     17: [],
-                     18: [],
-                     19: []
-                     }
-dict_summer_start = {1:  [5, 15],
-                     2:  [5, 15],
-                     3:  [],
-                     4:  [],
-                     5:  [],
-                     6:  [],
-                     7:  [],
-                     8:  [],
-                     9:  [],
-                     10: [],
-                     11: [],
-                     12: [],
-                     13: [5, 15],
-                     14: [5, 15],
-                     15: [5, 15],
-                     16: [],
-                     17: [],
-                     18: [],
-                     19: []
-                     }
+lat_threshold = 75
+# Winter (start/end) and Summer (start/end)
+monthdict = {'northernmost': [9, 5, 6, 8],
+             'north': [10, 4, 5, 9],
+             'south': [4, 9, 10, 3],
+             'southernmost': [3, 10, 11, 2]}
+
+# Latitude threshold
+# 01 - Alaska - < 75
+# 02 - W Can - < 75
+# 03 - N Can - > 74
+# 04 - S Can - < 74
+# 05 - Greenland - 60 - 80
+# 06 - Iceland - < 75
+# 07 - Svalbard - 70 - 80
+# 08 - Scandinavia - < 70
+# 09 - Russia - 72 - 82
+# 10 - N Asia - 46 - 77
+
 
 #%% CALIBRATION DATA (05/30/2018)
 #  for each mass balance dataset, store the parameters here and add to the class

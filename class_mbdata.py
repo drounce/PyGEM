@@ -4,7 +4,7 @@ class of mass balance data and functions associated with manipulating the datase
 
 import pandas as pd
 import numpy as np
-import datetime
+#import datetime
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -65,8 +65,7 @@ class MBData():
         main_glac_rgi.reset_index(drop=True, inplace=True)
         # Dictionary linking O1Index to Index
         indexdict = dict(zip(main_glac_rgi['O1Index'], main_glac_rgi.index.values))
-        # Dictionary linking RGIId to Latitude
-        latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
+        
             
         # Dataset specific calculations
         if self.name == 'shean':
@@ -111,6 +110,10 @@ class MBData():
             ds['t2_month'] = int(9)
             ds['t2_day'] = int(1)
             ds['t2'] = ds['t2_year'] + ds['t2_month'] / 12
+            ds['t1_datetime'] = pd.to_datetime(
+                    pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
+            ds['t2_datetime'] = pd.to_datetime(
+                    pd.DataFrame({'year':ds.t2_year.values, 'month':ds.t2_month.values, 'day':ds.t2_day.values}))
             year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
             year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
                                 (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
@@ -198,9 +201,23 @@ class MBData():
             ds['t2_month'] = ds['END_PERIOD'].astype(str).str.split('.').str[0].str[4:6].astype(int)
             ds['t2_day'] = ds['END_PERIOD'].astype(str).str.split('.').str[0].str[6:].astype(int)
             # if annual measurement and month/day unknown for start or end period, then replace with water year
-            ds.loc[ds['t1_month'] == 99, 't1_month'] = input.dict_annual_start[self.rgi_regionO1][0]
-            ds.loc[ds['t1_day'] == 99, 't1_day'] = input.dict_annual_start[self.rgi_regionO1][1]
-            ds.loc[ds['t2_month'] == 99, 't2_month'] = input.dict_annual_start[self.rgi_regionO1][0] - 1
+            # Add latitude 
+            latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
+            ds['CenLat'] = ds['RGIId'].map(latdict)
+            ds['lat_category'] = np.nan
+            ds.loc[ds['CenLat'] >= input.lat_threshold, 'lat_category'] = 'northernmost'
+            ds.loc[(ds['CenLat'] < input.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
+            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*input.lat_threshold), 'lat_category'] = 'south'
+            ds.loc[ds['CenLat'] <= -1*input.lat_threshold, 'lat_category'] = 'southernmost'
+            ds['months_wintersummer'] = ds['lat_category'].map(input.monthdict)
+            ds['winter_begin'] = ds['months_wintersummer'].apply(lambda x: x[0])
+            ds['winter_end'] = ds['months_wintersummer'].apply(lambda x: x[1])
+            ds['summer_begin'] = ds['months_wintersummer'].apply(lambda x: x[2])
+            ds['summer_end'] = ds['months_wintersummer'].apply(lambda x: x[3])
+            # annual start
+            ds.loc[ds['t1_month'] == 99, 't1_month'] = ds.loc[ds['t1_month'] == 99, 'winter_begin']
+            ds.loc[ds['t1_day'] == 99, 't1_day'] = 1
+            ds.loc[ds['t2_month'] == 99, 't2_month'] = ds.loc[ds['t2_month'] == 99, 'winter_begin'] - 1
             for x in range(ds.shape[0]):
                 if ds.loc[x, 't2_day'] == 99:
                     try:
@@ -210,70 +227,70 @@ class MBData():
                                                 .values[0])
                     except:
                         ds.loc[x, 't2_day'] = 28
-            # Add latitude to set summer and winter dates
-            ds['CenLat'] = ds['RGIId'].map(latdict)
-#            for x in range(ds.shape[0]):
-#                if ds.loc[x, 'period'] == 'summer':
-                    
-            
             # If period is summer/winter, adjust dates accordingly
-#            for x in range(ds.shape[0]):
-#                if ds.loc[]
-            
-            
-#            # Drop measurements outside of calibration period
-#            ds['t1_datetime'] = pd.to_datetime(
-#                    pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
-#            ds['t2_datetime'] = pd.to_datetime(
-#                    pd.DataFrame({'year':ds.t2_year.values, 'month':ds.t2_month.values, 'day':ds.t2_day.values}))
-#            ds['t1_doy'] = ds.t1_datetime.dt.strftime("%j").astype(float)
-#            ds['t2_doy'] = ds.t2_datetime.dt.strftime("%j").astype(float)
-#            ds['t1_daysinyear'] = (
-#                    (pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':12, 'day':31})) - 
-#                     pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':1, 'day':1}))).dt.days + 1)
-#            ds['t2_daysinyear'] = (
-#                    (pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':12, 'day':31})) - 
-#                     pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':1, 'day':1}))).dt.days + 1)
-#            ds['t1'] = ds.t1_year + ds.t1_doy / ds.t1_daysinyear
-#            ds['t2'] = ds.t2_year + ds.t2_doy / ds.t2_daysinyear
-#            year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
-#            year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
-#                                (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
-#            ds = ds[ds['t1'] > year_decimal_min]
-#            ds = ds[ds['t2'] < year_decimal_max]
-#            ds.reset_index(drop=True, inplace=True)
-#            # Annual, summer, and winter time indices
-#            #  exclude spinup years, since massbal fxn discards spinup years
-#            ds['t1_idx'] = np.nan
-#            ds['t2_idx'] = np.nan
-#            for x in range(ds.shape[0]):
-#                ds.loc[x,'t1_idx'] = (dates_table[(ds.loc[x, 't1_year'] == dates_table['year']) & 
-#                                                  (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
-#                ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
-#                                                  (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
-                                
-                            
-            
-            
-            
-                            
-#            # Specific mass balance [mwe]
-#            ds['mb_mwe'] = ds[self.mb_mwe_cn] / 1000
-#            ds['mb_mwe_err'] = ds[self.mb_mwe_err_cn] / 1000
-##            # Total mass change [Gt]
-##            ds['mb_gt'] = ds[self.mb_mwe_cn] / 1000 * ds['area_km2'] * 1000**2 * input.density_water / 1000 / 10**9
-##            ds['mb_gt_err'] = (ds[self.mb_mwe_err_cn] / 1000 * ds['area_km2'] * 1000**2 * input.density_water / 1000 
-##                               / 10**9)
-#            # Observation type
-#            ds['obs_type'] = 'mb_glac'
-#            
-
-#        ds_output = []
+            for x in range(ds.shape[0]):
+                if (((ds.loc[x, 'lat_category'] == 'north') or (ds.loc[x, 'lat_category'] == 'northern')) and 
+                    (ds.loc[x, 'period'] == 'summer')):
+                    ds.loc[x, 't1_year'] = ds.loc[x, 't1_year'] + 1
+                    ds.loc[x, 't1_month'] = ds.loc[x, 'summer_begin']
+                    ds.loc[x, 't2_month'] = ds.loc[x, 'summer_end']
+                elif (((ds.loc[x, 'lat_category'] == 'south') or (ds.loc[x, 'lat_category'] == 'southernmost')) and 
+                    (ds.loc[x, 'period'] == 'summer')):
+                    ds.loc[x, 't1_month'] = ds.loc[x, 'summer_begin']
+                    ds.loc[x, 't2_month'] = ds.loc[x, 'summer_end']
+                elif (((ds.loc[x, 'lat_category'] == 'north') or (ds.loc[x, 'lat_category'] == 'northern')) and 
+                    (ds.loc[x, 'period'] == 'winter')):
+                    ds.loc[x, 't1_month'] = ds.loc[x, 'winter_begin']
+                    ds.loc[x, 't2_month'] = ds.loc[x, 'winter_end']
+                elif (((ds.loc[x, 'lat_category'] == 'south') or (ds.loc[x, 'lat_category'] == 'southernmost')) and 
+                    (ds.loc[x, 'period'] == 'summer')):
+                    ds.loc[x, 't1_year'] = ds.loc[x, 't1_year'] + 1
+                    ds.loc[x, 't1_month'] = ds.loc[x, 'winter_begin']
+                    ds.loc[x, 't2_month'] = ds.loc[x, 'winter_end']
+            # Drop measurements outside of calibration period
+            ds['t1_datetime'] = pd.to_datetime(
+                    pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
+            ds['t2_datetime'] = pd.to_datetime(
+                    pd.DataFrame({'year':ds.t2_year.values, 'month':ds.t2_month.values, 'day':ds.t2_day.values}))
+            ds['t1_doy'] = ds.t1_datetime.dt.strftime("%j").astype(float)
+            ds['t2_doy'] = ds.t2_datetime.dt.strftime("%j").astype(float)
+            ds['t1_daysinyear'] = (
+                    (pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':12, 'day':31})) - 
+                     pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':1, 'day':1}))).dt.days + 1)
+            ds['t2_daysinyear'] = (
+                    (pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':12, 'day':31})) - 
+                     pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':1, 'day':1}))).dt.days + 1)
+            ds['t1'] = ds.t1_year + ds.t1_doy / ds.t1_daysinyear
+            ds['t2'] = ds.t2_year + ds.t2_doy / ds.t2_daysinyear
+            year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
+            year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
+                                (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
+            ds = ds[ds['t1'] > year_decimal_min]
+            ds = ds[ds['t2'] < year_decimal_max]
+            ds.reset_index(drop=True, inplace=True)
+            # Annual, summer, and winter time indices
+            #  exclude spinup years, since massbal fxn discards spinup years
+            ds['t1_idx'] = np.nan
+            ds['t2_idx'] = np.nan
+            for x in range(ds.shape[0]):
+                ds.loc[x,'t1_idx'] = (dates_table[(ds.loc[x, 't1_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
+                ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
+            # Specific mass balance [mwe]
+            ds['mb_mwe'] = ds[self.mb_mwe_cn] / 1000
+            ds['mb_mwe_err'] = ds[self.mb_mwe_err_cn] / 1000
+#            # Total mass change [Gt]
+#            ds['mb_gt'] = ds[self.mb_mwe_cn] / 1000 * ds['area_km2'] * 1000**2 * input.density_water / 1000 / 10**9
+#            ds['mb_gt_err'] = (ds[self.mb_mwe_err_cn] / 1000 * ds['area_km2'] * 1000**2 * input.density_water / 1000 
+#                               / 10**9)
+            # Observation type
+            ds['obs_type'] = 'mb_glac'
             
         # Select output
         ds_output = ds.loc[:, ds_output_cols].sort_values(['glacno', 't1_idx'])
         ds_output.reset_index(drop=True, inplace=True)
-        return ds, ds_reg, ds_all, ds_output
+        return ds_output
 
 
 #%% Testing

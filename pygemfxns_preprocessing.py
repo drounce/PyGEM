@@ -92,10 +92,16 @@ for n in range(len(rgiv6_fn_all)):
         except:
             rgi_version_compare.iloc[r,2] = np.nan
     rgiv56_dict_reg = dict(zip(rgi_version_compare['RGIId'], rgi_version_compare['RGIIdv6']))
+    latdict_reg = dict(zip(rgiv6['RGIId'], rgiv6['CenLat']))
+    londict_reg = dict(zip(rgiv6['RGIId'], rgiv6['CenLon']))
     if n == 0:
         rgiv56_dict = rgiv56_dict_reg.copy()
+        latdict = latdict_reg.copy()
+        londict = londict_reg.copy()
     else:
         rgiv56_dict.update(rgiv56_dict_reg)
+        latdict.update(latdict_reg)
+        londict.update(londict_reg)
 
 # RGI Lookup table
 rgilookup = pd.read_csv(rgilookup_fn, skiprows=2)
@@ -152,6 +158,9 @@ wgms_mb_glac_all['glacno'] = wgms_mb_glac_all['glacno'].apply(pd.to_numeric)
 wgms_mb_glac_all['region'] = wgms_mb_glac_all['glacno'].apply(np.floor)
 wgms_mb_glac = wgms_mb_glac_all[np.isfinite(wgms_mb_glac_all['glacno'])].sort_values('glacno')
 wgms_mb_glac.reset_index(drop=True, inplace=True)
+# Add latitude and longitude 
+wgms_mb_glac['CenLat'] = wgms_mb_glac['RGIId'].map(latdict)
+wgms_mb_glac['CenLon'] = wgms_mb_glac['RGIId'].map(londict)
 # Import MB overview data to extract survey dates
 wgms_mb_overview = pd.read_csv(wgms_mb_e_fn, encoding='latin1')
 wgms_mb_glac['BEGIN_PERIOD'] = np.nan 
@@ -178,12 +187,15 @@ for x in range(wgms_mb_glac.shape[0]):
 
 # Split summer, winter, and annual into separate rows such that each becomes a data point in the calibration scheme
 #  if summer and winter exist, then discard annual to avoid double-counting the annual measurement
-export_cols_annual = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 'END_WINTER', 'END_PERIOD', 
-                      'LOWER_BOUND', 'UPPER_BOUND', 'ANNUAL_BALANCE', 'ANNUAL_BALANCE_UNC', 'REMARKS']
-export_cols_summer = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 'END_WINTER', 'END_PERIOD', 
-                      'LOWER_BOUND', 'UPPER_BOUND', 'SUMMER_BALANCE', 'SUMMER_BALANCE_UNC', 'REMARKS']
-export_cols_winter = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 'END_WINTER', 'END_PERIOD', 
-                      'LOWER_BOUND', 'UPPER_BOUND', 'WINTER_BALANCE', 'WINTER_BALANCE_UNC', 'REMARKS']
+export_cols_annual = ['RGIId', 'glacno', 'WGMS_ID', 'CenLat', 'CenLon', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 
+                      'END_WINTER', 'END_PERIOD', 'LOWER_BOUND', 'UPPER_BOUND', 'ANNUAL_BALANCE', 'ANNUAL_BALANCE_UNC', 
+                      'REMARKS']
+export_cols_summer = ['RGIId', 'glacno', 'WGMS_ID', 'CenLat', 'CenLon', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 
+                      'END_WINTER', 'END_PERIOD', 'LOWER_BOUND', 'UPPER_BOUND', 'SUMMER_BALANCE', 'SUMMER_BALANCE_UNC', 
+                      'REMARKS']
+export_cols_winter = ['RGIId', 'glacno', 'WGMS_ID', 'CenLat', 'CenLon', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 
+                      'END_WINTER', 'END_PERIOD', 'LOWER_BOUND', 'UPPER_BOUND', 'WINTER_BALANCE', 'WINTER_BALANCE_UNC', 
+                      'REMARKS']
 wgms_mb_glac_annual = wgms_mb_glac.loc[((np.isnan(wgms_mb_glac['WINTER_BALANCE'])) & 
                                         (np.isnan(wgms_mb_glac['SUMMER_BALANCE']))), export_cols_annual]
 wgms_mb_glac_summer = wgms_mb_glac.loc[np.isfinite(wgms_mb_glac['SUMMER_BALANCE']), export_cols_summer]

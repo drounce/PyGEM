@@ -159,7 +159,7 @@ def main(list_packed_vars):
         for glac in range(main_glac_rgi.shape[0]):
 #            if glac%200 == 0:
 #                print(count,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
-#            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
             
             # Set model parameters
             modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice, 
@@ -179,6 +179,8 @@ def main(list_packed_vars):
             glacier_cal_compare = pd.DataFrame(np.zeros((glacier_cal_data.shape[0], len(output_cols))), 
                                                columns=output_cols)
             glacier_cal_compare.index = glacier_cal_data.index.values
+            # Record glacier number and observation type
+            glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
 
             # Record the calibration round
             calround = 0
@@ -200,8 +202,7 @@ def main(list_packed_vars):
                                                width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=1))  
-                # Record glacier number and observation type
-                glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
+                
                 # Monthly glacier area and ice thickness for each bin
                 glac_bin_area = np.tile(glac_bin_area_annual[:,0:-1], 12)
                 glac_bin_icethickness = np.tile(glac_bin_icethickness_annual[:,0:-1], 12)
@@ -214,7 +215,8 @@ def main(list_packed_vars):
                 for x in range(glacier_cal_data.shape[0]):
                     cal_idx = glacier_cal_data.index.values[x]
                     # Mass balance comparisons
-                    if glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb':
+                    if ((glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb_geo') or 
+                        (glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb_glac')):
                         # Bin and time indices for comparison
                         t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
                         t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
@@ -350,154 +352,151 @@ def main(list_packed_vars):
             # Minimize the sum of differences
             abs_dif_perc_cum = glacier_cal_compare['abs_dif_perc'].sum()
             
-            # OPTIMIZATION ROUND #2: if tolerance not reached, increase bounds
-            if (abs_dif_perc_cum / glacier_cal_compare.shape[0]) > input.masschange_tolerance:
-                # Constraints
-                cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddficefxsnow, con_tempsnow]
-                # Bounds
-                lrgcm_bnds = (-0.008,-0.004)
-                lrglac_bnds = (-0.008,-0.004)
-                precfactor_bnds = (0.75,1.5)
-                precgrad_bnds = (0.0001,0.00025)
-                ddfsnow_bnds = (0.0031, 0.0051)
-                ddfice_bnds = (ddfsnow_bnds[0]/input.ddfsnow_iceratio, ddfsnow_bnds[1]/input.ddfsnow_iceratio)
-                tempsnow_bnds = (0,2) 
-                tempchange_bnds = (-2,2)
-                modelparameters_bnds = (lrgcm_bnds, lrglac_bnds, precfactor_bnds, precgrad_bnds, ddfsnow_bnds, 
-                                        ddfice_bnds, tempsnow_bnds, tempchange_bnds)  
-                # Run optimization
-                modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
-                                               bounds=modelparameters_bnds, constraints=cons, tol=1e-3)
-                # Record the calibration round
-                calround = calround + 1
-                # Record the optimized parameters
-                main_glac_modelparamsopt[glac] = modelparameters_opt.x
-                
-                # Re-run the optimized parameters in order to see the mass balance
-                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
-                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                               option_areaconstant=1))   
-                # Record glacier number and observation type
-                glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
-                # Monthly glacier area and ice thickness for each bin
-                glac_bin_area = np.tile(glac_bin_area_annual[:,0:-1], 12)
-                glac_bin_icethickness = np.tile(glac_bin_icethickness_annual[:,0:-1], 12)
-                # Climatic mass balance [gt] for every bin for every time step
-                glac_bin_mbclim_gt = glac_bin_massbalclim / 1000 * glac_bin_area * input.density_water / 1000
-                # Ice mass [gt] in each bin for every time step (note: converted from ice thickness to water equivalent)
-                glac_bin_mass_gt = (glac_bin_icethickness / 1000 * input.density_ice / input.density_water * glac_bin_area * 
-                                    input.density_water / 1000)
-                # Loop through all measurements
-                for x in range(glacier_cal_data.shape[0]):
-                    cal_idx = glacier_cal_data.index.values[x]
-                    # Mass balance comparisons
-                    if glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb':
-                        # Bin and time indices for comparison
-                        t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
-                        t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
-                        z1_idx = glacier_cal_data.loc[cal_idx, 'z1_idx'].astype(int)
-                        z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
-                        # Glacier mass [gt] for normalized comparison
-                        glac_mass = glac_bin_mass_gt[z1_idx:z2_idx+1, t1_idx].sum()
-                        # Observed mass balance [gt, %]
-                        glacier_cal_compare.loc[cal_idx, 'mb_gt'] = glacier_cal_data.loc[cal_idx, 'mb_gt']
-                        glacier_cal_compare.loc[cal_idx, 'mb_perc'] = (
-                                glacier_cal_data.loc[cal_idx, 'mb_gt'] / glac_mass * 100)
-                        # Modeled mass balance [gt, %]
-                        glacier_cal_compare.loc[cal_idx, 'model_mb_gt'] = (
-                                glac_bin_mbclim_gt[z1_idx:z2_idx, t1_idx:t2_idx].sum())
-                        glacier_cal_compare.loc[cal_idx, 'model_mb_perc'] = (
-                                glacier_cal_compare.loc[cal_idx, 'model_mb_gt'] / glac_mass * 100)
-                        # Difference between observed and modeled mass balance
-                        glacier_cal_compare.loc[cal_idx, 'abs_dif_perc'] = (
-                                abs(glacier_cal_compare.loc[cal_idx, 'mb_perc'] - 
-                                    glacier_cal_compare.loc[cal_idx, 'model_mb_perc']))
-                # Minimize the sum of differences
-                abs_dif_perc_cum = glacier_cal_compare['abs_dif_perc'].sum()
-            
-            # OPTIMIZATION ROUND #3: if tolerance not reached, increase bounds again
-            if (abs_dif_perc_cum / glacier_cal_compare.shape[0]) > input.masschange_tolerance:
-                # Constraints
-                cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddficefxsnow, con_tempsnow]
-                # Bounds
-                lrgcm_bnds = (-0.008,-0.004)
-                lrglac_bnds = (-0.008,-0.004)
-                precfactor_bnds = (0.5,2)
-                precgrad_bnds = (0.0001,0.00025)
-                ddfsnow_bnds = (0.0026, 0.0056)
-                ddfice_bnds = (ddfsnow_bnds[0]/input.ddfsnow_iceratio, ddfsnow_bnds[1]/input.ddfsnow_iceratio)
-                tempsnow_bnds = (0,2) 
-                tempchange_bnds = (-5,5)
-                modelparameters_bnds = (lrgcm_bnds, lrglac_bnds, precfactor_bnds, precgrad_bnds, ddfsnow_bnds, 
-                                        ddfice_bnds, tempsnow_bnds, tempchange_bnds)  
-                # Run optimization
-                modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
-                                               bounds=modelparameters_bnds, constraints=cons, tol=1e-3)
-                # Record the calibration round
-                calround = calround + 1
-                # Record the optimized parameters
-                main_glac_modelparamsopt[glac] = modelparameters_opt.x
-                
-                # Re-run the optimized parameters in order to see the mass balance
-                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
-                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                               option_areaconstant=1))   
-                # Record glacier number and observation type
-                glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
-                # Monthly glacier area and ice thickness for each bin
-                glac_bin_area = np.tile(glac_bin_area_annual[:,0:-1], 12)
-                glac_bin_icethickness = np.tile(glac_bin_icethickness_annual[:,0:-1], 12)
-                # Climatic mass balance [gt] for every bin for every time step
-                glac_bin_mbclim_gt = glac_bin_massbalclim / 1000 * glac_bin_area * input.density_water / 1000
-                # Ice mass [gt] in each bin for every time step (note: converted from ice thickness to water equivalent)
-                glac_bin_mass_gt = (glac_bin_icethickness / 1000 * input.density_ice / input.density_water * glac_bin_area * 
-                                    input.density_water / 1000)
-                # Loop through all measurements
-                for x in range(glacier_cal_data.shape[0]):
-                    cal_idx = glacier_cal_data.index.values[x]
-                    # Mass balance comparisons
-                    if glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb':
-                        # Bin and time indices for comparison
-                        t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
-                        t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
-                        z1_idx = glacier_cal_data.loc[cal_idx, 'z1_idx'].astype(int)
-                        z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
-                        # Glacier mass [gt] for normalized comparison
-                        glac_mass = glac_bin_mass_gt[z1_idx:z2_idx+1, t1_idx].sum()
-                        # Observed mass balance [gt, %]
-                        glacier_cal_compare.loc[cal_idx, 'mb_gt'] = glacier_cal_data.loc[cal_idx, 'mb_gt']
-                        glacier_cal_compare.loc[cal_idx, 'mb_perc'] = (
-                                glacier_cal_data.loc[cal_idx, 'mb_gt'] / glac_mass * 100)
-                        # Modeled mass balance [gt, %]
-                        glacier_cal_compare.loc[cal_idx, 'model_mb_gt'] = (
-                                glac_bin_mbclim_gt[z1_idx:z2_idx, t1_idx:t2_idx].sum())
-                        glacier_cal_compare.loc[cal_idx, 'model_mb_perc'] = (
-                                glacier_cal_compare.loc[cal_idx, 'model_mb_gt'] / glac_mass * 100)
-                        # Difference between observed and modeled mass balance
-                        glacier_cal_compare.loc[cal_idx, 'abs_dif_perc'] = (
-                                abs(glacier_cal_compare.loc[cal_idx, 'mb_perc'] - 
-                                    glacier_cal_compare.loc[cal_idx, 'model_mb_perc']))
-                # Minimize the sum of differences
-                abs_dif_perc_cum = glacier_cal_compare['abs_dif_perc'].sum()
-                
+#            # OPTIMIZATION ROUND #2: if tolerance not reached, increase bounds
+#            if (abs_dif_perc_cum / glacier_cal_compare.shape[0]) > input.masschange_tolerance:
+#                # Constraints
+#                cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddficefxsnow, con_tempsnow]
+#                # Bounds
+#                lrgcm_bnds = (-0.008,-0.004)
+#                lrglac_bnds = (-0.008,-0.004)
+#                precfactor_bnds = (0.75,1.5)
+#                precgrad_bnds = (0.0001,0.00025)
+#                ddfsnow_bnds = (0.0031, 0.0051)
+#                ddfice_bnds = (ddfsnow_bnds[0]/input.ddfsnow_iceratio, ddfsnow_bnds[1]/input.ddfsnow_iceratio)
+#                tempsnow_bnds = (0,2) 
+#                tempchange_bnds = (-2,2)
+#                modelparameters_bnds = (lrgcm_bnds, lrglac_bnds, precfactor_bnds, precgrad_bnds, ddfsnow_bnds, 
+#                                        ddfice_bnds, tempsnow_bnds, tempchange_bnds)  
+#                # Run optimization
+#                modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
+#                                               bounds=modelparameters_bnds, constraints=cons, tol=1e-3)
+#                # Record the calibration round
+#                calround = calround + 1
+#                # Record the optimized parameters
+#                main_glac_modelparamsopt[glac] = modelparameters_opt.x
+#                
+#                # Re-run the optimized parameters in order to see the mass balance
+#                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+#                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+#                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+#                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
+#                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+#                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+#                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+#                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+#                                               option_areaconstant=1))   
+#                # Record glacier number and observation type
+#                glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
+#                # Monthly glacier area and ice thickness for each bin
+#                glac_bin_area = np.tile(glac_bin_area_annual[:,0:-1], 12)
+#                glac_bin_icethickness = np.tile(glac_bin_icethickness_annual[:,0:-1], 12)
+#                # Climatic mass balance [gt] for every bin for every time step
+#                glac_bin_mbclim_gt = glac_bin_massbalclim / 1000 * glac_bin_area * input.density_water / 1000
+#                # Ice mass [gt] in each bin for every time step (note: converted from ice thickness to water equivalent)
+#                glac_bin_mass_gt = (glac_bin_icethickness / 1000 * input.density_ice / input.density_water * glac_bin_area * 
+#                                    input.density_water / 1000)
+#                # Loop through all measurements
+#                for x in range(glacier_cal_data.shape[0]):
+#                    cal_idx = glacier_cal_data.index.values[x]
+#                    # Mass balance comparisons
+#                    if glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb':
+#                        # Bin and time indices for comparison
+#                        t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
+#                        t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
+#                        z1_idx = glacier_cal_data.loc[cal_idx, 'z1_idx'].astype(int)
+#                        z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
+#                        # Glacier mass [gt] for normalized comparison
+#                        glac_mass = glac_bin_mass_gt[z1_idx:z2_idx+1, t1_idx].sum()
+#                        # Observed mass balance [gt, %]
+#                        glacier_cal_compare.loc[cal_idx, 'mb_gt'] = glacier_cal_data.loc[cal_idx, 'mb_gt']
+#                        glacier_cal_compare.loc[cal_idx, 'mb_perc'] = (
+#                                glacier_cal_data.loc[cal_idx, 'mb_gt'] / glac_mass * 100)
+#                        # Modeled mass balance [gt, %]
+#                        glacier_cal_compare.loc[cal_idx, 'model_mb_gt'] = (
+#                                glac_bin_mbclim_gt[z1_idx:z2_idx, t1_idx:t2_idx].sum())
+#                        glacier_cal_compare.loc[cal_idx, 'model_mb_perc'] = (
+#                                glacier_cal_compare.loc[cal_idx, 'model_mb_gt'] / glac_mass * 100)
+#                        # Difference between observed and modeled mass balance
+#                        glacier_cal_compare.loc[cal_idx, 'abs_dif_perc'] = (
+#                                abs(glacier_cal_compare.loc[cal_idx, 'mb_perc'] - 
+#                                    glacier_cal_compare.loc[cal_idx, 'model_mb_perc']))
+#                # Minimize the sum of differences
+#                abs_dif_perc_cum = glacier_cal_compare['abs_dif_perc'].sum()
+#            
+#            # OPTIMIZATION ROUND #3: if tolerance not reached, increase bounds again
+#            if (abs_dif_perc_cum / glacier_cal_compare.shape[0]) > input.masschange_tolerance:
+#                # Constraints
+#                cons = [con_lrgcm, con_lrglac, con_precgrad, con_ddficefxsnow, con_tempsnow]
+#                # Bounds
+#                lrgcm_bnds = (-0.008,-0.004)
+#                lrglac_bnds = (-0.008,-0.004)
+#                precfactor_bnds = (0.5,2)
+#                precgrad_bnds = (0.0001,0.00025)
+#                ddfsnow_bnds = (0.0026, 0.0056)
+#                ddfice_bnds = (ddfsnow_bnds[0]/input.ddfsnow_iceratio, ddfsnow_bnds[1]/input.ddfsnow_iceratio)
+#                tempsnow_bnds = (0,2) 
+#                tempchange_bnds = (-5,5)
+#                modelparameters_bnds = (lrgcm_bnds, lrglac_bnds, precfactor_bnds, precgrad_bnds, ddfsnow_bnds, 
+#                                        ddfice_bnds, tempsnow_bnds, tempchange_bnds)  
+#                # Run optimization
+#                modelparameters_opt = minimize(objective, main_glac_modelparamsopt[glac], method='SLSQP', 
+#                                               bounds=modelparameters_bnds, constraints=cons, tol=1e-3)
+#                # Record the calibration round
+#                calround = calround + 1
+#                # Record the optimized parameters
+#                main_glac_modelparamsopt[glac] = modelparameters_opt.x
+#                
+#                # Re-run the optimized parameters in order to see the mass balance
+#                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+#                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+#                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+#                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
+#                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+#                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+#                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+#                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+#                                               option_areaconstant=1))   
+#                # Record glacier number and observation type
+#                glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
+#                # Monthly glacier area and ice thickness for each bin
+#                glac_bin_area = np.tile(glac_bin_area_annual[:,0:-1], 12)
+#                glac_bin_icethickness = np.tile(glac_bin_icethickness_annual[:,0:-1], 12)
+#                # Climatic mass balance [gt] for every bin for every time step
+#                glac_bin_mbclim_gt = glac_bin_massbalclim / 1000 * glac_bin_area * input.density_water / 1000
+#                # Ice mass [gt] in each bin for every time step (note: converted from ice thickness to water equivalent)
+#                glac_bin_mass_gt = (glac_bin_icethickness / 1000 * input.density_ice / input.density_water * glac_bin_area * 
+#                                    input.density_water / 1000)
+#                # Loop through all measurements
+#                for x in range(glacier_cal_data.shape[0]):
+#                    cal_idx = glacier_cal_data.index.values[x]
+#                    # Mass balance comparisons
+#                    if glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb':
+#                        # Bin and time indices for comparison
+#                        t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
+#                        t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
+#                        z1_idx = glacier_cal_data.loc[cal_idx, 'z1_idx'].astype(int)
+#                        z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
+#                        # Glacier mass [gt] for normalized comparison
+#                        glac_mass = glac_bin_mass_gt[z1_idx:z2_idx+1, t1_idx].sum()
+#                        # Observed mass balance [gt, %]
+#                        glacier_cal_compare.loc[cal_idx, 'mb_gt'] = glacier_cal_data.loc[cal_idx, 'mb_gt']
+#                        glacier_cal_compare.loc[cal_idx, 'mb_perc'] = (
+#                                glacier_cal_data.loc[cal_idx, 'mb_gt'] / glac_mass * 100)
+#                        # Modeled mass balance [gt, %]
+#                        glacier_cal_compare.loc[cal_idx, 'model_mb_gt'] = (
+#                                glac_bin_mbclim_gt[z1_idx:z2_idx, t1_idx:t2_idx].sum())
+#                        glacier_cal_compare.loc[cal_idx, 'model_mb_perc'] = (
+#                                glacier_cal_compare.loc[cal_idx, 'model_mb_gt'] / glac_mass * 100)
+#                        # Difference between observed and modeled mass balance
+#                        glacier_cal_compare.loc[cal_idx, 'abs_dif_perc'] = (
+#                                abs(glacier_cal_compare.loc[cal_idx, 'mb_perc'] - 
+#                                    glacier_cal_compare.loc[cal_idx, 'model_mb_perc']))
+#                # Minimize the sum of differences
+#                abs_dif_perc_cum = glacier_cal_compare['abs_dif_perc'].sum()
+#                
             # Record output
             glacier_cal_compare['calround'] = calround
             main_glac_cal_compare.loc[glacier_cal_data.index.values] = glacier_cal_compare
-            
-            output_cols = ['glacno', 'obs_type', 'mb_gt', 'mb_perc', 'model_mb_gt', 'model_mb_perc', 'abs_dif_perc', 
-                           'calround']
             
             print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
             print('precfactor:', modelparameters[2])
