@@ -60,12 +60,13 @@ class MBData():
         """       
         # Column names of output
         ds_output_cols = ['RGIId', 'glacno', 'obs_type', 'mb_mwe', 'mb_mwe_err', 'sla_m',  'z1_idx', 'z2_idx', 'z1', 
-                          'z2', 't1_idx', 't2_idx', 't1', 't2', 't1_year', 't1_month', 't1_day', 't2_year', 't2_month', 
-                          't2_day', 'area_km2', 'WGMS_ID']
+                          'z2', 't1_idx', 't2_idx', 't1', 't2', 't1_datetime', 't2_datetime', 'area_km2', 'WGMS_ID']
         # Reset rgi index so it is consistent with hyps and other data
         main_glac_rgi.reset_index(drop=True, inplace=True)
         # Dictionary linking O1Index to Index
         indexdict = dict(zip(main_glac_rgi['O1Index'], main_glac_rgi.index.values))
+        # Dictionary linking RGIId to Latitude
+        latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
             
         # Dataset specific calculations
         if self.name == 'shean':
@@ -189,7 +190,7 @@ class MBData():
             ds.reset_index(drop=True, inplace=True)
             # Time indices
             #  winter and summer balances typically have the same data for 'BEGIN_PERIOD' and 'END_PERIOD' as the annual
-            #  measurements.
+            #  measurements, so need to set these dates manually
             ds['t1_year'] = ds['BEGIN_PERIOD'].astype(str).str.split('.').str[0].str[:4].astype(int)
             ds['t1_month'] = ds['BEGIN_PERIOD'].astype(str).str.split('.').str[0].str[4:6].astype(int)
             ds['t1_day'] = ds['BEGIN_PERIOD'].astype(str).str.split('.').str[0].str[6:].astype(int)
@@ -208,27 +209,41 @@ class MBData():
                                                 (ds.loc[x, 't2_month'] == dates_table['month']), 'daysinmonth']
                                                 .values[0])
                     except:
-                        ds.loc[x, 't2_day'] = np.nan
-            # drop measurements outside of calibration period
-            ds['t1_datetime'] = pd.to_datetime(
-                    pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
-            ds['t2_datetime'] = pd.to_datetime(
-                    pd.DataFrame({'year':ds.t2_year.values, 'month':ds.t2_month.values, 'day':ds.t2_day.values}))
+                        ds.loc[x, 't2_day'] = 28
+            # Add latitude to set summer and winter dates
+            ds['CenLat'] = ds['RGIId'].map(latdict)
+            for x in range(ds.shape[0]):
+                if ds.loc[x, 'period'] == 'summer':
+                    
             
-            # CONVERT DATETIME TO DECIMAL YEAR
-            # REMOVE DATES OUTSIDE OF IT
-            # FIND INDICES FOR ANNUAL, SUMMER, AND WINTER BALANCES
-            #  indices for summer and winter need to be defined separately!
-
-#            ds['t1_year_decimal'] = ds['t1_year'] + ds['t1_month'] / 12 + ds['t1_day'] / 30
-#            ds['t2_year_decimal'] = ds['t2_year'] + ds['t2_month'] / 12 + ds['t1_day'] / 30
+            # If period is summer/winter, adjust dates accordingly
+#            for x in range(ds.shape[0]):
+#                if ds.loc[]
+            
+            
+#            # Drop measurements outside of calibration period
+#            ds['t1_datetime'] = pd.to_datetime(
+#                    pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
+#            ds['t2_datetime'] = pd.to_datetime(
+#                    pd.DataFrame({'year':ds.t2_year.values, 'month':ds.t2_month.values, 'day':ds.t2_day.values}))
+#            ds['t1_doy'] = ds.t1_datetime.dt.strftime("%j").astype(float)
+#            ds['t2_doy'] = ds.t2_datetime.dt.strftime("%j").astype(float)
+#            ds['t1_daysinyear'] = (
+#                    (pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':12, 'day':31})) - 
+#                     pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':1, 'day':1}))).dt.days + 1)
+#            ds['t2_daysinyear'] = (
+#                    (pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':12, 'day':31})) - 
+#                     pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':1, 'day':1}))).dt.days + 1)
+#            ds['t1'] = ds.t1_year + ds.t1_doy / ds.t1_daysinyear
+#            ds['t2'] = ds.t2_year + ds.t2_doy / ds.t2_daysinyear
 #            year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
 #            year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
 #                                (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
-#            ds = ds[ds['t1_year_decimal'] > year_decimal_min]
-#            ds = ds[ds['t2_year_decimal'] < year_decimal_max]
+#            ds = ds[ds['t1'] > year_decimal_min]
+#            ds = ds[ds['t2'] < year_decimal_max]
 #            ds.reset_index(drop=True, inplace=True)
-#            # Determine time indices (exclude spinup years, since massbal fxn discards spinup years)
+#            # Annual, summer, and winter time indices
+#            #  exclude spinup years, since massbal fxn discards spinup years
 #            ds['t1_idx'] = np.nan
 #            ds['t2_idx'] = np.nan
 #            for x in range(ds.shape[0]):
@@ -236,6 +251,12 @@ class MBData():
 #                                                  (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
 #                ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
 #                                                  (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
+                                
+                            
+            
+            
+            
+                            
 #            # Specific mass balance [mwe]
 #            ds['mb_mwe'] = ds[self.mb_mwe_cn] / 1000
 #            ds['mb_mwe_err'] = ds[self.mb_mwe_err_cn] / 1000
@@ -247,11 +268,11 @@ class MBData():
 #            ds['obs_type'] = 'mb_glac'
 #            
 
-        ds_output = []
+#        ds_output = []
             
-#        # Select output
-#        ds_output = ds.loc[:, ds_output_cols].sort_values(['glacno', 't1_idx'])
-#        ds_output.reset_index(drop=True, inplace=True)
+        # Select output
+        ds_output = ds.loc[:, ds_output_cols].sort_values(['glacno', 't1_idx'])
+        ds_output.reset_index(drop=True, inplace=True)
         return ds, ds_reg, ds_all, ds_output
 
 

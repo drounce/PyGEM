@@ -71,7 +71,7 @@ rgiv5_fn_all = glob.glob(rgiv5_fn_prefix)
 #  - regions that didn't change between versions (ex. 13, 14, 15) will all the be same.  Others that have changed may
 #    vary greatly.
 for n in range(len(rgiv6_fn_all)):
-#for n in [14]:
+#for n in [0]:
     print(n)
     rgiv6_fn = glob.glob(rgiv6_fn_prefix)[n]
     rgiv6 = pd.read_csv(rgiv6_fn, encoding='latin1')
@@ -157,16 +157,20 @@ wgms_mb_overview = pd.read_csv(wgms_mb_e_fn, encoding='latin1')
 wgms_mb_glac['BEGIN_PERIOD'] = np.nan 
 wgms_mb_glac['END_PERIOD'] = np.nan 
 wgms_mb_glac['TIME_SYSTEM'] = np.nan
+wgms_mb_glac['END_WINTER'] = np.nan
 for x in range(wgms_mb_glac.shape[0]):
     wgms_mb_glac.loc[x,'BEGIN_PERIOD'] = (
             wgms_mb_overview[(wgms_mb_glac.loc[x,'WGMS_ID'] == wgms_mb_overview['WGMS_ID']) & 
                              (wgms_mb_glac.loc[x,'YEAR'] == wgms_mb_overview['Year'])]['BEGIN_PERIOD'].values)
+    wgms_mb_glac.loc[x,'END_WINTER'] = (
+            wgms_mb_overview[(wgms_mb_glac.loc[x,'WGMS_ID'] == wgms_mb_overview['WGMS_ID']) & 
+                             (wgms_mb_glac.loc[x,'YEAR'] == wgms_mb_overview['Year'])]['END_WINTER'].values)
     wgms_mb_glac.loc[x,'END_PERIOD'] = (
             wgms_mb_overview[(wgms_mb_glac.loc[x,'WGMS_ID'] == wgms_mb_overview['WGMS_ID']) & 
                              (wgms_mb_glac.loc[x,'YEAR'] == wgms_mb_overview['Year'])]['END_PERIOD'].values)
     wgms_mb_glac.loc[x,'TIME_SYSTEM'] = (
             wgms_mb_overview[(wgms_mb_glac.loc[x,'WGMS_ID'] == wgms_mb_overview['WGMS_ID']) & 
-                             (wgms_mb_glac.loc[x,'YEAR'] == wgms_mb_overview['Year'])]['TIME_SYSTEM'].values)
+                             (wgms_mb_glac.loc[x,'YEAR'] == wgms_mb_overview['Year'])]['TIME_SYSTEM'].values[0])
 
 
 ## Test on a single region
@@ -174,12 +178,12 @@ for x in range(wgms_mb_glac.shape[0]):
 
 # Split summer, winter, and annual into separate rows such that each becomes a data point in the calibration scheme
 #  if summer and winter exist, then discard annual to avoid double-counting the annual measurement
-export_cols_annual = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 'END_PERIOD', 'LOWER_BOUND', 
-                      'UPPER_BOUND', 'ANNUAL_BALANCE', 'ANNUAL_BALANCE_UNC', 'REMARKS']
-export_cols_summer = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 'END_PERIOD', 'LOWER_BOUND', 
-                      'UPPER_BOUND', 'SUMMER_BALANCE', 'SUMMER_BALANCE_UNC', 'REMARKS']
-export_cols_winter = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 'END_PERIOD', 'LOWER_BOUND', 
-                      'UPPER_BOUND', 'WINTER_BALANCE', 'WINTER_BALANCE_UNC', 'REMARKS']
+export_cols_annual = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 'END_WINTER', 'END_PERIOD', 
+                      'LOWER_BOUND', 'UPPER_BOUND', 'ANNUAL_BALANCE', 'ANNUAL_BALANCE_UNC', 'REMARKS']
+export_cols_summer = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 'END_WINTER', 'END_PERIOD', 
+                      'LOWER_BOUND', 'UPPER_BOUND', 'SUMMER_BALANCE', 'SUMMER_BALANCE_UNC', 'REMARKS']
+export_cols_winter = ['RGIId', 'glacno', 'WGMS_ID', 'YEAR', 'TIME_SYSTEM', 'BEGIN_PERIOD', 'END_WINTER', 'END_PERIOD', 
+                      'LOWER_BOUND', 'UPPER_BOUND', 'WINTER_BALANCE', 'WINTER_BALANCE_UNC', 'REMARKS']
 wgms_mb_glac_annual = wgms_mb_glac.loc[((np.isnan(wgms_mb_glac['WINTER_BALANCE'])) & 
                                         (np.isnan(wgms_mb_glac['SUMMER_BALANCE']))), export_cols_annual]
 wgms_mb_glac_summer = wgms_mb_glac.loc[np.isfinite(wgms_mb_glac['SUMMER_BALANCE']), export_cols_summer]

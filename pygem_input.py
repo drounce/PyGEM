@@ -228,18 +228,46 @@ timestep = 'monthly'
 #  water year example: 2000 would end on September 2000
 #  calendar year example: 2000 would end on December 2000
 
-# Annual and seasonal dictionaries for WGMS data that is not provided
-dict_annual_start = {13: [10, 1],
-                     14: [10, 1],
-                     15: [10, 1]
-                     }
-dict_winter_start = {13: [11, 1],
+# Seasonal dictionaries for WGMS data that is not provided
+dict_winter_start = {1:  [10, 1],
+                     2:  [10, 1],
+                     3:  [9, ],
+                     4:  [],
+                     5:  [],
+                     6:  [],
+                     7:  [],
+                     8:  [],
+                     9:  [],
+                     10: [],
+                     11: [],
+                     12: [],
+                     13: [11, 1],
                      14: [11, 1],
-                     15: [11, 1]
+                     15: [11, 1],
+                     16: [],
+                     17: [],
+                     18: [],
+                     19: []
                      }
-dict_summer_start = {13: [5, 1],
-                     14: [5, 1],
-                     15: [5, 1]
+dict_summer_start = {1:  [5, 15],
+                     2:  [5, 15],
+                     3:  [],
+                     4:  [],
+                     5:  [],
+                     6:  [],
+                     7:  [],
+                     8:  [],
+                     9:  [],
+                     10: [],
+                     11: [],
+                     12: [],
+                     13: [5, 15],
+                     14: [5, 15],
+                     15: [5, 15],
+                     16: [],
+                     17: [],
+                     18: [],
+                     19: []
                      }
 
 #%% CALIBRATION DATA (05/30/2018)
