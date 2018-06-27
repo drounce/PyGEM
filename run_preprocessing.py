@@ -99,14 +99,12 @@ if args.option_wgms == 1:
         rgiv56_dict_reg = dict(zip(rgi_version_compare['RGIId'], rgi_version_compare['RGIIdv6']))
         latdict_reg = dict(zip(rgiv6['RGIId'], rgiv6['CenLat']))
         londict_reg = dict(zip(rgiv6['RGIId'], rgiv6['CenLon']))
-        if n == 0:
-            rgiv56_dict = rgiv56_dict_reg.copy()
-            latdict = latdict_reg.copy()
-            londict = londict_reg.copy()
-        else:
-            rgiv56_dict.update(rgiv56_dict_reg)
-            latdict.update(latdict_reg)
-            londict.update(londict_reg)
+        rgiv56_dict = {}
+        latdict = {}
+        londict = {}
+        rgiv56_dict.update(rgiv56_dict_reg)
+        latdict.update(latdict_reg)
+        londict.update(londict_reg)
     # RGI Lookup table
     rgilookup = pd.read_csv(input.rgilookup_fullfn, skiprows=2)
     rgidict = dict(zip(rgilookup['FoGId'], rgilookup['RGIId']))
@@ -160,7 +158,6 @@ if args.option_wgms == 1:
     if 'wgms_ee' in input.wgms_datasets:
         print('Processing glaciological mass balance data')
         wgms_mb_glac_all = pd.read_csv(input.wgms_fp + input.wgms_ee_fn, encoding='latin1')
-        print('here a')
         wgms_mb_glac_all['RGIId_rgidict'] = wgms_mb_glac_all['WGMS_ID'].map(rgidict)
         wgms_mb_glac_all['RGIId_mandict'] = wgms_mb_glac_all['WGMS_ID'].map(mandict)
         wgms_mb_glac_all['RGIId_wgmsdict'] = wgms_mb_glac_all['WGMS_ID'].map(wgmsdict)
