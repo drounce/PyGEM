@@ -265,8 +265,8 @@ shean_vol_cn = 'mb_m3wea'
 shean_vol_err_cn = 'mb_m3wea_sigma'
 
 # WGMS data
-#wgms_datasets = ['wgms_d', 'wgms_ee']
-wgms_datasets = ['wgms_d']
+wgms_datasets = ['wgms_d', 'wgms_ee']
+#wgms_datasets = ['wgms_d']
 wgms_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
 wgms_obs_type_cn = 'obs_type'
 # WGMS lookup tables information

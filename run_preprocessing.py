@@ -115,9 +115,9 @@ if args.option_wgms == 1:
     wgmsdict = dict(zip(wgmslookup['WGMS_ID'], wgmslookup['RGI_ID']))
     # Manual lookup table
     mandict = {10402: 'RGI60-13.10093',
-                  10401: 'RGI60-15.03734',
-                  6846: 'RGI60-15.12707'}
-    #%%
+               10401: 'RGI60-15.03734',
+               6846: 'RGI60-15.12707'}
+    
     # ===== WGMS (D) Geodetic mass balance data =====
     if 'wgms_d' in input.wgms_datasets:
         print('Processing geodetic thickness change data')
