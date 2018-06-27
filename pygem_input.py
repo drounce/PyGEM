@@ -276,7 +276,6 @@ wgms_ee_z2_cn = 'UPPER_BOUND'
 wgms_ee_period_cn = 'period'
 wgms_ee_obs_type_cn = 'obs_type'
 
-
 brun_fp = main_directory + '/../DEMs/'
 #  NEED TO FINISH SETTING UP FOR BRUN AND MAUER
 
@@ -285,6 +284,14 @@ option_mb_envelope = 1
 
 # Mass change tolerance [%] - required for calibration
 masschange_tolerance = 0.1
+
+# Mass balance uncertainty [mwea]
+massbal_uncertainty_mwea = 0.1
+# Z-score tolerance
+#  all refers to tolerance if multiple calibration points
+#  single refers to tolerance if only a single calibration point since we want this to be more exact
+zscore_tolerance_all = 1
+zscore_tolerance_single = 0.1
 
 
 # Geodetic mass balance dataset
