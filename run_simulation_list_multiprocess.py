@@ -65,7 +65,7 @@ def getparser():
     parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=5, 
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
-                        help='Switch to use or not use paralles (1 - use parallels, 0 - do not)')
+                        help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
     return parser
 
 

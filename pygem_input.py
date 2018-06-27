@@ -264,9 +264,25 @@ shean_area_cn = 'area_m2'
 shean_vol_cn = 'mb_m3wea'
 shean_vol_err_cn = 'mb_m3wea_sigma'
 
-# WGMS (ee) glaciological mass balance
-wgms_ee_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
-wgms_ee_fn = 'wgms_ee_rgiv6_preprocessed.csv' 
+# WGMS data
+#wgms_datasets = ['wgms_d', 'wgms_ee']
+wgms_datasets = ['wgms_d']
+wgms_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
+wgms_obs_type_cn = 'obs_type'
+# WGMS lookup tables information
+wgms_lookup_fn = 'WGMS-FoG-2018-06-AA-GLACIER-ID-LUT.csv'
+rgilookup_fullfn = main_directory + '/../RGI/rgi60/00_rgi60_links/00_rgi60_links.csv'
+rgiv6_fn_prefix = main_directory + '/../RGI/rgi60/00_rgi60_attribs/' + '*'
+rgiv5_fn_prefix = main_directory + '/../RGI/00_rgi50_attribs/' + '*'
+
+# WGMS (d) geodetic mass balance information
+wgms_d_fn = 'WGMS-FoG-2018-06-D-CHANGE.csv'
+wgms_d_fn_preprocessed = 'wgms_d_rgiv6_preprocessed.csv'
+
+# WGMS (e/ee) glaciological mass balance information
+wgms_e_fn = 'WGMS-FoG-2018-06-E-MASS-BALANCE-OVERVIEW.csv'
+wgms_ee_fn = 'WGMS-FoG-2018-06-EE-MASS-BALANCE.csv'
+wgms_ee_fn_preprocessed = 'wgms_ee_rgiv6_preprocessed.csv' 
 wgms_ee_rgi_glacno_cn = 'glacno'
 wgms_ee_mb_cn = 'BALANCE'
 wgms_ee_mb_err_cn = 'BALANCE_UNC'
@@ -274,7 +290,8 @@ wgms_ee_t1_cn = 'YEAR'
 wgms_ee_z1_cn = 'LOWER_BOUND'
 wgms_ee_z2_cn = 'UPPER_BOUND'
 wgms_ee_period_cn = 'period'
-wgms_ee_obs_type_cn = 'obs_type'
+
+
 
 brun_fp = main_directory + '/../DEMs/'
 #  NEED TO FINISH SETTING UP FOR BRUN AND MAUER
