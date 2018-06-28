@@ -34,6 +34,10 @@ rgi_regionO1 = [15]
 search_binnedcsv_fn = input.main_directory + '\\..\\DEMs\\mb_bins_sample_20180323\\*_mb_bins.csv'
 #search_rgiv6_fn = input.main_directory + '\\..\\RGI\\rgi60\\00_rgi60_attribs\\' + '*'
 
+# Column name for analysis
+mb_cn = 'mb_bin_med_mwea'
+dhdt_cn = 'dhdt_bin_med_ma'
+
 # binned csv column name convsersion dictionary
 #  change column names so they are easier to work with (remove spaces, etc.)
 sheancoldict = {'# bin_center_elev_m': 'bin_center_elev_m',
@@ -109,7 +113,9 @@ elev_bins = main_glac_hyps.columns.values.astype(int)
 #  Data for each glacier is held in a sublist
 #   0 
 ds = [[] for x in binnedcsv_files]
-for n in range(len(binnedcsv_files)):
+#for n in range(len(binnedcsv_files)):
+for n in [0]:
+    # Process binned geodetic data
     binnedcsv = pd.read_csv(binnedcsv_files[n])
     # Rename columns so they are easier to read
     binnedcsv = binnedcsv.rename(columns=sheancoldict)
@@ -122,6 +128,19 @@ for n in range(len(binnedcsv_files)):
     binnedcsv.loc[binnedcsv['perc_debris'] > 100, 'perc_debris'] = 0
     binnedcsv['perc_pond'] = binnedcsv['perc_pond'].astype(float)
     binnedcsv.loc[binnedcsv['perc_pond'] > 100, 'perc_pond'] = 0
+    # Normalized elevation
+    #  (max elevation - bin elevation) / (max_elevation - min_elevation)
+    glac_elev = binnedcsv.bin_center_elev_m.values
+    binnedcsv['elev_norm'] = (glac_elev[-1] - glac_elev) / (glac_elev[-1] - glac_elev[0])
+    # Normalized ice thickness change [ma]
+    #  dhdt / dhdt_max
+    glac_dhdt = binnedcsv[dhdt_cn].values
+    binnedcsv['dhdt_norm_huss'] = glac_dhdt / glac_dhdt.min()
+    binnedcsv['dhdt_norm_range'] = glac_dhdt / (glac_dhdt.min() - glac_dhdt.max())
+    glac_dhdt_adj = glac_dhdt.copy()
+    glac_dhdt_adj[glac_dhdt_adj > 0] = 0
+    binnedcsv['dhdt_norm_adj'] = glac_dhdt_adj / glac_dhdt_adj.min()
+
     ds[n] = [n, df_glacnames.loc[n, 'RGIId'], binnedcsv, main_glac_rgi.loc[n], main_glac_hyps.loc[n], 
              main_glac_icethickness.loc[n]]
     
@@ -132,15 +151,22 @@ for glac in glacier_list:
     glac_elevbins = ds[glac][2]['bin_center_elev_m']
     glac_area_t1 = ds[glac][2]['z1_bin_area_valid_km2']
     glac_area_t2 = ds[glac][2]['z2_bin_area_valid_km2']
-    glac_mb_mwea = ds[glac][2]['mb_bin_med_mwea']
+    glac_mb_mwea = ds[glac][2][mb_cn]
     glac_debristhick_cm = ds[glac][2]['debris_thick_med_m'] * 100
     glac_debrisperc = ds[glac][2]['perc_debris']
     glac_pondperc = ds[glac][2]['perc_pond']
+    glac_elevnorm = ds[glac][2]['elev_norm']
+    glac_dhdt_norm_huss = ds[glac][2]['dhdt_norm_huss']
+    glac_dhdt_norm_range = ds[glac][2]['dhdt_norm_range']
+    glac_dhdt_norm_adj = ds[glac][2]['dhdt_norm_adj']
     glacwide_mb_mwea = (glac_area_t1 * glac_mb_mwea).sum() / glac_area_t1.sum()
     t1 = 2000
     t2 = 2015
     
     # Plot Elevation bins vs. Area, Mass balance, and Debris thickness/pond coverage/ debris coverage
+    # Elevation vs. Area
+    plt.figure(figsize=(10,6))
+    plt.subplots_adjust(wspace=0.05, hspace=0.05)
     plt.subplot(1,3,1)
     plt.plot(glac_area_t1, glac_elevbins, label=t1)
     plt.plot(glac_area_t2, glac_elevbins, label=t2)
@@ -148,18 +174,22 @@ for glac in glacier_list:
     plt.xlabel('Glacier area [km2]')
     plt.minorticks_on()
     plt.legend()
-    
+    # Elevation vs. Mass Balance
     plt.subplot(1,3,2)
-    plt.plot(glac_mb_mwea, glac_elevbins, 'k-')
+    plt.plot(glac_mb_mwea, glac_elevbins, 'k-', label=str(round(glacwide_mb_mwea, 2)) + ' mwea')
     #  k refers to the color (k=black, b=blue, g=green, etc.)
     #  - refers to using a line (-- is a dashed line, o is circle points, etc.)
     plt.ylabel('Elevation [masl, WGS84]')
     plt.xlabel('Mass balance [mwea]')
     plt.xlim(-3, 3)
     plt.xticks(np.arange(-3, 3 + 1, 1))
+    plt.axvline(x=0, color='k')
+    plt.fill_betweenx(glac_elevbins, glac_mb_mwea, 0, where=glac_mb_mwea<0, color='r', alpha=0.5)
+    plt.fill_betweenx(glac_elevbins, glac_mb_mwea, 0, where=glac_mb_mwea>0, color='b', alpha=0.5)
+    plt.legend(loc=1)
     plt.minorticks_on()
     plt.gca().axes.get_yaxis().set_visible(False)
-    
+    # Elevation vs. 
     plt.subplot(1,3,3)
     plt.plot(glac_debrisperc, glac_elevbins, label='Debris area')
     plt.plot(glac_pondperc, glac_elevbins, label='Pond area')
@@ -170,3 +200,32 @@ for glac in glacier_list:
     plt.legend()
     plt.gca().axes.get_yaxis().set_visible(False)
     plt.show()
+    
+    # Normalized Elevation vs. Normalized Ice Thickness Change
+    plt.figure(figsize=(10,3))
+    plt.subplots_adjust(wspace=0.4, hspace=0.4)
+    # Normalized curves using dhdt max (according to Huss)
+    plt.subplot(1,3,1)
+    plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label='huss')
+    plt.ylabel('Normalized dh/dt [ma]')
+    plt.xlabel('Normalized elev range')
+    plt.minorticks_on()
+    plt.legend()
+    # Normalized curves using range of dh/dt
+    plt.ylim(1,-5)
+    plt.subplot(1,3,2)
+    plt.plot(glac_elevnorm, glac_dhdt_norm_range, label='range')
+    plt.ylim(1, -1)
+    plt.xlabel('Normalized elev range')
+    plt.minorticks_on()
+    plt.legend()
+    # Normalized curves truncating all positive dh/dt to zero
+    plt.subplot(1,3,3)
+    plt.plot(glac_elevnorm, glac_dhdt_norm_adj, label='adjusted')
+    plt.ylim(1,-0.1)
+    plt.xlabel('Normalized elev range')
+    plt.minorticks_on()
+    plt.legend()
+    plt.show()
+    
+    

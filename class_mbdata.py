@@ -480,7 +480,7 @@ class MBData():
 #%% Testing
 if __name__ == '__main__':
     # Glacier selection
-    rgi_regionsO1 = [1]
+    rgi_regionsO1 = [7]
     rgi_glac_number = 'all'
 #    rgi_glac_number = ['03473', '03733']
     #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']

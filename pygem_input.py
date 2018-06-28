@@ -163,6 +163,12 @@ rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Surging','Lin
 # Dictionary of hypsometry filenames
 rgi_dict = {
             1:  '01_rgi60_Alaska.csv',
+            3:  '03_rgi60_ArcticCanadaNorth.csv',
+            4:  '04_rgi60_ArcticCanadaSouth.csv',
+            6:  '06_rgi60_Iceland.csv',
+            7:  '07_rgi60_Svalbard.csv',
+            8:  '08_rgi60_Scandinavia.csv',
+            9:  '09_rgi60_RussianArctic.csv',
             13: '13_rgi60_CentralAsia.csv',
             14: '14_rgi60_SouthAsiaWest.csv',
             15: '15_rgi60_SouthAsiaEast.csv'}
@@ -176,6 +182,12 @@ hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # (Files from Matthias Huss should be manually pre-processed to be 'RGI-ID', 'Cont_range', and bins starting at 5)
 hyps_filedict = {
                 1:  'area_01_Huss_Alaska_10m.csv',
+                3:  'area_RGI03_10.csv',
+                4:  'area_RGI04_10.csv',
+                6:  'area_RGI06_10.csv',
+                7:  'area_RGI07_10.csv',
+                8:  'area_RGI08_10.csv',
+                9:  'area_RGI09_10.csv',
                 13: 'area_13_Huss_CentralAsia_10m.csv',
                 14: 'area_14_Huss_SouthAsiaWest_10m.csv',
                 15: 'area_15_Huss_SouthAsiaEast_10m.csv'}
@@ -186,6 +198,12 @@ thickness_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of thickness filenames
 thickness_filedict = {
                 1:  'thickness_01_Huss_Alaska_10m.csv',
+                3:  'thickness_RGI03_10.csv',
+                4:  'thickness_RGI04_10.csv',
+                6:  'thickness_RGI06_10.csv',
+                7:  'thickness_RGI07_10.csv',
+                8:  'thickness_RGI08_10.csv',
+                9:  'thickness_RGI09_10.csv',
                 13: 'thickness_13_Huss_CentralAsia_10m.csv',
                 14: 'thickness_14_Huss_SouthAsiaWest_10m.csv',
                 15: 'thickness_15_Huss_SouthAsiaEast_10m.csv'}
@@ -196,6 +214,12 @@ width_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of thickness filenames
 width_filedict = {
                 1:  'width_01_Huss_Alaska_10m.csv',
+                3:  'width_RGI03_10.csv',
+                4:  'width_RGI04_10.csv',
+                6:  'width_RGI06_10.csv',
+                7:  'width_RGI07_10.csv',
+                8:  'width_RGI08_10.csv',
+                9:  'width_RGI09_10.csv',
                 13: 'width_13_Huss_CentralAsia_10m.csv',
                 14: 'width_14_Huss_SouthAsiaWest_10m.csv',
                 15: 'width_15_Huss_SouthAsiaEast_10m.csv'}
