@@ -162,6 +162,7 @@ rgi_glacno_float_colname = 'RGIId_float'
 rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Surging','Linkages','Name']
 # Dictionary of hypsometry filenames
 rgi_dict = {
+            1:  '01_rgi60_Alaska.csv',
             13: '13_rgi60_CentralAsia.csv',
             14: '14_rgi60_SouthAsiaWest.csv',
             15: '15_rgi60_SouthAsiaEast.csv'}
@@ -174,6 +175,7 @@ hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of hypsometry filenames 
 # (Files from Matthias Huss should be manually pre-processed to be 'RGI-ID', 'Cont_range', and bins starting at 5)
 hyps_filedict = {
+                1:  'area_01_Huss_Alaska_10m.csv',
                 13: 'area_13_Huss_CentralAsia_10m.csv',
                 14: 'area_14_Huss_SouthAsiaWest_10m.csv',
                 15: 'area_15_Huss_SouthAsiaEast_10m.csv'}
@@ -183,6 +185,7 @@ hyps_colsdrop = ['RGI-ID','Cont_range']
 thickness_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of thickness filenames
 thickness_filedict = {
+                1:  'thickness_01_Huss_Alaska_10m.csv',
                 13: 'thickness_13_Huss_CentralAsia_10m.csv',
                 14: 'thickness_14_Huss_SouthAsiaWest_10m.csv',
                 15: 'thickness_15_Huss_SouthAsiaEast_10m.csv'}
@@ -192,6 +195,7 @@ thickness_colsdrop = ['RGI-ID','Cont_range']
 width_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of thickness filenames
 width_filedict = {
+                1:  'width_01_Huss_Alaska_10m.csv',
                 13: 'width_13_Huss_CentralAsia_10m.csv',
                 14: 'width_14_Huss_SouthAsiaWest_10m.csv',
                 15: 'width_15_Huss_SouthAsiaEast_10m.csv'}

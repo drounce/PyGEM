@@ -4,7 +4,8 @@ class of mass balance data and functions associated with manipulating the datase
 
 import pandas as pd
 import numpy as np
-#import datetime
+import calendar
+import datetime
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -42,7 +43,7 @@ class MBData():
             
         elif self.name == 'wgms_ee':
             self.rgi_regionO1 = rgi_regionO1
-            self.ds_fp = input.wgms_ee_fp
+            self.ds_fp = input.wgms_fp
             self.ds_fn = input.wgms_ee_fn_preprocessed
             self.rgi_glacno_cn = input.wgms_ee_rgi_glacno_cn
             self.mb_mwe_cn = input.wgms_ee_mb_cn
@@ -55,14 +56,13 @@ class MBData():
             
         elif self.name == 'wgms_d':
             self.rgi_regionO1 = rgi_regionO1
-            self.ds_fp = input.wgms_d_fp
-            self.ds_fn = input.wgms_d_fn
+            self.ds_fp = input.wgms_fp
+            self.ds_fn = input.wgms_d_fn_preprocessed
             self.rgi_glacno_cn = input.wgms_ee_rgi_glacno_cn
             self.mb_cn = input.wgms_d_thickness_chg_cn
             
             
-            wgms_d_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
-            wgms_d_fn = 'wgms_d_rgiv6_preprocessed.csv' 
+            wgms_d_fn_preprocessed = 'wgms_d_rgiv6_preprocessed.csv' 
             wgms_d_rgi_glacno_cn = 'glacno'
             wgms_d_mb_cn = 'BALANCE'
             wgms_d_mb_err_cn = 'BALANCE_UNC'
@@ -266,6 +266,8 @@ class MBData():
                     ds.loc[x, 't1_year'] = ds.loc[x, 't1_year'] + 1
                     ds.loc[x, 't1_month'] = ds.loc[x, 'winter_begin']
                     ds.loc[x, 't2_month'] = ds.loc[x, 'winter_end']
+                ds.loc[x, 't1_day'] = 1
+                ds.loc[x, 't2_day'] = calendar.monthrange(ds.loc[x, 't2_year'], ds.loc[x, 't2_month'])[1]
             # Drop measurements outside of calibration period
             ds['t1_datetime'] = pd.to_datetime(
                     pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
@@ -281,9 +283,25 @@ class MBData():
                      pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':1, 'day':1}))).dt.days + 1)
             ds['t1'] = ds.t1_year + ds.t1_doy / ds.t1_daysinyear
             ds['t2'] = ds.t2_year + ds.t2_doy / ds.t2_daysinyear
-            year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
-            year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
-                                (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
+            # Min and max times in decimal years for comparison
+            min_datetime = datetime.datetime(dates_table.loc[0,'year'], dates_table.loc[0,'month'], 
+                                             calendar.monthrange(dates_table.loc[0,'year'], dates_table.loc[0,'month'])
+                                             [0])
+            min_julianday = pd.Series(min_datetime).dt.strftime("%j").astype(float).iloc[0]
+            if dates_table.loc[0, 'year'] % 4 == 0:
+                min_daysinyear = 366
+            else:
+                min_daysinyear = 365     
+            year_decimal_min = dates_table.loc[0,'year'] + min_julianday / min_daysinyear
+            max_datetime = datetime.datetime(dates_table.loc[0,'year'], dates_table.loc[0,'month'], 
+                                             calendar.monthrange(dates_table.loc[0,'year'], dates_table.loc[0,'month'])
+                                             [1])
+            max_julianday = pd.Series(max_datetime).dt.strftime("%j").astype(float).iloc[0]
+            if dates_table.loc[dates_table.shape[0] - 1, 'year'] % 4 == 0:
+                max_daysinyear = 366
+            else:
+                max_daysinyear = 365     
+            year_decimal_max = dates_table.loc[dates_table.shape[0]-1,'year'] + max_julianday / max_daysinyear
             ds = ds[ds['t1'] > year_decimal_min]
             ds = ds[ds['t2'] < year_decimal_max]
             ds.reset_index(drop=True, inplace=True)
@@ -306,10 +324,13 @@ class MBData():
             # Observation type
             ds['obs_type'] = 'mb_glac'
             
-        elif self.name == 'wgms_ee':
-            # Load all data
-            ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')
-            ds_all['RegO1'] = ds_all[self.rgi_glacno_cn].values.astype(int)
+            
+            
+            
+#        elif self.name == 'wgms_d':
+#            # Load all data
+#            ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')
+#            ds_all['RegO1'] = ds_all[self.rgi_glacno_cn].values.astype(int)
 #            # Select data for specific region
 #            ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
 #            # Glacier number and index for comparison
@@ -459,12 +480,12 @@ class MBData():
 #%% Testing
 if __name__ == '__main__':
     # Glacier selection
-    rgi_regionsO1 = [15]
-    #rgi_glac_number = 'all'
+    rgi_regionsO1 = [1]
+    rgi_glac_number = 'all'
 #    rgi_glac_number = ['03473', '03733']
     #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
 #    rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733', '03734']
-    rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733']
+#    rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733']
 #    rgi_glac_number = ['03591']
     
     # Required input
@@ -487,16 +508,17 @@ if __name__ == '__main__':
     
     # Testing    
 #    mb1 = MBData(name='shean')
-    mb1 = MBData(name='wgms_ee')
-    ds, ds_reg, ds_all, ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
+#    mb1 = MBData(name='wgms_ee', rgi_regionO1=rgi_regionsO1[0])
+#    ds, ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
     
 #    cal_datasets = ['shean', 'wgms_ee']
 #    cal_datasets = ['shean']
-    cal_datasets = ['wgms_d']
+    cal_datasets = ['wgms_ee']
+#    cal_datasets = ['wgms_d']
     
     cal_data = pd.DataFrame()
     for dataset in cal_datasets:
-        cal_subset = MBData(name=dataset)
+        cal_subset = MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
         cal_subset_data = cal_subset.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])

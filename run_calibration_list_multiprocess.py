@@ -33,12 +33,12 @@ import class_mbdata
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
-rgi_regionsO1 = [15]
-#rgi_glac_number = 'all'
+rgi_regionsO1 = [1]
+rgi_glac_number = 'all'
 #rgi_glac_number = ['03733']
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
-rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
+#rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
 #rgi_glac_number = ['03591']
 #rgi_glac_number = ['03734']
@@ -118,7 +118,7 @@ def main(list_packed_vars):
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()
     for dataset in cal_datasets:
-        cal_subset = class_mbdata.MBData(name=dataset)
+        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
         cal_subset_data = cal_subset.masschange_total(main_glac_rgi_raw, main_glac_hyps_raw, dates_table_nospinup)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])

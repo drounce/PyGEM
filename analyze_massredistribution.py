@@ -10,73 +10,163 @@ import matplotlib.pyplot as plt
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 
+#%% TIPS
+#  - columns in a dataframe can be accessed using df['column_name'] or df.column_name
+#  - .iloc uses column 'positions' to index into a dataframe (ex. ds_all.iloc[0,0] = 13.00175)
+#    while .iloc uses column 'names' to index into a dataframe (ex. ds_all.loc[0, 'reg_glacno'] = 13.00175)
+#  - When indexing into lists it is best to use list comprehension.  List comprehension is essentially an efficient
+#    for loop for lists and is best read backwards.  For example:
+#      A = [binnedcsv_files_all[x] for x in ds.index.values]
+#    means that for every value (x) in ds.index.values, select binnedcsv_files_all[x] and add it to the list.
+#  - lists also have the ability to store many objects of different forms.  For example it can store individual values,
+#    strings, numpy arrays, pandas series/dataframes, etc.  Therefore, depending on what you are trying to achieve, you 
+#    may want to use a combination of different indexing methods (ex. list comprehension to access a pandas dataframe,
+#    followed by pandas indexing to access an element within the dataframe).
+#  - Accessing list of lists: first index is going to access which sublist you're looking at, while second index is 
+#    going to access that element of the list.  For example,
+#      ds[0] access the first glacier and ds[0][0] accesses the first element of the first glacier
+#    in this manner, ds[1][0] accesses the first element of the second glacier(sublist), ds[1][1] accesses the second  
+#    element of the second glacier (sublist), etc. 
+
 #%% Input data
-rgi_regionO1 = [13, 14, 15]
+#rgi_regionO1 = [13, 14, 15]
+rgi_regionO1 = [15]
 search_binnedcsv_fn = input.main_directory + '\\..\\DEMs\\mb_bins_sample_20180323\\*_mb_bins.csv'
-search_rgiv6_fn = input.main_directory + '\\..\\RGI\\rgi60\\00_rgi60_attribs\\' + '*'
+#search_rgiv6_fn = input.main_directory + '\\..\\RGI\\rgi60\\00_rgi60_attribs\\' + '*'
+
+# binned csv column name convsersion dictionary
+#  change column names so they are easier to work with (remove spaces, etc.)
+sheancoldict = {'# bin_center_elev_m': 'bin_center_elev_m',
+                ' z1_bin_count_valid': 'z1_bin_count_valid',
+                ' z1_bin_area_valid_km2': 'z1_bin_area_valid_km2',
+                ' z1_bin_area_perc': 'z1_bin_area_perc',
+                ' z2_bin_count_valid': 'z2_bin_count_valid',
+                ' z2_bin_area_valid_km2': 'z2_bin_area_valid_km2',
+                ' z2_bin_area_perc': 'z2_bin_area_perc',
+                ' dhdt_bin_med_ma': 'dhdt_bin_med_ma',
+                ' dhdt_bin_mad_ma': 'dhdt_bin_mad_ma',
+                ' dhdt_bin_mean_ma': 'dhdt_bin_mean_ma',
+                ' dhdt_bin_std_ma': 'dhdt_bin_std_ma',
+                ' mb_bin_med_mwea': 'mb_bin_med_mwea',
+                ' mb_bin_mad_mwea': 'mb_bin_mad_mwea',
+                ' mb_bin_mean_mwea': 'mb_bin_mean_mwea',
+                ' mb_bin_std_mwea': 'mb_bin_std_mwea',
+                ' debris_thick_med_m': 'debris_thick_med_m',
+                ' debris_thick_mad_m': 'debris_thick_mad_m',
+                ' perc_debris': 'perc_debris',
+                ' perc_pond': 'perc_pond',
+                ' perc_clean': 'perc_clean'}
 
 #%% Select files
 # Find files for analysis
-rgi_files = glob.glob(search_rgiv6_fn)
-binnedcsv_files = glob.glob(search_binnedcsv_fn)
+binnedcsv_files_all = glob.glob(search_binnedcsv_fn)
+#rgi_files = glob.glob(search_rgiv6_fn)
 
 # RGIId's of available glaciers
-ds = pd.DataFrame()
-ds['reg_glacno'] = [x.split('\\')[-1].split('_')[0] for x in binnedcsv_files]
-ds['RGIId'] = 'RGI60-' + ds['reg_glacno'] 
-ds['region'] = ds.reg_glacno.astype(float).astype(int)
-ds['glacno_str'] = ds.reg_glacno.str.split('.').apply(lambda x: x[1])
-ds['glacno'] = ds.reg_glacno.str.split('.').apply(lambda x: x[1]).astype(int)
+#  note: 
+df_glacnames_all = pd.DataFrame()
+df_glacnames_all['reg_glacno'] = [x.split('\\')[-1].split('_')[0] for x in binnedcsv_files_all]
+df_glacnames_all['RGIId'] = 'RGI60-' + df_glacnames_all['reg_glacno'] 
+df_glacnames_all['region'] = df_glacnames_all.reg_glacno.astype(float).astype(int)
+df_glacnames_all['glacno_str'] = df_glacnames_all.reg_glacno.str.split('.').apply(lambda x: x[1])
+df_glacnames_all['glacno'] = df_glacnames_all.reg_glacno.str.split('.').apply(lambda x: x[1]).astype(int)
+# Drop glaciers that are not in correct region
+df_glacnames = df_glacnames_all[df_glacnames_all.region.isin(rgi_regionO1) == True]
+binnedcsv_files = [binnedcsv_files_all[x] for x in df_glacnames.index.values] 
+df_glacnames.reset_index(drop=True, inplace=True)
+# create a dictionary between index and glacno
+glacidx_dict = dict(zip(df_glacnames['reg_glacno'], df_glacnames.index.values))
 
 main_glac_rgi = pd.DataFrame()
-#for region in rgi_regionO1:
-#for region in [13]:
+main_glac_hyps = pd.DataFrame()
+main_glac_icethickness = pd.DataFrame()
 for n, region in enumerate(rgi_regionO1):
     print('Region', region)
-    ds_reg = ds[ds.region == region]
-    rgi_glac_number = ds_reg['glacno_str'].tolist()
+    df_glacnames_reg = df_glacnames[df_glacnames.region == region]
+    rgi_glac_number = df_glacnames_reg['glacno_str'].tolist()
     
-    # only import glaciers that are not 0
-    
+    # This if statement avoids errors associated with regions that have no glaciers
     if len(rgi_glac_number) > 0: 
         main_glac_rgi_reg = modelsetup.selectglaciersrgitable(rgi_regionsO1=[region], rgi_regionsO2 = 'all', 
                                                               rgi_glac_number=rgi_glac_number)
+        # Glacier hypsometry [km**2], total area
+        main_glac_hyps_reg = modelsetup.import_Husstable(main_glac_rgi_reg, [region], input.hyps_filepath, 
+                                                         input.hyps_filedict, input.hyps_colsdrop)
+        # Ice thickness [m], average
+        main_glac_icethickness_reg = modelsetup.import_Husstable(main_glac_rgi_reg, [region], input.thickness_filepath, 
+                                                                 input.thickness_filedict, input.thickness_colsdrop)
+        main_glac_hyps_reg[main_glac_icethickness_reg == 0] = 0
+
         # concatenate regions
         main_glac_rgi = main_glac_rgi.append(main_glac_rgi_reg, ignore_index=True)
+        main_glac_hyps = main_glac_hyps.append(main_glac_hyps_reg, ignore_index=True)
+        main_glac_icethickness = main_glac_icethickness.append(main_glac_icethickness_reg, ignore_index=True)
 
-#%%
-#for n in range(len(binnedcsv_files)):
-for n in [0]:
-    print(binnedcsv_files[n])
-    ds_binnedcsv = pd.read_csv(binnedcsv_files[n])
+elev_bins = main_glac_hyps.columns.values.astype(int)
+
+#%% MAIN DATASET
+# ds is the main dataset for this analysis and is a list of lists (order of glaciers can be found in df_glacnames)
+#  Data for each glacier is held in a sublist
+#   0 
+ds = [[] for x in binnedcsv_files]
+for n in range(len(binnedcsv_files)):
+    binnedcsv = pd.read_csv(binnedcsv_files[n])
+    # Rename columns so they are easier to read
+    binnedcsv = binnedcsv.rename(columns=sheancoldict)
+    # Remove poor values (ex. debris thickness)
+    binnedcsv['debris_thick_med_m'] = binnedcsv['debris_thick_med_m'].astype(float)
+    binnedcsv.loc[binnedcsv['debris_thick_med_m'] < 0, 'debris_thick_med_m'] = 0
+    binnedcsv.loc[binnedcsv['debris_thick_med_m'] > 5, 'debris_thick_med_m'] = 0
+    binnedcsv.loc[binnedcsv['debris_thick_med_m'] == -0, 'debris_thick_med_m'] = 0
+    binnedcsv['perc_debris'] = binnedcsv['perc_debris'].astype(float)
+    binnedcsv.loc[binnedcsv['perc_debris'] > 100, 'perc_debris'] = 0
+    binnedcsv['perc_pond'] = binnedcsv['perc_pond'].astype(float)
+    binnedcsv.loc[binnedcsv['perc_pond'] > 100, 'perc_pond'] = 0
+    ds[n] = [n, df_glacnames.loc[n, 'RGIId'], binnedcsv, main_glac_rgi.loc[n], main_glac_hyps.loc[n], 
+             main_glac_icethickness.loc[n]]
     
+#%% Plot a single glacier
+glacier_list = [0]
+
+for glac in glacier_list:
+    glac_elevbins = ds[glac][2]['bin_center_elev_m']
+    glac_area_t1 = ds[glac][2]['z1_bin_area_valid_km2']
+    glac_area_t2 = ds[glac][2]['z2_bin_area_valid_km2']
+    glac_mb_mwea = ds[glac][2]['mb_bin_med_mwea']
+    glac_debristhick_cm = ds[glac][2]['debris_thick_med_m'] * 100
+    glac_debrisperc = ds[glac][2]['perc_debris']
+    glac_pondperc = ds[glac][2]['perc_pond']
+    glacwide_mb_mwea = (glac_area_t1 * glac_mb_mwea).sum() / glac_area_t1.sum()
+    t1 = 2000
+    t2 = 2015
     
-
-
-#%%
-#def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, drop_col_names,
-#                     indexname=input.indexname):
-#    """Use the dictionary specified by the user to extract the desired variable.
-#    The files must be in the proper units (ice thickness [m], area [km2], width [km]) and need to be pre-processed to 
-#    have all bins between 0 - 8845 m.
-#    
-#    Output is a Pandas DataFrame of the variable for all the glaciers in the model run
-#    (rows = GlacNo, columns = elevation bins).
-#    
-#    Line Profiling: Loading in the table takes the most time (~2.3 s)
-#    """
-#    ds = pd.read_csv(filepath + filedict[rgi_regionsO1[0]])
-#    # Select glaciers based on 01Index value from main_glac_rgi table
-#    #  as long as Huss tables have all rows associated with rgi attribute table, then this shortcut works and saves time
-#    glac_table = ds.iloc[rgi_table['O1Index'].values]
-#    # must make copy; otherwise, drop will cause SettingWithCopyWarning
-#    glac_table_copy = glac_table.copy()
-#    # Clean up table and re-index
-#    # Reset index to be GlacNo
-#    glac_table_copy.reset_index(drop=True, inplace=True)
-#    glac_table_copy.index.name = indexname
-#    # Drop columns that are not elevation bins
-#    glac_table_copy.drop(drop_col_names, axis=1, inplace=True)
-#    # Change NAN from -99 to 0
-#    glac_table_copy[glac_table_copy==-99] = 0.
-#    return glac_table_copy
+    # Plot Elevation bins vs. Area, Mass balance, and Debris thickness/pond coverage/ debris coverage
+    plt.subplot(1,3,1)
+    plt.plot(glac_area_t1, glac_elevbins, label=t1)
+    plt.plot(glac_area_t2, glac_elevbins, label=t2)
+    plt.ylabel('Elevation [masl, WGS84]')
+    plt.xlabel('Glacier area [km2]')
+    plt.minorticks_on()
+    plt.legend()
+    
+    plt.subplot(1,3,2)
+    plt.plot(glac_mb_mwea, glac_elevbins, 'k-')
+    #  k refers to the color (k=black, b=blue, g=green, etc.)
+    #  - refers to using a line (-- is a dashed line, o is circle points, etc.)
+    plt.ylabel('Elevation [masl, WGS84]')
+    plt.xlabel('Mass balance [mwea]')
+    plt.xlim(-3, 3)
+    plt.xticks(np.arange(-3, 3 + 1, 1))
+    plt.minorticks_on()
+    plt.gca().axes.get_yaxis().set_visible(False)
+    
+    plt.subplot(1,3,3)
+    plt.plot(glac_debrisperc, glac_elevbins, label='Debris area')
+    plt.plot(glac_pondperc, glac_elevbins, label='Pond area')
+    plt.plot(glac_debristhick_cm, glac_elevbins, 'k-', label='Thickness')
+    plt.ylabel('Elevation [masl, WGS84]')
+    plt.xlabel('Debris thickness [cm], Area [%]')
+    plt.minorticks_on()
+    plt.legend()
+    plt.gca().axes.get_yaxis().set_visible(False)
+    plt.show()
