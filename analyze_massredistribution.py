@@ -114,7 +114,6 @@ elev_bins = main_glac_hyps.columns.values.astype(int)
 #%% MAIN DATASET
 # ds is the main dataset for this analysis and is a list of lists (order of glaciers can be found in df_glacnames)
 #  Data for each glacier is held in a sublist
-#   0 
 ds = [[] for x in binnedcsv_files]
 for n in range(len(binnedcsv_files)):
     # Process binned geodetic data
