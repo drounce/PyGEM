@@ -33,7 +33,7 @@ import class_mbdata
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
-rgi_regionsO1 = [1]
+rgi_regionsO1 = [15]
 rgi_glac_number = 'all'
 #rgi_glac_number = ['03733']
 #rgi_glac_number = ['03473', '03733']
@@ -50,9 +50,9 @@ gcm_spinupyears = 5
 option_calibration = 1
 
 # Calibration datasets
-cal_datasets = ['shean', 'wgms_ee']
+#cal_datasets = ['shean', 'wgms_ee']
 #cal_datasets = ['shean']
-#cal_datasets = ['wgms_ee']
+cal_datasets = ['wgms_d', 'wgms_ee']
 
 # Calibration methods
 method_opt = 'SLSQP'
@@ -105,7 +105,7 @@ def main(list_packed_vars):
     main_glac_width_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.width_filepath, 
                                                       input.width_filedict, input.width_colsdrop)
     elev_bins = main_glac_hyps_raw.columns.values.astype(int)
-    # Volume [km**3] and mean elevation [m a.s.l.]
+    # Add volume [km**3] and mean elevation [m a.s.l.]
     main_glac_rgi_raw['Volume'], main_glac_rgi_raw['Zmean'] = (
             modelsetup.hypsometrystats(main_glac_hyps_raw, main_glac_icethickness_raw))
     # Select dates including future projections
@@ -123,7 +123,6 @@ def main(list_packed_vars):
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])
     cal_data.reset_index(drop=True, inplace=True)
-    
     # Drop glaciers that do not have any calibration data
     main_glac_rgi = ((main_glac_rgi_raw.iloc[np.where(
             main_glac_rgi_raw[input.rgi_O1Id_colname].isin(cal_data['glacno']) == True)[0],:]).copy())
@@ -679,6 +678,8 @@ if __name__ == '__main__':
         glacier_cal_compare = main_vars['glacier_cal_compare']
         main_glac_cal_compare = main_vars['main_glac_cal_compare']
         main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
+        main_glac_output = main_vars['main_glac_output']
+        main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
 #        glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
 #        glac_wide_area_annual = main_vars['glac_wide_area_annual']
 #        glac_wide_volume_annual = main_vars['glac_wide_volume_annual']

@@ -25,7 +25,8 @@ startyear = 2000
 endyear = 2015
 spinupyears = 5
 # Calibrated model parameters full filename (needs to include 'all' glaciers in a region)
-cal_modelparams_fullfn = input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv'
+cal_modelparams_fullfn = input.main_directory + '/../Output/cal_modelparams_opt1_R15_ERA-Interim_1995_2015_20180626.csv'
+#cal_modelparams_fullfn = input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv'
 # Number of nearest neighbors
 n_nbrs = 20
 
@@ -119,8 +120,9 @@ for glac in range(main_glac_rgi.shape[0]):
     # Select nnbrs only for uncalibrated glaciers
     if ds_cal_all.loc[glac, input.modelparams_colnames].isnull().values.any() == True:
         # Print every 100th glacier
-        if glac%500 == 0:
-            print(main_glac_rgi.loc[glac,'RGIId'])
+#        if glac%500 == 0:
+#            print(main_glac_rgi.loc[glac,'RGIId'])
+        print(main_glac_rgi.loc[glac,'RGIId'])    
         # Select the lon/lat of the glacier
         glac_lonlat = np.zeros((1,2))
         glac_lonlat[:] = ds_cal_all.loc[glac,['CenLon','CenLat']].values
