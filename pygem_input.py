@@ -124,23 +124,24 @@ option_lapserate_fromgcm = 1
 #  Option 2: import prepared csv files (saves time)
 # Reference climate data filepath
 #filepath_ref = main_directory + '/../Climate_data/ERA_Interim/'
+# THESE ARE USED IN MODEL TESTING TO SPEED UP THE LOADING
 # Dictionary of filenames for temperature, precipitation, lapse rate, and elevation data
-#gcmtemp_filedict = {
-#                    13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
-#                    14: 'csv_ERAInterim_temp_19952015_14_SouthAsiaWest.csv',
-#                    15: 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv'}
-#gcmprec_filedict = {
-#                    13: 'csv_ERAInterim_prec_19952015_13_CentralAsia.csv',
-#                    14: 'csv_ERAInterim_prec_19952015_14_SouthAsiaWest.csv',
-#                    15: 'csv_ERAInterim_prec_19952015_15_SouthAsiaEast.csv'}
-#gcmelev_filedict = {
-#                    13: 'csv_ERAInterim_elev_13_CentralAsia.csv',
-#                    14: 'csv_ERAInterim_elev_14_SouthAsiaWest.csv',
-#                    15: 'csv_ERAInterim_elev_15_SouthAsiaEast.csv'}
-#gcmlapserate_filedict = {
-#                         13: 'csv_ERAInterim_lapserate_19952015_13_CentralAsia.csv',
-#                         14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
-#                         15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
+gcmtemp_filedict = {
+                    13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
+                    14: 'csv_ERAInterim_temp_19952015_14_SouthAsiaWest.csv',
+                    15: 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv'}
+gcmprec_filedict = {
+                    13: 'csv_ERAInterim_prec_19952015_13_CentralAsia.csv',
+                    14: 'csv_ERAInterim_prec_19952015_14_SouthAsiaWest.csv',
+                    15: 'csv_ERAInterim_prec_19952015_15_SouthAsiaEast.csv'}
+gcmelev_filedict = {
+                    13: 'csv_ERAInterim_elev_13_CentralAsia.csv',
+                    14: 'csv_ERAInterim_elev_14_SouthAsiaWest.csv',
+                    15: 'csv_ERAInterim_elev_15_SouthAsiaEast.csv'}
+gcmlapserate_filedict = {
+                         13: 'csv_ERAInterim_lapserate_19952015_13_CentralAsia.csv',
+                         14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
+                         15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
 # ===== RGI DATA =====

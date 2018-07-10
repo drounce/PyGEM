@@ -34,11 +34,11 @@ import class_mbdata
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #rgi_glac_number = ['03733']
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
-#rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
+rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
 #rgi_glac_number = ['03591']
 #rgi_glac_number = ['03734']
@@ -50,9 +50,9 @@ gcm_spinupyears = 5
 option_calibration = 1
 
 # Calibration datasets
-#cal_datasets = ['shean', 'wgms_ee']
 #cal_datasets = ['shean']
-cal_datasets = ['wgms_d', 'wgms_ee']
+#cal_datasets = ['shean', 'wgms_ee']
+cal_datasets = ['shean', 'wgms_d', 'wgms_ee']
 
 # Calibration methods
 method_opt = 'SLSQP'
@@ -155,12 +155,17 @@ def main(list_packed_vars):
     # Option 1: mimize mass balance difference using three-step approach to expand solution space
     if option_calibration == 1:
     
-        # Model parameter output
+        # Output to record
+        # Observations vs. model
         output_cols = ['glacno', 'obs_type', 'obs_unit', 'obs', 'model', 'uncertainty', 'zscore', 'calround']
-        main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], 8))
         main_glac_cal_compare = pd.DataFrame(np.zeros((cal_data.shape[0],len(output_cols))), 
                                              columns=output_cols)
         main_glac_cal_compare.index = cal_data.index.values
+        # Model parameters
+        main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], len(input.modelparams_colnames)))
+        # Glacier-wide climatic mass balance (required for transfer fucntions)
+        main_glacwide_mbclim = np.zeros((main_glac_rgi.shape[0], 1))
+        
         
         for glac in range(main_glac_rgi.shape[0]):
 #            if glac%200 == 0:
@@ -233,8 +238,6 @@ def main(list_packed_vars):
                         year_idx = int(t1_idx / 12)
                         bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
                         glacier_cal_compare.loc[cal_idx, 'model'] = (
-                                glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx].sum())
-                        glacier_cal_compare.loc[cal_idx, 'model'] = (
                                 (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * 
                                  bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
                         # Z-score for modeled mass balance based on observed mass balance and uncertainty
@@ -300,8 +303,6 @@ def main(list_packed_vars):
                     z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
                     year_idx = int(t1_idx / 12)
                     bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
-                    glacier_cal_compare.loc[cal_idx, 'model'] = (
-                            glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx].sum())
                     glacier_cal_compare.loc[cal_idx, 'model'] = (
                             (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * 
                              bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
@@ -376,8 +377,6 @@ def main(list_packed_vars):
                         year_idx = int(t1_idx / 12)
                         bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
                         glacier_cal_compare.loc[cal_idx, 'model'] = (
-                                glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx].sum())
-                        glacier_cal_compare.loc[cal_idx, 'model'] = (
                                 (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * 
                                  bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
                         # Z-score for modeled mass balance based on observed mass balance and uncertainty
@@ -450,8 +449,6 @@ def main(list_packed_vars):
                         year_idx = int(t1_idx / 12)
                         bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
                         glacier_cal_compare.loc[cal_idx, 'model'] = (
-                                glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx].sum())
-                        glacier_cal_compare.loc[cal_idx, 'model'] = (
                                 (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * 
                                  bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
                         # Z-score for modeled mass balance based on observed mass balance and uncertainty
@@ -517,8 +514,6 @@ def main(list_packed_vars):
                             year_idx = int(t1_idx / 12)
                             bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
                             glacier_cal_compare.loc[cal_idx, 'model'] = (
-                                    glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx].sum())
-                            glacier_cal_compare.loc[cal_idx, 'model'] = (
                                     (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * 
                                      bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
                             # Z-score for modeled mass balance based on observed mass balance and uncertainty
@@ -530,8 +525,14 @@ def main(list_packed_vars):
                                     glacier_cal_compare.loc[cal_idx, 'uncertainty'])
                 
             # Record output
+            # Calibration round
             glacier_cal_compare['calround'] = calround
+            # Model vs. observations
             main_glac_cal_compare.loc[glacier_cal_data.index.values] = glacier_cal_compare
+            # Glacier-wide climatic mass balance over study period (used by transfer functions)
+            main_glacwide_mbclim[glac] = (
+                    (glac_bin_massbalclim * glac_bin_area_annual[:, 0][:,np.newaxis]).sum() / 
+                    glac_bin_area_annual[:, 0].sum())
             
             print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
             print('precfactor:', modelparameters[2])
@@ -546,11 +547,15 @@ def main(list_packed_vars):
             print(' ')
             
         # ===== EXPORT OUTPUT =====
-        # Export (i) main_glac_rgi w optimized model parameters and (ii) comparison
+        # Export (i) main_glac_rgi w optimized model parameters and glacier-wide climatic mass balance, 
+        #        (ii) comparison of model vs. observations
+        # Concatenate main_glac_rgi, optimized model parameters, glacier-wide climatic mass balance
         main_glac_output = main_glac_rgi.copy()
         main_glac_modelparamsopt_pd = pd.DataFrame(main_glac_modelparamsopt, columns=input.modelparams_colnames)
         main_glac_modelparamsopt_pd.index = main_glac_rgi.index.values
-        main_glac_output = pd.concat([main_glac_output, main_glac_modelparamsopt_pd], axis=1)
+        main_glacwide_mbclim_pd = pd.DataFrame(main_glacwide_mbclim, columns=['mbclim_mwe'])
+        main_glac_output = pd.concat([main_glac_output, main_glac_modelparamsopt_pd, main_glacwide_mbclim_pd], axis=1)
+        
         # Export output
         if (option_calibration == 1) and (option_export == 1):
             # main_glac_rgi w model parameters
@@ -627,9 +632,9 @@ if __name__ == '__main__':
                 # Remove file after its been merged
                 os.remove(output_filepath + i)
         # Export joined files
-        output_all_fn = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-                         gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
-                         str(strftime("%Y%m%d")) + '.csv')
+        output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(option_calibration) + '_R' + 
+                         str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                         str(gcm_endyear) + '.csv')
         output_all.to_csv(output_filepath + output_all_fn)
         
         # Calibration comparison
@@ -648,9 +653,9 @@ if __name__ == '__main__':
                 # Remove file after its been merged
                 os.remove(output_filepath + i)
         # Export joined files
-        output_all_fn = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-                         gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' +
-                         str(strftime("%Y%m%d")) + '.csv')
+        output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(option_calibration) + '_R' + 
+                         str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                         str(gcm_endyear) + '.csv')
         output_all.to_csv(output_filepath + output_all_fn)
         
     print('Total processing time:', time.time()-time_start, 's')
@@ -673,6 +678,7 @@ if __name__ == '__main__':
         gcm_elev = main_vars['gcm_elev']
         glac_bin_acc = main_vars['glac_bin_acc']
         glac_bin_temp = main_vars['glac_bin_temp']
+        glac_bin_massbalclim = main_vars['glac_bin_massbalclim']
         modelparameters = main_vars['modelparameters']
         glac_bin_area_annual = main_vars['glac_bin_area_annual']
         glacier_cal_compare = main_vars['glacier_cal_compare']
@@ -680,6 +686,7 @@ if __name__ == '__main__':
         main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
         main_glac_output = main_vars['main_glac_output']
         main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
+        main_glacwide_mbclim = main_vars['main_glacwide_mbclim']
 #        glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
 #        glac_wide_area_annual = main_vars['glac_wide_area_annual']
 #        glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
