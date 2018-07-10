@@ -25,10 +25,10 @@ startyear = 2000
 endyear = 2015
 spinupyears = 5
 # Calibrated model parameters full filename (needs to include 'all' glaciers in a region)
-cal_modelparams_fullfn = input.main_directory + '/../Output/cal_modelparams_opt1_R15_ERA-Interim_1995_2015_20180709.csv'
+cal_modelparams_fullfn = input.main_directory + '/../Output/20180710_cal_modelparams_opt1_R15_ERA-Interim_1995_2015_test.csv'
 #cal_modelparams_fullfn = input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv'
 # Number of nearest neighbors
-n_nbrs = 20
+n_nbrs = 5
 
 # Reference climate data
 gcm_name = 'ERA-Interim'
@@ -100,9 +100,8 @@ print('Loading time:', time.time()-time_start, 's')
 
 # Load calibrated parameters
 ds_cal = pd.read_csv(cal_modelparams_fullfn, index_col=0)
-## Load calibrated parameters
-#ds_cal_all = pd.read_csv(cal_modelparams_fullfn, index_col=0)
-#ds_cal = ds_cal_all.dropna()
+ds_cal['newidx'] = ds_cal['O1Index']
+ds_cal.set_index('newidx', inplace=True, drop=True)
 
 # Dictionary cal index and 'GlacNo'
 cal_dict = dict(zip(np.arange(0,ds_cal.shape[0]), ds_cal.index.values))
@@ -111,63 +110,66 @@ main_glac_modelparamsopt_pd = pd.DataFrame(np.full([main_glac_rgi.shape[0], len(
                                            columns=input.modelparams_colnames)
 main_glac_modelparamsopt_pd.index = main_glac_rgi.index.values
 ds_cal_all_wnnbrs = pd.concat([main_glac_rgi.copy(), main_glac_modelparamsopt_pd], axis=1)
-#ds_cal_all_wnnbrs['vol_change_perc_model'] = np.nan
-#ds_cal_all_wnnbrs['nbr_idx'] = np.nan
-#ds_cal_all_wnnbrs['nbr_idx_count'] = np.nan
-#ds_cal_all_wnnbrs['nbr_mb_mean'] = np.nan
-#ds_cal_all_wnnbrs['nbr_mb_std'] = np.nan
-#ds_cal_all_wnnbrs['z_score'] = np.nan
-#nbr_idx_cols = []
-#for n in range(n_nbrs):
-#    nbr_col_name = 'nearidx_' + str(n+1)
-#    ds_cal_all_wnnbrs[nbr_col_name] = np.nan
-#    nbr_idx_cols.append(nbr_col_name)
+ds_cal_all_wnnbrs['mbclim_mwe'] = np.nan
+# Fill in the values of the already calibrated glaciers
+ds_cal_all_wnnbrs = ds_cal_all_wnnbrs.combine_first(ds_cal)
+# Add columns describing nearest neighbors
+ds_cal_all_wnnbrs['nbr_idx'] = np.nan
+ds_cal_all_wnnbrs['nbr_idx_count'] = np.nan
+ds_cal_all_wnnbrs['nbr_mb_mean'] = np.nan
+ds_cal_all_wnnbrs['nbr_mb_std'] = np.nan
+ds_cal_all_wnnbrs['z_score'] = np.nan
+nbr_idx_cols = []
+for n in range(n_nbrs):
+    nbr_col_name = 'nearidx_' + str(n+1)
+    ds_cal_all_wnnbrs[nbr_col_name] = np.nan
+    nbr_idx_cols.append(nbr_col_name)
 
-## Loop through each glacier and select the n_nbrs closest glaciers
-# AVOID MARINE-TERMINATING GLACIERS
-#for glac in range(main_glac_rgi.shape[0]):
-#    # Select nnbrs only for uncalibrated glaciers
-#    if ds_cal_all.loc[glac, input.modelparams_colnames].isnull().values.any() == True:
-#        # Print every 100th glacier
-##        if glac%500 == 0:
-##            print(main_glac_rgi.loc[glac,'RGIId'])
+# Loop through each glacier and select the n_nbrs closest glaciers
+#  (AVOID MARINE-TERMINATING GLACIERS UNTIL FRONTAL ABLATION IS INCLUDED, i.e., climatic mass balance is separated)
+for glac in range(main_glac_rgi.shape[0]):
+    # Select nnbrs only for uncalibrated glaciers
+    if ds_cal_all_wnnbrs.loc[glac, input.modelparams_colnames].isnull().values.any() == True:
+        # Print every 100th glacier
+#        if glac%500 == 0:
+#            print(main_glac_rgi.loc[glac,'RGIId'])
 #        print(main_glac_rgi.loc[glac,'RGIId'])    
-#        # Select the lon/lat of the glacier
-#        glac_lonlat = np.zeros((1,2))
-#        glac_lonlat[:] = ds_cal_all.loc[glac,['CenLon','CenLat']].values
-#        # Append the lon/lat
-#        glac_lonlat_wcal = np.append(glac_lonlat, ds_cal.loc[:,['CenLon','CenLat']].values, axis=0)
-#        # Calculate nearest neighbors (set neighbors + 1 to account for itself)
-#        nbrs = NearestNeighbors(n_neighbors=n_nbrs+1, algorithm='brute').fit(glac_lonlat_wcal)
-#        distances_raw, indices_raw = nbrs.kneighbors(glac_lonlat_wcal)
-#        # Select glacier (row 0) and remove itself (col 0), so left with indices for nearest neighbors
-#        indices_raw2 = indices_raw[0,:][indices_raw[0,:] > 0] - 1
-#        indices = np.array([cal_dict[n] for n in indices_raw2])
-#        # Add indices to columns
-#        ds_cal_all_wnnbrs.loc[glac, nbr_idx_cols] = indices            
-#        
-#        # Nearest neighbors: mass balance envelope
-#        nbrs_data = np.zeros((len(nbr_idx_cols),4))
-#        #  Col 0 - index count
-#        #  Col 1 - index value
-#        #  Col 2 - MB
-#        #  Col 3 - MB modeled using neighbor's parameter
-#        nbrs_data[:,0] = np.arange(1,len(nbr_idx_cols)+1) 
-#        nbrs_data[:,1] = ds_cal_all_wnnbrs.loc[glac, nbr_idx_cols].values.astype(int)
-#        nbrs_data[:,2] = ds_cal_all_wnnbrs.loc[nbrs_data[:,1], input.massbal_colname]
-#        mb_nbrs_mean = nbrs_data[:,2].mean()
-#        mb_nbrs_std = nbrs_data[:,2].std()
-#        mb_envelope_lower = mb_nbrs_mean - mb_nbrs_std
-#        mb_envelope_upper = mb_nbrs_mean + mb_nbrs_std
-#    
-#        # Glacier properties
-#        glac_idx = main_glac_rgi.loc[glac,'O1Index']
-#        glac_zmed = main_glac_rgi.loc[glac,'Zmed']
-#    
-#        # Set nbr_idx_count to -1, since adds 1 at the start        
-#        nbr_idx_count = -1
-#        # Loop through nearest neighbors until find set of model parameters that returns MB in MB envelope
-#        # Break loop used to exit loop if unable to find parameter set that satisfies criteria
+        # Select the lon/lat of the glacier
+        glac_lonlat = np.zeros((1,2))
+        glac_lonlat[:] = ds_cal_all_wnnbrs.loc[glac,['CenLon','CenLat']].values
+        # Append the lon/lat
+        glac_lonlat_wcal = np.append(glac_lonlat, ds_cal.loc[:,['CenLon','CenLat']].values, axis=0)
+        # Calculate nearest neighbors (set neighbors + 1 to account for itself)
+        nbrs = NearestNeighbors(n_neighbors=n_nbrs+1, algorithm='brute').fit(glac_lonlat_wcal)
+        distances_raw, indices_raw = nbrs.kneighbors(glac_lonlat_wcal)
+        # Select glacier (row 0) and remove itself (col 0), so left with indices for nearest neighbors
+        indices_raw2 = indices_raw[0,:][indices_raw[0,:] > 0] - 1
+        indices = np.array([cal_dict[n] for n in indices_raw2])
+        # Add indices to columns
+        ds_cal_all_wnnbrs.loc[glac, nbr_idx_cols] = indices            
+        
+        # Nearest neighbors: mass balance envelope
+        nbrs_data = np.zeros((len(nbr_idx_cols),4))
+        #  Col 0 - index count
+        #  Col 1 - index value
+        #  Col 2 - MB
+        #  Col 3 - MB modeled using neighbor's parameter
+        nbrs_data[:,0] = np.arange(1,len(nbr_idx_cols)+1) 
+        nbrs_data[:,1] = ds_cal_all_wnnbrs.loc[glac, nbr_idx_cols].values.astype(int)
+        nbrs_data[:,2] = ds_cal_all_wnnbrs.loc[nbrs_data[:,1], input.mbclim_cn]
+        mb_nbrs_mean = nbrs_data[:,2].mean()
+        mb_nbrs_std = nbrs_data[:,2].std()
+        mb_envelope_lower = mb_nbrs_mean - mb_nbrs_std
+        mb_envelope_upper = mb_nbrs_mean + mb_nbrs_std
+    
+        # Glacier properties
+        glac_idx = main_glac_rgi.loc[glac,'O1Index']
+        glac_zmed = main_glac_rgi.loc[glac,'Zmed']
+    
+        # Set nbr_idx_count to -1, since adds 1 at the start        
+        nbr_idx_count = -1
+        # Loop through nearest neighbors until find set of model parameters that returns MB in MB envelope
+        # Break loop used to exit loop if unable to find parameter set that satisfies criteria
 #        break_while_loop = False
 #        while break_while_loop == False:
 #            # Nearest neighbor index

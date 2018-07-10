@@ -356,6 +356,8 @@ cal_mb_filedict = {
                    15: 'geodetic_glacwide_DShean20171211_15_SouthAsiaEast.csv'}
 # RGIId column name
 cal_rgi_colname = 'RGIId'
+# Climatic mass balance column name (used in calibration and select_nnbr)
+mbclim_cn = 'mbclim_mwe'
 # Mass balance column name
 massbal_colname = 'mb_mwea'
 # Mass balance uncertainty column name

@@ -34,11 +34,11 @@ import class_mbdata
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-#rgi_glac_number = 'all'
+rgi_glac_number = 'all'
 #rgi_glac_number = ['03733']
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
-rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
+#rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
 #rgi_glac_number = ['03591']
 #rgi_glac_number = ['03734']
@@ -168,8 +168,8 @@ def main(list_packed_vars):
         
         
         for glac in range(main_glac_rgi.shape[0]):
-#            if glac%200 == 0:
-#                print(count,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
+            if glac%200 == 0:
+                print(count,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
 #            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
             
             # Set model parameters
@@ -534,17 +534,17 @@ def main(list_packed_vars):
                     (glac_bin_massbalclim * glac_bin_area_annual[:, 0][:,np.newaxis]).sum() / 
                     glac_bin_area_annual[:, 0].sum())
             
-            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-            print('precfactor:', modelparameters[2])
-            print('precgrad:', modelparameters[3])
-            print('ddfsnow:', modelparameters[4])
-            print('ddfice:', modelparameters[5])
-            print('tempchange:', modelparameters[7])
-            print('calround:', calround)
-            print('modeled mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'model'].values)
-            print('measured mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'obs'].values)
-            print('zscore:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'zscore'].values)
-            print(' ')
+#            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+#            print('precfactor:', modelparameters[2])
+#            print('precgrad:', modelparameters[3])
+#            print('ddfsnow:', modelparameters[4])
+#            print('ddfice:', modelparameters[5])
+#            print('tempchange:', modelparameters[7])
+#            print('calround:', calround)
+#            print('modeled mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'model'].values)
+#            print('measured mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'obs'].values)
+#            print('zscore:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'zscore'].values)
+#            print(' ')
             
         # ===== EXPORT OUTPUT =====
         # Export (i) main_glac_rgi w optimized model parameters and glacier-wide climatic mass balance, 
@@ -553,7 +553,7 @@ def main(list_packed_vars):
         main_glac_output = main_glac_rgi.copy()
         main_glac_modelparamsopt_pd = pd.DataFrame(main_glac_modelparamsopt, columns=input.modelparams_colnames)
         main_glac_modelparamsopt_pd.index = main_glac_rgi.index.values
-        main_glacwide_mbclim_pd = pd.DataFrame(main_glacwide_mbclim, columns=['mbclim_mwe'])
+        main_glacwide_mbclim_pd = pd.DataFrame(main_glacwide_mbclim, columns=[input.mbclim_cn])
         main_glac_output = pd.concat([main_glac_output, main_glac_modelparamsopt_pd, main_glacwide_mbclim_pd], axis=1)
         
         # Export output
