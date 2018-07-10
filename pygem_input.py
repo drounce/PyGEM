@@ -281,7 +281,7 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 #%% CALIBRATION DATA (05/30/2018)
 #  for each mass balance dataset, store the parameters here and add to the class
 
-# Shean glacier-wide geodetic mass balance
+# ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/'
 shean_fn = 'hma_mb_20171211_1343.csv'
 shean_rgi_glacno_cn = 'RGIId'
@@ -293,7 +293,7 @@ shean_area_cn = 'area_m2'
 shean_vol_cn = 'mb_m3wea'
 shean_vol_err_cn = 'mb_m3wea_sigma'
 
-# WGMS data
+# ===== WGMS =====
 wgms_datasets = ['wgms_d', 'wgms_ee']
 #wgms_datasets = ['wgms_d']
 wgms_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
@@ -369,6 +369,20 @@ massbal_time2 = 'year2'
 
 # Calibration output filename prefix (grid search)
 calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
+
+#%% TRANSFER FUNCTIONS
+# Slope of line of best fit for parameter vs. median elevation
+#  These are derived from run_preprocessing.py option_parameter_relationships
+#  If the relationship is not significant, then set the slope to 0
+tempchange_lobf_property_cn = 'Zmed'
+tempchange_lobf_slope = 0.0028212
+precfactor_lobf_property_cn = 'Zmed'
+precfactor_lobf_slope = -0.004693
+ddfsnow_lobf_property_cn = 'Zmed'
+ddfsnow_lobf_slope = 1.112333e-06
+precgrad_lobf_property_cn = 'Zmed'
+precgrad_lobf_slope = 0
+
 
 #%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
 option_bias_adjustment = 1

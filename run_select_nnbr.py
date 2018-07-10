@@ -26,7 +26,6 @@ endyear = 2015
 spinupyears = 5
 # Calibrated model parameters full filename (needs to include 'all' glaciers in a region)
 cal_modelparams_fullfn = input.main_directory + '/../Output/20180710_cal_modelparams_opt1_R15_ERA-Interim_1995_2015.csv'
-#cal_modelparams_fullfn = input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv'
 # Number of nearest neighbors
 n_nbrs = 20
 # Option to remove marine-terminating glaciers
@@ -137,9 +136,9 @@ for glac in range(main_glac_rgi.shape[0]):
     # Select nnbrs only for uncalibrated glaciers
     if ds_cal_all.loc[glac, input.modelparams_colnames].isnull().values.any() == True:
         # Print every 100th glacier
-        if glac%500 == 0:
-            print(main_glac_rgi.loc[glac,'RGIId'])
-#        print(main_glac_rgi.loc[glac,'RGIId'])    
+#        if glac%500 == 0:
+#            print(main_glac_rgi.loc[glac,'RGIId'])
+        print(main_glac_rgi.loc[glac,'RGIId'])    
         # Select the lon/lat of the glacier
         glac_lonlat = np.zeros((1,2))
         glac_lonlat[:] = ds_cal_all.loc[glac,['CenLon','CenLat']].values
@@ -168,10 +167,6 @@ for glac in range(main_glac_rgi.shape[0]):
         mb_envelope_lower = mb_nbrs_mean - mb_nbrs_std
         mb_envelope_upper = mb_nbrs_mean + mb_nbrs_std
     
-        # Glacier properties
-        glac_idx = main_glac_rgi.loc[glac,'O1Index']
-        glac_zmed = main_glac_rgi.loc[glac,'Zmed']
-    
         # Set nbr_idx_count to -1, since adds 1 at the start        
         nbr_idx_count = -1
         # Loop through nearest neighbors until find set of model parameters that returns MB in MB envelope
@@ -189,13 +184,25 @@ for glac in range(main_glac_rgi.shape[0]):
                 nbr_idx_count = np.where(mb_abs == mb_abs.min())[0][0]    
             # Nearest neighbor index value
             nbr_idx = nbrs_data[nbr_idx_count,1]
-            # Model parameters
+            # Model parameters - apply transfer function adjustments
             modelparameters = ds_cal_all.loc[nbr_idx, input.modelparams_colnames]
-            nbr_zmed = ds_cal_all.loc[nbr_idx,'Zmed']
-            modelparameters['tempchange'] = modelparameters['tempchange'] + 0.002594 * (glac_zmed - nbr_zmed)
-            modelparameters['precfactor'] = modelparameters['precfactor'] - 0.0005451 * (glac_zmed - nbr_zmed)
-            modelparameters['ddfsnow'] = modelparameters['ddfsnow'] + 1.31e-06 * (glac_zmed - nbr_zmed)
+            modelparameters['tempchange'] = (
+                    modelparameters['tempchange'] + input.tempchange_lobf_slope * 
+                    (main_glac_rgi.loc[glac, input.tempchange_lobf_property_cn] - 
+                     ds_cal_all.loc[nbr_idx, input.tempchange_lobf_property_cn]))
+            modelparameters['precfactor'] = (
+                    modelparameters['precfactor'] + input.precfactor_lobf_slope * 
+                    (main_glac_rgi.loc[glac, input.precfactor_lobf_property_cn] - 
+                     ds_cal_all.loc[nbr_idx, input.precfactor_lobf_property_cn]))
+            modelparameters['ddfsnow'] = (
+                    modelparameters['ddfsnow'] + input.ddfsnow_lobf_slope * 
+                    (main_glac_rgi.loc[glac, input.ddfsnow_lobf_property_cn] - 
+                     ds_cal_all.loc[nbr_idx, input.ddfsnow_lobf_property_cn]))
             modelparameters['ddfice'] = modelparameters['ddfsnow'] / input.ddfsnow_iceratio
+            modelparameters['precgrad'] = (
+                    modelparameters['precgrad'] + input.precgrad_lobf_slope * 
+                    (main_glac_rgi.loc[glac, input.precgrad_lobf_property_cn] - 
+                     ds_cal_all.loc[nbr_idx, input.precgrad_lobf_property_cn]))
             # Select subsets of data
             glacier_rgi_table = main_glac_rgi.loc[glac, :]
             glacier_gcm_elev = gcm_elev[glac]
@@ -206,21 +213,29 @@ for glac in range(main_glac_rgi.shape[0]):
             glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
             icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
             width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-            # MASS BALANCE
-            # Run the mass balance function (spinup years have been removed from output)
-            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
-             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-                                           glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=1))
-            # Glacier-wide climatic mass balance [m w.e.] based on initial area
-            mbclim_mwe = (
-                    (glac_bin_massbalclim * glac_bin_area_annual[:, 0][:,np.newaxis]).sum() / 
-                    glac_bin_area_annual[:, 0].sum())
-            nbrs_data[nbr_idx_count,3] = mbclim_mwe
+            # Avoid error where there is no glacier/ice thickness - give it parameters to avoid issues in simulation
+            if glacier_area_t0.max() == 0:
+                break_while_loop = True
+                nbr_idx = nbrs_data[0,1]
+                mbclim_mwe = np.nan
+            # As long as there is ice present, then select parameters from nearest neighbors
+            else:
+                # MASS BALANCE
+                # Run the mass balance function (spinup years have been removed from output)
+                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
+                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               option_areaconstant=1))
+                # Glacier-wide climatic mass balance [m w.e.] based on initial area
+                mbclim_mwe = (
+                        (glac_bin_massbalclim * glac_bin_area_annual[:, 0][:,np.newaxis]).sum() / 
+                        glac_bin_area_annual[:, 0].sum())
+                nbrs_data[nbr_idx_count,3] = mbclim_mwe
            
             # Prior to breaking loop print RGIId and z score
             if break_while_loop == True:
