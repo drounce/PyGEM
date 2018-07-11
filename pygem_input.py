@@ -78,7 +78,7 @@ tempsnow = 1.0
 #  facilitates calibration similar to Huss and Hock (2015)
 
 # Model parameters filepath, filename, and column names
-modelparams_filepath = main_directory + '/../Calibration_datasets/'
+modelparams_filepath = main_directory + '/../HiMAT/Calibration_datasets/'
 #modelparams_filename = 'calparams_R15_20180306_nearest.csv'
 #modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
 #modelparams_filename = 'calparams_R15_20180403_nearest.csv'
@@ -98,18 +98,18 @@ grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
 #  fp = 'filepath'
 #  fn = 'filename'
 # ERAINTERIM CLIMATE DATA (Reference data)
-eraint_fp_var = main_directory + '/../Climate_data/ERA_Interim/'
-eraint_fp_fx = main_directory + '/../Climate_data/ERA_Interim/'
+eraint_fp_var = main_directory + '/../HiMAT/Climate_data/ERA_Interim/'
+eraint_fp_fx = main_directory + '/../HiMAT/Climate_data/ERA_Interim/'
 eraint_temp_fn = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
 eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
 eraint_elev_fn = 'ERAInterim_geopotential.nc'
 eraint_lr_fn = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
 # CMIP5 CLIMATE DATA
-cmip5_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
+cmip5_fp_var_prefix = main_directory + '/../HiMAT/Climate_data/cmip5/'
 cmip5_fp_var_ending = '_r1i1p1_monNG/'
-cmip5_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
+cmip5_fp_fx_prefix = main_directory + '/../HiMAT/Climate_data/cmip5/'
 cmip5_fp_fx_ending = '_r0i0p0_fx/'
-cmip5_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
+cmip5_fp_lr = main_directory + '/../HiMAT/Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
 cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 
 # Lapse rate option
@@ -150,7 +150,11 @@ option_glacier_selection = 1
 #  Option 2 - glaciers/regions selected via shapefile
 #  Option 3 - glaciers/regions selected via new table (other inventory)
 # Filepath for RGI files
-rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
+
+rgi_filepath = main_directory + '/../HiMAT/RGI/rgi60/00_rgi60_attribs/'
+#rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
+#/Users/kitreatakataglushkoff/Documents/All_Documents/SUMMER_2018/Glaciology/HiMAT/RGI/rgi60/00_rgi60_attribs
+
 # Column names
 rgi_lat_colname = 'CenLat'
 rgi_lon_colname = 'CenLon'
@@ -177,7 +181,7 @@ rgi_dict = {
 # Elevation band height [m]
 binsize = 10
 # Filepath for the hypsometry files
-hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
+hyps_filepath = main_directory + '/../HiMAT/IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of hypsometry filenames 
 # (Files from Matthias Huss should be manually pre-processed to be 'RGI-ID', 'Cont_range', and bins starting at 5)
 hyps_filedict = {
@@ -194,7 +198,7 @@ hyps_filedict = {
 # Extra columns in hypsometry data that will be dropped
 hyps_colsdrop = ['RGI-ID','Cont_range']
 # Filepath for the ice thickness files
-thickness_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
+thickness_filepath = main_directory + '/../HiMAT/IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of thickness filenames
 thickness_filedict = {
                 1:  'thickness_01_Huss_Alaska_10m.csv',
@@ -210,7 +214,7 @@ thickness_filedict = {
 # Extra columns in ice thickness data that will be dropped
 thickness_colsdrop = ['RGI-ID','Cont_range']
 # Filepath for the width files
-width_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
+width_filepath = main_directory + '/../HiMAT/IceThickness_Huss/bands_10m_DRR/'
 # Dictionary of thickness filenames
 width_filedict = {
                 1:  'width_01_Huss_Alaska_10m.csv',
@@ -281,7 +285,7 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 #  for each mass balance dataset, store the parameters here and add to the class
 
 # Shean glacier-wide geodetic mass balance
-shean_fp = main_directory + '/../DEMs/'
+shean_fp = main_directory + '/../HiMAT/DEMs/'
 shean_fn = 'hma_mb_20171211_1343.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
@@ -295,7 +299,7 @@ shean_vol_err_cn = 'mb_m3wea_sigma'
 # WGMS data
 wgms_datasets = ['wgms_d', 'wgms_ee']
 #wgms_datasets = ['wgms_d']
-wgms_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
+wgms_fp = main_directory + '/../HiMAT/WGMS/DOI-WGMS-FoG-2018-06/'
 wgms_obs_type_cn = 'obs_type'
 # WGMS lookup tables information
 wgms_lookup_fn = 'WGMS-FoG-2018-06-AA-GLACIER-ID-LUT.csv'
@@ -321,7 +325,7 @@ wgms_ee_period_cn = 'period'
 
 
 
-brun_fp = main_directory + '/../DEMs/'
+brun_fp = main_directory + '/../HiMAT/DEMs/'
 #  NEED TO FINISH SETTING UP FOR BRUN AND MAUER
 
 # Limit potential mass balance for future simulations option
@@ -341,7 +345,7 @@ zscore_tolerance_single = 0.1
 
 # Geodetic mass balance dataset
 # Filepath
-cal_mb_filepath = main_directory + '/../DEMs/'
+cal_mb_filepath = main_directory + '/../HiMAT/DEMs/'
 # Filename
 cal_mb_filedict = {
                    13: 'geodetic_glacwide_DShean20171211_13_CentralAsia.csv',
@@ -367,8 +371,8 @@ option_bias_adjustment = 1
 #  Option 1 - bias adjustments using new technique 
 #  Option 2 - bias adjustments using Huss and Hock [2015] methods
 #  Option 3 - bias adjustments using monthly temp and prec
-biasadj_data_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_1995_2100/'
-biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
+biasadj_data_filepath = main_directory + '/../HiMAT/Climate_data/cmip5/R15_rcp26_1995_2100/'
+biasadj_params_filepath = main_directory + '/../HiMAT/Climate_data/cmip5/bias_adjusted_1995_2100/'
 biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
 biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
 
@@ -462,7 +466,7 @@ terminus_percentage = 20
 
 #%% OUTPUT OPTIONS
 # Output filepath
-output_filepath = main_directory + '/../Output/'
+output_filepath = main_directory + '/../HiMAT/Output/'
 # Netcdf filename prefix
 netcdf_fn_prefix = 'PyGEM_R'
 # Netcdf output package number
