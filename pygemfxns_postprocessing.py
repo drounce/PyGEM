@@ -35,6 +35,8 @@ option_geodeticMB_loadcompare = 0
 option_check_biasadj = 0
 option_parameter_relationships = 1
 
+option_savefigs = 1
+
 #%%===== PLOT FUNCTIONS =============================================================================================
 def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, ylabel, colormap, east, west, south, north, 
                    xtick=1, 
@@ -121,56 +123,71 @@ if option_parameter_relationships == 1:
     # Load csv
     ds = pd.read_csv(input.main_directory + '/../Output/20180710_cal_modelparams_opt1_R15_ERA-Interim_1995_2015.csv', 
                      index_col=0)
+    property_cn = 'Zmed'
     
     # Relationship between model parameters and glacier properties
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(ds['Zmed'], ds['tempchange'])
+    plt.figure(figsize=(6,10))
+    plt.subplots_adjust(wspace=0.05, hspace=0.05)
+    plt.suptitle('Model parameters vs. ' + property_cn, y=0.94)
+    # Temperature change
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(ds[property_cn], ds['tempchange'])
     xplot = np.arange(4000,6500)
     line = slope*xplot+intercept
-    plt.plot(ds['Zmed'], ds['tempchange'], 'o', mfc='none', mec='black')
+    plt.subplot(4,1,1)
+    plt.plot(ds[property_cn], ds['tempchange'], 'o', mfc='none', mec='black')
     plt.plot(xplot, line)
-    plt.xlabel('Zmed [masl]', size=12)
-    plt.ylabel('tempchange [degC]', size=12)
-    plt.legend()
-    plt.show()
-    equation = 'tempchange = ' + str(round(slope,7)) + ' * Zmed + ' + str(round(intercept,5)) 
+    plt.xlabel(property_cn + ' [masl]', size=10)
+    plt.ylabel('tempchange \n[degC]', size=12)
+    equation = 'tempchange = ' + str(round(slope,7)) + ' * ' + property_cn + ' + ' + str(round(intercept,5))
+    plt.text(0.15, 0.85, equation, fontsize=12, transform=plt.gcf().transFigure, 
+             bbox=dict(facecolor='white', edgecolor='none', alpha=0.85))
     print(equation, ' , R2 =', round(r_value**2,2))
-    
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(ds['Zmed'], ds['precfactor'])
+    # Precipitation factor
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(ds[property_cn], ds['precfactor'])
     xplot = np.arange(4000,6500)
     line = slope*xplot+intercept
-    plt.plot(ds['Zmed'], ds['precfactor'], 'o', mfc='none', mec='black')
+    plt.subplot(4,1,2)
+    plt.plot(ds[property_cn], ds['precfactor'], 'o', mfc='none', mec='black')
     plt.plot(xplot, line)
-    plt.xlabel('Zmed [masl]', size=12)
-    plt.ylabel('precfactor [-]', size=12)
-    plt.legend()
-    plt.show()
-    equation = 'precfactor = ' + str(round(slope,7)) + ' * Zmed + ' + str(round(intercept,5)) 
+    plt.xlabel(property_cn + ' [masl]', size=12)
+    plt.ylabel('precfactor \n[-]', size=12)
+    equation = 'precfactor = ' + str(round(slope,7)) + ' * ' + property_cn + ' + ' + str(round(intercept,5)) 
+    plt.text(0.15, 0.65, equation, fontsize=12, transform=plt.gcf().transFigure, 
+             bbox=dict(facecolor='white', edgecolor='none', alpha=0.85))
     print(equation, ' , R2 =', round(r_value**2,2))
-    
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(ds['Zmed'], ds['ddfsnow'])
+    # Degree day factor of snow    
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(ds[property_cn], ds['ddfsnow'])
     xplot = np.arange(4000,6500)
     line = slope*xplot+intercept
-    plt.plot(ds['Zmed'], ds['ddfsnow'], 'o', mfc='none', mec='black')
+    plt.subplot(4,1,3)
+    plt.plot(ds[property_cn], ds['ddfsnow'], 'o', mfc='none', mec='black')
     plt.plot(xplot, line)
-    plt.xlabel('Zmed [masl]', size=12)
-    plt.ylabel('ddfsnow [mwe d-1 degC-1]', size=12)
-    plt.legend()
-    plt.show()
-    equation = 'ddfsnow = ' + str(round(slope,12)) + ' * Zmed + ' + str(round(intercept,5)) 
+    plt.xlabel(property_cn + ' [masl]', size=12)
+    plt.ylabel('ddfsnow \n[mwe d-1 degC-1]', size=12)
+#    plt.legend()
+    equation = 'ddfsnow = ' + str(round(slope,12)) + ' * ' + property_cn + ' + ' + str(round(intercept,5)) 
+    plt.text(0.15, 0.45, equation, fontsize=12, transform=plt.gcf().transFigure, 
+             bbox=dict(facecolor='white', edgecolor='none', alpha=0.85))
     print(equation, ' , R2 =', round(r_value**2,2))  
-    
-    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(ds['Zmed'], ds['precgrad'])
+    # Precipitation gradient
+    slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(ds[property_cn], ds['precgrad'])
     xplot = np.arange(4000,6500)
     line = slope*xplot+intercept
-    plt.plot(ds['Zmed'], ds['precgrad'], 'o', mfc='none', mec='black')
+    plt.subplot(4,1,4)
+    plt.plot(ds[property_cn], ds['precgrad'], 'o', mfc='none', mec='black')
     plt.plot(xplot, line)
-    plt.xlabel('Zmed [masl]', size=12)
-    plt.ylabel('precgrad [% m-1]', size=12)
-    plt.legend()
-    plt.show()
-    equation = 'precgrad = ' + str(round(slope,12)) + ' * Zmed + ' + str(round(intercept,5)) 
+    plt.xlabel(property_cn + ' [masl]', size=12)
+    plt.ylabel('precgrad \n[% m-1]', size=12)
+#    plt.legend()
+    equation = 'precgrad = ' + str(round(slope,12)) + ' * ' + property_cn + ' + ' + str(round(intercept,5)) 
+    plt.text(0.15, 0.25, equation, fontsize=12, transform=plt.gcf().transFigure, 
+             bbox=dict(facecolor='white', edgecolor='none', alpha=0.85))
     print(equation, ' , R2 =', round(r_value**2,2))  
-    
+    # Plot and save figure
+    if option_savefigs == 1:
+        plt.savefig(input.output_filepath + 'figures/' + 'modelparameters_vs_' + property_cn + '.png', 
+                    bbox_inches='tight')
+    plt.show()
 
 #%% ===== PLOTTING: Future simulations =====
 if option_plot_futuresim == 1:
