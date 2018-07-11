@@ -124,23 +124,24 @@ option_lapserate_fromgcm = 1
 #  Option 2: import prepared csv files (saves time)
 # Reference climate data filepath
 #filepath_ref = main_directory + '/../Climate_data/ERA_Interim/'
+# THESE ARE USED IN MODEL TESTING TO SPEED UP THE LOADING
 # Dictionary of filenames for temperature, precipitation, lapse rate, and elevation data
-#gcmtemp_filedict = {
-#                    13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
-#                    14: 'csv_ERAInterim_temp_19952015_14_SouthAsiaWest.csv',
-#                    15: 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv'}
-#gcmprec_filedict = {
-#                    13: 'csv_ERAInterim_prec_19952015_13_CentralAsia.csv',
-#                    14: 'csv_ERAInterim_prec_19952015_14_SouthAsiaWest.csv',
-#                    15: 'csv_ERAInterim_prec_19952015_15_SouthAsiaEast.csv'}
-#gcmelev_filedict = {
-#                    13: 'csv_ERAInterim_elev_13_CentralAsia.csv',
-#                    14: 'csv_ERAInterim_elev_14_SouthAsiaWest.csv',
-#                    15: 'csv_ERAInterim_elev_15_SouthAsiaEast.csv'}
-#gcmlapserate_filedict = {
-#                         13: 'csv_ERAInterim_lapserate_19952015_13_CentralAsia.csv',
-#                         14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
-#                         15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
+gcmtemp_filedict = {
+                    13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
+                    14: 'csv_ERAInterim_temp_19952015_14_SouthAsiaWest.csv',
+                    15: 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv'}
+gcmprec_filedict = {
+                    13: 'csv_ERAInterim_prec_19952015_13_CentralAsia.csv',
+                    14: 'csv_ERAInterim_prec_19952015_14_SouthAsiaWest.csv',
+                    15: 'csv_ERAInterim_prec_19952015_15_SouthAsiaEast.csv'}
+gcmelev_filedict = {
+                    13: 'csv_ERAInterim_elev_13_CentralAsia.csv',
+                    14: 'csv_ERAInterim_elev_14_SouthAsiaWest.csv',
+                    15: 'csv_ERAInterim_elev_15_SouthAsiaEast.csv'}
+gcmlapserate_filedict = {
+                         13: 'csv_ERAInterim_lapserate_19952015_13_CentralAsia.csv',
+                         14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
+                         15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
 # ===== RGI DATA =====
@@ -280,7 +281,7 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 #%% CALIBRATION DATA (05/30/2018)
 #  for each mass balance dataset, store the parameters here and add to the class
 
-# Shean glacier-wide geodetic mass balance
+# ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/'
 shean_fn = 'hma_mb_20171211_1343.csv'
 shean_rgi_glacno_cn = 'RGIId'
@@ -292,10 +293,11 @@ shean_area_cn = 'area_m2'
 shean_vol_cn = 'mb_m3wea'
 shean_vol_err_cn = 'mb_m3wea_sigma'
 
-# WGMS data
+# ===== WGMS =====
 wgms_datasets = ['wgms_d', 'wgms_ee']
 #wgms_datasets = ['wgms_d']
 wgms_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
+wgms_rgi_glacno_cn = 'glacno'
 wgms_obs_type_cn = 'obs_type'
 # WGMS lookup tables information
 wgms_lookup_fn = 'WGMS-FoG-2018-06-AA-GLACIER-ID-LUT.csv'
@@ -306,12 +308,17 @@ rgiv5_fn_prefix = main_directory + '/../RGI/00_rgi50_attribs/' + '*'
 # WGMS (d) geodetic mass balance information
 wgms_d_fn = 'WGMS-FoG-2018-06-D-CHANGE.csv'
 wgms_d_fn_preprocessed = 'wgms_d_rgiv6_preprocessed.csv'
+wgms_d_thickness_chg_cn = 'THICKNESS_CHG'
+wgms_d_thickness_chg_err_cn = 'THICKNESS_CHG_UNC'
+wgms_d_volume_chg_cn = 'VOLUME_CHANGE'
+wgms_d_volume_chg_err_cn = 'VOLUME_CHANGE_UNC'
+wgms_d_z1_cn = 'LOWER_BOUND'
+wgms_d_z2_cn = 'UPPER_BOUND'
 
 # WGMS (e/ee) glaciological mass balance information
 wgms_e_fn = 'WGMS-FoG-2018-06-E-MASS-BALANCE-OVERVIEW.csv'
 wgms_ee_fn = 'WGMS-FoG-2018-06-EE-MASS-BALANCE.csv'
 wgms_ee_fn_preprocessed = 'wgms_ee_rgiv6_preprocessed.csv' 
-wgms_ee_rgi_glacno_cn = 'glacno'
 wgms_ee_mb_cn = 'BALANCE'
 wgms_ee_mb_err_cn = 'BALANCE_UNC'
 wgms_ee_t1_cn = 'YEAR'
@@ -349,6 +356,8 @@ cal_mb_filedict = {
                    15: 'geodetic_glacwide_DShean20171211_15_SouthAsiaEast.csv'}
 # RGIId column name
 cal_rgi_colname = 'RGIId'
+# Climatic mass balance column name (used in calibration and select_nnbr)
+mbclim_cn = 'mbclim_mwe'
 # Mass balance column name
 massbal_colname = 'mb_mwea'
 # Mass balance uncertainty column name
@@ -360,6 +369,20 @@ massbal_time2 = 'year2'
 
 # Calibration output filename prefix (grid search)
 calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
+
+#%% TRANSFER FUNCTIONS
+# Slope of line of best fit for parameter vs. median elevation
+#  These are derived from run_preprocessing.py option_parameter_relationships
+#  If the relationship is not significant, then set the slope to 0
+tempchange_lobf_property_cn = 'Zmed'
+tempchange_lobf_slope = 0.0028212
+precfactor_lobf_property_cn = 'Zmed'
+precfactor_lobf_slope = -0.004693
+ddfsnow_lobf_property_cn = 'Zmed'
+ddfsnow_lobf_slope = 1.112333e-06
+precgrad_lobf_property_cn = 'Zmed'
+precgrad_lobf_slope = 0
+
 
 #%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
 option_bias_adjustment = 1
