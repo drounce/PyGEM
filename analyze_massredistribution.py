@@ -165,19 +165,19 @@ for n in range(len(binnedcsv_files)):
 bin_high = 1000
 bin_low = 0
 
-
 #note: possible main_glac_rgi_  testing_var str: CenLon, CenLat, Area, Zmin, Zmax, 
 #                        Zmed, Slope, Aspect, Lmax, Form, TermType, PercDebris
 testing_var = 'Slope'
 
-#Lower 20% of variable range
+#(*kitrea currently working on this area, and has commented out things that 
+# would interfere with David's elevation bin-size changes )
 
+#Lower 20% of variable range 
 
 
 #Upper 20% of variable range
-upper_bin_high = np.ceil((main_glac_rgi[testing_var].max()) #the upper int of the max
-lower_bin_high = 
-
+#upper_bin_high = np.ceil((main_glac_rgi[testing_var].max()) #the upper int of the max
+#lower_bin_high = 
 
 print('Range of '+ testing_var+ ': (' + str(main_glac_rgi[testing_var].min()) + ', ' + str(main_glac_rgi[testing_var].max()) + ')')
 
@@ -186,7 +186,6 @@ subset_indices = main_glac_rgi[main_glac_rgi[testing_var].between(bin_low,bin_hi
 ds = [ds[x] for x in subset_indices]
 prmtr = 'Reg_' + str(rgi_regionO1)+ '_' + str(bin_low) + '<' + testing_var + '<' + str(bin_high)
 print('These glaciers are based on the parameter, ', prmtr)
-    
 
 
 #%% Plots for a single glacier
