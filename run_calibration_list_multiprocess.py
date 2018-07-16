@@ -39,8 +39,8 @@ import latin_hypercube as lh
 rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
-rgi_glac_number = ['03733']
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = ['03733']
+rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
 #rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
@@ -269,22 +269,59 @@ def main(list_packed_vars):
 
             return model
 
-        def get_glacier_data(glacier_number=3733):
-            #TODO: Document this function properly
+
+        def get_glacier_data(glacier_number):
             '''
             Returns the mass balance and error estimate for
-            the glacier given the filepath of the DEM file and
+            the glacier from David Shean's DEM datagiven the filepath of the DEM file and
             the glacier number in the for <glacier_region>.<number>
-            '''
-            csv_path = '../DEMs/hma_mb_20171211_1343.csv'
-            observed_data = pd.read_csv(csv_path)
-            #there is definitely a better way to do this
-            observed_data['glacno'] = ((observed_data['RGIId'] % 1) * 10**5).round(0).astype(int)
-            index =  observed_data.index[observed_data['glacno']==glacier_number].tolist()[0]
-            mass_bal = observed_data['mb_mwea'][index]
-            error = observed_data['mb_mwea_sigma'][index]
 
-            return mass_bal, error, index
+
+            Parameters
+            ----------
+            glacier_number : float
+                RGI Id of the glacier for which data is to be
+                returned. Should be a number with a one or two
+                digit component before the decimal place
+                signifying glacier region, and 5 numbers after
+                the decimal which represent glacier number.
+                Example: 15.03733 for glacier 3733 in region 15
+
+
+            Returns
+            -------
+            (tuple)
+            massbal : float
+                avverage annual massbalance over david sheans's
+                dataset
+            stdev : float
+                estimate error (standard deviation) of measurement
+            index : int
+                index of glacier in csv file for debugging
+
+            '''
+
+            #convert input to float
+            glacier_number = float(glacier_number)
+
+            # upload csv file of DEM data and convert to 
+            # dataframe
+            csv_path = '../DEMs/hma_mb_20171211_1343.csv'
+            df = pd.read_csv(csv_path)
+
+            # locate the row corresponding to the glacier
+            # with the given RGIId number
+            row = df.loc[round(df['RGIId'], 5) == glacier_number]
+
+            # get massbalance, measurement error (standard
+            # deviation) and index of the 
+            # glacier (index for debugging purposes)
+            index = row.index[0]
+            massbal = row['mb_mwea'][index]
+            stdev = row['mb_mwea_sigma'][index]
+
+            return massbal, stdev, index
+
 
 
         # === Begin MCMC process ===
@@ -295,6 +332,7 @@ def main(list_packed_vars):
 #                print(count,':',
 #                      main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
             print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
 
             # Set model parameters
             modelparameters = [input.lrgcm, input.lrglac, input.precfactor,
@@ -316,11 +354,17 @@ def main(list_packed_vars):
             # find the observed mass balance and measurement error
             # from David Shean's geodetic mass balance data (this
             # is computed from a period on early 2000 to late 2015)
-            # TODO: Find a way to get the glacier number
-            observed_massbal, observed_error, index = get_glacier_data()
+            glacier_RGIId = main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float']
 
             # debug
-            print('observed_massbal:', observed_massbal, 'observed_error:', observed_error)
+            print('RGIId:', glacier_RGIId, 'type:', type(glacier_RGIId))
+
+            observed_massbal, observed_error, index = get_glacier_data(glacier_RGIId)
+
+            # debug
+            print('observed_massbal:', observed_massbal,
+                  'observed_error:', observed_error,
+                  'index:', index)
 
             # ==== Define the Markov Chain Monte Carlo Model =============
 
