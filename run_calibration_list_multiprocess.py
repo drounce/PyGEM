@@ -38,8 +38,8 @@ import latin_hypercube as lh
 # Glacier selection
 rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473']
-#rgi_glac_number = ['03733']
+#rgi_glac_number = ['03473']
+rgi_glac_number = ['03733']
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
 #rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
@@ -81,14 +81,14 @@ def getparser():
     return parser
 
 
-def main(list_packed_vars):    
+def main(list_packed_vars):
     # Unpack variables
     count = list_packed_vars[0]
     chunk = list_packed_vars[1]
     chunk_size = list_packed_vars[2]
     main_glac_rgi_all = list_packed_vars[3]
     gcm_name = list_packed_vars[4]
-    
+
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
@@ -181,39 +181,49 @@ def main(list_packed_vars):
             Parameters
             ----------
             step : str
-                Choice of step method to use. default metropolis-hastings
+                Choice of step method to use. default
+                metropolis-hastings
             dbname : str
-                Choice of database name the sample should be saved to.
-                Default name is 'trial.pickle'
+                Choice of database name the sample should be
+                saved to. Default name is 'trial.pickle'
             iterations : int
                 Total number of iterations to do
             burn : int
-                Variables will not be tallied until this many iterations are complete, default 0
+                Variables will not be tallied until this many
+                iterations are complete, default 0
             thin : int
-                Variables will be tallied at intervals of this many iterations, default 1
+                Variables will be tallied at intervals of this many
+                iterations, default 1
             tune_interval : int
-                Step methods will be tuned at intervals of this many iterations, default 1000
+                Step methods will be tuned at intervals of this many
+                iterations, default 1000
             tune_throughout : boolean
-                If true, tuning will continue after the burnin period (True); otherwise tuning
-                will halt at the end of the burnin period.
+                If true, tuning will continue after the burnin period;
+                otherwise tuning will halt at the end of the burnin
+                period.
             save_interval : int or None
-                If given, the model state will be saved at intervals of this many iterations
+                If given, the model state will be saved at intervals
+                of this many iterations
             verbose : boolean
             progress_bar : boolean
                 Display progress bar while sampling.
             burn_till_tuned: boolean
-                If True the Sampler would burn samples until all step methods are tuned.
-                A tuned step methods is one that was not tuned for the last `stop_tuning_after` tuning intervals.
-                The burn-in phase will have a minimum of 'burn' iterations but could be longer if
-                tuning is needed. After the phase is done the sampler will run for another
-                (iter - burn) iterations, and will tally the samples according to the 'thin' argument.
-                This means that the total number of iteration is update throughout the sampling
-                procedure.
-                If burn_till_tuned is True it also overrides the tune_thorughout argument, so no step method
-                will be tuned when sample are being tallied.
+                If True the Sampler would burn samples until all step
+                methods are tuned. A tuned step methods is one that was
+                not tuned for the last `stop_tuning_after` tuning intervals.
+                The burn-in phase will have a minimum of 'burn' iterations
+                but could be longer if tuning is needed. After the phase
+                is done the sampler will run for another (iter - burn)
+                iterations, and will tally the samples according to the
+                'thin' argument. This means that the total number of iteration
+                is update throughout the sampling procedure.
+                If burn_till_tuned is True it also overrides the tune_thorughout
+                argument, so no step method will be tuned when sample are being
+                tallied.
             stop_tuning_after: int
-                the number of untuned successive tuning interval needed to be reach in order for
-                the burn-in phase to be done (If burn_till_tuned is True).
+                the number of untuned successive tuning interval needed to be
+                reach in order for the burn-in phase to be done
+                (If burn_till_tuned is True).
 
 
             Returns
@@ -259,7 +269,7 @@ def main(list_packed_vars):
 
             return model
 
-        def get_glacier_data(glacier_number=3473):
+        def get_glacier_data(glacier_number=3733):
             #TODO: Document this function properly
             '''
             Returns the mass balance and error estimate for
@@ -387,12 +397,28 @@ def main(list_packed_vars):
 
 
             # fit the MCMC model
-            model = run_MCMC()
+            model = run_MCMC(iterations=1000)
 
             #debug
             print(model)
 
+            tempchange = model.trace('tempchange')[:]
+            precfactor = model.trace('precfactor')[:]
+            ddfsnow = model.trace('ddfsnow')[:]
+            massbal = model.trace('massbal')[:]
 
+            # debug
+            print('tempchange', tempchange)
+            print('precfactor', precfactor)
+            print('ddfsnow', ddfsnow)
+            print('massbalance', massbal)
+
+
+            sampling = lh.stratified_sample(tempchange=tempchange, precfactor=precfactor,
+                     ddfsnow=ddfsnow, massbal=massbal, samples=300)
+            mean = np.mean(sampling['massbal'])
+            std = np.std(sampling['massbal'])
+            print('mean:', mean, 'std:', std)
 
 
     # Option 1: mimize mass balance difference using three-step approach to expand solution space
