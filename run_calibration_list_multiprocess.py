@@ -24,6 +24,7 @@ from time import strftime
 import xarray as xr
 import netCDF4 as nc
 from pymc import *
+import pyDOE as pe
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -31,6 +32,7 @@ import pygemfxns_massbalance as massbalance
 import pygemfxns_output as output
 import class_climate
 import class_mbdata
+import latin_hypercube as lh
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
@@ -78,23 +80,6 @@ def getparser():
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
     return parser
 
-def get_glacier_data(glacier_number=3473):
-    #TODO: Document this function properly
-    '''
-    Returns the mass balance and error estimate for
-    the glacier given the filepath of the DEM file and
-    the glacier number in the for <glacier_region>.<number>
-    '''
-    csv_path = '../DEMs/hma_mb_20171211_1343.csv'
-    observed_data = pd.read_csv(csv_path)
-    #there is definitely a better way to do this
-    observed_data['glacno'] = ((observed_data['RGIId'] % 1) * 10**5).round(0).astype(int)
-    index =  observed_data.index[observed_data['glacno']==glacier_number].tolist()[0]
-    mass_bal = observed_data['mb_mwea'][index]
-    error = observed_data['mb_mwea_sigma'][index]
-
-    return mass_bal, error, index
-
 
 def main(list_packed_vars):    
     # Unpack variables
@@ -133,7 +118,7 @@ def main(list_packed_vars):
                                                                           spinupyears=0)
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
-    
+
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()
     for dataset in cal_datasets:
@@ -153,7 +138,7 @@ def main(list_packed_vars):
     main_glac_hyps.reset_index(drop=True, inplace=True)
     main_glac_icethickness.reset_index(drop=True, inplace=True)
     main_glac_width.reset_index(drop=True, inplace=True)
-    
+
     # ===== LOAD CLIMATE DATA =====
     gcm = class_climate.GCM(name=gcm_name)
     # Air temperature [degC]
@@ -178,6 +163,121 @@ def main(list_packed_vars):
     #           and output these sets of parameters and their
     #           corresponding mass balances to be used in the simulations
     if option_calibration == 2:
+
+
+        # ===== Define functions needed for MCMC method
+
+        def run_MCMC(iterations=10, burn=0, thin=1, tune_interval=1000,
+                     tune_throughout=True, save_interval=None,
+                     burn_till_tuned=False, stop_tuning_after=5,
+                     verbose=0, progress_bar=True, dbname=None):
+            """
+            Runs the MCMC algorithm.
+
+            Runs the MCMC algorithm to calibrate the
+            probability distributions of three parameters
+            for the mass balance function.
+
+            Parameters
+            ----------
+            step : str
+                Choice of step method to use. default metropolis-hastings
+            dbname : str
+                Choice of database name the sample should be saved to.
+                Default name is 'trial.pickle'
+            iterations : int
+                Total number of iterations to do
+            burn : int
+                Variables will not be tallied until this many iterations are complete, default 0
+            thin : int
+                Variables will be tallied at intervals of this many iterations, default 1
+            tune_interval : int
+                Step methods will be tuned at intervals of this many iterations, default 1000
+            tune_throughout : boolean
+                If true, tuning will continue after the burnin period (True); otherwise tuning
+                will halt at the end of the burnin period.
+            save_interval : int or None
+                If given, the model state will be saved at intervals of this many iterations
+            verbose : boolean
+            progress_bar : boolean
+                Display progress bar while sampling.
+            burn_till_tuned: boolean
+                If True the Sampler would burn samples until all step methods are tuned.
+                A tuned step methods is one that was not tuned for the last `stop_tuning_after` tuning intervals.
+                The burn-in phase will have a minimum of 'burn' iterations but could be longer if
+                tuning is needed. After the phase is done the sampler will run for another
+                (iter - burn) iterations, and will tally the samples according to the 'thin' argument.
+                This means that the total number of iteration is update throughout the sampling
+                procedure.
+                If burn_till_tuned is True it also overrides the tune_thorughout argument, so no step method
+                will be tuned when sample are being tallied.
+            stop_tuning_after: int
+                the number of untuned successive tuning interval needed to be reach in order for
+                the burn-in phase to be done (If burn_till_tuned is True).
+
+
+            Returns
+            -------
+            pymc.MCMC.MCMC
+                Returns a model that contains sample traces of
+                tempchange, ddfsnow, precfactor and massbalance.
+                These samples can be accessed by calling the trace
+                attribute. For example:
+
+                    model.trace('ddfsnow')[:]
+
+                gives the trace of ddfsnow values.
+
+                A trace, or Markov Chain, is an array of values
+                outputed by the MCMC simulation which defines the
+                posterior probability distribution of the variable
+                at hand.
+
+            """
+
+            #set model
+            if dbname is None:
+                model = MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal])
+            else:
+                model = MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal],
+                             db='pickle', dbname=dbname)
+
+        #    # set step if specified
+        #    if step == 'am':
+        #        model.use_step_method(pymc.AdaptiveMetropolis,
+        #                          [precfactor, ddfsnow, tempchange],
+        #                          delay = 1000)
+
+            # sample
+            model.sample(iter=iterations, burn=burn, thin=thin,
+                         tune_interval=tune_interval, tune_throughout=tune_throughout,
+                         save_interval=save_interval, verbose=verbose,
+                         progress_bar=progress_bar)
+
+            #close database
+            model.db.close()
+
+            return model
+
+        def get_glacier_data(glacier_number=3473):
+            #TODO: Document this function properly
+            '''
+            Returns the mass balance and error estimate for
+            the glacier given the filepath of the DEM file and
+            the glacier number in the for <glacier_region>.<number>
+            '''
+            csv_path = '../DEMs/hma_mb_20171211_1343.csv'
+            observed_data = pd.read_csv(csv_path)
+            #there is definitely a better way to do this
+            observed_data['glacno'] = ((observed_data['RGIId'] % 1) * 10**5).round(0).astype(int)
+            index =  observed_data.index[observed_data['glacno']==glacier_number].tolist()[0]
+            mass_bal = observed_data['mb_mwea'][index]
+            error = observed_data['mb_mwea_sigma'][index]
+
+            return mass_bal, error, index
+
+
+        # === Begin MCMC process ===
 
         # loop through each glacier selected
         for glac in range(main_glac_rgi.shape[0]):
@@ -212,8 +312,8 @@ def main(list_packed_vars):
             # debug
             print('observed_massbal:', observed_massbal, 'observed_error:', observed_error)
 
-            # ==== Define the Markov Chain Monte Carlo Method ====
-            #
+            # ==== Define the Markov Chain Monte Carlo Model =============
+
             # First: Create prior probability distributions, based on
             #        current understanding of ranges
 
@@ -283,123 +383,15 @@ def main(list_packed_vars):
                                  value=float(observed_massbal),
                                  observed=True)
 
-#            model = run_MCMC()
-#
-#            #debug
-#            print(model)
+            # =============================================================
 
 
-            def run_MCMC(iterations=10, burn=0, thin=1, tune_interval=1000,
-                         tune_throughout=True, save_interval=None,
-                         burn_till_tuned=False, stop_tuning_after=5,
-                         verbose=0, progress_bar=True, dbname=None):
-                """
-                Runs the MCMC algorithm.
-
-                Runs the MCMC algorithm to calibrate the
-                probability distributions of three parameters
-                for the mass balance function.
-
-                Parameters
-                ----------
-                model : str
-                    Choice of model to use, default pymc_model
-                step : str
-                    Choice of step method to use. default metropolis-hastings
-                dbname : str
-                    Choice of database name the sample should be saved to.
-                    Default name is 'trial.pickle'
-                iterations : int
-                    Total number of iterations to do
-                burn : int
-                    Variables will not be tallied until this many iterations are complete, default 0
-                thin : int
-                    Variables will be tallied at intervals of this many iterations, default 1
-                tune_interval : int
-                    Step methods will be tuned at intervals of this many iterations, default 1000
-                tune_throughout : boolean
-                    If true, tuning will continue after the burnin period (True); otherwise tuning
-                    will halt at the end of the burnin period.
-                save_interval : int or None
-                    If given, the model state will be saved at intervals of this many iterations
-                verbose : boolean
-                progress_bar : boolean
-                    Display progress bar while sampling.
-                burn_till_tuned: boolean
-                    If True the Sampler would burn samples until all step methods are tuned.
-                    A tuned step methods is one that was not tuned for the last `stop_tuning_after` tuning intervals.
-                    The burn-in phase will have a minimum of 'burn' iterations but could be longer if
-                    tuning is needed. After the phase is done the sampler will run for another
-                    (iter - burn) iterations, and will tally the samples according to the 'thin' argument.
-                    This means that the total number of iteration is update throughout the sampling
-                    procedure.
-                    If burn_till_tuned is True it also overrides the tune_thorughout argument, so no step method
-                    will be tuned when sample are being tallied.
-                stop_tuning_after: int
-                    the number of untuned successive tuning interval needed to be reach in order for
-                    the burn-in phase to be done (If burn_till_tuned is True).
-
-
-
-                arg1 : int
-                    Description of arg1
-                arg2 : str
-                    Description of arg2
-
-                Returns
-                -------
-                int
-                    Description of return value
-
-                """
-
-                #set model
-                if dbname is None:
-                    model = MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal])
-                else:
-                    model = MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal],
-                                 db='pickle', dbname=dbname)
-
-            #    # set step if specified
-            #    if step == 'am':
-            #        model.use_step_method(pymc.AdaptiveMetropolis,
-            #                          [precfactor, ddfsnow, tempchange],
-            #                          delay = 1000)
-
-                # sample
-                model.sample(iter=iterations, burn=burn, thin=thin,
-                             tune_interval=tune_interval, tune_throughout=tune_throughout,
-                             save_interval=save_interval, verbose=verbose,
-                             progress_bar=progress_bar)
-
-                #close database
-                model.db.close()
-
-                return model
-
+            # fit the MCMC model
             model = run_MCMC()
 
             #debug
             print(model)
 
-
-
-#        def get_glacier_data(glacier_number=3473):
-#            #TODO: Document this function properly
-#            '''
-#            Returns the mass balance and error estimate for
-#            the glacier given the filepath of the DEM file and
-#            the glacier number in the for <glacier_region>.<number>
-#            '''
-#            csv_path = '../DEMs/hma_mb_20171211_1343.csv'
-#            observed_data = pd.read_csv(csv_path)
-#            #there is definitely a better way to do this
-#            observed_data['glacno'] = ((observed_data['RGIId'] % 1) * 10**5).round(0).astype(int)
-#            index =  observed_data.index[observed_data['glacno']==glacier_number].tolist()[0]
-#            mass_bal = observed_data['mb_mwea'][index]
-#            error = observed_data['mb_mwea_sigma'][index]
-#
-#            return mass_bal, error, index
 
 
 
