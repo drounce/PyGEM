@@ -397,7 +397,7 @@ def main(list_packed_vars):
 
 
             # fit the MCMC model
-            model = run_MCMC(iterations=1000)
+            model = run_MCMC(iterations=10)
 
             #debug
             print(model)
@@ -415,9 +415,13 @@ def main(list_packed_vars):
 
 
             sampling = lh.stratified_sample(tempchange=tempchange, precfactor=precfactor,
-                     ddfsnow=ddfsnow, massbal=massbal, samples=300)
+                     ddfsnow=ddfsnow, massbal=massbal, samples=10)
             mean = np.mean(sampling['massbal'])
             std = np.std(sampling['massbal'])
+
+            # debug
+            print(type(sampling))
+            print(sampling)
             print('mean:', mean, 'std:', std)
 
 
