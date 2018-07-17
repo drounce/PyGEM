@@ -326,6 +326,25 @@ wgms_ee_z1_cn = 'LOWER_BOUND'
 wgms_ee_z2_cn = 'UPPER_BOUND'
 wgms_ee_period_cn = 'period'
 
+# ===== COGLEY DATA =====
+cogley_fp = main_directory + '/../Calibration_datasets/'
+cogley_fn_preprocessed = 'Cogley_Arctic_processed_wInfo.csv'
+cogley_rgi_glacno_cn = 'glacno'
+cogley_mass_chg_cn = 'geo_mass_kgm2a'
+cogley_mass_chg_err_cn = 'geo_mass_unc'
+cogley_z1_cn = 'Zmin'
+cogley_z2_cn = 'Zmax'
+cogley_obs_type_cn = 'obs_type'
+
+# ===== REGIONAL DATA =====
+# Regional data refers to all measurements that have lumped multiple glaciers together
+#  - a dictionary linking the regions to RGIIds is required
+mb_group_fp = main_directory + '/../Calibration_datasets/'
+mb_group_dict_fn = 'mb_group_dict.csv'
+mb_group_data_fn = 'mb_group_data.csv'
+mb_group_t1_cn = 'begin_period'
+mb_group_t2_cn = 'end_period'
+
 
 
 brun_fp = main_directory + '/../DEMs/'
@@ -343,7 +362,7 @@ massbal_uncertainty_mwea = 0.1
 #  all refers to tolerance if multiple calibration points
 #  single refers to tolerance if only a single calibration point since we want this to be more exact
 zscore_tolerance_all = 1
-zscore_tolerance_single = 0.1
+zscore_tolerance_single = 1
 
 
 # Geodetic mass balance dataset

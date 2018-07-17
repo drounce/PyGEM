@@ -412,7 +412,7 @@ def plot_multipleglaciers(glacier_list, option_merged_dataset, parameter='Area',
             plt.plot(glac_elevs, glac_dhdt_med, label=glac_name)
             if count == 1:
                 plt.gca().invert_xaxis()
-            plt.xlabel('Elevation range')
+            plt.xlabel('Elevation [m]')
             plt.ylabel('dh/dt [m/a]')
             plt.minorticks_on()    
             # No Normalization curves using range of dh/dt
