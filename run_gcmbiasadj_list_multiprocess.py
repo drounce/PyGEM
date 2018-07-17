@@ -51,14 +51,14 @@ import class_climate
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
 rgi_regionsO1 = [15]
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
 
 # Required input
-option_bias_adjustment = 1
+option_bias_adjustment = 2
 # Time period
 gcm_startyear = 2000
 gcm_endyear = 2015
@@ -76,9 +76,9 @@ filepath_modelparams = input.main_directory + '/../Calibration_datasets/'
 filename_modelparams = 'calibration_R15_20180403_Opt02solutionspaceexpanding_wnnbrs_20180523.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Output
-output_filepath = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
+output_filepath = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0717/'
 option_export = 1
-option_run_mb = 1 # only for options 2 and 3
+option_run_mb = 0 # only for options 2 and 3
 
 
 #%% FUNCTIONS
@@ -121,8 +121,9 @@ def main(list_packed_vars):
                                                   input.width_filedict, input.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
     # Model parameters
-    main_glac_modelparams_all = pd.read_csv(filepath_modelparams + filename_modelparams, index_col=0)
-    main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
+    if option_bias_adjustment == 1:
+        main_glac_modelparams_all = pd.read_csv(filepath_modelparams + filename_modelparams, index_col=0)
+        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
@@ -451,9 +452,10 @@ def main(list_packed_vars):
     #%% OPTION 2: Adjust temp and prec according to Huss and Hock (2015) accounts for means and interannual variability
     elif option_bias_adjustment == 2:
         # Bias adjustment parameters
-        main_glac_bias_adj_colnames = ['RGIId', 'ref', 'GCM', 'rcp_scenario', 'ref_mb_mwea', 'ref_vol_change_perc', 
-                                       'gcm_mb_mwea', 'gcm_vol_change_perc', 'new_gcmelev', 'lrgcm', 'lrglac', 
-                                       'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
+        main_glac_bias_adj_colnames = ['RGIId', 'ref', 'GCM', 'rcp_scenario', 'new_gcmelev']
+#        main_glac_bias_adj_colnames = ['RGIId', 'ref', 'GCM', 'rcp_scenario', 'ref_mb_mwea', 'ref_vol_change_perc', 
+#                                       'gcm_mb_mwea', 'gcm_vol_change_perc', 'new_gcmelev', 'lrgcm', 'lrglac', 
+#                                       'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
         main_glac_bias_adj = pd.DataFrame(np.zeros((main_glac_rgi.shape[0],len(main_glac_bias_adj_colnames))), 
                                           columns=main_glac_bias_adj_colnames)
         main_glac_bias_adj['RGIId'] = main_glac_rgi['RGIId'].values
@@ -461,7 +463,7 @@ def main(list_packed_vars):
         main_glac_bias_adj['GCM'] = gcm_name
         main_glac_bias_adj['rcp_scenario'] = rcp_scenario
         main_glac_bias_adj['new_gcmelev'] = ref_elev
-        main_glac_bias_adj[modelparams_colnames] = main_glac_modelparams[modelparams_colnames].values
+#        main_glac_bias_adj[modelparams_colnames] = main_glac_modelparams[modelparams_colnames].values
         
         tempvar_cols = []
         tempavg_cols = []
@@ -782,34 +784,34 @@ if __name__ == '__main__':
     print('Total processing time:', time.time()-time_start, 's')
             
 #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====     
-    # Place local variables in variable explorer
-    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):     
-        main_vars_list = list(main_vars.keys())
-        gcm_name = main_vars['gcm_name']
-        rcp_scenario = main_vars['rcp_scenario']
-        main_glac_rgi = main_vars['main_glac_rgi']
-        main_glac_hyps = main_vars['main_glac_hyps']
-        main_glac_icethickness = main_vars['main_glac_icethickness']
-        main_glac_width = main_vars['main_glac_width']
-        elev_bins = main_vars['elev_bins']
-        dates_table = main_vars['dates_table']
-        glacier_rgi_table = main_vars['glacier_rgi_table']
-        glacier_ref_temp = main_vars['glacier_ref_temp']
-        glacier_ref_prec = main_vars['glacier_ref_prec']
-        glacier_ref_elev = main_vars['glacier_ref_elev']
-        glacier_ref_lrgcm = main_vars['glacier_ref_lrgcm']
-        glacier_gcm_temp_adj = main_vars['glacier_gcm_temp_adj']
-        glacier_gcm_prec_adj = main_vars['glacier_gcm_prec_adj']
-        glacier_gcm_elev = main_vars['glacier_gcm_elev']
-        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
-        modelparameters = main_vars['modelparameters']
-        glac_wide_massbaltotal_annual_gcm = main_vars['glac_wide_massbaltotal_annual_gcm']
-        glac_wide_massbaltotal_annual_ref = main_vars['glac_wide_massbaltotal_annual_ref']
-        main_glac_bias_adj = main_vars['main_glac_bias_adj']
-        glacier_area_t0 = main_vars['glacier_area_t0']
-        icethickness_t0 = main_vars['icethickness_t0']
-        width_t0 = main_vars['width_t0']
-        dates_table_subset = main_vars['dates_table_subset']
+#    # Place local variables in variable explorer
+#    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):     
+#        main_vars_list = list(main_vars.keys())
+#        gcm_name = main_vars['gcm_name']
+#        rcp_scenario = main_vars['rcp_scenario']
+#        main_glac_rgi = main_vars['main_glac_rgi']
+#        main_glac_hyps = main_vars['main_glac_hyps']
+#        main_glac_icethickness = main_vars['main_glac_icethickness']
+#        main_glac_width = main_vars['main_glac_width']
+#        elev_bins = main_vars['elev_bins']
+#        dates_table = main_vars['dates_table']
+#        glacier_rgi_table = main_vars['glacier_rgi_table']
+#        glacier_ref_temp = main_vars['glacier_ref_temp']
+#        glacier_ref_prec = main_vars['glacier_ref_prec']
+#        glacier_ref_elev = main_vars['glacier_ref_elev']
+#        glacier_ref_lrgcm = main_vars['glacier_ref_lrgcm']
+#        glacier_gcm_temp_adj = main_vars['glacier_gcm_temp_adj']
+#        glacier_gcm_prec_adj = main_vars['glacier_gcm_prec_adj']
+#        glacier_gcm_elev = main_vars['glacier_gcm_elev']
+#        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
+#        modelparameters = main_vars['modelparameters']
+#        glac_wide_massbaltotal_annual_gcm = main_vars['glac_wide_massbaltotal_annual_gcm']
+#        glac_wide_massbaltotal_annual_ref = main_vars['glac_wide_massbaltotal_annual_ref']
+#        main_glac_bias_adj = main_vars['main_glac_bias_adj']
+#        glacier_area_t0 = main_vars['glacier_area_t0']
+#        icethickness_t0 = main_vars['icethickness_t0']
+#        width_t0 = main_vars['width_t0']
+#        dates_table_subset = main_vars['dates_table_subset']
     
 #        # Adjust temperature and precipitation to 'Zmed' so variables can properly be compared
 #        glacier_elev_zmed = glacier_rgi_table.loc['Zmed']  
