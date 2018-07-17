@@ -76,7 +76,7 @@ def main(list_packed_vars):
     main_glac_rgi_all = list_packed_vars[2]
     chunk_size = list_packed_vars[3]
     gcm_name = list_packed_vars[4]
-    
+
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
@@ -106,16 +106,16 @@ def main(list_packed_vars):
             main_glac_rgi.shape[0]).transpose(), columns=input.modelparams_colnames)
     elif (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
         main_glac_modelparams_all = pd.read_csv(ref_modelparams_fp + ref_modelparams_fn, index_col=0)
-        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]   
+        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]
     else:
         gcm_modelparams_fn = (gcm_name + '_' + rcp_scenario + gcm_modelparams_fn_ending)
-        main_glac_modelparams_all = pd.read_csv(gcm_modelparams_fp + gcm_modelparams_fn, index_col=0)  
-        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]         
+        main_glac_modelparams_all = pd.read_csv(gcm_modelparams_fp + gcm_modelparams_fn, index_col=0)
+        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]
 
     # Select dates including future projections
-    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
+    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear,
                                                                  spinupyears=gcm_spinupyears)
-    
+
     # ===== LOAD CLIMATE DATA =====
     if gcm_name == input.ref_gcm_name:
         gcm = class_climate.GCM(name=gcm_name)
@@ -123,13 +123,13 @@ def main(list_packed_vars):
         if (gcm_name == 'ERA-Interim') and (gcm_endyear > 2016):
             print('\n\nEND YEAR BEYOND AVAILABLE DATA FOR ERA-INTERIM. CHANGE END YEAR.\n\n')
     else:
-        gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)    
+        gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
     # Air temperature [degC]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     # Precipitation [m]
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     # Elevation [m asl]
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)  
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Lapse rate
     if gcm_name == 'ERA-Interim':
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
@@ -138,8 +138,8 @@ def main(list_packed_vars):
         ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
         ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
         gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-        
-        
+
+
     # ===== BIAS CORRECTIONS =====
     # ERA-Interim does not have any bias corrections
     if (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
@@ -156,7 +156,7 @@ def main(list_packed_vars):
         tempvar_cols = ['tempvar_' + str(n) for n in range(1,13)]
         tempavg_cols = ['tempavg_' + str(n) for n in range(1,13)]
         tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
-        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]            
+        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]
         bias_adj_prec = main_glac_modelparams[precadj_cols].values
         variability_monthly_std = main_glac_modelparams[tempvar_cols].values
         gcm_temp_monthly_avg = main_glac_modelparams[tempavg_cols].values
@@ -174,7 +174,7 @@ def main(list_packed_vars):
     # Option 3
     elif option_bias_adjustment == 3:
         tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
-        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]     
+        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]
         bias_adj_prec = main_glac_modelparams[precadj_cols].values
         bias_adj_temp = main_glac_modelparams[tempadj_cols].values
         # Bias adjusted temperature
@@ -183,11 +183,11 @@ def main(list_packed_vars):
         gcm_prec_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
         # Updated elevation, since adjusted according to reference elevation
         gcm_elev_adj = main_glac_modelparams['new_gcmelev'].values
-        
+
     # ===== CREATE OUTPUT FILE =====
     if output_package != 0:
         if gcm_name == 'ERA-Interim':
-            netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) 
+            netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears)
                          + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
         else:
             netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
@@ -200,7 +200,7 @@ def main(list_packed_vars):
     # ===== RUN MASS BALANCE =====
     for glac in range(main_glac_rgi.shape[0]):
         if glac%200 == 0:
-            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
+            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_gcm_elev = gcm_elev_adj[glac]
@@ -208,11 +208,11 @@ def main(list_packed_vars):
         glacier_gcm_temp = gcm_temp_adj[glac,:]
         glacier_gcm_lrgcm = gcm_lr[glac,:]
         glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
-        glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
+        glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
         modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],input.modelparams_colnames]
-        
+
         # Mass balance calcs
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
