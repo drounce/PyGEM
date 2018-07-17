@@ -40,7 +40,9 @@ rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03733']
-rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = ['03473', '03733']
+# only david's data
+rgi_glac_number = ['10075', '10079', '10059', '10060', '09929']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
 #rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
@@ -67,6 +69,10 @@ ftol_opt = 1e-2
 # Export option
 option_export = 1
 output_filepath = input.main_directory + '/../Output/'
+
+# MCMC export configuration
+MCMC_output_filepath = input.main_directory + '/../MCMC_Data/'
+MCMC_output_filename = 'testfile2.nc'
 
 #%% FUNCTIONS
 def getparser():
@@ -529,11 +535,11 @@ def main(list_packed_vars):
 
         # convert da_dict to xr.Dataset and then to a netcdf file
         ds = xr.Dataset(da_dict)
-        ds.to_netcdf('../MCMC_Data/testfile.nc')
+        ds.to_netcdf(MCMC_output_filepath + MCMC_output_filename)
 
 
     # Option 1: mimize mass balance difference using three-step approach to expand solution space
-    if option_calibration == 1:
+    elif option_calibration == 1:
 
         # Output to record
         # Observations vs. model

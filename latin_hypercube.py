@@ -4,6 +4,24 @@ import copy
 import pandas as pd
 #import v2_run_calibration_4Tushar as v2
 
+"""
+This is a small package that contains functions
+to sample from the random probability spaces
+of the parameters and mass balance values outputed
+by the MCMC algorithm. It contains functions that
+perform latin hypercube sampling. This function was
+originally used, but gives a larger margin of error
+in mass balance values than desired.
+
+The package also contains a function that performs a
+stratified random sampling for one variable, which is
+currently used by the model. It samples parameter
+sets from the space of mass balances they result in,
+which produces an ensemble that has the same mean and
+standard deviation as the observations.
+
+"""
+
 def lh_sample(tempchange, precfactor, ddfsnow,
               samples=10, criterion=None):
     """
