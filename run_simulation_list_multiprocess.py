@@ -30,8 +30,8 @@ import class_climate
 # Glacier selection
 rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
-#rgi_glac_number = ['03473']
+#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number=['10694']
 #rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
@@ -47,14 +47,19 @@ output_package = 2
 output_filepath = input.main_directory + '/../Output/'
 
 # Bias adjustment option (options defined in run_gcmbiasadj script; 0 means no correction)
-option_bias_adjustment = 1
+option_bias_adjustment = 2
 # Calibrated model parameters
 #  calibrated parameters are the same for all climate datasets (only bias adjustments differ for each climate dataset)
 ref_modelparams_fp = input.main_directory + '/../Calibration_datasets/'
 ref_modelparams_fn = 'calibration_R15_20180403_Opt02solutionspaceexpanding_wnnbrs_20180523.csv'
-gcm_modelparams_fp = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
+gcm_modelparams_fp = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0717/'
 gcm_modelparams_fn_ending = ('_biasadj_opt' + str(option_bias_adjustment) + '_1995_2015_R' + str(rgi_regionsO1[0]) + 
                              '.csv')
+
+# Tushar's quick and dirty option
+# Select True if running using MCMC method
+MCMC_option = True
+
 
 #%% FUNCTIONS
 def getparser():
@@ -110,7 +115,19 @@ def main(list_packed_vars):
     else:
         gcm_modelparams_fn = (gcm_name + '_' + rcp_scenario + gcm_modelparams_fn_ending)
         main_glac_modelparams_all = pd.read_csv(gcm_modelparams_fp + gcm_modelparams_fn, index_col=0)
-        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]
+
+        #debug 
+        print(main_glac_modelparams_all)
+        print(main_glac_rgi)
+
+
+        if MCMC_option:
+            main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_modelparams_all['RGIId'].isin(main_glac_rgi['RGIId'])]
+        else:
+            main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]
+
+        #debug
+        print(main_glac_modelparams)
 
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear,
@@ -231,7 +248,7 @@ def main(list_packed_vars):
         if icethickness_t0.max() > 0:
             glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / 
                                     glac_wide_volume_annual[0] * 100)
-            
+
 #        print(mb_mwea, glac_vol_change_perc)
         
 

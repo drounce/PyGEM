@@ -52,8 +52,8 @@ import class_climate
 # Glacier selection
 rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
-#rgi_glac_number = ['03473']
+#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['03473']
 #rgi_glac_number = ['06881']
 #rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
 
@@ -101,7 +101,7 @@ def main(list_packed_vars):
     main_glac_rgi_all = list_packed_vars[2]
     chunk_size = list_packed_vars[3]
     gcm_name = list_packed_vars[4]
-    
+
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
@@ -127,7 +127,7 @@ def main(list_packed_vars):
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
-    
+
     # ===== LOAD CLIMATE DATA =====
     # Import air temperature, precipitation, lapse rates, and elevation from pre-processed csv files for a given region
     #  This saves time as opposed to running the nearest neighbor for the reference data as well
@@ -146,7 +146,7 @@ def main(list_packed_vars):
     # Days per month
     daysinmonth = dates_table['daysinmonth'].values[0:ref_temp.shape[1]]
     dates_table_subset = dates_table.iloc[0:ref_temp.shape[1],:]
-    
+
     # LOAD GCM DATA
     gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
@@ -524,13 +524,13 @@ def main(list_packed_vars):
         bias_adj_prec = ref_prec_monthly_avg / gcm_prec_monthly_avg
         # Bias adjusted precipitation accounting for differences in monthly mean
         gcm_prec_bias_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
-        
+
         # Record adjustment parameters
         main_glac_bias_adj[precadj_cols] = bias_adj_prec
         main_glac_bias_adj[tempvar_cols] = variability_monthly_std
         main_glac_bias_adj[tempavg_cols] = gcm_temp_monthly_avg
         main_glac_bias_adj[tempadj_cols] = gcm_temp_monthly_adj
-        
+
     # OPTION 3: Adjust temp and prec such mean monthly temp and mean annual precipitation are equal
     elif option_bias_adjustment == 3:
         # Bias adjustment parameters
