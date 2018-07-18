@@ -1154,6 +1154,10 @@ def main(list_packed_vars):
                     group_cum_mb_mkm2 = (
                             group_cum_mb_mkm2 + 
                             (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * bin_area_subset[:,np.newaxis]).sum())
+                    # Glacier-wide climatic mass balance over study period (used by transfer functions)
+                    main_glacwide_mbclim_mwe[glac] = (
+                            (glac_bin_massbalclim * glac_bin_area_annual[:, 0][:,np.newaxis]).sum() / 
+                             glac_bin_area_annual[:, 0].sum())
             # Z-score for modeled mass balance based on observed mass balance and uncertainty
             #  z-score = (model - measured) / uncertainty
             glacier_cal_compare.model = group_cum_mb_mkm2 / group_cum_area_km2
@@ -1233,6 +1237,10 @@ def main(list_packed_vars):
                         group_cum_mb_mkm2 = (
                                 group_cum_mb_mkm2 + 
                                 (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * bin_area_subset[:,np.newaxis]).sum())
+                        # Glacier-wide climatic mass balance over study period (used by transfer functions)
+                        main_glacwide_mbclim_mwe[glac] = (
+                                (glac_bin_massbalclim * glac_bin_area_annual[:, 0][:,np.newaxis]).sum() / 
+                                 glac_bin_area_annual[:, 0].sum())
                 # Z-score for modeled mass balance based on observed mass balance and uncertainty
                 #  z-score = (model - measured) / uncertainty
                 glacier_cal_compare.model = group_cum_mb_mkm2 / group_cum_area_km2
