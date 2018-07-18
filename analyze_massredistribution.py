@@ -30,7 +30,8 @@ import pygemfxns_modelsetup as modelsetup
 
 #%% Input data
 #rgi_regionO1 = [13, 14, 15]
-rgi_regionO1 = [15]
+rgi_regionO1 = [13]
+#rgi_regionO1 = [15]
 search_binnedcsv_fn = input.main_directory + '\\..\\DEMs\\mb_bins_sample_20180323\\*_mb_bins.csv'
 #search_binnedcsv_fn = ('/Users/kitreatakataglushkoff/Documents/All_Documents/SUMMER_2018/Glaciology/HiMAT/DEMs/' + 
 #                       'mb_bins_sample_20180323/*_mb_bins.csv')
@@ -125,8 +126,10 @@ for n, region in enumerate(rgi_regionO1):
 #main_glac_rgi['glacwide_debris'] = ''
 # ds is the main dataset for this analysis and is a list of lists (order of glaciers can be found in df_glacnames)
 #  Data for each glacier is held in a sublist
-ds = [[] for x in binnedcsv_files]
-norm_list = [[] for x in binnedcsv_files]
+#ds = [[] for x in binnedcsv_files]
+ds = []
+#norm_list = [[] for x in binnedcsv_files]
+norm_list = []
 for n in range(len(binnedcsv_files)):
     # Note: RuntimeWarning: invalid error encountered in greater than is due to nan values being included in array
     #       This error can be ignored.
@@ -235,11 +238,14 @@ for n in range(len(binnedcsv_files)):
     ds_merged_bins['dhdt_norm_shifted'] = ((merged_glac_dhdt - np.nanmax(merged_glac_dhdt)) / 
                                            np.nanmin(merged_glac_dhdt - np.nanmax(merged_glac_dhdt)))
 
-    ds[n] = [n, df_glacnames.loc[n, 'RGIId'], binnedcsv, main_glac_rgi.loc[n], main_glac_hyps.loc[n], 
-             main_glac_icethickness.loc[n], ds_merged_bins]
+    
     
     # Make list of ds_merged_bins['dhdt_norm_huss'] and ds_merged_bins['elev_norm']
-    norm_list[n] = np.array([ds_merged_bins['elev_norm'].values, ds_merged_bins['dhdt_norm_huss'].values]).transpose()
+    if all(np.isnan(ds_merged_bins['dhdt_norm_huss'].values)) == False:
+        ds.append([n, df_glacnames.loc[n, 'RGIId'], binnedcsv, main_glac_rgi.loc[n], main_glac_hyps.loc[n], 
+                   main_glac_icethickness.loc[n], ds_merged_bins])
+        norm_list.append(np.array([ds_merged_bins['elev_norm'].values, 
+                                   ds_merged_bins['dhdt_norm_huss'].values]).transpose())
     
 #%% Mean and standard deviations of curves 
 def normalized_stats(norm_list):
@@ -251,7 +257,7 @@ def normalized_stats(norm_list):
     for n in range(len(norm_list)):
         norm_single = norm_list[n]
         # Replace -0 with 0
-        norm_single[norm_single[:,1] == 0] = 0
+        norm_single[norm_single[:,1] == 0, 1] = 0
         # Fill in nan values for elev_norm of 0 and 1 with nearest neighbor
         norm_single[0,1] = norm_single[np.where(~np.isnan(norm_single[:,1]))[0][0], 1]
         norm_single[-1,1] = norm_single[np.where(~np.isnan(norm_single[:,1]))[0][-1], 1]
@@ -268,6 +274,7 @@ def normalized_stats(norm_list):
                 # Find value need to interpolate to
                 norm_elev_value = norm_all[r,0]
                 # Find value above it from dhdt_norm, which is a different size
+#                elev_single[elev_single >= norm_elev_value].min()
                 upper_idx = np.where(elev_single == elev_single[elev_single >= norm_elev_value].min())[0][0]
                 # Find value below it
                 lower_idx = np.where(elev_single == elev_single[elev_single < norm_elev_value].max())[0][0]
@@ -277,7 +284,7 @@ def normalized_stats(norm_list):
                 lower_elev = elev_single[lower_idx]
                 lower_value = dhdt_single[lower_idx]
                 norm_all[r,n+1] = (lower_value + (norm_elev_value - lower_elev) / (upper_elev - lower_elev) * 
-                                   (upper_value - lower_value))
+                                   (upper_value - lower_value))    
     # Compute mean and standard deviation
     norm_all_stats = pd.DataFrame()
     norm_all_stats['norm_elev'] = norm_all[:,0]
@@ -559,7 +566,7 @@ def plot_multipleglaciers(glacier_list, option_merged_dataset, parameter='Area',
   
 #%% PLOT OPTIONS
 # Index of glaciers to loop through
-glacier_list = list(range(0,len(ds)))
+glacier_list = list(range(0,len(norm_list)))
 parameter = 'Area'
 thresholds = [10, 15, 20, 25, 30]
 #thresholds = [10]
