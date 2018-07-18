@@ -42,7 +42,7 @@ option_plot_eachglacier = 0
 option_plot_multipleglaciers = 1
 option_plots_threshold = 0
 # Option to save
-option_savefigs = 0
+option_savefigs = 1
 
 # Merged dataset options
 option_merged_dataset = 1
@@ -242,43 +242,52 @@ for n in range(len(binnedcsv_files)):
     norm_list[n] = np.array([ds_merged_bins['elev_norm'].values, ds_merged_bins['dhdt_norm_huss'].values]).transpose()
     
 #%% Mean and standard deviations of curves 
-# Merge norm_list to make array of all glaciers with same elevation normalization space
-max_length = len(max(norm_list,key=len))
-norm_all = np.zeros((max_length,len(norm_list)+1))
-# First column is normalized elevations
-norm_all[:,0] = max(norm_list,key=len)[:,0]
-for n in range(len(norm_list)):
-    norm_single = norm_list[n]
-    elev_single = norm_single[:,0]
-    dhdt_single = norm_single[:,1]
-    for r in range(0, max_length):
-        if r == 0:
-            norm_all[r,n+1] = dhdt_single[0]
-        elif r == (max_length - 1):
-            norm_all[r,n+1] = dhdt_single[-1]
-        else:
-            # Find value need to interpolate to
-            norm_elev_value = norm_all[r,0]
-            # Find value above it from dhdt_norm, which is a different size
-            upper_idx = np.where(elev_single == elev_single[elev_single >= norm_elev_value].min())[0][0]
-            # Find value below it
-            lower_idx = np.where(elev_single == elev_single[elev_single < norm_elev_value].max())[0][0]
-            # Linearly interpolate between two values
-            upper_elev = elev_single[upper_idx]
-            upper_value = dhdt_single[upper_idx]
-            lower_elev = elev_single[lower_idx]
-            lower_value = dhdt_single[lower_idx]
-            norm_all[r,n+1] = (lower_value + (norm_elev_value - lower_elev) / (upper_elev - lower_elev) * 
-                               (upper_value - lower_value))
-# Compute mean and standard deviation
-norm_all_stats = pd.DataFrame()
-norm_all_stats['norm_elev'] = norm_all[:,0]
-norm_all_stats['dhdt_mean'] = np.nanmean(norm_all[:,1:], axis=1)  
-norm_all_stats['dhdt_std'] = np.nanstd(norm_all[:,1:], axis=1)
-norm_all_stats['dhdt_68high'] = norm_all_stats['dhdt_mean'] + norm_all_stats['dhdt_std']
-norm_all_stats['dhdt_68low'] = norm_all_stats['dhdt_mean'] - norm_all_stats['dhdt_std']
-norm_all_stats.loc[norm_all_stats['dhdt_68high'] > 1, 'dhdt_68high'] = 1
-norm_all_stats.loc[norm_all_stats['dhdt_68low'] < 0, 'dhdt_68low'] = 0
+def normalized_stats(norm_list):
+    # Merge norm_list to make array of all glaciers with same elevation normalization space
+    max_length = len(max(norm_list,key=len))
+    norm_all = np.zeros((max_length,len(norm_list)+1))
+    # First column is normalized elevations
+    norm_all[:,0] = max(norm_list,key=len)[:,0]
+    for n in range(len(norm_list)):
+        norm_single = norm_list[n]
+        # Replace -0 with 0
+        norm_single[norm_single[:,1] == 0] = 0
+        # Fill in nan values for elev_norm of 0 and 1 with nearest neighbor
+        norm_single[0,1] = norm_single[np.where(~np.isnan(norm_single[:,1]))[0][0], 1]
+        norm_single[-1,1] = norm_single[np.where(~np.isnan(norm_single[:,1]))[0][-1], 1]
+        # Remove nan values
+        norm_single = norm_single[np.where(~np.isnan(norm_single[:,1]))]
+        elev_single = norm_single[:,0]
+        dhdt_single = norm_single[:,1]
+        for r in range(0, max_length):
+            if r == 0:
+                norm_all[r,n+1] = dhdt_single[0]
+            elif r == (max_length - 1):
+                norm_all[r,n+1] = dhdt_single[-1]
+            else:
+                # Find value need to interpolate to
+                norm_elev_value = norm_all[r,0]
+                # Find value above it from dhdt_norm, which is a different size
+                upper_idx = np.where(elev_single == elev_single[elev_single >= norm_elev_value].min())[0][0]
+                # Find value below it
+                lower_idx = np.where(elev_single == elev_single[elev_single < norm_elev_value].max())[0][0]
+                # Linearly interpolate between two values
+                upper_elev = elev_single[upper_idx]
+                upper_value = dhdt_single[upper_idx]
+                lower_elev = elev_single[lower_idx]
+                lower_value = dhdt_single[lower_idx]
+                norm_all[r,n+1] = (lower_value + (norm_elev_value - lower_elev) / (upper_elev - lower_elev) * 
+                                   (upper_value - lower_value))
+    # Compute mean and standard deviation
+    norm_all_stats = pd.DataFrame()
+    norm_all_stats['norm_elev'] = norm_all[:,0]
+    norm_all_stats['dhdt_mean'] = np.nanmean(norm_all[:,1:], axis=1)  
+    norm_all_stats['dhdt_std'] = np.nanstd(norm_all[:,1:], axis=1)
+    norm_all_stats['dhdt_68high'] = norm_all_stats['dhdt_mean'] + norm_all_stats['dhdt_std']
+    norm_all_stats['dhdt_68low'] = norm_all_stats['dhdt_mean'] - norm_all_stats['dhdt_std']
+    norm_all_stats.loc[norm_all_stats['dhdt_68high'] > 1, 'dhdt_68high'] = 1
+    norm_all_stats.loc[norm_all_stats['dhdt_68low'] < 0, 'dhdt_68low'] = 0
+    return norm_all_stats
             
 
 #%% Select glaciers based on a certain parameter
@@ -428,10 +437,11 @@ def plot_multipleglaciers(glacier_list, option_merged_dataset, parameter='Area',
     plt.figure(figsize=(10,6))
     plt.subplots_adjust(wspace=0.4, hspace=0.6)
     
-
     count_lt = 0
     count_gt = 0
-    for glac in glacier_list:  
+    norm_list_gt = []
+    norm_list_lt = []
+    for glac in glacier_list:
         glac_rgi = ds[glac][3]
         glac_elevbins = ds[glac][ds_position]['bin_center_elev_m']
         glac_area_t1 = ds[glac][ds_position]['z1_bin_area_valid_km2']
@@ -456,9 +466,13 @@ def plot_multipleglaciers(glacier_list, option_merged_dataset, parameter='Area',
         t2 = 2015
         glac_name = ds[glac][1].split('-')[1]
         
+        
         # Subset parameters based on column name and threshold
         if glac_rgi[parameter] >= threshold:
             count_gt = count_gt + 1
+            # Make list of array containing elev_norm and dhdt_norm_huss 
+            norm_list_gt.append(np.array([glac_elevnorm.values, glac_dhdt_norm_huss.values]).transpose())
+            
             # dhdt vs. elevation
             plt.subplot(2,2,1)
             plt.plot(glac_elevs, glac_dhdt_med, label=glac_name)
@@ -468,78 +482,22 @@ def plot_multipleglaciers(glacier_list, option_merged_dataset, parameter='Area',
             plt.ylabel('dh/dt [m/a]')
             plt.minorticks_on()    
 
-#            # No Normalization curves using range of dh/dt
-#            plt.subplot(2,3,2)
-#            plt.plot(glac_elevnorm, glac_dhdt_med, label=glac_name)
-#            plt.ylim(glac_dhdt_med.min(), glac_dhdt_med.max())
-#            plt.xlabel('Normalized elev range')
-#            plt.ylabel('dh/dt [m/a]')
-#            plt.minorticks_on()    
             # Normalized curves using dhdt max (according to Huss)
             plt.subplot(2,2,2)
-            plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=glac_name)
+            plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=glac_name, alpha=0.3)
             plt.xlabel('Normalized elev range')
             plt.ylabel('Normalized dh/dt')
             if count_gt == 1:
                 plt.gca().invert_yaxis()
-#            plt.ylim(1,float(glac_dhdt_norm_huss.min())) #changed from int to float
             plt.title('Huss Normalization')
             plt.minorticks_on()
-#            # Normalized curves using range of dh/dt
-#            plt.subplot(2,3,5)
-#            plt.plot(glac_elevnorm, glac_dhdt_norm_range, label=glac_name)
-#            plt.ylim(1, -1)
-#            plt.xlabel('Normalized elev range')
-#            plt.title('Range Normalization')
-#            plt.minorticks_on()
-#            # Normalized curves truncating all positive dh/dt to zero
-#            plt.subplot(2,3,6)
-#            plt.plot(glac_elevnorm, glac_dhdt_norm_shifted, label=glac_name)
-#            plt.ylim(1,0)
-#            plt.xlabel('Normalized elev range')
-#            plt.title('Shifted Normalization')
-#            plt.minorticks_on()
-        #    plt.legend(bbox_to_anchor=(1.2, 1), loc=2, borderaxespad=0.)
-#    # Add title to subplot
-#    plot_fn = 'normcurves_' + parameter + '_' + str(threshold) + '_gt' 
-#    plt.suptitle(plot_fn + ' (' + str(count) + ' glaciers)')
-#    # Save and show figure
-#    if option_savefigs == 1:
-#        plt.savefig(input.output_filepath + 'figures/normalized_curves/' + plot_fn + '.png', bbox_inches='tight')
-#    plt.show()
-#    
-#    # PLOT FIGURE OF THE OPPOSITE THRESHOLD AS WELL
-#    plt.figure(figsize=(10,6))
-#    plt.subplots_adjust(wspace=0.4, hspace=0.6)
-#    count = 0
-#    for glac in glacier_list:  
-#        glac_rgi = ds[glac][3]
-#        glac_elevbins = ds[glac][ds_position]['bin_center_elev_m']
-#        glac_area_t1 = ds[glac][ds_position]['z1_bin_area_valid_km2']
-#        glac_area_t2 = ds[glac][ds_position]['z2_bin_area_valid_km2']
-#        glac_area_t1_perc = ds[glac][ds_position]['z1_bin_area_perc']
-#        glac_bin_count_t1 = ds[glac][ds_position]['z1_bin_count_valid']
-#        #  THIS IS THE PERCENT OF THE TOTAL AREA
-#        glac_mb_mwea = ds[glac][ds_position][mb_cn]
-#        glac_debristhick_cm = ds[glac][ds_position]['debris_thick_med_m'] * 100
-#        glac_debrisperc = ds[glac][ds_position]['perc_debris']
-#        glac_pondperc = ds[glac][ds_position]['perc_pond']
-#        glac_elevnorm = ds[glac][ds_position]['elev_norm']
-#        glac_dhdt_norm_huss = ds[glac][ds_position]['dhdt_norm_huss']
-#        glac_dhdt_norm_range = ds[glac][ds_position]['dhdt_norm_range']
-#        glac_dhdt_norm_shifted = ds[glac][ds_position]['dhdt_norm_shifted']
-#        glac_dhdt_med = ds[glac][ds_position]['dhdt_bin_med_ma']
-#        glac_dhdt_mean = ds[glac][ds_position]['dhdt_bin_mean_ma']
-#        glac_dhdt_std = ds[glac][ds_position]['dhdt_bin_std_ma']
-#        glac_elevs = ds[glac][ds_position]['bin_center_elev_m']
-#        glacwide_mb_mwea = (glac_area_t1 * glac_mb_mwea).sum() / glac_area_t1.sum()
-#        t1 = 2000
-#        t2 = 2015
-#        glac_name = ds[glac][1].split('-')[1]
         
         # Subset parameters based on column name and threshold
         elif glac_rgi[parameter] < threshold:
             count_lt = count_lt + 1
+            # Make list of array containing elev_norm and dhdt_norm_huss 
+            norm_list_lt.append(np.array([glac_elevnorm.values, glac_dhdt_norm_huss.values]).transpose())
+            
             # dhdt vs. elevation
             plt.subplot(2,2,3)
             plt.plot(glac_elevs, glac_dhdt_med, label=glac_name)
@@ -548,61 +506,71 @@ def plot_multipleglaciers(glacier_list, option_merged_dataset, parameter='Area',
             plt.xlabel('Elevation range')
             plt.ylabel('dh/dt [m/a]')
             plt.minorticks_on()    
-
-#            # No Normalization curves using range of dh/dt
-#            plt.subplot(2,3,2)
-#            plt.plot(glac_elevnorm, glac_dhdt_med, label=glac_name)
-#            plt.ylim(glac_dhdt_med.min(), glac_dhdt_med.max())
-#            plt.xlabel('Normalized elev range')
-#            plt.ylabel('dh/dt [m/a]')
-#            plt.minorticks_on()    
+            
             # Normalized curves using dhdt max (according to Huss)
             plt.subplot(2,2,4)
-            plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=glac_name)
+            plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=glac_name, alpha=0.3)
             plt.xlabel('Normalized elev range')
             plt.ylabel('Normalized dh/dt')
             if count_lt == 1:
                 plt.gca().invert_yaxis()
-#            plt.ylim(1,float(glac_dhdt_norm_huss.min())) #changed from int to float
             plt.title('Huss Normalization')
             plt.minorticks_on()
-#            # Normalized curves using range of dh/dt
-#            plt.subplot(2,3,5)
-#            plt.plot(glac_elevnorm, glac_dhdt_norm_range, label=glac_name)
-#            plt.ylim(1, -1)
-#            plt.xlabel('Normalized elev range')
-#            plt.title('Range Normalization')
-#            plt.minorticks_on()
-#            # Normalized curves truncating all positive dh/dt to zero
-#            plt.subplot(2,3,6)
-#            plt.plot(glac_elevnorm, glac_dhdt_norm_shifted, label=glac_name)
-#            plt.ylim(1,0)
-#            plt.xlabel('Normalized elev range')
-#            plt.title('Shifted Normalization')
-#            plt.minorticks_on()
-        #    plt.legend(bbox_to_anchor=(1.2, 1), loc=2, borderaxespad=0.)
-        
+      
+    # Put mean and plus/minus 1 standard deviation on normalized plots
+    norm_gt_stats = pd.DataFrame()
+    norm_lt_stats = pd.DataFrame()
+    if count_gt > 1:
+        norm_gt_stats = normalized_stats(norm_list_gt)
+        # Greater than threshold plots
+        plt.subplot(2,2,2)
+        plt.plot(norm_gt_stats.norm_elev, norm_gt_stats.dhdt_mean, color='black', linewidth=2)
+        plt.plot(norm_gt_stats.norm_elev, norm_gt_stats.dhdt_68high, '--', color='black', linewidth=1.5)
+        plt.plot(norm_gt_stats.norm_elev, norm_gt_stats.dhdt_68low, '--', color='black', linewidth=1.5)
+        plt.xlabel('Normalized elev range')
+        plt.ylabel('Normalized dh/dt')
+        if count_lt == 1:
+            plt.gca().invert_yaxis()
+        plt.title('Huss Normalization')
+        plt.minorticks_on()
+    if count_lt > 1:
+        norm_lt_stats = normalized_stats(norm_list_lt)
+        # Less than threshold plots
+        plt.subplot(2,2,4)
+        plt.plot(norm_lt_stats.norm_elev, norm_lt_stats.dhdt_mean, color='black', linewidth=2)
+        plt.plot(norm_lt_stats.norm_elev, norm_lt_stats.dhdt_68high, '--', color='black', linewidth=1.5)
+        plt.plot(norm_lt_stats.norm_elev, norm_lt_stats.dhdt_68low, '--', color='black', linewidth=1.5)
+        plt.xlabel('Normalized elev range')
+        plt.ylabel('Normalized dh/dt')
+        if count_lt == 1:
+            plt.gca().invert_yaxis()
+        plt.title('Huss Normalization')
+        plt.minorticks_on()
+    
     # Add title to subplot
-    plot_fn = 'normcurves_' + parameter + '_' + str(threshold) 
+    plot_fn = 'normcurves_' + parameter + '_thresold_' + str(threshold) 
     plt.suptitle(plot_fn)
     # Save and show figure
     if option_savefigs == 1:
         plt.savefig(input.output_filepath + 'figures/normalized_curves/' + plot_fn + '.png', bbox_inches='tight')
     plt.show()
+    
+    return norm_gt_stats, norm_lt_stats
   
 #%% PLOT OPTIONS
 # Index of glaciers to loop through
 glacier_list = list(range(0,len(ds)))
 parameter = 'Area'
-#thresholds = [10, 15, 20, 25, 30]
-thresholds = [20]
+thresholds = [10, 15, 20, 25, 30]
+#thresholds = [10]
 
 if option_plot_eachglacier == 1:
     plot_eachglacier(glacier_list, option_merged_dataset=1)
     
 if option_plot_multipleglaciers == 1:
     for n in thresholds:
-        plot_multipleglaciers(glacier_list, option_merged_dataset=1, parameter=parameter, threshold=n)
+        norm_gt_stats, norm_lt_stats = plot_multipleglaciers(glacier_list, option_merged_dataset=1, 
+                                                             parameter=parameter, threshold=n)
 
 #%% PLOTS USED TO DETERMINE THRESHOLDS FOR DISCARDING POOR DATA
 # Normalized Elevation vs. Normalized Ice Thickness Change

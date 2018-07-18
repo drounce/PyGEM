@@ -30,9 +30,10 @@ import pygemfxns_modelsetup as modelsetup
 #========= FUNCTIONS (alphabetical order) ===================================
 #%%===== NETCDF FUNCTIONS =============================================================================================
 # ===== Standard read and write functions for model runs =====
-def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_filepath=input.output_filepath):
+def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_filepath=input.output_filepath, nsims=1):
     """Create a netcdf file to store the desired output
     Output: empty netcdf file with the proper setup to be filled in by the model
+    nsims = number of simulations
     """
     # Annual columns
     annual_columns = np.unique(dates_table['wateryear'].values)
@@ -52,7 +53,11 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
     year_plus1 = netcdf_output.createDimension('year_plus1', annual_columns.shape[0] - input.spinupyears + 1)
     glac_table = netcdf_output.createDimension('glac_table', main_glac_rgi.shape[1])
     elevbin = netcdf_output.createDimension('elevbin', main_glac_hyps.shape[1])
+    sim = netcdf_output.createDimension('sim', nsims)
     # Variables associated with dimensions 
+    sims = netcdf_output.createVariable('sim', np.int32, ('sim',))
+    sims.long_name = 'simulation number'
+    sims[:] = range(0, nsims)
     glaciers = netcdf_output.createVariable('glac_idx', np.int32, ('glac_idx',))
     glaciers.long_name = "glacier index"
     glaciers.standard_name = input.indexname
@@ -93,6 +98,7 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
     elevbins.long_name = "center of elevation bin"
     elevbins.units = "m a.s.l."
     elevbins[:] = main_glac_hyps.columns.values
+     
     # ===== Output Variables =====
     if input.output_package == 1:
         # Package 1 "Raw Package" output [units: m w.e. unless otherwise specified]:
@@ -156,58 +162,63 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
         # Package 2 "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
         #  monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, snowline)
         #  annual glacier-wide variables (area, volume, ELA)
-        temp_glac_monthly = netcdf_output.createVariable('temp_glac_monthly', np.float64, ('glac_idx', 'time'))
+        temp_glac_monthly = netcdf_output.createVariable('temp_glac_monthly', np.float64, ('glac_idx', 'time', 'sim'))
         temp_glac_monthly.long_name = "glacier-wide mean air temperature"
         temp_glac_monthly.units = "deg C"
         temp_glac_monthly.comment = ("each elevation bin is weighted equally to compute the mean temperature, and bins "
                                      + "where the glacier no longer exists due to retreat have been removed")
-        prec_glac_monthly = netcdf_output.createVariable('prec_glac_monthly', np.float64, ('glac_idx', 'time'))
+        prec_glac_monthly = netcdf_output.createVariable('prec_glac_monthly', np.float64, ('glac_idx', 'time', 'sim'))
         prec_glac_monthly.long_name = "glacier-wide precipitation"
         prec_glac_monthly.units = "m"
-        acc_glac_monthly = netcdf_output.createVariable('acc_glac_monthly', np.float64, ('glac_idx', 'time'))
+        acc_glac_monthly = netcdf_output.createVariable('acc_glac_monthly', np.float64, ('glac_idx', 'time', 'sim'))
         acc_glac_monthly.long_name = "glacier-wide accumulation"
         acc_glac_monthly.units = "m w.e."
-        refreeze_glac_monthly = netcdf_output.createVariable('refreeze_glac_monthly', np.float64, ('glac_idx', 'time'))
+        refreeze_glac_monthly = netcdf_output.createVariable('refreeze_glac_monthly', np.float64, 
+                                                             ('glac_idx', 'time', 'sim'))
         refreeze_glac_monthly.long_name = "glacier-wide refreeze"
         refreeze_glac_monthly.units = "m w.e."
-        melt_glac_monthly = netcdf_output.createVariable('melt_glac_monthly', np.float64, ('glac_idx', 'time'))
+        melt_glac_monthly = netcdf_output.createVariable('melt_glac_monthly', np.float64, ('glac_idx', 'time', 'sim'))
         melt_glac_monthly.long_name = "glacier-wide melt"
         melt_glac_monthly.units = "m w.e."
         frontalablation_glac_monthly = netcdf_output.createVariable('frontalablation_glac_monthly', np.float64, 
-                                                                    ('glac_idx', 'time'))
+                                                                    ('glac_idx', 'time', 'sim'))
         frontalablation_glac_monthly.long_name = "glacier-wide frontal ablation"
         frontalablation_glac_monthly.units = "m w.e."
         frontalablation_glac_monthly.comment = ("mass losses from calving, subaerial frontal melting, sublimation above"
                                                 + " the waterline and subaqueous frontal melting below the waterline")
         massbaltotal_glac_monthly = netcdf_output.createVariable('massbaltotal_glac_monthly', np.float64, 
-                                                                 ('glac_idx', 'time'))
+                                                                 ('glac_idx', 'time', 'sim'))
         massbaltotal_glac_monthly.long_name = "glacier-wide total mass balance"
         massbaltotal_glac_monthly.units = "m w.e."
         massbaltotal_glac_monthly.comment = ("total mass balance is the sum of the climatic mass balance and frontal "
                                              + "ablation.") 
-        runoff_glac_monthly = netcdf_output.createVariable('runoff_glac_monthly', np.float64, ('glac_idx', 'time'))
+        runoff_glac_monthly = netcdf_output.createVariable('runoff_glac_monthly', np.float64, 
+                                                           ('glac_idx', 'time', 'sim'))
         runoff_glac_monthly.long_name = "glacier runoff"
         runoff_glac_monthly.units = "m**3"
         runoff_glac_monthly.comment = "runoff from the glacier terminus, which moves over time"
-        snowline_glac_monthly = netcdf_output.createVariable('snowline_glac_monthly', np.float64, ('glac_idx', 'time'))
+        snowline_glac_monthly = netcdf_output.createVariable('snowline_glac_monthly', np.float64, 
+                                                             ('glac_idx', 'time', 'sim'))
         snowline_glac_monthly.long_name = "transient snowline"
         snowline_glac_monthly.units = "m a.s.l."
         snowline_glac_monthly.comment = "transient snowline is the line separating the snow from ice/firn"
-        area_glac_annual = netcdf_output.createVariable('area_glac_annual', np.float64, ('glac_idx', 'year_plus1'))
+        area_glac_annual = netcdf_output.createVariable('area_glac_annual', np.float64, 
+                                                        ('glac_idx', 'year_plus1', 'sim'))
         area_glac_annual.long_name = "glacier area"
         area_glac_annual.units = "km**2"
         area_glac_annual.comment = "the area that was used for the duration of the year"
-        volume_glac_annual = netcdf_output.createVariable('volume_glac_annual', np.float64, ('glac_idx', 'year_plus1'))
+        volume_glac_annual = netcdf_output.createVariable('volume_glac_annual', np.float64, 
+                                                          ('glac_idx', 'year_plus1', 'sim'))
         volume_glac_annual.long_name = "glacier volume"
         volume_glac_annual.units = "km**3 ice"
         volume_glac_annual.comment = "the volume based on area and ice thickness used for that year"
-        ELA_glac_annual = netcdf_output.createVariable('ELA_glac_annual', np.float64, ('glac_idx', 'year'))
+        ELA_glac_annual = netcdf_output.createVariable('ELA_glac_annual', np.float64, ('glac_idx', 'year', 'sim'))
         ELA_glac_annual.long_name = "annual equilibrium line altitude"
         ELA_glac_annual.units = "m a.s.l."
         ELA_glac_annual.comment = "equilibrium line altitude is the elevation where the climatic mass balance is zero"
     netcdf_output.close()
     
-def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, glac_bin_prec, 
+def netcdfwrite(netcdf_fn, glac, sim, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, glac_bin_prec, 
                 glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, 
                 glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, glac_bin_icethickness_annual, 
                 glac_bin_width_annual, glac_bin_surfacetype_annual, output_filepath=input.output_filepath):
@@ -281,18 +292,18 @@ def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, 
         glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
                                                           input.binsize/2)
         # Write variables to netcdf
-        netcdf_output.variables['temp_glac_monthly'][glac,:] = glac_wide_temp
-        netcdf_output.variables['prec_glac_monthly'][glac,:] = glac_wide_prec
-        netcdf_output.variables['acc_glac_monthly'][glac,:] = glac_wide_acc
-        netcdf_output.variables['refreeze_glac_monthly'][glac,:] = glac_wide_refreeze
-        netcdf_output.variables['melt_glac_monthly'][glac,:] = glac_wide_melt
-        netcdf_output.variables['frontalablation_glac_monthly'][glac,:] = glac_wide_frontalablation
-        netcdf_output.variables['massbaltotal_glac_monthly'][glac,:] = glac_wide_massbaltotal
-        netcdf_output.variables['runoff_glac_monthly'][glac,:] = glac_wide_runoff
-        netcdf_output.variables['snowline_glac_monthly'][glac,:] = glac_wide_snowline
-        netcdf_output.variables['area_glac_annual'][glac,:] = glac_wide_area_annual
-        netcdf_output.variables['volume_glac_annual'][glac,:] = glac_wide_volume_annual
-        netcdf_output.variables['ELA_glac_annual'][glac,:] = glac_wide_ELA_annual
+        netcdf_output.variables['temp_glac_monthly'][glac,:,sim] = glac_wide_temp
+        netcdf_output.variables['prec_glac_monthly'][glac,:,sim] = glac_wide_prec
+        netcdf_output.variables['acc_glac_monthly'][glac,:,sim] = glac_wide_acc
+        netcdf_output.variables['refreeze_glac_monthly'][glac,:,sim] = glac_wide_refreeze
+        netcdf_output.variables['melt_glac_monthly'][glac,:,sim] = glac_wide_melt
+        netcdf_output.variables['frontalablation_glac_monthly'][glac,:,sim] = glac_wide_frontalablation
+        netcdf_output.variables['massbaltotal_glac_monthly'][glac,:,sim] = glac_wide_massbaltotal
+        netcdf_output.variables['runoff_glac_monthly'][glac,:,sim] = glac_wide_runoff
+        netcdf_output.variables['snowline_glac_monthly'][glac,:,sim] = glac_wide_snowline
+        netcdf_output.variables['area_glac_annual'][glac,:,sim] = glac_wide_area_annual
+        netcdf_output.variables['volume_glac_annual'][glac,:,sim] = glac_wide_volume_annual
+        netcdf_output.variables['ELA_glac_annual'][glac,:,sim] = glac_wide_ELA_annual
     # Close the netcdf file
     netcdf_output.close()
 
