@@ -13,6 +13,7 @@ add a filename to the argument:
 
 import pandas as pd
 import numpy as np
+import xarray as xr
 import netCDF4 as nc
 import os
 import argparse
@@ -59,6 +60,10 @@ gcm_modelparams_fn_ending = ('_biasadj_opt' + str(option_bias_adjustment) + '_19
 # Tushar's quick and dirty option
 # Select True if running using MCMC method
 MCMC_option = True
+
+# MCMC model parameter sets
+MCMC_modelparams_fp = input.main_directory + '/../MCMC_Data/'
+MCMC_modelparams_fn = 'testfile.nc'
 
 
 #%% FUNCTIONS
@@ -214,6 +219,13 @@ def main(list_packed_vars):
         main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
         output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table)
 
+    # ===== Get MCMC parameter sets ====
+
+    if MCMC_option:
+
+        # in the form of an xarray dataset
+        MCMC_ds = xr.open_dataset(MCMC_modelparams_fp + MCMC_modelparams_fn)
+
     # ===== RUN MASS BALANCE =====
     for glac in range(main_glac_rgi.shape[0]):
         if glac%200 == 0:
@@ -228,36 +240,89 @@ def main(list_packed_vars):
         glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-        modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],input.modelparams_colnames]
 
-        # Mass balance calcs
-        (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-         glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-         glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-         glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
-         glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-            massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                       width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-                                       glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0))
-        # Annual glacier-wide mass balance [m w.e.]
-        glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-        # Average annual glacier-wide mass balance [m w.e.a.]
-        mb_mwea = glac_wide_massbaltotal_annual.mean()
-        #  units: m w.e. based on initial area
-        # Volume change [%]
-        if icethickness_t0.max() > 0:
-            glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / 
-                                    glac_wide_volume_annual[0] * 100)
+        if MCMC_option:
 
-#        print(mb_mwea, glac_vol_change_perc)
-        
+            # get glacier number
+            glacier_RGIId = main_glac_rgi.iloc[0]['RGIId'][6:]
 
-        if output_package != 0:
-            output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
-                               glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-                               glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
-                               glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
-                               glac_bin_surfacetype_annual, output_filepath=output_filepath)
+            # debug
+            print(glacier_RGIId)
+
+            # get DataArray for specific glacier and convert
+            # to pandas DataFrame
+            MCMC_da = MCMC_ds[glacier_RGIId]
+            MCMC_df = MCMC_da.to_pandas()
+
+            # debug
+            print(MCMC_df)
+
+            # use a for loop for each model run
+            for MCMC_run in range(len(MCMC_df)):
+
+                # get model parameters
+                modelparameters = []
+                for colname in input.modelparams_colnames:
+                    modelparameters.append(MCMC_df.loc[MCMC_run][colname])
+
+                # debug
+                print('modelparameters:', modelparameters)
+
+                # run mass balance calculation
+                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
+                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                                               glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0))
+                # Annual glacier-wide mass balance [m w.e.]
+                glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+                # Average annual glacier-wide mass balance [m w.e.a.]
+                mb_mwea = glac_wide_massbaltotal_annual.mean()
+                #  units: m w.e. based on initial area
+                # Volume change [%]
+                if icethickness_t0.max() > 0:
+                    glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / 
+                                            glac_wide_volume_annual[0] * 100)
+
+    #            print(mb_mwea, glac_vol_change_perc)
+
+
+            # write to netcdf file
+
+        else:
+            modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],input.modelparams_colnames]
+
+            # Mass balance calcs
+            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
+             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                                           glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0))
+            # Annual glacier-wide mass balance [m w.e.]
+            glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+            # Average annual glacier-wide mass balance [m w.e.a.]
+            mb_mwea = glac_wide_massbaltotal_annual.mean()
+            #  units: m w.e. based on initial area
+            # Volume change [%]
+            if icethickness_t0.max() > 0:
+                glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) / 
+                                        glac_wide_volume_annual[0] * 100)
+
+#            print(mb_mwea, glac_vol_change_perc)
+
+
+            if output_package != 0:
+                output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, 
+                                   glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+                                   glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, 
+                                   glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
+                                   glac_bin_surfacetype_annual, output_filepath=output_filepath)
 
     # Export variables as global to view in variable explorer
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
@@ -387,7 +452,7 @@ if __name__ == '__main__':
             
 #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          
     # Place local variables in variable explorer
-    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
+    if (not MCMC_option) and ((args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes)):
         main_vars_list = list(main_vars.keys())
         gcm_name = main_vars['gcm_name']
 #        rcp_scenario = main_vars['rcp_scenario']

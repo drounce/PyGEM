@@ -40,9 +40,9 @@ rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03733']
-#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['03473', '03733']
 # only david's data
-rgi_glac_number = ['10075', '10079', '10059', '10060', '09929']
+#rgi_glac_number = ['10075', '10079', '10059', '10060', '09929']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
 #rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
@@ -72,7 +72,7 @@ output_filepath = input.main_directory + '/../Output/'
 
 # MCMC export configuration
 MCMC_output_filepath = input.main_directory + '/../MCMC_Data/'
-MCMC_output_filename = 'testfile2.nc'
+MCMC_output_filename = 'testfile.nc'
 
 #%% FUNCTIONS
 def getparser():
@@ -525,16 +525,26 @@ def main(list_packed_vars):
             df = process_df(sampling)
 
             # debug
-#            print(df)
-#            print(str(glacier_RGIId))
+            print(df)
+            print(str(glacier_RGIId))
 
             # convert dataframe to dataarray, name it
             # according to the glacier number
             da = xr.DataArray(df)
             da.name = str(glacier_RGIId)
 
+            # debug
+            print('dataArray:', da.name, da)
+
+            # apend da to the dictionary
+            da_dict[da.name] = da
+
         # convert da_dict to xr.Dataset and then to a netcdf file
         ds = xr.Dataset(da_dict)
+
+        #debug
+        print(ds)
+
         ds.to_netcdf(MCMC_output_filepath + MCMC_output_filename)
 
 
