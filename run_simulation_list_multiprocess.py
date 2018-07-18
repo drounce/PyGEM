@@ -39,7 +39,7 @@ rgi_glac_number = ['03473', '03733']
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2015
+gcm_endyear = 2024
 gcm_spinupyears = 5
 
 # Output
@@ -55,6 +55,11 @@ ref_modelparams_fn = 'calibration_R15_20180403_Opt02solutionspaceexpanding_wnnbr
 gcm_modelparams_fp = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
 gcm_modelparams_fn_ending = ('_biasadj_opt' + str(option_bias_adjustment) + '_1995_2015_R' + str(rgi_regionsO1[0]) + 
                              '.csv')
+
+# Synthetic simulation input
+option_synthetic_sim = 1
+synthetic_startyear = 1990
+synthetic_endyear = 1999
 
 #%% FUNCTIONS
 def getparser():
@@ -115,31 +120,59 @@ def main(list_packed_vars):
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, 
                                                                  spinupyears=gcm_spinupyears)
+    # Synthetic simulation dates
+    if option_synthetic_sim == 1:
+        dates_table_synthetic, synthetic_start, synthetic_end = modelsetup.datesmodelrun(
+                startyear=synthetic_startyear, endyear=synthetic_endyear, spinupyears=0)
     
     # ===== LOAD CLIMATE DATA =====
     if gcm_name == input.ref_gcm_name:
         gcm = class_climate.GCM(name=gcm_name)
         # Check that end year is reasonable
-        if (gcm_name == 'ERA-Interim') and (gcm_endyear > 2016):
+        if (gcm_name == 'ERA-Interim') and (gcm_endyear > 2016) and (option_synthetic_sim == 0):
             print('\n\nEND YEAR BEYOND AVAILABLE DATA FOR ERA-INTERIM. CHANGE END YEAR.\n\n')
     else:
-        gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)    
-    # Air temperature [degC]
-    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-    # Precipitation [m]
-    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-    # Elevation [m asl]
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)  
-    # Lapse rate
-    if gcm_name == 'ERA-Interim':
-        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-    else:
-        # Mean monthly lapse rate
-        ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
-        ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
-        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-        
-        
+        gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
+    
+    if option_synthetic_sim == 0:
+        # Air temperature [degC]
+        gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
+                                                                     dates_table)
+        # Precipitation [m]
+        gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, 
+                                                                     dates_table)
+        # Elevation [m asl]
+        gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, 
+                                                         main_glac_rgi)  
+        # Lapse rate
+        if gcm_name == 'ERA-Interim':
+            gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+        else:
+            # Mean monthly lapse rate
+            ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
+            ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
+            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+    elif option_synthetic_sim == 1:
+        # Air temperature [degC]
+        gcm_temp_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
+                                                                          dates_table_synthetic)
+        # Precipitation [m]
+        gcm_prec_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, 
+                                                                          dates_table_synthetic)
+        # Elevation [m asl]
+        gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)  
+        # Lapse rate
+        gcm_lr_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, 
+                                                                        dates_table_synthetic)
+        # Future simulation based on synthetic (replicated) data; add spinup years; dataset restarts after spinupyears 
+        datelength = dates_table.shape[0] - gcm_spinupyears * 12
+        n_tiles = int(np.ceil(datelength / dates_table_synthetic.shape[0]))
+        gcm_temp = np.append(gcm_temp_tile[:,:gcm_spinupyears*12], np.tile(gcm_temp_tile,(1,n_tiles))[:,:datelength], 
+                             axis=1)
+        gcm_prec = np.append(gcm_prec_tile[:,:gcm_spinupyears*12], np.tile(gcm_prec_tile,(1,n_tiles))[:,:datelength], 
+                             axis=1)
+        gcm_lr = np.append(gcm_lr_tile[:,:gcm_spinupyears*12], np.tile(gcm_lr_tile,(1,n_tiles))[:,:datelength], axis=1)
+ 
     # ===== BIAS CORRECTIONS =====
     # ERA-Interim does not have any bias corrections
     if (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
@@ -303,68 +336,68 @@ if __name__ == '__main__':
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
     
-         # Combine output into single netcdf
-        if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
-            # Netcdf outputs
-            output_prefix = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
-                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
-                             str(gcm_endyear) + '_')
-            output_all_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
-                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
-                             str(gcm_endyear) + '_all.nc')
-            
-            # Select netcdf files produced in parallel
-            output_list = []
-            for i in os.listdir(output_filepath):
-                # Append bias adjustment results
-                if i.startswith(output_prefix) == True:
-                    output_list.append(i)
-            
-            # Merge netcdfs together
-            if (len(output_list) > 1) and (output_package != 0):
-                # Create netcdf that will have them all together
-                output.netcdfcreate(output_all_fn, main_glac_rgi_all_float, main_glac_hyps, dates_table, 
-                                    output_filepath=input.output_filepath)
-                # Open file to write
-                netcdf_output = nc.Dataset(output_filepath + output_all_fn, 'r+')
-                
-                glac_count = -1
-                for n in range(len(output_list)):
-                    ds = nc.Dataset(output_filepath + output_list[n])
-                    for glac in range(ds['glac_idx'][:].shape[0]):
-                        glac_count = glac_count + 1
-                        if output_package == 2:
-                            netcdf_output.variables['temp_glac_monthly'][glac_count,:] = (
-                                    ds['temp_glac_monthly'][glac,:])
-                            netcdf_output.variables['prec_glac_monthly'][glac_count,:] = (
-                                    ds['prec_glac_monthly'][glac,:])
-                            netcdf_output.variables['acc_glac_monthly'][glac_count,:] = (
-                                    ds['acc_glac_monthly'][glac,:])
-                            netcdf_output.variables['refreeze_glac_monthly'][glac_count,:] = (
-                                    ds['refreeze_glac_monthly'][glac,:])
-                            netcdf_output.variables['melt_glac_monthly'][glac_count,:] = (
-                                    ds['melt_glac_monthly'][glac,:])
-                            netcdf_output.variables['frontalablation_glac_monthly'][glac_count,:] = (
-                                    ds['frontalablation_glac_monthly'][glac,:])
-                            netcdf_output.variables['massbaltotal_glac_monthly'][glac_count,:] = (
-                                    ds['massbaltotal_glac_monthly'][glac,:])
-                            netcdf_output.variables['runoff_glac_monthly'][glac_count,:] = (
-                                    ds['runoff_glac_monthly'][glac,:])
-                            netcdf_output.variables['snowline_glac_monthly'][glac_count,:] = (
-                                    ds['snowline_glac_monthly'][glac,:])
-                            netcdf_output.variables['area_glac_annual'][glac_count,:] = (
-                                    ds['area_glac_annual'][glac,:])
-                            netcdf_output.variables['volume_glac_annual'][glac_count,:] = (
-                                    ds['volume_glac_annual'][glac,:])
-                            netcdf_output.variables['ELA_glac_annual'][glac_count,:] = (
-                                    ds['ELA_glac_annual'][glac,:])
-                        else:
-                            print('Code merge for output package')  
-                    ds.close()
-                    # Remove file after its been merged
-                    os.remove(output_filepath + output_list[n])
-                # Close the netcdf file
-                netcdf_output.close()
+#        # Combine output into single netcdf
+#        if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
+#            # Netcdf outputs
+#            output_prefix = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
+#                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+#                             str(gcm_endyear) + '_')
+#            output_all_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' + 
+#                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+#                             str(gcm_endyear) + '_all.nc')
+#            
+#            # Select netcdf files produced in parallel
+#            output_list = []
+#            for i in os.listdir(output_filepath):
+#                # Append bias adjustment results
+#                if i.startswith(output_prefix) == True:
+#                    output_list.append(i)
+#            
+#            # Merge netcdfs together
+#            if (len(output_list) > 1) and (output_package != 0):
+#                # Create netcdf that will have them all together
+#                output.netcdfcreate(output_all_fn, main_glac_rgi_all_float, main_glac_hyps, dates_table, 
+#                                    output_filepath=input.output_filepath)
+#                # Open file to write
+#                netcdf_output = nc.Dataset(output_filepath + output_all_fn, 'r+')
+#                
+#                glac_count = -1
+#                for n in range(len(output_list)):
+#                    ds = nc.Dataset(output_filepath + output_list[n])
+#                    for glac in range(ds['glac_idx'][:].shape[0]):
+#                        glac_count = glac_count + 1
+#                        if output_package == 2:
+#                            netcdf_output.variables['temp_glac_monthly'][glac_count,:] = (
+#                                    ds['temp_glac_monthly'][glac,:])
+#                            netcdf_output.variables['prec_glac_monthly'][glac_count,:] = (
+#                                    ds['prec_glac_monthly'][glac,:])
+#                            netcdf_output.variables['acc_glac_monthly'][glac_count,:] = (
+#                                    ds['acc_glac_monthly'][glac,:])
+#                            netcdf_output.variables['refreeze_glac_monthly'][glac_count,:] = (
+#                                    ds['refreeze_glac_monthly'][glac,:])
+#                            netcdf_output.variables['melt_glac_monthly'][glac_count,:] = (
+#                                    ds['melt_glac_monthly'][glac,:])
+#                            netcdf_output.variables['frontalablation_glac_monthly'][glac_count,:] = (
+#                                    ds['frontalablation_glac_monthly'][glac,:])
+#                            netcdf_output.variables['massbaltotal_glac_monthly'][glac_count,:] = (
+#                                    ds['massbaltotal_glac_monthly'][glac,:])
+#                            netcdf_output.variables['runoff_glac_monthly'][glac_count,:] = (
+#                                    ds['runoff_glac_monthly'][glac,:])
+#                            netcdf_output.variables['snowline_glac_monthly'][glac_count,:] = (
+#                                    ds['snowline_glac_monthly'][glac,:])
+#                            netcdf_output.variables['area_glac_annual'][glac_count,:] = (
+#                                    ds['area_glac_annual'][glac,:])
+#                            netcdf_output.variables['volume_glac_annual'][glac_count,:] = (
+#                                    ds['volume_glac_annual'][glac,:])
+#                            netcdf_output.variables['ELA_glac_annual'][glac_count,:] = (
+#                                    ds['ELA_glac_annual'][glac,:])
+#                        else:
+#                            print('Code merge for output package')  
+#                    ds.close()
+#                    # Remove file after its been merged
+#                    os.remove(output_filepath + output_list[n])
+#                # Close the netcdf file
+#                netcdf_output.close()
         
     print('Total processing time:', time.time()-time_start, 's')
             
@@ -381,6 +414,11 @@ if __name__ == '__main__':
         main_glac_modelparams = main_vars['main_glac_modelparams']
         elev_bins = main_vars['elev_bins']
         dates_table = main_vars['dates_table']
+        if option_synthetic_sim == 1:
+            dates_table_synthetic = main_vars['dates_table_synthetic']
+            gcm_temp_tile = main_vars['gcm_temp_tile']
+            gcm_prec_tile = main_vars['gcm_prec_tile']
+            gcm_lr_tile = main_vars['gcm_lr_tile']
         gcm_temp = main_vars['gcm_temp']
         gcm_prec = main_vars['gcm_prec']
         gcm_elev = main_vars['gcm_elev']
@@ -392,8 +430,6 @@ if __name__ == '__main__':
         glac_wide_area_annual = main_vars['glac_wide_area_annual']
         glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
         glacier_rgi_table = main_vars['glacier_rgi_table']
-#        glacier_gcm_temp = main_vars['glacier_gcm_temp'][gcm_spinupyears*12:]
-#        glacier_gcm_prec = main_vars['glacier_gcm_prec'][gcm_spinupyears*12:]
         glacier_gcm_temp = main_vars['glacier_gcm_temp']
         glacier_gcm_prec = main_vars['glacier_gcm_prec']
         glacier_gcm_elev = main_vars['glacier_gcm_elev']

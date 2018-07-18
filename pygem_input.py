@@ -37,6 +37,13 @@ endyear = 2015
 # Spin up time [years]
 spinupyears = 5
 
+# Synthetic simulation options
+#  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
+option_synthetic_sim = 0
+synthetic_startyear = 1990
+synthetic_endyear = 2000
+synthetic_spinupyears = 0
+
 # Remove NaN values (glaciers without calibration data)
 option_removeNaNcal = 1
 #  Option 0 (default) - do not remove these glaciers
@@ -160,7 +167,7 @@ indexname = 'GlacNo'
 rgi_O1Id_colname = 'glacno'
 rgi_glacno_float_colname = 'RGIId_float'
 # Column names from table to drop
-rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Surging','Linkages','Name']
+rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Name']
 # Dictionary of hypsometry filenames
 rgi_dict = {
             1:  '01_rgi60_Alaska.csv',
