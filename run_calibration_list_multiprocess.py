@@ -40,9 +40,10 @@ rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03733']
-rgi_glac_number = ['03473', '03733']
-# only david's data
+#rgi_glac_number = ['03473', '03733']
+# test 10 glaciers (only shean's data)
 #rgi_glac_number = ['10075', '10079', '10059', '10060', '09929']
+rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
 #rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
@@ -73,6 +74,8 @@ output_filepath = input.main_directory + '/../Output/'
 # MCMC export configuration
 MCMC_output_filepath = input.main_directory + '/../MCMC_Data/'
 MCMC_output_filename = 'testfile.nc'
+MCMC_config_filepath = MCMC_output_filepath + 'config/'
+
 
 #%% FUNCTIONS
 def getparser():
@@ -528,24 +531,35 @@ def main(list_packed_vars):
             print(df)
             print(str(glacier_RGIId))
 
+#            df.name = str(glacier_RGIId)
+#            df.to_csv(MCMC_config_filepath + df.name + '.csv')
+
             # convert dataframe to dataarray, name it
             # according to the glacier number
             da = xr.DataArray(df)
             da.name = str(glacier_RGIId)
 
+            # create xr.dataset and then save to
+            # netcdf files
+            ds = xr.Dataset({da.name: da})
+
             # debug
-            print('dataArray:', da.name, da)
+            print(ds)
+
+            ds.to_netcdf(MCMC_config_filepath + da.name + '.nc')
+            # debug
+#            print('dataArray:', da.name, da)
 
             # apend da to the dictionary
-            da_dict[da.name] = da
+#            da_dict[da.name] = da
 
         # convert da_dict to xr.Dataset and then to a netcdf file
-        ds = xr.Dataset(da_dict)
+#        ds = xr.Dataset(da_dict)
 
         #debug
-        print(ds)
+#        print(ds)
 
-        ds.to_netcdf(MCMC_output_filepath + MCMC_output_filename)
+#        ds.to_netcdf(MCMC_output_filepath + MCMC_output_filename)
 
 
     # Option 1: mimize mass balance difference using three-step approach to expand solution space
@@ -1009,50 +1023,76 @@ if __name__ == '__main__':
         for n in range(len(list_packed_vars)):
             main(list_packed_vars[n])
 
-    # Combine output into single csv
-    if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
-        (option_export == 1)):
-        # Model parameters
-        output_prefix = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-                         gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
-        output_list = []
-        for i in os.listdir(output_filepath):
-            # Append results
-            if i.startswith(output_prefix) == True:
-                output_list.append(i)
-                if len(output_list) == 1:
-                    output_all = pd.read_csv(output_filepath + i, index_col=0)
-                else:
-                    output_2join = pd.read_csv(output_filepath + i, index_col=0)
-                    output_all = output_all.append(output_2join, ignore_index=True)
-                # Remove file after its been merged
-                os.remove(output_filepath + i)
-        # Export joined files
-        output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(option_calibration) + '_R' + 
-                         str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
-                         str(gcm_endyear) + '.csv')
-        output_all.to_csv(output_filepath + output_all_fn)
+    if option_calibration == 2:
 
-        # Calibration comparison
-        output_prefix2 = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
-        output_list = []
-        for i in os.listdir(output_filepath):
-            # Append results
-            if i.startswith(output_prefix2) == True:
-                output_list.append(i)
-                if len(output_list) == 1:
-                    output_all = pd.read_csv(output_filepath + i, index_col=0)
-                else:
-                    output_2join = pd.read_csv(output_filepath + i, index_col=0)
-                    output_all = output_all.append(output_2join, ignore_index=True)
-                # Remove file after its been merged
-                os.remove(output_filepath + i)
-        # Export joined files
-        output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(option_calibration) + '_R' + 
-                         str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
-                         str(gcm_endyear) + '.csv')
-        output_all.to_csv(output_filepath + output_all_fn)
+        # create a dict for dataarrays
+        da_dict = {}
+
+        # for each .nc file in folder, upload dataset
+        for i in os.listdir(MCMC_config_filepath):
+            if i.endswith('.nc'):
+                glacier_RGIId = i[:-3]
+                ds = xr.open_dataset(MCMC_config_filepath + i)
+
+                # get dataarray, add to dictionary
+                da = ds[glacier_RGIId]
+                da_dict[glacier_RGIId] = da
+
+                #debug
+                print(da)
+
+        # create final dataset with each glacier, make netcdf file
+        ds = xr.Dataset(da_dict)
+        ds.to_netcdf(MCMC_output_filepath + MCMC_output_filename)
+
+        #debug
+        print(ds)
+
+    else:
+        # Combine output into single csv
+        if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
+            (option_export == 1)):
+            # Model parameters
+            output_prefix = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+                             gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
+            output_list = []
+            for i in os.listdir(output_filepath):
+                # Append results
+                if i.startswith(output_prefix) == True:
+                    output_list.append(i)
+                    if len(output_list) == 1:
+                        output_all = pd.read_csv(output_filepath + i, index_col=0)
+                    else:
+                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
+                        output_all = output_all.append(output_2join, ignore_index=True)
+                    # Remove file after its been merged
+                    os.remove(output_filepath + i)
+            # Export joined files
+            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(option_calibration) + '_R' + 
+                             str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                             str(gcm_endyear) + '.csv')
+            output_all.to_csv(output_filepath + output_all_fn)
+
+            # Calibration comparison
+            output_prefix2 = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+                              gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
+            output_list = []
+            for i in os.listdir(output_filepath):
+                # Append results
+                if i.startswith(output_prefix2) == True:
+                    output_list.append(i)
+                    if len(output_list) == 1:
+                        output_all = pd.read_csv(output_filepath + i, index_col=0)
+                    else:
+                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
+                        output_all = output_all.append(output_2join, ignore_index=True)
+                    # Remove file after its been merged
+                    os.remove(output_filepath + i)
+            # Export joined files
+            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(option_calibration) + '_R' + 
+                             str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                             str(gcm_endyear) + '.csv')
+            output_all.to_csv(output_filepath + output_all_fn)
 
     print('Total processing time:', time.time()-time_start, 's')
 
