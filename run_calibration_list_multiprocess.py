@@ -141,19 +141,24 @@ def main(list_packed_vars):
     if set(['group']).issubset(cal_datasets) == True:
         # Group dictionary
         group_dict_raw = pd.read_csv(input.mb_group_fp + input.mb_group_dict_fn)
-        group_dict = dict(zip(group_dict_raw['RGIId'], group_dict_raw['group_name']))
+        # Remove groups that have no data
+        group_names_wdata = np.unique(cal_data[np.isnan(cal_data.glacno)].group_name.values).tolist()
+        group_dict_raw_wdata = group_dict_raw.loc[group_dict_raw.group_name.isin(group_names_wdata)]
+        # Create dictionary to map group names to main_glac_rgi
+        group_dict = dict(zip(group_dict_raw_wdata['RGIId'], group_dict_raw_wdata['group_name']))
         group_names_unique = list(set(group_dict.values()))
         group_dict_keyslist = [[] for x in group_names_unique]
         for n, group in enumerate(group_names_unique):
             group_dict_keyslist[n] = [group, [k for k, v in group_dict.items() if v == group]]
         # Add group name to main_glac_rgi
         main_glac_rgi_raw['group_name'] = main_glac_rgi_raw['RGIId'].map(group_dict)
-        
+    
     # Drop glaciers that do not have any calibration data (individual or group)    
     main_glac_rgi = ((main_glac_rgi_raw.iloc[np.unique(
             np.append(main_glac_rgi_raw[main_glac_rgi_raw['group_name'].notnull() == True].index.values, 
                       np.where(main_glac_rgi_raw[input.rgi_O1Id_colname].isin(cal_data['glacno']) == True)[0])), :])
             .copy())
+    # select glacier data
     main_glac_hyps = main_glac_hyps_raw.iloc[main_glac_rgi.index.values]
     main_glac_icethickness = main_glac_icethickness_raw.iloc[main_glac_rgi.index.values]  
     main_glac_width = main_glac_width_raw.iloc[main_glac_rgi.index.values]
@@ -1064,7 +1069,7 @@ def main(list_packed_vars):
             group_dict_idx = group_dict_keyslist_names.index(group_name)
             # Indices of all glaciers in group
             group_dict_glaciers_idx_all = [main_glac_rgi[main_glac_rgi.RGIId == x].index.values[0] 
-                                       for x in group_dict_keyslist[group_dict_idx][1]]
+                                           for x in group_dict_keyslist[group_dict_idx][1]]
             # Indices of all glaciers in group excluding those already calibrated
             group_dict_glaciers_idx = [x for x in group_dict_glaciers_idx_all if x not in cal_individual_glacno_idx]
     
@@ -1431,54 +1436,54 @@ if __name__ == '__main__':
         for n in range(len(list_packed_vars)):
             main(list_packed_vars[n])
     
-#    # Combine output into single csv
-#    if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
-#        (option_export == 1)):
-#        # Model parameters
-#        output_prefix = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-#                         gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
-#        output_list = []
-#        for i in os.listdir(output_filepath):
-#            # Append results
-#            if i.startswith(output_prefix) == True:
-#                output_list.append(i)
-#                if len(output_list) == 1:
-#                    output_all = pd.read_csv(output_filepath + i, index_col=0)
-#                else:
-#                    output_2join = pd.read_csv(output_filepath + i, index_col=0)
-#                    output_all = output_all.append(output_2join, ignore_index=True)
-#                # Remove file after its been merged
-#                os.remove(output_filepath + i)
-#        # Export joined files
-#        output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(option_calibration) + '_R' + 
-#                         str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
-#                         str(gcm_endyear) + '.csv')
-#        output_all.to_csv(output_filepath + output_all_fn)
-#        
-#        # Calibration comparison
-#        output_prefix2 = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-#                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
-#        output_list = []
-#        for i in os.listdir(output_filepath):
-#            # Append results
-#            if i.startswith(output_prefix2) == True:
-#                output_list.append(i)
-#                if len(output_list) == 1:
-#                    output_all = pd.read_csv(output_filepath + i, index_col=0)
-#                else:
-#                    output_2join = pd.read_csv(output_filepath + i, index_col=0)
-#                    output_all = output_all.append(output_2join, ignore_index=True)
-#                # Remove file after its been merged
-#                os.remove(output_filepath + i)
-#        # Export joined files
-#        output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(option_calibration) + '_R' + 
-#                         str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
-#                         str(gcm_endyear) + '.csv')
-#        output_all.to_csv(output_filepath + output_all_fn)
-#        
-#    print('Total processing time:', time.time()-time_start, 's')
+    # Combine output into single csv
+    if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
+        (option_export == 1)):
+        # Model parameters
+        output_prefix = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+                         gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
+        output_list = []
+        for i in os.listdir(output_filepath):
+            # Append results
+            if i.startswith(output_prefix) == True:
+                output_list.append(i)
+                if len(output_list) == 1:
+                    output_all = pd.read_csv(output_filepath + i, index_col=0)
+                else:
+                    output_2join = pd.read_csv(output_filepath + i, index_col=0)
+                    output_all = output_all.append(output_2join, ignore_index=True)
+                # Remove file after its been merged
+                os.remove(output_filepath + i)
+        # Export joined files
+        output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(option_calibration) + '_R' + 
+                         str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                         str(gcm_endyear) + '.csv')
+        output_all.to_csv(output_filepath + output_all_fn)
+        
+        # Calibration comparison
+        output_prefix2 = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_')
+        output_list = []
+        for i in os.listdir(output_filepath):
+            # Append results
+            if i.startswith(output_prefix2) == True:
+                output_list.append(i)
+                if len(output_list) == 1:
+                    output_all = pd.read_csv(output_filepath + i, index_col=0)
+                else:
+                    output_2join = pd.read_csv(output_filepath + i, index_col=0)
+                    output_all = output_all.append(output_2join, ignore_index=True)
+                # Remove file after its been merged
+                os.remove(output_filepath + i)
+        # Export joined files
+        output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(option_calibration) + '_R' + 
+                         str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + 
+                         str(gcm_endyear) + '.csv')
+        output_all.to_csv(output_filepath + output_all_fn)
+        
+    print('Total processing time:', time.time()-time_start, 's')
             
-    #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          
+#    #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          
 #    # Place local variables in variable explorer
 #    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
 #        main_vars_list = list(main_vars.keys())
@@ -1549,7 +1554,10 @@ if __name__ == '__main__':
 #if set(['group']).issubset(cal_datasets) == True:
 #    # Group dictionary
 #    group_dict_raw = pd.read_csv(input.mb_group_fp + input.mb_group_dict_fn)
-#    group_dict = dict(zip(group_dict_raw['RGIId'], group_dict_raw['group_name']))
+#    # Remove groups that have no data
+#    group_names_wdata = np.unique(cal_data[np.isnan(cal_data.glacno)].group_name.values).tolist()
+#    group_dict_raw_wdata = group_dict_raw.loc[group_dict_raw.group_name.isin(group_names_wdata)]
+#    group_dict = dict(zip(group_dict_raw_wdata['RGIId'], group_dict_raw_wdata['group_name']))
 #    group_names_unique = list(set(group_dict.values()))
 #    group_dict_keyslist = [[] for x in group_names_unique]
 #    for n, group in enumerate(group_names_unique):
@@ -1572,6 +1580,7 @@ if __name__ == '__main__':
 #        np.append(main_glac_rgi_raw[main_glac_rgi_raw['group_name'].notnull() == True].index.values, 
 #                  np.where(main_glac_rgi_raw[input.rgi_O1Id_colname].isin(cal_data['glacno']) == True)[0])), :])
 #        .copy())
+## select appropriate glacier data
 #main_glac_hyps = main_glac_hyps_raw.iloc[main_glac_rgi.index.values]
 #main_glac_icethickness = main_glac_icethickness_raw.iloc[main_glac_rgi.index.values]  
 #main_glac_width = main_glac_width_raw.iloc[main_glac_rgi.index.values]
@@ -2005,7 +2014,7 @@ if __name__ == '__main__':
 #    # List of name of each group
 #    group_dict_keyslist_names = [item[0] for item in group_dict_keyslist]
 ##    for cal_idx in cal_data_idx_groups:
-#    for cal_idx in [9]:
+#    for cal_idx in [0]:
 #        group_name = cal_data.loc[cal_idx, 'group_name']
 #        print(group_name)
 #
@@ -2363,36 +2372,36 @@ if __name__ == '__main__':
 #        print('calround:', calround)
 #        print(' ')
 #
-#    # ===== EXPORT OUTPUT =====
-#    # Export (i) main_glac_rgi w optimized model parameters and glacier-wide climatic mass balance, 
-#    #        (ii) comparison of model vs. observations
-#    # Concatenate main_glac_rgi, optimized model parameters, glacier-wide climatic mass balance
-#    main_glac_output = main_glac_rgi.copy()
-#    main_glac_modelparamsopt_pd = pd.DataFrame(main_glac_modelparamsopt, columns=input.modelparams_colnames)
-#    main_glac_modelparamsopt_pd.index = main_glac_rgi.index.values
-#    main_glacwide_mbclim_pd = pd.DataFrame(main_glacwide_mbclim_mwe, columns=[input.mbclim_cn])
-#    main_glac_output = pd.concat([main_glac_output, main_glac_modelparamsopt_pd, main_glacwide_mbclim_pd], axis=1)
-#        
-#    # Export output
-#    if (option_calibration == 1) and (option_export == 1) and (('group' in cal_datasets) == True):
-#        # main_glac_rgi w model parameters
-#        modelparams_fn = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-#                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-#        main_glac_output.to_csv(input.output_filepath + modelparams_fn)
-#        # calibration comparison
-#        calcompare_fn = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-#                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
-#        main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
-#    elif (option_calibration == 1) and (option_export == 1) and (('group' not in cal_datasets) == True):
-#        # main_glac_rgi w model parameters
-#        modelparams_fn = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-#                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
-#                          str(count) + '.csv')
-#        main_glac_output.to_csv(input.output_filepath + modelparams_fn)
-#        # calibration comparison
-#        calcompare_fn = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
-#                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
-#                          str(count) + '.csv')
-#        main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
-
-
+##    # ===== EXPORT OUTPUT =====
+##    # Export (i) main_glac_rgi w optimized model parameters and glacier-wide climatic mass balance, 
+##    #        (ii) comparison of model vs. observations
+##    # Concatenate main_glac_rgi, optimized model parameters, glacier-wide climatic mass balance
+##    main_glac_output = main_glac_rgi.copy()
+##    main_glac_modelparamsopt_pd = pd.DataFrame(main_glac_modelparamsopt, columns=input.modelparams_colnames)
+##    main_glac_modelparamsopt_pd.index = main_glac_rgi.index.values
+##    main_glacwide_mbclim_pd = pd.DataFrame(main_glacwide_mbclim_mwe, columns=[input.mbclim_cn])
+##    main_glac_output = pd.concat([main_glac_output, main_glac_modelparamsopt_pd, main_glacwide_mbclim_pd], axis=1)
+##        
+##    # Export output
+##    if (option_calibration == 1) and (option_export == 1) and (('group' in cal_datasets) == True):
+##        # main_glac_rgi w model parameters
+##        modelparams_fn = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+##                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
+##        main_glac_output.to_csv(input.output_filepath + modelparams_fn)
+##        # calibration comparison
+##        calcompare_fn = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+##                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '.csv')
+##        main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
+##    elif (option_calibration == 1) and (option_export == 1) and (('group' not in cal_datasets) == True):
+##        # main_glac_rgi w model parameters
+##        modelparams_fn = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+##                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
+##                          str(count) + '.csv')
+##        main_glac_output.to_csv(input.output_filepath + modelparams_fn)
+##        # calibration comparison
+##        calcompare_fn = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+##                          gcm_name + '_' + str(gcm_startyear - gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + 
+##                          str(count) + '.csv')
+##        main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
+#
+#
