@@ -13,6 +13,7 @@ using the reference climate data.
 import pandas as pd
 import numpy as np
 import os
+import glob
 import argparse
 import inspect
 #import subprocess as sp
@@ -25,6 +26,7 @@ import xarray as xr
 import netCDF4 as nc
 from pymc import *
 import pyDOE as pe
+from time import strftime
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -43,7 +45,11 @@ rgi_regionsO1 = [15]
 #rgi_glac_number = ['03473', '03733']
 # test 10 glaciers (only shean's data)
 #rgi_glac_number = ['10075', '10079', '10059', '10060', '09929']
-rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
+#rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
+
+# test another 12, shean's data, parallels
+rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
+
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
 #rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
@@ -71,9 +77,16 @@ ftol_opt = 1e-2
 option_export = 1
 output_filepath = input.main_directory + '/../Output/'
 
+# MCMC settings
+MCMC_sample_no = input.MCMC_sample_no
+ensemble_no = input.MCMC_sample_no
+
 # MCMC export configuration
 MCMC_output_filepath = input.main_directory + '/../MCMC_Data/'
-MCMC_output_filename = 'testfile.nc'
+MCMC_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) +
+                        'glaciers_' + str(MCMC_sample_no) + 'samples_' + 
+                        str(ensemble_no) + 'ensembles_' +
+                        str(strftime("%Y%m%d")) + '.nc')
 MCMC_config_filepath = MCMC_output_filepath + 'config/'
 
 
@@ -83,7 +96,7 @@ def getparser():
     # add arguments
     parser.add_argument('-ref_gcm_name', action='store', type=str, default=input.ref_gcm_name, 
                         help='text file full of commands to run')
-    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=5, 
+    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=2, 
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
@@ -374,7 +387,17 @@ def main(list_packed_vars):
         # glacier in the list. The keys of this dict are
         # the RGIId, and this is eventually converted into
         # an xr.Dataset and then a netcdf file.
-        da_dict = {}
+#        da_dict = {}
+
+        # clear MCMC/config/ directory for storing netcdf files
+        # for each glacier run. These files will then
+        # be combined for the final output, but need to be
+        # cleared from the previous run.
+#        filelist = glob.glob(os.path.join(MCMC_config_filepath,
+#                                          '*.nc'))
+#        for f in filelist:
+#            os.remove(f)
+
 
         # loop through each glacier selected
         for glac in range(main_glac_rgi.shape[0]):
@@ -1012,6 +1035,17 @@ if __name__ == '__main__':
     for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
         n = n + 1
         list_packed_vars.append([n, chunk, chunk_size, main_glac_rgi_all, gcm_name])
+
+    # if MCMC option, prepare clear files from previous run
+    if option_calibration == 2:
+        # clear MCMC/config/ directory for storing netcdf files
+        # for each glacier run. These files will then
+        # be combined for the final output, but need to be
+        # cleared from the previous run.
+        filelist = glob.glob(os.path.join(MCMC_config_filepath,
+                                          '*.nc'))
+        for f in filelist:
+            os.remove(f)
 
     # Parallel processing
     if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):

@@ -57,8 +57,10 @@ rgi_regionsO1 = [15]
 #rgi_glac_number = ['06881']
 #rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
 # test 10 glaciers, only shean's data, parallels
-rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
+#rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
 
+# test another 12, shean's data, parallels
+rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
 
 # Required input
 option_bias_adjustment = 2
@@ -90,7 +92,7 @@ def getparser():
     # add arguments
     parser.add_argument('gcm_file', action='store', type=str, default='gcm_rcpXX_filenames.txt',
                         help='text file full of commands to run')
-    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=5,
+    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=2,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
@@ -767,7 +769,22 @@ if __name__ == '__main__':
             # If it doesn't exist, then combine and export
             if os.path.exists(output_filepath + lr_all_fn) == False:
                 # Append lapse rates
+
+                # debug
+                print(args.num_simultaneous_processes+1)
+
+#TODO: Fix this bug! num_simultaneous_processes may be
+# different from actual cores being used!
+# use a method that actually reads available files, like below
+#        filelist = glob.glob(os.path.join(MCMC_config_filepath,
+#                                          '*.nc'))
+#        for f in filelist:
+#            os.remove(f)
                 for n_output in range(1,args.num_simultaneous_processes+1):
+
+                    # debug
+                    print(n_output)
+
                     output_lr_solo = output_lr_prefix + '_' + str(n_output) + '.csv'
                     if n_output == 1:
                         lr_all = np.genfromtxt(output_filepath + output_lr_solo, delimiter=',')

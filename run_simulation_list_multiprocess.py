@@ -38,7 +38,9 @@ rgi_regionsO1 = [15]
 #rgi_glac_number=['10694']
 #rgi_glac_number = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '03473', '03733']
 # test 10 glaciers, only shean's data, parallels
-rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
+#rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
+# test another 12, shean's data, parallels
+rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
 
 
 # Required input
@@ -65,10 +67,16 @@ gcm_modelparams_fn_ending = ('_biasadj_opt' + str(option_bias_adjustment) + '_19
 # Select True if running using MCMC method
 MCMC_option = True
 
+# MCMC settings
+MCMC_sample_no = input.MCMC_sample_no
+ensemble_no = input.MCMC_sample_no
+
 # MCMC model parameter sets
 MCMC_modelparams_fp = input.main_directory + '/../MCMC_Data/'
-MCMC_modelparams_fn = 'testfile.nc'
-
+MCMC_modelparams_fn = ('parameter_sets_' + str(len(rgi_glac_number)) +
+                       'glaciers_' + str(MCMC_sample_no) + 'samples_' +
+                       str(ensemble_no) + 'ensembles_' +
+                       str(strftime("%Y%m%d")) + '.nc')
 
 #%% FUNCTIONS
 def getparser():
@@ -76,7 +84,7 @@ def getparser():
     # add arguments
     parser.add_argument('-gcm_file', action='store', type=str, default=input.ref_gcm_name,
                         help='text file full of commands to run')
-    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=5,
+    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=2,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
@@ -432,7 +440,7 @@ if __name__ == '__main__':
                              str(gcm_endyear) + '_')
             output_all_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
-                             str(gcm_endyear) + '_all.nc')
+                             str(gcm_endyear) + '_' + str(strftime("%Y%m%d"))  + '_all.nc')
 
             # Select netcdf files produced in parallel
             output_list = []

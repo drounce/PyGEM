@@ -16,6 +16,11 @@ option_calibration = 0
 #  Option 0 (default) - model simulation
 #  Option 1 - calibrate based on minimization (returns a single parameter set)
 
+# ===== MCMC and ensemble selections ========
+# number of MCMC samples to use
+MCMC_sample_no = 10
+ensemble_no = 10
+
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
