@@ -30,7 +30,7 @@ import class_climate
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 # Glacier selection
-rgi_regionsO1 = [15]
+#rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
@@ -40,8 +40,10 @@ rgi_regionsO1 = [15]
 # test 10 glaciers, only shean's data, parallels
 #rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
 # test another 12, shean's data, parallels
-rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
+#rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
 
+rgi_regionsO1 = input.rgi_regionsO1
+rgi_glac_number = input.rgi_glac_number
 
 # Required input
 # Time period
@@ -52,6 +54,7 @@ gcm_spinupyears = 5
 # Output
 output_package = 2
 output_filepath = input.main_directory + '/../Output/'
+parallel_filepath = output_filepath + 'parallel/'
 
 # Bias adjustment option (options defined in run_gcmbiasadj script; 0 means no correction)
 option_bias_adjustment = 2
@@ -72,11 +75,14 @@ MCMC_sample_no = input.MCMC_sample_no
 ensemble_no = input.MCMC_sample_no
 
 # MCMC model parameter sets
-MCMC_modelparams_fp = input.main_directory + '/../MCMC_Data/'
-MCMC_modelparams_fn = ('parameter_sets_' + str(len(rgi_glac_number)) +
-                       'glaciers_' + str(MCMC_sample_no) + 'samples_' +
-                       str(ensemble_no) + 'ensembles_' +
-                       str(strftime("%Y%m%d")) + '.nc')
+MCMC_modelparams_fp = input.MCMC_output_filepath
+MCMC_modelparams_fn = input.MCMC_output_filename
+
+# This boolean is useful for debugging. If true, a number
+# of print statements are activated through the running
+# of the model
+debug = False
+
 
 #%% FUNCTIONS
 def getparser():
@@ -196,6 +202,11 @@ def main(list_packed_vars):
         gcm_temp_monthly_avg = main_glac_modelparams[tempavg_cols].values
         gcm_temp_monthly_adj = main_glac_modelparams[tempadj_cols].values
         # Monthly temperature bias adjusted according to monthly average
+
+        # debug
+        print('gcm_temp:', gcm_temp.shape)
+        print(np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12)).shape)
+        print()
         t_mt = gcm_temp + np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
         # Mean monthly temperature bias adjusted according to monthly average
         t_m25avg = np.tile(gcm_temp_monthly_avg + gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
@@ -237,12 +248,13 @@ def main(list_packed_vars):
                 netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
                              str(gcm_endyear) + '_' + str(count) + '.nc')
-#                netcdf_fn = 'tushartest.nc'
 
             nsims = MCMC_ds.sizes['runs']
             main_glac_rgi_float = main_glac_rgi.copy()
             main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
-            output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table, nsims=nsims)
+            output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps,
+                                dates_table, output_filepath=parallel_filepath,
+                                nsims=nsims)
 
     else:
         if output_package != 0:
@@ -273,6 +285,7 @@ def main(list_packed_vars):
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
 
+        # if running ensembles using netcdf parameter
         if MCMC_option:
 
             # get glacier number
@@ -327,7 +340,7 @@ def main(list_packed_vars):
                                        glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                                        glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
                                        glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
-                                       glac_bin_surfacetype_annual, output_filepath=output_filepath, sim=MCMC_run)
+                                       glac_bin_surfacetype_annual, output_filepath=parallel_filepath, sim=MCMC_run)
 
 
         else:
@@ -444,7 +457,7 @@ if __name__ == '__main__':
 
             # Select netcdf files produced in parallel
             output_list = []
-            for i in os.listdir(output_filepath):
+            for i in os.listdir(parallel_filepath):
                 # Append bias adjustment results
                 if i.startswith(output_prefix) == True:
                     output_list.append(i)
@@ -459,7 +472,7 @@ if __name__ == '__main__':
 
                 glac_count = -1
                 for n in range(len(output_list)):
-                    ds = nc.Dataset(output_filepath + output_list[n])
+                    ds = nc.Dataset(parallel_filepath + output_list[n])
                     for glac in range(ds['glac_idx'][:].shape[0]):
                         glac_count = glac_count + 1
                         if output_package == 2:
@@ -491,7 +504,7 @@ if __name__ == '__main__':
                             print('Code merge for output package')
                     ds.close()
                     # Remove file after its been merged
-                    os.remove(output_filepath + output_list[n])
+                    os.remove(parallel_filepath + output_list[n])
                 # Close the netcdf file
                 netcdf_output.close()
 

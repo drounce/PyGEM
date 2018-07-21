@@ -50,7 +50,7 @@ import class_climate
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 # Glacier selection
-rgi_regionsO1 = [15]
+#rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
@@ -60,7 +60,10 @@ rgi_regionsO1 = [15]
 #rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
 
 # test another 12, shean's data, parallels
-rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
+#rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
+
+rgi_regionsO1 = input.rgi_regionsO1
+rgi_glac_number = input.rgi_glac_number
 
 # Required input
 option_bias_adjustment = 2

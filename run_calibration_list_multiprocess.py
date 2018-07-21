@@ -35,10 +35,10 @@ import pygemfxns_output as output
 import class_climate
 import class_mbdata
 import latin_hypercube as lh
+import pygemfxns_ensemble_sampling as es
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA ===== 
 # Glacier selection
-rgi_regionsO1 = [15]
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03733']
@@ -48,13 +48,15 @@ rgi_regionsO1 = [15]
 #rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
 
 # test another 12, shean's data, parallels
-rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
-
+#rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
 #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
 #rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
 #rgi_glac_number = ['03507']
 #rgi_glac_number = ['03591']
 #rgi_glac_number = ['03734']
+
+rgi_regionsO1 = input.rgi_regionsO1
+rgi_glac_number = input.rgi_glac_number
 
 # Required input
 gcm_startyear = 2000
@@ -82,13 +84,14 @@ MCMC_sample_no = input.MCMC_sample_no
 ensemble_no = input.MCMC_sample_no
 
 # MCMC export configuration
-MCMC_output_filepath = input.main_directory + '/../MCMC_Data/'
-MCMC_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) +
-                        'glaciers_' + str(MCMC_sample_no) + 'samples_' + 
-                        str(ensemble_no) + 'ensembles_' +
-                        str(strftime("%Y%m%d")) + '.nc')
-MCMC_config_filepath = MCMC_output_filepath + 'config/'
+MCMC_output_filepath = input.MCMC_output_filepath
+MCMC_output_filename = input.MCMC_output_filename
+MCMC_parallel_filepath = MCMC_output_filepath + 'parallel/'
 
+# This boolean is useful for debugging. If true, a number
+# of print statements are activated through the running
+# of the model
+debug = False
 
 #%% FUNCTIONS
 def getparser():
@@ -274,11 +277,14 @@ def main(list_packed_vars):
                 model = MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal],
                              db='pickle', dbname=dbname)
 
-        #    # set step if specified
-        #    if step == 'am':
-        #        model.use_step_method(pymc.AdaptiveMetropolis,
-        #                          [precfactor, ddfsnow, tempchange],
-        #                          delay = 1000)
+            # set step method if specified
+            if step == 'am':
+                model.use_step_method(pymc.AdaptiveMetropolis,
+                                      precfactor, delay = 1000)
+                model.use_step_method(pymc.AdaptiveMetropolis,
+                                      tempchange, delay = 1000)
+                model.use_step_method(pymc.AdaptiveMetropolis,
+                                      ddfsnow, delay = 1000)
 
             # sample
             model.sample(iter=iterations, burn=burn, thin=thin,
@@ -383,17 +389,11 @@ def main(list_packed_vars):
 
         # === Begin MCMC process ===
 
-        # create dict to hold an xr.DataArray for each
-        # glacier in the list. The keys of this dict are
-        # the RGIId, and this is eventually converted into
-        # an xr.Dataset and then a netcdf file.
-#        da_dict = {}
-
         # clear MCMC/config/ directory for storing netcdf files
         # for each glacier run. These files will then
         # be combined for the final output, but need to be
         # cleared from the previous run.
-#        filelist = glob.glob(os.path.join(MCMC_config_filepath,
+#        filelist = glob.glob(os.path.join(MCMC_parallel_filepath,
 #                                          '*.nc'))
 #        for f in filelist:
 #            os.remove(f)
@@ -406,8 +406,8 @@ def main(list_packed_vars):
 #                      main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
 #            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
 
-            # debug
-            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
+            if debug:
+                print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
 
             # Set model parameters
             modelparameters = [input.lrgcm, input.lrglac, input.precfactor,
@@ -432,15 +432,15 @@ def main(list_packed_vars):
             # is computed from a period on early 2000 to late 2015)
             glacier_RGIId = main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float']
 
-            # debug
-            print('RGIId:', glacier_RGIId, 'type:', type(glacier_RGIId))
+            if debug:
+                print('RGIId:', glacier_RGIId, 'type:', type(glacier_RGIId))
 
             observed_massbal, observed_error, index = get_glacier_data(glacier_RGIId)
 
-            # debug
-            print('observed_massbal:', observed_massbal,
-                  'observed_error:', observed_error,
-                  'index:', index)
+            if debug:
+                print('observed_massbal:', observed_massbal,
+                      'observed_error:', observed_error,
+                      'index:', index)
 
             # ==== Define the Markov Chain Monte Carlo Model =============
 
@@ -519,30 +519,28 @@ def main(list_packed_vars):
             # fit the MCMC model
             model = run_MCMC(iterations=10)
 
-            #debug
-#            print(model)
-
+            # get variables
             tempchange = model.trace('tempchange')[:]
             precfactor = model.trace('precfactor')[:]
             ddfsnow = model.trace('ddfsnow')[:]
             massbal = model.trace('massbal')[:]
 
-            # debug
-#            print('tempchange', tempchange)
-#            print('precfactor', precfactor)
-#            print('ddfsnow', ddfsnow)
-#            print('massbalance', massbal)
+            if debug:
+                print('tempchange', tempchange)
+                print('precfactor', precfactor)
+                print('ddfsnow', ddfsnow)
+                print('massbalance', massbal)
 
 
-            sampling = lh.stratified_sample(tempchange=tempchange, precfactor=precfactor,
+            sampling = es.stratified_sample(tempchange=tempchange, precfactor=precfactor,
                      ddfsnow=ddfsnow, massbal=massbal, samples=10)
             mean = np.mean(sampling['massbal'])
             std = np.std(sampling['massbal'])
 
-            # debug
-#            print(type(sampling))
-#            print(sampling)
-#            print('mean:', mean, 'std:', std)
+            if debug:
+                print(type(sampling))
+                print(sampling)
+                print('mean:', mean, 'std:', std)
 
             # process the dataframe to have desired format
             # (previous format has extra information that
@@ -550,12 +548,9 @@ def main(list_packed_vars):
             # includes info abotu other variables
             df = process_df(sampling)
 
-            # debug
-            print(df)
-            print(str(glacier_RGIId))
-
-#            df.name = str(glacier_RGIId)
-#            df.to_csv(MCMC_config_filepath + df.name + '.csv')
+            if debug:
+                print(df)
+                print(str(glacier_RGIId))
 
             # convert dataframe to dataarray, name it
             # according to the glacier number
@@ -566,23 +561,10 @@ def main(list_packed_vars):
             # netcdf files
             ds = xr.Dataset({da.name: da})
 
-            # debug
-            print(ds)
+            if debug:
+                print(ds)
 
-            ds.to_netcdf(MCMC_config_filepath + da.name + '.nc')
-            # debug
-#            print('dataArray:', da.name, da)
-
-            # apend da to the dictionary
-#            da_dict[da.name] = da
-
-        # convert da_dict to xr.Dataset and then to a netcdf file
-#        ds = xr.Dataset(da_dict)
-
-        #debug
-#        print(ds)
-
-#        ds.to_netcdf(MCMC_output_filepath + MCMC_output_filename)
+            ds.to_netcdf(MCMC_parallel_filepath + da.name + '.nc')
 
 
     # Option 1: mimize mass balance difference using three-step approach to expand solution space
@@ -1036,13 +1018,13 @@ if __name__ == '__main__':
         n = n + 1
         list_packed_vars.append([n, chunk, chunk_size, main_glac_rgi_all, gcm_name])
 
-    # if MCMC option, prepare clear files from previous run
+    # if MCMC option, clear files from previous run
     if option_calibration == 2:
         # clear MCMC/config/ directory for storing netcdf files
         # for each glacier run. These files will then
         # be combined for the final output, but need to be
         # cleared from the previous run.
-        filelist = glob.glob(os.path.join(MCMC_config_filepath,
+        filelist = glob.glob(os.path.join(MCMC_parallel_filepath,
                                           '*.nc'))
         for f in filelist:
             os.remove(f)
@@ -1057,30 +1039,31 @@ if __name__ == '__main__':
         for n in range(len(list_packed_vars)):
             main(list_packed_vars[n])
 
+    # if MCMC_option, export to single file
     if option_calibration == 2:
 
         # create a dict for dataarrays
         da_dict = {}
 
         # for each .nc file in folder, upload dataset
-        for i in os.listdir(MCMC_config_filepath):
+        for i in os.listdir(MCMC_parallel_filepath):
             if i.endswith('.nc'):
                 glacier_RGIId = i[:-3]
-                ds = xr.open_dataset(MCMC_config_filepath + i)
+                ds = xr.open_dataset(MCMC_parallel_filepath + i)
 
                 # get dataarray, add to dictionary
                 da = ds[glacier_RGIId]
                 da_dict[glacier_RGIId] = da
 
-                #debug
-                print(da)
+                if debug:
+                    print(da)
 
         # create final dataset with each glacier, make netcdf file
         ds = xr.Dataset(da_dict)
         ds.to_netcdf(MCMC_output_filepath + MCMC_output_filename)
 
-        #debug
-        print(ds)
+        if debug:
+            print(ds)
 
     else:
         # Combine output into single csv
