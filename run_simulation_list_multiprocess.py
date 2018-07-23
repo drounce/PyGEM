@@ -139,9 +139,9 @@ def main(list_packed_vars):
         gcm_modelparams_fn = (gcm_name + '_' + rcp_scenario + gcm_modelparams_fn_ending)
         main_glac_modelparams_all = pd.read_csv(gcm_modelparams_fp + gcm_modelparams_fn, index_col=0)
 
-        #debug
-        print(main_glac_modelparams_all)
-        print(main_glac_rgi)
+        if debug:
+            print(main_glac_modelparams_all)
+            print(main_glac_rgi)
 
 
         if MCMC_option:
@@ -149,8 +149,8 @@ def main(list_packed_vars):
         else:
             main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]
 
-        #debug
-        print(main_glac_modelparams)
+        if debug:
+            print(main_glac_modelparams)
 
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear,
@@ -203,10 +203,11 @@ def main(list_packed_vars):
         gcm_temp_monthly_adj = main_glac_modelparams[tempadj_cols].values
         # Monthly temperature bias adjusted according to monthly average
 
-        # debug
-        print('gcm_temp:', gcm_temp.shape)
-        print(np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12)).shape)
-        print()
+        if debug:
+            print('gcm_temp:', gcm_temp.shape)
+            print(np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12)).shape)
+            print()
+
         t_mt = gcm_temp + np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
         # Mean monthly temperature bias adjusted according to monthly average
         t_m25avg = np.tile(gcm_temp_monthly_avg + gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
@@ -291,16 +292,16 @@ def main(list_packed_vars):
             # get glacier number
             glacier_RGIId = main_glac_rgi.iloc[0]['RGIId'][6:]
 
-            # debug
-            print(glacier_RGIId)
+            if debug:
+                print(glacier_RGIId)
 
             # get DataArray for specific glacier and convert
             # to pandas DataFrame
             MCMC_da = MCMC_ds[glacier_RGIId]
             MCMC_df = MCMC_da.to_pandas()
 
-            # debug
-            print(MCMC_df)
+            if debug:
+                print(MCMC_df)
 
             # use a for loop for each model run
             for MCMC_run in range(len(MCMC_df)):
@@ -310,8 +311,8 @@ def main(list_packed_vars):
                 for colname in input.modelparams_colnames:
                     modelparameters.append(MCMC_df.loc[MCMC_run][colname])
 
-                # debug
-                print('modelparameters:', modelparameters)
+                if debug:
+                    print('modelparameters:', modelparameters)
 
                 # run mass balance calculation
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,

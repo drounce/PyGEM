@@ -773,20 +773,23 @@ if __name__ == '__main__':
             if os.path.exists(output_filepath + lr_all_fn) == False:
                 # Append lapse rates
 
-                # debug
-                print(args.num_simultaneous_processes+1)
+                if debug:
+                    print(args.num_simultaneous_processes+1)
 
-#TODO: Fix this bug! num_simultaneous_processes may be
-# different from actual cores being used!
-# use a method that actually reads available files, like below
-#        filelist = glob.glob(os.path.join(MCMC_config_filepath,
-#                                          '*.nc'))
-#        for f in filelist:
-#            os.remove(f)
+                #TODO: Fix this bug! They way the code currently runs, 
+                # num_simultaneous_processes may be
+                # different from actual number of cores being used!
+                # use a method that actually reads available files, like below
+                #        filelist = glob.glob(os.path.join(filepath,
+                #                                          '*.nc'))
+                #        for f in filelist:
+                #            os.remove(f)
+
+
                 for n_output in range(1,args.num_simultaneous_processes+1):
 
-                    # debug
-                    print(n_output)
+                    if debug:
+                        print(n_output)
 
                     output_lr_solo = output_lr_prefix + '_' + str(n_output) + '.csv'
                     if n_output == 1:
