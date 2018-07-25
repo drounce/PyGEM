@@ -20,8 +20,9 @@ option_calibration = 0
 
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-MCMC_sample_no = 10
-ensemble_no = 10
+MCMC_sample_no = 15000
+MCMC_burn_no = 0
+ensemble_no = 200
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
@@ -64,11 +65,11 @@ def get_shean_glacier_nos(region_no):
 shean_glac_no = get_shean_glacier_nos(15)
 
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = shean_glac_no[:12]
+#rgi_glac_number = shean_glac_no[:12]
 
 
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['03473', '03733']
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers

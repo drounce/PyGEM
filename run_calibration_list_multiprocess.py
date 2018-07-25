@@ -81,7 +81,8 @@ output_filepath = input.main_directory + '/../Output/'
 
 # MCMC settings
 MCMC_sample_no = input.MCMC_sample_no
-ensemble_no = input.MCMC_sample_no
+MCMC_burn_no = input.MCMC_burn_no
+ensemble_no = input.ensemble_no
 
 # MCMC export configuration
 MCMC_output_filepath = input.MCMC_output_filepath
@@ -389,15 +390,6 @@ def main(list_packed_vars):
 
         # === Begin MCMC process ===
 
-        # clear MCMC/config/ directory for storing netcdf files
-        # for each glacier run. These files will then
-        # be combined for the final output, but need to be
-        # cleared from the previous run.
-#        filelist = glob.glob(os.path.join(MCMC_parallel_filepath,
-#                                          '*.nc'))
-#        for f in filelist:
-#            os.remove(f)
-
 
         # loop through each glacier selected
         for glac in range(main_glac_rgi.shape[0]):
@@ -517,7 +509,8 @@ def main(list_packed_vars):
 
 
             # fit the MCMC model
-            model = run_MCMC(iterations=10)
+            model = run_MCMC(iterations=MCMC_sample_no,
+                             burn=MCMC_burn_no)
 
             # get variables
             tempchange = model.trace('tempchange')[:]
@@ -533,7 +526,7 @@ def main(list_packed_vars):
 
 
             sampling = es.stratified_sample(tempchange=tempchange, precfactor=precfactor,
-                     ddfsnow=ddfsnow, massbal=massbal, samples=10)
+                     ddfsnow=ddfsnow, massbal=massbal, samples=ensemble_no)
             mean = np.mean(sampling['massbal'])
             std = np.std(sampling['massbal'])
 
