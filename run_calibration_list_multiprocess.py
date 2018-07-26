@@ -509,8 +509,8 @@ def main(list_packed_vars):
 
 
             # fit the MCMC model
-            model = run_MCMC(iterations=MCMC_sample_no,
-                             burn=MCMC_burn_no)
+            model = run_MCMC(iterations=MCMC_sample_no, burn=MCMC_burn_no,
+                             dbname=(str(glacier_RGIId)[3:] + '.pickle'))
 
             # get variables
             tempchange = model.trace('tempchange')[:]
