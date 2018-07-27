@@ -20,7 +20,7 @@ option_calibration = 0
 
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-MCMC_sample_no = 30000
+MCMC_sample_no = 1000
 MCMC_burn_no = 0
 ensemble_no = 200
 
