@@ -88,6 +88,9 @@ output_filepath = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1
 option_export = 1
 option_run_mb = 0 # only for options 2 and 3
 
+# boolean for debugging
+debug=False
+
 
 #%% FUNCTIONS
 def getparser():

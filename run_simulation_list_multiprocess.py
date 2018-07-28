@@ -48,7 +48,7 @@ rgi_glac_number = input.rgi_glac_number
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2015
+gcm_endyear = 2100
 gcm_spinupyears = 5
 
 # Output
