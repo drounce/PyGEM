@@ -531,6 +531,10 @@ def main(list_packed_vars):
             mean = np.mean(sampling['massbal'])
             std = np.std(sampling['massbal'])
 
+            print('observed mean:', observed_massbal , 'observed std', observed_error)
+            print('ensemble mean:', mean, 'ensemble std:', std)
+
+
             if debug:
                 print(type(sampling))
                 print(sampling)

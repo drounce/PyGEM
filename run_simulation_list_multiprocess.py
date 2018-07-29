@@ -72,7 +72,7 @@ MCMC_option = True
 
 # MCMC settings
 MCMC_sample_no = input.MCMC_sample_no
-ensemble_no = input.MCMC_sample_no
+ensemble_no = input.ensemble_no
 
 # MCMC model parameter sets
 MCMC_modelparams_fp = input.MCMC_output_filepath
@@ -454,7 +454,8 @@ if __name__ == '__main__':
                              str(gcm_endyear) + '_')
             output_all_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
-                             str(gcm_endyear) + '_' + str(strftime("%Y%m%d"))  + '_all.nc')
+                             str(gcm_endyear) + '_' + str(strftime("%Y%m%d")) + '_' + str(MCMC_sample_no) +
+                             'samples' + str(ensemble_no) + 'ensembles' + '_all.nc')
 
             # Select netcdf files produced in parallel
             output_list = []
