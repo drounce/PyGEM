@@ -20,9 +20,9 @@ option_calibration = 0
 
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-MCMC_sample_no = 5
+MCMC_sample_no = 1000
 MCMC_burn_no = 0
-ensemble_no = 3
+ensemble_no = 100
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
@@ -65,7 +65,7 @@ def get_shean_glacier_nos(region_no):
 shean_glac_no = get_shean_glacier_nos(15)
 
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = shean_glac_no[:50]
+rgi_glac_number = shean_glac_no[:100]
 
 
 #rgi_glac_number = 'all'

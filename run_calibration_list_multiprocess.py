@@ -100,7 +100,7 @@ def getparser():
     # add arguments
     parser.add_argument('-ref_gcm_name', action='store', type=str, default=input.ref_gcm_name,
                         help='text file full of commands to run')
-    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=2,
+    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=4,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
@@ -509,9 +509,9 @@ def main(list_packed_vars):
 
 
             # fit the MCMC model
-            model = run_MCMC(iterations=MCMC_sample_no, burn=MCMC_burn_no,
-                             dbname=(str(MCMC_sample_no) + 'Samples_' +
-                                     str(glacier_RGIId * 100000)[2:-2] + '.pickle'))
+            model = run_MCMC(iterations=MCMC_sample_no, burn=MCMC_burn_no)
+#                             dbname=(str(MCMC_sample_no) + 'Samples_' +
+#                                     str(glacier_RGIId * 100000)[2:-2] + '.pickle'))
 
             # get variables
             tempchange = model.trace('tempchange')[:]
