@@ -90,7 +90,7 @@ def getparser():
     # add arguments
     parser.add_argument('-gcm_file', action='store', type=str, default=input.ref_gcm_name,
                         help='text file full of commands to run')
-    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=2,
+    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=4,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
@@ -456,7 +456,7 @@ if __name__ == '__main__':
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
                              str(gcm_endyear) + '_' + str(strftime("%Y%m%d")) + '_' + str(len(rgi_glac_number)) +
                              'glaciers_' + str(MCMC_sample_no) +
-                             'samples' + str(ensemble_no) + 'ensembles' + '_all.nc')
+                             'samples' + str(ensemble_no) + 'ensembles_' + rcp_scenario + '_0to99.nc')
 
             # Select netcdf files produced in parallel
             output_list = []
