@@ -456,7 +456,7 @@ if __name__ == '__main__':
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
                              str(gcm_endyear) + '_' + str(strftime("%Y%m%d")) + '_' + str(len(rgi_glac_number)) +
                              'glaciers_' + str(MCMC_sample_no) +
-                             'samples' + str(ensemble_no) + 'ensembles_' + rcp_scenario + '_120to239.nc')
+                             'samples' + str(ensemble_no) + 'ensembles_' + rcp_scenario + '_240to369.nc')
 
             # Select netcdf files produced in parallel
             output_list = []
