@@ -66,12 +66,12 @@ gcm_startyear = 2000
 gcm_endyear = 2015
 gcm_spinupyears = 5
 
-option_calibration = 1
+option_calibration = 2
 option_warn_calving = 0
 
 # Calibration datasets
-#cal_datasets = ['shean']
-cal_datasets = ['wgms_d', 'group']
+cal_datasets = ['shean']
+#cal_datasets = ['wgms_d', 'group']
 #cal_datasets = ['shean', 'wgms_ee']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee']
 #cal_datasets = ['shean']
@@ -99,7 +99,7 @@ MCMC_parallel_filepath = MCMC_output_filepath + 'parallel/'
 # This boolean is useful for debugging. If true, a number
 # of print statements are activated through the running
 # of the model
-debug = False
+debug = True
 
 #%% FUNCTIONS
 def getparser():
@@ -416,6 +416,7 @@ def main(list_packed_vars):
 
         # === Begin MCMC process ===
 
+        print(main_glac_rgi)
 
         # loop through each glacier selected
         for glac in range(main_glac_rgi.shape[0]):
@@ -455,6 +456,7 @@ def main(list_packed_vars):
                 print('observed_massbal:', observed_massbal,
                       'observed_error:', observed_error,
                       'index:', index)
+            
 
             # ==== Define the Markov Chain Monte Carlo Model =============
 
@@ -1605,33 +1607,33 @@ if __name__ == '__main__':
     # include this section only for david'd calibration algorithm
 
     #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
-    # Place local variables in variable explorer
-    if option_calibration == 1:
-        if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
-            main_vars_list = list(main_vars.keys())
-            gcm_name = main_vars['gcm_name']
-            main_glac_rgi = main_vars['main_glac_rgi']
-            main_glac_hyps = main_vars['main_glac_hyps']
-            main_glac_icethickness = main_vars['main_glac_icethickness']
-            main_glac_width = main_vars['main_glac_width']
-            elev_bins = main_vars['elev_bins']
-            dates_table = main_vars['dates_table']
-            dates_table_nospinup = main_vars['dates_table_nospinup']
-            cal_data = main_vars['cal_data']
-            gcm_temp = main_vars['gcm_temp']
-            gcm_prec = main_vars['gcm_prec']
-            gcm_elev = main_vars['gcm_elev']
-            glac_bin_acc = main_vars['glac_bin_acc']
-            glac_bin_temp = main_vars['glac_bin_temp']
-            glac_bin_massbalclim = main_vars['glac_bin_massbalclim']
-            modelparameters = main_vars['modelparameters']
-            glac_bin_area_annual = main_vars['glac_bin_area_annual']
-            glacier_cal_compare = main_vars['glacier_cal_compare']
-            main_glac_cal_compare = main_vars['main_glac_cal_compare']
-            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
-            main_glac_output = main_vars['main_glac_output']
-            main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
-            main_glacwide_mbclim = main_vars['main_glacwide_mbclim']
+#    # Place local variables in variable explorer
+#    if option_calibration == 1:
+#        if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
+#            main_vars_list = list(main_vars.keys())
+#            gcm_name = main_vars['gcm_name']
+#            main_glac_rgi = main_vars['main_glac_rgi']
+#            main_glac_hyps = main_vars['main_glac_hyps']
+#            main_glac_icethickness = main_vars['main_glac_icethickness']
+#            main_glac_width = main_vars['main_glac_width']
+#            elev_bins = main_vars['elev_bins']
+#            dates_table = main_vars['dates_table']
+#            dates_table_nospinup = main_vars['dates_table_nospinup']
+#            cal_data = main_vars['cal_data']
+#            gcm_temp = main_vars['gcm_temp']
+#            gcm_prec = main_vars['gcm_prec']
+#            gcm_elev = main_vars['gcm_elev']
+#            glac_bin_acc = main_vars['glac_bin_acc']
+#            glac_bin_temp = main_vars['glac_bin_temp']
+#            glac_bin_massbalclim = main_vars['glac_bin_massbalclim']
+#            modelparameters = main_vars['modelparameters']
+#            glac_bin_area_annual = main_vars['glac_bin_area_annual']
+#            glacier_cal_compare = main_vars['glacier_cal_compare']
+#            main_glac_cal_compare = main_vars['main_glac_cal_compare']
+#            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
+#            main_glac_output = main_vars['main_glac_output']
+#            main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
+#            main_glacwide_mbclim = main_vars['main_glacwide_mbclim']
 #            glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
 #            glac_wide_area_annual = main_vars['glac_wide_area_annual']
 #            glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
@@ -1640,42 +1642,6 @@ if __name__ == '__main__':
 #            main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
 #            main_glac_output = main_vars['main_glac_output']
 
-#%%
-
-#    #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====          
-#    # Place local variables in variable explorer
-#    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
-#        main_vars_list = list(main_vars.keys())
-#        gcm_name = main_vars['gcm_name']
-#        main_glac_rgi = main_vars['main_glac_rgi']
-#        main_glac_hyps = main_vars['main_glac_hyps']
-#        main_glac_icethickness = main_vars['main_glac_icethickness']
-#        main_glac_width = main_vars['main_glac_width']
-#        elev_bins = main_vars['elev_bins']
-#        dates_table = main_vars['dates_table']
-#        dates_table_nospinup = main_vars['dates_table_nospinup']
-#        cal_data = main_vars['cal_data']
-#        gcm_temp = main_vars['gcm_temp']
-#        gcm_prec = main_vars['gcm_prec']
-#        gcm_elev = main_vars['gcm_elev']
-#        glac_bin_acc = main_vars['glac_bin_acc']
-#        glac_bin_temp = main_vars['glac_bin_temp']
-#        glac_bin_massbalclim = main_vars['glac_bin_massbalclim']
-#        modelparameters = main_vars['modelparameters']
-#        glac_bin_area_annual = main_vars['glac_bin_area_annual']
-#        glacier_cal_compare = main_vars['glacier_cal_compare']
-#        main_glac_cal_compare = main_vars['main_glac_cal_compare']
-#        main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
-#        main_glac_output = main_vars['main_glac_output']
-#        main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
-#        main_glacwide_mbclim_mwe = main_vars['main_glacwide_mbclim_mwe']
-#        glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
-#        glac_wide_area_annual = main_vars['glac_wide_area_annual']
-#        glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
-#        glacier_rgi_table = main_vars['glacier_rgi_table']
-#        main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
-#        main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
-#        main_glac_output = main_vars['main_glac_output']
     
 #%% TESTING
 #main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
