@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import calendar
 import datetime
-import dateutil
+#import dateutil
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -61,26 +61,43 @@ class MBData():
             self.ds_fn = input.wgms_d_fn_preprocessed
             self.rgi_glacno_cn = input.wgms_rgi_glacno_cn
             self.thickness_chg_cn = input.wgms_d_thickness_chg_cn
-            self.thickness_chg_err = input.wgms_d_thickness_chg_err_cn
+            self.thickness_chg_err_cn = input.wgms_d_thickness_chg_err_cn
             self.volume_chg_cn = input.wgms_d_volume_chg_cn
             self.volume_chg_err_cn = input.wgms_d_volume_chg_err_cn
             self.z1_cn = input.wgms_d_z1_cn
             self.z2_cn = input.wgms_d_z2_cn
             self.obs_type_cn = input.wgms_obs_type_cn
             
-#            wgms_d_mb_cn = 'BALANCE'
-#            wgms_d_mb_err_cn = 'BALANCE_UNC'
-#            wgms_d_t1_cn = 't1'
-#            wgms_d_t2_cn = 't2'
-
+        elif self.name == 'cogley':
+            self.rgi_regionO1 = rgi_regionO1
+            self.ds_fp = input.cogley_fp
+            self.ds_fn = input.cogley_fn_preprocessed
+            self.rgi_glacno_cn = input.cogley_rgi_glacno_cn
+            self.mass_chg_cn = input.cogley_mass_chg_cn
+            self.mass_chg_err_cn = input.cogley_mass_chg_err_cn
+            self.z1_cn = input.cogley_z1_cn
+            self.z2_cn = input.cogley_z2_cn
+            self.obs_type_cn = input.cogley_obs_type_cn
+            
+        elif self.name == 'group':
+            self.rgi_regionO1 = rgi_regionO1
+            self.ds_fp = input.mb_group_fp
+            self.ds_fn = input.mb_group_data_fn
+            self.ds_dict_fn = input.mb_group_dict_fn
+            self.rgi_regionO1_cn = 'rgi_regionO1'
+            self.t1_cn = input.mb_group_t1_cn
+            self.t2_cn = input.mb_group_t2_cn
+            
+            
             
     def masschange_total(self, main_glac_rgi, main_glac_hyps, dates_table):
         """
         Calculate the total mass change for various datasets and output it in a format that is useful for calibration
         """       
         # Column names of output
-        ds_output_cols = ['RGIId', 'glacno', 'obs_type', 'mb_mwe', 'mb_mwe_err', 'sla_m',  'z1_idx', 'z2_idx', 'z1', 
-                          'z2', 't1_idx', 't2_idx', 't1', 't2', 't1_datetime', 't2_datetime', 'area_km2', 'WGMS_ID']
+        ds_output_cols = ['RGIId', 'glacno', 'group_name', 'obs_type', 'mb_mwe', 'mb_mwe_err', 'sla_m',  'z1_idx', 
+                          'z2_idx', 'z1', 'z2', 't1_idx', 't2_idx', 't1', 't2', 't1_datetime', 't2_datetime', 
+                          'area_km2', 'WGMS_ID']
         # Reset rgi index so it is consistent with hyps and other data
         main_glac_rgi.reset_index(drop=True, inplace=True)
         # Dictionary linking O1Index to Index
@@ -156,6 +173,7 @@ class MBData():
 #            ds['mb_gt_err'] = ds[self.mb_vol_err_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * input.density_water / 1000
             # Observation type
             ds['obs_type'] = 'mb_geo'
+            ds['group_name'] = np.nan
             
         elif self.name == 'brun':
             print('code brun')
@@ -276,7 +294,7 @@ class MBData():
             #  otherwise, use the volume change and area to estimate the specific mass balance
             # using thickness change
             ds['mb_mwe'] = ds[self.thickness_chg_cn] / 1000
-            ds['mb_mwe_err'] = ds[self.thickness_chg_err] / 1000
+            ds['mb_mwe_err'] = ds[self.thickness_chg_err_cn] / 1000
             # using volume change (note: units volume change [1000 m3] and area [km2])
             ds.loc[ds.mb_mwe.isnull(), 'mb_mwe'] = (
                     ds.loc[ds.mb_mwe.isnull(), self.volume_chg_cn] * 1000 / ds.loc[ds.mb_mwe.isnull(), 'area_km2'] * 
@@ -286,6 +304,7 @@ class MBData():
                     (1/1000)**2)
             # Observation type
             ds['obs_type'] = 'mb_geo'
+            ds['group_name'] = np.nan
         
         elif self.name == 'wgms_ee':
             # Load all data
@@ -432,9 +451,220 @@ class MBData():
 #                               / 10**9)
             # Observation type
             ds['obs_type'] = 'mb_glac'
+            ds['group_name'] = np.nan
             
-
+        elif self.name == 'cogley':
+            # Load all data
+            ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')
+            ds_all['RegO1'] = ds_all[self.rgi_glacno_cn].values.astype(int)
+            # Select data for specific region
+            ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
+            # Glacier number and index for comparison
+            ds_reg['glacno'] = ((ds_reg[self.rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
+            ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
+            # Select glaciers from those being modeled using main_glac_rgi
+            ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi[input.rgi_O1Id_colname]) == True)[0],:]
+                  ).copy()
+            ds.reset_index(drop=True, inplace=True)
+            # Elevation indices
+            elev_bins = main_glac_hyps.columns.values.astype(int)
+            elev_bin_interval = elev_bins[1] - elev_bins[0]
+            ds['z1_idx'] = np.nan
+            ds['z2_idx'] = np.nan
+            ds.loc[ds[self.z1_cn] == 9999, 'z1_idx'] = (
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'O1Index'].map(indexdict)].values != 0)
+                     .argmax(axis=1))
+            ds.loc[ds[self.z2_cn] == 9999, 'z2_idx'] = (
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'O1Index'].map(indexdict)].values.cumsum(1))
+                     .argmax(axis=1))
+            ds.loc[ds[self.z1_cn] != 9999, 'z1_idx'] = (
+                    ((np.tile(elev_bins, (ds.loc[ds[self.z1_cn] != 9999, self.z1_cn].shape[0],1)) - 
+                      ds.loc[ds[self.z1_cn] != 9999, self.z1_cn][:,np.newaxis]) > 0).argmax(axis=1))
+            ds.loc[ds[self.z2_cn] != 9999, 'z2_idx'] = (
+                    ((np.tile(elev_bins, (ds.loc[ds[self.z2_cn] != 9999, self.z2_cn].shape[0],1)) - 
+                      ds.loc[ds[self.z2_cn] != 9999, self.z2_cn][:,np.newaxis]) > 0).argmax(axis=1) - 1)
+            ds['z1_idx'] = ds['z1_idx'].values.astype(int)
+            ds['z2_idx'] = ds['z2_idx'].values.astype(int)
+            # Lower and upper bin elevations [masl]
+            ds['z1'] = elev_bins[ds['z1_idx'].values] - elev_bin_interval/2
+            ds['z2'] = elev_bins[ds['z2_idx'].values] + elev_bin_interval/2
+            # Area [km2]
+            #  use WGMS area when provided; otherwise use area from RGI
+            ds['area_km2_rgi'] = np.nan
+            for x in range(ds.shape[0]):
+                ds.loc[x,'area_km2_rgi'] = (
+                        main_glac_hyps.iloc[indexdict[ds.loc[x,'O1Index']], 
+                                            ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
+            # Time indices
+            ds['t1_year'] = ds['REFERENCE_DATE'].astype(str).str.split('.').str[0].str[:4].astype(int)
+            ds['t1_month'] = ds['REFERENCE_DATE'].astype(str).str.split('.').str[0].str[4:6].astype(int)
+            ds['t1_day'] = ds['REFERENCE_DATE'].astype(str).str.split('.').str[0].str[6:].astype(int)
+            ds['t2_year'] = ds['SURVEY_DATE'].astype(str).str.split('.').str[0].str[:4].astype(int)
+            ds['t2_month'] = ds['SURVEY_DATE'].astype(str).str.split('.').str[0].str[4:6].astype(int)
+            ds['t2_day'] = ds['SURVEY_DATE'].astype(str).str.split('.').str[0].str[6:].astype(int)
+            # if month/day unknown for start or end period, then replace with water year
+            # Add latitude 
+            latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
+            ds['CenLat'] = ds['RGIId'].map(latdict)
+            ds['lat_category'] = np.nan
+            ds.loc[ds['CenLat'] >= input.lat_threshold, 'lat_category'] = 'northernmost'
+            ds.loc[(ds['CenLat'] < input.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
+            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*input.lat_threshold), 'lat_category'] = 'south'
+            ds.loc[ds['CenLat'] <= -1*input.lat_threshold, 'lat_category'] = 'southernmost'
+            ds['months_wintersummer'] = ds['lat_category'].map(input.monthdict)
+            ds['winter_begin'] = ds['months_wintersummer'].apply(lambda x: x[0])
+            ds['winter_end'] = ds['months_wintersummer'].apply(lambda x: x[1])
+            ds['summer_begin'] = ds['months_wintersummer'].apply(lambda x: x[2])
+            ds['summer_end'] = ds['months_wintersummer'].apply(lambda x: x[3])
+            ds.loc[ds['t1_month'] == 99, 't1_month'] = ds.loc[ds['t1_month'] == 99, 'winter_begin']
+            ds.loc[ds['t1_day'] == 99, 't1_day'] = 1
+            ds.loc[ds['t2_month'] == 99, 't2_month'] = ds.loc[ds['t2_month'] == 99, 'winter_begin'] - 1
+            for x in range(ds.shape[0]):
+                if ds.loc[x, 't2_day'] == 99:
+                    try:
+                        ds.loc[x, 't2_day'] = (
+                                dates_table.loc[(ds.loc[x, 't2_year'] == dates_table['year']) & 
+                                                (ds.loc[x, 't2_month'] == dates_table['month']), 'daysinmonth']
+                                                .values[0])
+                    except:
+                        ds.loc[x, 't2_day'] = 28    
+            # Calculate decimal year and drop measurements outside of calibration period
+            ds['t1_datetime'] = pd.to_datetime(
+                    pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
+            ds['t2_datetime'] = pd.to_datetime(
+                    pd.DataFrame({'year':ds.t2_year.values, 'month':ds.t2_month.values, 'day':ds.t2_day.values}))
+            ds['t1_doy'] = ds.t1_datetime.dt.strftime("%j").astype(float)
+            ds['t2_doy'] = ds.t2_datetime.dt.strftime("%j").astype(float)
+            ds['t1_daysinyear'] = (
+                    (pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':12, 'day':31})) - 
+                     pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':1, 'day':1}))).dt.days + 1)
+            ds['t2_daysinyear'] = (
+                    (pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':12, 'day':31})) - 
+                     pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':1, 'day':1}))).dt.days + 1)
+            ds['t1'] = ds.t1_year + ds.t1_doy / ds.t1_daysinyear
+            ds['t2'] = ds.t2_year + ds.t2_doy / ds.t2_daysinyear
+            end_datestable = dates_table.loc[dates_table.shape[0]-1, 'date']
+            end_datetime = datetime.datetime(end_datestable.year, end_datestable.month + 1, end_datestable.day)
+            ds = ds[ds['t1_datetime'] >= dates_table.loc[0, 'date']]
+            ds = ds[ds['t2_datetime'] < end_datetime]
+            ds.reset_index(drop=True, inplace=True)
+            # Time indices
+            #  exclude spinup years, since massbal fxn discards spinup years
+            ds['t1_idx'] = np.nan
+            ds['t2_idx'] = np.nan
+            for x in range(ds.shape[0]):
+                ds.loc[x,'t1_idx'] = (dates_table[(ds.loc[x, 't1_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
+                ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
+            # Specific mass balance [mwe]
+            ds['mb_mwe'] = ds[self.mass_chg_cn] / input.density_water * (ds['t2'] - ds['t1'])
+            ds['mb_mwe_err'] = ds[self.mass_chg_err_cn] / input.density_water * (ds['t2'] - ds['t1'])
+            # Observation type
+            ds['obs_type'] = 'mb_geo'
+            ds['group_name'] = np.nan
+            
         
+            
+            
+        elif self.name == 'group':
+            # Load all data
+            ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')
+            # Dictionary linking group_names with the RGIIds
+            ds_dict_raw = pd.read_csv(self.ds_fp + self.ds_dict_fn)
+            ds_dict = dict(zip(ds_dict_raw['RGIId'], ds_dict_raw['group_name']))
+            # For each unique group name identify all glaciers associated with the group and test if all those glaciers
+            #  are included in the model run via main_glac_rgi
+            group_names_unique = list(set(ds_dict.values()))
+            ds_dict_keyslist = [[] for x in group_names_unique]
+            for n, group in enumerate(group_names_unique):
+                ds_dict_keyslist[n] = [group, [k for k, v in ds_dict.items() if v == group]]
+                ds_all['glaciers_present'] = set(ds_dict_keyslist[n][1]).issubset(main_glac_rgi.RGIId.values.tolist())
+                ds_all.loc[n, 'first_RGIId'] = ds_dict_keyslist[n][1][0]
+            # Remove groups where all glaciers are not included
+            ds = ds_all[ds_all.glaciers_present == True].copy()
+            ds.reset_index(drop=True, inplace=True)
+            # Time indices
+            ds['t1_year'] = ds[self.t1_cn].astype(str).str.split('.').str[0].str[:4].astype(int)
+            ds['t1_month'] = ds[self.t1_cn].astype(str).str.split('.').str[0].str[4:6].astype(int)
+            ds['t1_day'] = ds[self.t1_cn].astype(str).str.split('.').str[0].str[6:].astype(int)
+            ds['t2_year'] = ds[self.t2_cn].astype(str).str.split('.').str[0].str[:4].astype(int)
+            ds['t2_month'] = ds[self.t2_cn].astype(str).str.split('.').str[0].str[4:6].astype(int)
+            ds['t2_day'] = ds[self.t2_cn].astype(str).str.split('.').str[0].str[6:].astype(int)
+            # if month/day unknown for start or end period, then replace with water year
+            # Add latitude 
+            latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
+            ds['CenLat'] = ds['first_RGIId'].map(latdict)
+            ds['lat_category'] = np.nan
+            ds.loc[ds['CenLat'] >= input.lat_threshold, 'lat_category'] = 'northernmost'
+            ds.loc[(ds['CenLat'] < input.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
+            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*input.lat_threshold), 'lat_category'] = 'south'
+            ds.loc[ds['CenLat'] <= -1*input.lat_threshold, 'lat_category'] = 'southernmost'
+            ds['months_wintersummer'] = ds['lat_category'].map(input.monthdict)
+            ds['winter_begin'] = ds['months_wintersummer'].apply(lambda x: x[0])
+            ds['winter_end'] = ds['months_wintersummer'].apply(lambda x: x[1])
+            ds['summer_begin'] = ds['months_wintersummer'].apply(lambda x: x[2])
+            ds['summer_end'] = ds['months_wintersummer'].apply(lambda x: x[3])
+            ds.loc[ds['t1_month'] == 99, 't1_month'] = ds.loc[ds['t1_month'] == 99, 'winter_begin']
+            ds.loc[ds['t1_day'] == 99, 't1_day'] = 1
+            ds.loc[ds['t2_month'] == 99, 't2_month'] = ds.loc[ds['t2_month'] == 99, 'winter_begin'] - 1
+            for x in range(ds.shape[0]):
+                if ds.loc[x, 't2_day'] == 99:
+                    try:
+                        ds.loc[x, 't2_day'] = (
+                                dates_table.loc[(ds.loc[x, 't2_year'] == dates_table['year']) & 
+                                                (ds.loc[x, 't2_month'] == dates_table['month']), 'daysinmonth']
+                                                .values[0])
+                    except:
+                        ds.loc[x, 't2_day'] = 28    
+            # Calculate decimal year and drop measurements outside of calibration period
+            ds['t1_datetime'] = pd.to_datetime(
+                    pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
+            ds['t2_datetime'] = pd.to_datetime(
+                    pd.DataFrame({'year':ds.t2_year.values, 'month':ds.t2_month.values, 'day':ds.t2_day.values}))
+            ds['t1_doy'] = ds.t1_datetime.dt.strftime("%j").astype(float)
+            ds['t2_doy'] = ds.t2_datetime.dt.strftime("%j").astype(float)
+            ds['t1_daysinyear'] = (
+                    (pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':12, 'day':31})) - 
+                     pd.to_datetime(pd.DataFrame({'year':ds.t1_year.values, 'month':1, 'day':1}))).dt.days + 1)
+            ds['t2_daysinyear'] = (
+                    (pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':12, 'day':31})) - 
+                     pd.to_datetime(pd.DataFrame({'year':ds.t2_year.values, 'month':1, 'day':1}))).dt.days + 1)
+            ds['t1'] = ds.t1_year + ds.t1_doy / ds.t1_daysinyear
+            ds['t2'] = ds.t2_year + ds.t2_doy / ds.t2_daysinyear
+            end_datestable = dates_table.loc[dates_table.shape[0]-1, 'date']
+            end_datetime = datetime.datetime(end_datestable.year, end_datestable.month + 1, end_datestable.day)
+            ds = ds[ds['t1_datetime'] >= dates_table.loc[0, 'date']]
+            ds = ds[ds['t2_datetime'] < end_datetime]
+            ds.reset_index(drop=True, inplace=True)
+            # Time indices
+            #  exclude spinup years, since massbal fxn discards spinup years
+            ds['t1_idx'] = np.nan
+            ds['t2_idx'] = np.nan
+            for x in range(ds.shape[0]):
+                ds.loc[x,'t1_idx'] = (dates_table[(ds.loc[x, 't1_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
+                ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
+                                                  (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
+            # Mass balance [mwe]
+            ds['mb_mwe'] = np.nan
+            ds['mb_mwe_err'] = np.nan
+            ds.loc[ds['dhdt_ma'].notnull(), 'mb_mwe'] = (
+                    ds.loc[ds['dhdt_ma'].notnull(), 'dhdt_ma'] * input.density_ice / input.density_water * 
+                    (ds['t2'] - ds['t1']))
+            ds.loc[ds['dhdt_ma'].notnull(), 'mb_mwe_err'] = (
+                    ds.loc[ds['dhdt_ma'].notnull(), 'dhdt_unc_ma'] * input.density_ice / input.density_water * 
+                    (ds['t2'] - ds['t1']))
+            
+            # Add columns for consistency with individual glacier observations
+            ds['RGIId'] = np.nan
+            ds['glacno'] = np.nan
+            ds['sla_m'] = np.nan
+            ds['z1_idx'] = np.nan
+            ds['z2_idx'] = np.nan
+            ds['z1'] = np.nan
+            ds['z2'] = np.nan
+            ds['WGMS_ID'] = np.nan
             
         # Select output
         ds_output = ds.loc[:, ds_output_cols].sort_values(['glacno', 't1_idx'])
@@ -444,7 +674,7 @@ class MBData():
 #%% Testing
 if __name__ == '__main__':
     # Glacier selection
-    rgi_regionsO1 = [15]
+    rgi_regionsO1 = [7]
     rgi_glac_number = 'all'
 #    rgi_glac_number = ['03473', '03733']
     #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
@@ -473,20 +703,22 @@ if __name__ == '__main__':
     # Testing    
 #    mb1 = MBData(name='shean')
 #    mb1 = MBData(name='wgms_d', rgi_regionO1=rgi_regionsO1[0])
-#    ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
+    mb1 = MBData(name='cogley', rgi_regionO1=rgi_regionsO1[0])
+    ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
     
-#    cal_datasets = ['shean', 'wgms_ee']
-    cal_datasets = ['wgms_d', 'wgms_ee']
-#    cal_datasets = ['shean']
-#    cal_datasets = ['wgms_ee']
-#    cal_datasets = ['wgms_d']
-    
-    cal_data = pd.DataFrame()
-    for dataset in cal_datasets:
-        cal_subset = MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
-        cal_subset_data = cal_subset.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
-        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-    cal_data.reset_index(drop=True, inplace=True)
+##    cal_datasets = ['shean', 'wgms_ee']
+#    cal_datasets = ['wgms_d', 'wgms_ee', 'group']
+##    cal_datasets = ['shean']
+##    cal_datasets = ['wgms_ee']
+##    cal_datasets = ['wgms_d']
+##    cal_datasets = ['group']
+#    
+#    cal_data = pd.DataFrame()
+#    for dataset in cal_datasets:
+#        cal_subset = MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
+#        cal_subset_data = cal_subset.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
+#        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+#    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+#    cal_data.reset_index(drop=True, inplace=True)
 
 #%%

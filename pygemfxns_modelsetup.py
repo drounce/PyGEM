@@ -250,7 +250,10 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
         else:
             print(f"This study is only focusing on glaciers {rgi_glac_number} in region {rgi_regionsO1}.")
             for x_glac in rgi_glac_number:
-                glac_id = ('RGI60-' + str(rgi_regionsO1)[1:-1] + '.' + x_glac)
+                if rgi_regionsO1[0] < 10:
+                    glac_id = ('RGI60-0' + str(rgi_regionsO1)[1:-1] + '.' + x_glac)
+                else:
+                    glac_id = ('RGI60-' + str(rgi_regionsO1)[1:-1] + '.' + x_glac)
                 if glacier_table.empty:
                     glacier_table = csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id]
                 else:

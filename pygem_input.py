@@ -85,6 +85,13 @@ endyear = 2015
 # Spin up time [years]
 spinupyears = 5
 
+# Synthetic simulation options
+#  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
+option_synthetic_sim = 0
+synthetic_startyear = 1990
+synthetic_endyear = 2000
+synthetic_spinupyears = 0
+
 # Remove NaN values (glaciers without calibration data)
 option_removeNaNcal = 1
 #  Option 0 (default) - do not remove these glaciers
@@ -221,7 +228,7 @@ indexname = 'GlacNo'
 rgi_O1Id_colname = 'glacno'
 rgi_glacno_float_colname = 'RGIId_float'
 # Column names from table to drop
-rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Surging','Linkages','Name']
+rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Name']
 # Dictionary of hypsometry filenames
 rgi_dict = {
             1:  '01_rgi60_Alaska.csv',
@@ -386,6 +393,25 @@ wgms_ee_t1_cn = 'YEAR'
 wgms_ee_z1_cn = 'LOWER_BOUND'
 wgms_ee_z2_cn = 'UPPER_BOUND'
 wgms_ee_period_cn = 'period'
+
+# ===== COGLEY DATA =====
+cogley_fp = main_directory + '/../Calibration_datasets/'
+cogley_fn_preprocessed = 'Cogley_Arctic_processed_wInfo.csv'
+cogley_rgi_glacno_cn = 'glacno'
+cogley_mass_chg_cn = 'geo_mass_kgm2a'
+cogley_mass_chg_err_cn = 'geo_mass_unc'
+cogley_z1_cn = 'Zmin'
+cogley_z2_cn = 'Zmax'
+cogley_obs_type_cn = 'obs_type'
+
+# ===== REGIONAL DATA =====
+# Regional data refers to all measurements that have lumped multiple glaciers together
+#  - a dictionary linking the regions to RGIIds is required
+mb_group_fp = main_directory + '/../Calibration_datasets/'
+mb_group_dict_fn = 'mb_group_dict.csv'
+mb_group_data_fn = 'mb_group_data.csv'
+mb_group_t1_cn = 'begin_period'
+mb_group_t2_cn = 'end_period'
 
 
 

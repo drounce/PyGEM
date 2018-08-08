@@ -135,6 +135,7 @@ class GCM():
             start_idx = (np.where(pd.Series(data.variables[self.time_vn])
                                   .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
                                   .apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+            print()
             end_idx = (np.where(pd.Series(data.variables[self.time_vn])
                                 .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
                                 .apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]

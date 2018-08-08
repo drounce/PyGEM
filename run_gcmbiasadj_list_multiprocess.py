@@ -87,9 +87,9 @@ modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
 output_filepath = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0717/'
 option_export = 1
 option_run_mb = 0 # only for options 2 and 3
-
 # boolean for debugging
 debug=False
+
 
 
 #%% FUNCTIONS
@@ -134,7 +134,8 @@ def main(list_packed_vars):
     # Model parameters
     if option_bias_adjustment == 1:
         main_glac_modelparams_all = pd.read_csv(filepath_modelparams + filename_modelparams, index_col=0)
-        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]
+        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :] 
+
     # Select dates including future projections
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear,
                                                                  spinupyears=gcm_spinupyears)
@@ -468,6 +469,7 @@ def main(list_packed_vars):
 #                                       'gcm_mb_mwea', 'gcm_vol_change_perc', 'new_gcmelev', 'lrgcm', 'lrglac',
 #                                       'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
         main_glac_bias_adj = pd.DataFrame(np.zeros((main_glac_rgi.shape[0],len(main_glac_bias_adj_colnames))),
+
                                           columns=main_glac_bias_adj_colnames)
         main_glac_bias_adj['RGIId'] = main_glac_rgi['RGIId'].values
         main_glac_bias_adj['ref'] = ref_name

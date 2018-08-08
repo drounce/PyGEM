@@ -12,7 +12,9 @@ import pygem_input as input
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
                    dates_table, 
-                   option_areaconstant=0):
+                   option_areaconstant=0, warn_calving=1):
+    # warn_calving should be removed once calving has been developed
+    
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12
@@ -241,14 +243,16 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     
                     # FRONTAL ABLATION
                     if glacier_rgi_table.loc['TermType'] != 0:
-                        print('CODE FRONTAL ABLATION: include in mass redistribution?')
-                        # FRONTAL ABLATION IS CALCULATED ANNUALLY IN HUSS AND HOCK (2015)
-                        # How should frontal ablation pair with geometry changes?
-                        #  - track the length of the last bin and have the calving losses control the bin length after
-                        #    mass redistribution
-                        #  - the ice thickness will be determined by the mass redistribution
-                        # Note: output functions calculate total mass balance assuming frontal ablation is a positive
-                        #       value that is then subtracted from the climatic mass balance.
+                        if warn_calving == 1:
+                            warn_calving = 0
+                            print('CODE FRONTAL ABLATION: include in mass redistribution?')
+                            # FRONTAL ABLATION IS CALCULATED ANNUALLY IN HUSS AND HOCK (2015)
+                            # How should frontal ablation pair with geometry changes?
+                            #  - track the length of the last bin and have the calving losses control the bin length 
+                            #    after mass redistribution
+                            #  - the ice thickness will be determined by the mass redistribution
+                            # Note: output functions calculate total mass balance assuming frontal ablation is a
+                            #       positive value that is then subtracted from the climatic mass balance.
                 
                 # RETURN TO ANNUAL LOOP
                 # SURFACE TYPE
