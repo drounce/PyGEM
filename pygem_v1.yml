@@ -1,0 +1,12 @@
+name: pygem_v1
+channels:
+- conda-forge
+dependencies:
+- python=3.6
+- pandas
+- numpy
+- scipy
+- xarray
+- netCDF4
+- matplotlib
+- cartopy

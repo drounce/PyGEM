@@ -398,10 +398,6 @@ def main(list_packed_vars):
 
         # loop through each glacier selected
         for glac in range(main_glac_rgi.shape[0]):
-#            if glac%200 == 0:
-#                print(count,':',
-#                      main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-#            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
 
             # debug
             print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
@@ -495,7 +491,7 @@ def main(list_packed_vars):
                 # are computed on a monthly time scale, we 
                 # average the results over an annual basis for
                 # the time period of David Shean's geodetic mass
-                # balance observations, so we ca directly compare
+                # balance observations, so we can directly compare
                 # model results to these observations
                 return glac_wide_massbaltotal[4:].sum() / (2015.75-2000.112)
 
