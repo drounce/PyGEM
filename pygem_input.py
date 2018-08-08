@@ -65,7 +65,7 @@ def get_shean_glacier_nos(region_no):
 shean_glac_no = get_shean_glacier_nos(15)
 
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = shean_glac_no[520:540]
+rgi_glac_number = shean_glac_no[520:522]
 
 
 #rgi_glac_number = 'all'

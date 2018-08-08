@@ -175,7 +175,10 @@ def main(list_packed_vars):
             group_dict_keyslist[n] = [group, [k for k, v in group_dict.items() if v == group]]
         # Add group name to main_glac_rgi
         main_glac_rgi_raw['group_name'] = main_glac_rgi_raw['RGIId'].map(group_dict)
+    else:
+        main_glac_rgi_raw['group_name'] = np.nan
     
+
     # Drop glaciers that do not have any calibration data (individual or group)    
     main_glac_rgi = ((main_glac_rgi_raw.iloc[np.unique(
             np.append(main_glac_rgi_raw[main_glac_rgi_raw['group_name'].notnull() == True].index.values, 
