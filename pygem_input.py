@@ -9,6 +9,8 @@ of parameters required to run a function.
 #   variables, parameters that don't really change.
 import os
 import numpy as np
+import pandas as pd
+from time import strftime
 
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # ===== CALIBRATION OPTIONS =====
@@ -16,14 +18,60 @@ option_calibration = 0
 #  Option 0 (default) - model simulation
 #  Option 1 - calibrate based on minimization (returns a single parameter set)
 
+# ===== MCMC and ensemble selections ========
+# number of MCMC samples to use
+MCMC_sample_no = 1000
+MCMC_burn_no = 0
+ensemble_no = 100
+
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
+
+# add a function to get all of Shean's glaciers
+def get_shean_glacier_nos(region_no):
+
+    # safety, convert input to int
+    region_no = int(region_no)
+
+    # get shean's data, convert to dataframe, get
+    # glacier numbers
+    csv_path = '../DEMs/hma_mb_20171211_1343.csv'
+    df = pd.read_csv(csv_path)
+    rgi = df['RGIId']
+
+    # select only glaciers in specified region no
+    rgi = rgi.loc[rgi >= region_no]
+    rgi = rgi.loc[rgi < (region_no + 1)]
+
+    # get only glacier numbers, convert to string
+    num = rgi % 1
+    num = num.round(5)
+    num = num.astype(str)
+
+    # slice string to remove decimal
+    num = [n[2:] for n in num]
+
+    # make sure there are 5 digits
+    for i in range(len(num)):
+        while len(num[i]) < 5:
+            num[i] += '0'
+
+    return num
+
+shean_glac_no = get_shean_glacier_nos(15)
+
+# RGI glacier number (RGI V6.0)
+rgi_glac_number = shean_glac_no[520:640]
+
+
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = ['03473', '03733']
+#rgi_glac_number = ['03473']
+
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -51,6 +99,19 @@ option_removeNaNcal = 1
 # Model setup directory
 main_directory = os.getcwd()
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
+
+#%% CONFIGURATION AND OUTPUT FILE LOCATIONS
+
+# Since mutliple scripts need to access the same locations
+# especially calibration and simulation, it is useful to have
+# this info in one file
+
+# MCMC export configuration
+MCMC_output_filepath = main_directory + '/../MCMC_data/'
+MCMC_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) +
+                        'glaciers_' + str(MCMC_sample_no) + 'samples_' +
+                        str(ensemble_no) + 'ensembles_' +
+                        str(strftime("%Y%m%d")) + '.nc')
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
