@@ -31,9 +31,9 @@ import cartopy
 option_plot_futuresim = 0
 option_calc_nearestneighbor = 0
 option_mb_shean_analysis = 0
-option_geodeticMB_loadcompare = 0
+option_geodeticMB_loadcompare = 1
 option_check_biasadj = 0
-option_parameter_relationships = 1
+option_parameter_relationships = 0
 
 option_savefigs = 1
 
@@ -469,24 +469,24 @@ if option_mb_shean_analysis == 1:
 
 
 #%% ===== ALL GEODETIC MB DATA LOAD & COMPARE (Shean, Brun, Mauer) =====
-if option_geodeticMB_loadcompare == 1:
+if option_geodeticMB_loadcompare == 1:    
     
-    
-#    rgi_regionsO1 = [15]
-    rgi_regionsO1 = ['all'] # 13, 14, 15 - load data from csv
+#    rgi_regionsO1 = [13]
+    rgi_regionsO1 = ['13, 14, 15'] # 13, 14, 15 - load data from csv
     rgi_glac_number = 'all'
     
-    if rgi_regionsO1[0] == 'all':
-        main_glac_rgi = pd.read_csv(input.main_directory + '/../DEMs/geodetic_glacwide_Shean_Maurer_Brun_HMA.csv')
+    if rgi_regionsO1[0] == '13, 14, 15':
+        main_glac_rgi = pd.read_csv(input.main_directory + 
+                                    '/../DEMs/geodetic_glacwide_Shean_Maurer_Brun_HMA_20180807.csv')
     else:
         # Mass balance column name
         massbal_colname = 'mb_mwea'
         # Mass balance uncertainty column name
         massbal_uncertainty_colname = 'mb_mwea_sigma'
         # Mass balance date 1 column name
-        massbal_time1 = 'year1'
+        massbal_t1 = 't1'
         # Mass balance date 1 column name
-        massbal_time2 = 'year2'
+        massbal_t2 = 't2'
         # Mass balance tolerance [m w.e.a]
         massbal_tolerance = 0.1
         # Calibration optimization tolerance
@@ -494,12 +494,22 @@ if option_geodeticMB_loadcompare == 1:
         main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all', 
                                                           rgi_glac_number=rgi_glac_number)
         # SHEAN DATA
-        # Import .csv file
-        ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[rgi_regionsO1[0]])
+        # Load all data
+        ds_all = pd.read_csv(input.main_directory + '/../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv')
+        ds_all['RegO1'] = ds_all[input.shean_rgi_glacno_cn].values.astype(int)
+        ds_all['glacno'] = ((ds_all[input.shean_rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
+        ds_all['RGIId'] = ('RGI60-' + ds_all['RegO1'].astype(str) + '.' +
+                           (ds_all['glacno'] / 10**5).apply(lambda x: '%.5f' % x).str.split('.').str[1])
+        # Select glaciers included in main_glac_rgi
+        ds = (ds_all.iloc[np.where(ds_all['RGIId'].isin(main_glac_rgi['RGIId']) == True)[0],:]).copy()
+        ds.sort_values(['glacno'], inplace=True)
+        ds.reset_index(drop=True, inplace=True)
+        ds['O1Index'] = np.where(main_glac_rgi['RGIId'].isin(ds['RGIId']))[0]
+        
         main_glac_calmassbal_shean = np.zeros((main_glac_rgi.shape[0],4))
-        ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-        ds_subset = ds[[input.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, 
-                        massbal_time1, massbal_time2]].values
+        
+        ds_subset = ds[[input.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, massbal_t1, 
+                        massbal_t2]].values
         rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
         for glac in range(rgi_O1Id.shape[0]):
             try:
@@ -517,104 +527,142 @@ if option_geodeticMB_loadcompare == 1:
                 main_glac_calmassbal_shean[glac,:] = np.empty(4)
                 main_glac_calmassbal_shean[glac,:] = np.nan
         main_glac_calmassbal_shean = pd.DataFrame(main_glac_calmassbal_shean, 
-                                                  columns=[massbal_colname, massbal_uncertainty_colname, massbal_time1, 
-                                                           massbal_time2])
+                                                  columns=[massbal_colname, massbal_uncertainty_colname, massbal_t1, 
+                                                           massbal_t2])
         
         main_glac_rgi['Shean_MB_mwea'] = main_glac_calmassbal_shean[input.massbal_colname]
         main_glac_rgi['Shean_MB_mwea_sigma'] = main_glac_calmassbal_shean[input.massbal_uncertainty_colname]
-        main_glac_rgi['Shean_MB_year1'] = main_glac_calmassbal_shean[input.massbal_time1]
-        main_glac_rgi['Shean_MB_year2'] = main_glac_calmassbal_shean[input.massbal_time2]
+        main_glac_rgi['Shean_MB_year1'] = main_glac_calmassbal_shean[massbal_t1]
+        main_glac_rgi['Shean_MB_year2'] = main_glac_calmassbal_shean[massbal_t2]
             
         # BRUN DATA
-        # Import .csv file
-        # RGIId column name
+        # Load all data
         cal_rgi_colname = 'GLA_ID'
-        ds_all_raw = pd.read_csv(input.cal_mb_filepath + 'Brun_Nature2017_MB_glacier-wide.csv')
-        ds_all = ds_all_raw[ds_all_raw['Measured GLA area [percent]'] >= 60]
+        ds_all_raw = pd.read_csv(input.brun_fp + input.brun_fn)
+        ds_all = ds_all_raw[ds_all_raw['Measured GLA area [percent]'] >= 60].copy()
+        ds_all[massbal_t1] = 2000
+        ds_all[massbal_t2] = 2016
+        ds_all.rename(columns={input.brun_mb_cn:massbal_colname}, inplace=True)
+        ds_all.rename(columns={input.brun_mb_err_cn:massbal_uncertainty_colname}, inplace=True)
         # Subset glaciers based on region
-        ds = ds_all[ds_all[cal_rgi_colname].values.astype(int) == rgi_regionsO1[0]].copy()
-        ds[input.rgi_O1Id_colname] = ((ds[cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-        rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
-        ds_Id = ds[input.rgi_O1Id_colname].values
-        main_glac_calmassbal_Brun = np.zeros((main_glac_rgi.shape[0],ds.shape[1]))
+        ds_all['RegO1'] = ds_all[input.brun_rgi_glacno_cn].values.astype(int)
+        ds_all['glacno'] = ((ds_all[input.brun_rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
+        ds_all['RGIId'] = ('RGI60-' + ds_all['RegO1'].astype(str) + '.' +
+                           (ds_all['glacno'] / 10**5).apply(lambda x: '%.5f' % x).str.split('.').str[1])
+        # Select glaciers included in main_glac_rgi
+        ds = (ds_all.iloc[np.where(ds_all['RGIId'].isin(main_glac_rgi['RGIId']) == True)[0],:]).copy()
+        ds.sort_values(['glacno'], inplace=True)
+        ds.reset_index(drop=True, inplace=True)
+        ds['O1Index'] = np.where(main_glac_rgi['RGIId'].isin(ds['RGIId']))[0]
+        
+        
+        main_glac_calmassbal_brun = np.zeros((main_glac_rgi.shape[0], 6))
+        ds_subset = ds[[input.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, massbal_t1, 
+                        massbal_t2, 'Tot_GLA_area [km2]', 'Measured GLA area [percent]']].values
         
         for glac in range(rgi_O1Id.shape[0]):
             try:
                 # Grab the mass balance based on the RGIId Order 1 glacier number
-                main_glac_calmassbal_Brun[glac,:] = (
-                        ds.iloc[np.where(np.in1d(ds_Id,rgi_O1Id[glac])==True)[0][0],:].values)
-                #  np.in1d searches if there is a match in the first array with the second array provided and returns an
-                #   array with same length as first array and True/False values. np.where then used to identify the 
-                #   index where there is a match, which is then used to select the massbalance value
-                #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; 
-                #   however, need the for loop because np.in1d does not order the values that match; hence, need to do 
-                #   it 1 at a time
+                main_glac_calmassbal_brun[glac,:] = (
+                        ds_subset[np.where(np.in1d(ds_subset[:,0],rgi_O1Id[glac])==True)[0][0],1:])
             except:
                 # If there is no mass balance data available for the glacier, then set as NaN
-                main_glac_calmassbal_Brun[glac,:] = np.empty(6)
-                main_glac_calmassbal_Brun[glac,:] = np.nan
-        main_glac_calmassbal_Brun = pd.DataFrame(main_glac_calmassbal_Brun, columns=ds.columns)
-        
-        main_glac_rgi['Brun_MB_mwea'] = main_glac_calmassbal_Brun['MB [m w.a a-1]']
-        main_glac_rgi['Brun_Tot_GLA_area[km2]'] = main_glac_calmassbal_Brun['Tot_GLA_area [km2]']
-        main_glac_rgi['Brun_GLA_area_measured[%]'] = main_glac_calmassbal_Brun['Measured GLA area [percent]']
-        main_glac_rgi['Brun_MB_err[mwea]'] = main_glac_calmassbal_Brun['err. on MB [m w.e a-1]']
+                main_glac_calmassbal_brun[glac,:] = np.empty(main_glac_calmassbal_brun.shape[1])
+                main_glac_calmassbal_brun[glac,:] = np.nan
+        main_glac_calmassbal_brun = pd.DataFrame(main_glac_calmassbal_brun, 
+                                                  columns=[massbal_colname, massbal_uncertainty_colname, massbal_t1, 
+                                                           massbal_t2, 'Tot_GLA_area [km2]', 
+                                                           'Measured GLA area [percent]'])
+        main_glac_rgi['Brun_MB_mwea'] = main_glac_calmassbal_brun[massbal_colname]
+        main_glac_rgi['Brun_MB_err_mwea'] = main_glac_calmassbal_brun[massbal_uncertainty_colname]
+        main_glac_rgi['Brun_Tot_GLA_area[km2]'] = main_glac_calmassbal_brun['Tot_GLA_area [km2]']
+        main_glac_rgi['Brun_GLA_area_measured[%]'] = main_glac_calmassbal_brun['Measured GLA area [percent]']
         
         # MAUER DATA
+        # Load all data
         cal_rgi_colname = 'id'
-        # Import .csv file
-        ds_all_raw = pd.read_csv(input.cal_mb_filepath + 'RupperMauer_GeodeticMassBalance_Himalayas_2000_2016.csv')
-        ds_all = ds_all_raw[ds_all_raw['percentCov'] >= 60]
+        ds_all_raw = pd.read_csv(input.mauer_fp + input.mauer_fn)
+        ds_all = ds_all_raw[ds_all_raw['percentCov'] >= 60].copy()
+        ds_all.rename(columns={input.mauer_mb_cn:massbal_colname}, inplace=True)
+        ds_all.rename(columns={input.mauer_mb_err_cn:massbal_uncertainty_colname}, inplace=True)
+        ds_all.rename(columns={input.mauer_time1_cn:massbal_t1}, inplace=True)
+        ds_all.rename(columns={input.mauer_time2_cn:massbal_t2}, inplace=True)
         # Subset glaciers based on region
-        ds = ds_all[ds_all[cal_rgi_colname].values.astype(int) == rgi_regionsO1[0]].copy()
-        ds[input.rgi_O1Id_colname] = ((ds[cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
-        rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
-        ds_Id = ds[input.rgi_O1Id_colname].values
-        main_glac_calmassbal_Mauer = np.zeros((main_glac_rgi.shape[0],ds.shape[1]))
+        ds_all['RegO1'] = ds_all[input.mauer_rgi_glacno_cn].values.astype(int)
+        ds_all['glacno'] = ((ds_all[input.mauer_rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
+        ds_all['RGIId'] = ('RGI60-' + ds_all['RegO1'].astype(str) + '.' +
+                           (ds_all['glacno'] / 10**5).apply(lambda x: '%.5f' % x).str.split('.').str[1])
+        # Select glaciers included in main_glac_rgi
+        ds = (ds_all.iloc[np.where(ds_all['RGIId'].isin(main_glac_rgi['RGIId']) == True)[0],:]).copy()
+        ds.sort_values(['glacno'], inplace=True)
+        ds.reset_index(drop=True, inplace=True)
+        ds['O1Index'] = np.where(main_glac_rgi['RGIId'].isin(ds['RGIId']))[0]
+        
+        main_glac_calmassbal_mauer = np.zeros((main_glac_rgi.shape[0], 5))
+        ds_subset = ds[[input.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, massbal_t1, 
+                        massbal_t2, 'percentCov']].values
         
         for glac in range(rgi_O1Id.shape[0]):
             try:
                 # Grab the mass balance based on the RGIId Order 1 glacier number
-                main_glac_calmassbal_Mauer[glac,:] = (
-                        ds.iloc[np.where(np.in1d(ds_Id,rgi_O1Id[glac])==True)[0][0],:].values)
-                #  np.in1d searches if there is a match in the first array with the second array provided and returns an
-                #   array with same length as first array and True/False values. np.where then used to identify the 
-                #   index where there is a match, which is then used to select the massbalance value
-                #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; 
-                #   however, need the for loop because np.in1d does not order the values that match; hence, need to do 
-                #   it 1 at a time
+                main_glac_calmassbal_mauer[glac,:] = (
+                        ds_subset[np.where(np.in1d(ds_subset[:,0],rgi_O1Id[glac])==True)[0][0],1:])
             except:
                 # If there is no mass balance data available for the glacier, then set as NaN
-                main_glac_calmassbal_Mauer[glac,:] = np.empty(ds.shape[1])
-                main_glac_calmassbal_Mauer[glac,:] = np.nan
-        main_glac_calmassbal_Mauer = pd.DataFrame(main_glac_calmassbal_Mauer, columns=ds.columns)
+                main_glac_calmassbal_mauer[glac,:] = np.empty(main_glac_calmassbal_mauer.shape[1])
+                main_glac_calmassbal_mauer[glac,:] = np.nan
+        main_glac_calmassbal_mauer = pd.DataFrame(main_glac_calmassbal_mauer, 
+                                                  columns=[massbal_colname, massbal_uncertainty_colname, massbal_t1, 
+                                                           massbal_t2, 'percentCov'])
+        main_glac_rgi['Mauer_MB_mwea'] = main_glac_calmassbal_mauer[massbal_colname]
+        main_glac_rgi['Mauer_MB_mwea_sigma'] = main_glac_calmassbal_mauer[massbal_uncertainty_colname]
+        main_glac_rgi['Mauer_MB_year1'] = main_glac_calmassbal_mauer[massbal_t1]
+        main_glac_rgi['Mauer_MB_year2'] = main_glac_calmassbal_mauer[massbal_t2]
+        main_glac_rgi['Mauer_GLA_area_measured[%]'] = main_glac_calmassbal_mauer['percentCov']
         
-        main_glac_rgi['Mauer_MB_mwea'] = main_glac_calmassbal_Mauer['geoMassBal']
-        main_glac_rgi['Mauer_MB_mwea_sigma'] = main_glac_calmassbal_Mauer['geoMassBalSig']
-        main_glac_rgi['Mauer_GLA_area_measured[%]'] = main_glac_calmassbal_Mauer['percentCov']
-        main_glac_rgi['Mauer_MB_year1'] = main_glac_calmassbal_Mauer['Year1']
-        main_glac_rgi['Mauer_MB_year2'] = main_glac_calmassbal_Mauer['Year2']
-    
     # Differences
     main_glac_rgi['Dif_Shean-Mauer[mwea]'] = main_glac_rgi['Shean_MB_mwea'] - main_glac_rgi['Mauer_MB_mwea']
     main_glac_rgi['Dif_Shean-Brun[mwea]'] = main_glac_rgi['Shean_MB_mwea'] - main_glac_rgi['Brun_MB_mwea']
     main_glac_rgi['Dif_Mauer-Brun[mwea]'] = main_glac_rgi['Mauer_MB_mwea'] - main_glac_rgi['Brun_MB_mwea']
     
     # Statistics
-    print('# of MB [Shean]:',main_glac_rgi['Shean_MB_mwea'].dropna().shape[0])      
-    print('# of MB [Brun]:',main_glac_rgi['Brun_MB_mwea'].dropna().shape[0])
-    print('# of MB [Mauer]:',main_glac_rgi['Mauer_MB_mwea'].dropna().shape[0])
-    print('# same glaciers (All 3):',main_glac_rgi.copy().dropna().shape[0])      
+    print('Glacier area [total]:', round(main_glac_rgi.Area.sum(),1),'km2')
+    print('Glacier count [total]:',main_glac_rgi.shape[0],'\n')
+    print('Glacier area [Shean]:', 
+          round(main_glac_rgi[np.isfinite(main_glac_rgi['Shean_MB_mwea'])].Area.sum(),1),
+          'km2 (',
+          round(main_glac_rgi[np.isfinite(main_glac_rgi['Shean_MB_mwea'])].Area.sum()/main_glac_rgi.Area.sum()*100,1), 
+          '%)')    
+    print('Glacier area [Brun]:', 
+          round(main_glac_rgi[np.isfinite(main_glac_rgi['Brun_MB_mwea'])].Area.sum(),1),
+          'km2 (',
+          round(main_glac_rgi[np.isfinite(main_glac_rgi['Brun_MB_mwea'])].Area.sum()/main_glac_rgi.Area.sum()*100,1), 
+          '%)')    
+    print('Glacier area [Mauer]:', 
+          round(main_glac_rgi[np.isfinite(main_glac_rgi['Mauer_MB_mwea'])].Area.sum(),1),
+          'km2 (',
+          round(main_glac_rgi[np.isfinite(main_glac_rgi['Mauer_MB_mwea'])].Area.sum()/main_glac_rgi.Area.sum()*100,1), 
+          '%)','\n')    
+    print('Glacier count [Shean]:',main_glac_rgi['Shean_MB_mwea'].dropna().shape[0],
+          '(', round(main_glac_rgi['Shean_MB_mwea'].dropna().shape[0]/main_glac_rgi.shape[0]*100,1),'% )')
+    print('Glacier count [Brun]:',main_glac_rgi['Brun_MB_mwea'].dropna().shape[0],
+          '(', round(main_glac_rgi['Brun_MB_mwea'].dropna().shape[0]/main_glac_rgi.shape[0]*100,1),'% )')
+    print('Glacier count [Mauer]:',main_glac_rgi['Mauer_MB_mwea'].dropna().shape[0],
+          '(', round(main_glac_rgi['Mauer_MB_mwea'].dropna().shape[0]/main_glac_rgi.shape[0]*100,1),'% )','\n')   
+    print('Comparison:')
     print('# same glaciers (Shean/Mauer):',main_glac_rgi['Dif_Shean-Mauer[mwea]'].copy().dropna().shape[0])
     print('# same glaciers (Shean/Brun)',main_glac_rgi['Dif_Shean-Brun[mwea]'].copy().dropna().shape[0])
-    print('# same glaciers (Mauer/Brun)',main_glac_rgi['Dif_Mauer-Brun[mwea]'].copy().dropna().shape[0])
+    print('# same glaciers (Mauer/Brun)',main_glac_rgi['Dif_Mauer-Brun[mwea]'].copy().dropna().shape[0], '\n')
     print('Mean difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].mean())
+    print('Std difference (Shean/Mauer)):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].std())
     print('Min difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].min())
-    print('Max difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].max())
+    print('Max difference (Shean/Mauer):', main_glac_rgi['Dif_Shean-Mauer[mwea]'].max(), '\n')
     print('Mean difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].mean())
+    print('Std difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].std())
     print('Min difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].min())
-    print('Max difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].max())
+    print('Max difference (Shean/Brun):', main_glac_rgi['Dif_Shean-Brun[mwea]'].max(), '\n')
     print('Mean difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].mean())
+    print('Std difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].std())
     print('Min difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].min())
     print('Max difference (Mauer/Brun):', main_glac_rgi['Dif_Mauer-Brun[mwea]'].max())
     # Plot histograms of the differences
@@ -702,6 +750,9 @@ if option_geodeticMB_loadcompare == 1:
     main_glac_summary['% reg count'] = main_glac_summary['count'] / main_glac_summary['reg count'] * 100
     main_glac_summary['% total area'] = main_glac_summary['area'] / main_glac_summary['reg area'] * 100
   
+#    # Percent coverage if exclude glaciers < 1 km2
+#    A = main_glac_rgi[np.isfinite(main_glac_rgi['Shean_MB_mwea'])]
+#    print(round(A[A['Area'] > 1].Area.sum() / main_glac_rgi.Area.sum() * 100,1))
     
 #%%===== PLOTTING GRID SEARCH FOR A GLACIER ======
 #data = nc.Dataset(input.main_directory + '/../Output/calibration_gridsearchcoarse_R15_20180324.nc', 'r+')

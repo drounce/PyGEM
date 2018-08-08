@@ -300,6 +300,24 @@ shean_area_cn = 'area_m2'
 shean_vol_cn = 'mb_m3wea'
 shean_vol_err_cn = 'mb_m3wea_sigma'
 
+# ===== BRUN GEODETIC =====
+brun_fp = main_directory + '/../DEMs/'
+brun_fn = 'Brun_Nature2017_MB_glacier-wide.csv'
+brun_rgi_glacno_cn = 'GLA_ID'
+brun_mb_cn = 'MB [m w.a a-1]'
+brun_mb_err_cn = 'err. on MB [m w.e a-1]'
+# NEED TO FINISH SETTING UP BRUN WITH CLASS_MBDATA
+
+# ===== MAUER GEODETIC =====
+mauer_fp = main_directory + '/../DEMs/'
+mauer_fn = 'RupperMauer_GeodeticMassBalance_Himalayas_2000_2016.csv'
+mauer_rgi_glacno_cn = 'id'
+mauer_mb_cn = 'meanElevChj'
+mauer_mb_err_cn = 'meanElevChjSig'
+mauer_time1_cn = 'Year1'
+mauer_time2_cn = 'Year2'
+# NEED TO FINISH SETTING UP MAUER WITH CLASS_MBDATA
+
 # ===== WGMS =====
 wgms_datasets = ['wgms_d', 'wgms_ee']
 #wgms_datasets = ['wgms_d']
@@ -353,9 +371,6 @@ mb_group_t1_cn = 'begin_period'
 mb_group_t2_cn = 'end_period'
 
 
-
-brun_fp = main_directory + '/../DEMs/'
-#  NEED TO FINISH SETTING UP FOR BRUN AND MAUER
 
 # Limit potential mass balance for future simulations option
 option_mb_envelope = 1
