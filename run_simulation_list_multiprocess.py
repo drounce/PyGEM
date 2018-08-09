@@ -48,7 +48,7 @@ rgi_glac_number = input.rgi_glac_number
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_endyear = 2020
 gcm_spinupyears = 5
 
 # Output
@@ -85,7 +85,7 @@ debug = False
 
 
 # Synthetic simulation input
-option_synthetic_sim = 1
+option_synthetic_sim = 0
 synthetic_startyear = 1990
 synthetic_endyear = 1999
 
@@ -370,6 +370,7 @@ def main(list_packed_vars):
 #                print(mb_mwea, glac_vol_change_perc)
 
                 # write to netcdf file
+                print(MCMC_run)
                 if output_package != 0:
                     output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
                                        glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,

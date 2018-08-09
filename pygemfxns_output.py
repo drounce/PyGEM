@@ -260,7 +260,9 @@ def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, 
         glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
         glac_wide_area = glac_bin_area.sum(axis=0)
         glac_wide_temp_sum = glac_bin_temp.sum(axis=0)
-        glac_wide_temp_bincount = np.count_nonzero(glac_bin_temp, axis=0)
+        glac_bin_temp_nonzero = np.zeros(glac_bin_temp.shape)
+        glac_bin_temp_nonzero[glac_bin_temp != 0] = 1
+        glac_wide_temp_bincount = glac_bin_temp_nonzero.sum(axis=0)
         glac_wide_temp[glac_wide_temp_bincount > 0] = (glac_wide_temp_sum[glac_wide_temp_bincount > 0] / 
                                                        glac_wide_temp_bincount[glac_wide_temp_bincount > 0])
         glac_wide_prec_mkm2 = (glac_bin_prec * glac_bin_area).sum(axis=0)
