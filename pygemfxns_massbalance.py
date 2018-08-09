@@ -243,6 +243,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     
                     # FRONTAL ABLATION
                     if glacier_rgi_table.loc['TermType'] != 0:
+
+                        
                         if warn_calving == 1:
                             warn_calving = 0
                             print('CODE FRONTAL ABLATION: include in mass redistribution?')

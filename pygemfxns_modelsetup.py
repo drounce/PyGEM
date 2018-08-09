@@ -169,6 +169,11 @@ def import_Husstable(rgi_table, rgi_regionsO1, filepath, filedict, drop_col_name
     glac_table_copy.drop(drop_col_names, axis=1, inplace=True)
     # Change NAN from -99 to 0
     glac_table_copy[glac_table_copy==-99] = 0.
+    # Shift Huss bins by 20 m since the elevation bins appear to be 20 m higher than they should be
+    if input.option_shift_elevbins_20m == 1:
+        colnames = glac_table_copy.columns.tolist()[:-2]
+        glac_table_copy = glac_table_copy.iloc[:,2:]
+        glac_table_copy.columns = colnames
     return glac_table_copy
 
 

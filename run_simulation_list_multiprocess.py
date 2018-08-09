@@ -42,22 +42,27 @@ import class_climate
 # test another 12, shean's data, parallels
 #rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
 
-rgi_regionsO1 = input.rgi_regionsO1
-rgi_glac_number = input.rgi_glac_number
+rgi_regionsO1 = [7]
+#rgi_glac_number = ['00027', '00030', '00036']
+rgi_glac_number = ['00030']
+
+# For Tushar...
+#rgi_regionsO1 = input.rgi_regionsO1
+#rgi_glac_number = input.rgi_glac_number
 
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2020
-gcm_spinupyears = 5
+gcm_endyear = 2015
+gcm_spinupyears = 0
 
 # Output
-output_package = 2
+output_package = 0
 output_filepath = input.main_directory + '/../Output/'
 parallel_filepath = output_filepath + 'parallel/'
 
 # Bias adjustment option (options defined in run_gcmbiasadj script; 0 means no correction)
-option_bias_adjustment = 2
+option_bias_adjustment = 0
 # Calibrated model parameters
 #  calibrated parameters are the same for all climate datasets (only bias adjustments differ for each climate dataset)
 ref_modelparams_fp = input.main_directory + '/../Calibration_datasets/'
@@ -68,7 +73,7 @@ gcm_modelparams_fn_ending = ('_biasadj_opt' + str(option_bias_adjustment) + '_19
 
 # Tushar's quick and dirty option
 # Select True if running using MCMC method
-MCMC_option = True
+MCMC_option = False
 
 # MCMC settings
 MCMC_sample_no = input.MCMC_sample_no

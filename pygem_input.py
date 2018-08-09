@@ -243,6 +243,9 @@ rgi_dict = {
             15: '15_rgi60_SouthAsiaEast.csv'}
 
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
+# Option to shift all elevation bins by 20 m 
+#  (required for Matthias' ice thickness and area since they are 20 m off, see email from May 24 2018)
+option_shift_elevbins_20m = 1
 # Elevation band height [m]
 binsize = 10
 # Filepath for the hypsometry files

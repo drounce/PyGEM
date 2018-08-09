@@ -12,3 +12,4 @@ dependencies:
 - cartopy
 - pymc
 - pyDOE
+- spyder
