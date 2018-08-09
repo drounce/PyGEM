@@ -240,23 +240,33 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     #  climatic mass balance = accumulation + refreeze - melt
                     glac_bin_massbalclim[:,step] = (glac_bin_acc[:,step] + glac_bin_refreeze[:,step] - 
                                                     glac_bin_melt[:,step])
-                    
-                    # FRONTAL ABLATION
-                    if glacier_rgi_table.loc['TermType'] != 0:
-
-                        
-                        if warn_calving == 1:
-                            warn_calving = 0
-                            print('CODE FRONTAL ABLATION: include in mass redistribution?')
-                            # FRONTAL ABLATION IS CALCULATED ANNUALLY IN HUSS AND HOCK (2015)
-                            # How should frontal ablation pair with geometry changes?
-                            #  - track the length of the last bin and have the calving losses control the bin length 
-                            #    after mass redistribution
-                            #  - the ice thickness will be determined by the mass redistribution
-                            # Note: output functions calculate total mass balance assuming frontal ablation is a
-                            #       positive value that is then subtracted from the climatic mass balance.
                 
-                # RETURN TO ANNUAL LOOP
+                # ===== RETURN TO ANNUAL LOOP =====
+                # FRONTAL ABLATION
+                # Based on Huss and Hock (2015)
+                if icethickness_t0[0] > (elev_bins[1] - elev_bins[0]):
+                    # Estimate height of calving front (height_calving)
+                    # Glacier length [m]
+                    length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
+                    height_calving_1 = input.af*length**0.5
+                    waterdepth = icethickness_t0[0] - (elev_bins[1] - elev_bins[0])
+                    height_calving_2 = input.density_water / input.density_ice * waterdepth
+                    height_calving = np.max([height_calving_1, height_calving_2])
+                    glac_bin_frontalablation[:,step] = np.min([0, (-1 * input.calving_parameter * waterdepth * 
+                                                                   height_calving)])
+                    print('ice thickness:', icethickness_t0[0].round(0), 'waterdepth:', waterdepth.round(0), 
+                          'height calving front:', height_calving.round(0))
+                    
+                    # CURRENT UNITS: M**3 OF ICE, annually
+
+                    # How should frontal ablation pair with geometry changes?
+                    #  - track the length of the last bin and have the calving losses control the bin length 
+                    #    after mass redistribution
+                    #  - the ice thickness will be determined by the mass redistribution
+                    # Note: output functions calculate total mass balance assuming frontal ablation is a
+                    #       positive value that is then subtracted from the climatic mass balance.
+                    
+                        
                 # SURFACE TYPE
                 # Annual surface type [-]
                 glac_bin_surfacetype_annual[:,year] = surfacetype
@@ -273,12 +283,14 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     width_t1 = width_t0
                 else:
                     # Mass redistribution according to Huss empirical curves
-                    glacier_area_t1, icethickness_t1, width_t1 = massredistributionHuss(glacier_area_t0, icethickness_t0, 
-                            width_t0, glac_bin_massbalclim_annual, year, glac_idx_initial)
+                    glacier_area_t1, icethickness_t1, width_t1 = (
+                            massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
+                                                   glac_bin_massbalclim_annual, year, glac_idx_initial))
                     # update surface type for bins that have retreated
                     surfacetype[glacier_area_t1 == 0] = 0
                     # update surface type for bins that have advanced 
-                    surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = surfacetype[glacier_area_t0.nonzero()[0][0]]
+                    surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = (
+                            surfacetype[glacier_area_t0.nonzero()[0][0]])
                 # Record glacier properties (area [km**2], thickness [m], width [km])
                 # if first year, record initial glacier properties (area [km**2], ice thickness [m ice], width [km])
                 if year == 0:
@@ -286,7 +298,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     glac_bin_icethickness_annual[:,year] = icethickness_t0
                     glac_bin_width_annual[:,year] = width_t0
                 # record the next year's properties as well
-                # 'year + 1' used so the glacier properties are consistent with those used in the mass balance computations
+                # 'year + 1' used so the glacier properties are consistent with mass balance computations
                 glac_bin_icethickness_annual[:,year + 1] = icethickness_t1
                 glac_bin_area_annual[:,year + 1] = glacier_area_t1
                 glac_bin_width_annual[:,year + 1] = width_t1

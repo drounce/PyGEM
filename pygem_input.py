@@ -144,6 +144,8 @@ ddfsnow_iceratio = 0.7
 tempsnow = 1.0
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 #  facilitates calibration similar to Huss and Hock (2015)
+# Calving_parameter dictating rate [yr-1]
+calving_parameter = 2.4
 
 # Model parameters filepath, filename, and column names
 modelparams_filepath = main_directory + '/../Calibration_datasets/'
@@ -637,3 +639,5 @@ temp_std = 288.15
 R_gas = 8.3144598
 # Molar mass of Earth's air [kg mol-1]
 molarmass_air = 0.0289644
+# Bulk flow parameter for calving (m^-0.5)
+af = 0.7

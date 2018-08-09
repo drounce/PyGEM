@@ -155,7 +155,8 @@ def main(list_packed_vars):
 
 
         if MCMC_option:
-            main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_modelparams_all['RGIId'].isin(main_glac_rgi['RGIId'])]
+            main_glac_modelparams = (
+                    main_glac_modelparams_all.loc[main_glac_modelparams_all['RGIId'].isin(main_glac_rgi['RGIId'])])
         else:
             main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]
 
@@ -282,8 +283,8 @@ def main(list_packed_vars):
     if MCMC_option:
         if output_package != 0:
             if gcm_name == 'ERA-Interim':
-                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears)
-                             + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
+                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
+                             gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
             else:
                 netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
@@ -299,8 +300,8 @@ def main(list_packed_vars):
     else:
         if output_package != 0:
             if gcm_name == 'ERA-Interim':
-                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - gcm_spinupyears)
-                             + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
+                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
+                             gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
             else:
                 netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
@@ -360,8 +361,9 @@ def main(list_packed_vars):
                  glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
                  glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
                     massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev,
-                                               glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0))
+                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               option_areaconstant=0))
                 # Annual glacier-wide mass balance [m w.e.]
                 glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
                 # Average annual glacier-wide mass balance [m w.e.a.]
@@ -385,7 +387,8 @@ def main(list_packed_vars):
 
 
         else:
-            modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],input.modelparams_colnames]
+            modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],
+                                                        input.modelparams_colnames]
 
             # Mass balance calcs
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
@@ -555,7 +558,8 @@ if __name__ == '__main__':
 
 #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
     # Place local variables in variable explorer
-    if (not MCMC_option) and ((args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes)):
+    if (not MCMC_option) and ((args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * 
+        args.num_simultaneous_processes)):
         main_vars_list = list(main_vars.keys())
         gcm_name = main_vars['gcm_name']
 #        rcp_scenario = main_vars['rcp_scenario']
@@ -589,6 +593,7 @@ if __name__ == '__main__':
         glacier_area_t0 = main_vars['glacier_area_t0']
         icethickness_t0 = main_vars['icethickness_t0']
         width_t0 = main_vars['width_t0']
+        glac_bin_frontalablation = main_vars['glac_bin_frontalablation']
 
     #    # Adjust temperature and precipitation to 'Zmed' so variables can properly be compared
     #    glacier_elev_zmed = glacier_rgi_table.loc['Zmed']
