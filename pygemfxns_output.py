@@ -168,7 +168,7 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
         temp_glac_monthly.comment = ("each elevation bin is weighted equally to compute the mean temperature, and bins "
                                      + "where the glacier no longer exists due to retreat have been removed")
         prec_glac_monthly = netcdf_output.createVariable('prec_glac_monthly', np.float64, ('glac_idx', 'time', 'sim'))
-        prec_glac_monthly.long_name = "glacier-wide precipitation"
+        prec_glac_monthly.long_name = "glacier-wide precipitation (liquid)"
         prec_glac_monthly.units = "m"
         acc_glac_monthly = netcdf_output.createVariable('acc_glac_monthly', np.float64, ('glac_idx', 'time', 'sim'))
         acc_glac_monthly.long_name = "glacier-wide accumulation"
