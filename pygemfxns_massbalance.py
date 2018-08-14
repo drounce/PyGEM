@@ -243,8 +243,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 
                 # ===== RETURN TO ANNUAL LOOP =====
                 # FRONTAL ABLATION
-                # Based on Huss and Hock (2015)
-                if icethickness_t0[0] > (elev_bins[1] - elev_bins[0]):
+                # If ice in glacier's lowermost bin below sea-level, then compute frontal ablation
+                #  note: the glacier's lowermost bin does not have to be the lowest elevation bin.  It's possible that 
+                #        a glacier has retreated such that it's lowest elevation bin is not at sea-level, yet the
+                #        the glacier is still marine-terminating.
+                if icethickness_t0[glac_idx_t0[0]] > (elev_bins[glac_idx_t0[0] + 1] - elev_bins[glac_idx_t0[0]]):
                     # Estimate height of calving front (height_calving)
                     # Glacier length [m]
                     length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
@@ -252,12 +255,16 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     waterdepth = icethickness_t0[0] - (elev_bins[1] - elev_bins[0])
                     height_calving_2 = input.density_water / input.density_ice * waterdepth
                     height_calving = np.max([height_calving_1, height_calving_2])
-                    glac_bin_frontalablation[:,step] = np.min([0, (-1 * input.calving_parameter * waterdepth * 
+                    glac_bin_frontalablation[0,step] = np.min([0, (-1 * input.calving_parameter * waterdepth * 
                                                                    height_calving)])
+                    print('first ice thickness:', )
                     print('ice thickness:', icethickness_t0[0].round(0), 'waterdepth:', waterdepth.round(0), 
                           'height calving front:', height_calving.round(0))
                     
                     # CURRENT UNITS: M**3 OF ICE, annually
+                    
+                    # Limit the amount of frontal ablation losses based on the volume of ice where the bedrock is below
+                    # sea-level.  This should make it easier to compute bin retreat from frontal ablation.
 
                     # How should frontal ablation pair with geometry changes?
                     #  - track the length of the last bin and have the calving losses control the bin length 

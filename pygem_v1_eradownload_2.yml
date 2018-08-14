@@ -1,0 +1,19 @@
+name: pygem_v1_eradownload_2
+channels:
+- conda-forge
+dependencies:
+- python
+- pandas
+- numpy
+- scipy
+- xarray
+- netCDF4
+- matplotlib
+- cartopy
+- pymc
+- pyDOE
+- spyder
+- ecmwf-api-client
+- pip
+- pip:
+  - https://software.ecmwf.int/wiki/download/attachments/56664858/ecmwf-api-client-python.tgz

@@ -29,10 +29,10 @@ import pygemfxns_modelsetup as modelsetup
 #    element of the second glacier (sublist), etc. 
 
 #%% Input data
-#rgi_regionO1 = [13, 14, 15]
-rgi_regionO1 = [13]
+rgi_regionO1 = [13, 14, 15]
+#rgi_regionO1 = [13]
 #rgi_regionO1 = [15]
-search_binnedcsv_fn = input.main_directory + '\\..\\DEMs\\mb_bins_sample_20180323\\*_mb_bins.csv'
+search_binnedcsv_fn = input.main_directory + '\\..\\DEMs\\Shean_2018_0806\\aster_2000-2018_mb_bins\\*_mb_bins.csv'
 #search_binnedcsv_fn = ('/Users/kitreatakataglushkoff/Documents/All_Documents/SUMMER_2018/Glaciology/HiMAT/DEMs/' + 
 #                       'mb_bins_sample_20180323/*_mb_bins.csv')
 #set default parameter based on all glaciers of defined region 
@@ -117,9 +117,9 @@ for n, region in enumerate(rgi_regionO1):
         main_glac_hyps_reg[main_glac_icethickness_reg == 0] = 0
 
         # concatenate regions
-        main_glac_rgi = main_glac_rgi.append(main_glac_rgi_reg, ignore_index=True)
-        main_glac_hyps = main_glac_hyps.append(main_glac_hyps_reg, ignore_index=True)
-        main_glac_icethickness = main_glac_icethickness.append(main_glac_icethickness_reg, ignore_index=True)
+        main_glac_rgi = main_glac_rgi.append(main_glac_rgi_reg, ignore_index=True, sort=True)
+        main_glac_hyps = main_glac_hyps.append(main_glac_hyps_reg, ignore_index=True, sort=True)
+        main_glac_icethickness = main_glac_icethickness.append(main_glac_icethickness_reg, ignore_index=True, sort=True)
 
 #%% MAIN DATASET
 # add an empty column to main_glac_rgi to be filled with glac-wide debris perc
@@ -297,357 +297,357 @@ def normalized_stats(norm_list):
     return norm_all_stats
             
 
-#%% Select glaciers based on a certain parameter
-##define the range to examine
-#bin_high = 1000
-#bin_low = 0
+##%% Select glaciers based on a certain parameter
+###define the range to examine
+##bin_high = 1000
+##bin_low = 0
+##
+###note: possible main_glac_rgi_  testing_var str: CenLon, CenLat, Area, Zmin, Zmax, 
+###                        Zmed, Slope, Aspect, Lmax, Form, TermType, PercDebris
+##testing_var = 'Slope'
+##
+###(*kitrea currently working on this area, and has commented out things that 
+### would interfere with David's elevation bin-size changes )
+##
+###Lower 20% of variable range 
+##
+##
+###Upper 20% of variable range
+###upper_bin_high = np.ceil((main_glac_rgi[testing_var].max()) #the upper int of the max
+###lower_bin_high = 
+##
+##print('Range of '+ testing_var+ ': (' + str(main_glac_rgi[testing_var].min()) + ', ' + 
+##                                    str(main_glac_rgi[testing_var].max()) + ')')
+##
+###redefine the dataframe to only include glaciers with desired parameter
+##subset_indices = main_glac_rgi[main_glac_rgi[testing_var].between(bin_low,bin_high)].index.values
+##ds = [ds[x] for x in subset_indices]
+##prmtr = 'Reg_' + str(rgi_regionO1)+ '_' + str(bin_low) + '<' + testing_var + '<' + str(bin_high)
+##print('These glaciers are based on the parameter, ', prmtr)
 #
-##note: possible main_glac_rgi_  testing_var str: CenLon, CenLat, Area, Zmin, Zmax, 
-##                        Zmed, Slope, Aspect, Lmax, Form, TermType, PercDebris
-#testing_var = 'Slope'
 #
-##(*kitrea currently working on this area, and has commented out things that 
-## would interfere with David's elevation bin-size changes )
+##%% Plots for a single glacier    
+#def plot_eachglacier(glacier_list, option_merged_dataset=0):
+#    # Set position of dataset to plot in list based on using merged or unmerged data
+#    #  [2 = 10m, 6 = merged]
+#    if option_merged_dataset == 0:
+#        ds_position = 2
+#    elif option_merged_dataset == 1:
+#        ds_position = 6
+#        
+#    # Loop through glacier list and plot
+#    for glac in glacier_list:
+#        #pull values from binnedcsv into vars
+#        glac_elevbins = ds[glac][ds_position]['bin_center_elev_m']
+#        glac_area_t1 = ds[glac][ds_position]['z1_bin_area_valid_km2']
+#        glac_area_t2 = ds[glac][ds_position]['z2_bin_area_valid_km2']
+#        glac_mb_mwea = ds[glac][ds_position][mb_cn]
+#        glac_debristhick_cm = ds[glac][ds_position]['debris_thick_med_m'] * 100
+#        glac_debrisperc = ds[glac][ds_position]['perc_debris']
+#        glac_pondperc = ds[glac][ds_position]['perc_pond']
+#        glac_elevnorm = ds[glac][ds_position]['elev_norm']
+#        glac_dhdt_med = ds[glac][ds_position]['dhdt_bin_med_ma']
+#        glac_dhdt_norm_huss = ds[glac][ds_position]['dhdt_norm_huss']
+##        glac_dhdt_norm_range = ds[glac][ds_position]['dhdt_norm_range']
+#        glac_dhdt_norm_shifted = ds[glac][ds_position]['dhdt_norm_shifted']
+#        glac_elevs = ds[glac][ds_position]['bin_center_elev_m']
+#        glacwide_mb_mwea = (glac_area_t1 * glac_mb_mwea).sum() / glac_area_t1.sum() 
+#        #check if this is same way Shean did it. Also, does it make more sense for ths to be in the above, 
+#        # adjustment section?
+#        t1 = 2000
+#        t2 = 2015
+#        
+#        # Plot Elevation bins vs. Area, Mass balance, and Debris thickness/pond coverage/ debris coverage
+#        plt.figure(figsize=(10,6))
+#        plt.subplots_adjust(wspace=0.05, hspace=0.05)
+#        plt.suptitle(ds[glac][1], y=0.94)
+#        # Elevation vs. Area
+#        plt.subplot(1,3,1)
+#        plt.plot(glac_area_t1, glac_elevbins, label=t1)
+#        plt.plot(glac_area_t2, glac_elevbins, label=t2)
+#        plt.ylabel('Elevation [masl, WGS84]')
+#        plt.xlabel('Glacier area [km2]')
+#        plt.minorticks_on()
+#        plt.legend()
+#        # Elevation vs. Mass Balance
+#        plt.subplot(1,3,2)
+#        plt.plot(glac_mb_mwea, glac_elevbins, 'k-', label=str(round(glacwide_mb_mwea, 2)) + ' mwea')
+#        #  k refers to the color (k=black, b=blue, g=green, etc.)
+#        #  - refers to using a line (-- is a dashed line, o is circle points, etc.)
+#        plt.ylabel('Elevation [masl, WGS84]')
+#        plt.xlabel('Mass balance [mwea]')
+#        plt.xlim(-3, 3)
+#        plt.xticks(np.arange(-3, 3 + 1, 1))
+#        plt.axvline(x=0, color='k')
+#        plt.fill_betweenx(glac_elevbins, glac_mb_mwea, 0, where=glac_mb_mwea<0, color='r', alpha=0.5)
+#        plt.fill_betweenx(glac_elevbins, glac_mb_mwea, 0, where=glac_mb_mwea>0, color='b', alpha=0.5)
+#        plt.legend(loc=1)
+#        plt.minorticks_on()
+#        plt.gca().axes.get_yaxis().set_visible(False)
+#        # Elevation vs. Debris Area, Pond Area, Thickness
+#        plt.subplot(1,3,3)
+#        plt.plot(glac_debrisperc, glac_elevbins, label='Debris area')
+#        plt.plot(glac_pondperc, glac_elevbins, label='Pond area')
+#        plt.plot(glac_debristhick_cm, glac_elevbins, 'k-', label='Thickness')
+#        plt.ylabel('Elevation [masl, WGS84]')
+#        plt.xlabel('Debris thickness [cm], Area [%]')
+#        plt.minorticks_on()
+#        plt.legend()
+#        plt.gca().axes.get_yaxis().set_visible(False)
+#        if option_savefigs == 1:
+#            plt.savefig(input.output_filepath + 'figures/' + ds[glac][1] + '_mb_aed.png', bbox_inches='tight')
+#        plt.show()
+#        
+#        # Elevation change vs. Elevation
+#        plt.figure(figsize=(10,3))
+#        plt.subplots_adjust(wspace=0.4, hspace=0.4)
+#        # Normalized curves using range of dh/dt
+#        plt.subplot(1,3,1)
+#        plt.plot(glac_elevs, glac_dhdt_med, label=ds[glac][1])
+#        plt.gca().invert_xaxis()
+#        plt.xlabel('Elevation [m]')
+#        plt.ylabel('dh/dt [m/a]')
+#        plt.title('dhdt vs elevation')
+#        plt.minorticks_on()
+#        plt.legend()
+#        # Normalized curves using dhdt max (according to Huss)
+#        plt.subplot(1,3,2)
+#        plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=ds[glac][1])
+#        plt.xlabel('Normalized elev range')
+#        plt.ylabel('Normalized dh/dt [ma]')
+#        plt.title('huss normalization')
+#        if glac_dhdt_med.min() < 0:
+#            plt.gca().invert_yaxis()
+#        plt.minorticks_on()
+#        plt.legend()
+#        # Normalized curves shifting all values to be negative
+#        plt.subplot(1,3,3)
+#        plt.plot(glac_elevnorm, glac_dhdt_norm_shifted, label=ds[glac][1])
+#        plt.ylim(1,0)
+#        plt.xlabel('Normalized elev range')
+#        plt.title('shifted normalization')
+#        plt.minorticks_on()
+#        plt.legend()
+#        if option_savefigs == 1:
+#            plt.savefig(input.output_filepath + 'figures/' + ds[glac][1] + '_normcurves.png', bbox_inches='tight')
+#        plt.show()
+#    
+##%% Plots for a single glacier    
+#def plot_multipleglaciers(glacier_list, option_merged_dataset, parameter='Area', threshold=0):
+#    # Set position of dataset to plot in list based on using merged or unmerged data
+#    #  [2 = 10m, 6 = merged]
+#    if option_merged_dataset == 0:
+#        ds_position = 2
+#    elif option_merged_dataset == 1:
+#        ds_position = 6
+#        
+#    plt.figure(figsize=(10,6))
+#    plt.subplots_adjust(wspace=0.4, hspace=0.6)
+#    
+#    count_lt = 0
+#    count_gt = 0
+#    norm_list_gt = []
+#    norm_list_lt = []
+#    for glac in glacier_list:
+#        glac_rgi = ds[glac][3]
+#        glac_elevbins = ds[glac][ds_position]['bin_center_elev_m']
+#        glac_area_t1 = ds[glac][ds_position]['z1_bin_area_valid_km2']
+#        glac_area_t2 = ds[glac][ds_position]['z2_bin_area_valid_km2']
+#        glac_area_t1_perc = ds[glac][ds_position]['z1_bin_area_perc']
+#        glac_bin_count_t1 = ds[glac][ds_position]['z1_bin_count_valid']
+#        #  THIS IS THE PERCENT OF THE TOTAL AREA
+#        glac_mb_mwea = ds[glac][ds_position][mb_cn]
+#        glac_debristhick_cm = ds[glac][ds_position]['debris_thick_med_m'] * 100
+#        glac_debrisperc = ds[glac][ds_position]['perc_debris']
+#        glac_pondperc = ds[glac][ds_position]['perc_pond']
+#        glac_elevnorm = ds[glac][ds_position]['elev_norm']
+#        glac_dhdt_norm_huss = ds[glac][ds_position]['dhdt_norm_huss']
+##        glac_dhdt_norm_range = ds[glac][ds_position]['dhdt_norm_range']
+#        glac_dhdt_norm_shifted = ds[glac][ds_position]['dhdt_norm_shifted']
+#        glac_dhdt_med = ds[glac][ds_position]['dhdt_bin_med_ma']
+#        glac_dhdt_mean = ds[glac][ds_position]['dhdt_bin_mean_ma']
+#        glac_dhdt_std = ds[glac][ds_position]['dhdt_bin_std_ma']
+#        glac_elevs = ds[glac][ds_position]['bin_center_elev_m']
+#        glacwide_mb_mwea = (glac_area_t1 * glac_mb_mwea).sum() / glac_area_t1.sum()
+#        t1 = 2000
+#        t2 = 2015
+#        glac_name = ds[glac][1].split('-')[1]
+#        
+#        
+#        # Subset parameters based on column name and threshold
+#        if glac_rgi[parameter] >= threshold:
+#            count_gt = count_gt + 1
+#            # Make list of array containing elev_norm and dhdt_norm_huss 
+#            norm_list_gt.append(np.array([glac_elevnorm.values, glac_dhdt_norm_huss.values]).transpose())
+#            
+#            # dhdt vs. elevation
+#            plt.subplot(2,2,1)
+#            plt.plot(glac_elevs, glac_dhdt_med, label=glac_name)
+#            if count_gt == 1:
+#                plt.gca().invert_xaxis()
+#            plt.xlabel('Elevation [m]')
+#            plt.ylabel('dh/dt [m/a]')
+#            plt.minorticks_on()    
 #
-##Lower 20% of variable range 
+#            # Normalized curves using dhdt max (according to Huss)
+#            plt.subplot(2,2,2)
+#            plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=glac_name, alpha=0.3)
+#            plt.xlabel('Normalized elev range')
+#            plt.ylabel('Normalized dh/dt')
+#            if count_gt == 1:
+#                plt.gca().invert_yaxis()
+#            plt.title('Huss Normalization')
+#            plt.minorticks_on()
+#        
+#        # Subset parameters based on column name and threshold
+#        elif glac_rgi[parameter] < threshold:
+#            count_lt = count_lt + 1
+#            # Make list of array containing elev_norm and dhdt_norm_huss 
+#            norm_list_lt.append(np.array([glac_elevnorm.values, glac_dhdt_norm_huss.values]).transpose())
+#            
+#            # dhdt vs. elevation
+#            plt.subplot(2,2,3)
+#            plt.plot(glac_elevs, glac_dhdt_med, label=glac_name)
+#            if count_lt == 1:
+#                plt.gca().invert_xaxis()
+#            plt.xlabel('Elevation range')
+#            plt.ylabel('dh/dt [m/a]')
+#            plt.minorticks_on()    
+#            
+#            # Normalized curves using dhdt max (according to Huss)
+#            plt.subplot(2,2,4)
+#            plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=glac_name, alpha=0.3)
+#            plt.xlabel('Normalized elev range')
+#            plt.ylabel('Normalized dh/dt')
+#            if count_lt == 1:
+#                plt.gca().invert_yaxis()
+#            plt.title('Huss Normalization')
+#            plt.minorticks_on()
+#      
+#    # Put mean and plus/minus 1 standard deviation on normalized plots
+#    norm_gt_stats = pd.DataFrame()
+#    norm_lt_stats = pd.DataFrame()
+#    if count_gt > 1:
+#        norm_gt_stats = normalized_stats(norm_list_gt)
+#        # Greater than threshold plots
+#        plt.subplot(2,2,2)
+#        plt.plot(norm_gt_stats.norm_elev, norm_gt_stats.dhdt_mean, color='black', linewidth=2)
+#        plt.plot(norm_gt_stats.norm_elev, norm_gt_stats.dhdt_68high, '--', color='black', linewidth=1.5)
+#        plt.plot(norm_gt_stats.norm_elev, norm_gt_stats.dhdt_68low, '--', color='black', linewidth=1.5)
+#        plt.xlabel('Normalized elev range')
+#        plt.ylabel('Normalized dh/dt')
+#        if count_lt == 1:
+#            plt.gca().invert_yaxis()
+#        plt.title('Huss Normalization')
+#        plt.minorticks_on()
+#    if count_lt > 1:
+#        norm_lt_stats = normalized_stats(norm_list_lt)
+#        # Less than threshold plots
+#        plt.subplot(2,2,4)
+#        plt.plot(norm_lt_stats.norm_elev, norm_lt_stats.dhdt_mean, color='black', linewidth=2)
+#        plt.plot(norm_lt_stats.norm_elev, norm_lt_stats.dhdt_68high, '--', color='black', linewidth=1.5)
+#        plt.plot(norm_lt_stats.norm_elev, norm_lt_stats.dhdt_68low, '--', color='black', linewidth=1.5)
+#        plt.xlabel('Normalized elev range')
+#        plt.ylabel('Normalized dh/dt')
+#        if count_lt == 1:
+#            plt.gca().invert_yaxis()
+#        plt.title('Huss Normalization')
+#        plt.minorticks_on()
+#    
+#    # Add title to subplot
+#    plot_fn = 'normcurves_' + parameter + '_thresold_' + str(threshold) 
+#    plt.suptitle(plot_fn)
+#    # Save and show figure
+#    if option_savefigs == 1:
+#        plt.savefig(input.output_filepath + 'figures/normalized_curves/' + plot_fn + '.png', bbox_inches='tight')
+#    plt.show()
+#    
+#    return norm_gt_stats, norm_lt_stats
+#  
+##%% PLOT OPTIONS
+## Index of glaciers to loop through
+#glacier_list = list(range(0,len(norm_list)))
+#parameter = 'Area'
+#thresholds = [10, 15, 20, 25, 30]
+##thresholds = [10]
 #
+#if option_plot_eachglacier == 1:
+#    plot_eachglacier(glacier_list, option_merged_dataset=1)
+#    
+#if option_plot_multipleglaciers == 1:
+#    for n in thresholds:
+#        norm_gt_stats, norm_lt_stats = plot_multipleglaciers(glacier_list, option_merged_dataset=1, 
+#                                                             parameter=parameter, threshold=n)
 #
-##Upper 20% of variable range
-##upper_bin_high = np.ceil((main_glac_rgi[testing_var].max()) #the upper int of the max
-##lower_bin_high = 
+##%% PLOTS USED TO DETERMINE THRESHOLDS FOR DISCARDING POOR DATA
+## Normalized Elevation vs. Normalized Ice Thickness Change
+#glacier_list = list(range(0,len(ds)))
+#plt.figure(figsize=(10,6))
+#plt.subplots_adjust(wspace=0.4, hspace=0.6)
 #
-#print('Range of '+ testing_var+ ': (' + str(main_glac_rgi[testing_var].min()) + ', ' + 
-#                                    str(main_glac_rgi[testing_var].max()) + ')')
-#
-##redefine the dataframe to only include glaciers with desired parameter
-#subset_indices = main_glac_rgi[main_glac_rgi[testing_var].between(bin_low,bin_high)].index.values
-#ds = [ds[x] for x in subset_indices]
-#prmtr = 'Reg_' + str(rgi_regionO1)+ '_' + str(bin_low) + '<' + testing_var + '<' + str(bin_high)
-#print('These glaciers are based on the parameter, ', prmtr)
-
-
-#%% Plots for a single glacier    
-def plot_eachglacier(glacier_list, option_merged_dataset=0):
-    # Set position of dataset to plot in list based on using merged or unmerged data
-    #  [2 = 10m, 6 = merged]
-    if option_merged_dataset == 0:
-        ds_position = 2
-    elif option_merged_dataset == 1:
-        ds_position = 6
-        
-    # Loop through glacier list and plot
-    for glac in glacier_list:
-        #pull values from binnedcsv into vars
-        glac_elevbins = ds[glac][ds_position]['bin_center_elev_m']
-        glac_area_t1 = ds[glac][ds_position]['z1_bin_area_valid_km2']
-        glac_area_t2 = ds[glac][ds_position]['z2_bin_area_valid_km2']
-        glac_mb_mwea = ds[glac][ds_position][mb_cn]
-        glac_debristhick_cm = ds[glac][ds_position]['debris_thick_med_m'] * 100
-        glac_debrisperc = ds[glac][ds_position]['perc_debris']
-        glac_pondperc = ds[glac][ds_position]['perc_pond']
-        glac_elevnorm = ds[glac][ds_position]['elev_norm']
-        glac_dhdt_med = ds[glac][ds_position]['dhdt_bin_med_ma']
-        glac_dhdt_norm_huss = ds[glac][ds_position]['dhdt_norm_huss']
-#        glac_dhdt_norm_range = ds[glac][ds_position]['dhdt_norm_range']
-        glac_dhdt_norm_shifted = ds[glac][ds_position]['dhdt_norm_shifted']
-        glac_elevs = ds[glac][ds_position]['bin_center_elev_m']
-        glacwide_mb_mwea = (glac_area_t1 * glac_mb_mwea).sum() / glac_area_t1.sum() 
-        #check if this is same way Shean did it. Also, does it make more sense for ths to be in the above, 
-        # adjustment section?
-        t1 = 2000
-        t2 = 2015
-        
-        # Plot Elevation bins vs. Area, Mass balance, and Debris thickness/pond coverage/ debris coverage
-        plt.figure(figsize=(10,6))
-        plt.subplots_adjust(wspace=0.05, hspace=0.05)
-        plt.suptitle(ds[glac][1], y=0.94)
-        # Elevation vs. Area
-        plt.subplot(1,3,1)
-        plt.plot(glac_area_t1, glac_elevbins, label=t1)
-        plt.plot(glac_area_t2, glac_elevbins, label=t2)
-        plt.ylabel('Elevation [masl, WGS84]')
-        plt.xlabel('Glacier area [km2]')
-        plt.minorticks_on()
-        plt.legend()
-        # Elevation vs. Mass Balance
-        plt.subplot(1,3,2)
-        plt.plot(glac_mb_mwea, glac_elevbins, 'k-', label=str(round(glacwide_mb_mwea, 2)) + ' mwea')
-        #  k refers to the color (k=black, b=blue, g=green, etc.)
-        #  - refers to using a line (-- is a dashed line, o is circle points, etc.)
-        plt.ylabel('Elevation [masl, WGS84]')
-        plt.xlabel('Mass balance [mwea]')
-        plt.xlim(-3, 3)
-        plt.xticks(np.arange(-3, 3 + 1, 1))
-        plt.axvline(x=0, color='k')
-        plt.fill_betweenx(glac_elevbins, glac_mb_mwea, 0, where=glac_mb_mwea<0, color='r', alpha=0.5)
-        plt.fill_betweenx(glac_elevbins, glac_mb_mwea, 0, where=glac_mb_mwea>0, color='b', alpha=0.5)
-        plt.legend(loc=1)
-        plt.minorticks_on()
-        plt.gca().axes.get_yaxis().set_visible(False)
-        # Elevation vs. Debris Area, Pond Area, Thickness
-        plt.subplot(1,3,3)
-        plt.plot(glac_debrisperc, glac_elevbins, label='Debris area')
-        plt.plot(glac_pondperc, glac_elevbins, label='Pond area')
-        plt.plot(glac_debristhick_cm, glac_elevbins, 'k-', label='Thickness')
-        plt.ylabel('Elevation [masl, WGS84]')
-        plt.xlabel('Debris thickness [cm], Area [%]')
-        plt.minorticks_on()
-        plt.legend()
-        plt.gca().axes.get_yaxis().set_visible(False)
-        if option_savefigs == 1:
-            plt.savefig(input.output_filepath + 'figures/' + ds[glac][1] + '_mb_aed.png', bbox_inches='tight')
-        plt.show()
-        
-        # Elevation change vs. Elevation
-        plt.figure(figsize=(10,3))
-        plt.subplots_adjust(wspace=0.4, hspace=0.4)
-        # Normalized curves using range of dh/dt
-        plt.subplot(1,3,1)
-        plt.plot(glac_elevs, glac_dhdt_med, label=ds[glac][1])
-        plt.gca().invert_xaxis()
-        plt.xlabel('Elevation [m]')
-        plt.ylabel('dh/dt [m/a]')
-        plt.title('dhdt vs elevation')
-        plt.minorticks_on()
-        plt.legend()
-        # Normalized curves using dhdt max (according to Huss)
-        plt.subplot(1,3,2)
-        plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=ds[glac][1])
-        plt.xlabel('Normalized elev range')
-        plt.ylabel('Normalized dh/dt [ma]')
-        plt.title('huss normalization')
-        if glac_dhdt_med.min() < 0:
-            plt.gca().invert_yaxis()
-        plt.minorticks_on()
-        plt.legend()
-        # Normalized curves shifting all values to be negative
-        plt.subplot(1,3,3)
-        plt.plot(glac_elevnorm, glac_dhdt_norm_shifted, label=ds[glac][1])
-        plt.ylim(1,0)
-        plt.xlabel('Normalized elev range')
-        plt.title('shifted normalization')
-        plt.minorticks_on()
-        plt.legend()
-        if option_savefigs == 1:
-            plt.savefig(input.output_filepath + 'figures/' + ds[glac][1] + '_normcurves.png', bbox_inches='tight')
-        plt.show()
-    
-#%% Plots for a single glacier    
-def plot_multipleglaciers(glacier_list, option_merged_dataset, parameter='Area', threshold=0):
-    # Set position of dataset to plot in list based on using merged or unmerged data
-    #  [2 = 10m, 6 = merged]
-    if option_merged_dataset == 0:
-        ds_position = 2
-    elif option_merged_dataset == 1:
-        ds_position = 6
-        
-    plt.figure(figsize=(10,6))
-    plt.subplots_adjust(wspace=0.4, hspace=0.6)
-    
-    count_lt = 0
-    count_gt = 0
-    norm_list_gt = []
-    norm_list_lt = []
-    for glac in glacier_list:
-        glac_rgi = ds[glac][3]
-        glac_elevbins = ds[glac][ds_position]['bin_center_elev_m']
-        glac_area_t1 = ds[glac][ds_position]['z1_bin_area_valid_km2']
-        glac_area_t2 = ds[glac][ds_position]['z2_bin_area_valid_km2']
-        glac_area_t1_perc = ds[glac][ds_position]['z1_bin_area_perc']
-        glac_bin_count_t1 = ds[glac][ds_position]['z1_bin_count_valid']
-        #  THIS IS THE PERCENT OF THE TOTAL AREA
-        glac_mb_mwea = ds[glac][ds_position][mb_cn]
-        glac_debristhick_cm = ds[glac][ds_position]['debris_thick_med_m'] * 100
-        glac_debrisperc = ds[glac][ds_position]['perc_debris']
-        glac_pondperc = ds[glac][ds_position]['perc_pond']
-        glac_elevnorm = ds[glac][ds_position]['elev_norm']
-        glac_dhdt_norm_huss = ds[glac][ds_position]['dhdt_norm_huss']
-#        glac_dhdt_norm_range = ds[glac][ds_position]['dhdt_norm_range']
-        glac_dhdt_norm_shifted = ds[glac][ds_position]['dhdt_norm_shifted']
-        glac_dhdt_med = ds[glac][ds_position]['dhdt_bin_med_ma']
-        glac_dhdt_mean = ds[glac][ds_position]['dhdt_bin_mean_ma']
-        glac_dhdt_std = ds[glac][ds_position]['dhdt_bin_std_ma']
-        glac_elevs = ds[glac][ds_position]['bin_center_elev_m']
-        glacwide_mb_mwea = (glac_area_t1 * glac_mb_mwea).sum() / glac_area_t1.sum()
-        t1 = 2000
-        t2 = 2015
-        glac_name = ds[glac][1].split('-')[1]
-        
-        
-        # Subset parameters based on column name and threshold
-        if glac_rgi[parameter] >= threshold:
-            count_gt = count_gt + 1
-            # Make list of array containing elev_norm and dhdt_norm_huss 
-            norm_list_gt.append(np.array([glac_elevnorm.values, glac_dhdt_norm_huss.values]).transpose())
-            
-            # dhdt vs. elevation
-            plt.subplot(2,2,1)
-            plt.plot(glac_elevs, glac_dhdt_med, label=glac_name)
-            if count_gt == 1:
-                plt.gca().invert_xaxis()
-            plt.xlabel('Elevation [m]')
-            plt.ylabel('dh/dt [m/a]')
-            plt.minorticks_on()    
-
-            # Normalized curves using dhdt max (according to Huss)
-            plt.subplot(2,2,2)
-            plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=glac_name, alpha=0.3)
-            plt.xlabel('Normalized elev range')
-            plt.ylabel('Normalized dh/dt')
-            if count_gt == 1:
-                plt.gca().invert_yaxis()
-            plt.title('Huss Normalization')
-            plt.minorticks_on()
-        
-        # Subset parameters based on column name and threshold
-        elif glac_rgi[parameter] < threshold:
-            count_lt = count_lt + 1
-            # Make list of array containing elev_norm and dhdt_norm_huss 
-            norm_list_lt.append(np.array([glac_elevnorm.values, glac_dhdt_norm_huss.values]).transpose())
-            
-            # dhdt vs. elevation
-            plt.subplot(2,2,3)
-            plt.plot(glac_elevs, glac_dhdt_med, label=glac_name)
-            if count_lt == 1:
-                plt.gca().invert_xaxis()
-            plt.xlabel('Elevation range')
-            plt.ylabel('dh/dt [m/a]')
-            plt.minorticks_on()    
-            
-            # Normalized curves using dhdt max (according to Huss)
-            plt.subplot(2,2,4)
-            plt.plot(glac_elevnorm, glac_dhdt_norm_huss, label=glac_name, alpha=0.3)
-            plt.xlabel('Normalized elev range')
-            plt.ylabel('Normalized dh/dt')
-            if count_lt == 1:
-                plt.gca().invert_yaxis()
-            plt.title('Huss Normalization')
-            plt.minorticks_on()
-      
-    # Put mean and plus/minus 1 standard deviation on normalized plots
-    norm_gt_stats = pd.DataFrame()
-    norm_lt_stats = pd.DataFrame()
-    if count_gt > 1:
-        norm_gt_stats = normalized_stats(norm_list_gt)
-        # Greater than threshold plots
-        plt.subplot(2,2,2)
-        plt.plot(norm_gt_stats.norm_elev, norm_gt_stats.dhdt_mean, color='black', linewidth=2)
-        plt.plot(norm_gt_stats.norm_elev, norm_gt_stats.dhdt_68high, '--', color='black', linewidth=1.5)
-        plt.plot(norm_gt_stats.norm_elev, norm_gt_stats.dhdt_68low, '--', color='black', linewidth=1.5)
-        plt.xlabel('Normalized elev range')
-        plt.ylabel('Normalized dh/dt')
-        if count_lt == 1:
-            plt.gca().invert_yaxis()
-        plt.title('Huss Normalization')
-        plt.minorticks_on()
-    if count_lt > 1:
-        norm_lt_stats = normalized_stats(norm_list_lt)
-        # Less than threshold plots
-        plt.subplot(2,2,4)
-        plt.plot(norm_lt_stats.norm_elev, norm_lt_stats.dhdt_mean, color='black', linewidth=2)
-        plt.plot(norm_lt_stats.norm_elev, norm_lt_stats.dhdt_68high, '--', color='black', linewidth=1.5)
-        plt.plot(norm_lt_stats.norm_elev, norm_lt_stats.dhdt_68low, '--', color='black', linewidth=1.5)
-        plt.xlabel('Normalized elev range')
-        plt.ylabel('Normalized dh/dt')
-        if count_lt == 1:
-            plt.gca().invert_yaxis()
-        plt.title('Huss Normalization')
-        plt.minorticks_on()
-    
-    # Add title to subplot
-    plot_fn = 'normcurves_' + parameter + '_thresold_' + str(threshold) 
-    plt.suptitle(plot_fn)
-    # Save and show figure
-    if option_savefigs == 1:
-        plt.savefig(input.output_filepath + 'figures/normalized_curves/' + plot_fn + '.png', bbox_inches='tight')
-    plt.show()
-    
-    return norm_gt_stats, norm_lt_stats
-  
-#%% PLOT OPTIONS
-# Index of glaciers to loop through
-glacier_list = list(range(0,len(norm_list)))
-parameter = 'Area'
-thresholds = [10, 15, 20, 25, 30]
-#thresholds = [10]
-
-if option_plot_eachglacier == 1:
-    plot_eachglacier(glacier_list, option_merged_dataset=1)
-    
-if option_plot_multipleglaciers == 1:
-    for n in thresholds:
-        norm_gt_stats, norm_lt_stats = plot_multipleglaciers(glacier_list, option_merged_dataset=1, 
-                                                             parameter=parameter, threshold=n)
-
-#%% PLOTS USED TO DETERMINE THRESHOLDS FOR DISCARDING POOR DATA
-# Normalized Elevation vs. Normalized Ice Thickness Change
-glacier_list = list(range(0,len(ds)))
-plt.figure(figsize=(10,6))
-plt.subplots_adjust(wspace=0.4, hspace=0.6)
-
-if option_merged_dataset == 1:
-    list_pos = 6
-else:
-    list_pos = 2
-    
-if option_plots_threshold == 1:
-    for glac in glacier_list:  
-        glac_elevbins = ds[glac][list_pos]['bin_center_elev_m']
-        glac_area_t1 = ds[glac][list_pos]['z1_bin_area_valid_km2']
-        glac_area_t2 = ds[glac][list_pos]['z2_bin_area_valid_km2']
-        glac_area_t1_perc = ds[glac][list_pos]['z1_bin_area_perc']
-        glac_bin_count_t1 = ds[glac][list_pos]['z1_bin_count_valid']
-        #  THIS IS THE PERCENT OF THE TOTAL AREA
-        glac_mb_mwea = ds[glac][list_pos][mb_cn]
-        glac_debristhick_cm = ds[glac][list_pos]['debris_thick_med_m'] * 100
-        glac_debrisperc = ds[glac][list_pos]['perc_debris']
-        glac_pondperc = ds[glac][list_pos]['perc_pond']
-        glac_elevnorm = ds[glac][list_pos]['elev_norm']
-        glac_dhdt_norm_huss = ds[glac][list_pos]['dhdt_norm_huss']
-#        glac_dhdt_norm_range = ds[glac][list_pos]['dhdt_norm_range']
-        glac_dhdt_norm_shifted = ds[glac][list_pos]['dhdt_norm_shifted']
-        glac_dhdt_med = ds[glac][list_pos]['dhdt_bin_med_ma']
-        glac_dhdt_mean = ds[glac][list_pos]['dhdt_bin_mean_ma']
-        glac_dhdt_std = ds[glac][list_pos]['dhdt_bin_std_ma']
-        glac_elevs = ds[glac][list_pos]['bin_center_elev_m']
-        glacwide_mb_mwea = (glac_area_t1 * glac_mb_mwea).sum() / glac_area_t1.sum()
-        t1 = 2000
-        t2 = 2015
-        glac_name = ds[glac][1].split('-')[1]
-    
-        # ====== Relationship between valid area, mean dhdt and std dhdt =====    
-        plt.subplot(2,3,1)
-        plt.plot(glac_area_t1, glac_dhdt_mean, 'o', mfc='none')
-        plt.xlim(0, 3)
-        plt.xlabel('valid area t1 [km2]')
-        plt.ylabel('mean dhdt [ma]')
-        
-        plt.subplot(2,3,2)
-        plt.plot(glac_area_t1, glac_dhdt_std, 'o', mfc='none')
-        plt.xlim(0,3)
-        plt.xlabel('valid area t1 [km2]')
-        plt.ylabel('std dhdt [ma]')
-        
-        plt.subplot(2,3,3)
-        plt.plot(glac_area_t1, glac_area_t2, 'o', mfc='none')
-        plt.xlabel('valid area t1 [km2]')
-        plt.ylabel('valid area t2 [km2]')
-        
-        plt.subplot(2,3,4)
-        plt.plot(glac_area_t1, glac_dhdt_med, 'o', mfc='none')
-        plt.xlabel('valid area t1 [km2]')
-        plt.ylabel('median dhdt [ma]')
-        
-        plt.subplot(2,3,5)
-        plt.plot(glac_area_t1_perc, glac_dhdt_std, 'o', mfc='none')
-        plt.xlim(0,3)
-        plt.xlabel('perc total area')
-        plt.ylabel('std dhdt [ma]')
-        
-        plt.subplot(2,3,6)
-        plt.plot(glac_dhdt_mean, glac_dhdt_std, 'o', mfc='none')
-        plt.xlim()
-        plt.xlabel('mean dhdt [ma]')
-        plt.ylabel('std dhdt [ma]')
-    
-    plt.show()
+#if option_merged_dataset == 1:
+#    list_pos = 6
+#else:
+#    list_pos = 2
+#    
+#if option_plots_threshold == 1:
+#    for glac in glacier_list:  
+#        glac_elevbins = ds[glac][list_pos]['bin_center_elev_m']
+#        glac_area_t1 = ds[glac][list_pos]['z1_bin_area_valid_km2']
+#        glac_area_t2 = ds[glac][list_pos]['z2_bin_area_valid_km2']
+#        glac_area_t1_perc = ds[glac][list_pos]['z1_bin_area_perc']
+#        glac_bin_count_t1 = ds[glac][list_pos]['z1_bin_count_valid']
+#        #  THIS IS THE PERCENT OF THE TOTAL AREA
+#        glac_mb_mwea = ds[glac][list_pos][mb_cn]
+#        glac_debristhick_cm = ds[glac][list_pos]['debris_thick_med_m'] * 100
+#        glac_debrisperc = ds[glac][list_pos]['perc_debris']
+#        glac_pondperc = ds[glac][list_pos]['perc_pond']
+#        glac_elevnorm = ds[glac][list_pos]['elev_norm']
+#        glac_dhdt_norm_huss = ds[glac][list_pos]['dhdt_norm_huss']
+##        glac_dhdt_norm_range = ds[glac][list_pos]['dhdt_norm_range']
+#        glac_dhdt_norm_shifted = ds[glac][list_pos]['dhdt_norm_shifted']
+#        glac_dhdt_med = ds[glac][list_pos]['dhdt_bin_med_ma']
+#        glac_dhdt_mean = ds[glac][list_pos]['dhdt_bin_mean_ma']
+#        glac_dhdt_std = ds[glac][list_pos]['dhdt_bin_std_ma']
+#        glac_elevs = ds[glac][list_pos]['bin_center_elev_m']
+#        glacwide_mb_mwea = (glac_area_t1 * glac_mb_mwea).sum() / glac_area_t1.sum()
+#        t1 = 2000
+#        t2 = 2015
+#        glac_name = ds[glac][1].split('-')[1]
+#    
+#        # ====== Relationship between valid area, mean dhdt and std dhdt =====    
+#        plt.subplot(2,3,1)
+#        plt.plot(glac_area_t1, glac_dhdt_mean, 'o', mfc='none')
+#        plt.xlim(0, 3)
+#        plt.xlabel('valid area t1 [km2]')
+#        plt.ylabel('mean dhdt [ma]')
+#        
+#        plt.subplot(2,3,2)
+#        plt.plot(glac_area_t1, glac_dhdt_std, 'o', mfc='none')
+#        plt.xlim(0,3)
+#        plt.xlabel('valid area t1 [km2]')
+#        plt.ylabel('std dhdt [ma]')
+#        
+#        plt.subplot(2,3,3)
+#        plt.plot(glac_area_t1, glac_area_t2, 'o', mfc='none')
+#        plt.xlabel('valid area t1 [km2]')
+#        plt.ylabel('valid area t2 [km2]')
+#        
+#        plt.subplot(2,3,4)
+#        plt.plot(glac_area_t1, glac_dhdt_med, 'o', mfc='none')
+#        plt.xlabel('valid area t1 [km2]')
+#        plt.ylabel('median dhdt [ma]')
+#        
+#        plt.subplot(2,3,5)
+#        plt.plot(glac_area_t1_perc, glac_dhdt_std, 'o', mfc='none')
+#        plt.xlim(0,3)
+#        plt.xlabel('perc total area')
+#        plt.ylabel('std dhdt [ma]')
+#        
+#        plt.subplot(2,3,6)
+#        plt.plot(glac_dhdt_mean, glac_dhdt_std, 'o', mfc='none')
+#        plt.xlim()
+#        plt.xlabel('mean dhdt [ma]')
+#        plt.ylabel('std dhdt [ma]')
+#    
+#    plt.show()
