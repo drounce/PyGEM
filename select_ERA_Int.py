@@ -6,9 +6,9 @@ import pygem_input as input
 #%% INPUT DATA
 # Variable
 #varname = 'temperature'
-varname = 'precipitation'
+#varname = 'precipitation'
 #varname = 'geopotential'
-#varname = 'pressurelevel_temp'
+varname = 'pressurelevel_temp'
 # Dates
 start_date = '19790101'
 end_date = '20180501'
@@ -86,7 +86,7 @@ elif varname == 'pressurelevel_temp':
         "levelist": "300/350/400/450/500/550/600/650/700/750/775/800/825/850/875/900/925/950/975/1000",
         "levtype": "pl",
         "param": "130.128",
-        "area": bounding_box,
+#        "area": bounding_box,
         "stream": "moda",
         "type": "an",
         "format": "netcdf",

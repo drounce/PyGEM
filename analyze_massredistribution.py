@@ -29,12 +29,13 @@ import pygemfxns_modelsetup as modelsetup
 #    element of the second glacier (sublist), etc. 
 
 #%% Input data
-rgi_regionO1 = [13, 14, 15]
-#rgi_regionO1 = [13]
+#rgi_regionO1 = [13, 14, 15]
+rgi_regionO1 = [13]
 #rgi_regionO1 = [15]
+
+# PICKLE THE DATA!!!!
+
 search_binnedcsv_fn = input.main_directory + '\\..\\DEMs\\Shean_2018_0806\\aster_2000-2018_mb_bins\\*_mb_bins.csv'
-#search_binnedcsv_fn = ('/Users/kitreatakataglushkoff/Documents/All_Documents/SUMMER_2018/Glaciology/HiMAT/DEMs/' + 
-#                       'mb_bins_sample_20180323/*_mb_bins.csv')
 #set default parameter based on all glaciers of defined region 
 prmtr = 'region_' + str(rgi_regionO1) + '_all_glac' 
 
@@ -131,16 +132,24 @@ ds = []
 #norm_list = [[] for x in binnedcsv_files]
 norm_list = []
 #for n in range(len(binnedcsv_files)):
-for n in [18]:
+for n in [1442]:
+    
+    # GLACIER DOES NOT HAVE ANY DEBRIS THICKNESS DATA - NEED A WAY TO ADD BLANK COLUMNS TO THESE...
+    
     print(n)
     # Note: RuntimeWarning: invalid error encountered in greater than is due to nan values being included in array
     #       This error can be ignored.
     # Process binned geodetic data
     binnedcsv = pd.read_csv(binnedcsv_files[n])
-    A = binnedcsv.mask(binnedcsv == ' inf', 0).apply(pd.to_numeric)
     # Rename columns so they are easier to read
     binnedcsv = binnedcsv.rename(columns=sheancoldict)
     # Remove poor values
+    # Remove spaces in infinitity and nan
+    binnedcsv = binnedcsv.mask(binnedcsv == ' nan', np.nan)
+    binnedcsv = binnedcsv.mask(binnedcsv == ' inf', 0)
+    binnedcsv = binnedcsv.mask(binnedcsv == ' -inf', 0)
+    # Make sure no strings in dataframe    
+    binnedcsv = binnedcsv.apply(pd.to_numeric)
     # Surface lowering (use dhdt mean and standard deviation)
     binnedcsv.loc[binnedcsv['dhdt_bin_mean_ma'].astype(float) > 2, binnedcsv.columns.tolist()[1:]] = np.nan
     binnedcsv.loc[binnedcsv['dhdt_bin_mean_ma'].astype(float) < -3, binnedcsv.columns.tolist()[1:]] = np.nan

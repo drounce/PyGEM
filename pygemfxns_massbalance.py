@@ -263,6 +263,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     
                     # CURRENT UNITS: M**3 OF ICE, annually
                     
+                    # CONVERT TO MWE FOR THE SMALLEST BIN AS THIS IS WHAT THE OTHER VALUES ARE IN...
+                    
                     # Limit the amount of frontal ablation losses based on the volume of ice where the bedrock is below
                     # sea-level.  This should make it easier to compute bin retreat from frontal ablation.
 
