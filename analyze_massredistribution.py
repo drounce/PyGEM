@@ -130,11 +130,14 @@ for n, region in enumerate(rgi_regionO1):
 ds = []
 #norm_list = [[] for x in binnedcsv_files]
 norm_list = []
-for n in range(len(binnedcsv_files)):
+#for n in range(len(binnedcsv_files)):
+for n in [18]:
+    print(n)
     # Note: RuntimeWarning: invalid error encountered in greater than is due to nan values being included in array
     #       This error can be ignored.
     # Process binned geodetic data
     binnedcsv = pd.read_csv(binnedcsv_files[n])
+    A = binnedcsv.mask(binnedcsv == ' inf', 0).apply(pd.to_numeric)
     # Rename columns so they are easier to read
     binnedcsv = binnedcsv.rename(columns=sheancoldict)
     # Remove poor values

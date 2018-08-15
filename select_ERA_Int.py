@@ -5,8 +5,8 @@ import pygem_input as input
 
 #%% INPUT DATA
 # Variable
-varname = 'temperature'
-#varname = 'precipitation'
+#varname = 'temperature'
+varname = 'precipitation'
 #varname = 'geopotential'
 #varname = 'pressurelevel_temp'
 # Dates

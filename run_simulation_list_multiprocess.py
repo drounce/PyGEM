@@ -93,6 +93,8 @@ debug = False
 option_synthetic_sim = 0
 synthetic_startyear = 1990
 synthetic_endyear = 1999
+synthetic_temp_adjust = 0
+synthetic_prec_factor = 1
 
 #%% FUNCTIONS
 def getparser():
@@ -219,6 +221,9 @@ def main(list_packed_vars):
         gcm_prec = np.append(gcm_prec_tile[:,:gcm_spinupyears*12], np.tile(gcm_prec_tile,(1,n_tiles))[:,:datelength], 
                              axis=1)
         gcm_lr = np.append(gcm_lr_tile[:,:gcm_spinupyears*12], np.tile(gcm_lr_tile,(1,n_tiles))[:,:datelength], axis=1)
+        # Temperature and precipitation sensitivity adjustments
+        gcm_temp = gcm_temp + synthetic_temp_adjust
+        gcm_prec = gcm_prec * synthetic_prec_factor
 
     # ===== BIAS CORRECTIONS =====
     # ERA-Interim does not have any bias corrections
@@ -306,6 +311,12 @@ def main(list_packed_vars):
                 netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
                              str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
                              str(gcm_endyear) + '_' + str(count) + '.nc')
+            if option_synthetic_sim == 1:
+                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
+                             gcm_spinupyears) + '_' + str(gcm_endyear) + '_T' + 
+                            str(round(float(synthetic_temp_adjust))) + 'P' + 
+                            str(round(float(synthetic_prec_factor) * 100 - 100)) + '_' + str(count) +  '.nc')
+                print(netcdf_fn)
             main_glac_rgi_float = main_glac_rgi.copy()
             main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
             output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table)
