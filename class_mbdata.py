@@ -12,9 +12,6 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 
 class MBData():
-    # GCM is the global climate model for a glacier evolution model run
-    # When calling ERA-Interim, should be able to use defaults
-    # When calling 
     def __init__(self, 
                  name='shean',
                  rgi_regionO1=input.rgi_regionsO1[0]

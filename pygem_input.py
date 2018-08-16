@@ -163,17 +163,34 @@ grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
 grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
 
 
-#%% CLIMATE DATA CLASS INFORMATION (05/28/2018)
-#  for each climate dataset, store the information regarding the filepaths and variable names here
-#  fp = 'filepath'
-#  fn = 'filename'
+#%% CLIMATE DATA
+
 # ERAINTERIM CLIMATE DATA (Reference data)
-eraint_fp_var = main_directory + '/../Climate_data/ERA_Interim/'
-eraint_fp_fx = main_directory + '/../Climate_data/ERA_Interim/'
-eraint_temp_fn = 'ERAInterim_AirTemp2m_DailyMeanMonthly_1995_2016.nc'
-eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_1979_2017.nc'
+# Variable names
+eraint_varnames = ['temperature', 'precipitation', 'geopotential', 'temperature_pressurelevels']
+# Dates
+eraint_start_date = '19790101'
+eraint_end_date = '20180501'
+# Resolution
+grid_res = '0.5/0.5'
+# Bounding box (N/W/S/E)
+bounding_box = '90/0/-90/360'
+# Lapse rate option
+option_lr_method = 2
+#  Option 0 - lapse rates are constant defined by input
+#  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
+#  Option 2 - lapse rates derived from surrounding pixels (varies spatially and temporally)
+
+# Filepath
+eraint_fp = main_directory + '/../Climate_data/ERA_Interim/download/'
+# Filenames
+eraint_temp_fn = 'ERAInterim_Temp2m_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
+eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
 eraint_elev_fn = 'ERAInterim_geopotential.nc'
-eraint_lr_fn = 'HMA_Regions13_14_15_ERAInterim_lapserates_1979_2017.nc' # GENERATED IN PRE-PROCESSING
+eraint_pressureleveltemp_fn = 'ERAInterim_pressureleveltemp_' + eraint_start_date + '_' + eraint_end_date + '.nc'
+eraint_lr_fn = ('ERAInterim_lapserates_' + eraint_start_date + '_' + eraint_end_date + '_opt' + str(option_lr_method) + 
+                '.nc')
+
 # CMIP5 CLIMATE DATA
 cmip5_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
 cmip5_fp_var_ending = '_r1i1p1_monNG/'
@@ -181,37 +198,6 @@ cmip5_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
 cmip5_fp_fx_ending = '_r0i0p0_fx/'
 cmip5_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
 cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
-
-# Lapse rate option
-option_lapserate_fromgcm = 1
-#  Option 0 - lapse rates are constant defined by input
-#  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
-#  Option 2 (NEED TO CODE) - lapse rates derived from surrounding pixels (varies spatially and temporally)
-
-# Downscale GCM data option
-#option_gcm_downscale = 2
-#  Option 1 (default): select climate data based on nearest neighbor
-#  Option 2: import prepared csv files (saves time)
-# Reference climate data filepath
-#filepath_ref = main_directory + '/../Climate_data/ERA_Interim/'
-# THESE ARE USED IN MODEL TESTING TO SPEED UP THE LOADING
-# Dictionary of filenames for temperature, precipitation, lapse rate, and elevation data
-gcmtemp_filedict = {
-                    13: 'csv_ERAInterim_temp_19952015_13_CentralAsia.csv',
-                    14: 'csv_ERAInterim_temp_19952015_14_SouthAsiaWest.csv',
-                    15: 'csv_ERAInterim_temp_19952015_15_SouthAsiaEast.csv'}
-gcmprec_filedict = {
-                    13: 'csv_ERAInterim_prec_19952015_13_CentralAsia.csv',
-                    14: 'csv_ERAInterim_prec_19952015_14_SouthAsiaWest.csv',
-                    15: 'csv_ERAInterim_prec_19952015_15_SouthAsiaEast.csv'}
-gcmelev_filedict = {
-                    13: 'csv_ERAInterim_elev_13_CentralAsia.csv',
-                    14: 'csv_ERAInterim_elev_14_SouthAsiaWest.csv',
-                    15: 'csv_ERAInterim_elev_15_SouthAsiaEast.csv'}
-gcmlapserate_filedict = {
-                         13: 'csv_ERAInterim_lapserate_19952015_13_CentralAsia.csv',
-                         14: 'csv_ERAInterim_lapserate_19952015_14_SouthAsiaWest.csv',
-                         15: 'csv_ERAInterim_lapserate_19952015_15_SouthAsiaEast.csv'}
 
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
 # ===== RGI DATA =====
