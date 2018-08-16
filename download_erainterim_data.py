@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import netCDF4 as nc
-#from ecmwfapi import ECMWFDataServer
+from ecmwfapi import ECMWFDataServer
 from time import strftime
 from datetime import datetime
 # Local libraries
@@ -103,7 +103,7 @@ class eraint_variable2download():
                 "stream": "moda",
                 "type": "an",
                 "format": "netcdf",
-                "target": input.eraint_fp + input.eraint_lr_fn,
+                "target": input.eraint_fp + input.eraint_pressureleveltemp_fn,
                 }
         
 def retrieve_data(variable, server):
@@ -122,107 +122,100 @@ def retrieve_data(variable, server):
     """       
     server.retrieve(variable.properties)
 
-## DOWNLOAD DATA FROM SERVER
-## Check directory to store data exists or create it
-#if not os.path.isdir(input.eraint_fp):
-#    os.makedirs(input.eraint_fp)
-#    
-#server = ECMWFDataServer()
-#
-#for varname in input.eraint_varnames:
-#    class_variable = eraint_variable2download(varname)
-#    retrieve_data(class_variable, server)
-#    
-#    if varname == 'temperature_pressurelevels':
-#        print('convert to lapse rates automatically!')
+#%% DOWNLOAD DATA FROM SERVER
+# Check directory to store data exists or create it
+if not os.path.isdir(input.eraint_fp):
+    os.makedirs(input.eraint_fp)
+# Open server
+server = ECMWFDataServer()
+# Download data for each variable
+for varname in input.eraint_varnames:
+    class_variable = eraint_variable2download(varname)
+    # Check if data already downloaded
+    if not os.path.isfile(class_variable.properties['target']):
+        retrieve_data(class_variable, server)
         
-#%% Testing lapse rates
-        
-    # latitude 20 - 50
-    # longitude 60 - 107
-#bounding_box = '50/60/20/107'
-    
+#%% LAPSE RATES
 # Create netcdf file for lapse rates using temperature data to fill in dimensions
 temp = xr.open_dataset(input.eraint_fp + input.eraint_temp_fn)
 # Netcdf file for lapse rates ('w' will overwrite existing file)
-netcdf_output = nc.Dataset(input.eraint_fp + input.eraint_lr_fn, 'w', format='NETCDF4')
-# Global attributes
-netcdf_output.description = 'Lapse rates from ERA Interim pressure level data that span the regions elevation range'
-netcdf_output.history = 'Created ' + str(strftime("%Y-%m-%d %H:%M:%S"))
-netcdf_output.source = 'ERA Interim reanalysis data downloaded February 2018'
-# Dimensions
-latitude = netcdf_output.createDimension('latitude', temp['latitude'].values.shape[0])
-longitude = netcdf_output.createDimension('longitude', temp['longitude'].values.shape[0])
-time = netcdf_output.createDimension('time', None)
-# Create dates in proper format for time dimension
-startdate = input.eraint_start_date[0:4] + '-' + input.eraint_start_date[4:6] + '-' + input.eraint_start_date[6:]
-enddate = input.eraint_end_date[0:4] + '-' + input.eraint_end_date[4:6] + '-' + input.eraint_end_date[6:]
-startdate = datetime(*[int(item) for item in startdate.split('-')])
-enddate = datetime(*[int(item) for item in enddate.split('-')])
-startdate = startdate.strftime('%Y-%m')
-enddate = enddate.strftime('%Y-%m')
-dates = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS')})
-dates = dates['date'].astype(datetime)
-# Variables associated with dimensions 
-latitude = netcdf_output.createVariable('latitude', np.float32, ('latitude',))
-latitude.long_name = 'latitude'
-latitude.units = 'degrees_north'
-latitude[:] = temp['latitude'].values
-longitude = netcdf_output.createVariable('longitude', np.float32, ('longitude',))
-longitude.long_name = 'longitude'
-longitude.units = 'degrees_east'
-longitude[:] = temp['longitude'].values
-time = netcdf_output.createVariable('time', np.float64, ('time',))
-time.long_name = "time"
-time.units = "hours since 1900-01-01 00:00:00"
-time.calendar = "gregorian"
-time[:] = nc.date2num(dates, units=time.units, calendar=time.calendar)
-lapserate = netcdf_output.createVariable('lapserate', np.float64, ('time', 'latitude', 'longitude'))
-lapserate.long_name = "lapse rate"
-lapserate.units = "degC m-1"
-
-
-if input.option_lr_method == 1:   
-    print('remove restriction on lat/lon')
-    # Compute lapse rates from temperature pressure level data
-    data = xr.open_dataset(input.eraint_fp + input.eraint_pressureleveltemp_fn) 
-    # Extract the pressure levels [Pa]
-    if data['level'].attrs['units'] == 'millibars':
-        # Convert pressure levels from millibars to Pa
-        levels = data['level'].values * 100
-    # Compute the elevation [m a.s.l] of the pressure levels using the barometric pressure formula (pressure in Pa)
-    elev = -input.R_gas*input.temp_std/(input.gravity*input.molarmass_air)*np.log(levels/input.pressure_std)
-    # Compute lapse rate
-    for lat in range(0,latitude[:].shape[0]):
-        if (20 <= latitude[lat] <= 50):
-            for lon in range(0,longitude[:].shape[0]):
-                if (60 <= longitude[lon] <= 107):
-                    print(latitude[lat], longitude[lon])
-                    data_subset = data['t'].isel(latitude=lat, longitude=lon).values
-                    lapserate[:,lat,lon] = (((elev * data_subset).mean(axis=1) - elev.mean() * data_subset.mean(axis=1)) / 
-                                            ((elev**2).mean() - (elev.mean())**2))    
-elif input.option_lr_method == 2: 
-    # Compute lapse rates from temperature and elevation of surrouding pixels
-    # Elevation data
-    geopotential = xr.open_dataset(input.eraint_fp + input.eraint_elev_fn)
-    if ('units' in geopotential.z.attrs) and (geopotential.z.units == 'm**2 s**-2'):  
-        # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
-        elev = geopotential.z.values[0,:,:] / 9.80665
-    # Compute lapse rate
-    for lat in [1]:
-        for lon in [1]:
-#    for lat in range(0,latitude[:].shape[0]):
-#        if (20 <= latitude[lat] <= 50):
-#            for lon in range(0,longitude[:].shape[0]):
-#                if (60 <= longitude[lon] <= 107):
-            print(latitude[lat], longitude[lon])
-            elev_subset = elev[lat-1:lat+2,lon-1:lon+2]
-            temp_subset = temp.t2m[:,lat-1:lat+2,lon-1:lon+2].values
-            #  time, latitude, longitude
-            
-            # CONSIDER FLATTENING ARRAY TO SPEED UP CALCULATIONS?
-            
-            A = elev * data_subset
-#            lapserate[:,lat,lon] = (((elev * data_subset).mean(axis=1) - elev.mean() * data_subset.mean(axis=1)) / 
-#                                    ((elev**2).mean() - (elev.mean())**2))
-netcdf_output.close()
+if not os.path.isfile(input.eraint_fp + input.eraint_lr_fn):
+    netcdf_output = nc.Dataset(input.eraint_fp + input.eraint_lr_fn, 'w', format='NETCDF4')
+    # Global attributes
+    netcdf_output.description = 'Lapse rates from ERA Interim pressure level data that span the regions elevation range'
+    netcdf_output.history = 'Created ' + str(strftime("%Y-%m-%d %H:%M:%S"))
+    netcdf_output.source = 'ERA Interim reanalysis data downloaded February 2018'
+    # Dimensions
+    latitude = netcdf_output.createDimension('latitude', temp['latitude'].values.shape[0])
+    longitude = netcdf_output.createDimension('longitude', temp['longitude'].values.shape[0])
+    time = netcdf_output.createDimension('time', None)
+    # Create dates in proper format for time dimension
+    startdate = input.eraint_start_date[0:4] + '-' + input.eraint_start_date[4:6] + '-' + input.eraint_start_date[6:]
+    enddate = input.eraint_end_date[0:4] + '-' + input.eraint_end_date[4:6] + '-' + input.eraint_end_date[6:]
+    startdate = datetime(*[int(item) for item in startdate.split('-')])
+    enddate = datetime(*[int(item) for item in enddate.split('-')])
+    startdate = startdate.strftime('%Y-%m')
+    enddate = enddate.strftime('%Y-%m')
+    dates = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS')})
+    dates = dates['date'].astype(datetime)
+    # Variables associated with dimensions 
+    latitude = netcdf_output.createVariable('latitude', np.float32, ('latitude',))
+    latitude.long_name = 'latitude'
+    latitude.units = 'degrees_north'
+    latitude[:] = temp['latitude'].values
+    longitude = netcdf_output.createVariable('longitude', np.float32, ('longitude',))
+    longitude.long_name = 'longitude'
+    longitude.units = 'degrees_east'
+    longitude[:] = temp['longitude'].values
+    time = netcdf_output.createVariable('time', np.float64, ('time',))
+    time.long_name = "time"
+    time.units = "hours since 1900-01-01 00:00:00"
+    time.calendar = "gregorian"
+    time[:] = nc.date2num(dates, units=time.units, calendar=time.calendar)
+    lapserate = netcdf_output.createVariable('lapserate', np.float64, ('time', 'latitude', 'longitude'))
+    lapserate.long_name = "lapse rate"
+    lapserate.units = "degC m-1"
+    
+    # Compute lapse rates
+    # Option 1 is based on pressure level data
+    if input.option_lr_method == 1:   
+        print('remove restriction on lat/lon')
+        # Compute lapse rates from temperature pressure level data
+        data = xr.open_dataset(input.eraint_fp + input.eraint_pressureleveltemp_fn) 
+        # Extract the pressure levels [Pa]
+        if data['level'].attrs['units'] == 'millibars':
+            # Convert pressure levels from millibars to Pa
+            levels = data['level'].values * 100
+        # Compute the elevation [m a.s.l] of the pressure levels using the barometric pressure formula (pressure in Pa)
+        elev = -input.R_gas*input.temp_std/(input.gravity*input.molarmass_air)*np.log(levels/input.pressure_std)
+        # Compute lapse rate
+        for lat in range(0,latitude[:].shape[0]):
+            if (20 <= latitude[lat] <= 50):
+                for lon in range(0,longitude[:].shape[0]):
+                    if (60 <= longitude[lon] <= 107):
+                        print(latitude[lat], longitude[lon])
+                        data_subset = data['t'].isel(latitude=lat, longitude=lon).values
+                        lapserate[:,lat,lon] = (((elev * data_subset).mean(axis=1) - elev.mean() * data_subset.mean(axis=1)) / 
+                                                ((elev**2).mean() - (elev.mean())**2))    
+    # Option 2 is based on surrouding pixel data
+    elif input.option_lr_method == 2: 
+        # Compute lapse rates from temperature and elevation of surrouding pixels
+        # Elevation data
+        geopotential = xr.open_dataset(input.eraint_fp + input.eraint_elev_fn)
+        if ('units' in geopotential.z.attrs) and (geopotential.z.units == 'm**2 s**-2'):  
+            # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
+            elev = geopotential.z.values[0,:,:] / 9.80665
+        # Compute lapse rate
+        for lat in range(0,latitude[:].shape[0]):
+            if (20 <= latitude[lat] <= 50):
+                print('latitude:',latitude[lat])
+                for lon in range(0,longitude[:].shape[0]):
+                    if (60 <= longitude[lon] <= 107):
+                        
+                        elev_subset = elev[lat-1:lat+2, lon-1:lon+2]
+                        temp_subset = temp.t2m[:, lat-1:lat+2, lon-1:lon+2].values
+                        #  time, latitude, longitude
+                        lapserate[:,lat,lon] = (
+                                ((elev_subset * temp_subset).mean(axis=(1,2)) - elev_subset.mean() * temp_subset.mean(axis=(1,2))) / 
+                                ((elev_subset**2).mean() - (elev_subset.mean())**2))
+    netcdf_output.close()
