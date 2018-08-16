@@ -12,10 +12,34 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 
 class MBData():
+    """Mass balance data properties and functions used to automatically retrieve data for calibration.
+    
+    Attributes
+    ----------
+    name : str
+        name of mass balance dataset.
+    rgi_regionO1 : int
+        number of RGI order 1 region.
+    ds_fp : str
+        file path 
+    """
     def __init__(self, 
-                 name='shean',
+                 name='wgms_d',
                  rgi_regionO1=input.rgi_regionsO1[0]
                  ):
+        """Add variable name and specific properties associated with each variable.
+        
+        Parameters
+        ----------
+        name : str
+            name of mass balance dataset, which should be provided in input.
+        rgi_regionO1 : int
+            RGI order 1 region.
+        ds_fp : str
+            mass balance dataset filepath
+        ds_fn : str
+            mass balance dataset filename
+        """
         
         # Source of climate data
         self.name = name
@@ -30,8 +54,8 @@ class MBData():
             self.t1_cn = input.shean_time1_cn
             self.t2_cn = input.shean_time2_cn
             self.area_cn = input.shean_area_cn
-            self.mb_vol_cn = input.shean_vol_cn
-            self.mb_vol_err_cn = input.shean_vol_err_cn
+#            self.mb_vol_cn = input.shean_vol_cn
+#            self.mb_vol_err_cn = input.shean_vol_err_cn
             
         elif self.name == 'brun':
             self.data_fp = input.brun_fp,
@@ -87,20 +111,18 @@ class MBData():
             
             
             
-    def masschange_total(self, main_glac_rgi, main_glac_hyps, dates_table):
+    def retrieve_mb(self, main_glac_rgi, main_glac_hyps, dates_table):
         """
-        Calculate the total mass change for various datasets and output it in a format that is useful for calibration
+        Retrieve the mass balance for various datasets to be used in the calibration.
         """       
         # Column names of output
         ds_output_cols = ['RGIId', 'glacno', 'group_name', 'obs_type', 'mb_mwe', 'mb_mwe_err', 'sla_m',  'z1_idx', 
-                          'z2_idx', 'z1', 'z2', 't1_idx', 't2_idx', 't1', 't2', 't1_datetime', 't2_datetime', 
-                          'area_km2', 'WGMS_ID']
+                          'z2_idx', 'z1', 'z2', 't1_idx', 't2_idx', 't1', 't2', 'area_km2', 'WGMS_ID']
         # Reset rgi index so it is consistent with hyps and other data
         main_glac_rgi.reset_index(drop=True, inplace=True)
         # Dictionary linking O1Index to Index
         indexdict = dict(zip(main_glac_rgi['O1Index'], main_glac_rgi.index.values))
         
-            
         # Dataset specific calculations
         if self.name == 'shean':
             # Load all data
@@ -113,7 +135,7 @@ class MBData():
             ds_reg['glacno'] = ((ds_reg[self.rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
             ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
             ds_reg['RGIId'] = ('RGI60-' + str(input.rgi_regionsO1[0]) + '.' + 
-                               (ds_reg['glacno'] / 10**5).astype(str).str.split('.').str[1])
+                               (ds_reg['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1])
             # Select glaciers with mass balance data
             ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi[input.rgi_O1Id_colname]) == True)[0],:]
                   ).copy()
@@ -138,22 +160,29 @@ class MBData():
             ds['t1'] = ds[self.t1_cn]
             ds['t2'] = ds[self.t2_cn]
             ds['t1_year'] = ds['t1'].astype(int)
-            ds['t1_month'] = (ds['t1'] % ds['t1_year'] * 12 + 1).astype(int)
-            ds['t1_day'] = ((ds['t1'] % ds['t1_year'] * 12 + 1) % 1 * 29).astype(int)
+            ds['t1_month'] = round(ds['t1'] % ds['t1_year'] * 12 + 1)
+            #  add 1 to account for the fact that January starts with value of 1
+#            ds['t1_month'] = (ds['t1'] % ds['t1_year'] * 12 + 1).astype(int)
+#            ds['t1_daysinmonth'] = ds.apply(lambda row: modelsetup.daysinmonth(row['t1_year'], row['t1_month']), axis=1)
+#            ds['t1_day'] = ((ds['t1'] % ds['t1_year'] * 12 + 1) % 1 * ds['t1_daysinmonth']).astype(int)
             ds['t2_year'] = ds['t2'].astype(int)
-            ds['t2_month'] = int(9)
-            ds['t2_day'] = int(1)
-            ds['t2'] = ds['t2_year'] + ds['t2_month'] / 12
-            ds['t1_datetime'] = pd.to_datetime(
-                    pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
-            ds['t2_datetime'] = pd.to_datetime(
-                    pd.DataFrame({'year':ds.t2_year.values, 'month':ds.t2_month.values, 'day':ds.t2_day.values}))
+            ds['t2_month'] = round(ds['t2'] % ds['t2_year'] * 12)
+             #  do not need to add one for t2 because we want the last full time step
+#            ds['t2_month'] = (ds['t2'] % ds['t2_year'] * 12 + 1).astype(int)
+#            ds['t2_daysinmonth'] = ds.apply(lambda row: modelsetup.daysinmonth(row['t2_year'], row['t2_month']), axis=1)
+#            ds['t2_day'] = ((ds['t2'] % ds['t2_year'] * 12 + 1) % 1 * ds['t2_daysinmonth']).astype(int)
+#            ds['t1_datetime'] = pd.to_datetime(
+#                    pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
+#            ds['t2_datetime'] = pd.to_datetime(
+#                    pd.DataFrame({'year':ds.t2_year.values, 'month':ds.t2_month.values, 'day':ds.t2_day.values}))
+            # Remove data with dates outside of calibration period
             year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
             year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
                                 (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
-            ds = ds[ds['t1'] > year_decimal_min]
-            ds = ds[ds['t2'] < year_decimal_max]
-            ds.reset_index(drop=True, inplace=True)            
+            ds = ds[ds['t1_year'] + ds['t1_month'] / 12 >= year_decimal_min]
+            ds = ds[ds['t2_year'] + ds['t2_month'] / 12 <= year_decimal_max]
+            ds.reset_index(drop=True, inplace=True)    
+            
             # Determine time indices (exclude spinup years, since massbal fxn discards spinup years)
             ds['t1_idx'] = np.nan
             ds['t2_idx'] = np.nan
@@ -170,7 +199,13 @@ class MBData():
 #            ds['mb_gt_err'] = ds[self.mb_vol_err_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * input.density_water / 1000
             # Observation type
             ds['obs_type'] = 'mb_geo'
-            ds['group_name'] = np.nan
+            # Add columns with nan for things not in list
+            ds_addcols = [x for x in ds_output_cols if x not in ds.columns.values]
+            for colname in ds_addcols:
+                ds[colname] = np.nan
+#            ds['group_name'] = np.nan
+#            ds['sla_m'] = np.nan
+#            ds['WGMS_ID'] = np.nan
             
         elif self.name == 'brun':
             print('code brun')
@@ -561,9 +596,6 @@ class MBData():
             ds['obs_type'] = 'mb_geo'
             ds['group_name'] = np.nan
             
-        
-            
-            
         elif self.name == 'group':
             # Load all data
             ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')
@@ -671,19 +703,9 @@ class MBData():
 #%% Testing
 if __name__ == '__main__':
     # Glacier selection
-    rgi_regionsO1 = [7]
+    rgi_regionsO1 = [15]
     rgi_glac_number = 'all'
 #    rgi_glac_number = ['03473', '03733']
-    #rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
-#    rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733', '03734']
-#    rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '03507', '03473', '03591', '03733']
-#    rgi_glac_number = ['03591']
-    
-    # Required input
-    gcm_startyear = 2000
-    gcm_endyear = 2015
-    gcm_spinupyears = 5
-    option_calibration = 1
     
     # Select glaciers
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
@@ -692,16 +714,16 @@ if __name__ == '__main__':
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath, 
                                                  input.hyps_filedict, input.hyps_colsdrop)
     # Determine dates_table_idx that coincides with data
-    dates_table, start_date, end_date = modelsetup.datesmodelrun(gcm_startyear, gcm_endyear, spinupyears=0)
+    dates_table, start_date, end_date = modelsetup.datesmodelrun(input.startyear, input.endyear, spinupyears=0)
     
     elev_bins = main_glac_hyps.columns.values.astype(int)
     elev_bin_interval = elev_bins[1] - elev_bins[0]
     
     # Testing    
-#    mb1 = MBData(name='shean')
+    mb1 = MBData(name='shean')
 #    mb1 = MBData(name='wgms_d', rgi_regionO1=rgi_regionsO1[0])
-    mb1 = MBData(name='cogley', rgi_regionO1=rgi_regionsO1[0])
-    ds_output = mb1.masschange_total(main_glac_rgi, main_glac_hyps, dates_table)
+#    mb1 = MBData(name='cogley', rgi_regionO1=rgi_regionsO1[0])
+    ds_output = mb1.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)
     
 ##    cal_datasets = ['shean', 'wgms_ee']
 #    cal_datasets = ['wgms_d', 'wgms_ee', 'group']

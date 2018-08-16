@@ -33,9 +33,12 @@ def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=
     if input.option_wateryear == 1:
         startdate = str(startyear_wspinup - 1) + '-10-01'
         enddate = str(endyear) + '-09-30'
-    elif input.option_wateryear == 0:
+    elif input.option_wateryear == 2:
         startdate = str(startyear_wspinup) + '-01-01'
         enddate = str(endyear) + '-12-31'
+    elif input.option_wateryear == 3:
+        startdate = str(startyear_wspinup) + '-' + input.startmonthday
+        enddate = str(endyear) + '-' + input.endmonthday
     else:
         print("\n\nError: Please select an option_wateryear that exists. Exiting model run now.\n")
         exit()
@@ -106,6 +109,28 @@ def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=
             seasondict[month_list[i]] = season_list[i]
     dates_table['season'] = dates_table['month'].apply(lambda x: seasondict[x])
     return dates_table, startdate, enddate
+
+
+def daysinmonth(year, month):
+    """Return days in month based on the month and year
+    
+    Parameters
+    ----------
+    year : str
+    month : str
+        
+    Returns
+    -------
+    integer of the days in the month
+    
+    """
+    if year%4 == 0:
+        daysinmonth_dict = {
+                1:31, 2:29, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31}
+    else:
+        daysinmonth_dict = {
+                1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31}    
+    return daysinmonth_dict[month]
 
 
 def hypsometrystats(hyps_table, thickness_table):

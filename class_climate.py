@@ -33,8 +33,8 @@ class GCM():
             self.elev_fn = input.eraint_elev_fn
             self.lr_fn = input.eraint_lr_fn
             # Variable filepaths
-            self.var_fp = input.eraint_fp_var
-            self.fx_fp = input.eraint_fp_fx
+            self.var_fp = input.eraint_fp
+            self.fx_fp = input.eraint_fp
             # Extra information
             self.timestep = input.timestep
             self.rgi_lat_colname=input.rgi_lat_colname

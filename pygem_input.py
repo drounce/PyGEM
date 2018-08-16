@@ -14,9 +14,9 @@ from time import strftime
 
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # ===== CALIBRATION OPTIONS =====
-option_calibration = 0
-#  Option 0 (default) - model simulation
-#  Option 1 - calibrate based on minimization (returns a single parameter set)
+option_calibration = 2
+#  Option 1 - calibration using minimization (returns single parameter set)
+#  Option 2 - calibration using MCMC method (returns many parameter sets)
 
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
@@ -29,7 +29,6 @@ ensemble_no = 2
 rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
-# RGI glacier number (RGI V6.0)
 
 # add a function to get all of Shean's glaciers
 def get_shean_glacier_nos(region_no):
@@ -62,12 +61,10 @@ def get_shean_glacier_nos(region_no):
 
     return num
 
-shean_glac_no = get_shean_glacier_nos(15)
+shean_glac_no = get_shean_glacier_nos(rgi_regionsO1[0])
 
 # RGI glacier number (RGI V6.0)
 rgi_glac_number = shean_glac_no[520:540]
-
-
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473', '03733']
 #rgi_glac_number = ['03473']
@@ -81,9 +78,9 @@ startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2015
+endyear = 2018
 # Spin up time [years]
-spinupyears = 5
+spinupyears = 0
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -164,10 +161,11 @@ grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
 
 
 #%% CLIMATE DATA
-
-# ERAINTERIM CLIMATE DATA (Reference data)
+# ERA-INTERIM (Reference data)
 # Variable names
 eraint_varnames = ['temperature', 'precipitation', 'geopotential', 'temperature_pressurelevels']
+#  Note: do not change variable names as these are set to run with the download_erainterim_data.py script.
+#        If option 2 is being used to calculate the lapse rates, then the pressure level data is unnecessary.
 # Dates
 eraint_start_date = '19790101'
 eraint_end_date = '20180501'
@@ -180,7 +178,6 @@ option_lr_method = 2
 #  Option 0 - lapse rates are constant defined by input
 #  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  Option 2 - lapse rates derived from surrounding pixels (varies spatially and temporally)
-
 # Filepath
 eraint_fp = main_directory + '/../Climate_data/ERA_Interim/download/'
 # Filenames
@@ -191,7 +188,7 @@ eraint_pressureleveltemp_fn = 'ERAInterim_pressureleveltemp_' + eraint_start_dat
 eraint_lr_fn = ('ERAInterim_lapserates_' + eraint_start_date + '_' + eraint_end_date + '_opt' + str(option_lr_method) + 
                 '.nc')
 
-# CMIP5 CLIMATE DATA
+# CMIP5 (GCM data)
 cmip5_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
 cmip5_fp_var_ending = '_r1i1p1_monNG/'
 cmip5_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
@@ -231,7 +228,7 @@ rgi_dict = {
             15: '15_rgi60_SouthAsiaEast.csv'}
 
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
-# Option to shift all elevation bins by 20 m 
+# Option to shift all elevation bins by 20 m
 #  (required for Matthias' ice thickness and area since they are 20 m off, see email from May 24 2018)
 option_shift_elevbins_20m = 1
 # Elevation band height [m]
@@ -295,9 +292,13 @@ option_leapyear = 1
 #                       days_in_month = 29 for these years.
 #  Option 0 - exclude leap years, i.e., February always has 28 days
 # Water year option
-option_wateryear = 1
-#  Option 1 (default) - use water year instead of calendar year (ex. 2000: Oct 1 1999 - Sept 1 2000)
-#  Option 0 - use calendar year
+option_wateryear = 3
+#  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
+#  Option 2 - calendar year
+#  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
+# User specified start/end months and days
+startmonthday = '06-01'
+endmonthday = '05-31'
 # Water year starting month
 wateryear_month_start = 10
 # First month of winter
@@ -341,16 +342,16 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 #  for each mass balance dataset, store the parameters here and add to the class
 
 # ===== SHEAN GEODETIC =====
-shean_fp = main_directory + '/../DEMs/'
-shean_fn = 'hma_mb_20171211_1343.csv'
+shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
+shean_fn = 'hma_mb_20180803_1229.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'
 shean_time1_cn = 't1'
 shean_time2_cn = 't2'
 shean_area_cn = 'area_m2'
-shean_vol_cn = 'mb_m3wea'
-shean_vol_err_cn = 'mb_m3wea_sigma'
+#shean_vol_cn = 'mb_m3wea'
+#shean_vol_err_cn = 'mb_m3wea_sigma'
 
 # ===== BRUN GEODETIC =====
 brun_fp = main_directory + '/../DEMs/'

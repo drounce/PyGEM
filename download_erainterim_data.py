@@ -17,21 +17,18 @@ import pygem_input as input
 
 class eraint_variable2download():
     """ERA Interim data properties used to automatically download data.
+    
+    Attributes
+    ----------
+    vn : str
+        variable name.
+    properties : dict
+        dictionary containing properties associated with the ERA-Interim variable.
     """
     
     def __init__(self, vn):
         """Add variable name and specific properties associated with each variable.
-        
-        Parameters
-        ----------
-        vn : str
-            variable name.
-        output_fn : str
-            output file name.
-        properties : dict
-            dictionary containing properties associated with the ERA-Interim variable.
         """
-        
         # Dates formatted properly as a string
         date_list = "/".join([d.strftime('%Y%m%d') for d in 
                               pd.date_range(start=input.eraint_start_date, end=input.eraint_end_date, freq='MS')])
