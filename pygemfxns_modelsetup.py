@@ -264,14 +264,12 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
             csv_regionO1 = pd.read_csv(rgi_filepath + rgi_dict[x_region], encoding='latin1')
         # Populate glacer_table with the glaciers of interest
         if rgi_regionsO2 == 'all' and rgi_glac_number == 'all':
-#            print(f"All glaciers within region(s) {rgi_regionsO1} are included in this model run.")
             print("All glaciers within region(s) %s are included in this model run." % (rgi_regionsO1))
             if glacier_table.empty:
                 glacier_table = csv_regionO1
             else:
                 glacier_table = pd.concat([glacier_table, csv_regionO1], axis=0)
         elif rgi_regionsO2 != 'all' and rgi_glac_number == 'all':
-#            print(f"All glaciers within subregion(s) {rgi_regionsO2} in region {rgi_regionsO1} are included.")
             print("All glaciers within subregion(s) %s in region %s are included in this model run." % 
                   (rgi_regionsO2, rgi_regionsO1))
             for x_regionO2 in rgi_regionsO2:
@@ -281,7 +279,6 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
                     glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['O2Region'] == 
                                                                                 x_regionO2]], axis=0))
         else:
-#            print(f"This study is only focusing on glaciers {rgi_glac_number} in region {rgi_regionsO1}.")
             print("This study is only focusing on glaciers %s in region %s." % (rgi_glac_number, rgi_regionsO1))
             for x_glac in rgi_glac_number:
                 if rgi_regionsO1[0] < 10:
@@ -312,7 +309,7 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
     # OPTION 2: CUSTOMIZE REGIONS USING A SHAPEFILE that specifies the
     #           various regions according to the RGI IDs, i.e., add an
     #           additional column to the RGI table.
-    # ??? [INSERT CODE FOR IMPORTING A SHAPEFILE] ???
+    # [INSERT CODE FOR IMPORTING A SHAPEFILE]
     #   (1) import shapefile with custom boundaries, (2) grab the RGIIDs
     #   of glaciers that are in these boundaries, (3) perform calibration
     #   using these alternative boundaries that may (or may not) be more

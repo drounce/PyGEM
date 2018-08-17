@@ -1,18 +1,18 @@
-"""
-class of mass balance data and functions associated with manipulating the dataset to be in the proper format
-"""
+"""class of mass balance data and functions associated with manipulating the dataset to be in the proper format"""
 
+# External libraries
 import pandas as pd
 import numpy as np
 import calendar
 import datetime
-#import dateutil
-
+# Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 
+
 class MBData():
-    """Mass balance data properties and functions used to automatically retrieve data for calibration.
+    """
+    Mass balance data properties and functions used to automatically retrieve data for calibration.
     
     Attributes
     ----------
@@ -27,18 +27,8 @@ class MBData():
                  name='wgms_d',
                  rgi_regionO1=input.rgi_regionsO1[0]
                  ):
-        """Add variable name and specific properties associated with each variable.
-        
-        Parameters
-        ----------
-        name : str
-            name of mass balance dataset, which should be provided in input.
-        rgi_regionO1 : int
-            RGI order 1 region.
-        ds_fp : str
-            mass balance dataset filepath
-        ds_fn : str
-            mass balance dataset filename
+        """
+        Add variable name and specific properties associated with each variable.
         """
         
         # Source of climate data

@@ -20,9 +20,12 @@ option_calibration = 2
 
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-MCMC_sample_no = 1000
+#MCMC_sample_no = 1000
+#MCMC_burn_no = 0
+#ensemble_no = 50
+MCMC_sample_no = 10
 MCMC_burn_no = 0
-ensemble_no = 50
+ensemble_no = 2
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15

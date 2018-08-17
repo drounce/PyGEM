@@ -16,7 +16,8 @@ import pygem_input as input
 
 
 class eraint_variable2download():
-    """ERA Interim data properties used to automatically download data.
+    """
+    ERA Interim data properties used to automatically download data.
     
     Attributes
     ----------
@@ -27,7 +28,8 @@ class eraint_variable2download():
     """
     
     def __init__(self, vn):
-        """Add variable name and specific properties associated with each variable.
+        """
+        Add variable name and specific properties associated with each variable.
         """
         # Dates formatted properly as a string
         date_list = "/".join([d.strftime('%Y%m%d') for d in 
@@ -104,7 +106,8 @@ class eraint_variable2download():
                 }
         
 def retrieve_data(variable, server):
-    """Retrieve ERA-Interim data from server.
+    """
+    Retrieve ERA-Interim data from server.
     
     Parameters
     ----------

@@ -1,19 +1,30 @@
-"""
-pygemfxns_climate.py is a list of functions that are used to facilitate the
-pre-processing of the climate data associated with each glacier for PyGEM.
-"""
+"""class of climate data and functions associated with manipulating the dataset to be in the proper format"""
 
+# External libraries
 import pandas as pd
 import numpy as np
 import xarray as xr
-
+# Local libraries
 import pygem_input as input
 
+
 class GCM():
-    # GCM is the global climate model for a glacier evolution model run
+    """
+    Global climate model data properties and functions used to automatically retrieve data.
+    
+    Attributes
+    ----------
+    name : str
+        name of climate dataset.
+    rcp_scenario : str
+        rcp scenario (example: 'rcp26')
+    """
     def __init__(self, 
                  name=str(),
                  rcp_scenario=str()):
+        """
+        Add variable name and specific properties associated with each gcm.
+        """
         
         # Source of climate data
         self.name = name
@@ -65,12 +76,23 @@ class GCM():
             
     def importGCMfxnearestneighbor_xarray(self, filename, variablename, main_glac_rgi):
         """
-        Import time invariant (constant) variables and extract the nearest neighbor of the variable. Meteorological data 
-        from the global climate models were provided by Ben Marzeion and ETH-Zurich for the GlacierMIP Phase II project 
-        or from ERA Interim (ECMWF), which uses geopotential instead of surface height.
+        Import time invariant (constant) variables and extract nearest neighbor.
         
-        Output: Numpy array of nearest neighbor time series for all the glaciers in the model run
-        (rows = glaciers, column = variable time series)
+        Note: cmip5 data used surface height, while ERA-Interim data is geopotential
+        
+        Parameters
+        ----------
+        filename : str
+            filename of variable.
+        variablename : str
+            variable name.
+        main_glac_rgi : pandas dataframe
+            dataframe containing relevant rgi glacier information
+        
+        Returns
+        -------
+        glac_variable : numpy array
+            array of nearest neighbor values for all the glaciers in model run (rows=glaciers, column=variable)
         """
         # Import netcdf file
         filefull = self.fx_fp + filename
@@ -115,15 +137,33 @@ class GCM():
     
     def importGCMvarnearestneighbor_xarray(self, filename, variablename, main_glac_rgi, dates_table):
         """
-        Import meteorological variables and extract the nearest neighbor time series of the variable. Meteorological 
-        data from the global climate models were provided by Ben Marzeion and ETH-Zurich for the GlacierMIP Phase II 
-        project. "NG" refers to their "new generation" products, which are homogenized.  Additionally, ERA-Interim 
-        reanalysis data were provided by ECMWF.
+        Import time series of variables and extract nearest neighbor.
         
-        Note: The function is setup to select netcdf data using the dimensions: time, latitude, longitude (in that 
-              order).Prior to running the script, the user must check that this is the correct order of the dimensions 
+        Note: "NG" refers to a homogenized "new generation" of products from ETH-Zurich.
+              The function is setup to select netcdf data using the dimensions: time, latitude, longitude (in that 
+              order). Prior to running the script, the user must check that this is the correct order of the dimensions 
               and the user should open the netcdf file to determine the names of each dimension as they may vary.
+        
+        Parameters
+        ----------
+        filename : str
+            filename of variable.
+        variablename : str
+            variable name.
+        main_glac_rgi : pandas dataframe
+            dataframe containing relevant rgi glacier information
+        dates_table: pandas dataframe
+            dataframe containing dates of model run
+        
+        Returns
+        -------
+        glac_variable_series : numpy array
+            array of nearest neighbor values for all the glaciers in model run (rows=glaciers, columns=time series)
+        time_series : numpy array
+            array of dates associated with the meteorological data (may differ slightly from those in table for monthly
+            timestep, i.e., be from the beginning/middle/end of month)
         """
+        
         # Import netcdf file
         filefull = self.var_fp + filename
         data = xr.open_dataset(filefull)

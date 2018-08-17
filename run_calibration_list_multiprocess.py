@@ -1,33 +1,27 @@
-r"""
-run_calibration_list_multiprocess.py runs calibration for glaciers and stores results in csv files.  The script runs
-using the reference climate data.
+"""Run the model calibration"""
+# run_calibration_list_multiprocess.py runs calibration for glaciers and stores results in csv files.  The script runs
+# using the reference climate data.
+#    (Command line) python run_calibration_list_multiprocess.py
+#      - Default is running ERA-Interim in parallel with five processors.
+#    (Spyder) %run run_calibration_list_multiprocess.py -option_parallels=0
+#      - Spyder cannot run parallels, so always set -option_parallels=0 when testing in Spyder.
 
-    (Command line) python run_calibration_list_multiprocess.py
-      - Default is running ERA-Interim in parallel with five processors.
-
-    (Spyder) %run run_calibration_list_multiprocess.py -option_parallels=0
-      - Spyder cannot run parallels, so always set -option_parallels=0 when testing in Spyder.
-
-"""
-
-import pandas as pd
-import numpy as np
+# Built-in libraries
 import os
 import glob
 import argparse
-import inspect
-#import subprocess as sp
 import multiprocessing
-from scipy.optimize import minimize
 import time
-import matplotlib.pyplot as plt
 from time import strftime
+from datetime import datetime
+# External libraries
+import pandas as pd
+import numpy as np
 import xarray as xr
-import netCDF4 as nc
-from pymc import *
-import pyDOE as pe
-from time import strftime
-
+from scipy.optimize import minimize
+import pymc
+from pymc import deterministic
+# Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
@@ -38,26 +32,6 @@ import pygemfxns_ensemble_sampling as es
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 # Glacier selection
-
-# rgi_regionsO1 = [7]
-# rgi_glac_number = 'all'
-#rgi_regionsO1 = [15]
-#rgi_glac_number = 'all'
-#rgi_glac_number = ['03473']
-#rgi_glac_number = ['03733']
-#rgi_glac_number = ['03473', '03733']
-# test 10 glaciers (only shean's data)
-#rgi_glac_number = ['10075', '10079', '10059', '10060', '09929']
-#rgi_glac_number = ['10075', '10079', '10059', '10060', '09929', '09801', '10055', '10070', '09802', '01551']
-
-# test another 12, shean's data, parallels
-#rgi_glac_number = ['10712', '10206', '10228', '10188', '10174', '09946', '10068', '09927', '10234', '09804', '09942', '10054']
-# only david's data
-#rgi_glac_number = ['10075', '10079', '10059', '10060', '09929']
-#rgi_glac_number = ['00038', '00046', '00049', '00068', '00118', '00119', '00164', '00204', '00211', '03473', '03733']
-#rgi_glac_number = ['00001', '00038', '00046', '00049', '00068', '00118', '03507', '03473', '03591', '03733', '03734']
-#rgi_glac_number = ['00240']
-
 rgi_regionsO1 = input.rgi_regionsO1
 rgi_glac_number = input.rgi_glac_number
 
@@ -66,16 +40,11 @@ option_warn_calving = 0
 
 # Calibration datasets
 cal_datasets = ['shean']
-#cal_datasets = ['wgms_d', 'group']
-#cal_datasets = ['shean', 'wgms_ee']
-#cal_datasets = ['shean', 'wgms_d', 'wgms_ee']
-#cal_datasets = ['shean']
+#cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 
 # Calibration methods
 method_opt = 'SLSQP'
 ftol_opt = 1e-2
-#method_opt = 'L-BFGS-B'
-#ftol_opt = 1e-2
 
 # Export option
 option_export = 1
@@ -91,17 +60,31 @@ MCMC_output_filepath = input.MCMC_output_filepath
 MCMC_output_filename = input.MCMC_output_filename
 MCMC_parallel_filepath = MCMC_output_filepath + 'parallel/'
 
-# This boolean is useful for debugging. If true, a number
-# of print statements are activated through the running
-# of the model
+# Debugging boolean (if true, a number of print statements are activated through the running of the model)
 debug = True
 
 #%% FUNCTIONS
 def getparser():
+    """
+    Use argparse to add arguments from the command line
+    
+    Parameters
+    ----------
+    ref_gcm_name (optional) : str
+        reference gcm name
+    num_simultaneous_processes (optional) : int
+        number of cores to use in parallels
+    option_parallels (optional) : int
+        switch to use parallels or not
+        
+    Returns
+    -------
+    Object containing arguments and their respective values.
+    """
     parser = argparse.ArgumentParser(description="run calibration in parallel")
     # add arguments
     parser.add_argument('-ref_gcm_name', action='store', type=str, default=input.ref_gcm_name,
-                        help='text file full of commands to run')
+                        help='reference gcm name')
     parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=4,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
@@ -110,6 +93,18 @@ def getparser():
 
 
 def main(list_packed_vars):
+    """
+    Model calibration
+    
+    Parameters
+    ----------
+    list_packed_vars : list
+        list of packed variables that enable the use of parallels
+        
+    Returns
+    -------
+    netcdf files of the calibration output (specific output is dependent on which calibration scheme is used)
+    """
     # Unpack variables
     count = list_packed_vars[0]
     chunk = list_packed_vars[1]
@@ -206,116 +201,84 @@ def main(list_packed_vars):
         gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 
     # ===== CALIBRATION =====
-    # Option 2: use MCMC method to determine posterior probability
-    #           distributions of the three parameters tempchange,
-    #           ddfsnow and precfactor. Then create an ensemble of
-    #           parameter sets evenly sampled from these distributions,
-    #           and output these sets of parameters and their
-    #           corresponding mass balances to be used in the simulations
+    # Option 2: use MCMC method to determine posterior probability distributions of the three parameters tempchange,
+    #           ddfsnow and precfactor. Then create an ensemble of parameter sets evenly sampled from these 
+    #           distributions, and output these sets of parameters and their corresponding mass balances to be used in 
+    #           the simulations.
     if option_calibration == 2:
 
-
-        # ===== Define functions needed for MCMC method
-
-        def run_MCMC(iterations=10, burn=0, thin=1, tune_interval=1000,
-                     step=None, tune_throughout=True, save_interval=None,
-                     burn_till_tuned=False, stop_tuning_after=5,
-                     verbose=0, progress_bar=True, dbname=None):
+        # ===== Define functions needed for MCMC method =====
+        def run_MCMC(iterations=10, burn=0, thin=1, tune_interval=1000, step=None, tune_throughout=True, 
+                     save_interval=None, burn_till_tuned=False, stop_tuning_after=5, progress_bar=True, dbname=None):
             """
             Runs the MCMC algorithm.
 
-            Runs the MCMC algorithm to calibrate the
-            probability distributions of three parameters
-            for the mass balance function.
+            Runs the MCMC algorithm to calibrate the probability distributions of three parameters for the mass balance 
+            function.
 
             Parameters
             ----------
-            step : str
-                Choice of step method to use. default
-                metropolis-hastings
-            dbname : str
-                Choice of database name the sample should be
-                saved to. Default name is 'trial.pickle'
             iterations : int
-                Total number of iterations to do
+                Total number of iterations to do (default 10).
             burn : int
-                Variables will not be tallied until this many
-                iterations are complete, default 0
+                Variables will not be tallied until this many iterations are complete (default 0).
             thin : int
-                Variables will be tallied at intervals of this many
-                iterations, default 1
+                Variables will be tallied at intervals of this many iterations (default 1).
             tune_interval : int
-                Step methods will be tuned at intervals of this many
-                iterations, default 1000
+                Step methods will be tuned at intervals of this many iterations (default 1000).
+            step : str
+                Choice of step method to use (default metropolis-hastings).
             tune_throughout : boolean
-                If true, tuning will continue after the burnin period;
-                otherwise tuning will halt at the end of the burnin
-                period.
+                If true, tuning will continue after the burnin period; otherwise tuning will halt at the end of the 
+                burnin period (default True).    
             save_interval : int or None
-                If given, the model state will be saved at intervals
-                of this many iterations
-            verbose : boolean
-            progress_bar : boolean
-                Display progress bar while sampling.
+                If given, the model state will be saved at intervals of this many iterations (default None).
             burn_till_tuned: boolean
-                If True the Sampler would burn samples until all step
-                methods are tuned. A tuned step methods is one that was
-                not tuned for the last `stop_tuning_after` tuning intervals.
-                The burn-in phase will have a minimum of 'burn' iterations
-                but could be longer if tuning is needed. After the phase
-                is done the sampler will run for another (iter - burn)
-                iterations, and will tally the samples according to the
-                'thin' argument. This means that the total number of iteration
-                is update throughout the sampling procedure.
-                If burn_till_tuned is True it also overrides the tune_thorughout
-                argument, so no step method will be tuned when sample are being
-                tallied.
+                If True the Sampler will burn samples until all step methods are tuned. A tuned step methods is one 
+                that was not tuned for the last `stop_tuning_after` tuning intervals. The burn-in phase will have a 
+                minimum of 'burn' iterations but could be longer if tuning is needed. After the phase is done the 
+                sampler will run for another (iter - burn) iterations, and will tally the samples according to the 
+                'thin' argument. This means that the total number of iteration is update throughout the sampling 
+                procedure.  If True, it also overrides the tune_thorughout argument, so no step method will be tuned 
+                when sample are being tallied (default False).    
             stop_tuning_after: int
-                the number of untuned successive tuning interval needed to be
-                reach in order for the burn-in phase to be done
-                (If burn_till_tuned is True).
-
+                The number of untuned successive tuning interval needed to be reached in order for the burn-in phase to 
+                be done (if burn_till_tuned is True) (default 5).
+            progress_bar : boolean
+                Display progress bar while sampling (default True).
+            dbname : str
+                Choice of database name the sample should be saved to (default 'trial.pickle').
 
             Returns
             -------
             pymc.MCMC.MCMC
-                Returns a model that contains sample traces of
-                tempchange, ddfsnow, precfactor and massbalance.
-                These samples can be accessed by calling the trace
-                attribute. For example:
+                Returns a model that contains sample traces of tempchange, ddfsnow, precfactor and massbalance. These 
+                samples can be accessed by calling the trace attribute. For example:
 
                     model.trace('ddfsnow')[:]
 
                 gives the trace of ddfsnow values.
 
-                A trace, or Markov Chain, is an array of values
-                outputed by the MCMC simulation which defines the
-                posterior probability distribution of the variable
-                at hand.
-
+                A trace, or Markov Chain, is an array of values outputed by the MCMC simulation which defines the
+                posterior probability distribution of the variable at hand.
             """
 
             #set model
             if dbname is None:
-                model = MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal])
+                model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal])
             else:
-                model = MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal],
-                             db='pickle', dbname=dbname)
+                model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal], db='pickle', dbname=dbname)
 
             # set step method if specified
             if step == 'am':
-                model.use_step_method(pymc.AdaptiveMetropolis,
-                                      precfactor, delay = 1000)
-                model.use_step_method(pymc.AdaptiveMetropolis,
-                                      tempchange, delay = 1000)
-                model.use_step_method(pymc.AdaptiveMetropolis,
-                                      ddfsnow, delay = 1000)
+                model.use_step_method(pymc.AdaptiveMetropolis, precfactor, delay = 1000)
+                model.use_step_method(pymc.AdaptiveMetropolis, tempchange, delay = 1000)
+                model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, delay = 1000)
 
             # sample
             model.sample(iter=iterations, burn=burn, thin=thin,
                          tune_interval=tune_interval, tune_throughout=tune_throughout,
-                         save_interval=save_interval, verbose=verbose,
-                         progress_bar=progress_bar)
+                         save_interval=save_interval, progress_bar=progress_bar)
 
             #close database
             model.db.close()
@@ -324,98 +287,77 @@ def main(list_packed_vars):
 
 
         def get_glacier_data(glacier_number):
-            '''
-            Returns the mass balance and error estimate for
-            the glacier from David Shean's DEM data
-
+            """
+            Returns the mass balance and error estimate for the glacier from David Shean's DEM data
 
             Parameters
             ----------
             glacier_number : float
-                RGI Id of the glacier for which data is to be
-                returned. Should be a number with a one or two
-                digit component before the decimal place
-                signifying glacier region, and 5 numbers after
-                the decimal which represent glacier number.
+                RGI Id of the glacier for which data is to be returned. Should be a number with a one or two digit 
+                component before the decimal place signifying glacier region, and 5 numbers after the decimal which 
+                represent glacier number.
                 Example: 15.03733 for glacier 3733 in region 15
-
 
             Returns
             -------
             (tuple)
             massbal : float
-                average annual massbalance over david sheans's
-                dataset
+                Mean annual massbalance over david sheans's dataset.
             stdev : float
-                estimate error (standard deviation) of measurement
+                Estimated error (standard deviation) of measurement.
             index : int
-                index of glacier in csv file for debugging
-
-            '''
+                Index of glacier in csv file for debugging.
+            """
 
             #convert input to float
             glacier_number = float(glacier_number)
-
-            # upload csv file of DEM data and convert to
-            # dataframe
-            csv_path = '../DEMs/hma_mb_20171211_1343.csv'
+            # upload csv file of DEM data and convert to dataframe
+            csv_path = input.shean_fp + input.shean_fn
             df = pd.read_csv(csv_path)
-
-            # locate the row corresponding to the glacier
-            # with the given RGIId number
+            # locate the row corresponding to the glacier with the given RGIId number
             row = df.loc[round(df['RGIId'], 5) == glacier_number]
-
-            # get massbalance, measurement error (standard
-            # deviation) and index of the
-            # glacier (index for debugging purposes)
+            # get massbalance, standard deviation and index of the glacier (index used for debugging)
             index = row.index[0]
             massbal = row['mb_mwea'][index]
             stdev = row['mb_mwea_sigma'][index]
-
             return massbal, stdev, index
 
+
         def process_df(df):
-            '''
-            Processes the dataframe to  include only
-            relevant information needed for future model
-            runs.
+            """
+            Processes the dataframe to  include only relevant information needed for future model runs.
 
-            Takes dataframe outputed by stratified sampling
-            function, leaves the tempchange, ddfsnow,
-            precfactor and massbalance columns, then adds
-            columns for the 4 other static parameters
-            (lrgcm, lrglac, precgrad, ddfice, tempsnow)
+            
+            Parameters
+            ----------
+            df : pandas dataframe
+                Dataframe outputed by stratified sampling
+                
+            Returns
+            -------
+            df : pandas dataframe
+                Dataframe with the other uncalibrated parameters (lrgcm, lrglac, precgrad, ddfice, tempsnow) added.
 
-            Creates an index for the dataframe (from zero
-            to 1 less than number of ensemble runs) and
-            names the index 'runs'. Names the columns
-            axis 'variables'
-
-            '''
-
+            Note: Creates an index for the dataframe (from zero to 1 less than number of ensemble runs) and names the 
+                  index 'runs'. Names the columns axis 'variables'
+            """
             # set columns for static variables
             df['lrgcm'] = np.full(len(df), input.lrgcm)
             df['lrglac'] = np.full(len(df), input.lrglac)
             df['precgrad'] = np.full(len(df), input.precgrad)
             df['ddfice'] = np.full(len(df), input.ddfice)
             df['tempsnow'] = np.full(len(df), input.tempsnow)
-
             # drop unnecesary info
             df = df.drop('sorted_index', 1)
-
             # name column axis
             df.columns.name = 'variables'
-
             # create a new index
             df['runs'] = np.arange(len(df))
             df = df.set_index('runs')
-
             return df
 
-        # === Begin MCMC process ===
 
-        print(main_glac_rgi)
-
+        # ===== Begin MCMC process =====
         # loop through each glacier selected
         for glac in range(main_glac_rgi.shape[0]):
 
@@ -440,9 +382,7 @@ def main(list_packed_vars):
             glacier_cal_data = ((cal_data.iloc[np.where(
                     glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
 
-            # find the observed mass balance and measurement error
-            # from David Shean's geodetic mass balance data (this
-            # is computed from a period on early 2000 to late 2015)
+            # find the observed mass balance and measurement error from David Shean's geodetic mass balance data
             glacier_RGIId = main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float']
 
             if debug:
@@ -451,43 +391,31 @@ def main(list_packed_vars):
             observed_massbal, observed_error, index = get_glacier_data(glacier_RGIId)
 
             if debug:
-                print('observed_massbal:', observed_massbal,
-                      'observed_error:', observed_error,
-                      'index:', index)
-            
+                print('observed_massbal:',observed_massbal, 'observed_error:',observed_error, 'index:',index)
 
             # ==== Define the Markov Chain Monte Carlo Model =============
 
-            # First: Create prior probability distributions, based on
-            #        current understanding of ranges
+            # First: Create prior probability distributions, based on current understanding of ranges
 
-            # Precipitation factor, based on range of 0.5 to 2
-            # we assume that the a priori probability range is
-            # represented by a gamma function with shape
-            # parameter alpha=6.33 (also known as k) and rate
-            # parameter beta=6 (inverse of scale parameter theta)
-            precfactor = Gamma('precfactor', alpha=6.33, beta=6)
+            # Precipitation factor (range 0.5 to 2)
+            #  Assume prior probability range is represented by a gamma function with shape parameter alpha=6.33 
+            #  (also known as k) and rate parameter beta=6 (inverse of scale parameter theta).
+            precfactor = pymc.Gamma('precfactor', alpha=6.33, beta=6)
 
-            # Degree day of snow, based on (add reference to paper)
-            # we assume this has an a priori probability which
-            # follows a normal distribution
-            ddfsnow = Normal('ddfsnow', mu=0.0041, tau=444444)
+            # Degree day of snow (range 0.0026 to 0.0056, Braithwaite 2008)
+            #  Assume this has an a priori probability which follows a normal distribution
+            ddfsnow = pymc.Normal('ddfsnow', mu=0.0041, tau=444444)
 
-            # Temperature change, based on range of -5 o 5. Again,
-            # we assume this has an a priori probability which
-            # follows a normal distributinos
-            tempchange = Normal('tempchange', mu=0, tau=0.25)
+            # Temperature change, (range -5 to 5)
+            #  Assume this has an a priori probability which follows a normal distributinos
+            tempchange = pymc.Normal('tempchange', mu=0, tau=0.25)
 
-            # Here we define the deterministic function in the
-            # MCMC model. This allows us to define our a priori
+            # Here we define the deterministic function in the MCMC model. This allows us to define our a priori
             # probobaility distribution based our model beliefs.
             @deterministic(plot=False)
-            def massbal(precfactor=precfactor, ddfsnow=ddfsnow,
-                        tempchange=tempchange):
-
-                # make of copy of the model parameters and
-                # change the parameters of interest based on
-                # the probability distribtions we have given
+            def massbal(precfactor=precfactor, ddfsnow=ddfsnow, tempchange=tempchange):
+                # make of copy of the model parameters and change the parameters of interest based on the probability 
+                # distribtions we have given
                 modelparameters_copy = modelparameters.copy()
                 if precfactor is not None:
                     modelparameters_copy[2] = float(precfactor)
@@ -496,45 +424,33 @@ def main(list_packed_vars):
                 if tempchange is not None:
                     modelparameters_copy[7] = float(tempchange)
 
-                # This is the function that performs the mass
-                # balance calculations
+                # Mass balance calculations
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
                  glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
                  glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
                  glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                    massbalance.runmassbalance(modelparameters_copy, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                    massbalance.runmassbalance(modelparameters_copy, glacier_rgi_table, glacier_area_t0, 
+                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=1))
-
-                # From the mass balance calculations, which
-                # are computed on a monthly time scale, we
-                # average the results over an annual basis for
-                # the time period of David Shean's geodetic mass
-                # balance observations, so we can directly compare
-                # model results to these observations
+                # From the mass balance calculations, which are computed on a monthly time scale, we average the results
+                # over an annual basis for the time period of David Shean's geodetic mass balance observations, so we 
+                # can directly compare model results to these observations
                 return glac_wide_massbaltotal[4:].sum() / (2015.75-2000.112)
 
-
-
-            # observed distribution. This observation data defines
-            # the observed likelihood of the mass balances, and
-            # allows us to fit the probability distribution of the
-            # mass balance to the results.
-            obs_massbal = Normal('obs_massbal', mu=massbal,
-                                 tau=(1/(observed_error**2)),
-                                 value=float(observed_massbal),
-                                 observed=True)
+            # Observed distribution
+            #  This observation data defines the observed likelihood of the mass balances, and allows us to fit the 
+            #  probability distribution of the mass balance to the results.
+            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
+                                      value=float(observed_massbal), observed=True)
 
             # =============================================================
-
 
             # fit the MCMC model
             model = run_MCMC(iterations=MCMC_sample_no, burn=MCMC_burn_no)
 #                             dbname=(str(MCMC_sample_no) + 'Samples_' +
 #                                     str(glacier_RGIId * 100000)[2:-2] + '.pickle'))
-
             # get variables
             tempchange = model.trace('tempchange')[:]
             precfactor = model.trace('precfactor')[:]
@@ -547,38 +463,32 @@ def main(list_packed_vars):
                 print('ddfsnow', ddfsnow)
                 print('massbalance', massbal)
 
-
             sampling = es.stratified_sample(tempchange=tempchange, precfactor=precfactor,
-                     ddfsnow=ddfsnow, massbal=massbal, samples=ensemble_no)
+                                            ddfsnow=ddfsnow, massbal=massbal, samples=ensemble_no)
             mean = np.mean(sampling['massbal'])
             std = np.std(sampling['massbal'])
 
             print('observed mean:', observed_massbal , 'observed std', observed_error)
             print('ensemble mean:', mean, 'ensemble std:', std)
 
-
             if debug:
                 print(type(sampling))
                 print(sampling)
                 print('mean:', mean, 'std:', std)
 
-            # process the dataframe to have desired format
-            # (previous format has extra information that
-            # can be useful for debugging and new dataframe
-            # includes info abotu other variables
+            # process the dataframe to have desired format (previous format has extra information that can be useful 
+            #  for debugging and new dataframe includes info about other variables).
             df = process_df(sampling)
 
             if debug:
                 print(df)
                 print(str(glacier_RGIId))
 
-            # convert dataframe to dataarray, name it
-            # according to the glacier number
+            # convert dataframe to dataarray, name it according to the glacier number
             da = xr.DataArray(df)
             da.name = str(glacier_RGIId)
 
-            # create xr.dataset and then save to
-            # netcdf files
+            # create xr.dataset and then save to netcdf files
             ds = xr.Dataset({da.name: da})
 
             if debug:
@@ -1603,9 +1513,6 @@ if __name__ == '__main__':
             output_all.to_csv(output_filepath + output_all_fn)
 
     print('Total processing time:', time.time()-time_start, 's')
-
-
-    # include this section only for david'd calibration algorithm
 
     #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
 #    # Place local variables in variable explorer
