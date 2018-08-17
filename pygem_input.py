@@ -1,16 +1,9 @@
-"""
-pygem_input.py is a list of the model inputs that are required to run PyGEM.
+"""List of model inputs required to run PyGEM"""
 
-These inputs are separated from the main script, so that they can easily be
-configured. Other modules can also import these variables to reduce the number
-of parameters required to run a function.
-"""
-# DEVELOPER'S NOTE: Consider structuring the input via steps and/or as required input or have a separate area for
-#   variables, parameters that don't really change.
+# Built-in libraries
 import os
-import numpy as np
-import pandas as pd
 from time import strftime
+
 
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # ===== CALIBRATION OPTIONS =====
@@ -20,58 +13,50 @@ option_calibration = 2
 
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-#MCMC_sample_no = 1000
-#MCMC_burn_no = 0
-#ensemble_no = 50
-MCMC_sample_no = 10
-MCMC_burn_no = 0
-ensemble_no = 2
+mcmc_sample_no = 3000
+mcmc_burn_no = 0
+ensemble_no = 3000
+#mcmc_sample_no = 10
+#mcmc_burn_no = 0
+#ensemble_no = 2
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
-
-# add a function to get all of Shean's glaciers
-def get_shean_glacier_nos(region_no):
-
-    # safety, convert input to int
-    region_no = int(region_no)
-
-    # get shean's data, convert to dataframe, get
-    # glacier numbers
-    csv_path = '../DEMs/hma_mb_20171211_1343.csv'
-    df = pd.read_csv(csv_path)
-    rgi = df['RGIId']
-
-    # select only glaciers in specified region no
-    rgi = rgi.loc[rgi >= region_no]
-    rgi = rgi.loc[rgi < (region_no + 1)]
-
-    # get only glacier numbers, convert to string
-    num = rgi % 1
-    num = num.round(5)
-    num = num.astype(str)
-
-    # slice string to remove decimal
-    num = [n[2:] for n in num]
-
-    # make sure there are 5 digits
-    for i in range(len(num)):
-        while len(num[i]) < 5:
-            num[i] += '0'
-
-    return num
-
-shean_glac_no = get_shean_glacier_nos(rgi_regionsO1[0])
-
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = shean_glac_no[520:540]
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['03473', '03733']
+rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
+                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
+#rgi_glac_number = ['05152']
 #rgi_glac_number = ['03473']
 
+## add a function to get all of Shean's glaciers
+#def get_shean_glacier_nos(region_no):
+#    # safety, convert input to int
+#    region_no = int(region_no)
+#    # get shean's data, convert to dataframe, get
+#    # glacier numbers
+#    csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv'
+#    df = pd.read_csv(csv_path)
+#    rgi = df['RGIId']
+#    # select only glaciers in specified region no
+#    rgi = rgi.loc[rgi >= region_no]
+#    rgi = rgi.loc[rgi < (region_no + 1)]
+#    # get only glacier numbers, convert to string
+#    num = rgi % 1
+#    num = num.round(5)
+#    num = num.astype(str)
+#    # slice string to remove decimal
+#    num = [n[2:] for n in num]
+#    # make sure there are 5 digits
+#    for i in range(len(num)):
+#        while len(num[i]) < 5:
+#            num[i] += '0'
+#    return num
+#shean_glac_no = get_shean_glacier_nos(rgi_regionsO1[0])
+#rgi_glac_number = shean_glac_no[0:20]
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -102,16 +87,13 @@ modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 
 #%% CONFIGURATION AND OUTPUT FILE LOCATIONS
 
-# Since mutliple scripts need to access the same locations
-# especially calibration and simulation, it is useful to have
+# Since mutliple scripts need to access the same locations especially calibration and simulation, it is useful to have
 # this info in one file
 
 # MCMC export configuration
 MCMC_output_filepath = main_directory + '/../MCMC_data/'
-MCMC_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) +
-                        'glaciers_' + str(MCMC_sample_no) + 'samples_' +
-                        str(ensemble_no) + 'ensembles_' +
-                        str(strftime("%Y%m%d")) + '.nc')
+MCMC_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'samples_' 
+                        + str(ensemble_no) + 'ensembles_' + str(strftime("%Y%m%d")) + '.nc')
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
@@ -155,13 +137,6 @@ modelparams_filepath = main_directory + '/../Calibration_datasets/'
 modelparams_filename = 'calparams_R15_20180403_nnbridx.csv'
 #modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
-
-# Grid search parameters (old)
-grid_precfactor = np.arange(0.75, 2, 0.25)
-grid_tempbias = np.arange(-4, 6, 2)
-grid_ddfsnow = np.arange(0.0031, 0.0056, 0.0005)
-grid_precgrad = np.arange(0.0001, 0.0007, 0.0002)
-
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -442,28 +417,6 @@ massbal_uncertainty_mwea = 0.1
 #  single refers to tolerance if only a single calibration point since we want this to be more exact
 zscore_tolerance_all = 1
 zscore_tolerance_single = 0.1
-
-
-# Geodetic mass balance dataset
-# Filepath
-cal_mb_filepath = main_directory + '/../DEMs/'
-# Filename
-cal_mb_filedict = {
-                   13: 'geodetic_glacwide_DShean20171211_13_CentralAsia.csv',
-                   14: 'geodetic_glacwide_DShean20171211_14_SouthAsiaWest.csv',
-                   15: 'geodetic_glacwide_DShean20171211_15_SouthAsiaEast.csv'}
-# RGIId column name
-cal_rgi_colname = 'RGIId'
-# Climatic mass balance column name (used in calibration and select_nnbr)
-mbclim_cn = 'mbclim_mwe'
-# Mass balance column name
-massbal_colname = 'mb_mwea'
-# Mass balance uncertainty column name
-massbal_uncertainty_colname = 'mb_mwea_sigma'
-# Mass balance date 1 column name
-massbal_time1 = 'year1'
-# Mass balance date 1 column name
-massbal_time2 = 'year2'
 
 # Calibration output filename prefix (grid search)
 calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'

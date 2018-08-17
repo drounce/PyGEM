@@ -44,8 +44,6 @@ class MBData():
             self.t1_cn = input.shean_time1_cn
             self.t2_cn = input.shean_time2_cn
             self.area_cn = input.shean_area_cn
-#            self.mb_vol_cn = input.shean_vol_cn
-#            self.mb_vol_err_cn = input.shean_vol_err_cn
             
         elif self.name == 'brun':
             self.data_fp = input.brun_fp,
@@ -196,6 +194,7 @@ class MBData():
                                                   (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
                 ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
                                                   (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
+            ds['t1_idx'] = ds['t1_idx'].astype(int)
             # Specific mass balance [mwea]
             ds['mb_mwe'] = ds[self.mb_mwea_cn] * (ds['t2'] - ds['t1'])
             ds['mb_mwe_err'] = ds[self.mb_mwea_err_cn] * (ds['t2'] - ds['t1']) 

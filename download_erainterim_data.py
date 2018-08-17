@@ -190,13 +190,11 @@ if not os.path.isfile(input.eraint_fp + input.eraint_lr_fn):
         elev = -input.R_gas*input.temp_std/(input.gravity*input.molarmass_air)*np.log(levels/input.pressure_std)
         # Compute lapse rate
         for lat in range(0,latitude[:].shape[0]):
-            if (20 <= latitude[lat] <= 50):
-                for lon in range(0,longitude[:].shape[0]):
-                    if (60 <= longitude[lon] <= 107):
-                        print(latitude[lat], longitude[lon])
-                        data_subset = data['t'].isel(latitude=lat, longitude=lon).values
-                        lapserate[:,lat,lon] = (((elev * data_subset).mean(axis=1) - elev.mean() * data_subset.mean(axis=1)) / 
-                                                ((elev**2).mean() - (elev.mean())**2))    
+            print(latitude[lat])
+            for lon in range(0,longitude[:].shape[0]):
+                data_subset = data['t'].isel(latitude=lat, longitude=lon).values
+                lapserate[:,lat,lon] = (((elev * data_subset).mean(axis=1) - elev.mean() * data_subset.mean(axis=1)) / 
+                                        ((elev**2).mean() - (elev.mean())**2))    
     # Option 2 is based on surrouding pixel data
     elif input.option_lr_method == 2: 
         # Compute lapse rates from temperature and elevation of surrouding pixels
@@ -206,16 +204,13 @@ if not os.path.isfile(input.eraint_fp + input.eraint_lr_fn):
             # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
             elev = geopotential.z.values[0,:,:] / 9.80665
         # Compute lapse rate
-        for lat in range(0,latitude[:].shape[0]):
-            if (20 <= latitude[lat] <= 50):
-                print('latitude:',latitude[lat])
-                for lon in range(0,longitude[:].shape[0]):
-                    if (60 <= longitude[lon] <= 107):
-                        
-                        elev_subset = elev[lat-1:lat+2, lon-1:lon+2]
-                        temp_subset = temp.t2m[:, lat-1:lat+2, lon-1:lon+2].values
-                        #  time, latitude, longitude
-                        lapserate[:,lat,lon] = (
-                                ((elev_subset * temp_subset).mean(axis=(1,2)) - elev_subset.mean() * temp_subset.mean(axis=(1,2))) / 
-                                ((elev_subset**2).mean() - (elev_subset.mean())**2))
+        for lat in range(1,latitude[:].shape[0]-1):
+            print('latitude:',latitude[lat])
+            for lon in range(1,longitude[:].shape[0]-1):
+                elev_subset = elev[lat-1:lat+2, lon-1:lon+2]
+                temp_subset = temp.t2m[:, lat-1:lat+2, lon-1:lon+2].values
+                #  time, latitude, longitude
+                lapserate[:,lat,lon] = (
+                        ((elev_subset * temp_subset).mean(axis=(1,2)) - elev_subset.mean() * 
+                         temp_subset.mean(axis=(1,2))) / ((elev_subset**2).mean() - (elev_subset.mean())**2))
     netcdf_output.close()

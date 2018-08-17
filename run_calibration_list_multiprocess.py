@@ -12,6 +12,7 @@ import glob
 import argparse
 import multiprocessing
 import time
+import inspect
 from time import strftime
 from datetime import datetime
 # External libraries
@@ -50,18 +51,13 @@ ftol_opt = 1e-2
 option_export = 1
 output_filepath = input.main_directory + '/../Output/'
 
-# MCMC settings
-MCMC_sample_no = input.MCMC_sample_no
-MCMC_burn_no = input.MCMC_burn_no
-ensemble_no = input.ensemble_no
-
 # MCMC export configuration
 MCMC_output_filepath = input.MCMC_output_filepath
 MCMC_output_filename = input.MCMC_output_filename
 MCMC_parallel_filepath = MCMC_output_filepath + 'parallel/'
 
 # Debugging boolean (if true, a number of print statements are activated through the running of the model)
-debug = True
+debug = False
 
 #%% FUNCTIONS
 def getparser():
@@ -209,7 +205,8 @@ def main(list_packed_vars):
 
         # ===== Define functions needed for MCMC method =====
         def run_MCMC(iterations=10, burn=0, thin=1, tune_interval=1000, step=None, tune_throughout=True, 
-                     save_interval=None, burn_till_tuned=False, stop_tuning_after=5, progress_bar=True, dbname=None):
+                     save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0, progress_bar=True, 
+                     dbname=None):
             """
             Runs the MCMC algorithm.
 
@@ -244,6 +241,8 @@ def main(list_packed_vars):
             stop_tuning_after: int
                 The number of untuned successive tuning interval needed to be reached in order for the burn-in phase to 
                 be done (if burn_till_tuned is True) (default 5).
+            verbose : int
+                An integer controlling the verbosity of the models output for debugging (default 0).
             progress_bar : boolean
                 Display progress bar while sampling (default True).
             dbname : str
@@ -278,49 +277,12 @@ def main(list_packed_vars):
             # sample
             model.sample(iter=iterations, burn=burn, thin=thin,
                          tune_interval=tune_interval, tune_throughout=tune_throughout,
-                         save_interval=save_interval, progress_bar=progress_bar)
+                         save_interval=save_interval, verbose=verbose, progress_bar=progress_bar)
 
             #close database
             model.db.close()
 
             return model
-
-
-        def get_glacier_data(glacier_number):
-            """
-            Returns the mass balance and error estimate for the glacier from David Shean's DEM data
-
-            Parameters
-            ----------
-            glacier_number : float
-                RGI Id of the glacier for which data is to be returned. Should be a number with a one or two digit 
-                component before the decimal place signifying glacier region, and 5 numbers after the decimal which 
-                represent glacier number.
-                Example: 15.03733 for glacier 3733 in region 15
-
-            Returns
-            -------
-            (tuple)
-            massbal : float
-                Mean annual massbalance over david sheans's dataset.
-            stdev : float
-                Estimated error (standard deviation) of measurement.
-            index : int
-                Index of glacier in csv file for debugging.
-            """
-
-            #convert input to float
-            glacier_number = float(glacier_number)
-            # upload csv file of DEM data and convert to dataframe
-            csv_path = input.shean_fp + input.shean_fn
-            df = pd.read_csv(csv_path)
-            # locate the row corresponding to the glacier with the given RGIId number
-            row = df.loc[round(df['RGIId'], 5) == glacier_number]
-            # get massbalance, standard deviation and index of the glacier (index used for debugging)
-            index = row.index[0]
-            massbal = row['mb_mwea'][index]
-            stdev = row['mb_mwea_sigma'][index]
-            return massbal, stdev, index
 
 
         def process_df(df):
@@ -382,40 +344,40 @@ def main(list_packed_vars):
             glacier_cal_data = ((cal_data.iloc[np.where(
                     glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
 
-            # find the observed mass balance and measurement error from David Shean's geodetic mass balance data
-            glacier_RGIId = main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float']
-
+            # Select observed mass balance, error, and time data
+            cal_idx = glacier_cal_data.index.values[0]
+            #  Note: index to main_glac_rgi may differ from cal_idx
+            t1 = glacier_cal_data.loc[cal_idx, 't1']
+            t2 = glacier_cal_data.loc[cal_idx, 't2']
+            t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
+            t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+            observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
+            observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
+            
             if debug:
-                print('RGIId:', glacier_RGIId, 'type:', type(glacier_RGIId))
+                print('observed_massbal:',observed_massbal, 'observed_error:',observed_error)
 
-            observed_massbal, observed_error, index = get_glacier_data(glacier_RGIId)
-
-            if debug:
-                print('observed_massbal:',observed_massbal, 'observed_error:',observed_error, 'index:',index)
-
-            # ==== Define the Markov Chain Monte Carlo Model =============
-
-            # First: Create prior probability distributions, based on current understanding of ranges
-
-            # Precipitation factor (range 0.5 to 2)
-            #  Assume prior probability range is represented by a gamma function with shape parameter alpha=6.33 
-            #  (also known as k) and rate parameter beta=6 (inverse of scale parameter theta).
-            precfactor = pymc.Gamma('precfactor', alpha=6.33, beta=6)
-
-            # Degree day of snow (range 0.0026 to 0.0056, Braithwaite 2008)
-            #  Assume this has an a priori probability which follows a normal distribution
+            # ==== DEFINE MARKOV CHAIN MONTE CARLO METHOD =====
+            # Prior probability distributions, based on current understanding of ranges
+            # Degree day of snow
             ddfsnow = pymc.Normal('ddfsnow', mu=0.0041, tau=444444)
+            #  normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 (Braithwaite, 2008)
+            # Precipitation factor 
+            precfactor = pymc.Uniform('precfactor', lower=0, upper=3)
+            #  uniform distribution (0 to 3) reflects that we have no knowledge of bias in precipitation data
+#            precfactor = pymc.Gamma('precfactor', alpha=6.33, beta=6)
+            #  gamma distrubtion with shape parameter alpha=6.33 (also known as k) and rate parameter beta=6 (inverse 
+            #  of scale parameter theta) assumes that the bias will be centered around 1, but can vary from 0.5 to 2.            
+            # Temperature change
+            tempchange = pymc.Uniform('tempchange', lower=-10, upper=10)
+            #  uniform distribution (-10 to 10) reflects that we have no knowledge of bias in temperature data
+#            tempchange = pymc.Normal('tempchange', mu=0, tau=0.25)
+            #  normal distribution with mean 0 and 95% bounds around -5 to 5
 
-            # Temperature change, (range -5 to 5)
-            #  Assume this has an a priori probability which follows a normal distributinos
-            tempchange = pymc.Normal('tempchange', mu=0, tau=0.25)
-
-            # Here we define the deterministic function in the MCMC model. This allows us to define our a priori
-            # probobaility distribution based our model beliefs.
+            # Define deterministic function for MCMC model based on our a priori probobaility distributions.
             @deterministic(plot=False)
             def massbal(precfactor=precfactor, ddfsnow=ddfsnow, tempchange=tempchange):
-                # make of copy of the model parameters and change the parameters of interest based on the probability 
-                # distribtions we have given
+                # Copy model parameters and change them based on the probability distribtions we have given
                 modelparameters_copy = modelparameters.copy()
                 if precfactor is not None:
                     modelparameters_copy[2] = float(precfactor)
@@ -423,7 +385,6 @@ def main(list_packed_vars):
                     modelparameters_copy[4] = float(ddfsnow)
                 if tempchange is not None:
                     modelparameters_copy[7] = float(tempchange)
-
                 # Mass balance calculations
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -437,8 +398,8 @@ def main(list_packed_vars):
                 # From the mass balance calculations, which are computed on a monthly time scale, we average the results
                 # over an annual basis for the time period of David Shean's geodetic mass balance observations, so we 
                 # can directly compare model results to these observations
-                return glac_wide_massbaltotal[4:].sum() / (2015.75-2000.112)
-
+                return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)
+            
             # Observed distribution
             #  This observation data defines the observed likelihood of the mass balances, and allows us to fit the 
             #  probability distribution of the mass balance to the results.
@@ -448,9 +409,8 @@ def main(list_packed_vars):
             # =============================================================
 
             # fit the MCMC model
-            model = run_MCMC(iterations=MCMC_sample_no, burn=MCMC_burn_no)
-#                             dbname=(str(MCMC_sample_no) + 'Samples_' +
-#                                     str(glacier_RGIId * 100000)[2:-2] + '.pickle'))
+            model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no)
+
             # get variables
             tempchange = model.trace('tempchange')[:]
             precfactor = model.trace('precfactor')[:]
@@ -464,7 +424,7 @@ def main(list_packed_vars):
                 print('massbalance', massbal)
 
             sampling = es.stratified_sample(tempchange=tempchange, precfactor=precfactor,
-                                            ddfsnow=ddfsnow, massbal=massbal, samples=ensemble_no)
+                                            ddfsnow=ddfsnow, massbal=massbal, samples=input.ensemble_no)
             mean = np.mean(sampling['massbal'])
             std = np.std(sampling['massbal'])
 
@@ -482,11 +442,11 @@ def main(list_packed_vars):
 
             if debug:
                 print(df)
-                print(str(glacier_RGIId))
+                print(str(glacier_rgi_table['RGIId_float']))
 
             # convert dataframe to dataarray, name it according to the glacier number
             da = xr.DataArray(df)
-            da.name = str(glacier_RGIId)
+            da.name = str(glacier_rgi_table['RGIId_float'])
 
             # create xr.dataset and then save to netcdf files
             ds = xr.Dataset({da.name: da})
@@ -1383,13 +1343,13 @@ def main(list_packed_vars):
 #                              gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + 
 #                              '_' + str(count) + '.csv')
 #            main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
-#        
-#    # Export variables as global to view in variable explorer
-#    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
-#        global main_vars
-#        main_vars = inspect.currentframe().f_locals
-#
-#    print('\nProcessing time of', gcm_name, 'for', count,':',time.time()-time_start, 's')
+        
+    # Export variables as global to view in variable explorer
+    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
+        global main_vars
+        main_vars = inspect.currentframe().f_locals
+
+    print('\nProcessing time of', gcm_name, 'for', count,':',time.time()-time_start, 's')
 
 #%% PARALLEL PROCESSING
 if __name__ == '__main__':
