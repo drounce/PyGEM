@@ -114,6 +114,21 @@ class MBData():
     def retrieve_mb(self, main_glac_rgi, main_glac_hyps, dates_table):
         """
         Retrieve the mass balance for various datasets to be used in the calibration.
+        
+        
+        Parameters
+        ----------
+        main_glac_rgi : pandas dataframe
+            dataframe containing relevant rgi glacier information
+        main_glac_hyps : pandas dataframe
+            dataframe containing glacier hypsometry
+        dates_table : pandas dataframe
+            dataframe containing dates of model run
+        
+        Returns
+        -------
+        ds_output : pandas dataframe
+            dataframe of mass balance observations and other relevant information for calibration 
         """       
         # Column names of output
         ds_output_cols = ['RGIId', 'glacno', 'group_name', 'obs_type', 'mb_mwe', 'mb_mwe_err', 'sla_m',  'z1_idx', 

@@ -18,7 +18,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12
-    annual_columns = np.unique(dates_table['wateryear'].values)
+#    annual_columns = np.unique(dates_table['wateryear'].values)
+    annual_columns = np.arange(0, int(dates_table.shape[0] / 12))
     # Variables to export
     glac_bin_temp = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
     glac_bin_prec = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
@@ -247,19 +248,23 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 #  note: the glacier's lowermost bin does not have to be the lowest elevation bin.  It's possible that 
                 #        a glacier has retreated such that it's lowest elevation bin is not at sea-level, yet the
                 #        the glacier is still marine-terminating.
-                if icethickness_t0[glac_idx_t0[0]] > (elev_bins[glac_idx_t0[0] + 1] - elev_bins[glac_idx_t0[0]]):
-                    # Estimate height of calving front (height_calving)
-                    # Glacier length [m]
-                    length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
-                    height_calving_1 = input.af*length**0.5
-                    waterdepth = icethickness_t0[0] - (elev_bins[1] - elev_bins[0])
-                    height_calving_2 = input.density_water / input.density_ice * waterdepth
-                    height_calving = np.max([height_calving_1, height_calving_2])
-                    glac_bin_frontalablation[0,step] = np.min([0, (-1 * input.calving_parameter * waterdepth * 
-                                                                   height_calving)])
-                    print('first ice thickness:', )
-                    print('ice thickness:', icethickness_t0[0].round(0), 'waterdepth:', waterdepth.round(0), 
-                          'height calving front:', height_calving.round(0))
+#                if icethickness_t0[glac_idx_t0[0]] > (elev_bins[glac_idx_t0[0] + 1] - elev_bins[glac_idx_t0[0]]):
+#                    
+#                    # THE ABOVE IF STATEMENT DOES NOT WORK SINCE IT DEALS WITH FIRST GLACIER INDEX, THIS WOULD MAKE
+#                    # EVERY GLACIER WITH THICKNESS > 10 M HAVE FRONTAL ABLATION
+#                    
+#                    # Estimate height of calving front (height_calving)
+#                    # Glacier length [m]
+#                    length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
+#                    height_calving_1 = input.af*length**0.5
+#                    waterdepth = icethickness_t0[0] - (elev_bins[1] - elev_bins[0])
+#                    height_calving_2 = input.density_water / input.density_ice * waterdepth
+#                    height_calving = np.max([height_calving_1, height_calving_2])
+#                    glac_bin_frontalablation[0,step] = np.min([0, (-1 * input.calving_parameter * waterdepth * 
+#                                                                   height_calving)])
+#                    print('first ice thickness:', )
+#                    print('ice thickness:', icethickness_t0[0].round(0), 'waterdepth:', waterdepth.round(0), 
+#                          'height calving front:', height_calving.round(0))
                     
                     # CURRENT UNITS: M**3 OF ICE, annually
                     

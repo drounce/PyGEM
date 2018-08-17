@@ -20,9 +20,9 @@ option_calibration = 2
 
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-MCMC_sample_no = 10
+MCMC_sample_no = 1000
 MCMC_burn_no = 0
-ensemble_no = 2
+ensemble_no = 50
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
@@ -296,7 +296,8 @@ option_wateryear = 3
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
-# User specified start/end months and days
+# User specified start/end dates
+#  note: start and end dates must refer to whole years 
 startmonthday = '06-01'
 endmonthday = '05-31'
 # Water year starting month
