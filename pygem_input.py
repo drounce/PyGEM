@@ -13,9 +13,10 @@ option_calibration = 2
 
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-mcmc_sample_no = 3000
+mcmc_sample_no = 100
 mcmc_burn_no = 0
-ensemble_no = 3000
+ensemble_no = 100
+mcmc_burn_plot = 10
 #mcmc_sample_no = 10
 #mcmc_burn_no = 0
 #ensemble_no = 2
@@ -27,10 +28,11 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
-                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
+#rgi_glac_number = ['05152', '02793', '02790', '05153', '03473']
+#rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
+#                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
 #rgi_glac_number = ['05152']
-#rgi_glac_number = ['03473']
+rgi_glac_number = ['03473']
 
 ## add a function to get all of Shean's glaciers
 #def get_shean_glacier_nos(region_no):

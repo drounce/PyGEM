@@ -21,8 +21,9 @@ import scipy
 from scipy.spatial.distance import cdist
 from scipy.spatial.distance import pdist, squareform
 from scipy.optimize import curve_fit
-from sklearn.gaussian_process import GaussianProcess
-from sklearn.neighbors import NearestNeighbors
+from scipy.stats.kde import gaussian_kde
+#from sklearn.gaussian_process import GaussianProcess
+#from sklearn.neighbors import NearestNeighbors
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -31,9 +32,10 @@ import cartopy
 option_plot_futuresim = 0
 option_calc_nearestneighbor = 0
 option_mb_shean_analysis = 0
-option_geodeticMB_loadcompare = 1
+option_geodeticMB_loadcompare = 0
 option_check_biasadj = 0
 option_parameter_relationships = 0
+option_MCMC_ensembles = 1
 
 option_savefigs = 1
 
@@ -117,6 +119,77 @@ def plot_caloutput(data):
     plt.title('Calibration round')
     plt.xticks([1, 2, 3])
 
+
+#%% ===== MCMC ENSEMBLE PLOTS =====
+if option_MCMC_ensembles == 1:
+    x = nc.Dataset(input.main_directory + '/../MCMC_data/parameter_sets_20glaciers_3000samples_3000ensembles_20180817.nc')
+    glac_str = '15.03473'
+    burnin_no = 1000
+    ds_all = pd.DataFrame(x[glac_str][:], index=x['runs'][:], columns=x['variables'][:])
+    ds = ds_all[burnin_no:]
+    
+    # Plot traces
+    plt.figure(figsize=(10,10))
+    plt.subplots_adjust(wspace=0.2, hspace=0.3)
+    plt.suptitle('mcmc_ensembles_' + glac_str, y=0.94)
+    # Mass balance [mwea]
+    plt.subplot(4,2,1)
+    plt.plot(ds_all.index.values[:burnin_no], ds_all.massbal.values[:burnin_no], color='r')
+    plt.plot(ds.index.values, ds.massbal.values, color='k')
+    plt.legend(['burn-in', 'chain'])
+    plt.xlabel('Step Number', size=10)
+    plt.ylabel('Mass balance\n[mwea]', size=10)
+    # estimate pdf
+    kde = gaussian_kde(ds.tempchange.values)
+    dist_space = np.linspace(-2,1,100)
+    plt.subplot(4,2,2)
+    plt.plot(dist_space, kde(dist_space))
+    plt.xlabel('Massbalance\n[mwe]', size=10)
+    plt.ylabel('PDF', size=10)
+    # Temperature bias [deg C]
+    plt.subplot(4,2,3)
+    plt.plot(ds_all.index.values[:burnin_no], ds_all.tempchange.values[:burnin_no], color='r')
+    plt.plot(ds.index.values, ds.tempchange.values, color='k')
+    plt.legend(['burn-in', 'chain'])
+    plt.xlabel('Step Number', size=10)
+    plt.ylabel('Temperature Bias\n[degC]', size=10)
+    # estimate pdf
+    kde = gaussian_kde(ds.tempchange.values)
+    dist_space = np.linspace(-10,10,100)
+    plt.subplot(4,2,4)
+    plt.plot(dist_space, kde(dist_space))
+    plt.xlabel('Temperature Bias\n[degC]', size=10)
+    plt.ylabel('PDF', size=10)
+    # Precipitation bias
+    plt.subplot(4,2,5)
+    plt.plot(ds_all.index.values[:burnin_no], ds_all.precfactor.values[:burnin_no], color='r')
+    plt.plot(ds.index.values, ds.precfactor.values, color='k')
+    plt.legend(['burn-in', 'chain'])
+    plt.xlabel('Step Number', size=10)
+    plt.ylabel('Precipitation Bias\n[-]', size=10)
+    # estimate pdf
+    kde = gaussian_kde(ds.precfactor.values)
+    dist_space = np.linspace(0,3,100)
+    plt.subplot(4,2,6)
+    plt.plot(dist_space, kde(dist_space))
+    plt.xlabel('Precipitation factor\n[-]', size=10)
+    plt.ylabel('PDF', size=10)
+    # Degree day factor of snow []
+    plt.subplot(4,2,7)
+    plt.plot(ds_all.index.values[:burnin_no], ds_all.ddfsnow.values[:burnin_no], color='r')
+    plt.plot(ds.index.values, ds.ddfsnow.values, color='k')
+    plt.legend(['burn-in', 'chain'])
+    plt.xlabel('Step Number', size=10)
+    plt.ylabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
+    # estimate pdf
+    kde = gaussian_kde(ds.ddfsnow.values)
+    dist_space = np.linspace(0.0026,0.0056,100)
+    plt.subplot(4,2,8)
+    plt.plot(dist_space, kde(dist_space))
+    plt.xlabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
+    plt.ylabel('PDF', size=10)
+    
+    
 
 #%% ===== PARAMETER RELATIONSHIPS ======
 if option_parameter_relationships == 1:
