@@ -179,7 +179,6 @@ if not os.path.isfile(input.eraint_fp + input.eraint_lr_fn):
     # Compute lapse rates
     # Option 1 is based on pressure level data
     if input.option_lr_method == 1:   
-        print('remove restriction on lat/lon')
         # Compute lapse rates from temperature pressure level data
         data = xr.open_dataset(input.eraint_fp + input.eraint_pressureleveltemp_fn) 
         # Extract the pressure levels [Pa]

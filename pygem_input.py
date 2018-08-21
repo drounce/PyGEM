@@ -6,21 +6,6 @@ from time import strftime
 
 
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
-# ===== CALIBRATION OPTIONS =====
-option_calibration = 2
-#  Option 1 - calibration using minimization (returns single parameter set)
-#  Option 2 - calibration using MCMC method (returns many parameter sets)
-
-# ===== MCMC and ensemble selections ========
-# number of MCMC samples to use
-mcmc_sample_no = 100
-mcmc_burn_no = 0
-ensemble_no = 100
-mcmc_burn_plot = 10
-#mcmc_sample_no = 10
-#mcmc_burn_no = 0
-#ensemble_no = 2
-
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
@@ -28,37 +13,11 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['05152', '02793', '02790', '05153', '03473']
+rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '03473']
 #rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
 #                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
 #rgi_glac_number = ['05152']
-rgi_glac_number = ['03473']
-
-## add a function to get all of Shean's glaciers
-#def get_shean_glacier_nos(region_no):
-#    # safety, convert input to int
-#    region_no = int(region_no)
-#    # get shean's data, convert to dataframe, get
-#    # glacier numbers
-#    csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv'
-#    df = pd.read_csv(csv_path)
-#    rgi = df['RGIId']
-#    # select only glaciers in specified region no
-#    rgi = rgi.loc[rgi >= region_no]
-#    rgi = rgi.loc[rgi < (region_no + 1)]
-#    # get only glacier numbers, convert to string
-#    num = rgi % 1
-#    num = num.round(5)
-#    num = num.astype(str)
-#    # slice string to remove decimal
-#    num = [n[2:] for n in num]
-#    # make sure there are 5 digits
-#    for i in range(len(num)):
-#        while len(num[i]) < 5:
-#            num[i] += '0'
-#    return num
-#shean_glac_no = get_shean_glacier_nos(rgi_regionsO1[0])
-#rgi_glac_number = shean_glac_no[0:20]
+rgi_glac_number = ['02699']
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -87,14 +46,22 @@ option_removeNaNcal = 1
 main_directory = os.getcwd()
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 
-#%% CONFIGURATION AND OUTPUT FILE LOCATIONS
+#%% ===== CALIBRATION OPTIONS =====
+option_calibration = 2
+#  Option 1 - calibration using minimization (returns single parameter set)
+#  Option 2 - calibration using MCMC method (returns many parameter sets)
 
-# Since mutliple scripts need to access the same locations especially calibration and simulation, it is useful to have
-# this info in one file
-
+# ===== MCMC and ensemble selections ========
+# number of MCMC samples to use
+mcmc_sample_no = 1500
+mcmc_burn_no = 500
+ensemble_no = 100
+mcmc_burn_plot = 0
 # MCMC export configuration
-MCMC_output_filepath = main_directory + '/../MCMC_data/'
-MCMC_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'samples_' 
+mcmc_output_fp = main_directory + '/../MCMC_data/'
+mcmc_output_parallel_fp = mcmc_output_fp + 'parallel/'
+mcmc_output_figs_fp = mcmc_output_fp + 'figures/'
+mcmc_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'samples_' 
                         + str(ensemble_no) + 'ensembles_' + str(strftime("%Y%m%d")) + '.nc')
 
 #%% MODEL PARAMETERS 
@@ -405,6 +372,9 @@ mb_group_t1_cn = 'begin_period'
 mb_group_t2_cn = 'end_period'
 
 
+# Minimization details
+method_opt = 'SLSQP'
+ftol_opt = 1e-2
 
 # Limit potential mass balance for future simulations option
 option_mb_envelope = 1

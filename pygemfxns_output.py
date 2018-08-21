@@ -204,12 +204,26 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
         snowline_glac_monthly.comment = "transient snowline is the line separating the snow from ice/firn"
         area_glac_annual = netcdf_output.createVariable('area_glac_annual', np.float64, 
                                                         ('glac_idx', 'year_plus1', 'sim'))
-        area_glac_annual.long_name = "glacier area"
+        if input.option_wateryear == 1:
+            area_glac_annual.long_name = "glacier area by hydrological year"
+        elif input.option_wateryear == 2:
+            area_glac_annual.long_name = "glacier area by calendar year"
+        elif input.option_wateryear == 3:
+            area_glac_annual.long_name = "glacier area by custom year"
+        else:
+            area_glac_annual.long_name = "glacier area"
         area_glac_annual.units = "km**2"
-        area_glac_annual.comment = "the area that was used for the duration of the year"
+        area_glac_annual.comment = "the area that was used for the duration of the defined start/end of year"
         volume_glac_annual = netcdf_output.createVariable('volume_glac_annual', np.float64, 
                                                           ('glac_idx', 'year_plus1', 'sim'))
-        volume_glac_annual.long_name = "glacier volume"
+        if input.option_wateryear == 1:
+            volume_glac_annual.long_name = "glacier volume by hydrological year"
+        elif input.option_wateryear == 2:
+            volume_glac_annual.long_name = "glacier volume by calendar year"
+        elif input.option_wateryear == 3:
+            volume_glac_annual.long_name = "glacier volume by custom year"
+        else:
+            volume_glac_annual.long_name = "glacier volume"
         volume_glac_annual.units = "km**3 ice"
         volume_glac_annual.comment = "the volume based on area and ice thickness used for that year"
         ELA_glac_annual = netcdf_output.createVariable('ELA_glac_annual', np.float64, ('glac_idx', 'year', 'sim'))

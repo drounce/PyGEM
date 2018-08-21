@@ -12,9 +12,7 @@ import pygem_input as input
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
                    dates_table, 
-                   option_areaconstant=0, warn_calving=1):
-    # warn_calving should be removed once calving has been developed
-    
+                   option_areaconstant=0):
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12

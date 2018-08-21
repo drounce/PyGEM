@@ -1,10 +1,5 @@
 """Run the model calibration"""
-# run_calibration_list_multiprocess.py runs calibration for glaciers and stores results in csv files.  The script runs
-# using the reference climate data.
-#    (Command line) python run_calibration_list_multiprocess.py
-#      - Default is running ERA-Interim in parallel with five processors.
-#    (Spyder) %run run_calibration_list_multiprocess.py -option_parallels=0
-#      - Spyder cannot run parallels, so always set -option_parallels=0 when testing in Spyder.
+# Spyder cannot run parallels, so always set -option_parallels=0 when testing in Spyder.
 
 # Built-in libraries
 import os
@@ -19,7 +14,6 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 import xarray as xr
-
 import pymc
 from pymc import deterministic
 import matplotlib.pyplot as plt
@@ -38,29 +32,13 @@ import class_mbdata
 import pygemfxns_ensemble_sampling as es
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
-# Glacier selection
-rgi_regionsO1 = input.rgi_regionsO1
-rgi_glac_number = input.rgi_glac_number
-
-option_calibration = 2
-option_warn_calving = 0
-
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 
-# Calibration methods
-method_opt = 'SLSQP'
-ftol_opt = 1e-2
-
 # Export option
 option_export = 1
 output_filepath = input.main_directory + '/../Output/'
-
-# MCMC export configuration
-MCMC_output_filepath = input.MCMC_output_filepath
-MCMC_output_filename = input.MCMC_output_filename
-MCMC_parallel_filepath = MCMC_output_filepath + 'parallel/'
 
 # Debugging boolean (if true, a number of print statements are activated through the running of the model)
 debug = False
@@ -124,14 +102,15 @@ def main(list_packed_vars):
     # Glacier RGI data
     main_glac_rgi_raw = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.hyps_filepath,
+    main_glac_hyps_raw = modelsetup.import_Husstable(main_glac_rgi_raw, input.rgi_regionsO1, input.hyps_filepath,
                                                      input.hyps_filedict, input.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.thickness_filepath,
-                                                             input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_icethickness_raw = modelsetup.import_Husstable(main_glac_rgi_raw, input.rgi_regionsO1, 
+                                                             input.thickness_filepath, input.thickness_filedict, 
+                                                             input.thickness_colsdrop)
     main_glac_hyps_raw[main_glac_icethickness_raw == 0] = 0
     # Width [km], average
-    main_glac_width_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.width_filepath,
+    main_glac_width_raw = modelsetup.import_Husstable(main_glac_rgi_raw, input.rgi_regionsO1, input.width_filepath,
                                                       input.width_filedict, input.width_colsdrop)
     elev_bins = main_glac_hyps_raw.columns.values.astype(int)
     # Add volume [km**3] and mean elevation [m a.s.l.]
@@ -147,7 +126,7 @@ def main(list_packed_vars):
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()
     for dataset in cal_datasets:
-        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
+        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=input.rgi_regionsO1[0])
         cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_raw, main_glac_hyps_raw, dates_table_nospinup)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])
@@ -207,7 +186,7 @@ def main(list_packed_vars):
     #           ddfsnow and precfactor. Then create an ensemble of parameter sets evenly sampled from these 
     #           distributions, and output these sets of parameters and their corresponding mass balances to be used in 
     #           the simulations.
-    if option_calibration == 2:
+    if input.option_calibration == 2:
 
         # ===== Define functions needed for MCMC method =====
         def run_MCMC(iterations=10, burn=0, thin=1, tune_interval=1000, step=None, tune_throughout=True, 
@@ -273,18 +252,16 @@ def main(list_packed_vars):
                 model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal])
             else:
                 model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal], db='pickle', dbname=dbname)
-
             # set step method if specified
             if step == 'am':
                 model.use_step_method(pymc.AdaptiveMetropolis, precfactor, delay = 1000)
                 model.use_step_method(pymc.AdaptiveMetropolis, tempchange, delay = 1000)
                 model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, delay = 1000)
-
             # sample
+            #  note: divide by zero warning here that does not affect model run
             model.sample(iter=iterations, burn=burn, thin=thin,
                          tune_interval=tune_interval, tune_throughout=tune_throughout,
                          save_interval=save_interval, verbose=verbose, progress_bar=progress_bar)
-
             #close database
             model.db.close()
 
@@ -359,7 +336,7 @@ def main(list_packed_vars):
             t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
             observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
             observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
-            
+
             if debug:
                 print('observed_massbal:',observed_massbal, 'observed_error:',observed_error)
 
@@ -370,37 +347,36 @@ def main(list_packed_vars):
             #  (Braithwaite, 2008)
             ddfsnow_mu = 0.0041
             ddfsnow_sigma = 0.0015
-            ddfsnow_a = 0.0026
-            ddfsnow_b = 0.0056
+            ddfsnow_a = -1.96
+            ddfsnow_b = 1.96
             ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_a, b=ddfsnow_b)
             # Precipitation factor 
             precfactor_mu = 0
-            precfactor_sigma = 5/6
-            precfactor_a = -2
-            precfactor_b = 2
+            precfactor_sigma = 1
+            precfactor_boundlow = -2
+            precfactor_boundhigh = 2
+            precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
+            precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
             precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
                                               a=precfactor_a, b=precfactor_b)
             #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for the
             #  bias (following the transformation) to range from 1/3 to 3.  
             #  Transformation is if x >= 0, x+1; else, 1/(1-x)
 #            precfactor = pymc.Uniform('precfactor', lower=0, upper=3)
-            #  uniform distribution (0 to 3) reflects that we have no knowledge of bias in precipitation data
-#            precfactor = pymc.Gamma('precfactor', alpha=6.33, beta=6)
-            #  gamma distrubtion with shape parameter alpha=6.33 (also known as k) and rate parameter beta=6 (inverse 
-            #  of scale parameter theta) assumes that the bias will be centered around 1, but can vary from 0.5 to 2.            
+            #  uniform distribution (0 to 3) reflects that we have no knowledge of bias in precipitation data          
             # Temperature change
             tempchange_mu = 0
-            tempchange_sigma = 2
-            tempchange_a = -10
-            tempchange_b = 10
+            tempchange_sigma = 4
+            tempchange_boundlow = -10
+            tempchange_boundhigh = 10
+            tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
+            tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
             tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
                                               a=tempchange_a, b=tempchange_b)
             #  truncated normal distribution (-10 to 10) to reflect that we have confidence in teh data, but allow for
             #  the bias to still be present.
 #            tempchange = pymc.Uniform('tempchange', lower=-10, upper=10)
-            #  uniform distribution (-10 to 10) reflects that we have no knowledge of bias in temperature data
-#            tempchange = pymc.Normal('tempchange', mu=0, tau=0.25)
-            #  normal distribution with mean 0 and 95% bounds around -5 to 5
+            #  uniform distribution (-10 to 10) reflects that we have no knowledge of bias in temperature data            
 
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
             @deterministic(plot=False)
@@ -440,6 +416,7 @@ def main(list_packed_vars):
             #  probability distribution of the mass balance to the results.
             obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
                                       value=float(observed_massbal), observed=True)
+            
             # details for plots
             obs_mb_mu = observed_massbal
             obs_mb_sigma = observed_error
@@ -448,7 +425,7 @@ def main(list_packed_vars):
 
             # fit the MCMC model
             model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no)
-            pymc.Matplot.plot(model)
+            # THERE IS A DIVIDE BY ZERO PROBLEM
             
             # get variables
             tempchange = model.trace('tempchange')[:]
@@ -459,97 +436,119 @@ def main(list_packed_vars):
             #%% Plot traces (TURN INTO FUNCTION!)
             # Details
             runs=np.arange(0,tempchange.shape[0])
+            glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
             # Plots           
             plt.figure(figsize=(10,12))
             plt.subplots_adjust(wspace=0.2, hspace=0.5)
-            plt.suptitle('mcmc_ensembles_' + '{0:0.5f}'.format(glacier_rgi_table['RGIId_float']), y=0.94)
+            plt.suptitle('mcmc_ensembles_' + glacier_str, y=0.94)
+            
             # Mass balance [mwea]
-            # plot the trace
+            # Chain
             plt.subplot(4,2,1)
-            plt.plot(runs[:input.mcmc_burn_plot], massbal[:input.mcmc_burn_plot], color='r')
+#            plt.plot(runs[:input.mcmc_burn_plot], massbal[:input.mcmc_burn_plot], color='r')
             plt.plot(runs[input.mcmc_burn_plot:], massbal[input.mcmc_burn_plot:], color='k')     
-            plt.legend(['burn-in', 'chain'])
+#            plt.legend(['burn-in', 'chain'])
             plt.xlabel('Step Number', size=10)
             plt.ylabel('Mass balance\n[mwea]', size=10)
-            # plot the observations and mcmc ensemble results
+            # Prior and posterior distributions
             plt.subplot(4,2,2)
-            x_values = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
-            plt.plot(x_values, norm.pdf(x_values, obs_mb_mu, obs_mb_sigma), color='r')
+            # prior distribution
+            z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
+            x_values = obs_mb_mu + obs_mb_sigma * z_score
+            y_values = norm.pdf(x_values, loc=obs_mb_mu, scale=obs_mb_sigma)
+            plt.plot(x_values, y_values, color='r')
+            # ensemble distribution
             kde = gaussian_kde(massbal)
             plt.plot(x_values, kde(x_values), color='b')
             plt.legend(['observed', 'ensemble'])
-            plt.xlim(obs_mb_mu - 3*observed_error, obs_mb_mu + 3*observed_error)
             plt.xlabel('Massbalance\n[mwe]', size=10)
             plt.ylabel('PDF', size=10)
+            
             # Temperature bias [deg C]
+            # Chain
             plt.subplot(4,2,3)
-            plt.plot(runs[:input.mcmc_burn_plot], tempchange[:input.mcmc_burn_plot], color='r')
+#            plt.plot(runs[:input.mcmc_burn_plot], tempchange[:input.mcmc_burn_plot], color='r')
             plt.plot(runs[input.mcmc_burn_plot:], tempchange[input.mcmc_burn_plot:], color='k')    
-            plt.legend(['burn-in', 'chain'])
+#            plt.legend(['burn-in', 'chain'])
             plt.xlabel('Step Number', size=10)
             plt.ylabel('Temperature Bias\n[degC]', size=10)
-            # plot the observations and mcmc ensemble results
+            # Prior and posterior distributions
             plt.subplot(4,2,4)
-            a, b = (tempchange_a - tempchange_mu) / tempchange_sigma, (tempchange_b - tempchange_mu) / tempchange_sigma
-            x_values = np.linspace(truncnorm.ppf(0.01, a, b), truncnorm.ppf(0.99, a, b), 100)
-            plt.plot(x_values, truncnorm.pdf(x_values, a, b, loc=tempchange_mu, scale=tempchange_sigma), color='r')
+            # prior distribution
+            z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b), 
+                                  truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
+            x_values = tempchange_mu + tempchange_sigma * z_score
+            y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu, scale=tempchange_sigma)
+            plt.plot(x_values, y_values, color='r')
+            # posterior distribution
             kde = gaussian_kde(tempchange)
             plt.plot(x_values, kde(x_values), color='b')
             plt.legend(['prior', 'posterior'])
             plt.xlabel('Temperature Bias\n[degC]', size=10)
             plt.ylabel('PDF', size=10)
-            # Precipitation bias
+            
+            # Precipitation bias [-]
+            # Chain
             plt.subplot(4,2,5)
-            plt.plot(runs[:input.mcmc_burn_plot], precfactor[:input.mcmc_burn_plot], color='r')
+#            plt.plot(runs[:input.mcmc_burn_plot], precfactor[:input.mcmc_burn_plot], color='r')
             plt.plot(runs[input.mcmc_burn_plot:], precfactor[input.mcmc_burn_plot:], color='k')    
-            plt.legend(['burn-in', 'chain'])
+#            plt.legend(['burn-in', 'chain'])
             plt.xlabel('Step Number', size=10)
             plt.ylabel('Precipitation Bias\n[-]', size=10)
-            # plot the observations and mcmc ensemble results
+            # Prior and posterior distributions
             plt.subplot(4,2,6)
-            a, b = (precfactor_a - precfactor_mu) / precfactor_sigma, (precfactor_b - precfactor_mu) / precfactor_sigma
-            x_values = np.linspace(truncnorm.ppf(0.01, a, b), truncnorm.ppf(0.99, a, b), 100)
-            y_values = truncnorm.pdf(x_values, a, b, loc=precfactor_mu, scale=precfactor_sigma)
+            # prior distribution
+            z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b), 
+                                  truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
+            x_values = precfactor_mu + precfactor_sigma * z_score
+            y_values = truncnorm.pdf(x_values, precfactor_a, precfactor_b, loc=precfactor_mu, scale=precfactor_sigma)
+            # transform the precfactor values from the truncated normal to the actual values
+            x_transformed = x_values.copy()
+            x_transformed[x_transformed >= 0] = x_transformed[x_transformed >= 0] + 1
+            x_transformed[x_transformed < 0] = 1 / (1 - x_transformed[x_transformed < 0])
+            plt.plot(x_transformed, y_values, color='r')
+            # posterior distribution
             kde = gaussian_kde(precfactor)
             y_values_kde = kde(x_values)
-            # transform the precfactor values from the truncated normal to the actual values
-            x_values[x_values >= 0] = x_values[x_values >= 0] + 1
-            x_values[x_values < 0] = 1 / (1 - x_values[x_values < 0])
-            plt.plot(x_values, y_values, color='r')
-            plt.plot(x_values, y_values_kde, color='b')
+            plt.plot(x_transformed, y_values_kde, color='b')
             plt.legend(['prior', 'posterior'])
             plt.xlabel('Precipitation factor\n[-]', size=10)
             plt.ylabel('PDF', size=10)
-            # Degree day factor of snow []
+            
+            # Degree day factor of snow [mwe degC-1 d-1]
+            # Chain
             plt.subplot(4,2,7)
-            plt.plot(runs[:input.mcmc_burn_plot], ddfsnow[:input.mcmc_burn_plot], color='r')
+#            plt.plot(runs[:input.mcmc_burn_plot], ddfsnow[:input.mcmc_burn_plot], color='r')
             plt.plot(runs[input.mcmc_burn_plot:], ddfsnow[input.mcmc_burn_plot:], color='k')   
-            plt.legend(['burn-in', 'chain'])
+#            plt.legend(['burn-in', 'chain'])
             plt.xlabel('Step Number', size=10)
             plt.ylabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
-            # plot the observations and mcmc ensemble results
-#            plt.subplot(4,2,8)
-#            ddfsnow_a = ddfsnow_a * 1000
-#            ddfsnow_b = ddfsnow_b * 1000
-#            ddfsnow_mu = ddfsnow_mu * 1000
-#            ddfsnow_sigma = ddfsnow_sigma * 1000
-#            ddfsnow = ddfsnow*1000
-#            ddfsnow_mu = 4.1
-#            ddfsnow_sigma = 1.5
-#            ddfsnow_a = 2.6
-#            ddfsnow_b = 5.6
-#            ddfsnow = model.trace('ddfsnow')[:] * 1000
-##            a, b = (ddfsnow_a - ddfsnow_mu) / ddfsnow_sigma, (ddfsnow_b - ddfsnow_mu) / ddfsnow_sigma
-#            x_values = np.linspace(truncnorm.ppf(0.01, a, b), truncnorm.ppf(0.99, a, b), 100)
-##            y_values = truncnorm.pdf(x_values, a, b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
-##            plt.plot(x_values, y_values, color='r')
-#            kde = gaussian_kde(ddfsnow)
-#            plt.plot(x_values, kde(x_values), color='b')
-##            plt.legend(['prior', 'posterior'])
-##            plt.xlim(ddfsnow_mu - 1*ddfsnow_sigma, ddfsnow_mu + 3*ddfsnow_sigma)
-#            plt.xlabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
-#            plt.ylabel('PDF', size=10)
-#            plt.show()
+            # Prior and posterior distributions
+            plt.subplot(4,2,8)
+            # prior distribution
+            z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b), 
+                                  truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
+            x_values = ddfsnow_mu + ddfsnow_sigma * z_score
+            y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
+            plt.plot(x_values, y_values, color='r')
+            kde = gaussian_kde(ddfsnow)
+            plt.plot(x_values, kde(x_values), color='b')
+            plt.legend(['prior', 'posterior'])
+            plt.xlabel('Degree day factor of snow\n[mmwe degC-1 d-1]', size=10)
+            plt.ylabel('PDF', size=10)
+            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_chains.png', bbox_inches='tight')
+            # Save plots automatically generated by PYMC
+            pymc.Matplot.plot(model, path=input.mcmc_output_fp)
+            ddfsnow_fullfn = input.mcmc_output_figs_fp + glacier_str + '_ddfsnow.png'
+            precfactor_fullfn = input.mcmc_output_figs_fp + glacier_str + '_precfactor.png'
+            tempchange_fullfn = input.mcmc_output_figs_fp + glacier_str + '_tempchange.png'
+            if os.path.isfile(ddfsnow_fullfn):
+                os.remove(ddfsnow_fullfn)
+                os.remove(precfactor_fullfn)
+                os.remove(tempchange_fullfn)
+            os.rename(input.mcmc_output_fp + 'ddfsnow.png', ddfsnow_fullfn)
+            os.rename(input.mcmc_output_fp + 'precfactor.png', precfactor_fullfn)
+            os.rename(input.mcmc_output_fp + 'tempchange.png', tempchange_fullfn)
             #%%
 
             if debug:
@@ -563,8 +562,8 @@ def main(list_packed_vars):
             mean = np.mean(sampling['massbal'])
             std = np.std(sampling['massbal'])
 
-            print('observed mean:', observed_massbal , 'observed std', observed_error)
-            print('ensemble mean:', mean, 'ensemble std:', std)
+            print('\nRGIId:', glacier_str, 'obs mean:', observed_massbal.round(2), 'obs std:', observed_error.round(2),
+                  'RGIId:', glacier_str, 'ens mean:', round(mean, 2), 'ens std:', round(std, 2))
 
             if debug:
                 print(type(sampling))
@@ -581,7 +580,7 @@ def main(list_packed_vars):
 
             # convert dataframe to dataarray, name it according to the glacier number
             da = xr.DataArray(df)
-            da.name = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float']) + '.nc'
+            da.name = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
 
             # create xr.dataset and then save to netcdf files
             ds = xr.Dataset({da.name: da})
@@ -589,11 +588,11 @@ def main(list_packed_vars):
             if debug:
                 print(ds)
 
-            ds.to_netcdf(MCMC_parallel_filepath + da.name + '.nc')
+            ds.to_netcdf(input.mcmc_output_parallel_fp + da.name + '.nc')
 
 
 #    # Option 1: mimize mass balance difference using three-step approach to expand solution space
-#    elif option_calibration == 1:
+#    elif input.option_calibration == 1:
 #        
 #        # ===== FUNCTIONS USED IN CALIBRATION OPTION ===== 
 #        # Optimization function: Define the function that you are trying to minimize
@@ -631,7 +630,7 @@ def main(list_packed_vars):
 #                massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
 #                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
 #                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-#                                           option_areaconstant=1, warn_calving=option_warn_calving))  
+#                                           option_areaconstant=1))  
 #            # Loop through all measurements
 #            for x in range(glacier_cal_data.shape[0]):
 #                cal_idx = glacier_cal_data.index.values[x]
@@ -857,8 +856,8 @@ def main(list_packed_vars):
 #            #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
 #            #    divide the sum_abs_zscore by 1000, which made it work in all cases.  However, methods were switched
 #            #    to 'L-BFGS-B', which may be slower, but is still effective.
-#            modelparameters_opt = minimize(objective, modelparameters_init, method=method_opt,
-#                                           bounds=modelparameters_bnds, options={'ftol':ftol_opt})
+#            modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
+#                                           bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
 #            # Record the calibration round
 #            calround = calround + 1
 #            # Record the optimized parameters
@@ -930,8 +929,8 @@ def main(list_packed_vars):
 #                tempchange_bnds = (-2,2)
 #                modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds)
 #                # Run optimization
-#                modelparameters_opt = minimize(objective, modelparameters_init, method=method_opt,
-#                                               bounds=modelparameters_bnds, options={'ftol':ftol_opt})
+#                modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
+#                                               bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
 #                # Record the calibration round
 #                calround = calround + 1
 #                # Record the optimized parameters
@@ -1003,8 +1002,8 @@ def main(list_packed_vars):
 #                tempchange_bnds = (-5,5)
 #                modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds)
 #                # Run optimization
-#                modelparameters_opt = minimize(objective, modelparameters_init, method=method_opt,
-#                                               bounds=modelparameters_bnds, options={'ftol':ftol_opt})
+#                modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
+#                                               bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
 #                # Record the calibration round
 #                calround = calround + 1
 #                # Record the optimized parameters
@@ -1064,8 +1063,8 @@ def main(list_packed_vars):
 #                    glacier_cal_data = pd.DataFrame(glacier_cal_data.loc[glacier_cal_data.index.values[np.where(
 #                            glacier_cal_data['obs_type'] == 'mb_geo')[0][0]]]).transpose()
 #                    # Run optimization
-#                    modelparameters_opt = minimize(objective, modelparameters_init, method=method_opt,
-#                                                   bounds=modelparameters_bnds, options={'ftol':ftol_opt})
+#                    modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
+#                                                   bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
 #                    # Record the calibration round
 #                    calround = calround + 1
 #                    # Record the optimized parameters
@@ -1189,8 +1188,8 @@ def main(list_packed_vars):
 #            #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
 #            #    divide the sum_abs_zscore by 1000, which made it work in all cases.  However, methods were switched
 #            #    to 'L-BFGS-B', which may be slower, but is still effective.
-#            modelparameters_opt = minimize(objective_group, modelparameters_init, method=method_opt, 
-#                                           bounds=modelparameters_bnds, options={'ftol':ftol_opt})
+#            modelparameters_opt = minimize(objective_group, modelparameters_init, method=input.method_opt, 
+#                                           bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
 #            # Record the calibration round
 #            calround = calround + 1
 #            # Record the optimized parameters
@@ -1272,8 +1271,8 @@ def main(list_packed_vars):
 #                tempchange_bnds = (-2,2)
 #                modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds) 
 #                # Run optimization
-#                modelparameters_opt = minimize(objective_group, modelparameters_init, method=method_opt, 
-#                                               bounds=modelparameters_bnds, options={'ftol':ftol_opt})
+#                modelparameters_opt = minimize(objective_group, modelparameters_init, method=input.method_opt, 
+#                                               bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
 #                # Record the calibration round
 #                calround = calround + 1
 #                # Record the optimized parameters
@@ -1355,8 +1354,8 @@ def main(list_packed_vars):
 #                tempchange_bnds = (-5,5)
 #                modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds) 
 #                # Run optimization
-#                modelparameters_opt = minimize(objective_group, modelparameters_init, method=method_opt, 
-#                                               bounds=modelparameters_bnds, options={'ftol':ftol_opt})
+#                modelparameters_opt = minimize(objective_group, modelparameters_init, method=input.method_opt, 
+#                                               bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
 #                # Record the calibration round
 #                calround = calround + 1
 #                # Record the optimized parameters
@@ -1456,25 +1455,25 @@ def main(list_packed_vars):
 #        main_glac_output = pd.concat([main_glac_output, main_glac_modelparamsopt_pd, main_glacwide_mbclim_pd], axis=1)
 #        
 #        # Export output
-#        if (option_calibration == 1) and (option_export == 1) and (('group' in cal_datasets) == True):
+#        if (input.option_calibration == 1) and (option_export == 1) and (('group' in cal_datasets) == True):
 #            # main_glac_rgi w model parameters
-#            modelparams_fn = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+#            modelparams_fn = ('cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' + 
 #                              gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + 
 #                              '.csv')
 #            main_glac_output.to_csv(input.output_filepath + modelparams_fn)
 #            # calibration comparison
-#            calcompare_fn = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' + 
+#            calcompare_fn = ('cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' + 
 #                              gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + 
 #                              '.csv')
 #            main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
-#        elif (option_calibration == 1) and (option_export == 1) and (('group' not in cal_datasets) == True):
+#        elif (input.option_calibration == 1) and (option_export == 1) and (('group' not in cal_datasets) == True):
 #            # main_glac_rgi w model parameters
-#            modelparams_fn = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' +
+#            modelparams_fn = ('cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' +
 #                              gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + 
 #                              '_' + str(count) + '.csv')
 #            main_glac_output.to_csv(input.output_filepath + modelparams_fn)
 #            # calibration comparison
-#            calcompare_fn = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' +
+#            calcompare_fn = ('cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' +
 #                              gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + 
 #                              '_' + str(count) + '.csv')
 #            main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
@@ -1497,8 +1496,8 @@ if __name__ == '__main__':
     print('Reference climate data is:', gcm_name)
 
     # Select all glaciers in a region
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                          rgi_glac_number=rgi_glac_number)
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+                                                          rgi_glac_number=input.rgi_glac_number)
     # Define chunk size for parallel processing
     if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
         chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / args.num_simultaneous_processes))
@@ -1514,13 +1513,12 @@ if __name__ == '__main__':
         list_packed_vars.append([n, chunk, chunk_size, main_glac_rgi_all, gcm_name])
 
     # if MCMC option, clear files from previous run
-    if option_calibration == 2:
+    if input.option_calibration == 2:
         # clear MCMC/config/ directory for storing netcdf files
         # for each glacier run. These files will then
         # be combined for the final output, but need to be
         # cleared from the previous run.
-        filelist = glob.glob(os.path.join(MCMC_parallel_filepath,
-                                          '*.nc'))
+        filelist = glob.glob(os.path.join(input.mcmc_output_parallel_fp, '*.nc'))
         for f in filelist:
             os.remove(f)
 
@@ -1535,27 +1533,29 @@ if __name__ == '__main__':
             main(list_packed_vars[n])
 
     # if MCMC_option, export to single file
-    if option_calibration == 2:
+    if input.option_calibration == 2:
 
         # create a dict for dataarrays
         da_dict = {}
 
         # for each .nc file in folder, upload dataset
-        for i in os.listdir(MCMC_parallel_filepath):
+        for i in os.listdir(input.mcmc_output_parallel_fp):
             if i.endswith('.nc'):
                 glacier_RGIId = i[:-3]
-                ds = xr.open_dataset(MCMC_parallel_filepath + i)
+                ds = xr.open_dataset(input.mcmc_output_parallel_fp + i)
 
                 # get dataarray, add to dictionary
                 da = ds[glacier_RGIId]
                 da_dict[glacier_RGIId] = da
+                
+                ds.close()
 
                 if debug:
                     print(da)
 
         # create final dataset with each glacier, make netcdf file
         ds = xr.Dataset(da_dict)
-        ds.to_netcdf(MCMC_output_filepath + MCMC_output_filename)
+        ds.to_netcdf(input.mcmc_output_fp + input.mcmc_output_filename)
 
         if debug:
             print(ds)
@@ -1565,8 +1565,9 @@ if __name__ == '__main__':
         if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
             (option_export == 1)):
             # Model parameters
-            output_prefix = ('cal_modelparams_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' +
-                             gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '_')
+            output_prefix = ('cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + 
+                             '_' + gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) 
+                             + '_')
             output_list = []
             for i in os.listdir(output_filepath):
                 # Append results
@@ -1580,13 +1581,13 @@ if __name__ == '__main__':
                     # Remove file after its been merged
                     os.remove(output_filepath + i)
             # Export joined files
-            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(option_calibration) + '_R' +
-                             str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(input.startyear - input.spinupyears) + 
-                             '_' + str(input.endyear) + '.csv')
+            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(input.option_calibration) + '_R' +
+                             str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+                             str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
             output_all.to_csv(output_filepath + output_all_fn)
 
             # Calibration comparison
-            output_prefix2 = ('cal_compare_opt' + str(option_calibration) + '_R' + str(rgi_regionsO1[0]) + '_' +
+            output_prefix2 = ('cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' +
                               gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + 
                               '_')
             output_list = []
@@ -1602,16 +1603,16 @@ if __name__ == '__main__':
                     # Remove file after its been merged
                     os.remove(output_filepath + i)
             # Export joined files
-            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(option_calibration) + '_R' +
-                             str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(input.startyear - input.spinupyears) + 
-                             '_' + str(input.endyear) + '.csv')
+            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(input.option_calibration) + '_R' +
+                             str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+                             str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
             output_all.to_csv(output_filepath + output_all_fn)
 
     print('Total processing time:', time.time()-time_start, 's')
 
     #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
 #    # Place local variables in variable explorer
-#    if option_calibration == 1:
+#    if input.option_calibration == 1:
 #        if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
 #            main_vars_list = list(main_vars.keys())
 #            gcm_name = main_vars['gcm_name']
@@ -1644,3 +1645,24 @@ if __name__ == '__main__':
 #            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
 #            main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
 #            main_glac_output = main_vars['main_glac_output']
+    model = main_vars['model']
+    ddfsnow_mu = main_vars['ddfsnow_mu']
+    ddfsnow_sigma = main_vars['ddfsnow_sigma']
+    ddfsnow_a = main_vars['ddfsnow_a']
+    ddfsnow_b = main_vars['ddfsnow_b']
+    precfactor_mu = main_vars['precfactor_mu']
+    precfactor_sigma = main_vars['precfactor_sigma']
+    precfactor_a = main_vars['precfactor_a']
+    precfactor_b = main_vars['precfactor_b']
+    tempchange_mu = main_vars['tempchange_mu']
+    tempchange_sigma = main_vars['tempchange_sigma']
+    tempchange_a = main_vars['tempchange_a']
+    tempchange_b = main_vars['tempchange_b']
+    obs_mb_mu = main_vars['obs_mb_mu']
+    obs_mb_sigma = main_vars['obs_mb_sigma']
+    tempchange = model.trace('tempchange')[:]
+    precfactor = model.trace('precfactor')[:]
+    ddfsnow = model.trace('ddfsnow')[:]
+    massbal = model.trace('massbal')[:]
+    glacier_rgi_table = main_vars['glacier_rgi_table']
+    
