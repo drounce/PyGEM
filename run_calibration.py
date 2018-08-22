@@ -41,6 +41,18 @@ cal_datasets = ['shean']
 #mcmc_distribution_sets = 'normal'
 mcmc_distribution_sets = 'uniform'
 
+ddfsnow_mu = 0.0041
+ddfsnow_sigma = 0.0015
+ddfsnow_a = -1.96
+ddfsnow_b = 1.96
+precfactor_mu = 0
+precfactor_sigma = 1.5
+precfactor_boundlow = -2
+precfactor_boundhigh = 2
+tempchange_mu = 0
+tempchange_sigma = 5
+tempchange_boundlow = -10
+tempchange_boundhigh = 10
 
 # Export option
 option_export = 1
@@ -195,6 +207,57 @@ def main(list_packed_vars):
     if input.option_calibration == 2:
 
         # ===== Define functions needed for MCMC method =====
+        def assign_priors(distribution_type):
+            """
+            Assigns prior distributions for model parameters.
+            
+            Assigns prior distributions for temperature change, precipitation factor, and degree day factor of snow.
+            
+            Parameters
+            ----------
+            distribution_type : str
+                Distribution type either 'normal' or 'uniform' (default normal)
+
+            Returns
+            -------
+            pymc.distributions
+                Returns a probability distribution of the temperature change, precipitation factor, degree day factor of
+                snow.  These contain information required to run the Markov Chain.
+            """
+            
+            # ==== DEFINE MARKOV CHAIN MONTE CARLO METHOD =====
+            # Prior probability distributions, based on current understanding of ranges
+            # Degree day of snow
+            #  truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
+            #  (Braithwaite, 2008)
+            ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_a, b=ddfsnow_b)
+            # Temperature change and precipitation factor depend on distribution type
+            if mcmc_distribution_sets == 'normal':
+                # Precipitation factor 
+                #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for 
+                #  bias (following the transformation) to range from 1/3 to 3.  
+                #  Transformation is if x >= 0, x+1; else, 1/(1-x)
+                precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
+                precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
+                precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
+                                                  a=precfactor_a, b=precfactor_b)
+                # Temperature change
+                #  truncated normal distribution (-10 to 10) to reflect that we have confidence in teh data, but allow
+                #  for bias to still be present.
+                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
+                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
+                tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
+                                                  a=tempchange_a, b=tempchange_b)
+            elif mcmc_distribution_sets == 'uniform':
+                # Precipitation factor
+                #  uniform distribution (0 to 3) reflects that we have no knowledge of bias in precipitation data   
+                precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh)
+                # Temperature change
+                #  uniform distribution (-10 to 10) reflects that we have no knowledge of bias in temperature data
+                tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh)
+            return ddfsnow, tempchange, precfactor
+        
+        
         def run_MCMC(iterations=10, burn=0, thin=1, tune_interval=1000, step=None, tune_throughout=True, 
                      save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0, progress_bar=True, 
                      dbname=None):
@@ -348,55 +411,52 @@ def main(list_packed_vars):
 
             # ==== DEFINE MARKOV CHAIN MONTE CARLO METHOD =====
             # Prior probability distributions, based on current understanding of ranges
-            # Degree day of snow
-            #  truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
-            #  (Braithwaite, 2008)
-            ddfsnow_mu = 0.0041
-            ddfsnow_sigma = 0.0015
-            ddfsnow_a = -1.96
-            ddfsnow_b = 1.96
-            ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_a, b=ddfsnow_b)
+            ddfsnow, tempchange, precfactor = assign_priors('normal')
             
-            if mcmc_distribution_sets == 'normal':
-                # Precipitation factor 
-                precfactor_mu = 0
-                precfactor_sigma = 1.5
-                precfactor_boundlow = -2
-                precfactor_boundhigh = 2
-                precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
-                precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
-                precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
-                                                  a=precfactor_a, b=precfactor_b)
-                #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for 
-                #  bias (following the transformation) to range from 1/3 to 3.  
-                #  Transformation is if x >= 0, x+1; else, 1/(1-x)
+#            # Degree day of snow
+#            #  truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
+#            #  (Braithwaite, 2008)
+#            ddfsnow_mu = 0.0041
+#            ddfsnow_sigma = 0.0015
+#            ddfsnow_a = -1.96
+#            ddfsnow_b = 1.96
+#            ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_a, b=ddfsnow_b)
+#            if mcmc_distribution_sets == 'normal':
+#                # Precipitation factor 
+#                #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for 
+#                #  bias (following the transformation) to range from 1/3 to 3.  
+#                #  Transformation is if x >= 0, x+1; else, 1/(1-x)
+#                precfactor_mu = 0
+#                precfactor_sigma = 1.5
+#                precfactor_boundlow = -2
+#                precfactor_boundhigh = 2
+#                precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
+#                precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
+#                precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
+#                                                  a=precfactor_a, b=precfactor_b)
+#                # Temperature change
+#                #  truncated normal distribution (-10 to 10) to reflect that we have confidence in teh data, but allow
+#                #  for bias to still be present.
+#                tempchange_mu = 0
+#                tempchange_sigma = 5
+#                tempchange_boundlow = -10
+#                tempchange_boundhigh = 10
+#                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
+#                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
+#                tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
+#                                                  a=tempchange_a, b=tempchange_b)
+#            elif mcmc_distribution_sets == 'uniform':
+#                # Precipitation factor
+#                #  uniform distribution (0 to 3) reflects that we have no knowledge of bias in precipitation data
+#                precfactor_boundlow = -2
+#                precfactor_boundhigh = 2
+#                precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh)
+#                # Temperature change
+#                #  uniform distribution (-10 to 10) reflects that we have no knowledge of bias in temperature data
+#                tempchange_boundlow = -10
+#                tempchange_boundhigh = 10
+#                tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh)
                 
-                # Temperature change
-                tempchange_mu = 0
-                tempchange_sigma = 5
-                tempchange_boundlow = -10
-                tempchange_boundhigh = 10
-                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
-                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
-                tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
-                                                  a=tempchange_a, b=tempchange_b)
-                #  truncated normal distribution (-10 to 10) to reflect that we have confidence in teh data, but allow
-                #  for bias to still be present.
-                
-            elif mcmc_distribution_sets == 'uniform':
-                # Precipitation factor
-                precfactor_boundlow = -2
-                precfactor_boundhigh = 2
-                precfactor = pymc.Uniform('precfactor', lower=-2, upper=2)
-                #  uniform distribution (0 to 3) reflects that we have no knowledge of bias in precipitation data          
-                
-                # Temperature change
-                tempchange_boundlow = -10
-                tempchange_boundhigh = 10
-                tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh)
-                #  uniform distribution (-10 to 10) reflects that we have no knowledge of bias in temperature data            
-
-
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
             @deterministic(plot=False)
             def massbal(precfactor=precfactor, ddfsnow=ddfsnow, tempchange=tempchange):
@@ -408,13 +468,11 @@ def main(list_packed_vars):
                     modelparameters_copy[4] = float(ddfsnow)
                 if tempchange is not None:
                     modelparameters_copy[7] = float(tempchange)
-                    
-                # ADD PRECIPITATION FACTOR TRANSFORMATION HERE
+                # Precipitation factor transformation
                 if modelparameters_copy[2] >= 0:
                     modelparameters_copy[2] = modelparameters_copy[2] + 1
                 else:
                     modelparameters_copy[2] = 1 / (1 - modelparameters_copy[2])
-                    
                 # Mass balance calculations
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -428,17 +486,12 @@ def main(list_packed_vars):
                 # From the mass balance calculations, which are computed on a monthly time scale, we average the results
                 # over an annual basis for the time period of David Shean's geodetic mass balance observations, so we 
                 # can directly compare model results to these observations
-                return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)
-            
+                return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)            
             # Observed distribution
             #  This observation data defines the observed likelihood of the mass balances, and allows us to fit the 
             #  probability distribution of the mass balance to the results.
             obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
                                       value=float(observed_massbal), observed=True)
-            
-            # details for plots
-            obs_mb_mu = observed_massbal
-            obs_mb_sigma = observed_error
 
             # =============================================================
 
@@ -452,8 +505,21 @@ def main(list_packed_vars):
             ddfsnow = model.trace('ddfsnow')[:]
             massbal = model.trace('massbal')[:]
             
+            
             #%% Plot traces (TURN INTO FUNCTION!)
+            
+            # 1. CONVERT THIS INTO A FUNCTION!
+            # 2. RUN COMPARISON SHOWING DIFFERENCE OF NORMAL VS. UNIFORM FOR LOTS OF GLACIERS
+            # 3. RUN THROUGH WITH NORMAL AND CHECK IF GOOD FIT, THEN CHANGE TO UNIFORM IF NOT, OR SLIDE THE DISTRIBUTIONS
+            
+            
+            
             # Details
+            precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
+            precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
+            tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
+            tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
+            
             runs=np.arange(0,tempchange.shape[0])
             glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
             # Plots           
@@ -471,8 +537,8 @@ def main(list_packed_vars):
             plt.subplot(4,2,2)
             # prior distribution
             z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
-            x_values = obs_mb_mu + obs_mb_sigma * z_score
-            y_values = norm.pdf(x_values, loc=obs_mb_mu, scale=obs_mb_sigma)
+            x_values = observed_massbal + observed_error * z_score
+            y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
             plt.plot(x_values, y_values, color='r')
             # ensemble distribution
             kde = gaussian_kde(massbal)
@@ -541,39 +607,39 @@ def main(list_packed_vars):
             plt.xlabel('Precipitation factor\n[-]', size=10)
             plt.ylabel('PDF', size=10)
             
-#            # Degree day factor of snow [mwe degC-1 d-1]
-#            # Chain
-#            plt.subplot(4,2,7)
-#            plt.plot(runs, ddfsnow, color='k')   
-#            plt.xlabel('Step Number', size=10)
-#            plt.ylabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
-#            # Prior and posterior distributions
-#            plt.subplot(4,2,8)
-#            # prior distribution
-#            z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b), 
-#                                  truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
-#            x_values = ddfsnow_mu + ddfsnow_sigma * z_score
-#            y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
-#            plt.plot(x_values, y_values, color='r')
-#            kde = gaussian_kde(ddfsnow)
-#            plt.plot(x_values, kde(x_values), color='b')
-#            plt.legend(['prior', 'posterior'])
-#            plt.xlabel('Degree day factor of snow\n[mmwe degC-1 d-1]', size=10)
-#            plt.ylabel('PDF', size=10)
-#            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_chains.png', bbox_inches='tight')
+            # Degree day factor of snow [mwe degC-1 d-1]
+            # Chain
+            plt.subplot(4,2,7)
+            plt.plot(runs, ddfsnow, color='k')   
+            plt.xlabel('Step Number', size=10)
+            plt.ylabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
+            # Prior and posterior distributions
+            plt.subplot(4,2,8)
+            # prior distribution
+            z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b), 
+                                  truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
+            x_values = ddfsnow_mu + ddfsnow_sigma * z_score
+            y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
+            plt.plot(x_values, y_values, color='r')
+            kde = gaussian_kde(ddfsnow)
+            plt.plot(x_values, kde(x_values), color='b')
+            plt.legend(['prior', 'posterior'])
+            plt.xlabel('Degree day factor of snow\n[mmwe degC-1 d-1]', size=10)
+            plt.ylabel('PDF', size=10)
+            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_chains.png', bbox_inches='tight')
             plt.show()
-#            # Save plots automatically generated by PYMC
-#            pymc.Matplot.plot(model, path=input.mcmc_output_fp)
-#            ddfsnow_fullfn = input.mcmc_output_figs_fp + glacier_str + '_ddfsnow.png'
-#            precfactor_fullfn = input.mcmc_output_figs_fp + glacier_str + '_precfactor.png'
-#            tempchange_fullfn = input.mcmc_output_figs_fp + glacier_str + '_tempchange.png'
-#            if os.path.isfile(ddfsnow_fullfn):
-#                os.remove(ddfsnow_fullfn)
-#                os.remove(precfactor_fullfn)
-#                os.remove(tempchange_fullfn)
-#            os.rename(input.mcmc_output_fp + 'ddfsnow.png', ddfsnow_fullfn)
-#            os.rename(input.mcmc_output_fp + 'precfactor.png', precfactor_fullfn)
-#            os.rename(input.mcmc_output_fp + 'tempchange.png', tempchange_fullfn)
+            # Save plots automatically generated by PYMC
+            pymc.Matplot.plot(model, path=input.mcmc_output_fp)
+            ddfsnow_fullfn = input.mcmc_output_figs_fp + glacier_str + '_ddfsnow.png'
+            precfactor_fullfn = input.mcmc_output_figs_fp + glacier_str + '_precfactor.png'
+            tempchange_fullfn = input.mcmc_output_figs_fp + glacier_str + '_tempchange.png'
+            if os.path.isfile(ddfsnow_fullfn):
+                os.remove(ddfsnow_fullfn)
+                os.remove(precfactor_fullfn)
+                os.remove(tempchange_fullfn)
+            os.rename(input.mcmc_output_fp + 'ddfsnow.png', ddfsnow_fullfn)
+            os.rename(input.mcmc_output_fp + 'precfactor.png', precfactor_fullfn)
+            os.rename(input.mcmc_output_fp + 'tempchange.png', tempchange_fullfn)
             #%%
 
             if debug:
