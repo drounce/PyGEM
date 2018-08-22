@@ -22,6 +22,7 @@ from scipy.optimize import minimize
 from scipy.stats.kde import gaussian_kde
 from scipy.stats import norm
 from scipy.stats import truncnorm
+from scipy.stats import uniform
 # Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -35,6 +36,11 @@ import pygemfxns_ensemble_sampling as es
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
+
+# Option for normal or uniform distributions
+#mcmc_distribution_sets = 'normal'
+mcmc_distribution_sets = 'uniform'
+
 
 # Export option
 option_export = 1
@@ -350,33 +356,46 @@ def main(list_packed_vars):
             ddfsnow_a = -1.96
             ddfsnow_b = 1.96
             ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_a, b=ddfsnow_b)
-            # Precipitation factor 
-            precfactor_mu = 0
-            precfactor_sigma = 1
-            precfactor_boundlow = -2
-            precfactor_boundhigh = 2
-            precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
-            precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
-            precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
-                                              a=precfactor_a, b=precfactor_b)
-            #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for the
-            #  bias (following the transformation) to range from 1/3 to 3.  
-            #  Transformation is if x >= 0, x+1; else, 1/(1-x)
-#            precfactor = pymc.Uniform('precfactor', lower=0, upper=3)
-            #  uniform distribution (0 to 3) reflects that we have no knowledge of bias in precipitation data          
-            # Temperature change
-            tempchange_mu = 0
-            tempchange_sigma = 4
-            tempchange_boundlow = -10
-            tempchange_boundhigh = 10
-            tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
-            tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
-            tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
-                                              a=tempchange_a, b=tempchange_b)
-            #  truncated normal distribution (-10 to 10) to reflect that we have confidence in teh data, but allow for
-            #  the bias to still be present.
-#            tempchange = pymc.Uniform('tempchange', lower=-10, upper=10)
-            #  uniform distribution (-10 to 10) reflects that we have no knowledge of bias in temperature data            
+            
+            if mcmc_distribution_sets == 'normal':
+                # Precipitation factor 
+                precfactor_mu = 0
+                precfactor_sigma = 1.5
+                precfactor_boundlow = -2
+                precfactor_boundhigh = 2
+                precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
+                precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
+                precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
+                                                  a=precfactor_a, b=precfactor_b)
+                #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for 
+                #  bias (following the transformation) to range from 1/3 to 3.  
+                #  Transformation is if x >= 0, x+1; else, 1/(1-x)
+                
+                # Temperature change
+                tempchange_mu = 0
+                tempchange_sigma = 5
+                tempchange_boundlow = -10
+                tempchange_boundhigh = 10
+                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
+                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
+                tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
+                                                  a=tempchange_a, b=tempchange_b)
+                #  truncated normal distribution (-10 to 10) to reflect that we have confidence in teh data, but allow
+                #  for bias to still be present.
+                
+            elif mcmc_distribution_sets == 'uniform':
+                # Precipitation factor
+                precfactor_boundlow = -2
+                precfactor_boundhigh = 2
+                precfactor = pymc.Uniform('precfactor', lower=-2, upper=2)
+                #  uniform distribution (0 to 3) reflects that we have no knowledge of bias in precipitation data          
+                
+                # Temperature change
+                tempchange_boundlow = -10
+                tempchange_boundhigh = 10
+                tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh)
+                #  uniform distribution (-10 to 10) reflects that we have no knowledge of bias in temperature data            
+
 
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
             @deterministic(plot=False)
@@ -445,9 +464,7 @@ def main(list_packed_vars):
             # Mass balance [mwea]
             # Chain
             plt.subplot(4,2,1)
-#            plt.plot(runs[:input.mcmc_burn_plot], massbal[:input.mcmc_burn_plot], color='r')
-            plt.plot(runs[input.mcmc_burn_plot:], massbal[input.mcmc_burn_plot:], color='k')     
-#            plt.legend(['burn-in', 'chain'])
+            plt.plot(runs, massbal, color='k')     
             plt.xlabel('Step Number', size=10)
             plt.ylabel('Mass balance\n[mwea]', size=10)
             # Prior and posterior distributions
@@ -467,18 +484,22 @@ def main(list_packed_vars):
             # Temperature bias [deg C]
             # Chain
             plt.subplot(4,2,3)
-#            plt.plot(runs[:input.mcmc_burn_plot], tempchange[:input.mcmc_burn_plot], color='r')
-            plt.plot(runs[input.mcmc_burn_plot:], tempchange[input.mcmc_burn_plot:], color='k')    
-#            plt.legend(['burn-in', 'chain'])
+            plt.plot(runs, tempchange, color='k')    
             plt.xlabel('Step Number', size=10)
             plt.ylabel('Temperature Bias\n[degC]', size=10)
             # Prior and posterior distributions
             plt.subplot(4,2,4)
             # prior distribution
-            z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b), 
-                                  truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
-            x_values = tempchange_mu + tempchange_sigma * z_score
-            y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu, scale=tempchange_sigma)
+            if mcmc_distribution_sets == 'normal':
+                z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b), 
+                                      truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
+                x_values = tempchange_mu + tempchange_sigma * z_score
+                y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu, scale=tempchange_sigma)
+            elif mcmc_distribution_sets == 'uniform':                
+                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
+                y_values = uniform.pdf(x_values, loc=tempchange_boundlow, 
+                                       scale=(tempchange_boundhigh - tempchange_boundlow))
             plt.plot(x_values, y_values, color='r')
             # posterior distribution
             kde = gaussian_kde(tempchange)
@@ -490,18 +511,23 @@ def main(list_packed_vars):
             # Precipitation bias [-]
             # Chain
             plt.subplot(4,2,5)
-#            plt.plot(runs[:input.mcmc_burn_plot], precfactor[:input.mcmc_burn_plot], color='r')
-            plt.plot(runs[input.mcmc_burn_plot:], precfactor[input.mcmc_burn_plot:], color='k')    
-#            plt.legend(['burn-in', 'chain'])
+            plt.plot(runs, precfactor, color='k')    
             plt.xlabel('Step Number', size=10)
             plt.ylabel('Precipitation Bias\n[-]', size=10)
             # Prior and posterior distributions
             plt.subplot(4,2,6)
             # prior distribution
-            z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b), 
+            if mcmc_distribution_sets == 'normal':
+                z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b), 
                                   truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
-            x_values = precfactor_mu + precfactor_sigma * z_score
-            y_values = truncnorm.pdf(x_values, precfactor_a, precfactor_b, loc=precfactor_mu, scale=precfactor_sigma)
+                x_values = precfactor_mu + precfactor_sigma * z_score
+                y_values = truncnorm.pdf(x_values, precfactor_a, precfactor_b, loc=precfactor_mu, 
+                                         scale=precfactor_sigma)
+            elif mcmc_distribution_sets == 'uniform':
+                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
+                y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
+                                       scale=(precfactor_boundhigh - precfactor_boundlow))
             # transform the precfactor values from the truncated normal to the actual values
             x_transformed = x_values.copy()
             x_transformed[x_transformed >= 0] = x_transformed[x_transformed >= 0] + 1
@@ -515,40 +541,39 @@ def main(list_packed_vars):
             plt.xlabel('Precipitation factor\n[-]', size=10)
             plt.ylabel('PDF', size=10)
             
-            # Degree day factor of snow [mwe degC-1 d-1]
-            # Chain
-            plt.subplot(4,2,7)
-#            plt.plot(runs[:input.mcmc_burn_plot], ddfsnow[:input.mcmc_burn_plot], color='r')
-            plt.plot(runs[input.mcmc_burn_plot:], ddfsnow[input.mcmc_burn_plot:], color='k')   
-#            plt.legend(['burn-in', 'chain'])
-            plt.xlabel('Step Number', size=10)
-            plt.ylabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
-            # Prior and posterior distributions
-            plt.subplot(4,2,8)
-            # prior distribution
-            z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b), 
-                                  truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
-            x_values = ddfsnow_mu + ddfsnow_sigma * z_score
-            y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
-            plt.plot(x_values, y_values, color='r')
-            kde = gaussian_kde(ddfsnow)
-            plt.plot(x_values, kde(x_values), color='b')
-            plt.legend(['prior', 'posterior'])
-            plt.xlabel('Degree day factor of snow\n[mmwe degC-1 d-1]', size=10)
-            plt.ylabel('PDF', size=10)
-            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_chains.png', bbox_inches='tight')
-            # Save plots automatically generated by PYMC
-            pymc.Matplot.plot(model, path=input.mcmc_output_fp)
-            ddfsnow_fullfn = input.mcmc_output_figs_fp + glacier_str + '_ddfsnow.png'
-            precfactor_fullfn = input.mcmc_output_figs_fp + glacier_str + '_precfactor.png'
-            tempchange_fullfn = input.mcmc_output_figs_fp + glacier_str + '_tempchange.png'
-            if os.path.isfile(ddfsnow_fullfn):
-                os.remove(ddfsnow_fullfn)
-                os.remove(precfactor_fullfn)
-                os.remove(tempchange_fullfn)
-            os.rename(input.mcmc_output_fp + 'ddfsnow.png', ddfsnow_fullfn)
-            os.rename(input.mcmc_output_fp + 'precfactor.png', precfactor_fullfn)
-            os.rename(input.mcmc_output_fp + 'tempchange.png', tempchange_fullfn)
+#            # Degree day factor of snow [mwe degC-1 d-1]
+#            # Chain
+#            plt.subplot(4,2,7)
+#            plt.plot(runs, ddfsnow, color='k')   
+#            plt.xlabel('Step Number', size=10)
+#            plt.ylabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
+#            # Prior and posterior distributions
+#            plt.subplot(4,2,8)
+#            # prior distribution
+#            z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b), 
+#                                  truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
+#            x_values = ddfsnow_mu + ddfsnow_sigma * z_score
+#            y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
+#            plt.plot(x_values, y_values, color='r')
+#            kde = gaussian_kde(ddfsnow)
+#            plt.plot(x_values, kde(x_values), color='b')
+#            plt.legend(['prior', 'posterior'])
+#            plt.xlabel('Degree day factor of snow\n[mmwe degC-1 d-1]', size=10)
+#            plt.ylabel('PDF', size=10)
+#            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_chains.png', bbox_inches='tight')
+            plt.show()
+#            # Save plots automatically generated by PYMC
+#            pymc.Matplot.plot(model, path=input.mcmc_output_fp)
+#            ddfsnow_fullfn = input.mcmc_output_figs_fp + glacier_str + '_ddfsnow.png'
+#            precfactor_fullfn = input.mcmc_output_figs_fp + glacier_str + '_precfactor.png'
+#            tempchange_fullfn = input.mcmc_output_figs_fp + glacier_str + '_tempchange.png'
+#            if os.path.isfile(ddfsnow_fullfn):
+#                os.remove(ddfsnow_fullfn)
+#                os.remove(precfactor_fullfn)
+#                os.remove(tempchange_fullfn)
+#            os.rename(input.mcmc_output_fp + 'ddfsnow.png', ddfsnow_fullfn)
+#            os.rename(input.mcmc_output_fp + 'precfactor.png', precfactor_fullfn)
+#            os.rename(input.mcmc_output_fp + 'tempchange.png', tempchange_fullfn)
             #%%
 
             if debug:
@@ -1645,24 +1670,24 @@ if __name__ == '__main__':
 #            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
 #            main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
 #            main_glac_output = main_vars['main_glac_output']
-    model = main_vars['model']
-    ddfsnow_mu = main_vars['ddfsnow_mu']
-    ddfsnow_sigma = main_vars['ddfsnow_sigma']
-    ddfsnow_a = main_vars['ddfsnow_a']
-    ddfsnow_b = main_vars['ddfsnow_b']
-    precfactor_mu = main_vars['precfactor_mu']
-    precfactor_sigma = main_vars['precfactor_sigma']
-    precfactor_a = main_vars['precfactor_a']
-    precfactor_b = main_vars['precfactor_b']
-    tempchange_mu = main_vars['tempchange_mu']
-    tempchange_sigma = main_vars['tempchange_sigma']
-    tempchange_a = main_vars['tempchange_a']
-    tempchange_b = main_vars['tempchange_b']
-    obs_mb_mu = main_vars['obs_mb_mu']
-    obs_mb_sigma = main_vars['obs_mb_sigma']
-    tempchange = model.trace('tempchange')[:]
-    precfactor = model.trace('precfactor')[:]
-    ddfsnow = model.trace('ddfsnow')[:]
-    massbal = model.trace('massbal')[:]
-    glacier_rgi_table = main_vars['glacier_rgi_table']
+#    model = main_vars['model']
+#    ddfsnow_mu = main_vars['ddfsnow_mu']
+#    ddfsnow_sigma = main_vars['ddfsnow_sigma']
+#    ddfsnow_a = main_vars['ddfsnow_a']
+#    ddfsnow_b = main_vars['ddfsnow_b']
+##    precfactor_mu = main_vars['precfactor_mu']
+##    precfactor_sigma = main_vars['precfactor_sigma']
+##    precfactor_a = main_vars['precfactor_a']
+##    precfactor_b = main_vars['precfactor_b']
+##    tempchange_mu = main_vars['tempchange_mu']
+##    tempchange_sigma = main_vars['tempchange_sigma']
+##    tempchange_a = main_vars['tempchange_a']
+##    tempchange_b = main_vars['tempchange_b']
+#    obs_mb_mu = main_vars['obs_mb_mu']
+#    obs_mb_sigma = main_vars['obs_mb_sigma']
+#    tempchange = model.trace('tempchange')[:]
+#    precfactor = model.trace('precfactor')[:]
+#    ddfsnow = model.trace('ddfsnow')[:]
+#    massbal = model.trace('massbal')[:]
+#    glacier_rgi_table = main_vars['glacier_rgi_table']
     

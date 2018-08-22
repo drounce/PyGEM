@@ -6,6 +6,12 @@ from time import strftime
 
 
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
+# ===== MCMC and ensemble selections ========
+# number of MCMC samples to use
+mcmc_sample_no = 2000
+mcmc_burn_no = 500
+ensemble_no = 100
+
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
@@ -17,7 +23,8 @@ rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141'
 #rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
 #                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
 #rgi_glac_number = ['05152']
-rgi_glac_number = ['02699']
+#rgi_glac_number = ['02699']
+#rgi_glac_number = ['03473']
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -51,12 +58,7 @@ option_calibration = 2
 #  Option 1 - calibration using minimization (returns single parameter set)
 #  Option 2 - calibration using MCMC method (returns many parameter sets)
 
-# ===== MCMC and ensemble selections ========
-# number of MCMC samples to use
-mcmc_sample_no = 1500
-mcmc_burn_no = 500
-ensemble_no = 100
-mcmc_burn_plot = 0
+
 # MCMC export configuration
 mcmc_output_fp = main_directory + '/../MCMC_data/'
 mcmc_output_parallel_fp = mcmc_output_fp + 'parallel/'
