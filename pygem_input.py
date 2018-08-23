@@ -8,8 +8,8 @@ from time import strftime
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-mcmc_sample_no = 2000
-mcmc_burn_no = 1000
+mcmc_sample_no = 1500
+mcmc_burn_no = 500
 ensemble_no = 1000
 
 # ===== GLACIER SELECTION =====
@@ -22,46 +22,48 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '03473']
 #rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
 #                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
-rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
-                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03892', '05142', '02910', 
-                   '02696', '02791', '03889', '02800', '10767', '10939', '02854', '04835', '04092', '04027', '03884', 
-                   '04599', '03246', '02638', '03890', '09473', '08998', '10075', '04135', '02938', '03989', '10078', 
-                   '04149', '01499', '03885', '10079', '03746', '03610', '04093', '04819', '07300', '06965', '03891', 
-                   '08988', '02936', '04818', '04118', '10182', '07024', '10300', '09918', '07132', '02785', '04293', 
-                   '02730', '10059', '10747', '07101', '03487', '03243', '02934', '10394', '08986', '10025', '10757', 
-                   '07102', '10022', '02935', '10255', '10058', '10048', '10179', '10060', '09594', '10064', '10177', 
-                   '10748', '10029', '06052', '04479', '08955', '08962', '02890', '06934', '02775', '10041', '10400', 
-                   '10722']
+#rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
+#                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03892', '05142', '02910', 
+#                   '02696', '02791', '03889', '02800', '10767', '10939', '02854', '04835', '04092', '04027', '03884', 
+#                   '04599', '03246', '02638', '03890', '09473', '08998', '10075', '04135', '02938', '03989', '10078', 
+#                   '04149', '01499', '03885', '10079', '03746', '03610', '04093', '04819', '07300', '06965', '03891', 
+#                   '08988', '02936', '04818', '04118', '10182', '07024', '10300', '09918', '07132', '02785', '04293', 
+#                   '02730', '10059', '10747', '07101', '03487', '03243', '02934', '10394', '08986', '10025', '10757', 
+#                   '07102', '10022', '02935', '10255', '10058', '10048', '10179', '10060', '09594', '10064', '10177', 
+#                   '10748', '10029', '06052', '04479', '08955', '08962', '02890', '06934', '02775', '10041', '10400', 
+#                   '10722']
 #rgi_glac_number = ['05152']
+#rgi_glac_number = ['02793']
 #rgi_glac_number = ['02699']
 #rgi_glac_number = ['03473']
 
-## add a function to get all of Shean's glaciers
-#import pandas as pd
-#def get_shean_glacier_nos(region_no):
-#    # safety, convert input to int
-#    region_no = int(region_no)
-#    # get shean's data, convert to dataframe, get
-#    # glacier numbers
-#    csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv'
-#    df = pd.read_csv(csv_path)
-#    rgi = df['RGIId']
-#    # select only glaciers in specified region no
-#    rgi = rgi.loc[rgi >= region_no]
-#    rgi = rgi.loc[rgi < (region_no + 1)]
-#    # get only glacier numbers, convert to string
-#    num = rgi % 1
-#    num = num.round(5)
-#    num = num.astype(str)
-#    # slice string to remove decimal
-#    num = [n[2:] for n in num]
-#    # make sure there are 5 digits
-#    for i in range(len(num)):
-#        while len(num[i]) < 5:
-#            num[i] += '0'
-#    return num
-#shean_glac_no = get_shean_glacier_nos(rgi_regionsO1[0])
-#rgi_glac_number = shean_glac_no[0:100]
+# add a function to get all of Shean's glaciers
+import pandas as pd
+def get_shean_glacier_nos(region_no, number_glaciers=0):
+    # safety, convert input to int
+    region_no = int(region_no)
+    # get shean's data, convert to dataframe, get
+    # glacier numbers
+    csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv'
+    ds_all = pd.read_csv(csv_path)
+    ds_reg = ds_all[(ds_all['RGIId'] > region_no) & (ds_all['RGIId'] < region_no + 1)].copy()
+    ds_reg = ds_reg.sort_values('area_m2', ascending=False)
+    ds_reg.reset_index(drop=True, inplace=True)
+    rgi = ds_reg['RGIId']
+    # get only glacier numbers, convert to string
+    num = rgi % 1
+    num = num.round(5)
+    num = num.astype(str)
+    # slice string to remove decimal
+    num = [n[2:] for n in num]
+    # make sure there are 5 digits
+    for i in range(len(num)):
+        while len(num[i]) < 5:
+            num[i] += '0'
+    if number_glaciers > 0:
+        num = num[0:number_glaciers]
+    return num
+rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 600)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -99,7 +101,7 @@ option_calibration = 2
 # MCMC export configuration
 mcmc_output_fp = main_directory + '/../MCMC_data/'
 mcmc_output_parallel_fp = mcmc_output_fp + 'parallel/'
-mcmc_output_figs_fp = mcmc_output_fp + 'figures_test/'
+mcmc_output_figs_fp = mcmc_output_fp + 'figures/'
 mcmc_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'samples_' 
                         + str(ensemble_no) + 'ensembles_' + str(strftime("%Y%m%d")) + '.nc')
 

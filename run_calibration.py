@@ -53,6 +53,22 @@ ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
 ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma  
 
+## Parameter distribution values
+#mcmc_distribution_type = 'uniform'
+#mcmc_distribution_type_2 = 'uniform' 
+#precfactor_mu = 0
+#precfactor_sigma = 1
+#precfactor_boundlow = -2
+#precfactor_boundhigh = 0
+#tempchange_mu = 0
+#tempchange_sigma = 4
+#tempchange_boundlow = 0
+#tempchange_boundhigh = 10
+#ddfsnow_mu = 0.0041
+#ddfsnow_sigma = 0.0015
+#ddfsnow_boundlow = ddfsnow_mu 
+#ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma  
+
 # Export option
 option_export = 1
 output_filepath = input.main_directory + '/../Output/'
@@ -299,7 +315,7 @@ def main(list_packed_vars):
             # Assign prior distributions
             # Temperature change and precipitation factor depend on distribution type
             if distribution_type == 'truncnormal':
-                # Precipitation factor 
+                # Precipitation factor [-]
                 #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for 
                 #  bias (following the transformation) to range from 1/3 to 3.  
                 #  Transformation is if x >= 0, x+1; else, 1/(1-x)
@@ -307,26 +323,28 @@ def main(list_packed_vars):
                 precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
                 precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
                                                   a=precfactor_a, b=precfactor_b)
-                # Temperature change
-                #  truncated normal distribution (-10 to 10) to reflect that we have confidence in teh data, but allow
+                # Temperature change [degC]
+                #  truncated normal distribution (-10 to 10) to reflect that we have confidence in the data, but allow
                 #  for bias to still be present.
                 tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
                 tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
                 tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
                                                   a=tempchange_a, b=tempchange_b)
+                # Degree day factor of snow [mwe degC-1 d-1]
+                #  truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
+                #  (Braithwaite, 2008)
+                ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
+                ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
+                ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), 
+                                               a=ddfsnow_a, b=ddfsnow_b)
             elif distribution_type == 'uniform':
-                # Precipitation factor
-                #  uniform distribution (0 to 3) reflects that we have no knowledge of bias in precipitation data   
+                # Precipitation factor [-]
                 precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh)
-                # Temperature change
-                #  uniform distribution (-10 to 10) reflects that we have no knowledge of bias in temperature data
+                # Temperature change [degC]
                 tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh)
-            # Degree day of snow
-            #  truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
-            #  (Braithwaite, 2008)
-            ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
-            ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
-            ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_a, b=ddfsnow_b)
+                # Degree day factor of snow [mwe degC-1 d-1]
+                ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_boundlow, upper=ddfsnow_boundhigh)
+            
             
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
             @deterministic(plot=False)
@@ -354,9 +372,7 @@ def main(list_packed_vars):
                                                icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=1))
-                # From the mass balance calculations, which are computed on a monthly time scale, we average the results
-                # over an annual basis for the time period of David Shean's geodetic mass balance observations, so we 
-                # can directly compare model results to these observations
+                # Return glacier-wide mass balance [mwea] for comparison
                 return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)            
             # Observed distribution
             #  This observation data defines the observed likelihood of the mass balances, and allows us to fit the 
@@ -437,9 +453,18 @@ def main(list_packed_vars):
             plt.plot(x_values, y_values, color='r')
             # ensemble distribution
             kde = gaussian_kde(massbal)
-            plt.plot(x_values, kde(x_values), color='b')
+            if massbal.min() < x_values.min():
+                x_min = massbal.min()
+            else:
+                x_min = x_values.min()
+            if massbal.max() > x_values.max():
+                x_max = massbal.max()
+            else:
+                x_max = x_values.max()
+            x_values_kde = np.linspace(x_min, x_max, 100)
+            plt.plot(x_values_kde, kde(x_values_kde), color='b')
             plt.legend(['observed', 'ensemble'])
-            plt.xlabel('Massbalance\n[mwe]', size=10)
+            plt.xlabel('Massbalance\n[mwea]', size=10)
             plt.ylabel('PDF', size=10)
             
             # Precipitation bias [-]
@@ -511,15 +536,22 @@ def main(list_packed_vars):
             # Prior and posterior distributions
             plt.subplot(4,2,8)
             # prior distribution
-            z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b), 
-                                  truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
-            x_values = ddfsnow_mu + ddfsnow_sigma * z_score
-            y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
+            if distribution_type == 'truncnormal':
+                z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b), 
+                                      truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
+                x_values = ddfsnow_mu + ddfsnow_sigma * z_score
+                y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
+            elif distribution_type == 'uniform':                
+                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
+                y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow, 
+                                       scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
             plt.plot(x_values, y_values, color='r')
+            # posterior distribution
             kde = gaussian_kde(ddfsnow)
             plt.plot(x_values, kde(x_values), color='b')
             plt.legend(['prior', 'posterior'])
-            plt.xlabel('Degree day factor of snow\n[mmwe degC-1 d-1]', size=10)
+            plt.xlabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
             plt.ylabel('PDF', size=10)
             plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_chains_' + distribution_type + ending +'.png', 
                         bbox_inches='tight')
@@ -535,6 +567,7 @@ def main(list_packed_vars):
             os.rename(input.mcmc_output_fp + 'ddfsnow.png', ddfsnow_fullfn)
             os.rename(input.mcmc_output_fp + 'precfactor.png', precfactor_fullfn)
             os.rename(input.mcmc_output_fp + 'tempchange.png', tempchange_fullfn)
+            plt.close('all')
 
 
         def process_df(df):
@@ -626,23 +659,21 @@ def main(list_packed_vars):
             plot_mc_results(distribution_type=mcmc_distribution_type)
             
             # ===== ADJUST PRIOR DISTRIBUTIONS (if necessary) ==============
-            if abs(observed_massbal - massbal.mean()) > 0.1:
-
-                # Adjust preciptiation factor
+            if abs(massbal.mean() - observed_massbal) > 0.1:
+                
+                # Adjust precipitation factor and temperature change
                 precfactor_mu_shifted = precfactor.mean()
-                if precfactor.mean() > 0:
-                    precfactor_boundlow_shifted = 0
-                    precfactor_boundhigh_shifted = precfactor_boundhigh
-                else:
+                tempchange_mu_shifted = tempchange.mean()
+                # if mass balance is too positive, then need less precipitation and more melt
+                if (massbal.mean() - observed_massbal) > 0:
                     precfactor_boundlow_shifted = precfactor_boundlow
                     precfactor_boundhigh_shifted = 0
-                    
-                # Adjust temperature change
-                tempchange_mu_shifted = tempchange.mean()
-                if tempchange.mean() > 0:
                     tempchange_boundlow_shifted = 0
                     tempchange_boundhigh_shifted = tempchange_boundhigh
+                # otherwise, if mass balance is too negative, then need more precipitation and less melt
                 else:
+                    precfactor_boundlow_shifted = 0
+                    precfactor_boundhigh_shifted = precfactor_boundhigh
                     tempchange_boundlow_shifted = tempchange_boundlow
                     tempchange_boundhigh_shifted = 0
     
@@ -685,7 +716,7 @@ def main(list_packed_vars):
             print('\nRGIId:', glacier_str, 'obs mean:', observed_massbal.round(2), 'obs std:', observed_error.round(2),
                   'RGIId:', glacier_str, 'ens mean:', round(mean, 2), 'ens std:', round(std, 2))
             if abs(observed_massbal - mean) > 0.1:
-                print(glacier_str + 'still outside bounds!\n')
+                print(glacier_str + ' still outside bounds!\n')
 
             if debug:
                 print(type(sampling))
