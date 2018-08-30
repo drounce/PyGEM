@@ -23,6 +23,7 @@ from scipy.stats.kde import gaussian_kde
 from scipy.stats import norm
 from scipy.stats import truncnorm
 from scipy.stats import uniform
+from scipy.stats import linregress
 # Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -53,21 +54,19 @@ ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
 ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma  
 
-## Parameter distribution values
-#mcmc_distribution_type = 'uniform'
-#mcmc_distribution_type_2 = 'uniform' 
-#precfactor_mu = 0
-#precfactor_sigma = 1
-#precfactor_boundlow = -2
-#precfactor_boundhigh = 0
-#tempchange_mu = 0
-#tempchange_sigma = 4
-#tempchange_boundlow = 0
-#tempchange_boundhigh = 10
-#ddfsnow_mu = 0.0041
-#ddfsnow_sigma = 0.0015
-#ddfsnow_boundlow = ddfsnow_mu 
-#ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma  
+# Label dictionaries for pairwise scatter plots
+vn_label_dict = {'massbal':'Mass balance [mwea]',
+                 'precfactor':'Precipitation factor [-]',
+                 'tempchange':'Temperature bias [degC]',
+                 'ddfsnow':'DDFsnow [mwe $degC^{-1} d^{-1}$]'}
+vn_label_nounits_dict = {'massbal':'Mass balance',
+                         'precfactor':'Prec factor',
+                         'tempchange':'Temp bias',
+                         'ddfsnow':'DDFsnow'}    
+# mcmc model parameters
+variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+# Autocorrelation lags
+acorr_maxlags = 100
 
 # Export option
 option_export = 1
@@ -222,6 +221,12 @@ def main(list_packed_vars):
     if input.option_calibration == 2:
 
         # ===== Define functions needed for MCMC method =====
+        def prec_transformation(precfactor_raw):
+            precfactor = precfactor_raw.copy()
+            precfactor[precfactor >= 0] = precfactor[precfactor >= 0] + 1
+            precfactor[precfactor < 0] = 1 / (1 - precfactor[precfactor < 0])            
+            return precfactor
+        
         def run_MCMC(distribution_type='truncnormal', 
                      precfactor_mu=precfactor_mu, precfactor_sigma=precfactor_sigma, 
                      precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
@@ -406,10 +411,9 @@ def main(list_packed_vars):
                             tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                             tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                             ddfsnow_mu=ddfsnow_mu, ddfsnow_sigma=ddfsnow_sigma, 
-                            ddfsnow_boundlow=ddfsnow_boundlow, ddfsnow_boundhigh=ddfsnow_boundhigh,
-                            ending=''):
+                            ddfsnow_boundlow=ddfsnow_boundlow, ddfsnow_boundhigh=ddfsnow_boundhigh):
             """
-            Plot autocorrelation, trace, and prior/posterior distributions for each parameter.
+            Plot trace, prior/posterior distributions, autocorrelation, and pairwise scatter for each parameter.
             
             Takes the output from the Markov Chain model and plots the results for the mass balance, temperature change,
             precipitation factor, and degree day factor of snow.  Also, outputs the plots associated with the model.
@@ -419,11 +423,35 @@ def main(list_packed_vars):
             distribution_type : str
                 Distribution type either 'truncnormal' or 'uniform' (default normal)
             glacier_RGIId_float : str
+            precfactor_mu : float
+                Mean of precipitation factor (default assigned from input)
+            precfactor_sigma : float
+                Standard deviation of precipitation factor (default assigned from input)
+            precfactor_boundlow : float
+                Lower boundary of precipitation factor (default assigned from input)
+            precfactor_boundhigh : float
+                Upper boundary of precipitation factor (default assigned from input)
+            tempchange_mu : float
+                Mean of temperature change (default assigned from input)
+            tempchange_sigma : float
+                Standard deviation of temperature change (default assigned from input)
+            tempchange_boundlow : float
+                Lower boundary of temperature change (default assigned from input)
+            tempchange_boundhigh: float
+                Upper boundary of temperature change (default assigned from input)
+            ddfsnow_mu : float
+                Mean of degree day factor of snow (default assigned from input)
+            ddfsnow_sigma : float 
+                Standard deviation of degree day factor of snow (default assigned from input)
+            ddfsnow_boundlow : float
+                Lower boundary of degree day factor of snow (default assigned from input)
+            ddfsnow_boundhigh : float
+                Upper boundary of degree day factor of snow (default assigned from input)
 
             Returns
             -------
             .png files
-                Saves .png files of each parameter.
+                Saves .png files of each plot.
             """
             precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
             precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
@@ -432,20 +460,24 @@ def main(list_packed_vars):
             ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
             ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
             
-            runs=np.arange(0,tempchange.shape[0])
-            # Plots           
-            plt.figure(figsize=(10,12))
-            plt.subplots_adjust(wspace=0.2, hspace=0.5)
+            runs=np.arange(0,tempchange.shape[0])   
+            if precfactor.shape[0] <= acorr_maxlags:
+                acorr_lags = precfactor.shape[0] - 1
+            else:
+                acorr_lags = acorr_maxlags
+            # ===== CHAIN PLOTS ===========================================================
+            plt.figure(figsize=(12,12))
+            plt.subplots_adjust(wspace=0.3, hspace=0.5)
             plt.suptitle('mcmc_ensembles_' + glacier_str + '_' + distribution_type, y=0.94)
             
             # Mass balance [mwea]
             # Chain
-            plt.subplot(4,2,1)
+            plt.subplot(4,3,1)
             plt.plot(runs, massbal, color='k')     
             plt.xlabel('Step Number', size=10)
             plt.ylabel('Mass balance\n[mwea]', size=10)
             # Prior and posterior distributions
-            plt.subplot(4,2,2)
+            plt.subplot(4,3,2)
             # prior distribution
             z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
             x_values = observed_massbal + observed_error * z_score
@@ -469,12 +501,14 @@ def main(list_packed_vars):
             
             # Precipitation bias [-]
             # Chain
-            plt.subplot(4,2,3)
-            plt.plot(runs, precfactor, color='k')    
+            plt.subplot(4,3,4)
+            # Transform precipitation 
+            precfactor_transformed = prec_transformation(precfactor)           
+            plt.plot(runs, precfactor_transformed, color='k')    
             plt.xlabel('Step Number', size=10)
-            plt.ylabel('Precipitation Bias\n[-]', size=10)
+            plt.ylabel('Precipitation factor\n[-]', size=10)
             # Prior and posterior distributions
-            plt.subplot(4,2,4)
+            plt.subplot(4,3,5)
             # prior distribution
             if distribution_type == 'truncnormal':
                 z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b), 
@@ -488,9 +522,7 @@ def main(list_packed_vars):
                 y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
                                        scale=(precfactor_boundhigh - precfactor_boundlow))
             # transform the precfactor values from the truncated normal to the actual values
-            x_transformed = x_values.copy()
-            x_transformed[x_transformed >= 0] = x_transformed[x_transformed >= 0] + 1
-            x_transformed[x_transformed < 0] = 1 / (1 - x_transformed[x_transformed < 0])
+            x_transformed = prec_transformation(x_values)
             plt.plot(x_transformed, y_values, color='r')
             # posterior distribution
             kde = gaussian_kde(precfactor)
@@ -499,15 +531,22 @@ def main(list_packed_vars):
             plt.legend(['prior', 'posterior'])
             plt.xlabel('Precipitation factor\n[-]', size=10)
             plt.ylabel('PDF', size=10)
+            # Normalized autocorrelation
+            plt.subplot(4,3,6)
+            precfactor_norm = (precfactor_transformed - precfactor_transformed.mean()) / precfactor_transformed.std()
+            plt.acorr(precfactor_norm, maxlags=acorr_lags)
+            plt.xlim(0,acorr_lags)
+            plt.xlabel('lag')
+            plt.ylabel('autocorrelation')
             
             # Temperature bias [deg C]
             # Chain
-            plt.subplot(4,2,5)
+            plt.subplot(4,3,7)
             plt.plot(runs, tempchange, color='k')    
             plt.xlabel('Step Number', size=10)
-            plt.ylabel('Temperature Bias\n[degC]', size=10)
+            plt.ylabel('Temperature bias\n[degC]', size=10)
             # Prior and posterior distributions
-            plt.subplot(4,2,6)
+            plt.subplot(4,3,8)
             # prior distribution
             if distribution_type == 'truncnormal':
                 z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b), 
@@ -524,17 +563,24 @@ def main(list_packed_vars):
             kde = gaussian_kde(tempchange)
             plt.plot(x_values, kde(x_values), color='b')
             plt.legend(['prior', 'posterior'])
-            plt.xlabel('Temperature Bias\n[degC]', size=10)
+            plt.xlabel('Temperature bias\n[degC]', size=10)
             plt.ylabel('PDF', size=10)
+            # Normalized autocorrelation
+            plt.subplot(4,3,9)
+            tempchange_norm = (tempchange - tempchange.mean()) / tempchange.std()
+            plt.acorr(tempchange_norm, maxlags=acorr_lags)
+            plt.xlim(0,acorr_lags)
+            plt.xlabel('lag')
+            plt.ylabel('autocorrelation')
             
             # Degree day factor of snow [mwe degC-1 d-1]
             # Chain
-            plt.subplot(4,2,7)
+            plt.subplot(4,3,10)
             plt.plot(runs, ddfsnow, color='k')   
             plt.xlabel('Step Number', size=10)
-            plt.ylabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
+            plt.ylabel('Degree day factor of snow\n[mwe $degC^{-1} d^{-1}$]', size=10)
             # Prior and posterior distributions
-            plt.subplot(4,2,8)
+            plt.subplot(4,3,11)
             # prior distribution
             if distribution_type == 'truncnormal':
                 z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b), 
@@ -551,23 +597,70 @@ def main(list_packed_vars):
             kde = gaussian_kde(ddfsnow)
             plt.plot(x_values, kde(x_values), color='b')
             plt.legend(['prior', 'posterior'])
-            plt.xlabel('Degree day factor of snow\n[mwe degC-1 d-1]', size=10)
+            plt.xlabel('Degree day factor of snow\n[mwe $degC^{-1} d^{-1}$]', size=10)
             plt.ylabel('PDF', size=10)
-            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_chains_' + distribution_type + ending +'.png', 
+            # Normalized autocorrelation
+            plt.subplot(4,3,12)
+            ddfsnow_norm = (ddfsnow - ddfsnow.mean()) / ddfsnow.std()
+            plt.acorr(ddfsnow_norm, maxlags=acorr_lags)
+            plt.xlim(0,acorr_lags)
+            plt.xlabel('lag')
+            plt.ylabel('autocorrelation')
+            
+            # Save figure
+            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_' + distribution_type + '_chains' +'.png', 
                         bbox_inches='tight')
-            # Save plots automatically generated by PYMC
-            pymc.Matplot.plot(model, path=input.mcmc_output_fp)
-            ddfsnow_fullfn = input.mcmc_output_figs_fp + glacier_str + '_ddfsnow_' + distribution_type + ending + '.png'
-            precfactor_fullfn = input.mcmc_output_figs_fp + glacier_str + '_precfactor_' + distribution_type + ending + '.png'
-            tempchange_fullfn = input.mcmc_output_figs_fp + glacier_str + '_tempchange_' + distribution_type + ending + '.png'
-            if os.path.isfile(ddfsnow_fullfn):
-                os.remove(ddfsnow_fullfn)
-                os.remove(precfactor_fullfn)
-                os.remove(tempchange_fullfn)
-            os.rename(input.mcmc_output_fp + 'ddfsnow.png', ddfsnow_fullfn)
-            os.rename(input.mcmc_output_fp + 'precfactor.png', precfactor_fullfn)
-            os.rename(input.mcmc_output_fp + 'tempchange.png', tempchange_fullfn)
-            plt.close('all')
+            
+            # ===== PAIRWISE SCATTER PLOTS ===========================================================
+            fig = plt.figure(figsize=(10,12))
+            plt.subplots_adjust(wspace=0.1, hspace=0.1)
+            plt.suptitle('mcmc_pairwise_scatter_' + glacier_str + '_' + distribution_type, y=0.94)
+            
+            nvars = len(variables)
+            for i, vn1 in enumerate(variables):
+                v1 = model.trace(vn1)[:]
+                if vn1 == 'precfactor':
+                    v1 = prec_transformation(v1.copy())
+                for j, vn2 in enumerate(variables):
+                    v2 = model.trace(vn2)[:]
+                    if vn2 == 'precfactor':
+                        v2 = prec_transformation(v2.copy())
+                    nsub = i * nvars + j + 1
+                    ax = fig.add_subplot(nvars, nvars, nsub)
+                    if i == j:
+                        plt.hist(v1)
+                        plt.tick_params(axis='both', bottom=False, left=False, labelleft=False, labelbottom=False)
+                    elif i > j:
+                        plt.plot(v2, v1, 'o', mfc='none', mec='black')
+                    else:
+                        # Need to plot blank, so axis remain correct
+                        plt.plot(v2, v1, 'o', mfc='none', mec='none')
+                        slope, intercept, r_value, p_value, std_err = linregress(v2, v1)
+                        text2plot = (vn_label_nounits_dict[vn2] + '/\n' + vn_label_nounits_dict[vn1] + '\n$R^2$=' + 
+                                     '{:.2f}'.format((r_value**2)))
+                        ax.text(0.5, 0.5, text2plot, transform=ax.transAxes, fontsize=14, 
+                                verticalalignment='center', horizontalalignment='center')
+                    # Plot bottom left
+                    if (i+1 == nvars) and (j == 0):
+                        plt.tick_params(axis='both', which='both', left=True, right=False, labelbottom=True, 
+                                        labelleft=True, labelright=False)
+                        plt.xlabel(vn_label_dict[vn2])
+                        plt.ylabel(vn_label_dict[vn1])
+                    # Plot bottom only
+                    elif i + 1 == nvars:
+                        plt.tick_params(axis='both', which='both', left=False, right=False, labelbottom=True, 
+                                        labelleft=False, labelright=False)
+                        plt.xlabel(vn_label_dict[vn2])
+                    # Plot left only (exclude histogram values)
+                    elif (i !=0) and (j == 0):
+                        plt.tick_params(axis='both', which='both', left=True, right=False, labelbottom=False, 
+                                        labelleft=True, labelright=False)
+                        plt.ylabel(vn_label_dict[vn1])
+                    else:
+                        plt.tick_params(axis='both', left=False, right=False, labelbottom=False, 
+                                        labelleft=False, labelright=False)
+            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_' + distribution_type + '_pairwisescatter' +'.png', 
+                        bbox_inches='tight')
 
 
         def process_df(df):
@@ -645,8 +738,9 @@ def main(list_packed_vars):
 
             # ===== RUN MARKOV CHAIN MONTE CARLO METHOD ====================
             # fit the MCMC model
-            model = run_MCMC(distribution_type=mcmc_distribution_type, iterations=input.mcmc_sample_no, 
-                             burn=input.mcmc_burn_no)
+            distribution_type = mcmc_distribution_type
+            model = run_MCMC(distribution_type=distribution_type, iterations=input.mcmc_sample_no, 
+                             burn=input.mcmc_burn_no, step=input.mcmc_step)
             # THERE IS A DIVIDE BY ZERO PROBLEM
             
             # get variables
@@ -656,11 +750,12 @@ def main(list_packed_vars):
             massbal = model.trace('massbal')[:]
             
             # plot variables
-            plot_mc_results(distribution_type=mcmc_distribution_type)
+            plot_mc_results(distribution_type=distribution_type)
             
             # ===== ADJUST PRIOR DISTRIBUTIONS (if necessary) ==============
             if abs(massbal.mean() - observed_massbal) > 0.1:
-                
+                # Adjust distribution type
+                distribution_type = mcmc_distribution_type_2
                 # Adjust precipitation factor and temperature change
                 precfactor_mu_shifted = precfactor.mean()
                 tempchange_mu_shifted = tempchange.mean()
@@ -677,14 +772,14 @@ def main(list_packed_vars):
                     tempchange_boundlow_shifted = tempchange_boundlow
                     tempchange_boundhigh_shifted = 0
     
-                model = run_MCMC(distribution_type=mcmc_distribution_type_2, 
+                model = run_MCMC(distribution_type=distribution_type, 
                                  precfactor_mu=precfactor_mu_shifted,
                                  precfactor_boundlow=precfactor_boundlow_shifted, 
                                  precfactor_boundhigh=precfactor_boundhigh_shifted,
                                  tempchange_mu=tempchange_mu_shifted, 
                                  tempchange_boundlow=tempchange_boundlow_shifted, 
                                  tempchange_boundhigh=tempchange_boundhigh_shifted,
-                                 iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no)
+                                 iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
                 # get variables
                 tempchange = model.trace('tempchange')[:]
                 precfactor = model.trace('precfactor')[:]
@@ -692,14 +787,14 @@ def main(list_packed_vars):
                 massbal = model.trace('massbal')[:]
                 
                 # plot variables
-                plot_mc_results(mcmc_distribution_type_2, 
+                plot_mc_results(distribution_type, 
                                 precfactor_mu=precfactor_mu_shifted,
                                 precfactor_boundlow=precfactor_boundlow_shifted, 
                                 precfactor_boundhigh=precfactor_boundhigh_shifted,
                                 tempchange_mu=tempchange_mu_shifted, 
                                 tempchange_boundlow=tempchange_boundlow_shifted, 
                                 tempchange_boundhigh=tempchange_boundhigh_shifted)
-            
+
             # ==============================================================
 
             if debug:
