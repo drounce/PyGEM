@@ -8,11 +8,12 @@ from time import strftime
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-mcmc_sample_no = 10000
-mcmc_burn_no = 2000
+mcmc_sample_no = 100
+mcmc_burn_no = 50
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
 mcmc_step = None
+thin_interval = 1
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15

@@ -45,14 +45,17 @@ precfactor_mu = 0
 precfactor_sigma = 1
 precfactor_boundlow = -2
 precfactor_boundhigh = 2
+precfactor_start = precfactor_mu
 tempchange_mu = 0
 tempchange_sigma = 4
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
+tempchange_start = tempchange_mu
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
-ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma  
+ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
+ddfsnow_start=ddfsnow_mu
 
 # Label dictionaries for pairwise scatter plots
 vn_label_dict = {'massbal':'Mass balance [mwea]',
@@ -234,7 +237,7 @@ def main(list_packed_vars):
                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                      ddfsnow_mu=ddfsnow_mu, ddfsnow_sigma=ddfsnow_sigma, 
                      ddfsnow_boundlow=ddfsnow_boundlow, ddfsnow_boundhigh=ddfsnow_boundhigh,
-                     iterations=10, burn=0, thin=1, tune_interval=1000, step=None, 
+                     iterations=10, burn=0, thin=input.thin_interval, tune_interval=1000, step=None, 
                      tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0, 
                      progress_bar=True, dbname=None):
             """
@@ -324,31 +327,34 @@ def main(list_packed_vars):
                 #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for 
                 #  bias (following the transformation) to range from 1/3 to 3.  
                 #  Transformation is if x >= 0, x+1; else, 1/(1-x)
-                precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
-                precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
+#                precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
+#                precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
                 precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
-                                                  a=precfactor_a, b=precfactor_b)
+                                                  a=precfactor_boundlow, b=precfactor_boundhigh, value=precfactor_start)
                 # Temperature change [degC]
                 #  truncated normal distribution (-10 to 10) to reflect that we have confidence in the data, but allow
                 #  for bias to still be present.
-                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
-                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
+#                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
+#                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
                 tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
-                                                  a=tempchange_a, b=tempchange_b)
+                                                  a=tempchange_boundlow, b=tempchange_boundhigh, value=tempchange_start)
+                
                 # Degree day factor of snow [mwe degC-1 d-1]
                 #  truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
                 #  (Braithwaite, 2008)
-                ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
-                ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
+#                ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
+#                ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
                 ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), 
-                                               a=ddfsnow_a, b=ddfsnow_b)
+                                               a=ddfsnow_boundlow, b=ddfsnow_boundhigh, value=ddfsnow_start)
             elif distribution_type == 'uniform':
                 # Precipitation factor [-]
-                precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh)
+                precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh, 
+                                          value=precfactor_start)
                 # Temperature change [degC]
-                tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh)
+                tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh, 
+                                          value=tempchange_start)
                 # Degree day factor of snow [mwe degC-1 d-1]
-                ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_boundlow, upper=ddfsnow_boundhigh)
+                ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_boundlow, upper=ddfsnow_boundhigh, value=ddfsnow_start)
             
             
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
@@ -394,6 +400,11 @@ def main(list_packed_vars):
                 model.use_step_method(pymc.AdaptiveMetropolis, precfactor, delay = 1000)
                 model.use_step_method(pymc.AdaptiveMetropolis, tempchange, delay = 1000)
                 model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, delay = 1000)
+            else:
+                model.use_step_method(pymc.Metropolis, precfactor, proposal_sd=2., proposal_distribution='Normal')
+#                model.use_step_method(pymc.AdaptiveMetropolis, precfactor, scales=1, delay = 1000)
+#                model.use_step_method(pymc.AdaptiveMetropolis, tempchange, scales=2, delay = 1000)
+#                model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, scales=0.5, delay = 1000)
             # sample
             #  note: divide by zero warning here that does not affect model run
             model.sample(iter=iterations, burn=burn, thin=thin,
@@ -608,7 +619,8 @@ def main(list_packed_vars):
             plt.ylabel('autocorrelation')
             
             # Save figure
-            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_' + distribution_type + '_chains' +'.png', 
+            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_' + distribution_type + '_chains_' + 
+                        str(input.mcmc_sample_no) + 'iter_' + str(input.mcmc_burn_no) + 'burn' + '.png', 
                         bbox_inches='tight')
             
             # ===== PAIRWISE SCATTER PLOTS ===========================================================
@@ -659,7 +671,8 @@ def main(list_packed_vars):
                     else:
                         plt.tick_params(axis='both', left=False, right=False, labelbottom=False, 
                                         labelleft=False, labelright=False)
-            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_' + distribution_type + '_pairwisescatter' +'.png', 
+            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_' + distribution_type + '_pairwisescatter_' + 
+                        str(input.mcmc_sample_no) + 'iter_' + str(input.mcmc_burn_no) + 'burn' + '.png', 
                         bbox_inches='tight')
 
 
