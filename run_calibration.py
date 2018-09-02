@@ -392,9 +392,13 @@ def main(list_packed_vars):
                                       value=float(observed_massbal), observed=True)
             # Set model
             if dbname is None:
-                model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal])
+#                model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal])
+                model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
+                                   'massbal':massbal, 'obs_massbal':obs_massbal})
             else:
-                model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal], db='pickle', dbname=dbname)
+#                model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal], db='pickle', dbname=dbname)
+                model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
+                                   'massbal':massbal, 'obs_massbal':obs_massbal}, db='pickle', dbname=dbname)
             # set step method if specified
             if step == 'am':
                 model.use_step_method(pymc.AdaptiveMetropolis, precfactor, delay = 1000)
@@ -416,7 +420,7 @@ def main(list_packed_vars):
             return model
 
 
-        def plot_mc_results(distribution_type='truncnormal', 
+        def plot_mc_results(model, distribution_type='truncnormal', 
                             precfactor_mu=precfactor_mu, precfactor_sigma=precfactor_sigma, 
                             precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
                             tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
@@ -431,6 +435,8 @@ def main(list_packed_vars):
             
             Parameters
             ----------
+            model : pymc.MCMC.MCMC
+                Model containing traces of parameters, summary statistics, etc.
             distribution_type : str
                 Distribution type either 'truncnormal' or 'uniform' (default normal)
             glacier_RGIId_float : str
@@ -464,6 +470,12 @@ def main(list_packed_vars):
             .png files
                 Saves .png files of each plot.
             """
+            
+            tempchange = model.trace('tempchange')[:]
+            precfactor = model.trace('precfactor')[:]
+            ddfsnow = model.trace('ddfsnow')[:]
+            massbal = model.trace('massbal')[:]
+            
             precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
             precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
             tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
@@ -756,68 +768,72 @@ def main(list_packed_vars):
                              burn=input.mcmc_burn_no, step=input.mcmc_step)
             # THERE IS A DIVIDE BY ZERO PROBLEM
             
-            # get variables
-            tempchange = model.trace('tempchange')[:]
-            precfactor = model.trace('precfactor')[:]
-            ddfsnow = model.trace('ddfsnow')[:]
-            massbal = model.trace('massbal')[:]
+            model.summary()
+#            mc_mean = model.massbal.stats()['mean']
+#            mc_std = model.massbal.stats()['standard deviation']
+#            mc_error = model.massbal.stats()['mc error']
+#            print(mc_mean, mc_std, mc_error)
             
             # plot variables
-            plot_mc_results(distribution_type=distribution_type)
+            plot_mc_results(model, distribution_type=distribution_type)
             
-            # ===== ADJUST PRIOR DISTRIBUTIONS (if necessary) ==============
-            if abs(massbal.mean() - observed_massbal) > 0.1:
-                # Adjust distribution type
-                distribution_type = mcmc_distribution_type_2
-                # Adjust precipitation factor and temperature change
-                precfactor_mu_shifted = precfactor.mean()
-                tempchange_mu_shifted = tempchange.mean()
-                # if mass balance is too positive, then need less precipitation and more melt
-                if (massbal.mean() - observed_massbal) > 0:
-                    precfactor_boundlow_shifted = precfactor_boundlow
-                    precfactor_boundhigh_shifted = 0
-                    tempchange_boundlow_shifted = 0
-                    tempchange_boundhigh_shifted = tempchange_boundhigh
-                # otherwise, if mass balance is too negative, then need more precipitation and less melt
-                else:
-                    precfactor_boundlow_shifted = 0
-                    precfactor_boundhigh_shifted = precfactor_boundhigh
-                    tempchange_boundlow_shifted = tempchange_boundlow
-                    tempchange_boundhigh_shifted = 0
-    
-                model = run_MCMC(distribution_type=distribution_type, 
-                                 precfactor_mu=precfactor_mu_shifted,
-                                 precfactor_boundlow=precfactor_boundlow_shifted, 
-                                 precfactor_boundhigh=precfactor_boundhigh_shifted,
-                                 tempchange_mu=tempchange_mu_shifted, 
-                                 tempchange_boundlow=tempchange_boundlow_shifted, 
-                                 tempchange_boundhigh=tempchange_boundhigh_shifted,
-                                 iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
-                # get variables
-                tempchange = model.trace('tempchange')[:]
-                precfactor = model.trace('precfactor')[:]
-                ddfsnow = model.trace('ddfsnow')[:]
-                massbal = model.trace('massbal')[:]
-                
-                # plot variables
-                plot_mc_results(distribution_type, 
-                                precfactor_mu=precfactor_mu_shifted,
-                                precfactor_boundlow=precfactor_boundlow_shifted, 
-                                precfactor_boundhigh=precfactor_boundhigh_shifted,
-                                tempchange_mu=tempchange_mu_shifted, 
-                                tempchange_boundlow=tempchange_boundlow_shifted, 
-                                tempchange_boundhigh=tempchange_boundhigh_shifted)
+#            # ===== ADJUST PRIOR DISTRIBUTIONS (if necessary) ==============
+#            if abs(massbal.mean() - observed_massbal) > 0.1:
+#                # Adjust distribution type
+#                distribution_type = mcmc_distribution_type_2
+#                # Adjust precipitation factor and temperature change
+#                precfactor_mu_shifted = precfactor.mean()
+#                tempchange_mu_shifted = tempchange.mean()
+#                # if mass balance is too positive, then need less precipitation and more melt
+#                if (massbal.mean() - observed_massbal) > 0:
+#                    precfactor_boundlow_shifted = precfactor_boundlow
+#                    precfactor_boundhigh_shifted = 0
+#                    tempchange_boundlow_shifted = 0
+#                    tempchange_boundhigh_shifted = tempchange_boundhigh
+#                # otherwise, if mass balance is too negative, then need more precipitation and less melt
+#                else:
+#                    precfactor_boundlow_shifted = 0
+#                    precfactor_boundhigh_shifted = precfactor_boundhigh
+#                    tempchange_boundlow_shifted = tempchange_boundlow
+#                    tempchange_boundhigh_shifted = 0
+#    
+#                model = run_MCMC(distribution_type=distribution_type, 
+#                                 precfactor_mu=precfactor_mu_shifted,
+#                                 precfactor_boundlow=precfactor_boundlow_shifted, 
+#                                 precfactor_boundhigh=precfactor_boundhigh_shifted,
+#                                 tempchange_mu=tempchange_mu_shifted, 
+#                                 tempchange_boundlow=tempchange_boundlow_shifted, 
+#                                 tempchange_boundhigh=tempchange_boundhigh_shifted,
+#                                 iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
+#                # get variables
+#                tempchange = model.trace('tempchange')[:]
+#                precfactor = model.trace('precfactor')[:]
+#                ddfsnow = model.trace('ddfsnow')[:]
+#                massbal = model.trace('massbal')[:]
+#                
+#                # plot variables
+#                plot_mc_results(distribution_type, 
+#                                precfactor_mu=precfactor_mu_shifted,
+#                                precfactor_boundlow=precfactor_boundlow_shifted, 
+#                                precfactor_boundhigh=precfactor_boundhigh_shifted,
+#                                tempchange_mu=tempchange_mu_shifted, 
+#                                tempchange_boundlow=tempchange_boundlow_shifted, 
+#                                tempchange_boundhigh=tempchange_boundhigh_shifted)
 
             # ==============================================================
 
             if debug:
-                print('tempchange', tempchange)
-                print('precfactor', precfactor)
-                print('ddfsnow', ddfsnow)
-                print('massbalance', massbal)
+                print('tempchange', model.trace('tempchange')[:])
+                print('precfactor', model.trace('precfactor')[:])
+                print('ddfsnow', model.trace('ddfsnow')[:])
+                print('massbalance', model.trace('massbal')[:])
 
-            sampling = es.stratified_sample(tempchange=tempchange, precfactor=precfactor,
-                                            ddfsnow=ddfsnow, massbal=massbal, samples=input.ensemble_no)
+            sampling = es.stratified_sample(tempchange=model.trace('tempchange')[:], 
+                                            precfactor=model.trace('precfactor')[:],
+                                            ddfsnow=model.trace('ddfsnow')[:], 
+                                            massbal=model.trace('massbal')[:], 
+                                            samples=input.ensemble_no)
+            
             mean = np.mean(sampling['massbal'])
             std = np.std(sampling['massbal'])
 
@@ -851,6 +867,9 @@ def main(list_packed_vars):
 
             ds.to_netcdf(input.mcmc_output_parallel_fp + da.name + '.nc')
 
+        # ==============================================================
+        
+        
 
 #    # Option 1: mimize mass balance difference using three-step approach to expand solution space
 #    elif input.option_calibration == 1:

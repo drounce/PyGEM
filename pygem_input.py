@@ -8,8 +8,8 @@ from time import strftime
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # ===== MCMC and ensemble selections ========
 # number of MCMC samples to use
-mcmc_sample_no = 100
-mcmc_burn_no = 50
+mcmc_sample_no = 3000
+mcmc_burn_no = 1000
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
 mcmc_step = None
@@ -39,35 +39,35 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = ['02793']
 #rgi_glac_number = ['02699']
 #rgi_glac_number = ['03473']
-rgi_glac_number = ['02790']
+#rgi_glac_number = ['02790']
 
-## add a function to get all of Shean's glaciers
-#import pandas as pd
-#def get_shean_glacier_nos(region_no, number_glaciers=0):
-#    # safety, convert input to int
-#    region_no = int(region_no)
-#    # get shean's data, convert to dataframe, get
-#    # glacier numbers
-#    csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv'
-#    ds_all = pd.read_csv(csv_path)
-#    ds_reg = ds_all[(ds_all['RGIId'] > region_no) & (ds_all['RGIId'] < region_no + 1)].copy()
-#    ds_reg = ds_reg.sort_values('area_m2', ascending=False)
-#    ds_reg.reset_index(drop=True, inplace=True)
-#    rgi = ds_reg['RGIId']
-#    # get only glacier numbers, convert to string
-#    num = rgi % 1
-#    num = num.round(5)
-#    num = num.astype(str)
-#    # slice string to remove decimal
-#    num = [n[2:] for n in num]
-#    # make sure there are 5 digits
-#    for i in range(len(num)):
-#        while len(num[i]) < 5:
-#            num[i] += '0'
-#    if number_glaciers > 0:
-#        num = num[0:number_glaciers]
-#    return num
-#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 600)
+# add a function to get all of Shean's glaciers
+import pandas as pd
+def get_shean_glacier_nos(region_no, number_glaciers=0):
+    # safety, convert input to int
+    region_no = int(region_no)
+    # get shean's data, convert to dataframe, get
+    # glacier numbers
+    csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv'
+    ds_all = pd.read_csv(csv_path)
+    ds_reg = ds_all[(ds_all['RGIId'] > region_no) & (ds_all['RGIId'] < region_no + 1)].copy()
+    ds_reg = ds_reg.sort_values('area_m2', ascending=False)
+    ds_reg.reset_index(drop=True, inplace=True)
+    rgi = ds_reg['RGIId']
+    # get only glacier numbers, convert to string
+    num = rgi % 1
+    num = num.round(5)
+    num = num.astype(str)
+    # slice string to remove decimal
+    num = [n[2:] for n in num]
+    # make sure there are 5 digits
+    for i in range(len(num)):
+        while len(num[i]) < 5:
+            num[i] += '0'
+    if number_glaciers > 0:
+        num = num[0:number_glaciers]
+    return num
+rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 600)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
