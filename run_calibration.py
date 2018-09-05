@@ -225,6 +225,26 @@ def main(list_packed_vars):
 
         # ===== Define functions needed for MCMC method =====
         def prec_transformation(precfactor_raw):
+            """
+            Converts raw precipitation factors from normal distribution to correct values.
+
+            Takes raw values from normal distribution and converts them to correct precipitation factors according to:
+                if x >= 0:
+                    f(x) = x + 1
+                else:
+                    f(x) = 1 / (1 - x)
+            i.e., normally distributed values from -2 to 2 and converts them to be 1/3 to 3.
+
+            Parameters
+            ----------
+            precfactor_raw : float
+                numpy array of untransformed precipitation factor values
+
+            Returns
+            -------
+            precfactor : float
+                array of corrected precipitation factors
+            """        
             precfactor = precfactor_raw.copy()
             precfactor[precfactor >= 0] = precfactor[precfactor >= 0] + 1
             precfactor[precfactor < 0] = 1 / (1 - precfactor[precfactor < 0])            
@@ -232,11 +252,14 @@ def main(list_packed_vars):
         
         def run_MCMC(distribution_type='truncnormal', 
                      precfactor_mu=precfactor_mu, precfactor_sigma=precfactor_sigma, 
-                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
+                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh, 
+                     precfactor_start=precfactor_start,
                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
+                     tempchange_start=tempchange_start,
                      ddfsnow_mu=ddfsnow_mu, ddfsnow_sigma=ddfsnow_sigma, 
                      ddfsnow_boundlow=ddfsnow_boundlow, ddfsnow_boundhigh=ddfsnow_boundhigh,
+                     ddfsnow_start=ddfsnow_start,
                      iterations=10, burn=0, thin=input.thin_interval, tune_interval=1000, step=None, 
                      tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0, 
                      progress_bar=True, dbname=None):
@@ -258,6 +281,8 @@ def main(list_packed_vars):
                 Lower boundary of precipitation factor (default assigned from input)
             precfactor_boundhigh : float
                 Upper boundary of precipitation factor (default assigned from input)
+            precfactor_start : float
+                Starting value of precipitation factor for sampling iterations (default assigned from input)
             tempchange_mu : float
                 Mean of temperature change (default assigned from input)
             tempchange_sigma : float
@@ -266,6 +291,8 @@ def main(list_packed_vars):
                 Lower boundary of temperature change (default assigned from input)
             tempchange_boundhigh: float
                 Upper boundary of temperature change (default assigned from input)
+            tempchange_start : float
+                Starting value of temperature change for sampling iterations (default assigned from input)
             ddfsnow_mu : float
                 Mean of degree day factor of snow (default assigned from input)
             ddfsnow_sigma : float 
@@ -274,6 +301,8 @@ def main(list_packed_vars):
                 Lower boundary of degree day factor of snow (default assigned from input)
             ddfsnow_boundhigh : float
                 Upper boundary of degree day factor of snow (default assigned from input)
+            ddfsnow_start : float
+                Starting value of degree day factor of snow for sampling iterations (default assigned from input)
             iterations : int
                 Total number of iterations to do (default 10).
             burn : int
@@ -348,7 +377,6 @@ def main(list_packed_vars):
                                           value=tempchange_start)
                 # Degree day factor of snow [mwe degC-1 d-1]
                 ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_boundlow, upper=ddfsnow_boundhigh, value=ddfsnow_start)
-            
             
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
             @deterministic(plot=False)
@@ -444,6 +472,23 @@ def main(list_packed_vars):
                     negative_autocorr = sum(rho_norm[t-1:t+1]) < 0
                 t += 1
             return int(n / (1 + 2*rho_norm[1:t].sum()))
+        
+        
+        def write_csv_results(model, distribution_type='truncnormal'):
+            # Write statistics to csv
+            output_csv_fn = (input.mcmc_output_csv_fp + glacier_str + '_' + distribution_type + '_statistics_' + 
+                             str(input.mcmc_sample_no) + 'iter_' + str(input.mcmc_burn_no) + 'burn' + '.csv')
+            model.write_csv(output_csv_fn, variables=['massbal', 'precfactor', 'tempchange', 'ddfsnow'])
+            # Add effective sample size to csv
+            massbal_neff = effective_n(model, 'massbal')
+            precfactor_neff = effective_n(model, 'precfactor')
+            tempchange_neff = effective_n(model, 'tempchange')
+            ddfsnow_neff = effective_n(model, 'ddfsnow')
+            effective_n_values = [massbal_neff, precfactor_neff, tempchange_neff, ddfsnow_neff]
+            # Import and export csv
+            csv_input = pd.read_csv(output_csv_fn)
+            csv_input['n_eff'] = effective_n_values
+            csv_input.to_csv(output_csv_fn, index=False)
 
 
         def plot_mc_results(model, distribution_type='truncnormal', 
@@ -452,8 +497,7 @@ def main(list_packed_vars):
                             tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                             tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                             ddfsnow_mu=ddfsnow_mu, ddfsnow_sigma=ddfsnow_sigma, 
-                            ddfsnow_boundlow=ddfsnow_boundlow, ddfsnow_boundhigh=ddfsnow_boundhigh,
-                            massbal_neff=None, precfactor_neff=None, tempchange_neff=None, ddfsnow_neff=None):
+                            ddfsnow_boundlow=ddfsnow_boundlow, ddfsnow_boundhigh=ddfsnow_boundhigh):
             """
             Plot trace, prior/posterior distributions, autocorrelation, and pairwise scatter for each parameter.
             
@@ -491,26 +535,23 @@ def main(list_packed_vars):
                 Lower boundary of degree day factor of snow (default assigned from input)
             ddfsnow_boundhigh : float
                 Upper boundary of degree day factor of snow (default assigned from input)
-            massbal_neff : int
-                Effective sample size for mass balance
-            precfactor_neff : int
-                Effective sample size for precipitation factor
-            tempchange_neff : int
-                Effective sample size for temperature bias
-            ddfsnow_neff : int
-                Effective sample size for degree day factor of snow
                 
             Returns
             -------
             .png files
-                Saves .png files of each plot.
+                Saves two figures of (1) trace, histogram, and autocorrelation, and (2) pair-wise scatter plots.
             """
-            
+            # Chains
             tempchange = model.trace('tempchange')[:]
             precfactor = model.trace('precfactor')[:]
             ddfsnow = model.trace('ddfsnow')[:]
             massbal = model.trace('massbal')[:]
-            
+            # Effective sample size
+            massbal_neff = effective_n(model, 'massbal')
+            precfactor_neff = effective_n(model, 'precfactor')
+            tempchange_neff = effective_n(model, 'tempchange')
+            ddfsnow_neff = effective_n(model, 'ddfsnow')
+            # Bounds (SciPy convention)
             precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
             precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
             tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
@@ -619,7 +660,8 @@ def main(list_packed_vars):
                 z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b), 
                                       truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
                 x_values = tempchange_mu + tempchange_sigma * z_score
-                y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu, scale=tempchange_sigma)
+                y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu, 
+                                         scale=tempchange_sigma)
             elif distribution_type == 'uniform':                
                 z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                 x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
@@ -807,38 +849,38 @@ def main(list_packed_vars):
             if debug:
                 print('observed_massbal:',observed_massbal, 'observed_error:',observed_error)
 
+
+
             # ===== RUN MARKOV CHAIN MONTE CARLO METHOD ====================
-            # fit the MCMC model
+            # specify distribution type
             distribution_type = mcmc_distribution_type
+            # fit the MCMC model
             model = run_MCMC(distribution_type=distribution_type, iterations=input.mcmc_sample_no, 
                              burn=input.mcmc_burn_no, step=input.mcmc_step)
             # THERE IS A DIVIDE BY ZERO PROBLEM
+            # write statisticis to csv
+            write_csv_results(model, distribution_type=distribution_type)
+            # plot parameters
+            plot_mc_results(model, distribution_type=distribution_type)
             
-            # Write statistics to csv
-            output_csv_fn = (input.mcmc_output_csv_fp + glacier_str + '_' + distribution_type + '_statistics_' + 
-                             str(input.mcmc_sample_no) + 'iter_' + str(input.mcmc_burn_no) + 'burn' + '.csv')
-            model.write_csv(output_csv_fn, variables=['massbal', 'precfactor', 'tempchange', 'ddfsnow'])
             
-            # Add effective sample size to csv
-            massbal_neff = effective_n(model, 'massbal')
-            precfactor_neff = effective_n(model, 'precfactor')
-            tempchange_neff = effective_n(model, 'tempchange')
-            ddfsnow_neff = effective_n(model, 'ddfsnow')
-            effective_n_values = [massbal_neff, precfactor_neff, tempchange_neff, ddfsnow_neff]
+#            # MULTIPLE CHAINS
+#            # Chains start at lowest values
+#            precfactor_start = precfactor_boundlow
+#            tempchange_start = tempchange_boundlow
+#            ddfsnow_start = ddfsnow_boundlow
+#            model_2 = run_MCMC(distribution_type=distribution_type, precfactor_start=precfactor_start,
+#                               tempchange_start=tempchange_start, ddfsnow_start=ddfsnow_start, 
+#                               iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
+#            # Chains start at highest values
+#            precfactor_start = precfactor_boundhigh
+#            tempchange_start = tempchange_boundlow
+#            ddfsnow_start = ddfsnow_boundlow
+#            model_3 = run_MCMC(distribution_type=distribution_type, precfactor_start=precfactor_start,
+#                               tempchange_start=tempchange_start, ddfsnow_start=ddfsnow_start, 
+#                               iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
             
-            csv_input = pd.read_csv(output_csv_fn)
-            csv_input['n_eff'] = effective_n_values
-            csv_input.to_csv(output_csv_fn, index=False)
             
-            #%%
-            # ADD EFFECTIVE N VALUES TO PLOTS
-            
-            # plot variables
-            plot_mc_results(model, distribution_type=distribution_type, massbal_neff=massbal_neff, 
-                            precfactor_neff=precfactor_neff, tempchange_neff=tempchange_neff, ddfsnow_neff=ddfsnow_neff)
-            
-
-            #%%
             
             # ==============================================================
 
@@ -1832,8 +1874,39 @@ if __name__ == '__main__':
         for n in range(len(list_packed_vars)):
             main(list_packed_vars[n])
 
-    # if MCMC_option, export to single file
+    # if MCMC option, consolidate output into one file for netcdf and csv results
     if input.option_calibration == 2:
+        
+        # Combine csv output into single csv
+        csv_list = []
+        for i in os.listdir(input.mcmc_output_csv_fp):
+            # Append results
+            if i.endswith('.csv') == True:
+                csv_list.append(i)
+        # Column names
+        csv_cn_endings = ['_mean', '_std', '_mc_err', '_95lowhpd', '_95highhpd', '_q2pt5', '_q25', '_q50', '_q75', 
+                          '_q97pt5', 'n_eff']
+        csv_cns = ['RGIId']
+        for vn in variables:
+            for ending in csv_cn_endings:
+                csv_cns.append(vn + ending)    
+        # Output file
+        count = 0
+        csv_output = pd.DataFrame(columns=csv_cns)
+        for i in csv_list:
+            # Load csv
+            csv_input = pd.read_csv(input.mcmc_output_csv_fp + i)
+            # Append to output csv
+            csv_output.loc[count,'RGIId'] = i[0:8]
+            csv_output.iloc[count, 1:12] = csv_input.iloc[0,1:].values
+            csv_output.iloc[count, 12:23] = csv_input.iloc[1,1:].values
+            csv_output.iloc[count, 23:34] = csv_input.iloc[2,1:].values
+            csv_output.iloc[count, 34:45] = csv_input.iloc[3,1:].values
+            count = count + 1
+            # Remove files
+            os.remove(input.mcmc_output_csv_fp + i)
+        # Export csv
+        csv_output.to_csv(input.mcmc_output_csv_fp + input.mcmc_output_csv_fn, index=False)
 
         # create a dict for dataarrays
         da_dict = {}

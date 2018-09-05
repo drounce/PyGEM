@@ -37,9 +37,9 @@ rgi_regionsO2 = 'all'
 #                   '10722']
 #rgi_glac_number = ['05152']
 #rgi_glac_number = ['02793']
-#rgi_glac_number = ['01152']
+rgi_glac_number = ['01152']
 #rgi_glac_number = ['03473']
-rgi_glac_number = ['02790']
+#rgi_glac_number = ['02790']
 
 ## add a function to get all of Shean's glaciers
 #import pandas as pd
@@ -67,7 +67,7 @@ rgi_glac_number = ['02790']
 #    if number_glaciers > 0:
 #        num = num[0:number_glaciers]
 #    return num
-#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 200)
+#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 50)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -109,6 +109,8 @@ mcmc_output_csv_fp = mcmc_output_fp + 'csv/'
 mcmc_output_figs_fp = mcmc_output_fp + 'figures/'
 mcmc_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'samples_' 
                         + str(ensemble_no) + 'ensembles_' + str(strftime("%Y%m%d")) + '.nc')
+mcmc_output_csv_fn = ('parameter_stats_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'iter_' 
+                        + str(mcmc_burn_no) + 'burn_' + str(strftime("%Y%m%d")) + '.csv')
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
