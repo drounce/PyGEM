@@ -327,23 +327,16 @@ def main(list_packed_vars):
                 #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for 
                 #  bias (following the transformation) to range from 1/3 to 3.  
                 #  Transformation is if x >= 0, x+1; else, 1/(1-x)
-#                precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
-#                precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
                 precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
                                                   a=precfactor_boundlow, b=precfactor_boundhigh, value=precfactor_start)
                 # Temperature change [degC]
                 #  truncated normal distribution (-10 to 10) to reflect that we have confidence in the data, but allow
                 #  for bias to still be present.
-#                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
-#                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
                 tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
                                                   a=tempchange_boundlow, b=tempchange_boundhigh, value=tempchange_start)
-                
                 # Degree day factor of snow [mwe degC-1 d-1]
                 #  truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
                 #  (Braithwaite, 2008)
-#                ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
-#                ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
                 ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), 
                                                a=ddfsnow_boundlow, b=ddfsnow_boundhigh, value=ddfsnow_start)
             elif distribution_type == 'uniform':
@@ -392,11 +385,9 @@ def main(list_packed_vars):
                                       value=float(observed_massbal), observed=True)
             # Set model
             if dbname is None:
-#                model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal])
                 model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
                                    'massbal':massbal, 'obs_massbal':obs_massbal})
             else:
-#                model = pymc.MCMC([precfactor, tempchange, ddfsnow, massbal, obs_massbal], db='pickle', dbname=dbname)
                 model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
                                    'massbal':massbal, 'obs_massbal':obs_massbal}, db='pickle', dbname=dbname)
             # set step method if specified
@@ -404,11 +395,6 @@ def main(list_packed_vars):
                 model.use_step_method(pymc.AdaptiveMetropolis, precfactor, delay = 1000)
                 model.use_step_method(pymc.AdaptiveMetropolis, tempchange, delay = 1000)
                 model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, delay = 1000)
-            else:
-                model.use_step_method(pymc.Metropolis, precfactor, proposal_sd=2., proposal_distribution='Normal')
-#                model.use_step_method(pymc.AdaptiveMetropolis, precfactor, scales=1, delay = 1000)
-#                model.use_step_method(pymc.AdaptiveMetropolis, tempchange, scales=2, delay = 1000)
-#                model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, scales=0.5, delay = 1000)
             # sample
             #  note: divide by zero warning here that does not affect model run
             model.sample(iter=iterations, burn=burn, thin=thin,
@@ -418,6 +404,46 @@ def main(list_packed_vars):
             model.db.close()
 
             return model
+        
+        def effective_n(model, vn):
+            """
+            Compute the effective sample size of a trace.
+            
+            Takes the trace and computes the effective sample size according to its detrended autocorrelation.
+            
+            Parameters
+            ----------
+            model : pymc.MCMC.MCMC
+                Model containing traces of parameters, summary statistics, etc.
+            vn : str
+                Parameter variable name
+
+            Returns
+            -------
+            effective_n : int
+                effective sample size
+            """
+            # Effective sample size      
+            x = model.trace(vn)[:]
+            # detrend trace using mean to be consistent with statistics definition of autocorrelation
+            x = (x - x.mean())
+            # compute autocorrelation (note: only need second half since they are symmetric)
+            rho = np.correlate(x, x, mode='full')
+            rho = rho[len(rho)//2:]
+            # normalize the autocorrelation values
+            #  note: rho[0] is the variance * n_samples, so this is consistent with the statistics definition of 
+            #        autocorrelation on wikipedia (dividing by n_samples gives you the expected value).
+            rho_norm = rho / rho[0]
+            # Iterate untile sum of consecutive estimates of autocorrelation is negative to avoid issues with the sum
+            # being -0.5, which returns an effective_n of infinity
+            negative_autocorr = False
+            t = 1
+            n = len(x)
+            while not negative_autocorr and (t < n):
+                if not t % 2:
+                    negative_autocorr = sum(rho_norm[t-1:t+1]) < 0
+                t += 1
+            return int(n / (1 + 2*rho_norm[1:t].sum()))
 
 
         def plot_mc_results(model, distribution_type='truncnormal', 
@@ -426,7 +452,8 @@ def main(list_packed_vars):
                             tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                             tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                             ddfsnow_mu=ddfsnow_mu, ddfsnow_sigma=ddfsnow_sigma, 
-                            ddfsnow_boundlow=ddfsnow_boundlow, ddfsnow_boundhigh=ddfsnow_boundhigh):
+                            ddfsnow_boundlow=ddfsnow_boundlow, ddfsnow_boundhigh=ddfsnow_boundhigh,
+                            massbal_neff=None, precfactor_neff=None, tempchange_neff=None, ddfsnow_neff=None):
             """
             Plot trace, prior/posterior distributions, autocorrelation, and pairwise scatter for each parameter.
             
@@ -464,7 +491,15 @@ def main(list_packed_vars):
                 Lower boundary of degree day factor of snow (default assigned from input)
             ddfsnow_boundhigh : float
                 Upper boundary of degree day factor of snow (default assigned from input)
-
+            massbal_neff : int
+                Effective sample size for mass balance
+            precfactor_neff : int
+                Effective sample size for precipitation factor
+            tempchange_neff : int
+                Effective sample size for temperature bias
+            ddfsnow_neff : int
+                Effective sample size for degree day factor of snow
+                
             Returns
             -------
             .png files
@@ -521,6 +556,14 @@ def main(list_packed_vars):
             plt.legend(['observed', 'ensemble'])
             plt.xlabel('Massbalance\n[mwea]', size=10)
             plt.ylabel('PDF', size=10)
+            # Normalized autocorrelation
+            plt.subplot(4,3,3)
+            massbal_norm = (massbal - massbal.mean()) / massbal.std()
+            plt.acorr(massbal_norm, maxlags=acorr_lags)
+            plt.xlim(0,acorr_lags)
+            plt.xlabel('lag')
+            plt.ylabel('autocorrelation')
+            plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(massbal_neff))
             
             # Precipitation bias [-]
             # Chain
@@ -561,6 +604,7 @@ def main(list_packed_vars):
             plt.xlim(0,acorr_lags)
             plt.xlabel('lag')
             plt.ylabel('autocorrelation')
+            plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(precfactor_neff))
             
             # Temperature bias [deg C]
             # Chain
@@ -595,6 +639,7 @@ def main(list_packed_vars):
             plt.xlim(0,acorr_lags)
             plt.xlabel('lag')
             plt.ylabel('autocorrelation')
+            plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(tempchange_neff))
             
             # Degree day factor of snow [mwe degC-1 d-1]
             # Chain
@@ -629,6 +674,7 @@ def main(list_packed_vars):
             plt.xlim(0,acorr_lags)
             plt.xlabel('lag')
             plt.ylabel('autocorrelation')
+            plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(ddfsnow_neff))
             
             # Save figure
             plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_' + distribution_type + '_chains_' + 
@@ -768,58 +814,32 @@ def main(list_packed_vars):
                              burn=input.mcmc_burn_no, step=input.mcmc_step)
             # THERE IS A DIVIDE BY ZERO PROBLEM
             
-            model.summary()
-#            mc_mean = model.massbal.stats()['mean']
-#            mc_std = model.massbal.stats()['standard deviation']
-#            mc_error = model.massbal.stats()['mc error']
-#            print(mc_mean, mc_std, mc_error)
+            # Write statistics to csv
+            output_csv_fn = (input.mcmc_output_csv_fp + glacier_str + '_' + distribution_type + '_statistics_' + 
+                             str(input.mcmc_sample_no) + 'iter_' + str(input.mcmc_burn_no) + 'burn' + '.csv')
+            model.write_csv(output_csv_fn, variables=['massbal', 'precfactor', 'tempchange', 'ddfsnow'])
+            
+            # Add effective sample size to csv
+            massbal_neff = effective_n(model, 'massbal')
+            precfactor_neff = effective_n(model, 'precfactor')
+            tempchange_neff = effective_n(model, 'tempchange')
+            ddfsnow_neff = effective_n(model, 'ddfsnow')
+            effective_n_values = [massbal_neff, precfactor_neff, tempchange_neff, ddfsnow_neff]
+            
+            csv_input = pd.read_csv(output_csv_fn)
+            csv_input['n_eff'] = effective_n_values
+            csv_input.to_csv(output_csv_fn, index=False)
+            
+            #%%
+            # ADD EFFECTIVE N VALUES TO PLOTS
             
             # plot variables
-            plot_mc_results(model, distribution_type=distribution_type)
+            plot_mc_results(model, distribution_type=distribution_type, massbal_neff=massbal_neff, 
+                            precfactor_neff=precfactor_neff, tempchange_neff=tempchange_neff, ddfsnow_neff=ddfsnow_neff)
             
-#            # ===== ADJUST PRIOR DISTRIBUTIONS (if necessary) ==============
-#            if abs(massbal.mean() - observed_massbal) > 0.1:
-#                # Adjust distribution type
-#                distribution_type = mcmc_distribution_type_2
-#                # Adjust precipitation factor and temperature change
-#                precfactor_mu_shifted = precfactor.mean()
-#                tempchange_mu_shifted = tempchange.mean()
-#                # if mass balance is too positive, then need less precipitation and more melt
-#                if (massbal.mean() - observed_massbal) > 0:
-#                    precfactor_boundlow_shifted = precfactor_boundlow
-#                    precfactor_boundhigh_shifted = 0
-#                    tempchange_boundlow_shifted = 0
-#                    tempchange_boundhigh_shifted = tempchange_boundhigh
-#                # otherwise, if mass balance is too negative, then need more precipitation and less melt
-#                else:
-#                    precfactor_boundlow_shifted = 0
-#                    precfactor_boundhigh_shifted = precfactor_boundhigh
-#                    tempchange_boundlow_shifted = tempchange_boundlow
-#                    tempchange_boundhigh_shifted = 0
-#    
-#                model = run_MCMC(distribution_type=distribution_type, 
-#                                 precfactor_mu=precfactor_mu_shifted,
-#                                 precfactor_boundlow=precfactor_boundlow_shifted, 
-#                                 precfactor_boundhigh=precfactor_boundhigh_shifted,
-#                                 tempchange_mu=tempchange_mu_shifted, 
-#                                 tempchange_boundlow=tempchange_boundlow_shifted, 
-#                                 tempchange_boundhigh=tempchange_boundhigh_shifted,
-#                                 iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
-#                # get variables
-#                tempchange = model.trace('tempchange')[:]
-#                precfactor = model.trace('precfactor')[:]
-#                ddfsnow = model.trace('ddfsnow')[:]
-#                massbal = model.trace('massbal')[:]
-#                
-#                # plot variables
-#                plot_mc_results(distribution_type, 
-#                                precfactor_mu=precfactor_mu_shifted,
-#                                precfactor_boundlow=precfactor_boundlow_shifted, 
-#                                precfactor_boundhigh=precfactor_boundhigh_shifted,
-#                                tempchange_mu=tempchange_mu_shifted, 
-#                                tempchange_boundlow=tempchange_boundlow_shifted, 
-#                                tempchange_boundhigh=tempchange_boundhigh_shifted)
 
+            #%%
+            
             # ==============================================================
 
             if debug:
@@ -865,7 +885,7 @@ def main(list_packed_vars):
             if debug:
                 print(ds)
 
-            ds.to_netcdf(input.mcmc_output_parallel_fp + da.name + '.nc')
+            ds.to_netcdf(input.mcmc_output_netcdf_fp + da.name + '.nc')
 
         # ==============================================================
         
@@ -1798,7 +1818,7 @@ if __name__ == '__main__':
         # for each glacier run. These files will then
         # be combined for the final output, but need to be
         # cleared from the previous run.
-        filelist = glob.glob(os.path.join(input.mcmc_output_parallel_fp, '*.nc'))
+        filelist = glob.glob(os.path.join(input.mcmc_output_netcdf_fp, '*.nc'))
         for f in filelist:
             os.remove(f)
 
@@ -1819,10 +1839,10 @@ if __name__ == '__main__':
         da_dict = {}
 
         # for each .nc file in folder, upload dataset
-        for i in os.listdir(input.mcmc_output_parallel_fp):
+        for i in os.listdir(input.mcmc_output_netcdf_fp):
             if i.endswith('.nc'):
                 glacier_RGIId = i[:-3]
-                ds = xr.open_dataset(input.mcmc_output_parallel_fp + i)
+                ds = xr.open_dataset(input.mcmc_output_netcdf_fp + i)
 
                 # get dataarray, add to dictionary
                 da = ds[glacier_RGIId]
