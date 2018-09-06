@@ -7,9 +7,11 @@ from time import strftime
 
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # ===== MCMC and ensemble selections ========
+# Number of chains (min 1, max 3)
+n_chains = 3
 # number of MCMC samples to use
-mcmc_sample_no = 100
-mcmc_burn_no = 0
+mcmc_sample_no = 60000
+mcmc_burn_no = 10000
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
 mcmc_step = None
@@ -37,8 +39,8 @@ rgi_regionsO2 = 'all'
 #                   '10722']
 #rgi_glac_number = ['05152']
 #rgi_glac_number = ['02793']
-rgi_glac_number = ['01152']
-#rgi_glac_number = ['03473']
+#rgi_glac_number = ['01152']
+rgi_glac_number = ['03473']
 #rgi_glac_number = ['02790']
 
 ## add a function to get all of Shean's glaciers
@@ -109,8 +111,25 @@ mcmc_output_csv_fp = mcmc_output_fp + 'csv/'
 mcmc_output_figs_fp = mcmc_output_fp + 'figures/'
 mcmc_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'samples_' 
                         + str(ensemble_no) + 'ensembles_' + str(strftime("%Y%m%d")) + '.nc')
-mcmc_output_csv_fn = ('parameter_stats_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'iter_' 
-                        + str(mcmc_burn_no) + 'burn_' + str(strftime("%Y%m%d")) + '.csv')
+mcmc_output_csv_fn = ('parameter_stats_' + str(len(rgi_glac_number)) + 'glaciers_' + str(n_chains) + 'chains_' + 
+                      str(mcmc_sample_no) + 'iter_' + str(mcmc_burn_no) + 'burn_' + str(strftime("%Y%m%d")) + '.csv')
+# MCMC distribution parameters
+mcmc_distribution_type = 'truncnormal'
+precfactor_mu = 0
+precfactor_sigma = 1
+precfactor_boundlow = -2
+precfactor_boundhigh = 2
+precfactor_start = precfactor_mu
+tempchange_mu = 0
+tempchange_sigma = 4
+tempchange_boundlow = -10
+tempchange_boundhigh = 10
+tempchange_start = tempchange_mu
+ddfsnow_mu = 0.0041
+ddfsnow_sigma = 0.0015
+ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
+ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
+ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
