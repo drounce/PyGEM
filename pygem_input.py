@@ -8,10 +8,10 @@ from time import strftime
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # ===== MCMC and ensemble selections ========
 # Number of chains (min 1, max 3)
-n_chains = 3
+n_chains = 1
 # number of MCMC samples to use
-mcmc_sample_no = 60000
-mcmc_burn_no = 10000
+mcmc_sample_no = 500
+mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
 mcmc_step = None
@@ -69,7 +69,7 @@ rgi_glac_number = ['03473']
 #    if number_glaciers > 0:
 #        num = num[0:number_glaciers]
 #    return num
-#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 50)
+#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 30)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers

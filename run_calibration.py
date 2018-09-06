@@ -519,7 +519,7 @@ def main(list_packed_vars):
                 gelman_rubin_values = []
                 for vn in variables:
                     gelman_rubin_values.append(gelman_rubin(models, vn))
-            csv_input['gelman_rubin'] = gelman_rubin_values
+                csv_input['gelman_rubin'] = gelman_rubin_values
             csv_input.to_csv(output_csv_fn, index=False)
 
             
@@ -1861,7 +1861,9 @@ if __name__ == '__main__':
                 csv_list.append(i)
         # Column names
         csv_cn_endings = ['_mean', '_std', '_mc_err', '_95lowhpd', '_95highhpd', '_q2pt5', '_q25', '_q50', '_q75', 
-                          '_q97pt5', 'n_eff', '_gelmanrubin']
+                          '_q97pt5', 'n_eff']
+        if input.n_chains > 1:
+            csv_cn_endings.append('_gelmanrubin')
         csv_cns = ['RGIId']
         for vn in variables:
             for ending in csv_cn_endings:
@@ -1874,10 +1876,11 @@ if __name__ == '__main__':
             csv_input = pd.read_csv(input.mcmc_output_csv_fp + i)
             # Append to output csv
             csv_output.loc[count,'RGIId'] = i[0:8]
-            csv_output.iloc[count, 1:13] = csv_input.iloc[0,1:].values
-            csv_output.iloc[count, 13:25] = csv_input.iloc[1,1:].values
-            csv_output.iloc[count, 25:37] = csv_input.iloc[2,1:].values
-            csv_output.iloc[count, 37:49] = csv_input.iloc[3,1:].values
+            ncols = csv_input.shape[1] - 1
+            csv_output.iloc[count, 0*ncols+1:1*ncols+1] = csv_input.iloc[0,1:].values
+            csv_output.iloc[count, 1*ncols+1:2*ncols+1] = csv_input.iloc[1,1:].values
+            csv_output.iloc[count, 2*ncols+1:3*ncols+1] = csv_input.iloc[2,1:].values
+            csv_output.iloc[count, 3*ncols+1:4*ncols+1] = csv_input.iloc[3,1:].values
             count = count + 1
             # Remove files
             os.remove(input.mcmc_output_csv_fp + i)
