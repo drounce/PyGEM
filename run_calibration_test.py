@@ -371,8 +371,6 @@ def main(list_packed_vars):
                     modelparameters_copy[2] = modelparameters_copy[2] + 1
                 else:
                     modelparameters_copy[2] = 1 / (1 - modelparameters_copy[2])
-                # Degree day factor of ice is proportional to ddfsnow
-                modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
                 # Mass balance calculations
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -849,55 +847,59 @@ def main(list_packed_vars):
             # specify distribution type
             distribution_type = input.mcmc_distribution_type
             # fit the MCMC model
+            models = []
             for n_chain in range(0,input.n_chains):
                 if n_chain == 0:
                     model = run_MCMC(distribution_type=distribution_type, iterations=input.mcmc_sample_no, 
                                      burn=input.mcmc_burn_no, step=input.mcmc_step)
+                    models.append(model)
+                    # THERE IS A DIVIDE BY ZERO PROBLEM
                 elif n_chain == 1:
                     # Chains start at lowest values
                     model = run_MCMC(distribution_type=distribution_type, precfactor_start=input.precfactor_boundlow,
                                      tempchange_start=input.tempchange_boundlow, ddfsnow_start=input.ddfsnow_boundlow, 
                                      iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
+                    models.append(model)
                 elif n_chain == 2:
                     # Chains start at highest values
                     model = run_MCMC(distribution_type=distribution_type, precfactor_start=input.precfactor_boundhigh,
                                      tempchange_start=input.tempchange_boundlow, ddfsnow_start=input.ddfsnow_boundlow, 
                                      iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
-                    
-                df = pd.DataFrame({'tempchange': model.trace('tempchange')[:],
-                               'precfactor': prec_transformation(model.trace('precfactor')[:]),
-                               'ddfsnow': model.trace('ddfsnow')[:], 
-                               'massbal': model.trace('massbal')[:]})
-                # set columns for other variables
-                df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
-                df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
-                df['lrglac'] = np.full(df.shape[0], input.lrglac)
-                df['precgrad'] = np.full(df.shape[0], input.precgrad)
-                df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
-                if n_chain == 0:
-                    df_chains = df.values[:, :, np.newaxis]
-                else:
-                    df_chains = np.dstack((df_chains, df.values))
-            
-            ds = xr.Dataset({'mp_value': (('iter', 'mp', 'chain'), df_chains)},
-                            coords={'iter': df.index.values,
-                                    'mp': df.columns.values,
-                                    'chain': np.arange(0,n_chain+1)})
-       
-            ds.to_netcdf(input.mcmc_output_netcdf_fp + glacier_str + '.nc')
-            
-            # NEED TO RE-STRUCTURE PLOTS AND CSVs to be done in post-processing with netcdf files
-            
-#            #%%
-#            # Example of accessing netcdf file and putting it back into pandas dataframe
-#            A = xr.open_dataset(input.mcmc_output_netcdf_fp + '15.03473.nc')
-#            B = pd.DataFrame(A['mp_value'].sel(chain=0).values, columns=A.mp.values)
-#            #%%
-            
+                    models.append(model)     
             # Plot parameters
-#            plot_mc_results(models, distribution_type=distribution_type)
+            plot_mc_results(models, distribution_type=distribution_type)
             # Write statisticis to csv
-#            write_csv_results(models, distribution_type=distribution_type)
+            write_csv_results(models, distribution_type=distribution_type)
+            
+            
+            # ==============================================================
+            model = models[0]
+#            sampling = es.stratified_sample(tempchange=model.trace('tempchange')[:], 
+#                                            precfactor=model.trace('precfactor')[:],
+#                                            ddfsnow=model.trace('ddfsnow')[:], 
+#                                            massbal=model.trace('massbal')[:], 
+#                                            samples=input.ensemble_no)
+#            
+#            mean = np.mean(sampling['massbal'])
+#            std = np.std(sampling['massbal'])
+#
+#            print('\nRGIId:', glacier_str, 'obs mean:', observed_massbal.round(2), 'obs std:', observed_error.round(2),
+#                  'RGIId:', glacier_str, 'ens mean:', round(mean, 2), 'ens std:', round(std, 2))
+#            if abs(observed_massbal - mean) > 0.1:
+#                print(glacier_str + ' still outside bounds!\n')
+#                
+#            # process the dataframe to have desired format (previous format has extra information that can be useful 
+#            #  for debugging and new dataframe includes info about other variables).
+#            df = process_df(sampling)
+#            
+#            # convert dataframe to dataarray, name it according to the glacier number
+#            da = xr.DataArray(df)
+#            da.name = glacier_str
+#
+#            # create xr.dataset and then save to netcdf files
+#            ds = xr.Dataset({da.name: da})
+#            
+#            ds.to_netcdf(input.mcmc_output_netcdf_fp + da.name + '.nc')
 
         # ==============================================================
         
@@ -1842,9 +1844,9 @@ if __name__ == '__main__':
         for n in range(len(list_packed_vars)):
             main(list_packed_vars[n])
 
-    # if MCMC option, consolidate output into one file for netcdf and csv results
-    if input.option_calibration == 2:
-        print('combine netcdfs in post-processing for mcmc methods')
+#    # if MCMC option, consolidate output into one file for netcdf and csv results
+#    if input.option_calibration == 2:
+#        
 #        # Combine csv output into single csv
 #        csv_list = []
 #        for i in os.listdir(input.mcmc_output_csv_fp):
@@ -1881,7 +1883,7 @@ if __name__ == '__main__':
 #
 #        # create a dict for dataarrays
 #        da_dict = {}
-#
+
 #        # for each .nc file in folder, upload dataset
 #        for i in os.listdir(input.mcmc_output_netcdf_fp):
 #            if i.endswith('.nc'):
@@ -1903,109 +1905,54 @@ if __name__ == '__main__':
 #
 #        if debug:
 #            print(ds)
+#
+#    else:
+#        # Combine output into single csv
+#        if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
+#            (option_export == 1)):
+#            # Model parameters
+#            output_prefix = ('cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + 
+#                             '_' + gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) 
+#                             + '_')
+#            output_list = []
+#            for i in os.listdir(output_filepath):
+#                # Append results
+#                if i.startswith(output_prefix) == True:
+#                    output_list.append(i)
+#                    if len(output_list) == 1:
+#                        output_all = pd.read_csv(output_filepath + i, index_col=0)
+#                    else:
+#                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
+#                        output_all = output_all.append(output_2join, ignore_index=True)
+#                    # Remove file after its been merged
+#                    os.remove(output_filepath + i)
+#            # Export joined files
+#            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(input.option_calibration) + '_R' +
+#                             str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+#                             str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
+#            output_all.to_csv(output_filepath + output_all_fn)
+#
+#            # Calibration comparison
+#            output_prefix2 = ('cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' +
+#                              gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + 
+#                              '_')
+#            output_list = []
+#            for i in os.listdir(output_filepath):
+#                # Append results
+#                if i.startswith(output_prefix2) == True:
+#                    output_list.append(i)
+#                    if len(output_list) == 1:
+#                        output_all = pd.read_csv(output_filepath + i, index_col=0)
+#                    else:
+#                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
+#                        output_all = output_all.append(output_2join, ignore_index=True)
+#                    # Remove file after its been merged
+#                    os.remove(output_filepath + i)
+#            # Export joined files
+#            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(input.option_calibration) + '_R' +
+#                             str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
+#                             str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
+#            output_all.to_csv(output_filepath + output_all_fn)
+#
+#    print('Total processing time:', time.time()-time_start, 's')
 
-    else:
-        # Combine output into single csv
-        if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
-            (option_export == 1)):
-            # Model parameters
-            output_prefix = ('cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + 
-                             '_' + gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) 
-                             + '_')
-            output_list = []
-            for i in os.listdir(output_filepath):
-                # Append results
-                if i.startswith(output_prefix) == True:
-                    output_list.append(i)
-                    if len(output_list) == 1:
-                        output_all = pd.read_csv(output_filepath + i, index_col=0)
-                    else:
-                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
-                        output_all = output_all.append(output_2join, ignore_index=True)
-                    # Remove file after its been merged
-                    os.remove(output_filepath + i)
-            # Export joined files
-            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(input.option_calibration) + '_R' +
-                             str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
-                             str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
-            output_all.to_csv(output_filepath + output_all_fn)
-
-            # Calibration comparison
-            output_prefix2 = ('cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' +
-                              gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + 
-                              '_')
-            output_list = []
-            for i in os.listdir(output_filepath):
-                # Append results
-                if i.startswith(output_prefix2) == True:
-                    output_list.append(i)
-                    if len(output_list) == 1:
-                        output_all = pd.read_csv(output_filepath + i, index_col=0)
-                    else:
-                        output_2join = pd.read_csv(output_filepath + i, index_col=0)
-                        output_all = output_all.append(output_2join, ignore_index=True)
-                    # Remove file after its been merged
-                    os.remove(output_filepath + i)
-            # Export joined files
-            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(input.option_calibration) + '_R' +
-                             str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
-                             str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
-            output_all.to_csv(output_filepath + output_all_fn)
-
-    print('Total processing time:', time.time()-time_start, 's')
-
-    #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
-#    # Place local variables in variable explorer
-#    if input.option_calibration == 1:
-#        if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
-#            main_vars_list = list(main_vars.keys())
-#            gcm_name = main_vars['gcm_name']
-#            main_glac_rgi = main_vars['main_glac_rgi']
-#            main_glac_hyps = main_vars['main_glac_hyps']
-#            main_glac_icethickness = main_vars['main_glac_icethickness']
-#            main_glac_width = main_vars['main_glac_width']
-#            elev_bins = main_vars['elev_bins']
-#            dates_table = main_vars['dates_table']
-#            dates_table_nospinup = main_vars['dates_table_nospinup']
-#            cal_data = main_vars['cal_data']
-#            gcm_temp = main_vars['gcm_temp']
-#            gcm_prec = main_vars['gcm_prec']
-#            gcm_elev = main_vars['gcm_elev']
-#            glac_bin_acc = main_vars['glac_bin_acc']
-#            glac_bin_temp = main_vars['glac_bin_temp']
-#            glac_bin_massbalclim = main_vars['glac_bin_massbalclim']
-#            modelparameters = main_vars['modelparameters']
-#            glac_bin_area_annual = main_vars['glac_bin_area_annual']
-#            glacier_cal_compare = main_vars['glacier_cal_compare']
-#            main_glac_cal_compare = main_vars['main_glac_cal_compare']
-#            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
-#            main_glac_output = main_vars['main_glac_output']
-#            main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
-#            main_glacwide_mbclim = main_vars['main_glacwide_mbclim']
-#            glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
-#            glac_wide_area_annual = main_vars['glac_wide_area_annual']
-#            glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
-#            glacier_rgi_table = main_vars['glacier_rgi_table']
-#            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
-#            main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
-#            main_glac_output = main_vars['main_glac_output']
-#    model = main_vars['model']
-#    ddfsnow_mu = main_vars['ddfsnow_mu']
-#    ddfsnow_sigma = main_vars['ddfsnow_sigma']
-#    ddfsnow_a = main_vars['ddfsnow_a']
-#    ddfsnow_b = main_vars['ddfsnow_b']
-##    precfactor_mu = main_vars['precfactor_mu']
-##    precfactor_sigma = main_vars['precfactor_sigma']
-##    precfactor_a = main_vars['precfactor_a']
-##    precfactor_b = main_vars['precfactor_b']
-##    tempchange_mu = main_vars['tempchange_mu']
-##    tempchange_sigma = main_vars['tempchange_sigma']
-##    tempchange_a = main_vars['tempchange_a']
-##    tempchange_b = main_vars['tempchange_b']
-#    obs_mb_mu = main_vars['obs_mb_mu']
-#    obs_mb_sigma = main_vars['obs_mb_sigma']
-#    tempchange = model.trace('tempchange')[:]
-#    precfactor = model.trace('precfactor')[:]
-#    ddfsnow = model.trace('ddfsnow')[:]
-#    massbal = model.trace('massbal')[:]
-#    glacier_rgi_table = main_vars['glacier_rgi_table']

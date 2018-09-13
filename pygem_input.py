@@ -54,7 +54,7 @@ def get_shean_glacier_nos(region_no, number_glaciers=0):
 # Number of chains (min 1, max 3)
 n_chains = 3
 # number of MCMC samples to use
-mcmc_sample_no = 100
+mcmc_sample_no = 33
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
