@@ -239,7 +239,7 @@ def main(list_packed_vars):
                      ddfsnow_start=input.ddfsnow_start,
                      iterations=10, burn=0, thin=input.thin_interval, tune_interval=1000, step=None, 
                      tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0, 
-                     progress_bar=True, dbname=None):
+                     progress_bar=False, dbname=None):
             """
             Runs the MCMC algorithm.
 
@@ -850,6 +850,7 @@ def main(list_packed_vars):
             distribution_type = input.mcmc_distribution_type
             # fit the MCMC model
             for n_chain in range(0,input.n_chains):
+                print(glacier_str + ' chain' + str(n_chain))
                 if n_chain == 0:
                     model = run_MCMC(distribution_type=distribution_type, iterations=input.mcmc_sample_no, 
                                      burn=input.mcmc_burn_no, step=input.mcmc_step)
@@ -1809,8 +1810,9 @@ if __name__ == '__main__':
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
                                                           rgi_glac_number=input.rgi_glac_number)
     # Define chunk size for parallel processing
-    if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
-        chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / args.num_simultaneous_processes))
+    if args.option_parallels != 0:
+        num_cores = int(np.min([main_glac_rgi_all.shape[0], args.num_simultaneous_processes]))
+        chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / num_cores))
     else:
         # if not running in parallel, chunk size is all glaciers
         chunk_size = main_glac_rgi_all.shape[0]
@@ -1833,8 +1835,8 @@ if __name__ == '__main__':
             os.remove(f)
 
     # Parallel processing
-    if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
-        print('Processing in parallel...')
+    if args.option_parallels != 0:
+        print('Processing in parallel with ' + str(num_cores) + ' cores...')
         with multiprocessing.Pool(args.num_simultaneous_processes) as p:
             p.map(main,list_packed_vars)
     # If not in parallel, then only should be one loop
@@ -1989,23 +1991,3 @@ if __name__ == '__main__':
 #            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
 #            main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
 #            main_glac_output = main_vars['main_glac_output']
-#    model = main_vars['model']
-#    ddfsnow_mu = main_vars['ddfsnow_mu']
-#    ddfsnow_sigma = main_vars['ddfsnow_sigma']
-#    ddfsnow_a = main_vars['ddfsnow_a']
-#    ddfsnow_b = main_vars['ddfsnow_b']
-##    precfactor_mu = main_vars['precfactor_mu']
-##    precfactor_sigma = main_vars['precfactor_sigma']
-##    precfactor_a = main_vars['precfactor_a']
-##    precfactor_b = main_vars['precfactor_b']
-##    tempchange_mu = main_vars['tempchange_mu']
-##    tempchange_sigma = main_vars['tempchange_sigma']
-##    tempchange_a = main_vars['tempchange_a']
-##    tempchange_b = main_vars['tempchange_b']
-#    obs_mb_mu = main_vars['obs_mb_mu']
-#    obs_mb_sigma = main_vars['obs_mb_sigma']
-#    tempchange = model.trace('tempchange')[:]
-#    precfactor = model.trace('precfactor')[:]
-#    ddfsnow = model.trace('ddfsnow')[:]
-#    massbal = model.trace('massbal')[:]
-#    glacier_rgi_table = main_vars['glacier_rgi_table']

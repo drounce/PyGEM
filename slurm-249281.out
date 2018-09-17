@@ -1,0 +1,388 @@
+Reference climate data is: ERA-Interim
+This study is only focusing on glaciers ['11909', '06881', '11926', '09991', '02703', '10718', '09803', '03473', '02846', '12644', '07141', '06977', '07122', '06720', '01078', '09921', '09870', '00621', '09675', '04515', '01485', '07153', '04121', '01152', '04151', '11880', '09255', '02231', '09474', '07034', '10299', '10147', '02709', '10755', '02229', '04541', '07500', '09408', '03619', '10994', '06666', '06558', '06563', '09361', '11888', '11003', '01077', '03448'] in region [15].
+Processing in parallel with 48 cores...
+
+
+
+15.11003 chain0
+15.11003 chain1
+15.11003 chain2
+
+Processing time of ERA-Interim for 46 : 39234.03535366058 s
+
+
+
+15.07034 chain0
+15.07034 chain1
+15.07034 chain2
+
+Processing time of ERA-Interim for 30 : 39668.987632751465 s
+
+
+
+15.07153 chain0
+15.07153 chain1
+15.07153 chain2
+
+Processing time of ERA-Interim for 22 : 40013.73585653305 s
+
+
+
+15.09870 chain0
+15.09870 chain1
+15.09870 chain2
+
+Processing time of ERA-Interim for 17 : 40109.19136428833 s
+
+
+
+15.10147 chain0
+15.10147 chain1
+15.10147 chain2
+
+Processing time of ERA-Interim for 32 : 40331.04172849655 s
+
+
+
+15.09675 chain0
+15.09675 chain1
+15.09675 chain2
+
+Processing time of ERA-Interim for 19 : 40462.20675778389 s
+
+
+
+15.06881 chain0
+15.06881 chain1
+15.06881 chain2
+
+Processing time of ERA-Interim for 2 : 40685.440613269806 s
+
+
+
+15.09921 chain0
+15.09921 chain1
+15.09921 chain2
+
+Processing time of ERA-Interim for 16 : 40801.50338101387 s
+
+
+
+15.11880 chain0
+15.11880 chain1
+15.11880 chain2
+
+Processing time of ERA-Interim for 26 : 40862.44697141647 s
+
+
+
+15.06558 chain0
+15.06558 chain1
+15.06558 chain2
+
+Processing time of ERA-Interim for 42 : 41127.40402531624 s
+
+
+
+15.09474 chain0
+15.09474 chain1
+15.09474 chain2
+
+Processing time of ERA-Interim for 29 : 41155.43493080139 s
+
+
+
+15.09408 chain0
+15.09408 chain1
+15.09408 chain2
+
+Processing time of ERA-Interim for 38 : 41206.37265944481 s
+
+
+
+15.04541 chain0
+15.04541 chain1
+15.04541 chain2
+
+Processing time of ERA-Interim for 36 : 41265.14304924011 s
+
+
+
+15.04121 chain0
+15.04121 chain1
+15.04121 chain2
+
+Processing time of ERA-Interim for 23 : 41374.15354299545 s
+
+
+
+15.09361 chain0
+15.09361 chain1
+15.09361 chain2
+
+Processing time of ERA-Interim for 44 : 41389.65334224701 s
+
+
+
+15.04151 chain0
+15.04151 chain1
+15.04151 chain2
+
+Processing time of ERA-Interim for 25 : 41423.895042181015 s
+
+
+
+15.03448 chain0
+15.03448 chain1
+15.03448 chain2
+
+Processing time of ERA-Interim for 48 : 41522.45894575119 s
+
+
+
+15.01077 chain0
+15.01077 chain1
+15.01077 chain2
+
+Processing time of ERA-Interim for 47 : 42054.409273386 s
+
+
+
+15.00621 chain0
+15.00621 chain1
+15.00621 chain2
+
+Processing time of ERA-Interim for 18 : 42181.15377497673 s
+
+
+
+15.09803 chain0
+15.09803 chain1
+15.09803 chain2
+
+Processing time of ERA-Interim for 7 : 42246.060255765915 s
+
+
+
+15.10755 chain0
+15.10755 chain1
+15.10755 chain2
+
+Processing time of ERA-Interim for 34 : 42470.37311887741 s
+
+
+
+15.09991 chain0
+15.09991 chain1
+15.09991 chain2
+
+Processing time of ERA-Interim for 4 : 42490.538776636124 s
+
+
+
+15.10994 chain0
+15.10994 chain1
+15.10994 chain2
+
+Processing time of ERA-Interim for 40 : 42496.38113760948 s
+
+
+
+15.07500 chain0
+15.07500 chain1
+15.07500 chain2
+
+Processing time of ERA-Interim for 37 : 42567.64868354797 s
+
+
+
+15.02709 chain0
+15.02709 chain1
+15.02709 chain2
+
+Processing time of ERA-Interim for 33 : 42674.531719207764 s
+
+
+
+15.06977 chain0
+15.06977 chain1
+15.06977 chain2
+
+Processing time of ERA-Interim for 12 : 42685.303037166595 s
+
+
+
+15.06666 chain0
+15.06666 chain1
+15.06666 chain2
+
+Processing time of ERA-Interim for 41 : 42769.61253333092 s
+
+
+
+15.11909 chain0
+15.11909 chain1
+15.11909 chain2
+
+Processing time of ERA-Interim for 1 : 42775.97709107399 s
+
+
+
+15.06563 chain0
+15.06563 chain1
+15.06563 chain2
+
+Processing time of ERA-Interim for 43 : 42825.307718515396 s
+
+
+
+15.03473 chain0
+15.03473 chain1
+15.03473 chain2
+
+Processing time of ERA-Interim for 8 : 42852.595432281494 s
+
+
+
+15.04515 chain0
+15.04515 chain1
+15.04515 chain2
+
+Processing time of ERA-Interim for 20 : 42868.68059325218 s
+
+
+
+15.07141 chain0
+15.07141 chain1
+15.07141 chain2
+
+Pr
+
+
+15.07122 chain0
+15.07122 chain1
+15.07122 chain2
+
+Processing time of ERA-Interim for 13 : 43104.310223817825 s
+
+
+
+15.11888 chain0
+15.11888 chain1
+15.11888 chain2
+
+Processing time of ERA-Interim for 45 : 43124.15377855301 s
+
+
+
+15.03619 chain0
+15.03619 chain1
+15.03619 chain2
+
+Processing time of ERA-Interim for 39 : 43129.50244784355 s
+
+
+
+15.01078 chain0
+15.01078 chain1
+15.01078 chain2
+
+Processing time of ERA-Interim for 15 : 43233.51105570793 s
+
+
+
+15.06720 chain0
+15.06720 chain1
+15.06720 chain2
+
+Processing time of ERA-Interim for 14 : 43406.81097102165 s
+
+
+
+15.02703 chain0
+15.02703 chain1
+15.02703 chain2
+
+Processing time of ERA-Interim for 5 : 43448.61622786522 s
+
+
+
+15.02846 chain0
+15.02846 chain1
+15.02846 chain2
+
+Processing time of ERA-Interim for 9 : 43487.31914138794 s
+
+
+
+15.02231 chain0
+15.02231 chain1
+15.02231 chain2
+
+Processing time of ERA-Interim for 28 : 43520.26762700081 s
+
+
+
+15.01152 chain0
+15.01152 chain1
+15.01152 chain2
+
+Processing time of ERA-Interim for 24 : 43668.82782101631 s
+
+
+
+15.09255 chain0
+15.09255 chain1
+15.09255 chain2
+
+Processing time of ERA-Interim for 27 : 43912.98343920708 s
+
+
+
+15.02229 chain0
+15.02229 chain1
+15.02229 chain2
+
+Processing time of ERA-Interim for 35 : 43979.65382504463 s
+
+
+
+15.12644 chain0
+15.12644 chain1
+15.12644 chain2
+
+Processing time of ERA-Interim for 10 : 44612.4859495163 s
+
+
+
+15.11926 chain0
+15.11926 chain1
+15.11926 chain2
+
+Processing time of ERA-Interim for 3 : 44864.31942009926 s
+
+
+
+15.10718 chain0
+15.10718 chain1
+15.10718 chain2
+
+Processing time of ERA-Interim for 6 : 44957.67502260208 s
+
+
+
+15.10299 chain0
+15.10299 chain1
+15.10299 chain2
+
+Processing time of ERA-Interim for 31 : 45372.50003218651 s
+
+
+
+15.01485 chain0
+15.01485 chain1
+15.01485 chain2
+
+Processing time of ERA-Interim for 21 : 46026.34071683884 s
+combine netcdfs in post-processing for mcmc methods
+Total processing time: 46027.087824344635 s

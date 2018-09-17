@@ -1,4 +1,4 @@
-name: pygem_v1_eradownload_2
+name: pygem_v2
 channels:
 - conda-forge
 dependencies:
