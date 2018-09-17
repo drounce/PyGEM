@@ -7,7 +7,7 @@ from time import strftime
 import pandas as pd
 
 
-def get_shean_glacier_nos(region_no, number_glaciers=0):
+def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
     """
     Generate list of glaciers that have calibration data and select number of glaciers to include.
     
@@ -19,6 +19,8 @@ def get_shean_glacier_nos(region_no, number_glaciers=0):
         region number (Shean data available for regions 13, 14, and 15)
     number_glaciers : int
         number of glaciers to include in model run (default = 0)
+    option_random : int
+        option to select glaciers randomly for model run (default = 0, not random)
     
     Returns
     -------
@@ -32,8 +34,12 @@ def get_shean_glacier_nos(region_no, number_glaciers=0):
     csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv'
     ds_all = pd.read_csv(csv_path)
     ds_reg = ds_all[(ds_all['RGIId'] > region_no) & (ds_all['RGIId'] < region_no + 1)].copy()
-    ds_reg = ds_reg.sort_values('area_m2', ascending=False)
-    ds_reg.reset_index(drop=True, inplace=True)
+    if option_random == 1:
+        ds_reg = ds_reg.sample(n=number_glaciers)
+        ds_reg.reset_index(drop=True, inplace=True)
+    else:
+        ds_reg = ds_reg.sort_values('area_m2', ascending=False)
+        ds_reg.reset_index(drop=True, inplace=True)
     rgi = ds_reg['RGIId']
     # get only glacier numbers, convert to string
     num = rgi % 1
@@ -87,7 +93,7 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['02790']
 if 'rgi_glac_number' not in locals():
-    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48)
+    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48, option_random=1)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
