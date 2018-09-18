@@ -7,35 +7,27 @@ Created on Mon Oct 16 09:04:46 2017
 pygemfxns_output_postprocessing.py is a mix of post-processing for things like plots, relationships between variables,
 and any other comparisons between output or input data.
 """
+
+# External Libraries
 import numpy as np
 import pandas as pd 
 import netCDF4 as nc
-from time import strftime
-from datetime import datetime
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
-import pickle
 import scipy
-from scipy.spatial.distance import cdist
-from scipy.spatial.distance import pdist, squareform
-from scipy.optimize import curve_fit
-from scipy.stats.kde import gaussian_kde
-#from sklearn.gaussian_process import GaussianProcess
-#from sklearn.neighbors import NearestNeighbors
-
+import cartopy
+# Local Libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
-import cartopy
 
+# Script options
 option_plot_futuresim = 0
 option_calc_nearestneighbor = 0
 option_mb_shean_analysis = 0
+option_mb_shean_regional = 1
 option_geodeticMB_loadcompare = 0
 option_check_biasadj = 0
 option_parameter_relationships = 0
-option_MCMC_ensembles = 1
+option_MCMC_ensembles = 0
 
 option_savefigs = 1
 
@@ -755,6 +747,89 @@ if option_geodeticMB_loadcompare == 1:
 #    # Percent coverage if exclude glaciers < 1 km2
 #    A = main_glac_rgi[np.isfinite(main_glac_rgi['Shean_MB_mwea'])]
 #    print(round(A[A['Area'] > 1].Area.sum() / main_glac_rgi.Area.sum() * 100,1))
+    
+    
+#%% ===== REGIONAL MASS BALANCES =====
+if option_mb_shean_regional == 1:  
+    # Input data
+    ds_fp = input.main_directory + '/../DEMs/Shean_2018_0806/'
+    ds_fn = 'hma_mb_20180803_1229.csv'
+    # Load mass balance measurements and identify unique rgi regions 
+    ds = pd.read_csv(ds_fp + ds_fn)
+    ds = ds.sort_values('RGIId', ascending=True)
+    ds.reset_index(drop=True, inplace=True)
+    ds['RGIId'] = round(ds['RGIId'], 5)
+    ds['rgi_regO1'] = ds['RGIId'].astype(int)
+    ds['rgi_str'] = ds['RGIId'].apply(lambda x: '%.5f' % x)
+    rgi_regionsO1 = sorted(ds['rgi_regO1'].unique().tolist())
+    # Associate the 2nd order rgi regions with each glacier
+    main_glac_rgi_all = pd.DataFrame()
+    for region in rgi_regionsO1:
+        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[region], rgi_regionsO2='all', 
+                                                                 rgi_glac_number='all')
+        main_glac_rgi_all = main_glac_rgi_all.append(main_glac_rgi_region)
+    main_glac_rgi_all.reset_index(drop=True, inplace=True)
+    # Add mass balance and uncertainty to main_glac_rgi
+    # Select glaciers with data such that main_glac_rgi and ds indices are aligned correctly
+    main_glac_rgi = (main_glac_rgi_all.iloc[np.where(main_glac_rgi_all['RGIId_float'].isin(ds['RGIId']) == True)[0],:]
+                    ).copy()
+    main_glac_rgi.reset_index(drop=True, inplace=True)
+    main_glac_rgi['mb_mwea'] = ds['mb_mwea']
+    main_glac_rgi['mb_mwea_sigma'] = ds['mb_mwea_sigma']
+    # Regional mass balances
+    mb_regional_cols = ['rgi_O1', 'rgi_O2', 'mb_mwea', 'mb_mwea_sigma']
+    mb_regional = pd.DataFrame(columns=mb_regional_cols)
+    reg_dict_mb = {}
+    reg_dict_mb_sigma = {}
+    for region in rgi_regionsO1:
+        # 1st order regional mass balances
+        main_glac_subset = main_glac_rgi.loc[main_glac_rgi['O1Region'] == region]
+        A = pd.DataFrame(columns=mb_regional_cols)
+        A.loc[0,'rgi_O1'] = region
+        A.loc[0,'rgi_O2'] = 'all'
+        A.loc[0,'mb_mwea'] = ((main_glac_subset['Area'] * main_glac_subset['mb_mwea']).sum() / 
+                              main_glac_subset['Area'].sum())
+        A.loc[0,'mb_mwea_sigma'] = ((main_glac_subset['Area'] * main_glac_subset['mb_mwea_sigma']).sum() / 
+                                    main_glac_subset['Area'].sum())
+        mb_regional = mb_regional.append(A, sort=False)
+        # 2nd order regional mass balances
+        rgi_regionsO2 = sorted(main_glac_subset['O2Region'].unique().tolist())
+        for regionO2 in rgi_regionsO2:
+            main_glac_subset_O2 = main_glac_subset.loc[main_glac_subset['O2Region'] == regionO2]
+            A = pd.DataFrame(columns=mb_regional_cols)
+            A.loc[0,'rgi_O1'] = region
+            A.loc[0,'rgi_O2'] = regionO2
+            A.loc[0,'mb_mwea'] = ((main_glac_subset_O2['Area'] * main_glac_subset_O2['mb_mwea']).sum() / 
+                                  main_glac_subset_O2['Area'].sum())
+            A.loc[0,'mb_mwea_sigma'] = ((main_glac_subset_O2['Area'] * main_glac_subset_O2['mb_mwea_sigma']).sum() / 
+                                        main_glac_subset_O2['Area'].sum())
+            mb_regional = mb_regional.append(A, sort=False)
+            # Create dictionary 
+            reg_dict_mb[region, regionO2] = A.loc[0,'mb_mwea']
+            reg_dict_mb_sigma[region, regionO2] = A.loc[0,'mb_mwea_sigma']
+    # Fill in mass balance of glaciers with no data using regional estimates
+    main_glac_nodata = (
+            main_glac_rgi_all.iloc[np.where(main_glac_rgi_all['RGIId_float'].isin(ds['RGIId']) == False)[0],:]).copy()
+    main_glac_nodata.reset_index(drop=True, inplace=True)
+    # Dictionary linking regions and regional mass balances
+    ds_nodata = pd.DataFrame(columns=ds.columns)
+    ds_nodata.drop(['rgi_regO1', 'rgi_str'], axis=1, inplace=True)
+    ds_nodata['RGIId'] = main_glac_nodata['RGIId_float']
+    ds_nodata['t1'] = ds['t1'].min()
+    ds_nodata['t2'] = ds['t2'].max()
+    ds_nodata['mb_mwea'] = (
+            pd.Series(list(zip(main_glac_nodata['O1Region'], main_glac_nodata['O2Region']))).map(reg_dict_mb))
+    ds_nodata['mb_mwea_sigma'] = (
+            pd.Series(list(zip(main_glac_nodata['O1Region'], main_glac_nodata['O2Region']))).map(reg_dict_mb_sigma))
+    # Export csv of all glaciers including those with data and those with filled values
+    ds_export = ds.copy()
+    ds_export.drop(['rgi_regO1', 'rgi_str'], axis=1, inplace=True)
+    ds_export = ds_export.append(ds_nodata)
+    ds_export = ds_export.sort_values('RGIId', ascending=True)
+    ds_export.reset_index(drop=True, inplace=True)
+    output_fn = ds_fn.replace('.csv', '_all_filled.csv')
+    ds_export.to_csv(ds_fp + output_fn, index=False)
+
 
 
 #%%===== PLOTTING GRID SEARCH FOR A GLACIER ======
