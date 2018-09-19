@@ -246,23 +246,28 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 #  note: the glacier's lowermost bin does not have to be the lowest elevation bin.  It's possible that 
                 #        a glacier has retreated such that it's lowest elevation bin is not at sea-level, yet the
                 #        the glacier is still marine-terminating.
-#                if icethickness_t0[glac_idx_t0[0]] > (elev_bins[glac_idx_t0[0] + 1] - elev_bins[glac_idx_t0[0]]):
-#                    
-#                    # THE ABOVE IF STATEMENT DOES NOT WORK SINCE IT DEALS WITH FIRST GLACIER INDEX, THIS WOULD MAKE
-#                    # EVERY GLACIER WITH THICKNESS > 10 M HAVE FRONTAL ABLATION
-#                    
-#                    # Estimate height of calving front (height_calving)
-#                    # Glacier length [m]
-#                    length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
-#                    height_calving_1 = input.af*length**0.5
-#                    waterdepth = icethickness_t0[0] - (elev_bins[1] - elev_bins[0])
-#                    height_calving_2 = input.density_water / input.density_ice * waterdepth
-#                    height_calving = np.max([height_calving_1, height_calving_2])
-#                    glac_bin_frontalablation[0,step] = np.min([0, (-1 * input.calving_parameter * waterdepth * 
-#                                                                   height_calving)])
-#                    print('first ice thickness:', )
-#                    print('ice thickness:', icethickness_t0[0].round(0), 'waterdepth:', waterdepth.round(0), 
-#                          'height calving front:', height_calving.round(0))
+                
+                # MAY WANT TO ADJUST SEA-LEVEL FOR GLACIERS THAT ARE KNOWN TO BE CALVING, BUT THE ICE THICKNESS
+                # ESTIMATES SHOW THEY ARE ABOVE SEA-LEVEL...
+                sea_level = 0
+                    
+                print('glac_idx:', glac_idx_t0[0], 'elev_bin:', elev_bins[glac_idx_t0[0]], 'icethickness:', 
+                      icethickness_t0[glac_idx_t0[0]])
+                    
+                if (elev_bins[glac_idx_t0[0]] - icethickness_t0[glac_idx_t0[0]]) < sea_level:
+
+                    # Estimate height of calving front (height_calving)
+                    # Glacier length [m]
+                    length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
+                    height_calving_1 = input.af*length**0.5
+                    waterdepth = icethickness_t0[0] - (elev_bins[1] - elev_bins[0])
+                    height_calving_2 = input.density_water / input.density_ice * waterdepth
+                    height_calving = np.max([height_calving_1, height_calving_2])
+                    glac_bin_frontalablation[0,step] = np.min([0, (-1 * input.calving_parameter * waterdepth * 
+                                                                   height_calving)])
+                    print('first ice thickness:', )
+                    print('ice thickness:', icethickness_t0[0].round(0), 'waterdepth:', waterdepth.round(0), 
+                          'height calving front:', height_calving.round(0))
                     
                     # CURRENT UNITS: M**3 OF ICE, annually
                     
@@ -883,50 +888,3 @@ def surfacetypeDDFdict(modelparameters,
     if input.option_surfacetype_debris == 1:
         surfacetype_ddf_dict[4] = input.DDF_debris
     return surfacetype_ddf_dict
-    
-#========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
-    # ablation_annual - annual ablation for each bin on a specific glacier
-    # bin_ablation_mon - monthly surface ablation, which is calculated each year
-    #                    according to temperature and potentially changing
-    #                    surface type
-    # climate_elev - table of elevation of the nearest neighbor cell for
-    #                each glacier
-    # climate_prec - time series of precipitation for every glacier based on
-    #                user-specified option (nearest neighbor default)
-    # climate_temp - time series of temperature for every glacier based on
-    #                user-specified option (nearest neighbor default)
-    # dates_table - table of dates (used for column headers), which includes the
-    #               year, month, and number of days in each month
-    # glac_count - the glacier number, which is used to keep track of the
-    #              glaciers within the for loops.
-    # glac_ELA - table of annual ELA for all glaciers in model run
-    # glac_hyps - table of hypsometry for all the glaciers
-    # glac_params - table of calibrated parameters for all the glaciers, which
-    #               includes lapse rates, bias factors, etc.
-    # glac_surftype - table of surface type for every bin of every glacier
-    # glac_table - main table of glaciers in model run with RGI information
-    # glac_temp - table of temperature data on the glacier for each bin for the
-    #             entire timeseries
-    # glac_temp_annual - table of annual mean temperature data on the glacier
-    #                    for each bin for the entire timeseries
-    # glac_precsnow - table of the total precipitation (liquid and solid) for
-    #                 each bin for the entire time series
-    # massbal_annual - table of annual specific mass balance for each bin for
-    #                  the entire time series for a given glacier
-    # option_elev_ref - reference elevation on the glacier (median is the
-    #                   default)
-    # option_fxn - function option (see specifics within each function)
-    # refreeze_annual - table of annual refreezing for each bin of a glacier
-    # snow_annual - table of annual total snow data on the glacier for each bin
-    #               for the entire timeseries
-    # surftype_annual - table of annual surface type on the glacier for each bin
-    #                   for the entire timeseries
-    # var - generic variable commonly used with simple tasks, e.g., annual mean
-    #       or annual sum of a variable
-    # year - the year associated with the for loop
-
-    # Commonly used variables within the functions:
-    # mask - "masks" refer to a specific condition being met and are used in
-    #        functions to apply logical indexing, which speeds up the
-    #        computational time. These masks also make it easier to read the
-    #        functions.

@@ -142,7 +142,7 @@ ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
-option_import_modelparams = 1
+option_import_modelparams = 0
 #  Option 1 (default) - csv of glacier parameters
 #  Option 0 - use the parameters set by the input
 precfactor = 1
@@ -209,7 +209,7 @@ eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_' + eraint_start_date + 
 eraint_elev_fn = 'ERAInterim_geopotential.nc'
 eraint_pressureleveltemp_fn = 'ERAInterim_pressureleveltemp_' + eraint_start_date + '_' + eraint_end_date + '.nc'
 eraint_lr_fn = ('ERAInterim_lapserates_' + eraint_start_date + '_' + eraint_end_date + '_opt' + str(option_lr_method) + 
-                '_HMA.nc')
+                '_world.nc')
 
 # CMIP5 (GCM data)
 cmip5_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
