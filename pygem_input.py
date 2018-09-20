@@ -72,7 +72,7 @@ thin_interval = 1
 #rgi_regionsO1 = [15]
 rgi_regionsO1 = [7]
 #rgi_glac_number = ['00030']
-rgi_glac_number = ['00893']
+rgi_glac_number = ['01463']
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
