@@ -54,6 +54,8 @@ acorr_maxlags = 100
 #output_filepath = input.main_directory + '/../Output/'
 mcmc_output_netcdf_fp = input.main_directory + '/../MCMC_data/spc/mcmc_48glac_3ch_25000iter_20180915/netcdf/'
 mcmc_output_figures_fp = input.main_directory + '/../MCMC_data/spc/mcmc_48glac_3ch_25000iter_20180915/figures/'
+#mcmc_output_netcdf_fp = input.main_directory + '/../MCMC_data/netcdf/'
+#mcmc_output_figures_fp = input.main_directory + '/../MCMC_data/figures/'
 
 
 debug = False

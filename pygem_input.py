@@ -69,29 +69,17 @@ thin_interval = 1
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+#rgi_regionsO1 = [15]
+rgi_regionsO1 = [7]
+#rgi_glac_number = ['00030']
+rgi_glac_number = ['01463']
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '03473']
 #rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
 #                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
-#rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
-#                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03892', '05142', '02910', 
-#                   '02696', '02791', '03889', '02800', '10767', '10939', '02854', '04835', '04092', '04027', '03884', 
-#                   '04599', '03246', '02638', '03890', '09473', '08998', '10075', '04135', '02938', '03989', '10078', 
-#                   '04149', '01499', '03885', '10079', '03746', '03610', '04093', '04819', '07300', '06965', '03891', 
-#                   '08988', '02936', '04818', '04118', '10182', '07024', '10300', '09918', '07132', '02785', '04293', 
-#                   '02730', '10059', '10747', '07101', '03487', '03243', '02934', '10394', '08986', '10025', '10757', 
-#                   '07102', '10022', '02935', '10255', '10058', '10048', '10179', '10060', '09594', '10064', '10177', 
-#                   '10748', '10029', '06052', '04479', '08955', '08962', '02890', '06934', '02775', '10041', '10400', 
-#                   '10722']
-#rgi_glac_number = ['05152']
-#rgi_glac_number = ['02793']
-#rgi_glac_number = ['01152']
-rgi_glac_number = ['03473']
-#rgi_glac_number = ['02790']
+#rgi_glac_number = ['03473']
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48, option_random=1)
 
@@ -157,7 +145,7 @@ ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
-option_import_modelparams = 1
+option_import_modelparams = 0
 #  Option 1 (default) - csv of glacier parameters
 #  Option 0 - use the parameters set by the input
 precfactor = 1
@@ -186,8 +174,35 @@ ddfsnow_iceratio = 0.7
 tempsnow = 1.0
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 #  facilitates calibration similar to Huss and Hock (2015)
-# Calving_parameter dictating rate [yr-1]
-calving_parameter = 2.4
+# Frontal ablation  dictating rate [yr-1]
+frontalablation_k = 2
+
+# Calving option
+option_frontalablation_k = 1
+#  Option 1 (default) - use values as Huss and Hock (2015)
+#  Option 2 - calibrate each glacier independently, use transfer functions for uncalibrated glaciers
+# Calving parameter dictionary
+#  according to Supplementary Table 3 in Huss and Hock (2015)
+frontalablation_k0dict = {
+            1:  3.4,
+            2:  0,
+            3:  0.2,
+            4:  0.2,
+            5:  0.5,
+            6:  0.3,
+            7:  0.5,
+            8:  0,
+            9:  0.2,
+            10: 0,
+            11: 0,
+            12: 0,
+            13: 0,
+            14: 0,
+            15: 0,
+            16: 0,
+            17: 6,
+            18: 0,
+            19: 1}
 
 # Model parameters filepath, filename, and column names
 modelparams_filepath = main_directory + '/../Calibration_datasets/'
@@ -212,10 +227,11 @@ grid_res = '0.5/0.5'
 # Bounding box (N/W/S/E)
 bounding_box = '90/0/-90/360'
 # Lapse rate option
-option_lr_method = 2
+option_lr_method = 1
 #  Option 0 - lapse rates are constant defined by input
 #  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  Option 2 - lapse rates derived from surrounding pixels (varies spatially and temporally)
+#    Note: Be careful with option 2 as the ocean vs land/glacier temperatures can causeƒ unrealistic inversions
 # Filepath
 eraint_fp = main_directory + '/../Climate_data/ERA_Interim/download/'
 # Filenames
@@ -224,7 +240,7 @@ eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_' + eraint_start_date + 
 eraint_elev_fn = 'ERAInterim_geopotential.nc'
 eraint_pressureleveltemp_fn = 'ERAInterim_pressureleveltemp_' + eraint_start_date + '_' + eraint_end_date + '.nc'
 eraint_lr_fn = ('ERAInterim_lapserates_' + eraint_start_date + '_' + eraint_end_date + '_opt' + str(option_lr_method) + 
-                '_HMA.nc')
+                '_world.nc')
 
 # CMIP5 (GCM data)
 cmip5_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
@@ -383,6 +399,7 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
 shean_fn = 'hma_mb_20180803_1229.csv'
+#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'
@@ -646,5 +663,5 @@ temp_std = 288.15
 R_gas = 8.3144598
 # Molar mass of Earth's air [kg mol-1]
 molarmass_air = 0.0289644
-# Bulk flow parameter for calving (m^-0.5)
+# Bulk flow parameter for frontal ablation (m^-0.5)
 af = 0.7
