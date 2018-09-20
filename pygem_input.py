@@ -69,7 +69,9 @@ thin_interval = 1
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+#rgi_regionsO1 = [15]
+rgi_regionsO1 = [7]
+rgi_glac_number = ['00030']
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
@@ -171,8 +173,35 @@ ddfsnow_iceratio = 0.7
 tempsnow = 1.0
 #   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
 #  facilitates calibration similar to Huss and Hock (2015)
-# Calving_parameter dictating rate [yr-1]
-calving_parameter = 2.4
+# Frontal ablation  dictating rate [yr-1]
+frontalablation_k = 2
+
+# Calving option
+option_frontalablation_k = 1
+#  Option 1 (default) - use values as Huss and Hock (2015)
+#  Option 2 - calibrate each glacier independently, use transfer functions for uncalibrated glaciers
+# Calving parameter dictionary
+#  according to Supplementary Table 3 in Huss and Hock (2015)
+frontalablation_k0dict = {
+            1:  3.4,
+            2:  0,
+            3:  0.2,
+            4:  0.2,
+            5:  0.5,
+            6:  0.3,
+            7:  0.5,
+            8:  0,
+            9:  0.2,
+            10: 0,
+            11: 0,
+            12: 0,
+            13: 0,
+            14: 0,
+            15: 0,
+            16: 0,
+            17: 6,
+            18: 0,
+            19: 1}
 
 # Model parameters filepath, filename, and column names
 modelparams_filepath = main_directory + '/../Calibration_datasets/'
@@ -197,10 +226,11 @@ grid_res = '0.5/0.5'
 # Bounding box (N/W/S/E)
 bounding_box = '90/0/-90/360'
 # Lapse rate option
-option_lr_method = 2
+option_lr_method = 1
 #  Option 0 - lapse rates are constant defined by input
 #  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  Option 2 - lapse rates derived from surrounding pixels (varies spatially and temporally)
+#    Note: Be careful with option 2 as the ocean vs land/glacier temperatures can causeƒ unrealistic inversions
 # Filepath
 eraint_fp = main_directory + '/../Climate_data/ERA_Interim/download/'
 # Filenames
@@ -632,5 +662,5 @@ temp_std = 288.15
 R_gas = 8.3144598
 # Molar mass of Earth's air [kg mol-1]
 molarmass_air = 0.0289644
-# Bulk flow parameter for calving (m^-0.5)
+# Bulk flow parameter for frontal ablation (m^-0.5)
 af = 0.7

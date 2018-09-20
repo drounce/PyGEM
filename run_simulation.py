@@ -26,19 +26,6 @@ import pygemfxns_output as output
 import class_climate
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
-# Glacier selection
-#rgi_regionsO1 = [15]
-#rgi_glac_number = 'all'
-#rgi_glac_number = ['03473']
-
-rgi_regionsO1 = [7]
-#rgi_glac_number = ['00027', '00030', '00036']
-rgi_glac_number = ['00030']
-
-# For Tushar...
-#rgi_regionsO1 = input.rgi_regionsO1
-#rgi_glac_number = input.rgi_glac_number
-
 # Required input
 # Time period
 gcm_startyear = 2000
@@ -57,8 +44,8 @@ option_bias_adjustment = 0
 ref_modelparams_fp = input.main_directory + '/../Calibration_datasets/'
 ref_modelparams_fn = 'calibration_R15_20180403_Opt02solutionspaceexpanding_wnnbrs_20180523.csv'
 gcm_modelparams_fp = input.main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0717/'
-gcm_modelparams_fn_ending = ('_biasadj_opt' + str(option_bias_adjustment) + '_1995_2015_R' + str(rgi_regionsO1[0]) +
-                             '_' + str(strftime("%Y%m%d")) +'.csv')
+gcm_modelparams_fn_ending = ('_biasadj_opt' + str(option_bias_adjustment) + '_1995_2015_R' + str(input.rgi_regionsO1[0])
+                             + '_' + str(strftime("%Y%m%d")) +'.csv')
 
 # Tushar's quick and dirty option
 # Select True if running using MCMC method
@@ -143,14 +130,14 @@ def main(list_packed_vars):
     # ===== LOAD GLACIER DATA =====
     main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath,
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.thickness_filepath,
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.thickness_filepath,
                                                          input.thickness_filedict, input.thickness_colsdrop)
     main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.width_filepath,
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.width_filepath,
                                                   input.width_filedict, input.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
     # Volume [km**3] and mean elevation [m a.s.l.]
@@ -305,12 +292,12 @@ def main(list_packed_vars):
     if MCMC_option:
         if output_package != 0:
             if gcm_name == 'ERA-Interim':
-                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
+                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
                              gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
             else:
-                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
-                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
-                             str(gcm_endyear) + '_' + str(count) + '.nc')
+                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
+                             '_biasadj_opt' + str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) 
+                             + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
 
             nsims = MCMC_ds.sizes['runs']
             main_glac_rgi_float = main_glac_rgi.copy()
@@ -322,17 +309,17 @@ def main(list_packed_vars):
     else:
         if output_package != 0:
             if gcm_name == 'ERA-Interim':
-                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
+                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
                              gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
             else:
-                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
-                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
-                             str(gcm_endyear) + '_' + str(count) + '.nc')
+                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
+                             '_biasadj_opt' + str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) 
+                             + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
             if option_synthetic_sim == 1:
-                netcdf_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
+                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
                              gcm_spinupyears) + '_' + str(gcm_endyear) + '_T' + 
-                            str(round(float(synthetic_temp_adjust))) + 'P' + 
-                            str(round(float(synthetic_prec_factor) * 100 - 100)) + '_' + str(count) +  '.nc')
+                             str(round(float(synthetic_temp_adjust))) + 'P' + 
+                             str(round(float(synthetic_prec_factor) * 100 - 100)) + '_' + str(count) +  '.nc')
                 print(netcdf_fn)
             main_glac_rgi_float = main_glac_rgi.copy()
             main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
@@ -418,7 +405,7 @@ def main(list_packed_vars):
             
             if debug:
                 print('modelparameters:', modelparameters, '\n')
-
+            
             # Mass balance calcs
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -463,14 +450,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Select glaciers and define chunks
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                          rgi_glac_number=rgi_glac_number)
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+                                                          rgi_glac_number=input.rgi_glac_number)
     # Processing needed for netcdf files
 #    main_glac_rgi_all['RGIId_float'] = (np.array([np.str.split(main_glac_rgi_all['RGIId'][x],'-')[1]
 #                                              for x in range(main_glac_rgi_all.shape[0])]).astype(float))
     main_glac_rgi_all_float = main_glac_rgi_all.copy()
     main_glac_rgi_all_float.drop(labels=['RGIId'], axis=1, inplace=True)
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, input.hyps_filepath,
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, input.rgi_regionsO1, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear,
                                                                  spinupyears=gcm_spinupyears)
@@ -522,14 +509,14 @@ if __name__ == '__main__':
          # Combine output into single netcdf
         if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
             # Netcdf outputs
-            output_prefix = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
-                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
-                             str(gcm_endyear) + '_')
-            output_all_fn = ('PyGEM_R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
-                             str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) + '_' +
-                             str(gcm_endyear) + '_' + str(strftime("%Y%m%d")) + '_' + str(len(rgi_glac_number)) +
-                             'glaciers_' + str(MCMC_sample_no) +
-                             'samples' + str(ensemble_no) + 'ensembles_' + rcp_scenario + '_520to639.nc')
+            output_prefix = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
+                             '_biasadj_opt' + str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) 
+                             + '_' + str(gcm_endyear) + '_')
+            output_all_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
+                             '_biasadj_opt' + str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) 
+                             + '_' + str(gcm_endyear) + '_' + str(strftime("%Y%m%d")) + '_' + 
+                             str(len(input.rgi_glac_number)) + 'glaciers_' + str(MCMC_sample_no) + 'samples' + 
+                             str(ensemble_no) + 'ensembles_' + rcp_scenario + '.nc')
 
             # Select netcdf files produced in parallel
             output_list = []
@@ -611,6 +598,7 @@ if __name__ == '__main__':
         gcm_temp_adj = main_vars['gcm_temp_adj']
         gcm_prec_adj = main_vars['gcm_prec_adj']
         gcm_elev_adj = main_vars['gcm_elev_adj']
+        gcm_temp_lrglac = main_vars['gcm_lr']
         modelparameters = main_vars['modelparameters']
         glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
         glac_wide_area_annual = main_vars['glac_wide_area_annual']
@@ -624,3 +612,10 @@ if __name__ == '__main__':
         icethickness_t0 = main_vars['icethickness_t0']
         width_t0 = main_vars['width_t0']
         glac_bin_frontalablation = main_vars['glac_bin_frontalablation']
+        glac_bin_area_annual = main_vars['glac_bin_area_annual']
+        glac_bin_massbalclim_annual = main_vars['glac_bin_massbalclim_annual']
+        glac_bin_melt = main_vars['glac_bin_melt']
+        glac_bin_acc = main_vars['glac_bin_acc']
+        glac_bin_refreeze = main_vars['glac_bin_refreeze']
+        glac_bin_temp = main_vars['glac_bin_temp']
+        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
