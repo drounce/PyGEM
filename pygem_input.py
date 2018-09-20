@@ -71,7 +71,8 @@ thin_interval = 1
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 #rgi_regionsO1 = [15]
 rgi_regionsO1 = [7]
-rgi_glac_number = ['00030']
+#rgi_glac_number = ['00030']
+rgi_glac_number = ['00893']
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
