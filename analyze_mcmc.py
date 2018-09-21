@@ -15,6 +15,10 @@ import numpy as np
 import xarray as xr
 import pymc
 import matplotlib.pyplot as plt
+
+from pymc import utils
+from pymc.database import base
+
 from scipy.stats.kde import gaussian_kde
 from scipy.stats import norm
 from scipy.stats import truncnorm
@@ -54,8 +58,7 @@ acorr_maxlags = 100
 #output_filepath = input.main_directory + '/../Output/'
 mcmc_output_netcdf_fp = input.main_directory + '/../MCMC_data/spc/mcmc_48glac_3ch_25000iter_20180915/netcdf/'
 mcmc_output_figures_fp = input.main_directory + '/../MCMC_data/spc/mcmc_48glac_3ch_25000iter_20180915/figures/'
-#mcmc_output_netcdf_fp = input.main_directory + '/../MCMC_data/netcdf/'
-#mcmc_output_figures_fp = input.main_directory + '/../MCMC_data/figures/'
+mcmc_output_tables_fp = input.main_directory + '/../MCMC_data/spc/mcmc_48glac_3ch_25000iter_20180915/tables/'
 
 
 debug = False
@@ -170,41 +173,6 @@ def gelman_rubin(ds, vn, iters=1000, burn=0):
     #calculate statistics with pymc in-built function
     return pymc.gelman_rubin(chain)
 
-def gelman_rubin_1(netcdf_fn, vn, iters=50, burn=0):
-    """
-    Calculate Gelman-Rubin statistic.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Dataset from Netcdf of MCMC methods with chains of model parameters
-    vn : str
-        Parameter variable name
-    iters : int
-        Number of iterations associated with the Markov Chain
-    burn : int
-        Number of iterations to burn in with the Markov Chain
-
-    Returns
-    -------
-    gelman_rubin_stat : float
-        gelman_rubin statistic (R_hat)
-    """
-    # Create list of model output to be used with functions
-    dfs = []
-    for n_chain in ds.chain.values:
-        dfs.append(pd.DataFrame(ds['mp_value'].sel(chain=n_chain).values[burn:burn+iters], columns=ds.mp.values))
-    # Gelman-Rubin statistic
-    if len(dfs) > 1:
-        for n_chain in range(0,len(dfs)):
-            df = dfs[n_chain]
-            if n_chain == 0:
-                chain = df[vn].values
-                chain = np.reshape(chain, (1,len(chain)))
-            else:
-                chain2add = np.reshape(df[vn].values, (1,chain.shape[1]))
-                chain = np.append(chain, chain2add, axis=0)
-    return pymc.gelman_rubin(chain)
 
 def MC_error(ds, vn, iters=None, chain_no=0, batches=5):
     """
@@ -250,6 +218,7 @@ def MC_error(ds, vn, iters=None, chain_no=0, batches=5):
 
         return (result[chain_no], mean)
 
+
 def batchsd(trace, batches=5):
     """
     Calculates MC Error using the batch simulation method.
@@ -289,7 +258,174 @@ def batchsd(trace, batches=5):
 
         return np.std(means) / np.sqrt(batches)
 
+def summary(netcdf, iters=[5000, 10000, 25000], alpha=0.05, start=0,
+            batches=100, chain=None, roundto=3, filename='output.txt'):
+        """
+        Generate a pretty-printed summary of the mcmc chain for different
+        chain lengths.
 
+        Parameters
+        ----------
+        ds : xr.Dataset
+            Dataset containing MCMC results
+        alpha : float
+            The alpha level for generating posterior intervals. Defaults to
+            0.05.
+        start : int
+          The starting index from which to summarize (each) chain. Defaults
+          to zero.
+        batches : int
+          Batch size for calculating standard deviation for non-independent
+          samples. Defaults to 100.
+        chain : int
+          The index for which chain to summarize. Defaults to None (all
+          chains).
+        roundto : int
+          The number of digits to round posterior statistics.
+        filename : str
+            Name of the text
+
+        Returns
+        -------
+        .txt file
+            Summary statistics printed out to a text file of given name
+        """
+
+        # open dataset
+        ds = xr.open_dataset(netcdf)
+
+        # open file to write to
+        file = open(filename, 'w')
+
+        for iteration in iters:
+
+            print('\n%s:' % (str(iteration) + ' iterations'), file=file)
+
+            for vn in variables:
+
+                # get trace from database
+                trace = ds['mp_value'].sel(chain=0, mp=vn).values[:]
+
+                # Calculate statistics for Node
+                statdict = stats(
+                    trace,
+                    alpha=alpha,
+                    start=start,
+                    batches=batches,
+                    chain=chain)
+
+                size = np.size(statdict['mean'])
+
+                print('\n%s:' % vn, file=file)
+                print(' ', file=file)
+
+                # Initialize buffer
+                buffer = []
+
+                # Index to interval label
+                iindex = [key.split()[-1] for key in statdict.keys()].index('interval')
+                interval = list(statdict.keys())[iindex]
+
+                # Print basic stats
+                buffer += [
+                    'Mean             SD               MC Error        %s' %
+                    interval]
+                buffer += ['-' * len(buffer[-1])]
+
+                indices = range(size)
+                if len(indices) == 1:
+                    indices = [None]
+
+                _format_str = lambda x, i=None, roundto=2: str(np.round(x.ravel()[i].squeeze(), roundto))
+
+                for index in indices:
+                    # Extract statistics and convert to string
+                    m = _format_str(statdict['mean'], index, roundto)
+                    sd = _format_str(statdict['standard deviation'], index, roundto)
+                    mce = _format_str(statdict['mc error'], index, roundto)
+                    hpd = str(statdict[interval].reshape(
+                            (2, size))[:,index].squeeze().round(roundto))
+
+                    # Build up string buffer of values
+                    valstr = m
+                    valstr += ' ' * (17 - len(m)) + sd
+                    valstr += ' ' * (17 - len(sd)) + mce
+                    valstr += ' ' * (len(buffer[-1]) - len(valstr) - len(hpd)) + hpd
+
+                    buffer += [valstr]
+
+                buffer += [''] * 2
+
+                # Print quantiles
+                buffer += ['Posterior quantiles:', '']
+
+                buffer += [
+                    '2.5             25              50              75             97.5']
+                buffer += [
+                    ' |---------------|===============|===============|---------------|']
+
+                for index in indices:
+                    quantile_str = ''
+                    for i, q in enumerate((2.5, 25, 50, 75, 97.5)):
+                        qstr = _format_str(statdict['quantiles'][q], index, roundto)
+                        quantile_str += qstr + ' ' * (17 - i - len(qstr))
+                    buffer += [quantile_str.strip()]
+
+                buffer += ['']
+
+                print('\t' + '\n\t'.join(buffer), file=file)
+
+        file.close()
+
+
+def stats(trace, alpha=0.05, start=0, batches=100,
+              chain=None, quantiles=(2.5, 25, 50, 75, 97.5)):
+        """
+        Generate posterior statistics for node.
+
+        Parameters
+        ----------
+        trace : numpy.ndarray
+            single dimension array containing mcmc iterations
+        alpha : float
+          The alpha level for generating posterior intervals. Defaults to
+          0.05.
+        start : int
+          The starting index from which to summarize (each) chain. Defaults
+          to zero.
+        batches : int
+          Batch size for calculating standard deviation for non-independent
+          samples. Defaults to 100.
+        chain : int
+          The index for which chain to summarize. Defaults to None (all
+          chains).
+        quantiles : tuple or list
+          The desired quantiles to be calculated. Defaults to (2.5, 25, 50, 75, 97.5).
+
+        Returns
+        -------
+        statdict : dict
+            dict containing the following statistics of the trace (with the same key names)
+
+            'n': length of mcmc chain
+            'standard deviation':
+            'mean':
+            '%s%s HPD interval' % (int(100 * (1 - alpha)), '%'): utils.hpd(trace, alpha),
+            'mc error':
+            'quantiles':
+
+        """
+
+        n = len(trace)
+
+        return {
+            'n': n,
+            'standard deviation': trace.std(0),
+            'mean': trace.mean(0),
+            '%s%s HPD interval' % (int(100 * (1 - alpha)), '%'): utils.hpd(trace, alpha),
+            'mc error': base.batchsd(trace, min(n, batches)),
+            'quantiles': utils.quantiles(trace, qlist=quantiles)
+        }
 
 def write_csv_results(models, distribution_type='truncnormal'):
     """
@@ -725,3 +861,5 @@ for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
     # MCMC plots
     #plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', iters=25000, burn=0)
     plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc')
+    summary(mcmc_output_netcdf_fp + glacier_str + '.nc',
+            filename = mcmc_output_tables_fp + glacier_str + '.txt')
