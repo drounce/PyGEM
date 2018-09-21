@@ -11,7 +11,7 @@ import pygem_input as input
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                   dates_table, option_areaconstant=0, debug=True):
+                   dates_table, option_areaconstant=0, debug=False):
     """
     Runs the mass balance and mass redistribution allowing the glacier to evolve.
 

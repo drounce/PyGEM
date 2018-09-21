@@ -5,6 +5,7 @@ import os
 from time import strftime
 # External libraries
 import pandas as pd
+import pickle
 
 
 def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
@@ -79,9 +80,11 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
 #                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
 #rgi_glac_number = ['05152', '03473']
-rgi_glac_number = ['03473']
+#rgi_glac_number = ['03473']
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48, option_random=1)
+#    with open('rgi_glac_number.pkl', 'wb') as f:
+#        pickle.dump(rgi_glac_number, f)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers

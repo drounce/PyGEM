@@ -239,7 +239,7 @@ def main(list_packed_vars):
                      ddfsnow_start=input.ddfsnow_start,
                      iterations=10, burn=0, thin=input.thin_interval, tune_interval=1000, step=None, 
                      tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0, 
-                     progress_bar=False, dbname=None):
+                     progress_bar=True, dbname=None):
             """
             Runs the MCMC algorithm.
 
