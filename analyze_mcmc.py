@@ -852,7 +852,7 @@ cal_data = cal_data.sort_values(['glacno', 't1_idx'])
 cal_data.reset_index(drop=True, inplace=True)
 
 # ===== PROCESS EACH NETCDF FILE =====
-for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
+for n, glac_str_noreg in enumerate(rgi_glac_number):
     # Glacier string
     glacier_str = str(input.rgi_regionsO1[0]) + '.' + glac_str_noreg
     # Mass balance data
@@ -861,5 +861,5 @@ for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
     # MCMC plots
     #plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', iters=25000, burn=0)
     plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc')
-    summary(mcmc_output_netcdf_fp + glacier_str + '.nc',
-            filename = mcmc_output_tables_fp + glacier_str + '.txt')
+#    summary(mcmc_output_netcdf_fp + glacier_str + '.nc',
+#            filename = mcmc_output_tables_fp + glacier_str + '.txt')
