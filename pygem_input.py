@@ -81,7 +81,7 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = ['05152', '03473']
 #rgi_glac_number = ['03473']
 if 'rgi_glac_number' not in locals():
-    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48, option_random=1)
+    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 144, option_random=1)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers

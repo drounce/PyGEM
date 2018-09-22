@@ -69,6 +69,8 @@ def getparser():
         number of cores to use in parallels
     option_parallels (optional) : int
         switch to use parallels or not
+    rgi_glac_number_fn : str
+        filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
         
     Returns
     -------
@@ -242,7 +244,7 @@ def main(list_packed_vars):
                      ddfsnow_start=input.ddfsnow_start,
                      iterations=10, burn=0, thin=input.thin_interval, tune_interval=1000, step=None, 
                      tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0, 
-                     progress_bar=True, dbname=None):
+                     progress_bar=False, dbname=None):
             """
             Runs the MCMC algorithm.
 
@@ -1813,7 +1815,6 @@ if __name__ == '__main__':
         print('Chains:', input.n_chains, 'Iterations:', input.mcmc_sample_no)
     
     # RGI glacier number
-    print(args.rgi_glac_number_fn)
     if args.rgi_glac_number_fn is not None:
         with open(args.rgi_glac_number_fn, 'rb') as f:
             rgi_glac_number = pickle.load(f)
