@@ -341,6 +341,7 @@ class MBData():
             # Observation type
             ds['obs_type'] = 'mb_geo'
             ds['group_name'] = np.nan
+            ds['sla_m'] = np.nan
         
         elif self.name == 'wgms_ee':
             # Load all data
@@ -700,7 +701,7 @@ class MBData():
             ds['WGMS_ID'] = np.nan
             
         # Select output
-        ds_output = ds.loc[:, ds_output_cols].sort_values(['glacno', 't1_idx'])
+        ds_output = ds[ds_output_cols].sort_values(['glacno', 't1_idx'])
         ds_output.reset_index(drop=True, inplace=True)
         return ds_output
 

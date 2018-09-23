@@ -29,13 +29,9 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import class_mbdata
 
-#%% TO-DO LIST
-# EXPORT CSV STATISTICS - SEE EXAMPLES FROM PYMC FOR DATA WE WANT TO INCLUDE
-
-
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
-cal_datasets = ['shean']
+cal_datasets = ['shean', 'wgms_d']
 # Label dictionaries for pairwise scatter plots
 vn_label_dict = {'massbal':'Mass balance\n[mwea]',
                  'precfactor':'Precipitation factor\n[-]',
@@ -56,15 +52,13 @@ acorr_maxlags = 100
 
 # Export option
 #output_filepath = input.main_directory + '/../Output/'
-mcmc_output_netcdf_fp = input.main_directory + '/../MCMC_data/spc/mcmc_48glac_3ch_25000iter_20180915/netcdf/'
-mcmc_output_figures_fp = input.main_directory + '/../MCMC_data/spc/mcmc_48glac_3ch_25000iter_20180915/figures/'
-mcmc_output_tables_fp = input.main_directory + '/../MCMC_data/spc/mcmc_48glac_3ch_25000iter_20180915/tables/'
-
+mcmc_output_netcdf_fp = input.main_directory + '/../MCMC_data/netcdf/'
+mcmc_output_figures_fp = input.main_directory + '/../MCMC_data/figures/'
+mcmc_output_tables_fp = input.main_directory + '/../MCMC_data/tables/'
 
 debug = False
-#%%
 
-# ===== Define functions needed for MCMC method =====
+
 def prec_transformation(precfactor_raw):
     """
     Converts raw precipitation factors from normal distribution to correct values.
@@ -131,6 +125,7 @@ def effective_n(df, vn):
             negative_autocorr = sum(rho_norm[t-1:t+1]) < 0
         t += 1
     return int(n / (1 + 2*rho_norm[1:t].sum()))
+
 
 def gelman_rubin(ds, vn, iters=1000, burn=0):
     """
@@ -257,6 +252,7 @@ def batchsd(trace, batches=5):
         means = np.mean(batched_traces, 1)
 
         return np.std(means) / np.sqrt(batches)
+
 
 def summary(netcdf, iters=[5000, 10000, 25000], alpha=0.05, start=0,
             batches=100, chain=None, roundto=3, filename='output.txt'):
@@ -427,6 +423,7 @@ def stats(trace, alpha=0.05, start=0, batches=100,
             'quantiles': utils.quantiles(trace, qlist=quantiles)
         }
 
+
 def write_csv_results(models, distribution_type='truncnormal'):
     """
     Write parameter statistics (mean, standard deviation, effective sample number, gelman_rubin, etc.) to csv.
@@ -464,6 +461,7 @@ def write_csv_results(models, distribution_type='truncnormal'):
             gelman_rubin_values.append(gelman_rubin(models, vn))
         csv_input['gelman_rubin'] = gelman_rubin_values
     csv_input.to_csv(output_csv_fn, index=False)
+
 
 def plot_mc_results(netcdf_fn, iters=50, burn=0, distribution_type='truncnormal',
                     precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma,
@@ -712,6 +710,7 @@ def plot_mc_results(netcdf_fn, iters=50, burn=0, distribution_type='truncnormal'
     plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + distribution_type + '_pairwisescatter_' + str(len(dfs)) +
                 'chain_' + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
 
+
 def plot_mc_results2(netcdf_fn, burns=[1000,3000,5000], plot_res=1000, distribution_type='truncnormal'):
     """
     Plot gelman-rubin statistic and markov chain error plots.
@@ -847,19 +846,19 @@ cal_data = pd.DataFrame()
 for dataset in cal_datasets:
     cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=input.rgi_regionsO1[0])
     cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
-    cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-cal_data.reset_index(drop=True, inplace=True)
+#    cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+#cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+#cal_data.reset_index(drop=True, inplace=True)
 
 # ===== PROCESS EACH NETCDF FILE =====
-for n, glac_str_noreg in enumerate(rgi_glac_number):
-    # Glacier string
-    glacier_str = str(input.rgi_regionsO1[0]) + '.' + glac_str_noreg
-    # Mass balance data
-    observed_massbal = cal_data.mb_mwe[n] / (cal_data.t2[n] - cal_data.t1[n])
-    observed_error = cal_data.mb_mwe_err[n] / (cal_data.t2[n] - cal_data.t1[n])
-    # MCMC plots
-    #plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', iters=25000, burn=0)
-    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc')
+#for n, glac_str_noreg in enumerate(rgi_glac_number):
+#    # Glacier string
+#    glacier_str = str(input.rgi_regionsO1[0]) + '.' + glac_str_noreg
+#    # Mass balance data
+#    observed_massbal = cal_data.mb_mwe[n] / (cal_data.t2[n] - cal_data.t1[n])
+#    observed_error = cal_data.mb_mwe_err[n] / (cal_data.t2[n] - cal_data.t1[n])
+#    # MCMC plots
+#    #plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', iters=25000, burn=0)
+#    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc')
 #    summary(mcmc_output_netcdf_fp + glacier_str + '.nc',
 #            filename = mcmc_output_tables_fp + glacier_str + '.txt')

@@ -245,7 +245,7 @@ def main(list_packed_vars):
                      ddfsnow_start=input.ddfsnow_start,
                      iterations=10, burn=0, thin=input.thin_interval, tune_interval=1000, step=None, 
                      tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0, 
-                     progress_bar=False, dbname=None):
+                     progress_bar=True, dbname=None):
             """
             Runs the MCMC algorithm.
 
@@ -389,13 +389,37 @@ def main(list_packed_vars):
                                                icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=1))
-                # Return glacier-wide mass balance [mwea] for comparison
-                return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)            
+#                # Return glacier-wide mass balance [mwea] for comparison
+#                return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)  
+                #%%
+                # Return list of correct comparison with calibration data
+                # Loop through all measurements
+                obs_list = []
+                for x in range(glacier_cal_data.shape[0]):
+                    cal_idx = glacier_cal_data.index.values[x]
+                    # Mass balance comparisons
+                    if glacier_cal_data.loc[cal_idx, 'obs_type'].startswith('mb'):
+                        # Modeled mass balance [mwe]
+                        #  Sum(mass balance x area) / total area
+                        t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
+                        t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
+                        z1_idx = glacier_cal_data.loc[cal_idx, 'z1_idx'].astype(int)
+                        z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
+                        year_idx = int(t1_idx / 12)
+                        bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
+                        mb_modeled = ((glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * 
+                                      bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
+                        obs_list.append(mb_modeled)
+                # Return list of values and uncertainty
+                return obs_list
+                #%%
+            
             # Observed distribution
             #  This observation data defines the observed likelihood of the mass balances, and allows us to fit the 
             #  probability distribution of the mass balance to the results.
-            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
-                                      value=float(observed_massbal), observed=True)
+#            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
+#                                      value=float(observed_massbal), observed=True)
+            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=obs_tau_list, value=obs_list, observed=True)
             # Set model
             if dbname is None:
                 model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
@@ -415,400 +439,7 @@ def main(list_packed_vars):
                          save_interval=save_interval, verbose=verbose, progress_bar=progress_bar)
             #close database
             model.db.close()
-
-            return model
-        
-        def effective_n(model, vn):
-            """
-            Compute the effective sample size of a trace.
-            
-            Takes the trace and computes the effective sample size according to its detrended autocorrelation.
-            
-            Parameters
-            ----------
-            model : pymc.MCMC.MCMC
-                Model containing traces of parameters, summary statistics, etc.
-            vn : str
-                Parameter variable name
-
-            Returns
-            -------
-            effective_n : int
-                effective sample size
-            """
-            # Effective sample size      
-            x = model.trace(vn)[:]
-            # detrend trace using mean to be consistent with statistics definition of autocorrelation
-            x = (x - x.mean())
-            # compute autocorrelation (note: only need second half since they are symmetric)
-            rho = np.correlate(x, x, mode='full')
-            rho = rho[len(rho)//2:]
-            # normalize the autocorrelation values
-            #  note: rho[0] is the variance * n_samples, so this is consistent with the statistics definition of 
-            #        autocorrelation on wikipedia (dividing by n_samples gives you the expected value).
-            rho_norm = rho / rho[0]
-            # Iterate untile sum of consecutive estimates of autocorrelation is negative to avoid issues with the sum
-            # being -0.5, which returns an effective_n of infinity
-            negative_autocorr = False
-            t = 1
-            n = len(x)
-            while not negative_autocorr and (t < n):
-                if not t % 2:
-                    negative_autocorr = sum(rho_norm[t-1:t+1]) < 0
-                t += 1
-            return int(n / (1 + 2*rho_norm[1:t].sum()))
-        
-        
-        def gelman_rubin(models, vn):
-            """
-            Calculate Gelman-Rubin statistic.
-            
-            Parameters
-            ----------
-            models : list of pymc.MCMC.MCMC
-                Models containing traces of parameters, summary statistics, etc.
-            vn : str
-                Parameter variable name
-                
-            Returns
-            -------
-            gelman_rubin_stat : float
-                gelman_rubin statistic (R_hat)
-            """
-            # Gelman-Rubin statistic
-            if len(models) > 1:
-                for n_chain in range(0,len(models)):
-                    model = models[n_chain]
-                    if n_chain == 0:
-                        chain = model.trace(vn)[:]
-                        chain = np.reshape(chain, (1,len(chain)))
-                    else: 
-                        chain2add = np.reshape(model.trace(vn)[:], (1,chain.shape[1]))
-                        chain = np.append(chain, chain2add, axis=0)
-            return pymc.gelman_rubin(chain)
-        
-        
-        def write_csv_results(models, distribution_type='truncnormal'):
-            """
-            Write parameter statistics (mean, standard deviation, effective sample number, gelman_rubin, etc.) to csv.
-            
-            Parameters
-            ----------
-            models : list of pymc.MCMC.MCMC
-                Models containing traces of parameters, summary statistics, etc.
-            distribution_type : str
-                Distribution type either 'truncnormal' or 'uniform' (default truncnormal)
-                
-            Returns
-            -------
-            exports .csv
-            """
-            model = models[0]
-            # Write statistics to csv
-            output_csv_fn = (input.mcmc_output_csv_fp + glacier_str + '_' + distribution_type + '_statistics_' + 
-                             str(len(models)) + 'chain_' + str(input.mcmc_sample_no) + 'iter_' + 
-                             str(input.mcmc_burn_no) + 'burn' + '.csv')
-            model.write_csv(output_csv_fn, variables=['massbal', 'precfactor', 'tempchange', 'ddfsnow'])
-            # Import and export csv
-            csv_input = pd.read_csv(output_csv_fn)
-            # Add effective sample size to csv
-            massbal_neff = effective_n(model, 'massbal')
-            precfactor_neff = effective_n(model, 'precfactor')
-            tempchange_neff = effective_n(model, 'tempchange')
-            ddfsnow_neff = effective_n(model, 'ddfsnow')
-            effective_n_values = [massbal_neff, precfactor_neff, tempchange_neff, ddfsnow_neff]
-            csv_input['n_eff'] = effective_n_values
-            # If multiple chains, add Gelman-Rubin Statistic
-            if len(models) > 1:
-                gelman_rubin_values = []
-                for vn in variables:
-                    gelman_rubin_values.append(gelman_rubin(models, vn))
-                csv_input['gelman_rubin'] = gelman_rubin_values
-            csv_input.to_csv(output_csv_fn, index=False)
-
-            
-        def plot_mc_results(models, distribution_type='truncnormal', 
-                            precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma, 
-                            precfactor_boundlow=input.precfactor_boundlow, 
-                            precfactor_boundhigh=input.precfactor_boundhigh,
-                            tempchange_mu=input.tempchange_mu, tempchange_sigma=input.tempchange_sigma, 
-                            tempchange_boundlow=input.tempchange_boundlow, 
-                            tempchange_boundhigh=input.tempchange_boundhigh,
-                            ddfsnow_mu=input.ddfsnow_mu, ddfsnow_sigma=input.ddfsnow_sigma, 
-                            ddfsnow_boundlow=input.ddfsnow_boundlow, ddfsnow_boundhigh=input.ddfsnow_boundhigh):
-            """
-            Plot trace, prior/posterior distributions, autocorrelation, and pairwise scatter for each parameter.
-            
-            Takes the output from the Markov Chain model and plots the results for the mass balance, temperature change,
-            precipitation factor, and degree day factor of snow.  Also, outputs the plots associated with the model.
-            
-            Parameters
-            ----------
-            models : list of pymc.MCMC.MCMC
-                Models containing traces of parameters, summary statistics, etc.
-            distribution_type : str
-                Distribution type either 'truncnormal' or 'uniform' (default truncnormal)
-            glacier_RGIId_float : str
-            precfactor_mu : float
-                Mean of precipitation factor (default assigned from input)
-            precfactor_sigma : float
-                Standard deviation of precipitation factor (default assigned from input)
-            precfactor_boundlow : float
-                Lower boundary of precipitation factor (default assigned from input)
-            precfactor_boundhigh : float
-                Upper boundary of precipitation factor (default assigned from input)
-            tempchange_mu : float
-                Mean of temperature change (default assigned from input)
-            tempchange_sigma : float
-                Standard deviation of temperature change (default assigned from input)
-            tempchange_boundlow : float
-                Lower boundary of temperature change (default assigned from input)
-            tempchange_boundhigh: float
-                Upper boundary of temperature change (default assigned from input)
-            ddfsnow_mu : float
-                Mean of degree day factor of snow (default assigned from input)
-            ddfsnow_sigma : float 
-                Standard deviation of degree day factor of snow (default assigned from input)
-            ddfsnow_boundlow : float
-                Lower boundary of degree day factor of snow (default assigned from input)
-            ddfsnow_boundhigh : float
-                Upper boundary of degree day factor of snow (default assigned from input)
-                
-            Returns
-            -------
-            .png files
-                Saves two figures of (1) trace, histogram, and autocorrelation, and (2) pair-wise scatter plots.
-            """            
-            model = models[0]
-            # ===== CHAIN, HISTOGRAM, AND AUTOCORRELATION PLOTS ===========================
-            plt.figure(figsize=(12, len(variables)*3))
-            plt.subplots_adjust(wspace=0.3, hspace=0.5)
-            plt.suptitle('mcmc_ensembles_' + glacier_str + '_' + distribution_type, y=0.94)
-            
-            # Bounds (SciPy convention)
-            precfactor_a = (precfactor_boundlow - precfactor_mu) / precfactor_sigma
-            precfactor_b = (precfactor_boundhigh - precfactor_mu) / precfactor_sigma
-            tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
-            tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
-            ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
-            ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
-
-            for count, vn in enumerate(variables):
-                # ===== Chain =====
-                plt.subplot(len(variables), 3, 3*count+1)
-                chain_legend = []
-                for n_model, model in enumerate(models):
-                    chain = model.trace(vn)[:]
-                    if vn == 'precfactor':
-                        chain_raw = chain.copy()
-                        chain = prec_transformation(chain_raw)
-                    runs = np.arange(0,chain.shape[0])
-                    if n_model == 0:
-                        plt.plot(runs, chain, color='b')
-                    elif n_model == 1:
-                        plt.plot(runs, chain, color='r')
-                    else:
-                        plt.plot(runs, chain, color='y')
-                    chain_legend.append('chain' + str(n_model + 1))
-                plt.legend(chain_legend)
-                plt.xlabel('Step Number', size=10)
-                plt.ylabel(vn_label_dict[vn], size=10)
-                
-                # ===== Prior and posterior distributions =====
-                plt.subplot(len(variables), 3, 3*count+2)
-                # Prior distribution
-                z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
-                if vn == 'massbal':
-                    x_values = observed_massbal + observed_error * z_score
-                    y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
-                elif vn == 'precfactor':
-                    if distribution_type == 'truncnormal':
-                        z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b), 
-                                              truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
-                        x_values_raw = precfactor_mu + precfactor_sigma * z_score
-                        y_values = truncnorm.pdf(x_values_raw, precfactor_a, precfactor_b, loc=precfactor_mu, 
-                                                 scale=precfactor_sigma)
-                    elif distribution_type == 'uniform':
-                        z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-                        x_values_raw = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
-                        y_values = uniform.pdf(x_values_raw, loc=precfactor_boundlow, 
-                                               scale=(precfactor_boundhigh - precfactor_boundlow))
-                    # transform the precfactor values from the truncated normal to the actual values
-                    x_values = prec_transformation(x_values_raw)
-                elif vn == 'tempchange':
-                    if distribution_type == 'truncnormal':
-                        z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b), 
-                                              truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
-                        x_values = tempchange_mu + tempchange_sigma * z_score
-                        y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu, 
-                                                 scale=tempchange_sigma)
-                    elif distribution_type == 'uniform':                
-                        z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-                        x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
-                        y_values = uniform.pdf(x_values, loc=tempchange_boundlow, 
-                                               scale=(tempchange_boundhigh - tempchange_boundlow))
-                elif vn == 'ddfsnow':
-                    if distribution_type == 'truncnormal':
-                        z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b), 
-                                              truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
-                        x_values = ddfsnow_mu + ddfsnow_sigma * z_score
-                        y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
-                    elif distribution_type == 'uniform':                
-                        z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-                        x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
-                        y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow, 
-                                               scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
-                plt.plot(x_values, y_values, color='k')
-                # Ensemble/Posterior distribution  
-                # extents
-                if chain.min() < x_values.min():
-                    x_min = chain.min()
-                else:
-                    x_min = x_values.min()
-                if chain.max() > x_values.max():
-                    x_max = chain.max()
-                else:
-                    x_max = x_values.max()
-                # Chain legend
-                if vn == 'massbal':
-                    chain_legend = ['observed']
-                else:
-                    chain_legend = ['prior']
-                # Loop through models
-                for n_model, model in enumerate(models):
-                    chain = model.trace(vn)[:]
-                    # If precipitation factor, then transform chain
-                    if vn == 'precfactor':
-                        chain_raw = chain.copy()
-                        chain = prec_transformation(chain_raw)
-                    # gaussian distribution
-                    if vn == 'massbal':
-                        kde = gaussian_kde(chain)
-                        x_values_kde = np.linspace(x_min, x_max, 100)
-                        y_values_kde = kde(x_values_kde)
-                        chain_legend.append('ensemble' + str(n_model + 1))
-                    elif vn == 'precfactor':
-                        kde = gaussian_kde(chain_raw)
-                        x_values_kde = x_values.copy()
-                        y_values_kde = kde(x_values_raw)
-                        chain_legend.append('posterior' + str(n_model + 1))
-                    else:
-                        kde = gaussian_kde(chain)
-                        x_values_kde = x_values.copy()
-                        y_values_kde = kde(x_values_kde)
-                        chain_legend.append('posterior' + str(n_model + 1))
-                    if n_model == 0:
-                        plt.plot(x_values_kde, y_values_kde, color='b')
-                    elif n_model == 1:
-                        plt.plot(x_values_kde, y_values_kde, color='r')
-                    else:      
-                        plt.plot(x_values_kde, y_values_kde, color='y')
-                    plt.xlabel(vn_label_dict[vn], size=10)
-                    plt.ylabel('PDF', size=10)
-                    plt.legend(chain_legend)
-                
-                # ===== Normalized autocorrelation ======
-                plt.subplot(len(variables), 3, 3*count+3)
-                chain_norm = chain - chain.mean()
-                if chain.shape[0] <= acorr_maxlags:
-                    acorr_lags = chain.shape[0] - 1
-                else:
-                    acorr_lags = acorr_maxlags
-                plt.acorr(chain_norm, maxlags=acorr_lags)
-                plt.xlim(0,acorr_lags)
-                plt.xlabel('lag')
-                plt.ylabel('autocorrelation')
-                chain_neff = effective_n(model, vn)
-                plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(chain_neff))                
-            # Save figure
-            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_' + distribution_type + '_plots_' + 
-                        str(len(models)) + 'chain_' + str(input.mcmc_sample_no) + 'iter_' + str(input.mcmc_burn_no) 
-                        + 'burn' + '.png', bbox_inches='tight')
-            
-            # ===== PAIRWISE SCATTER PLOTS ===========================================================
-            fig = plt.figure(figsize=(10,12))
-            plt.subplots_adjust(wspace=0.1, hspace=0.1)
-            plt.suptitle('mcmc_pairwise_scatter_' + glacier_str + '_' + distribution_type, y=0.94)
-            
-            nvars = len(variables)
-            for i, vn1 in enumerate(variables):
-                v1 = model.trace(vn1)[:]
-                if vn1 == 'precfactor':
-                    v1 = prec_transformation(v1.copy())
-                for j, vn2 in enumerate(variables):
-                    v2 = model.trace(vn2)[:]
-                    if vn2 == 'precfactor':
-                        v2 = prec_transformation(v2.copy())
-                    nsub = i * nvars + j + 1
-                    ax = fig.add_subplot(nvars, nvars, nsub)
-                    if i == j:
-                        plt.hist(v1)
-                        plt.tick_params(axis='both', bottom=False, left=False, labelleft=False, labelbottom=False)
-                    elif i > j:
-                        plt.plot(v2, v1, 'o', mfc='none', mec='black')
-                    else:
-                        # Need to plot blank, so axis remain correct
-                        plt.plot(v2, v1, 'o', mfc='none', mec='none')
-                        slope, intercept, r_value, p_value, std_err = linregress(v2, v1)
-                        text2plot = (vn_label_nounits_dict[vn2] + '/\n' + vn_label_nounits_dict[vn1] + '\n$R^2$=' + 
-                                     '{:.2f}'.format((r_value**2)))
-                        ax.text(0.5, 0.5, text2plot, transform=ax.transAxes, fontsize=14, 
-                                verticalalignment='center', horizontalalignment='center')
-                    # Plot bottom left
-                    if (i+1 == nvars) and (j == 0):
-                        plt.tick_params(axis='both', which='both', left=True, right=False, labelbottom=True, 
-                                        labelleft=True, labelright=False)
-                        plt.xlabel(vn_label_dict[vn2])
-                        plt.ylabel(vn_label_dict[vn1])
-                    # Plot bottom only
-                    elif i + 1 == nvars:
-                        plt.tick_params(axis='both', which='both', left=False, right=False, labelbottom=True, 
-                                        labelleft=False, labelright=False)
-                        plt.xlabel(vn_label_dict[vn2])
-                    # Plot left only (exclude histogram values)
-                    elif (i !=0) and (j == 0):
-                        plt.tick_params(axis='both', which='both', left=True, right=False, labelbottom=False, 
-                                        labelleft=True, labelright=False)
-                        plt.ylabel(vn_label_dict[vn1])
-                    else:
-                        plt.tick_params(axis='both', left=False, right=False, labelbottom=False, 
-                                        labelleft=False, labelright=False)
-            plt.savefig(input.mcmc_output_figs_fp + glacier_str + '_' + distribution_type + '_pairwisescatter_' + 
-                        str(len(models)) + 'chain_' + str(input.mcmc_sample_no) + 'iter_' + str(input.mcmc_burn_no) 
-                        + 'burn' + '.png', bbox_inches='tight')
-
-
-        def process_df(df):
-            """
-            Processes the dataframe to  include only relevant information needed for future model runs.
-            
-            Parameters
-            ----------
-            df : pandas dataframe
-                Dataframe outputed by stratified sampling
-                
-            Returns
-            -------
-            df : pandas dataframe
-                Dataframe with the other uncalibrated parameters (lrgcm, lrglac, precgrad, ddfice, tempsnow) added.
-
-            Note: Creates an index for the dataframe (from zero to 1 less than number of ensemble runs) and names the 
-                  index 'runs'. Names the columns axis 'variables'
-            """
-            # set columns for static variables
-            df['lrgcm'] = np.full(len(df), input.lrgcm)
-            df['lrglac'] = np.full(len(df), input.lrglac)
-            df['precgrad'] = np.full(len(df), input.precgrad)
-            df['ddfice'] = np.full(len(df), input.ddfice)
-            df['tempsnow'] = np.full(len(df), input.tempsnow)
-            # drop unnecesary info
-            df = df.drop('sorted_index', 1)
-            # name column axis
-            df.columns.name = 'variables'
-            # create a new index
-            df['runs'] = np.arange(len(df))
-            df = df.set_index('runs')
-            return df
+            return model        
 
 
         # ===== Begin MCMC process =====
@@ -837,18 +468,35 @@ def main(list_packed_vars):
                     glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
             glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
 
-            # Select observed mass balance, error, and time data
-            cal_idx = glacier_cal_data.index.values[0]
-            #  Note: index to main_glac_rgi may differ from cal_idx
-            t1 = glacier_cal_data.loc[cal_idx, 't1']
-            t2 = glacier_cal_data.loc[cal_idx, 't2']
-            t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
-            t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
-            observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
-            observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
+#            # Select observed mass balance, error, and time data
+#            cal_idx = glacier_cal_data.index.values[0]
+#            #  Note: index to main_glac_rgi may differ from cal_idx
+#            t1 = glacier_cal_data.loc[cal_idx, 't1']
+#            t2 = glacier_cal_data.loc[cal_idx, 't2']
+#            t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
+#            t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+#            observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
+#            observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
+            #%%
+            obs_list = []
+            obs_err_list_raw = []
+            for x in range(glacier_cal_data.shape[0]):
+                cal_idx = glacier_cal_data.index.values[x]
+                # Mass balance comparisons
+                if glacier_cal_data.loc[cal_idx, 'obs_type'].startswith('mb'):
+                    # Mass balance [mwea]
+                    t1 = glacier_cal_data.loc[cal_idx, 't1'].astype(int)
+                    t2 = glacier_cal_data.loc[cal_idx, 't2'].astype(int)
+                    observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
+                    observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
+                    obs_list.append(observed_massbal)
+                    obs_err_list_raw.append(observed_error)
+            obs_err_list = [x if ~np.isnan(x) else np.nanmean(obs_err_list_raw) for x in obs_err_list_raw]
+            obs_tau_list = [1/(x**2) for x in obs_err_list]
 
             if debug:
-                print('observed_massbal:',observed_massbal, 'observed_error:',observed_error)
+#                print('observed_massbal:',observed_massbal, 'observed_error:',observed_error)
+                print('observations:',obs_list, 'observations_error:',obs_err_list)
 
 
             # ===== RUN MARKOV CHAIN MONTE CARLO METHOD ====================            
@@ -871,10 +519,15 @@ def main(list_packed_vars):
                                      tempchange_start=input.tempchange_boundlow, ddfsnow_start=input.ddfsnow_boundlow, 
                                      iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
                     
-                df = pd.DataFrame({'tempchange': model.trace('tempchange')[:],
-                               'precfactor': prec_transformation(model.trace('precfactor')[:]),
-                               'ddfsnow': model.trace('ddfsnow')[:], 
-                               'massbal': model.trace('massbal')[:]})
+                # Select data from model to be stored in netcdf
+                df_dict = {'tempchange': model.trace('tempchange')[:],
+                           'precfactor': prec_transformation(model.trace('precfactor')[:]),
+                           'ddfsnow': model.trace('ddfsnow')[:]}
+                # Loop through observations to help create dataframe
+                for x in range(glacier_cal_data.shape[0]):
+                    obs_cn = 'obs_' + str(x)
+                    df_dict[obs_cn] = model.trace('massbal')[:][:,x]
+                df = pd.DataFrame(df_dict)
                 # set columns for other variables
                 df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
                 df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
@@ -893,18 +546,11 @@ def main(list_packed_vars):
        
             ds.to_netcdf(input.mcmc_output_netcdf_fp + glacier_str + '.nc')
             
-            # NEED TO RE-STRUCTURE PLOTS AND CSVs to be done in post-processing with netcdf files
-            
 #            #%%
 #            # Example of accessing netcdf file and putting it back into pandas dataframe
-#            A = xr.open_dataset(input.mcmc_output_netcdf_fp + '15.03473.nc')
+#            A = xr.open_dataset(input.mcmc_output_netcdf_fp + '15.03734.nc')
 #            B = pd.DataFrame(A['mp_value'].sel(chain=0).values, columns=A.mp.values)
 #            #%%
-            
-            # Plot parameters
-#            plot_mc_results(models, distribution_type=distribution_type)
-            # Write statisticis to csv
-#            write_csv_results(models, distribution_type=distribution_type)
 
         # ==============================================================
         
