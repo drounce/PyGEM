@@ -80,6 +80,7 @@ rgi_regionsO2 = 'all'
 #                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
 #rgi_glac_number = ['05152', '03473']
 #rgi_glac_number = ['03473']
+rgi_glac_number = ['03734']
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 144, option_random=1)
 

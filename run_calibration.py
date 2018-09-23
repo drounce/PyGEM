@@ -32,7 +32,8 @@ import class_mbdata
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 # Calibration datasets
-cal_datasets = ['shean']
+#cal_datasets = ['shean']
+cal_datasets = ['shean', 'wgms_d']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 
 # Label dictionaries for pairwise scatter plots
