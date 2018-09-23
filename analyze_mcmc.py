@@ -763,13 +763,20 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
     ----------
     netcdf_fn : str
         Netcdf of MCMC methods with chains of model parameters
+    iters : int
+        Number of iterations associated with the Markov Chain
     burn : list of ints
         List of burn in values to plot for Gelman-Rubin stats
     plot_res: int
         Interval of points for which GR and MCerror statistic are calculated.
         (Lower value leads to higher plot resolution)
-    distribution_type : str
-        String defining distribution type, default truncnormal
+    glacier_RGIId_float : str
+    precfactor_mu : float
+        Mean of precipitation factor (default assigned from input)
+    tempchange_mu : float
+        Mean of temperature change (default assigned from input)
+    ddfsnow_mu : float
+        Mean of degree day factor of snow (default assigned from input)
 
     Returns
     -------
@@ -813,7 +820,7 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
 
     plt.figure(figsize=(2 + v_len*3, b_len*3))
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
-    plt.suptitle('Gelman-Rubin', y=0.94)
+    plt.suptitle('Gelman-Rubin Statistic vs Number of MCMC Steps', y=0.94)
 
     for v_count, vn in enumerate(variables):
 #    for v_count, vn in enumerate([variables[0]]):
@@ -823,28 +830,27 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
 
             plt.subplot(b_len, v_len, v_len*b_count+v_count+1)
 
-            plot_list = list(range(burn, c_len, plot_res))
-            # Avoid calculating gelman-rubin over empty chain (iters = burn)
-            if plot_list[0] == burn:
-                plot_list = plot_list[1:]
-            
+            plot_list = list(range(burn+plot_res, c_len, plot_res))
+
             gr_list = [gelman_rubin(ds, vn, pt, burn) for pt in plot_list]
 
             # plot GR
-            plt.plot(plot_list, gr_list, label='GR Statistic\nfor ' + vn +'\nBurn-In ' + str(burn))
+            plt.plot(plot_list, gr_list, label='GR Statistic')
 
             # plot horizontal line for benchmark
-            plt.axhline(1.01, color='orange', label='GR Benchmark')
+            plt.axhline(1.01, color='orange', label='1.01')
 
             if v_count == 0:
-                plt.ylabel('Gelman-Rubin Value', size=10)
+                plt.ylabel('Burn in ' + str(burn) + '\n\nGelman-Rubin Value', size=10)
 
             if b_count == 0:
                 plt.title(vn_title_dict[vn], size=10)
 
+            if v_count == v_len-1:
+                plt.legend()
+
             # niceties
             plt.xlabel('Step Number', size=10)
-            plt.legend()
             #plt.title('Burn in ' + str(burn), size=10)
 
     # Save figure
@@ -856,7 +862,7 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
 
     plt.figure(figsize=(v_len*4, 2))
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
-    plt.suptitle('MC Error', y=1.10)
+    plt.suptitle('MC Error Divided By Mean vs Number of MCMC Steps', y=1.10)
 
 #    for v_count, vn in enumerate(variables):
     for v_count, vn in enumerate([variables[0]]):
@@ -868,31 +874,78 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
         # avoid calculating mc error over empty chain (iter = 0)
         plot_list = plot_list[1:]
 
+        # find mean
+        total_mean = abs(np.mean(ds['mp_value'].sel(chain=0, mp=vn).values))
+
         mce_list = []
-        mean_list = []
+        #mean_list = []
 
         # calculate mc error and mean at each point
         for pt in plot_list:
 
             mce, mean = MC_error(ds, vn, iters=pt)
             mce_list.append(mce)
-            mean_list.append(abs(mean) / 100)
+            #mean_list.append(abs(mean) / 100)
 
         # plot
-        plt.plot(plot_list, mce_list, label='MC Error')
-        plt.plot(plot_list, mean_list, label='1 percent of\nmean')
+        plt.plot(plot_list, mce_list / total_mean)
+        plt.axhline(0.01, color='orange', label='1% of Mean')
+        plt.axhline(0.03, color='green', label='3% of Mean')
+        #plt.plot(plot_list, mean_list, label='1 percent of\nmean')
 
         if v_count == 0:
-            plt.ylabel('MC Error', size=10)
+            plt.ylabel('MC Error Divided by Mean', size=10)
+
+        if v_count == v_len-1:
+            plt.legend()
 
         # niceties
         plt.xlabel('Step Number', size=10)
-        plt.legend()
         plt.title(vn_title_dict[vn], size=10)
 
     # Save figure
     plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + distribution_type +
                 '_mc-error' + '_plots_' + str(no_chains) + 'chain_' +
+                str(c_len) + 'iter' + '.png', bbox_inches='tight')
+
+    # ====================== EFFECTIVE_N PLOTS ===========================
+
+    plt.figure(figsize=(2 + v_len*3, b_len*3))
+    plt.subplots_adjust(wspace=0.3, hspace=0.5)
+    plt.suptitle('Effective Sample Size vs Number of MCMC Steps', y=0.94)
+
+    # get dataframe
+    df = ds['mp_value'].sel(chain=0).to_pandas()
+
+    for v_count, vn in enumerate(variables):
+
+        for b_count, burn in enumerate(burns):
+
+            plt.subplot(b_len, v_len, v_len*b_count+v_count+1)
+
+            # points to plot at
+            plot_list = list(range(burn+plot_res, c_len, plot_res))
+
+            en_list = [effective_n(df[burn:pt], vn) for pt in plot_list]
+
+            # plot
+            plt.plot(plot_list, en_list, label='Effective\nSample Size')
+
+            if v_count == 0:
+                plt.ylabel('Burn in ' + str(burn) + '\n\nEffective Sample Size', size=10)
+
+            if v_count == v_len-1:
+                plt.legend()
+
+            if b_count == 0:
+                plt.title(vn_title_dict[vn], size=10)
+
+            # niceties
+            plt.xlabel('Step Number', size=10)
+
+    # Save figure
+    plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + distribution_type +
+                '_effective-n' + '_plots_' + str(no_chains) + 'chain_' +
                 str(c_len) + 'iter' + '.png', bbox_inches='tight')
 
 
