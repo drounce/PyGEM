@@ -15,13 +15,7 @@ import numpy as np
 import xarray as xr
 import pymc
 from pymc import deterministic
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize
-from scipy.stats.kde import gaussian_kde
-from scipy.stats import norm
-from scipy.stats import truncnorm
-from scipy.stats import uniform
-from scipy.stats import linregress
 import pickle
 # Local libraries
 import pygem_input as input
@@ -32,23 +26,9 @@ import class_mbdata
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 # Calibration datasets
-#cal_datasets = ['shean']
-cal_datasets = ['shean', 'wgms_d']
+cal_datasets = ['shean']
+#cal_datasets = ['shean', 'wgms_d']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
-
-# Label dictionaries for pairwise scatter plots
-vn_label_dict = {'massbal':'Mass balance\n[mwea]',
-                 'precfactor':'Precipitation factor\n[-]',
-                 'tempchange':'Temperature bias\n[degC]',
-                 'ddfsnow':'DDFsnow\n[mwe $degC^{-1} d^{-1}$]'}
-vn_label_nounits_dict = {'massbal':'Mass balance',
-                         'precfactor':'Prec factor',
-                         'tempchange':'Temp bias',
-                         'ddfsnow':'DDFsnow'}    
-# mcmc model parameters
-variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
-# Autocorrelation lags
-acorr_maxlags = 100
 
 # Export option
 option_export = 1
@@ -389,37 +369,38 @@ def main(list_packed_vars):
                                                icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=1))
-#                # Return glacier-wide mass balance [mwea] for comparison
-#                return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)  
+                # Return glacier-wide mass balance [mwea] for comparison
+                return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)  
                 #%%
-                # Return list of correct comparison with calibration data
-                # Loop through all measurements
-                obs_list = []
-                for x in range(glacier_cal_data.shape[0]):
-                    cal_idx = glacier_cal_data.index.values[x]
-                    # Mass balance comparisons
-                    if glacier_cal_data.loc[cal_idx, 'obs_type'].startswith('mb'):
-                        # Modeled mass balance [mwe]
-                        #  Sum(mass balance x area) / total area
-                        t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
-                        t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
-                        z1_idx = glacier_cal_data.loc[cal_idx, 'z1_idx'].astype(int)
-                        z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
-                        year_idx = int(t1_idx / 12)
-                        bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
-                        mb_modeled = ((glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * 
-                                      bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
-                        obs_list.append(mb_modeled)
-                # Return list of values and uncertainty
-                return obs_list
+#                # Return list of correct comparison with calibration data
+#                # Loop through all measurements
+#                obs_list = []
+#                for x in range(glacier_cal_data.shape[0]):
+#                    cal_idx = glacier_cal_data.index.values[x]
+#                    # Mass balance comparisons
+#                    if glacier_cal_data.loc[cal_idx, 'obs_type'].startswith('mb'):
+#                        # Modeled mass balance [mwe]
+#                        #  Sum(mass balance x area) / total area
+#                        t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
+#                        t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
+#                        z1_idx = glacier_cal_data.loc[cal_idx, 'z1_idx'].astype(int)
+#                        z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
+#                        year_idx = int(t1_idx / 12)
+#                        bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
+#                        mb_modeled = ((glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * 
+#                                      bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
+#                        obs_list.append(mb_modeled)
+#                # Return list of values and uncertainty
+#                return obs_list
                 #%%
             
             # Observed distribution
             #  This observation data defines the observed likelihood of the mass balances, and allows us to fit the 
             #  probability distribution of the mass balance to the results.
-#            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
-#                                      value=float(observed_massbal), observed=True)
-            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=obs_tau_list, value=obs_list, observed=True)
+            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
+                                      value=float(observed_massbal), observed=True)
+#            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=obs_tau_list, value=obs_list, observed=True)
+            #%%
             # Set model
             if dbname is None:
                 model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
@@ -468,35 +449,37 @@ def main(list_packed_vars):
                     glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
             glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
 
-#            # Select observed mass balance, error, and time data
-#            cal_idx = glacier_cal_data.index.values[0]
-#            #  Note: index to main_glac_rgi may differ from cal_idx
-#            t1 = glacier_cal_data.loc[cal_idx, 't1']
-#            t2 = glacier_cal_data.loc[cal_idx, 't2']
-#            t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
-#            t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
-#            observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
-#            observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
             #%%
-            obs_list = []
-            obs_err_list_raw = []
-            for x in range(glacier_cal_data.shape[0]):
-                cal_idx = glacier_cal_data.index.values[x]
-                # Mass balance comparisons
-                if glacier_cal_data.loc[cal_idx, 'obs_type'].startswith('mb'):
-                    # Mass balance [mwea]
-                    t1 = glacier_cal_data.loc[cal_idx, 't1'].astype(int)
-                    t2 = glacier_cal_data.loc[cal_idx, 't2'].astype(int)
-                    observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
-                    observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
-                    obs_list.append(observed_massbal)
-                    obs_err_list_raw.append(observed_error)
-            obs_err_list = [x if ~np.isnan(x) else np.nanmean(obs_err_list_raw) for x in obs_err_list_raw]
-            obs_tau_list = [1/(x**2) for x in obs_err_list]
+            # Select observed mass balance, error, and time data
+            cal_idx = glacier_cal_data.index.values[0]
+            #  Note: index to main_glac_rgi may differ from cal_idx
+            t1 = glacier_cal_data.loc[cal_idx, 't1']
+            t2 = glacier_cal_data.loc[cal_idx, 't2']
+            t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
+            t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+            observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
+            observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
+
+#            obs_list = []
+#            obs_err_list_raw = []
+#            for x in range(glacier_cal_data.shape[0]):
+#                cal_idx = glacier_cal_data.index.values[x]
+#                # Mass balance comparisons
+#                if glacier_cal_data.loc[cal_idx, 'obs_type'].startswith('mb'):
+#                    # Mass balance [mwea]
+#                    t1 = glacier_cal_data.loc[cal_idx, 't1'].astype(int)
+#                    t2 = glacier_cal_data.loc[cal_idx, 't2'].astype(int)
+#                    observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
+#                    observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
+#                    obs_list.append(observed_massbal)
+#                    obs_err_list_raw.append(observed_error)
+#            obs_err_list = [x if ~np.isnan(x) else np.nanmean(obs_err_list_raw) for x in obs_err_list_raw]
+#            obs_tau_list = [1/(x**2) for x in obs_err_list]
 
             if debug:
-#                print('observed_massbal:',observed_massbal, 'observed_error:',observed_error)
-                print('observations:',obs_list, 'observations_error:',obs_err_list)
+                print('observed_massbal:',observed_massbal, 'observed_error:',observed_error)
+#                print('observations:',obs_list, 'observations_error:',obs_err_list)
+            #%%
 
 
             # ===== RUN MARKOV CHAIN MONTE CARLO METHOD ====================            
@@ -518,16 +501,12 @@ def main(list_packed_vars):
                     model = run_MCMC(distribution_type=distribution_type, precfactor_start=input.precfactor_boundhigh,
                                      tempchange_start=input.tempchange_boundlow, ddfsnow_start=input.ddfsnow_boundlow, 
                                      iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
-                    
+                   
                 # Select data from model to be stored in netcdf
-                df_dict = {'tempchange': model.trace('tempchange')[:],
-                           'precfactor': prec_transformation(model.trace('precfactor')[:]),
-                           'ddfsnow': model.trace('ddfsnow')[:]}
-                # Loop through observations to help create dataframe
-                for x in range(glacier_cal_data.shape[0]):
-                    obs_cn = 'obs_' + str(x)
-                    df_dict[obs_cn] = model.trace('massbal')[:][:,x]
-                df = pd.DataFrame(df_dict)
+                df = pd.DataFrame({'tempchange': model.trace('tempchange')[:],
+                                   'precfactor': prec_transformation(model.trace('precfactor')[:]),
+                                   'ddfsnow': model.trace('ddfsnow')[:], 
+                                   'massbal': model.trace('massbal')[:]})
                 # set columns for other variables
                 df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
                 df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
@@ -538,6 +517,26 @@ def main(list_packed_vars):
                     df_chains = df.values[:, :, np.newaxis]
                 else:
                     df_chains = np.dstack((df_chains, df.values))
+                    
+#                # Select data from model to be stored in netcdf
+#                df_dict = {'tempchange': model.trace('tempchange')[:],
+#                           'precfactor': prec_transformation(model.trace('precfactor')[:]),
+#                           'ddfsnow': model.trace('ddfsnow')[:]}
+#                # Loop through observations to help create dataframe
+#                for x in range(glacier_cal_data.shape[0]):
+#                    obs_cn = 'obs_' + str(x)
+#                    df_dict[obs_cn] = model.trace('massbal')[:][:,x]
+#                df = pd.DataFrame(df_dict)
+#                # set columns for other variables
+#                df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
+#                df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
+#                df['lrglac'] = np.full(df.shape[0], input.lrglac)
+#                df['precgrad'] = np.full(df.shape[0], input.precgrad)
+#                df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
+#                if n_chain == 0:
+#                    df_chains = df.values[:, :, np.newaxis]
+#                else:
+#                    df_chains = np.dstack((df_chains, df.values))
             
             ds = xr.Dataset({'mp_value': (('iter', 'mp', 'chain'), df_chains)},
                             coords={'iter': df.index.values,

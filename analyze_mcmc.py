@@ -25,21 +25,8 @@ import class_mbdata
 
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
-cal_datasets = ['shean', 'wgms_d']
-# Title dictionary for Gelman-Rubin and MC Error plots
-#vn_title_dict = {'massbal':'Mass Balance',
-#                 'precfactor':'Precipitation Factor',
-#                 'tempchange':'Temperature Bias',
-#                 'ddfsnow':'DDF Snow'}
-# Label dictionaries for pairwise scatter plots
-#vn_label_dict = {'massbal':'Mass balance\n[mwea]',
-#                 'precfactor':'Precipitation factor\n[-]',
-#                 'tempchange':'Temperature bias\n[degC]',
-#                 'ddfsnow':'DDFsnow\n[mwe $degC^{-1} d^{-1}$]'}
-#vn_label_nounits_dict = {'massbal':'Mass balance',
-#                         'precfactor':'Prec factor',
-#                         'tempchange':'Temp bias',
-#                         'ddfsnow':'DDFsnow'}
+cal_datasets = ['shean']
+#cal_datasets = ['shean', 'wgms_d']
 
 # mcmc model parameters
 #variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
@@ -251,7 +238,7 @@ def batchsd(trace, batches=5):
         return np.std(means) / np.sqrt(batches)
 
 
-def summary(netcdf, variables, iters=[5000, 10000, 25000], alpha=0.05, start=0,
+def summary(netcdf, glacier_cal_data, iters=[5000, 10000, 25000], alpha=0.05, start=0,
             batches=100, chain=None, roundto=3, filename='output.txt'):
         """
         Generate a pretty-printed summary of the mcmc chain for different
@@ -286,6 +273,16 @@ def summary(netcdf, variables, iters=[5000, 10000, 25000], alpha=0.05, start=0,
 
         # open dataset
         ds = xr.open_dataset(netcdf)
+        
+        # Extract calibration information needed for priors
+        obs_type_list = []
+        variables = []
+        for x in range(glacier_cal_data.shape[0]):
+            cal_idx = glacier_cal_data.index.values[x]
+            obs_type = glacier_cal_data.loc[cal_idx, 'obs_type']
+            obs_type_list.append(obs_type)
+            variables.append('obs_' + str(x))
+        variables.extend(parameters)
 
         # open file to write to
         file = open(filename, 'w')
@@ -823,14 +820,12 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
     plt.suptitle('Gelman-Rubin Statistic vs Number of MCMC Steps', y=0.94)
 
     for v_count, vn in enumerate(variables):
-#    for v_count, vn in enumerate([variables[0]]):
 
         for b_count, burn in enumerate(burns):
-#        for b_count, burn in enumerate([burns[0]]):
-
+            
             plt.subplot(b_len, v_len, v_len*b_count+v_count+1)
 
-            plot_list = list(range(burn+plot_res, c_len, plot_res))
+            plot_list = list(range(burn+plot_res, c_len+plot_res, plot_res))
 
             gr_list = [gelman_rubin(ds, vn, pt, burn) for pt in plot_list]
 
@@ -864,13 +859,12 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
     plt.suptitle('MC Error Divided By Mean vs Number of MCMC Steps', y=1.10)
 
-#    for v_count, vn in enumerate(variables):
-    for v_count, vn in enumerate([variables[0]]):
+    for v_count, vn in enumerate(variables):
 
         plt.subplot(1, v_len, v_count+1)
 
         # points to plot at
-        plot_list = list(range(0, c_len, plot_res))
+        plot_list = list(range(0, c_len+plot_res, plot_res))
         # avoid calculating mc error over empty chain (iter = 0)
         plot_list = plot_list[1:]
 
@@ -924,7 +918,7 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
             plt.subplot(b_len, v_len, v_len*b_count+v_count+1)
 
             # points to plot at
-            plot_list = list(range(burn+plot_res, c_len, plot_res))
+            plot_list = list(range(burn+plot_res, c_len+plot_res, plot_res))
 
             en_list = [effective_n(df[burn:pt], vn) for pt in plot_list]
 
@@ -952,6 +946,9 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
 #%% Find files
 # ===== LOAD CALIBRATION DATA =====
 rgi_glac_number = []
+
+mcmc_output_netcdf_fp = mcmc_output_netcdf_fp + 'single_obs_inlist/'
+
 for i in os.listdir(mcmc_output_netcdf_fp):
 #for i in ['15.00621.nc']:
     glacier_str = i.replace('.nc', '')
@@ -986,13 +983,13 @@ for n, glac_str_noreg in enumerate(rgi_glac_number):
     glacier_rgi_table = main_glac_rgi.iloc[np.where(main_glac_rgi['glacno'] == glacno)]
     # Calibration data
     glacier_cal_data = (cal_data.iloc[np.where(cal_data['glacno'] == glacno)[0],:]).copy()
-    # Set variables to plot
-    variables = []
-    for x in range(glacier_cal_data.shape[0]):
-        variables.append('obs_' + str(x))
-    variables.extend(parameters)
+#    # Set variables to plot
+#    variables = []
+#    for x in range(glacier_cal_data.shape[0]):
+#        variables.append('obs_' + str(x))
+#    variables.extend(parameters)
     # MCMC plots
-#    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=25000, burn=10000)
-    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data)
-#    summary(mcmc_output_netcdf_fp + glacier_str + '.nc',
-#            filename = mcmc_output_tables_fp + glacier_str + '.txt')
+    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=5000, burn=0)
+    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,3000], plot_res=500)
+    summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
+            filename = mcmc_output_tables_fp + glacier_str + '.txt')
