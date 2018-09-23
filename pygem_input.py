@@ -1,4 +1,4 @@
-"""List of model inputs required to run PyGEM"""
+﻿"""List of model inputs required to run PyGEM"""
 
 # Built-in libraries
 import os
