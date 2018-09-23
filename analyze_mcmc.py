@@ -33,20 +33,33 @@ import class_mbdata
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 cal_datasets = ['shean', 'wgms_d']
 # Label dictionaries for pairwise scatter plots
-vn_label_dict = {'massbal':'Mass balance\n[mwea]',
+#vn_label_dict = {'massbal':'Mass balance\n[mwea]',
+#                 'precfactor':'Precipitation factor\n[-]',
+#                 'tempchange':'Temperature bias\n[degC]',
+#                 'ddfsnow':'DDFsnow\n[mwe $degC^{-1} d^{-1}$]'}
+#vn_title_dict = {'massbal':'Mass Balance',
+#                 'precfactor':'Precipitation Factor',
+#                 'tempchange':'Temperature Bias',
+#                 'ddfsnow':'DDF Snow'}
+#vn_label_nounits_dict = {'massbal':'Mass balance',
+#                         'precfactor':'Prec factor',
+#                         'tempchange':'Temp bias',
+#                         'ddfsnow':'DDFsnow'}
+vn_label_dict = {'obs_0':'Mass balance\n[mwea]',
                  'precfactor':'Precipitation factor\n[-]',
                  'tempchange':'Temperature bias\n[degC]',
                  'ddfsnow':'DDFsnow\n[mwe $degC^{-1} d^{-1}$]'}
-vn_title_dict = {'massbal':'Mass Balance',
+vn_title_dict = {'obs_0':'Mass Balance',
                  'precfactor':'Precipitation Factor',
                  'tempchange':'Temperature Bias',
                  'ddfsnow':'DDF Snow'}
-vn_label_nounits_dict = {'massbal':'Mass balance',
+vn_label_nounits_dict = {'obs_0':'Mass balance',
                          'precfactor':'Prec factor',
                          'tempchange':'Temp bias',
                          'ddfsnow':'DDFsnow'}
 # mcmc model parameters
-variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+#variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+parameters = ['precfactor', 'tempchange', 'ddfsnow']
 # Autocorrelation lags
 acorr_maxlags = 100
 
@@ -254,7 +267,7 @@ def batchsd(trace, batches=5):
         return np.std(means) / np.sqrt(batches)
 
 
-def summary(netcdf, iters=[5000, 10000, 25000], alpha=0.05, start=0,
+def summary(netcdf, variables, iters=[5000, 10000, 25000], alpha=0.05, start=0,
             batches=100, chain=None, roundto=3, filename='output.txt'):
         """
         Generate a pretty-printed summary of the mcmc chain for different
@@ -424,7 +437,7 @@ def stats(trace, alpha=0.05, start=0, batches=100,
         }
 
 
-def write_csv_results(models, distribution_type='truncnormal'):
+def write_csv_results(models, variables, distribution_type='truncnormal'):
     """
     Write parameter statistics (mean, standard deviation, effective sample number, gelman_rubin, etc.) to csv.
 
@@ -463,7 +476,7 @@ def write_csv_results(models, distribution_type='truncnormal'):
     csv_input.to_csv(output_csv_fn, index=False)
 
 
-def plot_mc_results(netcdf_fn, iters=50, burn=0, distribution_type='truncnormal',
+def plot_mc_results(netcdf_fn, variables, iters=50, burn=0, distribution_type='truncnormal',
                     precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma,
                     precfactor_boundlow=input.precfactor_boundlow,
                     precfactor_boundhigh=input.precfactor_boundhigh,
@@ -560,7 +573,7 @@ def plot_mc_results(netcdf_fn, iters=50, burn=0, distribution_type='truncnormal'
         plt.subplot(len(variables), 3, 3*count+2)
         # Prior distribution
         z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
-        if vn == 'massbal':
+        if vn.startswith('obs'):
             x_values = observed_massbal + observed_error * z_score
             y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
         elif vn == 'precfactor':
@@ -612,7 +625,7 @@ def plot_mc_results(netcdf_fn, iters=50, burn=0, distribution_type='truncnormal'
         else:
             x_max = x_values.max()
         # Chain legend
-        if vn == 'massbal':
+        if vn.startswith('obs'):
             chain_legend = ['observed']
         else:
             chain_legend = ['prior']
@@ -620,7 +633,7 @@ def plot_mc_results(netcdf_fn, iters=50, burn=0, distribution_type='truncnormal'
         for n_chain, df in enumerate(dfs):
             chain = df[vn].values
             # gaussian distribution
-            if vn == 'massbal':
+            if vn.startswith('obs'):
                 kde = gaussian_kde(chain)
                 x_values_kde = np.linspace(x_min, x_max, 100)
                 y_values_kde = kde(x_values_kde)
@@ -711,7 +724,7 @@ def plot_mc_results(netcdf_fn, iters=50, burn=0, distribution_type='truncnormal'
                 'chain_' + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
 
 
-def plot_mc_results2(netcdf_fn, burns=[1000,3000,5000], plot_res=1000, distribution_type='truncnormal'):
+def plot_mc_results2(netcdf_fn, variables, burns=[1000,3000,5000], plot_res=1000, distribution_type='truncnormal'):
     """
     Plot gelman-rubin statistic and markov chain error plots.
 
@@ -846,19 +859,48 @@ cal_data = pd.DataFrame()
 for dataset in cal_datasets:
     cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=input.rgi_regionsO1[0])
     cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
-#    cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-#cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-#cal_data.reset_index(drop=True, inplace=True)
+    cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+cal_data.reset_index(drop=True, inplace=True)
 
 # ===== PROCESS EACH NETCDF FILE =====
-#for n, glac_str_noreg in enumerate(rgi_glac_number):
-#    # Glacier string
-#    glacier_str = str(input.rgi_regionsO1[0]) + '.' + glac_str_noreg
-#    # Mass balance data
+for n, glac_str_noreg in enumerate(rgi_glac_number):
+    # Glacier string
+    glacier_str = str(input.rgi_regionsO1[0]) + '.' + glac_str_noreg
+    glacno = int(glacier_str.split('.')[1])
+    glacier_rgi_table = main_glac_rgi.iloc[np.where(main_glac_rgi['glacno'] == glacno)]
+    # Mass balance data
+    glacier_cal_data = (cal_data.iloc[np.where(cal_data['glacno'] == glacno)[0],:]).copy()
+    obs_list = []
+    obs_err_list_raw = []
+    variable_cns = []
+    for x in range(glacier_cal_data.shape[0]):
+        cal_idx = glacier_cal_data.index.values[x]
+        # Mass balance comparisons
+        if glacier_cal_data.loc[cal_idx, 'obs_type'].startswith('mb'):
+            # Mass balance [mwea]
+            t1 = glacier_cal_data.loc[cal_idx, 't1'].astype(int)
+            t2 = glacier_cal_data.loc[cal_idx, 't2'].astype(int)
+            observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
+            observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
+            obs_list.append(observed_massbal)
+            obs_err_list_raw.append(observed_error)
+        variable_cns.append('obs_' + str(x))
+    obs_err_list = [x if ~np.isnan(x) else np.nanmean(obs_err_list_raw) for x in obs_err_list_raw]
 #    observed_massbal = cal_data.mb_mwe[n] / (cal_data.t2[n] - cal_data.t1[n])
 #    observed_error = cal_data.mb_mwe_err[n] / (cal_data.t2[n] - cal_data.t1[n])
-#    # MCMC plots
-#    #plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', iters=25000, burn=0)
+    variable_cns.extend(parameters)
+    
+    # MAKE THIS AUTOMATIC
+    obs_number = 0
+    observed_massbal = obs_list[obs_number]
+    observed_error = obs_err_list[obs_number]
+    variable_cns = ['obs_' + str(obs_number), 'precfactor', 'tempchange', 'ddfsnow']
+    print(variable_cns)
+    
+    
+    # MCMC plots
+    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', variable_cns, iters=1000, burn=100)
 #    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc')
 #    summary(mcmc_output_netcdf_fp + glacier_str + '.nc',
 #            filename = mcmc_output_tables_fp + glacier_str + '.txt')

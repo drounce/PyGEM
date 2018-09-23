@@ -1486,15 +1486,15 @@ if __name__ == '__main__':
         n += 1
         list_packed_vars.append([n, chunk, chunk_size, main_glac_rgi_all, gcm_name])
 
-    # if MCMC option, clear files from previous run
-    if input.option_calibration == 2:
-        # clear MCMC/config/ directory for storing netcdf files
-        # for each glacier run. These files will then
-        # be combined for the final output, but need to be
-        # cleared from the previous run.
-        filelist = glob.glob(os.path.join(input.mcmc_output_netcdf_fp, '*.nc'))
-        for f in filelist:
-            os.remove(f)
+#    # if MCMC option, clear files from previous run
+#    if input.option_calibration == 2:
+#        # clear MCMC/config/ directory for storing netcdf files
+#        # for each glacier run. These files will then
+#        # be combined for the final output, but need to be
+#        # cleared from the previous run.
+#        filelist = glob.glob(os.path.join(input.mcmc_output_netcdf_fp, '*.nc'))
+#        for f in filelist:
+#            os.remove(f)
 
     # Parallel processing
     if args.option_parallels != 0:
