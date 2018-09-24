@@ -31,6 +31,7 @@ cal_datasets = ['shean']
 # mcmc model parameters
 #variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
 parameters = ['precfactor', 'tempchange', 'ddfsnow']
+parameters_all = ['ddfsnow', 'precfactor', 'tempchange', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 'tempsnow']
 # Autocorrelation lags
 acorr_maxlags = 100
 
@@ -275,14 +276,18 @@ def summary(netcdf, glacier_cal_data, iters=[5000, 10000, 25000], alpha=0.05, st
         ds = xr.open_dataset(netcdf)
         
         # Extract calibration information needed for priors
+        # Variables to plot
+        variables = ds.mp.values[:].tolist()
+        for i in parameters_all:
+            if i in variables:
+                variables.remove(i)
+        variables.extend(parameters)
+        # Observations data
         obs_type_list = []
-        variables = []
         for x in range(glacier_cal_data.shape[0]):
             cal_idx = glacier_cal_data.index.values[x]
             obs_type = glacier_cal_data.loc[cal_idx, 'obs_type']
             obs_type_list.append(obs_type)
-            variables.append('obs_' + str(x))
-        variables.extend(parameters)
 
         # open file to write to
         file = open(filename, 'w')
@@ -522,10 +527,16 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
         dfs.append(pd.DataFrame(ds['mp_value'].sel(chain=n_chain).values[burn:burn+iters], columns=ds.mp.values))
     
     # Extract calibration information needed for priors
+    # Variables to plot
+    variables = ds.mp.values[:].tolist()
+    for i in parameters_all:
+        if i in variables:
+            variables.remove(i)
+    variables.extend(parameters)
+    # Observations data
     obs_list = []
     obs_err_list_raw = []
     obs_type_list = []
-    variables = []
     for x in range(glacier_cal_data.shape[0]):
         cal_idx = glacier_cal_data.index.values[x]
         obs_type = glacier_cal_data.loc[cal_idx, 'obs_type']
@@ -539,9 +550,7 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
             observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
             obs_list.append(observed_massbal)
             obs_err_list_raw.append(observed_error)
-        variables.append('obs_' + str(x))
     obs_err_list = [x if ~np.isnan(x) else np.nanmean(obs_err_list_raw) for x in obs_err_list_raw]
-    variables.extend(parameters)
 
     # ===== CHAIN, HISTOGRAM, AND AUTOCORRELATION PLOTS ===========================
     plt.figure(figsize=(12, len(variables)*3))
@@ -559,11 +568,13 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
     # Labels for plots
     vn_label_dict = {}
     vn_label_nounits_dict = {}
-    for n, vn in enumerate(variables):
+    obs_count = 0
+    for vn in variables:
         if vn.startswith('obs'):
-            if obs_type_list[n].startswith('mb'):
+            if obs_type_list[obs_count].startswith('mb'):
                 vn_label_dict[vn] = 'Mass balance ' + str(n) + '\n[mwea]'
                 vn_label_nounits_dict[vn] = 'MB ' + str(n)
+            obs_count += 1
         elif vn == 'precfactor':
             vn_label_dict[vn] = 'Precipitation factor\n[-]'
             vn_label_nounits_dict[vn] = 'Prec factor'
@@ -784,14 +795,18 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
     ds = xr.open_dataset(netcdf_fn)
     
     # Extract calibration information needed for priors
+    # Variables to plot
+    variables = ds.mp.values[:].tolist()
+    for i in parameters_all:
+        if i in variables:
+            variables.remove(i)
+    variables.extend(parameters)
+    # Observations data
     obs_type_list = []
-    variables = []
     for x in range(glacier_cal_data.shape[0]):
         cal_idx = glacier_cal_data.index.values[x]
         obs_type = glacier_cal_data.loc[cal_idx, 'obs_type']
         obs_type_list.append(obs_type)
-        variables.append('obs_' + str(x))
-    variables.extend(parameters)
     
     # Titles for plots
     vn_title_dict = {}

@@ -60,7 +60,7 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
 # Number of chains (min 1, max 3)
 n_chains = 3
 # number of MCMC samples to use
-mcmc_sample_no = 100
+mcmc_sample_no = 5000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
@@ -69,26 +69,17 @@ thin_interval = 1
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13]
-#rgi_regionsO1 = [7]
-#rgi_glac_number = ['00030']
+rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
 #                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
-rgi_glac_number = ['53883', '37624']
 #rgi_glac_number = ['03473']
-#rgi_glac_number = ['03734']
+rgi_glac_number = ['03734']
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 12, option_random=0)
-
-#rgi_glac_number_int = [int(i) for i in rgi_glac_number]
-#rgi_glac_number_int_sorted = sorted(rgi_glac_number_int, key=int)
-#rgi_glac_number_int_sorted_str = [str(i).zfill(5) for i in rgi_glac_number_int_sorted]
-#print(rgi_glac_number_int_sorted_str)
-#rgi_glac_number = rgi_glac_number_int_sorted_str.copy()
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -121,7 +112,6 @@ modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 option_calibration = 2
 #  Option 1 - calibration using minimization (returns single parameter set)
 #  Option 2 - calibration using MCMC method (returns many parameter sets)
-
 
 # MCMC export configuration
 mcmc_output_fp = main_directory + '/../MCMC_data/'
