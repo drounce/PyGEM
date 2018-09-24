@@ -123,8 +123,8 @@ class MBData():
                           'z2_idx', 'z1', 'z2', 't1_idx', 't2_idx', 't1', 't2', 'area_km2', 'WGMS_ID']
         # Reset rgi index so it is consistent with hyps and other data
         main_glac_rgi.reset_index(drop=True, inplace=True)
-        # Dictionary linking O1Index to Index
-        indexdict = dict(zip(main_glac_rgi['O1Index'], main_glac_rgi.index.values))
+        # Dictionary linking glacier number (glacno) to index
+        glacnodict = dict(zip(main_glac_rgi['glacno'], main_glac_rgi.index.values))
         
         # Dataset specific calculations
         if self.name == 'shean':
@@ -136,20 +136,19 @@ class MBData():
             ds_reg.reset_index(drop=True, inplace=True)
             # Glacier number and index for comparison
             ds_reg['glacno'] = ((ds_reg[self.rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
-            ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
             ds_reg['RGIId'] = ('RGI60-' + str(input.rgi_regionsO1[0]) + '.' + 
                                (ds_reg['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1])
             # Select glaciers with mass balance data
-            ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi[input.rgi_O1Id_colname]) == True)[0],:]
+            ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi['glacno']) == True)[0],:]
                   ).copy()
             ds.reset_index(drop=True, inplace=True)
             # Elevation indices
             elev_bins = main_glac_hyps.columns.values.astype(int)
             elev_bin_interval = elev_bins[1] - elev_bins[0]
             ds['z1_idx'] = (
-                    (main_glac_hyps.iloc[ds['O1Index'].map(indexdict)].values != 0).argmax(axis=1).astype(int))
+                    (main_glac_hyps.iloc[ds['glacno'].map(glacnodict)].values != 0).argmax(axis=1).astype(int))
             ds['z2_idx'] = (
-                    (main_glac_hyps.iloc[ds['O1Index'].map(indexdict)].values.cumsum(1)).argmax(axis=1).astype(int))
+                    (main_glac_hyps.iloc[ds['glacno'].map(glacnodict)].values.cumsum(1)).argmax(axis=1).astype(int))
             # Lower and upper bin elevations [masl]
             ds['z1'] = elev_bins[ds['z1_idx'].values] - elev_bin_interval/2
             ds['z2'] = elev_bins[ds['z2_idx'].values] + elev_bin_interval/2
@@ -157,7 +156,7 @@ class MBData():
             ds['area_km2'] = np.nan
             for x in range(ds.shape[0]):
                 ds.loc[x,'area_km2'] = (
-                        main_glac_hyps.iloc[indexdict[ds.loc[x,'O1Index']], 
+                        main_glac_hyps.iloc[glacnodict[ds.loc[x,'glacno']], 
                                             ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
             # Time indices
             ds['t1'] = ds[self.t1_cn]
@@ -225,7 +224,6 @@ class MBData():
             ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
             # Glacier number and index for comparison
             ds_reg['glacno'] = ((ds_reg[self.rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
-            ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
             # Select glaciers from those being modeled using main_glac_rgi
             ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi[input.rgi_O1Id_colname]) == True)[0],:]
                   ).copy()
@@ -236,10 +234,10 @@ class MBData():
             ds['z1_idx'] = np.nan
             ds['z2_idx'] = np.nan
             ds.loc[ds[self.z1_cn] == 9999, 'z1_idx'] = (
-                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'O1Index'].map(indexdict)].values != 0)
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'glacno'].map(glacnodict)].values != 0)
                      .argmax(axis=1))
             ds.loc[ds[self.z2_cn] == 9999, 'z2_idx'] = (
-                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'O1Index'].map(indexdict)].values.cumsum(1))
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'glacno'].map(glacnodict)].values.cumsum(1))
                      .argmax(axis=1))
             ds.loc[ds[self.z1_cn] != 9999, 'z1_idx'] = (
                     ((np.tile(elev_bins, (ds.loc[ds[self.z1_cn] != 9999, self.z1_cn].shape[0],1)) - 
@@ -257,8 +255,8 @@ class MBData():
             ds['area_km2_rgi'] = np.nan
             for x in range(ds.shape[0]):
                 ds.loc[x,'area_km2_rgi'] = (
-                        main_glac_hyps.iloc[indexdict[ds.loc[x,'O1Index']], 
-                                            ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
+                        main_glac_hyps.iloc[glacnodict[ds.loc[x,'glacno']], 
+                                            ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())            
             ds['area_km2'] = np.nan
             ds.loc[ds.AREA_SURVEY_YEAR.isnull(), 'area_km2'] = ds.loc[ds.AREA_SURVEY_YEAR.isnull(), 'area_km2_rgi']
             ds.loc[ds.AREA_SURVEY_YEAR.notnull(), 'area_km2'] = ds.loc[ds.AREA_SURVEY_YEAR.notnull(), 
@@ -351,7 +349,6 @@ class MBData():
             ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
             # Glacier number and index for comparison
             ds_reg['glacno'] = ((ds_reg[self.rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
-            ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
             # Fill in glaciers without reference data
             ds_reg.loc[ds_reg.BEGIN_PERIOD.isnull(), 'BEGIN_PERIOD'] = (
                     (ds_reg.loc[ds_reg.BEGIN_PERIOD.isnull(), 'YEAR'] - 1) * 10**4 + 9999)
@@ -367,10 +364,10 @@ class MBData():
             ds['z1_idx'] = np.nan
             ds['z2_idx'] = np.nan
             ds.loc[ds[self.z1_cn] == 9999, 'z1_idx'] = (
-                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'O1Index'].map(indexdict)].values != 0)
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'glacno'].map(glacnodict)].values != 0)
                      .argmax(axis=1))
             ds.loc[ds[self.z2_cn] == 9999, 'z2_idx'] = (
-                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'O1Index'].map(indexdict)].values.cumsum(1))
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'glacno'].map(glacnodict)].values.cumsum(1))
                      .argmax(axis=1))
             ds.loc[ds[self.z1_cn] != 9999, 'z1_idx'] = (
                     ((np.tile(elev_bins, (ds.loc[ds[self.z1_cn] != 9999, self.z1_cn].shape[0],1)) - 
@@ -387,7 +384,7 @@ class MBData():
             ds['area_km2'] = np.nan
             for x in range(ds.shape[0]):
                 ds.loc[x,'area_km2'] = (
-                        main_glac_hyps.iloc[indexdict[ds.loc[x,'O1Index']], 
+                        main_glac_hyps.iloc[glacnodict[ds.loc[x,'glacno']], 
                                             ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
             ds = ds[ds['area_km2'] > 0]
             ds.reset_index(drop=True, inplace=True)
@@ -498,7 +495,6 @@ class MBData():
             ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
             # Glacier number and index for comparison
             ds_reg['glacno'] = ((ds_reg[self.rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
-            ds_reg['O1Index'] = (ds_reg['glacno'] - 1).astype(int)
             # Select glaciers from those being modeled using main_glac_rgi
             ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi[input.rgi_O1Id_colname]) == True)[0],:]
                   ).copy()
@@ -509,10 +505,10 @@ class MBData():
             ds['z1_idx'] = np.nan
             ds['z2_idx'] = np.nan
             ds.loc[ds[self.z1_cn] == 9999, 'z1_idx'] = (
-                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'O1Index'].map(indexdict)].values != 0)
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z1_cn] == 9999, 'glacno'].map(glacnodict)].values != 0)
                      .argmax(axis=1))
             ds.loc[ds[self.z2_cn] == 9999, 'z2_idx'] = (
-                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'O1Index'].map(indexdict)].values.cumsum(1))
+                    (main_glac_hyps.iloc[ds.loc[ds[self.z2_cn] == 9999, 'glacno'].map(glacnodict)].values.cumsum(1))
                      .argmax(axis=1))
             ds.loc[ds[self.z1_cn] != 9999, 'z1_idx'] = (
                     ((np.tile(elev_bins, (ds.loc[ds[self.z1_cn] != 9999, self.z1_cn].shape[0],1)) - 
@@ -530,7 +526,7 @@ class MBData():
             ds['area_km2_rgi'] = np.nan
             for x in range(ds.shape[0]):
                 ds.loc[x,'area_km2_rgi'] = (
-                        main_glac_hyps.iloc[indexdict[ds.loc[x,'O1Index']], 
+                        main_glac_hyps.iloc[glacnodict[ds.loc[x,'glacno']], 
                                             ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
             # Time indices
             ds['t1_year'] = ds['REFERENCE_DATE'].astype(str).str.split('.').str[0].str[:4].astype(int)

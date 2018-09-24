@@ -371,6 +371,8 @@ def main(list_packed_vars):
                                                option_areaconstant=1))
                 # Return glacier-wide mass balance [mwea] for comparison
                 return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)  
+#                return [glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1),
+#                        glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)]
                 #%%
 #                # Return list of correct comparison with calibration data
 #                # Loop through all measurements
@@ -399,6 +401,8 @@ def main(list_packed_vars):
             #  probability distribution of the mass balance to the results.
             obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
                                       value=float(observed_massbal), observed=True)
+#            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=[(1/(observed_error**2)),(1/(observed_error**2))], 
+#                                      value=[float(observed_massbal), float(observed_massbal)], observed=True)
 #            obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=obs_tau_list, value=obs_list, observed=True)
             #%%
             # Set model
