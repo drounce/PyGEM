@@ -815,8 +815,8 @@ def main(list_packed_vars):
 
             Returns
             -------
-            zscore_compare > zscore_tolerance : Boolean
-                Returns True or False depending on if the zscore is greater than the specified tolerance
+            zscore_compare <= zscore_tolerance : Boolean
+                Returns True or False depending on if the zscore is less than the specified tolerance
             """
             # Set zscore to compare and the tolerance
             # if only one calibration point, then zscore should be small
@@ -832,7 +832,7 @@ def main(list_packed_vars):
             else:
                 zscore_compare = abs(glacier_cal_compare['zscore']).sum() / glacier_cal_compare.shape[0]
                 zscore_tolerance = input.zscore_tolerance_all
-            return zscore_compare <= zscore_tolerance
+            return abs(zscore_compare) <= zscore_tolerance
         
         
         def init_guess_frombounds(bnds_list, calround, bnd_idx):
