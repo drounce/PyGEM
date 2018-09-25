@@ -574,6 +574,9 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
                 vn_label_dict[vn] = 'Mass balance ' + str(n) + '\n[mwea]'
                 vn_label_nounits_dict[vn] = 'MB ' + str(n)
             obs_count += 1
+        elif vn == 'massbal':
+            vn_label_dict[vn] = 'Mass balance\n[mwea]'
+            vn_label_nounits_dict[vn] = 'MB'
         elif vn == 'precfactor':
             vn_label_dict[vn] = 'Precipitation factor\n[-]'
             vn_label_nounits_dict[vn] = 'Prec factor'
@@ -608,6 +611,11 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
         if vn.startswith('obs'):
             observed_massbal = obs_list[int(vn.split('_')[1])]
             observed_error = obs_err_list[int(vn.split('_')[1])]
+            x_values = observed_massbal + observed_error * z_score
+            y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
+        elif vn == 'massbal':
+            observed_massbal = obs_list[0]
+            observed_error = obs_err_list[0]
             x_values = observed_massbal + observed_error * z_score
             y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
         elif vn == 'precfactor':
@@ -813,6 +821,8 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
         if vn.startswith('obs'):
             if obs_type_list[n].startswith('mb'):
                 vn_title_dict[vn] = 'Mass Balance ' + str(n)
+        elif vn == 'massbal':
+            vn_title_dict[vn] = 'Mass Balance'
         elif vn == 'precfactor':
             vn_title_dict[vn] = 'Precipitation Factor'
         elif vn == 'tempchange':

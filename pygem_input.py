@@ -56,6 +56,8 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
     return num
 
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
+# Calibration option (1 = minimization, 2 = MCMC)
+option_calibration = 1
 # ===== MCMC and ensemble selections ========
 # Number of chains (min 1, max 3)
 n_chains = 3
@@ -77,7 +79,7 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
 #                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
 #rgi_glac_number = ['03473']
-rgi_glac_number = ['03734']
+rgi_glac_number = ['03734', '03473']
 #if 'rgi_glac_number' not in locals():
 #    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 12, option_random=0)
 
@@ -109,9 +111,7 @@ main_directory = os.getcwd()
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 
 #%% ===== CALIBRATION OPTIONS =====
-option_calibration = 2
-#  Option 1 - calibration using minimization (returns single parameter set)
-#  Option 2 - calibration using MCMC method (returns many parameter sets)
+
 
 # MCMC export configuration
 mcmc_output_fp = main_directory + '/../MCMC_data/'
@@ -479,7 +479,7 @@ mb_group_t2_cn = 'end_period'
 
 # Minimization details
 method_opt = 'SLSQP'
-ftol_opt = 1e-2
+ftol_opt = 1e-3
 
 # Limit potential mass balance for future simulations option
 option_mb_envelope = 1
