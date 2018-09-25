@@ -97,11 +97,6 @@ def main(list_packed_vars):
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
-    
-#    if args.progress_bar == 1:
-#        progress_bar_switch = True
-#    else:
-#        progress_bar_switch = False
 
     # ===== LOAD GLACIER DATA =====
     #  'raw' refers to the glacier subset that includes glaciers with and without calibration data
@@ -803,11 +798,43 @@ def main(list_packed_vars):
                             (glacier_cal_compare.loc[cal_idx, 'model'] - glacier_cal_compare.loc[cal_idx, 'obs']) /
                             glacier_cal_compare.loc[cal_idx, 'uncertainty'])
             return modelparams, glacier_cal_compare
+        
+        
+        def zscore_compare(glacier_cal_compare, cal_idx):
+            """
+            Compare z-scores to determine if need to increase solution space for the calibration
+            
+            Parameters
+            ----------
+            glacier_cal_compare : pd.DataFrame
+                Table containing comparisons of modeled values and observations
+            cal_idx : list
+                Indices of calibration data
+
+            Returns
+            -------
+            zscore_compare > zscore_tolerance : Boolean
+                Returns True or False depending on if the zscore is greater than the specified tolerance
+            """
+            # Set zscore to compare and the tolerance
+            # if only one calibration point, then zscore should be small
+            if glacier_cal_compare.shape[0] == 1:
+                zscore_compare = glacier_cal_compare.loc[cal_idx[0], 'zscore']
+                zscore_tolerance = input.zscore_tolerance_single
+            # else if multiple calibration points and one is a geodetic MB, check that geodetic MB is within 1
+            elif (glacier_cal_compare.obs_type.isin(['mb_geo']).any() == True) and (glacier_cal_compare.shape[0] > 1):
+                zscore_compare = glacier_cal_compare.loc[glacier_cal_compare.index.values[np.where(
+                        glacier_cal_compare['obs_type'] == 'mb_geo')[0][0]], 'zscore']
+                zscore_tolerance = input.zscore_tolerance_all
+            # otherwise, check mean zscore
+            else:
+                zscore_compare = abs(glacier_cal_compare['zscore']).sum() / glacier_cal_compare.shape[0]
+                zscore_tolerance = input.zscore_tolerance_all
+            return zscore_compare > zscore_tolerance
             
             
-            
-        # Output to record
-        # Observations vs. model
+        # ===== Begin Minimization process ===== 
+        # Output
         output_cols = ['glacno', 'obs_type', 'obs_unit', 'obs', 'model', 'uncertainty', 'zscore', 'calround']
         main_glac_cal_compare = pd.DataFrame(np.zeros((cal_data.shape[0],len(output_cols))),
                                              columns=output_cols)
@@ -821,10 +848,8 @@ def main(list_packed_vars):
         cal_individual_glacno = np.unique(cal_data.loc[cal_data['glacno'].notnull(), 'glacno'])
         for n in range(cal_individual_glacno.shape[0]):
             glac = np.where(main_glac_rgi[input.rgi_O1Id_colname].isin([cal_individual_glacno[n]]) == True)[0][0]
-#            if glac%200 == 0:
-#                print(count,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
-#            print(count,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
-            
+            if glac%200 == 0 or debug:
+                print(count,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])  
             # Set model parameters
             modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
                                input.tempsnow, input.tempchange]
@@ -842,8 +867,7 @@ def main(list_packed_vars):
                     glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
             cal_idx = glacier_cal_data.index.values
             glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
-
-            # Modeled vs. Measured comparison dataframe
+            # Comparison dataframe
             glacier_cal_compare = pd.DataFrame(np.zeros((glacier_cal_data.shape[0], len(output_cols))),
                                                columns=output_cols)
             glacier_cal_compare.index = glacier_cal_data.index.values
@@ -863,24 +887,9 @@ def main(list_packed_vars):
             modelparameters, glacier_cal_compare = (
                     run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
                                   ddfsnow_bnds, precgrad_bnds))
-
             # OPTIMIZATION ROUND #2:
-            # Set zscore to compare and the tolerance
-            # if only one calibration point, then zscore should be small
-            if glacier_cal_compare.shape[0] == 1:
-                zscore_compare = glacier_cal_compare.loc[cal_idx[0], 'zscore']
-                zscore_tolerance = input.zscore_tolerance_single
-            # else if multiple calibration points and one is a geodetic MB, check that geodetic MB is within 1
-            elif (glacier_cal_compare.obs_type.isin(['mb_geo']).any() == True) and (glacier_cal_compare.shape[0] > 1):
-                zscore_compare = glacier_cal_compare.loc[glacier_cal_compare.index.values[np.where(
-                        glacier_cal_compare['obs_type'] == 'mb_geo')[0][0]], 'zscore']
-                zscore_tolerance = input.zscore_tolerance_all
-            # otherwise, check mean zscore
-            else:
-                zscore_compare = abs(glacier_cal_compare['zscore']).sum() / glacier_cal_compare.shape[0]
-                zscore_tolerance = input.zscore_tolerance_all
             # Check if need to expand the bounds
-            if abs(zscore_compare) > zscore_tolerance:
+            if zscore_compare(glacier_cal_compare, cal_idx):
                 # Calibration round
                 calround = calround + 1
                 # Bounds
@@ -894,24 +903,9 @@ def main(list_packed_vars):
                 modelparameters, glacier_cal_compare = (
                         run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
                                       ddfsnow_bnds, precgrad_bnds))
-
             # OPTIMIZATION ROUND #3:
-            # Set zscore to compare and the tolerance
-            # if only one calibration point, then zscore should be small
-            if glacier_cal_compare.shape[0] == 1:
-                zscore_compare = glacier_cal_compare.loc[cal_idx[0], 'zscore']
-                zscore_tolerance = input.zscore_tolerance_single
-            # else if multiple calibration points and one is a geodetic MB, check that geodetic MB is within 1
-            elif (glacier_cal_compare.obs_type.isin(['mb_geo']).any() == True) and (glacier_cal_compare.shape[0] > 1):
-                zscore_compare = glacier_cal_compare.loc[glacier_cal_compare.index.values[np.where(
-                        glacier_cal_compare['obs_type'] == 'mb_geo')[0][0]], 'zscore']
-                zscore_tolerance = input.zscore_tolerance_all
-            # otherwise, check mean zscore
-            else:
-                zscore_compare = abs(glacier_cal_compare['zscore']).sum() / glacier_cal_compare.shape[0]
-                zscore_tolerance = input.zscore_tolerance_all
             # Check if need to expand the bounds
-            if abs(zscore_compare) > zscore_tolerance:
+            if zscore_compare(glacier_cal_compare, cal_idx):
                 # Calibration round
                 calround = calround + 1
                 # Bounds
@@ -925,7 +919,6 @@ def main(list_packed_vars):
                 modelparameters, glacier_cal_compare = (
                         run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
                                       ddfsnow_bnds, precgrad_bnds))
-                
             # OPTIMIZATION ROUND #4: Isolate geodetic MB if necessary
             #  if there are multiple measurements and geodetic measurement still has a zscore greater than 1, then
             #  only calibrate the geodetic measurement since this provides longest snapshot of glacier
@@ -945,8 +938,7 @@ def main(list_packed_vars):
                             run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
                                           ddfsnow_bnds, precgrad_bnds))
                     
-
-            # Record output
+            # RECORD OUTPUT
             # Run mass balance with optimized parameters
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
