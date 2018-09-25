@@ -60,7 +60,7 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
 # Number of chains (min 1, max 3)
 n_chains = 3
 # number of MCMC samples to use
-mcmc_sample_no = 5000
+mcmc_sample_no = 3000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
@@ -78,8 +78,8 @@ rgi_regionsO2 = 'all'
 #                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
 #rgi_glac_number = ['03473']
 rgi_glac_number = ['03734']
-if 'rgi_glac_number' not in locals():
-    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 12, option_random=0)
+#if 'rgi_glac_number' not in locals():
+#    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 12, option_random=0)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -395,8 +395,8 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
-shean_fn = 'hma_mb_20180803_1229.csv'
-#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+#shean_fn = 'hma_mb_20180803_1229.csv'
+shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'

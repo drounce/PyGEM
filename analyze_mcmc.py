@@ -29,7 +29,6 @@ cal_datasets = ['shean']
 #cal_datasets = ['shean', 'wgms_d']
 
 # mcmc model parameters
-#variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
 parameters = ['precfactor', 'tempchange', 'ddfsnow']
 parameters_all = ['ddfsnow', 'precfactor', 'tempchange', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 'tempsnow']
 # Autocorrelation lags
@@ -962,7 +961,7 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data,
 # ===== LOAD CALIBRATION DATA =====
 rgi_glac_number = []
 
-mcmc_output_netcdf_fp = mcmc_output_netcdf_fp + 'single_obs_inlist/'
+#mcmc_output_netcdf_fp = mcmc_output_netcdf_fp + 'single_obs_inlist/'
 
 for i in os.listdir(mcmc_output_netcdf_fp):
 #for i in ['15.00621.nc']:
@@ -990,7 +989,6 @@ cal_data.reset_index(drop=True, inplace=True)
 
 # ===== PROCESS EACH NETCDF FILE =====
 for n, glac_str_noreg in enumerate(rgi_glac_number):
-
     # Glacier string
     glacier_str = str(input.rgi_regionsO1[0]) + '.' + glac_str_noreg
     # Glacier number
@@ -999,13 +997,8 @@ for n, glac_str_noreg in enumerate(rgi_glac_number):
     glacier_rgi_table = main_glac_rgi.iloc[np.where(main_glac_rgi['glacno'] == glacno)]
     # Calibration data
     glacier_cal_data = (cal_data.iloc[np.where(cal_data['glacno'] == glacno)[0],:]).copy()
-#    # Set variables to plot
-#    variables = []
-#    for x in range(glacier_cal_data.shape[0]):
-#        variables.append('obs_' + str(x))
-#    variables.extend(parameters)
-    # MCMC plots
-    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=5000, burn=0)
-    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,3000], plot_res=500)
+    # MCMC Analysis
+    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=25000, burn=0)
+    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
     summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
             filename = mcmc_output_tables_fp + glacier_str + '.txt')

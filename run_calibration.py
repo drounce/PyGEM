@@ -52,6 +52,8 @@ def getparser():
         switch to use parallels or not
     rgi_glac_number_fn : str
         filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
+    progress_bar : int
+        Switch for turning the progress bar on or off (default = 0 (off))
         
     Returns
     -------
@@ -67,6 +69,8 @@ def getparser():
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
+    parser.add_argument('-progress_bar', action='store', type=int, default=0,
+                        help='Boolean for the progress bar to turn it on or off')
     return parser
 
 
@@ -93,6 +97,11 @@ def main(list_packed_vars):
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
+    
+#    if args.progress_bar == 1:
+#        progress_bar_switch = True
+#    else:
+#        progress_bar_switch = False
 
     # ===== LOAD GLACIER DATA =====
     #  'raw' refers to the glacier subset that includes glaciers with and without calibration data
@@ -225,7 +234,7 @@ def main(list_packed_vars):
                      ddfsnow_start=input.ddfsnow_start,
                      iterations=10, burn=0, thin=input.thin_interval, tune_interval=1000, step=None, 
                      tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0, 
-                     progress_bar=True, dbname=None):
+                     progress_bar=args.progress_bar, dbname=None):
             """
             Runs the MCMC algorithm.
 
@@ -419,9 +428,13 @@ def main(list_packed_vars):
                 model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, delay = 1000)
             # sample
             #  note: divide by zero warning here that does not affect model run
+            if args.progress_bar == 1:
+                progress_bar_switch = True
+            else:
+                progress_bar_switch = False
             model.sample(iter=iterations, burn=burn, thin=thin,
                          tune_interval=tune_interval, tune_throughout=tune_throughout,
-                         save_interval=save_interval, verbose=verbose, progress_bar=progress_bar)
+                         save_interval=save_interval, verbose=verbose, progress_bar=progress_bar_switch)
             #close database
             model.db.close()
             return model        
@@ -557,7 +570,7 @@ def main(list_packed_vars):
 
         # ==============================================================
         
-    # Option 1: mimize mass balance difference using three-step approach to expand solution space
+    # Option 1: mimize mass balance difference using multi-step approach to expand solution space
     elif input.option_calibration == 1:
         
         # ===== FUNCTIONS USED IN CALIBRATION OPTION ===== 
@@ -628,7 +641,7 @@ def main(list_packed_vars):
             sum_abs_zscore = abs(glacier_cal_compare['zscore']).sum()
             return sum_abs_zscore
         
-        # Group optimization function 
+        
         def objective_group(modelparameters_subset):
             """
             Objective function for grouped glacier data.
@@ -753,60 +766,6 @@ def main(list_packed_vars):
     
             # Record the calibration round
             calround = 0
-
-            # OPTIMIZATION FUNCTION: Define the function that you are trying to minimize
-            #  - modelparameters are the parameters that will be optimized
-            #  - return value is the value is the value used to run the optimization
-            # One way to improve objective function to include other observations (snowlines, etc.) is to normalize the
-            # measured and modeled difference by the estimated error - this would mean we are minimizing the cumulative
-            # absolute z-score.
-            def objective(modelparameters_subset):
-                # Use a subset of model parameters to reduce number of constraints required
-                modelparameters[2] = modelparameters_subset[0]
-                modelparameters[3] = modelparameters_subset[1]
-                modelparameters[4] = modelparameters_subset[2]
-                modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
-                modelparameters[7] = modelparameters_subset[3]
-                # Mass balance calculations
-                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
-                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
-                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
-                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                               option_areaconstant=1))
-                # Loop through all measurements
-                for x in range(glacier_cal_data.shape[0]):
-                    cal_idx = glacier_cal_data.index.values[x]
-                    # Mass balance comparisons
-                    if ((glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb_geo') or
-                        (glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb_glac')):
-                        # Observed mass balance [mwe]
-                        glacier_cal_compare.loc[cal_idx, 'obs'] = glacier_cal_data.loc[cal_idx, 'mb_mwe']
-                        glacier_cal_compare.loc[cal_idx, 'obs_unit'] = 'mwe'
-                        # Modeled mass balance [mwe]
-                        #  Sum(mass balance x area) / total area
-                        t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
-                        t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
-                        z1_idx = glacier_cal_data.loc[cal_idx, 'z1_idx'].astype(int)
-                        z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
-                        year_idx = int(t1_idx / 12)
-                        bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
-                        glacier_cal_compare.loc[cal_idx, 'model'] = (
-                                (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] *
-                                 bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
-                        # Z-score for modeled mass balance based on observed mass balance and uncertainty
-                        #  z-score = (model - measured) / uncertainty
-                        glacier_cal_compare.loc[cal_idx, 'uncertainty'] = (input.massbal_uncertainty_mwea *
-                                (glacier_cal_data.loc[cal_idx, 't2'] - glacier_cal_data.loc[cal_idx, 't1']))
-                        glacier_cal_compare.loc[cal_idx, 'zscore'] = (
-                                (glacier_cal_compare.loc[cal_idx, 'model'] - glacier_cal_compare.loc[cal_idx, 'obs']) /
-                                glacier_cal_compare.loc[cal_idx, 'uncertainty'])
-                # Minimize the sum of differences
-                sum_abs_zscore = abs(glacier_cal_compare['zscore']).sum()
-                return sum_abs_zscore
 
             # INITIAL GUESS
             modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
