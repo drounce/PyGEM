@@ -355,14 +355,13 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         elev_bin_interval = elev_bins[1] - elev_bins[0]
                         if glac_idx_t0.shape[0] > int(100 / elev_bin_interval):
                             glac_idx_slope = glac_idx_t0[0 : 0 + int(100 / elev_bin_interval)]
-#                            elev_change = (elev_bins[glac_idx_slope[-1]] - elev_bins[glac_idx_slope[0]] + 
-#                                           elev_bin_interval)
-                            
                         # if glacier too small, then calculate slope over the entire glacier
                         else:
                             glac_idx_slope = glac_idx_t0.copy()
                         elev_change = (elev_bins[glac_idx_slope[-1]] - elev_bins[glac_idx_slope[0]] + 
                                        elev_bin_interval)
+                        #  add elevation bin interval to be inclusive, i.e., elevation bins 5 - 95 include all
+                        #  glacier area between 0 - 100 masl
                         # Length of lowest 100 m of glacier
                         length_lowest100m = (glacier_area_t0[glac_idx_slope] / width_t0[glac_idx_slope] * 1000).sum()
                         # Slope of lowest 100 m of glacier
