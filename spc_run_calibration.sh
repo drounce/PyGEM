@@ -1,6 +1,6 @@
 #!/bin/sh
-#SBATCH --partition=debug
-#SBATCH --ntasks=48
+#SBATCH --partition=t1standard
+#SBATCH --ntasks=168
 #SBATCH --tasks-per-node=24
 
 # activate environment

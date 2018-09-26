@@ -355,13 +355,14 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         elev_bin_interval = elev_bins[1] - elev_bins[0]
                         if glac_idx_t0.shape[0] > int(100 / elev_bin_interval):
                             glac_idx_slope = glac_idx_t0[0 : 0 + int(100 / elev_bin_interval)]
-                            elev_change = (elev_bins[glac_idx_slope[-1]] - elev_bins[glac_idx_slope[0]] + 
-                                           elev_bin_interval)
-                            #  add elevation bin interval to be inclusive, i.e., elevation bins 5 - 95 include all
-                            #  glacier area between 0 - 100 masl
+#                            elev_change = (elev_bins[glac_idx_slope[-1]] - elev_bins[glac_idx_slope[0]] + 
+#                                           elev_bin_interval)
+                            
                         # if glacier too small, then calculate slope over the entire glacier
                         else:
                             glac_idx_slope = glac_idx_t0.copy()
+                        elev_change = (elev_bins[glac_idx_slope[-1]] - elev_bins[glac_idx_slope[0]] + 
+                                       elev_bin_interval)
                         # Length of lowest 100 m of glacier
                         length_lowest100m = (glacier_area_t0[glac_idx_slope] / width_t0[glac_idx_slope] * 1000).sum()
                         # Slope of lowest 100 m of glacier
@@ -395,24 +396,31 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         print('frontalablation_volumeloss [m3]:', frontalablation_volumeloss)
                         print('frontalablation_massloss [Gt]:', frontalablation_volumeloss * input.density_water / 
                               input.density_ice / 10**9)
+                        print('glac_idx_fa:', glac_idx_fa)
+                        print('glac_bin_volume:', glac_bin_volume)
+                        print('glac_idx_fa[bin_count]:', glac_idx_fa[0])
+                        print('glac_bin_volume[glac_idx_fa[bin_count]]:', glac_bin_volume[glac_idx_fa[0]])
+                        print('glacier_area_t0[glac_idx_fa[bin_count]]:', glacier_area_t0[glac_idx_fa[0]])
+                        print('glac_bin_frontalablation:', glac_bin_frontalablation[glac_idx_fa[0], step])
                     
                     # Frontal ablation [mwe] in each bin
                     bin_count = 0
                     while frontalablation_volumeloss > input.tolerance:
-                        if frontalablation_volumeloss > glac_bin_volume[glac_idx_fa[bin_count]]:
+                        if frontalablation_volumeloss >= glac_bin_volume[glac_idx_fa[bin_count]]:
                             glac_bin_frontalablation[glac_idx_fa[bin_count], step] = (
                                     glac_bin_volume[glac_idx_fa[bin_count]] / 
                                     (glacier_area_t0[glac_idx_fa[bin_count]] * 10**6) 
-                                    * input.density_ice / input.density_water)
+                                    * input.density_ice / input.density_water)              
                         else:
                             glac_bin_frontalablation[glac_idx_fa[bin_count], step] = (
                                     frontalablation_volumeloss / (glacier_area_t0[glac_idx_fa[bin_count]] * 10**6)
                                     * input.density_ice / input.density_water)
-                        frontalablation_volumeloss -= (
+                        
+                        frontalablation_volumeloss = round(frontalablation_volumeloss - (
                                 glac_bin_frontalablation[glac_idx_fa[bin_count], step] * 
                                 input.density_water / input.density_ice *
-                                glacier_area_t0[glac_idx_fa[bin_count]] * 10**6)
-                        bin_count += 1                        
+                                glacier_area_t0[glac_idx_fa[bin_count]] * 10**6),6)
+                        bin_count += 1         
                         
                         
                         if debug:
@@ -420,6 +428,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                                   'volume loss:', (glac_bin_frontalablation[glac_idx_fa[bin_count-1], step] * 
                                   glacier_area_t0[glac_idx_fa[bin_count-1]] * input.density_water / input.density_ice * 
                                   10**6).round(0))
+                            print('remaining volume loss:', frontalablation_volumeloss, 'tolerance:', input.tolerance)
+                            
                     if debug:
                         print('frontalablation_volumeloss remaining [m3]:', frontalablation_volumeloss)
                         print('ice thickness:', icethickness_t0[glac_idx_fa[0]].round(0), 
