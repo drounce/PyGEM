@@ -1227,6 +1227,7 @@ def main(list_packed_vars):
                     glacier_cal_compare.obs_unit = 'mwe'
                     glacier_cal_compare.obs = cal_data.loc[cal_idx, 'mb_mwe']
                     glacier_cal_compare.uncertainty = cal_data.loc[cal_idx, 'mb_mwe_err']
+                # Note: glacier_cal_compare is a pd.Series!
                         
                 # Calibration round
                 calround = 0
