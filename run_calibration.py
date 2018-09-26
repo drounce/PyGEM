@@ -26,8 +26,8 @@ import class_mbdata
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 # Calibration datasets
-cal_datasets = ['shean']
-#cal_datasets = ['group']
+#cal_datasets = ['shean']
+cal_datasets = ['group']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 
 precfactor_bnds_list_init = [(0.8,1.25), (0.5,2), (0.33,3)]
@@ -989,19 +989,20 @@ def main(list_packed_vars):
             return (bnds_list[calround][bnd_idx] + bnds_list[calround-1][bnd_idx]) / 2
         
         
-        def write_netcdf_modelparams(modelparameters, glacier_cal_compare, output_fullfn):
+        def write_netcdf_modelparams(output_fullfn, modelparameters, glacier_cal_compare=pd.DataFrame()):
                 """
                 Export glacier model parameters and modeled observations to netcdf file.
                 
                 Parameters
                 ----------
+                output_fullfn : str
+                    Full filename (path included) of the netcdf to be exported
                 modelparams_init : list
                     List of model parameters to calibrate
                     [precipitation factor, precipitation gradient, degree day factor of snow, temperature change]
                 glacier_cal_compare : pd.DataFrame
                     Table recapping calibration results: observation, model, calibration round, etc.
-                output_fullfn : str
-                    Full filename of the netcdf to be exported
+                    (default is empty dataframe)
                 
                 Returns
                 -------
@@ -1180,7 +1181,7 @@ def main(list_packed_vars):
             if not os.path.exists(netcdf_output_fp):
                 os.mkdir(netcdf_output_fp)
             netcdf_output_fullfn = netcdf_output_fp + glacier_str + '.nc'
-            write_netcdf_modelparams(modelparameters, glacier_cal_compare, netcdf_output_fullfn)
+            write_netcdf_modelparams(netcdf_output_fullfn, modelparameters, glacier_cal_compare)
             
 #            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
 #            print('precfactor:', modelparameters[2])
@@ -1205,9 +1206,9 @@ def main(list_packed_vars):
             # List of name of each group
             group_dict_keyslist_names = [item[0] for item in group_dict_keyslist]
             
-#            for cal_idx in cal_data_idx_groups:
-            for cal_idx in [cal_data_idx_groups[6]]:
-                print('REMINDER TO DELETE THIS TEST LOOP\n')
+            for cal_idx in cal_data_idx_groups:
+#            for cal_idx in [cal_data_idx_groups[6]]:
+#                print('REMINDER TO DELETE THIS TEST LOOP\n')
                 
                 group_name = cal_data.loc[cal_idx, 'group_name']
                 print(group_name)
@@ -1296,16 +1297,25 @@ def main(list_packed_vars):
                     
                 # Glacier-wide climatic mass balance over study period (used by transfer functions)
                 # Record model parameters and mbclim
-                print('CLEAN UP HOW THIS IS RECORDED\n')
                 group_count = 0
                 for glac in range(main_glac_rgi.shape[0]):
                     if main_glac_rgi.loc[glac, 'group_name'] == group_name:
                         main_glacwide_mbclim_mwe[glac] = glacwide_mbclim_mwe[group_count]
                         group_count += 1
                 main_glac_modelparamsopt[group_dict_glaciers_idx] = modelparameters_group
-                
                 glacier_cal_compare.calround = calround
                 main_glac_cal_compare.loc[cal_idx] = glacier_cal_compare
+                
+                # EXPORT TO NETCDF
+                if not os.path.exists(netcdf_output_fp):
+                    os.mkdir(netcdf_output_fp)
+                # Loop through glaciers calibrated from group and export to netcdf
+                for glac_idx in group_dict_glaciers_idx:
+                    glacier_str = '{0:0.5f}'.format(main_glac_rgi.loc[glac_idx, 'RGIId_float'])
+                    netcdf_output_fullfn = netcdf_output_fp + glacier_str + '.nc'
+                    write_netcdf_modelparams(netcdf_output_fullfn, modelparameters_group)
+                    
+                
                 print(group_name,'(zscore):', abs(glacier_cal_compare.zscore))
                 print('precfactor:', modelparameters_group[2])
                 print('precgrad:', modelparameters_group[3])
@@ -1315,7 +1325,6 @@ def main(list_packed_vars):
                 print('calround:', calround)
                 print(' ')
                 
-    
         # Export (i) main_glac_rgi w optimized model parameters and glacier-wide climatic mass balance,
         #        (ii) comparison of model vs. observations
         # Concatenate main_glac_rgi, optimized model parameters, glacier-wide climatic mass balance
@@ -1326,18 +1335,8 @@ def main(list_packed_vars):
         main_glac_output = pd.concat([main_glac_output, main_glac_modelparamsopt_pd, main_glacwide_mbclim_pd], axis=1)
         
         # Export output
-        if (input.option_calibration == 1) and (option_export == 1) and (('group' in cal_datasets) == True):
-            # main_glac_rgi w model parameters
-            modelparams_fn = (
-                    'cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' + 
-                    gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
-            main_glac_output.to_csv(input.output_filepath + modelparams_fn)
-            # calibration comparison
-            calcompare_fn = (
-                    'cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' + 
-                    gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
-            main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
-        elif (input.option_calibration == 1) and (option_export == 1) and (('group' not in cal_datasets) == True):
+        # Non-grouped data can be run in parallel, so export with count
+        if (input.option_calibration == 1) and (option_export == 1) and (('group' not in cal_datasets) == True):
             # main_glac_rgi w model parameters
             modelparams_fn = (
                     'cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' +
@@ -1350,6 +1349,19 @@ def main(list_packed_vars):
                     gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '_' + 
                     str(count) + '.csv')
             main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
+        # Grouped data needs to be run on single core, so only one file to export
+        elif (input.option_calibration == 1) and (option_export == 1) and (('group' in cal_datasets) == True):
+            # main_glac_rgi w model parameters
+            modelparams_fn = (
+                    'cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' + 
+                    gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
+            main_glac_output.to_csv(input.output_filepath + modelparams_fn)
+            # calibration comparison
+            calcompare_fn = (
+                    'cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' + 
+                    gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
+            main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
+        
         
     # Export variables as global to view in variable explorer
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
