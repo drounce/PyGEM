@@ -26,8 +26,8 @@ import class_mbdata
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 # Calibration datasets
-#cal_datasets = ['shean']
-cal_datasets = ['group']
+cal_datasets = ['shean']
+#cal_datasets = ['group']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 
 precfactor_bnds_list_init = [(0.8,1.25), (0.5,2), (0.33,3)]
@@ -1336,35 +1336,19 @@ def main(list_packed_vars):
         
         # Export output
         # Non-grouped data can be run in parallel, so export with count
-        if (input.option_calibration == 1) and (option_export == 1) and (('group' not in cal_datasets) == True):
-            # main_glac_rgi w model parameters
-            modelparams_fn = (
-                    'cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' +
-                    gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '_' + 
-                    str(count) + '.csv')
-            main_glac_output.to_csv(input.output_filepath + modelparams_fn)
-            # calibration comparison
-            calcompare_fn = (
-                    'cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' +
-                    gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '_' + 
-                    str(count) + '.csv')
-            main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
-        # Grouped data needs to be run on single core, so only one file to export
-        elif (input.option_calibration == 1) and (option_export == 1) and (('group' in cal_datasets) == True):
-            # main_glac_rgi w model parameters
-            modelparams_fn = (
-                    'cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' + 
-                    gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
-            main_glac_output.to_csv(input.output_filepath + modelparams_fn)
-            # calibration comparison
-            calcompare_fn = (
-                    'cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' + 
-                    gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
-            main_glac_cal_compare.to_csv(input.output_filepath + calcompare_fn)
-        
+        output_modelparams_fn = (
+                'R' + str(input.rgi_regionsO1[0]) + '_' + str(main_glac_rgi.shape[0]) + 'glac_modelparams_opt' + 
+                str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + str(input.endyear) + '_'
+                + str(count) + '.csv')
+        output_calcompare_fn = (
+                'R' + str(input.rgi_regionsO1[0]) + '_' + str(main_glac_rgi.shape[0]) + 'glac_calcompare_opt' + 
+                str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + str(input.endyear) + '_'
+                + str(count) + '.csv')
+        main_glac_output.to_csv(input.output_filepath + output_modelparams_fn )
+        main_glac_cal_compare.to_csv(input.output_filepath + output_calcompare_fn)        
         
     # Export variables as global to view in variable explorer
-    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
+    if args.option_parallels == 0:
         global main_vars
         main_vars = inspect.currentframe().f_locals
 
@@ -1431,40 +1415,6 @@ if __name__ == '__main__':
     # if MCMC option, consolidate output into one file for netcdf and csv results
     if input.option_calibration == 2:
         print('combine netcdfs in post-processing for mcmc methods')
-#        # Combine csv output into single csv
-#        csv_list = []
-#        for i in os.listdir(input.mcmc_output_csv_fp):
-#            # Append results
-#            if i.endswith('.csv') == True:
-#                csv_list.append(i)
-#        # Column names
-#        csv_cn_endings = ['_mean', '_std', '_mc_err', '_95lowhpd', '_95highhpd', '_q2pt5', '_q25', '_q50', '_q75', 
-#                          '_q97pt5', 'n_eff']
-#        if input.n_chains > 1:
-#            csv_cn_endings.append('_gelmanrubin')
-#        csv_cns = ['RGIId']
-#        for vn in variables:
-#            for ending in csv_cn_endings:
-#                csv_cns.append(vn + ending)    
-#        # Output file
-#        count = 0
-#        csv_output = pd.DataFrame(columns=csv_cns)
-#        for i in csv_list:
-#            # Load csv
-#            csv_input = pd.read_csv(input.mcmc_output_csv_fp + i)
-#            # Append to output csv
-#            csv_output.loc[count,'RGIId'] = i[0:8]
-#            ncols = csv_input.shape[1] - 1
-#            csv_output.iloc[count, 0*ncols+1:1*ncols+1] = csv_input.iloc[0,1:].values
-#            csv_output.iloc[count, 1*ncols+1:2*ncols+1] = csv_input.iloc[1,1:].values
-#            csv_output.iloc[count, 2*ncols+1:3*ncols+1] = csv_input.iloc[2,1:].values
-#            csv_output.iloc[count, 3*ncols+1:4*ncols+1] = csv_input.iloc[3,1:].values
-#            count = count + 1
-#            # Remove files
-#            os.remove(input.mcmc_output_csv_fp + i)
-#        # Export csv
-#        csv_output.to_csv(input.mcmc_output_fp + input.mcmc_output_csv_fn, index=False)
-#
 #        # create a dict for dataarrays
 #        da_dict = {}
 #
@@ -1490,53 +1440,81 @@ if __name__ == '__main__':
 #        if debug:
 #            print(ds)
 
-    else:
-        # Combine output into single csv
-        if ((args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes) and
-            (option_export == 1)):
-            # Model parameters
-            output_prefix = ('cal_modelparams_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + 
-                             '_' + gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) 
-                             + '_')
-            output_list = []
-            for i in os.listdir(input.output_filepath):
-                # Append results
-                if i.startswith(output_prefix) == True:
-                    output_list.append(i)
-                    if len(output_list) == 1:
-                        output_all = pd.read_csv(input.output_filepath + i, index_col=0)
-                    else:
-                        output_2join = pd.read_csv(input.output_filepath + i, index_col=0)
-                        output_all = output_all.append(output_2join, ignore_index=True)
-                    # Remove file after its been merged
-                    os.remove(input.output_filepath + i)
-            # Export joined files
-            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_modelparams_opt' + str(input.option_calibration) + '_R' +
-                             str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
-                             str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
-            output_all.to_csv(input.output_filepath + output_all_fn)
-
-            # Calibration comparison
-            output_prefix2 = ('cal_compare_opt' + str(input.option_calibration) + '_R' + str(input.rgi_regionsO1[0]) + '_' +
-                              gcm_name + '_' + str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + 
-                              '_')
-            output_list = []
-            for i in os.listdir(input.output_filepath):
-                # Append results
-                if i.startswith(output_prefix2) == True:
-                    output_list.append(i)
-                    if len(output_list) == 1:
-                        output_all = pd.read_csv(input.output_filepath + i, index_col=0)
-                    else:
-                        output_2join = pd.read_csv(input.output_filepath + i, index_col=0)
-                        output_all = output_all.append(output_2join, ignore_index=True)
-                    # Remove file after its been merged
-                    os.remove(input.output_filepath + i)
-            # Export joined files
-            output_all_fn = (str(strftime("%Y%m%d")) + '_cal_compare_opt' + str(input.option_calibration) + '_R' +
-                             str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + 
-                             str(input.startyear - input.spinupyears) + '_' + str(input.endyear) + '.csv')
-            output_all.to_csv(input.output_filepath + output_all_fn)
+    elif input.option_calibration == 1:
+        # NETCDF - combine into single file
+        # create a dict for dataarrays
+        da_dict = {}
+        glac_count = 0
+        for i in os.listdir(netcdf_output_fp):
+            if i.startswith(str(input.rgi_regionsO1[0])):
+                glac_count += 1
+                glacier_RGIId = i[:-3]
+                glacier_RGIId.replace('.','-')
+                ds = xr.open_dataset(netcdf_output_fp + i)
+                # get dataarray, add to dictionary
+                da = ds.to_array(name=glacier_RGIId)
+                da_dict[glacier_RGIId] = da
+                ds.close()
+        # create final dataset with each glacier, make netcdf file
+        ds = xr.Dataset(da_dict)
+        netcdf_output_all_fn = (
+                'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + 'glac_modelparams_opt' + 
+                str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + str(input.endyear) + '_' + 
+                str(strftime("%Y%m%d")) + '.nc')
+        ds.to_netcdf(netcdf_output_fp + netcdf_output_all_fn)
+        ds.close()
+        # Remove files after they've been merged
+        for i in os.listdir(netcdf_output_fp):
+            if i.startswith(str(input.rgi_regionsO1[0])):
+                os.remove(netcdf_output_fp + i)
+        
+        # CSV MODEL PARAMETERS - combine into single file
+        # Model parameters
+        check_modelparams_str = (
+                'glac_modelparams_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
+                str(input.endyear) + '_')
+        output_modelparams_all_fn = (
+                'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + check_modelparams_str + 
+                str(strftime("%Y%m%d")) + '.csv')
+        output_list = []
+        for i in os.listdir(input.output_filepath):
+            # Append results
+            if i.startswith('R' + str(input.rgi_regionsO1[0])) and (check_modelparams_str in i):
+                print(i)
+                output_list.append(i)
+                if len(output_list) == 1:
+                    output_all = pd.read_csv(input.output_filepath + i, index_col=0)
+                else:
+                    output_2join = pd.read_csv(input.output_filepath + i, index_col=0)
+                    output_all = output_all.append(output_2join, ignore_index=True)
+                # Remove file after its been merged
+                os.remove(input.output_filepath + i)
+        # Export joined files
+        output_all.to_csv(input.output_filepath + output_modelparams_all_fn)
+        
+        # CSV CALIBRATION COMPARISON - combine into single file
+        # Model parameters
+        check_calcompare_str = (
+                'glac_calcompare_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
+                str(input.endyear) + '_')
+        output_calcompare_all_fn = (
+                'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + check_calcompare_str + 
+                str(strftime("%Y%m%d")) + '.csv')
+        output_list = []
+        for i in os.listdir(input.output_filepath):
+            # Append results
+            if i.startswith('R' + str(input.rgi_regionsO1[0])) and (check_calcompare_str in i):
+                print(i)
+                output_list.append(i)
+                if len(output_list) == 1:
+                    output_all = pd.read_csv(input.output_filepath + i, index_col=0)
+                else:
+                    output_2join = pd.read_csv(input.output_filepath + i, index_col=0)
+                    output_all = output_all.append(output_2join, ignore_index=True)
+                # Remove file after its been merged
+                os.remove(input.output_filepath + i)
+        # Export joined files
+        output_all.to_csv(input.output_filepath + output_calcompare_all_fn)
 
     print('Total processing time:', time.time()-time_start, 's')
 

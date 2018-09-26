@@ -71,15 +71,15 @@ thin_interval = 1
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [7]
+rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #rgi_glac_number = ['02790']
 #rgi_glac_number = ['03734', '03473']
 if 'rgi_glac_number' not in locals():
-    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 20, option_random=0)
+    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
