@@ -5,6 +5,7 @@ import os
 from time import strftime
 # External libraries
 import pandas as pd
+import numpy as np
 
 
 def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
@@ -55,6 +56,14 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
         num = num[0:number_glaciers]
     return num
 
+def glac_num_fromrange(int_low, int_high):
+    """
+    Generate list of glaciers for all numbers between two integers.
+    """
+    x = (np.arange(int_low, int_high)).tolist()
+    y = [str(i).zfill(5) for i in x]
+    return y
+
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # Calibration option (1 = minimization, 2 = MCMC)
 option_calibration = 1
@@ -76,10 +85,12 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['02790']
+rgi_glac_number = ['02228']
 #rgi_glac_number = ['03734', '03473']
+#rgi_glac_number = glac_num_fromrange(6562,6662)
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
+
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers

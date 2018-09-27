@@ -1048,8 +1048,9 @@ def main(list_packed_vars):
         cal_individual_glacno = np.unique(cal_data.loc[cal_data['glacno'].notnull(), 'glacno'])
         for n in range(cal_individual_glacno.shape[0]):
             glac = np.where(main_glac_rgi[input.rgi_O1Id_colname].isin([cal_individual_glacno[n]]) == True)[0][0]
-            if glac%100 == 0:
-                print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
+#            if glac%100 == 0:
+#                print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
+            print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
             # Set model parameters
             modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
                                input.tempsnow, input.tempchange]
@@ -1167,6 +1168,7 @@ def main(list_packed_vars):
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=1))
+            
             # Calibration round
             glacier_cal_compare['calround'] = calround
             # Model vs. observations
@@ -1183,16 +1185,16 @@ def main(list_packed_vars):
             netcdf_output_fullfn = netcdf_output_fp + glacier_str + '.nc'
             write_netcdf_modelparams(netcdf_output_fullfn, modelparameters, glacier_cal_compare)
             
-#            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-#            print('precfactor:', modelparameters[2])
-#            print('precgrad:', modelparameters[3])
-#            print('ddfsnow:', modelparameters[4])
-#            print('ddfice:', modelparameters[5])
-#            print('tempchange:', modelparameters[7])
-#            print('calround:', calround)
-#            print('modeled mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'model'].values)
-#            print('measured mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'obs'].values)
-#            print('zscore:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'zscore'].values, '\n')
+            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+            print('precfactor:', modelparameters[2])
+            print('precgrad:', modelparameters[3])
+            print('ddfsnow:', modelparameters[4])
+            print('ddfice:', modelparameters[5])
+            print('tempchange:', modelparameters[7])
+            print('calround:', calround)
+            print('modeled mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'model'].values)
+            print('measured mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'obs'].values)
+            print('zscore:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'zscore'].values, '\n')
             
         # ==============================================================
         
