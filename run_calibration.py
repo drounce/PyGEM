@@ -29,19 +29,15 @@ import class_mbdata
 cal_datasets = ['shean']
 #cal_datasets = ['group']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
-
-precfactor_bnds_list_init = [(0.8,1.25), (0.5,2), (0.33,3)]
-precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
-ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
-tempchange_bnds_list_init = [(-2,2), (-5,5), (-10,10)]
                 
 # Export option
 option_export = 1
 #output_filepath = input.main_directory + '/../Output/'
 netcdf_output_fp = input.output_filepath + 'cal_netcdf/'
+csv_output_fp = input.output_filepath + 'csv/'
 
 # Debugging boolean (if true, a number of print statements are activated through the running of the model)
-debug = True
+debug = False
 
 #%% FUNCTIONS
 def getparser():
@@ -1075,10 +1071,10 @@ def main(list_packed_vars):
             glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
             calround = 0
             # Initial bounds and switch to manipulate bounds
-            precfactor_bnds_list = precfactor_bnds_list_init.copy()
-            tempchange_bnds_list = tempchange_bnds_list_init.copy()
-            ddfsnow_bnds_list = ddfsnow_bnds_list_init.copy()
-            precgrad_bnds_list = precgrad_bnds_list_init.copy()
+            precfactor_bnds_list = input.precfactor_bnds_list_init.copy()
+            tempchange_bnds_list = input.tempchange_bnds_list_init.copy()
+            ddfsnow_bnds_list = input.ddfsnow_bnds_list_init.copy()
+            precgrad_bnds_list = input.precgrad_bnds_list_init.copy()
             manipulate_bnds = False
             
             # If geodetic mass balance exist, then constrain bounds based on initial estimate
@@ -1107,9 +1103,9 @@ def main(list_packed_vars):
 #                    precfactor_bnds_list = [(1,i[1]) for i in precfactor_bnds_list_copy]
 #                    tempchange_bnds_list = [(i[0],0) for i in tempchange_bnds_list_copy]
 #                    ddfsnow_bnds_list = [(i[0],0.0041) for i in ddfsnow_bnds_list_copy]
-                    precfactor_bnd_replace = (precfactor_bnds_list_init[0][0] + 1) / 2
-                    ddfsnow_bnd_replace = (ddfsnow_bnds_list_init[0][1] + 0.0041) / 2
-                    tempchange_bnd_replace = (tempchange_bnds_list_init[0][1] + 0) / 2
+                    precfactor_bnd_replace = (input.precfactor_bnds_list_init[0][0] + 1) / 2
+                    ddfsnow_bnd_replace = (input.ddfsnow_bnds_list_init[0][1] + 0.0041) / 2
+                    tempchange_bnd_replace = (input.tempchange_bnds_list_init[0][1] + 0) / 2
                     precfactor_bnds_list = [(precfactor_bnd_replace,i[1]) for i in precfactor_bnds_list_copy]   
                     tempchange_bnds_list = [(i[0],tempchange_bnd_replace) for i in tempchange_bnds_list_copy]
                     ddfsnow_bnds_list = [(i[0],ddfsnow_bnd_replace) for i in ddfsnow_bnds_list_copy]
@@ -1117,9 +1113,9 @@ def main(list_packed_vars):
                     precfactor_init_idx = 0
                     tempchange_init_idx = 1
                     ddfsnow_init_idx = 1
-                    precfactor_bnd_replace = (precfactor_bnds_list_init[0][1] + 1) / 2
-                    ddfsnow_bnd_replace = (ddfsnow_bnds_list_init[0][0] + 0.0041) / 2
-                    tempchange_bnd_replace = (tempchange_bnds_list_init[0][0] + 0) / 2
+                    precfactor_bnd_replace = (input.precfactor_bnds_list_init[0][1] + 1) / 2
+                    ddfsnow_bnd_replace = (input.ddfsnow_bnds_list_init[0][0] + 0.0041) / 2
+                    tempchange_bnd_replace = (input.tempchange_bnds_list_init[0][0] + 0) / 2
 #                    precfactor_bnds_list = [(i[0],1) for i in precfactor_bnds_list_copy]
 #                    tempchange_bnds_list = [(0,i[1]) for i in tempchange_bnds_list_copy]
 #                    ddfsnow_bnds_list = [(0.0041,i[1]) for i in ddfsnow_bnds_list_copy]
@@ -1153,7 +1149,7 @@ def main(list_packed_vars):
                                       ddfsnow_bnds, precgrad_bnds))
                 calround += 1
                 # Break loop if gone through all iterations
-                if (calround == len(precfactor_bnds_list_init)) or zscore_compare(glacier_cal_compare, cal_idx):
+                if (calround == len(input.precfactor_bnds_list_init)) or zscore_compare(glacier_cal_compare, cal_idx):
                     continue_loop = False
                     
                 if debug:
@@ -1212,16 +1208,17 @@ def main(list_packed_vars):
             netcdf_output_fullfn = netcdf_output_fp + glacier_str + '.nc'
             write_netcdf_modelparams(netcdf_output_fullfn, modelparameters, glacier_cal_compare)
             
-            print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-            print('precfactor:', modelparameters[2])
-            print('precgrad:', modelparameters[3])
-            print('ddfsnow:', modelparameters[4])
-            print('ddfice:', modelparameters[5])
-            print('tempchange:', modelparameters[7])
-            print('calround:', calround)
-            print('modeled mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'model'].values)
-            print('measured mass balance [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'obs'].values)
-            print('zscore:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'zscore'].values, '\n')
+            if debug:
+                print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+                print('precfactor:', modelparameters[2])
+                print('precgrad:', modelparameters[3])
+                print('ddfsnow:', modelparameters[4])
+                print('ddfice:', modelparameters[5])
+                print('tempchange:', modelparameters[7])
+                print('calround:', calround)
+                print('modeled mb [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'model'].values)
+                print('measured mb [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'obs'].values)
+                print('zscore:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'zscore'].values, '\n')
             
         # ==============================================================
         
@@ -1261,10 +1258,10 @@ def main(list_packed_vars):
                 # Calibration round
                 calround = 0
                 # Initial bounds and switch to manipulate bounds
-                precfactor_bnds_list = precfactor_bnds_list_init.copy()
-                tempchange_bnds_list = tempchange_bnds_list_init.copy()
-                ddfsnow_bnds_list = ddfsnow_bnds_list_init.copy()
-                precgrad_bnds_list = precgrad_bnds_list_init.copy()
+                precfactor_bnds_list = input.precfactor_bnds_list_init.copy()
+                tempchange_bnds_list = input.tempchange_bnds_list_init.copy()
+                ddfsnow_bnds_list = input.ddfsnow_bnds_list_init.copy()
+                precgrad_bnds_list = input.precgrad_bnds_list_init.copy()
                 manipulate_bnds = False
                 
                 # If geodetic mass balance exist, then constrain bounds based on initial estimate
@@ -1321,7 +1318,7 @@ def main(list_packed_vars):
                                             precgrad_bnds))
                     calround += 1
                     # Break loop if gone through all iterations
-                    if ((calround == len(precfactor_bnds_list_init)) or 
+                    if ((calround == len(input.precfactor_bnds_list_init)) or 
                     (abs(glacier_cal_compare.zscore) < input.zscore_tolerance_single)):
                         continue_loop = False
                     
@@ -1374,8 +1371,8 @@ def main(list_packed_vars):
                 'R' + str(input.rgi_regionsO1[0]) + '_' + str(main_glac_rgi.shape[0]) + 'glac_calcompare_opt' + 
                 str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + str(input.endyear) + '_'
                 + str(count) + '.csv')
-        main_glac_output.to_csv(input.output_filepath + output_modelparams_fn )
-        main_glac_cal_compare.to_csv(input.output_filepath + output_calcompare_fn)        
+        main_glac_output.to_csv(csv_output_fp + output_modelparams_fn )
+        main_glac_cal_compare.to_csv(csv_output_fp + output_calcompare_fn)        
         
     # Export variables as global to view in variable explorer
     if args.option_parallels == 0:
@@ -1470,83 +1467,83 @@ if __name__ == '__main__':
 #        if debug:
 #            print(ds)
 
-#    elif input.option_calibration == 1:
-#        # NETCDF - combine into single file
-#        # create a dict for dataarrays
-#        da_dict = {}
-#        glac_count = 0
-#        for i in os.listdir(netcdf_output_fp):
-#            if i.startswith(str(input.rgi_regionsO1[0])):
-#                glac_count += 1
-#                glacier_RGIId = i[:-3]
-#                glacier_RGIId.replace('.','-')
-#                ds = xr.open_dataset(netcdf_output_fp + i)
-#                # get dataarray, add to dictionary
-#                da = ds.to_array(name=glacier_RGIId)
-#                da_dict[glacier_RGIId] = da
-#                ds.close()
-#        # create final dataset with each glacier, make netcdf file
-#        ds = xr.Dataset(da_dict)
-#        netcdf_output_all_fn = (
-#                'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + 'glac_modelparams_opt' + 
-#                str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + str(input.endyear) + '_' + 
-#                str(strftime("%Y%m%d")) + '.nc')
-#        ds.to_netcdf(netcdf_output_fp + netcdf_output_all_fn)
-#        ds.close()
-#        # Remove files after they've been merged
-#        for i in os.listdir(netcdf_output_fp):
-#            if i.startswith(str(input.rgi_regionsO1[0])):
-#                os.remove(netcdf_output_fp + i)
-#        
-#        # CSV MODEL PARAMETERS - combine into single file
-#        # Model parameters
-#        check_modelparams_str = (
-#                'glac_modelparams_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
-#                str(input.endyear) + '_')
-#        output_modelparams_all_fn = (
-#                'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + check_modelparams_str + 
-#                str(strftime("%Y%m%d")) + '.csv')
-#        output_list = []
-#        for i in os.listdir(input.output_filepath):
-#            # Append results
-#            if i.startswith('R' + str(input.rgi_regionsO1[0])) and (check_modelparams_str in i):
-#                print(i)
-#                output_list.append(i)
-#                if len(output_list) == 1:
-#                    output_all = pd.read_csv(input.output_filepath + i, index_col=0)
-#                else:
-#                    output_2join = pd.read_csv(input.output_filepath + i, index_col=0)
-#                    output_all = output_all.append(output_2join, ignore_index=True)
-#                # Remove file after its been merged
-#                os.remove(input.output_filepath + i)
-#        # Export joined files
-#        output_all.to_csv(input.output_filepath + output_modelparams_all_fn)
-#        
-#        # CSV CALIBRATION COMPARISON - combine into single file
-#        # Model parameters
-#        check_calcompare_str = (
-#                'glac_calcompare_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
-#                str(input.endyear) + '_')
-#        output_calcompare_all_fn = (
-#                'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + check_calcompare_str + 
-#                str(strftime("%Y%m%d")) + '.csv')
-#        output_list = []
-#        for i in os.listdir(input.output_filepath):
-#            # Append results
-#            if i.startswith('R' + str(input.rgi_regionsO1[0])) and (check_calcompare_str in i):
-#                print(i)
-#                output_list.append(i)
-#                if len(output_list) == 1:
-#                    output_all = pd.read_csv(input.output_filepath + i, index_col=0)
-#                else:
-#                    output_2join = pd.read_csv(input.output_filepath + i, index_col=0)
-#                    output_all = output_all.append(output_2join, ignore_index=True)
-#                # Remove file after its been merged
-#                os.remove(input.output_filepath + i)
-#        # Export joined files
-#        output_all.to_csv(input.output_filepath + output_calcompare_all_fn)
-#
-#    print('Total processing time:', time.time()-time_start, 's')
+    elif input.option_calibration == 1:
+        # NETCDF - combine into single file
+        # create a dict for dataarrays
+        da_dict = {}
+        glac_count = 0
+        for i in os.listdir(netcdf_output_fp):
+            if i.startswith(str(input.rgi_regionsO1[0])):
+                glac_count += 1
+                glacier_RGIId = i[:-3]
+                glacier_RGIId.replace('.','-')
+                ds = xr.open_dataset(netcdf_output_fp + i)
+                # get dataarray, add to dictionary
+                da = ds.to_array(name=glacier_RGIId)
+                da_dict[glacier_RGIId] = da
+                ds.close()
+        # create final dataset with each glacier, make netcdf file
+        ds = xr.Dataset(da_dict)
+        netcdf_output_all_fn = (
+                'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + 'glac_modelparams_opt' + 
+                str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + str(input.endyear) + '_' + 
+                str(strftime("%Y%m%d")) + '.nc')
+        ds.to_netcdf(netcdf_output_fp + '../' + netcdf_output_all_fn)
+        ds.close()
+        # Remove files after they've been merged
+        for i in os.listdir(netcdf_output_fp):
+            if i.startswith(str(input.rgi_regionsO1[0])):
+                os.remove(netcdf_output_fp + i)
+        
+        # CSV MODEL PARAMETERS - combine into single file
+        # Model parameters
+        check_modelparams_str = (
+                'glac_modelparams_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
+                str(input.endyear) + '_')
+        output_modelparams_all_fn = (
+                'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + check_modelparams_str + 
+                str(strftime("%Y%m%d")) + '.csv')
+        output_list = []
+        for i in os.listdir(csv_output_fp):
+            # Append results
+            if i.startswith('R' + str(input.rgi_regionsO1[0])) and (check_modelparams_str in i):
+                print(i)
+                output_list.append(i)
+                if len(output_list) == 1:
+                    output_all = pd.read_csv(csv_output_fp + i, index_col=0)
+                else:
+                    output_2join = pd.read_csv(csv_output_fp + i, index_col=0)
+                    output_all = output_all.append(output_2join, ignore_index=True)
+                # Remove file after its been merged
+                os.remove(csv_output_fp + i)
+        # Export joined files
+        output_all.to_csv(csv_output_fp + '../' + output_modelparams_all_fn)
+        
+        # CSV CALIBRATION COMPARISON - combine into single file
+        # Model parameters
+        check_calcompare_str = (
+                'glac_calcompare_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
+                str(input.endyear) + '_')
+        output_calcompare_all_fn = (
+                'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + check_calcompare_str + 
+                str(strftime("%Y%m%d")) + '.csv')
+        output_list = []
+        for i in os.listdir(csv_output_fp):
+            # Append results
+            if i.startswith('R' + str(input.rgi_regionsO1[0])) and (check_calcompare_str in i):
+                print(i)
+                output_list.append(i)
+                if len(output_list) == 1:
+                    output_all = pd.read_csv(csv_output_fp + i, index_col=0)
+                else:
+                    output_2join = pd.read_csv(csv_output_fp + i, index_col=0)
+                    output_all = output_all.append(output_2join, ignore_index=True)
+                # Remove file after its been merged
+                os.remove(csv_output_fp + i)
+        # Export joined files
+        output_all.to_csv(csv_output_fp + '../' + output_calcompare_all_fn)
+
+    print('Total processing time:', time.time()-time_start, 's')
 
     #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
 #    # Place local variables in variable explorer
