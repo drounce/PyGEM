@@ -29,12 +29,9 @@ import class_mbdata
 cal_datasets = ['shean']
 #cal_datasets = ['group']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
-                
-# Export option
-option_export = 1
 
 # Debugging boolean (if true, a number of print statements are activated through the running of the model)
-debug = False
+debug = True
 
 #%% FUNCTIONS
 def getparser():
@@ -1085,29 +1082,41 @@ def main(list_packed_vars):
                 mb_geo_modeled = glacier_cal_compare.loc[mb_geo_idx, 'model']            
                 # Adjust bounds based on initial comparison
                 manipulate_bnds = True
-                precfactor_bnds_list_copy = precfactor_bnds_list.copy()
-                tempchange_bnds_list_copy = tempchange_bnds_list.copy()
-                ddfsnow_bnds_list_copy = ddfsnow_bnds_list.copy()
+#                precfactor_bnds_list_copy = precfactor_bnds_list.copy()
+#                tempchange_bnds_list_copy = tempchange_bnds_list.copy()
+#                ddfsnow_bnds_list_copy = ddfsnow_bnds_list.copy()
                 precgrad_init_idx = 0
                 
                 if debug:
                     print('observed mb:', mb_geo)
                     print('modeled mb:', mb_geo_modeled)
-                
+                    
+                precfactor_bnds_list = [input.precfactor_bnds_list_init[0]]
+                tempchange_bnds_list = [input.tempchange_bnds_list_init[0]]
+                ddfsnow_bnds_list = [input.ddfsnow_bnds_list_init[0]]
                 if mb_geo_modeled < mb_geo:
+                    # Index used for calculating initial guess each round
                     precfactor_init_idx = 1
                     tempchange_init_idx = 0
                     ddfsnow_init_idx = 0
-                    precfactor_bnds_list = [(1,i[1]) for i in precfactor_bnds_list_copy]
-                    tempchange_bnds_list = [(i[0],0) for i in tempchange_bnds_list_copy]
-                    ddfsnow_bnds_list = [(i[0],0.0041) for i in ddfsnow_bnds_list_copy]
+                    # First tuple will not be changed, while all others will
+                    precfactor_bnds_list_modified = [(1,i[1]) for i in input.precfactor_bnds_list_init[1:]]
+                    tempchange_bnds_list_modified = [(i[0],0) for i in input.tempchange_bnds_list_init[1:]]
+                    ddfsnow_bnds_list_modified = [(i[0],0.0041) for i in input.ddfsnow_bnds_list_init[1:]]
+                    precfactor_bnds_list.extend(precfactor_bnds_list_modified)
+                    tempchange_bnds_list.extend(tempchange_bnds_list_modified)
+                    ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
                 else:
+                    # Index used for calculating initial guess each round
                     precfactor_init_idx = 0
                     tempchange_init_idx = 1
                     ddfsnow_init_idx = 1
-                    precfactor_bnds_list = [(i[0],1) for i in precfactor_bnds_list_copy]
-                    tempchange_bnds_list = [(0,i[1]) for i in tempchange_bnds_list_copy]
-                    ddfsnow_bnds_list = [(0.0041,i[1]) for i in ddfsnow_bnds_list_copy]
+                    precfactor_bnds_list_modified = [(i[0],1) for i in input.precfactor_bnds_list_init[1:]]
+                    tempchange_bnds_list_modified = [(0,i[1]) for i in input.tempchange_bnds_list_init[1:]]
+                    ddfsnow_bnds_list_modified = [(0.0041,i[1]) for i in input.ddfsnow_bnds_list_init[1:]]
+                    precfactor_bnds_list.extend(precfactor_bnds_list_modified)
+                    tempchange_bnds_list.extend(tempchange_bnds_list_modified)
+                    ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
                     
     
             continue_loop = True
@@ -1193,18 +1202,6 @@ def main(list_packed_vars):
                 os.mkdir(input.output_filepath + 'temp/')
             netcdf_output_fullfn = input.output_filepath + 'temp/' + glacier_str + '.nc'
             write_netcdf_modelparams(netcdf_output_fullfn, modelparameters, glacier_cal_compare)
-            
-            if debug:
-                print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-                print('precfactor:', modelparameters[2])
-                print('precgrad:', modelparameters[3])
-                print('ddfsnow:', modelparameters[4])
-                print('ddfice:', modelparameters[5])
-                print('tempchange:', modelparameters[7])
-                print('calround:', calround)
-                print('modeled mb [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'model'].values)
-                print('measured mb [mwe]:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'obs'].values)
-                print('zscore:', glacier_cal_compare.loc[glacier_cal_data.index.values, 'zscore'].values, '\n')
             
         # ==============================================================
         

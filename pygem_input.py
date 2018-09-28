@@ -85,11 +85,11 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['08828']
+rgi_glac_number = ['08828']
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(6562,6662)
 if 'rgi_glac_number' not in locals():
-    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 20, option_random=0)
+    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
 
 # Reference climate dataset
@@ -122,6 +122,7 @@ modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 #%% ===== CALIBRATION OPTIONS =====
 # Option 1:
 # Model parameter bounds for each calibration round
+#  first tuple will run as expected; 
 precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
 precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
