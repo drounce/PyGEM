@@ -67,6 +67,10 @@ def glac_num_fromrange(int_low, int_high):
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # Calibration option (1 = minimization, 2 = MCMC)
 option_calibration = 1
+# Calibration datasets
+cal_datasets = ['shean']
+#cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
+
 # ===== MCMC and ensemble selections ========
 # Number of chains (min 1, max 3)
 n_chains = 3
@@ -85,7 +89,7 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['08828']
+#rgi_glac_number = ['08828']
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(6562,6662)
 if 'rgi_glac_number' not in locals():

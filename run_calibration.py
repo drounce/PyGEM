@@ -24,14 +24,6 @@ import pygemfxns_massbalance as massbalance
 import class_climate
 import class_mbdata
 
-#%% ===== SCRIPT SPECIFIC INPUT DATA =====
-# Calibration datasets
-cal_datasets = ['shean']
-#cal_datasets = ['group']
-#cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
-
-# Debugging boolean (if true, a number of print statements are activated through the running of the model)
-debug = True
 
 #%% FUNCTIONS
 def getparser():
@@ -50,6 +42,8 @@ def getparser():
         filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
     progress_bar : int
         Switch for turning the progress bar on or off (default = 0 (off))
+    debug : int
+        Switch for turning debug printing on or off (default = 0 (off))
         
     Returns
     -------
@@ -66,7 +60,9 @@ def getparser():
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-progress_bar', action='store', type=int, default=0,
-                        help='Boolean for the progress bar to turn it on or off')
+                        help='Boolean for the progress bar to turn it on or off (default 0 is off)')
+    parser.add_argument('-debug', action='store', type=int, default=0,
+                        help='Boolean for debugging to turn it on or off (default 0 is off')
     return parser
 
 
@@ -93,6 +89,11 @@ def main(list_packed_vars):
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
+    
+    if args.debug == 1:
+        debug = True
+    else:
+        debug = False
 
     # ===== LOAD GLACIER DATA =====
     #  'raw' refers to the glacier subset that includes glaciers with and without calibration data
@@ -123,14 +124,14 @@ def main(list_packed_vars):
 
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()
-    for dataset in cal_datasets:
+    for dataset in input.cal_datasets:
         cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=input.rgi_regionsO1[0])
         cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_raw, main_glac_hyps_raw, dates_table_nospinup)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])
     cal_data.reset_index(drop=True, inplace=True)
     # If group data is included, then add group dictionary and add group name to main_glac_rgi
-    if set(['group']).issubset(cal_datasets) == True:
+    if set(['group']).issubset(input.cal_datasets) == True:
         # Group dictionary
         group_dict_raw = pd.read_csv(input.mb_group_fp + input.mb_group_dict_fn)
         # Remove groups that have no data
@@ -1206,7 +1207,7 @@ def main(list_packed_vars):
         # ==============================================================
         
         # ===== GROUP CALIBRATION =====
-        if set(['group']).issubset(cal_datasets) == True:
+        if set(['group']).issubset(input.cal_datasets) == True:
             # Indices of group calibration data
             cal_data_idx_groups = cal_data.loc[cal_data['group_name'].notnull()].index.values.tolist()
             # Indices of glaciers that have already been calibrated
