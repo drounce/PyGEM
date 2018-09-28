@@ -32,9 +32,6 @@ cal_datasets = ['shean']
                 
 # Export option
 option_export = 1
-#output_filepath = input.main_directory + '/../Output/'
-netcdf_output_fp = input.output_filepath + 'cal_netcdf/'
-csv_output_fp = input.output_filepath + 'csv/'
 
 # Debugging boolean (if true, a number of print statements are activated through the running of the model)
 debug = False
@@ -1044,9 +1041,10 @@ def main(list_packed_vars):
         cal_individual_glacno = np.unique(cal_data.loc[cal_data['glacno'].notnull(), 'glacno'])
         for n in range(cal_individual_glacno.shape[0]):
             glac = np.where(main_glac_rgi[input.rgi_O1Id_colname].isin([cal_individual_glacno[n]]) == True)[0][0]
-#            if glac%100 == 0:
-#                print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
-            print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
+            if debug:
+                print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])    
+            elif glac%100 == 0:
+                print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
             # Set model parameters
             modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
                                input.tempsnow, input.tempchange]
@@ -1100,28 +1098,16 @@ def main(list_packed_vars):
                     precfactor_init_idx = 1
                     tempchange_init_idx = 0
                     ddfsnow_init_idx = 0
-#                    precfactor_bnds_list = [(1,i[1]) for i in precfactor_bnds_list_copy]
-#                    tempchange_bnds_list = [(i[0],0) for i in tempchange_bnds_list_copy]
-#                    ddfsnow_bnds_list = [(i[0],0.0041) for i in ddfsnow_bnds_list_copy]
-                    precfactor_bnd_replace = (input.precfactor_bnds_list_init[0][0] + 1) / 2
-                    ddfsnow_bnd_replace = (input.ddfsnow_bnds_list_init[0][1] + 0.0041) / 2
-                    tempchange_bnd_replace = (input.tempchange_bnds_list_init[0][1] + 0) / 2
-                    precfactor_bnds_list = [(precfactor_bnd_replace,i[1]) for i in precfactor_bnds_list_copy]   
-                    tempchange_bnds_list = [(i[0],tempchange_bnd_replace) for i in tempchange_bnds_list_copy]
-                    ddfsnow_bnds_list = [(i[0],ddfsnow_bnd_replace) for i in ddfsnow_bnds_list_copy]
+                    precfactor_bnds_list = [(1,i[1]) for i in precfactor_bnds_list_copy]
+                    tempchange_bnds_list = [(i[0],0) for i in tempchange_bnds_list_copy]
+                    ddfsnow_bnds_list = [(i[0],0.0041) for i in ddfsnow_bnds_list_copy]
                 else:
                     precfactor_init_idx = 0
                     tempchange_init_idx = 1
                     ddfsnow_init_idx = 1
-                    precfactor_bnd_replace = (input.precfactor_bnds_list_init[0][1] + 1) / 2
-                    ddfsnow_bnd_replace = (input.ddfsnow_bnds_list_init[0][0] + 0.0041) / 2
-                    tempchange_bnd_replace = (input.tempchange_bnds_list_init[0][0] + 0) / 2
-#                    precfactor_bnds_list = [(i[0],1) for i in precfactor_bnds_list_copy]
-#                    tempchange_bnds_list = [(0,i[1]) for i in tempchange_bnds_list_copy]
-#                    ddfsnow_bnds_list = [(0.0041,i[1]) for i in ddfsnow_bnds_list_copy]
-                    precfactor_bnds_list = [(i[0],precfactor_bnd_replace) for i in precfactor_bnds_list_copy] 
-                    tempchange_bnds_list = [(-1,tempchange_bnd_replace) for i in tempchange_bnds_list_copy]
-                    ddfsnow_bnds_list = [(0.00385,ddfsnow_bnd_replace) for i in ddfsnow_bnds_list_copy]
+                    precfactor_bnds_list = [(i[0],1) for i in precfactor_bnds_list_copy]
+                    tempchange_bnds_list = [(0,i[1]) for i in tempchange_bnds_list_copy]
+                    ddfsnow_bnds_list = [(0.0041,i[1]) for i in ddfsnow_bnds_list_copy]
                     
     
             continue_loop = True
@@ -1203,9 +1189,9 @@ def main(list_packed_vars):
             main_glac_modelparamsopt[glac] = modelparameters
             
             # EXPORT TO NETCDF
-            if not os.path.exists(netcdf_output_fp):
-                os.mkdir(netcdf_output_fp)
-            netcdf_output_fullfn = netcdf_output_fp + glacier_str + '.nc'
+            if not os.path.exists(input.output_filepath + 'temp/'):
+                os.mkdir(input.output_filepath + 'temp/')
+            netcdf_output_fullfn = input.output_filepath + 'temp/' + glacier_str + '.nc'
             write_netcdf_modelparams(netcdf_output_fullfn, modelparameters, glacier_cal_compare)
             
             if debug:
@@ -1334,12 +1320,12 @@ def main(list_packed_vars):
                 main_glac_cal_compare.loc[cal_idx] = glacier_cal_compare
                 
                 # EXPORT TO NETCDF
-                if not os.path.exists(netcdf_output_fp):
-                    os.mkdir(netcdf_output_fp)
+                if not os.path.exists(input.output_filepath + 'temp/'):
+                    os.mkdir(input.output_filepath + 'temp/')
                 # Loop through glaciers calibrated from group and export to netcdf
                 for glac_idx in group_dict_glaciers_idx:
                     glacier_str = '{0:0.5f}'.format(main_glac_rgi.loc[glac_idx, 'RGIId_float'])
-                    netcdf_output_fullfn = netcdf_output_fp + glacier_str + '.nc'
+                    netcdf_output_fullfn = input.output_filepath + 'temp/' + glacier_str + '.nc'
                     write_netcdf_modelparams(netcdf_output_fullfn, modelparameters_group)
                     
                 
@@ -1362,7 +1348,8 @@ def main(list_packed_vars):
         main_glac_output = pd.concat([main_glac_output, main_glac_modelparamsopt_pd, main_glacwide_mbclim_pd], axis=1)
         
         # Export output
-        # Non-grouped data can be run in parallel, so export with count
+        if not os.path.exists(input.output_filepath + 'temp/'):
+            os.mkdir(input.output_filepath + 'temp/')
         output_modelparams_fn = (
                 'R' + str(input.rgi_regionsO1[0]) + '_' + str(main_glac_rgi.shape[0]) + 'glac_modelparams_opt' + 
                 str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + str(input.endyear) + '_'
@@ -1371,8 +1358,8 @@ def main(list_packed_vars):
                 'R' + str(input.rgi_regionsO1[0]) + '_' + str(main_glac_rgi.shape[0]) + 'glac_calcompare_opt' + 
                 str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + str(input.endyear) + '_'
                 + str(count) + '.csv')
-        main_glac_output.to_csv(csv_output_fp + output_modelparams_fn )
-        main_glac_cal_compare.to_csv(csv_output_fp + output_calcompare_fn)        
+        main_glac_output.to_csv(input.output_filepath + 'temp/' + output_modelparams_fn )
+        main_glac_cal_compare.to_csv(input.output_filepath + 'temp/' + output_calcompare_fn)        
         
     # Export variables as global to view in variable explorer
     if args.option_parallels == 0:
@@ -1472,12 +1459,12 @@ if __name__ == '__main__':
         # create a dict for dataarrays
         da_dict = {}
         glac_count = 0
-        for i in os.listdir(netcdf_output_fp):
-            if i.startswith(str(input.rgi_regionsO1[0])):
+        for i in os.listdir(input.output_filepath + 'temp/'):
+            if i.startswith(str(input.rgi_regionsO1[0])) and i.endswith('.nc'):
                 glac_count += 1
                 glacier_RGIId = i[:-3]
                 glacier_RGIId.replace('.','-')
-                ds = xr.open_dataset(netcdf_output_fp + i)
+                ds = xr.open_dataset(input.output_filepath + 'temp/' + i)
                 # get dataarray, add to dictionary
                 da = ds.to_array(name=glacier_RGIId)
                 da_dict[glacier_RGIId] = da
@@ -1488,12 +1475,12 @@ if __name__ == '__main__':
                 'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + 'glac_modelparams_opt' + 
                 str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + str(input.endyear) + '_' + 
                 str(strftime("%Y%m%d")) + '.nc')
-        ds.to_netcdf(netcdf_output_fp + '../' + netcdf_output_all_fn)
+        ds.to_netcdf(input.output_filepath + netcdf_output_all_fn)
         ds.close()
         # Remove files after they've been merged
-        for i in os.listdir(netcdf_output_fp):
+        for i in os.listdir(input.output_filepath + 'temp/'):
             if i.startswith(str(input.rgi_regionsO1[0])):
-                os.remove(netcdf_output_fp + i)
+                os.remove(input.output_filepath + 'temp/' + i)
         
         # CSV MODEL PARAMETERS - combine into single file
         # Model parameters
@@ -1504,20 +1491,20 @@ if __name__ == '__main__':
                 'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + check_modelparams_str + 
                 str(strftime("%Y%m%d")) + '.csv')
         output_list = []
-        for i in os.listdir(csv_output_fp):
+        for i in os.listdir(input.output_filepath + 'temp/'):
             # Append results
             if i.startswith('R' + str(input.rgi_regionsO1[0])) and (check_modelparams_str in i):
                 print(i)
                 output_list.append(i)
                 if len(output_list) == 1:
-                    output_all = pd.read_csv(csv_output_fp + i, index_col=0)
+                    output_all = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
                 else:
-                    output_2join = pd.read_csv(csv_output_fp + i, index_col=0)
+                    output_2join = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
                     output_all = output_all.append(output_2join, ignore_index=True)
                 # Remove file after its been merged
-                os.remove(csv_output_fp + i)
+                os.remove(input.output_filepath + 'temp/' + i)
         # Export joined files
-        output_all.to_csv(csv_output_fp + '../' + output_modelparams_all_fn)
+        output_all.to_csv(input.output_filepath + output_modelparams_all_fn)
         
         # CSV CALIBRATION COMPARISON - combine into single file
         # Model parameters
@@ -1528,20 +1515,20 @@ if __name__ == '__main__':
                 'R' + str(input.rgi_regionsO1[0]) + '_' + str(glac_count) + check_calcompare_str + 
                 str(strftime("%Y%m%d")) + '.csv')
         output_list = []
-        for i in os.listdir(csv_output_fp):
+        for i in os.listdir(input.output_filepath + 'temp/'):
             # Append results
             if i.startswith('R' + str(input.rgi_regionsO1[0])) and (check_calcompare_str in i):
                 print(i)
                 output_list.append(i)
                 if len(output_list) == 1:
-                    output_all = pd.read_csv(csv_output_fp + i, index_col=0)
+                    output_all = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
                 else:
-                    output_2join = pd.read_csv(csv_output_fp + i, index_col=0)
+                    output_2join = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
                     output_all = output_all.append(output_2join, ignore_index=True)
                 # Remove file after its been merged
-                os.remove(csv_output_fp + i)
+                os.remove(input.output_filepath + 'temp/' + i)
         # Export joined files
-        output_all.to_csv(csv_output_fp + '../' + output_calcompare_all_fn)
+        output_all.to_csv(input.output_filepath + output_calcompare_all_fn)
 
     print('Total processing time:', time.time()-time_start, 's')
 

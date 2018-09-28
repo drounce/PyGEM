@@ -122,10 +122,10 @@ modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 #%% ===== CALIBRATION OPTIONS =====
 # Option 1:
 # Model parameter bounds for each calibration round
-precfactor_bnds_list_init = [(0.8,1.25), (0.5,2), (0.33,3)]
-precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
-ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
-tempchange_bnds_list_init = [(-2,2), (-5,5), (-10,10)]
+precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
+precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
+ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
+tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
 
 
 
