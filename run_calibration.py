@@ -22,6 +22,7 @@ from scipy.stats import norm
 from scipy.stats import truncnorm
 from scipy.stats import uniform
 from scipy.stats import linregress
+import pickle
 # Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -31,7 +32,8 @@ import class_mbdata
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 # Calibration datasets
-cal_datasets = ['shean']
+#cal_datasets = ['shean']
+cal_datasets = ['shean', 'wgms_d']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 
 # Label dictionaries for pairwise scatter plots
@@ -68,6 +70,8 @@ def getparser():
         number of cores to use in parallels
     option_parallels (optional) : int
         switch to use parallels or not
+    rgi_glac_number_fn : str
+        filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
         
     Returns
     -------
@@ -81,6 +85,8 @@ def getparser():
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
+    parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
+                        help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     return parser
 
 
@@ -1805,10 +1811,20 @@ if __name__ == '__main__':
     # Reference GCM name
     gcm_name = args.ref_gcm_name
     print('Reference climate data is:', gcm_name)
+    
+    if input.option_calibration == 2:
+        print('Chains:', input.n_chains, 'Iterations:', input.mcmc_sample_no)
+    
+    # RGI glacier number
+    if args.rgi_glac_number_fn is not None:
+        with open(args.rgi_glac_number_fn, 'rb') as f:
+            rgi_glac_number = pickle.load(f)
+    else:
+        rgi_glac_number = input.rgi_glac_number    
 
     # Select all glaciers in a region
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                          rgi_glac_number=input.rgi_glac_number)
+                                                          rgi_glac_number=rgi_glac_number)
     # Define chunk size for parallel processing
     if args.option_parallels != 0:
         num_cores = int(np.min([main_glac_rgi_all.shape[0], args.num_simultaneous_processes]))
@@ -1821,7 +1837,7 @@ if __name__ == '__main__':
     list_packed_vars = []
     n = 0
     for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-        n = n + 1
+        n += 1
         list_packed_vars.append([n, chunk, chunk_size, main_glac_rgi_all, gcm_name])
 
     # if MCMC option, clear files from previous run

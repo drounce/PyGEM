@@ -11,8 +11,85 @@ import pygem_input as input
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                   dates_table, 
-                   option_areaconstant=0):
+                   dates_table, option_areaconstant=0, debug=False):
+    """
+    Runs the mass balance and mass redistribution allowing the glacier to evolve.
+
+    Parameters
+    ----------
+    modelparameters : pd.Series
+        Model parameters (lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow, tempchange)
+        Order of model parameters should not be changed as the run mass balance script relies on this order.
+    glacier_rgi_table : pd.Series
+        Table of glacier's RGI information
+    glacier_area_t0 : np.ndarray
+        Initial glacier area [km2] for each elevation bin
+    icethickness_t0 : np.ndarray
+        Initial ice thickness [m] for each elevation bin
+    width_t0 : np.ndarray
+        Initial glacier width [km] for each elevation bin
+    elev_bins : np.ndarray
+        Elevation bins [masl]
+    glacier_gcm_temp : np.ndarray
+        GCM temperature [degC] at each time step based on nearest neighbor to the glacier
+    glacier_gcm_prec : np.ndarray
+        GCM precipitation (solid and liquid) [m] at each time step based on nearest neighbor to the glacier
+    glacier_gcm_elev : float
+        GCM elevation [masl] at each time step based on nearest neighbor to the glacier
+    glacier_gcm_lrgcm : np.ndarray
+        GCM lapse rate [K m-1] from the GCM to the glacier for each time step based on nearest neighbor to the glacier
+    glacier_gcm_lrglac : np.ndarray
+        GCM lapse rate [K m-1] over the glacier for each time step based on nearest neighbor to the glacier
+    dates_table : pd.DataFrame
+        Table of dates, year, month, daysinmonth, wateryear, and season for each timestep
+    option_areaconstant : int
+        switch to keep glacier area constant or not (default 0 allows glacier area to change annually)
+    debug : Boolean
+        option to turn on print statements for development or debugging of code (default False)
+
+    Returns
+    -------
+    glac_bin_temp : np.ndarray
+        Temperature [degC] for each elevation bin and timestep
+    glac_bin_prec : np.ndarray
+        Precipitation (only liquid) [m] for each elevation bin and timestep
+    glac_bin_acc : np.ndarray
+        Accumulation (solid precipitation) [mwe] for each elevation bin and timestep
+    glac_bin_refreeze : np.ndarray
+        Refreeze [mwe] for each elevation bin and timestep
+    glac_bin_snowpack : np.ndarray
+        Snowpack [mwe] for each elevation bin and timestep
+    glac_bin_melt : np.ndarray
+        Melt [mwe] for each elevation bin and timestep
+    glac_bin_frontalablation : np.ndarray
+        Frontal ablation [mwe] for each elevation bin and timestep
+    glac_bin_massbalclim : np.ndarray
+        Climatic mass balance [mwe] for each elevation bin and timestep
+    glac_bin_massbalclim_annual : np.ndarray
+        Climatic mass balance [mwe] for each elevation bin and year
+    glac_bin_area_annual : np.ndarray
+        Glacier area [km2] for each elevation bin and year
+    glac_bin_icethickness_annual : np.ndarray
+        Ice thickness [m] for each elevation bin and year
+    glac_bin_width_annual : np.ndarray
+        Glacier width [km] for each elevation bin and year
+    glac_bin_surfacetype_annual : np.ndarray
+        Surface type [see dictionary] for each elevation bin and year
+    glac_wide_massbaltotal : np.ndarray
+        Glacier-wide total mass balance (climatic mass balance - frontal ablation) [mwe] for each timestep
+    glac_wide_runoff : np.ndarray
+        Glacier-wide runoff [m3] for each timestep
+    glac_wide_snowline : np.ndarray
+        Snowline altitude [masl] for each timestep
+    glac_wide_snowpack : np.ndarray
+        Glacier-wide snowpack [km3 we] for each timestep
+    glac_wide_area_annual : np.ndarray
+        Glacier-wide area [km2] for each timestep
+    glac_wide_volume_annual : np.ndarray
+        Glacier-wide volume [km3 ice] for each timestep
+    glac_wide_ELA_annual : np.ndarray
+        Equilibrium line altitude [masl] for each year
+    """        
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12
@@ -43,15 +120,25 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     dayspermonth = dates_table['daysinmonth'].values
     surfacetype_ddf = np.zeros(elev_bins.shape[0])
     glac_idx_initial = glacier_area_t0.nonzero()[0]
+    
+    # Sea level for marine-terminating glaciers
+    sea_level = 0
+    frontalablation_k0 = input.frontalablation_k0dict[input.rgi_regionsO1[0]]
+    # Adjust sea level to account for disagreement between ice thickness estimates and glaciers classified by RGI as
+    # marine-terminating. Modify the sea level, so sea level is consistent with lowest elevation bin that has ice.
+    if glacier_rgi_table.loc['TermType'] == 1:
+        sea_level = elev_bins[glac_idx_initial[0]] - (elev_bins[1] - elev_bins[0]) / 2
+    
+    
     #  glac_idx_initial is used with advancing glaciers to ensure no bands are added in a discontinuous section
     # Run mass balance only on pixels that have an ice thickness (some glaciers do not have an ice thickness)
     #  otherwise causes indexing errors causing the model to fail
     if icethickness_t0.max() > 0:    
         if input.option_adjusttemp_surfelev == 1:
             # ice thickness initial is used to adjust temps to changes in surface elevation
-            icethickness_adjusttemp = icethickness_t0.copy()
-            icethickness_adjusttemp[0:icethickness_adjusttemp.nonzero()[0][0]] = (
-                    icethickness_adjusttemp[icethickness_adjusttemp.nonzero()[0][0]])
+            icethickness_initial = icethickness_t0.copy()
+            icethickness_initial[0:icethickness_initial.nonzero()[0][0]] = (
+                    icethickness_initial[icethickness_initial.nonzero()[0][0]])
             #  bins that advance need to have an initial ice thickness; otherwise, the temp adjustment will be based on
             #  ice thickness - 0, which is wrong  Since advancing bins take the thickness of the previous bin, set the
             #  initial ice thickness of all bins below the terminus to the ice thickness at the terminus.
@@ -61,7 +148,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
         surfacetype_ddf_dict = surfacetypeDDFdict(modelparameters)
         
         # ANNUAL LOOP (daily or monthly timestep contained within loop)
-        for year in range(0, annual_columns.shape[0]):  
+        for year in range(0, annual_columns.shape[0]): 
             # Glacier indices
             glac_idx_t0 = glacier_area_t0.nonzero()[0]
             # Functions currently set up for monthly timestep
@@ -81,7 +168,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)
                     glac_bin_temp[:,12*year:12*(year+1)] = (glac_bin_temp[:,12*year:12*(year+1)] + 
                                                             glacier_gcm_lrglac[12*year:12*(year+1)] * 
-                                                            (icethickness_t0 - icethickness_adjusttemp)[:,np.newaxis])
+                                                            (icethickness_t0 - icethickness_initial)[:,np.newaxis])
                 # remove off-glacier values
                 glac_bin_temp[surfacetype==0,12*year:12*(year+1)] = 0
                 
@@ -242,46 +329,106 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 
                 # ===== RETURN TO ANNUAL LOOP =====
                 # FRONTAL ABLATION
-                # If ice in glacier's lowermost bin below sea-level, then compute frontal ablation
-                #  note: the glacier's lowermost bin does not have to be the lowest elevation bin.  It's possible that 
-                #        a glacier has retreated such that it's lowest elevation bin is not at sea-level, yet the
-                #        the glacier is still marine-terminating.
-#                if icethickness_t0[glac_idx_t0[0]] > (elev_bins[glac_idx_t0[0] + 1] - elev_bins[glac_idx_t0[0]]):
-#                    
-#                    # THE ABOVE IF STATEMENT DOES NOT WORK SINCE IT DEALS WITH FIRST GLACIER INDEX, THIS WOULD MAKE
-#                    # EVERY GLACIER WITH THICKNESS > 10 M HAVE FRONTAL ABLATION
-#                    
-#                    # Estimate height of calving front (height_calving)
-#                    # Glacier length [m]
-#                    length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
-#                    height_calving_1 = input.af*length**0.5
-#                    waterdepth = icethickness_t0[0] - (elev_bins[1] - elev_bins[0])
-#                    height_calving_2 = input.density_water / input.density_ice * waterdepth
-#                    height_calving = np.max([height_calving_1, height_calving_2])
-#                    glac_bin_frontalablation[0,step] = np.min([0, (-1 * input.calving_parameter * waterdepth * 
-#                                                                   height_calving)])
-#                    print('first ice thickness:', )
-#                    print('ice thickness:', icethickness_t0[0].round(0), 'waterdepth:', waterdepth.round(0), 
-#                          'height calving front:', height_calving.round(0))
+                
+                if debug:
+                    print('\nyear:', year)
+                    print('sea level:', sea_level, 
+                          'bed elev:', round(elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
+                                             icethickness_initial[glac_idx_t0[0]], 2))
+                
+                # Glacier bed altitude [masl]
+                glacier_bedelev = (elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
+                                   icethickness_initial[glac_idx_t0[0]])
+                # If glacier bed below sea level, compute frontal ablation
+                if glacier_bedelev < sea_level:
+                    # Volume [m3] and bed elevation [masl] of each bin
+                    glac_bin_volume = glacier_area_t0 * 10**6 * icethickness_t0
+                    glac_bin_bedelev = np.zeros((glacier_area_t0.shape))
+                    glac_bin_bedelev[glac_idx_t0] = (
+                            elev_bins[glac_idx_t0] + (elev_bins[1] - elev_bins[0]) / 2 - 
+                            icethickness_initial[glac_idx_t0])
                     
-                    # CURRENT UNITS: M**3 OF ICE, annually
+                    # Option 1: Use Huss and Hock (2015) frontal ablation parameterizations
+                    if input.option_frontalablation_k == 1:
+                        # Calculate frontal ablation parameter based on slope of lowest 100 m of glacier
+                        # Glacier indices used for slope calculation
+                        elev_bin_interval = elev_bins[1] - elev_bins[0]
+                        if glac_idx_t0.shape[0] > int(100 / elev_bin_interval):
+                            glac_idx_slope = glac_idx_t0[0 : 0 + int(100 / elev_bin_interval)]
+                            elev_change = (elev_bins[glac_idx_slope[-1]] - elev_bins[glac_idx_slope[0]] + 
+                                           elev_bin_interval)
+                            #  add elevation bin interval to be inclusive, i.e., elevation bins 5 - 95 include all
+                            #  glacier area between 0 - 100 masl
+                        # if glacier too small, then calculate slope over the entire glacier
+                        else:
+                            glac_idx_slope = glac_idx_t0.copy()
+                        # Length of lowest 100 m of glacier
+                        length_lowest100m = (glacier_area_t0[glac_idx_slope] / width_t0[glac_idx_slope] * 1000).sum()
+                        # Slope of lowest 100 m of glacier
+                        slope_lowest100m = np.rad2deg(np.arctan(elev_change/length_lowest100m))
+                        # Frontal ablation parameter
+                        frontalablation_k = frontalablation_k0 * slope_lowest100m
+                    elif input.option_frontalablation_k == 2:
+                        print('add more options for frontal ablation - example calibrated for each glacier')
                     
-                    # CONVERT TO MWE FOR THE SMALLEST BIN AS THIS IS WHAT THE OTHER VALUES ARE IN...
+                    # Calculate frontal ablation
+                    # Bed elevation with respect to sea level
+                    #  negative when bed is below sea level (Oerlemans and Nick, 2005)
+                    waterdepth = sea_level - glacier_bedelev
+                    # Glacier length [m]
+                    length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
+                    # Height of calving front [m]
+                    height_calving_1 = input.af*length**0.5
+                    height_calving_2 = input.density_water / input.density_ice * waterdepth
+                    height_calving = np.max([height_calving_1, height_calving_2])
+                    # Volume loss [m3] due to frontal ablation
+                    frontalablation_volumeloss = (
+                            np.max([0, (frontalablation_k * waterdepth * height_calving)]) * 
+                            width_t0[glac_idx_t0[0]] * 1000)
+                    # Maximum volume loss is volume of bins with their bed elevation below sea level
+                    glac_idx_fa = np.where((glac_bin_bedelev < sea_level) & (glacier_area_t0 > 0))[0]
+                    frontalablation_volumeloss_max = glac_bin_volume[glac_idx_fa].sum()
+                    if frontalablation_volumeloss > frontalablation_volumeloss_max:
+                        frontalablation_volumeloss = frontalablation_volumeloss_max
                     
-                    # Limit the amount of frontal ablation losses based on the volume of ice where the bedrock is below
-                    # sea-level.  This should make it easier to compute bin retreat from frontal ablation.
-
-                    # How should frontal ablation pair with geometry changes?
-                    #  - track the length of the last bin and have the calving losses control the bin length 
-                    #    after mass redistribution
-                    #  - the ice thickness will be determined by the mass redistribution
-                    # Note: output functions calculate total mass balance assuming frontal ablation is a
-                    #       positive value that is then subtracted from the climatic mass balance.
+                    if debug:
+                        print('frontalablation_volumeloss [m3]:', frontalablation_volumeloss)
+                        print('frontalablation_massloss [Gt]:', frontalablation_volumeloss * input.density_water / 
+                              input.density_ice / 10**9)
                     
+                    # Frontal ablation [mwe] in each bin
+                    bin_count = 0
+                    while frontalablation_volumeloss > input.tolerance:
+                        if frontalablation_volumeloss > glac_bin_volume[glac_idx_fa[bin_count]]:
+                            glac_bin_frontalablation[glac_idx_fa[bin_count], step] = (
+                                    glac_bin_volume[glac_idx_fa[bin_count]] / 
+                                    (glacier_area_t0[glac_idx_fa[bin_count]] * 10**6) 
+                                    * input.density_ice / input.density_water)
+                        else:
+                            glac_bin_frontalablation[glac_idx_fa[bin_count], step] = (
+                                    frontalablation_volumeloss / (glacier_area_t0[glac_idx_fa[bin_count]] * 10**6)
+                                    * input.density_ice / input.density_water)
+                        frontalablation_volumeloss -= (
+                                glac_bin_frontalablation[glac_idx_fa[bin_count], step] * 
+                                input.density_water / input.density_ice *
+                                glacier_area_t0[glac_idx_fa[bin_count]] * 10**6)
+                        bin_count += 1                        
+                        
+                        
+                        if debug:
+                            print('glacier idx:', glac_idx_fa[bin_count-1], 
+                                  'volume loss:', (glac_bin_frontalablation[glac_idx_fa[bin_count-1], step] * 
+                                  glacier_area_t0[glac_idx_fa[bin_count-1]] * input.density_water / input.density_ice * 
+                                  10**6).round(0))
+                    if debug:
+                        print('frontalablation_volumeloss remaining [m3]:', frontalablation_volumeloss)
+                        print('ice thickness:', icethickness_t0[glac_idx_fa[0]].round(0), 
+                              'waterdepth:', waterdepth.round(0), 
+                              'height calving front:', height_calving.round(0), 
+                              'width [m]:', (width_t0[glac_idx_fa[0]] * 1000).round(0))                    
                         
                 # SURFACE TYPE
                 # Annual surface type [-]
-                glac_bin_surfacetype_annual[:,year] = surfacetype
                 # Annual climatic mass balance [m w.e.], which is used to determine the surface type
                 glac_bin_massbalclim_annual[:,year] = glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)
                 # Compute the surface type for each bin
@@ -294,6 +441,38 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     icethickness_t1 = icethickness_t0
                     width_t1 = width_t0
                 else:
+                    # First, remove volume lost to frontal ablation
+                    #  changes to _t0 not _t1, since t1 will be done in the mass redistribution
+                    if glac_bin_frontalablation[:,step].max() > 0:
+                        # Frontal ablation loss [mwe]
+                        fa_change = abs(glac_bin_frontalablation[:, step] * input.density_water / input.density_ice
+                                        - icethickness_t0)
+                        fa_change[fa_change <= input.tolerance] = 0
+                        
+                        if debug:
+                            bins_wfa = np.where(glac_bin_frontalablation[:,step] > 0)[0]
+                            print('glacier area t0:', glacier_area_t0[bins_wfa].round(3))
+                            print('ice thickness t0:', icethickness_t0[bins_wfa].round(1))
+                            print('frontalablation [m ice]:', (glac_bin_frontalablation[bins_wfa, step] * 
+                                  input.density_water / input.density_ice).round(1))
+                            print('frontal ablation [mice] vs icethickness:', fa_change[bins_wfa].round(1))
+                        
+                        # Check if entire bin is removed
+                        glacier_area_t0[np.where(fa_change == 0)[0]] = 0
+                        icethickness_t0[np.where(fa_change == 0)[0]] = 0
+                        width_t0[np.where(fa_change == 0)[0]] = 0
+                        # Otherwise, reduce glacier area such that glacier retreats and ice thickness remains the same
+                        #  A_1 = (V_0 - V_loss) / h_1,  units: A_1 = (m ice * km2) / (m ice) = km2
+                        glacier_area_t0[np.where(fa_change != 0)[0]] = (
+                                (glacier_area_t0[np.where(fa_change != 0)[0]] * icethickness_t0[np.where(fa_change != 0)[0]]
+                                 - glacier_area_t0[np.where(fa_change != 0)[0]] * 
+                                 glac_bin_frontalablation[np.where(fa_change != 0)[0], step] * input.density_water 
+                                 / input.density_ice) / icethickness_t0[np.where(fa_change != 0)[0]])
+    
+                        if debug:
+                            print('glacier area t1:', glacier_area_t0[bins_wfa].round(3))
+                            print('ice thickness t1:', icethickness_t0[bins_wfa].round(1))
+                    
                     # Mass redistribution according to Huss empirical curves
                     glacier_area_t1, icethickness_t1, width_t1 = (
                             massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
@@ -372,7 +551,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
     glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
     glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
-                                                      input.binsize/2)    
+                                                      input.binsize/2)  
     # Return the desired output
     return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
@@ -385,8 +564,21 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
 def annualweightedmean_array(var, dates_table):
     """
     Calculate annual mean of variable according to the timestep.
+    
     Monthly timestep will group every 12 months, so starting month is important.
-    """
+    
+    Parameters
+    ----------
+    var : np.ndarray
+        Variable with monthly or daily timestep
+    dates_table : pd.DataFrame
+        Table of dates, year, month, daysinmonth, wateryear, and season for each timestep
+
+    Returns
+    -------
+    var_annual : np.ndarray
+        Annual weighted mean of variable
+    """        
     if input.timestep == 'monthly':
         dayspermonth = dates_table['daysinmonth'].values.reshape(-1,12)
         #  creates matrix (rows-years, columns-months) of the number of days per month
@@ -412,13 +604,39 @@ def annualweightedmean_array(var, dates_table):
    
 
 def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
-                           glac_idx_initial):
+                           glac_idx_initial, debug=False):
     """
-    Mass is redistributed according to the empirical equations from Huss and Hock (2015).
-    The function will return the updated glacier area, ice thickness, and width.
-    glac_idx_initial is required for advance portion of the function to ensure that the glacier cannot advance to bins
-    where there was no glacier during an advance (e.g., retreat and advance over a steep slope)
-    """
+    Mass redistribution according to empirical equations from Huss and Hock (2015) accounting for retreat/advance.
+
+    glac_idx_initial is required to ensure that the glacier does not advance to area where glacier did not exist before
+    (e.g., retreat and advance over a vertical cliff)
+    
+    Parameters
+    ----------
+    glacier_area_t0 : np.ndarray
+        Glacier area [km2] from previous year for each elevation bin
+    icethickness_t0 : np.ndarray
+        Ice thickness [m] from previous year for each elevation bin
+    width_t0 : np.ndarray
+        Glacier width [km] from previous year for each elevation bin
+    glac_bin_massbalclim_annual : np.ndarray
+        Climatic mass balance [m w.e.] for each elevation bin and year
+    year : int
+        Count of the year of model run (first year is 0)
+    glac_idx_initial : np.ndarray
+        Initial glacier indices
+    debug : Boolean
+        option to turn on print statements for development or debugging of code (default False)
+
+    Returns
+    -------
+    glacier_area_t1 : np.ndarray
+        Updated glacier area [km2] for each elevation bin
+    icethickness_t1 : np.ndarray
+        Updated ice thickness [m] for each elevation bin
+    width_t1 : np.ndarray
+        Updated glacier width [km] for each elevation bin
+    """        
     # Reset the annual glacier area and ice thickness
     glacier_area_t1 = np.zeros(glacier_area_t0.shape)
     icethickness_t1 = np.zeros(glacier_area_t0.shape)
@@ -503,8 +721,9 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             # Indices that define the glacier terminus
             glac_idx_terminus = (glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / 
                                              glac_idx_t0.shape[0] * 100 < input.terminus_percentage])
-#            print('glacier index terminus:',glac_idx_terminus)
-#            print('glacier index:',glac_idx_t0)
+            if debug:
+                print('glacier index terminus:',glac_idx_terminus)
+                print('glacier index:',glac_idx_t0)
             # For glaciers with so few bands that the terminus is not identified (ex. <= 4 bands for 20% threshold),
             #  then use the information from all the bands
             if glac_idx_terminus.shape[0] <= 1:
@@ -591,23 +810,45 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
 
 def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange, 
                                 massbalclim_annual):
-    """ 
-    Compute the mass redistribution, otherwise known as glacier geometry changes, based on the glacier volume change
-    Function Options:
-        > 1 (default) - Huss and Hock (2015); volume gain/loss redistributed over the glacier using empirical normalized
-                        ice thickness change curves
-        > 2 (Need to code) - volume-length scaling
-        > 3 (Need to code) - volume-area scaling
-        > 4 (Need to code) - what previous models have done
-        > 5 (Need to code) - ice dynamics, simple flow model
-        > 6 - no glacier dynamics
-    Input:
-        > icethickness_t0 - single column array of ice thickness for every bin at the start of the time step
-        > glacier_area_t0 - single column array of glacier area for every bin at the start of the time step
-        > glac_idx_t0 - single column array of the bin index that is part of the glacier
-        > glacier_volumechange - value of glacier-wide volume change [km**3] based on the annual climatic mass balance
-        > glac_bin_clim_mwe_annual - single column array of annual climatic mass balance for every bin
-    """    
+    """
+    Apply the mass redistribution curves from Huss and Hock (2015).
+
+    This is paired with massredistributionHuss, which takes into consideration retreat and advance.
+    
+    To-do list
+    ----------
+    - volume-length scaling
+    - volume-area scaling
+    - pair with OGGM flow model
+    
+    Parameters
+    ----------
+    icethickness_t0 : np.ndarray
+        Ice thickness [m] from previous year for each elevation bin
+    glacier_area_t0 : np.ndarray
+        Glacier area [km2] from previous year for each elevation bin
+    width_t0 : np.ndarray
+        Glacier width [km] from previous year for each elevation bin
+    massbalclim_annual : np.ndarray
+        Annual climatic mass balance [m w.e.] for each elevation bin for a single year
+    glac_idx_t0 : np.ndarray
+        glacier indices for present timestep
+    glacier_volumechange : float
+        glacier-wide volume change [km3] based on the annual climatic mass balance
+
+    Returns
+    -------
+    glacier_area_t1 : np.ndarray
+        Updated glacier area [km2] for each elevation bin
+    icethickness_t1 : np.ndarray
+        Updated ice thickness [m] for each elevation bin
+    width_t1 : np.ndarray
+        Updated glacier width [km] for each elevation bin
+    icethickness_change : np.ndarray
+        Ice thickness change [m] for each elevation bin
+    glacier_volumechange_remaining : float
+        Glacier volume change remaining, which could occur if there is less ice in a bin than melt, i.e., retreat
+    """           
     # Apply Huss redistribution if there are at least 3 elevation bands; otherwise, use the mass balance
     # reset variables
     icethickness_t1 = np.zeros(glacier_area_t0.shape)
@@ -698,89 +939,49 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
     glacier_volumechange_remaining = bin_volumechange_remaining.sum()
     # return desired output
     return icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining
-
-
-def refreezepotentialbins(glac_temp, dates_table):
-    # Note: this will only work for monthly time step!
-    """
-    Calculate the refreezing for every elevation bin on the glacier.
-    """
-    # Refreezing Options:
-    #   > 1 (default) - monthly refreezing solved by modeling snow and firm temperatures using heat conduction equations 
-    #                   according to Huss and Hock (2015)
-    #   > 2 - annual refreezing based on mean air temperature according to Woodward et al. (1997)
-    #
-    # 1/19/18 - switched to refreeze potential, which is given annually
-    bin_refreezepotential = np.zeros(glac_temp.shape)
-    if input.option_refreezing == 1:
-        print('This option based on Huss and Hock (2015) is intended to be the '
-              'default; however, it has not been coded yet due to its '
-              'complexity.  For the time being, please choose an option that '
-              'exists.\n\nExiting model run.\n\n')
-        exit()
-    elif input.option_refreezing == 2:
-        # Compute annual mean temperature
-        glac_temp_annual = annualweightedmean_array(glac_temp, dates_table)
-        # Compute bin refreeze potential according to Woodward et al. (1997)
-        bin_refreezepotential_annual = (-0.69 * glac_temp_annual + 0.0096) * 1/100
-        #   R(m) = -0.69 * Tair + 0.0096 * (1 m / 100 cm)
-        #   Note: conversion from cm to m is included
-        # Remove negative refreezing values
-        bin_refreezepotential_annual[bin_refreezepotential_annual < 0] = 0
-        # Place annual refreezing in January for accounting and melt purposes
-        if input.timestep == 'monthly':
-            # try/except used to avoid errors with option to adjust air temperature based on surface elevation, i.e., 
-            #  try works for the regular function
-            #  except works when subsets of the glac_temp and dates_table are given
-            try:
-                placeholder = (12 - dates_table.loc[0,'month'] + input.refreeze_month) % 12
-            except:
-                placeholder = (12 - dates_table.iloc[0,2] + input.refreeze_month) % 12
-            #  using the month of the first timestep and the refreeze month add the annual values to the monthly data
-            bin_refreezepotential[:,placeholder::12] = bin_refreezepotential_annual[:,::1]
-#            for step in range(glac_temp.shape[1]):
-#                if dates_table.loc[step, 'month'] == input.refreeze_month:
-#                    bin_refreeze[:,step] = bin_refreeze_annual[:,int(step/12)]
-#                    #  int() truncates the value, so int(step/12) selects the position of the corresponding year
-        elif input.timestep == 'daily':
-            print("MODEL ERROR: daily time step not coded for Woodward et al. "
-                  "(1997) refreeze function yet.\n\nExiting model run.\n\n")
-            exit()
-        else:
-            print("MODEL ERROR: please select 'daily' or 'monthly' as the time "
-                  "step for the model run.\n\nExiting model run.\n\n")
-            exit()
-    else:
-        print("This option for 'refreezingbins' does not exist.  Please choose "
-              "an option that exists. Exiting model run.\n")
-        exit()
-    return bin_refreezepotential
     
 
 def surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year_index):
     """
-    Update surface type according to climatic mass balance over the last five years.  If positive, then snow/firn.  If 
-    negative, then ice/debris.
+    Update surface type according to climatic mass balance over the last five years.  
+    
+    If 5-year climatic balance is positive, then snow/firn.  If negative, then ice/debris.
     Convention: 0 = off-glacier, 1 = ice, 2 = snow, 3 = firn, 4 = debris
-    """
-    # Function Options:
-    #   > 1 (default) - update surface type according to Huss and Hock (2015)
-    #   > 2 - Radic and Hock (2011)
-    # Huss and Hock (2015): Initially, above median glacier elevation is firn and below is ice. Surface type updated for
-    #   each elevation band and month depending on the specific mass balance.  If the cumulative balance since the start 
-    #   of the mass balance year is positive, then snow is assigned. If the cumulative mass balance is negative (i.e., 
-    #   all snow of current mass balance year has melted), then bare ice or firn is exposed. Surface type is assumed to 
-    #   be firn if the elevation band's average annual balance over the preceding 5 years (B_t-5_avg) is positive. If
-    #   B_t-5_avg is negative, surface type is ice.
-    #       > climatic mass balance calculated at each bin and used with the mass balance over the last 5 years to 
-    #         determine whether the surface is firn or ice.  Snow is separate based on each month.
-    # Radic and Hock (2011): "DDF_snow is used above the ELA regardless of snow cover.  Below the ELA, use DDF_ice is 
-    #   used only when snow cover is 0.  ELA is calculated from the observed annual mass balance profiles averaged over 
-    #   the observational period and is kept constant in time for the calibration period.  For the future projections, 
-    #   ELA is set to the mean glacier height and is time dependent since glacier volume, area, and length are time 
-    #   dependent (volume-area-length scaling).
-    #   Bliss et al. (2014) uses the same as Valentina's model
-    #
+    
+    Function Options:
+      > 1 (default) - update surface type according to Huss and Hock (2015)
+      > 2 - Radic and Hock (2011)
+    Huss and Hock (2015): Initially, above median glacier elevation is firn and below is ice. Surface type updated for
+      each elevation band and month depending on the specific mass balance.  If the cumulative balance since the start 
+      of the mass balance year is positive, then snow is assigned. If the cumulative mass balance is negative (i.e., 
+      all snow of current mass balance year has melted), then bare ice or firn is exposed. Surface type is assumed to 
+      be firn if the elevation band's average annual balance over the preceding 5 years (B_t-5_avg) is positive. If
+      B_t-5_avg is negative, surface type is ice.
+          > climatic mass balance calculated at each bin and used with the mass balance over the last 5 years to 
+            determine whether the surface is firn or ice.  Snow is separate based on each month.
+    Radic and Hock (2011): "DDF_snow is used above the ELA regardless of snow cover.  Below the ELA, use DDF_ice is 
+      used only when snow cover is 0.  ELA is calculated from the observed annual mass balance profiles averaged over 
+      the observational period and is kept constant in time for the calibration period.  For the future projections, 
+      ELA is set to the mean glacier height and is time dependent since glacier volume, area, and length are time 
+      dependent (volume-area-length scaling).
+      Bliss et al. (2014) uses the same as Valentina's model
+    
+    Parameters
+    ----------
+    surfacetype : np.ndarray
+        Surface type for each elevation bin
+    glac_bin_massbalclim_annual : np.ndarray
+        Annual climatic mass balance for each year and each elevation bin
+    year_index : int
+        Count of the year of model run (first year is 0)
+
+    Returns
+    -------
+    surfacetype : np.ndarray
+        Updated surface type for each elevation bin
+    firnline_idx : int
+        Firn line index
+    """        
     # Next year's surface type is based on the bin's average annual climatic mass balance over the last 5 years.  If 
     #  less than 5 years, then use the average of the existing years.
     if year_index < 5:
@@ -813,21 +1014,41 @@ def surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year_index):
 def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
     """
     Define initial surface type according to median elevation such that the melt can be calculated over snow or ice.
-    Convention: (0 = off-glacier, 1 = ice, 2 = snow, 3 = firn, 4 = debris)
-    Function Options:
+    
+    Convention: (0 = off-glacier, 1 = ice, 2 = snow, 3 = firn, 4 = debris).
+    Function options: 1 =
+    
+    Function options specified in pygem_input.py:
     - option_surfacetype_initial
         > 1 (default) - use median elevation to classify snow/firn above the median and ice below
-        > 2 (Need to code) - use mean elevation instead
-        > 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
+        > 2 - use mean elevation instead
     - option_surfacetype_firn = 1
         > 1 (default) - firn is included
         > 0 - firn is not included
     - option_surfacetype_debris = 0
         > 0 (default) - debris cover is not included
         > 1 - debris cover is included
-    Output: Pandas DataFrame of the initial surface type for each glacier in the model run
-    (rows = GlacNo, columns = elevation bins)
-    """
+    
+    To-do list
+    ----------
+    Add option_surfacetype_initial to specify an AAR ratio and apply this to estimate initial conditions
+    
+    Parameters
+    ----------
+    glacier_area : np.ndarray
+        Glacier area [km2] from previous year for each elevation bin
+    glacier_table : pd.Series
+        Table of glacier's RGI information
+    elev_bins : np.ndarray
+        Elevation bins [masl]
+
+    Returns
+    -------
+    surfacetype : np.ndarray
+        Updated surface type for each elevation bin
+    firnline_idx : int
+        Firn line index
+    """        
     surfacetype = np.zeros(glacier_area.shape)
     # Option 1 - initial surface type based on the median elevation
     if input.option_surfacetype_initial == 1:
@@ -868,10 +1089,31 @@ def surfacetypeDDFdict(modelparameters,
                        option_surfacetype_firn=input.option_surfacetype_firn,
                        option_DDF_firn=input.option_DDF_firn):
     """
-    Create a dictionary of surface type and its respective DDF
+    Create a dictionary of surface type and its respective DDF.
+    
     Convention: [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
+    
     modelparameters[lr_gcm, lr_glac, prec_factor, prec_grad, DDF_snow, DDF_ice, T_snow]
-    """
+    
+    To-do list
+    ----------
+    Add option_surfacetype_initial to specify an AAR ratio and apply this to estimate initial conditions
+    
+    Parameters
+    ----------
+    modelparameters : pd.Series
+        Model parameters (lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow, tempchange)
+        Order of model parameters should not be changed as the run mass balance script relies on this order
+    option_surfacetype_firn : int
+        Option to include or exclude firn (specified in pygem_input.py)
+    option_DDF_firn : int
+        Option for the degree day factor of firn to be the average of snow and ice or a different value
+
+    Returns
+    -------
+    surfacetype_ddf_dict : dictionary
+        Dictionary relating the surface types with their respective degree day factors
+    """        
     surfacetype_ddf_dict = {
             1: modelparameters[5],
             2: modelparameters[4]}
@@ -883,50 +1125,3 @@ def surfacetypeDDFdict(modelparameters,
     if input.option_surfacetype_debris == 1:
         surfacetype_ddf_dict[4] = input.DDF_debris
     return surfacetype_ddf_dict
-    
-#========= DESCRIPTION OF VARIABLES (alphabetical order) =====================
-    # ablation_annual - annual ablation for each bin on a specific glacier
-    # bin_ablation_mon - monthly surface ablation, which is calculated each year
-    #                    according to temperature and potentially changing
-    #                    surface type
-    # climate_elev - table of elevation of the nearest neighbor cell for
-    #                each glacier
-    # climate_prec - time series of precipitation for every glacier based on
-    #                user-specified option (nearest neighbor default)
-    # climate_temp - time series of temperature for every glacier based on
-    #                user-specified option (nearest neighbor default)
-    # dates_table - table of dates (used for column headers), which includes the
-    #               year, month, and number of days in each month
-    # glac_count - the glacier number, which is used to keep track of the
-    #              glaciers within the for loops.
-    # glac_ELA - table of annual ELA for all glaciers in model run
-    # glac_hyps - table of hypsometry for all the glaciers
-    # glac_params - table of calibrated parameters for all the glaciers, which
-    #               includes lapse rates, bias factors, etc.
-    # glac_surftype - table of surface type for every bin of every glacier
-    # glac_table - main table of glaciers in model run with RGI information
-    # glac_temp - table of temperature data on the glacier for each bin for the
-    #             entire timeseries
-    # glac_temp_annual - table of annual mean temperature data on the glacier
-    #                    for each bin for the entire timeseries
-    # glac_precsnow - table of the total precipitation (liquid and solid) for
-    #                 each bin for the entire time series
-    # massbal_annual - table of annual specific mass balance for each bin for
-    #                  the entire time series for a given glacier
-    # option_elev_ref - reference elevation on the glacier (median is the
-    #                   default)
-    # option_fxn - function option (see specifics within each function)
-    # refreeze_annual - table of annual refreezing for each bin of a glacier
-    # snow_annual - table of annual total snow data on the glacier for each bin
-    #               for the entire timeseries
-    # surftype_annual - table of annual surface type on the glacier for each bin
-    #                   for the entire timeseries
-    # var - generic variable commonly used with simple tasks, e.g., annual mean
-    #       or annual sum of a variable
-    # year - the year associated with the for loop
-
-    # Commonly used variables within the functions:
-    # mask - "masks" refer to a specific condition being met and are used in
-    #        functions to apply logical indexing, which speeds up the
-    #        computational time. These masks also make it easier to read the
-    #        functions.

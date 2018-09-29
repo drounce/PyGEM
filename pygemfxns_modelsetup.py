@@ -279,7 +279,8 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
                     glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['O2Region'] == 
                                                                                 x_regionO2]], axis=0))
         else:
-            print("This study is only focusing on glaciers %s in region %s." % (rgi_glac_number, rgi_regionsO1))
+            print("This study is only focusing on %s glaciers %s in region %s." % (len(rgi_glac_number), 
+                                                                                   rgi_glac_number, rgi_regionsO1))
             for x_glac in rgi_glac_number:
                 if rgi_regionsO1[0] < 10:
                     glac_id = ('RGI60-0' + str(rgi_regionsO1)[1:-1] + '.' + x_glac)
