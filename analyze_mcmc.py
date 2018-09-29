@@ -909,7 +909,7 @@ cal_data = cal_data.sort_values(['glacno', 't1_idx'])
 cal_data.reset_index(drop=True, inplace=True)
 
 # ===== PROCESS EACH NETCDF FILE =====
-for n, glac_str_noreg in enumerate(rgi_glac_number[0:48]):
+for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
     # Glacier string
     glacier_str = str(input.rgi_regionsO1[0]) + '.' + glac_str_noreg
     # Mass balance data
