@@ -766,7 +766,8 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
                 'chain_' + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
 
 
-def plot_mc_results2(netcdf_fn, burns=[0,1000,3000,5000], plot_res=1000, distribution_type='truncnormal'):
+def plot_mc_results2(netcdf_fn, glacier_cal_data, burns=[0,1000,3000,5000],
+                     plot_res=1000, distribution_type='truncnormal'):
     """
     Plot gelman-rubin statistic and markov chain error plots.
 
