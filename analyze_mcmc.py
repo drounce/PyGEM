@@ -672,7 +672,7 @@ def plot_mc_results(netcdf_fn, iters=50, burn=0, distribution_type='truncnormal'
     df = dfs[0]
     nvars = len(variables)
     for h, vn1 in enumerate(variables):
-        v1 = chain = df[vn].values
+        v1 = chain = df[vn1].values
         for j, vn2 in enumerate(variables):
             v2 = chain = df[vn2].values
             nsub = h * nvars + j + 1
@@ -713,7 +713,7 @@ def plot_mc_results(netcdf_fn, iters=50, burn=0, distribution_type='truncnormal'
                 'chain_' + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
 
 
-def plot_mc_results2(netcdf_fn, burns=[1000,3000,5000], plot_res=1000, distribution_type='truncnormal'):
+def plot_mc_results2(netcdf_fn, burns=[0,1000,3000,5000], plot_res=1000, distribution_type='truncnormal'):
     """
     Plot gelman-rubin statistic and markov chain error plots.
 
@@ -909,14 +909,14 @@ cal_data = cal_data.sort_values(['glacno', 't1_idx'])
 cal_data.reset_index(drop=True, inplace=True)
 
 # ===== PROCESS EACH NETCDF FILE =====
-for n, glac_str_noreg in enumerate(rgi_glac_number[0:10]):
+for n, glac_str_noreg in enumerate(rgi_glac_number[0:48]):
     # Glacier string
     glacier_str = str(input.rgi_regionsO1[0]) + '.' + glac_str_noreg
     # Mass balance data
     observed_massbal = cal_data.mb_mwe[n] / (cal_data.t2[n] - cal_data.t1[n])
     observed_error = cal_data.mb_mwe_err[n] / (cal_data.t2[n] - cal_data.t1[n])
     # MCMC plots
-    #plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', iters=25000, burn=0)
-    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc')
-    summary(mcmc_output_netcdf_fp + glacier_str + '.nc',
-            filename = mcmc_output_tables_fp + glacier_str + '.txt')
+    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', iters=25000, burn=0)
+    #plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc')
+    #summary(mcmc_output_netcdf_fp + glacier_str + '.nc',
+    #        filename = mcmc_output_tables_fp + glacier_str + '.txt')
