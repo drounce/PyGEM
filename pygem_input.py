@@ -5,6 +5,7 @@ import os
 from time import strftime
 # External libraries
 import pandas as pd
+import numpy as np
 
 
 def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
@@ -55,12 +56,26 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
         num = num[0:number_glaciers]
     return num
 
+def glac_num_fromrange(int_low, int_high):
+    """
+    Generate list of glaciers for all numbers between two integers.
+    """
+    x = (np.arange(int_low, int_high)).tolist()
+    y = [str(i).zfill(5) for i in x]
+    return y
+
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
+# Calibration option (1 = minimization, 2 = MCMC)
+option_calibration = 1
+# Calibration datasets
+cal_datasets = ['shean']
+#cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
+
 # ===== MCMC and ensemble selections ========
 # Number of chains (min 1, max 3)
 n_chains = 3
 # number of MCMC samples to use
-mcmc_sample_no = 1000
+mcmc_sample_no = 3000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
@@ -70,19 +85,16 @@ thin_interval = 1
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [15]
-#rgi_regionsO1 = [7]
-#rgi_glac_number = ['00030']
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['05152', '02793', '02790', '05153', '02827', '02828', '05141', '02842', '04148', '02847', '02826', 
-#                   '02699', '02792', '02909', '06976', '04811', '07146', '03475', '06985', '03473']
-#rgi_glac_number = ['05152', '03473']
-#rgi_glac_number = ['03473']
-rgi_glac_number = ['03734']
+#rgi_glac_number = ['08828']
+#rgi_glac_number = ['03734', '03473']
+#rgi_glac_number = glac_num_fromrange(6562,6662)
 if 'rgi_glac_number' not in locals():
-    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 144, option_random=1)
+    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
+
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -112,9 +124,14 @@ main_directory = os.getcwd()
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 
 #%% ===== CALIBRATION OPTIONS =====
-option_calibration = 2
-#  Option 1 - calibration using minimization (returns single parameter set)
-#  Option 2 - calibration using MCMC method (returns many parameter sets)
+# Option 1:
+# Model parameter bounds for each calibration round
+#  first tuple will run as expected; 
+precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
+precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
+ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
+tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
+
 
 
 # MCMC export configuration
@@ -399,8 +416,8 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
-shean_fn = 'hma_mb_20180803_1229.csv'
-#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+#shean_fn = 'hma_mb_20180803_1229.csv'
+shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'
@@ -483,7 +500,7 @@ mb_group_t2_cn = 'end_period'
 
 # Minimization details
 method_opt = 'SLSQP'
-ftol_opt = 1e-2
+ftol_opt = 1e-3
 
 # Limit potential mass balance for future simulations option
 option_mb_envelope = 1

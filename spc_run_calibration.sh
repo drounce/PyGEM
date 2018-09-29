@@ -1,11 +1,15 @@
 #!/bin/sh
 #SBATCH --partition=t1standard
-#SBATCH --ntasks=72
+#SBATCH --ntasks=168
 #SBATCH --tasks-per-node=24
 
 # activate environment
 module load lang/Anaconda3/2.5.0
 source activate pygem_hpc
+
+# delete previous rgi_glac_number batch filenames
+find -name 'rgi_glac_number_batch_*' -exec rm {} \;
+
 # split glaciers into batches for different nodes
 python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES
 
@@ -15,9 +19,8 @@ echo rgi_glac_number filenames:$rgi_fns
 # create list
 list_rgi_fns=($rgi_fns)
 echo first_batch:${list_rgi_fns[0]}
-echo second_batch:${list_rgi_fns[1]}
 
-echo hostname: 'hostname'
+echo partition: $SLURM_JOB_PARTITION
 echo num_nodes: $SLURM_JOB_NUM_NODES nodes: $SLURM_JOB_NODELIST
 echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
 
