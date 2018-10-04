@@ -73,7 +73,7 @@ cal_datasets = ['shean']
 
 # ===== MCMC and ensemble selections ========
 # Number of chains (min 1, max 3)
-n_chains = 1
+n_chains = 3
 # number of MCMC samples to use
 mcmc_sample_no = 100
 mcmc_burn_no = 0
@@ -93,7 +93,7 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(6562,6662)
 if 'rgi_glac_number' not in locals():
-    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
+    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48, option_random=0)
 
 
 # Reference climate dataset
