@@ -1,4 +1,4 @@
-﻿"""List of model inputs required to run PyGEM"""
+﻿"""Model inputs required to run PyGEM"""
 
 # Built-in libraries
 import os
@@ -88,8 +88,8 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
-#rgi_glac_number = ['08828']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(6562,6662)
 if 'rgi_glac_number' not in locals():

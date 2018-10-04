@@ -77,7 +77,8 @@ def main(list_packed_vars):
         
     Returns
     -------
-    netcdf files of the calibration output (specific output is dependent on which calibration scheme is used)
+    netcdf files of the calibration output
+        Depending on the calibration scheme additional output may be exported as well
     """
     # Unpack variables
     count = list_packed_vars[0]

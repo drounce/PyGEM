@@ -50,6 +50,15 @@ class GCM():
             self.timestep = input.timestep
             self.rgi_lat_colname=input.rgi_lat_colname
             self.rgi_lon_colname=input.rgi_lon_colname
+        
+        if self.name == 'COAWST':
+            # Variable names
+            self.temp_vn = 'T2'
+            self.prec_vn = 'TOTPRECIP'
+            self.elev_vn = 'HGHT'
+            self.lat_vn = 'LAT'
+            self.lon_vn = 'LON'
+            
         # Other options are currently all from standardized CMIP5 format
         else:
             # Variable names

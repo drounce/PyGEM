@@ -3,10 +3,13 @@ pygemfxns_preprocessing.py is a list of the model functions that are used to pre
 
 """
 
-import pandas as pd
-import numpy as np
+# Built-in libraries
 import os
 import glob
+import argparse
+# External libraries
+import pandas as pd
+import numpy as np
 import xarray as xr
 import netCDF4 as nc
 from time import strftime
@@ -14,17 +17,32 @@ from datetime import datetime
 from scipy.spatial.distance import cdist
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-import argparse
-
+# Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
+import class_climate
+
+
 
 #%% TO-DO LIST:
 # - clean up create lapse rate input data (put it all in input.py)
 
-#%% PARSER
-# use parser to select options for preprocessing
+#%%
 def getparser():
+    """
+    Use argparse to add arguments from the command line
+    
+    Parameters
+    ----------
+    option_createlapserates : int
+        Switch for processing lapse rates (default = 0 (no))
+    option_wgms : int
+        Switch for processing wgms data (default = 0 (no))
+        
+    Returns
+    -------
+    Object containing arguments and their respective values.
+    """
     parser = argparse.ArgumentParser(description="select pre-processing options")
     # add arguments
     parser.add_argument('-option_createlapserates', action='store', type=int, default=0,
@@ -36,12 +54,67 @@ def getparser():
 parser = getparser()
 args = parser.parse_args()
 
-#%% INPUT DATA
-## Lapse rate function option
-#option_createlapserates = 0
-## WGMS process option
-#option_wgms = 1
+#%% COAWST Climate Data
+coawst_fp = input.main_directory + '/../Climate_COAWST/Monthly/'
+coawst_fn_prefix = 'wrfout_d02_Monthly_'
+#coawst_vn_drop = ['Q2', 'RH2', 'U10', 'V10', 'TOTCLDFRAC', 'TOTRAIN', 'TOTSNOW', 'TOTGRAUPEL', 'TOTHAIL', 'SNOWH', 
+#                  'SNOWC', 'SWDOWN', 'GLW', 'GSW', 'HFX', 'QFX', 'LH', 'OLR', 'PBLH', 'LMASK']
 
+gcm = class_climate.GCM(name='COAWST')
+#self.temp_vn = 'T2'
+#self.prec_vn = 'TOTPRECIP'
+#self.elev_vn = 'HGHT'
+#self.lat_vn = 'LAT'
+#self.lon_vn = 'LON'
+
+# Sorted list of files to merge
+ds_list = []
+for i in os.listdir(coawst_fp):
+    ds_list.append(i)
+ds_list = sorted(ds_list)
+
+#def coawst_merge_netcdf(vn, ds_list, coawst_fp):
+#    """
+#    Merge COAWST products to form a timeseries
+#    """
+
+
+#%%
+# TO-DO LIST:
+# - convert into function
+# - convert dataarrays into an actual series of values from 0 to 85, 
+#   such that the format is 85 x 540 x 640 (time x latitude x longitude),
+#   then it can be propery indexed
+
+#%%
+
+count = 0
+da_dict = {}
+for i in ds_list:
+    print(i)
+    ds = xr.open_dataset(coawst_fp + i)
+    da_name = str(count)
+    da_temp = ds[gcm.temp_vn]
+    da_temp = da_temp.rename(da_name)
+    da_dict[da_name] = da_temp
+    count += 1
+    if count == 1:
+        month_start_str = i.split('_')[3].split('.')[0].split('-')[0]
+    elif count == len(ds_list):
+        month_end_str = i.split('_')[3].split('.')[0].split('-')[1]
+# create fmerged dataset with each timestep
+ds_all = xr.Dataset(da_dict)
+ds_all_fn = coawst_fn_prefix + gcm.temp_vn + '_' + month_start_str + '-' + month_end_str + '.nc'
+ds_all.to_netcdf(coawst_fp + '../' + ds_all_fn)
+ds_all.close()
+
+#main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+#                                                      rgi_glac_number=input.rgi_glac_number)
+
+
+
+
+#%% INPUT DATA
 # Input data for lapse rate function
 if args.option_createlapserates == 1:
     # Input data
@@ -89,7 +162,8 @@ if args.option_wgms == 1:
         for r in range(rgiv5.shape[0]):
             try:
                 # Use GLIMSID
-                rgi_version_compare.iloc[r,2] = rgiv6.iloc[rgiv6['GLIMSId'].values == rgiv5.loc[r,'GLIMSId'],0].values[0]
+                rgi_version_compare.iloc[r,2] = (
+                        rgiv6.iloc[rgiv6['GLIMSId'].values == rgiv5.loc[r,'GLIMSId'],0].values[0])
         #        # Use Lat/Lon
         #        latlon_dif = abs(rgiv6[['CenLon', 'CenLat']].values - rgiv5[['CenLon', 'CenLat']].values[r,:])
         #        latlon_dif[abs(latlon_dif) < 1e-6] = 0
@@ -309,7 +383,7 @@ def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelna
 if args.option_createlapserates == 1:
     print('Creating lapse rates...')
     lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
-                            elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)  
+                            elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)
 
 
 #%% Write csv file from model results

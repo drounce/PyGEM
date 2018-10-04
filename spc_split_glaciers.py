@@ -6,6 +6,7 @@ import argparse
 import pickle
 # Local libraries
 import pygem_input as input
+import pygemfxns_modelsetup as modelsetup
 
 
 def getparser():
@@ -14,7 +15,7 @@ def getparser():
     
     Parameters
     ----------
-    nnodes : int
+    n_batches : int
         number of nodes being used on the supercomputer
         
     Returns
@@ -49,7 +50,16 @@ def split_list(lst, n=1):
 parser = getparser()
 args = parser.parse_args()
 
-rgi_glac_number_batches = split_list(input.rgi_glac_number, n=args.n_batches)
+if input.rgi_glac_number == 'all':
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2='all',
+                                                          rgi_glac_number='all')
+    # Create list of glacier numbers as strings with 5 digits
+    glacno = main_glac_rgi_all.glacno.values
+    rgi_glac_number = [str(x).zfill(5) for x in glacno]    
+else:
+    rgi_glac_number = input.rgi_glac_number
+    
+rgi_glac_number_batches = split_list(rgi_glac_number, n=args.n_batches)
 
 # Export lists
 for n in range(len(rgi_glac_number_batches)):
