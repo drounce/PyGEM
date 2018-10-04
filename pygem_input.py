@@ -66,16 +66,16 @@ def glac_num_fromrange(int_low, int_high):
 
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # Calibration option (1 = minimization, 2 = MCMC)
-option_calibration = 1
+option_calibration = 2
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 
 # ===== MCMC and ensemble selections ========
 # Number of chains (min 1, max 3)
-n_chains = 3
+n_chains = 1
 # number of MCMC samples to use
-mcmc_sample_no = 3000
+mcmc_sample_no = 100
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
@@ -88,7 +88,7 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(6562,6662)
@@ -416,8 +416,8 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
-#shean_fn = 'hma_mb_20180803_1229.csv'
-shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+shean_fn = 'hma_mb_20180803_1229.csv'
+#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'

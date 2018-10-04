@@ -51,7 +51,7 @@ class GCM():
             self.rgi_lat_colname=input.rgi_lat_colname
             self.rgi_lon_colname=input.rgi_lon_colname
         
-        if self.name == 'COAWST':
+        elif self.name == 'COAWST':
             # Variable names
             self.temp_vn = 'T2'
             self.prec_vn = 'TOTPRECIP'
