@@ -3,6 +3,8 @@
 
 # Built-in libraries
 import os
+import glob
+
 # External libraries
 import pandas as pd
 import numpy as np
@@ -39,9 +41,16 @@ acorr_maxlags = 100
 mcmc_output_netcdf_fp = input.main_directory + '/../MCMC_data/netcdf/'
 mcmc_output_figures_fp = input.main_directory + '/../MCMC_data/figures/'
 mcmc_output_tables_fp = input.main_directory + '/../MCMC_data/tables/'
+mcmc_output_csv_fp = input.main_directory + '/../MCMC_data/csv/'
+mcmc_output_hist_fp = input.main_directory + '/../MCMC_data/hist/'
 
 debug = False
 
+variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+vn_title_dict = {'massbal':'Mass Balance',
+                 'precfactor':'Precipitation Factor',
+                 'tempchange':'Temperature Bias',
+                 'ddfsnow':'DDF Snow'}
 
 def prec_transformation(precfactor_raw):
     """
@@ -70,18 +79,23 @@ def prec_transformation(precfactor_raw):
     return precfactor
 
 
-def effective_n(df, vn):
+def effective_n(ds, vn, iters, burn):
     """
     Compute the effective sample size of a trace.
 
-    Takes the trace and computes the effective sample size according to its detrended autocorrelation.
+    Takes the trace and computes the effective sample size
+    according to its detrended autocorrelation.
 
     Parameters
     ----------
-    model : pymc.MCMC.MCMC
-        Model containing traces of parameters, summary statistics, etc.
+    ds : xarray.Dataset
+        dataset containing mcmc traces
     vn : str
         Parameter variable name
+    iters : int
+        number of mcmc iterations to test
+    burn : int
+        number of initial iterations to throw away
 
     Returns
     -------
@@ -89,18 +103,22 @@ def effective_n(df, vn):
         effective sample size
     """
     # Effective sample size
-    x = df[vn].values
-    # detrend trace using mean to be consistent with statistics definition of autocorrelation
+    x = ds['mp_value'].sel(chain=0, mp=vn).values[burn:iters]
+    # detrend trace using mean to be consistent with statistics
+    # definition of autocorrelation
     x = (x - x.mean())
-    # compute autocorrelation (note: only need second half since they are symmetric)
+    # compute autocorrelation (note: only need second half since
+    # they are symmetric)
     rho = np.correlate(x, x, mode='full')
     rho = rho[len(rho)//2:]
     # normalize the autocorrelation values
-    #  note: rho[0] is the variance * n_samples, so this is consistent with the statistics definition of
-    #        autocorrelation on wikipedia (dividing by n_samples gives you the expected value).
+    #  note: rho[0] is the variance * n_samples, so this is consistent
+    #  with the statistics definition of autocorrelation on wikipedia
+    # (dividing by n_samples gives you the expected value).
     rho_norm = rho / rho[0]
-    # Iterate untile sum of consecutive estimates of autocorrelation is negative to avoid issues with the sum
-    # being -0.5, which returns an effective_n of infinity
+    # Iterate untile sum of consecutive estimates of autocorrelation is
+    # negative to avoid issues with the sum being -0.5, which returns an
+    # effective_n of infinity
     negative_autocorr = False
     t = 1
     n = len(x)
@@ -153,7 +171,7 @@ def gelman_rubin(ds, vn, iters=1000, burn=0):
     return pymc.gelman_rubin(chain)
 
 
-def MC_error(ds, vn, iters=None, chain_no=0, batches=5):
+def MC_error(ds, vn, iters=None, burn=0, chain_no=0, batches=5):
     """
     Calculates MC Error using the batch simulation method.
     Also returns mean of trace
@@ -183,7 +201,7 @@ def MC_error(ds, vn, iters=None, chain_no=0, batches=5):
         iters = len(ds.mp_value)
 
     # get iterations from ds
-    trace = [ds['mp_value'].sel(chain=n_chain, mp=vn).values[:iters]
+    trace = [ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:iters]
              for n_chain in ds.chain.values]
 
     result = batchsd(trace, batches)
@@ -235,7 +253,7 @@ def batchsd(trace, batches=5):
 
         means = np.mean(batched_traces, 1)
 
-        return np.std(means) / np.sqrt(batches)
+         return np.std(means) / np.sqrt(batches)
 
 
 def summary(netcdf, glacier_cal_data, iters=[5000, 10000, 25000], alpha=0.05, start=0,
@@ -769,10 +787,13 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
 def plot_mc_results2(netcdf_fn, glacier_cal_data, burns=[0,1000,3000,5000],
                      plot_res=1000, distribution_type='truncnormal'):
     """
-    Plot gelman-rubin statistic and markov chain error plots.
+    Plot gelman-rubin statistic, effective_n (autocorrelation with lag
+    100) and markov chain error plots.
 
-    Takes the output from the Markov Chain model and plots the results for the mass balance, temperature change,
-    precipitation factor, and degree day factor of snow.  Also, outputs the plots associated with the model.
+    Takes the output from the Markov Chain model and plots the results
+    for the mass balance, temperature change, precipitation factor,
+    and degree day factor of snow.  Also, outputs the plots associated
+    with the model.
 
     Parameters
     ----------
@@ -928,7 +949,7 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data, burns=[0,1000,3000,5000],
     plt.suptitle('Effective Sample Size vs Number of MCMC Steps', y=1.10)
 
     # get dataframe
-    df = ds['mp_value'].sel(chain=0).to_pandas()
+    #df = ds['mp_value'].sel(chain=0).to_pandas()
 
     for v_count, vn in enumerate(variables):
 
@@ -938,8 +959,8 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data, burns=[0,1000,3000,5000],
 
             # points to plot at
             plot_list = list(range(burn+plot_res, c_len+plot_res, plot_res))
-            en_list = [effective_n(df[burn:pt], vn) for pt in plot_list]
-
+            #en_list = [effective_n(df[burn:pt], vn) for pt in plot_list]
+            en_list = [effective_n(ds, vn=vn, iters=pt, burn=burn) for pt in plot_list]
             # plot
             plt.plot(plot_list, en_list, label='Burn-In ' + str(burn))
 
@@ -961,6 +982,334 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data, burns=[0,1000,3000,5000],
                 '_effective-n' + '_plots_' + str(no_chains) + 'chain_' +
                 str(c_len) + 'iter' + '.png', bbox_inches='tight')
 
+    '''
+    Writes a csv table that lists MCMC assessment values for
+    each glacier (represented by a netcdf file.
+
+    Writes out the values of effective_n (autocorrelation with
+    lag 100), Gelman-Rubin Statistic, MC_error.
+
+    Parameters
+    ----------
+    netcdf_fn : str
+        Netcdf of MCMC methods with chains of model parameters
+    vn : str
+        Name of variable (massbal, ddfsnow, precfactor, tempchange)
+    region_no : int
+        number of the glacier region (13, 14 or 15)
+    iters : int
+        Number of iterations associated with the Markov Chain
+    burn : list of ints
+        List of burn in values to plot for Gelman-Rubin stats
+
+    Returns
+    -------
+    dfs : list of pandas.DataFrame
+        dataframes containing statistical information for all glaciers
+    .csv files
+        Saves tables to csv file.
+
+    '''
+    # hard code some variable names (dirty solution)
+    variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+
+    # find all netcdf files (representing glaciers)
+    filelist = glob.glob(mcmc_output_netcdf_fp + str(region_no) + '*.nc')
+
+    # list of dataframes to return
+    dfs = []
+
+    for vn in variables:
+
+        # create lists of each value
+        glac_no = []
+        effective_n_list = []
+        gelman_rubin_list = []
+        mc_error = []
+
+        # find all netcdf files (representing glaciers)
+        filelist = glob.glob(mcmc_output_netcdf_fp + str(region_no) + '*.nc')
+
+        # iterate through each glacier
+        for netcdf in filelist:
+            # open dataset
+            ds = xr.open_dataset(netcdf)
+
+            # find values for this glacier and append to lists
+            glac_no.append(netcdf[-11:-3])
+
+            effective_n_list.append(effective_n(ds, vn=vn, iters=iters, burn=burn))
+            gelman_rubin_list.append(gelman_rubin(ds, vn=vn, iters=iters, burn=burn))
+            mc_error.append(MC_error(ds, vn=vn, iters=iters, burn=burn)[0])
+
+        # create dataframe
+        data = {'Glacier': glac_no,
+                'Effective N' : effective_n_list,
+                'MC Error' : mc_error,
+                'Gelman-Rubin' : gelman_rubin_list}
+        df = pd.DataFrame(data)
+        df.set_index('Glacier', inplace=True)
+        #df = pd.DataFrame(data, index = {'Glacier': glac_no})
+
+        # save csv
+        df.to_csv(mcmc_output_csv_fp + 'region' + str(region_no) + '_' +
+                  str(iters) + 'iterations_' + str(burn) + 'burn_' + str(vn) + '.csv')
+
+        dfs.append(df)
+
+    return dfs
+
+
+def write_table(region=15, iters=1000, burn=0):
+    '''
+    Writes a csv table that lists MCMC assessment values for
+    each glacier (represented by a netcdf file.
+
+    Writes out the values of effective_n (autocorrelation with
+    lag 100), Gelman-Rubin Statistic, MC_error.
+
+    Parameters
+    ----------
+    region : int
+        number of the glacier region (13, 14 or 15)
+    iters : int
+        Number of iterations associated with the Markov Chain
+    burn : list of ints
+        List of burn in values to plot for Gelman-Rubin stats
+
+    Returns
+    -------
+    dfs : list of pandas.DataFrame
+        dataframes containing statistical information for all glaciers
+    .csv files
+        Saves tables to csv file.
+
+    '''
+
+    dfs=[]
+
+    variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+
+    # find all netcdf files (representing glaciers)
+    filelist = glob.glob(mcmc_output_netcdf_fp + str(region) + '*.nc')
+
+    for vn in variables:
+
+        # create lists of each value
+        glac_no = []
+        effective_n_list = []
+        gelman_rubin_list = []
+        mc_error = []
+
+
+        # iterate through each glacier
+        for netcdf in filelist:
+            print(netcdf)
+            # open dataset
+            ds = xr.open_dataset(netcdf)
+
+            # find values for this glacier and append to lists
+            glac_no.append(netcdf[-11:-3])
+
+            effective_n_list.append(effective_n(ds, vn=vn, iters=iters, burn=burn))
+            gelman_rubin_list.append(gelman_rubin(ds, vn=vn, iters=iters, burn=burn))
+            mc_error.append(MC_error(ds, vn=vn, iters=iters, burn=burn)[0])
+
+            ds.close()
+
+        mean = abs(np.mean(mc_error))
+        mc_error /= mean
+
+        # create dataframe
+        data = {'Glacier': glac_no,
+                'Effective N' : effective_n_list,
+                'MC Error' : mc_error,
+                'Gelman-Rubin' : gelman_rubin_list}
+        df = pd.DataFrame(data)
+        df.set_index('Glacier', inplace=True)
+
+        # save csv
+        df.to_csv(mcmc_output_csv_fp + 'region' + str(region) + '_' +
+                  str(iters) + 'iterations_' + str(burn) + 'burn_' + str(vn) + '.csv')
+
+        dfs.append(df)
+
+    return dfs
+
+
+def plot_histograms(iters, burn, region=15, dfs=None):
+    '''
+    Plots histograms to assess mcmc chains for groups of glaciers
+
+    Plots histograms of effective_n, gelman-rubin and mc error for
+    the given number of iterations and burn-in and the given variable.
+
+    For this function to work, the appropriate csv file must have already
+    been created.
+
+    Parameters
+    ----------
+    dfs : list of pandas.DataFrame
+        list of dataframes containing glacier information to be plotted. If
+        none, looks for appropriate csv file
+    vn : str
+        Name of variable (massbal, ddfsnow, precfactor, tempchange)
+    iters : int
+        Number of iterations associated with the Markov Chain
+    burn : list of ints
+        List of burn in values to plot for Gelman-Rubin stats
+
+    Returns
+    -------
+    .png files
+        Saves images to 3 png files.
+
+    '''
+
+    # hard code some variable names (dirty solution)
+    variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+    vn_title_dict = {'massbal':'Mass Balance',
+                     'precfactor':'Precipitation Factor',
+                     'tempchange':'Temperature Bias',
+                     'ddfsnow':'DDF Snow'}
+    metrics = ['Gelman-Rubin', 'MC Error', 'Effective N']
+
+    vn_df_dict = {}
+
+    # read csv files
+    for vn in variables:
+        vn_df_dict[vn] = pd.read_csv(mcmc_output_csv_fp + 'region' +
+                                     str(region) + '_' + str(iters) +
+                                     'iterations_' + str(burn) + 'burn_' +
+                                     str(vn) + '.csv')
+
+
+    # get variables and burn length for dimension
+    v_len = len(variables)
+
+    # create plot for each metric
+    for metric in metrics:
+
+        plt.figure(figsize=(v_len*4, 2))
+        plt.subplots_adjust(wspace=0.3, hspace=0.3)
+
+        if metric=='MC Error':
+            plt.suptitle(metric + ' (as percentage of mean) Histrogram ' +
+                         str(iters) + ' iterations ' + str(burn) + ' burn-in', y=1.15,
+                         fontsize=14)
+        else:
+            plt.suptitle(metric + ' Histrogram ' +
+                         str(iters) + ' iterations ' + str(burn) + ' burn-in', y=1.15,
+                         fontsize=14)
+
+        # create subplot for each variable
+        for v_count, vn in enumerate(variables):
+
+            df = vn_df_dict[vn]
+
+            # plot histogram
+            plt.subplot(1, v_len, v_count+1)
+            n, bins, patches = plt.hist(x=df[metric], bins=30, alpha=.4, edgecolor='black',
+                                        color='#0504aa')
+
+
+            # niceties
+            plt.title(vn_title_dict[vn])
+
+            if v_count == 0:
+                plt.ylabel('Frequency')
+
+
+        # Save figure
+        plt.savefig(mcmc_output_hist_fp + 'region' + str(region) + '_' + str(iters) +
+                    'iterations_' + str(burn) + 'burn_' + str(metric) + '.png')
+
+
+def plot_histograms_2(iters, burn, region=15, dfs=None):
+    '''
+    Plots histograms to assess mcmc chains for groups of glaciers.
+    Puts them all in one image file.
+
+    Plots histograms of effective_n, gelman-rubin and mc error for
+    the given number of iterations and burn-in and the given variable.
+
+    For this function to work, the appropriate csv file must have already
+    been created.
+
+    Parameters
+    ----------
+    dfs : list of pandas.DataFrame
+        list of dataframes containing glacier information to be plotted. If
+        none, looks for appropriate csv file
+    iters : int
+        Number of iterations associated with the Markov Chain
+    burn : list of ints
+        List of burn in values to plot for Gelman-Rubin stats
+
+    Returns
+    -------
+    .png files
+        Saves images to 1 png file.
+
+    '''
+
+    # hard code some variable names (dirty solution)
+    variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+    vn_title_dict = {'massbal':'Mass Balance',
+                     'precfactor':'Precipitation Factor',
+                     'tempchange':'Temperature Bias',
+                     'ddfsnow':'DDF Snow'}
+    metrics = ['Gelman-Rubin', 'MC Error', 'Effective N']
+
+    vn_df_dict = {}
+
+    # read csv files
+    for vn in variables:
+        vn_df_dict[vn] = pd.read_csv(mcmc_output_csv_fp + 'region' +
+                                     str(region) + '_' + str(iters) +
+                                     'iterations_' + str(burn) + 'burn_' +
+                                     str(vn) + '.csv')
+
+    # get variables and burn length for dimension
+    v_len = len(variables)
+    m_len = len(metrics)
+
+    plt.figure(figsize=(v_len*5, m_len*3.5))
+    plt.subplots_adjust(wspace=0.3, hspace=0.5)
+
+    plt.suptitle('MC Metrics Assessment Histograms ' +
+                 str(iters) + ' iterations ' + str(burn) + ' burn-in',
+                 fontsize=18, y=0.97)
+
+    #create subplot for each metric
+    for m_count, metric in enumerate(metrics):
+
+        # create subplot for each variable
+        for v_count, vn in enumerate(variables):
+
+            df = vn_df_dict[vn]
+
+            # plot histogram
+            plt.subplot(m_len, v_len, v_len*m_count+v_count+1)
+            n, bins, patches = plt.hist(x=df[metric], bins=30, alpha=.4, edgecolor='black',
+                                        color='#0504aa')
+
+            # niceties
+            plt.title(vn_title_dict[vn], fontsize=14)
+
+            if v_count == 0:
+                plt.ylabel('Frequency', fontsize=14)
+
+            if metric=='MC Error':
+                plt.xlabel(metric + ' (as percentage of mean)', fontsize=12)
+            else:
+                plt.xlabel(metric + ' value', fontsize=12)
+
+
+    # Save figure
+    plt.savefig(mcmc_output_hist_fp + 'region' + str(region) + '_' + str(iters) +
+                'iterations_' + str(burn) + 'burn_all.png')
+
 
 #%% Find files
 # ===== LOAD CALIBRATION DATA =====
@@ -974,6 +1323,8 @@ for i in os.listdir(mcmc_output_netcdf_fp):
     if glacier_str.startswith(str(input.rgi_regionsO1[0])):
         rgi_glac_number.append(glacier_str.split('.')[1])
 rgi_glac_number = sorted(rgi_glac_number)
+
+
 # Glacier RGI data
 main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
                                                   rgi_glac_number=rgi_glac_number)
@@ -1004,6 +1355,13 @@ for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
     glacier_cal_data = (cal_data.iloc[np.where(cal_data['glacno'] == glacno)[0],:]).copy()
     # MCMC Analysis
     #plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=25000, burn=0)
-    #plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
+    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
     summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
             filename = mcmc_output_tables_fp + glacier_str + '.txt')
+
+# histogram assessments
+for iters in [1000, 5000, 10000, 15000]:
+    for region in [13, 14, 15]:
+        write_table(region=15, iters=15000, burn=0)
+        plot_histograms(region=15, iters=15000, burn=0)
+        plot_histograms(region=15, iters=15000, burn=0)
