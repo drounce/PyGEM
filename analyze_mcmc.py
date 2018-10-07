@@ -1305,7 +1305,7 @@ def plot_histograms_2(iters, burn, region=15, dfs=None):
     plt.savefig(mcmc_output_hist_fp + 'region' + str(region) + '_' + str(iters) +
                 'iterations_' + str(burn) + 'burn_all.png')
 
-
+'''
 #%% Find files
 # ===== LOAD CALIBRATION DATA =====
 rgi_glac_number = []
@@ -1353,10 +1353,10 @@ for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
     plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
     summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
             filename = mcmc_output_tables_fp + glacier_str + '.txt')
-
+'''
 # histogram assessments
 for iters in [1000, 5000, 10000, 15000]:
     for region in [13, 14, 15]:
-        write_table(region=15, iters=15000, burn=0)
-        plot_histograms(region=15, iters=15000, burn=0)
-        plot_histograms(region=15, iters=15000, burn=0)
+        write_table(region=region, iters=iters, burn=0)
+        plot_histograms(region=region, iters=iters, burn=0)
+        plot_histograms(region=region, iters=iters, burn=0)
