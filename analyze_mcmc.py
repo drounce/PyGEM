@@ -46,11 +46,6 @@ mcmc_output_hist_fp = input.main_directory + '/../MCMC_data/hist/'
 
 debug = False
 
-variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
-vn_title_dict = {'massbal':'Mass Balance',
-                 'precfactor':'Precipitation Factor',
-                 'tempchange':'Temperature Bias',
-                 'ddfsnow':'DDF Snow'}
 
 def prec_transformation(precfactor_raw):
     """
