@@ -248,7 +248,7 @@ def batchsd(trace, batches=5):
 
         means = np.mean(batched_traces, 1)
 
-         return np.std(means) / np.sqrt(batches)
+        return np.std(means) / np.sqrt(batches)
 
 
 def summary(netcdf, glacier_cal_data, iters=[5000, 10000, 25000], alpha=0.05, start=0,
@@ -1009,7 +1009,7 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data, burns=[0,1000,3000,5000],
     variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
 
     # find all netcdf files (representing glaciers)
-    filelist = glob.glob(mcmc_output_netcdf_fp + str(region_no) + '*.nc')
+    filelist = glob.glob(mcmc_output_netcdf_fp + str(region_no) + '*.nc')[0:10]
 
     # list of dataframes to return
     dfs = []
@@ -1185,16 +1185,16 @@ def plot_histograms(iters, burn, region=15, dfs=None):
     # create plot for each metric
     for metric in metrics:
 
-        plt.figure(figsize=(v_len*4, 2))
+        plt.figure(figsize=(v_len*4, 3))
         plt.subplots_adjust(wspace=0.3, hspace=0.3)
 
-        if metric=='MC Error':
+        if metric is 'MC Error':
             plt.suptitle(metric + ' (as percentage of mean) Histrogram ' +
-                         str(iters) + ' iterations ' + str(burn) + ' burn-in', y=1.15,
+                         str(iters) + ' iterations ' + str(burn) + ' burn-in', y=1.05,
                          fontsize=14)
         else:
             plt.suptitle(metric + ' Histrogram ' +
-                         str(iters) + ' iterations ' + str(burn) + ' burn-in', y=1.15,
+                         str(iters) + ' iterations ' + str(burn) + ' burn-in', y=1.10,
                          fontsize=14)
 
         # create subplot for each variable
@@ -1217,7 +1217,7 @@ def plot_histograms(iters, burn, region=15, dfs=None):
 
         # Save figure
         plt.savefig(mcmc_output_hist_fp + 'region' + str(region) + '_' + str(iters) +
-                    'iterations_' + str(burn) + 'burn_' + str(metric) + '.png')
+                    'iterations_' + str(burn) + 'burn_' + str(metric.replace(' ','_')) + '.png')
 
 
 def plot_histograms_2(iters, burn, region=15, dfs=None):
@@ -1272,7 +1272,7 @@ def plot_histograms_2(iters, burn, region=15, dfs=None):
     plt.figure(figsize=(v_len*5, m_len*3.5))
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
 
-    plt.suptitle('MC Metrics Assessment Histograms ' +
+    plt.suptitle('Region ' + str(region) + ' MC Metrics Assessment Histograms ' +
                  str(iters) + ' iterations ' + str(burn) + ' burn-in',
                  fontsize=18, y=0.97)
 
@@ -1305,7 +1305,7 @@ def plot_histograms_2(iters, burn, region=15, dfs=None):
     plt.savefig(mcmc_output_hist_fp + 'region' + str(region) + '_' + str(iters) +
                 'iterations_' + str(burn) + 'burn_all.png')
 
-'''
+
 #%% Find files
 # ===== LOAD CALIBRATION DATA =====
 rgi_glac_number = []
@@ -1353,10 +1353,10 @@ for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
     plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
     summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
             filename = mcmc_output_tables_fp + glacier_str + '.txt')
-'''
+
 # histogram assessments
-for iters in [1000, 5000, 10000, 15000]:
+for iters in [10000,15000]:
     for region in [13, 14, 15]:
         write_table(region=region, iters=iters, burn=0)
         plot_histograms(region=region, iters=iters, burn=0)
-        plot_histograms(region=region, iters=iters, burn=0)
+        plot_histograms_2(region=region, iters=iters, burn=0)
