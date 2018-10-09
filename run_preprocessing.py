@@ -60,6 +60,7 @@ args = parser.parse_args()
 #%% COAWST Climate Data
 if args.option_coawstmerge == 1:
     print('Merging COAWST climate data...')
+    print('changed here')
 
     def coawst_merge_netcdf(vn, coawst_fp):
         """
