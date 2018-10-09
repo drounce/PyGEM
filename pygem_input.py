@@ -416,8 +416,8 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
-#shean_fn = 'hma_mb_20180803_1229.csv'
-shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+shean_fn = 'hma_mb_20180803_1229.csv'
+#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'
