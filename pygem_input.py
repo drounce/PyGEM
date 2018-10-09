@@ -268,6 +268,11 @@ cmip5_fp_fx_ending = '_r0i0p0_fx/'
 cmip5_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
 cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 
+# COAWST (High-resolution climate data over HMA)
+coawst_fp_unmerged = main_directory + '/../Climate_COAWST/Monthly/'
+coawst_fn_prefix = 'wrfout_d02_Monthly_'
+coawst_vns = ['T2', 'TOTPRECIP', 'HGHT']
+
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
 # ===== RGI DATA =====
 # Glacier selection option
