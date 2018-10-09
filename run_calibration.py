@@ -553,7 +553,7 @@ def main(list_packed_vars):
                                     'mp': df.columns.values,
                                     'chain': np.arange(0,n_chain+1)})
     
-            mcmc_output_netcdf_fp_reg = input.mcmc_output_netcdf_fp + 'reg' + str(input.rgi_regionsO1[0])
+            mcmc_output_netcdf_fp_reg = input.mcmc_output_netcdf_fp + 'reg' + str(input.rgi_regionsO1[0]) + '/'
             if not os.path.exists(mcmc_output_netcdf_fp_reg):
                 os.mkdir(mcmc_output_netcdf_fp_reg)
             ds.to_netcdf(mcmc_output_netcdf_fp_reg + glacier_str + '.nc')

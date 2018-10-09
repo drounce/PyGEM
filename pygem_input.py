@@ -60,7 +60,7 @@ def glac_num_fromrange(int_low, int_high):
     """
     Generate list of glaciers for all numbers between two integers.
     """
-    x = (np.arange(int_low, int_high)).tolist()
+    x = (np.arange(int_low, int_high+1)).tolist()
     y = [str(i).zfill(5) for i in x]
     return y
 
@@ -91,9 +91,9 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-#rgi_glac_number = glac_num_fromrange(6562,6662)
-if 'rgi_glac_number' not in locals():
-    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48, option_random=0)
+rgi_glac_number = glac_num_fromrange(1,13119)
+#if 'rgi_glac_number' not in locals():
+#    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48, option_random=0)
 
 
 # Reference climate dataset
