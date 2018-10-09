@@ -56,7 +56,6 @@ def getparser():
 parser = getparser()
 args = parser.parse_args()
 
-
 #%% COAWST Climate Data
 if args.option_coawstmerge == 1:
     print('Merging COAWST climate data...')
