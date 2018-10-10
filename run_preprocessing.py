@@ -59,7 +59,6 @@ args = parser.parse_args()
 #%% COAWST Climate Data
 if args.option_coawstmerge == 1:
     print('Merging COAWST climate data...')
-    print('changed here')
 
     def coawst_merge_netcdf(vn, coawst_fp):
         """
@@ -101,24 +100,26 @@ if args.option_coawstmerge == 1:
                 var_all = np.append(var_all, var, axis=0)
         # Merged dataset
         if vn == 'HGHT':
-            ds_all = xr.Dataset({vn: (['x', 'y'], var)},
-                        coords={'lon': (['x', 'y'], lon),
-                                'lat': (['x', 'y'], lat)})
             ds_all_fn = input.coawst_fn_prefix + vn + '.nc'
+            ds_all = xr.Dataset({vn: (['x', 'y'], var)},
+                        coords={'LON': (['x', 'y'], lon),
+                                'LAT': (['x', 'y'], lat)},
+                        attrs=ds[vn].attrs)
+            ds_all[vn].attrs = ds[vn].attrs
         else:
-            print(vn)
             # reference time in format for pd.date_range
             time_ref = month_start_str[0:4] + '-' + month_start_str[4:6] + '-' + month_start_str[6:8]
+            ds_all_fn = input.coawst_fn_prefix + vn + '_' + month_start_str + '-' + month_end_str + '.nc'
             ds_all = xr.Dataset({vn: (['time', 'x', 'y'], var_all)},
-                                coords={'lon': (['x', 'y'], lon),
-                                        'lat': (['x', 'y'], lat),
+                                coords={'LON': (['x', 'y'], lon),
+                                        'LAT': (['x', 'y'], lat),
                                         'time': pd.date_range(time_ref, periods=len(ds_list), freq='MS'),
                                         'reference_time': pd.Timestamp(time_ref)})
-            ds_all_fn = input.coawst_fn_prefix + vn + '_' + month_start_str + '-' + month_end_str + '.nc'
+            ds_all[vn].attrs = ds[vn].attrs
         # Export to netcdf
         ds_all.to_netcdf(coawst_fp + '../' + ds_all_fn)
         ds_all.close()
-    
+        
     # Load climate data
     gcm = class_climate.GCM(name='COAWST')
     # Process each variable

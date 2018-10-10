@@ -89,9 +89,9 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['03473']
-#rgi_glac_number = ['03734', '03473']
-rgi_glac_number = glac_num_fromrange(1,13119)
+#rgi_glac_number = ['03734']
+rgi_glac_number = ['03734', '03473']
+#rgi_glac_number = glac_num_fromrange(1,13119)
 #if 'rgi_glac_number' not in locals():
 #    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48, option_random=0)
 
@@ -130,8 +130,6 @@ precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
 precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
 tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
-
-
 
 # MCMC export configuration
 mcmc_output_fp = main_directory + '/../MCMC_data/'
@@ -268,8 +266,12 @@ cmip5_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2
 cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 
 # COAWST (High-resolution climate data over HMA)
-coawst_fp_unmerged = main_directory + '/../Climate_COAWST/Monthly/'
+coawst_fp_unmerged = main_directory + '/../Climate_data/coawst/Monthly/'
+coawst_fp = main_directory + '/../Climate_data/coawst/'
 coawst_fn_prefix = 'wrfout_d02_Monthly_'
+coawst_temp_fn = 'wrfout_d02_Monthly_T2_1999100100-2006103123.nc'
+coawst_prec_fn = 'wrfout_d02_Monthly_TOTPRECIP_1999100100-2006103123.nc'
+coawst_elev_fn = 'wrfout_d02_Monthly_HGHT.nc'
 coawst_vns = ['T2', 'TOTPRECIP', 'HGHT']
 
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
