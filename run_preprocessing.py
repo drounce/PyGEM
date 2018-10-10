@@ -98,6 +98,11 @@ if args.option_coawstmerge == 1:
                 month_end_str = i.split('_')[3].split('.')[0].split('-')[1]
             else:
                 var_all = np.append(var_all, var, axis=0)
+                
+            print('Max TOTPRECIP:', ds.TOTPRECIP.values.max())
+            print('Max TOTRAIN:', ds.TOTRAIN.values.max())
+            print('Max TOTSNOW:', ds.TOTSNOW.values.max())
+                
         # Merged dataset
         if vn == 'HGHT':
             ds_all_fn = input.coawst_fn_prefix + vn + '.nc'

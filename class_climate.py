@@ -98,7 +98,7 @@ class GCM():
             self.rcp_scenario = rcp_scenario
             
             
-    def importGCMfxnearestneighbor_xarray(self, filename, variablename, main_glac_rgi):
+    def importGCMfxnearestneighbor_xarray(self, filename, vn, main_glac_rgi):
         """
         Import time invariant (constant) variables and extract nearest neighbor.
         
@@ -119,39 +119,82 @@ class GCM():
             array of nearest neighbor values for all the glaciers in model run (rows=glaciers, column=variable)
         """
         # Import netcdf file
-        filefull = self.fx_fp + filename
-        data = xr.open_dataset(filefull)
-        # If time dimension included, then set the time index (required for ERA Interim, but not for CMIP5 data)
-        if 'time' in data[variablename].coords:
+        data = xr.open_dataset(self.fx_fp + filename)
+        glac_variable = np.zeros(main_glac_rgi.shape[0])
+        # If time dimension included, then set the time index (required for ERA Interim, but not for CMIP5 or COAWST)
+        if 'time' in data[vn].coords:
             time_idx = 0
             #  ERA Interim has only 1 value of time, so index is 0
-        glac_variable = np.zeros(main_glac_rgi.shape[0])
         # Find Nearest Neighbor
-        lat_nearidx = (np.abs(main_glac_rgi[self.rgi_lat_colname].values[:,np.newaxis] - 
-                              data.variables[self.lat_vn][:].values).argmin(axis=1))
-        lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 
-                              data.variables[self.lon_vn][:].values).argmin(axis=1))
-        #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
-        for glac in range(main_glac_rgi.shape[0]):
-            # Select the slice of GCM data for each glacier
-            try:
-                glac_variable[glac] = data[variablename][time_idx, lat_nearidx[glac], lon_nearidx[glac]].values
-            except:
-                glac_variable[glac] = data[variablename][lat_nearidx[glac], lon_nearidx[glac]].values
+        if self.name == 'COAWST':
+            for glac in range(main_glac_rgi.shape[0]):
+                latlon_dist = (((data[self.lat_vn].values - main_glac_rgi[self.rgi_lat_colname].values[glac])**2 + 
+                                 (data[self.lon_vn].values - main_glac_rgi[self.rgi_lon_colname].values[glac])**2)**0.5)
+                latlon_nearidx = [x[0] for x in np.where(latlon_dist == latlon_dist.min())]
+                lat_nearidx = latlon_nearidx[0]
+                lon_nearidx = latlon_nearidx[1]
+                glac_variable[glac] = (
+                        data[vn][latlon_nearidx[0], latlon_nearidx[1]].values)
+        else:
+            lat_nearidx = (np.abs(main_glac_rgi[self.rgi_lat_colname].values[:,np.newaxis] - 
+                                  data.variables[self.lat_vn][:].values).argmin(axis=1))
+            lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 
+                                  data.variables[self.lon_vn][:].values).argmin(axis=1))
+            #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
+            for glac in range(main_glac_rgi.shape[0]):
+                # Select the slice of GCM data for each glacier
+                try:
+                    glac_variable[glac] = data[vn][time_idx, lat_nearidx[glac], lon_nearidx[glac]].values
+                except:
+                    glac_variable[glac] = data[vn][lat_nearidx[glac], lon_nearidx[glac]].values
         # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
-        if variablename == self.elev_vn:
+        if vn == self.elev_vn:
             # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
-            if 'units' in data.variables[variablename].attrs and (
-                    data.variables[variablename].attrs['units'] == 'm**2 s**-2'):  
+            if 'units' in data[vn].attrs and (data[vn].attrs['units'] == 'm**2 s**-2'):  
                 # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
                 glac_variable = glac_variable / 9.80665
             # Elseif units already in m.a.s.l., then continue
-            elif 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'm':
+            elif 'units' in data[vn].attrs and data[vn].attrs['units'] == 'm':
                 pass
             # Otherwise, provide warning
             else:
                 print('Check units of elevation from GCM is m.')
         return glac_variable
+        
+        
+        
+        
+#        # If time dimension included, then set the time index (required for ERA Interim, but not for CMIP5 data)
+#        if 'time' in data[variablename].coords:
+#            time_idx = 0
+#            #  ERA Interim has only 1 value of time, so index is 0
+#        glac_variable = np.zeros(main_glac_rgi.shape[0])
+#        # Find Nearest Neighbor
+#        lat_nearidx = (np.abs(main_glac_rgi[self.rgi_lat_colname].values[:,np.newaxis] - 
+#                              data.variables[self.lat_vn][:].values).argmin(axis=1))
+#        lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 
+#                              data.variables[self.lon_vn][:].values).argmin(axis=1))
+#        #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
+#        for glac in range(main_glac_rgi.shape[0]):
+#            # Select the slice of GCM data for each glacier
+#            try:
+#                glac_variable[glac] = data[variablename][time_idx, lat_nearidx[glac], lon_nearidx[glac]].values
+#            except:
+#                glac_variable[glac] = data[variablename][lat_nearidx[glac], lon_nearidx[glac]].values
+#        # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
+#        if variablename == self.elev_vn:
+#            # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
+#            if 'units' in data.variables[variablename].attrs and (
+#                    data.variables[variablename].attrs['units'] == 'm**2 s**-2'):  
+#                # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
+#                glac_variable = glac_variable / 9.80665
+#            # Elseif units already in m.a.s.l., then continue
+#            elif 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'm':
+#                pass
+#            # Otherwise, provide warning
+#            else:
+#                print('Check units of elevation from GCM is m.')
+#        return glac_variable
     
     
     def importGCMvarnearestneighbor_xarray(self, filename, vn, main_glac_rgi, dates_table):
@@ -273,16 +316,66 @@ class GCM():
 #%% Testing
 if __name__ == '__main__':
     gcm = GCM(name='COAWST')
+#    gcm = GCM(name='ERA-Interim')
     
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
                                                       rgi_glac_number=input.rgi_glac_number)
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=2001, endyear=2005, spinupyears=0)
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     
-#    data = xr.open_dataset(gcm.var_fp + gcm.prec_fn)    
-#    vn = 'TOTPRECIP'
+#    data = xr.open_dataset(gcm.var_fp + gcm.elev_fn)    
+#    vn = 'HGHT'
+#    
+#    
+#    #%% ELEVATION
+#    # If time dimension included, then set the time index (required for ERA Interim, but not for CMIP5 or COAWST)
+#    if 'time' in data[vn].coords:
+#        time_idx = 0
+#        #  ERA Interim has only 1 value of time, so index is 0
+#    glac_variable = np.zeros(main_glac_rgi.shape[0])
+#    
+#    # Find Nearest Neighbor
+#    if gcm.name == 'COAWST':
+#        for glac in range(main_glac_rgi.shape[0]):
+#            latlon_dist = (((data[gcm.lat_vn].values - main_glac_rgi[gcm.rgi_lat_colname].values[glac])**2 + 
+#                             (data[gcm.lon_vn].values - main_glac_rgi[gcm.rgi_lon_colname].values[glac])**2)**0.5)
+#            latlon_nearidx = [x[0] for x in np.where(latlon_dist == latlon_dist.min())]
+#            lat_nearidx = latlon_nearidx[0]
+#            lon_nearidx = latlon_nearidx[1]
+#            glac_variable[glac] = (
+#                    data[vn][latlon_nearidx[0], latlon_nearidx[1]].values)
+#    else:
+#        lat_nearidx = (np.abs(main_glac_rgi[gcm.rgi_lat_colname].values[:,np.newaxis] - 
+#                              data.variables[gcm.lat_vn][:].values).argmin(axis=1))
+#        lon_nearidx = (np.abs(main_glac_rgi[gcm.rgi_lon_colname].values[:,np.newaxis] - 
+#                              data.variables[gcm.lon_vn][:].values).argmin(axis=1))
+#        #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
+#        for glac in range(main_glac_rgi.shape[0]):
+#            # Select the slice of GCM data for each glacier
+#            try:
+#                glac_variable[glac] = data[vn][time_idx, lat_nearidx[glac], lon_nearidx[glac]].values
+#            except:
+#                glac_variable[glac] = data[vn][lat_nearidx[glac], lon_nearidx[glac]].values
+#    # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
+#    if vn == gcm.elev_vn:
+#        # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
+#        if 'units' in data[vn].attrs and (data[vn].attrs['units'] == 'm**2 s**-2'):  
+#            # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
+#            glac_variable = glac_variable / 9.80665
+#        # Elseif units already in m.a.s.l., then continue
+#        elif 'units' in data[vn].attrs and data[vn].attrs['units'] == 'm':
+#            pass
+#        # Otherwise, provide warning
+#        else:
+#            print('Check units of elevation from GCM is m.')
+##    return glac_variable
+            
+            
+#    #%% TEMP AND PRECIP
+#    
 #    glac_variable_series = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
-    
 #    # Determine the correct time indices
 #    if gcm.timestep == 'monthly':
 #        start_idx = (np.where(pd.Series(data[gcm.time_vn])
