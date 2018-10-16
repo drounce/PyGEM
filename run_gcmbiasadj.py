@@ -105,12 +105,23 @@ def main(list_packed_vars):
     elev_bins = main_glac_hyps.columns.values.astype(int)
 
     # Select dates including future projections
-    dates_table_ref, start_date, end_date = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+    
+    # If reference climate data starts or ends before or after the GCM data, then adjust reference climate data such
+    # that the reference and GCM span the same period of time.
+    if input.startyear >= input.gcm_startyear:
+        ref_startyear = input.startyear
+    else:
+        ref_startyear = input.gcm_startyear
+    if input.endyear <= input.gcm_endyear:
+        ref_endyear = input.endyear
+    else:
+        ref_endyear = input.gcm_endyear
+    dates_table_ref, start_date, end_date = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
                                                                      spinupyears=input.spinupyears)
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=input.gcm_startyear, 
                                                                  endyear=input.gcm_endyear,
                                                                  spinupyears=input.spinupyears)
-    
+
     # ===== LOAD CLIMATE DATA =====
     # Reference climate data
     ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
@@ -126,7 +137,10 @@ def main(list_packed_vars):
                           .reshape(12,-1).transpose())
     
     # GCM climate data
-    gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
+    if gcm_name == 'ERA-Interim' or gcm_name == 'coawst':
+        gcm = class_climate.GCM(name=gcm_name)
+    else:
+        gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
     # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
@@ -159,6 +173,7 @@ def main(list_packed_vars):
         tempavg_cols = []
         tempadj_cols = []
         precadj_cols = []
+        lravg_cols = []
         # Monthly temperature variability
         for n in range(1,13):
             tempvar_colname = 'tempvar_' + str(n)
@@ -179,6 +194,11 @@ def main(list_packed_vars):
             precadj_colname = 'precadj_' + str(n)
             main_glac_bias_adj[precadj_colname] = np.nan
             precadj_cols.append(precadj_colname)
+        # Monthly mean lapse rate
+        for n in range(1,13):
+            lravg_cn = 'lravg_' + str(n)
+            main_glac_bias_adj[lravg_cn] = np.nan
+            lravg_cols.append(lravg_cn)
 
         # Remove spinup years, so adjustment performed over calibration period
         ref_temp_nospinup = ref_temp[:,input.spinupyears*12:]
@@ -222,6 +242,7 @@ def main(list_packed_vars):
         main_glac_bias_adj[tempvar_cols] = variability_monthly_std
         main_glac_bias_adj[tempavg_cols] = gcm_temp_monthly_avg
         main_glac_bias_adj[tempadj_cols] = gcm_temp_monthly_adj
+        main_glac_bias_adj[lravg_cols] = ref_lr_monthly_avg
        
 #    #%%
 #    # OPTION 1: Adjust temp and prec such that ref and GCM mass balances over calibration period are equal
@@ -656,14 +677,15 @@ def main(list_packed_vars):
     if os.path.exists(input.output_filepath + 'temp/') == False:
         os.makedirs(input.output_filepath + 'temp/')
     # Temperature and precipitation parameters
-    output_biasadjparams_fn = (gcm_name + '_' + rcp_scenario + '_biasadj_opt' + str(input.option_bias_adjustment) + 
-                               '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + '_' +  'R' +
-                               str(input.rgi_regionsO1[0]) + '_' + str(count) + '.csv')
+    if gcm_name == 'COAWST':
+        output_biasadjparams_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
+                                   str(input.option_bias_adjustment) + '_' + str(ref_startyear) + '_' + str(ref_endyear) 
+                                   + '-' + str(count) + '.csv')
+    else:
+        output_biasadjparams_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
+                                   '_biasadj_opt' + str(input.option_bias_adjustment) + '_' + str(ref_startyear) + '_' 
+                                   + str(ref_endyear) + '--' + str(count) + '.csv')
     main_glac_bias_adj.to_csv(input.output_filepath + 'temp/' + output_biasadjparams_fn)
-    # Lapse rate parameters (same for all GCMs - only need to export once)
-    output_filename_lr = ('biasadj_mon_lravg_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + '_' + 'R' + 
-                          str(input.rgi_regionsO1[0]) + '_' + str(count) + '.csv')
-    np.savetxt(input.output_filepath + 'temp/' + output_filename_lr, ref_lr_monthly_avg, delimiter=",")
 
     #%% Export variables as global to view in variable explorer
     if args.option_parallels == 0:
@@ -731,17 +753,16 @@ if __name__ == '__main__':
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
 
-        # COMBINE OUTPUT INTO SINGLE FILE
-        # Monthly lapse rate
-        check_str = 'biasadj_mon_lravg_'
-        output_lr_all_fn = ('R' + str(input.rgi_regionsO1[0]) + '_biasadj_mon_lr_avg_' + str(input.gcm_startyear) + 
-                            '_' + str(input.gcm_endyear) + '.csv')
+        # Combine bias adjustment parameters into single file
         output_list = []
+        check_str = 'R' + str(input.rgi_regionsO1[0])
         for i in os.listdir(input.output_filepath + 'temp/'):
+            print(i)
             # Append results
             if i.startswith(check_str):
                 print(i)
                 output_list.append(i)
+                print(output_list)
                 if len(output_list) == 1:
                     output_all = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
                 else:
@@ -750,27 +771,7 @@ if __name__ == '__main__':
                 # Remove file after its been merged
                 os.remove(input.output_filepath + 'temp/' + i)
         # Export joined files
-        output_all.to_csv(input.biasadj_fp + output_lr_all_fn)
-        
-        # Bias adjustment parameters
-        check_str = gcm_name + '_' + rcp_scenario + '_biasadj_opt' + str(input.option_bias_adjustment)
-        output_biasadj_all_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
-                                 '_biasadj_opt' + str(input.option_bias_adjustment) + '_' + str(input.gcm_startyear) + 
-                                 '_' + str(input.gcm_endyear) + '.csv')
-        output_list = []
-        for i in os.listdir(input.output_filepath + 'temp/'):
-            # Append results
-            if i.startswith(check_str):
-                output_list.append(i)
-                if len(output_list) == 1:
-                    output_all = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
-                else:
-                    output_2join = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
-                    output_all = output_all.append(output_2join, ignore_index=True)
-                # Remove file after its been merged
-                os.remove(input.output_filepath + 'temp/' + i)
-        # Export joined files
-        output_all.to_csv(input.biasadj_fp + output_biasadj_all_fn)
+        output_all.to_csv(input.biasadj_fp + i.split('--')[0] + '.csv')
 
     print('Total processing time:', time.time()-time_start, 's')
 
@@ -800,6 +801,7 @@ if __name__ == '__main__':
         gcm_temp_subset = main_vars['gcm_temp_subset']
         gcm_prec_subset = main_vars['gcm_prec_subset']
         gcm_lr_subset = main_vars['gcm_lr_subset']
+        main_glac_bias_adj = main_vars['main_glac_bias_adj']
         
 #        glacier_rgi_table = main_vars['glacier_rgi_table']
 #        glacier_ref_temp = main_vars['glacier_ref_temp']

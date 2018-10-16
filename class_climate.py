@@ -235,7 +235,7 @@ class GCM():
                                   .apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
             end_idx = (np.where(pd.Series(data[self.time_vn])
                                 .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
-                                .apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
+                                .apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]              
             #  np.where finds the index position where to values are equal
             #  pd.Series(data.variables[gcm_time_varname]) creates a pandas series of the time variable associated with
             #  the netcdf
@@ -320,7 +320,7 @@ if __name__ == '__main__':
     
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
                                                       rgi_glac_number=input.rgi_glac_number)
-    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=2001, endyear=2005, spinupyears=0)
+    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=2000, endyear=2006, spinupyears=0)
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
