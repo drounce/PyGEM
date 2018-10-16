@@ -60,12 +60,6 @@ option_bias_adjustment = 0
 #MCMC_modelparams_fp = input.mcmc_output_netcdf_fp
 #MCMC_modelparams_fn = input.mcmc_output_filename
 
-# Synthetic simulation input
-option_synthetic_sim = 0
-synthetic_startyear = 1990
-synthetic_endyear = 1999
-synthetic_temp_adjust = 0
-synthetic_prec_factor = 1
 
 #%% FUNCTIONS
 def getparser():
@@ -127,11 +121,6 @@ def main(list_packed_vars):
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
-    
-    if args.debug == 1:
-        debug = True
-    else:
-        debug = False
         
     if gcm_name != input.ref_gcm_name:
         rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
@@ -156,9 +145,9 @@ def main(list_packed_vars):
     dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear,
                                                                  spinupyears=gcm_spinupyears)
     # Synthetic simulation dates
-    if option_synthetic_sim == 1:
+    if input.option_synthetic_sim == 1:
         dates_table_synthetic, synthetic_start, synthetic_end = modelsetup.datesmodelrun(
-                startyear=synthetic_startyear, endyear=synthetic_endyear, spinupyears=0)
+                startyear=input.synthetic_startyear, endyear=input.synthetic_endyear, spinupyears=0)
 
     # Model parameters
 #    if input.option_import_modelparams == 0:
@@ -186,17 +175,16 @@ def main(list_packed_vars):
 #            print(main_glac_modelparams)
         
         
-    
     # ===== LOAD CLIMATE DATA =====
     if gcm_name == input.ref_gcm_name:
         gcm = class_climate.GCM(name=gcm_name)
         # Check that end year is reasonable
-        if (gcm_name == 'ERA-Interim') and (gcm_endyear > int(time.strftime("%Y"))) and (option_synthetic_sim == 0):
+        if (gcm_endyear > int(time.strftime("%Y"))) and (input.option_synthetic_sim == 0):
             print('\n\nEND YEAR BEYOND AVAILABLE DATA FOR ERA-INTERIM. CHANGE END YEAR.\n\n')
     else:
         gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
     
-    if option_synthetic_sim == 0:        
+    if input.option_synthetic_sim == 0:        
         # Air temperature [degC]
         gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
                                                                      dates_table)
@@ -213,7 +201,7 @@ def main(list_packed_vars):
             ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
             ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
             gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))            
-    elif option_synthetic_sim == 1:
+    elif input.option_synthetic_sim == 1:
         # Air temperature [degC]
         gcm_temp_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
                                                                           dates_table_synthetic)
@@ -234,15 +222,15 @@ def main(list_packed_vars):
                              axis=1)
         gcm_lr = np.append(gcm_lr_tile[:,:gcm_spinupyears*12], np.tile(gcm_lr_tile,(1,n_tiles))[:,:datelength], axis=1)
         # Temperature and precipitation sensitivity adjustments
-        gcm_temp = gcm_temp + synthetic_temp_adjust
-        gcm_prec = gcm_prec * synthetic_prec_factor
+        gcm_temp = gcm_temp + input.synthetic_temp_adjust
+        gcm_prec = gcm_prec * input.synthetic_prec_factor
 
-#    # ===== BIAS CORRECTIONS =====
-#    # ERA-Interim does not have any bias corrections
-#    if (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
-#        gcm_temp_adj = gcm_temp
-#        gcm_prec_adj = gcm_prec
-#        gcm_elev_adj = gcm_elev
+    # ===== BIAS CORRECTIONS =====
+    # ERA-Interim does not have any bias corrections
+    if option_bias_adjustment == 0:
+        gcm_temp_adj = gcm_temp
+        gcm_prec_adj = gcm_prec
+        gcm_elev_adj = gcm_elev
 #    # Option 1
 #    elif option_bias_adjustment == 1:
 #        gcm_temp_adj = gcm_temp + main_glac_modelparams['temp_adj'].values[:,np.newaxis]
@@ -280,8 +268,8 @@ def main(list_packed_vars):
 #        gcm_prec_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
 #        # Updated elevation, since adjusted according to reference elevation
 #        gcm_elev_adj = main_glac_modelparams['new_gcmelev'].values
-#
-#
+
+
 #    # ===== Get MCMC parameter sets ====
 #
 #    if MCMC_option:
@@ -317,49 +305,74 @@ def main(list_packed_vars):
 #                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
 #                             '_biasadj_opt' + str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) 
 #                             + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
-#            if option_synthetic_sim == 1:
+#            if input.option_synthetic_sim == 1:
 #                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
 #                             gcm_spinupyears) + '_' + str(gcm_endyear) + '_T' + 
-#                             str(round(float(synthetic_temp_adjust))) + 'P' + 
-#                             str(round(float(synthetic_prec_factor) * 100 - 100)) + '_' + str(count) +  '.nc')
+#                             str(round(float(input.synthetic_temp_adjust))) + 'P' + 
+#                             str(round(float(input.synthetic_prec_factor) * 100 - 100)) + '_' + str(count) +  '.nc')
 #                print(netcdf_fn)
 #            main_glac_rgi_float = main_glac_rgi.copy()
 #            main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
 #            output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table)
-#
-#
-#    # ===== RUN MASS BALANCE =====
-#    for glac in range(main_glac_rgi.shape[0]):
-#        if glac%200 == 0:
-#            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-#        # Select subsets of data
-#        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
-#        glacier_gcm_elev = gcm_elev_adj[glac]
-#        glacier_gcm_prec = gcm_prec_adj[glac,:]
-#        glacier_gcm_temp = gcm_temp_adj[glac,:]
-#        glacier_gcm_lrgcm = gcm_lr[glac,:]
-#        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
-#        glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
-#        icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
-#        width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-#
-#        # if running ensembles using netcdf parameter
-#        if MCMC_option:
-#
-#            # get glacier number
-#            glacier_RGIId = main_glac_rgi.iloc[0]['RGIId'][6:]
-#
-#            if debug:
-#                print(glacier_RGIId)
-#
-#            # get DataArray for specific glacier and convert
-#            # to pandas DataFrame
-#            MCMC_da = MCMC_ds[glacier_RGIId]
-#            MCMC_df = MCMC_da.to_pandas()
-#
-#            if debug:
-#                print(MCMC_df)
-#
+
+
+    # ===== RUN MASS BALANCE =====
+    for glac in range(main_glac_rgi.shape[0]):
+        if glac%200 == 0:
+            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+        # Select subsets of data
+        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
+        glacier_gcm_elev = gcm_elev_adj[glac]
+        glacier_gcm_prec = gcm_prec_adj[glac,:]
+        glacier_gcm_temp = gcm_temp_adj[glac,:]
+        glacier_gcm_lrgcm = gcm_lr[glac,:]
+        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
+        icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
+        width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
+
+        # if running ensembles using netcdf parameter
+        if input.option_calibration == 2:
+
+            # get glacier number
+            glacier_RGIId = main_glac_rgi.iloc[0]['RGIId'][6:]
+
+            if debug:
+                print(glacier_RGIId)
+                
+            mcmc_ds = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
+            mcmc_modelparams = pd.DataFrame(mcmc_ds['mp_value'].sel(chain=0).values, columns=mcmc_ds.mp.values)
+            
+            if input.modelparams_iters == 1:
+                modelparameters = mcmc_modelparams.median()[input.modelparams_colnames]
+            
+            if debug:
+                print('modelparameters:\n', modelparameters)
+            
+            # run mass balance calculation
+            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
+             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
+             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
+             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                           option_areaconstant=0))
+            # Annual glacier-wide mass balance [m w.e.]
+            glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+            # Average annual glacier-wide mass balance [m w.e.a.]
+            mb_mwea = glac_wide_massbaltotal_annual.mean()
+            #  units: m w.e. based on initial area
+            # Volume change [%]
+            if icethickness_t0.max() > 0:
+                glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) /
+                                        glac_wide_volume_annual[0] * 100)
+            
+            print('Mass balance [mwea]:', mb_mwea.round(2), 
+                  'Glacier-wide Volume Change [%]:', glac_vol_change_perc.round(1))
+                
+                
 #            # use a for loop for each model run
 #            for MCMC_run in range(len(MCMC_df)):
 #
@@ -437,19 +450,24 @@ def main(list_packed_vars):
 #                                   glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
 #                                   glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
 #                                   glac_bin_surfacetype_annual, output_filepath=output_filepath)
-#
-#    # Export variables as global to view in variable explorer
-#    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
-#        global main_vars
-#        main_vars = inspect.currentframe().f_locals
-#
-#    print('\nProcessing time of', gcm_name, 'for', count,':',time.time()-time_start, 's')
+
+    #%% Export variables as global to view in variable explorer
+    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
+        global main_vars
+        main_vars = inspect.currentframe().f_locals
+
+    print('\nProcessing time of', gcm_name, 'for', count,':',time.time()-time_start, 's')
 
 #%% PARALLEL PROCESSING
 if __name__ == '__main__':
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
+    
+    if args.debug == 1:
+        debug = True
+    else:
+        debug = False
     
     # Reference GCM name
     gcm_name = args.gcm_list_fn
@@ -589,27 +607,26 @@ if __name__ == '__main__':
 #    print('Total processing time:', time.time()-time_start, 's')
 
 #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
-#    # Place local variables in variable explorer
-#    if (not MCMC_option) and ((args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * 
-#        args.num_simultaneous_processes)):
-#        main_vars_list = list(main_vars.keys())
-#        gcm_name = main_vars['gcm_name']
-##        rcp_scenario = main_vars['rcp_scenario']
-#        main_glac_rgi = main_vars['main_glac_rgi']
-#        main_glac_hyps = main_vars['main_glac_hyps']
-#        main_glac_icethickness = main_vars['main_glac_icethickness']
-#        main_glac_width = main_vars['main_glac_width']
+    # Place local variables in variable explorer
+    if args.option_parallels == 0:
+        main_vars_list = list(main_vars.keys())
+        gcm_name = main_vars['gcm_name']
+#        rcp_scenario = main_vars['rcp_scenario']
+        main_glac_rgi = main_vars['main_glac_rgi']
+        main_glac_hyps = main_vars['main_glac_hyps']
+        main_glac_icethickness = main_vars['main_glac_icethickness']
+        main_glac_width = main_vars['main_glac_width']
 #        main_glac_modelparams = main_vars['main_glac_modelparams']
-#        elev_bins = main_vars['elev_bins']
-#        dates_table = main_vars['dates_table']
-#        if option_synthetic_sim == 1:
-#            dates_table_synthetic = main_vars['dates_table_synthetic']
-#            gcm_temp_tile = main_vars['gcm_temp_tile']
-#            gcm_prec_tile = main_vars['gcm_prec_tile']
-#            gcm_lr_tile = main_vars['gcm_lr_tile']
-#        gcm_temp = main_vars['gcm_temp']
-#        gcm_prec = main_vars['gcm_prec']
-#        gcm_elev = main_vars['gcm_elev']
+        elev_bins = main_vars['elev_bins']
+        dates_table = main_vars['dates_table']
+        if input.option_synthetic_sim == 1:
+            dates_table_synthetic = main_vars['dates_table_synthetic']
+            gcm_temp_tile = main_vars['gcm_temp_tile']
+            gcm_prec_tile = main_vars['gcm_prec_tile']
+            gcm_lr_tile = main_vars['gcm_lr_tile']
+        gcm_temp = main_vars['gcm_temp']
+        gcm_prec = main_vars['gcm_prec']
+        gcm_elev = main_vars['gcm_elev']
 #        gcm_temp_adj = main_vars['gcm_temp_adj']
 #        gcm_prec_adj = main_vars['gcm_prec_adj']
 #        gcm_elev_adj = main_vars['gcm_elev_adj']

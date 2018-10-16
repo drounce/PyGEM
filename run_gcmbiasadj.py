@@ -680,7 +680,7 @@ def main(list_packed_vars):
     if gcm_name == 'COAWST':
         output_biasadjparams_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
                                    str(input.option_bias_adjustment) + '_' + str(ref_startyear) + '_' + str(ref_endyear) 
-                                   + '-' + str(count) + '.csv')
+                                   + '--' + str(count) + '.csv')
     else:
         output_biasadjparams_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
                                    '_biasadj_opt' + str(input.option_bias_adjustment) + '_' + str(ref_startyear) + '_' 
@@ -756,20 +756,24 @@ if __name__ == '__main__':
         # Combine bias adjustment parameters into single file
         output_list = []
         check_str = 'R' + str(input.rgi_regionsO1[0])
+        # Sorted list of files to merge
+        output_list = []
         for i in os.listdir(input.output_filepath + 'temp/'):
-            print(i)
-            # Append results
             if i.startswith(check_str):
-                print(i)
                 output_list.append(i)
-                print(output_list)
-                if len(output_list) == 1:
-                    output_all = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
-                else:
-                    output_2join = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
-                    output_all = output_all.append(output_2join, ignore_index=True)
-                # Remove file after its been merged
-                os.remove(input.output_filepath + 'temp/' + i)
+        output_list = sorted(output_list)
+        # Merge files
+        list_count = 0
+        for i in output_list:
+            list_count += 1
+            # Append results
+            if list_count == 1:
+                output_all = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
+            else:
+                output_2join = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
+                output_all = output_all.append(output_2join, ignore_index=True)
+            # Remove file after its been merged
+            os.remove(input.output_filepath + 'temp/' + i)
         # Export joined files
         output_all.to_csv(input.biasadj_fp + i.split('--')[0] + '.csv')
 

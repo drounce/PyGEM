@@ -88,8 +88,8 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03734']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03734']
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(1,13119)
 if 'rgi_glac_number' not in locals():
@@ -107,8 +107,8 @@ endyear = 2018
 # Spin up time [years]
 spinupyears = 0
 # Simulation runs
-gcm_startyear = 1990
-gcm_endyear = 2050
+gcm_startyear = 2000
+gcm_endyear = 2006
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -139,6 +139,8 @@ tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
 
 # MCMC export configuration
 mcmc_output_fp = main_directory + '/../MCMC_data/'
+mcmc_sim_fp_dict = {}
+
 mcmc_output_netcdf_fp = mcmc_output_fp + 'netcdf/'
 mcmc_output_csv_fp = mcmc_output_fp + 'csv/'
 mcmc_output_figs_fp = mcmc_output_fp + 'figures/'
@@ -232,6 +234,7 @@ modelparams_fp_dict = {
             13: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg13/',
             14: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg14/',
             15: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg15/'}
+modelparams_iters = 1
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -545,6 +548,7 @@ option_bias_adjustment = 2
 #  Option 2 - bias adjustments using Huss and Hock [2015] methods
 #  Option 3 - bias adjustments using monthly temp and prec
 biasadj_fp = output_filepath + 'biasadj/'
+#biasadj_fn = 
 #biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
 #biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
 #biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
