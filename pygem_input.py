@@ -90,10 +90,10 @@ rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03734']
-rgi_glac_number = ['03734', '03473']
+#rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(1,13119)
-#if 'rgi_glac_number' not in locals():
-#    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 48, option_random=0)
+if 'rgi_glac_number' not in locals():
+    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -106,6 +106,9 @@ startyear = 2000
 endyear = 2018
 # Spin up time [years]
 spinupyears = 0
+# Simulation runs
+gcm_startyear = 1990
+gcm_endyear = 2050
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -123,6 +126,9 @@ main_directory = os.getcwd()
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 
 #%% ===== CALIBRATION OPTIONS =====
+# Output filepath
+output_filepath = main_directory + '/../Output/'
+
 # Option 1:
 # Model parameter bounds for each calibration round
 #  first tuple will run as expected; 
@@ -160,8 +166,8 @@ ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
-option_import_modelparams = 0
-#  Option 1 (default) - csv of glacier parameters
+option_import_modelparams = 1
+#  Option 1 (default) - calibrated model parameters in netcdf files
 #  Option 0 - use the parameters set by the input
 precfactor = 1
 #  range 0.5 - 2
@@ -219,14 +225,13 @@ frontalablation_k0dict = {
             18: 0,
             19: 1}
 
-# Model parameters filepath, filename, and column names
-modelparams_filepath = main_directory + '/../Calibration_datasets/'
-#modelparams_filename = 'calparams_R15_20180306_nearest.csv'
-#modelparams_filename = 'calparams_R15_20180305_fillnanavg.csv'
-#modelparams_filename = 'calparams_R15_20180403_nearest.csv'
-modelparams_filename = 'calparams_R15_20180403_nnbridx.csv'
-#modelparams_filename = 'calparams_R14_20180313_fillnanavg.csv'
+# Model parameters column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
+# Model parameter filepath
+modelparams_fp_dict = {
+            13: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg13/',
+            14: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg14/',
+            15: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg15/'}
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -269,8 +274,8 @@ cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 coawst_fp_unmerged = main_directory + '/../Climate_data/coawst/Monthly/'
 coawst_fp = main_directory + '/../Climate_data/coawst/'
 coawst_fn_prefix = 'wrfout_d02_Monthly_'
-coawst_temp_fn = 'wrfout_d02_Monthly_T2_1999100100-2006103123.nc'
-coawst_prec_fn = 'wrfout_d02_Monthly_TOTPRECIP_1999100100-2006103123.nc'
+coawst_temp_fn = 'wrfout_d02_Monthly_T2_1999100100-2006123123.nc'
+coawst_prec_fn = 'wrfout_d02_Monthly_TOTPRECIP_1999100100-2006123123.nc'
 coawst_elev_fn = 'wrfout_d02_Monthly_HGHT.nc'
 coawst_vns = ['T2', 'TOTPRECIP', 'HGHT']
 
@@ -417,9 +422,7 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 # 10 - N Asia - 46 - 77
 
 
-#%% CALIBRATION DATA (05/30/2018)
-#  for each mass balance dataset, store the parameters here and add to the class
-
+#%% CALIBRATION DATA
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
 shean_fn = 'hma_mb_20180803_1229.csv'
@@ -522,9 +525,6 @@ massbal_uncertainty_mwea = 0.1
 zscore_tolerance_all = 1
 zscore_tolerance_single = 0.1
 
-# Calibration output filename prefix (grid search)
-calibrationnetcdf_filenameprefix = 'calibration_gridsearchcoarse_R'
-
 #%% TRANSFER FUNCTIONS
 # Slope of line of best fit for parameter vs. median elevation
 #  These are derived from run_preprocessing.py option_parameter_relationships
@@ -538,17 +538,16 @@ ddfsnow_lobf_slope = 1.112333e-06
 precgrad_lobf_property_cn = 'Zmed'
 precgrad_lobf_slope = 0
 
-
 #%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
-option_bias_adjustment = 1
+option_bias_adjustment = 2
 #  Option 0 - ignore bias adjustments
 #  Option 1 - bias adjustments using new technique 
 #  Option 2 - bias adjustments using Huss and Hock [2015] methods
 #  Option 3 - bias adjustments using monthly temp and prec
-biasadj_data_filepath = main_directory + '/../Climate_data/cmip5/R15_rcp26_1995_2100/'
-biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
-biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
-biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
+biasadj_fp = output_filepath + 'biasadj/'
+#biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
+#biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
+#biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
 
 #%% Mass balance model options
 # Initial surface type options
@@ -639,8 +638,6 @@ terminus_percentage = 20
 #  Huss and Hock (2015) use 20% to calculate new area and ice thickness
 
 #%% OUTPUT OPTIONS
-# Output filepath
-output_filepath = main_directory + '/../Output/'
 # Netcdf filename prefix
 netcdf_fn_prefix = 'PyGEM_R'
 # Netcdf output package number

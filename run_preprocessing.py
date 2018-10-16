@@ -78,7 +78,8 @@ if args.option_coawstmerge == 1:
         # Sorted list of files to merge
         ds_list = []
         for i in os.listdir(coawst_fp):
-            ds_list.append(i)
+            if i.startswith('wrfout_d02_Monthly_'):
+                ds_list.append(i)
         ds_list = sorted(ds_list)
         # Merge files
         count = 0
