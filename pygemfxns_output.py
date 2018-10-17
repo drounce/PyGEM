@@ -36,7 +36,7 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
     nsims = number of simulations
     """
     # Annual columns
-    annual_columns = np.unique(dates_table['wateryear'].values)
+    annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
     # Netcdf file path and name
     fullfilename = output_filepath + filename
     # Create netcdf file ('w' will overwrite existing files, 'r+' will open existing file to write)
@@ -74,8 +74,10 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
     years.long_name = "year"
     if input.option_wateryear == 1:
         years.units = 'water year'
-    elif input.option_wateryear == 0:
+    elif input.option_wateryear == 2:
         years.units = 'calendar year'
+    elif input.option_wateryear == 3:
+        years.units = 'custom year'
     years[:] = annual_columns[input.spinupyears:annual_columns.shape[0]]
     # years_plus1 adds an additional year such that the change in glacier dimensions (area, etc.) is recorded
     years_plus1 = netcdf_output.createVariable('year_plus1', np.int32, ('year_plus1',))

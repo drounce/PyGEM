@@ -34,7 +34,7 @@ gcm_endyear = 2015
 gcm_spinupyears = 0
 
 # Output
-output_package = 0
+output_package = 2
 output_filepath = input.main_directory + '/../Output/'
 parallel_filepath = output_filepath + 'parallel/'
 
@@ -148,32 +148,6 @@ def main(list_packed_vars):
     if input.option_synthetic_sim == 1:
         dates_table_synthetic, synthetic_start, synthetic_end = modelsetup.datesmodelrun(
                 startyear=input.synthetic_startyear, endyear=input.synthetic_endyear, spinupyears=0)
-
-    # Model parameters
-#    if input.option_import_modelparams == 0:
-#        main_glac_modelparams = pd.DataFrame(np.repeat([input.lrgcm, input.lrglac, input.precfactor, input.precgrad,
-#            input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange], main_glac_rgi_all.shape[0]).reshape(-1,
-#            main_glac_rgi.shape[0]).transpose(), columns=input.modelparams_colnames)
-#    elif (gcm_name == 'ERA-Interim') or (option_bias_adjustment == 0):
-#        modelparam_fp = input.modelparams_fp_dict[input.rgi_regionsO1[0]]
-#        print(modelparam_fp)
-#        for glac in main_glac_rgi:
-#            print(glac)
-#        main_glac_modelparams_all = pd.read_csv(ref_modelparams_fp + ref_modelparams_fn, index_col=0)
-#        main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]
-#    else:
-#        gcm_modelparams_fn = (gcm_name + '_' + rcp_scenario + gcm_modelparams_fn_ending)
-#        main_glac_modelparams_all = pd.read_csv(gcm_modelparams_fp + gcm_modelparams_fn, index_col=0)
-
-#        if MCMC_option:
-#            main_glac_modelparams = (
-#                    main_glac_modelparams_all.loc[main_glac_modelparams_all['RGIId'].isin(main_glac_rgi['RGIId'])])
-#        else:
-#            main_glac_modelparams = main_glac_modelparams_all.loc[main_glac_rgi['O1Index'].values, :]
-#
-#        if debug:
-#            print(main_glac_modelparams)
-        
         
     # ===== LOAD CLIMATE DATA =====
     if gcm_name == input.ref_gcm_name:
@@ -201,7 +175,7 @@ def main(list_packed_vars):
             ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
             ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
             gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))            
-    elif input.option_synthetic_sim == 1:
+    if input.option_synthetic_sim == 1:
         # Air temperature [degC]
         gcm_temp_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
                                                                           dates_table_synthetic)
@@ -225,6 +199,7 @@ def main(list_packed_vars):
         gcm_temp = gcm_temp + input.synthetic_temp_adjust
         gcm_prec = gcm_prec * input.synthetic_prec_factor
 
+#%%
     # ===== BIAS CORRECTIONS =====
     # ERA-Interim does not have any bias corrections
     if option_bias_adjustment == 0:
@@ -270,51 +245,32 @@ def main(list_packed_vars):
 #        gcm_elev_adj = main_glac_modelparams['new_gcmelev'].values
 
 
-#    # ===== Get MCMC parameter sets ====
-#
-#    if MCMC_option:
-#
-#        # in the form of an xarray dataset
-#        MCMC_ds = xr.open_dataset(MCMC_modelparams_fp + MCMC_modelparams_fn)
-#
-#
-#    # ===== CREATE OUTPUT FILE =====
-#    if MCMC_option:
-#        if output_package != 0:
-#            if gcm_name == 'ERA-Interim':
-#                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
-#                             gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
-#            else:
-#                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
-#                             '_biasadj_opt' + str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) 
-#                             + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
-#
-#            nsims = MCMC_ds.sizes['runs']
-#            main_glac_rgi_float = main_glac_rgi.copy()
-#            main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
-#            output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps,
-#                                dates_table, output_filepath=parallel_filepath,
-#                                nsims=nsims)
-#
-#    else:
-#        if output_package != 0:
-#            if gcm_name == 'ERA-Interim':
-#                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
-#                             gcm_spinupyears) + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
-#            else:
-#                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
-#                             '_biasadj_opt' + str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) 
-#                             + '_' + str(gcm_endyear) + '_' + str(count) + '.nc')
-#            if input.option_synthetic_sim == 1:
-#                netcdf_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + str(gcm_startyear - 
-#                             gcm_spinupyears) + '_' + str(gcm_endyear) + '_T' + 
-#                             str(round(float(input.synthetic_temp_adjust))) + 'P' + 
-#                             str(round(float(input.synthetic_prec_factor) * 100 - 100)) + '_' + str(count) +  '.nc')
-#                print(netcdf_fn)
-#            main_glac_rgi_float = main_glac_rgi.copy()
-#            main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
-#            output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table)
-
+#%%
+    # ===== OUTPUT FILE =====
+    # Create netcdf file    
+    if output_package != 0:
+        # Create filepath if it does not exist
+        if os.path.exists(input.output_sim_fp) == False:
+            os.makedirs(input.output_sim_fp)
+        
+        # Netcdf filename
+        if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
+            netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + str(input.option_calibration) 
+                         + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
+                         str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + str(count) + '.nc')
+        else:
+            netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
+                         str(input.option_calibration) + '_ba' + str(option_bias_adjustment) + '_' +  
+                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + 
+                         str(count) + '.nc')
+    
+        if debug:
+            print(netcdf_fn)
+    
+        main_glac_rgi_float = main_glac_rgi.copy()
+        main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
+        output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table, 
+                            output_filepath=input.output_sim_fp, nsims=input.sim_iters)
 
     # ===== RUN MASS BALANCE =====
     for glac in range(main_glac_rgi.shape[0]):
@@ -331,20 +287,38 @@ def main(list_packed_vars):
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
 
-        # if running ensembles using netcdf parameter
-        if input.option_calibration == 2:
+        # get glacier number
+        glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][6:]
 
-            # get glacier number
-            glacier_RGIId = main_glac_rgi.iloc[0]['RGIId'][6:]
-
-            if debug:
-                print(glacier_RGIId)
-                
-            mcmc_ds = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
-            mcmc_modelparams = pd.DataFrame(mcmc_ds['mp_value'].sel(chain=0).values, columns=mcmc_ds.mp.values)
+        if debug:
+            print(glacier_RGIId)   
             
-            if input.modelparams_iters == 1:
-                modelparameters = mcmc_modelparams.median()[input.modelparams_colnames]
+        if input.option_import_modelparams == 1:
+            ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
+            modelparams_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
+                                           columns=ds_mp.mp.values)[input.modelparams_colnames])
+        else:
+            modelparams_all = (
+                    pd.DataFrame(np.asarray([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, 
+                                             input.ddfice, input.tempsnow, input.tempchange]).reshape(1,-1), 
+                                             columns=input.modelparams_colnames))
+        
+        if (input.option_calibration == 1) or (modelparams_all.shape[0] == 1):
+            sim_iters = 1
+        elif input.option_calibration == 2:
+            sim_iters = input.sim_iters
+            # Select random indices for selecting parameter sets
+            mp_idx_random = np.arange(modelparams_all.shape[0])
+            np.random.shuffle(mp_idx_random)
+            mp_idx_random = mp_idx_random[:sim_iters]      
+            
+        # Loop through model parameters
+        for n_iter in range(sim_iters):
+
+            if sim_iters == 1:
+                modelparameters = modelparams_all.median()
+            else:
+                modelparameters = modelparams_all.iloc[mp_idx_random[n_iter],:]
             
             if debug:
                 print('modelparameters:\n', modelparameters)
@@ -369,87 +343,18 @@ def main(list_packed_vars):
                 glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) /
                                         glac_wide_volume_annual[0] * 100)
             
-            print('Mass balance [mwea]:', mb_mwea.round(2), 
-                  'Glacier-wide Volume Change [%]:', glac_vol_change_perc.round(1))
-                
-                
-#            # use a for loop for each model run
-#            for MCMC_run in range(len(MCMC_df)):
-#
-#                # get model parameters
-#                modelparameters = []
-#                for colname in input.modelparams_colnames:
-#                    modelparameters.append(MCMC_df.loc[MCMC_run][colname])
-#
-#                if debug:
-#                    print('modelparameters:', modelparameters)
-#
-#                # run mass balance calculation
-#                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-#                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
-#                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
-#                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
-#                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-#                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-#                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-#                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-#                                               option_areaconstant=0))
-#                # Annual glacier-wide mass balance [m w.e.]
-#                glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-#                # Average annual glacier-wide mass balance [m w.e.a.]
-#                mb_mwea = glac_wide_massbaltotal_annual.mean()
-#                #  units: m w.e. based on initial area
-#                # Volume change [%]
-#                if icethickness_t0.max() > 0:
-#                    glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) /
-#                                            glac_wide_volume_annual[0] * 100)
-#
-#                # write to netcdf file
-#                print(MCMC_run)
-#                if output_package != 0:
-#                    output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
-#                                       glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-#                                       glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
-#                                       glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
-#                                       glac_bin_surfacetype_annual, output_filepath=parallel_filepath, sim=MCMC_run)
-#
-#
-#        else:
-#            modelparameters = main_glac_modelparams.loc[main_glac_modelparams.index.values[glac],
-#                                                        input.modelparams_colnames]
-#            
-#            if debug:
-#                print('modelparameters:', modelparameters, '\n')
-#            
-#            # Mass balance calcs
-#            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-#             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
-#             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
-#             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
-#             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-#                massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-#                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev,
-#                                           glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0))
-#            
-#            if debug:
-#                # Annual glacier-wide mass balance [m w.e.]
-#                glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-#                # Average annual glacier-wide mass balance [m w.e.a.]
-#                mb_mwea = glac_wide_massbaltotal_annual.mean()
-#                #  units: m w.e. based on initial area
-#                # Volume change [%]
-#                if icethickness_t0.max() > 0:
-#                    glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) /
-#                                            glac_wide_volume_annual[0] * 100)
-#                print('\n','massbalance:', round(mb_mwea,2), 'vol_change_perc:', round(glac_vol_change_perc,0))
-#
-#
-#            if output_package != 0:
-#                output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
-#                                   glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-#                                   glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
-#                                   glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
-#                                   glac_bin_surfacetype_annual, output_filepath=output_filepath)
+            if debug:
+                print('Mass balance [mwea]:', mb_mwea.round(2), 
+                      'Glacier-wide Volume Change [%]:', glac_vol_change_perc.round(1))
+            
+            # write to netcdf file
+            if output_package != 0:
+                output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
+                                   glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+                                   glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
+                                   glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
+                                   glac_bin_surfacetype_annual, output_filepath=input.output_sim_fp, sim=n_iter)
+
 
     #%% Export variables as global to view in variable explorer
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
@@ -528,36 +433,70 @@ if __name__ == '__main__':
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
+                
+                
+        #%%
+        # Combine bias adjustment parameters into single file
+        output_list = []
+        check_str = 'R' + str(input.rgi_regionsO1[0])
+        # Sorted list of files to merge
+        output_list = []
+        for i in os.listdir(input.output_sim_fp):
+            if i.startswith(check_str):
+                output_list.append(i)
+            output_all_fn = i.split('--')[0] + '.nc'
+        output_list = sorted(output_list)
+        # Merge files
+        ds = xr.open_dataset(input.output_sim_fp + output_list[0])
+        n_sims = ds.sim.shape[0]
+        
+        
+
+        # DO WE NEED TO CREATE A NEW NETCDF FILE OR CAN WE JUST APPEND TO THE ONES WE'VE ALREADY CREATED???
+        
+        
+        
+
+#        output.netcdfcreate(output_all_fn, main_glac_rgi_all_float, main_glac_hyps, dates_table,
+#                            output_filepath=input.output_sim_fp, nsims=n_sims)
+#        # Open file to write
+#        netcdf_output = nc.Dataset(output_filepath + output_all_fn, 'r+')
+
+#        glac_count = -1
+#        for n in range(len(output_list)):
+#            ds = nc.Dataset(parallel_filepath + output_list[n])
+#            for glac in range(ds['glac_idx'][:].shape[0]):
+#                glac_count = glac_count + 1
+#                if output_package == 2:
+#                    netcdf_output.variables['temp_glac_monthly'][glac_count,:] = (
+#                            ds['temp_glac_monthly'][glac,:])
+#                    netcdf_output.variables['prec_glac_monthly'][glac_count,:] = (
+#                            ds['prec_glac_monthly'][glac,:])
+#                    netcdf_output.variables['acc_glac_monthly'][glac_count,:] = (
+#                            ds['acc_glac_monthly'][glac,:])
+#                    netcdf_output.variables['refreeze_glac_monthly'][glac_count,:] = (
+#                            ds['refreeze_glac_monthly'][glac,:])
+#                    netcdf_output.variables['melt_glac_monthly'][glac_count,:] = (
+#                            ds['melt_glac_monthly'][glac,:])
+#                    netcdf_output.variables['frontalablation_glac_monthly'][glac_count,:] = (
+#                            ds['frontalablation_glac_monthly'][glac,:])
+#                    netcdf_output.variables['massbaltotal_glac_monthly'][glac_count,:] = (
+#                            ds['massbaltotal_glac_monthly'][glac,:])
+#                    netcdf_output.variables['runoff_glac_monthly'][glac_count,:] = (
+#                            ds['runoff_glac_monthly'][glac,:])
+#                    netcdf_output.variables['snowline_glac_monthly'][glac_count,:] = (
+#                            ds['snowline_glac_monthly'][glac,:])
+#                    netcdf_output.variables['area_glac_annual'][glac_count,:] = (
+#                            ds['area_glac_annual'][glac,:])
+#                    netcdf_output.variables['volume_glac_annual'][glac_count,:] = (
+#                            ds['volume_glac_annual'][glac,:])
+#                    netcdf_output.variables['ELA_glac_annual'][glac_count,:] = (
+#                            ds['ELA_glac_annual'][glac,:])
+#                else:
+#                    print('Code merge for output package')
+#            ds.close()
 
 
-#        if MCMC_option:
-#
-#            # in the form of an xarray dataset
-#            MCMC_ds = xr.open_dataset(MCMC_modelparams_fp + MCMC_modelparams_fn)
-#            nsims = MCMC_ds.sizes['runs']
-#
-#        else:
-#            nsims = 0
-#
-#         # Combine output into single netcdf
-#        if (args.option_parallels != 0) and (main_glac_rgi_all.shape[0] >= 2 * args.num_simultaneous_processes):
-#            # Netcdf outputs
-#            output_prefix = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
-#                             '_biasadj_opt' + str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) 
-#                             + '_' + str(gcm_endyear) + '_')
-#            output_all_fn = ('PyGEM_R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
-#                             '_biasadj_opt' + str(option_bias_adjustment) + '_' + str(gcm_startyear - gcm_spinupyears) 
-#                             + '_' + str(gcm_endyear) + '_' + str(strftime("%Y%m%d")) + '_' + 
-#                             str(len(input.rgi_glac_number)) + 'glaciers_' + str(MCMC_sample_no) + 'samples' + 
-#                             str(ensemble_no) + 'ensembles_' + rcp_scenario + '.nc')
-#
-#            # Select netcdf files produced in parallel
-#            output_list = []
-#            for i in os.listdir(parallel_filepath):
-#                # Append bias adjustment results
-#                if i.startswith(output_prefix) == True:
-#                    output_list.append(i)
-#
 #            # Merge netcdfs together
 #            if (len(output_list) > 1) and (output_package != 0):
 #                # Create netcdf that will have them all together
@@ -627,27 +566,27 @@ if __name__ == '__main__':
         gcm_temp = main_vars['gcm_temp']
         gcm_prec = main_vars['gcm_prec']
         gcm_elev = main_vars['gcm_elev']
-#        gcm_temp_adj = main_vars['gcm_temp_adj']
-#        gcm_prec_adj = main_vars['gcm_prec_adj']
-#        gcm_elev_adj = main_vars['gcm_elev_adj']
-#        gcm_temp_lrglac = main_vars['gcm_lr']
-#        modelparameters = main_vars['modelparameters']
-#        glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
-#        glac_wide_area_annual = main_vars['glac_wide_area_annual']
-#        glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
-#        glacier_rgi_table = main_vars['glacier_rgi_table']
-#        glacier_gcm_temp = main_vars['glacier_gcm_temp']
-#        glacier_gcm_prec = main_vars['glacier_gcm_prec']
-#        glacier_gcm_elev = main_vars['glacier_gcm_elev']
-#        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm'][gcm_spinupyears*12:]
-#        glacier_area_t0 = main_vars['glacier_area_t0']
-#        icethickness_t0 = main_vars['icethickness_t0']
-#        width_t0 = main_vars['width_t0']
-#        glac_bin_frontalablation = main_vars['glac_bin_frontalablation']
-#        glac_bin_area_annual = main_vars['glac_bin_area_annual']
-#        glac_bin_massbalclim_annual = main_vars['glac_bin_massbalclim_annual']
-#        glac_bin_melt = main_vars['glac_bin_melt']
-#        glac_bin_acc = main_vars['glac_bin_acc']
-#        glac_bin_refreeze = main_vars['glac_bin_refreeze']
-#        glac_bin_temp = main_vars['glac_bin_temp']
-#        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
+        gcm_temp_adj = main_vars['gcm_temp_adj']
+        gcm_prec_adj = main_vars['gcm_prec_adj']
+        gcm_elev_adj = main_vars['gcm_elev_adj']
+        gcm_temp_lrglac = main_vars['gcm_lr']
+        modelparameters = main_vars['modelparameters']
+        glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
+        glac_wide_area_annual = main_vars['glac_wide_area_annual']
+        glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
+        glacier_rgi_table = main_vars['glacier_rgi_table']
+        glacier_gcm_temp = main_vars['glacier_gcm_temp']
+        glacier_gcm_prec = main_vars['glacier_gcm_prec']
+        glacier_gcm_elev = main_vars['glacier_gcm_elev']
+        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm'][gcm_spinupyears*12:]
+        glacier_area_t0 = main_vars['glacier_area_t0']
+        icethickness_t0 = main_vars['icethickness_t0']
+        width_t0 = main_vars['width_t0']
+        glac_bin_frontalablation = main_vars['glac_bin_frontalablation']
+        glac_bin_area_annual = main_vars['glac_bin_area_annual']
+        glac_bin_massbalclim_annual = main_vars['glac_bin_massbalclim_annual']
+        glac_bin_melt = main_vars['glac_bin_melt']
+        glac_bin_acc = main_vars['glac_bin_acc']
+        glac_bin_refreeze = main_vars['glac_bin_refreeze']
+        glac_bin_temp = main_vars['glac_bin_temp']
+        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']

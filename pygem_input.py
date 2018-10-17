@@ -89,9 +89,9 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03734']
+#rgi_glac_number = ['03734']
 #rgi_glac_number = ['03734', '03473']
-#rgi_glac_number = glac_num_fromrange(1,13119)
+rgi_glac_number = glac_num_fromrange(1,10)
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
@@ -234,7 +234,12 @@ modelparams_fp_dict = {
             13: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg13/',
             14: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg14/',
             15: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg15/'}
-modelparams_iters = 1
+#%% SIMULATION OUTPUT
+# Number of model parameter sets for simulation
+#  if 1, the median is used
+sim_iters = 1
+# Simulation output filepath
+output_sim_fp = output_filepath + 'simulations/'
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
