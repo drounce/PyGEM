@@ -75,7 +75,7 @@ cal_datasets = ['shean']
 # Number of chains (min 1, max 3)
 n_chains = 1
 # number of MCMC samples to use
-mcmc_sample_no = 1
+mcmc_sample_no = 15000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
@@ -230,14 +230,18 @@ frontalablation_k0dict = {
 # Model parameters column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
+#modelparams_fp_dict = {
+#            13: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg13/',
+#            14: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg14/',
+#            15: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg15/'}
 modelparams_fp_dict = {
-            13: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg13/',
-            14: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg14/',
-            15: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg15/'}
+            13: main_directory + '/../MCMC_data/netcdf/reg13/',
+            14: main_directory + '/../MCMC_data/netcdf/reg14/',
+            15: main_directory + '/../MCMC_data/netcdf/reg15/'}
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 2
+sim_iters = 1
 sim_burn = 0
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'

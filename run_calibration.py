@@ -349,17 +349,17 @@ def main(list_packed_vars):
                 modelparameters_copy = modelparameters.copy()
                 if precfactor is not None:
                     modelparameters_copy[2] = float(precfactor)
+                    # Precipitation factor transformation
+                    if modelparameters_copy[2] >= 0:
+                        modelparameters_copy[2] = modelparameters_copy[2] + 1
+                    else:
+                        modelparameters_copy[2] = 1 / (1 - modelparameters_copy[2])
                 if ddfsnow is not None:
                     modelparameters_copy[4] = float(ddfsnow)
+                    # Degree day factor of ice is proportional to ddfsnow
+                    modelparameters_copy[5] = modelparameters_copy[4] / input.ddfsnow_iceratio
                 if tempchange is not None:
                     modelparameters_copy[7] = float(tempchange)
-                # Precipitation factor transformation
-                if modelparameters_copy[2] >= 0:
-                    modelparameters_copy[2] = modelparameters_copy[2] + 1
-                else:
-                    modelparameters_copy[2] = 1 / (1 - modelparameters_copy[2])
-                # Degree day factor of ice is proportional to ddfsnow
-                modelparameters_copy[5] = modelparameters_copy[4] / input.ddfsnow_iceratio
                 # Mass balance calculations
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -373,13 +373,7 @@ def main(list_packed_vars):
         
                 if debug:
                     mb_mwea = glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)
-#                    print('t1_idx:', t1_idx, 't2_idx:', t2_idx, 't2:', t2, 't1:', t1)
-#                    print('modelparameters:', modelparameters, '\nmb_mwea:', mb_mwea)
-                    print('\n\nmodelparameters_copy:', modelparameters_copy, '\nmb_mwea:', mb_mwea)
-#                    print('ddfsnow:', modelparameters[4])
-#                    print('glac_wide_massbaltotal:', glac_wide_massbaltotal[0:5])
-#                    print('glac_bin_temp[470:472,0:2]:', glac_bin_temp[470:472,0:2])
-#                    print('glac_bin_melt[470:472,0:2]:', glac_bin_melt[470:472,0:2])
+                    print('\n\nmodelparameters:', modelparameters_copy, '\nmb_mwea:', mb_mwea)
                     
                 # Return glacier-wide mass balance [mwea] for comparison
                 return glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)  
@@ -490,18 +484,21 @@ def main(list_packed_vars):
                 else:
                     df_chains = np.dstack((df_chains, df.values))
                     
-                print('df_chains:', df_chains)
+                if debug:
+                    print('df_chains:', df_chains)
                     
             ds = xr.Dataset({'mp_value': (('iter', 'mp', 'chain'), df_chains)},
                             coords={'iter': df.index.values,
                                     'mp': df.columns.values,
                                     'chain': np.arange(0,n_chain+1)})
-            print(ds)
     
             mcmc_output_netcdf_fp_reg = input.mcmc_output_netcdf_fp + 'reg' + str(input.rgi_regionsO1[0]) + '/'
             if not os.path.exists(mcmc_output_netcdf_fp_reg):
                 os.mkdir(mcmc_output_netcdf_fp_reg)
             ds.to_netcdf(mcmc_output_netcdf_fp_reg + glacier_str + '.nc')
+            
+            if debug:
+                print('output_fp:', mcmc_output_netcdf_fp_reg)
             
 #            #%%
 #            # Example of accessing netcdf file and putting it back into pandas dataframe
