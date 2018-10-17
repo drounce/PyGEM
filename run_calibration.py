@@ -370,6 +370,15 @@ def main(list_packed_vars):
                                                icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=1))
+                
+                if debug:
+                    mb_mwea = glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)
+                    print('t1_idx:', t1_idx, 't2_idx:', t2_idx, 't2:', t2, 't1:', t1)
+                    print('modelparameters:', modelparameters, '\nmb_mwea:', mb_mwea)
+                    print('ddfsnow:', modelparameters[4])
+                    print('glac_wide_massbaltotal:', glac_wide_massbaltotal[0:5])
+                    print('glac_bin_temp[470:472,0:2]:', glac_bin_temp[470:472,0:2])
+                    print('glac_bin_melt[470:472,0:2]:', glac_bin_melt[470:472,0:2])
                 # Return glacier-wide mass balance [mwea] for comparison
                 return glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1)  
 #                return [glac_wide_massbaltotal[t1_idx:t2_idx].sum() / (t2 - t1),

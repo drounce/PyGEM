@@ -73,9 +73,9 @@ cal_datasets = ['shean']
 
 # ===== MCMC and ensemble selections ========
 # Number of chains (min 1, max 3)
-n_chains = 3
+n_chains = 1
 # number of MCMC samples to use
-mcmc_sample_no = 100
+mcmc_sample_no = 1
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
@@ -89,9 +89,9 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['03734']
+rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-rgi_glac_number = glac_num_fromrange(1,10)
+#rgi_glac_number = glac_num_fromrange(1,10)
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
@@ -237,7 +237,7 @@ modelparams_fp_dict = {
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 1
+sim_iters = 100
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
 
