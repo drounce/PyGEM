@@ -237,7 +237,8 @@ modelparams_fp_dict = {
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 100
+sim_iters = 2
+sim_burn = 0
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
 
