@@ -136,7 +136,7 @@ def main(list_packed_vars):
                           .reshape(12,-1).transpose())
     
     # GCM climate data
-    if gcm_name == 'ERA-Interim' or gcm_name == 'coawst':
+    if gcm_name == 'ERA-Interim' or gcm_name == 'COAWST':
         gcm = class_climate.GCM(name=gcm_name)
     else:
         gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
@@ -148,6 +148,22 @@ def main(list_packed_vars):
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     else:
         gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+    # COAWST data has two domains, so need to merge the two domains
+    if gcm_name == 'COAWST':
+        gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn, main_glac_rgi, 
+                                                                         dates_table)
+        gcm_prec_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn_d01, gcm.prec_vn, main_glac_rgi, 
+                                                                         dates_table)
+        gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
+        # Check if glacier outside of high-res (d02) domain
+        for glac in range(main_glac_rgi.shape[0]):
+            glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
+            glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
+            if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or 
+                ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
+                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
+                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
+                gcm_elev[glac] = gcm_elev_d01[glac]
     # GCM subset to agree with reference time period to calculate bias corrections
     gcm_subset_idx_start = np.where(dates_table.date.values == dates_table_ref.date.values[0])[0][0]
     gcm_subset_idx_end = np.where(dates_table.date.values == dates_table_ref.date.values[-1])[0][0]

@@ -65,8 +65,8 @@ class GCM():
             self.prec_fn = input.coawst_prec_fn_d02
             self.elev_fn = input.coawst_elev_fn_d02
             self.temp_fn_d01 = input.coawst_temp_fn_d01
-            self.prec_fn2_d01 = input.coawst_prec_fn_d01
-            self.elev_fn2_d01 = input.coawst_elev_fn_d01
+            self.prec_fn_d01 = input.coawst_prec_fn_d01
+            self.elev_fn_d01 = input.coawst_elev_fn_d01
 #            self.lr_fn = input.coawst_lr_fn
             # Variable filepaths
             self.var_fp = input.coawst_fp
@@ -163,41 +163,7 @@ class GCM():
             else:
                 print('Check units of elevation from GCM is m.')
         return glac_variable
-        
-        
-        
-        
-#        # If time dimension included, then set the time index (required for ERA Interim, but not for CMIP5 data)
-#        if 'time' in data[variablename].coords:
-#            time_idx = 0
-#            #  ERA Interim has only 1 value of time, so index is 0
-#        glac_variable = np.zeros(main_glac_rgi.shape[0])
-#        # Find Nearest Neighbor
-#        lat_nearidx = (np.abs(main_glac_rgi[self.rgi_lat_colname].values[:,np.newaxis] - 
-#                              data.variables[self.lat_vn][:].values).argmin(axis=1))
-#        lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 
-#                              data.variables[self.lon_vn][:].values).argmin(axis=1))
-#        #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
-#        for glac in range(main_glac_rgi.shape[0]):
-#            # Select the slice of GCM data for each glacier
-#            try:
-#                glac_variable[glac] = data[variablename][time_idx, lat_nearidx[glac], lon_nearidx[glac]].values
-#            except:
-#                glac_variable[glac] = data[variablename][lat_nearidx[glac], lon_nearidx[glac]].values
-#        # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
-#        if variablename == self.elev_vn:
-#            # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
-#            if 'units' in data.variables[variablename].attrs and (
-#                    data.variables[variablename].attrs['units'] == 'm**2 s**-2'):  
-#                # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
-#                glac_variable = glac_variable / 9.80665
-#            # Elseif units already in m.a.s.l., then continue
-#            elif 'units' in data.variables[variablename].attrs and data.variables[variablename].attrs['units'] == 'm':
-#                pass
-#            # Otherwise, provide warning
-#            else:
-#                print('Check units of elevation from GCM is m.')
-#        return glac_variable
+
     
     
     def importGCMvarnearestneighbor_xarray(self, filename, vn, main_glac_rgi, dates_table):
@@ -324,7 +290,31 @@ if __name__ == '__main__':
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
                                                       rgi_glac_number=input.rgi_glac_number)
     dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2006, spinupyears=0)
-#    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+
+
+    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-#    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+#    if gcm.name == 'ERA-Interim':
+#        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+#    else:
+#        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+    # COAWST data has two domains, so need to merge the two domains
+    if gcm.name == 'COAWST':
+        gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn, main_glac_rgi, 
+                                                                         dates_table)
+        gcm_prec_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn_d01, gcm.prec_vn, main_glac_rgi, 
+                                                                         dates_table)
+        gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
+        # Check if glacier outside of high-res (d02) domain
+        for glac in range(main_glac_rgi.shape[0]):
+            glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
+            glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
+            if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or 
+                ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
+                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
+                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
+                gcm_elev[glac] = gcm_elev_d01[glac]
+    
     

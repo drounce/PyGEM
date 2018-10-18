@@ -98,7 +98,7 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-rgi_glac_number = glac_num_fromrange(1,5)
+rgi_glac_number = glac_num_fromrange(210,212)
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
@@ -294,6 +294,10 @@ coawst_temp_fn_d01 = 'wrfout_d01_Monthly_T2_1999100100-2006123123.nc'
 coawst_prec_fn_d01 = 'wrfout_d01_Monthly_TOTPRECIP_1999100100-2006123123.nc'
 coawst_elev_fn_d01 = 'wrfout_d01_Monthly_HGHT.nc'
 coawst_vns = ['T2', 'TOTPRECIP', 'HGHT']
+coawst_d02_lon_min = 65
+coawst_d02_lon_max = 99
+coawst_d02_lat_min = 20
+coawst_d02_lat_max = 38
 
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
 # ===== RGI DATA =====
