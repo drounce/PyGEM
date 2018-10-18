@@ -60,7 +60,7 @@ args = parser.parse_args()
 if args.option_coawstmerge == 1:
     print('Merging COAWST climate data...')
 
-    def coawst_merge_netcdf(vn, coawst_fp):
+    def coawst_merge_netcdf(vn, coawst_fp, coawst_fn_prefix):
         """
         Merge COAWST products to form a timeseries
 
@@ -78,7 +78,7 @@ if args.option_coawstmerge == 1:
         # Sorted list of files to merge
         ds_list = []
         for i in os.listdir(coawst_fp):
-            if i.startswith('wrfout_d02_Monthly_'):
+            if i.startswith(coawst_fn_prefix):
                 ds_list.append(i)
         ds_list = sorted(ds_list)
         # Merge files
@@ -106,7 +106,7 @@ if args.option_coawstmerge == 1:
                 
         # Merged dataset
         if vn == 'HGHT':
-            ds_all_fn = input.coawst_fn_prefix + vn + '.nc'
+            ds_all_fn = coawst_fn_prefix + vn + '.nc'
             ds_all = xr.Dataset({vn: (['x', 'y'], var)},
                         coords={'LON': (['x', 'y'], lon),
                                 'LAT': (['x', 'y'], lat)},
@@ -115,7 +115,7 @@ if args.option_coawstmerge == 1:
         else:
             # reference time in format for pd.date_range
             time_ref = month_start_str[0:4] + '-' + month_start_str[4:6] + '-' + month_start_str[6:8]
-            ds_all_fn = input.coawst_fn_prefix + vn + '_' + month_start_str + '-' + month_end_str + '.nc'
+            ds_all_fn = coawst_fn_prefix + vn + '_' + month_start_str + '-' + month_end_str + '.nc'
             ds_all = xr.Dataset({vn: (['time', 'x', 'y'], var_all)},
                                 coords={'LON': (['x', 'y'], lon),
                                         'LAT': (['x', 'y'], lat),
@@ -130,7 +130,8 @@ if args.option_coawstmerge == 1:
     gcm = class_climate.GCM(name='COAWST')
     # Process each variable
     for vn in input.coawst_vns:
-        coawst_merge_netcdf(vn, input.coawst_fp_unmerged)
+        coawst_merge_netcdf(vn, input.coawst_fp_unmerged, input.coawst_fn_prefix_d02)
+#        coawst_merge_netcdf(vn, input.coawst_fp_unmerged, input.coawst_fn_prefix_d01)
         
 
 #%% WGMS PRE-PROCESSING

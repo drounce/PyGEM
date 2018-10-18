@@ -715,7 +715,7 @@ if __name__ == '__main__':
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath, 
                                                  input.hyps_filedict, input.hyps_colsdrop)
     # Determine dates_table_idx that coincides with data
-    dates_table, start_date, end_date = modelsetup.datesmodelrun(input.startyear, input.endyear, spinupyears=0)
+    dates_table = modelsetup.datesmodelrun(input.startyear, input.endyear, spinupyears=0)
     
     elev_bins = main_glac_hyps.columns.values.astype(int)
     elev_bin_interval = elev_bins[1] - elev_bins[0]

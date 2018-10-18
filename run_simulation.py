@@ -33,9 +33,6 @@ gcm_startyear = 2000
 gcm_endyear = 2018
 gcm_spinupyears = 0
 
-# Output
-output_package = 2
-
 # Bias adjustment option (options defined in run_gcmbiasadj script; 0 means no correction)
 option_bias_adjustment = 0
 
@@ -209,10 +206,6 @@ def main(list_packed_vars):
         gcm_temp = gcm_temp + input.synthetic_temp_adjust
         gcm_prec = gcm_prec * input.synthetic_prec_factor
         
-    #%%
-    # ===== MODEL PARAMETERS (Option 1) =====
-    # note: model parameters for option 2 are loaded within the glacier loop
-    ds = xr.open_dataset(input.modelparams_cal1_fullfp_dict[input.rgi_regionsO1[0]])
 
 #%%
     # ===== BIAS CORRECTIONS =====
@@ -259,34 +252,6 @@ def main(list_packed_vars):
 #        # Updated elevation, since adjusted according to reference elevation
 #        gcm_elev_adj = main_glac_modelparams['new_gcmelev'].values
 #%%
-        
-    # ===== OUTPUT FILE =====
-#    # Create netcdf file    
-#    if output_package != 0:
-#        # Create filepath if it does not exist
-#        output_temp = input.output_sim_fp + 'temp/'
-#        if os.path.exists(output_temp) == False:
-#            os.makedirs(output_temp)
-#        
-#        # Netcdf filename
-#        if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
-#            netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + str(input.option_calibration) 
-#                         + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
-#                         str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + str(count) + '.nc')
-#        else:
-#            netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
-#                         str(input.option_calibration) + '_ba' + str(option_bias_adjustment) + '_' +  
-#                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + 
-#                         str(count) + '.nc')
-#    
-#        if debug:
-#            print(netcdf_fn)
-#    
-#        main_glac_rgi_float = main_glac_rgi.copy()
-#        main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
-#        output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table, 
-#                            output_filepath=output_temp, nsims=input.sim_iters)
-
     # ===== RUN MASS BALANCE =====
     for glac in range(main_glac_rgi.shape[0]):
         if glac%200 == 0:
@@ -309,7 +274,7 @@ def main(list_packed_vars):
             print(glacier_RGIId)
         
         # Create netcdf file    
-        if output_package != 0:
+        if input.output_package != 0:
             # Create filepath if it does not exist
             output_temp = input.output_sim_fp + 'temp/'
             if os.path.exists(output_temp) == False:
@@ -320,11 +285,10 @@ def main(list_packed_vars):
                 netcdf_fn = (gcm_name + '_c' + str(input.option_calibration) 
                              + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
                              str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + glacier_RGIId + '.nc')
-#            else:
-#                netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
-#                             str(input.option_calibration) + '_ba' + str(option_bias_adjustment) + '_' +  
-#                             str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + 
-#                             str(count) + '.nc')
+            else:
+                netcdf_fn = (gcm_name + '_' + rcp_scenario + '_c' + str(input.option_calibration) + 
+                             + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
+                             str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + glacier_RGIId + '.nc')
         
             if debug:
                 print(netcdf_fn)
@@ -340,35 +304,34 @@ def main(list_packed_vars):
         if input.option_import_modelparams == 1:
             ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
             cn_subset = input.modelparams_colnames
-            cn_subset.append('massbal')
-            modelparams_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
-                                           columns=ds_mp.mp.values)[cn_subset])
+            modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
+                                                columns=ds_mp.mp.values)[cn_subset])
         else:
-            modelparams_all = (
+            modelparameters_all = (
                     pd.DataFrame(np.asarray([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, 
                                              input.ddfice, input.tempsnow, input.tempchange]).reshape(1,-1), 
                                              columns=input.modelparams_colnames))
         
         # Set the number of iterations and determine every kth iteration to use for the ensemble
-        if (input.option_calibration == 1) or (modelparams_all.shape[0] == 1):
+        if (input.option_calibration == 1) or (modelparameters_all.shape[0] == 1):
             sim_iters = 1
         elif input.option_calibration == 2:
             sim_iters = input.sim_iters
             # Select every kth iteration
-            mp_spacing = int((modelparams_all.shape[0] - input.sim_burn) / sim_iters)
+            mp_spacing = int((modelparameters_all.shape[0] - input.sim_burn) / sim_iters)
             mp_idx_start = np.arange(input.sim_burn, input.sim_burn + mp_spacing)
             np.random.shuffle(mp_idx_start)
             mp_idx_start = mp_idx_start[0]
-            mp_idx_all = np.arange(mp_idx_start, modelparams_all.shape[0], mp_spacing)
+            mp_idx_all = np.arange(mp_idx_start, modelparameters_all.shape[0], mp_spacing)
             
         # Loop through model parameters
         for n_iter in range(sim_iters):
 
             if sim_iters == 1:
-                modelparameters = modelparams_all.mean()             
+                modelparameters = modelparameters_all.mean()  
             else:
                 mp_idx = mp_idx_all[n_iter]
-                modelparameters = modelparams_all.iloc[mp_idx,:]
+                modelparameters = modelparameters_all.iloc[mp_idx,:]
             
             # run mass balance calculation
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
@@ -392,11 +355,11 @@ def main(list_packed_vars):
             
             if debug:
                 if sim_iters > 1:
-                    print('mb_cal [mwea]:', modelparams_all.iloc[mp_idx,8])
+                    print('mb_cal [mwea]:', modelparameters_all.iloc[mp_idx,8])
                 print('mb_model [mwea]:', mb_mwea.round(6))
 
             # write to netcdf file
-            if output_package != 0:
+            if input.output_package != 0:
                 output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
                                    glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                                    glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
@@ -404,8 +367,12 @@ def main(list_packed_vars):
                                    glac_bin_surfacetype_annual, output_filepath=output_temp, sim=n_iter)
                 
         # Convert netcdf of ensembles to a netcdf containing stats of the ensembles
+        output_sim_reg = input.output_sim_fp + 'reg' + str(input.rgi_regionsO1[0]) + '/'
+        if os.path.exists(output_sim_reg) == False:
+                os.makedirs(output_sim_reg)
+        # Open netcdf
         ds = xr.open_dataset(output_temp + netcdf_fn)
-        if output_package == 2:
+        if input.output_package == 2:
             # List of variables
             ds_vns = []
             for vn in ds.variables:
@@ -429,10 +396,10 @@ def main(list_packed_vars):
                     output_ds_all = output_ds
                 else:
                     output_ds_all = xr.merge((output_ds_all, output_ds))
-            # Remove existing file
-            os.remove(output_temp + netcdf_fn)
             # Export new file
-            output_ds_all.to_netcdf(output_temp + netcdf_fn)
+            output_ds_all.to_netcdf(output_sim_reg + netcdf_fn)
+            # Remove existing file
+#            os.remove(output_temp + netcdf_fn)
 
     #%% Export variables as global to view in variable explorer
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
@@ -584,7 +551,7 @@ if __name__ == '__main__':
         glac_bin_prec = main_vars['glac_bin_prec']
         glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
         output_temp = main_vars['output_temp']
-        modelparams_all = main_vars['modelparams_all']
+        modelparameters_all = main_vars['modelparameters_all']
         sim_iters = main_vars['sim_iters']
         mp_idx = main_vars['mp_idx']
         mp_idx_all = main_vars['mp_idx_all']

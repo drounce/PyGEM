@@ -492,7 +492,7 @@ def main(list_packed_vars):
                                     'mp': df.columns.values,
                                     'chain': np.arange(0,n_chain+1)})
     
-            mcmc_output_netcdf_fp_reg = input.mcmc_output_netcdf_fp + 'reg' + str(input.rgi_regionsO1[0]) + '/'
+            mcmc_output_netcdf_fp_reg = input.output_fp_cal + 'reg' + str(input.rgi_regionsO1[0]) + '/'
             if not os.path.exists(mcmc_output_netcdf_fp_reg):
                 os.makedirs(mcmc_output_netcdf_fp_reg)
             ds.to_netcdf(mcmc_output_netcdf_fp_reg + glacier_str + '.nc')
@@ -502,7 +502,7 @@ def main(list_packed_vars):
             
 #            #%%
 #            # Example of accessing netcdf file and putting it back into pandas dataframe
-#            A = xr.open_dataset(input.mcmc_output_netcdf_fp + '15.03734.nc')
+#            A = xr.open_dataset(input.mcmc_output_netcdf_fp + 'reg' + str(input.rgi_regionsO1[0]) + '/15.03734.nc')
 #            B = pd.DataFrame(A['mp_value'].sel(chain=0).values, columns=A.mp.values)
 #            #%%
 

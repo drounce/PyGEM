@@ -67,20 +67,22 @@ def glac_num_fromrange(int_low, int_high):
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # Model setup directory
 main_directory = os.getcwd()
+# Output filepath
+output_filepath = main_directory + '/../Output/'
 
 # Calibration option (1 = minimization, 2 = MCMC)
-option_calibration = 1
+option_calibration = 2
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 # Calibration output filepath (currently only for option 1)
-output_fp_cal = main_directory + '/../Output/cal_opt' + str(option_calibration) + '/'
+output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
 # ===== MCMC and ensemble selections ========
 # Number of chains (min 1, max 3)
 n_chains = 1
 # number of MCMC samples to use
-mcmc_sample_no = 15000
+mcmc_sample_no = 100
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
@@ -96,7 +98,7 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-rgi_glac_number = glac_num_fromrange(3473,3483)
+rgi_glac_number = glac_num_fromrange(1,5)
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
@@ -131,9 +133,6 @@ option_removeNaNcal = 1
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 
 #%% ===== CALIBRATION OPTIONS =====
-# Output filepath
-output_filepath = main_directory + '/../Output/'
-
 # Option 1:
 # Model parameter bounds for each calibration round
 #  first tuple will run as expected; 
@@ -143,15 +142,15 @@ ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), 
 tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
 
 # MCMC export configuration
-mcmc_output_fp = main_directory + '/../MCMC_data/'
-mcmc_sim_fp_dict = {}
-mcmc_output_netcdf_fp = mcmc_output_fp + 'netcdf/'
-mcmc_output_csv_fp = mcmc_output_fp + 'csv/'
-mcmc_output_figs_fp = mcmc_output_fp + 'figures/'
-mcmc_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'samples_' 
-                        + str(ensemble_no) + 'ensembles_' + str(strftime("%Y%m%d")) + '.nc')
-mcmc_output_csv_fn = ('parameter_stats_' + str(len(rgi_glac_number)) + 'glaciers_' + str(n_chains) + 'chains_' + 
-                      str(mcmc_sample_no) + 'iter_' + str(mcmc_burn_no) + 'burn_' + str(strftime("%Y%m%d")) + '.csv')
+#mcmc_output_fp = main_directory + '/../MCMC_data/'
+#mcmc_output_netcdf_fp = output_fp_cal + 'netcdf/'
+#mcmc_output_csv_fp = output_fp_cal + 'csv/'
+#mcmc_output_figs_fp = output_fp_cal + 'figures/'
+#mcmc_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'samples_' 
+#                        + str(ensemble_no) + 'ensembles_' + str(strftime("%Y%m%d")) + '.nc')
+#mcmc_output_csv_fn = ('parameter_stats_' + str(len(rgi_glac_number)) + 'glaciers_' + str(n_chains) + 'chains_' + 
+#                      str(mcmc_sample_no) + 'iter_' + str(mcmc_burn_no) + 'burn_' + str(strftime("%Y%m%d")) + '.csv')
+
 # MCMC distribution parameters
 mcmc_distribution_type = 'truncnormal'
 precfactor_mu = 0
@@ -234,22 +233,14 @@ frontalablation_k0dict = {
 # Model parameters column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
-#modelparams_fp_dict = {
-#            13: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg13/',
-#            14: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg14/',
-#            15: main_directory + '/../MCMC_data/netcdf_allglaciers_1chain_15000iter/reg15/'}
 modelparams_fp_dict = {
-            13: main_directory + '/../MCMC_data/netcdf/reg13/',
-            14: main_directory + '/../MCMC_data/netcdf/reg14/',
-            15: main_directory + '/../MCMC_data/netcdf/reg15/'}
-modelparams_cal1_fullfp_dict = {
-            13: main_directory + '/../Output/',
-            14: main_directory + '/../Output/R14_27988glac_modelparams_opt1_ERA-Interim20002018_20181001.nc',
-            15: main_directory + '/../Output/R15_13119glac_modelparams_opt1_ERA-Interim20002018_20180928.nc'}
+            13: output_fp_cal + 'reg13/',
+            14: output_fp_cal + 'reg14/',
+            15: output_fp_cal + 'reg15/'}
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 100
+sim_iters = 50
 sim_burn = 0
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
@@ -294,10 +285,14 @@ cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 # COAWST (High-resolution climate data over HMA)
 coawst_fp_unmerged = main_directory + '/../Climate_data/coawst/Monthly/'
 coawst_fp = main_directory + '/../Climate_data/coawst/'
-coawst_fn_prefix = 'wrfout_d02_Monthly_'
-coawst_temp_fn = 'wrfout_d02_Monthly_T2_1999100100-2006123123.nc'
-coawst_prec_fn = 'wrfout_d02_Monthly_TOTPRECIP_1999100100-2006123123.nc'
-coawst_elev_fn = 'wrfout_d02_Monthly_HGHT.nc'
+coawst_fn_prefix_d02 = 'wrfout_d02_Monthly_'
+coawst_fn_prefix_d01 = 'wrfout_d01_Monthly_'
+coawst_temp_fn_d02 = 'wrfout_d02_Monthly_T2_1999100100-2006123123.nc'
+coawst_prec_fn_d02 = 'wrfout_d02_Monthly_TOTPRECIP_1999100100-2006123123.nc'
+coawst_elev_fn_d02 = 'wrfout_d02_Monthly_HGHT.nc'
+coawst_temp_fn_d01 = 'wrfout_d01_Monthly_T2_1999100100-2006123123.nc'
+coawst_prec_fn_d01 = 'wrfout_d01_Monthly_TOTPRECIP_1999100100-2006123123.nc'
+coawst_elev_fn_d01 = 'wrfout_d01_Monthly_HGHT.nc'
 coawst_vns = ['T2', 'TOTPRECIP', 'HGHT']
 
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
@@ -446,8 +441,8 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 #%% CALIBRATION DATA
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
-shean_fn = 'hma_mb_20180803_1229.csv'
-#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+#shean_fn = 'hma_mb_20180803_1229.csv'
+shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'

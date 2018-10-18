@@ -37,12 +37,11 @@ parameters_all = ['ddfsnow', 'precfactor', 'tempchange', 'ddfice', 'lrgcm', 'lrg
 acorr_maxlags = 100
 
 # Export option
-#output_filepath = input.main_directory + '/../Output/'
-mcmc_output_netcdf_fp = input.main_directory + '/../MCMC_data/netcdf/'
-mcmc_output_figures_fp = input.main_directory + '/../MCMC_data/figures/'
-mcmc_output_tables_fp = input.main_directory + '/../MCMC_data/tables/'
-mcmc_output_csv_fp = input.main_directory + '/../MCMC_data/csv/'
-mcmc_output_hist_fp = input.main_directory + '/../MCMC_data/hist/'
+mcmc_output_netcdf_fp = input.output_fp_cal + 'netcdf/'
+mcmc_output_figures_fp = input.output_fp_cal + 'figures/'
+mcmc_output_tables_fp = input.output_fp_cal + 'tables/'
+mcmc_output_csv_fp = input.output_fp_cal + 'csv/'
+mcmc_output_hist_fp = input.output_fp_cal + 'hist/'
 
 debug = False
 
