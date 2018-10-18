@@ -116,11 +116,10 @@ def main(list_packed_vars):
         ref_endyear = input.endyear
     else:
         ref_endyear = input.gcm_endyear
-    dates_table_ref, start_date, end_date = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
-                                                                     spinupyears=input.spinupyears)
-    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=input.gcm_startyear, 
-                                                                 endyear=input.gcm_endyear,
-                                                                 spinupyears=input.spinupyears)
+    dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
+                                               spinupyears=input.spinupyears)
+    dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear,
+                                           spinupyears=input.spinupyears)
 
     # ===== LOAD CLIMATE DATA =====
     # Reference climate data

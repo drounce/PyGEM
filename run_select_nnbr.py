@@ -59,7 +59,7 @@ main_glac_width = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, inpu
 # Add volume [km**3] and mean elevation [m a.s.l.] to the main glaciers table
 main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
 # Model time frame
-dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear, endyear, spinupyears)
+dates_table = modelsetup.datesmodelrun(startyear, endyear, spinupyears)
 # Quality control - if ice thickness = 0, glacier area = 0 (problem identified by glacier RGIV6-15.00016 03/06/2018)
 main_glac_hyps[main_glac_icethickness == 0] = 0
 

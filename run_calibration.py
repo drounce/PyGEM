@@ -117,10 +117,10 @@ def main(list_packed_vars):
             modelsetup.hypsometrystats(main_glac_hyps_raw, main_glac_icethickness_raw))
     # Select dates including future projections
     #  - nospinup dates_table needed to get the proper time indices
-    dates_table_nospinup, start_date, end_date = modelsetup.datesmodelrun(startyear=input.startyear, 
-                                                                          endyear=input.endyear, spinupyears=0)
-    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=input.startyear, 
-                                                                 endyear=input.endyear, spinupyears=input.spinupyears)
+    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+                                                     spinupyears=0)
+    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+                                           spinupyears=input.spinupyears)
 
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()

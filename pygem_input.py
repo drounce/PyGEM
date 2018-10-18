@@ -91,7 +91,7 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = 'all'
 rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-#rgi_glac_number = glac_num_fromrange(1,10)
+#rgi_glac_number = glac_num_fromrange(30001,54431)
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
@@ -241,7 +241,7 @@ modelparams_fp_dict = {
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 1
+sim_iters = 100
 sim_burn = 0
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'

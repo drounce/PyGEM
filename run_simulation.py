@@ -39,6 +39,8 @@ output_package = 2
 # Bias adjustment option (options defined in run_gcmbiasadj script; 0 means no correction)
 option_bias_adjustment = 0
 
+time_names = ['time', 'year', 'year_plus1']
+
 
 #%% FUNCTIONS
 def getparser():
@@ -75,6 +77,36 @@ def getparser():
     parser.add_argument('-debug', action='store', type=int, default=0,
                         help='Boolean for debugging to turn it on or off (default 0 is off')
     return parser
+
+
+def calc_stats(vn, ds):
+    """
+    Calculate stats for a given variable
+    
+    Parameters
+    ----------
+    vn : str
+        variable name
+    ds : xarray dataset
+        dataset of output with all ensemble simulations
+    
+    Returns
+    -------
+    stats : np.array
+        Statistics related to a given variable
+    stats_cn : list
+        list of column names of the various statistics
+    """
+    data = ds[vn].values[0,:,:]
+    stats = data.mean(axis=1)[:,np.newaxis]
+    stats = np.append(stats, data.std(axis=1)[:,np.newaxis], axis=1)
+    stats = np.append(stats, np.percentile(data, 2.5, axis=1)[:,np.newaxis], axis=1)
+    stats = np.append(stats, np.percentile(data, 25, axis=1)[:,np.newaxis], axis=1)
+    stats = np.append(stats, np.median(data, axis=1)[:,np.newaxis], axis=1)
+    stats = np.append(stats, np.percentile(data, 75, axis=1)[:,np.newaxis], axis=1)
+    stats = np.append(stats, np.percentile(data, 97.5, axis=1)[:,np.newaxis], axis=1)
+    stats_cn = ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%']
+    return stats, stats_cn
 
 
 def main(list_packed_vars):
@@ -121,8 +153,7 @@ def main(list_packed_vars):
     main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
     
     # Select dates including future projections
-    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear,
-                                                                 spinupyears=gcm_spinupyears)
+    dates_table = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, spinupyears=gcm_spinupyears)
     # Synthetic simulation dates
     if input.option_synthetic_sim == 1:
         dates_table_synthetic, synthetic_start, synthetic_end = modelsetup.datesmodelrun(
@@ -366,24 +397,37 @@ def main(list_packed_vars):
                                    glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
                                    glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
                                    glac_bin_surfacetype_annual, output_filepath=output_temp, sim=n_iter)
-        #%%
-#        ds = xr.open_dataset(output_temp + 'ERA-Interim_c2_ba0_100sets_2000_2018--15.03473.nc')
-#        # List of variables
-#        ds_vns = []
-#        for vn in ds.variables:
-#            ds_vns.append(vn)
-#        for vn in ds_vns[0:8]:
-#            ds_vns.remove(vn)
-#        for vn in ['massbaltotal_glac_monthly']:
-#            A = ds[vn].values[0,:,:].sum(axis=0)/18
-#            print(A.mean())
-#            print(A.std())
-#            print(np.median(A))
-#            print(np.percentile(A, 2.5))
-#            print(np.percentile(A, 25))
-#            print(np.percentile(A, 75))
-#            print(np.percentile(A, 97.5))
-
+                
+        # Convert netcdf of ensembles to a netcdf containing stats of the ensembles
+        ds = xr.open_dataset(output_temp + netcdf_fn)
+        if output_package == 2:
+            # List of variables
+            ds_vns = []
+            for vn in ds.variables:
+                ds_vns.append(vn)
+            for vn in ds_vns[0:8]:
+                ds_vns.remove(vn)
+            count_vn = 0
+            for vn in ds_vns:
+                count_vn += 1
+                stats, stats_cn = calc_stats(vn, ds)
+                # Determine time coordinate of the variable
+                for t_name in time_names:
+                    if t_name in ds[vn].coords:
+                        time_coord = t_name
+                # Create dataset for variable
+                output_ds = xr.Dataset({vn: ((time_coord, 'stats'), stats)},
+                                       coords={time_coord: ds[vn][time_coord].values,
+                                               'stats': stats_cn})
+                # Merge datasets of stats into one output
+                if count_vn == 1:
+                    output_ds_all = output_ds
+                else:
+                    output_ds_all = xr.merge((output_ds_all, output_ds))
+            # Remove existing file
+            os.remove(output_temp + netcdf_fn)
+            # Export new file
+            output_ds_all.to_netcdf(output_temp + netcdf_fn)
 
     #%% Export variables as global to view in variable explorer
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
@@ -422,8 +466,7 @@ if __name__ == '__main__':
     main_glac_rgi_all_float.drop(labels=['RGIId'], axis=1, inplace=True)
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, input.rgi_regionsO1, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
-    dates_table, start_date, end_date = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear,
-                                                                 spinupyears=gcm_spinupyears)
+    dates_table = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, spinupyears=gcm_spinupyears)
     
     # Define chunk size for parallel processing
     if args.option_parallels != 0:

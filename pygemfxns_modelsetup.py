@@ -14,18 +14,19 @@ def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=
     """
     Create table of year, month, day, water year, season and number of days in the month.
     
-    Output is a Pandas DataFrame with a table of dates (rows = timesteps, columns = timestep attributes), as well as 
-    the start date, and end date of the model run.  These two things are useful for grabbing the correct climate data.
+    Parameters
+    ----------
+    startyear : int
+        starting year
+    endyear : int
+        ending year
+    spinupyears : int
+        number of spinup years
     
-    Function Options:
-    - option_wateryear:
-        > 1 (default) - use water year
-        > 2 - use calendar year
-    -  option_leapyear:
-        > 1 (default) - leap years are included
-        > 2 - leap years are excluded (February always has 28 days)
-        
-    Developer's note: ADD OPTIONS FOR CHANGING WATER YEAR FROM OCT 1 - SEPT 30 FOR VARIOUS REGIONS
+    Returns
+    -------
+    dates_table : pd.DataFrame
+        table where each row is a timestep and each column is attributes (date, year, wateryear, etc.) of that timestep
     """
     # Include spinup time in start year
     startyear_wspinup = startyear - spinupyears
@@ -108,11 +109,12 @@ def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=
             season_list.append('winter')
             seasondict[month_list[i]] = season_list[i]
     dates_table['season'] = dates_table['month'].apply(lambda x: seasondict[x])
-    return dates_table, startdate, enddate
+    return dates_table
 
 
 def daysinmonth(year, month):
-    """Return days in month based on the month and year
+    """
+    Return days in month based on the month and year
     
     Parameters
     ----------
@@ -122,7 +124,6 @@ def daysinmonth(year, month):
     Returns
     -------
     integer of the days in the month
-    
     """
     if year%4 == 0:
         daysinmonth_dict = {
