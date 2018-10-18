@@ -208,6 +208,11 @@ def main(list_packed_vars):
         # Temperature and precipitation sensitivity adjustments
         gcm_temp = gcm_temp + input.synthetic_temp_adjust
         gcm_prec = gcm_prec * input.synthetic_prec_factor
+        
+    #%%
+    # ===== MODEL PARAMETERS (Option 1) =====
+    # note: model parameters for option 2 are loaded within the glacier loop
+    ds = xr.open_dataset(input.modelparams_cal1_fullfp_dict[input.rgi_regionsO1[0]])
 
 #%%
     # ===== BIAS CORRECTIONS =====

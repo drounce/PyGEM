@@ -65,11 +65,16 @@ def glac_num_fromrange(int_low, int_high):
     return y
 
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
+# Model setup directory
+main_directory = os.getcwd()
+
 # Calibration option (1 = minimization, 2 = MCMC)
-option_calibration = 2
+option_calibration = 1
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
+# Calibration output filepath (currently only for option 1)
+output_fp_cal = main_directory + '/../Output/cal_opt' + str(option_calibration) + '/'
 
 # ===== MCMC and ensemble selections ========
 # Number of chains (min 1, max 3)
@@ -89,9 +94,9 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473']
+#rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-#rgi_glac_number = glac_num_fromrange(30001,54431)
+rgi_glac_number = glac_num_fromrange(3473,3483)
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
@@ -121,8 +126,8 @@ synthetic_spinupyears = 0
 option_removeNaNcal = 1
 #  Option 0 (default) - do not remove these glaciers
 #  Option 1 - remove glaciers without cal data
-# Model setup directory
-main_directory = os.getcwd()
+
+# Can this be removed?
 modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
 
 #%% ===== CALIBRATION OPTIONS =====
@@ -140,7 +145,6 @@ tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
 # MCMC export configuration
 mcmc_output_fp = main_directory + '/../MCMC_data/'
 mcmc_sim_fp_dict = {}
-
 mcmc_output_netcdf_fp = mcmc_output_fp + 'netcdf/'
 mcmc_output_csv_fp = mcmc_output_fp + 'csv/'
 mcmc_output_figs_fp = mcmc_output_fp + 'figures/'
@@ -238,6 +242,10 @@ modelparams_fp_dict = {
             13: main_directory + '/../MCMC_data/netcdf/reg13/',
             14: main_directory + '/../MCMC_data/netcdf/reg14/',
             15: main_directory + '/../MCMC_data/netcdf/reg15/'}
+modelparams_cal1_fullfp_dict = {
+            13: main_directory + '/../Output/',
+            14: main_directory + '/../Output/R14_27988glac_modelparams_opt1_ERA-Interim20002018_20181001.nc',
+            15: main_directory + '/../Output/R15_13119glac_modelparams_opt1_ERA-Interim20002018_20180928.nc'}
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
