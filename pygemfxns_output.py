@@ -18,7 +18,7 @@ import netCDF4 as nc
 from time import strftime
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-import cartopy
+#import cartopy
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup

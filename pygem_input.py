@@ -91,14 +91,15 @@ thin_interval = 1
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [13]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-rgi_glac_number = glac_num_fromrange(1,2)
+rgi_glac_number = ['19650']
+#rgi_glac_number = glac_num_fromrange(1,2)
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
@@ -243,7 +244,7 @@ modelparams_fp_dict = {
 sim_iters = 200
 sim_burn = 0
 # Simulation output filepath
-output_sim_fp = output_filepath + 'simulations/'
+output_sim_fp = output_filepath + 'simulations/reg' + str(rgi_regionsO1[0]) + '/'
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)

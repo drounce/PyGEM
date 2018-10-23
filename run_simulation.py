@@ -291,10 +291,8 @@ def main(list_packed_vars):
         # Create netcdf file    
         if input.output_package != 0:
             # Create filepath if it does not exist
-            output_temp = input.output_sim_fp + 'temp/'
-            if os.path.exists(output_temp) == False:
-                os.makedirs(output_temp)
-            
+            if os.path.exists(input.output_sim_fp) == False:
+                os.makedirs(input.output_sim_fp)
             # Netcdf filename
             if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
                 netcdf_fn = (gcm_name + '_c' + str(input.option_calibration) 
@@ -310,10 +308,8 @@ def main(list_packed_vars):
         
             main_glac_rgi_float = main_glac_rgi.copy()
             main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
-#            output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table, 
-#                                output_filepath=output_temp, nsims=input.sim_iters)
             output.netcdfcreate(netcdf_fn, main_glac_rgi_float.iloc[[glac],:], main_glac_hyps.iloc[[glac],:], 
-                                dates_table, output_filepath=output_temp, nsims=input.sim_iters)
+                                dates_table, output_filepath=input.output_sim_fp, nsims=input.sim_iters)
             
         if debug:
             print(glacier_RGIId)   
@@ -375,24 +371,21 @@ def main(list_packed_vars):
 
             # write to netcdf file
             if input.output_package != 0:
-#                output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
-#                                   glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-#                                   glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
-#                                   glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
-#                                   glac_bin_surfacetype_annual, output_filepath=output_temp, sim=n_iter)
                 output.netcdfwrite(netcdf_fn, 0, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
                                    glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                                    glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
                                    glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
-                                   glac_bin_surfacetype_annual, output_filepath=output_temp, sim=n_iter)
+                                   glac_bin_surfacetype_annual, output_filepath=input.output_sim_fp, sim=n_iter)
                 
         # Convert netcdf of ensembles to a netcdf containing stats of the ensembles
-        output_sim_reg = input.output_sim_fp + 'reg' + str(input.rgi_regionsO1[0]) + '/'
+        output_sim_reg = input.output_sim_fp + 'stats/'
         if os.path.exists(output_sim_reg) == False:
                 os.makedirs(output_sim_reg)
         # Open netcdf
-        ds = xr.open_dataset(output_temp + netcdf_fn)
+        ds = xr.open_dataset(input.output_sim_fp + netcdf_fn)
         if input.output_package == 2:
+            # Stats filename
+            netcdf_stats_fn = netcdf_fn.split('.nc')[0] + '_stats.nc'
             # List of variables
             ds_vns = []
             for vn in ds.variables:
@@ -417,9 +410,9 @@ def main(list_packed_vars):
                 else:
                     output_ds_all = xr.merge((output_ds_all, output_ds))
             # Export new file
-            output_ds_all.to_netcdf(output_sim_reg + netcdf_fn)
+            output_ds_all.to_netcdf(output_sim_reg + netcdf_stats_fn)
             # Remove existing file
-#            os.remove(output_temp + netcdf_fn)
+#            os.remove(input.output_sim_fp + netcdf_fn)
             
         # Mean and standard deviation of glacier-wide mass balance
         mb_mwea_all = (ds.massbaltotal_glac_monthly.values[0,:,:]).sum(axis=0) / (dates_table.shape[0] / 12)
