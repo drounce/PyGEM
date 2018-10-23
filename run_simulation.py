@@ -12,12 +12,10 @@ import argparse
 import multiprocessing
 import time
 import inspect
-from time import strftime
 # External libraries
 import pandas as pd
 import numpy as np
 import xarray as xr
-#import netCDF4 as nc
 import pickle
 # Local libraries
 import pygem_input as input
@@ -157,7 +155,7 @@ def main(list_packed_vars):
                 startyear=input.synthetic_startyear, endyear=input.synthetic_endyear, spinupyears=0)
         
     # ===== LOAD CLIMATE DATA =====
-    if gcm_name == input.ref_gcm_name:
+    if gcm_name == 'ERA-Interim' or gcm_name == 'COAWST':
         gcm = class_climate.GCM(name=gcm_name)
         # Check that end year is reasonable
         if (gcm_endyear > int(time.strftime("%Y"))) and (input.option_synthetic_sim == 0):
@@ -181,8 +179,25 @@ def main(list_packed_vars):
             # Mean monthly lapse rate
             ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
             ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
-            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))            
-    if input.option_synthetic_sim == 1:
+            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))    
+        # COAWST data has two domains, so need to merge the two domains
+        if gcm_name == 'COAWST':
+            gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn,
+                                                                             main_glac_rgi, dates_table)
+            gcm_prec_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn_d01, gcm.prec_vn, 
+                                                                             main_glac_rgi, dates_table)
+            gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
+            # Check if glacier outside of high-res (d02) domain
+            for glac in range(main_glac_rgi.shape[0]):
+                glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
+                glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
+                if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or 
+                    ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
+                    gcm_prec[glac,:] = gcm_prec_d01[glac,:]
+                    gcm_temp[glac,:] = gcm_temp_d01[glac,:]
+                    gcm_elev[glac] = gcm_elev_d01[glac]
+  
+    elif input.option_synthetic_sim == 1:
         # Air temperature [degC]
         gcm_temp_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
                                                                           dates_table_synthetic)
@@ -295,8 +310,10 @@ def main(list_packed_vars):
         
             main_glac_rgi_float = main_glac_rgi.copy()
             main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
-            output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table, 
-                                output_filepath=output_temp, nsims=input.sim_iters)
+#            output.netcdfcreate(netcdf_fn, main_glac_rgi_float, main_glac_hyps, dates_table, 
+#                                output_filepath=output_temp, nsims=input.sim_iters)
+            output.netcdfcreate(netcdf_fn, main_glac_rgi_float.iloc[[glac],:], main_glac_hyps.iloc[[glac],:], 
+                                dates_table, output_filepath=output_temp, nsims=input.sim_iters)
             
         if debug:
             print(glacier_RGIId)   
@@ -354,13 +371,16 @@ def main(list_packed_vars):
 #                                        glac_wide_volume_annual[0] * 100)
             
             if debug:
-                if sim_iters > 1:
-                    print('mb_cal [mwea]:', modelparameters_all.iloc[mp_idx,8])
                 print('mb_model [mwea]:', mb_mwea.round(6))
 
             # write to netcdf file
             if input.output_package != 0:
-                output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
+#                output.netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
+#                                   glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+#                                   glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
+#                                   glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
+#                                   glac_bin_surfacetype_annual, output_filepath=output_temp, sim=n_iter)
+                output.netcdfwrite(netcdf_fn, 0, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
                                    glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                                    glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
                                    glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
@@ -400,6 +420,11 @@ def main(list_packed_vars):
             output_ds_all.to_netcdf(output_sim_reg + netcdf_fn)
             # Remove existing file
 #            os.remove(output_temp + netcdf_fn)
+            
+        # Mean and standard deviation of glacier-wide mass balance
+        mb_mwea_all = (ds.massbaltotal_glac_monthly.values[0,:,:]).sum(axis=0) / (dates_table.shape[0] / 12)
+        print('mb_model [mwea] mean:', round(mb_mwea_all.mean(),3), 'std:', round(mb_mwea_all.std(),3))       
+
 
     #%% Export variables as global to view in variable explorer
     if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
@@ -555,3 +580,5 @@ if __name__ == '__main__':
         sim_iters = main_vars['sim_iters']
         mp_idx = main_vars['mp_idx']
         mp_idx_all = main_vars['mp_idx_all']
+        output_temp = main_vars['output_temp']
+        netcdf_fn = main_vars['netcdf_fn']

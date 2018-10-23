@@ -98,7 +98,7 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-rgi_glac_number = glac_num_fromrange(210,212)
+rgi_glac_number = glac_num_fromrange(1,2)
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
 
@@ -234,13 +234,13 @@ frontalablation_k0dict = {
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
 modelparams_fp_dict = {
-            13: output_fp_cal + 'reg13/',
-            14: output_fp_cal + 'reg14/',
-            15: output_fp_cal + 'reg15/'}
+            13: output_filepath + 'cal_opt2_20181018/reg13/',
+            14: output_filepath + 'cal_opt2_20181018/reg14/',
+            15: output_filepath + 'cal_opt2_20181018/reg15/'}
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 50
+sim_iters = 200
 sim_burn = 0
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'

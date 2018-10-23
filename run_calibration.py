@@ -166,11 +166,9 @@ def main(list_packed_vars):
 
     # ===== LOAD CLIMATE DATA =====
     gcm = class_climate.GCM(name=gcm_name)
-    # Air temperature [degC]
+    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-    # Precipitation [m]
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-    # Elevation [m asl]
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Lapse rate [K m-1]
     if gcm_name == 'ERA-Interim':
@@ -179,6 +177,22 @@ def main(list_packed_vars):
         # Mean monthly lapse rate
         ref_lr_monthly_avg = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
         gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+    # COAWST data has two domains, so need to merge the two domains
+    if gcm_name == 'COAWST':
+        gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn, main_glac_rgi, 
+                                                                         dates_table)
+        gcm_prec_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn_d01, gcm.prec_vn, main_glac_rgi, 
+                                                                         dates_table)
+        gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
+        # Check if glacier outside of high-res (d02) domain
+        for glac in range(main_glac_rgi.shape[0]):
+            glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
+            glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
+            if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or 
+                ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
+                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
+                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
+                gcm_elev[glac] = gcm_elev_d01[glac]
 
     # ===== CALIBRATION =====
     # Option 2: use MCMC method to determine posterior probability distributions of the three parameters tempchange,
