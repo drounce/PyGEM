@@ -395,7 +395,7 @@ option_leapyear = 1
 #                       days_in_month = 29 for these years.
 #  Option 0 - exclude leap years, i.e., February always has 28 days
 # Water year option
-option_wateryear = 3
+option_wateryear = 1
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
@@ -559,7 +559,7 @@ precgrad_lobf_property_cn = 'Zmed'
 precgrad_lobf_slope = 0
 
 #%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
-option_bias_adjustment = 2
+option_bias_adjustment = 0
 #  Option 0 - ignore bias adjustments
 #  Option 1 - bias adjustments using new technique 
 #  Option 2 - bias adjustments using Huss and Hock [2015] methods

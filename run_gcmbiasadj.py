@@ -30,8 +30,8 @@ def getparser():
     
     Parameters
     ----------
-    ref_gcm_name (optional) : str
-        reference gcm name
+    gcm_file : str
+        full filepath to text file that has list of gcm names to be processed
     num_simultaneous_processes (optional) : int
         number of cores to use in parallels
     option_parallels (optional) : int
@@ -821,6 +821,7 @@ if __name__ == '__main__':
         gcm_prec_subset = main_vars['gcm_prec_subset']
         gcm_lr_subset = main_vars['gcm_lr_subset']
         main_glac_bias_adj = main_vars['main_glac_bias_adj']
+        gcm_temp_bias_adj = main_vars['gcm_temp_bias_adj']
         
 #        glacier_rgi_table = main_vars['glacier_rgi_table']
 #        glacier_ref_temp = main_vars['glacier_ref_temp']
