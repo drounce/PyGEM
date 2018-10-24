@@ -32,7 +32,7 @@ gcm_endyear = 2018
 gcm_spinupyears = 0
 
 # Bias adjustment option (options defined in run_gcmbiasadj script; 0 means no correction)
-option_bias_adjustment = 0
+#option_bias_adjustment = 2
 
 time_names = ['time', 'year', 'year_plus1']
 
@@ -69,6 +69,8 @@ def getparser():
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
+    parser.add_argument('-biasadj_fn', action='store', type=str, default=None,
+                        help='Filename of bias adjustments for cases where automatic loading does not work')
     parser.add_argument('-debug', action='store', type=int, default=0,
                         help='Boolean for debugging to turn it on or off (default 0 is off')
     return parser
@@ -224,7 +226,16 @@ def main(list_packed_vars):
 
 #%%
     # ===== BIAS CORRECTIONS =====
-    # ERA-Interim does not have any bias corrections
+    # Bias adjustments from given filename in argument parser
+    if args.biasadj_fn is not None:
+        print('load bias adjustment from filename')
+        main_glac_bias_adj = pd.read_csv(input.biasadj_fp + args.biasadj_fn, index_col=0)
+        # Bias adjustment option
+        option_bias_adjustment = int(args.biasadj_fn.split('biasadj_opt')[1][0])
+    else:
+        option_bias_adjustment = input.option_bias_adjustment
+        
+    # Option 0 - no bias adjustment
     if option_bias_adjustment == 0:
         gcm_temp_adj = gcm_temp
         gcm_prec_adj = gcm_prec
@@ -234,8 +245,11 @@ def main(list_packed_vars):
 #        gcm_temp_adj = gcm_temp + main_glac_modelparams['temp_adj'].values[:,np.newaxis]
 #        gcm_prec_adj = gcm_prec * main_glac_modelparams['prec_adj'].values[:,np.newaxis]
 #        gcm_elev_adj = gcm_elev
-#    # Option 2
-#    elif option_bias_adjustment == 2:
+    # Option 2
+    elif option_bias_adjustment == 2:
+        print('bias adjustments from csv')
+        for glac in range(main_glac_rgi.shape[0]):
+#            print(main_glac_rgi.loc[glac, 'RGIId'])
 #        tempvar_cols = ['tempvar_' + str(n) for n in range(1,13)]
 #        tempavg_cols = ['tempavg_' + str(n) for n in range(1,13)]
 #        tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
@@ -267,156 +281,156 @@ def main(list_packed_vars):
 #        # Updated elevation, since adjusted according to reference elevation
 #        gcm_elev_adj = main_glac_modelparams['new_gcmelev'].values
 #%%
-    # ===== RUN MASS BALANCE =====
-    for glac in range(main_glac_rgi.shape[0]):
-        if glac%200 == 0:
-            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-        # Select subsets of data
-        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
-        glacier_gcm_elev = gcm_elev_adj[glac]
-        glacier_gcm_prec = gcm_prec_adj[glac,:]
-        glacier_gcm_temp = gcm_temp_adj[glac,:]
-        glacier_gcm_lrgcm = gcm_lr[glac,:]
-        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
-        glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
-        icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
-        width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
-
-        # get glacier number
-        glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][6:]
-        
-        if debug:
-            print(glacier_RGIId)
-        
-        # Create netcdf file    
-        if input.output_package != 0:
-            # Create filepath if it does not exist
-            if os.path.exists(input.output_sim_fp) == False:
-                os.makedirs(input.output_sim_fp)
-            # Netcdf filename
-            if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
-                netcdf_fn = (gcm_name + '_c' + str(input.option_calibration) 
-                             + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
-                             str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + glacier_RGIId + '.nc')
-            else:
-                netcdf_fn = (gcm_name + '_' + rcp_scenario + '_c' + str(input.option_calibration) + 
-                             + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
-                             str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + glacier_RGIId + '.nc')
-        
-            if debug:
-                print(netcdf_fn)
-        
-            main_glac_rgi_float = main_glac_rgi.copy()
-            main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
-            output.netcdfcreate(netcdf_fn, main_glac_rgi_float.iloc[[glac],:], main_glac_hyps.iloc[[glac],:], 
-                                dates_table, output_filepath=input.output_sim_fp, nsims=input.sim_iters)
-            
-        if debug:
-            print(glacier_RGIId)   
-            
-        if input.option_import_modelparams == 1:
-            ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
-            cn_subset = input.modelparams_colnames
-            modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
-                                                columns=ds_mp.mp.values)[cn_subset])
-        else:
-            modelparameters_all = (
-                    pd.DataFrame(np.asarray([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, 
-                                             input.ddfice, input.tempsnow, input.tempchange]).reshape(1,-1), 
-                                             columns=input.modelparams_colnames))
-        
-        # Set the number of iterations and determine every kth iteration to use for the ensemble
-        if (input.option_calibration == 1) or (modelparameters_all.shape[0] == 1):
-            sim_iters = 1
-        elif input.option_calibration == 2:
-            sim_iters = input.sim_iters
-            # Select every kth iteration
-            mp_spacing = int((modelparameters_all.shape[0] - input.sim_burn) / sim_iters)
-            mp_idx_start = np.arange(input.sim_burn, input.sim_burn + mp_spacing)
-            np.random.shuffle(mp_idx_start)
-            mp_idx_start = mp_idx_start[0]
-            mp_idx_all = np.arange(mp_idx_start, modelparameters_all.shape[0], mp_spacing)
-            
-        # Loop through model parameters
-        for n_iter in range(sim_iters):
-
-            if sim_iters == 1:
-                modelparameters = modelparameters_all.mean()  
-            else:
-                mp_idx = mp_idx_all[n_iter]
-                modelparameters = modelparameters_all.iloc[mp_idx,:]
-            
-            # run mass balance calculation
-            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
-             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
-             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
-             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                           option_areaconstant=0))
-            # Annual glacier-wide mass balance [m w.e.]
-            glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-            # Average annual glacier-wide mass balance [m w.e.a.]
-            mb_mwea = glac_wide_massbaltotal_annual.mean()
-            #  units: m w.e. based on initial area
-            # Volume change [%]
-#            if icethickness_t0.max() > 0:
-#                glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) /
-#                                        glac_wide_volume_annual[0] * 100)
-            
-            if debug:
-                print('mb_model [mwea]:', mb_mwea.round(6))
-
-            # write to netcdf file
-            if input.output_package != 0:
-                output.netcdfwrite(netcdf_fn, 0, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
-                                   glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-                                   glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
-                                   glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
-                                   glac_bin_surfacetype_annual, output_filepath=input.output_sim_fp, sim=n_iter)
-                
-        # Convert netcdf of ensembles to a netcdf containing stats of the ensembles
-        output_sim_reg = input.output_sim_fp + 'stats/'
-        if os.path.exists(output_sim_reg) == False:
-                os.makedirs(output_sim_reg)
-        # Open netcdf
-        ds = xr.open_dataset(input.output_sim_fp + netcdf_fn)
-        if input.output_package == 2:
-            # Stats filename
-            netcdf_stats_fn = netcdf_fn.split('.nc')[0] + '_stats.nc'
-            # List of variables
-            ds_vns = []
-            for vn in ds.variables:
-                ds_vns.append(vn)
-            for vn in ds_vns[0:8]:
-                ds_vns.remove(vn)
-            count_vn = 0
-            for vn in ds_vns:
-                count_vn += 1
-                stats, stats_cn = calc_stats(vn, ds)
-                # Determine time coordinate of the variable
-                for t_name in time_names:
-                    if t_name in ds[vn].coords:
-                        time_coord = t_name
-                # Create dataset for variable
-                output_ds = xr.Dataset({vn: ((time_coord, 'stats'), stats)},
-                                       coords={time_coord: ds[vn][time_coord].values,
-                                               'stats': stats_cn})
-                # Merge datasets of stats into one output
-                if count_vn == 1:
-                    output_ds_all = output_ds
-                else:
-                    output_ds_all = xr.merge((output_ds_all, output_ds))
-            # Export new file
-            output_ds_all.to_netcdf(output_sim_reg + netcdf_stats_fn)
-            # Remove existing file
-#            os.remove(input.output_sim_fp + netcdf_fn)
-            
-        # Mean and standard deviation of glacier-wide mass balance
-        mb_mwea_all = (ds.massbaltotal_glac_monthly.values[0,:,:]).sum(axis=0) / (dates_table.shape[0] / 12)
-        print('mb_model [mwea] mean:', round(mb_mwea_all.mean(),3), 'std:', round(mb_mwea_all.std(),3))       
+#    # ===== RUN MASS BALANCE =====
+#    for glac in range(main_glac_rgi.shape[0]):
+#        if glac%200 == 0:
+#            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+#        # Select subsets of data
+#        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
+#        glacier_gcm_elev = gcm_elev_adj[glac]
+#        glacier_gcm_prec = gcm_prec_adj[glac,:]
+#        glacier_gcm_temp = gcm_temp_adj[glac,:]
+#        glacier_gcm_lrgcm = gcm_lr[glac,:]
+#        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+#        glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
+#        icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
+#        width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
+#
+#        # get glacier number
+#        glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][6:]
+#        
+#        if debug:
+#            print(glacier_RGIId)
+#        
+#        # Create netcdf file    
+#        if input.output_package != 0:
+#            # Create filepath if it does not exist
+#            if os.path.exists(input.output_sim_fp) == False:
+#                os.makedirs(input.output_sim_fp)
+#            # Netcdf filename
+#            if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
+#                netcdf_fn = (gcm_name + '_c' + str(input.option_calibration) 
+#                             + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
+#                             str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + glacier_RGIId + '.nc')
+#            else:
+#                netcdf_fn = (gcm_name + '_' + rcp_scenario + '_c' + str(input.option_calibration) + 
+#                             + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
+#                             str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + glacier_RGIId + '.nc')
+#        
+#            if debug:
+#                print(netcdf_fn)
+#        
+#            main_glac_rgi_float = main_glac_rgi.copy()
+#            main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
+#            output.netcdfcreate(netcdf_fn, main_glac_rgi_float.iloc[[glac],:], main_glac_hyps.iloc[[glac],:], 
+#                                dates_table, output_filepath=input.output_sim_fp, nsims=input.sim_iters)
+#            
+#        if debug:
+#            print(glacier_RGIId)   
+#            
+#        if input.option_import_modelparams == 1:
+#            ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
+#            cn_subset = input.modelparams_colnames
+#            modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
+#                                                columns=ds_mp.mp.values)[cn_subset])
+#        else:
+#            modelparameters_all = (
+#                    pd.DataFrame(np.asarray([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, 
+#                                             input.ddfice, input.tempsnow, input.tempchange]).reshape(1,-1), 
+#                                             columns=input.modelparams_colnames))
+#        
+#        # Set the number of iterations and determine every kth iteration to use for the ensemble
+#        if (input.option_calibration == 1) or (modelparameters_all.shape[0] == 1):
+#            sim_iters = 1
+#        elif input.option_calibration == 2:
+#            sim_iters = input.sim_iters
+#            # Select every kth iteration
+#            mp_spacing = int((modelparameters_all.shape[0] - input.sim_burn) / sim_iters)
+#            mp_idx_start = np.arange(input.sim_burn, input.sim_burn + mp_spacing)
+#            np.random.shuffle(mp_idx_start)
+#            mp_idx_start = mp_idx_start[0]
+#            mp_idx_all = np.arange(mp_idx_start, modelparameters_all.shape[0], mp_spacing)
+#            
+#        # Loop through model parameters
+#        for n_iter in range(sim_iters):
+#
+#            if sim_iters == 1:
+#                modelparameters = modelparameters_all.mean()  
+#            else:
+#                mp_idx = mp_idx_all[n_iter]
+#                modelparameters = modelparameters_all.iloc[mp_idx,:]
+#            
+#            # run mass balance calculation
+#            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+#             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
+#             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
+#             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
+#             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+#                massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
+#                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+#                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+#                                           option_areaconstant=0))
+#            # Annual glacier-wide mass balance [m w.e.]
+#            glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+#            # Average annual glacier-wide mass balance [m w.e.a.]
+#            mb_mwea = glac_wide_massbaltotal_annual.mean()
+#            #  units: m w.e. based on initial area
+#            # Volume change [%]
+##            if icethickness_t0.max() > 0:
+##                glac_vol_change_perc = ((glac_wide_volume_annual[-1] - glac_wide_volume_annual[0]) /
+##                                        glac_wide_volume_annual[0] * 100)
+#            
+#            if debug:
+#                print('mb_model [mwea]:', mb_mwea.round(6))
+#
+#            # write to netcdf file
+#            if input.output_package != 0:
+#                output.netcdfwrite(netcdf_fn, 0, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp,
+#                                   glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+#                                   glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
+#                                   glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
+#                                   glac_bin_surfacetype_annual, output_filepath=input.output_sim_fp, sim=n_iter)
+#                
+#        # Convert netcdf of ensembles to a netcdf containing stats of the ensembles
+#        output_sim_reg = input.output_sim_fp + 'stats/'
+#        if os.path.exists(output_sim_reg) == False:
+#                os.makedirs(output_sim_reg)
+#        # Open netcdf
+#        ds = xr.open_dataset(input.output_sim_fp + netcdf_fn)
+#        if input.output_package == 2:
+#            # Stats filename
+#            netcdf_stats_fn = netcdf_fn.split('.nc')[0] + '_stats.nc'
+#            # List of variables
+#            ds_vns = []
+#            for vn in ds.variables:
+#                ds_vns.append(vn)
+#            for vn in ds_vns[0:8]:
+#                ds_vns.remove(vn)
+#            count_vn = 0
+#            for vn in ds_vns:
+#                count_vn += 1
+#                stats, stats_cn = calc_stats(vn, ds)
+#                # Determine time coordinate of the variable
+#                for t_name in time_names:
+#                    if t_name in ds[vn].coords:
+#                        time_coord = t_name
+#                # Create dataset for variable
+#                output_ds = xr.Dataset({vn: ((time_coord, 'stats'), stats)},
+#                                       coords={time_coord: ds[vn][time_coord].values,
+#                                               'stats': stats_cn})
+#                # Merge datasets of stats into one output
+#                if count_vn == 1:
+#                    output_ds_all = output_ds
+#                else:
+#                    output_ds_all = xr.merge((output_ds_all, output_ds))
+#            # Export new file
+#            output_ds_all.to_netcdf(output_sim_reg + netcdf_stats_fn)
+#            # Remove existing file
+##            os.remove(input.output_sim_fp + netcdf_fn)
+#            
+#        # Mean and standard deviation of glacier-wide mass balance
+#        mb_mwea_all = (ds.massbaltotal_glac_monthly.values[0,:,:]).sum(axis=0) / (dates_table.shape[0] / 12)
+#        print('mb_model [mwea] mean:', round(mb_mwea_all.mean(),3), 'std:', round(mb_mwea_all.std(),3))       
 
 
     #%% Export variables as global to view in variable explorer
