@@ -84,6 +84,9 @@ def coawst_2d_nearest(ds, vn, coawst_row_indices, coawst_col_indices):
     return data
 
 
+
+
+
 def main(list_packed_vars):
     """
     Climate data bias adjustment
@@ -311,44 +314,137 @@ if __name__ == '__main__':
         era_prec = era_prec_all['tp'][start_idx:end_idx+1][:,:].values
         era_elev = era_elev_all['z'][0,:,:].values / 9.80665
         
+#        #%%
+#        
+#        #%%
+#        # Import netcdf file
+#        data = xr.open_dataset(self.fx_fp + filename)
+#        glac_variable = np.zeros(main_glac_rgi.shape[0])
+#        # If time dimension included, then set the time index (required for ERA Interim, but not for CMIP5 or COAWST)
+#        if 'time' in data[vn].coords:
+#            time_idx = 0
+#            #  ERA Interim has only 1 value of time, so index is 0
+#        # Find Nearest Neighbor
+#        if self.name == 'COAWST':
+#            for glac in range(main_glac_rgi.shape[0]):
+#                latlon_dist = (((data[self.lat_vn].values - main_glac_rgi[self.rgi_lat_colname].values[glac])**2 + 
+#                                 (data[self.lon_vn].values - main_glac_rgi[self.rgi_lon_colname].values[glac])**2)**0.5)
+#                latlon_nearidx = [x[0] for x in np.where(latlon_dist == latlon_dist.min())]
+#                lat_nearidx = latlon_nearidx[0]
+#                lon_nearidx = latlon_nearidx[1]
+#                glac_variable[glac] = (
+#                        data[vn][latlon_nearidx[0], latlon_nearidx[1]].values)
+#        else:
+#            lat_nearidx = (np.abs(main_glac_rgi[self.rgi_lat_colname].values[:,np.newaxis] - 
+#                                  data.variables[self.lat_vn][:].values).argmin(axis=1))
+#            lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 
+#                                  data.variables[self.lon_vn][:].values).argmin(axis=1))
+#            #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel
+#            for glac in range(main_glac_rgi.shape[0]):
+#                # Select the slice of GCM data for each glacier
+#                try:
+#                    glac_variable[glac] = data[vn][time_idx, lat_nearidx[glac], lon_nearidx[glac]].values
+#                except:
+#                    glac_variable[glac] = data[vn][lat_nearidx[glac], lon_nearidx[glac]].values
+#        # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
+#        if vn == self.elev_vn:
+#            # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
+#            if 'units' in data[vn].attrs and (data[vn].attrs['units'] == 'm**2 s**-2'):  
+#                # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
+#                glac_variable = glac_variable / 9.80665
+#            # Elseif units already in m.a.s.l., then continue
+#            elif 'units' in data[vn].attrs and data[vn].attrs['units'] == 'm':
+#                pass
+#            # Otherwise, provide warning
+#            else:
+#                print('Check units of elevation from GCM is m.')
+#        return glac_variable
+    
+    
+        
+        def era_nearest(ds, vn):
+            """
+            Select nearest neighbor for a different set of lat/lons
+            """
+        #    if 
+        
         # Plot elevation data
         elev_low = 0
-        elev_high = 8848
+        elev_high = 6000
         east = input.coawst_d02_lon_min
         west = input.coawst_d02_lon_max
         south = input.coawst_d02_lat_min 
         north = input.coawst_d02_lat_max
+        xtick = 1
+        ytick = 1
         elev_title = 'Elevation [masl]'
         
-        # Create the projection
+        #%%        
         def plot_raster(data, lat, lon, title=None, xlabel='Longitude [deg]', ylabel='Latitude [deg]', 
-                        east=east, west=west, south=south, north=north,
-                        xtick=1, ytick=1, vmin=None, vmax=None):
+                        east=east, west=west, south=south, north=north, xtick=1, ytick=1, colormap='RdBu', 
+                        vmin=None, vmax=None, option_savefig=0, fig_fn='Samplefig_fn.png',
+                        output_filepath = input.output_filepath + 'figures/'): 
+            # set up a map
+            plt.figure(figsize=(10,8))
             ax = plt.axes(projection=cartopy.crs.PlateCarree())
-            # Add country borders for reference
             ax.add_feature(cartopy.feature.BORDERS)
-            # Set the extent
-            ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
-            # Label title, x, and y axes
-            if title is not None:
-                plt.title(title)
+            ax.add_feature(cartopy.feature.COASTLINE)
+            extent = [east, west, south, north]
+            ax.set_extent(extent)
+            ax.tick_params(axis='both', labelsize=15)
             ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
             ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
-            plt.xlabel(xlabel)
-            plt.ylabel(ylabel)
-            # Set extent for elevation data
-            real_x = lon
-            real_y = np.flip(lat, axis=0)
-            dx = (real_x[1] - real_x[0])/2.
-            dy = (real_y[1] - real_y[0])/2.
-            extent = [real_x[0]-dx, real_x[-1]+dx, real_y[0]-dy, real_y[-1]+dy]
-            plt.imshow(data, cmap='RdBu', extent=extent, vmin=vmin, vmax=vmax)
-            #  set the range of the color bar
-            plt.colorbar(fraction=0.02, pad=0.04)
+            plt.pcolormesh(lon, lat, data, cmap=colormap, vmin=elev_low, vmax=elev_high)
+            cbar = plt.colorbar(fraction=0.02, pad=0.04)
+            cbar.ax.tick_params(labelsize=14) 
+            plt.xlabel('Longitude [deg]', size=18)
+            plt.ylabel('Latitude [deg]', size=18)
+            if title is not None:
+                plt.title(title, size=18)
+            if option_savefig == 1:
+                plt.savefig(output_filepath + fig_fn)
             plt.show()
         
-#        plot_raster(era_elev, era_lat, era_lon, title=elev_title, vmin=elev_low, vmax=elev_high)
+        plot_raster(era_elev, era_lat, era_lon, east=east, west=west, south=south, north=north, 
+                    title='Elevation [masl]', colormap='seismic_r', option_savefig=1) 
+
+#%%===== PLOT FUNCTIONS =============================================================================================
+def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, ylabel, colormap, east, west, south, north, 
+                   xtick=1, 
+                   ytick=1, 
+                   marker_size=2,
+                   option_savefig=0, 
+                   fig_fn='Samplefig_fn.png',
+                   output_filepath = input.main_directory + '/../Output/'):
+    """
+    Plot a variable according to its latitude and longitude
+    """
+    # Create the projection
+    ax = plt.axes(projection=cartopy.crs.PlateCarree())
+    # Add country borders for reference
+    ax.add_feature(cartopy.feature.BORDERS)
+    # Set the extent
+    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
+    # Label title, x, and y axes
+    plt.title(title)
+    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    # Plot the data 
+    plt.scatter(lons, lats, s=marker_size, c=variable, cmap='RdBu', marker='o', edgecolor='black', linewidths=0.25)
+    #  plotting x, y, size [s=__], color bar [c=__]
+    plt.clim(rangelow,rangehigh)
+    #  set the range of the color bar
+    plt.colorbar(fraction=0.02, pad=0.04)
+    #  fraction resizes the colorbar, pad is the space between the plot and colorbar
+    if option_savefig == 1:
+        plt.savefig(output_filepath + fig_fn)
+    plt.show()
+#%%        
         
+        
+        #%%
         
         # LOAD COAWST DATA
         coawst_temp_all = xr.open_dataset(input.coawst_fp + input.coawst_temp_fn_d02)
@@ -358,27 +454,27 @@ if __name__ == '__main__':
         coawst_deg_interval = 0.2
         coawst_lat_adj = np.arange(input.coawst_d02_lat_min, input.coawst_d02_lat_max + 0.01, coawst_deg_interval)
         coawst_lon_adj = np.arange(input.coawst_d02_lon_min, input.coawst_d02_lon_max + 0.01, coawst_deg_interval)
-        # Determine the row and column indices for selecting the nearest latitude and longitude at each point
-        data = coawst_elev_all.copy()
-        vn = 'HGHT'
-        coawst_row_indices = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0])).astype(int)
-        coawst_col_indices = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0])).astype(int)
-        lon_indices = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0]))
-        for x in range(coawst_lon_adj.shape[0]):
-            lon = coawst_lon_adj[x]
-            for y in range(coawst_lat_adj.shape[0]):
-                lat = coawst_lat_adj[y]
-                # Find nearest neighbor
-                latlon_dist = ((data['LAT'].values - lat)**2 + (data['LON'].values - lon)**2)**0.5
-                rowcol_nearidx = [x[0] for x in np.where(latlon_dist == latlon_dist.min())]
-                coawst_row_indices[x,y] = rowcol_nearidx[0]
-                coawst_col_indices[x,y] = rowcol_nearidx[1]
-        # Temperature, precipitation, and elevation
-        coawst_temp = coawst_2d_nearest(coawst_temp_all, 'T2', coawst_row_indices, coawst_col_indices)
-        coawst_temp = coawst_temp - 273.15
-        coawst_prec = coawst_2d_nearest(coawst_prec_all, 'TOTPRECIP', coawst_row_indices, coawst_col_indices)
-        coawst_prec = coawst_prec / 1000
-        coawst_elev = coawst_2d_nearest(coawst_elev_all, 'HGHT', coawst_row_indices, coawst_col_indices)
+#        # Determine the row and column indices for selecting the nearest latitude and longitude at each point
+#        data = coawst_elev_all.copy()
+#        vn = 'HGHT'
+#        coawst_row_indices = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0])).astype(int)
+#        coawst_col_indices = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0])).astype(int)
+#        lon_indices = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0]))
+#        for x in range(coawst_lon_adj.shape[0]):
+#            lon = coawst_lon_adj[x]
+#            for y in range(coawst_lat_adj.shape[0]):
+#                lat = coawst_lat_adj[y]
+#                # Find nearest neighbor
+#                latlon_dist = ((data['LAT'].values - lat)**2 + (data['LON'].values - lon)**2)**0.5
+#                rowcol_nearidx = [x[0] for x in np.where(latlon_dist == latlon_dist.min())]
+#                coawst_row_indices[x,y] = rowcol_nearidx[0]
+#                coawst_col_indices[x,y] = rowcol_nearidx[1]
+#        # Temperature, precipitation, and elevation
+#        coawst_temp = coawst_2d_nearest(coawst_temp_all, 'T2', coawst_row_indices, coawst_col_indices)
+#        coawst_temp = coawst_temp - 273.15
+#        coawst_prec = coawst_2d_nearest(coawst_prec_all, 'TOTPRECIP', coawst_row_indices, coawst_col_indices)
+#        coawst_prec = coawst_prec / 1000
+#        coawst_elev = coawst_2d_nearest(coawst_elev_all, 'HGHT', coawst_row_indices, coawst_col_indices)
 
         #%%
         

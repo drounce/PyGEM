@@ -64,6 +64,18 @@ def glac_num_fromrange(int_low, int_high):
     y = [str(i).zfill(5) for i in x]
     return y
 
+def get_same_glaciers(glac_fp):
+    """
+    Get same 1000 glaciers for testing of priors
+    """
+    glac_list = []
+    for i in os.listdir(glac_fp):
+        if i.endswith('.nc'):
+            glac_list.append(i.split('.')[1])
+    glac_list = sorted(glac_list)
+    return glac_list
+    
+
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # Model setup directory
 main_directory = os.getcwd()
@@ -96,11 +108,14 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473']
+#rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(1,2)
+rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
+                                    + '/')
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
+    
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
