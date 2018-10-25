@@ -165,7 +165,6 @@ class GCM():
         return glac_variable
 
     
-    
     def importGCMvarnearestneighbor_xarray(self, filename, vn, main_glac_rgi, dates_table):
         """
         Import time series of variables and extract nearest neighbor.

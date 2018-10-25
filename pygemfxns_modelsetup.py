@@ -10,7 +10,8 @@ from datetime import datetime
 import pygem_input as input
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=input.spinupyears):
+def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=input.spinupyears, 
+                  option_wateryear=input.option_wateryear):
     """
     Create table of year, month, day, water year, season and number of days in the month.
     
@@ -31,13 +32,13 @@ def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=
     # Include spinup time in start year
     startyear_wspinup = startyear - spinupyears
     # Convert start year into date depending on option_wateryear
-    if input.option_wateryear == 1:
+    if option_wateryear == 1:
         startdate = str(startyear_wspinup - 1) + '-10-01'
         enddate = str(endyear) + '-09-30'
-    elif input.option_wateryear == 2:
+    elif option_wateryear == 2:
         startdate = str(startyear_wspinup) + '-01-01'
         enddate = str(endyear) + '-12-31'
-    elif input.option_wateryear == 3:
+    elif option_wateryear == 3:
         startdate = str(startyear_wspinup) + '-' + input.startmonthday
         enddate = str(endyear) + '-' + input.endmonthday
     else:

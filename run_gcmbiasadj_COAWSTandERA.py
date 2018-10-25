@@ -6,13 +6,15 @@ import argparse
 import multiprocessing
 import inspect
 import time
-from time import strftime
+#from time import strftime
 # External libraries
 import pandas as pd
 import numpy as np
 import xarray as xr
-from scipy.optimize import minimize
+#from scipy.optimize import minimize
 import pickle
+import matplotlib.pyplot as plt
+import cartopy
 # Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -22,6 +24,8 @@ import class_climate
 #%% SCRIPT-SPECIFIC INPUT
 ref_gcm_name = 'COAWST'
 gcm_name = 'ERA-Interim'
+
+option_compare_COAWSTandERA = 1
 
 
 #%% FUNCTIONS
@@ -63,6 +67,23 @@ def getparser():
     return parser
 
 
+def coawst_2d_nearest(ds, vn, coawst_row_indices, coawst_col_indices):
+    """
+    Convert coawst 2d lat and 2 lon data into 1d lat and 1d lon using nearest neighbor.
+    """
+    if vn == 'HGHT':
+        data = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0]))
+        for x in range(coawst_lon_adj.shape[0]):
+            for y in range(coawst_lat_adj.shape[0]):
+                data[x,y] = ds[vn][coawst_row_indices[x,y],coawst_col_indices[x,y]].values
+    else:
+        data = np.zeros((ds.time.values.shape[0], coawst_lon_adj.shape[0], coawst_lat_adj.shape[0]))
+        for x in range(coawst_lon_adj.shape[0]):
+            for y in range(coawst_lat_adj.shape[0]):
+                data[:,x,y] = ds[vn][:, coawst_row_indices[x,y],coawst_col_indices[x,y]].values
+    return data
+
+
 def main(list_packed_vars):
     """
     Climate data bias adjustment
@@ -91,19 +112,8 @@ def main(list_packed_vars):
     args = parser.parse_args()
     rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
 
-    # ===== LOAD OTHER GLACIER DATA =====
+    # ===== LOAD GLACIER DATA =====
     main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :]
-    # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath,
-                                                 input.hyps_filedict, input.hyps_colsdrop)
-    # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.thickness_filepath,
-                                                         input.thickness_filedict, input.thickness_colsdrop)
-    main_glac_hyps[main_glac_icethickness == 0] = 0
-    # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.width_filepath,
-                                                  input.width_filedict, input.width_colsdrop)
-    elev_bins = main_glac_hyps.columns.values.astype(int)
 
     # Select dates including future projections
     
@@ -279,107 +289,218 @@ if __name__ == '__main__':
     # Reference GCM name
     print('Reference climate data is:', ref_gcm_name)
     
-    # RGI glacier number
-    if args.rgi_glac_number_fn is not None:
-        with open(args.rgi_glac_number_fn, 'rb') as f:
-            rgi_glac_number = pickle.load(f)
+    if option_compare_COAWSTandERA == 1:
+        print('Comparing COAWST and ERA-Interim...')
+        dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2006, 
+                                               spinupyears=0, option_wateryear=1)
+        # LOAD ERA-INTERIM
+        era_temp_all = xr.open_dataset(input.eraint_fp + input.eraint_temp_fn)
+        era_prec_all = xr.open_dataset(input.eraint_fp + input.eraint_prec_fn) 
+        era_elev_all = xr.open_dataset(input.eraint_fp + input.eraint_elev_fn)    
+        # Latitude, longitude, and time indicies
+        start_idx = (np.where(pd.Series(era_temp_all['time'])
+                     .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
+                     .apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+        end_idx = (np.where(pd.Series(era_temp_all['time'])
+                   .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
+                   .apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]
+        era_lon = era_elev_all.longitude.values
+        era_lat = era_elev_all.latitude.values
+        # Temperature, precipitation, and elevation
+        era_temp = era_temp_all['t2m'][start_idx:end_idx+1][:,:].values - 273.15
+        era_prec = era_prec_all['tp'][start_idx:end_idx+1][:,:].values
+        era_elev = era_elev_all['z'][0,:,:].values / 9.80665
+        
+        # Plot elevation data
+        elev_low = 0
+        elev_high = 8848
+        east = input.coawst_d02_lon_min
+        west = input.coawst_d02_lon_max
+        south = input.coawst_d02_lat_min 
+        north = input.coawst_d02_lat_max
+        elev_title = 'Elevation [masl]'
+        
+        # Create the projection
+        def plot_raster(data, lat, lon, title=None, xlabel='Longitude [deg]', ylabel='Latitude [deg]', 
+                        east=east, west=west, south=south, north=north,
+                        xtick=1, ytick=1, vmin=None, vmax=None):
+            ax = plt.axes(projection=cartopy.crs.PlateCarree())
+            # Add country borders for reference
+            ax.add_feature(cartopy.feature.BORDERS)
+            # Set the extent
+            ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())
+            # Label title, x, and y axes
+            if title is not None:
+                plt.title(title)
+            ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+            ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+            # Set extent for elevation data
+            real_x = lon
+            real_y = np.flip(lat, axis=0)
+            dx = (real_x[1] - real_x[0])/2.
+            dy = (real_y[1] - real_y[0])/2.
+            extent = [real_x[0]-dx, real_x[-1]+dx, real_y[0]-dy, real_y[-1]+dy]
+            plt.imshow(data, cmap='RdBu', extent=extent, vmin=vmin, vmax=vmax)
+            #  set the range of the color bar
+            plt.colorbar(fraction=0.02, pad=0.04)
+            plt.show()
+        
+#        plot_raster(era_elev, era_lat, era_lon, title=elev_title, vmin=elev_low, vmax=elev_high)
+        
+        
+        # LOAD COAWST DATA
+        coawst_temp_all = xr.open_dataset(input.coawst_fp + input.coawst_temp_fn_d02)
+        coawst_prec_all = xr.open_dataset(input.coawst_fp + input.coawst_prec_fn_d02)
+        coawst_elev_all = xr.open_dataset(input.coawst_fp + input.coawst_elev_fn_d02)
+        # Set up regular 2d raster for latitude and longitude
+        coawst_deg_interval = 0.2
+        coawst_lat_adj = np.arange(input.coawst_d02_lat_min, input.coawst_d02_lat_max + 0.01, coawst_deg_interval)
+        coawst_lon_adj = np.arange(input.coawst_d02_lon_min, input.coawst_d02_lon_max + 0.01, coawst_deg_interval)
+        # Determine the row and column indices for selecting the nearest latitude and longitude at each point
+        data = coawst_elev_all.copy()
+        vn = 'HGHT'
+        coawst_row_indices = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0])).astype(int)
+        coawst_col_indices = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0])).astype(int)
+        lon_indices = np.zeros((coawst_lon_adj.shape[0], coawst_lat_adj.shape[0]))
+        for x in range(coawst_lon_adj.shape[0]):
+            lon = coawst_lon_adj[x]
+            for y in range(coawst_lat_adj.shape[0]):
+                lat = coawst_lat_adj[y]
+                # Find nearest neighbor
+                latlon_dist = ((data['LAT'].values - lat)**2 + (data['LON'].values - lon)**2)**0.5
+                rowcol_nearidx = [x[0] for x in np.where(latlon_dist == latlon_dist.min())]
+                coawst_row_indices[x,y] = rowcol_nearidx[0]
+                coawst_col_indices[x,y] = rowcol_nearidx[1]
+        # Temperature, precipitation, and elevation
+        coawst_temp = coawst_2d_nearest(coawst_temp_all, 'T2', coawst_row_indices, coawst_col_indices)
+        coawst_temp = coawst_temp - 273.15
+        coawst_prec = coawst_2d_nearest(coawst_prec_all, 'TOTPRECIP', coawst_row_indices, coawst_col_indices)
+        coawst_prec = coawst_prec / 1000
+        coawst_elev = coawst_2d_nearest(coawst_elev_all, 'HGHT', coawst_row_indices, coawst_col_indices)
+
+        #%%
+        
+#        coawst_fp_unmerged = main_directory + '/../Climate_data/coawst/Monthly/'
+#        coawst_fp = main_directory + '/../Climate_data/coawst/'
+#        coawst_fn_prefix_d02 = 'wrfout_d02_Monthly_'
+#        coawst_fn_prefix_d01 = 'wrfout_d01_Monthly_'
+#        coawst_temp_fn_d02 = 'wrfout_d02_Monthly_T2_1999100100-2006123123.nc'
+#        coawst_prec_fn_d02 = 'wrfout_d02_Monthly_TOTPRECIP_1999100100-2006123123.nc'
+#        coawst_elev_fn_d02 = 'wrfout_d02_Monthly_HGHT.nc'
+#        coawst_temp_fn_d01 = 'wrfout_d01_Monthly_T2_1999100100-2006123123.nc'
+#        coawst_prec_fn_d01 = 'wrfout_d01_Monthly_TOTPRECIP_1999100100-2006123123.nc'
+#        coawst_elev_fn_d01 = 'wrfout_d01_Monthly_HGHT.nc'
+#        coawst_vns = ['T2', 'TOTPRECIP', 'HGHT']
+
+        
+        
+
+        
     else:
-        rgi_glac_number = input.rgi_glac_number   
-
-    # Select glaciers and define chunks
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                          rgi_glac_number=input.rgi_glac_number)
-    # Define chunk size for parallel processing
-    if args.option_parallels != 0:
-        num_cores = int(np.min([main_glac_rgi_all.shape[0], args.num_simultaneous_processes]))
-        chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / num_cores))
-    else:
-        # if not running in parallel, chunk size is all glaciers
-        chunk_size = main_glac_rgi_all.shape[0]
-
-    # Read GCM names from command file
-#    with open(args.gcm_file, 'r') as gcm_fn:
-#        gcm_list = gcm_fn.read().splitlines()
-#        rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
-#        print('Found %d gcm(s) to process'%(len(gcm_list)))
-    gcm_list = [gcm_name]
-
-    # Loop through all GCMs
-    for gcm_name in gcm_list:
-        # Pack variables for multiprocessing
-        list_packed_vars = []
-        n = 0
-        for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-            n += 1
-            list_packed_vars.append([n, chunk, main_glac_rgi_all, chunk_size, gcm_name])
-
-        # Parallel processing
-        if args.option_parallels != 0:
-            print('Processing', gcm_name, 'in parallel')
-            with multiprocessing.Pool(args.num_simultaneous_processes) as p:
-                p.map(main,list_packed_vars)
-        # No parallel processing
+    
+        # RGI glacier number
+        if args.rgi_glac_number_fn is not None:
+            with open(args.rgi_glac_number_fn, 'rb') as f:
+                rgi_glac_number = pickle.load(f)
         else:
-            print('Processing', gcm_name, 'without parallel')
-            # Loop through the chunks and export bias adjustments
-            for n in range(len(list_packed_vars)):
-                main(list_packed_vars[n])
-
-#        # Combine bias adjustment parameters into single file
-#        output_list = []
-#        check_str = 'R' + str(input.rgi_regionsO1[0])
-#        # Sorted list of files to merge
-#        output_list = []
-#        for i in os.listdir(input.output_filepath + 'temp/'):
-#            if i.startswith(check_str):
-#                output_list.append(i)
-#        output_list = sorted(output_list)
-#        # Merge files
-#        list_count = 0
-#        for i in output_list:
-#            list_count += 1
-#            # Append results
-#            if list_count == 1:
-#                output_all = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
-#            else:
-#                output_2join = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
-#                output_all = output_all.append(output_2join, ignore_index=True)
-#            # Remove file after its been merged
-#            os.remove(input.output_filepath + 'temp/' + i)
-#        # Export joined files
-#        output_all.to_csv(input.biasadj_fp + i.split('--')[0] + '.csv')
-
-    print('Total processing time:', time.time()-time_start, 's')
-
-#%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
-    # Place local variables in variable explorer
-    if args.option_parallels == 0:
-        main_vars_list = list(main_vars.keys())
-        main_glac_rgi = main_vars['main_glac_rgi']
-        main_glac_hyps = main_vars['main_glac_hyps']
-        main_glac_icethickness = main_vars['main_glac_icethickness']
-        main_glac_width = main_vars['main_glac_width']
-        elev_bins = main_vars['elev_bins']
-        dates_table = main_vars['dates_table']
-        dates_table_ref = main_vars['dates_table_ref']
-        
-        ref_temp = main_vars['ref_temp']
-        ref_prec = main_vars['ref_prec']
-        ref_elev = main_vars['ref_elev']
-        ref_lr = main_vars['ref_lr']
-        ref_lr_monthly_avg = main_vars['ref_lr_monthly_avg']
-        gcm_temp = main_vars['gcm_temp']
-        gcm_prec = main_vars['gcm_prec']
-        gcm_elev = main_vars['gcm_elev']
-        gcm_lr = main_vars['gcm_lr']
-        gcm_temp_subset = main_vars['gcm_temp_subset']
-        gcm_prec_subset = main_vars['gcm_prec_subset']
-        gcm_lr_subset = main_vars['gcm_lr_subset']
-        main_glac_bias_adj = main_vars['main_glac_bias_adj']
-        ref_temp_monthly_avg = main_vars['ref_temp_monthly_avg']
-        gcm_temp_monthly_avg = main_vars['gcm_temp_monthly_avg']
-        
-#        gcm_temp_bias_adj = main_vars['gcm_temp_bias_adj']
+            rgi_glac_number = input.rgi_glac_number   
+    
+        # Select glaciers and define chunks
+        main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+                                                              rgi_glac_number=input.rgi_glac_number)
+        # Define chunk size for parallel processing
+        if args.option_parallels != 0:
+            num_cores = int(np.min([main_glac_rgi_all.shape[0], args.num_simultaneous_processes]))
+            chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / num_cores))
+        else:
+            # if not running in parallel, chunk size is all glaciers
+            chunk_size = main_glac_rgi_all.shape[0]
+    
+        # Read GCM names from command file
+    #    with open(args.gcm_file, 'r') as gcm_fn:
+    #        gcm_list = gcm_fn.read().splitlines()
+    #        rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
+    #        print('Found %d gcm(s) to process'%(len(gcm_list)))
+        gcm_list = [gcm_name]
+    
+        # Loop through all GCMs
+        for gcm_name in gcm_list:
+            # Pack variables for multiprocessing
+            list_packed_vars = []
+            n = 0
+            for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
+                n += 1
+                list_packed_vars.append([n, chunk, main_glac_rgi_all, chunk_size, gcm_name])
+    
+            # Parallel processing
+            if args.option_parallels != 0:
+                print('Processing', gcm_name, 'in parallel')
+                with multiprocessing.Pool(args.num_simultaneous_processes) as p:
+                    p.map(main,list_packed_vars)
+            # No parallel processing
+            else:
+                print('Processing', gcm_name, 'without parallel')
+                # Loop through the chunks and export bias adjustments
+                for n in range(len(list_packed_vars)):
+                    main(list_packed_vars[n])
+    
+    #        # Combine bias adjustment parameters into single file
+    #        output_list = []
+    #        check_str = 'R' + str(input.rgi_regionsO1[0])
+    #        # Sorted list of files to merge
+    #        output_list = []
+    #        for i in os.listdir(input.output_filepath + 'temp/'):
+    #            if i.startswith(check_str):
+    #                output_list.append(i)
+    #        output_list = sorted(output_list)
+    #        # Merge files
+    #        list_count = 0
+    #        for i in output_list:
+    #            list_count += 1
+    #            # Append results
+    #            if list_count == 1:
+    #                output_all = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
+    #            else:
+    #                output_2join = pd.read_csv(input.output_filepath + 'temp/' + i, index_col=0)
+    #                output_all = output_all.append(output_2join, ignore_index=True)
+    #            # Remove file after its been merged
+    #            os.remove(input.output_filepath + 'temp/' + i)
+    #        # Export joined files
+    #        output_all.to_csv(input.biasadj_fp + i.split('--')[0] + '.csv')
+    
+    #    print('Total processing time:', time.time()-time_start, 's')
+    
+    #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
+        # Place local variables in variable explorer
+    #    if args.option_parallels == 0:
+    #        main_vars_list = list(main_vars.keys())
+    #        main_glac_rgi = main_vars['main_glac_rgi']
+    #        main_glac_hyps = main_vars['main_glac_hyps']
+    #        main_glac_icethickness = main_vars['main_glac_icethickness']
+    #        main_glac_width = main_vars['main_glac_width']
+    #        elev_bins = main_vars['elev_bins']
+    #        dates_table = main_vars['dates_table']
+    #        dates_table_ref = main_vars['dates_table_ref']
+    #        
+    #        ref_temp = main_vars['ref_temp']
+    #        ref_prec = main_vars['ref_prec']
+    #        ref_elev = main_vars['ref_elev']
+    #        ref_lr = main_vars['ref_lr']
+    #        ref_lr_monthly_avg = main_vars['ref_lr_monthly_avg']
+    #        gcm_temp = main_vars['gcm_temp']
+    #        gcm_prec = main_vars['gcm_prec']
+    #        gcm_elev = main_vars['gcm_elev']
+    #        gcm_lr = main_vars['gcm_lr']
+    #        gcm_temp_subset = main_vars['gcm_temp_subset']
+    #        gcm_prec_subset = main_vars['gcm_prec_subset']
+    #        gcm_lr_subset = main_vars['gcm_lr_subset']
+    #        main_glac_bias_adj = main_vars['main_glac_bias_adj']
+    #        ref_temp_monthly_avg = main_vars['ref_temp_monthly_avg']
+    #        gcm_temp_monthly_avg = main_vars['gcm_temp_monthly_avg']
+            
+    #        gcm_temp_bias_adj = main_vars['gcm_temp_bias_adj']
         
 
         

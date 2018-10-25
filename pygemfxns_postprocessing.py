@@ -15,15 +15,17 @@ import netCDF4 as nc
 import matplotlib.pyplot as plt
 import scipy
 import cartopy
+import xarray as xr
 # Local Libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
+import class_mbdata
 
 # Script options
 option_plot_futuresim = 0
 option_calc_nearestneighbor = 0
 option_mb_shean_analysis = 0
-option_mb_shean_regional = 1
+option_mb_shean_regional = 0
 option_geodeticMB_loadcompare = 0
 option_check_biasadj = 0
 option_parameter_relationships = 0
@@ -924,9 +926,61 @@ if option_mb_shean_regional == 1:
 #fig.savefig(input.main_directory + '/../output/' + main_glac_rgi.loc[glac,'RGIID'] + '_gridsearch.png')
     
 
-#%%### ====== PLOTTING FOR CALIBRATION FUNCTION ======================================================================
-### Plot histograms and regional variations
-##data13 = pd.read_csv(input.main_directory + '/../Output/calibration_R13_20180318_Opt01solutionspaceexpanding.csv')
+#%% ====== PLOTTING FOR CALIBRATION FUNCTION ======================================================================
+# Plot histograms and regional variations
+rgi_regionsO1 = [15]
+csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229_all_filled.csv'
+modelparams_fp_dict = {
+            13: input.output_filepath + 'cal_opt2_20181018/reg13/',
+            14: input.output_filepath + 'cal_opt2_20181018/reg14/',
+            15: input.output_filepath + 'cal_opt2_20181018/reg15/'}
+sims_fp_dict = {
+            13: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg13/stats/',
+            14: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg14/stats/',
+            15: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg15/stats/'}
+
+cal_data_all = pd.read_csv(csv_path)
+
+main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
+                                                  rgi_glac_number='all')
+
+cal_data_all['RegO1'] = cal_data_all['RGIId'].values.astype(int)
+# Select data for specific region
+cal_data_reg = cal_data_all[cal_data_all['RegO1']==rgi_regionsO1[0]].copy()
+cal_data_reg.reset_index(drop=True, inplace=True)
+# Glacier number and index for comparison
+cal_data_reg['glacno'] = ((cal_data_reg['RGIId'] % 1) * 10**5).round(0).astype(int)
+cal_data_reg['RGIId'] = ('RGI60-' + str(rgi_regionsO1[0]) + '.' + 
+                   (cal_data_reg['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1])
+# Select glaciers with mass balance data
+cal_data = (cal_data_reg.iloc[np.where(cal_data_reg['glacno'].isin(main_glac_rgi['glacno']) == True)[0],:]).copy()
+cal_data.reset_index(drop=True, inplace=True)
+
+# Compare observations, calibration, and simulations
+cal_data['calibrated_mb'] = np.nan
+for glac in range(main_glac_rgi.shape[0]):
+    glac_str = main_glac_rgi.loc[glac,'RGIId'].split('-')[1]
+    # Add calibrated mass balance
+    netcdf_fn_cal = glac_str + '.nc'
+    ds_cal = xr.open_dataset(modelparams_fp_dict[rgi_regionsO1[0]] + netcdf_fn_cal)
+    df_cal = pd.DataFrame(ds_cal['mp_value'].sel(chain=0).values, columns=ds_cal.mp.values)
+    cal_mb = df_cal.massbal.values.mean()
+    cal_data.loc[glac,'cal_mb'] = cal_mb
+    # Add simulated mass balance (will be more off because has mass loss/area changes feedback)
+    netcdf_fn_sim = 'ERA-Interim_c2_ba0_200sets_2000_2018--' + glac_str + '_stats.nc'
+    ds_sim = xr.open_dataset(sims_fp_dict[rgi_regionsO1[0]] + netcdf_fn_sim)
+    df_sim = pd.DataFrame(ds_cal['mp_value'].sel(chain=0).values, columns=ds_cal.mp.values)
+    sim_mb = df_cal.massbal.values.mean()
+    cal_data.loc[glac,'sim_mb'] = sim_mb
+
+cal_data['cal_mb_dif'] = cal_data.cal_mb - cal_data.mb_mwea
+cal_data['sim_mb_dif'] = cal_data.sim_mb - cal_data.mb_mwea
+#%%
+cal_data.hist(column='cal_mb_dif', bins=50)
+cal_data.hist(column='sim_mb_dif', bins=50)
+    
+#%%
+#data13 = pd.read_csv(input.main_directory + '/../Output/calibration_R13_20180318_Opt01solutionspaceexpanding.csv')
 ##data13 = data13.dropna()
 ##data14 = pd.read_csv(input.main_directory + '/../Output/calibration_R14_20180313_Opt01solutionspaceexpanding.csv')
 ##data14 = data14.dropna()
@@ -934,20 +988,20 @@ if option_mb_shean_regional == 1:
 #data15 = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv')
 #data15 = data15.dropna()
 #data = data15
-#
-## Concatenate the data
-##frames = [data13, data14, data15]
-##data = pd.concat(frames)
-#
-### Fill in values with average 
-### Subset all values that have data
+
+# Concatenate the data
+#frames = [data13, data14, data15]
+#data = pd.concat(frames)
+
+## Fill in values with average 
+## Subset all values that have data
 ##data_subset = data.dropna()
-##data_subset_params = data_subset[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow',
+#data_subset_params = data_subset[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow',
 #                                    'tempchange']]
-##data_subset_paramsavg = data_subset_params.mean()
-##paramsfilled = data[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow','tempchange']]
-##paramsfilled = paramsfilled.fillna(data_subset_paramsavg)    
-#
+#data_subset_paramsavg = data_subset_params.mean()
+#paramsfilled = data[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow','tempchange']]
+#paramsfilled = paramsfilled.fillna(data_subset_paramsavg)    
+
 ## Set extent
 #east = int(round(data['CenLon'].min())) - 1
 #west = int(round(data['CenLon'].max())) + 1
@@ -995,6 +1049,3 @@ if option_mb_shean_regional == 1:
 #data.hist(column='calround', bins = [0.5, 1.5, 2.5, 3.5])
 #plt.title('Calibration round')
 #plt.xticks([1, 2, 3])
-#    
-## run plot function
-#output.plot_caloutput(data)

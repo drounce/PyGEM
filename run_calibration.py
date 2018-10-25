@@ -1346,7 +1346,7 @@ if __name__ == '__main__':
         rgi_glac_number = input.rgi_glac_number    
 
     # Select all glaciers in a region
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2='all',
                                                           rgi_glac_number=rgi_glac_number)
     # Define chunk size for parallel processing
     if args.option_parallels != 0:

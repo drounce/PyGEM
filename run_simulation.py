@@ -27,7 +27,7 @@ import class_climate
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
 # Required input
 # Time period
-gcm_startyear = 1980
+gcm_startyear = 2000
 gcm_endyear = 2017
 gcm_spinupyears = 0
 
