@@ -22,6 +22,7 @@ import xarray as xr
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import class_mbdata
+import run_simulation
 
 # Script options
 option_plot_futuresim = 0
@@ -34,56 +35,93 @@ option_parameter_relationships = 0
 option_MCMC_ensembles = 0
 option_calcompare_w_geomb = 0
 option_add_metadata2netcdf = 0
+option_merge_netcdfs = 0
 
 option_savefigs = 1
 
 #%% TEST
-#rgi_regionsO1 = [15]
-##rgi_glac_number = ['00001']
+rgi_regionsO1 = [15]
+netcdf_fp = (input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/reg' + str(rgi_regionsO1[0]) + 
+             '/stats_w_attrs/')
 #netcdf_fp = (input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/reg' + str(rgi_regionsO1[0]) + 
-#             '/stats_w_attrs/')
-#netcdf_fn = 'ERA-Interim_c2_ba0_200sets_2000_2017_stats--15.00001.nc'
-##
-##ds = xr.open_dataset(netcdf_fp + netcdf_fn)
-##encoding = {'time': {'_FillValue': False},
-##            'year': {'_FillValue': False},
-##            'year_plus1': {'_FillValue': False},
-##            'temp_glac_monthly': {'_FillValue': False},
-##            'prec_glac_monthly': {'_FillValue': False},
-##            'acc_glac_monthly': {'_FillValue': False},
-##            'refreeze_glac_monthly': {'_FillValue': False},
-##            'melt_glac_monthly': {'_FillValue': False},
-##            'frontalablation_glac_monthly': {'_FillValue': False},
-##            'massbaltotal_glac_monthly': {'_FillValue': False},
-##            'runoff_glac_monthly': {'_FillValue': False},
-##            'snowline_glac_monthly': {'_FillValue': False},
-##            'area_glac_annual': {'_FillValue': False},
-##            'volume_glac_annual': {'_FillValue': False},
-##            'ELA_glac_annual': {'_FillValue': False}
-##            }
-##ds.to_netcdf(netcdf_fp + '../test.nc', encoding=encoding)
-#
-#ds = nc.Dataset(netcdf_fp + netcdf_fn)
-##ds = nc.Dataset(netcdf_fp + '../test.nc')
+#             '/test/')
+# Select glaciers consistent with netcdf data
+rgi_glac_number = input.get_same_glaciers(netcdf_fp)
+main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
+                                                  rgi_glac_number=rgi_glac_number)
 
+output_vns_WBM = ['prec_glac_monthly', 'acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 
+                  'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 
+                  'area_glac_annual', 'volume_glac_annual']
+output_stat_cns_WBM = ['mean', 'std']
+
+# Sorted list of files to merge
+output_list = []
+for i in os.listdir(netcdf_fp):
+    if i.endswith('.nc'):
+        output_list.append(i)
+output_list = sorted(output_list)
+# Merge netcdfs together
+for n, i in enumerate(output_list):
+    ds = xr.open_dataset(netcdf_fp + i)
+    if n == 0:
+        ds_all = ds.copy()
+        ds_all.attrs = {}
+    else:
+        ds_all = xr.concat([ds_all, ds], 'glac')
+
+# Remove unwanted variables and statistics to cut down on the file size
+# List of variables
+ds_vns = []
+for vn in ds_all.variables:
+    ds_vns.append(vn)
+# List of stats
+stats_subset_idx = []
+stats_list = list(ds_all.stats.values)
+for cn in output_stat_cns_WBM:
+    if cn in stats_list:
+        stats_subset_idx.append(stats_list.index(cn))
+# Merge the desired variables and stats into one dataset
+count_vn = 0
+for vn in output_vns_WBM:
+    count_vn += 1
+    # Determine time coordinate of the variable
+    for t_name in input.time_names:
+        if t_name in ds[vn].coords:
+            time_coord = t_name
+    data_subset = ds_all[vn].values[:,:,stats_subset_idx]
+    # Create dataset for variable
+    output_ds = xr.Dataset({vn: (('glac', time_coord, 'stats'), data_subset)},
+                           coords={'glac': ds_all[vn].glac.values,
+                                   time_coord: ds_all[vn][time_coord].values,
+                                   'stats': output_stat_cns_WBM})
+    # Merge datasets of stats into one output
+    if count_vn == 1:
+        output_ds_all = output_ds
+    else:
+        output_ds_all = xr.merge((output_ds_all, output_ds))
+    # Keep the attributes
+    output_ds_all[vn].attrs = ds_all[vn].attrs
+# Add a glacier table so that the glaciers attributes accompany the netcdf file
+main_glac_rgi_float = main_glac_rgi[input.output_glacier_attr_vns].copy()
+main_glac_rgi_xr = xr.Dataset({'glacier_table': (('glac', 'glac_attrs'), main_glac_rgi_float.values)},
+                               coords={'glac': output_ds_all.glac.values,
+                                       'glac_attrs': main_glac_rgi_float.columns.values})
+output_ds_all = output_ds_all.combine_first(main_glac_rgi_xr)
+# Encoding (specify _FillValue, offsets, etc.)
+ds_all_vns = []
+encoding = {}
+for vn in output_vns_WBM:
+    encoding[vn] = {'_FillValue': False}
+# Export netcdf
+netcdf_fn_merged = 'R' + str(rgi_regionsO1[0]) + '--' + i.split('--')[0] + '.nc'
+output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn_merged, encoding=encoding)
+        
 
 #%% ===== ADD DATA TO NETCDF FILES =====
 if option_add_metadata2netcdf == 1:
-    # TO-DO LIST
-    #2. Attribute "_FillValue" cannot be NaN and must be numerical by NetCDF convention, e.g. it can be -9999.
     
-    def get_same_glaciers(glac_fp):
-        """
-        Get same 1000 glaciers for testing of priors
-        """
-        glac_list = []
-        for i in os.listdir(glac_fp):
-            if i.endswith('.nc'):
-                glac_list.append(i.split('.')[1])
-        glac_list = sorted(glac_list)
-        return glac_list
-    
-    rgi_regionsO1 = [15]
+    rgi_regionsO1 = [13]
     netcdf_fp = (input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/reg' + str(rgi_regionsO1[0]) + 
                  '/stats/')
     new_netcdf_fp = netcdf_fp + '../stats_w_attrs/'
@@ -92,11 +130,9 @@ if option_add_metadata2netcdf == 1:
         os.makedirs(new_netcdf_fp)
     
     # Select glaciers consistent with netcdf data
-    rgi_glac_number = get_same_glaciers(netcdf_fp)
-    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+    rgi_glac_number = input.get_same_glaciers(netcdf_fp)
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
                                                       rgi_glac_number=rgi_glac_number)
-    output_glacier_attr_vns = ['RGIId', 'CenLon', 'CenLat', 'O1Region', 'O2Region', 'glacno', 'RGIId_float', 'Area', 
-                                   'Zmin', 'Zmax', 'Zmed', 'Slope', 'Aspect', 'Lmax', 'Form', 'TermType', 'Surging']
     
     def netcdf_add_metadata(ds, glacier_rgi_table):
         """
@@ -119,7 +155,7 @@ if option_add_metadata2netcdf == 1:
         # Global attributes
         # Glacier properties
         ds_existing_attrs = list(ds.attrs.keys())
-        for attr_vn in output_glacier_attr_vns:
+        for attr_vn in input.output_glacier_attr_vns:
             # Check if attribute exists
             if (attr_vn not in ds_existing_attrs) and (attr_vn in list(glacier_rgi_table.index.values)):
                 ds.attrs[attr_vn] = glacier_rgi_table[attr_vn]
@@ -218,7 +254,6 @@ if option_add_metadata2netcdf == 1:
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         ds, encoding = netcdf_add_metadata(ds, glacier_rgi_table)
     #    print(i.split('.')[1], glacier_rgi_table['RGIId'])
-        
         ds.to_netcdf(new_netcdf_fp + i, encoding=encoding)
 
 

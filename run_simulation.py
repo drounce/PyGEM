@@ -34,9 +34,6 @@ gcm_spinupyears = 0
 # Bias adjustment option (options defined in run_gcmbiasadj script; 0 means no correction)
 #option_bias_adjustment = 2
 
-time_names = ['time', 'year', 'year_plus1']
-
-
 #%% FUNCTIONS
 def getparser():
     """
@@ -104,6 +101,111 @@ def calc_stats(vn, ds):
     stats = np.append(stats, np.percentile(data, 97.5, axis=1)[:,np.newaxis], axis=1)
     stats_cn = ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%']
     return stats, stats_cn
+
+def netcdf_add_metadata(ds, glacier_rgi_table):
+    """
+    Add metadata to netcdf file.
+    
+    Parameters
+    ----------
+    ds : xarray dataset
+        xarray dataset for an individual glacier
+    glacier_rgi_table : pd.Series
+        glacier rgi table, which stores information about the glacier
+    
+    Returns
+    -------
+    ds : xarray dataset
+        modified xarray dataset containing long_name, units, comments, etc.
+    encoding : dict
+        dictionary containing encodings used for export, e.g., turning filling off
+    """
+    # Global attributes
+    # Glacier properties
+    ds_existing_attrs = list(ds.attrs.keys())
+    for attr_vn in input.output_glacier_attr_vns:
+        # Check if attribute exists
+        if (attr_vn not in ds_existing_attrs) and (attr_vn in list(glacier_rgi_table.index.values)):
+            ds.attrs[attr_vn] = glacier_rgi_table[attr_vn]
+    # Calendar year
+    if input.option_wateryear == 1:
+        ds.attrs['year_type'] = 'water year'
+    elif input.option_wateryear == 2:
+        ds.attrs['year_type'] = 'calendar year'
+    elif input.option_wateryear == 3:
+        ds.attrs['year_type'] = 'custom year (user defined start/end months)'
+    # Add attributes for given package
+    if input.output_package == 2:
+        ds.temp_glac_monthly.attrs['long_name'] = 'glacier-wide mean air temperature'
+        ds.temp_glac_monthly.attrs['units'] = 'degC'
+        ds.temp_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+        ds.temp_glac_monthly.attrs['comment'] = (
+                'each elevation bin is weighted equally to compute the mean temperature, and bins where the glacier' 
+                ' no longer exists due to retreat have been removed')
+        ds.prec_glac_monthly.attrs['long_name'] = 'glacier-wide precipitation (liquid)'
+        ds.prec_glac_monthly.attrs['units'] = 'm'
+        ds.prec_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+        ds.prec_glac_monthly.attrs['comment'] = 'only the liquid precipitation, solid precipitation excluded'
+        ds.acc_glac_monthly.attrs['long_name'] = 'glacier-wide accumulation'
+        ds.acc_glac_monthly.attrs['units'] = 'm w.e.'
+        ds.acc_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+        ds.acc_glac_monthly.attrs['comment'] = 'only the solid precipitation'
+        ds.refreeze_glac_monthly.attrs['long_name'] = 'glacier-wide refreeze'
+        ds.refreeze_glac_monthly.attrs['units'] = 'm w.e.'
+        ds.refreeze_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+        ds.melt_glac_monthly.attrs['long_name'] = 'glacier-wide melt'
+        ds.melt_glac_monthly.attrs['units'] = 'm w.e.'
+        ds.melt_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+        ds.frontalablation_glac_monthly['long_name'] = 'glacier-wide frontal ablation'
+        ds.frontalablation_glac_monthly['units'] = 'm w.e.'
+        ds.frontalablation_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+        ds.frontalablation_glac_monthly['comment'] = (
+                'mass losses from calving, subaerial frontal melting, sublimation above the waterline and '
+                + 'subaqueous frontal melting below the waterline')
+        ds.massbaltotal_glac_monthly.attrs['long_name'] = 'glacier-wide total mass balance'
+        ds.massbaltotal_glac_monthly.attrs['units'] = 'm w.e.'
+        ds.massbaltotal_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+        ds.massbaltotal_glac_monthly.attrs['comment'] = (
+                'total mass balance is the sum of the climatic mass balance and frontal ablation')
+        ds.runoff_glac_monthly.attrs['long_name'] = 'glacier runoff'
+        ds.runoff_glac_monthly.attrs['units'] = 'm**3'
+        ds.runoff_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+        ds.runoff_glac_monthly.attrs['comment'] = 'runoff from the glacier terminus, which moves over time'
+        ds.snowline_glac_monthly.attrs['long_name'] = 'transient snowline'
+        ds.snowline_glac_monthly.attrs['units'] = "m a.s.l."
+        ds.snowline_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+        ds.snowline_glac_monthly.attrs['comment'] = 'transient snowline is altitude separating snow from ice/firn'
+        ds.area_glac_annual.attrs['long_name'] = 'glacier area'
+        ds.area_glac_annual.attrs['units'] = 'km**2'
+        ds.area_glac_annual.attrs['temporal_resolution'] = 'annual'
+        ds.area_glac_annual.attrs['comment'] = 'area used for the duration of the defined start/end of year'
+        ds.volume_glac_annual.attrs['long_name'] = 'glacier volume'
+        ds.volume_glac_annual.attrs['units'] = "km**3 ice"
+        ds.volume_glac_annual.attrs['temporal_resolution'] = 'annual'
+        ds.volume_glac_annual.attrs['comment'] = 'volume based on area and ice thickness used for that year'
+        ds.ELA_glac_annual.attrs['long_name'] = 'annual equilibrium line altitude'
+        ds.ELA_glac_annual.attrs['units'] = 'm a.s.l.'
+        ds.ELA_glac_annual.attrs['temporal_resolution'] = 'annual'
+        ds.ELA_glac_annual.attrs['comment'] = (
+                'equilibrium line altitude is the elevation where the climatic mass balance is zero')
+        # Encoding (specify _FillValue, offsets, etc.)
+        encoding = {'time': {'_FillValue': False},
+                    'year': {'_FillValue': False},
+                    'year_plus1': {'_FillValue': False},
+                    'temp_glac_monthly': {'_FillValue': False},
+                    'prec_glac_monthly': {'_FillValue': False},
+                    'acc_glac_monthly': {'_FillValue': False},
+                    'refreeze_glac_monthly': {'_FillValue': False},
+                    'melt_glac_monthly': {'_FillValue': False},
+                    'frontalablation_glac_monthly': {'_FillValue': False},
+                    'massbaltotal_glac_monthly': {'_FillValue': False},
+                    'runoff_glac_monthly': {'_FillValue': False},
+                    'snowline_glac_monthly': {'_FillValue': False},
+                    'area_glac_annual': {'_FillValue': False},
+                    'volume_glac_annual': {'_FillValue': False},
+                    'ELA_glac_annual': {'_FillValue': False}
+                    }
+    return ds, encoding
 
 
 def main(list_packed_vars):
@@ -410,7 +512,7 @@ def main(list_packed_vars):
                 count_vn += 1
                 stats, stats_cn = calc_stats(vn, ds)
                 # Determine time coordinate of the variable
-                for t_name in time_names:
+                for t_name in input.time_names:
                     if t_name in ds[vn].coords:
                         time_coord = t_name
                 # Create dataset for variable
@@ -422,12 +524,15 @@ def main(list_packed_vars):
                     output_ds_all = output_ds
                 else:
                     output_ds_all = xr.merge((output_ds_all, output_ds))
-            # Add attributes
-            list_attribute_vn = ['RGIId', 'CenLon', 'CenLat']
-            for attr_vn in list_attribute_vn:
-                output_ds_all.attrs[attr_vn] = glacier_rgi_table[attr_vn]
+                    
+            # Add global and variable attributes
+            output_ds_all, encoding = netcdf_add_metadata(output_ds_all, glacier_rgi_table)
+#            # Add attributes
+#            list_attribute_vn = ['RGIId', 'CenLon', 'CenLat']
+#            for attr_vn in list_attribute_vn:
+#                output_ds_all.attrs[attr_vn] = glacier_rgi_table[attr_vn]
             # Export new file
-            output_ds_all.to_netcdf(output_sim_reg + netcdf_stats_fn)
+            output_ds_all.to_netcdf(output_sim_reg + netcdf_stats_fn, encoding=encoding)
             # Remove existing file
 #            os.remove(input.output_sim_fp + netcdf_fn)
             

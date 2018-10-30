@@ -59,6 +59,18 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
 def glac_num_fromrange(int_low, int_high):
     """
     Generate list of glaciers for all numbers between two integers.
+    
+    Parameters
+    ----------
+    int_low : int64
+        low value of range
+    int_high : int64
+        high value of range
+    
+    Returns
+    -------
+    y : list
+        list of rgi glacier numbers
     """
     x = (np.arange(int_low, int_high+1)).tolist()
     y = [str(i).zfill(5) for i in x]
@@ -67,6 +79,16 @@ def glac_num_fromrange(int_low, int_high):
 def get_same_glaciers(glac_fp):
     """
     Get same 1000 glaciers for testing of priors
+    
+    Parameters
+    ----------
+    glac_fp : str
+        filepath to where netcdf files of individual glaciers are held
+    
+    Returns
+    -------
+    glac_list : list
+        list of rgi glacier numbers
     """
     glac_list = []
     for i in os.listdir(glac_fp):
@@ -687,7 +709,9 @@ output_package = 2
     #             monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, 
     #                                             snowline)
     #             annual glacier-wide variables (area, volume, ELA)
-
+output_glacier_attr_vns = ['glacno', 'RGIId_float', 'CenLon', 'CenLat', 'O1Region', 'O2Region', 'Area', 'Zmin', 'Zmax', 
+                           'Zmed', 'Slope', 'Aspect', 'Lmax', 'Form', 'TermType', 'Surging']
+time_names = ['time', 'year', 'year_plus1']
 
 #%% WARNING MESSAGE OPTION
 option_warningmessages = 1
