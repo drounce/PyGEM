@@ -8,6 +8,8 @@ pygemfxns_output_postprocessing.py is a mix of post-processing for things like p
 and any other comparisons between output or input data.
 """
 
+# Built-in Libraries
+import os
 # External Libraries
 import numpy as np
 import pandas as pd 
@@ -30,8 +32,195 @@ option_geodeticMB_loadcompare = 0
 option_check_biasadj = 0
 option_parameter_relationships = 0
 option_MCMC_ensembles = 0
+option_calcompare_w_geomb = 0
+option_add_metadata2netcdf = 0
 
 option_savefigs = 1
+
+#%% TEST
+#rgi_regionsO1 = [15]
+##rgi_glac_number = ['00001']
+#netcdf_fp = (input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/reg' + str(rgi_regionsO1[0]) + 
+#             '/stats_w_attrs/')
+#netcdf_fn = 'ERA-Interim_c2_ba0_200sets_2000_2017_stats--15.00001.nc'
+##
+##ds = xr.open_dataset(netcdf_fp + netcdf_fn)
+##encoding = {'time': {'_FillValue': False},
+##            'year': {'_FillValue': False},
+##            'year_plus1': {'_FillValue': False},
+##            'temp_glac_monthly': {'_FillValue': False},
+##            'prec_glac_monthly': {'_FillValue': False},
+##            'acc_glac_monthly': {'_FillValue': False},
+##            'refreeze_glac_monthly': {'_FillValue': False},
+##            'melt_glac_monthly': {'_FillValue': False},
+##            'frontalablation_glac_monthly': {'_FillValue': False},
+##            'massbaltotal_glac_monthly': {'_FillValue': False},
+##            'runoff_glac_monthly': {'_FillValue': False},
+##            'snowline_glac_monthly': {'_FillValue': False},
+##            'area_glac_annual': {'_FillValue': False},
+##            'volume_glac_annual': {'_FillValue': False},
+##            'ELA_glac_annual': {'_FillValue': False}
+##            }
+##ds.to_netcdf(netcdf_fp + '../test.nc', encoding=encoding)
+#
+#ds = nc.Dataset(netcdf_fp + netcdf_fn)
+##ds = nc.Dataset(netcdf_fp + '../test.nc')
+
+
+#%% ===== ADD DATA TO NETCDF FILES =====
+if option_add_metadata2netcdf == 1:
+    # TO-DO LIST
+    #2. Attribute "_FillValue" cannot be NaN and must be numerical by NetCDF convention, e.g. it can be -9999.
+    
+    def get_same_glaciers(glac_fp):
+        """
+        Get same 1000 glaciers for testing of priors
+        """
+        glac_list = []
+        for i in os.listdir(glac_fp):
+            if i.endswith('.nc'):
+                glac_list.append(i.split('.')[1])
+        glac_list = sorted(glac_list)
+        return glac_list
+    
+    rgi_regionsO1 = [15]
+    netcdf_fp = (input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/reg' + str(rgi_regionsO1[0]) + 
+                 '/stats/')
+    new_netcdf_fp = netcdf_fp + '../stats_w_attrs/'
+    # Add filepath if it doesn't exist
+    if not os.path.exists(new_netcdf_fp):
+        os.makedirs(new_netcdf_fp)
+    
+    # Select glaciers consistent with netcdf data
+    rgi_glac_number = get_same_glaciers(netcdf_fp)
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+                                                      rgi_glac_number=rgi_glac_number)
+    output_glacier_attr_vns = ['RGIId', 'CenLon', 'CenLat', 'O1Region', 'O2Region', 'glacno', 'RGIId_float', 'Area', 
+                                   'Zmin', 'Zmax', 'Zmed', 'Slope', 'Aspect', 'Lmax', 'Form', 'TermType', 'Surging']
+    
+    def netcdf_add_metadata(ds, glacier_rgi_table):
+        """
+        Add metadata to netcdf file.
+        
+        Parameters
+        ----------
+        ds : xarray dataset
+            xarray dataset for an individual glacier
+        glacier_rgi_table : pd.Series
+            glacier rgi table, which stores information about the glacier
+        
+        Returns
+        -------
+        ds : xarray dataset
+            modified xarray dataset containing long_name, units, comments, etc.
+        encoding : dict
+            dictionary containing encodings used for export, e.g., turning filling off
+        """
+        # Global attributes
+        # Glacier properties
+        ds_existing_attrs = list(ds.attrs.keys())
+        for attr_vn in output_glacier_attr_vns:
+            # Check if attribute exists
+            if (attr_vn not in ds_existing_attrs) and (attr_vn in list(glacier_rgi_table.index.values)):
+                ds.attrs[attr_vn] = glacier_rgi_table[attr_vn]
+        # Calendar year
+        if input.option_wateryear == 1:
+            ds.attrs['year_type'] = 'water year'
+        elif input.option_wateryear == 2:
+            ds.attrs['year_type'] = 'calendar year'
+        elif input.option_wateryear == 3:
+            ds.attrs['year_type'] = 'custom year (user defined start/end months)'
+        # Add attributes for given package
+        if input.output_package == 2:
+            ds.temp_glac_monthly.attrs['long_name'] = 'glacier-wide mean air temperature'
+            ds.temp_glac_monthly.attrs['units'] = 'degC'
+            ds.temp_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+            ds.temp_glac_monthly.attrs['comment'] = (
+                    'each elevation bin is weighted equally to compute the mean temperature, and bins where the glacier' 
+                    ' no longer exists due to retreat have been removed')
+            ds.prec_glac_monthly.attrs['long_name'] = 'glacier-wide precipitation (liquid)'
+            ds.prec_glac_monthly.attrs['units'] = 'm'
+            ds.prec_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+            ds.prec_glac_monthly.attrs['comment'] = 'only the liquid precipitation, solid precipitation excluded'
+            ds.acc_glac_monthly.attrs['long_name'] = 'glacier-wide accumulation'
+            ds.acc_glac_monthly.attrs['units'] = 'm w.e.'
+            ds.acc_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+            ds.acc_glac_monthly.attrs['comment'] = 'only the solid precipitation'
+            ds.refreeze_glac_monthly.attrs['long_name'] = 'glacier-wide refreeze'
+            ds.refreeze_glac_monthly.attrs['units'] = 'm w.e.'
+            ds.refreeze_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+            ds.melt_glac_monthly.attrs['long_name'] = 'glacier-wide melt'
+            ds.melt_glac_monthly.attrs['units'] = 'm w.e.'
+            ds.melt_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+            ds.frontalablation_glac_monthly['long_name'] = 'glacier-wide frontal ablation'
+            ds.frontalablation_glac_monthly['units'] = 'm w.e.'
+            ds.frontalablation_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+            ds.frontalablation_glac_monthly['comment'] = (
+                    'mass losses from calving, subaerial frontal melting, sublimation above the waterline and '
+                    + 'subaqueous frontal melting below the waterline')
+            ds.massbaltotal_glac_monthly.attrs['long_name'] = 'glacier-wide total mass balance'
+            ds.massbaltotal_glac_monthly.attrs['units'] = 'm w.e.'
+            ds.massbaltotal_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+            ds.massbaltotal_glac_monthly.attrs['comment'] = (
+                    'total mass balance is the sum of the climatic mass balance and frontal ablation')
+            ds.runoff_glac_monthly.attrs['long_name'] = 'glacier runoff'
+            ds.runoff_glac_monthly.attrs['units'] = 'm**3'
+            ds.runoff_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+            ds.runoff_glac_monthly.attrs['comment'] = 'runoff from the glacier terminus, which moves over time'
+            ds.snowline_glac_monthly.attrs['long_name'] = 'transient snowline'
+            ds.snowline_glac_monthly.attrs['units'] = "m a.s.l."
+            ds.snowline_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+            ds.snowline_glac_monthly.attrs['comment'] = 'transient snowline is altitude separating snow from ice/firn'
+            ds.area_glac_annual.attrs['long_name'] = 'glacier area'
+            ds.area_glac_annual.attrs['units'] = 'km**2'
+            ds.area_glac_annual.attrs['temporal_resolution'] = 'annual'
+            ds.area_glac_annual.attrs['comment'] = 'area used for the duration of the defined start/end of year'
+            ds.volume_glac_annual.attrs['long_name'] = 'glacier volume'
+            ds.volume_glac_annual.attrs['units'] = "km**3 ice"
+            ds.volume_glac_annual.attrs['temporal_resolution'] = 'annual'
+            ds.volume_glac_annual.attrs['comment'] = 'volume based on area and ice thickness used for that year'
+            ds.ELA_glac_annual.attrs['long_name'] = 'annual equilibrium line altitude'
+            ds.ELA_glac_annual.attrs['units'] = 'm a.s.l.'
+            ds.ELA_glac_annual.attrs['temporal_resolution'] = 'annual'
+            ds.ELA_glac_annual.attrs['comment'] = (
+                    'equilibrium line altitude is the elevation where the climatic mass balance is zero')
+            # Encoding (specify _FillValue, offsets, etc.)
+            encoding = {'time': {'_FillValue': False},
+                        'year': {'_FillValue': False},
+                        'year_plus1': {'_FillValue': False},
+                        'temp_glac_monthly': {'_FillValue': False},
+                        'prec_glac_monthly': {'_FillValue': False},
+                        'acc_glac_monthly': {'_FillValue': False},
+                        'refreeze_glac_monthly': {'_FillValue': False},
+                        'melt_glac_monthly': {'_FillValue': False},
+                        'frontalablation_glac_monthly': {'_FillValue': False},
+                        'massbaltotal_glac_monthly': {'_FillValue': False},
+                        'runoff_glac_monthly': {'_FillValue': False},
+                        'snowline_glac_monthly': {'_FillValue': False},
+                        'area_glac_annual': {'_FillValue': False},
+                        'volume_glac_annual': {'_FillValue': False},
+                        'ELA_glac_annual': {'_FillValue': False}
+                        }
+        return ds, encoding
+
+
+    # Sorted list of files to modify
+    output_list = []
+    for i in os.listdir(netcdf_fp):
+        if i.endswith('.nc'):
+            output_list.append(i)
+    output_list = sorted(output_list)
+    
+    for glac in range(main_glac_rgi.shape[0]):
+#    for glac in [0]:
+        i = output_list[glac]
+        ds = xr.open_dataset(netcdf_fp + i)
+        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
+        ds, encoding = netcdf_add_metadata(ds, glacier_rgi_table)
+    #    print(i.split('.')[1], glacier_rgi_table['RGIId'])
+        
+        ds.to_netcdf(new_netcdf_fp + i, encoding=encoding)
+
 
 #%%===== PLOT FUNCTIONS =============================================================================================
 def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, ylabel, colormap, east, west, south, north, 
@@ -68,7 +257,6 @@ def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, yla
     plt.show()
 
     
-
 def plot_caloutput(data):
     """
     Plot maps and histograms of the calibration parameters to visualize results
@@ -833,219 +1021,55 @@ if option_mb_shean_regional == 1:
     ds_export.to_csv(ds_fp + output_fn, index=False)
 
 
-
-#%%===== PLOTTING GRID SEARCH FOR A GLACIER ======
-#data = nc.Dataset(input.main_directory + '/../Output/calibration_gridsearchcoarse_R15_20180324.nc', 'r+')
-## Extract glacier information
-#main_glac_rgi = pd.DataFrame(data['glacierinfo'][:], columns=data['glacierinfoheader'][:])
-## Import calibration data for comparison
-#main_glac_calmassbal = pd.read_csv(input.main_directory + '/../Output/R15_shean_geodeticmb_sorted.csv')
-## Set glacier number
-## Ngozumpa Glacier
-#glac = 595
-## Khumbu Glacier
-##glac = 667
-## Rongbuk Glacier
-##glac = 1582
-## East Rongbuk Glacier
-##glac = 1607
-#
-## Select model parameters
-#grid_modelparameters = data['grid_modelparameters'][:]
-#precfactor = grid_modelparameters[:,2]
-#tempchange = grid_modelparameters[:,7]
-#ddfsnow = grid_modelparameters[:,4]
-#precgrad = grid_modelparameters[:,3]
-#ddfsnow_unique = np.unique(ddfsnow)
-#precgrad_unique = np.unique(precgrad)
-## Calculate mass balance and difference between modeled and measured
-#massbaltotal_mwea = (data['massbaltotal_glac_monthly'][glac,:,:].sum(axis=1) / 
-#    (main_glac_calmassbal.loc[glac,'year2'] - main_glac_calmassbal.loc[glac,'year1'] + 1))
-#massbaltotal_mwea_cal = main_glac_calmassbal.loc[glac,'mb_mwea']
-#difference = np.zeros((grid_modelparameters.shape[0],1))
-#difference[:,0] = massbaltotal_mwea - massbaltotal_mwea_cal
-#
-#data_hist = np.concatenate((grid_modelparameters, difference), axis=1)
-#data_hist = pd.DataFrame(data_hist, columns=['lrglac','lrgcm','precfactor','precgrad','ddfsnow','ddfice','tempsnow',
-#                                             'tempchange','difference'])
-## Plot histograms
-##data_hist.hist(column='difference', bins=20)
-##plt.title('Mass Balance Difference [mwea]')
-#
-## Plot map of calibration parameters
-## setup the plot
-#fig, ax = plt.subplots(1,1, figsize=(5,5))  
-#markers = ['v','o','^']
-#labels = ['0.0001', '0.0003', '0.0005']
-## define the colormap
-#cmap = plt.cm.jet_r
-## extract all colors from the .jet map
-#cmaplist = [cmap(i) for i in range(cmap.N)]
-## create the new map
-#cmap = cmap.from_list('Custom cmap', cmaplist, cmap.N)
-## define the bins and normalize
-#stepmin = -5
-#stepmax = 6
-#stepsize = 2
-#bounds = np.arange(stepmin, stepmax, stepsize)
-#norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
-#for n in range(precgrad_unique.shape[0]):
-#    precfactor_subset = precfactor[precgrad == precgrad_unique[n]]
-#    if n == 0:
-#        precfactor_subset = precfactor_subset - 0.05
-#    elif n == 2:
-#        precfactor_subset = precfactor_subset + 0.05
-#    tempchange_subset = tempchange[precgrad == precgrad_unique[n]]
-#    ddfsnow_subset = ddfsnow[precgrad == precgrad_unique[n]]
-#    difference_subset = difference[precgrad == precgrad_unique[n]]
-#    # Set size of markers based on DDFsnow
-#    ddfsnow_norm = ddfsnow_subset.copy()
-#    ddfsnow_norm[ddfsnow_subset == ddfsnow_unique[0]] = 10
-#    ddfsnow_norm[ddfsnow_subset == ddfsnow_unique[1]] = 30
-#    ddfsnow_norm[ddfsnow_subset == ddfsnow_unique[2]] = 50
-#    ddfsnow_norm[ddfsnow_subset == ddfsnow_unique[3]] = 70
-#    ddfsnow_norm[ddfsnow_subset == ddfsnow_unique[4]] = 90
-#    # make the scatter
-#    scat = ax.scatter(precfactor_subset, difference_subset, s=ddfsnow_norm, marker=markers[n], c=tempchange_subset, 
-#                      cmap=cmap, norm=norm, label=labels[n])
-## create the colorbar
-#cb = plt.colorbar(scat, spacing='proportional', ticks=bounds)
-##cb = plt.colorbar()
-#tick_loc = bounds + stepsize/2
-#cb.set_ticks(tick_loc)
-#cb.set_ticklabels((bounds + stepsize/2).astype(int))
-#cb.set_label('Tempchange [degC]')
-##ax.set_title('TITLE')
-#plt.xlabel('precfactor')
-#plt.xlim((0.65, 1.85))
-#plt.xticks([0.75, 1, 1.25, 1.5, 1.75])
-#plt.ylabel('Difference [m w.e.a.]')
-#plt.ylim((-2,2))
-##plt.legend(loc=2)
-#plt.show()
-#fig.savefig(input.main_directory + '/../output/' + main_glac_rgi.loc[glac,'RGIID'] + '_gridsearch.png')
-    
-
 #%% ====== PLOTTING FOR CALIBRATION FUNCTION ======================================================================
-# Plot histograms and regional variations
-rgi_regionsO1 = [15]
-csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229_all_filled.csv'
-modelparams_fp_dict = {
-            13: input.output_filepath + 'cal_opt2_20181018/reg13/',
-            14: input.output_filepath + 'cal_opt2_20181018/reg14/',
-            15: input.output_filepath + 'cal_opt2_20181018/reg15/'}
-sims_fp_dict = {
-            13: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg13/stats/',
-            14: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg14/stats/',
-            15: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg15/stats/'}
-
-cal_data_all = pd.read_csv(csv_path)
-
-main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                  rgi_glac_number='all')
-
-cal_data_all['RegO1'] = cal_data_all['RGIId'].values.astype(int)
-# Select data for specific region
-cal_data_reg = cal_data_all[cal_data_all['RegO1']==rgi_regionsO1[0]].copy()
-cal_data_reg.reset_index(drop=True, inplace=True)
-# Glacier number and index for comparison
-cal_data_reg['glacno'] = ((cal_data_reg['RGIId'] % 1) * 10**5).round(0).astype(int)
-cal_data_reg['RGIId'] = ('RGI60-' + str(rgi_regionsO1[0]) + '.' + 
-                   (cal_data_reg['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1])
-# Select glaciers with mass balance data
-cal_data = (cal_data_reg.iloc[np.where(cal_data_reg['glacno'].isin(main_glac_rgi['glacno']) == True)[0],:]).copy()
-cal_data.reset_index(drop=True, inplace=True)
-
-# Compare observations, calibration, and simulations
-cal_data['calibrated_mb'] = np.nan
-for glac in range(main_glac_rgi.shape[0]):
-    glac_str = main_glac_rgi.loc[glac,'RGIId'].split('-')[1]
-    # Add calibrated mass balance
-    netcdf_fn_cal = glac_str + '.nc'
-    ds_cal = xr.open_dataset(modelparams_fp_dict[rgi_regionsO1[0]] + netcdf_fn_cal)
-    df_cal = pd.DataFrame(ds_cal['mp_value'].sel(chain=0).values, columns=ds_cal.mp.values)
-    cal_mb = df_cal.massbal.values.mean()
-    cal_data.loc[glac,'cal_mb'] = cal_mb
-    # Add simulated mass balance (will be more off because has mass loss/area changes feedback)
-    netcdf_fn_sim = 'ERA-Interim_c2_ba0_200sets_2000_2018--' + glac_str + '_stats.nc'
-    ds_sim = xr.open_dataset(sims_fp_dict[rgi_regionsO1[0]] + netcdf_fn_sim)
-    df_sim = pd.DataFrame(ds_cal['mp_value'].sel(chain=0).values, columns=ds_cal.mp.values)
-    sim_mb = df_cal.massbal.values.mean()
-    cal_data.loc[glac,'sim_mb'] = sim_mb
-
-cal_data['cal_mb_dif'] = cal_data.cal_mb - cal_data.mb_mwea
-cal_data['sim_mb_dif'] = cal_data.sim_mb - cal_data.mb_mwea
-#%%
-cal_data.hist(column='cal_mb_dif', bins=50)
-cal_data.hist(column='sim_mb_dif', bins=50)
+if option_calcompare_w_geomb == 1:
+    # Plot histograms and regional variations
+    rgi_regionsO1 = [15]
+    csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229_all_filled.csv'
+    modelparams_fp_dict = {
+                13: input.output_filepath + 'cal_opt2_20181018/reg13/',
+                14: input.output_filepath + 'cal_opt2_20181018/reg14/',
+                15: input.output_filepath + 'cal_opt2_20181018/reg15/'}
+    sims_fp_dict = {
+                13: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg13/stats/',
+                14: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg14/stats/',
+                15: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg15/stats/'}
     
-#%%
-#data13 = pd.read_csv(input.main_directory + '/../Output/calibration_R13_20180318_Opt01solutionspaceexpanding.csv')
-##data13 = data13.dropna()
-##data14 = pd.read_csv(input.main_directory + '/../Output/calibration_R14_20180313_Opt01solutionspaceexpanding.csv')
-##data14 = data14.dropna()
-##data15 = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180306_Opt01solutionspaceexpanding.csv')
-#data15 = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv')
-#data15 = data15.dropna()
-#data = data15
-
-# Concatenate the data
-#frames = [data13, data14, data15]
-#data = pd.concat(frames)
-
-## Fill in values with average 
-## Subset all values that have data
-##data_subset = data.dropna()
-#data_subset_params = data_subset[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow',
-#                                    'tempchange']]
-#data_subset_paramsavg = data_subset_params.mean()
-#paramsfilled = data[['lrgcm','lrglac','precfactor','precgrad','ddfsnow','ddfice','tempsnow','tempchange']]
-#paramsfilled = paramsfilled.fillna(data_subset_paramsavg)    
-
-## Set extent
-#east = int(round(data['CenLon'].min())) - 1
-#west = int(round(data['CenLon'].max())) + 1
-#south = int(round(data['CenLat'].min())) - 1
-#north = int(round(data['CenLat'].max())) + 1
-#xtick = 1
-#ytick = 1
-## Select relevant data
-#lats = data['CenLat'][:]
-#lons = data['CenLon'][:]
-#precfactor = data['precfactor'][:]
-#precgrad = data['precgrad'][:]
-#tempchange = data['tempchange'][:]
-#ddfsnow = data['ddfsnow'][:]
-#calround = data['calround'][:]
-#massbal = data['MB_geodetic_mwea']
-#massbal_difference = data['MB_difference_mwea']
-## Plot regional maps
-#plot_latlonvar(lons, lats, massbal, -1.5, 0.5, 'Geodetic mass balance [mwea]', 'longitude [deg]', 'latitude [deg]', 
-#               'RdBu', east, west, south, north, xtick, ytick)
-#plot_latlonvar(lons, lats, massbal_difference, 0, 0.15, 'abs(Mass balance difference) [mwea]', 'longitude [deg]', 
-#               'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick)
-#plot_latlonvar(lons, lats, precfactor, 0.85, 1.3, 'Precipitation factor [-]', 'longitude [deg]', 'latitude [deg]', 
-#               'jet_r', east, west, south, north, xtick, ytick)
-#plot_latlonvar(lons, lats, precgrad, 0.0001, 0.0002, 'Precipitation gradient [% m-1]', 'longitude [deg]', 
-#               'latitude [deg]', 'jet_r', east, west, south, north, xtick, ytick)
-#plot_latlonvar(lons, lats, tempchange, -2, 2, 'Temperature bias [degC]', 'longitude [deg]', 'latitude [deg]', 
-#               'jet', east, west, south, north, xtick, ytick)
-#plot_latlonvar(lons, lats, ddfsnow, 0.003, 0.005, 'DDF_snow [m w.e. d-1 degC-1]', 'longitude [deg]', 'latitude [deg]', 
-#               'jet', east, west, south, north, xtick, ytick)
-#plot_latlonvar(lons, lats, calround, 1, 3, 'Calibration round', 'longitude [deg]', 'latitude [deg]', 
-#               'jet_r', east, west, south, north, xtick, ytick)
-## Plot histograms
-#data.hist(column='MB_difference_mwea', bins=50)
-#plt.title('Mass Balance Difference [mwea]')
-#data.hist(column='precfactor', bins=50)
-#plt.title('Precipitation factor [-]')
-#data.hist(column='precgrad', bins=50)
-#plt.title('Precipitation gradient [% m-1]')
-#data.hist(column='tempchange', bins=50)
-#plt.title('Temperature bias [degC]')
-#data.hist(column='ddfsnow', bins=50)
-#plt.title('DDFsnow [mwe d-1 degC-1]')
-#plt.xticks(rotation=60)
-#data.hist(column='calround', bins = [0.5, 1.5, 2.5, 3.5])
-#plt.title('Calibration round')
-#plt.xticks([1, 2, 3])
+    cal_data_all = pd.read_csv(csv_path)
+    
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
+                                                      rgi_glac_number='all')
+    
+    cal_data_all['RegO1'] = cal_data_all['RGIId'].values.astype(int)
+    # Select data for specific region
+    cal_data_reg = cal_data_all[cal_data_all['RegO1']==rgi_regionsO1[0]].copy()
+    cal_data_reg.reset_index(drop=True, inplace=True)
+    # Glacier number and index for comparison
+    cal_data_reg['glacno'] = ((cal_data_reg['RGIId'] % 1) * 10**5).round(0).astype(int)
+    cal_data_reg['RGIId'] = ('RGI60-' + str(rgi_regionsO1[0]) + '.' + 
+                       (cal_data_reg['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1])
+    # Select glaciers with mass balance data
+    cal_data = (cal_data_reg.iloc[np.where(cal_data_reg['glacno'].isin(main_glac_rgi['glacno']) == True)[0],:]).copy()
+    cal_data.reset_index(drop=True, inplace=True)
+    
+    # Compare observations, calibration, and simulations
+    cal_data['calibrated_mb'] = np.nan
+    for glac in range(main_glac_rgi.shape[0]):
+        glac_str = main_glac_rgi.loc[glac,'RGIId'].split('-')[1]
+        # Add calibrated mass balance
+        netcdf_fn_cal = glac_str + '.nc'
+        ds_cal = xr.open_dataset(modelparams_fp_dict[rgi_regionsO1[0]] + netcdf_fn_cal)
+        df_cal = pd.DataFrame(ds_cal['mp_value'].sel(chain=0).values, columns=ds_cal.mp.values)
+        cal_mb = df_cal.massbal.values.mean()
+        cal_data.loc[glac,'cal_mb'] = cal_mb
+        # Add simulated mass balance (will be more off because has mass loss/area changes feedback)
+        netcdf_fn_sim = 'ERA-Interim_c2_ba0_200sets_2000_2018--' + glac_str + '_stats.nc'
+        ds_sim = xr.open_dataset(sims_fp_dict[rgi_regionsO1[0]] + netcdf_fn_sim)
+        df_sim = pd.DataFrame(ds_cal['mp_value'].sel(chain=0).values, columns=ds_cal.mp.values)
+        sim_mb = df_cal.massbal.values.mean()
+        cal_data.loc[glac,'sim_mb'] = sim_mb
+    
+    cal_data['cal_mb_dif'] = cal_data.cal_mb - cal_data.mb_mwea
+    cal_data['sim_mb_dif'] = cal_data.sim_mb - cal_data.mb_mwea
+    cal_data.hist(column='cal_mb_dif', bins=50)
+    cal_data.hist(column='sim_mb_dif', bins=50)
