@@ -1104,9 +1104,10 @@ def write_table(region=15, iters=1000, burn=0):
 
             # find values for this glacier and append to lists
             glac_no.append(netcdf[-11:-3])
-
             effective_n_list.append(effective_n(ds, vn=vn, iters=iters, burn=burn))
-            gelman_rubin_list.append(gelman_rubin(ds, vn=vn, iters=iters, burn=burn))
+            # test if multiple chains exist
+            if len(ds.chain) > 1:
+                gelman_rubin_list.append(gelman_rubin(ds, vn=vn, iters=iters, burn=burn))
             mc_error.append(MC_error(ds, vn=vn, iters=iters, burn=burn)[0])
 
             ds.close()
@@ -1117,8 +1118,9 @@ def write_table(region=15, iters=1000, burn=0):
         # create dataframe
         data = {'Glacier': glac_no,
                 'Effective N' : effective_n_list,
-                'MC Error' : mc_error,
-                'Gelman-Rubin' : gelman_rubin_list}
+                'MC Error' : mc_error}
+        if len(gelman_rubin_list) > 0:
+            data['Gelman-Rubin'] = gelman_rubin_list
         df = pd.DataFrame(data)
         df.set_index('Glacier', inplace=True)
 
@@ -1243,7 +1245,7 @@ def plot_histograms_2(iters, burn, region=15, dfs=None):
     Returns
     -------
     .png files
-        Saves images to 1 png file.
+        Saves images to 3 png files.
 
     '''
 
@@ -1253,10 +1255,48 @@ def plot_histograms_2(iters, burn, region=15, dfs=None):
                      'precfactor':'Precipitation Factor',
                      'tempchange':'Temperature Bias',
                      'ddfsnow':'DDF Snow'}
-    metrics = ['Gelman-Rubin', 'MC Error', 'Effective N']
+
+    test = pd.read_csv(mcmc_output_csv_fp + 'region' +
+                                     str(region) + '_' + str(iters) +
+                                     'iterations_' + str(burn) + 'burn_' +
+                                     str('massbal') + '.csv')
+
+    # determine whether Gelman-Rubin has been computed
+    if 'Gelman-Rubin' in test.columns:
+        metrics = ['Gelman-Rubin', 'MC Error', 'Effective N']
+    else:
+        metrics = ['MC Error', 'Effective N']
+
+    # hard code font sizes
+    ticks=10
+    suptitle=16
+    title=14
+    label=12
+    plotline=3
+    legend=10
+
+    # bins and ticks
+    if iters==15000:
+        tbins = np.arange(1.00, 1.06, 0.002)
+        pbins = np.arange(1.0, 1.006, 0.0002)
+        dbins = np.arange(1.0, 1.006, 0.0002)
+        mbins = np.arange(1.0, 1.006, 0.0002)
+        mcbins = np.arange(0, 3, 0.1)
+        grticks = np.arange(0, 30, 5)
+        mcticks = np.arange(0, 19, 4)
+        nticks = np.arange(0, 19, 4)
+    else:
+        tbins = np.arange(1.00, 1.12, 0.004)
+        pbins = np.arange(1.00, 1.12, 0.004)
+        dbins = np.arange(1, 1.018, 0.006)
+        mbins = np.arange(1, 1.012, 0.0004)
+        mcbins = np.arange(0, 4, 0.125)
+        grticks = np.arange(0, 30, 5)
+        mcticks = np.arange(0, 19, 4)
+        nticks = np.arange(0, 19, 4)
+
 
     vn_df_dict = {}
-
     # read csv files
     for vn in variables:
         vn_df_dict[vn] = pd.read_csv(mcmc_output_csv_fp + 'region' +
@@ -1268,10 +1308,13 @@ def plot_histograms_2(iters, burn, region=15, dfs=None):
     v_len = len(variables)
     m_len = len(metrics)
 
-    plt.figure(figsize=(v_len*5, m_len*3.5))
+    # create figure
+    #fig=plt.figure(figsize=(6.5, 4))
+    fig = plt.figure(figsize=(v_len*5, m_len*3.5), dpi=72)
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
 
-    plt.suptitle('Region ' + str(region) + ' MC Metrics Assessment Histograms ' +
+    # write title
+    plt.suptitle('MC Metrics Assessment Histograms ' +
                  str(iters) + ' iterations ' + str(burn) + ' burn-in',
                  fontsize=18, y=0.97)
 
@@ -1284,21 +1327,69 @@ def plot_histograms_2(iters, burn, region=15, dfs=None):
             df = vn_df_dict[vn]
 
             # plot histogram
-            plt.subplot(m_len, v_len, v_len*m_count+v_count+1)
-            n, bins, patches = plt.hist(x=df[metric], bins=30, alpha=.4, edgecolor='black',
-                                        color='#0504aa')
+            ax = plt.subplot(m_len, v_len, v_len*m_count+v_count+1)
+            ax2 = ax.twinx()
+
+            # create uniform bins based on matric
+            if metric == 'Gelman-Rubin':
+                if vn == 'tempchange':
+                    bins = tbins
+                elif vn == 'precfactor':
+                    bins = pbins
+                elif vn == 'ddfsnow':
+                    bins = dbins
+                elif vn == 'massbal':
+                    bins = mbins
+            elif metric == 'MC Error':
+                bins = mcbins
+            elif metric == 'Effective N':
+                bins = 30
+
+            #print('bins: ', bins)
+
+            # compute histogram and change to percentage of glaciers
+            hist, bins = np.histogram(a=df[metric], bins=bins)
+            hist = hist * 100.0 / hist.sum()
+
+            # plot histogram
+            ax.bar(x=bins[1:], height=hist, width=(bins[1]-bins[0]), align='center',
+                   alpha=.4, edgecolor='black', color='#0504aa')
+
+            # create uniform bins based on metric
+            if metric == 'Gelman-Rubin':
+                ax.set_yticks(grticks)
+            elif metric == 'MC Error':
+                ax.set_yticks(mcticks)
+            elif metric == 'Effective N':
+                ax.set_yticks(nticks)
+
+            # find cumulative percentage and plot it
+            cum_hist = [hist[0:i].sum() for i in range(len(hist))]
+            ax2.plot(bins[:-1], cum_hist, color='#ff6600',
+                     linewidth=plotline, label='Cumulative\nPercentage')
+            ax2.set_yticks(np.arange(0, 110, 20))
+
+            # set tick sizes
+            ax.tick_params(labelsize=ticks)
+            ax2.tick_params(labelsize=ticks)
 
             # niceties
-            plt.title(vn_title_dict[vn], fontsize=14)
+            if m_count == 0:
+                plt.title(vn_title_dict[vn], fontsize=title)
 
+            # axis labels
             if v_count == 0:
-                plt.ylabel('Frequency', fontsize=14)
-
+                ax.set_ylabel('Percentage of Glaciers [%]', fontsize=label, labelpad=10)
+            if v_count ==3:
+                ax2.set_ylabel('Cumulative Percentage [%]', fontsize=label, rotation = 270, labelpad=35)
             if metric=='MC Error':
-                plt.xlabel(metric + ' (as percentage of mean)', fontsize=12)
+                ax.set_xlabel(metric + ' (as percentage of mean)', fontsize=label)
             else:
-                plt.xlabel(metric + ' value', fontsize=12)
+                ax.set_xlabel(metric + ' value', fontsize=label)
 
+            # legend
+            if v_count==3 and m_count==0:
+                ax2.legend(loc='center right', fontsize=legend)
 
     # Save figure
     plt.savefig(mcmc_output_hist_fp + 'region' + str(region) + '_' + str(iters) +
@@ -1356,6 +1447,6 @@ for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
 # histogram assessments
 for iters in [10000,15000]:
     for region in [13, 14, 15]:
-        write_table(region=region, iters=iters, burn=0)
-        plot_histograms(region=region, iters=iters, burn=0)
+        #write_table(region=region, iters=iters, burn=0)
+        #plot_histograms(region=region, iters=iters, burn=0)
         plot_histograms_2(region=region, iters=iters, burn=0)
