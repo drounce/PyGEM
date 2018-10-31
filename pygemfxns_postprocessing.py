@@ -40,82 +40,86 @@ option_merge_netcdfs = 0
 option_savefigs = 1
 
 #%% TEST
-rgi_regionsO1 = [15]
-netcdf_fp = (input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/reg' + str(rgi_regionsO1[0]) + 
-             '/stats_w_attrs/')
-#netcdf_fp = (input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/reg' + str(rgi_regionsO1[0]) + 
-#             '/test/')
-# Select glaciers consistent with netcdf data
-rgi_glac_number = input.get_same_glaciers(netcdf_fp)
-main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                  rgi_glac_number=rgi_glac_number)
 
-output_vns_WBM = ['prec_glac_monthly', 'acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 
-                  'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 
-                  'area_glac_annual', 'volume_glac_annual']
-output_stat_cns_WBM = ['mean', 'std']
 
-# Sorted list of files to merge
-output_list = []
-for i in os.listdir(netcdf_fp):
-    if i.endswith('.nc'):
-        output_list.append(i)
-output_list = sorted(output_list)
-# Merge netcdfs together
-for n, i in enumerate(output_list):
-    ds = xr.open_dataset(netcdf_fp + i)
-    if n == 0:
-        ds_all = ds.copy()
-        ds_all.attrs = {}
-    else:
-        ds_all = xr.concat([ds_all, ds], 'glac')
+#%% MERGE NETCDF FILES TO REDUCE FILE SIZE
+if option_merge_netcdfs == 1:
+    # ===== REQUIRED INPUT =====
+    rgi_regionsO1 = [13]
+    netcdf_fp = (input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/reg' + str(rgi_regionsO1[0]) + 
+                 '/stats_w_attrs/')
+    output_vns_WBM = ['prec_glac_monthly', 'acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 
+                      'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 
+                      'area_glac_annual', 'volume_glac_annual']
+    output_stat_cns_WBM = ['mean', 'std']
 
-# Remove unwanted variables and statistics to cut down on the file size
-# List of variables
-ds_vns = []
-for vn in ds_all.variables:
-    ds_vns.append(vn)
-# List of stats
-stats_subset_idx = []
-stats_list = list(ds_all.stats.values)
-for cn in output_stat_cns_WBM:
-    if cn in stats_list:
-        stats_subset_idx.append(stats_list.index(cn))
-# Merge the desired variables and stats into one dataset
-count_vn = 0
-for vn in output_vns_WBM:
-    count_vn += 1
-    # Determine time coordinate of the variable
-    for t_name in input.time_names:
-        if t_name in ds[vn].coords:
-            time_coord = t_name
-    data_subset = ds_all[vn].values[:,:,stats_subset_idx]
-    # Create dataset for variable
-    output_ds = xr.Dataset({vn: (('glac', time_coord, 'stats'), data_subset)},
-                           coords={'glac': ds_all[vn].glac.values,
-                                   time_coord: ds_all[vn][time_coord].values,
-                                   'stats': output_stat_cns_WBM})
-    # Merge datasets of stats into one output
-    if count_vn == 1:
-        output_ds_all = output_ds
-    else:
-        output_ds_all = xr.merge((output_ds_all, output_ds))
-    # Keep the attributes
-    output_ds_all[vn].attrs = ds_all[vn].attrs
-# Add a glacier table so that the glaciers attributes accompany the netcdf file
-main_glac_rgi_float = main_glac_rgi[input.output_glacier_attr_vns].copy()
-main_glac_rgi_xr = xr.Dataset({'glacier_table': (('glac', 'glac_attrs'), main_glac_rgi_float.values)},
-                               coords={'glac': output_ds_all.glac.values,
-                                       'glac_attrs': main_glac_rgi_float.columns.values})
-output_ds_all = output_ds_all.combine_first(main_glac_rgi_xr)
-# Encoding (specify _FillValue, offsets, etc.)
-ds_all_vns = []
-encoding = {}
-for vn in output_vns_WBM:
-    encoding[vn] = {'_FillValue': False}
-# Export netcdf
-netcdf_fn_merged = 'R' + str(rgi_regionsO1[0]) + '--' + i.split('--')[0] + '.nc'
-output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn_merged, encoding=encoding)
+    # ===== MERGE GLACIERS =====
+    # Select glaciers consistent with netcdf data
+    rgi_glac_number = input.get_same_glaciers(netcdf_fp)
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
+                                                      rgi_glac_number=rgi_glac_number)
+    # Sorted list of files to merge
+    output_list = []
+    for i in os.listdir(netcdf_fp):
+        if i.endswith('.nc'):
+            output_list.append(i)
+    output_list = sorted(output_list)
+    # Merge netcdfs together
+    for n, i in enumerate(output_list):
+        if n%200 == 0:
+            print(i)
+        ds = xr.open_dataset(netcdf_fp + i)
+        if n == 0:
+            ds_all = ds.copy()
+            ds_all.attrs = {}
+        else:
+            ds_all = xr.concat([ds_all, ds], 'glac')
+    # Remove unwanted variables and statistics to cut down on the file size
+    # List of variables
+    ds_vns = []
+    for vn in ds_all.variables:
+        ds_vns.append(vn)
+    # List of stats
+    stats_subset_idx = []
+    stats_list = list(ds_all.stats.values)
+    for cn in output_stat_cns_WBM:
+        if cn in stats_list:
+            stats_subset_idx.append(stats_list.index(cn))
+    # Merge the desired variables and stats into one dataset
+    count_vn = 0
+    for vn in output_vns_WBM:
+        count_vn += 1
+        # Determine time coordinate of the variable
+        for t_name in input.time_names:
+            if t_name in ds[vn].coords:
+                time_coord = t_name
+        data_subset = ds_all[vn].values[:,:,stats_subset_idx]
+        # Create dataset for variable
+        output_ds = xr.Dataset({vn: (('glac', time_coord, 'stats'), data_subset)},
+                               coords={'glac': ds_all[vn].glac.values,
+                                       time_coord: ds_all[vn][time_coord].values,
+                                       'stats': output_stat_cns_WBM})
+        # Merge datasets of stats into one output
+        if count_vn == 1:
+            output_ds_all = output_ds
+        else:
+            output_ds_all = xr.merge((output_ds_all, output_ds))
+        # Keep the attributes
+        output_ds_all[vn].attrs = ds_all[vn].attrs
+    # Add a glacier table so that the glaciers attributes accompany the netcdf file
+    main_glac_rgi_float = main_glac_rgi[input.output_glacier_attr_vns].copy()
+    main_glac_rgi_xr = xr.Dataset({'glacier_table': (('glac', 'glac_attrs'), main_glac_rgi_float.values)},
+                                   coords={'glac': output_ds_all.glac.values,
+                                           'glac_attrs': main_glac_rgi_float.columns.values})
+    output_ds_all = output_ds_all.combine_first(main_glac_rgi_xr)
+    # Encoding (specify _FillValue, offsets, etc.)
+    ds_all_vns = []
+    encoding = {}
+    for vn in output_vns_WBM:
+        encoding[vn] = {'_FillValue': False}
+    # Export netcdf
+    netcdf_fn_merged = 'R' + str(rgi_regionsO1[0]) + '--' + i.split('--')[0] + '.nc'
+    output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn_merged, encoding=encoding)
         
 
 #%% ===== ADD DATA TO NETCDF FILES =====

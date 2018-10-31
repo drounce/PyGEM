@@ -110,9 +110,9 @@ class GCM():
         Parameters
         ----------
         filename : str
-            filename of variable.
+            filename of variable
         variablename : str
-            variable name.
+            variable name
         main_glac_rgi : pandas dataframe
             dataframe containing relevant rgi glacier information
         
@@ -177,9 +177,9 @@ class GCM():
         Parameters
         ----------
         filename : str
-            filename of variable.
+            filename of variable
         vn : str
-            variable name.
+            variable name
         main_glac_rgi : pandas dataframe
             dataframe containing relevant rgi glacier information
         dates_table: pandas dataframe
