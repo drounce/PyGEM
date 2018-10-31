@@ -105,7 +105,6 @@ def main(list_packed_vars):
     elev_bins = main_glac_hyps.columns.values.astype(int)
 
     # Select dates including future projections
-    
     # If reference climate data starts or ends before or after the GCM data, then adjust reference climate data such
     # that the reference and GCM span the same period of time.
     if input.startyear >= input.gcm_startyear:

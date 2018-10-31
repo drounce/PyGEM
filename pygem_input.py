@@ -129,10 +129,10 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
-rgi_glac_number = ['03473']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-#rgi_glac_number = glac_num_fromrange(1,2)
+#rgi_glac_number = glac_num_fromrange(1,10)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
 if 'rgi_glac_number' not in locals():
@@ -147,12 +147,12 @@ startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2018
+endyear = 2017
 # Spin up time [years]
 spinupyears = 0
 # Simulation runs
 gcm_startyear = 2000
-gcm_endyear = 2006
+gcm_endyear = 2100
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -596,7 +596,7 @@ precgrad_lobf_property_cn = 'Zmed'
 precgrad_lobf_slope = 0
 
 #%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
-option_bias_adjustment = 0
+option_bias_adjustment = 2
 #  Option 0 - ignore bias adjustments
 #  Option 1 - bias adjustments using new technique 
 #  Option 2 - bias adjustments using Huss and Hock [2015] methods
