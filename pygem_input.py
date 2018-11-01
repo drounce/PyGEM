@@ -2,7 +2,6 @@
 
 # Built-in libraries
 import os
-from time import strftime
 # External libraries
 import pandas as pd
 import numpy as np
@@ -108,6 +107,7 @@ output_filepath = main_directory + '/../Output/'
 option_calibration = 1
 # Calibration datasets
 cal_datasets = ['shean']
+#cal_datasets = ['wgms_d']
 #cal_datasets = ['wgms_d', 'wgms_ee']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 # Calibration output filepath (currently only for option 1)
@@ -130,9 +130,9 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473']
-#rgi_glac_number = ['03734', '03473']
+#rgi_glac_number = 'all'
+#rgi_glac_number = ['00240']
+rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(1,10)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
@@ -178,6 +178,8 @@ precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
 precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
 tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
+# Threshold to update the model parameters (based on the difference in zscores)
+zscore_update_threshold = 0.1
 
 # MCMC export configuration
 #mcmc_output_fp = main_directory + '/../MCMC_data/'

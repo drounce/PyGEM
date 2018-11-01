@@ -129,7 +129,7 @@ class MBData():
         # Dataset specific calculations
         if self.name == 'shean':
             # Load all data
-            ds_all = pd.read_csv(self.ds_fp + self.ds_fn)
+            ds_all = pd.read_csv(self.ds_fp + self.ds_fn)            
             ds_all['RegO1'] = ds_all[self.rgi_glacno_cn].values.astype(int)
             # Select data for specific region
             ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
