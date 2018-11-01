@@ -147,7 +147,6 @@ def main(list_packed_vars):
         main_glac_rgi_raw['group_name'] = main_glac_rgi_raw['RGIId'].map(group_dict)
     else:
         main_glac_rgi_raw['group_name'] = np.nan
-    
 
     # Drop glaciers that do not have any calibration data (individual or group)    
     main_glac_rgi = ((main_glac_rgi_raw.iloc[np.unique(
@@ -901,8 +900,11 @@ def main(list_packed_vars):
             """
             # Set zscore to compare and the tolerance
             # if only one calibration point, then zscore should be small
+            print('DELETE ME!! RUNNING ZSCORE')
             if glacier_cal_compare.shape[0] == 1:
+                print('DELETE ME!! INSIDE ZSCORE')
                 zscore_compare = glacier_cal_compare.loc[cal_idx[0], 'zscore']
+                print('zscore_compare:', zscore_compare)
                 zscore_tolerance = input.zscore_tolerance_single
             # else if multiple calibration points and one is a geodetic MB, check that geodetic MB is within 1
             elif (glacier_cal_compare.obs_type.isin(['mb_geo']).any() == True) and (glacier_cal_compare.shape[0] > 1):
@@ -971,6 +973,10 @@ def main(list_packed_vars):
                 df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
                 df['tempchange'] = modelparameters[7]
                 # Loop through observations to help create dataframe
+                
+                print('glacier_cal_compare:', glacier_cal_compare)
+                print('\nglacier_cal_data:', glacier_cal_data)
+                
                 for x in range(glacier_cal_compare.shape[0]):
                     obs_cn = 'obs_' + str(x)
                     df[obs_cn] = glacier_cal_compare.loc[glacier_cal_data.index.values,'model'].values[x]
@@ -1104,6 +1110,12 @@ def main(list_packed_vars):
                         run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
                                       ddfsnow_bnds, precgrad_bnds))
                 calround += 1
+                
+                if debug:
+                    print('calround:',calround)
+                    print('glacier_cal_compare:\n',glacier_cal_compare)
+                    print('cal_idx:', cal_idx)
+            
                 # Break loop if gone through all iterations
                 if (calround == len(input.precfactor_bnds_list_init)) or zscore_compare(glacier_cal_compare, cal_idx):
                     continue_loop = False
@@ -1117,7 +1129,7 @@ def main(list_packed_vars):
                     print('Observation:', glacier_cal_compare.loc[0, 'obs'], glacier_cal_compare.loc[0, 'obs_unit'],
                           '\nModel:', glacier_cal_compare.loc[0, 'model'], glacier_cal_compare.loc[0, 'obs_unit'],'\n')
                                     
-            # OPTIMIZATION ROUND #4: Isolate geodetic MB if necessary
+            # OPTIMIZATION: ISOLATED GEODETIC MB
             #  if there are multiple measurements and geodetic measurement still has a zscore greater than 1, then
             #  only calibrate the geodetic measurement since this provides longest snapshot of glacier
             if (glacier_cal_compare.obs_type.isin(['mb_geo']).any() == True) and (glacier_cal_compare.shape[0] > 1):
@@ -1126,15 +1138,76 @@ def main(list_packed_vars):
                 zscore_tolerance = input.zscore_tolerance_all
                 # Important to remain within this if loop as this is a special case
                 if abs(zscore_compare) > zscore_tolerance:
-                    # Select only geodetic for glacier calibration data
-                    glacier_cal_data = pd.DataFrame(glacier_cal_data.loc[glacier_cal_data.index.values[np.where(
-                            glacier_cal_data['obs_type'] == 'mb_geo')[0][0]]]).transpose()
+                    # Select only longest geodetic mass balance for glacier calibration data
+                    if ((glacier_cal_data.index.values[np.where(glacier_cal_data['obs_type'] == 'mb_geo')[0]]).shape[0] 
+                        == 1):
+                        glacier_cal_data = pd.DataFrame(glacier_cal_data.loc[glacier_cal_data.index.values[np.where(
+                                glacier_cal_data['obs_type'] == 'mb_geo')[0][0]]]).transpose()
+                    else:
+                        glacier_cal_data = pd.DataFrame(glacier_cal_data.loc[glacier_cal_data.index.values[np.where(
+                                glacier_cal_data['obs_type'] == 'mb_geo')[0]]])
+                        timespan = glacier_cal_data['t2'] - glacier_cal_data['t1']
+                        longest_idx = np.where(timespan == timespan.max())[0][0]
+                        glacier_cal_data = pd.DataFrame(glacier_cal_data.loc[longest_idx]).transpose()
+                        cal_idx = glacier_cal_data.index.values
                     # Calibration round
                     calround = calround + 1
+                    # Reset glacier_cal_compare shape now that reducing values
+                    glacier_cal_compare = pd.DataFrame(np.zeros((glacier_cal_data.shape[0], len(output_cols))),
+                                               columns=output_cols)
+                    glacier_cal_compare.index = glacier_cal_data.index.values
+                    glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
                     # Run optimization
                     modelparameters, glacier_cal_compare = (
                             run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
                                           ddfsnow_bnds, precgrad_bnds))
+                    
+                    print('\n\nGOING DOWN TO LONGEST GEODETIC MASS BALANCE AND RE-RUNNING\n\n')
+                    continue_loop = True
+                    calround = 0 
+                    while continue_loop:
+                        # Bounds
+                        precfactor_bnds = precfactor_bnds_list[calround]
+                        precgrad_bnds = precgrad_bnds_list[calround]
+                        ddfsnow_bnds = ddfsnow_bnds_list[calround]
+                        tempchange_bnds = tempchange_bnds_list[calround]
+                        # Initial guess
+                        if calround == 0:
+                            modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
+                        elif manipulate_bnds:
+                            modelparameters_init = (
+                                        [init_guess_frombounds(precfactor_bnds_list, calround, precfactor_init_idx),
+                                         init_guess_frombounds(precgrad_bnds_list, calround, precgrad_init_idx),
+                                         init_guess_frombounds(ddfsnow_bnds_list, calround, ddfsnow_init_idx),
+                                         init_guess_frombounds(tempchange_bnds_list, calround, tempchange_init_idx)])
+                        else:
+                            modelparameters_init = (
+                                    [modelparameters[2], modelparameters[3], modelparameters[4], modelparameters[7]])
+                        # Run optimization
+                        modelparameters, glacier_cal_compare = (
+                                run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
+                                              ddfsnow_bnds, precgrad_bnds))
+                        calround += 1
+                        print('calround:',calround)
+                        print('glacier_cal_compare:\n',glacier_cal_compare)
+                        print('cal_idx:', cal_idx)
+                        
+                        print('DELETE ME')
+                        print('ZSCORE COMPARE MESSES UP HERE!!!!')
+                        
+                        # Break loop if gone through all iterations
+                        if (calround == len(input.precfactor_bnds_list_init)) or zscore_compare(glacier_cal_compare, cal_idx):
+#                        if (calround == len(input.precfactor_bnds_list_init)):
+                            continue_loop = False
+                            
+                        if debug:
+                            print('Calibration round:', calround,
+                                  '\nInitial parameters:\nPrecfactor:', modelparameters_init[0], 
+                                  '\nTempbias:', modelparameters_init[3], '\nDDFsnow:', modelparameters_init[2])
+                            print('Calibrated parameters:\nPrecfactor:', modelparameters[2], 
+                                  '\nTempbias:', modelparameters[7], '\nDDFsnow:', modelparameters[4])
+                            print('Observation:', glacier_cal_compare.loc[0, 'obs'], glacier_cal_compare.loc[0, 'obs_unit'],
+                                  '\nModel:', glacier_cal_compare.loc[0, 'model'], glacier_cal_compare.loc[0, 'obs_unit'],'\n')
                     
             # RECORD OUTPUT
             # Run mass balance with optimized parameters
@@ -1152,6 +1225,13 @@ def main(list_packed_vars):
             glacier_cal_compare['calround'] = calround
             # Model vs. observations
             main_glac_cal_compare.loc[glacier_cal_data.index.values] = glacier_cal_compare
+            
+            print('DELETE ME')
+            print('APPEND RESULTS TO GLACIER CAL COMPARE AS OPPOSED TO PRE-ALLOCATING IT!')
+            print('Right now, when glacier_cal_compare goes to Round #4 and is reduced to single value,'
+                  'it is recorded twice.')
+            
+            
             # Glacier-wide climatic mass balance over study period (used by transfer functions)
             main_glacwide_mbclim_mwe[glac] = (
                     (glac_bin_massbalclim * glac_bin_area_annual[:, 0][:,np.newaxis]).sum() / 

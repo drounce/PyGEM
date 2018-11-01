@@ -40,6 +40,38 @@ option_merge_netcdfs = 0
 option_savefigs = 1
 
 #%% TEST
+rgi_regionsO1 = [15]
+netcdf_fp = input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+netcdf_fn = 'R' + str(rgi_regionsO1[0]) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+output_ds_all = xr.open_dataset(netcdf_fp + netcdf_fn)
+
+encoding = {}
+for vn in list(output_ds_all.variables):
+    if vn not in ['stats', 'glac_attrs']:
+        encoding[vn] = {'_FillValue': False}
+
+output_ds_all.glac.attrs['long_name'] = 'glacier index'
+output_ds_all.glac.attrs['comment'] = 'glacier index value that refers to the glacier table'
+output_ds_all.time.attrs['long_name'] = 'date'
+output_ds_all.stats.attrs['long_name'] = 'variable statistics'
+output_ds_all.stats.attrs['comment'] = '% refers to percentiles'
+output_ds_all.year_plus1.attrs['long_name'] = 'years plus one additional year'
+output_ds_all.year_plus1.attrs['comment'] = (
+        'additional year allows one to record glacier dimension changes at end of model run')
+if input.option_wateryear == 1:
+    output_ds_all.year_plus1.attrs['unit'] = 'water year'
+elif input.option_wateryear == 2:
+    output_ds_all.year_plus1.attrs['unit'] = 'calendar year'
+else:
+    output_ds_all.year_plus1.attrs['unit'] = 'custom year'
+output_ds_all.frontalablation_glac_monthly.attrs['long_name'] = 'glacier-wide frontal ablation'
+output_ds_all.frontalablation_glac_monthly.attrs['units'] = 'm w.e.'
+output_ds_all.frontalablation_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+output_ds_all.frontalablation_glac_monthly.attrs['comment'] = (
+        'mass losses from calving, subaerial frontal melting, sublimation above the waterline and '
+        + 'subaqueous frontal melting below the waterline')
+
+output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn, encoding=encoding)
 
 
 #%% MERGE NETCDF FILES TO REDUCE FILE SIZE
@@ -113,10 +145,13 @@ if option_merge_netcdfs == 1:
                                            'glac_attrs': main_glac_rgi_float.columns.values})
     output_ds_all = output_ds_all.combine_first(main_glac_rgi_xr)
     # Encoding (specify _FillValue, offsets, etc.)
-    ds_all_vns = []
     encoding = {}
-    for vn in output_vns_WBM:
-        encoding[vn] = {'_FillValue': False}
+    for vn in list(output_ds_all.variables):
+        if vn not in ['stats', 'glac_attrs']:
+            encoding[vn] = {'_FillValue': False}
+    # Add glacier attributes
+    output_ds_all.glac.attrs['long_name'] = 'glacier index'
+    output_ds_all.glac.attrs['comment'] = 'glacier index value that refers to the glacier table'
     # Export netcdf
     netcdf_fn_merged = 'R' + str(rgi_regionsO1[0]) + '--' + i.split('--')[0] + '.nc'
     output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn_merged, encoding=encoding)
@@ -172,6 +207,23 @@ if option_add_metadata2netcdf == 1:
             ds.attrs['year_type'] = 'custom year (user defined start/end months)'
         # Add attributes for given package
         if input.output_package == 2:
+            ds.time.attrs['long_name'] = 'date'
+            ds.stats.attrs['long_name'] = 'variable statistics'
+            ds.stats.attrs['comment'] = '% refers to percentiles'
+            ds.year.attrs['long_name'] = 'years'
+            ds.year.attrs['comment'] = 'years referring to the start of each year'
+            ds.year_plus1.attrs['long_name'] = 'years plus one additional year'
+            ds.year_plus1.attrs['comment'] = (
+                    'additional year allows one to record glacier dimension changes at end of model run')
+            if input.option_wateryear == 1:
+                ds.year_plus1.attrs['unit'] = 'water year'
+                ds.year.attrs['unit'] = 'water year'
+            elif input.option_wateryear == 2:
+                ds.year_plus1.attrs['unit'] = 'calendar year'
+                ds.year.attrs['unit'] = 'calendar year'
+            else:
+                ds.year_plus1.attrs['unit'] = 'custom year'
+                ds.year.attrs['unit'] = 'custom year'                
             ds.temp_glac_monthly.attrs['long_name'] = 'glacier-wide mean air temperature'
             ds.temp_glac_monthly.attrs['units'] = 'degC'
             ds.temp_glac_monthly.attrs['temporal_resolution'] = 'monthly'
@@ -192,10 +244,10 @@ if option_add_metadata2netcdf == 1:
             ds.melt_glac_monthly.attrs['long_name'] = 'glacier-wide melt'
             ds.melt_glac_monthly.attrs['units'] = 'm w.e.'
             ds.melt_glac_monthly.attrs['temporal_resolution'] = 'monthly'
-            ds.frontalablation_glac_monthly['long_name'] = 'glacier-wide frontal ablation'
-            ds.frontalablation_glac_monthly['units'] = 'm w.e.'
+            ds.frontalablation_glac_monthly.attrs['long_name'] = 'glacier-wide frontal ablation'
+            ds.frontalablation_glac_monthly.attrs['units'] = 'm w.e.'
             ds.frontalablation_glac_monthly.attrs['temporal_resolution'] = 'monthly'
-            ds.frontalablation_glac_monthly['comment'] = (
+            ds.frontalablation_glac_monthly.attrs['comment'] = (
                     'mass losses from calving, subaerial frontal melting, sublimation above the waterline and '
                     + 'subaqueous frontal melting below the waterline')
             ds.massbaltotal_glac_monthly.attrs['long_name'] = 'glacier-wide total mass balance'
@@ -259,7 +311,6 @@ if option_add_metadata2netcdf == 1:
         ds, encoding = netcdf_add_metadata(ds, glacier_rgi_table)
     #    print(i.split('.')[1], glacier_rgi_table['RGIId'])
         ds.to_netcdf(new_netcdf_fp + i, encoding=encoding)
-
 
 #%%===== PLOT FUNCTIONS =============================================================================================
 def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, ylabel, colormap, east, west, south, north, 

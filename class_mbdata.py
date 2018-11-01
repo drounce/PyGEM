@@ -486,6 +486,7 @@ class MBData():
             # Observation type
             ds['obs_type'] = 'mb_glac'
             ds['group_name'] = np.nan
+            ds['sla_m'] = np.nan
             
         elif self.name == 'cogley':
             # Load all data

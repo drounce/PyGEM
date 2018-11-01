@@ -105,9 +105,10 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # Calibration option (1 = minimization, 2 = MCMC)
-option_calibration = 2
+option_calibration = 1
 # Calibration datasets
-cal_datasets = ['shean']
+#cal_datasets = ['shean']
+cal_datasets = ['wgms_d']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 # Calibration output filepath (currently only for option 1)
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
@@ -129,7 +130,9 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
+#rgi_glac_number = ['12707']
+rgi_glac_number = ['03734']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(1,10)

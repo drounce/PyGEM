@@ -136,6 +136,23 @@ def netcdf_add_metadata(ds, glacier_rgi_table):
         ds.attrs['year_type'] = 'custom year (user defined start/end months)'
     # Add attributes for given package
     if input.output_package == 2:
+        ds.time.attrs['long_name'] = 'date'
+        ds.stats.attrs['long_name'] = 'variable statistics'
+        ds.stats.attrs['comment'] = '% refers to percentiles'
+        ds.year.attrs['long_name'] = 'years'
+        ds.year.attrs['comment'] = 'years referring to the start of each year'
+        ds.year_plus1.attrs['long_name'] = 'years plus one additional year'
+        ds.year_plus1.attrs['comment'] = (
+                'additional year allows one to record glacier dimension changes at end of model run')
+        if input.option_wateryear == 1:
+            ds.year_plus1.attrs['unit'] = 'water year'
+            ds.year.attrs['unit'] = 'water year'
+        elif input.option_wateryear == 2:
+            ds.year_plus1.attrs['unit'] = 'calendar year'
+            ds.year.attrs['unit'] = 'calendar year'
+        else:
+            ds.year_plus1.attrs['unit'] = 'custom year'
+            ds.year.attrs['unit'] = 'custom year'          
         ds.temp_glac_monthly.attrs['long_name'] = 'glacier-wide mean air temperature'
         ds.temp_glac_monthly.attrs['units'] = 'degC'
         ds.temp_glac_monthly.attrs['temporal_resolution'] = 'monthly'
@@ -156,10 +173,10 @@ def netcdf_add_metadata(ds, glacier_rgi_table):
         ds.melt_glac_monthly.attrs['long_name'] = 'glacier-wide melt'
         ds.melt_glac_monthly.attrs['units'] = 'm w.e.'
         ds.melt_glac_monthly.attrs['temporal_resolution'] = 'monthly'
-        ds.frontalablation_glac_monthly['long_name'] = 'glacier-wide frontal ablation'
-        ds.frontalablation_glac_monthly['units'] = 'm w.e.'
+        ds.frontalablation_glac_monthly.attrs['long_name'] = 'glacier-wide frontal ablation'
+        ds.frontalablation_glac_monthly.attrs['units'] = 'm w.e.'
         ds.frontalablation_glac_monthly.attrs['temporal_resolution'] = 'monthly'
-        ds.frontalablation_glac_monthly['comment'] = (
+        ds.frontalablation_glac_monthly.attrs['comment'] = (
                 'mass losses from calving, subaerial frontal melting, sublimation above the waterline and '
                 + 'subaqueous frontal melting below the waterline')
         ds.massbaltotal_glac_monthly.attrs['long_name'] = 'glacier-wide total mass balance'

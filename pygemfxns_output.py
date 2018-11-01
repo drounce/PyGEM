@@ -81,8 +81,10 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
     years_plus1.long_name = "year with additional year to record glacier dimension changes"
     if input.option_wateryear == 1:
         years_plus1.units = 'water year'
-    elif input.option_wateryear == 0:
+    elif input.option_wateryear == 2:
         years_plus1.units = 'calendar year'
+    elif input.option_wateryear == 3:
+        years_plus1.units = 'custom year'
     years_plus1[:] = np.concatenate((annual_columns[input.spinupyears:annual_columns.shape[0]], 
                                      np.array([annual_columns[annual_columns.shape[0]-1]+1])))
     glacier_table_header = netcdf_output.createVariable('glacier_table_header',str,('glac_table',))
