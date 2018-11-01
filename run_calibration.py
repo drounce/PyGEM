@@ -1125,6 +1125,7 @@ def main(list_packed_vars):
             # OPTIMIZATION: ISOLATED GEODETIC MB
             #  if there are multiple measurements and geodetic measurement still has a zscore greater than 1, then
             #  only calibrate the geodetic measurement since this provides longest snapshot of glacier
+            calround2 = 0 
             if (glacier_cal_compare.obs_type.isin(['mb_geo']).any() == True) and (glacier_cal_compare.shape[0] > 1):
                 zscore4comparison = glacier_cal_compare.loc[glacier_cal_compare.index.values[np.where(
                         glacier_cal_compare['obs_type'] == 'mb_geo')[0][0]], 'zscore']
@@ -1144,7 +1145,7 @@ def main(list_packed_vars):
                         glacier_cal_data = pd.DataFrame(glacier_cal_data.loc[longest_idx]).transpose()
                         cal_idx = glacier_cal_data.index.values
                     # Calibration round
-                    calround = calround + 1
+                    calround2 = calround2 + 1
                     # Reset glacier_cal_compare shape now that reducing values
                     glacier_cal_compare = pd.DataFrame(np.zeros((glacier_cal_data.shape[0], len(output_cols))),
                                                columns=output_cols)
@@ -1156,22 +1157,21 @@ def main(list_packed_vars):
                                           ddfsnow_bnds, precgrad_bnds))
                     
                     continue_loop = True
-                    calround = 0 
                     while continue_loop:
                         # Bounds
-                        precfactor_bnds = precfactor_bnds_list[calround]
-                        precgrad_bnds = precgrad_bnds_list[calround]
-                        ddfsnow_bnds = ddfsnow_bnds_list[calround]
-                        tempchange_bnds = tempchange_bnds_list[calround]
+                        precfactor_bnds = precfactor_bnds_list[calround2]
+                        precgrad_bnds = precgrad_bnds_list[calround2]
+                        ddfsnow_bnds = ddfsnow_bnds_list[calround2]
+                        tempchange_bnds = tempchange_bnds_list[calround2]
                         # Initial guess
-                        if calround == 0:
+                        if calround2 == 0:
                             modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
                         elif manipulate_bnds:
                             modelparameters_init = (
-                                        [init_guess_frombounds(precfactor_bnds_list, calround, precfactor_init_idx),
-                                         init_guess_frombounds(precgrad_bnds_list, calround, precgrad_init_idx),
-                                         init_guess_frombounds(ddfsnow_bnds_list, calround, ddfsnow_init_idx),
-                                         init_guess_frombounds(tempchange_bnds_list, calround, tempchange_init_idx)])
+                                        [init_guess_frombounds(precfactor_bnds_list, calround2, precfactor_init_idx),
+                                         init_guess_frombounds(precgrad_bnds_list, calround2, precgrad_init_idx),
+                                         init_guess_frombounds(ddfsnow_bnds_list, calround2, ddfsnow_init_idx),
+                                         init_guess_frombounds(tempchange_bnds_list, calround2, tempchange_init_idx)])
                         else:
                             modelparameters_init = (
                                     [modelparameters[2], modelparameters[3], modelparameters[4], modelparameters[7]])
@@ -1179,15 +1179,15 @@ def main(list_packed_vars):
                         modelparameters, glacier_cal_compare = (
                                 run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
                                               ddfsnow_bnds, precgrad_bnds))
-                        calround += 1
+                        calround2 += 1
                         
                         # Break loop if gone through all iterations
-                        if ((calround == len(input.precfactor_bnds_list_init)) or 
+                        if ((calround2 == len(input.precfactor_bnds_list_init)) or 
                             (abs(zscore_compare(glacier_cal_compare, cal_idx)))):
                             continue_loop = False
                             
                         if debug:
-                            print('Calibration round:', calround,
+                            print('Calibration round:', calround2,
                                   '\nInitial parameters:\nPrecfactor:', modelparameters_init[0], 
                                   '\nTempbias:', modelparameters_init[3], '\nDDFsnow:', modelparameters_init[2])
                             print('Calibrated parameters:\nPrecfactor:', modelparameters[2], 
@@ -1243,7 +1243,7 @@ def main(list_packed_vars):
                             (glacier_cal_compare.loc[cal_idx, 'model'] - glacier_cal_compare.loc[cal_idx, 'obs']) /
                             glacier_cal_compare.loc[cal_idx, 'uncertainty'])
             # Calibration round
-            glacier_cal_compare['calround'] = calround
+            glacier_cal_compare['calround'] = calround + calround2
             # Model vs. observations
             main_glac_cal_compare.loc[glacier_cal_data.index.values] = glacier_cal_compare
             # Glacier-wide climatic mass balance over study period (used by transfer functions)
@@ -1372,8 +1372,7 @@ def main(list_packed_vars):
                 main_glac_cal_compare.loc[cal_idx] = glacier_cal_compare
                 
                 # EXPORT TO NETCDF
-                netcdf_output_fp = (input.output_fp_cal + 'R' + str(input.rgi_regionsO1[0]) + '_cal' + 
-                                    str(input.option_calibration) + '/')
+                netcdf_output_fp = input.output_fp_cal + 'reg' + str(input.rgi_regionsO1[0]) + '/'
                 if not os.path.exists(netcdf_output_fp):
                     os.makedirs(netcdf_output_fp)
                 # Loop through glaciers calibrated from group and export to netcdf

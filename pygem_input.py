@@ -108,7 +108,7 @@ output_filepath = main_directory + '/../Output/'
 option_calibration = 1
 # Calibration datasets
 #cal_datasets = ['shean']
-cal_datasets = ['wgms_d']
+cal_datasets = ['wgms_d', 'wgms_ee']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 # Calibration output filepath (currently only for option 1)
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
