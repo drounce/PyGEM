@@ -900,11 +900,8 @@ def main(list_packed_vars):
             """
             # Set zscore to compare and the tolerance
             # if only one calibration point, then zscore should be small
-            print('DELETE ME!! RUNNING ZSCORE')
             if glacier_cal_compare.shape[0] == 1:
-                print('DELETE ME!! INSIDE ZSCORE')
                 zscore4comparison = glacier_cal_compare.loc[cal_idx[0], 'zscore']
-                print('zscore_compare:', zscore_compare)
                 zscore_tolerance = input.zscore_tolerance_single
             # else if multiple calibration points and one is a geodetic MB, check that geodetic MB is within 1
             elif (glacier_cal_compare.obs_type.isin(['mb_geo']).any() == True) and (glacier_cal_compare.shape[0] > 1):
@@ -972,11 +969,7 @@ def main(list_packed_vars):
                 df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
                 df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
                 df['tempchange'] = modelparameters[7]
-                # Loop through observations to help create dataframe
-                
-                print('glacier_cal_compare:', glacier_cal_compare)
-                print('\nglacier_cal_data:', glacier_cal_data)
-                
+                # Loop through observations to help create dataframe                
                 for x in range(glacier_cal_compare.shape[0]):
                     obs_cn = 'obs_' + str(x)
                     df[obs_cn] = glacier_cal_compare.loc[glacier_cal_data.index.values,'model'].values[x]
@@ -1162,7 +1155,6 @@ def main(list_packed_vars):
                             run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
                                           ddfsnow_bnds, precgrad_bnds))
                     
-                    print('\n\nGOING DOWN TO LONGEST GEODETIC MASS BALANCE AND RE-RUNNING\n\n')
                     continue_loop = True
                     calround = 0 
                     while continue_loop:
@@ -1189,9 +1181,9 @@ def main(list_packed_vars):
                                               ddfsnow_bnds, precgrad_bnds))
                         calround += 1
                         
-                        
                         # Break loop if gone through all iterations
-                        if (calround == len(input.precfactor_bnds_list_init)) or (abs(zscore_compare(glacier_cal_compare, cal_idx))):
+                        if ((calround == len(input.precfactor_bnds_list_init)) or 
+                            (abs(zscore_compare(glacier_cal_compare, cal_idx)))):
                             continue_loop = False
                             
                         if debug:
@@ -1200,8 +1192,9 @@ def main(list_packed_vars):
                                   '\nTempbias:', modelparameters_init[3], '\nDDFsnow:', modelparameters_init[2])
                             print('Calibrated parameters:\nPrecfactor:', modelparameters[2], 
                                   '\nTempbias:', modelparameters[7], '\nDDFsnow:', modelparameters[4])
-                            print('Observation:', glacier_cal_compare.loc[0, 'obs'], glacier_cal_compare.loc[0, 'obs_unit'],
-                                  '\nModel:', glacier_cal_compare.loc[0, 'model'], glacier_cal_compare.loc[0, 'obs_unit'],'\n')
+                            print('Observation:', glacier_cal_compare.loc[0, 'obs'], 
+                                  glacier_cal_compare.loc[0, 'obs_unit'], '\nModel:', 
+                                  glacier_cal_compare.loc[0, 'model'], glacier_cal_compare.loc[0, 'obs_unit'],'\n')
                     
             # RECORD OUTPUT
             # Run mass balance with optimized parameters
@@ -1214,18 +1207,45 @@ def main(list_packed_vars):
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=1))
-            
+            # Reload calibration data and the cal_compare dataframes
+            glacier_cal_data = ((cal_data.iloc[np.where(
+                    glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
+            # Comparison dataframe
+            glacier_cal_compare = pd.DataFrame(np.zeros((glacier_cal_data.shape[0], len(output_cols))),
+                                               columns=output_cols)
+            glacier_cal_compare.index = glacier_cal_data.index.values
+            glacier_cal_compare[['glacno', 'obs_type']] = glacier_cal_data[['glacno', 'obs_type']]
+            # Loop through all measurements
+            for x in range(glacier_cal_data.shape[0]):
+                cal_idx = glacier_cal_data.index.values[x]
+                # Mass balance comparisons
+                if ((glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb_geo') or
+                    (glacier_cal_data.loc[cal_idx, 'obs_type'] == 'mb_glac')):
+                    # Observed mass balance [mwe]
+                    glacier_cal_compare.loc[cal_idx, 'obs'] = glacier_cal_data.loc[cal_idx, 'mb_mwe']
+                    glacier_cal_compare.loc[cal_idx, 'obs_unit'] = 'mwe'
+                    # Modeled mass balance [mwe]
+                    #  Sum(mass balance x area) / total area
+                    t1_idx = glacier_cal_data.loc[cal_idx, 't1_idx'].astype(int)
+                    t2_idx = glacier_cal_data.loc[cal_idx, 't2_idx'].astype(int)
+                    z1_idx = glacier_cal_data.loc[cal_idx, 'z1_idx'].astype(int)
+                    z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
+                    year_idx = int(t1_idx / 12)
+                    bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]
+                    glacier_cal_compare.loc[cal_idx, 'model'] = (
+                            (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] *
+                             bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
+                    # Z-score for modeled mass balance based on observed mass balance and uncertainty
+                    #  z-score = (model - measured) / uncertainty
+                    glacier_cal_compare.loc[cal_idx, 'uncertainty'] = (input.massbal_uncertainty_mwea *
+                            (glacier_cal_data.loc[cal_idx, 't2'] - glacier_cal_data.loc[cal_idx, 't1']))
+                    glacier_cal_compare.loc[cal_idx, 'zscore'] = (
+                            (glacier_cal_compare.loc[cal_idx, 'model'] - glacier_cal_compare.loc[cal_idx, 'obs']) /
+                            glacier_cal_compare.loc[cal_idx, 'uncertainty'])
             # Calibration round
             glacier_cal_compare['calround'] = calround
             # Model vs. observations
             main_glac_cal_compare.loc[glacier_cal_data.index.values] = glacier_cal_compare
-            
-            print('DELETE ME')
-            print('APPEND RESULTS TO GLACIER CAL COMPARE AS OPPOSED TO PRE-ALLOCATING IT!')
-            print('Right now, when glacier_cal_compare goes to Round #4 and is reduced to single value,'
-                  'it is recorded twice.')
-            
-            
             # Glacier-wide climatic mass balance over study period (used by transfer functions)
             main_glacwide_mbclim_mwe[glac] = (
                     (glac_bin_massbalclim * glac_bin_area_annual[:, 0][:,np.newaxis]).sum() / 
@@ -1537,11 +1557,10 @@ if __name__ == '__main__':
 #            glac_bin_area_annual = main_vars['glac_bin_area_annual']
             glacier_cal_compare = main_vars['glacier_cal_compare']
             cal_idx = main_vars['cal_idx']
-#            main_glac_cal_compare = main_vars['main_glac_cal_compare']
-#            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
-#            main_glac_output = main_vars['main_glac_output']
-#            main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
-#            main_glacwide_mbclim = main_vars['main_glacwide_mbclim']
+            main_glac_cal_compare = main_vars['main_glac_cal_compare']
+            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
+            main_glac_output = main_vars['main_glac_output']
+            main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
 #            glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
 #            glac_wide_area_annual = main_vars['glac_wide_area_annual']
 #            glac_wide_volume_annual = main_vars['glac_wide_volume_annual']

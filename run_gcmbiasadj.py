@@ -769,7 +769,10 @@ if __name__ == '__main__':
 
         # Combine bias adjustment parameters into single file
         output_list = []
-        check_str = 'R' + str(input.rgi_regionsO1[0])
+        if gcm_name == 'COAWST':
+            check_str = 'R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name
+        else:
+            check_str = 'R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario
         # Sorted list of files to merge
         output_list = []
         for i in os.listdir(input.output_filepath + 'temp/'):
