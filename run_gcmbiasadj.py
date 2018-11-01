@@ -788,6 +788,9 @@ if __name__ == '__main__':
                 output_all = output_all.append(output_2join, ignore_index=True)
             # Remove file after its been merged
             os.remove(input.output_filepath + 'temp/' + i)
+        # Set up directory to store bias adjustment data
+        if not os.path.exists(input.biasadj_fp):
+            os.makedirs(input.biasadj_fp)
         # Export joined files
         output_all.to_csv(input.biasadj_fp + i.split('--')[0] + '.csv')
 
