@@ -788,6 +788,13 @@ if __name__ == '__main__':
                 output_all = output_all.append(output_2join, ignore_index=True)
             # Remove file after its been merged
             os.remove(input.output_filepath + 'temp/' + i)
+        # Sort the gcm bias adjustment dataframe
+        output_all['RGIId_float'] = (np.array([np.str.split(output_all['RGIId'][x],'-')[1] 
+                                     for x in range(output_all.shape[0])]).astype(float))
+        output_all['glacno'] = ((output_all['RGIId_float'] % 1) * 10**5).round(0).astype(int)
+        output_all = output_all.sort_values(['glacno'])
+        output_all = output_all.drop(columns=['RGIId_float', 'glacno'])
+        output_all.reset_index(drop=True, inplace=True)
         # Set up directory to store bias adjustment data
         if not os.path.exists(input.biasadj_fp):
             os.makedirs(input.biasadj_fp)
