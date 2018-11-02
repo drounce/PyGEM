@@ -42,9 +42,9 @@ def split_list(lst, n=1):
     
     Returns
     -------
-    list of lists that have n values in each list
+    list of lists that have n sequential values in each list
     """
-    return [lst[i::n] for i in range(n)]
+    return [lst[i:i + n] for i in range(0, len(lst), n)]
     
 
 parser = getparser()
