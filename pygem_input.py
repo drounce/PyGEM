@@ -132,8 +132,8 @@ rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['00240']
-rgi_glac_number = ['03473']
-#rgi_glac_number = ['03734', '03473']
+#rgi_glac_number = ['03473']
+rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(1,15)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
@@ -287,13 +287,18 @@ elif option_calibration == 2:
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 200
+sim_iters = 10
 sim_burn = 0
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
 # Simulation output statistics
 #sim_stat_cns = ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%']
 sim_stat_cns = ['mean', 'std']
+# Output package variables
+output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 
+                            'refreeze_glac_monthly', 'melt_glac_monthly', 'frontalablation_glac_monthly', 
+                            'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
+                            'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual']
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
