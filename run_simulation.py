@@ -361,11 +361,11 @@ def main(list_packed_vars):
             if gcm_name == 'COAWST':
                 biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
                               str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + str(input.endyear) 
-                              + '.csv')
+                              + '_wy' + str(input.option_wateryear) + '.csv')
             else:
                 biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
                               str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + str(input.endyear) 
-                              + '.csv')
+                              + '_wy' + str(input.option_wateryear) + '.csv')
             main_glac_biasadj_all = pd.read_csv(input.biasadj_fp + biasadj_fn, index_col=0)
         
     # Option 0 - no bias adjustment

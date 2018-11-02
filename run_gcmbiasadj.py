@@ -694,11 +694,12 @@ def main(list_packed_vars):
     if gcm_name == 'COAWST':
         output_biasadjparams_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
                                    str(input.option_bias_adjustment) + '_' + str(ref_startyear) + '_' + str(ref_endyear) 
-                                   + '--' + str(count) + '.csv')
+                                   + '_wy' + str(input.option_wateryear) + '--' + str(count) + '.csv')
     else:
         output_biasadjparams_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + 
                                    '_biasadj_opt' + str(input.option_bias_adjustment) + '_' + str(ref_startyear) + '_' 
-                                   + str(ref_endyear) + '--' + str(count) + '.csv')
+                                   + str(ref_endyear) + '_wy' + str(input.option_wateryear) + '--' + str(count) + 
+                                   '.csv')
     main_glac_biasadj.to_csv(input.output_filepath + 'temp/' + output_biasadjparams_fn)
 
     #%% Export variables as global to view in variable explorer
