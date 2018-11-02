@@ -89,11 +89,11 @@ class GCM():
             self.temp_fn = self.temp_vn + '_mon_' + name + '_' + rcp_scenario + '_r1i1p1_native.nc'
             self.prec_fn = self.prec_vn + '_mon_' + name + '_' + rcp_scenario + '_r1i1p1_native.nc'
             self.elev_fn = self.elev_vn + '_fx_' + name + '_' + rcp_scenario + '_r0i0p0.nc'
-            self.lr_fn = input.cmip5_lr_fn
+#            self.lr_fn = input.cmip5_lr_fn
             # Variable filepaths
             self.var_fp = input.cmip5_fp_var_prefix + rcp_scenario + input.cmip5_fp_var_ending
             self.fx_fp = input.cmip5_fp_fx_prefix + rcp_scenario + input.cmip5_fp_fx_ending
-            self.lr_fp = input.cmip5_fp_lr
+#            self.lr_fp = input.cmip5_fp_lr
             # Extra information
             self.timestep = input.timestep
             self.rgi_lat_colname=input.rgi_lat_colname

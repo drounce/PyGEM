@@ -104,7 +104,7 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # Calibration option (1 = minimization, 2 = MCMC)
-option_calibration = 1
+option_calibration = 2
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['wgms_d']
@@ -130,9 +130,9 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
+rgi_glac_number = 'all'
 #rgi_glac_number = ['00240']
-rgi_glac_number = ['03734', '03473']
+#rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(1,10)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
@@ -273,17 +273,26 @@ frontalablation_k0dict = {
 # Model parameters column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
-modelparams_fp_dict = {
-            13: output_filepath + 'cal_opt2_20181018/reg13/',
-            14: output_filepath + 'cal_opt2_20181018/reg14/',
-            15: output_filepath + 'cal_opt2_20181018/reg15/'}
+if option_calibration == 1:
+    modelparams_fp_dict = {
+                13: output_filepath + 'cal_opt1_20181001/',
+                14: output_filepath + 'cal_opt1_20181001/',
+                15: output_filepath + 'cal_opt1_20181001/'}
+elif option_calibration == 2:
+    modelparams_fp_dict = {
+                13: output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg13/',
+                14: output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg14/',
+                15: output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg15/'}
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
 sim_iters = 200
 sim_burn = 0
 # Simulation output filepath
-output_sim_fp = output_filepath + 'simulations/reg' + str(rgi_regionsO1[0]) + '/'
+output_sim_fp = output_filepath + 'simulations/'
+# Simulation output statistics
+#sim_stat_cns = ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%']
+sim_stat_cns = ['mean', 'std']
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)

@@ -28,7 +28,7 @@ import class_climate
 # Required input
 # Time period
 gcm_startyear = 2000
-gcm_endyear = 2017
+gcm_endyear = 2100
 gcm_spinupyears = 0
 
 # Bias adjustment option (options defined in run_gcmbiasadj script; 0 means no correction)
@@ -73,7 +73,7 @@ def getparser():
     return parser
 
 
-def calc_stats(vn, ds):
+def calc_stats(vn, ds, stats_cns=input.sim_stat_cns):
     """
     Calculate stats for a given variable
     
@@ -88,19 +88,23 @@ def calc_stats(vn, ds):
     -------
     stats : np.array
         Statistics related to a given variable
-    stats_cn : list
-        list of column names of the various statistics
     """
     data = ds[vn].values[0,:,:]
-    stats = data.mean(axis=1)[:,np.newaxis]
-    stats = np.append(stats, data.std(axis=1)[:,np.newaxis], axis=1)
-    stats = np.append(stats, np.percentile(data, 2.5, axis=1)[:,np.newaxis], axis=1)
-    stats = np.append(stats, np.percentile(data, 25, axis=1)[:,np.newaxis], axis=1)
-    stats = np.append(stats, np.median(data, axis=1)[:,np.newaxis], axis=1)
-    stats = np.append(stats, np.percentile(data, 75, axis=1)[:,np.newaxis], axis=1)
-    stats = np.append(stats, np.percentile(data, 97.5, axis=1)[:,np.newaxis], axis=1)
-    stats_cn = ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%']
-    return stats, stats_cn
+    if 'mean' in stats_cns:
+        stats = data.mean(axis=1)[:,np.newaxis]
+    if 'std' in stats_cns:
+        stats = np.append(stats, data.std(axis=1)[:,np.newaxis], axis=1)
+    if '2.5%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 2.5, axis=1)[:,np.newaxis], axis=1)
+    if '25%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 25, axis=1)[:,np.newaxis], axis=1)
+    if 'median' in stats_cns:
+        stats = np.append(stats, np.median(data, axis=1)[:,np.newaxis], axis=1)
+    if '75%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 75, axis=1)[:,np.newaxis], axis=1)
+    if '97.5%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 97.5, axis=1)[:,np.newaxis], axis=1)
+    return stats
 
 def netcdf_add_metadata(ds, glacier_rgi_table):
     """
@@ -296,11 +300,11 @@ def main(list_packed_vars):
         # Lapse rate
         if gcm_name == 'ERA-Interim':
             gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-        else:
-            # Mean monthly lapse rate
-            ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
-            ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
-            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))    
+#        else:
+#            # Mean monthly lapse rate
+#            ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
+#            ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
+#            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))    
         # COAWST data has two domains, so need to merge the two domains
         if gcm_name == 'COAWST':
             gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn,
@@ -348,11 +352,21 @@ def main(list_packed_vars):
     # Bias adjustments from given filename in argument parser
     if args.biasadj_fn is not None:
         print('load bias adjustment from filename')
-        main_glac_bias_adj_all = pd.read_csv(input.biasadj_fp + args.biasadj_fn, index_col=0)
+        main_glac_biasadj_all = pd.read_csv(input.biasadj_fp + args.biasadj_fn, index_col=0)
         # Bias adjustment option
         option_bias_adjustment = int(args.biasadj_fn.split('biasadj_opt')[1][0])
     else:
         option_bias_adjustment = input.option_bias_adjustment
+        if option_bias_adjustment != 0:
+            if gcm_name == 'COAWST':
+                biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
+                              str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + str(input.endyear) 
+                              + '.csv')
+            else:
+                biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
+                              str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + str(input.endyear) 
+                              + '.csv')
+            main_glac_biasadj_all = pd.read_csv(input.biasadj_fp + biasadj_fn, index_col=0)
         
     # Option 0 - no bias adjustment
     if option_bias_adjustment == 0:
@@ -364,28 +378,31 @@ def main(list_packed_vars):
 #        gcm_temp_adj = gcm_temp + main_glac_modelparams['temp_adj'].values[:,np.newaxis]
 #        gcm_prec_adj = gcm_prec * main_glac_modelparams['prec_adj'].values[:,np.newaxis]
 #        gcm_elev_adj = gcm_elev
-#    # Option 2
-#    elif option_bias_adjustment == 2:
-#        print('bias adjustments from csv')
-#        main_glac_bias_adj = main_glac_bias_adj_all.loc[main_glac_rgi['O1Index'].values,:]
-#        tempvar_cols = ['tempvar_' + str(n) for n in range(1,13)]
-#        tempavg_cols = ['tempavg_' + str(n) for n in range(1,13)]
-#        tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
-#        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]
-#        bias_adj_prec = main_glac_bias_adj[precadj_cols].values
-#        variability_monthly_std = main_glac_bias_adj[tempvar_cols].values
-#        gcm_temp_monthly_avg = main_glac_bias_adj[tempavg_cols].values
-#        gcm_temp_monthly_adj = main_glac_bias_adj[tempadj_cols].values
-#        # Monthly temperature bias adjusted according to monthly average
-#        t_mt = gcm_temp + np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
-#        # Mean monthly temperature bias adjusted according to monthly average
-#        t_m25avg = np.tile(gcm_temp_monthly_avg + gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
-#        # Bias adjusted temperature accounting for monthly mean and variability
-#        gcm_temp_adj = t_m25avg + (t_mt - t_m25avg) * np.tile(variability_monthly_std, int(gcm_temp.shape[1]/12))
-#        # Bias adjusted precipitation
-#        gcm_prec_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
-#        # Updated elevation, since adjusted according to reference elevation
-#        gcm_elev_adj = main_glac_bias_adj['new_gcmelev'].values
+    # Option 2
+    elif option_bias_adjustment == 2:
+        main_glac_biasadj = main_glac_biasadj_all.loc[main_glac_rgi['O1Index'].values,:]
+        tempvar_cols = ['tempvar_' + str(n) for n in range(1,13)]
+        tempavg_cols = ['tempavg_' + str(n) for n in range(1,13)]
+        tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
+        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]
+        lr_cols = ['lravg_' + str(n) for n in range(1,13)]
+        bias_adj_prec = main_glac_biasadj[precadj_cols].values
+        variability_monthly_std = main_glac_biasadj[tempvar_cols].values
+        gcm_temp_monthly_avg = main_glac_biasadj[tempavg_cols].values
+        gcm_temp_monthly_adj = main_glac_biasadj[tempadj_cols].values
+        # Monthly temperature bias adjusted according to monthly average
+        t_mt = gcm_temp + np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
+        # Mean monthly temperature bias adjusted according to monthly average
+        t_m25avg = np.tile(gcm_temp_monthly_avg + gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
+        # Bias adjusted temperature accounting for monthly mean and variability
+        gcm_temp_adj = t_m25avg + (t_mt - t_m25avg) * np.tile(variability_monthly_std, int(gcm_temp.shape[1]/12))
+        # Bias adjusted precipitation
+        gcm_prec_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
+        # Updated elevation, since adjusted according to reference elevation
+        gcm_elev_adj = main_glac_biasadj['new_gcmelev'].values
+        # Mean monthly lapse rate
+        ref_lr_monthly_avg = main_glac_biasadj[lr_cols].values
+        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))    
 #    # Option 3
 #    elif option_bias_adjustment == 3:
 #        tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
@@ -422,9 +439,10 @@ def main(list_packed_vars):
         
         # Create netcdf file    
         if input.output_package != 0:
+            output_sim_fp = input.output_sim_fp + gcm_name + '/reg' + str(input.rgi_regionsO1[0]) + '/'
             # Create filepath if it does not exist
-            if os.path.exists(input.output_sim_fp) == False:
-                os.makedirs(input.output_sim_fp)
+            if os.path.exists(output_sim_fp) == False:
+                os.makedirs(output_sim_fp)
             # Netcdf filename
             if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
                 netcdf_fn = (gcm_name + '_c' + str(input.option_calibration) 
@@ -432,7 +450,7 @@ def main(list_packed_vars):
                              str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + glacier_RGIId + '.nc')
             else:
                 netcdf_fn = (gcm_name + '_' + rcp_scenario + '_c' + str(input.option_calibration) + 
-                             + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
+                             '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
                              str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + glacier_RGIId + '.nc')
         
             if debug:
@@ -441,12 +459,14 @@ def main(list_packed_vars):
             main_glac_rgi_float = main_glac_rgi.copy()
             main_glac_rgi_float.drop(labels=['RGIId'], axis=1, inplace=True)
             output.netcdfcreate(netcdf_fn, main_glac_rgi_float.iloc[[glac],:], main_glac_hyps.iloc[[glac],:], 
-                                dates_table, output_filepath=input.output_sim_fp, nsims=input.sim_iters)
+                                dates_table, output_filepath=output_sim_fp, nsims=input.sim_iters)
             
         if debug:
             print(glacier_RGIId)   
             
         if input.option_import_modelparams == 1:
+            if input.option_calibration == 1:
+                print('DELETE ME - OPTION CALIBRATION 1/2 SHOULD BE IMPORTED THE SAME WAY!')
             ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
             cn_subset = input.modelparams_colnames
             modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
@@ -507,14 +527,14 @@ def main(list_packed_vars):
                                    glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                                    glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual,
                                    glac_bin_area_annual, glac_bin_icethickness_annual, glac_bin_width_annual,
-                                   glac_bin_surfacetype_annual, output_filepath=input.output_sim_fp, sim=n_iter)
+                                   glac_bin_surfacetype_annual, output_filepath=output_sim_fp, sim=n_iter)
                 
         # Convert netcdf of ensembles to a netcdf containing stats of the ensembles
-        output_sim_reg = input.output_sim_fp + 'stats/'
-        if os.path.exists(output_sim_reg) == False:
-                os.makedirs(output_sim_reg)
+        output_sim_stats = output_sim_fp + 'stats/'
+        if os.path.exists(output_sim_stats) == False:
+                os.makedirs(output_sim_stats)
         # Open netcdf
-        ds = xr.open_dataset(input.output_sim_fp + netcdf_fn)
+        ds = xr.open_dataset(output_sim_fp + netcdf_fn)
         if input.output_package == 2:
             # Stats filename
             netcdf_stats_fn = netcdf_fn.split('--')[0] + '_stats--' + netcdf_fn.split('--')[1]
@@ -527,7 +547,7 @@ def main(list_packed_vars):
             count_vn = 0
             for vn in ds_vns:
                 count_vn += 1
-                stats, stats_cn = calc_stats(vn, ds)
+                stats = calc_stats(vn, ds)
                 # Determine time coordinate of the variable
                 for t_name in input.time_names:
                     if t_name in ds[vn].coords:
@@ -535,23 +555,18 @@ def main(list_packed_vars):
                 # Create dataset for variable
                 output_ds = xr.Dataset({vn: ((time_coord, 'stats'), stats)},
                                        coords={time_coord: ds[vn][time_coord].values,
-                                               'stats': stats_cn})
+                                               'stats': input.sim_stat_cns})
                 # Merge datasets of stats into one output
                 if count_vn == 1:
                     output_ds_all = output_ds
                 else:
                     output_ds_all = xr.merge((output_ds_all, output_ds))
-                    
             # Add global and variable attributes
             output_ds_all, encoding = netcdf_add_metadata(output_ds_all, glacier_rgi_table)
-#            # Add attributes
-#            list_attribute_vn = ['RGIId', 'CenLon', 'CenLat']
-#            for attr_vn in list_attribute_vn:
-#                output_ds_all.attrs[attr_vn] = glacier_rgi_table[attr_vn]
             # Export new file
-            output_ds_all.to_netcdf(output_sim_reg + netcdf_stats_fn, encoding=encoding)
+            output_ds_all.to_netcdf(output_sim_stats + netcdf_stats_fn, encoding=encoding)
             # Remove existing file
-#            os.remove(input.output_sim_fp + netcdf_fn)
+            os.remove(output_sim_fp + netcdf_fn)
             
         # Mean and standard deviation of glacier-wide mass balance
         mb_mwea_all = (ds.massbaltotal_glac_monthly.values[0,:,:]).sum(axis=0) / (dates_table.shape[0] / 12)
@@ -634,31 +649,6 @@ if __name__ == '__main__':
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
-                
-#        # Combine bias adjustment parameters into single file
-#        output_list = []
-#        output_temp = input.output_sim_fp + 'temp/'
-#        check_str = 'R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name
-#        # Sorted list of files to merge
-#        output_list = []
-#        for i in os.listdir(output_temp):
-#            if i.startswith(check_str):
-#                output_list.append(i)
-#        output_list = sorted(output_list)
-#        # Merge files
-#        output_count = 0
-#        for i in output_list:
-#            output_count += 1
-#            print(i)
-#            if output_count == 1:
-#                ds_all = xr.open_dataset(output_temp + i)
-#            else:
-#                ds_join = xr.open_dataset(output_temp + i)
-#                ds_all = xr.merge([ds_all, ds_join])
-#            # Remove file after its been merged
-#            os.remove(output_temp + i)
-#        # Export netcdf
-#        ds_all.to_netcdf(input.output_sim_fp + i.split('--')[0] + '.nc')
 
     print('Total processing time:', time.time()-time_start, 's')
 
@@ -685,6 +675,7 @@ if __name__ == '__main__':
         gcm_temp_adj = main_vars['gcm_temp_adj']
         gcm_prec_adj = main_vars['gcm_prec_adj']
         gcm_elev_adj = main_vars['gcm_elev_adj']
+        main_glac_biasadj = main_vars['main_glac_biasadj']
         gcm_temp_lrglac = main_vars['gcm_lr']
         modelparameters = main_vars['modelparameters']
         glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
