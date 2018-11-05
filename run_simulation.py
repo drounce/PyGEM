@@ -40,13 +40,17 @@ def getparser():
     ----------
     gcm_list_fn (optional) : str
         text file that contains the climate data to be used in the model simulation
+    gcm_name (optional) : str
+        gcm name
     num_simultaneous_processes (optional) : int
         number of cores to use in parallels
     option_parallels (optional) : int
         switch to use parallels or not
-    rgi_glac_number_fn : str
+    rgi_glac_number_fn (optional) : str
         filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
-    debug : int
+    batch_number (optional): int
+        batch number used to differentiate output on supercomputer
+    debug (optional) : int
         Switch for turning debug printing on or off (default = 0 (off))
         
     Returns
@@ -57,14 +61,18 @@ def getparser():
     # add arguments
     parser.add_argument('-gcm_list_fn', action='store', type=str, default=input.ref_gcm_name,
                         help='text file full of commands to run')
+    parser.add_argument('-gcm_name', action='store', type=str, default=None,
+                        help='GCM name used for model run')
+    parser.add_argument('-rcp', action='store', type=str, default=None,
+                        help='rcp scenario used for model run (ex. rcp26)')
     parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=4,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
-    parser.add_argument('-biasadj_fn', action='store', type=str, default=None,
-                        help='Filename of bias adjustments for cases where automatic loading does not work')
+    parser.add_argument('-batch_number', action='store', type=int, default=None,
+                        help='Batch number used to differentiate output on supercomputer')
     parser.add_argument('-debug', action='store', type=int, default=0,
                         help='Boolean for debugging to turn it on or off (default 0 is off')
     return parser
@@ -439,8 +447,13 @@ def main(list_packed_vars):
     parser = getparser()
     args = parser.parse_args()
         
-    if gcm_name != input.ref_gcm_name:
+    if (gcm_name != input.ref_gcm_name) and (args.rcp is None):
         rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
+    elif args.rcp is not None:
+        rcp_scenario = args.rcp
+    
+    if debug:
+        print(rcp_scenario)
 
     # ===== LOAD GLACIER DATA =====
     main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
@@ -536,36 +549,29 @@ def main(list_packed_vars):
 #%%
     # ===== BIAS CORRECTIONS =====
     # Bias adjustments from given filename in argument parser
-    if args.biasadj_fn is not None:
-        print('load bias adjustment from filename')
-        main_glac_biasadj_all = pd.read_csv(input.biasadj_fp + args.biasadj_fn, index_col=0)
-        # Bias adjustment option
-        option_bias_adjustment = int(args.biasadj_fn.split('biasadj_opt')[1][0])
-    else:
-        option_bias_adjustment = input.option_bias_adjustment
-        if option_bias_adjustment != 0:
-            if gcm_name == 'COAWST':
-                biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
-                              str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + str(input.endyear) 
-                              + '_wy' + str(input.option_wateryear) + '.csv')
-            else:
-                biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
-                              str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + str(input.endyear) 
-                              + '_wy' + str(input.option_wateryear) + '.csv')
-            main_glac_biasadj_all = pd.read_csv(input.biasadj_fp + biasadj_fn, index_col=0)
+    if input.option_bias_adjustment != 0:
+        if gcm_name == 'COAWST':
+            biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
+                          str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + 
+                          str(input.endyear) + '_wy' + str(input.option_wateryear) + '.csv')
+        else:
+            biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
+                          str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + 
+                          str(input.endyear) + '_wy' + str(input.option_wateryear) + '.csv')
+        main_glac_biasadj_all = pd.read_csv(input.biasadj_fp + biasadj_fn, index_col=0)
         
     # Option 0 - no bias adjustment
-    if option_bias_adjustment == 0:
+    if input.option_bias_adjustment == 0:
         gcm_temp_adj = gcm_temp
         gcm_prec_adj = gcm_prec
         gcm_elev_adj = gcm_elev
 #    # Option 1
-#    elif option_bias_adjustment == 1:
+#    elif input.option_bias_adjustment == 1:
 #        gcm_temp_adj = gcm_temp + main_glac_modelparams['temp_adj'].values[:,np.newaxis]
 #        gcm_prec_adj = gcm_prec * main_glac_modelparams['prec_adj'].values[:,np.newaxis]
 #        gcm_elev_adj = gcm_elev
     # Option 2
-    elif option_bias_adjustment == 2:
+    elif input.option_bias_adjustment == 2:
         main_glac_biasadj = main_glac_biasadj_all.loc[main_glac_rgi['O1Index'].values,:]
         tempvar_cols = ['tempvar_' + str(n) for n in range(1,13)]
         tempavg_cols = ['tempavg_' + str(n) for n in range(1,13)]
@@ -590,7 +596,7 @@ def main(list_packed_vars):
         ref_lr_monthly_avg = main_glac_biasadj[lr_cols].values
         gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))    
 #    # Option 3
-#    elif option_bias_adjustment == 3:
+#    elif input.option_bias_adjustment == 3:
 #        tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
 #        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]
 #        bias_adj_prec = main_glac_modelparams[precadj_cols].values
@@ -608,8 +614,9 @@ def main(list_packed_vars):
     output_ds_all_stats, encoding = create_xrdataset(main_glac_rgi, dates_table, record_stats=1)
     
     for glac in range(main_glac_rgi.shape[0]):
-        if glac%200 == 0:
-            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+#        if glac%200 == 0:
+#            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_gcm_elev = gcm_elev_adj[glac]
@@ -713,10 +720,11 @@ def main(list_packed_vars):
                 stats = calc_stats(vn, output_ds_all, glac=glac)
                 output_ds_all_stats[vn].values[glac,:,:] = stats
                 
-        # Mean and standard deviation of glacier-wide mass balance
-        mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
-                        (dates_table.shape[0] / 12))
-        print('mb_model [mwea] mean:', round(mb_mwea_all,3))       
+        if debug:
+            # Mean and standard deviation of glacier-wide mass balance
+            mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
+                            (dates_table.shape[0] / 12))
+            print('mb_model [mwea] mean:', round(mb_mwea_all,3))       
                 
     # Export statistics to netcdf
     if input.output_package == 2:
@@ -726,13 +734,13 @@ def main(list_packed_vars):
             os.makedirs(output_sim_fp)
         # Netcdf filename
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
-            netcdf_fn = ('R' + str(input.regionsO1[0]) + gcm_name + '_c' + 
-                         str(input.option_calibration) + '_ba' + str(option_bias_adjustment) + '_' +  
+            netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
+                         str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + 
                          '--' + str(count) + '.nc')
         else:
-            netcdf_fn = ('R' + str(input.regionsO1[0]) + gcm_name + '_' + rcp_scenario + '_c' + 
-                         str(input.option_calibration) + '_ba' + str(option_bias_adjustment) + '_' +  
+            netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
+                         str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + 
                          '--' + str(count) + '.nc')
     
@@ -791,7 +799,10 @@ if __name__ == '__main__':
         chunk_size = main_glac_rgi_all.shape[0]
         
     # Read GCM names from command file
-    if args.gcm_list_fn == input.ref_gcm_name:
+    if args.gcm_name is not None:
+        gcm_list = [args.gcm_name]
+        rcp_scenario = args.rcp
+    elif args.gcm_list_fn == input.ref_gcm_name:
         gcm_list = [input.ref_gcm_name]
     else:
         with open(args.gcm_list_fn, 'r') as gcm_fn:
@@ -822,32 +833,42 @@ if __name__ == '__main__':
                 
         # Merge netcdf files together into one
         # Filenames to merge
-        output_list = []
+        output_list_sorted = []
         output_sim_fp = input.output_sim_fp + gcm_name + '/'
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
-            check_str = ('R' + str(input.regionsO1[0]) + gcm_name + '_c' + 
-                         str(input.option_calibration) + '_ba')
+            check_str = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
+                         str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
+                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + '--')
         else:
-            check_str = ('R' + str(input.regionsO1[0]) + gcm_name + '_' + rcp_scenario + '_c' + 
-                         str(input.option_calibration) + '_ba')
-            
+            check_str = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
+                         str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
+                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + '--')
+        
         for i in os.listdir(output_sim_fp):
+            print(i)
             if i.startswith(check_str):
-                output_list.append(i)
-        output_list = sorted(output_list)
+                output_list_sorted.append([int(i.split('--')[1].split('.')[0]), i])
+        output_list_sorted = sorted(output_list_sorted)
+        
+        output_list = [i[1] for i in output_list_sorted]
+        print(output_list)
         
         # Open datasets and combine
         count_ds = 0
         for i in output_list:
             count_ds += 1
-            print(i)
             ds = xr.open_dataset(output_sim_fp + i)
             # Merge datasets of stats into one output
             if count_ds == 1:
                 ds_all = ds
             else:
                 ds_all = xr.merge((ds_all, ds))
+        # Filename
+        if args.batch_number is not None:
+            ds_all_fn = i.split('--')[0] + '--' + str(args.batch_number) + '.nc'
+        else:
             ds_all_fn = i.split('--')[0] + '.nc'
+        # Export to netcdf
         ds_all.to_netcdf(output_sim_fp + ds_all_fn)
         # Remove files in output_list
         for i in output_list:

@@ -7,7 +7,6 @@ import argparse
 import multiprocessing
 import time
 import inspect
-from time import strftime
 # External libraries
 import pandas as pd
 import numpy as np
