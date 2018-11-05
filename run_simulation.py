@@ -17,7 +17,6 @@ import collections
 import pandas as pd
 import numpy as np
 import xarray as xr
-import netCDF4 as nc
 import pickle
 # Local libraries
 import pygem_input as input
