@@ -818,6 +818,36 @@ if __name__ == '__main__':
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
+                
+        # Merge netcdf files together into one
+        # Filenames to merge
+        output_list = []
+        output_sim_fp = input.output_sim_fp + gcm_name + '/'
+        if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
+            check_str = gcm_name + '_c' + str(input.option_calibration) + '_ba'
+        else:
+            check_str = gcm_name + '_' + rcp_scenario + '_c' + str(input.option_calibration) + '_ba'
+        for i in os.listdir(output_sim_fp):
+            if i.startswith(check_str):
+                output_list.append(i)
+        output_list = sorted(output_list)
+        
+        # Open datasets and combine
+        count_ds = 0
+        for i in output_list:
+            count_ds += 1
+            print(i)
+            ds = xr.open_dataset(output_sim_fp + i)
+            # Merge datasets of stats into one output
+            if count_ds == 1:
+                ds_all = ds
+            else:
+                ds_all = xr.merge((ds_all, ds))
+            ds_all_fn = i.split('--')[0] + '.nc'
+        ds_all.to_netcdf(output_sim_fp + ds_all_fn)
+        # Remove files in output_list
+        for i in output_list:
+            os.remove(output_sim_fp + i)
 
     print('Total processing time:', time.time()-time_start, 's')
 
