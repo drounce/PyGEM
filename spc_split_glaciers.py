@@ -3,6 +3,7 @@
 # Built-in libraries
 import argparse
 # External libraries
+import numpy as np
 import pickle
 # Local libraries
 import pygem_input as input
@@ -42,14 +43,31 @@ def split_list(lst, n=1):
     
     Returns
     -------
-    list of lists that have n sequential values in each list
+    lst_batches : list
+        list of n lists that have sequential values in each list
     """
-    return [lst[i:i + n] for i in range(0, len(lst), n)]
-    
+    # If batches is more than list, then there will be one glacier in each batch
+    if n > len(lst):
+        n = len(lst)
+    n_perlist_low = int(len(lst)/n)
+    n_perlist_high = int(np.ceil(len(lst)/n))
+    lst_copy = lst.copy()
+    count = 0
+    lst_batches = []
+    for x in np.arange(n):
+        count += 1
+        if count <= n_perlist_low:
+            lst_subset = lst_copy[0:n_perlist_high]
+            lst_batches.append(lst_subset)
+            [lst_copy.remove(i) for i in lst_subset]
+        else:
+            lst_subset = lst_copy[0:n_perlist_low]
+            lst_batches.append(lst_subset)
+            [lst_copy.remove(i) for i in lst_subset]
+    return lst_batches    
 
 parser = getparser()
 args = parser.parse_args()
-
 if input.rgi_glac_number == 'all':
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2='all',
                                                           rgi_glac_number='all')
