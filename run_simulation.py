@@ -726,13 +726,15 @@ def main(list_packed_vars):
             os.makedirs(output_sim_fp)
         # Netcdf filename
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
-            netcdf_fn = (gcm_name + '_c' + str(input.option_calibration) 
-                         + '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
-                         str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + str(count) + '.nc')
+            netcdf_fn = ('R' + str(input.regionsO1[0]) + gcm_name + '_c' + 
+                         str(input.option_calibration) + '_ba' + str(option_bias_adjustment) + '_' +  
+                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + 
+                         '--' + str(count) + '.nc')
         else:
-            netcdf_fn = (gcm_name + '_' + rcp_scenario + '_c' + str(input.option_calibration) + 
-                         '_ba' + str(option_bias_adjustment) + '_' +  str(input.sim_iters) + 'sets' + '_' + 
-                         str(gcm_startyear) + '_' + str(gcm_endyear) + '--' + str(count) + '.nc')
+            netcdf_fn = ('R' + str(input.regionsO1[0]) + gcm_name + '_' + rcp_scenario + '_c' + 
+                         str(input.option_calibration) + '_ba' + str(option_bias_adjustment) + '_' +  
+                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + 
+                         '--' + str(count) + '.nc')
     
         if debug:
             print(netcdf_fn)
@@ -823,9 +825,12 @@ if __name__ == '__main__':
         output_list = []
         output_sim_fp = input.output_sim_fp + gcm_name + '/'
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
-            check_str = gcm_name + '_c' + str(input.option_calibration) + '_ba'
+            check_str = ('R' + str(input.regionsO1[0]) + gcm_name + '_c' + 
+                         str(input.option_calibration) + '_ba')
         else:
-            check_str = gcm_name + '_' + rcp_scenario + '_c' + str(input.option_calibration) + '_ba'
+            check_str = ('R' + str(input.regionsO1[0]) + gcm_name + '_' + rcp_scenario + '_c' + 
+                         str(input.option_calibration) + '_ba')
+            
         for i in os.listdir(output_sim_fp):
             if i.startswith(check_str):
                 output_list.append(i)
