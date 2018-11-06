@@ -155,6 +155,7 @@ spinupyears = 0
 # Simulation runs
 gcm_startyear = 2000
 gcm_endyear = 2100
+gcm_spinupyears = 0
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -764,3 +765,7 @@ R_gas = 8.3144598
 molarmass_air = 0.0289644
 # Bulk flow parameter for frontal ablation (m^-0.5)
 af = 0.7
+
+# Pass variable to shell script
+if __name__ == '__main__':
+    print(rgi_regionsO1[0])

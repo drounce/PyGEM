@@ -24,12 +24,6 @@ import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
 import class_climate
 
-#%% ===== SCRIPT SPECIFIC INPUT DATA =====
-# Required input
-# Time period
-gcm_startyear = 2000
-gcm_endyear = 2100
-gcm_spinupyears = 0
 
 #%% FUNCTIONS
 def getparser():
@@ -443,7 +437,6 @@ def main(list_packed_vars):
     chunk_size = list_packed_vars[3]
     gcm_name = list_packed_vars[4]
 
-    time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
         
@@ -472,7 +465,8 @@ def main(list_packed_vars):
     main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
     
     # Select dates including future projections
-    dates_table = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, spinupyears=gcm_spinupyears)
+    dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
+                                           spinupyears=input.gcm_spinupyears)
     # Synthetic simulation dates
     if input.option_synthetic_sim == 1:
         dates_table_synthetic, synthetic_start, synthetic_end = modelsetup.datesmodelrun(
@@ -482,7 +476,7 @@ def main(list_packed_vars):
     if gcm_name == 'ERA-Interim' or gcm_name == 'COAWST':
         gcm = class_climate.GCM(name=gcm_name)
         # Check that end year is reasonable
-        if (gcm_endyear > int(time.strftime("%Y"))) and (input.option_synthetic_sim == 0):
+        if (input.gcm_endyear > int(time.strftime("%Y"))) and (input.option_synthetic_sim == 0):
             print('\n\nEND YEAR BEYOND AVAILABLE DATA FOR ERA-INTERIM. CHANGE END YEAR.\n\n')
     else:
         gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
@@ -534,19 +528,18 @@ def main(list_packed_vars):
         gcm_lr_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, 
                                                                         dates_table_synthetic)
         # Future simulation based on synthetic (replicated) data; add spinup years; dataset restarts after spinupyears 
-        datelength = dates_table.shape[0] - gcm_spinupyears * 12
+        datelength = dates_table.shape[0] - input.gcm_spinupyears * 12
         n_tiles = int(np.ceil(datelength / dates_table_synthetic.shape[0]))
-        gcm_temp = np.append(gcm_temp_tile[:,:gcm_spinupyears*12], np.tile(gcm_temp_tile,(1,n_tiles))[:,:datelength], 
-                             axis=1)
-        gcm_prec = np.append(gcm_prec_tile[:,:gcm_spinupyears*12], np.tile(gcm_prec_tile,(1,n_tiles))[:,:datelength], 
-                             axis=1)
-        gcm_lr = np.append(gcm_lr_tile[:,:gcm_spinupyears*12], np.tile(gcm_lr_tile,(1,n_tiles))[:,:datelength], axis=1)
+        gcm_temp = np.append(gcm_temp_tile[:,:input.gcm_spinupyears*12], 
+                             np.tile(gcm_temp_tile,(1,n_tiles))[:,:datelength], axis=1)
+        gcm_prec = np.append(gcm_prec_tile[:,:input.gcm_spinupyears*12], 
+                             np.tile(gcm_prec_tile,(1,n_tiles))[:,:datelength], axis=1)
+        gcm_lr = np.append(gcm_lr_tile[:,:input.gcm_spinupyears*12], np.tile(gcm_lr_tile,(1,n_tiles))[:,:datelength], 
+                           axis=1)
         # Temperature and precipitation sensitivity adjustments
         gcm_temp = gcm_temp + input.synthetic_temp_adjust
         gcm_prec = gcm_prec * input.synthetic_prec_factor
         
-
-#%%
     # ===== BIAS CORRECTIONS =====
     # Bias adjustments from given filename in argument parser
     if input.option_bias_adjustment != 0:
@@ -616,7 +609,6 @@ def main(list_packed_vars):
     for glac in range(main_glac_rgi.shape[0]):
 #        if glac%200 == 0:
 #            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-#        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_gcm_elev = gcm_elev_adj[glac]
@@ -737,30 +729,24 @@ def main(list_packed_vars):
             # Filename
             netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + 
+                         str(input.sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
                          '--' + str(count) + '.nc')
         else:
             netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + 
+                         str(input.sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
                          '--' + str(count) + '.nc')
         if args.batch_number is not None:
             netcdf_fn_split = netcdf_fn.split('--')  
             netcdf_fn = netcdf_fn_split[0] + '_batch' + str(args.batch_number) + '--' + netcdf_fn_split[1]
-    
-        if debug:
-            print(netcdf_fn)
-
         # Export netcdf
         output_ds_all_stats.to_netcdf(output_sim_fp + netcdf_fn, encoding=encoding)
 
 
     #%% Export variables as global to view in variable explorer
-    if (args.option_parallels == 0) or (main_glac_rgi_all.shape[0] < 2 * args.num_simultaneous_processes):
+    if args.option_parallels == 0:
         global main_vars
         main_vars = inspect.currentframe().f_locals
-
-    print('\nProcessing time of', gcm_name, 'for', count,':',time.time()-time_start, 's')
 
 #%% PARALLEL PROCESSING
 if __name__ == '__main__':
@@ -788,7 +774,8 @@ if __name__ == '__main__':
     main_glac_rgi_all_float.drop(labels=['RGIId'], axis=1, inplace=True)
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, input.rgi_regionsO1, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
-    dates_table = modelsetup.datesmodelrun(startyear=gcm_startyear, endyear=gcm_endyear, spinupyears=gcm_spinupyears)
+    dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
+                                           spinupyears=input.gcm_spinupyears)
     
     # Define chunk size for parallel processing
     if args.option_parallels != 0:
@@ -840,11 +827,13 @@ if __name__ == '__main__':
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
             check_str = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + '--')
+                         str(input.sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
+                         + '--')
         else:
             check_str = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + '--')
+                         str(input.sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
+                         + '--')
         if args.batch_number is not None:
             check_str = check_str.split('--')[0] + '_batch' + str(args.batch_number) + '--'
         for i in os.listdir(output_sim_fp):
@@ -918,7 +907,7 @@ if __name__ == '__main__':
         glacier_gcm_temp = main_vars['glacier_gcm_temp']
         glacier_gcm_prec = main_vars['glacier_gcm_prec']
         glacier_gcm_elev = main_vars['glacier_gcm_elev']
-        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm'][gcm_spinupyears*12:]
+        glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm'][input.gcm_spinupyears*12:]
         glacier_area_t0 = main_vars['glacier_area_t0']
         icethickness_t0 = main_vars['icethickness_t0']
         width_t0 = main_vars['width_t0']
