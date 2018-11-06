@@ -80,6 +80,15 @@ if option_merge_netcdfs == 1:
     rgi_regionsO1 = [13]
     netcdf_fp = input.output_filepath + 'simulations/spc/MPI-ESM-LR/'
     splitter = '_batch'
+    # Encoding
+    # Add variables to empty dataset and merge together
+    encoding = {}
+    noencoding_vn = ['stats', 'glac_attrs']
+    if input.output_package == 2:
+        for vn in input.output_variables_package2:
+            # Encoding (specify _FillValue, offsets, etc.)
+            if vn not in noencoding_vn:
+                encoding[vn] = {'_FillValue': False}
     # Merge netcdf files together into one
     # Filenames to merge
     output_list_sorted = []
@@ -92,25 +101,22 @@ if option_merge_netcdfs == 1:
     
     # Open datasets and combine
     count_ds = 0
-    for i in [output_list[0]]:
-        print(i)
+    for i in output_list:
         count_ds += 1
         ds = xr.open_dataset(netcdf_fp + i)
-        
-#        print(ds.glacier_table.temps)
-        
-#        # Merge datasets of stats into one output
-#        if count_ds == 1:
-#            ds_all = ds
-#        else:
-#            ds_all = xr.merge((ds_all, ds))
-#    ds_all_fn = i.split(splitter)[0] + '.nc'
-    
-#    # Export to netcdf
-#    ds_all.to_netcdf(output_sim_fp + ds_all_fn)
-#    # Remove files in output_list
-#    for i in output_list:
-#        os.remove(output_sim_fp + i)
+        # Merge datasets of stats into one output
+        if count_ds == 1:
+            ds_all = ds
+        else:
+#            ds_all = xr.merge([ds_all, ds])
+            ds_all = xr.concat([ds_all, ds], dim='glac')
+    ds_all.glac.values = np.arange(0,len(ds_all.glac.values))
+    ds_all_fn = i.split(splitter)[0] + '.nc'
+    # Export to netcdf
+    ds_all.to_netcdf(netcdf_fp + ds_all_fn, encoding=encoding)
+    # Remove files in output_list
+    for i in output_list:
+        os.remove(netcdf_fp + i)
         
     #%% OLD MERGE
 

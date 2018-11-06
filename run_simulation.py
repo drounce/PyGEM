@@ -746,7 +746,7 @@ def main(list_packed_vars):
                          '--' + str(count) + '.nc')
         if args.batch_number is not None:
             netcdf_fn_split = netcdf_fn.split('--')  
-            netcdf_fn = netcdf_fn_split[0] + '_batch' + str(args.batch_number) + '--' + netcdf_fn_split[1] + '.nc'
+            netcdf_fn = netcdf_fn_split[0] + '_batch' + str(args.batch_number) + '--' + netcdf_fn_split[1]
     
         if debug:
             print(netcdf_fn)
@@ -832,6 +832,7 @@ if __name__ == '__main__':
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
                 
+        #%%
         # Merge netcdf files together into one
         # Filenames to merge
         output_list_sorted = []
@@ -845,15 +846,12 @@ if __name__ == '__main__':
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + '--')
         if args.batch_number is not None:
-            check_str_split = check_str.split('--')  
-            check_str = check_str_split[0] + '_batch' + str(args.batch_number) + '--'
-        
+            check_str = check_str.split('--')[0] + '_batch' + str(args.batch_number) + '--'
         for i in os.listdir(output_sim_fp):
             if i.startswith(check_str):
                 output_list_sorted.append([int(i.split('--')[1].split('.')[0]), i])
         output_list_sorted = sorted(output_list_sorted)
         output_list = [i[1] for i in output_list_sorted]
-        
         # Open datasets and combine
         count_ds = 0
         for i in output_list:
@@ -865,12 +863,21 @@ if __name__ == '__main__':
             else:
                 ds_all = xr.merge((ds_all, ds))
         # Filename
-        if args.batch_number is not None:
-            ds_all_fn = i.split('--')[0] + '_batch' + str(args.batch_number) + '.nc'
-        else:
-            ds_all_fn = i.split('--')[0] + '.nc'
+        ds_all_fn = i.split('--')[0] + '.nc'
+        # Encoding
+        # Add variables to empty dataset and merge together
+        encoding = {}
+        noencoding_vn = ['stats', 'glac_attrs']
+        if input.output_package == 2:
+            for vn in input.output_variables_package2:
+                # Encoding (specify _FillValue, offsets, etc.)
+                if vn not in noencoding_vn:
+                    encoding[vn] = {'_FillValue': False}
         # Export to netcdf
-        ds_all.to_netcdf(output_sim_fp + ds_all_fn)
+        if input.output_package == 2:
+            ds_all.to_netcdf(output_sim_fp + ds_all_fn, encoding=encoding)
+        else:
+            ds_all.to_netcdf(output_sim_fp + ds_all_fn)
         # Remove files in output_list
         for i in output_list:
             os.remove(output_sim_fp + i)
