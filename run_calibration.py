@@ -520,6 +520,7 @@ def main(list_packed_vars):
 
         # ==============================================================
         
+    #%%
     # Option 1: mimize mass balance difference using multi-step approach to expand solution space
     elif input.option_calibration == 1:
 
@@ -712,7 +713,7 @@ def main(list_packed_vars):
             -------
             abs_zscore
                 Returns the absolute z-score, which represents how well the model matches observations
-            """
+            """            
             # Record group's cumulative area and mass balance for comparison
             group_cum_area_km2 = 0
             group_cum_mb_mkm2 = 0    
@@ -732,7 +733,7 @@ def main(list_packed_vars):
                         modelparameters[3] = modelparameters_subset[1]
                         modelparameters[4] = modelparameters_subset[2]
                         modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
-                        modelparameters[7] = modelparameters_subset[3]
+                        modelparameters[7] = modelparameters_subset[3] 
                     # Select subsets of data
                     glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]   
                     glacier_gcm_elev = gcm_elev[glac]
@@ -752,7 +753,7 @@ def main(list_packed_vars):
                         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                                    width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                                    glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                                   option_areaconstant=1))  
+                                                   option_areaconstant=1))
                     # Mass balance comparisons
                     # Modeled mass balance [mwe]
                     #  sum(mass balance * area) / total area
@@ -994,7 +995,6 @@ def main(list_packed_vars):
                                         'chain': [0]})
                 ds.to_netcdf(output_fullfn)
         
-        
         # ==============================================================
         # ===== Individual glacier optimization using objective minimization ===== 
         # Output
@@ -1126,11 +1126,6 @@ def main(list_packed_vars):
                     modelparameters_best = modelparameters
                     glacier_cal_compare_best = glacier_cal_compare
                     cal_round_best = calround
-                
-#                if debug:
-#                    print('calround:',calround)
-#                    print('glacier_cal_compare:\n',glacier_cal_compare)
-#                    print('cal_idx:', cal_idx)
             
                 # Break loop if gone through all iterations
                 if (calround == len(input.precfactor_bnds_list_init)) or zscore_compare(glacier_cal_compare, cal_idx):
@@ -1142,8 +1137,6 @@ def main(list_packed_vars):
                           '\nTempbias:', modelparameters_init[3], '\nDDFsnow:', modelparameters_init[2])
                     print('\nCalibrated parameters:\nPrecfactor:', modelparameters[2], 
                           '\nTempbias:', modelparameters[7], '\nDDFsnow:', modelparameters[4])
-#                    print('Observation:', glacier_cal_compare.loc[0, 'obs'], glacier_cal_compare.loc[0, 'obs_unit'],
-#                          '\nModel:', glacier_cal_compare.loc[0, 'model'], glacier_cal_compare.loc[0, 'obs_unit'])
                     print('\nmean Zscore:', mean_zscore, '\n')
                           
             # RECORD OUTPUT
@@ -1151,7 +1144,6 @@ def main(list_packed_vars):
             modelparameters = modelparameters_best
             glacier_cal_compare = glacier_cal_compare_best
             calround = cal_round_best
-            
             # Run mass balance with optimized parameters
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -1181,7 +1173,7 @@ def main(list_packed_vars):
             write_netcdf_modelparams(netcdf_output_fp + glacier_str + '.nc', modelparameters, glacier_cal_compare)
             
         # ==============================================================
-        
+        #%%
         # ===== GROUP CALIBRATION =====
         if set(['group']).issubset(input.cal_datasets) == True:
             # Indices of group calibration data
@@ -1192,8 +1184,7 @@ def main(list_packed_vars):
             # List of name of each group
             group_dict_keyslist_names = [item[0] for item in group_dict_keyslist]
             
-            for cal_idx in cal_data_idx_groups:
-                
+            for cal_idx in cal_data_idx_groups:                
                 group_name = cal_data.loc[cal_idx, 'group_name']
                 print(group_name)
                 # Group dictionary keys list index
@@ -1212,7 +1203,7 @@ def main(list_packed_vars):
                     glacier_cal_compare.obs = cal_data.loc[cal_idx, 'mb_mwe']
                     glacier_cal_compare.uncertainty = cal_data.loc[cal_idx, 'mb_mwe_err']
                 # Note: glacier_cal_compare is a pd.Series!
-                        
+                
                 # Calibration round
                 calround = 0
                 # Initial bounds and switch to manipulate bounds
@@ -1222,34 +1213,49 @@ def main(list_packed_vars):
                 precgrad_bnds_list = input.precgrad_bnds_list_init.copy()
                 manipulate_bnds = False
                 
-                # If geodetic mass balance exist, then constrain bounds based on initial estimate
-                if glacier_cal_compare.obs_type.startswith('mb'):
-                    mb_geo = glacier_cal_compare.obs
-                    modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
-                    modelparameters_group, glacier_cal_compare, glacwide_mbclim_mwe = (
-                            run_objective_group(modelparameters_init, run_opt=False))
-                    mb_geo_modeled = glacier_cal_compare.model
-                    # Adjust bounds based on initial comparison
-                    manipulate_bnds = True
-                    precfactor_bnds_list_copy = precfactor_bnds_list.copy()
-                    tempchange_bnds_list_copy = tempchange_bnds_list.copy()
-                    ddfsnow_bnds_list_copy = ddfsnow_bnds_list.copy()
-                    precgrad_init_idx = 0
-                    if mb_geo_modeled < mb_geo:
-                        precfactor_init_idx = 1
-                        tempchange_init_idx = 0
-                        ddfsnow_init_idx = 0
-                        precfactor_bnds_list = [(1,i[1]) for i in precfactor_bnds_list_copy]
-                        tempchange_bnds_list = [(i[0],0) for i in tempchange_bnds_list_copy]
-                        ddfsnow_bnds_list = [(i[0],0.0041) for i in ddfsnow_bnds_list_copy]
-                    else:
-                        precfactor_init_idx = 0
-                        tempchange_init_idx = 1
-                        ddfsnow_init_idx = 1
-                        precfactor_bnds_list = [(i[0],1) for i in precfactor_bnds_list_copy]
-                        tempchange_bnds_list = [(0,i[1]) for i in tempchange_bnds_list_copy]
-                        ddfsnow_bnds_list = [(0.0041,i[1]) for i in ddfsnow_bnds_list_copy]
-        
+                modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
+                modelparameters_group, glacier_cal_compare, glacwide_mbclim_mwe = (
+                        run_objective_group(modelparameters_init, run_opt=False))
+                zscore_sum = glacier_cal_compare.zscore.sum()
+                
+                precfactor_bnds_list = [input.precfactor_bnds_list_init[0]]
+                tempchange_bnds_list = [input.tempchange_bnds_list_init[0]]
+                ddfsnow_bnds_list = [input.ddfsnow_bnds_list_init[0]]
+                
+                if debug:
+                    print('precfactor_bnds_list:', precfactor_bnds_list)
+                
+                precgrad_init_idx = 0
+                if zscore_sum < 0:
+                    # Index used for calculating initial guess each round
+                    precfactor_init_idx = 1
+                    tempchange_init_idx = 0
+                    ddfsnow_init_idx = 0
+                    # First tuple will not be changed in case calibrated parameters are near the center,
+                    # subsequent bounds will be modified
+                    precfactor_bnds_list_modified = [(1,i[1]) for i in input.precfactor_bnds_list_init[1:]]
+                    tempchange_bnds_list_modified = [(i[0],0) for i in input.tempchange_bnds_list_init[1:]]
+                    ddfsnow_bnds_list_modified = [(i[0],0.0041) for i in input.ddfsnow_bnds_list_init[1:]]
+                    precfactor_bnds_list.extend(precfactor_bnds_list_modified)
+                    tempchange_bnds_list.extend(tempchange_bnds_list_modified)
+                    ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
+                else:
+                    # Index used for calculating initial guess each round
+                    precfactor_init_idx = 0
+                    tempchange_init_idx = 1
+                    ddfsnow_init_idx = 1
+                    # First tuple will not be changed in case calibrated parameters are near the center,
+                    # subsequent bounds will be modified
+                    precfactor_bnds_list_modified = [(i[0],1) for i in input.precfactor_bnds_list_init[1:]]
+                    tempchange_bnds_list_modified = [(0,i[1]) for i in input.tempchange_bnds_list_init[1:]]
+                    ddfsnow_bnds_list_modified = [(0.0041,i[1]) for i in input.ddfsnow_bnds_list_init[1:]]
+                    precfactor_bnds_list.extend(precfactor_bnds_list_modified)
+                    tempchange_bnds_list.extend(tempchange_bnds_list_modified)
+                    ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
+                
+                if debug:
+                    print('modified precfactor_bnds_list:', precfactor_bnds_list)
+                
                 continue_loop = True
                 while continue_loop:
                     # Bounds
@@ -1275,11 +1281,34 @@ def main(list_packed_vars):
                         run_objective_group(modelparameters_init, precfactor_bnds, tempchange_bnds, ddfsnow_bnds, 
                                             precgrad_bnds))
                     calround += 1
+                    
+                    #%%
+                    # Update model parameters if significantly better
+                    zscore_abs = abs(glacier_cal_compare['zscore']).sum()
+                    if calround == 1:
+                        zscore_abs_best = zscore_abs
+                        modelparameters_group_best = modelparameters_group
+                        glacier_cal_compare_best = glacier_cal_compare
+                        cal_round_best = calround
+                    elif (zscore_abs_best - zscore_abs) > input.zscore_update_threshold:
+                        zscore_abs_best = zscore_abs
+                        modelparameters_group_best = modelparameters_group
+                        glacier_cal_compare_best = glacier_cal_compare
+                        cal_round_best = calround
+                        
                     # Break loop if gone through all iterations
                     if ((calround == len(input.precfactor_bnds_list_init)) or 
-                    (abs(glacier_cal_compare.zscore) < input.zscore_tolerance_single)):
+                        (abs(glacier_cal_compare.zscore) < input.zscore_tolerance_single)):
                         continue_loop = False
                     
+                    if debug:
+                        print('\nCalibration round:', calround,
+                              '\nInitial parameters:\nPrecfactor:', modelparameters_init[0], 
+                              '\nTempbias:', modelparameters_init[3], '\nDDFsnow:', modelparameters_init[2])
+                        print('\nCalibrated parameters:\nPrecfactor:', modelparameters_group[2], 
+                              '\nTempbias:', modelparameters_group[7], '\nDDFsnow:', modelparameters_group[4])
+                        print('\nZscore:', zscore_abs, '\n')
+                       #%%
                 # Glacier-wide climatic mass balance over study period (used by transfer functions)
                 # Record model parameters and mbclim
                 group_count = 0
@@ -1287,29 +1316,27 @@ def main(list_packed_vars):
                     if main_glac_rgi.loc[glac, 'group_name'] == group_name:
                         main_glacwide_mbclim_mwe[glac] = glacwide_mbclim_mwe[group_count]
                         group_count += 1
-                main_glac_modelparamsopt[group_dict_glaciers_idx] = modelparameters_group
+                main_glac_modelparamsopt[group_dict_glaciers_idx] = modelparameters_group_best
                 glacier_cal_compare.calround = calround
-                main_glac_cal_compare.loc[cal_idx] = glacier_cal_compare
+                main_glac_cal_compare.loc[cal_idx] = glacier_cal_compare_best
                 
                 # EXPORT TO NETCDF
-                netcdf_output_fp = input.output_fp_cal + 'reg' + str(input.rgi_regionsO1[0]) + '/'
+                netcdf_output_fp = (input.output_fp_cal + 'reg' + str(input.rgi_regionsO1[0]) + '/')
                 if not os.path.exists(netcdf_output_fp):
                     os.makedirs(netcdf_output_fp)
-                # Loop through glaciers calibrated from group and export to netcdf
+                # Loop through glaciers calibrated from group (skipping those calibrated indepdently)
                 for glac_idx in group_dict_glaciers_idx:
                     glacier_str = '{0:0.5f}'.format(main_glac_rgi.loc[glac_idx, 'RGIId_float'])
                     write_netcdf_modelparams(netcdf_output_fp + glacier_str + '.nc', modelparameters_group)
-                    
-                
+
                 print(group_name,'(zscore):', abs(glacier_cal_compare.zscore))
                 print('precfactor:', modelparameters_group[2])
                 print('precgrad:', modelparameters_group[3])
                 print('ddfsnow:', modelparameters_group[4])
                 print('ddfice:', modelparameters_group[5])
                 print('tempchange:', modelparameters_group[7])
-                print('calround:', calround)
-                print(' ')
-                
+                print('calround:', calround, '\n')
+        #%%
         # Export (i) main_glac_rgi w optimized model parameters and glacier-wide climatic mass balance,
         #        (ii) comparison of model vs. observations
         # Concatenate main_glac_rgi, optimized model parameters, glacier-wide climatic mass balance
@@ -1329,7 +1356,7 @@ def main(list_packed_vars):
                 'R' + str(input.rgi_regionsO1[0]) + '_calcompare_opt' + str(input.option_calibration) + '_' + gcm_name 
                 + str(input.startyear) + str(input.endyear) + '--' + str(count) + '.csv')
         main_glac_output.to_csv(input.output_fp_cal + 'temp/' + output_modelparams_fn )
-        main_glac_cal_compare.to_csv(input.output_fp_cal + 'temp/' + output_calcompare_fn)        
+        main_glac_cal_compare.to_csv(input.output_fp_cal + 'temp/' + output_calcompare_fn)       
         
     # Export variables as global to view in variable explorer
     if args.option_parallels == 0:
@@ -1458,21 +1485,22 @@ if __name__ == '__main__':
         if (args.option_parallels == 0):
             main_vars_list = list(main_vars.keys())
 #            gcm_name = main_vars['gcm_name']
-#            main_glac_rgi = main_vars['main_glac_rgi']
-#            main_glac_hyps = main_vars['main_glac_hyps']
-#            main_glac_icethickness = main_vars['main_glac_icethickness']
-#            main_glac_width = main_vars['main_glac_width']
-#            elev_bins = main_vars['elev_bins']
-#            dates_table = main_vars['dates_table']
-#            dates_table_nospinup = main_vars['dates_table_nospinup']
-#            cal_data = main_vars['cal_data']
-#            gcm_temp = main_vars['gcm_temp']
-#            gcm_prec = main_vars['gcm_prec']
-#            gcm_elev = main_vars['gcm_elev']
+            main_glac_rgi = main_vars['main_glac_rgi']
+            main_glac_hyps = main_vars['main_glac_hyps']
+            main_glac_icethickness = main_vars['main_glac_icethickness']
+            main_glac_width = main_vars['main_glac_width']
+            elev_bins = main_vars['elev_bins']
+            dates_table = main_vars['dates_table']
+            dates_table_nospinup = main_vars['dates_table_nospinup']
+            cal_data = main_vars['cal_data']
+            gcm_temp = main_vars['gcm_temp']
+            gcm_prec = main_vars['gcm_prec']
+            gcm_elev = main_vars['gcm_elev']
+            gcm_lr = main_vars['gcm_lr']
 #            glac_bin_acc = main_vars['glac_bin_acc']
 #            glac_bin_temp = main_vars['glac_bin_temp']
 #            glac_bin_massbalclim = main_vars['glac_bin_massbalclim']
-#            modelparameters = main_vars['modelparameters']
+            modelparameters = main_vars['modelparameters']
 #            glac_bin_area_annual = main_vars['glac_bin_area_annual']
             glacier_area_t0 = main_vars['glacier_area_t0']
             glacier_cal_compare = main_vars['glacier_cal_compare']
@@ -1483,6 +1511,7 @@ if __name__ == '__main__':
             main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
             main_glac_output = main_vars['main_glac_output']
             main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
+            main_glacwide_mbclim_mwe = main_vars['main_glacwide_mbclim_mwe']
 #            glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
 #            glac_wide_area_annual = main_vars['glac_wide_area_annual']
 #            glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
@@ -1490,3 +1519,9 @@ if __name__ == '__main__':
 #            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
 #            main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
 #            main_glac_output = main_vars['main_glac_output']
+            if set(['group']).issubset(input.cal_datasets):
+                group_dict_keyslist = main_vars['group_dict_keyslist']
+                group_dict_keyslist_names = main_vars['group_dict_keyslist_names']
+                cal_data_idx_groups = main_vars['cal_data_idx_groups']
+                cal_data = main_vars['cal_data']
+                cal_individual_glacno = main_vars['cal_individual_glacno']

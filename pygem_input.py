@@ -104,11 +104,11 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # Calibration option (1 = minimization, 2 = MCMC)
-option_calibration = 2
+option_calibration = 1
 # Calibration datasets
-cal_datasets = ['shean']
+#cal_datasets = ['shean']
 #cal_datasets = ['wgms_d']
-#cal_datasets = ['wgms_d', 'wgms_ee']
+cal_datasets = ['wgms_d', 'group']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 # Calibration output filepath (currently only for option 1)
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
@@ -126,15 +126,15 @@ thin_interval = 1
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [7]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
+rgi_glac_number = 'all'
 #rgi_glac_number = ['00240']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['03734', '03473']
-rgi_glac_number = glac_num_fromrange(1,1000)
+#rgi_glac_number = glac_num_fromrange(1,1000)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
 if 'rgi_glac_number' not in locals():
