@@ -3,6 +3,10 @@
 #SBATCH --ntasks=576
 #SBATCH --tasks-per-node=24
 
+echo partition: $SLURM_JOB_PARTITION
+echo num_nodes: $SLURM_JOB_NUM_NODES nodes: $SLURM_JOB_NODELIST
+echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
+
 GCM_NAMES_FP="../Climate_data/cmip5/"
 #GCM_NAMES_FN="gcm_rcp26_filenames_glaciermip.txt"
 GCM_NAMES_FN="gcm_rcp26_filenames_nompiesmlr.txt"
@@ -15,29 +19,27 @@ RCP="$(cut -d'_' -f2 <<<"$GCM_NAMES_FN")"
 module load lang/Anaconda3/2.5.0
 source activate pygem_hpc
 
+# region
+REGNO=$(python pygem_input.py)
+echo -e "Region: $REGNO\n"
+# region batch string
+rgi_batch_str="R${REGNO}_rgi_glac_number_batch"
+
 # delete previous rgi_glac_number batch filenames
-find -name 'rgi_glac_number_batch_*' -exec rm {} \;
+find -name '${rgi_batch_str}_*' -exec rm {} \;
 
 # split glaciers into batches for different nodes
 python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES
 
-# find region
-REGNO=$(python pygem_input.py)
-echo "Region: $REGNO"
-
 # list rgi_glac_number batch filenames
-rgi_fns=$(find R$REGNO_rgi_glac_number_batch*)
+rgi_fns=$(find ${rgi_batch_str}*)
 echo rgi_glac_number filenames:$rgi_fns
 # create list
 list_rgi_fns=($rgi_fns)
 echo first_batch:${list_rgi_fns[0]}
 
-echo partition: $SLURM_JOB_PARTITION
-echo num_nodes: $SLURM_JOB_NUM_NODES nodes: $SLURM_JOB_NODELIST
-echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
-
 for GCM_NAME in $GCM_NAMES_LST; do
-  echo "$GCM_NAME"
+  echo -e "\n$GCM_NAME"
   echo "$RCP"
   for i in $rgi_fns 
   do
@@ -53,3 +55,5 @@ for GCM_NAME in $GCM_NAMES_LST; do
   wait
 done
 wait
+
+echo -e "\nScript finished"
