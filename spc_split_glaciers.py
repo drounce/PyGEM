@@ -18,6 +18,8 @@ def getparser():
     ----------
     n_batches : int
         number of nodes being used on the supercomputer
+    ignore_regionname : int
+        switch to ignore region name or not (1 ignore it, 0 use region)
         
     Returns
     -------
@@ -27,6 +29,7 @@ def getparser():
     # add arguments
     parser.add_argument('-n_batches', action='store', type=int, default=1,
                         help='number of nodes to split the glaciers amongst')
+    parser.add_argument('-ignore_regionname', action='store', type=int, default=0)
     return parser
 
 
@@ -82,7 +85,10 @@ rgi_glac_number_batches = split_list(rgi_glac_number, n=args.n_batches)
 # Export lists
 for n in range(len(rgi_glac_number_batches)):
 #    print('Batch', n, ':\n', rgi_glac_number_batches[n], '\n')
-    batch_fn = 'R' + str(input.rgi_regionsO1[0]) + '_rgi_glac_number_batch_' + str(n) + '.pkl'
+    if args.ignore_regionname == 1:
+        batch_fn = 'rgi_glac_number_batch_' + str(n) + '.pkl'
+    else:
+        batch_fn = 'R' + str(input.rgi_regionsO1[0]) + '_rgi_glac_number_batch_' + str(n) + '.pkl'
 #    print('Batch', n, ':\n', batch_fn, '\n')
     with open(batch_fn, 'wb') as f:
         pickle.dump(rgi_glac_number_batches[n], f)

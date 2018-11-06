@@ -283,7 +283,7 @@ class GCM():
 
 #%% Testing
 if __name__ == '__main__':
-    gcm = GCM(name='COAWST')
+    gcm = GCM(name='GISS-E2-R', rcp_scenario='rcp60')
 #    gcm = GCM(name='ERA-Interim')
     
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
