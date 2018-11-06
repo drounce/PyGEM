@@ -35,126 +35,161 @@ option_parameter_relationships = 0
 option_MCMC_ensembles = 0
 option_calcompare_w_geomb = 0
 option_add_metadata2netcdf = 0
-option_merge_netcdfs = 0
+option_merge_netcdfs = 1
 
 option_savefigs = 1
 
 #%% TEST
-rgi_regionsO1 = [15]
-netcdf_fp = input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/'
-netcdf_fn = 'R' + str(rgi_regionsO1[0]) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
-output_ds_all = xr.open_dataset(netcdf_fp + netcdf_fn)
-
-encoding = {}
-for vn in list(output_ds_all.variables):
-    if vn not in ['stats', 'glac_attrs']:
-        encoding[vn] = {'_FillValue': False}
-
-output_ds_all.glac.attrs['long_name'] = 'glacier index'
-output_ds_all.glac.attrs['comment'] = 'glacier index value that refers to the glacier table'
-output_ds_all.time.attrs['long_name'] = 'date'
-output_ds_all.stats.attrs['long_name'] = 'variable statistics'
-output_ds_all.stats.attrs['comment'] = '% refers to percentiles'
-output_ds_all.year_plus1.attrs['long_name'] = 'years plus one additional year'
-output_ds_all.year_plus1.attrs['comment'] = (
-        'additional year allows one to record glacier dimension changes at end of model run')
-if input.option_wateryear == 1:
-    output_ds_all.year_plus1.attrs['unit'] = 'water year'
-elif input.option_wateryear == 2:
-    output_ds_all.year_plus1.attrs['unit'] = 'calendar year'
-else:
-    output_ds_all.year_plus1.attrs['unit'] = 'custom year'
-output_ds_all.frontalablation_glac_monthly.attrs['long_name'] = 'glacier-wide frontal ablation'
-output_ds_all.frontalablation_glac_monthly.attrs['units'] = 'm w.e.'
-output_ds_all.frontalablation_glac_monthly.attrs['temporal_resolution'] = 'monthly'
-output_ds_all.frontalablation_glac_monthly.attrs['comment'] = (
-        'mass losses from calving, subaerial frontal melting, sublimation above the waterline and '
-        + 'subaqueous frontal melting below the waterline')
-
-output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn, encoding=encoding)
+#rgi_regionsO1 = [15]
+#netcdf_fp = input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+#netcdf_fn = 'R' + str(rgi_regionsO1[0]) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+#output_ds_all = xr.open_dataset(netcdf_fp + netcdf_fn)
+#
+#encoding = {}
+#for vn in list(output_ds_all.variables):
+#    if vn not in ['stats', 'glac_attrs']:
+#        encoding[vn] = {'_FillValue': False}
+#
+#output_ds_all.glac.attrs['long_name'] = 'glacier index'
+#output_ds_all.glac.attrs['comment'] = 'glacier index value that refers to the glacier table'
+#output_ds_all.time.attrs['long_name'] = 'date'
+#output_ds_all.stats.attrs['long_name'] = 'variable statistics'
+#output_ds_all.stats.attrs['comment'] = '% refers to percentiles'
+#output_ds_all.year_plus1.attrs['long_name'] = 'years plus one additional year'
+#output_ds_all.year_plus1.attrs['comment'] = (
+#        'additional year allows one to record glacier dimension changes at end of model run')
+#if input.option_wateryear == 1:
+#    output_ds_all.year_plus1.attrs['unit'] = 'water year'
+#elif input.option_wateryear == 2:
+#    output_ds_all.year_plus1.attrs['unit'] = 'calendar year'
+#else:
+#    output_ds_all.year_plus1.attrs['unit'] = 'custom year'
+#output_ds_all.frontalablation_glac_monthly.attrs['long_name'] = 'glacier-wide frontal ablation'
+#output_ds_all.frontalablation_glac_monthly.attrs['units'] = 'm w.e.'
+#output_ds_all.frontalablation_glac_monthly.attrs['temporal_resolution'] = 'monthly'
+#output_ds_all.frontalablation_glac_monthly.attrs['comment'] = (
+#        'mass losses from calving, subaerial frontal melting, sublimation above the waterline and '
+#        + 'subaqueous frontal melting below the waterline')
+#
+#output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn, encoding=encoding)
 
 
 #%% MERGE NETCDF FILES TO REDUCE FILE SIZE
 if option_merge_netcdfs == 1:
     # ===== REQUIRED INPUT =====
     rgi_regionsO1 = [13]
-    netcdf_fp = (input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/reg' + str(rgi_regionsO1[0]) + 
-                 '/stats_w_attrs/')
-    output_vns_WBM = ['prec_glac_monthly', 'acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 
-                      'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 
-                      'area_glac_annual', 'volume_glac_annual']
-    output_stat_cns_WBM = ['mean', 'std']
-
-    # ===== MERGE GLACIERS =====
-    # Select glaciers consistent with netcdf data
-    rgi_glac_number = input.get_same_glaciers(netcdf_fp)
-    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                      rgi_glac_number=rgi_glac_number)
-    # Sorted list of files to merge
-    output_list = []
+    netcdf_fp = input.output_filepath + 'simulations/spc/MPI-ESM-LR/'
+    splitter = '_batch'
+    # Merge netcdf files together into one
+    # Filenames to merge
+    output_list_sorted = []
+    check_str = 'R15_MPI-ESM-LR_rcp26_c2_ba2_200sets_2000_2100_batch'
     for i in os.listdir(netcdf_fp):
-        if i.endswith('.nc'):
-            output_list.append(i)
-    output_list = sorted(output_list)
-    # Merge netcdfs together
-    for n, i in enumerate(output_list):
-        if n%200 == 0:
-            print(i)
+        if i.startswith(check_str):
+            output_list_sorted.append([int(i.split(splitter)[1].split('.')[0]), i])
+    output_list_sorted = sorted(output_list_sorted)
+    output_list = [i[1] for i in output_list_sorted]
+    
+    # Open datasets and combine
+    count_ds = 0
+    for i in [output_list[0]]:
+        print(i)
+        count_ds += 1
         ds = xr.open_dataset(netcdf_fp + i)
-        if n == 0:
-            ds_all = ds.copy()
-            ds_all.attrs = {}
-        else:
-            ds_all = xr.concat([ds_all, ds], 'glac')
-    # Remove unwanted variables and statistics to cut down on the file size
-    # List of variables
-    ds_vns = []
-    for vn in ds_all.variables:
-        ds_vns.append(vn)
-    # List of stats
-    stats_subset_idx = []
-    stats_list = list(ds_all.stats.values)
-    for cn in output_stat_cns_WBM:
-        if cn in stats_list:
-            stats_subset_idx.append(stats_list.index(cn))
-    # Merge the desired variables and stats into one dataset
-    count_vn = 0
-    for vn in output_vns_WBM:
-        count_vn += 1
-        # Determine time coordinate of the variable
-        for t_name in input.time_names:
-            if t_name in ds[vn].coords:
-                time_coord = t_name
-        data_subset = ds_all[vn].values[:,:,stats_subset_idx]
-        # Create dataset for variable
-        output_ds = xr.Dataset({vn: (('glac', time_coord, 'stats'), data_subset)},
-                               coords={'glac': ds_all[vn].glac.values,
-                                       time_coord: ds_all[vn][time_coord].values,
-                                       'stats': output_stat_cns_WBM})
-        # Merge datasets of stats into one output
-        if count_vn == 1:
-            output_ds_all = output_ds
-        else:
-            output_ds_all = xr.merge((output_ds_all, output_ds))
-        # Keep the attributes
-        output_ds_all[vn].attrs = ds_all[vn].attrs
-    # Add a glacier table so that the glaciers attributes accompany the netcdf file
-    main_glac_rgi_float = main_glac_rgi[input.output_glacier_attr_vns].copy()
-    main_glac_rgi_xr = xr.Dataset({'glacier_table': (('glac', 'glac_attrs'), main_glac_rgi_float.values)},
-                                   coords={'glac': output_ds_all.glac.values,
-                                           'glac_attrs': main_glac_rgi_float.columns.values})
-    output_ds_all = output_ds_all.combine_first(main_glac_rgi_xr)
-    # Encoding (specify _FillValue, offsets, etc.)
-    encoding = {}
-    for vn in list(output_ds_all.variables):
-        if vn not in ['stats', 'glac_attrs']:
-            encoding[vn] = {'_FillValue': False}
-    # Add glacier attributes
-    output_ds_all.glac.attrs['long_name'] = 'glacier index'
-    output_ds_all.glac.attrs['comment'] = 'glacier index value that refers to the glacier table'
-    # Export netcdf
-    netcdf_fn_merged = 'R' + str(rgi_regionsO1[0]) + '--' + i.split('--')[0] + '.nc'
-    output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn_merged, encoding=encoding)
+        
+#        print(ds.glacier_table.temps)
+        
+#        # Merge datasets of stats into one output
+#        if count_ds == 1:
+#            ds_all = ds
+#        else:
+#            ds_all = xr.merge((ds_all, ds))
+#    ds_all_fn = i.split(splitter)[0] + '.nc'
+    
+#    # Export to netcdf
+#    ds_all.to_netcdf(output_sim_fp + ds_all_fn)
+#    # Remove files in output_list
+#    for i in output_list:
+#        os.remove(output_sim_fp + i)
+        
+    #%% OLD MERGE
+
+    
+#    output_vns_WBM = ['prec_glac_monthly', 'acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 
+#                      'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 
+#                      'area_glac_annual', 'volume_glac_annual']
+#    output_stat_cns_WBM = ['mean', 'std']
+#
+#    # ===== MERGE GLACIERS =====
+#    # Select glaciers consistent with netcdf data
+#    rgi_glac_number = input.get_same_glaciers(netcdf_fp)
+#    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
+#                                                      rgi_glac_number=rgi_glac_number)
+#    # Sorted list of files to merge
+#    output_list = []
+#    for i in os.listdir(netcdf_fp):
+#        if i.endswith('.nc'):
+#            output_list.append(i)
+#    output_list = sorted(output_list)
+#    # Merge netcdfs together
+#    for n, i in enumerate(output_list):
+#        if n%200 == 0:
+#            print(i)
+#        ds = xr.open_dataset(netcdf_fp + i)
+#        if n == 0:
+#            ds_all = ds.copy()
+#            ds_all.attrs = {}
+#        else:
+#            ds_all = xr.concat([ds_all, ds], 'glac')
+#    # Remove unwanted variables and statistics to cut down on the file size
+#    # List of variables
+#    ds_vns = []
+#    for vn in ds_all.variables:
+#        ds_vns.append(vn)
+#    # List of stats
+#    stats_subset_idx = []
+#    stats_list = list(ds_all.stats.values)
+#    for cn in output_stat_cns_WBM:
+#        if cn in stats_list:
+#            stats_subset_idx.append(stats_list.index(cn))
+#    # Merge the desired variables and stats into one dataset
+#    count_vn = 0
+#    for vn in output_vns_WBM:
+#        count_vn += 1
+#        # Determine time coordinate of the variable
+#        for t_name in input.time_names:
+#            if t_name in ds[vn].coords:
+#                time_coord = t_name
+#        data_subset = ds_all[vn].values[:,:,stats_subset_idx]
+#        # Create dataset for variable
+#        output_ds = xr.Dataset({vn: (('glac', time_coord, 'stats'), data_subset)},
+#                               coords={'glac': ds_all[vn].glac.values,
+#                                       time_coord: ds_all[vn][time_coord].values,
+#                                       'stats': output_stat_cns_WBM})
+#        # Merge datasets of stats into one output
+#        if count_vn == 1:
+#            output_ds_all = output_ds
+#        else:
+#            output_ds_all = xr.merge((output_ds_all, output_ds))
+#        # Keep the attributes
+#        output_ds_all[vn].attrs = ds_all[vn].attrs
+#    # Add a glacier table so that the glaciers attributes accompany the netcdf file
+#    main_glac_rgi_float = main_glac_rgi[input.output_glacier_attr_vns].copy()
+#    main_glac_rgi_xr = xr.Dataset({'glacier_table': (('glac', 'glac_attrs'), main_glac_rgi_float.values)},
+#                                   coords={'glac': output_ds_all.glac.values,
+#                                           'glac_attrs': main_glac_rgi_float.columns.values})
+#    output_ds_all = output_ds_all.combine_first(main_glac_rgi_xr)
+#    # Encoding (specify _FillValue, offsets, etc.)
+#    encoding = {}
+#    for vn in list(output_ds_all.variables):
+#        if vn not in ['stats', 'glac_attrs']:
+#            encoding[vn] = {'_FillValue': False}
+#    # Add glacier attributes
+#    output_ds_all.glac.attrs['long_name'] = 'glacier index'
+#    output_ds_all.glac.attrs['comment'] = 'glacier index value that refers to the glacier table'
+#    # Export netcdf
+#    netcdf_fn_merged = 'R' + str(rgi_regionsO1[0]) + '--' + i.split('--')[0] + '.nc'
+#    output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn_merged, encoding=encoding)
         
 
 #%% ===== ADD DATA TO NETCDF FILES =====

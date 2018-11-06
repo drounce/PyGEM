@@ -1,10 +1,11 @@
 #!/bin/sh
-#SBATCH --partition=debug
-#SBATCH --ntasks=48
+#SBATCH --partition=t1standard
+#SBATCH --ntasks=576
 #SBATCH --tasks-per-node=24
 
 GCM_NAMES_FP="../Climate_data/cmip5/"
-GCM_NAMES_FN="gcm_rcp26_filenames_glaciermip.txt"
+#GCM_NAMES_FN="gcm_rcp26_filenames_glaciermip_noMPI-ESM-LR.txt"
+GCM_NAMES_FN="gcm_rcp26_filenames_single.txt"
 # determine gcm names and rcp scenario
 GCM_NAMES_LST="$(< $GCM_NAMES_FP$GCM_NAMES_FN)"
 RCP="$(cut -d'_' -f2 <<<"$GCM_NAMES_FN")"
@@ -30,7 +31,6 @@ echo partition: $SLURM_JOB_PARTITION
 echo num_nodes: $SLURM_JOB_NUM_NODES nodes: $SLURM_JOB_NODELIST
 echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
 
-count=0
 for GCM_NAME in $GCM_NAMES_LST; do
   echo "$GCM_NAME"
   echo "$RCP"
@@ -38,10 +38,13 @@ for GCM_NAME in $GCM_NAMES_LST; do
   do
     # print the filename
     echo $i
+    # determine batch number
+    BATCHNO="$(cut -d'.' -f1 <<<$(cut -d'_' -f5 <<<"$i"))"
+    echo $BATCHNO
     # run the file on a separate node (& tells the command to move to the next loop for any empty nodes)
-    srun -N 1 -n 1 python run_simulation.py -gcm_name=$GCM_NAME -rcp=$RCP -num_simultaneous_processes=$SLURM_NTASKS_PER_NODE -rgi_glac_number_fn=$i &
-    count=$((count+1))
+    srun -N 1 -n 1 python run_simulation.py -gcm_name=$GCM_NAME -rcp=$RCP -num_simultaneous_processes=$SLURM_NTASKS_PER_NODE -rgi_glac_number_fn=$i -batch_number=$BATCHNO &
   done
   # wait tells the loop to not move on until all the srun commands are completed
   wait
 done
+wait

@@ -616,7 +616,7 @@ def main(list_packed_vars):
     for glac in range(main_glac_rgi.shape[0]):
 #        if glac%200 == 0:
 #            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+#        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_gcm_elev = gcm_elev_adj[glac]
@@ -734,6 +734,7 @@ def main(list_packed_vars):
             os.makedirs(output_sim_fp)
         # Netcdf filename
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
+            # Filename
             netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + 
@@ -743,6 +744,9 @@ def main(list_packed_vars):
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + 
                          '--' + str(count) + '.nc')
+        if args.batch_number is not None:
+            netcdf_fn_split = netcdf_fn.split('--')  
+            netcdf_fn = netcdf_fn_split[0] + '_batch' + str(args.batch_number) + '--' + netcdf_fn_split[1] + '.nc'
     
         if debug:
             print(netcdf_fn)
@@ -768,10 +772,6 @@ if __name__ == '__main__':
         debug = True
     else:
         debug = False
-    
-    # Reference GCM name
-    gcm_name = args.gcm_list_fn
-    print('Climate data is:', gcm_name)
 
     # RGI glacier number
     if args.rgi_glac_number_fn is not None:
@@ -798,7 +798,8 @@ if __name__ == '__main__':
         # if not running in parallel, chunk size is all glaciers
         chunk_size = main_glac_rgi_all.shape[0]
         
-    # Read GCM names from command file
+    # Read GCM names from argument parser
+    gcm_name = args.gcm_list_fn
     if args.gcm_name is not None:
         gcm_list = [args.gcm_name]
         rcp_scenario = args.rcp
@@ -843,15 +844,15 @@ if __name__ == '__main__':
             check_str = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(input.sim_iters) + 'sets' + '_' + str(gcm_startyear) + '_' + str(gcm_endyear) + '--')
+        if args.batch_number is not None:
+            check_str_split = check_str.split('--')  
+            check_str = check_str_split[0] + '_batch' + str(args.batch_number) + '--'
         
         for i in os.listdir(output_sim_fp):
-            print(i)
             if i.startswith(check_str):
                 output_list_sorted.append([int(i.split('--')[1].split('.')[0]), i])
         output_list_sorted = sorted(output_list_sorted)
-        
         output_list = [i[1] for i in output_list_sorted]
-        print(output_list)
         
         # Open datasets and combine
         count_ds = 0
@@ -865,7 +866,7 @@ if __name__ == '__main__':
                 ds_all = xr.merge((ds_all, ds))
         # Filename
         if args.batch_number is not None:
-            ds_all_fn = i.split('--')[0] + '--' + str(args.batch_number) + '.nc'
+            ds_all_fn = i.split('--')[0] + '_batch' + str(args.batch_number) + '.nc'
         else:
             ds_all_fn = i.split('--')[0] + '.nc'
         # Export to netcdf
