@@ -446,7 +446,8 @@ def main(list_packed_vars):
         rcp_scenario = args.rcp
     
     if debug:
-        print(rcp_scenario)
+        if 'rcp_scenario' in locals():
+            print(rcp_scenario)
 
     # ===== LOAD GLACIER DATA =====
     main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
@@ -628,11 +629,15 @@ def main(list_packed_vars):
             
         if input.option_import_modelparams == 1:
             if input.option_calibration == 1:
-                print('DELETE ME - OPTION CALIBRATION 1/2 SHOULD BE IMPORTED THE SAME WAY!')
-            ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
-            cn_subset = input.modelparams_colnames
-            modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
-                                                columns=ds_mp.mp.values)[cn_subset])
+                ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
+                cn_subset = input.modelparams_colnames
+                modelparameters_all = (pd.DataFrame(ds_mp.mp_value.sel(chain=0).values, 
+                                                    columns=ds_mp.mp.values)[cn_subset])
+            elif input.option_calibration == 2:
+                ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
+                cn_subset = input.modelparams_colnames
+                modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
+                                                    columns=ds_mp.mp.values)[cn_subset])
         else:
             modelparameters_all = (
                     pd.DataFrame(np.asarray([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, 
@@ -729,12 +734,12 @@ def main(list_packed_vars):
             # Filename
             netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(input.sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
+                         str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
                          '--' + str(count) + '.nc')
         else:
             netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(input.sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
+                         str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
                          '--' + str(count) + '.nc')
         if args.batch_number is not None:
             netcdf_fn_split = netcdf_fn.split('--')  
@@ -824,15 +829,19 @@ if __name__ == '__main__':
         # Filenames to merge
         output_list_sorted = []
         output_sim_fp = input.output_sim_fp + gcm_name + '/'
+        if input.option_calibration == 1:
+            sim_iters = 1
+        elif input.option_calibration == 2:
+            sim_iters = input.sim_iters
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
             check_str = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(input.sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
+                         str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
                          + '--')
         else:
             check_str = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(input.sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
+                         str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
                          + '--')
         if args.batch_number is not None:
             check_str = check_str.split('--')[0] + '_batch' + str(args.batch_number) + '--'
@@ -893,6 +902,7 @@ if __name__ == '__main__':
         gcm_temp = main_vars['gcm_temp']
         gcm_prec = main_vars['gcm_prec']
         gcm_elev = main_vars['gcm_elev']
+        gcm_lr = main_vars['gcm_lr']
         gcm_temp_adj = main_vars['gcm_temp_adj']
         gcm_prec_adj = main_vars['gcm_prec_adj']
         gcm_elev_adj = main_vars['gcm_elev_adj']
@@ -922,7 +932,7 @@ if __name__ == '__main__':
         glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
         modelparameters_all = main_vars['modelparameters_all']
         sim_iters = main_vars['sim_iters']
-        mp_idx = main_vars['mp_idx']
-        mp_idx_all = main_vars['mp_idx_all']
+        if input.option_calibration == 2:
+            mp_idx = main_vars['mp_idx']
+            mp_idx_all = main_vars['mp_idx_all']
         netcdf_fn = main_vars['netcdf_fn']
-        ds = main_vars['ds']

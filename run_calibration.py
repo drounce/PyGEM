@@ -1173,7 +1173,6 @@ def main(list_packed_vars):
             write_netcdf_modelparams(netcdf_output_fp + glacier_str + '.nc', modelparameters, glacier_cal_compare)
             
         # ==============================================================
-        #%%
         # ===== GROUP CALIBRATION =====
         if set(['group']).issubset(input.cal_datasets) == True:
             # Indices of group calibration data
@@ -1281,8 +1280,7 @@ def main(list_packed_vars):
                         run_objective_group(modelparameters_init, precfactor_bnds, tempchange_bnds, ddfsnow_bnds, 
                                             precgrad_bnds))
                     calround += 1
-                    
-                    #%%
+
                     # Update model parameters if significantly better
                     zscore_abs = abs(glacier_cal_compare['zscore']).sum()
                     if calround == 1:
@@ -1308,7 +1306,7 @@ def main(list_packed_vars):
                         print('\nCalibrated parameters:\nPrecfactor:', modelparameters_group[2], 
                               '\nTempbias:', modelparameters_group[7], '\nDDFsnow:', modelparameters_group[4])
                         print('\nZscore:', zscore_abs, '\n')
-                       #%%
+
                 # Glacier-wide climatic mass balance over study period (used by transfer functions)
                 # Record model parameters and mbclim
                 group_count = 0
@@ -1336,7 +1334,7 @@ def main(list_packed_vars):
                 print('ddfice:', modelparameters_group[5])
                 print('tempchange:', modelparameters_group[7])
                 print('calround:', calround, '\n')
-        #%%
+
         # Export (i) main_glac_rgi w optimized model parameters and glacier-wide climatic mass balance,
         #        (ii) comparison of model vs. observations
         # Concatenate main_glac_rgi, optimized model parameters, glacier-wide climatic mass balance
@@ -1348,7 +1346,7 @@ def main(list_packed_vars):
         
         # Export output
         if not os.path.exists(input.output_fp_cal + 'temp/'):
-            os.mkdir(input.output_fp_cal + 'temp/')
+            os.makedirs(input.output_fp_cal + 'temp/')
         output_modelparams_fn = (
                 'R' + str(input.rgi_regionsO1[0]) + '_modelparams_opt' + str(input.option_calibration) + '_' + gcm_name 
                 + str(input.startyear) + str(input.endyear) + '--' + str(count) + '.csv')
@@ -1419,7 +1417,7 @@ if __name__ == '__main__':
         # Count glaciers
         glac_count = 0
         output_temp = input.output_fp_cal + 'temp/'
-        for i in os.listdir(input.output_fp_cal + '/reg' + str(input.rgi_regionsO1[0]) + '/'):
+        for i in os.listdir(output_temp):
             if i.startswith(str(input.rgi_regionsO1[0])) and i.endswith('.nc'):
                 glac_count += 1
         
