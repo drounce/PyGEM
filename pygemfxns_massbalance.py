@@ -124,7 +124,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     
     # Sea level for marine-terminating glaciers
     sea_level = 0
-    frontalablation_k0 = input.frontalablation_k0dict[input.rgi_regionsO1[0]]
+    rgi_region = int(glacier_rgi_table.RGIId.split('-')[1].split('.')[0])
+    frontalablation_k0 = input.frontalablation_k0dict[rgi_region]
     # Adjust sea level to account for disagreement between ice thickness estimates and glaciers classified by RGI as
     # marine-terminating. Modify the sea level, so sea level is consistent with lowest elevation bin that has ice.
     if glacier_rgi_table.loc['TermType'] == 1:

@@ -40,12 +40,15 @@ def getparser():
         number of cores to use in parallels
     option_parallels (optional) : int
         switch to use parallels or not
+    rgi_regionsO1 (optional) : int
+        RGI Order 1 regions    
     rgi_glac_number_fn (optional) : str
         filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
     batch_number (optional): int
         batch number used to differentiate output on supercomputer
     debug (optional) : int
         Switch for turning debug printing on or off (default = 0 (off))
+      
         
     Returns
     -------
@@ -63,6 +66,8 @@ def getparser():
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
+    parser.add_argument('-rgi_regionsO1', action='store', type=int, default=None,
+                        help='List of rgi_regionsO1, helpful for varying input on supercomputer')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-batch_number', action='store', type=int, default=None,
@@ -444,6 +449,11 @@ def main(list_packed_vars):
         rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
     elif args.rcp is not None:
         rcp_scenario = args.rcp
+        
+    if args.rgi_regionsO1 is not None:
+        rgi_regionsO1 = [args.rgi_regionsO1]
+    else:
+        rgi_regionsO1 = input.rgi_regionsO1
     
     if debug:
         if 'rcp_scenario' in locals():
@@ -452,14 +462,14 @@ def main(list_packed_vars):
     # ===== LOAD GLACIER DATA =====
     main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath,
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.thickness_filepath,
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.thickness_filepath,
                                                          input.thickness_filedict, input.thickness_colsdrop)
     main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.width_filepath,
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.width_filepath,
                                                   input.width_filedict, input.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
     # Volume [km**3] and mean elevation [m a.s.l.]
@@ -545,11 +555,11 @@ def main(list_packed_vars):
     # Bias adjustments from given filename in argument parser
     if input.option_bias_adjustment != 0:
         if gcm_name == 'COAWST':
-            biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
+            biasadj_fn = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
                           str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + 
                           str(input.endyear) + '_wy' + str(input.option_wateryear) + '.csv')
         else:
-            biasadj_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
+            biasadj_fn = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
                           str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + 
                           str(input.endyear) + '_wy' + str(input.option_wateryear) + '.csv')
         main_glac_biasadj_all = pd.read_csv(input.biasadj_fp + biasadj_fn, index_col=0)
@@ -609,7 +619,7 @@ def main(list_packed_vars):
     
     for glac in range(main_glac_rgi.shape[0]):
 #        if glac%200 == 0:
-        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+#        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_gcm_elev = gcm_elev_adj[glac]
@@ -629,12 +639,12 @@ def main(list_packed_vars):
             
         if input.option_import_modelparams == 1:
             if input.option_calibration == 1:
-                ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
+                ds_mp = xr.open_dataset(input.modelparams_fp_dict[rgi_regionsO1[0]] + glacier_RGIId + '.nc')
                 cn_subset = input.modelparams_colnames
                 modelparameters_all = (pd.DataFrame(ds_mp.mp_value.sel(chain=0).values, 
                                                     columns=ds_mp.mp.values)[cn_subset])
             elif input.option_calibration == 2:
-                ds_mp = xr.open_dataset(input.modelparams_fp_dict[input.rgi_regionsO1[0]] + glacier_RGIId + '.nc')
+                ds_mp = xr.open_dataset(input.modelparams_fp_dict[rgi_regionsO1[0]] + glacier_RGIId + '.nc')
                 cn_subset = input.modelparams_colnames
                 modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
                                                     columns=ds_mp.mp.values)[cn_subset])
@@ -735,12 +745,12 @@ def main(list_packed_vars):
         # Netcdf filename
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
             # Filename
-            netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
+            netcdf_fn = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
                          '--' + str(count) + '.nc')
         else:
-            netcdf_fn = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
+            netcdf_fn = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
                          '--' + str(count) + '.nc')
@@ -767,20 +777,26 @@ if __name__ == '__main__':
     else:
         debug = False
 
+    # RGI region number
+    if args.rgi_regionsO1 is not None:
+        rgi_regionsO1 = [args.rgi_regionsO1]
+    else:
+        rgi_regionsO1 = input.rgi_regionsO1
+
     # RGI glacier number
     if args.rgi_glac_number_fn is not None:
         with open(args.rgi_glac_number_fn, 'rb') as f:
             rgi_glac_number = pickle.load(f)
     else:
-        rgi_glac_number = input.rgi_glac_number    
+        rgi_glac_number = input.rgi_glac_number
 
     # Select all glaciers in a region
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
                                                           rgi_glac_number=rgi_glac_number)
     # Processing needed for netcdf files
     main_glac_rgi_all_float = main_glac_rgi_all.copy()
     main_glac_rgi_all_float.drop(labels=['RGIId'], axis=1, inplace=True)
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, input.rgi_regionsO1, input.hyps_filepath,
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
     dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
                                            spinupyears=input.gcm_spinupyears)
@@ -837,12 +853,12 @@ if __name__ == '__main__':
         elif input.option_calibration == 2:
             sim_iters = input.sim_iters
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
-            check_str = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
+            check_str = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
                          + '--')
         else:
-            check_str = ('R' + str(input.rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
+            check_str = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
                          + '--')
