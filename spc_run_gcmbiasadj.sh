@@ -11,7 +11,7 @@ source activate pygem_hpc
 find -name 'rgi_glac_number_batch_*' -exec rm {} \;
 
 # split glaciers into batches for different nodes
-python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES
+python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -ignore_regionname=1
 
 # list rgi_glac_number batch filenames
 rgi_fns=$(find rgi_glac_number_batch*)

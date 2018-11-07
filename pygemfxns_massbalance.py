@@ -615,7 +615,7 @@ def annualweightedmean_array(var, dates_table):
    
 
 def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
-                           glac_idx_initial, glac_area_initial, debug=True):
+                           glac_idx_initial, glac_area_initial, debug=False):
     """
     Mass redistribution according to empirical equations from Huss and Hock (2015) accounting for retreat/advance.
 
