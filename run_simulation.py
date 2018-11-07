@@ -609,7 +609,7 @@ def main(list_packed_vars):
     
     for glac in range(main_glac_rgi.shape[0]):
 #        if glac%200 == 0:
-#            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_gcm_elev = gcm_elev_adj[glac]
@@ -664,6 +664,9 @@ def main(list_packed_vars):
             else:
                 mp_idx = mp_idx_all[n_iter]
                 modelparameters = modelparameters_all.iloc[mp_idx,:]
+                
+            if debug:
+                print(glacier_RGIId, ':', [modelparameters[2], modelparameters[4], modelparameters[7]])
             
             # run mass balance calculation
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,

@@ -120,6 +120,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     dayspermonth = dates_table['daysinmonth'].values
     surfacetype_ddf = np.zeros(elev_bins.shape[0])
     glac_idx_initial = glacier_area_t0.nonzero()[0]
+    glac_area_initial = glacier_area_t0.copy()
     
     # Sea level for marine-terminating glaciers
     sea_level = 0
@@ -485,7 +486,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     # Mass redistribution according to Huss empirical curves
                     glacier_area_t1, icethickness_t1, width_t1 = (
                             massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
-                                                   glac_bin_massbalclim_annual, year, glac_idx_initial))
+                                                   glac_bin_massbalclim_annual, year, glac_idx_initial, 
+                                                   glac_area_initial))
                     # update surface type for bins that have retreated
                     surfacetype[glacier_area_t1 == 0] = 0
                     # update surface type for bins that have advanced 
@@ -613,7 +615,7 @@ def annualweightedmean_array(var, dates_table):
    
 
 def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
-                           glac_idx_initial, debug=False):
+                           glac_idx_initial, glac_area_initial, debug=True):
     """
     Mass redistribution according to empirical equations from Huss and Hock (2015) accounting for retreat/advance.
 
@@ -634,6 +636,8 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
         Count of the year of model run (first year is 0)
     glac_idx_initial : np.ndarray
         Initial glacier indices
+    glac_area_initial : np.ndarray
+        Initial glacier array used to determine average terminus area in event that glacier is only one bin
     debug : Boolean
         option to turn on print statements for development or debugging of code (default False)
 
@@ -733,14 +737,25 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             if debug:
                 print('glacier index terminus:',glac_idx_terminus)
                 print('glacier index:',glac_idx_t0)
+                print('glacier indx initial:', glac_idx_initial)
             # For glaciers with so few bands that the terminus is not identified (ex. <= 4 bands for 20% threshold),
             #  then use the information from all the bands
             if glac_idx_terminus.shape[0] <= 1:
                 glac_idx_terminus = glac_idx_t0.copy()
             # Average area of glacier terminus [km**2]
-            terminus_area_avg = glacier_area_t0[glac_idx_terminus[1]:
-                                                glac_idx_terminus[glac_idx_terminus.shape[0]-1]+1].mean()
             #  exclude the bin at the terminus, since this bin may need to be filled first
+            try:
+                terminus_area_avg = (
+                        glacier_area_t0[glac_idx_terminus[1]:glac_idx_terminus[glac_idx_terminus.shape[0]-1]+1].mean())
+            except:  
+                glac_idx_terminus_initial = (
+                        glac_idx_initial[(glac_idx_initial - glac_idx_initial[0] + 1) / glac_idx_initial.shape[0] * 100 
+                                          < input.terminus_percentage])
+                if glac_idx_terminus_initial.shape[0] <= 1:
+                    glac_idx_terminus_initial = glac_idx_initial.copy()
+                terminus_area_avg = (
+                        glac_area_initial[glac_idx_terminus_initial[1]:
+                                          glac_idx_terminus_initial[glac_idx_terminus_initial.shape[0]-1]+1].mean())
             # Check if the last bin's area is below the terminus' average and fill it up if it is
             if (glacier_area_t1[glac_idx_terminus[0]] < terminus_area_avg) and (icethickness_t0[glac_idx_terminus[0]] <
                icethickness_t0[glac_idx_t0].mean()):
