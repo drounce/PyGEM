@@ -210,7 +210,8 @@ def selectcalibrationdata(main_glac_rgi):
     balances are stored in a csv file.
     """
     # Import .csv file
-    ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[input.rgi_regionsO1[0]])
+    rgi_region = int(main_glac_rgi.loc[main_glac_rgi.index.values[0],'RGIId'].split('-')[1].split('.')[0])
+    ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[rgi_region])
     main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],4))
     ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int) 
     ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_uncertainty_colname, 

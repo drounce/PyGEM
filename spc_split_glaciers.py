@@ -16,9 +16,11 @@ def getparser():
     
     Parameters
     ----------
-    n_batches : int
+    n_batches (optional) : int
         number of nodes being used on the supercomputer
-    ignore_regionname : int
+    spc_region (optional) : str
+        RGI region number for supercomputer
+    ignore_regionname (optional) : int
         switch to ignore region name or not (1 ignore it, 0 use region)
         
     Returns
@@ -29,7 +31,10 @@ def getparser():
     # add arguments
     parser.add_argument('-n_batches', action='store', type=int, default=1,
                         help='number of nodes to split the glaciers amongst')
-    parser.add_argument('-ignore_regionname', action='store', type=int, default=0)
+    parser.add_argument('-spc_region', action='store', type=int, default=None,
+                        help='rgi region number for supercomputer')
+    parser.add_argument('-ignore_regionname', action='store', type=int, default=0,
+                        help='switch to include the region name or not in the batch filenames')
     return parser
 
 
@@ -71,8 +76,15 @@ def split_list(lst, n=1):
 
 parser = getparser()
 args = parser.parse_args()
+
+# RGI region
+if args.spc_region is not None:
+    rgi_regionsO1 = [int(args.spc_region)]
+else:
+    rgi_regionsO1 = input.rgi_regionsO1
+
 if input.rgi_glac_number == 'all':
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2='all',
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all',
                                                           rgi_glac_number='all')
     # Create list of glacier numbers as strings with 5 digits
     glacno = main_glac_rgi_all.glacno.values
@@ -86,7 +98,7 @@ rgi_glac_number_batches = split_list(rgi_glac_number, n=args.n_batches)
 for n in range(len(rgi_glac_number_batches)):
 #    print('Batch', n, ':\n', rgi_glac_number_batches[n], '\n')
     if args.ignore_regionname == 0:
-        batch_fn = 'R' + str(input.rgi_regionsO1[0]) + '_rgi_glac_number_batch_' + str(n) + '.pkl'
+        batch_fn = 'R' + str(rgi_regionsO1[0]) + '_rgi_glac_number_batch_' + str(n) + '.pkl'
     elif args.ignore_regionname == 1:
         batch_fn = 'rgi_glac_number_batch_' + str(n) + '.pkl'
         

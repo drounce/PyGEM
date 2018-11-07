@@ -1,16 +1,18 @@
 #!/bin/sh
-#SBATCH --partition=t1standard
-#SBATCH --ntasks=576
+#SBATCH --partition=debug
+#SBATCH --ntasks=48
 #SBATCH --tasks-per-node=24
 
 echo partition: $SLURM_JOB_PARTITION
 echo num_nodes: $SLURM_JOB_NUM_NODES nodes: $SLURM_JOB_NODELIST
 echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
 
+# region
+REGNO="13"
+
+# gcm list
 GCM_NAMES_FP="../Climate_data/cmip5/"
-GCM_NAMES_FN="gcm_rcp26_filenames_glaciermip.txt"
-#GCM_NAMES_FN="gcm_rcp26_filenames_nompiesmlr.txt"
-#GCM_NAMES_FN="gcm_rcp26_filenames_single.txt"
+GCM_NAMES_FN="gcm_rcp60_filenames_important.txt"
 # determine gcm names and rcp scenario
 GCM_NAMES_LST="$(< $GCM_NAMES_FP$GCM_NAMES_FN)"
 RCP="$(cut -d'_' -f2 <<<"$GCM_NAMES_FN")"
@@ -20,18 +22,16 @@ module load lang/Anaconda3/2.5.0
 source activate pygem_hpc
 
 # region
-REGNO=$(python pygem_input.py)
-echo -e "\nRegion: $REGNO\n"
-echo -e "GCMs:\n$GCM_NAMES_LST\n"
+#REGNO=$(python pygem_input.py)
+echo -e "Region: $REGNO\n"
 # region batch string
 rgi_batch_str="R${REGNO}_rgi_glac_number_batch"
-
 
 # delete previous rgi_glac_number batch filenames
 find -name '${rgi_batch_str}_*' -exec rm {} \;
 
 # split glaciers into batches for different nodes
-python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES
+python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -spc_region=$REGNO
 
 # list rgi_glac_number batch filenames
 rgi_fns=$(find ${rgi_batch_str}*)
@@ -52,7 +52,7 @@ for GCM_NAME in $GCM_NAMES_LST; do
     BATCHNO="$(cut -d'.' -f1 <<<$(cut -d'_' -f6 <<<"$i"))"
     #echo $BATCHNO
     # run the file on a separate node (& tells the command to move to the next loop for any empty nodes)
-    srun -N 1 -n 1 python run_simulation.py -gcm_name="$GCM_NAME_NOSPACE" -rcp="$RCP" -num_simultaneous_processes=$SLURM_NTASKS_PER_NODE -rgi_glac_number_fn=$i -batch_number=$BATCHNO &
+    srun -N 1 -n 1 python run_simulation.py -gcm_name="$GCM_NAME_NOSPACE" -rcp="$RCP" -num_simultaneous_processes=$SLURM_NTASKS_PER_NODE -spc_region=$REGNO -rgi_glac_number_fn=$i -batch_number=$BATCHNO &
   done
   # wait tells the loop to not move on until all the srun commands are completed
   wait

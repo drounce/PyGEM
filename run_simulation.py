@@ -40,8 +40,8 @@ def getparser():
         number of cores to use in parallels
     option_parallels (optional) : int
         switch to use parallels or not
-    rgi_regionsO1 (optional) : int
-        RGI Order 1 regions    
+    spc_region (optional) : str
+        RGI region number for supercomputer 
     rgi_glac_number_fn (optional) : str
         filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
     batch_number (optional): int
@@ -66,8 +66,8 @@ def getparser():
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
-    parser.add_argument('-rgi_regionsO1', action='store', type=int, default=None,
-                        help='List of rgi_regionsO1, helpful for varying input on supercomputer')
+    parser.add_argument('-spc_region', action='store', type=int, default=None,
+                        help='rgi region number for supercomputer')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-batch_number', action='store', type=int, default=None,
@@ -450,8 +450,9 @@ def main(list_packed_vars):
     elif args.rcp is not None:
         rcp_scenario = args.rcp
         
-    if args.rgi_regionsO1 is not None:
-        rgi_regionsO1 = [args.rgi_regionsO1]
+    # RGI region
+    if args.spc_region is not None:
+        rgi_regionsO1 = [int(args.spc_region)]
     else:
         rgi_regionsO1 = input.rgi_regionsO1
     
@@ -778,8 +779,8 @@ if __name__ == '__main__':
         debug = False
 
     # RGI region number
-    if args.rgi_regionsO1 is not None:
-        rgi_regionsO1 = [args.rgi_regionsO1]
+    if args.spc_region is not None:
+        rgi_regionsO1 = [int(args.spc_region)]
     else:
         rgi_regionsO1 = input.rgi_regionsO1
 
