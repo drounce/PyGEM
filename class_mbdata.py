@@ -136,7 +136,7 @@ class MBData():
             ds_reg.reset_index(drop=True, inplace=True)
             # Glacier number and index for comparison
             ds_reg['glacno'] = ((ds_reg[self.rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
-            ds_reg['RGIId'] = ('RGI60-' + str(input.rgi_regionsO1[0]) + '.' + 
+            ds_reg['RGIId'] = ('RGI60-' + str(self.rgi_regionO1) + '.' + 
                                (ds_reg['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1])
             # Select glaciers with mass balance data
             ds = (ds_reg.iloc[np.where(ds_reg['glacno'].isin(main_glac_rgi['glacno']) == True)[0],:]
