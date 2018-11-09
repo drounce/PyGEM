@@ -35,43 +35,80 @@ option_parameter_relationships = 0
 option_MCMC_ensembles = 0
 option_calcompare_w_geomb = 0
 option_add_metadata2netcdf = 0
-option_merge_netcdfs = 1
+option_merge_netcdfs = 0
 
 option_savefigs = 1
 
 #%% TEST
-#rgi_regionsO1 = [15]
-#netcdf_fp = input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/'
-#netcdf_fn = 'R' + str(rgi_regionsO1[0]) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
-#output_ds_all = xr.open_dataset(netcdf_fp + netcdf_fn)
-#
-#encoding = {}
-#for vn in list(output_ds_all.variables):
-#    if vn not in ['stats', 'glac_attrs']:
-#        encoding[vn] = {'_FillValue': False}
-#
-#output_ds_all.glac.attrs['long_name'] = 'glacier index'
-#output_ds_all.glac.attrs['comment'] = 'glacier index value that refers to the glacier table'
-#output_ds_all.time.attrs['long_name'] = 'date'
-#output_ds_all.stats.attrs['long_name'] = 'variable statistics'
-#output_ds_all.stats.attrs['comment'] = '% refers to percentiles'
-#output_ds_all.year_plus1.attrs['long_name'] = 'years plus one additional year'
-#output_ds_all.year_plus1.attrs['comment'] = (
-#        'additional year allows one to record glacier dimension changes at end of model run')
-#if input.option_wateryear == 1:
-#    output_ds_all.year_plus1.attrs['unit'] = 'water year'
-#elif input.option_wateryear == 2:
-#    output_ds_all.year_plus1.attrs['unit'] = 'calendar year'
-#else:
-#    output_ds_all.year_plus1.attrs['unit'] = 'custom year'
-#output_ds_all.frontalablation_glac_monthly.attrs['long_name'] = 'glacier-wide frontal ablation'
-#output_ds_all.frontalablation_glac_monthly.attrs['units'] = 'm w.e.'
-#output_ds_all.frontalablation_glac_monthly.attrs['temporal_resolution'] = 'monthly'
-#output_ds_all.frontalablation_glac_monthly.attrs['comment'] = (
-#        'mass losses from calving, subaerial frontal melting, sublimation above the waterline and '
-#        + 'subaqueous frontal melting below the waterline')
-#
-#output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn, encoding=encoding)
+netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108/'
+gcm_name = 'CanESM2'
+splitter = '_batch'
+
+netcdf_fp = netcdf_fp_prefix + gcm_name + '/'
+regions = []
+rcps = []
+for i in os.listdir(netcdf_fp):
+    if i.endswith('.nc'):
+        i_region = int(i.split('_')[0][1:])
+        i_rcp = i.split('_')[2]
+        
+#        ds = xr.open_dataset(netcdf_fp + i)
+#        A = ds.volume_glac_annual.values[:,:,0]
+#        B = A[:,A.shape[1]-1].sum() / A[:,0].sum() * 100
+#        print(i_region, i_rcp, 'Vol change:', B)
+        
+        if i_region not in regions:
+            regions.append(i_region)
+            print(regions)
+        if i_rcp not in rcps:
+            rcps.append(i_rcp)
+            print(rcps)
+regions = sorted(regions)
+
+#for reg in regions:
+#for reg in [regions[0]]:
+for reg in [15]:
+    for rcp in rcps:
+#    for rcp in [rcps[0]]:
+        print('R', reg, rcp, ':')
+        check_str = 'R' + str(reg) + '_' + gcm_name + '_' + rcp
+        output_list = []
+        
+        for i in os.listdir(netcdf_fp):
+            if i.startswith(check_str):
+#                print(i)
+                output_list.append([int(i.split(splitter)[1].split('.')[0]), i])
+        output_list = sorted(output_list)
+        output_list = [i[1] for i in output_list]
+
+        for i in output_list:
+            print(i)
+            # Encoding
+            # Add variables to empty dataset and merge together
+            encoding = {}
+            noencoding_vn = ['stats', 'glac_attrs']
+            if input.output_package == 2:
+                for vn in input.output_variables_package2:
+                    # Encoding (specify _FillValue, offsets, etc.)
+                    if vn not in noencoding_vn:
+                        encoding[vn] = {'_FillValue': False}
+            # Open datasets and combine
+            count_ds = 0
+            for i in output_list:
+                count_ds += 1
+                ds = xr.open_dataset(netcdf_fp + i)
+                # Merge datasets of stats into one output
+                if count_ds == 1:
+                    ds_all = ds
+                else:
+                    ds_all = xr.concat([ds_all, ds], dim='glac')
+            ds_all.glac.values = np.arange(0,len(ds_all.glac.values))
+            ds_all_fn = i.split(splitter)[0] + '.nc'
+            # Export to netcdf
+            ds_all.to_netcdf(netcdf_fp_prefix + ds_all_fn, encoding=encoding)
+##                # Remove files in output_list
+##                for i in output_list:
+##                    os.remove(netcdf_fp + i)
 
 
 #%% MERGE NETCDF FILES TO REDUCE FILE SIZE

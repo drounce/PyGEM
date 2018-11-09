@@ -126,12 +126,12 @@ thin_interval = 1
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [6]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473']
+rgi_glac_number = ['00291']
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(1,48)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
@@ -276,6 +276,7 @@ modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
 # Model parameter filepath
 if option_calibration == 1:
     modelparams_fp_dict = {
+            6:  output_filepath + 'cal_opt1/reg6/',
             13: output_filepath + 'cal_opt1/reg13/',
             14: output_filepath + 'cal_opt1/reg14/',
             15: output_filepath + 'cal_opt1/reg15/'}

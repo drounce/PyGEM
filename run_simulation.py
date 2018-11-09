@@ -615,7 +615,13 @@ def main(list_packed_vars):
 #%%
     # ===== RUN MASS BALANCE =====
     # Dataset to store model simulations and statistics
-    output_ds_all, encoding = create_xrdataset(main_glac_rgi, dates_table)
+    # Number of simulations
+    if input.option_calibration == 1:
+            sim_iters = 1
+    elif input.option_calibration == 2:
+        sim_iters = input.sim_iters
+    # Create datasets
+    output_ds_all, encoding = create_xrdataset(main_glac_rgi, dates_table, sim_iters=sim_iters)
     output_ds_all_stats, encoding = create_xrdataset(main_glac_rgi, dates_table, record_stats=1)
     
     for glac in range(main_glac_rgi.shape[0]):
@@ -633,7 +639,10 @@ def main(list_packed_vars):
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
 
         # get glacier number
-        glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][6:]
+        if rgi_regionsO1[0] >= 10:
+            glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][6:]
+        else:
+            glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][7:]
         
         if debug:
             print(glacier_RGIId)
@@ -696,6 +705,7 @@ def main(list_packed_vars):
             #  units: m w.e. based on initial area
             
             if debug:
+                print('mb_model [mwe]:', glac_wide_massbaltotal_annual.sum())
                 print('mb_model [mwea]:', mb_mwea.round(6))
 
             # RECORD PARAMETERS TO DATASET
@@ -735,7 +745,7 @@ def main(list_packed_vars):
             # Mean and standard deviation of glacier-wide mass balance
             mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
                             (dates_table.shape[0] / 12))
-            print('mb_model [mwea] mean:', round(mb_mwea_all,3))       
+            print('mb_model [mwea] mean:', round(mb_mwea_all,6))       
                 
     # Export statistics to netcdf
     if input.output_package == 2:
@@ -926,7 +936,8 @@ if __name__ == '__main__':
         gcm_temp_adj = main_vars['gcm_temp_adj']
         gcm_prec_adj = main_vars['gcm_prec_adj']
         gcm_elev_adj = main_vars['gcm_elev_adj']
-        main_glac_biasadj = main_vars['main_glac_biasadj']
+        if input.option_bias_adjustment != 0:
+            main_glac_biasadj = main_vars['main_glac_biasadj']
         gcm_temp_lrglac = main_vars['gcm_lr']
         output_ds_all = main_vars['output_ds_all']
         modelparameters = main_vars['modelparameters']
