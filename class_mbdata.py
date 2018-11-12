@@ -327,8 +327,8 @@ class MBData():
             #  if thickness change is available, then compute the specific mass balance with the thickness change
             #  otherwise, use the volume change and area to estimate the specific mass balance
             # using thickness change
-            ds['mb_mwe'] = ds[self.thickness_chg_cn] / 1000
-            ds['mb_mwe_err'] = ds[self.thickness_chg_err_cn] / 1000
+            ds['mb_mwe'] = ds[self.thickness_chg_cn] / 1000 * input.density_ice / input.density_water
+            ds['mb_mwe_err'] = ds[self.thickness_chg_err_cn] / 1000 * input.density_ice / input.density_water
             # using volume change (note: units volume change [1000 m3] and area [km2])
             ds.loc[ds.mb_mwe.isnull(), 'mb_mwe'] = (
                     ds.loc[ds.mb_mwe.isnull(), self.volume_chg_cn] * 1000 / ds.loc[ds.mb_mwe.isnull(), 'area_km2'] * 
