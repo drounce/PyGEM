@@ -332,10 +332,10 @@ class MBData():
             # using volume change (note: units volume change [1000 m3] and area [km2])
             ds.loc[ds.mb_mwe.isnull(), 'mb_mwe'] = (
                     ds.loc[ds.mb_mwe.isnull(), self.volume_chg_cn] * 1000 / ds.loc[ds.mb_mwe.isnull(), 'area_km2'] * 
-                    (1/1000)**2)
+                    (1/1000)**2 * input.density_ice / input.density_water)
             ds.loc[ds.mb_mwe.isnull(), 'mb_mwe'] = (
                     ds.loc[ds.mb_mwe.isnull(), self.volume_chg_err_cn] * 1000 / ds.loc[ds.mb_mwe.isnull(), 'area_km2'] * 
-                    (1/1000)**2)
+                    (1/1000)**2 * input.density_ice / input.density_water)
             # Observation type
             ds['obs_type'] = 'mb_geo'
             ds['group_name'] = np.nan
