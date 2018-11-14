@@ -481,7 +481,7 @@ def main(list_packed_vars):
                                            spinupyears=input.gcm_spinupyears)
     # Synthetic simulation dates
     if input.option_synthetic_sim == 1:
-        dates_table_synthetic, synthetic_start, synthetic_end = modelsetup.datesmodelrun(
+        dates_table_synthetic = modelsetup.datesmodelrun(
                 startyear=input.synthetic_startyear, endyear=input.synthetic_endyear, spinupyears=0)
         
     # ===== LOAD CLIMATE DATA =====
@@ -765,6 +765,9 @@ def main(list_packed_vars):
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
                          '--' + str(count) + '.nc')
+        if input.option_synthetic_sim==1:
+            netcdf_fn = (netcdf_fn.split('--')[0] + '_T' + str(input.synthetic_temp_adjust) + '_P' + 
+                         str(input.synthetic_prec_factor) + '--' + netcdf_fn.split('--')[1])
         if args.batch_number is not None:
             netcdf_fn_split = netcdf_fn.split('--')  
             netcdf_fn = netcdf_fn_split[0] + '_batch' + str(args.batch_number) + '--' + netcdf_fn_split[1]
@@ -873,6 +876,9 @@ if __name__ == '__main__':
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
                          + '--')
+        if input.option_synthetic_sim==1:
+            check_str = (check_str.split('--')[0] + '_T' + str(input.synthetic_temp_adjust) + '_P' + 
+                         str(input.synthetic_prec_factor) + '--')
         if args.batch_number is not None:
             check_str = check_str.split('--')[0] + '_batch' + str(args.batch_number) + '--'
         for i in os.listdir(output_sim_fp):

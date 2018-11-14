@@ -162,6 +162,8 @@ option_synthetic_sim = 0
 synthetic_startyear = 1990
 synthetic_endyear = 2000
 synthetic_spinupyears = 0
+synthetic_temp_adjust = 0
+synthetic_prec_factor = 1
 
 # Remove NaN values (glaciers without calibration data)
 option_removeNaNcal = 1

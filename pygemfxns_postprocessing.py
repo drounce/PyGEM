@@ -40,105 +40,169 @@ option_spc_subset_vars = 0
 
 option_savefigs = 1
 
-#%% MERGE BATCH
-for batman in [0]:
-    netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108/'
-    gcm_name = 'GFDL-CM3'
-    splitter = '_batch'
+#%% PLOT RESULTS
+netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
+netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+
+regions = [13, 14, 15]
+gcm_name = 'ERA-Interim'
+#gcm_name = 'CanESM2'
+rcp = 'rcp26'
+vn = 'volume_glac_annual'
+
+reg_legend = []
+for region in regions:
+    if gcm_name == 'ERA-Interim':
+        netcdf_fp = netcdf_fp_era
+        ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+    else:
+        netcdf_fp = netcdf_fp_cmip5 + vn + '/'
+        ds_fn = 'R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' + vn + '.nc'    
     
-    vns_all = input.output_variables_package2
-    #vns_subset = ['runoff_glac_monthly', 'massbaltotal_glac_monthly', 'area_glac_annual', 'volume_glac_annual']
-    vns_subset = ['volume_glac_annual']
-    #vns_subset = ['area_glac_annual']
-    #vns_subset = ['runoff_glac_monthly']
-    #vns_subset = ['massbaltotal_glac_monthly']
+    ds = xr.open_dataset(netcdf_fp + ds_fn)
+    vol_glac_all = ds.volume_glac_annual.values[:,:,0]
+    vol_glac_all_std = ds.volume_glac_annual.values[:,:,1]
+    vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
+    vol_reg = vol_glac_all.sum(axis=0)
+    vol_reg_std = vol_glac_all_std.sum(axis=0)
+    year_plus1 = ds.year_plus1.values
+    vol_reg_perc_remain = vol_reg / vol_reg[0] * 100
+    print('Vol remain [%]:', vol_remain_perc)
     
-    netcdf_fp = netcdf_fp_prefix + gcm_name + '/'
-    regions = []
-    rcps = []
-    for i in os.listdir(netcdf_fp):
-        if i.endswith('.nc'):
-            i_region = int(i.split('_')[0][1:])
-            i_rcp = i.split('_')[2]
-        
-            if i_region not in regions:
-                regions.append(i_region)
-            if i_rcp not in rcps:
-                rcps.append(i_rcp)
-    regions = sorted(regions)
-    rcps = sorted(rcps)
+    # ===== Plot =====
+    reg_legend.append(('Reg' + str(region)))
+    plt.plot(year_plus1, vol_reg_perc_remain, color='b')
+    plt.legend(reg_legend)
+    #plt.xlabel('Year', size=10)
+    plt.ylabel('Volume remaining [%]', size=10)
     
-    # Encoding
-    # Add variables to empty dataset and merge together
-    encoding = {}
-    noencoding_vn = ['stats', 'glac_attrs']
-    if input.output_package == 2:
-        for vn in input.output_variables_package2:
-            # Encoding (specify _FillValue, offsets, etc.)
-            if vn not in noencoding_vn:
-                encoding[vn] = {'_FillValue': False}
+    # ADD THE +/- STANDARD DEVIATION!
     
-    for reg in [regions[0]]:
-#    for reg in regions:
-        for rcp in [rcps[0]]:
-#        for rcp in rcps:
-            check_str = 'R' + str(reg) + '_' + gcm_name + '_' + rcp
-            output_list = []
-            
-            # Find batches
-            batches=[]
-            for i in os.listdir(netcdf_fp):
-                if i.startswith(check_str):
-                    i_batch = int(i.split(splitter)[1].split('--')[0])
-                    
-                    if i_batch not in batches:
-                        batches.append(i_batch)
-            batches = sorted(batches)
-            
-            for batch in [batches[0]]:
-                print('Region', reg, rcp, 'batch', batch)
-                batch_list = []
-                for i in os.listdir(netcdf_fp):
-                    check_batch = '_batch' + str(batch) + '--'
-                    if i.startswith(check_str) and (check_batch in i):
-                        batch_list.append([int(i.split('--')[1].split('.')[0]), i])
-                batch_list = sorted(batch_list)
-                batch_list = [i[1] for i in batch_list]
-                
-                # Open datasets and combine
-                count_ds = 0
-                for i in batch_list:
-                    print(i)
-                    count_ds += 1
-                    ds = xr.open_dataset(netcdf_fp + i)
-                    # Merge datasets of stats into one output
-                    if count_ds == 1:
-                        ds_all = ds
-                    else:
-                        ds_all = xr.concat([ds_all, ds], dim='glac')
-                    ds.close()
-                ds_all.glac.values = np.arange(0,len(ds_all.glac.values))
-                ds_all_fn = i.split('--')[0] + '.nc'
-                # Export to netcdf
-#                ds_all.to_netcdf(netcdf_fp + '../' + ds_all_fn, encoding=encoding)
-                ## Remove files in output_list
-                #for i in output_list:
-                #    os.remove(netcdf_fp + i)
-                
+#%%
+#    # ===== Prior and posterior distributions =====
+#    plt.subplot(len(variables), 3, 3*count+2)
+#    # Prior distribution
+#    z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
+#    if vn.startswith('obs'):
+#        observed_massbal = obs_list[int(vn.split('_')[1])]
+#        observed_error = obs_err_list[int(vn.split('_')[1])]
+#        x_values = observed_massbal + observed_error * z_score
+#        y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
+#    elif vn == 'massbal':
+#        observed_massbal = obs_list[0]
+#        observed_error = obs_err_list[0]
+#        x_values = observed_massbal + observed_error * z_score
+#        y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
+#    elif vn == 'precfactor':
+#        if distribution_type == 'truncnormal':
+#            z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b),
+#                                  truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
+#            x_values_raw = precfactor_mu + precfactor_sigma * z_score
+#            y_values = truncnorm.pdf(x_values_raw, precfactor_a, precfactor_b, loc=precfactor_mu,
+#                                     scale=precfactor_sigma)
+#        elif distribution_type == 'uniform':
+#            z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+#            x_values_raw = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
+#            y_values = uniform.pdf(x_values_raw, loc=precfactor_boundlow,
+#                                   scale=(precfactor_boundhigh - precfactor_boundlow))
+#        # transform the precfactor values from the truncated normal to the actual values
+#        x_values = prec_transformation(x_values_raw)
+#    elif vn == 'tempchange':
+#        if distribution_type == 'truncnormal':
+#            z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
+#                                  truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
+#            x_values = tempchange_mu + tempchange_sigma * z_score
+#            y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu,
+#                                     scale=tempchange_sigma)
+#        elif distribution_type == 'uniform':
+#            z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+#            x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
+#            y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
+#                                   scale=(tempchange_boundhigh - tempchange_boundlow))
+#    elif vn == 'ddfsnow':
+#        if distribution_type == 'truncnormal':
+#            z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b),
+#                                  truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
+#            x_values = ddfsnow_mu + ddfsnow_sigma * z_score
+#            y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
+#        elif distribution_type == 'uniform':
+#            z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+#            x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
+#            y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
+#                                   scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
+#    plt.plot(x_values, y_values, color='k')
+#    # Ensemble/Posterior distribution
+#    # extents
+#    if chain.min() < x_values.min():
+#        x_min = chain.min()
+#    else:
+#        x_min = x_values.min()
+#    if chain.max() > x_values.max():
+#        x_max = chain.max()
+#    else:
+#        x_max = x_values.max()
+#    # Chain legend
+#    if vn.startswith('obs'):
+#        chain_legend = ['observed']
+#    else:
+#        chain_legend = ['prior']
+#    # Loop through models
+#    for n_chain, df in enumerate(dfs):
+#        chain = df[vn].values
+#        # gaussian distribution
+#        if vn.startswith('obs'):
+#            kde = gaussian_kde(chain)
+#            x_values_kde = np.linspace(x_min, x_max, 100)
+#            y_values_kde = kde(x_values_kde)
+#            chain_legend.append('ensemble' + str(n_chain + 1))
+#        elif vn == 'precfactor':
+#            kde = gaussian_kde(chain)
+#            x_values_kde = x_values.copy()
+#            y_values_kde = kde(x_values_kde)
+#            chain_legend.append('posterior' + str(n_chain + 1))
+#        else:
+#            kde = gaussian_kde(chain)
+#            x_values_kde = x_values.copy()
+#            y_values_kde = kde(x_values_kde)
+#            chain_legend.append('posterior' + str(n_chain + 1))
+#        if n_chain == 0:
+#            plt.plot(x_values_kde, y_values_kde, color='b')
+#        elif n_chain == 1:
+#            plt.plot(x_values_kde, y_values_kde, color='r')
+#        else:
+#            plt.plot(x_values_kde, y_values_kde, color='y')
+#        plt.xlabel(vn_label_dict[vn], size=10)
+#        plt.ylabel('PDF', size=10)
+#        plt.legend(chain_legend)
+#
+#    # ===== Normalized autocorrelation ======
+#    plt.subplot(len(variables), 3, 3*count+3)
+#    chain_norm = chain - chain.mean()
+#    if chain.shape[0] <= acorr_maxlags:
+#        acorr_lags = chain.shape[0] - 1
+#    else:
+#        acorr_lags = acorr_maxlags
+#    plt.acorr(chain_norm, maxlags=acorr_lags)
+#    plt.xlim(0,acorr_lags)
+#    plt.xlabel('lag')
+#    plt.ylabel('autocorrelation')
+#    chain_neff = effective_n(dfs[0], vn)
+#    plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(chain_neff))
+## Save figure
+#plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + distribution_type + '_plots_' + str(len(dfs)) + 'chain_'
+#            + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
+
 
 
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
 if option_spc_subset_vars == 1:
-    netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108/'
-    gcm_name = 'CanESM2'
-    splitter = '_batch'
+    netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108_merged/'
+#    gcm_name = 'CanESM2'
+    gcm_name = 'CCSM4'
     
     vns_all = input.output_variables_package2
-    #vns_subset = ['runoff_glac_monthly', 'massbaltotal_glac_monthly', 'area_glac_annual', 'volume_glac_annual']
-    vns_subset = ['volume_glac_annual']
-    #vns_subset = ['area_glac_annual']
-    #vns_subset = ['runoff_glac_monthly']
-    #vns_subset = ['massbaltotal_glac_monthly']
+    vns_subset = input.output_variables_package2
+#    vns_subset = ['runoff_glac_monthly', 'massbaltotal_glac_monthly', 'area_glac_annual', 'volume_glac_annual']
     
     netcdf_fp = netcdf_fp_prefix + gcm_name + '/'
     regions = []
@@ -163,10 +227,8 @@ if option_spc_subset_vars == 1:
             
             for i in os.listdir(netcdf_fp):
                 if i.startswith(check_str):
-                    output_list.append([int(i.split(splitter)[1].split('.')[0]), i])
-            output_list = sorted(output_list)
-            output_list = [i[1] for i in output_list]
-            
+                    ds_fn = i
+
             for vn in vns_subset:
                 # List of variable names to drop from merged file            
                 drop_vns = [item for item in vns_all if item not in [vn]]
@@ -180,39 +242,45 @@ if option_spc_subset_vars == 1:
                     encoding[vn] = {'_FillValue': False}
                     
                 # Open datasets and combine
-                count_ds = 0
-                for i in output_list:
-                    count_ds += 1
-                    ds = xr.open_dataset(netcdf_fp + i)
-                    # Drop variables
-                    ds = ds.drop(drop_vns)                
-                    # Merge datasets of stats into one output
-                    if count_ds == 1:
-                        ds_all = ds
-                    else:
-                        ds_all = xr.concat([ds_all, ds], dim='glac')
-                    ds.close()
-                ds_all.glac.values = np.arange(0,len(ds_all.glac.values))
-                ds_all_fn = i.split(splitter)[0] + '--' + vn + '.nc'
+                ds = xr.open_dataset(netcdf_fp + ds_fn)
+                # Drop variables
+                ds = ds.drop(drop_vns)                
+                ds_new_fn = ds_fn.split('.nc')[0] + '--' + vn + '.nc'
                 # Export to netcdf
-                netcdf_export_fp = netcdf_fp_prefix + '../20181108_var/' + gcm_name + '_vars/' + vn + '/'
+                netcdf_export_fp = netcdf_fp_prefix + '../20181108_vars/' + vn + '/'
                 # Add filepath if it doesn't exist
                 if not os.path.exists(netcdf_export_fp):
                     os.makedirs(netcdf_export_fp)
-                ds_all.to_netcdf(netcdf_export_fp + ds_all_fn, encoding=encoding)
-                ds_all.close()
-                
+                ds.to_netcdf(netcdf_export_fp + ds_new_fn, encoding=encoding)
+                ds.close()
+                    
                 if vn == 'volume_glac_annual':
-                    vol_glac_all = ds_all.volume_glac_annual.values[:,:,0]
+                    vol_glac_all = ds.volume_glac_annual.values[:,:,0]
                     vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
                     print('Region', reg, rcp, 'Vol remain [%]:', vol_remain_perc)
 
 #%% MERGE NETCDF FILES TO REDUCE FILE SIZE
 if option_merge_netcdfs == 1:
     # ===== REQUIRED INPUT =====
-    rgi_regionsO1 = [13]
-    netcdf_fp = input.output_filepath + 'simulations/spc/MPI-ESM-LR/'
+    netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108/'
+    gcm_name = 'CanESM2'
     splitter = '_batch'
+    
+    netcdf_fp = netcdf_fp_prefix + gcm_name + '/'
+    regions = []
+    rcps = []
+    for i in os.listdir(netcdf_fp):
+        if i.endswith('.nc'):
+            i_region = int(i.split('_')[0][1:])
+            i_rcp = i.split('_')[2]
+        
+            if i_region not in regions:
+                regions.append(i_region)
+            if i_rcp not in rcps:
+                rcps.append(i_rcp)
+    regions = sorted(regions)
+    rcps = sorted(rcps)
+    
     # Encoding
     # Add variables to empty dataset and merge together
     encoding = {}
@@ -222,113 +290,37 @@ if option_merge_netcdfs == 1:
             # Encoding (specify _FillValue, offsets, etc.)
             if vn not in noencoding_vn:
                 encoding[vn] = {'_FillValue': False}
-    # Merge netcdf files together into one
-    # Filenames to merge
-    output_list_sorted = []
-    check_str = 'R15_MPI-ESM-LR_rcp26_c2_ba2_200sets_2000_2100_batch'
-    for i in os.listdir(netcdf_fp):
-        if i.startswith(check_str):
-            output_list_sorted.append([int(i.split(splitter)[1].split('.')[0]), i])
-    output_list_sorted = sorted(output_list_sorted)
-    output_list = [i[1] for i in output_list_sorted]
     
-    # Open datasets and combine
-    count_ds = 0
-    for i in output_list:
-        count_ds += 1
-        ds = xr.open_dataset(netcdf_fp + i)
-        # Merge datasets of stats into one output
-        if count_ds == 1:
-            ds_all = ds
-        else:
-#            ds_all = xr.merge([ds_all, ds])
-            ds_all = xr.concat([ds_all, ds], dim='glac')
-    ds_all.glac.values = np.arange(0,len(ds_all.glac.values))
-    ds_all_fn = i.split(splitter)[0] + '.nc'
-    # Export to netcdf
-    ds_all.to_netcdf(netcdf_fp + ds_all_fn, encoding=encoding)
-    # Remove files in output_list
-    for i in output_list:
-        os.remove(netcdf_fp + i)
-        
-    #%% OLD MERGE
-
+    for reg in regions:
+        for rcp in rcps:
+            print('R', reg, rcp, ':')
+            check_str = 'R' + str(reg) + '_' + gcm_name + '_' + rcp
+            output_list = []
+            
+            for i in os.listdir(netcdf_fp):
+                if i.startswith(check_str):
+                    output_list.append([int(i.split(splitter)[1].split('.')[0]), i])
+            output_list = sorted(output_list)
+            output_list = [i[1] for i in output_list]
     
-#    output_vns_WBM = ['prec_glac_monthly', 'acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 
-#                      'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 
-#                      'area_glac_annual', 'volume_glac_annual']
-#    output_stat_cns_WBM = ['mean', 'std']
-#
-#    # ===== MERGE GLACIERS =====
-#    # Select glaciers consistent with netcdf data
-#    rgi_glac_number = input.get_same_glaciers(netcdf_fp)
-#    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-#                                                      rgi_glac_number=rgi_glac_number)
-#    # Sorted list of files to merge
-#    output_list = []
-#    for i in os.listdir(netcdf_fp):
-#        if i.endswith('.nc'):
-#            output_list.append(i)
-#    output_list = sorted(output_list)
-#    # Merge netcdfs together
-#    for n, i in enumerate(output_list):
-#        if n%200 == 0:
-#            print(i)
-#        ds = xr.open_dataset(netcdf_fp + i)
-#        if n == 0:
-#            ds_all = ds.copy()
-#            ds_all.attrs = {}
-#        else:
-#            ds_all = xr.concat([ds_all, ds], 'glac')
-#    # Remove unwanted variables and statistics to cut down on the file size
-#    # List of variables
-#    ds_vns = []
-#    for vn in ds_all.variables:
-#        ds_vns.append(vn)
-#    # List of stats
-#    stats_subset_idx = []
-#    stats_list = list(ds_all.stats.values)
-#    for cn in output_stat_cns_WBM:
-#        if cn in stats_list:
-#            stats_subset_idx.append(stats_list.index(cn))
-#    # Merge the desired variables and stats into one dataset
-#    count_vn = 0
-#    for vn in output_vns_WBM:
-#        count_vn += 1
-#        # Determine time coordinate of the variable
-#        for t_name in input.time_names:
-#            if t_name in ds[vn].coords:
-#                time_coord = t_name
-#        data_subset = ds_all[vn].values[:,:,stats_subset_idx]
-#        # Create dataset for variable
-#        output_ds = xr.Dataset({vn: (('glac', time_coord, 'stats'), data_subset)},
-#                               coords={'glac': ds_all[vn].glac.values,
-#                                       time_coord: ds_all[vn][time_coord].values,
-#                                       'stats': output_stat_cns_WBM})
-#        # Merge datasets of stats into one output
-#        if count_vn == 1:
-#            output_ds_all = output_ds
-#        else:
-#            output_ds_all = xr.merge((output_ds_all, output_ds))
-#        # Keep the attributes
-#        output_ds_all[vn].attrs = ds_all[vn].attrs
-#    # Add a glacier table so that the glaciers attributes accompany the netcdf file
-#    main_glac_rgi_float = main_glac_rgi[input.output_glacier_attr_vns].copy()
-#    main_glac_rgi_xr = xr.Dataset({'glacier_table': (('glac', 'glac_attrs'), main_glac_rgi_float.values)},
-#                                   coords={'glac': output_ds_all.glac.values,
-#                                           'glac_attrs': main_glac_rgi_float.columns.values})
-#    output_ds_all = output_ds_all.combine_first(main_glac_rgi_xr)
-#    # Encoding (specify _FillValue, offsets, etc.)
-#    encoding = {}
-#    for vn in list(output_ds_all.variables):
-#        if vn not in ['stats', 'glac_attrs']:
-#            encoding[vn] = {'_FillValue': False}
-#    # Add glacier attributes
-#    output_ds_all.glac.attrs['long_name'] = 'glacier index'
-#    output_ds_all.glac.attrs['comment'] = 'glacier index value that refers to the glacier table'
-#    # Export netcdf
-#    netcdf_fn_merged = 'R' + str(rgi_regionsO1[0]) + '--' + i.split('--')[0] + '.nc'
-#    output_ds_all.to_netcdf(netcdf_fp + '../' + netcdf_fn_merged, encoding=encoding)
+            # Open datasets and combine
+            count_ds = 0
+            for i in output_list:
+                print(i)
+                count_ds += 1
+                ds = xr.open_dataset(netcdf_fp + i)
+                # Merge datasets of stats into one output
+                if count_ds == 1:
+                    ds_all = ds
+                else:
+                    ds_all = xr.concat([ds_all, ds], dim='glac')
+            ds_all.glac.values = np.arange(0,len(ds_all.glac.values))
+            ds_all_fn = i.split(splitter)[0] + '.nc'
+            # Export to netcdf
+            ds_all.to_netcdf(netcdf_fp + ds_all_fn, encoding=encoding)
+#            # Remove files in output_list
+#            for i in output_list:
+#                os.remove(netcdf_fp + i)
         
 
 #%% ===== ADD DATA TO NETCDF FILES =====
