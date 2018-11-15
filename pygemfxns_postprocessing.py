@@ -43,162 +43,97 @@ option_savefigs = 1
 #%% PLOT RESULTS
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/'
 
 regions = [13, 14, 15]
-gcm_name = 'ERA-Interim'
-#gcm_name = 'CanESM2'
-rcp = 'rcp26'
+#regions = [15]
+#gcm_names = ['ERA-Interim']
+gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0']
+#gcm_names = ['CanESM2']
+rcps = ['rcp26', 'rcp45', 'rcp85']
+#rcps = ['rcp45']
 vn = 'volume_glac_annual'
 
+reg_colordict = {13:'m', 14:'b', 15:'r'}
+rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp85':'r'}
 reg_legend = []
+fig, ax = plt.subplots(1, len(regions), sharex=True, sharey=True, squeeze=False, figsize=(6,4), 
+                       gridspec_kw = {'wspace':0, 'hspace':0})
+
+count_reg = 0
 for region in regions:
-    if gcm_name == 'ERA-Interim':
-        netcdf_fp = netcdf_fp_era
-        ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
-    else:
-        netcdf_fp = netcdf_fp_cmip5 + vn + '/'
-        ds_fn = 'R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' + vn + '.nc'    
-    
-    ds = xr.open_dataset(netcdf_fp + ds_fn)
-    vol_glac_all = ds.volume_glac_annual.values[:,:,0]
-    vol_glac_all_std = ds.volume_glac_annual.values[:,:,1]
-    vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
-    vol_reg = vol_glac_all.sum(axis=0)
-    vol_reg_std = vol_glac_all_std.sum(axis=0)
-    year_plus1 = ds.year_plus1.values
-    vol_reg_perc_remain = vol_reg / vol_reg[0] * 100
-    print('Vol remain [%]:', vol_remain_perc)
-    
-    # ===== Plot =====
-    reg_legend.append(('Reg' + str(region)))
-    plt.plot(year_plus1, vol_reg_perc_remain, color='b')
-    plt.legend(reg_legend)
-    #plt.xlabel('Year', size=10)
-    plt.ylabel('Volume remaining [%]', size=10)
-    
-    # ADD THE +/- STANDARD DEVIATION!
-    
-#%%
-#    # ===== Prior and posterior distributions =====
-#    plt.subplot(len(variables), 3, 3*count+2)
-#    # Prior distribution
-#    z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
-#    if vn.startswith('obs'):
-#        observed_massbal = obs_list[int(vn.split('_')[1])]
-#        observed_error = obs_err_list[int(vn.split('_')[1])]
-#        x_values = observed_massbal + observed_error * z_score
-#        y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
-#    elif vn == 'massbal':
-#        observed_massbal = obs_list[0]
-#        observed_error = obs_err_list[0]
-#        x_values = observed_massbal + observed_error * z_score
-#        y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
-#    elif vn == 'precfactor':
-#        if distribution_type == 'truncnormal':
-#            z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b),
-#                                  truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
-#            x_values_raw = precfactor_mu + precfactor_sigma * z_score
-#            y_values = truncnorm.pdf(x_values_raw, precfactor_a, precfactor_b, loc=precfactor_mu,
-#                                     scale=precfactor_sigma)
-#        elif distribution_type == 'uniform':
-#            z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-#            x_values_raw = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
-#            y_values = uniform.pdf(x_values_raw, loc=precfactor_boundlow,
-#                                   scale=(precfactor_boundhigh - precfactor_boundlow))
-#        # transform the precfactor values from the truncated normal to the actual values
-#        x_values = prec_transformation(x_values_raw)
-#    elif vn == 'tempchange':
-#        if distribution_type == 'truncnormal':
-#            z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
-#                                  truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
-#            x_values = tempchange_mu + tempchange_sigma * z_score
-#            y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu,
-#                                     scale=tempchange_sigma)
-#        elif distribution_type == 'uniform':
-#            z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-#            x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
-#            y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
-#                                   scale=(tempchange_boundhigh - tempchange_boundlow))
-#    elif vn == 'ddfsnow':
-#        if distribution_type == 'truncnormal':
-#            z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b),
-#                                  truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
-#            x_values = ddfsnow_mu + ddfsnow_sigma * z_score
-#            y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
-#        elif distribution_type == 'uniform':
-#            z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-#            x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
-#            y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
-#                                   scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
-#    plt.plot(x_values, y_values, color='k')
-#    # Ensemble/Posterior distribution
-#    # extents
-#    if chain.min() < x_values.min():
-#        x_min = chain.min()
-#    else:
-#        x_min = x_values.min()
-#    if chain.max() > x_values.max():
-#        x_max = chain.max()
-#    else:
-#        x_max = x_values.max()
-#    # Chain legend
-#    if vn.startswith('obs'):
-#        chain_legend = ['observed']
-#    else:
-#        chain_legend = ['prior']
-#    # Loop through models
-#    for n_chain, df in enumerate(dfs):
-#        chain = df[vn].values
-#        # gaussian distribution
-#        if vn.startswith('obs'):
-#            kde = gaussian_kde(chain)
-#            x_values_kde = np.linspace(x_min, x_max, 100)
-#            y_values_kde = kde(x_values_kde)
-#            chain_legend.append('ensemble' + str(n_chain + 1))
-#        elif vn == 'precfactor':
-#            kde = gaussian_kde(chain)
-#            x_values_kde = x_values.copy()
-#            y_values_kde = kde(x_values_kde)
-#            chain_legend.append('posterior' + str(n_chain + 1))
-#        else:
-#            kde = gaussian_kde(chain)
-#            x_values_kde = x_values.copy()
-#            y_values_kde = kde(x_values_kde)
-#            chain_legend.append('posterior' + str(n_chain + 1))
-#        if n_chain == 0:
-#            plt.plot(x_values_kde, y_values_kde, color='b')
-#        elif n_chain == 1:
-#            plt.plot(x_values_kde, y_values_kde, color='r')
-#        else:
-#            plt.plot(x_values_kde, y_values_kde, color='y')
-#        plt.xlabel(vn_label_dict[vn], size=10)
-#        plt.ylabel('PDF', size=10)
-#        plt.legend(chain_legend)
-#
-#    # ===== Normalized autocorrelation ======
-#    plt.subplot(len(variables), 3, 3*count+3)
-#    chain_norm = chain - chain.mean()
-#    if chain.shape[0] <= acorr_maxlags:
-#        acorr_lags = chain.shape[0] - 1
-#    else:
-#        acorr_lags = acorr_maxlags
-#    plt.acorr(chain_norm, maxlags=acorr_lags)
-#    plt.xlim(0,acorr_lags)
-#    plt.xlabel('lag')
-#    plt.ylabel('autocorrelation')
-#    chain_neff = effective_n(dfs[0], vn)
-#    plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(chain_neff))
-## Save figure
-#plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + distribution_type + '_plots_' + str(len(dfs)) + 'chain_'
-#            + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
-
-
+    for rcp in rcps:
+        vol_reg_norm_all = None
+        for gcm_name in gcm_names:
+            # NetCDF filename
+            if gcm_name == 'ERA-Interim':
+                netcdf_fp = netcdf_fp_era
+                ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+            else:
+                netcdf_fp = netcdf_fp_cmip5 + vn + '/'
+                ds_fn = 'R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' + vn + '.nc'    
+            
+            # Open dataset
+            ds = xr.open_dataset(netcdf_fp + ds_fn)
+            # Time
+            year_plus1 = ds.year_plus1.values
+            # Glacier volume mean, standard deviation, and variance
+            vol_glac = ds.volume_glac_annual.values[:,:,0]
+            vol_glac_std = ds.volume_glac_annual.values[:,:,1]
+            vol_glac_var = vol_glac_std **2
+            # Regional mean, standard deviation, and variance
+            #  mean: E(X+Y) = E(X) + E(Y)
+            #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
+            #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
+            #  std: std(X+Y) = (Var(X+Y))**0.5
+            vol_reg = vol_glac.sum(axis=0)
+            vol_reg_var = vol_glac_var.sum(axis=0)
+            vol_reg_std = vol_reg_var**0.5
+            vol_reg_stdhigh = vol_reg + vol_reg_std
+            vol_reg_stdlow = vol_reg - vol_reg_std
+            # Regional normalized volume           
+            vol_reg_norm = vol_reg / vol_reg[0]
+            vol_reg_norm_stdhigh = vol_reg_stdhigh / vol_reg[0]
+            vol_reg_norm_stdlow = vol_reg_stdlow / vol_reg[0]
+            # Multi-model mean of regional GCMs
+            if vol_reg_norm_all is None:
+                vol_reg_norm_all = vol_reg_norm
+            else:
+                vol_reg_norm_all = np.vstack((vol_reg_norm_all, vol_reg_norm))
+            print('R', region, gcm_name, rcp, 'Volume [%]:', np.round(vol_reg_norm[-1]*100,1))
+                
+            # ===== Plot =====
+            ax[0, count_reg].plot(year_plus1, vol_reg_norm, color=rcp_colordict[rcp], linestyle=':', linewidth=1, 
+                                  label=None)
+            ax[0, count_reg].fill_between(year_plus1, vol_reg_norm_stdlow, vol_reg_norm_stdhigh, 
+                                          facecolor=rcp_colordict[rcp], alpha=0.15, label=None)
+            ax[0, count_reg].set_title(('Region' + str(region)), size=14)
+            # Y-label
+            if count_reg == 0:
+                ax[0, count_reg].set_ylabel('Normalized volume [-]', size=14)
+            ax[0, count_reg].xaxis.set_tick_params(labelsize=10)
+        # Multi-model mean
+        ax[0, count_reg].plot(year_plus1, vol_reg_norm_all.mean(axis=0), color=rcp_colordict[rcp], linestyle='-', 
+                              linewidth=3, label=rcp)
+    # Regional count for subplots
+    count_reg += 1
+# Add legend
+ax[0,0].legend(loc='lower left')
+for axi in ax.flat:
+    axi.xaxis.set_major_locator(plt.MultipleLocator(40))
+    axi.xaxis.set_minor_locator(plt.MultipleLocator(10))
+    axi.yaxis.set_major_locator(plt.MultipleLocator(0.2))
+    axi.yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+#ax.xticks(label)
+# Save figure
+fig.set_size_inches(7, 3.5)
+fig.savefig(figure_fp + 'Regional_VolumeChange_wrcps.png', bbox_inches='tight', dpi=300)
+#plt.show()
 
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
 if option_spc_subset_vars == 1:
     netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108_merged/'
-#    gcm_name = 'CanESM2'
-    gcm_name = 'CCSM4'
+    gcm_name = 'CSIRO-Mk3-6-0'
     
     vns_all = input.output_variables_package2
     vns_subset = input.output_variables_package2
@@ -263,7 +198,7 @@ if option_spc_subset_vars == 1:
 if option_merge_netcdfs == 1:
     # ===== REQUIRED INPUT =====
     netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108/'
-    gcm_name = 'CanESM2'
+    gcm_name = 'CSIRO-Mk3-6-0'
     splitter = '_batch'
     
     netcdf_fp = netcdf_fp_prefix + gcm_name + '/'
@@ -317,7 +252,7 @@ if option_merge_netcdfs == 1:
             ds_all.glac.values = np.arange(0,len(ds_all.glac.values))
             ds_all_fn = i.split(splitter)[0] + '.nc'
             # Export to netcdf
-            ds_all.to_netcdf(netcdf_fp + ds_all_fn, encoding=encoding)
+            ds_all.to_netcdf(netcdf_fp + '../' + ds_all_fn, encoding=encoding)
 #            # Remove files in output_list
 #            for i in output_list:
 #                os.remove(netcdf_fp + i)

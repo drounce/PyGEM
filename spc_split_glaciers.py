@@ -105,3 +105,4 @@ for n in range(len(rgi_glac_number_batches)):
 #    print('Batch', n, ':\n', batch_fn, '\n')
     with open(batch_fn, 'wb') as f:
         pickle.dump(rgi_glac_number_batches[n], f)
+
