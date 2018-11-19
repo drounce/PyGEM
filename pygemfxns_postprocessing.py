@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd 
 import netCDF4 as nc
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import scipy
 import cartopy
 import xarray as xr
@@ -39,19 +40,141 @@ option_calcompare_w_geomb = 0
 option_add_metadata2netcdf = 0
 option_merge_netcdfs = 0
 option_spc_subset_vars = 0
-option_var_mon2annual = 1
-option_plot_cmip5_volchange = 0
+option_var_mon2annual = 0
+option_plot_cmip5_volchange = 1
 
 option_savefigs = 1
+
+#%% PLOT RESULTS
+if option_plot_cmip5_volchange == 1:
+    netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
+    netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+    figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/'
+    
+    regions = [13, 14, 15]
+    #regions = [15]
+    #gcm_names = ['ERA-Interim']
+    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0']
+    #gcm_names = ['CanESM2']
+#    rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
+    rcps = ['rcp26', 'rcp45', 'rcp85']
+    vn = 'volume_glac_annual'
+    
+
+#    gcm_colordict = {'CanESM2':(0, 0.57, 0.57), 'CCSM4':(1, 0, 0), 'CNRM-CM5':(0, 1, 0), 'CSIRO-Mk3-6-0':(0, 0,1)}    
+    colors_rgb = [(0.00, 0.57, 0.57), (0.71, 0.43, 1.00), (0.86, 0.82, 0.00), (0.00, 0.29, 0.29), (0.00, 0.43, 0.86), 
+                  (0.57, 0.29, 0.00), (1.00, 0.43, 0.71), (0.43, 0.71, 1.00), (0.14, 1.00, 0.14), (1.00, 0.71, 0.47), 
+                  (0.29, 0.00, 0.57), (0.57, 0.00, 0.00), (0.71, 0.47, 1.00), (1.00, 1.00, 0.47)]
+    gcm_colordict = dict(zip(gcm_names, colors_rgb[0:len(gcm_names)]))
+    
+
+    rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp60':'m', 'rcp85':'r'}
+    rcp_styledict = {'rcp26':':', 'rcp45':'--', 'rcp85':'-.'}
+    reg_legend = []
+    fig, ax = plt.subplots(1, len(regions), sharex=True, sharey=True, squeeze=False, figsize=(6,4), 
+                           gridspec_kw = {'wspace':0, 'hspace':0})
+    
+    count_reg = 0
+    for region in regions:
+        vol_reg_norm_all_mean_dict = {}
+        for rcp in rcps:
+            vol_reg_norm_all = None
+            for gcm_name in gcm_names:
+                # NetCDF filename
+                if gcm_name == 'ERA-Interim':
+                    netcdf_fp = netcdf_fp_era
+                    ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+                else:
+                    netcdf_fp = netcdf_fp_cmip5 + vn + '/'
+                    ds_fn = 'R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' + vn + '.nc'    
+                
+                # Open dataset
+                try:
+                    ds = xr.open_dataset(netcdf_fp + ds_fn)
+                except:
+                    continue
+                # Time
+                year_plus1 = ds.year_plus1.values
+                # Glacier volume mean, standard deviation, and variance
+                vol_glac = ds.volume_glac_annual.values[:,:,0]
+                vol_glac_std = ds.volume_glac_annual.values[:,:,1]
+                vol_glac_var = vol_glac_std **2
+                # Regional mean, standard deviation, and variance
+                #  mean: E(X+Y) = E(X) + E(Y)
+                #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
+                #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
+                #  std: std(X+Y) = (Var(X+Y))**0.5
+                vol_reg = vol_glac.sum(axis=0)
+                vol_reg_var = vol_glac_var.sum(axis=0)
+                vol_reg_std = vol_reg_var**0.5
+                vol_reg_stdhigh = vol_reg + vol_reg_std
+                vol_reg_stdlow = vol_reg - vol_reg_std
+                # Regional normalized volume           
+                vol_reg_norm = vol_reg / vol_reg[0]
+                vol_reg_norm_stdhigh = vol_reg_stdhigh / vol_reg[0]
+                vol_reg_norm_stdlow = vol_reg_stdlow / vol_reg[0]
+                # Multi-model mean of regional GCMs
+                if vol_reg_norm_all is None:
+                    vol_reg_norm_all = vol_reg_norm
+                else:
+                    vol_reg_norm_all = np.vstack((vol_reg_norm_all, vol_reg_norm))
+#                print('R', region, gcm_name, rcp, 'Volume [%]:', np.round(vol_reg_norm[-1]*100,1))
+                    
+                # ===== Plot =====
+                ax[0, count_reg].plot(year_plus1, vol_reg_norm, color=gcm_colordict[gcm_name], 
+                                      linestyle=rcp_styledict[rcp], linewidth=1, label=None)
+                ax[0, count_reg].fill_between(year_plus1, vol_reg_norm_stdlow, vol_reg_norm_stdhigh, 
+                                              facecolor=gcm_colordict[gcm_name], alpha=0.15, label=None)
+                ax[0, count_reg].set_title(('Region' + str(region)), size=14)
+                # Y-label
+                if count_reg == 0:
+                    ax[0, count_reg].set_ylabel('Normalized volume [-]', size=14)
+                ax[0, count_reg].xaxis.set_tick_params(labelsize=10)
+#            ax[0, count_reg].plot(year_plus1, vol_reg_norm_all.mean(axis=0), color='k', linestyle=rcp_styledict[rcp], 
+#                                  linewidth=3, label=rcp)
+            # Multi-model mean
+            vol_reg_norm_all_mean_dict.update({rcp:vol_reg_norm_all.mean(axis=0)})
+        # Plot multi-model means last, so they are on top
+        for rcp in rcps:
+            ax[0, count_reg].plot(year_plus1, vol_reg_norm_all_mean_dict[rcp], color='k', linestyle=rcp_styledict[rcp], 
+                                  linewidth=3, label=rcp)
+        # Regional count for subplots
+        count_reg += 1
+    # RCP Legend
+    rcp_lines = []
+    for rcp in rcps:
+        line = Line2D([0,1],[0,1], linestyle=rcp_styledict[rcp], color='k', linewidth=2)
+        rcp_lines.append(line)
+    ax[0,0].legend(rcp_lines, rcps, loc='lower left')
+    # GCM Legend
+    gcm_lines = []
+    for gcm_name in gcm_names:
+        line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
+        gcm_lines.append(line)
+    gcm_legend = gcm_names.copy()
+    gcm_legend.append('Mean')
+    line = Line2D([0,1],[0,1], linestyle='-', color='k', linewidth=5)
+    gcm_lines.append(line)
+    ax[0,2].legend(gcm_lines, gcm_legend, loc='center left', title='GCM', bbox_to_anchor=(1,0,0.5,1))
+    # 
+    for axi in ax.flat:
+        axi.xaxis.set_major_locator(plt.MultipleLocator(40))
+        axi.xaxis.set_minor_locator(plt.MultipleLocator(10))
+        axi.yaxis.set_major_locator(plt.MultipleLocator(0.2))
+        axi.yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+    #ax.xticks(label)
+    # Save figure
+    fig.set_size_inches(7, 3.5)
+    fig.savefig(figure_fp + 'Regional_VolumeChange_allgcmsrcps.png', bbox_inches='tight', dpi=300)
+    #plt.show()
 
 
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
 if option_var_mon2annual == 1:
     netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108_vars/'
-#    vns = ['temp_glac_monthly', 'prec_glac_monthly']
-#    vns = ['melt_glac_monthly']
     vns = ['acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 'frontalablation_glac_monthly', 
-           'massbaltotal_glac_monthly']
+           'massbaltotal_glac_monthly', 'temp_glac_monthly', 'prec_glac_monthly']
+    #    vns = ['melt_glac_monthly']
     
     def coords_attrs_dict(ds, vn):
         """
@@ -308,96 +431,7 @@ if option_var_mon2annual == 1:
 
                 
 
-#%% PLOT RESULTS
-if option_plot_cmip5_volchange == 1:
-    netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
-    netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
-    figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/'
-    
-    regions = [13, 14, 15]
-    #regions = [15]
-    #gcm_names = ['ERA-Interim']
-    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0']
-    #gcm_names = ['CanESM2']
-    rcps = ['rcp26', 'rcp45', 'rcp85']
-    #rcps = ['rcp45']
-    vn = 'volume_glac_annual'
-    
-    reg_colordict = {13:'m', 14:'b', 15:'r'}
-    rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp85':'r'}
-    reg_legend = []
-    fig, ax = plt.subplots(1, len(regions), sharex=True, sharey=True, squeeze=False, figsize=(6,4), 
-                           gridspec_kw = {'wspace':0, 'hspace':0})
-    
-    count_reg = 0
-    for region in regions:
-        for rcp in rcps:
-            vol_reg_norm_all = None
-            for gcm_name in gcm_names:
-                # NetCDF filename
-                if gcm_name == 'ERA-Interim':
-                    netcdf_fp = netcdf_fp_era
-                    ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
-                else:
-                    netcdf_fp = netcdf_fp_cmip5 + vn + '/'
-                    ds_fn = 'R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' + vn + '.nc'    
-                
-                # Open dataset
-                ds = xr.open_dataset(netcdf_fp + ds_fn)
-                # Time
-                year_plus1 = ds.year_plus1.values
-                # Glacier volume mean, standard deviation, and variance
-                vol_glac = ds.volume_glac_annual.values[:,:,0]
-                vol_glac_std = ds.volume_glac_annual.values[:,:,1]
-                vol_glac_var = vol_glac_std **2
-                # Regional mean, standard deviation, and variance
-                #  mean: E(X+Y) = E(X) + E(Y)
-                #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
-                #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
-                #  std: std(X+Y) = (Var(X+Y))**0.5
-                vol_reg = vol_glac.sum(axis=0)
-                vol_reg_var = vol_glac_var.sum(axis=0)
-                vol_reg_std = vol_reg_var**0.5
-                vol_reg_stdhigh = vol_reg + vol_reg_std
-                vol_reg_stdlow = vol_reg - vol_reg_std
-                # Regional normalized volume           
-                vol_reg_norm = vol_reg / vol_reg[0]
-                vol_reg_norm_stdhigh = vol_reg_stdhigh / vol_reg[0]
-                vol_reg_norm_stdlow = vol_reg_stdlow / vol_reg[0]
-                # Multi-model mean of regional GCMs
-                if vol_reg_norm_all is None:
-                    vol_reg_norm_all = vol_reg_norm
-                else:
-                    vol_reg_norm_all = np.vstack((vol_reg_norm_all, vol_reg_norm))
-                print('R', region, gcm_name, rcp, 'Volume [%]:', np.round(vol_reg_norm[-1]*100,1))
-                    
-                # ===== Plot =====
-                ax[0, count_reg].plot(year_plus1, vol_reg_norm, color=rcp_colordict[rcp], linestyle=':', linewidth=1, 
-                                      label=None)
-                ax[0, count_reg].fill_between(year_plus1, vol_reg_norm_stdlow, vol_reg_norm_stdhigh, 
-                                              facecolor=rcp_colordict[rcp], alpha=0.15, label=None)
-                ax[0, count_reg].set_title(('Region' + str(region)), size=14)
-                # Y-label
-                if count_reg == 0:
-                    ax[0, count_reg].set_ylabel('Normalized volume [-]', size=14)
-                ax[0, count_reg].xaxis.set_tick_params(labelsize=10)
-            # Multi-model mean
-            ax[0, count_reg].plot(year_plus1, vol_reg_norm_all.mean(axis=0), color=rcp_colordict[rcp], linestyle='-', 
-                                  linewidth=3, label=rcp)
-        # Regional count for subplots
-        count_reg += 1
-    # Add legend
-    ax[0,0].legend(loc='lower left')
-    for axi in ax.flat:
-        axi.xaxis.set_major_locator(plt.MultipleLocator(40))
-        axi.xaxis.set_minor_locator(plt.MultipleLocator(10))
-        axi.yaxis.set_major_locator(plt.MultipleLocator(0.2))
-        axi.yaxis.set_minor_locator(plt.MultipleLocator(0.1))
-    #ax.xticks(label)
-    # Save figure
-    fig.set_size_inches(7, 3.5)
-    fig.savefig(figure_fp + 'Regional_VolumeChange_wrcps.png', bbox_inches='tight', dpi=300)
-    #plt.show()
+
                 
                 
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
