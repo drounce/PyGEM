@@ -10,6 +10,7 @@ and any other comparisons between output or input data.
 
 # Built-in Libraries
 import os
+import collections
 # External Libraries
 import numpy as np
 import pandas as pd 
@@ -21,6 +22,7 @@ import xarray as xr
 # Local Libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
+import pygemfxns_massbalance as massbalance
 import class_mbdata
 import run_simulation
 
@@ -37,99 +39,367 @@ option_calcompare_w_geomb = 0
 option_add_metadata2netcdf = 0
 option_merge_netcdfs = 0
 option_spc_subset_vars = 0
+option_var_mon2annual = 1
+option_plot_cmip5_volchange = 0
 
 option_savefigs = 1
 
-#%% PLOT RESULTS
-netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
-netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
-figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/'
 
-regions = [13, 14, 15]
-#regions = [15]
-#gcm_names = ['ERA-Interim']
-gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0']
-#gcm_names = ['CanESM2']
-rcps = ['rcp26', 'rcp45', 'rcp85']
-#rcps = ['rcp45']
-vn = 'volume_glac_annual'
-
-reg_colordict = {13:'m', 14:'b', 15:'r'}
-rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp85':'r'}
-reg_legend = []
-fig, ax = plt.subplots(1, len(regions), sharex=True, sharey=True, squeeze=False, figsize=(6,4), 
-                       gridspec_kw = {'wspace':0, 'hspace':0})
-
-count_reg = 0
-for region in regions:
-    for rcp in rcps:
-        vol_reg_norm_all = None
-        for gcm_name in gcm_names:
-            # NetCDF filename
-            if gcm_name == 'ERA-Interim':
-                netcdf_fp = netcdf_fp_era
-                ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
-            else:
-                netcdf_fp = netcdf_fp_cmip5 + vn + '/'
-                ds_fn = 'R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' + vn + '.nc'    
+#%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
+if option_var_mon2annual == 1:
+    netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108_vars/'
+#    vns = ['temp_glac_monthly', 'prec_glac_monthly']
+#    vns = ['melt_glac_monthly']
+    vns = ['acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 'frontalablation_glac_monthly', 
+           'massbaltotal_glac_monthly']
+    
+    def coords_attrs_dict(ds, vn):
+        """
+        Retrieve dictionaries containing coordinates, attributes, and encoding for the dataset and variable name
+        
+        Parameters
+        ----------
+        ds : xr.Dataset
+            dataset of a variable of interest
+        vn : str
+            variable name
             
-            # Open dataset
-            ds = xr.open_dataset(netcdf_fp + ds_fn)
-            # Time
-            year_plus1 = ds.year_plus1.values
-            # Glacier volume mean, standard deviation, and variance
-            vol_glac = ds.volume_glac_annual.values[:,:,0]
-            vol_glac_std = ds.volume_glac_annual.values[:,:,1]
-            vol_glac_var = vol_glac_std **2
-            # Regional mean, standard deviation, and variance
-            #  mean: E(X+Y) = E(X) + E(Y)
-            #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
-            #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
-            #  std: std(X+Y) = (Var(X+Y))**0.5
-            vol_reg = vol_glac.sum(axis=0)
-            vol_reg_var = vol_glac_var.sum(axis=0)
-            vol_reg_std = vol_reg_var**0.5
-            vol_reg_stdhigh = vol_reg + vol_reg_std
-            vol_reg_stdlow = vol_reg - vol_reg_std
-            # Regional normalized volume           
-            vol_reg_norm = vol_reg / vol_reg[0]
-            vol_reg_norm_stdhigh = vol_reg_stdhigh / vol_reg[0]
-            vol_reg_norm_stdlow = vol_reg_stdlow / vol_reg[0]
-            # Multi-model mean of regional GCMs
-            if vol_reg_norm_all is None:
-                vol_reg_norm_all = vol_reg_norm
-            else:
-                vol_reg_norm_all = np.vstack((vol_reg_norm_all, vol_reg_norm))
-            print('R', region, gcm_name, rcp, 'Volume [%]:', np.round(vol_reg_norm[-1]*100,1))
+        Returns
+        -------
+        output_coords_dict : dictionary
+            coordiantes for the modified variable
+        output_attrs_dict: dictionary
+            attributes to add to the modified variable
+        encoding : dictionary
+            encoding used with exporting xarray dataset to netcdf
+        """
+        # Variable coordinates dictionary
+        output_coords_dict = {
+                'temp_glac_annual': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'prec_glac_annual': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'acc_glac_annual': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'acc_glac_summer': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'acc_glac_winter': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'melt_glac_annual': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'melt_glac_summer': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'melt_glac_winter': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'refreeze_glac_annual': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'refreeze_glac_summer': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'refreeze_glac_winter': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'frontalablation_glac_annual': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'frontalablation_glac_summer': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'frontalablation_glac_winter': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'massbaltotal_glac_annual': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'massbaltotal_glac_summer': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+                'massbaltotal_glac_winter': collections.OrderedDict(
+                        [('glac', ds.glac.values), ('year', ds.year.values), ('stats', ds.stats.values)]),
+    #                'runoff_glac_monthly': collections.OrderedDict(
+    #                        [('glac', glac_values), ('time', time_values), (record_name, record_name_values)])      
+                }
+        # Attributes dictionary
+        output_attrs_dict = {
+                'temp_glac_annual': {
+                        'long_name': 'glacier-wide mean air temperature',
+                        'units': 'degC',
+                        'temporal_resolution': 'annual',
+                        'comment': (
+                                'annual mean has each month weight equally, each elevation bin is weighted equally'
+                                ' to compute the mean temperature, and bins where the glacier no longer exists due to '
+                                'retreat have been removed')},
+                'prec_glac_annual': {
+                        'long_name': 'glacier-wide precipitation (liquid)',
+                        'units': 'm',
+                        'temporal_resolution': 'annual',
+                        'comment': 'only the liquid precipitation, solid precipitation excluded'},
+                'acc_glac_annual': {
+                        'long_name': 'glacier-wide accumulation',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual',
+                        'comment': 'only the solid precipitation'},
+                'acc_glac_summer': {
+                        'long_name': 'glacier-wide accumulation',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual summer',
+                        'comment': 'only the solid precipitation'},
+                'acc_glac_winter': {
+                        'long_name': 'glacier-wide accumulation',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual winter',
+                        'comment': 'only the solid precipitation'},
+                'melt_glac_annual': {
+                        'long_name': 'glacier-wide melt',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual'},
+                'melt_glac_summer': {
+                        'long_name': 'glacier-wide melt',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual summer'},
+                'melt_glac_winter': {
+                        'long_name': 'glacier-wide melt',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual winter'},
+                'refreeze_glac_annual': {
+                        'long_name': 'glacier-wide refreeze',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual'},
+                'refreeze_glac_summer': {
+                        'long_name': 'glacier-wide refreeze',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual summer'},
+                'refreeze_glac_winter': {
+                        'long_name': 'glacier-wide refreeze',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual winter'},
+                'frontalablation_glac_annual': {
+                        'long_name': 'glacier-wide frontal ablation',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual',
+                        'comment': (
+                                'mass losses from calving, subaerial frontal melting, sublimation above the '
+                                'waterline and subaqueous frontal melting below the waterline')},
+                'frontalablation_glac_summer': {
+                        'long_name': 'glacier-wide frontal ablation',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual summer',
+                        'comment': (
+                                'mass losses from calving, subaerial frontal melting, sublimation above the '
+                                'waterline and subaqueous frontal melting below the waterline')},
+                'frontalablation_glac_winter': {
+                        'long_name': 'glacier-wide frontal ablation',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual winter',
+                        'comment': (
+                                'mass losses from calving, subaerial frontal melting, sublimation above the '
+                                'waterline and subaqueous frontal melting below the waterline')},
+                'massbaltotal_glac_annual': {
+                        'long_name': 'glacier-wide total mass balance',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual',
+                        'comment': 'total mass balance is the sum of the climatic mass balance and frontal ablation'},
+                'massbaltotal_glac_summer': {
+                        'long_name': 'glacier-wide total mass balance',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual summer',
+                        'comment': 'total mass balance is the sum of the climatic mass balance and frontal ablation'},
+                'massbaltotal_glac_winter': {
+                        'long_name': 'glacier-wide total mass balance',
+                        'units': 'm w.e.',
+                        'temporal_resolution': 'annual winter',
+                        'comment': 'total mass balance is the sum of the climatic mass balance and frontal ablation'},
+    #                'runoff_glac_monthly': {
+    #                        'long_name': 'glacier-wide runoff',
+    #                        'units': 'm**3',
+    #                        'temporal_resolution': 'monthly',
+    #                        'comment': 'runoff from the glacier terminus, which moves over time'},
+                }
                 
-            # ===== Plot =====
-            ax[0, count_reg].plot(year_plus1, vol_reg_norm, color=rcp_colordict[rcp], linestyle=':', linewidth=1, 
-                                  label=None)
-            ax[0, count_reg].fill_between(year_plus1, vol_reg_norm_stdlow, vol_reg_norm_stdhigh, 
-                                          facecolor=rcp_colordict[rcp], alpha=0.15, label=None)
-            ax[0, count_reg].set_title(('Region' + str(region)), size=14)
-            # Y-label
-            if count_reg == 0:
-                ax[0, count_reg].set_ylabel('Normalized volume [-]', size=14)
-            ax[0, count_reg].xaxis.set_tick_params(labelsize=10)
-        # Multi-model mean
-        ax[0, count_reg].plot(year_plus1, vol_reg_norm_all.mean(axis=0), color=rcp_colordict[rcp], linestyle='-', 
-                              linewidth=3, label=rcp)
-    # Regional count for subplots
-    count_reg += 1
-# Add legend
-ax[0,0].legend(loc='lower left')
-for axi in ax.flat:
-    axi.xaxis.set_major_locator(plt.MultipleLocator(40))
-    axi.xaxis.set_minor_locator(plt.MultipleLocator(10))
-    axi.yaxis.set_major_locator(plt.MultipleLocator(0.2))
-    axi.yaxis.set_minor_locator(plt.MultipleLocator(0.1))
-#ax.xticks(label)
-# Save figure
-fig.set_size_inches(7, 3.5)
-fig.savefig(figure_fp + 'Regional_VolumeChange_wrcps.png', bbox_inches='tight', dpi=300)
-#plt.show()
+        encoding = {}  
+        noencoding_vn = ['stats', 'glac_attrs']
+        # Encoding (specify _FillValue, offsets, etc.)
+        if vn not in noencoding_vn:
+            encoding[vn] = {'_FillValue': False}
+        return output_coords_dict, output_attrs_dict, encoding
+    
+    for vn in vns:
+        netcdf_fp = netcdf_fp_prefix + vn + '/'
+        for i in os.listdir(netcdf_fp):
+            if i.endswith('.nc'):
+                print(i)
+                               
+                # Open dataset and extract annual values
+                ds = xr.open_dataset(netcdf_fp + i)      
+                ds_mean = ds[vn].values[:,:,0]
+                ds_std = ds[vn].values[:,:,1]
+                ds_var = ds_std**2
+                
+                # Compute annual/seasonal mean/sum and standard deviation for the variable of interest
+                if vn is 'temp_glac_monthly':
+                    output_list = ['annual']
+                    vn_annual = 'temp_glac_annual'
+                    # Mean annual temperature, standard deviation, and variance
+                    ds_mean_annual = ds_mean.reshape(-1,12).mean(axis=1).reshape(-1,int(ds_mean.shape[1]/12))
+                    ds_var_annual = ds_var.reshape(-1,12).mean(axis=1).reshape(-1,int(ds_std.shape[1]/12))
+                    ds_std_annual = ds_var_annual**0.5
+                    ds_values_annual = np.concatenate((ds_mean_annual[:,:,np.newaxis], ds_std_annual[:,:,np.newaxis]), 
+                                                      axis=2)
+                elif vn is 'prec_glac_monthly':
+                    output_list = ['annual']
+                    vn_annual = 'prec_glac_annual'
+                    # Total annual precipitation, standard deviation, and variance
+                    ds_sum_annual = ds_mean.reshape(-1,12).sum(axis=1).reshape(-1,int(ds_mean.shape[1]/12))
+                    ds_var_annual = ds_var.reshape(-1,12).sum(axis=1).reshape(-1,int(ds_std.shape[1]/12))
+                    ds_std_annual = ds_var_annual**0.5
+                    ds_values_annual = np.concatenate((ds_sum_annual[:,:,np.newaxis], ds_std_annual[:,:,np.newaxis]), 
+                                                      axis=2)
+                elif vn in ['acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 
+                            'frontalablation_glac_monthly', 'massbaltotal_glac_monthly']:
+                    output_list = ['annual', 'summer', 'winter']
+                    # Annual total, standard deviation, and variance
+                    ds_sum_annual = ds_mean.reshape(-1,12).sum(axis=1).reshape(-1,int(ds_mean.shape[1]/12))
+                    ds_var_annual = ds_var.reshape(-1,12).sum(axis=1).reshape(-1,int(ds_std.shape[1]/12))
+                    ds_std_annual = ds_var_annual**0.5
+                    ds_values_annual = np.concatenate((ds_sum_annual[:,:,np.newaxis], ds_std_annual[:,:,np.newaxis]), 
+                                                      axis=2)
+                    # Seasonal total, standard deviation, and variance
+                    if ds.time.year_type == 'water year':
+                        option_wateryear = 1
+                    elif ds.time.year_type == 'calendar year':
+                        option_wateryear = 2
+                    else:
+                        option_wateryear = 3
+                    dates_table = modelsetup.datesmodelrun(startyear=ds.year.values[0], endyear=ds.year.values[-1], 
+                                                           spinupyears=0, option_wateryear=option_wateryear)
+                    # For seasonal calculations copy monthly values and remove the other season's values
+                    ds_mean_summer = ds_mean.copy()
+                    ds_var_summer = ds_var.copy()                    
+                    ds_mean_summer[:,dates_table.season.values == 'winter'] = 0
+                    ds_sum_summer = ds_mean_summer.reshape(-1,12).sum(axis=1).reshape(-1, int(ds_mean.shape[1]/12))
+                    ds_var_summer = ds_var_summer.reshape(-1,12).sum(axis=1).reshape(-1,int(ds_std.shape[1]/12))
+                    ds_std_summer = ds_var_summer**0.5
+                    ds_values_summer = np.concatenate((ds_sum_summer[:,:,np.newaxis], ds_std_summer[:,:,np.newaxis]), 
+                                                      axis=2)
+                    ds_mean_winter = ds_mean.copy()
+                    ds_var_winter = ds_var.copy()                    
+                    ds_mean_winter[:,dates_table.season.values == 'summer'] = 0
+                    ds_sum_winter = ds_mean_winter.reshape(-1,12).sum(axis=1).reshape(-1, int(ds_mean.shape[1]/12))
+                    ds_var_winter = ds_var_winter.reshape(-1,12).sum(axis=1).reshape(-1,int(ds_std.shape[1]/12))
+                    ds_std_winter = ds_var_winter**0.5
+                    ds_values_winter = np.concatenate((ds_sum_winter[:,:,np.newaxis], ds_std_winter[:,:,np.newaxis]), 
+                                                      axis=2)
+                # Create modified dataset
+                for temporal_res in output_list:
+                    vn_new = vn.split('_')[0] + '_glac_' + temporal_res
+                    output_fp = netcdf_fp_prefix + vn_new + '/'
+                    output_fn = i.split('.nc')[0][:-7] + temporal_res + '.nc'                
+                    output_coords_dict, output_attrs_dict, encoding = coords_attrs_dict(ds, vn_new)
+                    if temporal_res is 'annual':
+                        ds_new = xr.Dataset({vn_new: (list(output_coords_dict[vn_new].keys()), ds_values_annual)},
+                                             coords=output_coords_dict[vn_new])
+                    elif temporal_res is 'summer':
+                        ds_new = xr.Dataset({vn_new: (list(output_coords_dict[vn_new].keys()), ds_values_summer)},
+                                             coords=output_coords_dict[vn_new])
+                    elif temporal_res is 'winter':
+                        ds_new = xr.Dataset({vn_new: (list(output_coords_dict[vn_new].keys()), ds_values_winter)},
+                                             coords=output_coords_dict[vn_new])
+                    ds_new[vn_new].attrs = output_attrs_dict[vn_new]
+                    # Merge new dataset into the old to retain glacier table and other attributes
+                    output_ds = xr.merge((ds, ds_new))
+                    output_ds = output_ds.drop(vn)
+                    # Export netcdf
+                    if not os.path.exists(output_fp):
+                        os.makedirs(output_fp)
+                    output_ds.to_netcdf(output_fp + output_fn, encoding=encoding)
 
+                
+
+#%% PLOT RESULTS
+if option_plot_cmip5_volchange == 1:
+    netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
+    netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+    figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/'
+    
+    regions = [13, 14, 15]
+    #regions = [15]
+    #gcm_names = ['ERA-Interim']
+    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0']
+    #gcm_names = ['CanESM2']
+    rcps = ['rcp26', 'rcp45', 'rcp85']
+    #rcps = ['rcp45']
+    vn = 'volume_glac_annual'
+    
+    reg_colordict = {13:'m', 14:'b', 15:'r'}
+    rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp85':'r'}
+    reg_legend = []
+    fig, ax = plt.subplots(1, len(regions), sharex=True, sharey=True, squeeze=False, figsize=(6,4), 
+                           gridspec_kw = {'wspace':0, 'hspace':0})
+    
+    count_reg = 0
+    for region in regions:
+        for rcp in rcps:
+            vol_reg_norm_all = None
+            for gcm_name in gcm_names:
+                # NetCDF filename
+                if gcm_name == 'ERA-Interim':
+                    netcdf_fp = netcdf_fp_era
+                    ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+                else:
+                    netcdf_fp = netcdf_fp_cmip5 + vn + '/'
+                    ds_fn = 'R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' + vn + '.nc'    
+                
+                # Open dataset
+                ds = xr.open_dataset(netcdf_fp + ds_fn)
+                # Time
+                year_plus1 = ds.year_plus1.values
+                # Glacier volume mean, standard deviation, and variance
+                vol_glac = ds.volume_glac_annual.values[:,:,0]
+                vol_glac_std = ds.volume_glac_annual.values[:,:,1]
+                vol_glac_var = vol_glac_std **2
+                # Regional mean, standard deviation, and variance
+                #  mean: E(X+Y) = E(X) + E(Y)
+                #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
+                #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
+                #  std: std(X+Y) = (Var(X+Y))**0.5
+                vol_reg = vol_glac.sum(axis=0)
+                vol_reg_var = vol_glac_var.sum(axis=0)
+                vol_reg_std = vol_reg_var**0.5
+                vol_reg_stdhigh = vol_reg + vol_reg_std
+                vol_reg_stdlow = vol_reg - vol_reg_std
+                # Regional normalized volume           
+                vol_reg_norm = vol_reg / vol_reg[0]
+                vol_reg_norm_stdhigh = vol_reg_stdhigh / vol_reg[0]
+                vol_reg_norm_stdlow = vol_reg_stdlow / vol_reg[0]
+                # Multi-model mean of regional GCMs
+                if vol_reg_norm_all is None:
+                    vol_reg_norm_all = vol_reg_norm
+                else:
+                    vol_reg_norm_all = np.vstack((vol_reg_norm_all, vol_reg_norm))
+                print('R', region, gcm_name, rcp, 'Volume [%]:', np.round(vol_reg_norm[-1]*100,1))
+                    
+                # ===== Plot =====
+                ax[0, count_reg].plot(year_plus1, vol_reg_norm, color=rcp_colordict[rcp], linestyle=':', linewidth=1, 
+                                      label=None)
+                ax[0, count_reg].fill_between(year_plus1, vol_reg_norm_stdlow, vol_reg_norm_stdhigh, 
+                                              facecolor=rcp_colordict[rcp], alpha=0.15, label=None)
+                ax[0, count_reg].set_title(('Region' + str(region)), size=14)
+                # Y-label
+                if count_reg == 0:
+                    ax[0, count_reg].set_ylabel('Normalized volume [-]', size=14)
+                ax[0, count_reg].xaxis.set_tick_params(labelsize=10)
+            # Multi-model mean
+            ax[0, count_reg].plot(year_plus1, vol_reg_norm_all.mean(axis=0), color=rcp_colordict[rcp], linestyle='-', 
+                                  linewidth=3, label=rcp)
+        # Regional count for subplots
+        count_reg += 1
+    # Add legend
+    ax[0,0].legend(loc='lower left')
+    for axi in ax.flat:
+        axi.xaxis.set_major_locator(plt.MultipleLocator(40))
+        axi.xaxis.set_minor_locator(plt.MultipleLocator(10))
+        axi.yaxis.set_major_locator(plt.MultipleLocator(0.2))
+        axi.yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+    #ax.xticks(label)
+    # Save figure
+    fig.set_size_inches(7, 3.5)
+    fig.savefig(figure_fp + 'Regional_VolumeChange_wrcps.png', bbox_inches='tight', dpi=300)
+    #plt.show()
+                
+                
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
 if option_spc_subset_vars == 1:
     netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108_merged/'

@@ -219,7 +219,7 @@ option_import_modelparams = 1
 #  Option 0 - use the parameters set by the input
 precfactor = 1
 #  range 0.5 - 2
-# Precipitation gradient on glacier [% m-1]
+# Precipitation gradient on glacier [m-1]
 precgrad = 0.0001
 #  range 0.0001 - 0.0010
 # Degree-day factor of snow [m w.e. d-1 degC-1]

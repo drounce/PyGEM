@@ -928,7 +928,6 @@ if __name__ == '__main__':
         main_glac_hyps = main_vars['main_glac_hyps']
         main_glac_icethickness = main_vars['main_glac_icethickness']
         main_glac_width = main_vars['main_glac_width']
-        elev_bins = main_vars['elev_bins']
         dates_table = main_vars['dates_table']
         if input.option_synthetic_sim == 1:
             dates_table_synthetic = main_vars['dates_table_synthetic']
