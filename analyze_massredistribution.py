@@ -15,6 +15,7 @@ import numpy as np
 import os
 import glob
 import matplotlib.pyplot as plt
+import copy
 
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -41,9 +42,12 @@ histogram_parameters = ['Area', 'Zmed', 'Slope', 'PercDebris']
 option_plot_eachglacier = 0
 
 # Plot glaciers above and below a given parameter threshold (*MAIN FUNCTION TO RUN)
-option_plot_multipleglaciers_single_thresholds = 1
+option_plot_multipleglaciers_single_thresholds = 0
 # run for specific parameter or all parameters
 option_run_specific_pars = 0
+
+# Plot glaciers above and below a given set of multiple thresholds
+option_plot_multipleglaciers_multiplethresholds = 1
 
 #option_plot_multipleglaciers_binned_parameter = 0 #glaciers within a characteristic's defined range
 #option_plot_multipleglaciers_indiv_subdivisions = 0 #glaciers binned into 6 categories. (NOT USED)
@@ -195,15 +199,13 @@ df_glacnames_all['glacno'] = df_glacnames_all.glacno_str.astype(int)
 df_glacnames = df_glacnames_all[df_glacnames_all.region.isin(rgi_regionO1) == True]
 # make list of all binnedcsv file pathway names
 binnedcsv_files = [binnedcsv_files_all[x] for x in df_glacnames.index.values]
-## Sort glaciers by region and glacier number
+# Sort glaciers by region and glacier number
 binnedcsv_files = sorted(binnedcsv_files)
 df_glacnames = df_glacnames.sort_values('reg_glacno')
 df_glacnames.reset_index(drop=True, inplace=True)
 
 # Create dataframe with RGI attributes for each glacier
 main_glac_rgi = pd.DataFrame()
-#main_glac_hyps = pd.DataFrame()
-#main_glac_icethickness = pd.DataFrame()
 
 for n, region in enumerate(rgi_regionO1):
     print('Region', region)
@@ -215,17 +217,8 @@ for n, region in enumerate(rgi_regionO1):
         #pathways and vars defined in pygem input file 
         main_glac_rgi_reg= modelsetup.selectglaciersrgitable(rgi_regionsO1=[region], rgi_regionsO2='all', 
                                                              rgi_glac_number=rgi_glac_number)
-#        # Glacier hypsometry [km**2], total area
-#        main_glac_hyps_reg = modelsetup.import_Husstable(main_glac_rgi_reg, [region], input.hyps_filepath, 
-#                                                         input.hyps_filedict, input.hyps_colsdrop)
-#        # Ice thickness [m], average
-#        main_glac_icethickness_reg = modelsetup.import_Husstable(main_glac_rgi_reg, [region], input.thickness_filepath, 
-#                                                                 input.thickness_filedict, input.thickness_colsdrop)
-#        main_glac_hyps_reg[main_glac_icethickness_reg == 0] = 0
         # concatenate regions
         main_glac_rgi = main_glac_rgi.append(main_glac_rgi_reg, ignore_index=True)
-#        main_glac_hyps = main_glac_hyps.append(main_glac_hyps_reg, ignore_index=True)
-#        main_glac_icethickness = main_glac_icethickness.append(main_glac_icethickness_reg, ignore_index=True)
 
 #%%MAIN DATASET
 # ds is the main dataset for this analysis and is a list of lists (order of glaciers can be found in df_glacnames)
@@ -248,11 +241,6 @@ for n in range(len(binnedcsv_files)):
     # Remove bad values of dhdt
     binnedcsv.loc[binnedcsv[dhdt_cn] > dhdt_max, dhdt_cn] = np.nan
     binnedcsv.loc[binnedcsv[dhdt_cn] < dhdt_min, dhdt_cn] = np.nan
-#    binnedcsv.loc[binnedcsv[dhdt_cn] > 2, binnedcsv.columns.tolist()[1:]] = np.nan
-#    binnedcsv.loc[binnedcsv[dhdt_cn].astype(float) < -3, 
-#                  binnedcsv.columns.tolist()[1:]] = np.nan
-#    binnedcsv.loc[binnedcsv['dhdt_bin_std_ma'].astype(float) > 3,
-#                  binnedcsv.columns.tolist()[1:]] = np.nan
     # If dhdt is nan, remove row
     null_bins = binnedcsv.loc[pd.isnull(binnedcsv[dhdt_cn])].index.values
     binnedcsv = binnedcsv.drop(null_bins)
@@ -714,7 +702,146 @@ if option_plot_multipleglaciers_single_thresholds == 1:
             #call the fxn
             norm_gt_stats, norm_lt_stats = plot_multipleglaciers_single_threshold(
                     ds, parameter=parameter, threshold_n=threshold_n)
+
+
+#%% Plot multiple glaciers on the same plot  
+def plot_multipleglaciers_multiplethresholds(ds, parameter='Area', thresholds_raw=[0]):
+    """
+    """
+    # Set position of dataset to plot in list based on using merged or unmerged data
+    ds_position = 2 #refer to binnedcsv
+    
+    # Sort list according to parameter
+    ds_sorted = copy.deepcopy(ds)
+    for i in ds_sorted:
+        i.append(i[3][parameter])
+    ds_sorted.sort(key=lambda x: x[4])
+    
+    # Add maximum threshold to threshold such that don't need a greater than statement
+    max_list = max(ds_sorted, key=lambda x: x[4])
+    max_threshold = max_list[4] + 1
+    thresholds=copy.deepcopy(thresholds_raw)
+    thresholds.append(max_threshold)
+    
+    # Count number of glaciers per threshold and record list of values for each threshold's plot
+    count_glac_per_threshold = []
+    normlist_glac_per_threshold = []
+    for n, threshold in enumerate(thresholds):
+        count_glac = 0
+        normlist_glac = []
         
+        for glac in range(len(ds_sorted)):
+            glac_rgi = ds_sorted[glac][3]
+            glac_elevnorm = ds_sorted[glac][ds_position]['elev_norm']
+            glac_dhdt_norm_huss = ds_sorted[glac][ds_position]['dhdt_norm_huss']
+#            glac_dhdt_med = ds_sorted[glac][ds_position]['dhdt_bin_med_ma']
+#            glac_elevs = ds_sorted[glac][ds_position]['bin_center_elev_m']
+#            glac_name = ds_sorted[glac][1].split('-')[1]
+        
+            if n == 0:
+                if glac_rgi[parameter] < threshold:
+                    count_glac += 1
+                    # Make list of array containing elev_norm and dhdt_norm_huss 
+                    normlist_glac.append(np.array([glac_elevnorm.values, 
+                                                    glac_dhdt_norm_huss.values]).transpose())
+            else:
+                if thresholds[n-1] < glac_rgi[parameter] < threshold:
+                    count_glac += 1
+                    # Make list of array containing elev_norm and dhdt_norm_huss
+                    normlist_glac.append(np.array([glac_elevnorm.values, 
+                                                    glac_dhdt_norm_huss.values]).transpose())
+        # Record glaciers per threshold
+        count_glac_per_threshold.append(count_glac)
+        normlist_glac_per_threshold.append(normlist_glac)
+    
+    # ===== PLOT =====
+    # Plot the normalized curves
+    fig_width = 5
+    fig, ax = plt.subplots(len(thresholds), 1, squeeze=False, figsize=(fig_width,int(3*len(thresholds))), 
+                           gridspec_kw = {'wspace':0.2, 'hspace':0.5})
+            
+    normlist_stats_all = []
+    for n, threshold in enumerate(thresholds):
+
+        # Extract values to plot
+        normlist = normlist_glac_per_threshold[n]
+        
+        for glac in range(len(normlist)):
+            normlist_glac = normlist[glac]
+        
+            # Normalized elevation vs. normalized dh/dt
+            ax[n,0].plot(normlist_glac[:,0], normlist_glac[:,1], linewidth=1, alpha=glacier_plots_transparency, 
+                         label=None)
+            ax[n,0].set_ylim(max(normlist_glac[:,0]), min(normlist_glac[:,0]))
+            ax[n,0].set_xlim(0,1)
+            ax[n,0].set_ylabel('Normalized Elevation [-]', size=12)
+            ax[n,0].set_xlabel('Normalized dh/dt [-]', size=12)
+            ax[n,0].yaxis.set_major_locator(plt.MultipleLocator(0.2))
+            ax[n,0].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+            ax[n,0].xaxis.set_major_locator(plt.MultipleLocator(0.2))
+            ax[n,0].xaxis.set_minor_locator(plt.MultipleLocator(0.1))
+            
+            if threshold == thresholds[0]:
+                ax[n,0].set_title((parameter + '<' + str(threshold) + ' (' + str(len(normlist)) + ' Glaciers)'), 
+                                  size=12)
+            elif threshold != thresholds[-1]:
+                ax[n,0].set_title((str(thresholds[n-1]) + '<' + parameter + '<' + str(threshold) + ' (' + 
+                                   str(len(normlist)) + ' Glaciers)'), size=12)
+            else:
+                ax[n,0].set_title((parameter + '>' + str(thresholds[n-1]) + ' (' + str(len(normlist)) + ' Glaciers)'), 
+                                  size=12)
+                
+        # Add statistics to plot        
+        normlist_stats = normalized_stats(normlist)
+        ax[n,0].plot(normlist_stats.norm_elev, normlist_stats.norm_dhdt_mean, color='black', linewidth=2)
+        ax[n,0].plot(normlist_stats.norm_elev, normlist_stats.norm_dhdt_68high, '--', color='black', linewidth=1.5) 
+        ax[n,0].plot(normlist_stats.norm_elev, normlist_stats.norm_dhdt_68low, '--', color='black', linewidth=1.5)
+        # Record stats to plot on separate graph
+        normlist_stats_all.append(normlist_stats)
+    
+    # Save figure
+    fig.set_size_inches(fig_width, int(len(thresholds)*3))
+    threshold_str_list = [str(i) for i in thresholds]
+    threshold_str_list[-1] = 'max'
+    threshold_str = '-'.join(threshold_str_list)
+    fig.savefig(fig_fp + ('normcurves' + parameter + '_' + threshold_str + '.png'), bbox_inches='tight', dpi=300)
+                
+    # ===== PLOT ALL ON ONE =====
+    fig_width_all = 4
+    fig_height_all = 3
+    fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(fig_width_all,fig_height_all), 
+                           gridspec_kw = {'wspace':0.2, 'hspace':0.5})
+    for n, normlist_stats in enumerate(normlist_stats_all):
+        # Threshold label
+        threshold = thresholds[n]
+        num_glac = count_glac_per_threshold[n]
+        if threshold == thresholds[0]:
+            threshold_label = '< ' + str(threshold) + ' (' + str(num_glac) + ')'
+        elif threshold != thresholds[-1]:
+            threshold_label = str(thresholds[n-1]) + '-' + str(threshold) + ' (' + str(num_glac) + ')'
+        else:
+            threshold_label = '> ' + str(thresholds[n-1]) + ' (' + str(num_glac) + ')'
+        
+        # Plot mean of each
+        ax[0,0].plot(normlist_stats.norm_elev, normlist_stats.norm_dhdt_mean, linewidth=2, label=threshold_label)
+        ax[0,0].set_ylim(max(normlist_glac[:,0]), min(normlist_glac[:,0]))
+        ax[0,0].set_xlim(0,1)
+        ax[0,0].set_ylabel('Normalized Elevation [-]', size=12)
+        ax[0,0].set_xlabel('Normalized dh/dt [-]', size=12)
+        ax[0,0].yaxis.set_major_locator(plt.MultipleLocator(0.2))
+        ax[0,0].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+        ax[0,0].xaxis.set_major_locator(plt.MultipleLocator(0.2))
+        ax[0,0].xaxis.set_minor_locator(plt.MultipleLocator(0.1))
+        ax[0,0].legend(loc='lower left')
+    
+    # Save figure
+    fig.savefig(fig_fp + ('normcurves' + parameter + '_' + threshold_str + '_MEANS.png'), bbox_inches='tight', dpi=300)
+
+
+if option_plot_multipleglaciers_multiplethresholds == 1:
+    plot_multipleglaciers_multiplethresholds(ds, parameter='Area', thresholds_raw=[5,10])
+        
+    
 
 #%% 
 ##%%PLOT Multiple Glaciers, with threshold bins for the parameter

@@ -283,17 +283,17 @@ class GCM():
 
 #%% Testing
 if __name__ == '__main__':
-    gcm = GCM(name='GISS-E2-R', rcp_scenario='rcp60')
+    gcm = GCM(name='CSIRO-Mk3-6-0', rcp_scenario='rcp85')
 #    gcm = GCM(name='ERA-Interim')
     
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                      rgi_glac_number=input.rgi_glac_number)
+                                                      rgi_glac_number='all')
     dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2006, spinupyears=0)
 
-
+    print('loaded')
     # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+#    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+#    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
 #    if gcm.name == 'ERA-Interim':
 #        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
