@@ -707,6 +707,24 @@ if option_plot_multipleglaciers_single_thresholds == 1:
 #%% Plot multiple glaciers on the same plot  
 def plot_multipleglaciers_multiplethresholds(ds, parameter='Area', thresholds_raw=[0]):
     """
+    Plot all glaciers for multiple thresholds
+    
+    Parameters
+    ----------
+    ds : list of lists
+        main dataset containing elevation, dh/dt, glacier rgi table and other data for each glacier
+    parameter : str
+        parameter name (needs to match parameter name in glacier rgi table)
+    thresholds_raw : list of integers
+        threshold values; they are considered "raw" because the function automatically includes a greater than of the 
+        last threshold, so [5, 10] will look at 3 thresholds: "< 5", "5 - 10", and "> 10"
+    
+    Returns
+    -------
+    Two plots of the normalized elevation dh/dt curves.
+        1. Normalized elevation vs normalized dh/dt with mean and standard deviation included with each threshold having
+           a separate subplot
+        2. Mean normalized elevation vs. normalized dh/dt for each threshold on a single plot
     """
     # Set position of dataset to plot in list based on using merged or unmerged data
     ds_position = 2 #refer to binnedcsv
