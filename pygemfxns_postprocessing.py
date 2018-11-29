@@ -40,16 +40,16 @@ option_calcompare_w_geomb = 0
 option_add_metadata2netcdf = 0
 option_merge_netcdfs = 0
 option_spc_subset_vars = 0
-option_var_mon2annual = 0
+option_var_mon2annual = 1
 
 
 
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
 if option_var_mon2annual == 1:
     netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108_vars/'
-#    vns = ['acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 'frontalablation_glac_monthly', 
-#           'massbaltotal_glac_monthly', 'temp_glac_monthly', 'prec_glac_monthly']
-    vns = ['runoff_glac_monthly']
+    vns = ['acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 'frontalablation_glac_monthly', 
+           'massbaltotal_glac_monthly', 'temp_glac_monthly', 'prec_glac_monthly', 'runoff_glac_monthly']
+#    vns = ['runoff_glac_monthly']
     
     def coords_attrs_dict(ds, vn):
         """
@@ -303,12 +303,16 @@ if option_var_mon2annual == 1:
                     if not os.path.exists(output_fp):
                         os.makedirs(output_fp)
                     output_ds.to_netcdf(output_fp + output_fn, encoding=encoding)
+                
+                # Remove file
+                os.remove(netcdf_fp + i)
+                
 
                 
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
 if option_spc_subset_vars == 1:
     netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108_merged/'
-    gcm_name = 'GFDL-CM3'
+    gcm_name = 'IPSL-CM5A-MR'
     
     vns_all = input.output_variables_package2
     vns_subset = input.output_variables_package2

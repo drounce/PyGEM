@@ -110,7 +110,7 @@ def effective_n(ds, vn, iters, burn):
     #  with the statistics definition of autocorrelation on wikipedia
     # (dividing by n_samples gives you the expected value).
     rho_norm = rho / rho[0]
-    # Iterate untile sum of consecutive estimates of autocorrelation is
+    # Iterate until sum of consecutive estimates of autocorrelation is
     # negative to avoid issues with the sum being -0.5, which returns an
     # effective_n of infinity
     negative_autocorr = False
@@ -184,7 +184,7 @@ def MC_error(ds, vn, iters=None, burn=0, chain_no=0, batches=5):
     vn : str
         Parameter variable name
     chain_no : int
-        Number of chain to use (0,1 ror 2)
+        Number of chain to use (0, 1 or 2)
         If none, finds the highest MC error of the three chains
         and returns this value
     batches : int

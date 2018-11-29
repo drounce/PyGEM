@@ -24,8 +24,8 @@ import pygemfxns_modelsetup as modelsetup
 
 #%% ===== REGION AND GLACIER FILEPATH OPTIONS =====
 # User defines regions of interest
-#rgi_regionO1 = [13, 14, 15]
-rgi_regionO1 = [15]
+rgi_regionO1 = [13, 14, 15]
+#rgi_regionO1 = [15]
 search_binnedcsv_fn = (input.main_directory + '/../DEMs/Shean_2018_1109/aster_2000-2018_20181109_bins/*_mb_bins.csv') 
 
 #%% ===== PLOT OPTIONS =====
@@ -47,7 +47,10 @@ option_plot_multipleglaciers_single_thresholds = 0
 option_run_specific_pars = 0
 
 # Plot glaciers above and below a given set of multiple thresholds
-option_plot_multipleglaciers_multiplethresholds = 1
+option_plot_multipleglaciers_multiplethresholds = 0
+
+# Plot glacier characteristics to see if parameters are related
+option_plot_compareparameters = 1
 
 #option_plot_multipleglaciers_binned_parameter = 0 #glaciers within a characteristic's defined range
 #option_plot_multipleglaciers_indiv_subdivisions = 0 #glaciers binned into 6 categories. (NOT USED)
@@ -409,6 +412,28 @@ def normalized_stats(norm_list):
 
 norm_stats = normalized_stats(norm_list)
 
+#%% Plots comparing glacier parameters to see if any are related
+if option_plot_compareparameters == 1:
+    parameter1 = 'PercDebris'
+    parameter2 = 'Slope'
+    A = np.array([ds[x][3][parameter1] for x in range(len(ds))])
+    B = np.array([ds[x][3][parameter2] for x in range(len(ds))])
+    
+    param_label_dict = {'Area': 'Area [km2]',
+                        'PercDebris': 'Debris cover[%]',
+                        'Slope':'Slope [deg]'}
+    # ===== PLOT =====
+    fig_width = 4
+    fig_height = 3
+    fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(fig_width,fig_height), 
+                           gridspec_kw = {'wspace':0.2, 'hspace':0.5})
+    ax[0,0].scatter(A,B, color='k', s=1)
+    ax[0,0].set_xlabel(param_label_dict[parameter1], size=14)
+    ax[0,0].set_ylabel(param_label_dict[parameter2], size=14)
+    # Save figure
+    fig.savefig(fig_fp + ('scatter_' + parameter1 + '_' + parameter2 + '.png'), bbox_inches='tight', dpi=300)
+    
+
 #%% Plots for a histogram of parameter (distribution of values)		
 def plot_var_histogram():		     		
    #plot histogram, where x-axis is the testing_var values, and y-axis is how many glaciers have that given x-axis value	
@@ -433,6 +458,7 @@ def plot_var_histogram():
 
 if option_plot_histogram == 1:
     plot_var_histogram()
+    
 
 #%% Plots for a single glacier    
 def plot_eachglacier(ds, option_merged_dataset=0):

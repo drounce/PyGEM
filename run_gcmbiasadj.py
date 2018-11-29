@@ -49,8 +49,8 @@ def getparser():
     """
     parser = argparse.ArgumentParser(description="run gcm bias corrections from gcm list in parallel")
     # add arguments
-    parser.add_argument('gcm_file', action='store', type=str, default='gcm_rcpXX_filenames.txt',
-                        help='text file full of commands to run')
+    parser.add_argument('gcm_file', action='store', type=str, default=None,
+                        help='text file full of gcm names')
     parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=2,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
