@@ -16,6 +16,7 @@ import pandas as pd
 import netCDF4 as nc
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.ticker import MaxNLocator
 import scipy
 import cartopy
 import xarray as xr
@@ -174,15 +175,12 @@ if option_plot_cmip5_volchange == 1:
     
     rgi_regions = [13, 14, 15]
     #gcm_names = ['ERA-Interim']
-#    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-#                 'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3']
-#    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-#                 'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3']
-    gcm_names = ['CSIRO-Mk3-6-0']
+    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+                 'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'Nor-ESM1-M']
 #    rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
-#    rcps = ['rcp26', 'rcp45', 'rcp85']
-    rcps = ['rcp26']
-    vns = ['runoff_glac_annual']
+    rcps = ['rcp26', 'rcp45', 'rcp85']
+#    rcps = ['rcp26']
+    vns = ['volume_glac_annual', 'runoff_glac_annual']
 #    vns = ['volume_glac_annual']
 #    vns = ['volume_glac_annual', 'temp_glac_annual', 'prec_glac_annual']
     # NOTE: Temperatures and precipitation will not line up exactly because each region is covered by a different 
@@ -195,7 +193,8 @@ if option_plot_cmip5_volchange == 1:
     gcm_colordict = dict(zip(gcm_names, colors_rgb[0:len(gcm_names)]))
     rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp60':'m', 'rcp85':'r'}
     rcp_styledict = {'rcp26':':', 'rcp45':'--', 'rcp85':'-.'}
-    multimodel_linewidth = 1
+    multimodel_linewidth = 2
+    option_plots_individual_gcms = 0
     
     
     # Load all glaciers
@@ -234,9 +233,11 @@ if option_plot_cmip5_volchange == 1:
     num_rows = int(np.ceil(len(groups)/num_cols))
         
     for vn in vns:
-        fig, ax = plt.subplots(num_rows, num_cols, squeeze=False, sharex=True, sharey=True,
+        fig, ax = plt.subplots(num_rows, num_cols, squeeze=False, sharex=False, sharey=True,
                                figsize=(int(5*len(groups)),int(4*len(vns))), 
-                               gridspec_kw = {'wspace':0.05, 'hspace':0.25})
+                               gridspec_kw = {'wspace':0, 'hspace':0})
+#                               gridspec_kw = {'wspace':0.05, 'hspace':0.25})
+        add_group_label = 1
         
         for rcp in rcps:
 #        for rcp in ['rcp85']:
@@ -279,9 +280,9 @@ if option_plot_cmip5_volchange == 1:
                 # Cycle through groups  
                 row_idx = 0
                 col_idx = 0
-#                for ngroup, group in enumerate(groups):
-                for ngroup, group in enumerate([groups[1]]):
-                    print(gcm_name, rcp, group)
+                for ngroup, group in enumerate(groups):
+#                for ngroup, group in enumerate([groups[1]]):
+#                    print(gcm_name, rcp, group)
                     # Set subplot position
                     if (ngroup % num_cols == 0) and (ngroup != 0):
                         row_idx += 1
@@ -337,7 +338,7 @@ if option_plot_cmip5_volchange == 1:
                         # Runoff from 2000 - 2017
                         t1_idx = np.where(time_values == 2000)[0][0]
                         t2_idx = np.where(time_values == 2017)[0][0]
-                        vn_reg_2000_2017_mean = vn_reg[t1_idx:t2_idx+1].mean()
+                        vn_reg_2000_2017_mean = vn_reg[t1_idx:t2_idx+1].sum() / (t2_idx - t1_idx + 1)
                         # Regional normalized volume        
                         vn_reg_norm = vn_reg / vn_reg_2000_2017_mean
                         vn_reg_norm_stdhigh = vn_reg_stdhigh / vn_reg_2000_2017_mean
@@ -345,79 +346,102 @@ if option_plot_cmip5_volchange == 1:
                         vn_reg_plot = vn_reg_norm.copy()
                         vn_reg_plot_stdlow = vn_reg_norm_stdlow.copy()
                         vn_reg_plot_stdhigh = vn_reg_norm_stdhigh.copy()
-                
-#                    # ===== Plot =====
-#                    ax[row_idx, col_idx].plot(time_values, vn_reg_plot, color=rcp_colordict[rcp], linewidth=1, 
-#                                              alpha=0, label=None)
-##                    # Volume change uncertainty
-##                    if vn == 'volume_glac_annual':
-##                        ax[row_idx, col_idx].fill_between(
-##                                time_values, vn_reg_plot_stdlow, vn_reg_plot_stdhigh, 
-##                                facecolor=gcm_colordict[gcm_name], alpha=0.15, label=None)
-#                    
-#                    # Group labels
+
+                    # ===== Plot =====
+                    if option_plots_individual_gcms == 1:
+                        ax[row_idx, col_idx].plot(time_values, vn_reg_plot, color=rcp_colordict[rcp], linewidth=1, 
+                                                  alpha=0, label=None)
+    #                    # Volume change uncertainty
+    #                    if vn == 'volume_glac_annual':
+    #                        ax[row_idx, col_idx].fill_between(
+    #                                time_values, vn_reg_plot_stdlow, vn_reg_plot_stdhigh, 
+    #                                facecolor=gcm_colordict[gcm_name], alpha=0.15, label=None)
+                    
+                    # Group labels
 #                    ax[row_idx, col_idx].set_title(title_dict[group], size=14)
-#                    ax[row_idx, col_idx].tick_params(axis='both', which='major', labelsize=20)
-#                    # X-label
-#                    ax[row_idx, col_idx].set_xlim(time_values.min(), time_values.max())
-#                    ax[row_idx, col_idx].xaxis.set_tick_params(labelsize=14)
-#                    ax[row_idx, col_idx].xaxis.set_major_locator(plt.MultipleLocator(50))
-#                    ax[row_idx, col_idx].xaxis.set_minor_locator(plt.MultipleLocator(10))
-#                    xlabels = ax[row_idx, col_idx].xaxis.get_major_ticks()
-#                    ax[row_idx, col_idx].set_xticklabels(['','2000','2050',''])
-#                    # Y-label
-#                    ax[row_idx, col_idx].yaxis.set_tick_params(labelsize=14)
-#                    if vn == 'volume_glac_annual':
-#                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.2))
-#                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
-#                    
-#                    # Count column index to plot
-#                    col_idx += 1
-#                    
-#                    # Record data for multi-model stats
-#                    if ngcm == 0:
-#                        ds_multimodels[ngroup] = [group, vn_reg_plot]
-#                    else:
-#                        ds_multimodels[ngroup][1] = np.vstack((ds_multimodels[ngroup][1], vn_reg_plot))
-#            
-#            # Multi-model mean
-#            row_idx = 0
-#            col_idx = 0
-#            for ngroup, group in enumerate(groups):
-#                if (ngroup % num_cols == 0) and (ngroup != 0):
-#                    row_idx += 1
-#                    col_idx = 0
-#                # Multi-model statistics
-#                vn_multimodel_mean = ds_multimodels[ngroup][1].mean(axis=0)
-#                vn_multimodel_std = ds_multimodels[ngroup][1].std(axis=0)
-#                vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
-#                vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
-#                ax[row_idx, col_idx].plot(time_values, vn_multimodel_mean, color=rcp_colordict[rcp], 
-#                                          linewidth=multimodel_linewidth, label=rcp)
-#                ax[row_idx, col_idx].fill_between(time_values, vn_multimodel_stdlow, vn_multimodel_stdhigh, 
-#                                                  facecolor=rcp_colordict[rcp], alpha=0.2, label=None)
-#                col_idx += 1
-#
-#        # RCP Legend
-#        rcp_lines = []
-#        for rcp in rcps:
-#            line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
-#            rcp_lines.append(line)
-#        rcp_labels = [rcp_dict[rcp] for rcp in rcps]
-#        ax[0,0].legend(rcp_lines, rcp_labels, loc='lower left', fontsize=12, labelspacing=0, handlelength=1, 
-#                       handletextpad=0.5, borderpad=0, frameon=False)
-#    #    # GCM Legend
-#    #    gcm_lines = []
-#    #    for gcm_name in gcm_names:
-#    #        line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
-#    #        gcm_lines.append(line)
-#    #    gcm_legend = gcm_names.copy()
-#    #    gcm_legend.append('Mean')
-#    #    line = Line2D([0,1],[0,1], linestyle='-', color='k', linewidth=5)
-#    #    gcm_lines.append(line)
-#    #    ax[0,2].legend(gcm_lines, gcm_legend, loc='center left', title='GCM', bbox_to_anchor=(1,0,0.5,1))
-#        fig.text(0.03, 0.5, vn_dict[vn], va='center', rotation='vertical', size=16)
-#        # Save figure
-#        fig.set_size_inches(7, num_rows*2)
-#        figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
-#        fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+                    if add_group_label == 1:
+                        ax[row_idx, col_idx].text(0.5, 0.99, title_dict[group], size=14, horizontalalignment='center', 
+                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes)
+                    # Tick parameters
+                    ax[row_idx, col_idx].tick_params(axis='both', which='major', labelsize=25, direction='inout')
+                    ax[row_idx, col_idx].tick_params(axis='both', which='minor', labelsize=15, direction='inout')
+                    # X-label
+                    ax[row_idx, col_idx].set_xlim(time_values.min(), time_values.max())
+                    ax[row_idx, col_idx].xaxis.set_tick_params(labelsize=14)
+                    ax[row_idx, col_idx].xaxis.set_major_locator(plt.MultipleLocator(50))
+                    ax[row_idx, col_idx].xaxis.set_minor_locator(plt.MultipleLocator(10))
+                    if col_idx == 0 and row_idx == num_rows-1:
+                        ax[row_idx, col_idx].set_xticklabels(['','2000','2050','2100'])
+                    elif row_idx == num_rows-1:
+                        ax[row_idx, col_idx].set_xticklabels(['','','2050','2100'])
+                    else:
+                        ax[row_idx, col_idx].set_xticklabels(['','','',''])
+                    #  labels are the first one, 2000, 2050, 2100, and 2101
+                    # Y-label
+                    ax[row_idx, col_idx].yaxis.set_tick_params(labelsize=14)
+#                    ax[row_idx, col_idx].yaxis.set_major_locator(MaxNLocator(prune='both'))
+                    if vn == 'volume_glac_annual':
+                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.2))
+                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+                    elif vn == 'runoff_glac_annual':
+                        ax[row_idx, col_idx].set_ylim(0,2)
+                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.5))
+                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+                        ax[row_idx, col_idx].set_yticklabels(['','','0.5','1.0','1.5', ''])
+                    
+                    # Count column index to plot
+                    col_idx += 1
+                    
+                    # Record data for multi-model stats
+                    if ngcm == 0:
+                        ds_multimodels[ngroup] = [group, vn_reg_plot]
+                    else:
+                        ds_multimodels[ngroup][1] = np.vstack((ds_multimodels[ngroup][1], vn_reg_plot))
+                        
+                # Only add group label once
+                add_group_label = 0
+            
+            # Multi-model mean
+            row_idx = 0
+            col_idx = 0
+            for ngroup, group in enumerate(groups):
+                if (ngroup % num_cols == 0) and (ngroup != 0):
+                    row_idx += 1
+                    col_idx = 0
+                # Multi-model statistics
+                vn_multimodel_mean = ds_multimodels[ngroup][1].mean(axis=0)
+                vn_multimodel_std = ds_multimodels[ngroup][1].std(axis=0)
+                vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
+                vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
+                ax[row_idx, col_idx].plot(time_values, vn_multimodel_mean, color=rcp_colordict[rcp], 
+                                          linewidth=multimodel_linewidth, label=rcp)
+                ax[row_idx, col_idx].fill_between(time_values, vn_multimodel_stdlow, vn_multimodel_stdhigh, 
+                                                  facecolor=rcp_colordict[rcp], alpha=0.2, label=None)   
+                # Adjust subplot column index
+                col_idx += 1
+
+        # RCP Legend
+        rcp_lines = []
+        for rcp in rcps:
+            line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
+            rcp_lines.append(line)
+        rcp_labels = [rcp_dict[rcp] for rcp in rcps]
+        ax[0,0].legend(rcp_lines, rcp_labels, loc='lower left', fontsize=12, labelspacing=0, handlelength=1, 
+                       handletextpad=0.5, borderpad=0, frameon=False)
+        
+        # GCM Legend
+        gcm_lines = []
+        for gcm_name in gcm_names:
+            line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
+            gcm_lines.append(line)
+        gcm_legend = gcm_names.copy()
+        fig.legend(gcm_lines, gcm_legend, loc='center right', title='GCMs', bbox_to_anchor=(1.06,0.5), 
+                   handlelength=0, handletextpad=0, borderpad=0, frameon=False)
+        
+        # Y-Label
+        fig.text(0.03, 0.5, vn_dict[vn], va='center', rotation='vertical', size=16)
+        
+        # Save figure
+        fig.set_size_inches(7, num_rows*2)
+        figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
+        fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
