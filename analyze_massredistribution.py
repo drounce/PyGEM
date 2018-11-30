@@ -414,14 +414,15 @@ norm_stats = normalized_stats(norm_list)
 
 #%% Plots comparing glacier parameters to see if any are related
 if option_plot_compareparameters == 1:
-    parameter1 = 'PercDebris'
-    parameter2 = 'Slope'
+    parameter1 = 'Area'
+    parameter2 = 'Lmax'
     A = np.array([ds[x][3][parameter1] for x in range(len(ds))])
     B = np.array([ds[x][3][parameter2] for x in range(len(ds))])
     
     param_label_dict = {'Area': 'Area [km2]',
                         'PercDebris': 'Debris cover[%]',
-                        'Slope':'Slope [deg]'}
+                        'Slope':'Slope [deg]',
+                        'Lmax': 'Length [km]'}
     # ===== PLOT =====
     fig_width = 4
     fig_height = 3

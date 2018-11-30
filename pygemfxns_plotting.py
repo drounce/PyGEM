@@ -32,12 +32,24 @@ import run_simulation
 option_plot_cmip5_volchange = 1
 
 #%% REGIONAL BIAS ADJUSTED TEMPERATURE AND PRECIPITATION FOR GCMS
-region=13
-gcm_name = 'CSIRO-Mk3-6-0'
-rcp = 'rcp85'
-
-
 def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
+    """
+    Get the regional temperature and precipitation for a given dataset.
+    
+    Extracts all nearest neighbor temperature and precipitation data for a given set of glaciers.  The mean temperature
+    and precipitation of the group of glaciers is returned.  If two glaciers have the same temp/prec data, that data
+    is only used once in the mean calculations.  Additionally, one would not expect for different GCMs to be similar
+    because they all have different resolutions, so this mean calculations will have different numbers of pixels.
+    
+    Parameters
+    ----------
+    gcm_name : str
+        GCM name
+    rcp : str
+        rcp scenario (ex. rcp26)
+    main_glac_rgi : pd.DataFrame
+        glacier dataset used to select the nearest neighbor climate data
+    """
     # Date tables    
     dates_table_ref = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0, 
                                                option_wateryear=1)
@@ -126,20 +138,52 @@ def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
 if option_plot_cmip5_volchange == 1:
     netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
     netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
-    figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/'
+    figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
     watershed_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_w_watersheds.csv'
     
 #    grouping = 'rgi_region'
     grouping = 'watershed'
     
+    # Plot label dictionaries
+    title_dict = {'Amu_Darya': 'Amu Darya',
+                  'Brahmaputra': 'Brahmaputra',
+                  'Ganges': 'Ganges',
+                  'Ili': 'Ili',
+                  'Indus': 'Indus',
+                  'Inner_Tibetan_Plateau': 'Inner_TP',
+                  'Inner_Tibetan_Plateau_extended': 'Inner_TP_ext',
+                  'Irrawaddy': 'Irrawaddy',
+                  'Mekong': 'Mekong',
+                  'Salween': 'Salween',
+                  'Syr_Darya': 'Syr Darya',
+                  'Tarim': 'Tarim',
+                  'Yangtze': 'Yangtze',
+                  13: 'Central Asia',
+                  14: 'South Asia West',
+                  15: 'South Asia East'
+                  }
+    vn_dict = {'volume_glac_annual': 'Normalized Volume [-]',
+               'runoff_glac_annual': 'Normalized Runoff [-]',
+               'temp_glac_annual': 'Temperature [degC]',
+               'prec_glac_annual': 'Precipitation [m]'}
+    rcp_dict = {'rcp26': '2.6',
+                'rcp45': '4.5',
+                'rcp60': '6.0',
+                'rcp85': '8.5'}
+    
     
     rgi_regions = [13, 14, 15]
     #gcm_names = ['ERA-Interim']
-    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0']
-    #gcm_names = ['CanESM2']
+#    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+#                 'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3']
+#    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+#                 'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3']
+    gcm_names = ['CSIRO-Mk3-6-0']
 #    rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
-    rcps = ['rcp26', 'rcp45', 'rcp85']
-    vns = ['volume_glac_annual']
+#    rcps = ['rcp26', 'rcp45', 'rcp85']
+    rcps = ['rcp26']
+    vns = ['runoff_glac_annual']
+#    vns = ['volume_glac_annual']
 #    vns = ['volume_glac_annual', 'temp_glac_annual', 'prec_glac_annual']
     # NOTE: Temperatures and precipitation will not line up exactly because each region is covered by a different 
     #       number of pixels, and hence the mean of those pixels is not going to be equal.
@@ -151,6 +195,7 @@ if option_plot_cmip5_volchange == 1:
     gcm_colordict = dict(zip(gcm_names, colors_rgb[0:len(gcm_names)]))
     rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp60':'m', 'rcp85':'r'}
     rcp_styledict = {'rcp26':':', 'rcp45':'--', 'rcp85':'-.'}
+    multimodel_linewidth = 1
     
     
     # Load all glaciers
@@ -175,224 +220,204 @@ if option_plot_cmip5_volchange == 1:
         group_cn = 'O1Region'
     elif grouping == 'watershed':
         groups = main_glac_rgi_all.watershed.unique().tolist()
+        groups.remove('Irrawaddy')
         group_cn = 'watershed'
     groups = sorted(groups)
     
-    
-#    reg_legend = []
-#    fig, ax = plt.subplots(len(vns), len(groups), squeeze=False, 
-#                           figsize=(int(2*len(groups)),int(4*len(vns))), 
-#                           gridspec_kw = {'wspace':0.05, 'hspace':0.05})
-    
-    count_group = 0
-#    for group in groups:
-    for group in [groups[0]]:
-        count_vn = 0
+    #%%
+    reg_legend = []
+    num_cols_max = 4
+    if len(groups) < num_cols_max:
+        num_cols = len(groups)
+    else:
+        num_cols = num_cols_max
+    num_rows = int(np.ceil(len(groups)/num_cols))
         
-        # Select subset of data
-        main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]
+    for vn in vns:
+        fig, ax = plt.subplots(num_rows, num_cols, squeeze=False, sharex=True, sharey=True,
+                               figsize=(int(5*len(groups)),int(4*len(vns))), 
+                               gridspec_kw = {'wspace':0.05, 'hspace':0.25})
         
-        for vn in vns:
-        
-            vn_reg_plot_all_mean_dict = {}
+        for rcp in rcps:
+#        for rcp in ['rcp85']:
+            ds_multimodels = [[] for group in groups]
             
-#            for rcp in rcps:
-            for rcp in ['rcp85']:
-                vn_reg_plot_all = None
-#                for gcm_name in gcm_names:
-                for gcm_name in ['CSIRO-Mk3-6-0']:
-                    
-                    #%% NEED TO CONCATENATE THESE AS WELL!
-                    if grouping == 'rgi_region':
-                        # NetCDF filename
-                        if gcm_name == 'ERA-Interim':
-                            netcdf_fp = netcdf_fp_era
-                            ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
-                        else:
-                            netcdf_fp = netcdf_fp_cmip5 + vn + '/'
-                            ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' + 
-                                     vn + '.nc')    
-                        # Open dataset
-                        # try to open it, continue to bypass GCMs that don't have all rcps
-                        try:
-                            ds = xr.open_dataset(netcdf_fp + ds_fn)
-                        except:
-                            continue
-                        
-                        # Time
-                        if 'annual' in vn:
-                            try:
-                                time_values = ds[vn].coords['year_plus1'].values
-                            except:
-                                time_values = ds[vn].coords['year'].values
-                        # Glacier volume mean, standard deviation, and variance
-                        vn_glac = ds[vn].values[:,:,0]
-                        vn_glac_std = ds[vn].values[:,:,1]
-                        vn_glac_var = vn_glac_std **2
-                    
-                    # If grouping is not RGI regions, need to merge all the data and then plot.
+            for ngcm, gcm_name in enumerate(gcm_names):
+#            for ngcm, gcm_name in enumerate(['CSIRO-Mk3-6-0']):
+#                print(ngcm, gcm_name)
+            
+                
+                # Merge all data, then select group data
+                for region in rgi_regions:                        
+                    # Load datasets
+                    if gcm_name == 'ERA-Interim':
+                        netcdf_fp = netcdf_fp_era
+                        ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
                     else:
-                        print('merge data')
-                        #%%
-                        for region in rgi_regions:                        
-                            # NetCDF filename
-                            if gcm_name == 'ERA-Interim':
-                                netcdf_fp = netcdf_fp_era
-                                ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
-                            else:
-                                netcdf_fp = netcdf_fp_cmip5 + vn + '/'
-                                ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' 
-                                         + vn + '.nc')    
-                            # Open dataset
-                            # try to open it, continue to bypass GCMs that don't have all rcps
-                            try:
-                                ds = xr.open_dataset(netcdf_fp + ds_fn)
-                            except:
-                                continue
-                            
-                            # Time
-                            if 'annual' in vn:
-                                try:
-                                    time_values = ds[vn].coords['year_plus1'].values
-                                except:
-                                    time_values = ds[vn].coords['year'].values
-                            
-                            #MERGE THESE TOGETHER FOR ALL REGIONS, THEN SELECT APPROPRIATE VALUES BASED ON THE GROUP
-                            
-                            # Extract values
-                            if region == rgi_regions[0]:
-                                vn_glac = ds[vn].values[:,:,0]
-                                vn_glac_std = ds[vn].values[:,:,1]
-                            else:
-                                vn_glac = np.concatenate((vn_glac, ds[vn].values[:,:,0]), axis=0)
-                                vn_glac_std = np.concatenate((vn_glac_std, ds[vn].values[:,:,1]), axis=0)
-                            
-                            
-                            
-                            
-                            
-                            
-                            
-#                            vn_glac_var = vn_glac_std **2
-                    
-                    #%%
-                     
-#                    # Plot data
-#                    if vn == 'volume_glac_annual':
-#                        # Regional mean, standard deviation, and variance
-#                        #  mean: E(X+Y) = E(X) + E(Y)
-#                        #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
-#                        #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
-#                        #  std: std(X+Y) = (Var(X+Y))**0.5
-#                        vn_reg = vn_glac.sum(axis=0)
-#                        vn_reg_var = vn_glac_var.sum(axis=0)
-#                        vn_reg_std = vn_reg_var**0.5
-#                        vn_reg_stdhigh = vn_reg + vn_reg_std
-#                        vn_reg_stdlow = vn_reg - vn_reg_std
-#                        # Regional normalized volume           
-#                        vn_reg_norm = vn_reg / vn_reg[0]
-#                        vn_reg_norm_stdhigh = vn_reg_stdhigh / vn_reg[0]
-#                        vn_reg_norm_stdlow = vn_reg_stdlow / vn_reg[0]
-#                        # Multi-model mean of regional GCMs
-#                        if vn_reg_plot_all is None:
-#                            vn_reg_plot_all = vn_reg_norm
-#                        else:
-#                            vn_reg_plot_all = np.vstack((vn_reg_plot_all, vn_reg_norm))
-#                        vn_reg_plot = vn_reg_norm.copy()
-#                        vn_reg_plot_stdlow = vn_reg_norm_stdlow.copy()
-#                        vn_reg_plot_stdhigh = vn_reg_norm_stdhigh.copy()
-#                    elif ('prec' in vn) or ('temp' in vn):       
-#                        # Regional mean function (monthly data)
-#                        reg_mean_temp_biasadj, reg_mean_prec_biasadj = (
-#                                select_region_climatedata(gcm_name, rcp, main_glac_rgi))
-#                        # Annual region mean
-#                        if 'prec' in vn:
-#                            reg_var_mean_annual = reg_mean_prec_biasadj.reshape(-1,12).sum(axis=1)
-#                        elif 'temp' in vn:
-#                            reg_var_mean_annual = reg_mean_temp_biasadj.reshape(-1,12).mean(axis=1)
-#                        # Plot data
-#                        vn_reg_plot = reg_var_mean_annual.copy()
-#                        # Multi-model mean of regional GCMs
-#                        if vn_reg_plot_all is None:
-#                            vn_reg_plot_all = vn_reg_plot
-#                        else:
-#                            vn_reg_plot_all = np.vstack((vn_reg_plot_all, vn_reg_plot))
+                        netcdf_fp = netcdf_fp_cmip5 + vn + '/'
+                        ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' 
+                                 + vn + '.nc')    
+                    # Bypass GCMs that are missing a rcp scenario
+                    try:
+                        ds = xr.open_dataset(netcdf_fp + ds_fn)
+                    except:
+                        continue
+                    # Extract time variable
+                    if 'annual' in vn:
+                        try:
+                            time_values = ds[vn].coords['year_plus1'].values
+                        except:
+                            time_values = ds[vn].coords['year'].values
+                    # Merge datasets
+                    if region == rgi_regions[0]:
+                        vn_glac_all = ds[vn].values[:,:,0]
+                        vn_glac_std_all = ds[vn].values[:,:,1]
+                    else:
+                        vn_glac_all = np.concatenate((vn_glac_all, ds[vn].values[:,:,0]), axis=0)
+                        vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn].values[:,:,1]), axis=0)
+                
+                # Cycle through groups  
+                row_idx = 0
+                col_idx = 0
+#                for ngroup, group in enumerate(groups):
+                for ngroup, group in enumerate([groups[1]]):
+                    print(gcm_name, rcp, group)
+                    # Set subplot position
+                    if (ngroup % num_cols == 0) and (ngroup != 0):
+                        row_idx += 1
+                        col_idx = 0
                         
+                    # Select subset of data
+                    main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
+                    vn_glac = vn_glac_all[main_glac_rgi.index.values.tolist(),:]
+                    vn_glac_std = vn_glac_std_all[main_glac_rgi.index.values.tolist(),:]
+                    vn_glac_var = vn_glac_std **2
+                     
+                    # Plot data
+                    if vn == 'volume_glac_annual':
+                        # Regional mean, standard deviation, and variance
+                        #  mean: E(X+Y) = E(X) + E(Y)
+                        #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
+                        #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
+                        #  std: std(X+Y) = (Var(X+Y))**0.5
+                        vn_reg = vn_glac.sum(axis=0)
+                        vn_reg_var = vn_glac_var.sum(axis=0)
+                        vn_reg_std = vn_reg_var**0.5
+                        vn_reg_stdhigh = vn_reg + vn_reg_std
+                        vn_reg_stdlow = vn_reg - vn_reg_std
+                        # Regional normalized volume           
+                        vn_reg_norm = vn_reg / vn_reg[0]
+                        vn_reg_norm_stdhigh = vn_reg_stdhigh / vn_reg[0]
+                        vn_reg_norm_stdlow = vn_reg_stdlow / vn_reg[0]
+                        vn_reg_plot = vn_reg_norm.copy()
+                        vn_reg_plot_stdlow = vn_reg_norm_stdlow.copy()
+                        vn_reg_plot_stdhigh = vn_reg_norm_stdhigh.copy()
+                    elif ('prec' in vn) or ('temp' in vn):       
+                        # Regional mean function (monthly data)
+                        reg_mean_temp_biasadj, reg_mean_prec_biasadj = (
+                                select_region_climatedata(gcm_name, rcp, main_glac_rgi))
+                        # Annual region mean
+                        if 'prec' in vn:
+                            reg_var_mean_annual = reg_mean_prec_biasadj.reshape(-1,12).sum(axis=1)
+                        elif 'temp' in vn:
+                            reg_var_mean_annual = reg_mean_temp_biasadj.reshape(-1,12).mean(axis=1)
+                        # Plot data
+                        vn_reg_plot = reg_var_mean_annual.copy()
+                    elif vn == 'runoff_glac_annual':
+                        # Regional mean, standard deviation, and variance
+                        #  mean: E(X+Y) = E(X) + E(Y)
+                        #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
+                        #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
+                        #  std: std(X+Y) = (Var(X+Y))**0.5
+                        vn_reg = vn_glac.sum(axis=0)
+                        vn_reg_var = vn_glac_var.sum(axis=0)
+                        vn_reg_std = vn_reg_var**0.5
+                        vn_reg_stdhigh = vn_reg + vn_reg_std
+                        vn_reg_stdlow = vn_reg - vn_reg_std
+                        # Runoff from 2000 - 2017
+                        t1_idx = np.where(time_values == 2000)[0][0]
+                        t2_idx = np.where(time_values == 2017)[0][0]
+                        vn_reg_2000_2017_mean = vn_reg[t1_idx:t2_idx+1].mean()
+                        # Regional normalized volume        
+                        vn_reg_norm = vn_reg / vn_reg_2000_2017_mean
+                        vn_reg_norm_stdhigh = vn_reg_stdhigh / vn_reg_2000_2017_mean
+                        vn_reg_norm_stdlow = vn_reg_stdlow / vn_reg_2000_2017_mean
+                        vn_reg_plot = vn_reg_norm.copy()
+                        vn_reg_plot_stdlow = vn_reg_norm_stdlow.copy()
+                        vn_reg_plot_stdhigh = vn_reg_norm_stdhigh.copy()
+                
 #                    # ===== Plot =====
-#                    ax[count_vn, count_group].plot(time_values, vn_reg_plot, color=gcm_colordict[gcm_name], 
-#                                                   linestyle=rcp_styledict[rcp], linewidth=1, label=None)
-#                    # Volume change uncertainty
-#                    if vn == 'volume_glac_annual':
-#                        ax[count_vn, count_group].fill_between(
-#                                time_values, vn_reg_plot_stdlow, vn_reg_plot_stdhigh, facecolor=gcm_colordict[gcm_name], 
-#                                alpha=0.15, label=None)
+#                    ax[row_idx, col_idx].plot(time_values, vn_reg_plot, color=rcp_colordict[rcp], linewidth=1, 
+#                                              alpha=0, label=None)
+##                    # Volume change uncertainty
+##                    if vn == 'volume_glac_annual':
+##                        ax[row_idx, col_idx].fill_between(
+##                                time_values, vn_reg_plot_stdlow, vn_reg_plot_stdhigh, 
+##                                facecolor=gcm_colordict[gcm_name], alpha=0.15, label=None)
 #                    
-#                    # Regional labels
-#                    if count_vn == 0:
-#                        ax[count_vn, count_group].set_title(('Region' + str(group)), size=14)
+#                    # Group labels
+#                    ax[row_idx, col_idx].set_title(title_dict[group], size=14)
+#                    ax[row_idx, col_idx].tick_params(axis='both', which='major', labelsize=20)
+#                    # X-label
+#                    ax[row_idx, col_idx].set_xlim(time_values.min(), time_values.max())
+#                    ax[row_idx, col_idx].xaxis.set_tick_params(labelsize=14)
+#                    ax[row_idx, col_idx].xaxis.set_major_locator(plt.MultipleLocator(50))
+#                    ax[row_idx, col_idx].xaxis.set_minor_locator(plt.MultipleLocator(10))
+#                    xlabels = ax[row_idx, col_idx].xaxis.get_major_ticks()
+#                    ax[row_idx, col_idx].set_xticklabels(['','2000','2050',''])
 #                    # Y-label
+#                    ax[row_idx, col_idx].yaxis.set_tick_params(labelsize=14)
 #                    if vn == 'volume_glac_annual':
-#                        ax[count_vn, count_group].set_ylim(0,1)
-#                        ax[count_vn, count_group].yaxis.set_major_locator(plt.MultipleLocator(0.2))
-#                        ax[count_vn, count_group].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
-#                        if count_group == 0:
-#                            ax[count_vn, count_group].set_ylabel('Normalized volume [-]', size=12)
-#                        # Turn off tick labels
-#                        else:
-#                            ax[count_vn, count_group].set_yticklabels([])
-#                        ax[count_vn, count_group].xaxis.set_tick_params(labelsize=10)
-#                        ax[count_vn, count_group].xaxis.set_major_locator(plt.MultipleLocator(40))
-#                        ax[count_vn, count_group].xaxis.set_minor_locator(plt.MultipleLocator(10))
-#                        ax[count_vn, count_group].set_xticklabels([])
-#                    elif vn == 'temp_glac_annual':
-#                        if count_group == 0:
-#                            ax[count_vn, count_group].set_ylabel('Temperature [degC]', size=12)
-#                        # Turn off tick labels
-#                        else:
-#                            ax[count_vn, count_group].set_yticklabels([])
-#                        ax[count_vn, count_group].xaxis.set_tick_params(labelsize=10)
-#                        ax[count_vn, count_group].xaxis.set_major_locator(plt.MultipleLocator(40))
-#                        ax[count_vn, count_group].xaxis.set_minor_locator(plt.MultipleLocator(10))
-#                        ax[count_vn, count_group].set_xticklabels([])
-#                    elif vn == 'prec_glac_annual':
-#                        if count_group == 0:
-#                            ax[count_vn, count_group].set_ylabel('Precipitation [m]', size=12)   
-#                        ax[count_vn, count_group].xaxis.set_tick_params(labelsize=10)
-#                        ax[count_vn, count_group].xaxis.set_major_locator(plt.MultipleLocator(40))
-#                        ax[count_vn, count_group].xaxis.set_minor_locator(plt.MultipleLocator(10))
-#                        # Turn off tick labels
-##                        else:
-##                            ax[count_vn, count_group].set_yticklabels([])
+#                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.2))
+#                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
 #                    
-#                # Multi-model mean
-#                vn_reg_plot_all_mean_dict.update({rcp:vn_reg_plot_all.mean(axis=0)})
-#            # Plot multi-model means last, so they are on top
-#            for rcp in rcps:
-#                ax[count_vn, count_group].plot(time_values, vn_reg_plot_all_mean_dict[rcp], color='k', 
-#                                             linestyle=rcp_styledict[rcp], linewidth=3, label=rcp)
-#            # Variable count for subplots
-#            count_vn += 1
-#        # Regional count for subplots
-#        count_group += 1
-#    # RCP Legend
-#    rcp_lines = []
-#    for rcp in rcps:
-#        line = Line2D([0,1],[0,1], linestyle=rcp_styledict[rcp], color='k', linewidth=2)
-#        rcp_lines.append(line)
-#    if len(vns) == 1:
-#        ax[0,0].legend(rcp_lines, rcps, loc='lower left')
-#    else:
-#        ax[1,2].legend(rcp_lines, rcps, loc='center left', title='RCP scenario', bbox_to_anchor=(1,0,0.5,1))
-#    # GCM Legend
-#    gcm_lines = []
-#    for gcm_name in gcm_names:
-#        line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
-#        gcm_lines.append(line)
-#    gcm_legend = gcm_names.copy()
-#    gcm_legend.append('Mean')
-#    line = Line2D([0,1],[0,1], linestyle='-', color='k', linewidth=5)
-#    gcm_lines.append(line)
-#    ax[0,2].legend(gcm_lines, gcm_legend, loc='center left', title='GCM', bbox_to_anchor=(1,0,0.5,1))
-#    # Save figure
-#    fig.set_size_inches(7, int(len(vns)*3))
-#    fig.savefig(figure_fp + 'Regional_VolumeChange_allgcmsrcps.png', bbox_inches='tight', dpi=300)
+#                    # Count column index to plot
+#                    col_idx += 1
+#                    
+#                    # Record data for multi-model stats
+#                    if ngcm == 0:
+#                        ds_multimodels[ngroup] = [group, vn_reg_plot]
+#                    else:
+#                        ds_multimodels[ngroup][1] = np.vstack((ds_multimodels[ngroup][1], vn_reg_plot))
+#            
+#            # Multi-model mean
+#            row_idx = 0
+#            col_idx = 0
+#            for ngroup, group in enumerate(groups):
+#                if (ngroup % num_cols == 0) and (ngroup != 0):
+#                    row_idx += 1
+#                    col_idx = 0
+#                # Multi-model statistics
+#                vn_multimodel_mean = ds_multimodels[ngroup][1].mean(axis=0)
+#                vn_multimodel_std = ds_multimodels[ngroup][1].std(axis=0)
+#                vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
+#                vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
+#                ax[row_idx, col_idx].plot(time_values, vn_multimodel_mean, color=rcp_colordict[rcp], 
+#                                          linewidth=multimodel_linewidth, label=rcp)
+#                ax[row_idx, col_idx].fill_between(time_values, vn_multimodel_stdlow, vn_multimodel_stdhigh, 
+#                                                  facecolor=rcp_colordict[rcp], alpha=0.2, label=None)
+#                col_idx += 1
+#
+#        # RCP Legend
+#        rcp_lines = []
+#        for rcp in rcps:
+#            line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
+#            rcp_lines.append(line)
+#        rcp_labels = [rcp_dict[rcp] for rcp in rcps]
+#        ax[0,0].legend(rcp_lines, rcp_labels, loc='lower left', fontsize=12, labelspacing=0, handlelength=1, 
+#                       handletextpad=0.5, borderpad=0, frameon=False)
+#    #    # GCM Legend
+#    #    gcm_lines = []
+#    #    for gcm_name in gcm_names:
+#    #        line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
+#    #        gcm_lines.append(line)
+#    #    gcm_legend = gcm_names.copy()
+#    #    gcm_legend.append('Mean')
+#    #    line = Line2D([0,1],[0,1], linestyle='-', color='k', linewidth=5)
+#    #    gcm_lines.append(line)
+#    #    ax[0,2].legend(gcm_lines, gcm_legend, loc='center left', title='GCM', bbox_to_anchor=(1,0,0.5,1))
+#        fig.text(0.03, 0.5, vn_dict[vn], va='center', rotation='vertical', size=16)
+#        # Save figure
+#        fig.set_size_inches(7, num_rows*2)
+#        figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
+#        fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
