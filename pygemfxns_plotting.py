@@ -30,7 +30,64 @@ import run_simulation
 
 
 # Script options
-option_plot_cmip5_volchange = 1
+option_plot_cmip5_normalizedchange = 0
+option_plot_cmip5_runoffcomponents = 1
+
+#%% ===== Input data =====
+netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
+netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
+
+# Watershed dictionary
+watershed_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_w_watersheds.csv'
+watershed_csv = pd.read_csv(watershed_dict_fn)
+watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
+
+# Regions
+rgi_regions = [13, 14, 15]
+# GCMs and RCP scenarios
+gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'Nor-ESM1-M']
+rcps = ['rcp26', 'rcp45', 'rcp85']
+
+# Groups
+#grouping = 'rgi_region'
+grouping = 'watershed'
+
+# Plot label dictionaries
+title_dict = {'Amu_Darya': 'Amu Darya',
+              'Brahmaputra': 'Brahmaputra',
+              'Ganges': 'Ganges',
+              'Ili': 'Ili',
+              'Indus': 'Indus',
+              'Inner_Tibetan_Plateau': 'Inner_TP',
+              'Inner_Tibetan_Plateau_extended': 'Inner_TP_ext',
+              'Irrawaddy': 'Irrawaddy',
+              'Mekong': 'Mekong',
+              'Salween': 'Salween',
+              'Syr_Darya': 'Syr Darya',
+              'Tarim': 'Tarim',
+              'Yangtze': 'Yangtze',
+              13: 'Central Asia',
+              14: 'South Asia West',
+              15: 'South Asia East'
+              }
+vn_dict = {'volume_glac_annual': 'Normalized Volume [-]',
+           'runoff_glac_annual': 'Normalized Runoff [-]',
+           'temp_glac_annual': 'Temperature [degC]',
+           'prec_glac_annual': 'Precipitation [m]'}
+rcp_dict = {'rcp26': '2.6',
+            'rcp45': '4.5',
+            'rcp60': '6.0',
+            'rcp85': '8.5'}
+
+# Colors list
+colors_rgb = [(0.00, 0.57, 0.57), (0.71, 0.43, 1.00), (0.86, 0.82, 0.00), (0.00, 0.29, 0.29), (0.00, 0.43, 0.86), 
+              (0.57, 0.29, 0.00), (1.00, 0.43, 0.71), (0.43, 0.71, 1.00), (0.14, 1.00, 0.14), (1.00, 0.71, 0.47), 
+              (0.29, 0.00, 0.57), (0.57, 0.00, 0.00), (0.71, 0.47, 1.00), (1.00, 1.00, 0.47)]
+gcm_colordict = dict(zip(gcm_names, colors_rgb[0:len(gcm_names)]))
+rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp60':'m', 'rcp85':'r'}
+rcp_styledict = {'rcp26':':', 'rcp45':'--', 'rcp85':'-.'}
 
 #%% REGIONAL BIAS ADJUSTED TEMPERATURE AND PRECIPITATION FOR GCMS
 def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
@@ -136,66 +193,15 @@ def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
 
 
 #%% PLOT RESULTS
-if option_plot_cmip5_volchange == 1:
-    netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
-    netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
-    figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
-    watershed_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_w_watersheds.csv'
-    
-#    grouping = 'rgi_region'
-    grouping = 'watershed'
-    
-    # Plot label dictionaries
-    title_dict = {'Amu_Darya': 'Amu Darya',
-                  'Brahmaputra': 'Brahmaputra',
-                  'Ganges': 'Ganges',
-                  'Ili': 'Ili',
-                  'Indus': 'Indus',
-                  'Inner_Tibetan_Plateau': 'Inner_TP',
-                  'Inner_Tibetan_Plateau_extended': 'Inner_TP_ext',
-                  'Irrawaddy': 'Irrawaddy',
-                  'Mekong': 'Mekong',
-                  'Salween': 'Salween',
-                  'Syr_Darya': 'Syr Darya',
-                  'Tarim': 'Tarim',
-                  'Yangtze': 'Yangtze',
-                  13: 'Central Asia',
-                  14: 'South Asia West',
-                  15: 'South Asia East'
-                  }
-    vn_dict = {'volume_glac_annual': 'Normalized Volume [-]',
-               'runoff_glac_annual': 'Normalized Runoff [-]',
-               'temp_glac_annual': 'Temperature [degC]',
-               'prec_glac_annual': 'Precipitation [m]'}
-    rcp_dict = {'rcp26': '2.6',
-                'rcp45': '4.5',
-                'rcp60': '6.0',
-                'rcp85': '8.5'}
-    
-    
-    rgi_regions = [13, 14, 15]
-    #gcm_names = ['ERA-Interim']
-    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-                 'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'Nor-ESM1-M']
-#    rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
-    rcps = ['rcp26', 'rcp45', 'rcp85']
-#    rcps = ['rcp26']
+if option_plot_cmip5_normalizedchange == 1:
     vns = ['volume_glac_annual', 'runoff_glac_annual']
 #    vns = ['volume_glac_annual']
 #    vns = ['volume_glac_annual', 'temp_glac_annual', 'prec_glac_annual']
     # NOTE: Temperatures and precipitation will not line up exactly because each region is covered by a different 
     #       number of pixels, and hence the mean of those pixels is not going to be equal.
     
-    # Colors list
-    colors_rgb = [(0.00, 0.57, 0.57), (0.71, 0.43, 1.00), (0.86, 0.82, 0.00), (0.00, 0.29, 0.29), (0.00, 0.43, 0.86), 
-                  (0.57, 0.29, 0.00), (1.00, 0.43, 0.71), (0.43, 0.71, 1.00), (0.14, 1.00, 0.14), (1.00, 0.71, 0.47), 
-                  (0.29, 0.00, 0.57), (0.57, 0.00, 0.00), (0.71, 0.47, 1.00), (1.00, 1.00, 0.47)]
-    gcm_colordict = dict(zip(gcm_names, colors_rgb[0:len(gcm_names)]))
-    rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp60':'m', 'rcp85':'r'}
-    rcp_styledict = {'rcp26':':', 'rcp45':'--', 'rcp85':'-.'}
-    multimodel_linewidth = 2
     option_plots_individual_gcms = 0
-    
+    multimodel_linewidth = 2
     
     # Load all glaciers
     for rgi_region in rgi_regions:
@@ -223,7 +229,6 @@ if option_plot_cmip5_volchange == 1:
         group_cn = 'watershed'
     groups = sorted(groups)
     
-    #%%
     reg_legend = []
     num_cols_max = 4
     if len(groups) < num_cols_max:
@@ -234,9 +239,7 @@ if option_plot_cmip5_volchange == 1:
         
     for vn in vns:
         fig, ax = plt.subplots(num_rows, num_cols, squeeze=False, sharex=False, sharey=True,
-                               figsize=(int(5*len(groups)),int(4*len(vns))), 
-                               gridspec_kw = {'wspace':0, 'hspace':0})
-#                               gridspec_kw = {'wspace':0.05, 'hspace':0.25})
+                               figsize=(5*num_rows,4*num_cols), gridspec_kw = {'wspace':0, 'hspace':0})
         add_group_label = 1
         
         for rcp in rcps:
@@ -444,4 +447,212 @@ if option_plot_cmip5_volchange == 1:
         # Save figure
         fig.set_size_inches(7, num_rows*2)
         figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
+        fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+
+#%%
+if option_plot_cmip5_runoffcomponents == 1:
+    vns = ['prec_glac_annual', 'melt_glac_annual', 'melt_glac_summer', 'refreeze_glac_annual']
+    multimodel_linewidth = 1
+    
+    # Load all glaciers
+    for rgi_region in rgi_regions:
+        # Data on all glaciers
+        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
+                                                                 rgi_glac_number='all')
+        if rgi_region == rgi_regions[0]:
+            main_glac_rgi_all = main_glac_rgi_region
+        else:
+            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
+    
+    # Add watersheds to main_glac_rgi_all
+    main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
+    
+    # Determine grouping
+    if grouping == 'rgi_region':
+        groups = rgi_regions
+        group_cn = 'O1Region'
+    elif grouping == 'watershed':
+        groups = main_glac_rgi_all.watershed.unique().tolist()
+        groups.remove('Irrawaddy')
+        group_cn = 'watershed'
+    groups = sorted(groups)
+    
+    #%%
+    reg_legend = []
+    num_cols_max = 4
+    if len(groups) < num_cols_max:
+        num_cols = len(groups)
+    else:
+        num_cols = num_cols_max
+    num_rows = int(np.ceil(len(groups)/num_cols))
+    
+    fig, ax = plt.subplots(num_rows, num_cols, squeeze=False, sharex=False, sharey=True,
+                           figsize=(4*num_rows,3*num_cols), gridspec_kw = {'wspace':0, 'hspace':0})
+    add_group_label = 1
+
+    for rcp in rcps:
+#    for rcp in ['rcp85']:
+        ds_prec = [[] for group in groups]
+        ds_melt = [[] for group in groups]
+        ds_melt_summer = [[] for group in groups]
+        ds_refreeze = [[] for group in groups]
+            
+        for ngcm, gcm_name in enumerate(gcm_names):
+            
+            for vn in vns:
+                
+                # Merge all data, then select group data
+                for region in rgi_regions:                        
+                    # Load datasets
+                    if gcm_name == 'ERA-Interim':
+                        netcdf_fp = netcdf_fp_era
+                        ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+                    else:
+                        netcdf_fp = netcdf_fp_cmip5 + vn + '/'
+                        ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' 
+                                 + vn + '.nc')    
+                    # Bypass GCMs that are missing a rcp scenario
+                    try:
+                        ds = xr.open_dataset(netcdf_fp + ds_fn)
+                    except:
+                        continue
+                    # Extract time variable
+                    if 'annual' in vn:
+                        try:
+                            time_values = ds[vn].coords['year_plus1'].values
+                        except:
+                            time_values = ds[vn].coords['year'].values
+                    # Merge datasets
+                    if region == rgi_regions[0]:
+                        vn_glac_all = ds[vn].values[:,:,0]
+                        vn_glac_std_all = ds[vn].values[:,:,1]
+                    else:
+                        vn_glac_all = np.concatenate((vn_glac_all, ds[vn].values[:,:,0]), axis=0)
+                        vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn].values[:,:,1]), axis=0)
+                
+                # Cycle through groups
+                for ngroup, group in enumerate(groups):
+                        
+                    # Select subset of data
+                    main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
+                    vn_glac = vn_glac_all[main_glac_rgi.index.values.tolist(),:]
+                    vn_glac_std = vn_glac_std_all[main_glac_rgi.index.values.tolist(),:]
+                    vn_glac_var = vn_glac_std **2
+                     
+                    # Regional mean
+                    vn_reg = vn_glac.sum(axis=0)
+                    
+                    # Record data for multi-model stats
+                    if vn == 'prec_glac_annual':
+                        if ngcm == 0:
+                            ds_prec[ngroup] = [group, vn_reg]
+                        else:
+                            ds_prec[ngroup][1] = np.vstack((ds_prec[ngroup][1], vn_reg))
+                    elif vn == 'melt_glac_annual':
+                        if ngcm == 0:
+                            ds_melt[ngroup] = [group, vn_reg]
+                        else:
+                            ds_melt[ngroup][1] = np.vstack((ds_melt[ngroup][1], vn_reg))
+                    elif vn == 'melt_glac_summer':
+                        if ngcm == 0:
+                            ds_melt_summer[ngroup] = [group, vn_reg]
+                        else:
+                            ds_melt_summer[ngroup][1] = np.vstack((ds_melt_summer[ngroup][1], vn_reg))
+                    elif vn == 'refreeze_glac_annual':
+                        if ngcm == 0:
+                            ds_refreeze[ngroup] = [group, vn_reg]
+                        else:
+                            ds_refreeze[ngroup][1] = np.vstack((ds_refreeze[ngroup][1], vn_reg))
+                    
+        # Multi-model mean
+        row_idx = 0
+        col_idx = 0
+        for ngroup, group in enumerate(groups):
+            if (ngroup % num_cols == 0) and (ngroup != 0):
+                row_idx += 1
+                col_idx = 0
+            # Multi-model statistics
+            prec_multimodel_mean = ds_prec[ngroup][1].mean(axis=0)
+            melt_multimodel_mean = ds_melt[ngroup][1].mean(axis=0)
+            melt_summer_multimodel_mean = ds_melt_summer[ngroup][1].mean(axis=0)
+            refreeze_multimodel_mean = ds_refreeze[ngroup][1].mean(axis=0)
+            # Runoff  and components (melt adjusted = melt - refreeze)
+            runoff_multimodel_mean = prec_multimodel_mean + melt_multimodel_mean - refreeze_multimodel_mean
+            meltadj_multimodel_mean = melt_multimodel_mean - refreeze_multimodel_mean
+            meltadj_multimodel_mean_frac = meltadj_multimodel_mean / runoff_multimodel_mean
+            prec_multimodel_mean_frac = prec_multimodel_mean / runoff_multimodel_mean
+            melt_summer_mean_frac = (melt_summer_multimodel_mean - refreeze_multimodel_mean) / runoff_multimodel_mean
+            
+
+            # ===== Plot =====
+            # Precipitation
+            ax[row_idx, col_idx].plot(time_values, prec_multimodel_mean_frac, color=rcp_colordict[rcp], 
+                                      linewidth=multimodel_linewidth, label=rcp)
+            if rcp == 'rcp45':
+                ax[row_idx, col_idx].fill_between(time_values, 0, prec_multimodel_mean_frac, 
+                                                  facecolor='b', alpha=0.2, label=None)
+            # Melt
+            melt_summer_mean_frac2plot = prec_multimodel_mean_frac +  melt_summer_mean_frac
+            ax[row_idx, col_idx].plot(time_values, melt_summer_mean_frac2plot, color=rcp_colordict[rcp], 
+                                      linewidth=multimodel_linewidth, label=rcp)
+            if rcp == 'rcp45':
+                ax[row_idx, col_idx].fill_between(time_values, prec_multimodel_mean_frac, melt_summer_mean_frac2plot,
+                                                  facecolor='y', alpha=0.2, label=None)
+                        
+            # Group labels
+            if add_group_label == 1:
+                ax[row_idx, col_idx].text(0.5, 0.99, title_dict[group], size=14, horizontalalignment='center', 
+                                          verticalalignment='top', transform=ax[row_idx, col_idx].transAxes)
+            # Tick parameters
+            ax[row_idx, col_idx].tick_params(axis='both', which='major', labelsize=25, direction='inout')
+            ax[row_idx, col_idx].tick_params(axis='both', which='minor', labelsize=15, direction='inout')
+            # X-label
+            ax[row_idx, col_idx].set_xlim(time_values.min(), time_values.max())
+            ax[row_idx, col_idx].xaxis.set_tick_params(labelsize=14)
+            ax[row_idx, col_idx].xaxis.set_major_locator(plt.MultipleLocator(50))
+            ax[row_idx, col_idx].xaxis.set_minor_locator(plt.MultipleLocator(10))
+            if col_idx == 0 and row_idx == num_rows-1:
+                ax[row_idx, col_idx].set_xticklabels(['','2000','2050','2100'])
+            elif row_idx == num_rows-1:
+                ax[row_idx, col_idx].set_xticklabels(['','','2050','2100'])
+            else:
+                ax[row_idx, col_idx].set_xticklabels(['','','',''])
+            #  labels are the first one, 2000, 2050, 2100, and 2101
+            # Y-label
+            ax[row_idx, col_idx].yaxis.set_tick_params(labelsize=14)
+            ax[row_idx, col_idx].set_ylim(0,1)
+            ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.5))
+            ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+            ax[row_idx, col_idx].set_yticklabels(['','','0.5','1.0','1.5', ''])
+            
+            # Adjust subplot column index
+            col_idx += 1
+            
+        # Only add group label once
+        add_group_label = 0
+
+        # RCP Legend
+        rcp_lines = []
+        for rcp in rcps:
+            line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
+            rcp_lines.append(line)
+        rcp_labels = [rcp_dict[rcp] for rcp in rcps]
+        ax[0,0].legend(rcp_lines, rcp_labels, loc='center left', bbox_to_anchor=(0, 0.7), fontsize=12, 
+                       labelspacing=0, handlelength=1, handletextpad=0.5, borderpad=0, frameon=False)
+        
+        # GCM Legend
+        gcm_lines = []
+        for gcm_name in gcm_names:
+            line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
+            gcm_lines.append(line)
+        gcm_legend = gcm_names.copy()
+        fig.legend(gcm_lines, gcm_legend, loc='center right', title='GCMs', bbox_to_anchor=(1.06,0.5), 
+                   handlelength=0, handletextpad=0, borderpad=0, frameon=False)
+        
+        # Y-Label
+        fig.text(0.03, 0.5, 'Normalized Runoff Components [-]', va='center', rotation='vertical', size=16)
+        
+        # Save figure
+        fig.set_size_inches(7, num_rows*2)
+        figure_fn = grouping + '_runoffcomponents_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
         fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)

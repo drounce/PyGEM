@@ -626,7 +626,7 @@ def main(list_packed_vars):
     
     for glac in range(main_glac_rgi.shape[0]):
 #        if glac%200 == 0:
-#        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_gcm_elev = gcm_elev_adj[glac]
