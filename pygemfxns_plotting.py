@@ -49,18 +49,35 @@ watershed_pts_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/HM
 watershed_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_w_watersheds.csv'
 watershed_csv = pd.read_csv(watershed_dict_fn)
 watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
-
+title_location = {'Syr_Darya': [68, 46.1],
+                  'Ili': [83.6, 45.5],
+                  'Amu_Darya': [64.6, 38],
+                  'Tarim': [83.0, 39.2],
+                  'Inner_Tibetan_Plateau_extended': [103, 36],
+                  'Indus': [70.7, 31.9],
+                  'Inner_Tibetan_Plateau': [85, 32.4],
+                  'Yangtze': [106.0, 30.4],
+                  'Ganges': [81.3, 26.6],
+                  'Brahmaputra': [92.0, 26],
+                  'Irrawaddy': [96.2, 23.8],
+                  'Salween': [98.5, 20.8],
+                  'Mekong': [104, 17.5],
+                  13: [83,39],
+                  14: [70.8, 30],
+                  15: [81,26.8]
+                  }
 
 # Regions
 rgi_regions = [13, 14, 15]
+rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
 # GCMs and RCP scenarios
 gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
              'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'Nor-ESM1-M']
 rcps = ['rcp26', 'rcp45', 'rcp85']
 
 # Groups
-#grouping = 'rgi_region'
-grouping = 'watershed'
+grouping = 'rgi_region'
+#grouping = 'watershed'
 
 # Plot label dictionaries
 title_dict = {'Amu_Darya': 'Amu Darya',
@@ -96,6 +113,15 @@ colors_rgb = [(0.00, 0.57, 0.57), (0.71, 0.43, 1.00), (0.86, 0.82, 0.00), (0.00,
 gcm_colordict = dict(zip(gcm_names, colors_rgb[0:len(gcm_names)]))
 rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp60':'m', 'rcp85':'r'}
 rcp_styledict = {'rcp26':':', 'rcp45':'--', 'rcp85':'-.'}
+
+east = 60
+west = 110
+south = 15
+north = 50
+xtick = 5
+ytick = 5
+xlabel = 'Longitude [deg]'
+ylabel = 'Latitude [deg]'
 
 #%% REGIONAL BIAS ADJUSTED TEMPERATURE AND PRECIPITATION FOR GCMS
 def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
@@ -746,100 +772,52 @@ if option_plot_cmip5_map == 1:
                     ds_vn[ngroup][1] = np.vstack((ds_vn[ngroup][1], vn_reg))
 
 #%%
-#    east = int(main_glac_rgi_all.CenLon.min())
-#    west = int(np.ceil(main_glac_rgi_all.CenLon.max()))
-#    south = int(main_glac_rgi_all.CenLat.min())
-#    north = int(np.ceil(main_glac_rgi_all.CenLat.max()))
-    east = 60
-    west = 110
-    south = 15
-    north = 50
-    xtick = 5
-    ytick = 5
-    xlabel = 'Longitude [deg]'
-    ylabel = 'Latitude [deg]'
-    
     # Create the projection
     fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
     # Add country borders for reference
-#    ax.add_feature(cartopy.feature.BORDERS, alpha=0.15)
+    if grouping == 'rgi_region':
+        ax.add_feature(cartopy.feature.BORDERS, alpha=0.15)
     ax.add_feature(cartopy.feature.COASTLINE)
     # Set the extent
     ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
     # Label title, x, and y axes
-#    plt.title(title)
     ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
     ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    
-    # Add watersheds
-#    watershed_shp = cartopy.io.shapereader.Reader(watershed_shp_fn)
-#    watershed_feature = cartopy.feature.ShapelyFeature(cartopy.io.shapereader.Reader(watershed_shp_fn).geometries(),
-#                                   cartopy.crs.PlateCarree(), edgecolor='black', facecolor='none')
-#    ax.add_feature(watershed_feature)
-    
-    watershed_centroid = {'Syr_Darya': [68, 46.1],
-                      'Ili': [83.6, 45.5],
-                      'Amu_Darya': [64.6, 38],
-                      'Tarim': [83.0, 39.2],
-                      'Inner_Tibetan_Plateau_extended': [103, 36],
-                      'Indus': [70.7, 31.9],
-                      'Inner_Tibetan_Plateau': [85, 32.4],
-                      'Yangtze': [106.0, 30.4],
-                      'Ganges': [81.3, 26.6],
-                      'Brahmaputra': [92.0, 26],
-                      'Irrawaddy': [96.2, 23.8],
-                      'Salween': [98.5, 20.8],
-                      'Mekong': [104, 17.5]
-                      }
-    
-    if vn == 'volume_glac_annual':
-        vn_thresholds = [0.25, 0.5, 0.75]
-        vn_colors = ['red', 'pink', 'lightyellow', 'lightblue']
-    # Add attribute of interest to shapefile
-    watershed_shp_recs = []
-    for rec in watershed_shp.records():
-        if rec.attributes['name'] in groups:
-            ds_idx = groups.index(rec.attributes['name'])
+    ax.set_xlabel(xlabel, size=12)
+    ax.set_ylabel(ylabel, size=12)
+        
+    # Add group and attribute of interest
+    if grouping == 'watershed':
+        # Add watersheds
+        group_shp = cartopy.io.shapereader.Reader(watershed_shp_fn)
+        group_shp_attr = 'name'
+    elif grouping == 'rgi_region':
+        # Add rgi regions
+        group_shp = cartopy.io.shapereader.Reader(rgiO1_shp_fn)
+        group_shp_attr = 'RGI_CODE'
+    # Add attribute of interest to the shapefile
+    for rec in group_shp.records():
+        if rec.attributes[group_shp_attr] in groups:
+            ds_idx = groups.index(rec.attributes[group_shp_attr])
             vn_multimodel_mean = ds_vn[ds_idx][1].mean(axis=0)
             if vn == 'volume_glac_annual':
                 rec.attributes['value'] = vn_multimodel_mean[-1] / vn_multimodel_mean[0]
-                # simple scheme to assign color to each watershed
-                print(rec.attributes['name'], rec.attributes['value'])
-                if rec.attributes['value'] < vn_thresholds[0]:
-                    facecolor = vn_colors[0]
-                elif rec.attributes['value'] < vn_thresholds[1]:
-                    facecolor = vn_colors[1]
-                elif rec.attributes['value'] < vn_thresholds[2]:
-                    facecolor = vn_colors[2]
-                else:
-                    facecolor = vn_colors[3]  
+                
+                print(rec.attributes[group_shp_attr], rec.attributes['value'])
+
             # Add polygon to plot
-#            ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor=facecolor, edgecolor='grey', zorder=1)
             cmap = mpl.cm.RdYlBu
             ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor=cmap(rec.attributes['value'], 1), 
-                              edgecolor='grey', zorder=1)            
-            ax.text(watershed_centroid[rec.attributes['name']][0], watershed_centroid[rec.attributes['name']][1], 
-                    title_dict[rec.attributes['name']], horizontalalignment='center', size=12, zorder=3)
+                              edgecolor='grey', zorder=1)
+            ax.text(title_location[rec.attributes[group_shp_attr]][0], 
+                    title_location[rec.attributes[group_shp_attr]][1], 
+                    title_dict[rec.attributes[group_shp_attr]], horizontalalignment='center', size=12, zorder=3)
             
     # Add colorbar
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0,1))
     sm._A = []
     plt.colorbar(sm, ax=ax, fraction=0.02, pad=0.02)
     fig.text(0.95, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
-            
-#    # Add regional legend
-#    legend_reg = []
-#    legend_reg_labels = []
-#    if vn == 'volume_glac_annual':
-#        for i_threshold, vn_threshold in enumerate(vn_thresholds):
-#            legend_reg.append(mpatches.Rectangle((0,0), 1, 1, facecolor=vn_colors[i_threshold], edgecolor='grey'))
-#            legend_reg_labels.append('< ' + str(vn_threshold))
-#        legend_reg.append(mpatches.Rectangle((0,0), 1, 1, facecolor=vn_colors[-1], edgecolor='grey'))
-#        legend_reg_labels.append('> ' + str(vn_thresholds[-1]))
-#    leg = plt.legend(legend_reg, legend_reg_labels, loc='lower left', bbox_to_anchor=(0,0))
-#    ax.add_artist(leg)
     
     # Plot individual glaciers
     def size_thresholds(variable, cutoffs, sizes):
@@ -874,10 +852,13 @@ if option_plot_cmip5_map == 1:
         legend_glac.append(Line2D([0], [0], linestyle='None', marker='o', color='grey', 
                                   label=(str(area_cutoffs[i_area]) + 'km$^2$'), 
                                   markerfacecolor='grey', markersize=legend_glac_markersize[i_area]))
-    plt.legend(handles=legend_glac, loc='lower left')
+    plt.legend(handles=legend_glac, loc='lower left', fontsize=12)
+    
+    # Add time period and RCP
+    additional_text = 'RCP ' + rcp_dict[rcp] + ': ' + str(time_values.min()) + '-' + str(time_values.max()-1)
+    ax.text(0.98*west, 0.95*north, additional_text, horizontalalignment='right', fontsize=14)
 
     # Save figure
-#    fig.set_size_inches(10,6)
-#    figure_fn = grouping + '_wglac_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
-#    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
-    plt.show()
+    fig.set_size_inches(10,6)
+    figure_fn = grouping + '_wglac_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + rcp +  '.png'
+    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
