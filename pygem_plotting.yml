@@ -1,0 +1,12 @@
+name: pygem_plotting
+channels:
+- conda-forge
+dependencies:
+- python
+- pandas
+- numpy
+- scipy
+- xarray
+- matplotlib
+- cartopy
+- gdal
