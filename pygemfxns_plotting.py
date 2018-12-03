@@ -38,6 +38,8 @@ option_plot_cmip5_normalizedchange = 0
 option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 1
 
+option_plot_individual_glaciers = 0
+
 #%% ===== Input data =====
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
@@ -49,35 +51,25 @@ watershed_pts_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/HM
 watershed_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_w_watersheds.csv'
 watershed_csv = pd.read_csv(watershed_dict_fn)
 watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
-title_location = {'Syr_Darya': [68, 46.1],
-                  'Ili': [83.6, 45.5],
-                  'Amu_Darya': [64.6, 38],
-                  'Tarim': [83.0, 39.2],
-                  'Inner_Tibetan_Plateau_extended': [103, 36],
-                  'Indus': [70.7, 31.9],
-                  'Inner_Tibetan_Plateau': [85, 32.4],
-                  'Yangtze': [106.0, 30.4],
-                  'Ganges': [81.3, 26.6],
-                  'Brahmaputra': [92.0, 26],
-                  'Irrawaddy': [96.2, 23.8],
-                  'Salween': [98.5, 20.8],
-                  'Mekong': [104, 17.5],
-                  13: [83,39],
-                  14: [70.8, 30],
-                  15: [81,26.8]
-                  }
 
 # Regions
 rgi_regions = [13, 14, 15]
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
+kaab_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/kaab2015_regions.shp'
+kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_w_watersheds_kaab.csv'
+kaab_csv = pd.read_csv(kaab_dict_fn)
+kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab))
 # GCMs and RCP scenarios
-gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'Nor-ESM1-M']
+gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R',
+             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3']
+#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR',
+#             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
 rcps = ['rcp26', 'rcp45', 'rcp85']
 
 # Groups
-grouping = 'rgi_region'
+#grouping = 'rgi_region'
 #grouping = 'watershed'
+grouping = 'kaab'
 
 # Plot label dictionaries
 title_dict = {'Amu_Darya': 'Amu Darya',
@@ -93,10 +85,23 @@ title_dict = {'Amu_Darya': 'Amu Darya',
               'Syr_Darya': 'Syr Darya',
               'Tarim': 'Tarim',
               'Yangtze': 'Yangtze',
+              'inner_TP': 'Inner TP',
+              'Karakoram': 'Karakoram',
+              'Yigong': 'Yigong',
+              'Bhutan': 'Bhutan',
+              'Everest': 'Everest',
+              'West Nepal': 'West Nepal',
+              'Spiti Lahaul': 'Spiti Lahaul',
+              'tien_shan': 'Tien Shan',
+              'Pamir': 'Pamir',
+              'pamir_alai': 'Pamir Alai',
+              'Kunlun': 'Kunlun',
+              'Hindu Kush': 'Hindu Kush',
               13: 'Central Asia',
               14: 'South Asia West',
               15: 'South Asia East'
               }
+
 vn_dict = {'volume_glac_annual': 'Normalized Volume [-]',
            'runoff_glac_annual': 'Normalized Runoff [-]',
            'temp_glac_annual': 'Temperature [degC]',
@@ -706,11 +711,11 @@ if option_plot_cmip5_map == 1:
         else:
             main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
     
-    # Load watershed dictionary
-    watershed_csv = pd.read_csv(watershed_dict_fn)
-    watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
+    
     # Add watersheds to main_glac_rgi_all
     main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
+    main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
+    
     
     # Determine grouping
     if grouping == 'rgi_region':
@@ -719,14 +724,31 @@ if option_plot_cmip5_map == 1:
     elif grouping == 'watershed':
         groups = main_glac_rgi_all.watershed.unique().tolist()
         group_cn = 'watershed'
+    elif grouping == 'kaab':
+        groups = main_glac_rgi_all.kaab.unique().tolist()
+        group_cn = 'kaab'
+        groups = [x for x in groups if str(x) != 'nan']
     groups = sorted(groups)
     
-    #%% Load data to accompany watersheds  
-    # Merge all data, then select group data
-#    for rcp in rcps:
-    for rcp in ['rcp85']:
-        ds_vn = [[] for group in groups]
+    #%%
+    def partition_multimodel_groups(gcm_names, vn):
+        """Partition multimodel data by each group for all GCMs for a given variable
+        
+        Parameters
+        ----------
+        gcm_names : list
+            list of GCM names
+        vn : str
+            variable name
             
+        Output
+        ------
+        time_values : np.array
+            time values that accompany the multimodel data
+        ds_group : list of lists
+            dataset containing the multimodel data for a given variable for all the GCMs
+        """
+        ds_group = [[] for group in groups]
         for ngcm, gcm_name in enumerate(gcm_names):
             for region in rgi_regions:                        
                 # Load datasets
@@ -755,6 +777,11 @@ if option_plot_cmip5_map == 1:
                 else:
                     vn_glac_all = np.concatenate((vn_glac_all, ds[vn].values[:,:,0]), axis=0)
                     vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn].values[:,:,1]), axis=0)
+                
+            if ngcm == 0:
+                ds_glac = vn_glac_all[np.newaxis,:,:]
+            else:
+                ds_glac = np.concatenate((ds_glac, vn_glac_all[np.newaxis,:,:]), axis=0)
         
             # Cycle through groups
             for ngroup, group in enumerate(groups):
@@ -767,98 +794,145 @@ if option_plot_cmip5_map == 1:
                 vn_reg = vn_glac.sum(axis=0)
                 # Record data for multi-model stats
                 if ngcm == 0:
-                    ds_vn[ngroup] = [group, vn_reg]
+                    ds_group[ngroup] = [group, vn_reg]
                 else:
-                    ds_vn[ngroup][1] = np.vstack((ds_vn[ngroup][1], vn_reg))
-
+                    ds_group[ngroup][1] = np.vstack((ds_group[ngroup][1], vn_reg))
+                    
+                    
+        return time_values, ds_group, ds_glac
+    
+    # Load data to accompany watersheds  
+    # Merge all data, then select group data
+    for rcp in rcps:
+#    for rcp in ['rcp85']:
+        time_values, ds_vn, ds_glac = partition_multimodel_groups(gcm_names, vn)
 #%%
-    # Create the projection
-    fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
-    # Add country borders for reference
-    if grouping == 'rgi_region':
-        ax.add_feature(cartopy.feature.BORDERS, alpha=0.15)
-    ax.add_feature(cartopy.feature.COASTLINE)
-    # Set the extent
-    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
-    # Label title, x, and y axes
-    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
-    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
-    ax.set_xlabel(xlabel, size=12)
-    ax.set_ylabel(ylabel, size=12)
         
-    # Add group and attribute of interest
-    if grouping == 'watershed':
-        # Add watersheds
-        group_shp = cartopy.io.shapereader.Reader(watershed_shp_fn)
-        group_shp_attr = 'name'
-    elif grouping == 'rgi_region':
-        # Add rgi regions
-        group_shp = cartopy.io.shapereader.Reader(rgiO1_shp_fn)
-        group_shp_attr = 'RGI_CODE'
-    # Add attribute of interest to the shapefile
-    for rec in group_shp.records():
-        if rec.attributes[group_shp_attr] in groups:
-            ds_idx = groups.index(rec.attributes[group_shp_attr])
-            vn_multimodel_mean = ds_vn[ds_idx][1].mean(axis=0)
-            if vn == 'volume_glac_annual':
-                rec.attributes['value'] = vn_multimodel_mean[-1] / vn_multimodel_mean[0]
-                
-                print(rec.attributes[group_shp_attr], rec.attributes['value'])
-
-            # Add polygon to plot
-            cmap = mpl.cm.RdYlBu
-            ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor=cmap(rec.attributes['value'], 1), 
-                              edgecolor='grey', zorder=1)
-            ax.text(title_location[rec.attributes[group_shp_attr]][0], 
-                    title_location[rec.attributes[group_shp_attr]][1], 
-                    title_dict[rec.attributes[group_shp_attr]], horizontalalignment='center', size=12, zorder=3)
+        title_location = {'Syr_Darya': [68, 46.1],
+                  'Ili': [83.6, 45.5],
+                  'Amu_Darya': [64.6, 38],
+                  'Tarim': [83.0, 39.2],
+                  'Inner_Tibetan_Plateau_extended': [103, 36],
+                  'Indus': [70.7, 31.9],
+                  'Inner_Tibetan_Plateau': [85, 32.4],
+                  'Yangtze': [106.0, 30.4],
+                  'Ganges': [81.3, 26.6],
+                  'Brahmaputra': [92.0, 26],
+                  'Irrawaddy': [96.2, 23.8],
+                  'Salween': [98.5, 20.8],
+                  'Mekong': [104, 17.5],
+                  13: [83,39],
+                  14: [70.8, 30],
+                  15: [81,26.8],
+                  
+                  'inner_TP': [89, 33.5],
+                  'Karakoram': [68.7, 33.5],
+                  'Yigong': [97.5, 26.2],
+                  'Bhutan': [92.1, 26],
+                  'Everest': [85, 26.3],
+                  'West Nepal': [76.5, 28],
+                  'Spiti Lahaul': [72, 31.9],
+                  'tien_shan': [80, 42],
+                  'Pamir': [67.3, 36.5],
+                  'pamir_alai': [65.2, 40.2],
+                  'Kunlun': [79, 37.5],
+                  'Hindu Kush': [65.3, 35]
+                  }
+        # Create the projection
+        fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
+        # Add country borders for reference
+        if grouping == 'rgi_region':
+            ax.add_feature(cartopy.feature.BORDERS, alpha=0.15)
+        ax.add_feature(cartopy.feature.COASTLINE)
+        # Set the extent
+        ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
+        # Label title, x, and y axes
+        ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+        ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+        ax.set_xlabel(xlabel, size=12)
+        ax.set_ylabel(ylabel, size=12)
             
-    # Add colorbar
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0,1))
-    sm._A = []
-    plt.colorbar(sm, ax=ax, fraction=0.02, pad=0.02)
-    fig.text(0.95, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
+        # Add group and attribute of interest
+        if grouping == 'rgi_region':
+            group_shp = cartopy.io.shapereader.Reader(rgiO1_shp_fn)
+            group_shp_attr = 'RGI_CODE'
+        elif grouping == 'watershed':
+            group_shp = cartopy.io.shapereader.Reader(watershed_shp_fn)
+            group_shp_attr = 'name'
+        elif grouping == 'kaab':
+            group_shp = cartopy.io.shapereader.Reader(kaab_shp_fn)
+            group_shp_attr = 'Name'
+        
+        # Add attribute of interest to the shapefile
+        for rec in group_shp.records():
+            if rec.attributes[group_shp_attr] in groups:
+                ds_idx = groups.index(rec.attributes[group_shp_attr])
+                vn_multimodel_mean = ds_vn[ds_idx][1].mean(axis=0)
+                if vn == 'volume_glac_annual':
+                    rec.attributes['value'] = vn_multimodel_mean[-1] / vn_multimodel_mean[0]
+                    
+                    print(rec.attributes[group_shp_attr], rec.attributes['value'])
     
-    # Plot individual glaciers
-    def size_thresholds(variable, cutoffs, sizes):
-        """Loop through size thresholds for a given variable to plot"""
-        output = np.zeros(variable.shape)
-        for i, cutoff in enumerate(cutoffs):
-            output[(variable>cutoff) & (output==0)] = sizes[i]
-        output[output==0] = 2
-        return output
-    area_cutoffs = [100, 10, 1, 0.1]
-    area_cutoffs_size = [1000, 100, 10, 1]
-    area_sizes = size_thresholds(main_glac_rgi_all.Area.values, area_cutoffs, area_cutoffs_size)
+                # Add polygon to plot
+                cmap = mpl.cm.RdYlBu
+                ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor=cmap(rec.attributes['value'], 1), 
+                                  edgecolor='grey', zorder=1)
+                ax.text(title_location[rec.attributes[group_shp_attr]][0], 
+                        title_location[rec.attributes[group_shp_attr]][1], 
+                        title_dict[rec.attributes[group_shp_attr]], horizontalalignment='center', size=12, zorder=3)
+                if rec.attributes[group_shp_attr] == 'Karakoram':
+                    ax.plot([72.2, 76.2], [34.3, 35.8], color='black', linewidth=0.75)
+                elif rec.attributes[group_shp_attr] == 'Pamir':
+                    ax.plot([69.2, 73], [37.3, 38.3], color='black', linewidth=0.75)
+                
+        # Add colorbar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0,1))
+        sm._A = []
+        plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.02)
+        fig.text(0.95, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
+        
+        if option_plot_individual_glaciers == 1:
+            # Plot individual glaciers
+            def size_thresholds(variable, cutoffs, sizes):
+                """Loop through size thresholds for a given variable to plot"""
+                output = np.zeros(variable.shape)
+                for i, cutoff in enumerate(cutoffs):
+                    output[(variable>cutoff) & (output==0)] = sizes[i]
+                output[output==0] = 2
+                return output
+            area_cutoffs = [100, 10, 1, 0.1]
+            area_cutoffs_size = [1000, 100, 10, 1]
+            area_sizes = size_thresholds(main_glac_rgi_all.Area.values, area_cutoffs, area_cutoffs_size)
+            
+            # Volume change
+            vn_glac_all = ds_glac.mean(axis=0)
+            if vn == 'volume_glac_annual':
+                vn_glac_all_norm = np.zeros(vn_glac_all.shape[0])
+                vn_glac_all_norm[vn_glac_all[:,0] > 0] = (
+                        vn_glac_all[vn_glac_all[:,0] > 0,-1] / vn_glac_all[vn_glac_all[:,0] > 0,0])
+            
+            glac_lons = main_glac_rgi_all.CenLon.values
+            glac_lats = main_glac_rgi_all.CenLat.values
+            sc = ax.scatter(glac_lons, glac_lats, c=vn_glac_all_norm, vmin=0, vmax=1, cmap='RdYlBu',
+                            s=area_sizes,
+                            edgecolor='grey', linewidth=0.25,
+                            transform=cartopy.crs.PlateCarree(), zorder=2)
+            
+            # Add legend for glacier sizes
+            legend_glac = []
+            legend_glac_labels = []
+            legend_glac_markersize = [20, 10, 5, 2]
+            for i_area, area_cutoff_size in enumerate(area_cutoffs_size):
+                legend_glac.append(Line2D([0], [0], linestyle='None', marker='o', color='grey', 
+                                          label=(str(area_cutoffs[i_area]) + 'km$^2$'), 
+                                          markerfacecolor='grey', markersize=legend_glac_markersize[i_area]))
+            plt.legend(handles=legend_glac, loc='lower left', fontsize=12)
+        
+        # Add time period and RCP
+        additional_text = 'RCP ' + rcp_dict[rcp] + ': ' + str(time_values.min()) + '-' + str(time_values.max()-1)
+        ax.text(0.98*west, 0.95*north, additional_text, horizontalalignment='right', fontsize=14)
     
-    # Volume change
-    if vn == 'volume_glac_annual':
-        vn_glac_all_norm = np.zeros(vn_glac_all.shape[0])
-        vn_glac_all_norm[vn_glac_all[:,0] > 0] = (
-                vn_glac_all[vn_glac_all[:,0] > 0,-1] / vn_glac_all[vn_glac_all[:,0] > 0,0])
-    
-    glac_lons = main_glac_rgi_all.CenLon.values
-    glac_lats = main_glac_rgi_all.CenLat.values
-    sc = ax.scatter(glac_lons, glac_lats, c=vn_glac_all_norm, vmin=0, vmax=1, cmap='RdYlBu',
-                    s=area_sizes,
-                    edgecolor='grey', linewidth=0.25,
-                    transform=cartopy.crs.PlateCarree(), zorder=2)
-    
-    # Add legend for glacier sizes
-    legend_glac = []
-    legend_glac_labels = []
-    legend_glac_markersize = [20, 10, 5, 2]
-    for i_area, area_cutoff_size in enumerate(area_cutoffs_size):
-        legend_glac.append(Line2D([0], [0], linestyle='None', marker='o', color='grey', 
-                                  label=(str(area_cutoffs[i_area]) + 'km$^2$'), 
-                                  markerfacecolor='grey', markersize=legend_glac_markersize[i_area]))
-    plt.legend(handles=legend_glac, loc='lower left', fontsize=12)
-    
-    # Add time period and RCP
-    additional_text = 'RCP ' + rcp_dict[rcp] + ': ' + str(time_values.min()) + '-' + str(time_values.max()-1)
-    ax.text(0.98*west, 0.95*north, additional_text, horizontalalignment='right', fontsize=14)
-
-    # Save figure
-    fig.set_size_inches(10,6)
-    figure_fn = grouping + '_wglac_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + rcp +  '.png'
-    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+        # Save figure
+        fig.set_size_inches(10,6)
+        figure_fn = grouping + '_wglac_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + rcp +  '.png'
+        fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
