@@ -14,6 +14,7 @@ import collections
 import numpy as np
 import pandas as pd 
 #import netCDF4 as nc
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
@@ -48,20 +49,7 @@ watershed_pts_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/HM
 watershed_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_w_watersheds.csv'
 watershed_csv = pd.read_csv(watershed_dict_fn)
 watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
-watershed_centroid = {'Syr_Darya': [68, 46.1],
-                      'Ili': [83.6, 45.5],
-                      'Amu_Darya': [64.6, 38],
-                      'Tarim': [83.0, 39.2],
-                      'Inner_Tibetan_Plateau_extended': [103, 36],
-                      'Indus': [70.7, 31.9],
-                      'Inner_Tibetan_Plateau': [85, 32.4],
-                      'Yangtze': [106.0, 30.4],
-                      'Ganges': [81.3, 26.6],
-                      'Brahmaputra': [92.0, 26],
-                      'Irrawaddy': [96.2, 23.3],
-                      'Salween': [98.5, 20.8],
-                      'Mekong': [101.8, 19.8]
-                      }
+
 
 # Regions
 rgi_regions = [13, 14, 15]
@@ -791,6 +779,21 @@ if option_plot_cmip5_map == 1:
 #                                   cartopy.crs.PlateCarree(), edgecolor='black', facecolor='none')
 #    ax.add_feature(watershed_feature)
     
+    watershed_centroid = {'Syr_Darya': [68, 46.1],
+                      'Ili': [83.6, 45.5],
+                      'Amu_Darya': [64.6, 38],
+                      'Tarim': [83.0, 39.2],
+                      'Inner_Tibetan_Plateau_extended': [103, 36],
+                      'Indus': [70.7, 31.9],
+                      'Inner_Tibetan_Plateau': [85, 32.4],
+                      'Yangtze': [106.0, 30.4],
+                      'Ganges': [81.3, 26.6],
+                      'Brahmaputra': [92.0, 26],
+                      'Irrawaddy': [96.2, 23.8],
+                      'Salween': [98.5, 20.8],
+                      'Mekong': [104, 17.5]
+                      }
+    
     if vn == 'volume_glac_annual':
         vn_thresholds = [0.25, 0.5, 0.75]
         vn_colors = ['red', 'pink', 'lightyellow', 'lightblue']
@@ -813,24 +816,30 @@ if option_plot_cmip5_map == 1:
                 else:
                     facecolor = vn_colors[3]  
             # Add polygon to plot
-            ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor=facecolor, edgecolor='grey', zorder=1)
+#            ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor=facecolor, edgecolor='grey', zorder=1)
+            cmap = mpl.cm.RdYlBu
+            ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor=cmap(rec.attributes['value'], 1), 
+                              edgecolor='grey', zorder=1)            
             ax.text(watershed_centroid[rec.attributes['name']][0], watershed_centroid[rec.attributes['name']][1], 
-                    title_dict[rec.attributes['name']], horizontalalignment='center', size=8, zorder=3)
-    # Add regional legend
-    legend_reg = []
-    legend_reg_labels = []
-    if vn == 'volume_glac_annual':
-        for i_threshold, vn_threshold in enumerate(vn_thresholds):
-            legend_reg.append(mpatches.Rectangle((0,0), 1, 1, facecolor=vn_colors[i_threshold], edgecolor='grey'))
-            legend_reg_labels.append('< ' + str(vn_threshold))
-        legend_reg.append(mpatches.Rectangle((0,0), 1, 1, facecolor=vn_colors[-1], edgecolor='grey'))
-        legend_reg_labels.append('> ' + str(vn_thresholds[-1]))
-    leg = plt.legend(legend_reg, legend_reg_labels, loc='lower left', bbox_to_anchor=(0,0))
-    ax.add_artist(leg)
-    
-#    # CONVERT CENTROID OF POLYGONS TO POINTS, THEN ADD TEXT AT THE CENTROIDS SUCH THAT THEY ARE ALL LABELED
-#    watershed_pts = cartopy.io.shapereader.Reader(watershed_pts_fn)
-#    watershed_pts_xy = [[i.x, i.y] for i in list(cartopy.io.shapereader.Reader(watershed_pts_fn).geometries())]
+                    title_dict[rec.attributes['name']], horizontalalignment='center', size=12, zorder=3)
+            
+    # Add colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0,1))
+    sm._A = []
+    plt.colorbar(sm, ax=ax, fraction=0.02, pad=0.02)
+    fig.text(0.95, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
+            
+#    # Add regional legend
+#    legend_reg = []
+#    legend_reg_labels = []
+#    if vn == 'volume_glac_annual':
+#        for i_threshold, vn_threshold in enumerate(vn_thresholds):
+#            legend_reg.append(mpatches.Rectangle((0,0), 1, 1, facecolor=vn_colors[i_threshold], edgecolor='grey'))
+#            legend_reg_labels.append('< ' + str(vn_threshold))
+#        legend_reg.append(mpatches.Rectangle((0,0), 1, 1, facecolor=vn_colors[-1], edgecolor='grey'))
+#        legend_reg_labels.append('> ' + str(vn_thresholds[-1]))
+#    leg = plt.legend(legend_reg, legend_reg_labels, loc='lower left', bbox_to_anchor=(0,0))
+#    ax.add_artist(leg)
     
     # Plot individual glaciers
     def size_thresholds(variable, cutoffs, sizes):
@@ -856,9 +865,6 @@ if option_plot_cmip5_map == 1:
                     s=area_sizes,
                     edgecolor='grey', linewidth=0.25,
                     transform=cartopy.crs.PlateCarree(), zorder=2)
-    # Add colorbar
-    plt.colorbar(sc, fraction=0.02, pad=0.02)
-    fig.text(0.95, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
     
     # Add legend for glacier sizes
     legend_glac = []
@@ -868,10 +874,10 @@ if option_plot_cmip5_map == 1:
         legend_glac.append(Line2D([0], [0], linestyle='None', marker='o', color='grey', 
                                   label=(str(area_cutoffs[i_area]) + 'km$^2$'), 
                                   markerfacecolor='grey', markersize=legend_glac_markersize[i_area]))
-    plt.legend(handles=legend_glac, loc='upper right')
+    plt.legend(handles=legend_glac, loc='lower left')
 
     # Save figure
-    fig.set_size_inches(10,6)
-    figure_fn = grouping + '_wglac_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
-    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
-#    plt.show()
+#    fig.set_size_inches(10,6)
+#    figure_fn = grouping + '_wglac_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
+#    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+    plt.show()
