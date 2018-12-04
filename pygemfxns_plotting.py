@@ -39,6 +39,7 @@ option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 1
 
 option_plot_individual_glaciers = 0
+option_plot_degrees = 1
 
 #%% ===== Input data =====
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
@@ -68,8 +69,8 @@ rcps = ['rcp26', 'rcp45', 'rcp85']
 
 # Groups
 #grouping = 'rgi_region'
-#grouping = 'watershed'
-grouping = 'kaab'
+grouping = 'watershed'
+#grouping = 'kaab'
 
 # Plot label dictionaries
 title_dict = {'Amu_Darya': 'Amu Darya',
@@ -712,34 +713,34 @@ if option_plot_cmip5_map == 1:
             main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
     
     
-    # Add watersheds to main_glac_rgi_all
+    # Add watersheds, regions, and degree groups to main_glac_rgi_all
     main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
     main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
-    
-    
-    # Determine grouping
-    if grouping == 'rgi_region':
-        groups = rgi_regions
-        group_cn = 'O1Region'
-    elif grouping == 'watershed':
-        groups = main_glac_rgi_all.watershed.unique().tolist()
-        group_cn = 'watershed'
-    elif grouping == 'kaab':
-        groups = main_glac_rgi_all.kaab.unique().tolist()
-        group_cn = 'kaab'
-        groups = [x for x in groups if str(x) != 'nan']
-    groups = sorted(groups)
+    # Group by degree
+    main_glac_rgi_all['CenLon_round'] = main_glac_rgi_all.CenLon.values.astype(int) 
+    main_glac_rgi_all['CenLat_round'] = main_glac_rgi_all.CenLat.values.astype(int)
+    deg_groups = main_glac_rgi_all.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
+    deg_dict = dict(zip(deg_groups, np.arange(0,len(deg_groups))))
+    main_glac_rgi_all.reset_index(drop=True, inplace=True)
+    cenlon_cenlat = [(main_glac_rgi_all.loc[x,'CenLon_round'], main_glac_rgi_all.loc[x,'CenLat_round']) 
+                     for x in range(len(main_glac_rgi_all))]
+    main_glac_rgi_all['CenLon_CenLat'] = cenlon_cenlat
+    main_glac_rgi_all['deg_id'] = main_glac_rgi_all.CenLon_CenLat.map(deg_dict)
     
     #%%
-    def partition_multimodel_groups(gcm_names, vn):
+    def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all):
         """Partition multimodel data by each group for all GCMs for a given variable
         
         Parameters
         ----------
         gcm_names : list
             list of GCM names
+        grouping : str
+            name of grouping to use
         vn : str
             variable name
+        main_glac_rgi_all : pd.DataFrame
+            glacier table
             
         Output
         ------
@@ -748,6 +749,22 @@ if option_plot_cmip5_map == 1:
         ds_group : list of lists
             dataset containing the multimodel data for a given variable for all the GCMs
         """
+        # Determine grouping
+        if grouping == 'rgi_region':
+            groups = rgi_regions
+            group_cn = 'O1Region'
+        elif grouping == 'watershed':
+            groups = main_glac_rgi_all.watershed.unique().tolist()
+            group_cn = 'watershed'
+        elif grouping == 'kaab':
+            groups = main_glac_rgi_all.kaab.unique().tolist()
+            group_cn = 'kaab'
+            groups = [x for x in groups if str(x) != 'nan']  
+        elif grouping == 'degree':
+            groups = main_glac_rgi_all.deg_id.unique().tolist()
+            group_cn = 'deg_id'
+        groups = sorted(groups)
+        
         ds_group = [[] for group in groups]
         for ngcm, gcm_name in enumerate(gcm_names):
             for region in rgi_regions:                        
@@ -799,13 +816,13 @@ if option_plot_cmip5_map == 1:
                     ds_group[ngroup][1] = np.vstack((ds_group[ngroup][1], vn_reg))
                     
                     
-        return time_values, ds_group, ds_glac
+        return groups, time_values, ds_group, ds_glac
     
     # Load data to accompany watersheds  
     # Merge all data, then select group data
-    for rcp in rcps:
-#    for rcp in ['rcp85']:
-        time_values, ds_vn, ds_glac = partition_multimodel_groups(gcm_names, vn)
+#    for rcp in rcps:
+    for rcp in ['rcp85']:
+        groups, time_values, ds_vn, ds_glac = partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all)
 #%%
         
         title_location = {'Syr_Darya': [68, 46.1],
@@ -910,7 +927,6 @@ if option_plot_cmip5_map == 1:
                 vn_glac_all_norm = np.zeros(vn_glac_all.shape[0])
                 vn_glac_all_norm[vn_glac_all[:,0] > 0] = (
                         vn_glac_all[vn_glac_all[:,0] > 0,-1] / vn_glac_all[vn_glac_all[:,0] > 0,0])
-            
             glac_lons = main_glac_rgi_all.CenLon.values
             glac_lats = main_glac_rgi_all.CenLat.values
             sc = ax.scatter(glac_lons, glac_lats, c=vn_glac_all_norm, vmin=0, vmax=1, cmap='RdYlBu',
@@ -927,6 +943,29 @@ if option_plot_cmip5_map == 1:
                                           label=(str(area_cutoffs[i_area]) + 'km$^2$'), 
                                           markerfacecolor='grey', markersize=legend_glac_markersize[i_area]))
             plt.legend(handles=legend_glac, loc='lower left', fontsize=12)
+        
+        elif option_plot_degrees == 1:
+            # Group by degree  
+            groups_deg, time_values, ds_vn_deg, ds_glac = (
+                    partition_multimodel_groups(gcm_names, 'degree', vn, main_glac_rgi_all))
+            
+            # MAKE THIS CLEARNER!
+            z = np.array([ds_vn_deg[ds_idx][1].mean(axis=0)[-1] / ds_vn_deg[ds_idx][1].mean(axis=0)[0] 
+                          for ds_idx in range(len(ds_vn_deg))])
+        
+            x = np.array([x[0] for x in deg_groups]) 
+            y = np.array([x[1] for x in deg_groups])
+            lons = np.arange(x.min(), x.max() + 2)
+            lats = np.arange(y.min(), y.max() + 2)
+            x_adj = np.arange(x.min(), x.max() + 1) - x.min()
+            y_adj = np.arange(y.min(), y.max() + 1) - y.min()
+            z_array = np.zeros((len(y_adj), len(x_adj)))
+            z_array[z_array==0] = np.nan
+            for i in range(len(z)):
+                row_idx = y[i] - y.min()
+                col_idx = x[i] - x.min()
+                z_array[row_idx, col_idx] = z[i]
+            ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu', vmin=0, vmax=1, zorder=4)
         
         # Add time period and RCP
         additional_text = 'RCP ' + rcp_dict[rcp] + ': ' + str(time_values.min()) + '-' + str(time_values.max()-1)
