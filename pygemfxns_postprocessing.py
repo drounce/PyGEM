@@ -312,7 +312,7 @@ if option_var_mon2annual == 1:
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
 if option_spc_subset_vars == 1:
     netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108_merged/'
-    gcm_name = 'NorESM1-M'
+    gcm_name = 'IPSL-CM5A-LR'
     
     vns_all = input.output_variables_package2
     vns_subset = input.output_variables_package2

@@ -34,12 +34,14 @@ import run_simulation
 
 
 # Script options
-option_plot_cmip5_normalizedchange = 0
+option_plot_cmip5_normalizedchange = 1
 option_plot_cmip5_runoffcomponents = 0
-option_plot_cmip5_map = 1
+option_plot_cmip5_map = 0
 
 option_plot_individual_glaciers = 0
 option_plot_degrees = 1
+option_plot_pies = 0
+
 
 #%% ===== Input data =====
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
@@ -61,16 +63,21 @@ kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_
 kaab_csv = pd.read_csv(kaab_dict_fn)
 kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab))
 # GCMs and RCP scenarios
-gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R',
-             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3']
-#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR',
-#             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
+gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 
+             'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
 rcps = ['rcp26', 'rcp45', 'rcp85']
 
 # Groups
 #grouping = 'rgi_region'
-grouping = 'watershed'
-#grouping = 'kaab'
+#grouping = 'watershed'
+grouping = 'kaab'
+
+# Variable name
+vn = 'volume_norm'
+#vn = 'peakwater'
+
+degree_size = 0.5
+peakwater_Nyears = 10
 
 # Plot label dictionaries
 title_dict = {'Amu_Darya': 'Amu Darya',
@@ -102,9 +109,39 @@ title_dict = {'Amu_Darya': 'Amu Darya',
               14: 'South Asia West',
               15: 'South Asia East'
               }
-
+title_location = {'Syr_Darya': [68, 46.1],
+                  'Ili': [83.6, 45.5],
+                  'Amu_Darya': [64.6, 36.9],
+                  'Tarim': [83.0, 39.2],
+                  'Inner_Tibetan_Plateau_extended': [104, 36],
+                  'Indus': [70.7, 31.9],
+                  'Inner_Tibetan_Plateau': [85, 32.4],
+                  'Yangtze': [106.0, 29.8],
+                  'Ganges': [81.3, 26.6],
+                  'Brahmaputra': [92.0, 26],
+                  'Irrawaddy': [96.2, 23.8],
+                  'Salween': [98.5, 20.8],
+                  'Mekong': [103.8, 17.5],
+                  13: [83,39],
+                  14: [70.8, 30],
+                  15: [81,26.8],
+                  'inner_TP': [89, 33.5],
+                  'Karakoram': [68.7, 33.5],
+                  'Yigong': [97.5, 26.2],
+                  'Bhutan': [92.1, 26],
+                  'Everest': [85, 26.3],
+                  'West Nepal': [76.5, 28],
+                  'Spiti Lahaul': [72, 31.9],
+                  'tien_shan': [80, 42],
+                  'Pamir': [67.3, 36.5],
+                  'pamir_alai': [65.2, 40.2],
+                  'Kunlun': [79, 37.5],
+                  'Hindu Kush': [65.3, 35]
+                  }
 vn_dict = {'volume_glac_annual': 'Normalized Volume [-]',
+           'volume_norm': 'Normalized Volume [-]',
            'runoff_glac_annual': 'Normalized Runoff [-]',
+           'peakwater': 'Peak Water [yr]',
            'temp_glac_annual': 'Temperature [degC]',
            'prec_glac_annual': 'Precipitation [m]'}
 rcp_dict = {'rcp26': '2.6',
@@ -129,7 +166,176 @@ ytick = 5
 xlabel = 'Longitude [deg]'
 ylabel = 'Latitude [deg]'
 
-#%% REGIONAL BIAS ADJUSTED TEMPERATURE AND PRECIPITATION FOR GCMS
+
+#%% FUNCTIONS
+def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all):
+    """Partition multimodel data by each group for all GCMs for a given variable
+    
+    Parameters
+    ----------
+    gcm_names : list
+        list of GCM names
+    grouping : str
+        name of grouping to use
+    vn : str
+        variable name
+    main_glac_rgi_all : pd.DataFrame
+        glacier table
+        
+    Output
+    ------
+    time_values : np.array
+        time values that accompany the multimodel data
+    ds_group : list of lists
+        dataset containing the multimodel data for a given variable for all the GCMs
+    """
+    # Determine grouping
+    if grouping == 'rgi_region':
+        groups = rgi_regions
+        group_cn = 'O1Region'
+    elif grouping == 'watershed':
+        groups = main_glac_rgi_all.watershed.unique().tolist()
+        group_cn = 'watershed'
+    elif grouping == 'kaab':
+        groups = main_glac_rgi_all.kaab.unique().tolist()
+        group_cn = 'kaab'
+        groups = [x for x in groups if str(x) != 'nan']  
+    elif grouping == 'degree':
+        groups = main_glac_rgi_all.deg_id.unique().tolist()
+        group_cn = 'deg_id'
+    groups = sorted(groups)
+    
+    # variable name
+    if vn == 'volume_norm':
+        ds_vn = 'volume_glac_annual'
+    elif vn == 'peakwater':
+        ds_vn = 'runoff_glac_annual'
+    
+    ds_group = [[] for group in groups]
+    for ngcm, gcm_name in enumerate(gcm_names):
+        for region in rgi_regions:                        
+            # Load datasets
+            if gcm_name == 'ERA-Interim':
+                netcdf_fp = netcdf_fp_era
+                ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+            else:
+                netcdf_fp = netcdf_fp_cmip5 + ds_vn + '/'
+                ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' 
+                         + ds_vn + '.nc')    
+            # Bypass GCMs that are missing a rcp scenario
+            try:
+                ds = xr.open_dataset(netcdf_fp + ds_fn)
+            except:
+                continue
+            # Extract time variable
+            if 'annual' in ds_vn:
+                try:
+                    time_values = ds[ds_vn].coords['year_plus1'].values
+                except:
+                    time_values = ds[ds_vn].coords['year'].values
+            # Merge datasets
+            if region == rgi_regions[0]:
+                vn_glac_all = ds[ds_vn].values[:,:,0]
+                vn_glac_std_all = ds[ds_vn].values[:,:,1]
+            else:
+                vn_glac_all = np.concatenate((vn_glac_all, ds[ds_vn].values[:,:,0]), axis=0)
+                vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[ds_vn].values[:,:,1]), axis=0)
+            
+        if ngcm == 0:
+            ds_glac = vn_glac_all[np.newaxis,:,:]
+        else:
+            ds_glac = np.concatenate((ds_glac, vn_glac_all[np.newaxis,:,:]), axis=0)
+    
+        # Cycle through groups
+        for ngroup, group in enumerate(groups):
+            # Select subset of data
+            main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
+            vn_glac = vn_glac_all[main_glac_rgi.index.values.tolist(),:]
+            vn_glac_std = vn_glac_std_all[main_glac_rgi.index.values.tolist(),:]
+            vn_glac_var = vn_glac_std **2                
+            # Regional sum
+            vn_reg = vn_glac.sum(axis=0)                
+            # Record data for multi-model stats
+            if ngcm == 0:
+                ds_group[ngroup] = [group, vn_reg]
+            else:
+                ds_group[ngroup][1] = np.vstack((ds_group[ngroup][1], vn_reg))
+                
+                
+    return groups, time_values, ds_group, ds_glac
+
+ 
+def vn_multimodel_mean_processed(vn, ds, group_idx, time_values, every_glacier=0):
+    """
+    Calculate multi-model mean for a given variable of interest
+    
+    Parameters
+    ----------
+    vn : str
+        variable/parameter name
+    ds : list
+        dataset containing groups
+    group_idx : int
+        group index
+    time_values : np.array
+        array of years
+    every_glacier : int
+        switch to work with groups or work with concatenated dataframe
+    
+    Output
+    ------
+    
+    """
+    # Multi-model mean
+    if every_glacier == 0:
+        vn_multimodel_mean = ds[group_idx][1].mean(axis=0)
+    else:
+        vn_multimodel_mean = ds[:,group_idx,:].mean(axis=0)
+    
+    # Normalized volume based on initial volume
+    if vn == 'volume_norm':
+        if vn_multimodel_mean[0] > 0:
+            output_multimodel_mean = vn_multimodel_mean / vn_multimodel_mean[0]
+        else:
+            output_multimodel_mean = np.zeros(vn_multimodel_mean.shape)
+    # Peak water based on 10-yr running average
+    elif vn == 'peakwater':
+        def running_mean(x, N):
+            cumsum = np.cumsum(np.insert(x,0,0))
+            return (cumsum[N:] - cumsum[:-N]) / float(N)
+        vn_runningmean = running_mean(vn_multimodel_mean, peakwater_Nyears)
+        t1_idx = int((peakwater_Nyears-1)/2)
+        t2_idx = len(time_values) - int(np.ceil((peakwater_Nyears-1)/2))
+        time_subset = time_values[t1_idx : t2_idx]
+        output_multimodel_mean = time_subset[np.where(vn_runningmean == vn_runningmean.max())[-1][0]]
+    return output_multimodel_mean
+
+
+def size_thresholds(variable, cutoffs, sizes):
+    """Loop through size thresholds for a given variable to plot
+    
+    Parameters
+    ----------
+    variable : np.array
+        data associated with glacier characteristic
+    cutoffs : list
+        values used as minimums for thresholds 
+        (ex. 100 would give you greater than 100)
+    sizes : list
+        size values for the plot
+        
+    Output
+    ------
+    output : np.array
+        plot size for each glacier
+    """
+    output = np.zeros(variable.shape)
+    for i, cutoff in enumerate(cutoffs):
+        output[(variable>cutoff) & (output==0)] = sizes[i]
+    output[output==0] = 2
+    return output
+
+
 def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
     """
     Get the regional temperature and precipitation for a given dataset.
@@ -232,10 +438,36 @@ def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
         return reg_mean_temp_biasadj, reg_mean_prec_biasadj
 
 
-#%% PLOT RESULTS
+#%% LOAD ALL GLACIERS
+# Load all glaciers
+for rgi_region in rgi_regions:
+    # Data on all glaciers
+    main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
+                                                             rgi_glac_number='all')
+    if rgi_region == rgi_regions[0]:
+        main_glac_rgi_all = main_glac_rgi_region
+    else:
+        main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
+
+# Add watersheds, regions, and degree groups to main_glac_rgi_all
+main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
+main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
+# Group by degree
+main_glac_rgi_all['CenLon_round'] = np.floor(main_glac_rgi_all.CenLon.values/degree_size) * degree_size
+main_glac_rgi_all['CenLat_round'] = np.floor(main_glac_rgi_all.CenLat.values/degree_size) * degree_size
+deg_groups = main_glac_rgi_all.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
+deg_dict = dict(zip(deg_groups, np.arange(0,len(deg_groups))))
+main_glac_rgi_all.reset_index(drop=True, inplace=True)
+cenlon_cenlat = [(main_glac_rgi_all.loc[x,'CenLon_round'], main_glac_rgi_all.loc[x,'CenLat_round']) 
+                 for x in range(len(main_glac_rgi_all))]
+main_glac_rgi_all['CenLon_CenLat'] = cenlon_cenlat
+main_glac_rgi_all['deg_id'] = main_glac_rgi_all.CenLon_CenLat.map(deg_dict)
+
+
+#%% TIME SERIES OF SUBPLOTS FOR EACH GROUP
 if option_plot_cmip5_normalizedchange == 1:
-    vns = ['volume_glac_annual', 'runoff_glac_annual']
-#    vns = ['volume_glac_annual']
+#    vns = ['volume_glac_annual', 'runoff_glac_annual']
+    vns = ['volume_glac_annual']
 #    vns = ['volume_glac_annual', 'temp_glac_annual', 'prec_glac_annual']
     # NOTE: Temperatures and precipitation will not line up exactly because each region is covered by a different 
     #       number of pixels, and hence the mean of those pixels is not going to be equal.
@@ -243,21 +475,31 @@ if option_plot_cmip5_normalizedchange == 1:
     option_plots_individual_gcms = 0
     multimodel_linewidth = 2
     
-    # Load all glaciers
-    for rgi_region in rgi_regions:
-        # Data on all glaciers
-        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
-                                                                 rgi_glac_number='all')
-        if rgi_region == rgi_regions[0]:
-            main_glac_rgi_all = main_glac_rgi_region
-        else:
-            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
+#    # Load all glaciers
+#    for rgi_region in rgi_regions:
+#        # Data on all glaciers
+#        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
+#                                                                 rgi_glac_number='all')
+#        if rgi_region == rgi_regions[0]:
+#            main_glac_rgi_all = main_glac_rgi_region
+#        else:
+#            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
+#    
+#    # Load watershed dictionary
+#    watershed_csv = pd.read_csv(watershed_dict_fn)
+#    watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
+#    # Add watersheds to main_glac_rgi_all
+#    main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
     
-    # Load watershed dictionary
-    watershed_csv = pd.read_csv(watershed_dict_fn)
-    watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
-    # Add watersheds to main_glac_rgi_all
-    main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
+#    # Determine grouping
+#    if grouping == 'rgi_region':
+#        groups = rgi_regions
+#        group_cn = 'O1Region'
+#    elif grouping == 'watershed':
+#        groups = main_glac_rgi_all.watershed.unique().tolist()
+#        groups.remove('Irrawaddy')
+#        group_cn = 'watershed'
+#    groups = sorted(groups)
     
     # Determine grouping
     if grouping == 'rgi_region':
@@ -265,9 +507,18 @@ if option_plot_cmip5_normalizedchange == 1:
         group_cn = 'O1Region'
     elif grouping == 'watershed':
         groups = main_glac_rgi_all.watershed.unique().tolist()
-        groups.remove('Irrawaddy')
         group_cn = 'watershed'
+    elif grouping == 'kaab':
+        groups = main_glac_rgi_all.kaab.unique().tolist()
+        group_cn = 'kaab'
+        groups = [x for x in groups if str(x) != 'nan']  
+    elif grouping == 'degree':
+        groups = main_glac_rgi_all.deg_id.unique().tolist()
+        group_cn = 'deg_id'
     groups = sorted(groups)
+    
+    if grouping == 'watershed':
+        groups.remove('Irrawaddy')
     
     reg_legend = []
     num_cols_max = 4
@@ -489,7 +740,8 @@ if option_plot_cmip5_normalizedchange == 1:
         figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
         fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
 
-#%%
+
+#%% RUNOFF COMPONENTS FOR EACH GROUP
 if option_plot_cmip5_runoffcomponents == 1:
     vns = ['prec_glac_annual', 'melt_glac_annual', 'melt_glac_summer', 'refreeze_glac_annual']
     multimodel_linewidth = 1
@@ -698,163 +950,37 @@ if option_plot_cmip5_runoffcomponents == 1:
         fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
 
 
-#%% PLOT MAP
-if option_plot_cmip5_map == 1:
-    vn = 'volume_glac_annual'
+#%% MAP OF VARIABLE OVERLAID BY DEGREES OR GLACIER DATA
+if option_plot_cmip5_map == 1:    
+#    # Load all glaciers
+#    for rgi_region in rgi_regions:
+#        # Data on all glaciers
+#        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
+#                                                                 rgi_glac_number='all')
+#        if rgi_region == rgi_regions[0]:
+#            main_glac_rgi_all = main_glac_rgi_region
+#        else:
+#            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
+#
+#    # Add watersheds, regions, and degree groups to main_glac_rgi_all
+#    main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
+#    main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
+#    # Group by degree
+#    main_glac_rgi_all['CenLon_round'] = np.floor(main_glac_rgi_all.CenLon.values/degree_size) * degree_size
+#    main_glac_rgi_all['CenLat_round'] = np.floor(main_glac_rgi_all.CenLat.values/degree_size) * degree_size
+#    deg_groups = main_glac_rgi_all.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
+#    deg_dict = dict(zip(deg_groups, np.arange(0,len(deg_groups))))
+#    main_glac_rgi_all.reset_index(drop=True, inplace=True)
+#    cenlon_cenlat = [(main_glac_rgi_all.loc[x,'CenLon_round'], main_glac_rgi_all.loc[x,'CenLat_round']) 
+#                     for x in range(len(main_glac_rgi_all))]
+#    main_glac_rgi_all['CenLon_CenLat'] = cenlon_cenlat
+#    main_glac_rgi_all['deg_id'] = main_glac_rgi_all.CenLon_CenLat.map(deg_dict)
     
-    # Load all glaciers
-    for rgi_region in rgi_regions:
-        # Data on all glaciers
-        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
-                                                                 rgi_glac_number='all')
-        if rgi_region == rgi_regions[0]:
-            main_glac_rgi_all = main_glac_rgi_region
-        else:
-            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
-    
-    
-    # Add watersheds, regions, and degree groups to main_glac_rgi_all
-    main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
-    main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
-    # Group by degree
-    main_glac_rgi_all['CenLon_round'] = main_glac_rgi_all.CenLon.values.astype(int) 
-    main_glac_rgi_all['CenLat_round'] = main_glac_rgi_all.CenLat.values.astype(int)
-    deg_groups = main_glac_rgi_all.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
-    deg_dict = dict(zip(deg_groups, np.arange(0,len(deg_groups))))
-    main_glac_rgi_all.reset_index(drop=True, inplace=True)
-    cenlon_cenlat = [(main_glac_rgi_all.loc[x,'CenLon_round'], main_glac_rgi_all.loc[x,'CenLat_round']) 
-                     for x in range(len(main_glac_rgi_all))]
-    main_glac_rgi_all['CenLon_CenLat'] = cenlon_cenlat
-    main_glac_rgi_all['deg_id'] = main_glac_rgi_all.CenLon_CenLat.map(deg_dict)
-    
-    #%%
-    def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all):
-        """Partition multimodel data by each group for all GCMs for a given variable
-        
-        Parameters
-        ----------
-        gcm_names : list
-            list of GCM names
-        grouping : str
-            name of grouping to use
-        vn : str
-            variable name
-        main_glac_rgi_all : pd.DataFrame
-            glacier table
-            
-        Output
-        ------
-        time_values : np.array
-            time values that accompany the multimodel data
-        ds_group : list of lists
-            dataset containing the multimodel data for a given variable for all the GCMs
-        """
-        # Determine grouping
-        if grouping == 'rgi_region':
-            groups = rgi_regions
-            group_cn = 'O1Region'
-        elif grouping == 'watershed':
-            groups = main_glac_rgi_all.watershed.unique().tolist()
-            group_cn = 'watershed'
-        elif grouping == 'kaab':
-            groups = main_glac_rgi_all.kaab.unique().tolist()
-            group_cn = 'kaab'
-            groups = [x for x in groups if str(x) != 'nan']  
-        elif grouping == 'degree':
-            groups = main_glac_rgi_all.deg_id.unique().tolist()
-            group_cn = 'deg_id'
-        groups = sorted(groups)
-        
-        ds_group = [[] for group in groups]
-        for ngcm, gcm_name in enumerate(gcm_names):
-            for region in rgi_regions:                        
-                # Load datasets
-                if gcm_name == 'ERA-Interim':
-                    netcdf_fp = netcdf_fp_era
-                    ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
-                else:
-                    netcdf_fp = netcdf_fp_cmip5 + vn + '/'
-                    ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' 
-                             + vn + '.nc')    
-                # Bypass GCMs that are missing a rcp scenario
-                try:
-                    ds = xr.open_dataset(netcdf_fp + ds_fn)
-                except:
-                    continue
-                # Extract time variable
-                if 'annual' in vn:
-                    try:
-                        time_values = ds[vn].coords['year_plus1'].values
-                    except:
-                        time_values = ds[vn].coords['year'].values
-                # Merge datasets
-                if region == rgi_regions[0]:
-                    vn_glac_all = ds[vn].values[:,:,0]
-                    vn_glac_std_all = ds[vn].values[:,:,1]
-                else:
-                    vn_glac_all = np.concatenate((vn_glac_all, ds[vn].values[:,:,0]), axis=0)
-                    vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn].values[:,:,1]), axis=0)
-                
-            if ngcm == 0:
-                ds_glac = vn_glac_all[np.newaxis,:,:]
-            else:
-                ds_glac = np.concatenate((ds_glac, vn_glac_all[np.newaxis,:,:]), axis=0)
-        
-            # Cycle through groups
-            for ngroup, group in enumerate(groups):
-                # Select subset of data
-                main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
-                vn_glac = vn_glac_all[main_glac_rgi.index.values.tolist(),:]
-                vn_glac_std = vn_glac_std_all[main_glac_rgi.index.values.tolist(),:]
-                vn_glac_var = vn_glac_std **2
-                # Regional mean
-                vn_reg = vn_glac.sum(axis=0)
-                # Record data for multi-model stats
-                if ngcm == 0:
-                    ds_group[ngroup] = [group, vn_reg]
-                else:
-                    ds_group[ngroup][1] = np.vstack((ds_group[ngroup][1], vn_reg))
-                    
-                    
-        return groups, time_values, ds_group, ds_glac
-    
-    # Load data to accompany watersheds  
-    # Merge all data, then select group data
-#    for rcp in rcps:
-    for rcp in ['rcp85']:
+    for rcp in rcps:
+#    for rcp in ['rcp45']:
+        # Merge all data and partition into groups
         groups, time_values, ds_vn, ds_glac = partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all)
 #%%
-        
-        title_location = {'Syr_Darya': [68, 46.1],
-                  'Ili': [83.6, 45.5],
-                  'Amu_Darya': [64.6, 38],
-                  'Tarim': [83.0, 39.2],
-                  'Inner_Tibetan_Plateau_extended': [103, 36],
-                  'Indus': [70.7, 31.9],
-                  'Inner_Tibetan_Plateau': [85, 32.4],
-                  'Yangtze': [106.0, 30.4],
-                  'Ganges': [81.3, 26.6],
-                  'Brahmaputra': [92.0, 26],
-                  'Irrawaddy': [96.2, 23.8],
-                  'Salween': [98.5, 20.8],
-                  'Mekong': [104, 17.5],
-                  13: [83,39],
-                  14: [70.8, 30],
-                  15: [81,26.8],
-                  
-                  'inner_TP': [89, 33.5],
-                  'Karakoram': [68.7, 33.5],
-                  'Yigong': [97.5, 26.2],
-                  'Bhutan': [92.1, 26],
-                  'Everest': [85, 26.3],
-                  'West Nepal': [76.5, 28],
-                  'Spiti Lahaul': [72, 31.9],
-                  'tien_shan': [80, 42],
-                  'Pamir': [67.3, 36.5],
-                  'pamir_alai': [65.2, 40.2],
-                  'Kunlun': [79, 37.5],
-                  'Hindu Kush': [65.3, 35]
-                  }
         # Create the projection
         fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
         # Add country borders for reference
@@ -879,60 +1005,73 @@ if option_plot_cmip5_map == 1:
         elif grouping == 'kaab':
             group_shp = cartopy.io.shapereader.Reader(kaab_shp_fn)
             group_shp_attr = 'Name'
+            
+        colorbar_dict = {'volume_norm':[0,1],
+                         'peakwater':[2000,2100]}
+        cmap = mpl.cm.RdYlBu
+        norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])
         
         # Add attribute of interest to the shapefile
         for rec in group_shp.records():
             if rec.attributes[group_shp_attr] in groups:
-                ds_idx = groups.index(rec.attributes[group_shp_attr])
-                vn_multimodel_mean = ds_vn[ds_idx][1].mean(axis=0)
-                if vn == 'volume_glac_annual':
-                    rec.attributes['value'] = vn_multimodel_mean[-1] / vn_multimodel_mean[0]
+                # Group index
+                ds_idx = groups.index(rec.attributes[group_shp_attr])                
+                vn_multimodel_mean = vn_multimodel_mean_processed(vn, ds_vn, ds_idx, time_values)
+                
+                # Value to plot
+                if vn == 'volume_norm':
+                    rec.attributes['value'] = vn_multimodel_mean[-1]
+                elif vn == 'peakwater':
+                    rec.attributes['value'] = vn_multimodel_mean
                     
-                    print(rec.attributes[group_shp_attr], rec.attributes['value'])
+                print(rec.attributes[group_shp_attr], rec.attributes['value'])
+
     
                 # Add polygon to plot
-                cmap = mpl.cm.RdYlBu
-                ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor=cmap(rec.attributes['value'], 1), 
-                                  edgecolor='grey', zorder=1)
+                ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), 
+                                  facecolor=cmap(norm(rec.attributes['value'])),
+                                  edgecolor='None', zorder=1)
+                # plot polygon outlines on top of everything with their labels
+                ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor='None', 
+                                  edgecolor='grey', linewidth=0.75, zorder=3)
                 ax.text(title_location[rec.attributes[group_shp_attr]][0], 
                         title_location[rec.attributes[group_shp_attr]][1], 
-                        title_dict[rec.attributes[group_shp_attr]], horizontalalignment='center', size=12, zorder=3)
+                        title_dict[rec.attributes[group_shp_attr]], horizontalalignment='center', size=12, zorder=4)
                 if rec.attributes[group_shp_attr] == 'Karakoram':
                     ax.plot([72.2, 76.2], [34.3, 35.8], color='black', linewidth=0.75)
                 elif rec.attributes[group_shp_attr] == 'Pamir':
                     ax.plot([69.2, 73], [37.3, 38.3], color='black', linewidth=0.75)
-                
+                        
+        
         # Add colorbar
-        sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0,1))
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm._A = []
         plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.02)
         fig.text(0.95, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
         
         if option_plot_individual_glaciers == 1:
             # Plot individual glaciers
-            def size_thresholds(variable, cutoffs, sizes):
-                """Loop through size thresholds for a given variable to plot"""
-                output = np.zeros(variable.shape)
-                for i, cutoff in enumerate(cutoffs):
-                    output[(variable>cutoff) & (output==0)] = sizes[i]
-                output[output==0] = 2
-                return output
             area_cutoffs = [100, 10, 1, 0.1]
-            area_cutoffs_size = [1000, 100, 10, 1]
+            area_cutoffs_size = [1000, 100, 10, 2]
             area_sizes = size_thresholds(main_glac_rgi_all.Area.values, area_cutoffs, area_cutoffs_size)
+            # Multi-model mean of all glaciers
+            output_multimodel_mean_all_list = []
+            for glac in range(len(main_glac_rgi_all)):
+                output_multimodel_mean = vn_multimodel_mean_processed(vn, ds_glac, glac, time_values, every_glacier=1)
+                output_multimodel_mean_all_list.append(output_multimodel_mean)
+            output_multimodel_mean_all = np.array(output_multimodel_mean_all_list)
             
-            # Volume change
-            vn_glac_all = ds_glac.mean(axis=0)
-            if vn == 'volume_glac_annual':
-                vn_glac_all_norm = np.zeros(vn_glac_all.shape[0])
-                vn_glac_all_norm[vn_glac_all[:,0] > 0] = (
-                        vn_glac_all[vn_glac_all[:,0] > 0,-1] / vn_glac_all[vn_glac_all[:,0] > 0,0])
+            # Value to plot
+            if vn == 'volume_norm':
+                output_multimodel_mean_all_plot = output_multimodel_mean_all[:,-1]
+            elif vn == 'peakwater':
+                output_multimodel_mean_all_plot = output_multimodel_mean_all
+                
             glac_lons = main_glac_rgi_all.CenLon.values
             glac_lats = main_glac_rgi_all.CenLat.values
-            sc = ax.scatter(glac_lons, glac_lats, c=vn_glac_all_norm, vmin=0, vmax=1, cmap='RdYlBu',
+            sc = ax.scatter(glac_lons, glac_lats, c=output_multimodel_mean_all_plot, cmap=cmap, norm=norm, 
                             s=area_sizes,
-                            edgecolor='grey', linewidth=0.25,
-                            transform=cartopy.crs.PlateCarree(), zorder=2)
+                            edgecolor='grey', linewidth=0.25, transform=cartopy.crs.PlateCarree(), zorder=2)
             
             # Add legend for glacier sizes
             legend_glac = []
@@ -943,35 +1082,81 @@ if option_plot_cmip5_map == 1:
                                           label=(str(area_cutoffs[i_area]) + 'km$^2$'), 
                                           markerfacecolor='grey', markersize=legend_glac_markersize[i_area]))
             plt.legend(handles=legend_glac, loc='lower left', fontsize=12)
-        
+
         elif option_plot_degrees == 1:
             # Group by degree  
             groups_deg, time_values, ds_vn_deg, ds_glac = (
                     partition_multimodel_groups(gcm_names, 'degree', vn, main_glac_rgi_all))
-            
-            # MAKE THIS CLEARNER!
-            z = np.array([ds_vn_deg[ds_idx][1].mean(axis=0)[-1] / ds_vn_deg[ds_idx][1].mean(axis=0)[0] 
-                          for ds_idx in range(len(ds_vn_deg))])
-        
+            # Get values for each group
+            for group_idx in range(len(ds_vn_deg)):
+                vn_multimodel_mean_deg = vn_multimodel_mean_processed(vn, ds_vn_deg, group_idx, time_values)
+                # Value to plot
+                if vn == 'volume_norm':
+                    ds_vn_deg[group_idx].append(vn_multimodel_mean_deg[-1])
+                elif vn == 'peakwater':
+                    ds_vn_deg[group_idx].append(vn_multimodel_mean_deg)
+            z = [ds_vn_deg[ds_idx][2] for ds_idx in range(len(ds_vn_deg))]
             x = np.array([x[0] for x in deg_groups]) 
             y = np.array([x[1] for x in deg_groups])
-            lons = np.arange(x.min(), x.max() + 2)
-            lats = np.arange(y.min(), y.max() + 2)
-            x_adj = np.arange(x.min(), x.max() + 1) - x.min()
-            y_adj = np.arange(y.min(), y.max() + 1) - y.min()
+            lons = np.arange(x.min(), x.max() + 2 * degree_size, degree_size)
+            lats = np.arange(y.min(), y.max() + 2 * degree_size, degree_size)
+            x_adj = np.arange(x.min(), x.max() + 1 * degree_size, degree_size) - x.min()
+            y_adj = np.arange(y.min(), y.max() + 1 * degree_size, degree_size) - y.min()
             z_array = np.zeros((len(y_adj), len(x_adj)))
             z_array[z_array==0] = np.nan
             for i in range(len(z)):
-                row_idx = y[i] - y.min()
-                col_idx = x[i] - x.min()
+                row_idx = int((y[i] - y.min()) / degree_size)
+                col_idx = int((x[i] - x.min()) / degree_size)
                 z_array[row_idx, col_idx] = z[i]
-            ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu', vmin=0, vmax=1, zorder=4)
+            ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu', norm=norm, zorder=2)
+            
+#        elif option_plot_pies == 1:
+#            
+#            #%%
+##            pie_volumes = []
+#            pie_years = [2040, 2070, 2100]
+#            pie_years_idx = [np.where(time_values == pie_year)[0][0] for pie_year in pie_years]
+#            pie_volumes = [vn_multimodel_mean[idx] for idx in pie_years_idx]
+#            pie_radii = [1.3,1,0.7]
+#            
+#            # Make data: I have 3 groups and 3 subgroups
+##            group_names=['2040', '2070', '2100']
+##            group_size=[12,11,30]
+#            group_size = [1]
+#            subgroup_names=['A.1', 'A.2', 'A.3', 'B.1', 'B.2', 'C.1', 'C.2', 'C.3', 'C.4', 'C.5']
+#            subgroup_size=[4,3,5,6,5,10,5,5,4,6]
+#             
+#            # Create colors
+#            a, b, c=[plt.cm.Blues, plt.cm.Reds, plt.cm.Greens]
+#             
+#            # First Ring (outside)
+#            fig, ax = plt.subplots()
+#            ax.axis('equal')
+#            for i, pie_year in enumerate(pie_years):
+#                i_volume = [pie_volumes[i], 1-pie_volumes[i]]
+#                mypie, _ = ax.pie(i_volume, radius=pie_radii[i], labels=[str(pie_year), ''], colors=['grey','None'],
+#                                  startangle=90, textprops={'fontsize': 14})
+#                plt.setp( mypie, width=0.3, edgecolor='white')
+#
+#            # show it
+#            plt.show()
+#
+#            #%%
+            
         
         # Add time period and RCP
-        additional_text = 'RCP ' + rcp_dict[rcp] + ': ' + str(time_values.min()) + '-' + str(time_values.max()-1)
+        if 'volume' in vn:
+            additional_text = 'RCP ' + rcp_dict[rcp] + ': ' + str(time_values.min()) + '-' + str(time_values.max()-1)
+        else:
+            additional_text = 'RCP ' + rcp_dict[rcp] + ': ' + str(time_values.min()) + '-' + str(time_values.max())
         ax.text(0.98*west, 0.95*north, additional_text, horizontalalignment='right', fontsize=14)
     
         # Save figure
         fig.set_size_inches(10,6)
-        figure_fn = grouping + '_wglac_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + rcp +  '.png'
+        if option_plot_individual_glaciers == 1:
+            figure_fn = grouping + '_wglac_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + rcp +  '.png'
+        elif option_plot_degrees == 1:
+            figure_fn = grouping + '_wdeg_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + rcp +  '.png'
+        else:
+            figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + rcp +  '.png'
         fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
