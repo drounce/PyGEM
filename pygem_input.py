@@ -152,8 +152,8 @@ endyear = 2017
 # Spin up time [years]
 spinupyears = 0
 # Simulation runs
-gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_startyear = 1970
+gcm_endyear = 2017
 gcm_spinupyears = 0
 
 # Synthetic simulation options
@@ -524,13 +524,13 @@ brun_mb_err_cn = 'err. on MB [m w.e a-1]'
 
 # ===== MAUER GEODETIC =====
 mauer_fp = main_directory + '/../DEMs/'
-mauer_fn = 'RupperMauer_GeodeticMassBalance_Himalayas_2000_2016.csv'
-mauer_rgi_glacno_cn = 'id'
+#mauer_fn = 'RupperMauer_GeodeticMassBalance_Himalayas_2000_2016.csv'
+mauer_fn = 'Mauer_geoMB_HMA_1970s_2000_min80pctCov.csv'
+mauer_rgi_glacno_cn = 'RGIId'
 mauer_mb_cn = 'geoMassBal'
 mauer_mb_err_cn = 'geoMassBalSig'
-mauer_time1_cn = 'Year1'
-mauer_time2_cn = 'Year2'
-# NEED TO FINISH SETTING UP MAUER WITH CLASS_MBDATA
+mauer_time1_cn = 't1'
+mauer_time2_cn = 't2'
 
 # ===== WGMS =====
 wgms_datasets = ['wgms_d', 'wgms_ee']

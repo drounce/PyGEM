@@ -838,7 +838,7 @@ if __name__ == '__main__':
 
     # Loop through all GCMs
     for gcm_name in gcm_list:
-        print('Processing:', gcm_name)
+        print('Processing:', gcm_name, rcp_scenario)
         # Pack variables for multiprocessing
         list_packed_vars = []
         n = 0
