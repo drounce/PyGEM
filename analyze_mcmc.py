@@ -37,7 +37,8 @@ parameters_all = ['ddfsnow', 'precfactor', 'tempchange', 'ddfice', 'lrgcm', 'lrg
 acorr_maxlags = 100
 
 # Export option
-mcmc_output_netcdf_fp = input.output_fp_cal + 'netcdf/'
+#mcmc_output_netcdf_fp = input.output_fp_cal + 'netcdf/'
+mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg15/'
 mcmc_output_figures_fp = input.output_fp_cal + 'figures/'
 mcmc_output_tables_fp = input.output_fp_cal + 'tables/'
 mcmc_output_csv_fp = input.output_fp_cal + 'csv/'
@@ -530,6 +531,7 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
     .png files
         Saves two figures of (1) trace, histogram, and autocorrelation, and (2) pair-wise scatter plots.
     """
+    #%%
     # Open dataset
     ds = xr.open_dataset(netcdf_fn)
     # Create list of model output to be used with functions
@@ -614,8 +616,8 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
                 plt.plot(runs, chain, color='y')
             chain_legend.append('chain' + str(n_df + 1))
         plt.legend(chain_legend)
-        plt.xlabel('Step Number', size=10)
-        plt.ylabel(vn_label_dict[vn], size=10)
+        plt.xlabel('Step Number', size=14)
+        plt.ylabel(vn_label_dict[vn], size=14)
         # ===== Prior and posterior distributions =====
         plt.subplot(len(variables), 3, 3*count+2)
         # Prior distribution
@@ -708,9 +710,9 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
                 plt.plot(x_values_kde, y_values_kde, color='r')
             else:
                 plt.plot(x_values_kde, y_values_kde, color='y')
-            plt.xlabel(vn_label_dict[vn], size=10)
-            plt.ylabel('PDF', size=10)
-            plt.legend(chain_legend)
+            plt.xlabel(vn_label_dict[vn], size=14)
+            plt.ylabel('PDF', size=14)
+#            plt.legend(chain_legend)
 
         # ===== Normalized autocorrelation ======
         plt.subplot(len(variables), 3, 3*count+3)
@@ -723,12 +725,12 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
         plt.xlim(0,acorr_lags)
         plt.xlabel('lag')
         plt.ylabel('autocorrelation')
-        chain_neff = effective_n(dfs[0], vn)
-        plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(chain_neff))
+#        chain_neff = effective_n(dfs[0], vn, 15000, 0)
+#        plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(chain_neff))
     # Save figure
     plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + distribution_type + '_plots_' + str(len(dfs)) + 'chain_'
                 + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
-
+    #%%
     # ===== PAIRWISE SCATTER PLOTS ===========================================================
     fig = plt.figure(figsize=(10,12))
     plt.subplots_adjust(wspace=0.1, hspace=0.1)
@@ -1402,8 +1404,8 @@ rgi_glac_number = []
 
 #mcmc_output_netcdf_fp = mcmc_output_netcdf_fp + 'single_obs_inlist/'
 
-for i in os.listdir(mcmc_output_netcdf_fp):
-#for i in ['15.00621.nc']:
+#for i in os.listdir(mcmc_output_netcdf_fp):
+for i in ['15.03473.nc']:
     glacier_str = i.replace('.nc', '')
     if glacier_str.startswith(str(input.rgi_regionsO1[0])):
         rgi_glac_number.append(glacier_str.split('.')[1])
@@ -1416,9 +1418,10 @@ main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_region
 # Glacier hypsometry [km**2], total area
 main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath,
                                              input.hyps_filedict, input.hyps_colsdrop)
+#%%
 # Select dates including future projections
-dates_table_nospinup, start_date, end_date = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear,
-                                                                      spinupyears=0)
+#dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
+dates_table_nospinup = modelsetup.datesmodelrun(startyear=2000, endyear=2018, spinupyears=0)
 # Calibration data
 cal_data = pd.DataFrame()
 for dataset in cal_datasets:
@@ -1427,6 +1430,7 @@ for dataset in cal_datasets:
     cal_data = cal_data.append(cal_subset_data, ignore_index=True)
 cal_data = cal_data.sort_values(['glacno', 't1_idx'])
 cal_data.reset_index(drop=True, inplace=True)
+#%%
 
 # ===== PROCESS EACH NETCDF FILE =====
 for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
@@ -1439,14 +1443,14 @@ for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
     # Calibration data
     glacier_cal_data = (cal_data.iloc[np.where(cal_data['glacno'] == glacno)[0],:]).copy()
     # MCMC Analysis
-    #plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=25000, burn=0)
-    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
-    summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
-            filename = mcmc_output_tables_fp + glacier_str + '.txt')
+    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=0)
+#    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
+#    summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
+#            filename = mcmc_output_tables_fp + glacier_str + '.txt')
 
-# histogram assessments
-for iters in [10000,15000]:
-    for region in [13, 14, 15]:
-        #write_table(region=region, iters=iters, burn=0)
-        #plot_histograms(region=region, iters=iters, burn=0)
-        plot_histograms_2(region=region, iters=iters, burn=0)
+## histogram assessments
+#for iters in [10000,15000]:
+#    for region in [13, 14, 15]:
+#        #write_table(region=region, iters=iters, burn=0)
+#        #plot_histograms(region=region, iters=iters, burn=0)
+#        plot_histograms_2(region=region, iters=iters, burn=0)

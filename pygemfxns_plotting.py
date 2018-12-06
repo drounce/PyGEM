@@ -24,6 +24,7 @@ import cartopy
 #import geopandas
 import xarray as xr
 from osgeo import ogr
+import pickle
 # Local Libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
@@ -39,8 +40,9 @@ option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 0
 
 option_plot_individual_glaciers = 0
-option_plot_degrees = 1
+option_plot_degrees = 0
 option_plot_pies = 0
+option_plots_individual_gcms = 0
 
 
 #%% ===== Input data =====
@@ -66,11 +68,13 @@ kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab))
 gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 
              'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
 rcps = ['rcp26', 'rcp45', 'rcp85']
+#rcps = ['rcp45', 'rcp85']
 
 # Groups
+grouping = 'all'
 #grouping = 'rgi_region'
 #grouping = 'watershed'
-grouping = 'kaab'
+#grouping = 'kaab'
 
 # Variable name
 vn = 'volume_norm'
@@ -107,7 +111,8 @@ title_dict = {'Amu_Darya': 'Amu Darya',
               'Hindu Kush': 'Hindu Kush',
               13: 'Central Asia',
               14: 'South Asia West',
-              15: 'South Asia East'
+              15: 'South Asia East',
+              'all': 'HMA'
               }
 title_location = {'Syr_Darya': [68, 46.1],
                   'Ili': [83.6, 45.5],
@@ -203,7 +208,11 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all):
     elif grouping == 'degree':
         groups = main_glac_rgi_all.deg_id.unique().tolist()
         group_cn = 'deg_id'
-    groups = sorted(groups)
+    else:
+        groups = ['all']
+        group_cn = 'all_group'
+        
+    groups = sorted(groups, key=str.lower)
     
     # variable name
     if vn == 'volume_norm':
@@ -251,8 +260,8 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all):
             # Select subset of data
             main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
             vn_glac = vn_glac_all[main_glac_rgi.index.values.tolist(),:]
-            vn_glac_std = vn_glac_std_all[main_glac_rgi.index.values.tolist(),:]
-            vn_glac_var = vn_glac_std **2                
+#            vn_glac_std = vn_glac_std_all[main_glac_rgi.index.values.tolist(),:]
+#            vn_glac_var = vn_glac_std **2                
             # Regional sum
             vn_reg = vn_glac.sum(axis=0)                
             # Record data for multi-model stats
@@ -265,7 +274,7 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all):
     return groups, time_values, ds_group, ds_glac
 
  
-def vn_multimodel_mean_processed(vn, ds, group_idx, time_values, every_glacier=0):
+def vn_multimodel_mean_processed(vn, ds, idx, time_values, every_glacier=0):
     """
     Calculate multi-model mean for a given variable of interest
     
@@ -288,9 +297,9 @@ def vn_multimodel_mean_processed(vn, ds, group_idx, time_values, every_glacier=0
     """
     # Multi-model mean
     if every_glacier == 0:
-        vn_multimodel_mean = ds[group_idx][1].mean(axis=0)
+        vn_multimodel_mean = ds[idx][1].mean(axis=0)
     else:
-        vn_multimodel_mean = ds[:,group_idx,:].mean(axis=0)
+        vn_multimodel_mean = ds[:,idx,:].mean(axis=0)
     
     # Normalized volume based on initial volume
     if vn == 'volume_norm':
@@ -462,44 +471,19 @@ cenlon_cenlat = [(main_glac_rgi_all.loc[x,'CenLon_round'], main_glac_rgi_all.loc
                  for x in range(len(main_glac_rgi_all))]
 main_glac_rgi_all['CenLon_CenLat'] = cenlon_cenlat
 main_glac_rgi_all['deg_id'] = main_glac_rgi_all.CenLon_CenLat.map(deg_dict)
+main_glac_rgi_all['all_group'] = 'all'
 
 
 #%% TIME SERIES OF SUBPLOTS FOR EACH GROUP
 if option_plot_cmip5_normalizedchange == 1:
-#    vns = ['volume_glac_annual', 'runoff_glac_annual']
-    vns = ['volume_glac_annual']
-#    vns = ['volume_glac_annual', 'temp_glac_annual', 'prec_glac_annual']
+    vns = ['volume_glac_annual', 'runoff_glac_annual']
+#    vns = ['volume_glac_annual']
+#    vns = ['runoff_glac_annual']
+#    vns = ['temp_glac_annual']
     # NOTE: Temperatures and precipitation will not line up exactly because each region is covered by a different 
     #       number of pixels, and hence the mean of those pixels is not going to be equal.
-    
-    option_plots_individual_gcms = 0
+
     multimodel_linewidth = 2
-    
-#    # Load all glaciers
-#    for rgi_region in rgi_regions:
-#        # Data on all glaciers
-#        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
-#                                                                 rgi_glac_number='all')
-#        if rgi_region == rgi_regions[0]:
-#            main_glac_rgi_all = main_glac_rgi_region
-#        else:
-#            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
-#    
-#    # Load watershed dictionary
-#    watershed_csv = pd.read_csv(watershed_dict_fn)
-#    watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
-#    # Add watersheds to main_glac_rgi_all
-#    main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
-    
-#    # Determine grouping
-#    if grouping == 'rgi_region':
-#        groups = rgi_regions
-#        group_cn = 'O1Region'
-#    elif grouping == 'watershed':
-#        groups = main_glac_rgi_all.watershed.unique().tolist()
-#        groups.remove('Irrawaddy')
-#        group_cn = 'watershed'
-#    groups = sorted(groups)
     
     # Determine grouping
     if grouping == 'rgi_region':
@@ -515,10 +499,19 @@ if option_plot_cmip5_normalizedchange == 1:
     elif grouping == 'degree':
         groups = main_glac_rgi_all.deg_id.unique().tolist()
         group_cn = 'deg_id'
-    groups = sorted(groups)
+    elif grouping == 'all':
+        groups = ['all']
+        group_cn = 'all_group'
+    groups = sorted(groups, key=str.lower)
     
     if grouping == 'watershed':
         groups.remove('Irrawaddy')
+#    # Adjust groups if desired
+#    remove_groups = ['Amu_Darya', 'Brahmaputra', 'Ili', 'Inner_Tibetan_Plateau', 'Inner_Tibetan_Plateau_extended',
+#                     'Mekong', 'Salween', 'Syr_Darya', 'Tarim']        
+#    for x in remove_groups:
+#        print('removed group ', x)
+#        groups.remove(x)
     
     reg_legend = []
     num_cols_max = 4
@@ -541,7 +534,6 @@ if option_plot_cmip5_normalizedchange == 1:
 #            for ngcm, gcm_name in enumerate(['CSIRO-Mk3-6-0']):
 #                print(ngcm, gcm_name)
             
-                
                 # Merge all data, then select group data
                 for region in rgi_regions:                        
                     # Load datasets
@@ -576,7 +568,6 @@ if option_plot_cmip5_normalizedchange == 1:
                 col_idx = 0
                 for ngroup, group in enumerate(groups):
 #                for ngroup, group in enumerate([groups[1]]):
-#                    print(gcm_name, rcp, group)
                     # Set subplot position
                     if (ngroup % num_cols == 0) and (ngroup != 0):
                         row_idx += 1
@@ -644,7 +635,7 @@ if option_plot_cmip5_normalizedchange == 1:
                     # ===== Plot =====
                     if option_plots_individual_gcms == 1:
                         ax[row_idx, col_idx].plot(time_values, vn_reg_plot, color=rcp_colordict[rcp], linewidth=1, 
-                                                  alpha=0, label=None)
+                                                  alpha=0.2, label=None)
     #                    # Volume change uncertainty
     #                    if vn == 'volume_glac_annual':
     #                        ax[row_idx, col_idx].fill_between(
@@ -721,23 +712,36 @@ if option_plot_cmip5_normalizedchange == 1:
             rcp_lines.append(line)
         rcp_labels = [rcp_dict[rcp] for rcp in rcps]
         ax[0,0].legend(rcp_lines, rcp_labels, loc='lower left', fontsize=12, labelspacing=0, handlelength=1, 
-                       handletextpad=0.5, borderpad=0, frameon=False)
+                       handletextpad=0.5, borderpad=0, frameon=False, title='RCP')
         
-        # GCM Legend
-        gcm_lines = []
-        for gcm_name in gcm_names:
-            line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
-            gcm_lines.append(line)
-        gcm_legend = gcm_names.copy()
-        fig.legend(gcm_lines, gcm_legend, loc='center right', title='GCMs', bbox_to_anchor=(1.06,0.5), 
-                   handlelength=0, handletextpad=0, borderpad=0, frameon=False)
+#        # GCM Legend
+#        gcm_lines = []
+#        for gcm_name in gcm_names:
+#            line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
+#            gcm_lines.append(line)
+#        gcm_legend = gcm_names.copy()
+#        fig.legend(gcm_lines, gcm_legend, loc='center right', title='GCMs', bbox_to_anchor=(1.06,0.5), 
+#                   handlelength=0, handletextpad=0, borderpad=0, frameon=False)
         
         # Y-Label
-        fig.text(0.03, 0.5, vn_dict[vn], va='center', rotation='vertical', size=16)
+        if len(groups) == 1:
+            fig.text(-0.01, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
+        else:
+            fig.text(0.03, 0.5, vn_dict[vn], va='center', rotation='vertical', size=16)
+#        fig.text(0.03, 0.5, 'Normalized\nVolume [-]', va='center', ha='center', rotation='vertical', size=16)
+#        fig.text(0.03, 0.5, 'Normalized\nGlacier Runoff [-]', va='center', ha='center', rotation='vertical', size=16)
         
         # Save figure
-        fig.set_size_inches(7, num_rows*2)
-        figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
+        if len(groups) == 1:
+            fig.set_size_inches(4.5, 3)
+        else:
+            fig.set_size_inches(7, num_rows*2)
+        if option_plots_individual_gcms == 1:
+            figure_fn = grouping + '_' + vn + '_wgcms_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
+        else:
+            figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
+                
+        
         fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
 
 
@@ -767,7 +771,7 @@ if option_plot_cmip5_runoffcomponents == 1:
         groups = main_glac_rgi_all.watershed.unique().tolist()
         groups.remove('Irrawaddy')
         group_cn = 'watershed'
-    groups = sorted(groups)
+    groups = sorted(groups, key=str.lower)
     
     #%%
     reg_legend = []
@@ -1160,3 +1164,5 @@ if option_plot_cmip5_map == 1:
         else:
             figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + rcp +  '.png'
         fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+
+        
