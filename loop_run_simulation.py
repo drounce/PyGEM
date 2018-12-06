@@ -8,12 +8,11 @@ Created on Wed Dec  5 08:21:18 2018
 from subprocess import call
 
 #regions = [13, 14, 15]
-#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 
-#             'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
-#rcps = ['rcp26', 'rcp45', 'rcp85']
 regions = [15]
-gcm_names = ['IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
-rcps = ['rcp85']
+gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 
+             'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
+rcps = ['rcp26', 'rcp45', 'rcp85']
+
 
 for region in regions:
     for rcp in rcps:

@@ -172,7 +172,7 @@ for nregion, region in enumerate(regions):
         ds_sim_mb_std_all = np.concatenate((ds_sim_mb_std_all, ds_sim_mb_std), axis=0)
         ds_sim_mb_zscore_all = np.concatenate((ds_sim_mb_zscore_all, ds_sim_mb_zscore), axis=0)
         
-#%%
+#%% COMPARE ZSCORES IN PANDAS DATAFRAME
 # Compare GCMs
 # Average zscores for all the glaciers
 zscore_mean_glac = ds_sim_mb_zscore_all.mean(axis=0)
@@ -189,8 +189,17 @@ gcm_loss_ranking = {'CanESM2': 6,
                     'MIROC5': 4,
                     'MRI-CGCM3': 7,
                     'NorESM1-M': 5}
-zscore_df['ranking'] = np.array([gcm_loss_ranking[x] for x in zscore_df.index.values.tolist()])
-zscore_df = zscore_df.sort_values('ranking')
+zscore_df['rcp_avg'] = zscore_df[rcps].mean(axis=1)
+zscore_df['rcp_std'] = zscore_df[rcps].std(axis=1)
+zscore_df['abs_rcp_avg'] = zscore_df.rcp_avg.abs()
+rcp_ranking = dict(zip(zscore_df.sort_values('abs_rcp_avg').index.values.tolist(), np.arange(0,len(zscore_df))+1))
+zscore_df['zscore_ranking'] = np.array([rcp_ranking[x] for x in zscore_df.index.values.tolist()])
+zscore_df['loss_ranking'] = np.array([gcm_loss_ranking[x] for x in zscore_df.index.values.tolist()])
+zscore_df = zscore_df.sort_values('zscore_ranking')
+
+
+#%% PLOT SIMULATION VS OBSERVATIONS (including uncertainty)
+
 
 
             
