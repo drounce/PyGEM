@@ -35,10 +35,10 @@ import run_simulation
 
 
 # Script options
-option_plot_cmip5_normalizedchange = 1
+option_plot_cmip5_normalizedchange = 0
 option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 0
-option_output_tables = 0
+option_output_tables = 1
 
 option_plot_individual_glaciers = 0
 option_plot_degrees = 0
@@ -50,6 +50,7 @@ option_plot_individual_gcms = 0
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
+csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 
 # Regions
 rgi_regions = [13, 14, 15]
@@ -62,10 +63,10 @@ kaab_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/kaab201
 #kaab_csv = pd.read_csv(kaab_dict_fn)
 #kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab))
 # GCMs and RCP scenarios
-gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
 #gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-#             'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
+#             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
+gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
 rcps = ['rcp26', 'rcp45', 'rcp85']
 #rcps = ['rcp45', 'rcp85']
 
@@ -183,6 +184,32 @@ ylabel = 'Latitude [deg]'
 
 
 #%% FUNCTIONS
+def select_groups(grouping, main_glac_rgi_all):
+    """
+    Select groups based on grouping
+    """
+    if grouping == 'rgi_region':
+        groups = rgi_regions
+        group_cn = 'O1Region'
+    elif grouping == 'watershed':
+        groups = main_glac_rgi_all.watershed.unique().tolist()
+        group_cn = 'watershed'
+    elif grouping == 'kaab':
+        groups = main_glac_rgi_all.kaab.unique().tolist()
+        group_cn = 'kaab'
+        groups = [x for x in groups if str(x) != 'nan']  
+    elif grouping == 'degree':
+        groups = main_glac_rgi_all.deg_id.unique().tolist()
+        group_cn = 'deg_id'
+    else:
+        groups = ['all']
+        group_cn = 'all_group'
+    try:
+        groups = sorted(groups, key=str.lower)
+    except:
+        pass
+    return groups, group_cn
+
 def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp):
     """Partition multimodel data by each group for all GCMs for a given variable
     
@@ -204,27 +231,8 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp)
     ds_group : list of lists
         dataset containing the multimodel data for a given variable for all the GCMs
     """
-    # Determine grouping
-    if grouping == 'rgi_region':
-        groups = rgi_regions
-        group_cn = 'O1Region'
-    elif grouping == 'watershed':
-        groups = main_glac_rgi_all.watershed.unique().tolist()
-        group_cn = 'watershed'
-    elif grouping == 'kaab':
-        groups = main_glac_rgi_all.kaab.unique().tolist()
-        group_cn = 'kaab'
-        groups = [x for x in groups if str(x) != 'nan']  
-    elif grouping == 'degree':
-        groups = main_glac_rgi_all.deg_id.unique().tolist()
-        group_cn = 'deg_id'
-    else:
-        groups = ['all']
-        group_cn = 'all_group'
-    try:
-        groups = sorted(groups, key=str.lower)
-    except:
-        pass
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi_all)
     
     # variable name
     if vn == 'volume_norm' or vn == 'mass_change':
@@ -283,7 +291,6 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp)
                 ds_group[ngroup] = [group, vn_reg]
             else:
                 ds_group[ngroup][1] = np.vstack((ds_group[ngroup][1], vn_reg))
-                
                 
     return groups, time_values, ds_group, ds_glac
 
@@ -1242,22 +1249,128 @@ if option_plot_cmip5_map == 1:
 
 #%% Output tables of mass change
 if option_output_tables == 1:
-    ds_vn_rcps = {}
-    for rcp in rcps:
-        groups, time_values, ds_vn, ds_glac = (
-                partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp))
-        ds_vn_rcps[rcp] = ds_vn
+    
+    vns = ['mass_change', 'peakwater']
+#    vns = ['peakwater']
+    
+#    groupings = ['all', 'rgi_region', 'watershed', 'kaab']
+#    groupings = ['all']
+#    groupings = ['rgi_region']
+#    groupings = ['watershed']
+    groupings = ['kaab']
+    
+     # Create filepath if it does not exist
+    if os.path.exists(csv_fp) == False:
+        os.makedirs(csv_fp)
+    
+    for grouping in groupings:
+    
+        # Select groups
+        groups, group_cn = select_groups(grouping, main_glac_rgi_all)
+        
+        for vn in vns:
+            if vn == 'mass_change':
+                masschg_table_fn = ('MassChg_' + grouping + '_' + str(len(gcm_names)) + '_gcms_' + str(len(rcps)) + 
+                                    '_rcps.csv')
+                table_cns = []
+                for rcp in rcps:
+                    table_cns.append(rcp + '_MassChg_Gt')
+                    table_cns.append(rcp + '_MassChg_std_Gt')
+                    table_cns.append(rcp + '_VolChg_%')
+                    table_cns.append(rcp + '_VolChg_std_%')
+                output_table = pd.DataFrame(np.zeros((len(groups), len(table_cns))), index=groups, columns=table_cns)
 
-#%%
-#    ds_summary =np.zeros((len(groups), len(gcm_names), len(rcps)))
-#    for rcp in rcps:
-#        if vn == 'mass_change':
-       
-        
-        
-        
-        
-        
-        
+                ds_vn_rcps = {}
+                for rcp in rcps:
+                    groups, time_values, ds_vn, ds_glac = (
+                            partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp))
+                    ds_vn_rcps[rcp] = ds_vn
+                           
+                for rcp in rcps:
+                    for ngroup, group in enumerate(groups):
+                        ds_vn_multimodel = ds_vn_rcps[rcp][ngroup][1].mean(axis=0)
+                        ds_vn_multimodel_std = ds_vn_rcps[rcp][ngroup][1].std(axis=0)
+                        
+                        # Mass change [Gt]
+                        #  Gt = km3 ice * density_ice / 1000
+                        #  divide by 1000 because density of ice is 900 kg/m3 or 0.900 Gt/km3
+                        vn_reg_masschange = (ds_vn_multimodel[-1] - ds_vn_multimodel[0]) * input.density_ice / 1000
+                        vn_reg_masschange_std = ds_vn_multimodel_std[-1] * input.density_ice / 1000
+                        output_table.loc[group, rcp + '_MassChg_Gt'] = np.round(vn_reg_masschange,1)
+                        output_table.loc[group, rcp + '_MassChg_std_Gt'] = np.round(vn_reg_masschange_std,1)
+                        
+                        # Volume change [%]
+                        vn_reg_volchg = (ds_vn_multimodel[-1] - ds_vn_multimodel[0]) / ds_vn_multimodel[0] * 100
+                        vn_reg_volchg_std = ds_vn_multimodel_std[-1] / ds_vn_multimodel[0] * 100
+                        output_table.loc[group, rcp + '_VolChg_%'] = np.round(vn_reg_volchg,1)
+                        output_table.loc[group, rcp + '_VolChg_std_%'] = np.round(vn_reg_volchg_std,1)
+                        
+                # Export table
+                output_table.to_csv(csv_fp + masschg_table_fn)
+            
+            
+            if vn == 'peakwater':
+                peakwater_table_fn = ('PeakWater_' + grouping + '_' + str(len(gcm_names)) + '_gcms_' + str(len(rcps)) + 
+                                    '_rcps.csv')
+                runoff_cns = []
+                for rcp in rcps:
+                    runoff_cns.append(rcp + '_PeakWater_Yr')
+                    runoff_cns.append(rcp + '_PeakWater_std_Yr')
+                    runoff_cns.append(rcp + '_PeakWaterChg_%')
+                    runoff_cns.append(rcp + '_PeakWaterChg_std_%')
+                    runoff_cns.append(rcp + '_RunoffChg_%')
+                    runoff_cns.append(rcp + '_RunoffChg_std_%')
+                runoff_table = pd.DataFrame(np.zeros((len(groups), len(runoff_cns))), index=groups, columns=runoff_cns)
+
+                ds_vn_rcps = {}
+                for rcp in rcps:
+                    groups, time_values, ds_vn, ds_glac = (
+                            partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp))
+                    ds_vn_rcps[rcp] = ds_vn
+
+                for rcp in rcps:
+                    for ngroup, group in enumerate(groups):
+                        runoff = ds_vn_rcps[rcp][ngroup][1]
+
+                        # Compute peak water of each one
+                        nyears = 10
+                        def running_mean(x, N):
+                            cumsum = np.cumsum(np.insert(x,0,0))
+                            runningmean = (cumsum[N:] - cumsum[:-N]) / float(N)
+                            return runningmean
+                        
+                        def peakwater(runoff, time_values, nyears):
+                            runningmean = running_mean(runoff, nyears)
+                            t1_idx = int((nyears-1)/2)
+                            t2_idx = len(time_values) - int(np.ceil((nyears-1)/2))
+                            time_subset = time_values[t1_idx : t2_idx]
+                            peakwater_idx = np.where(runningmean == runningmean.max())[-1][0]
+                            peakwater_yr = time_subset[peakwater_idx]
+                            peakwater_chg = (runningmean[peakwater_idx] - runningmean[0]) / runningmean[0] * 100
+                            runoff_chg = (runningmean[-1] - runningmean[0]) / runningmean[0] * 100
+                            return peakwater_yr, peakwater_chg, runoff_chg
+                        
+                        peakwater_yr_gcms = np.zeros((runoff.shape[0]))
+                        peakwater_chg_gcms = np.zeros((runoff.shape[0]))
+                        runoff_chg_gcms = np.zeros((runoff.shape[0]))
+                        for n in range(runoff.shape[0]):
+                            peakwater_yr_gcms[n], peakwater_chg_gcms[n], runoff_chg_gcms[n] = (
+                                    peakwater(runoff[n,:], time_values, nyears))
+                        
+                        # Peakwater Year
+                        runoff_table.loc[group, rcp + '_PeakWater_Yr'] = np.round(np.mean(peakwater_yr_gcms),1)
+                        runoff_table.loc[group, rcp + '_PeakWater_std_Yr'] = np.round(np.std(peakwater_yr_gcms),1)
+                        
+                        # Peakwater Change [%]
+                        runoff_table.loc[group, rcp + '_PeakWaterChg_%'] = np.round(np.mean(peakwater_chg_gcms),1)
+                        runoff_table.loc[group, rcp + '_PeakWaterChg_std_%'] = np.round(np.std(peakwater_chg_gcms),1)
+                        
+                        # Runoff Change [%] end of simulation
+                        runoff_table.loc[group, rcp + '_RunoffChg_%'] = np.round(np.mean(runoff_chg_gcms),1)
+                        runoff_table.loc[group, rcp + '_RunoffChg_std_%'] = np.round(np.std(runoff_chg_gcms),1)
+
+                # Export table
+                runoff_table.to_csv(csv_fp + peakwater_table_fn)
+
         
         
