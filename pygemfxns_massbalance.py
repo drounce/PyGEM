@@ -181,6 +181,17 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     glac_bin_precsnow[:,12*year:12*(year+1)] = (glacier_gcm_prec[12*year:12*(year+1)] * 
                             modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
+                    
+                    if debug:
+                        if year >= 34:
+                            print(year)
+                            print('glac_idx_t0:', glac_idx_t0)
+                            print('modelparams[2] and [3]:', modelparameters[2], modelparameters[3])
+                            print('GCM prec:', glacier_gcm_prec[12*year:12*(year+1)])
+                            print('max prec:', glac_bin_precsnow[glac_idx_t0,12*year:12*(year+1)].max())
+                            print('prec', glac_bin_precsnow[glac_idx_t0,12*year:12*(year+1)])
+                    
+                    
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
                 if input.option_preclimit == 1:
                     # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
@@ -328,15 +339,20 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     #  climatic mass balance = accumulation + refreeze - melt
                     glac_bin_massbalclim[:,step] = (glac_bin_acc[:,step] + glac_bin_refreeze[:,step] - 
                                                     glac_bin_melt[:,step])
+                    
+#                    if debug:
+#                        print('\nyear:', year, step)
+#                        print('accumulation:', glac_bin_acc[:,step].sum())
+#                        print('melt:', glac_bin_melt[:,step].sum())
                 
                 # ===== RETURN TO ANNUAL LOOP =====
                 # FRONTAL ABLATION
                 
-                if debug:
-                    print('\nyear:', year)
-                    print('sea level:', sea_level, 
-                          'bed elev:', round(elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
-                                             icethickness_initial[glac_idx_t0[0]], 2))
+#                if debug:
+#                    print('\nyear:', year)
+#                    print('sea level:', sea_level, 
+#                          'bed elev:', round(elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
+#                                             icethickness_initial[glac_idx_t0[0]], 2))
                 
                 # Glacier bed altitude [masl]
                 glacier_bedelev = (elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
@@ -442,6 +458,12 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 # Annual surface type [-]
                 # Annual climatic mass balance [m w.e.], which is used to determine the surface type
                 glac_bin_massbalclim_annual[:,year] = glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)
+                
+#                if debug:
+#                    print('glacier indices:', glac_idx_t0)
+#                    print('glac_bin_massbalclim:', glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1))
+#                    print('Climatic mass balance:', glac_bin_massbalclim_annual[:,year].sum())
+                
                 # Compute the surface type for each bin
                 surfacetype, firnline_idx = surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year)
                 

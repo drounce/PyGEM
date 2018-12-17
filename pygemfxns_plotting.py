@@ -341,6 +341,26 @@ def vn_multimodel_mean_processed(vn, ds, idx, time_values, every_glacier=0):
     return output_multimodel_mean
 
 
+def running_mean(x, N):
+    """ Compute running mean for N years"""
+    cumsum = np.cumsum(np.insert(x,0,0))
+    runningmean = (cumsum[N:] - cumsum[:-N]) / float(N)
+    return runningmean
+
+
+def peakwater(runoff, time_values, nyears):
+    """Compute peak water based on the running mean of N years"""
+    runningmean = running_mean(runoff, nyears)
+    t1_idx = int((nyears-1)/2)
+    t2_idx = len(time_values) - int(np.ceil((nyears-1)/2))
+    time_subset = time_values[t1_idx : t2_idx]
+    peakwater_idx = np.where(runningmean == runningmean.max())[-1][0]
+    peakwater_yr = time_subset[peakwater_idx]
+    peakwater_chg = (runningmean[peakwater_idx] - runningmean[0]) / runningmean[0] * 100
+    runoff_chg = (runningmean[-1] - runningmean[0]) / runningmean[0] * 100
+    return peakwater_yr, peakwater_chg, runoff_chg
+
+
 def size_thresholds(variable, cutoffs, sizes):
     """Loop through size thresholds for a given variable to plot
     
@@ -1250,14 +1270,16 @@ if option_plot_cmip5_map == 1:
 #%% Output tables of mass change
 if option_output_tables == 1:
     
-    vns = ['mass_change', 'peakwater']
+#    vns = ['mass_change', 'peakwater']
 #    vns = ['peakwater']
+    vns = ['mass_change']
+    
     
 #    groupings = ['all', 'rgi_region', 'watershed', 'kaab']
-#    groupings = ['all']
+    groupings = ['all']
 #    groupings = ['rgi_region']
 #    groupings = ['watershed']
-    groupings = ['kaab']
+#    groupings = ['kaab']
     
      # Create filepath if it does not exist
     if os.path.exists(csv_fp) == False:
@@ -1279,17 +1301,28 @@ if option_output_tables == 1:
                     table_cns.append(rcp + '_VolChg_%')
                     table_cns.append(rcp + '_VolChg_std_%')
                 output_table = pd.DataFrame(np.zeros((len(groups), len(table_cns))), index=groups, columns=table_cns)
-
+                
+                # Load volume_glac_annual
                 ds_vn_rcps = {}
                 for rcp in rcps:
                     groups, time_values, ds_vn, ds_glac = (
                             partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp))
                     ds_vn_rcps[rcp] = ds_vn
-                           
+
+                # Load area_glac_annual
+                ds_area_rcps = {}
+                area_vn = 'area_glac_annual'
+                for rcp in rcps:
+                    groups, time_values, ds_area, ds_area_glac = (
+                            partition_multimodel_groups(gcm_names, grouping, area_vn, main_glac_rgi_all, rcp))
+                    ds_area_rcps[rcp] = ds_area
+
                 for rcp in rcps:
                     for ngroup, group in enumerate(groups):
                         ds_vn_multimodel = ds_vn_rcps[rcp][ngroup][1].mean(axis=0)
                         ds_vn_multimodel_std = ds_vn_rcps[rcp][ngroup][1].std(axis=0)
+                        
+                        ds_area_multimodel = ds_area_rcps[rcp][ngroup][1].mean(axis=0)
                         
                         # Mass change [Gt]
                         #  Gt = km3 ice * density_ice / 1000
@@ -1304,6 +1337,26 @@ if option_output_tables == 1:
                         vn_reg_volchg_std = ds_vn_multimodel_std[-1] / ds_vn_multimodel[0] * 100
                         output_table.loc[group, rcp + '_VolChg_%'] = np.round(vn_reg_volchg,1)
                         output_table.loc[group, rcp + '_VolChg_std_%'] = np.round(vn_reg_volchg_std,1)
+                        
+                        # Mass change rate [Gt/yr]
+                        runningmean_years = 10
+                        vn_reg_mass = ds_vn_multimodel * input.density_ice / 1000
+                        vn_reg_masschgrate = vn_reg_mass[1:] - vn_reg_mass[0:-1]
+                        vn_reg_masschgrate_runningmean = running_mean(vn_reg_masschgrate, runningmean_years)
+                        t1_idx = int((runningmean_years-1)/2)
+                        t2_idx = len(time_values) - int(np.ceil((runningmean_years-1)/2))
+                        time_subset = time_values[t1_idx : t2_idx]
+                        idx_2015 = np.where(time_subset == 2015)[0][0]
+                        print(rcp, group)
+                        print('Mass change rate [Gt/yr] 2015:', np.round(vn_reg_masschgrate_runningmean[idx_2015],1), 
+                              '\nMass change rate [Gt/yr] 2100:', np.round(vn_reg_masschgrate_runningmean[-1],1))
+                        vn_reg_masschgrate_mwe = (
+                                vn_reg_masschgrate * 10**9 * 1000 / 1000 / 10**6 / ds_area_multimodel[0])
+                        vn_reg_masschgrate_mwe_runningmean = running_mean(vn_reg_masschgrate_mwe, runningmean_years)
+                        print('Mass change rate [mwea] 2015:', 
+                              np.round(vn_reg_masschgrate_mwe_runningmean[idx_2015],2), 
+                              '\nMass change rate [mwea] 2100:', 
+                              np.round(vn_reg_masschgrate_mwe_runningmean[-1],2))
                         
                 # Export table
                 output_table.to_csv(csv_fp + masschg_table_fn)
@@ -1334,21 +1387,6 @@ if option_output_tables == 1:
 
                         # Compute peak water of each one
                         nyears = 10
-                        def running_mean(x, N):
-                            cumsum = np.cumsum(np.insert(x,0,0))
-                            runningmean = (cumsum[N:] - cumsum[:-N]) / float(N)
-                            return runningmean
-                        
-                        def peakwater(runoff, time_values, nyears):
-                            runningmean = running_mean(runoff, nyears)
-                            t1_idx = int((nyears-1)/2)
-                            t2_idx = len(time_values) - int(np.ceil((nyears-1)/2))
-                            time_subset = time_values[t1_idx : t2_idx]
-                            peakwater_idx = np.where(runningmean == runningmean.max())[-1][0]
-                            peakwater_yr = time_subset[peakwater_idx]
-                            peakwater_chg = (runningmean[peakwater_idx] - runningmean[0]) / runningmean[0] * 100
-                            runoff_chg = (runningmean[-1] - runningmean[0]) / runningmean[0] * 100
-                            return peakwater_yr, peakwater_chg, runoff_chg
                         
                         peakwater_yr_gcms = np.zeros((runoff.shape[0]))
                         peakwater_chg_gcms = np.zeros((runoff.shape[0]))
@@ -1372,5 +1410,27 @@ if option_output_tables == 1:
                 # Export table
                 runoff_table.to_csv(csv_fp + peakwater_table_fn)
 
-        
+#%%
+## COUNT HOW MANY BIAS ADJUSTMENTS HAVE RIDICULOUS VALUES
+#biasadj_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/biasadj/'
+#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+#             'IPSL-CM5A-MR', 'MIROC5', 'MPI-ESM-LR', 'MRI-CGCM3', 'NorESM1-M']
+#maxvalue = 1000
+#for gcm in gcm_names:
+#    for rcp in rcps:
+#        for region in [13, 14, 15]:
+#            biasadj_fn = 'R' + str(region) + '_' + gcm + '_' + rcp + '_biasadj_opt2_2000_2017_wy1.csv'
+#            
+#            ds = pd.read_csv(biasadj_fp + biasadj_fn, index_col=0)
+#            cns = list(ds.columns.values)
+#            prec_cns = []
+#            for cn in cns:
+#                if 'precadj' in cn:
+#                    prec_cns.append(cn)
+#            ds_prec = ds[prec_cns]
+#            ds_prec_maxcol = ds_prec.max(axis=1)
+#            ds_prec_large = ds_prec_maxcol.loc[ds_prec_maxcol > maxvalue]
+#            
+#            if ds_prec_large.shape[0] > 0:
+#                print(gcm, rcp, region, ds_prec_large.shape[0])
         

@@ -126,12 +126,12 @@ thin_interval = 1
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [13]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
-#rgi_glac_number = ['09706']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['23156', '23157']
 #rgi_glac_number = ['03734', '03473']
 #rgi_glac_number = glac_num_fromrange(1,48)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
@@ -152,8 +152,8 @@ endyear = 2017
 # Spin up time [years]
 spinupyears = 0
 # Simulation runs
-gcm_startyear = 1970
-gcm_endyear = 2017
+gcm_startyear = 2000
+gcm_endyear = 2100
 gcm_spinupyears = 0
 
 # Synthetic simulation options
@@ -291,6 +291,7 @@ elif option_calibration == 2:
 # Number of model parameter sets for simulation
 #  if 1, the median is used
 sim_iters = 100
+#print('\n\nChange back sim_iters\n\n')
 sim_burn = 0
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'

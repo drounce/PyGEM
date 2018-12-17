@@ -257,6 +257,13 @@ def main(list_packed_vars):
         main_glac_biasadj[tempavg_cols] = gcm_temp_monthly_avg
         main_glac_biasadj[tempadj_cols] = gcm_temp_monthly_adj
         main_glac_biasadj[lravg_cols] = ref_lr_monthly_avg
+        
+        #%%
+        if bias_adj_prec.max() > 100:
+            print('precipitation bias too high, needs to be modified')
+            print(np.where(bias_adj_prec > 100))
+        
+        #%%
        
 #    #%%
 #    # OPTION 1: Adjust temp and prec such that ref and GCM mass balances over calibration period are equal
@@ -836,6 +843,8 @@ if __name__ == '__main__':
         gcm_lr_subset = main_vars['gcm_lr_subset']
         main_glac_biasadj = main_vars['main_glac_biasadj']
         gcm_temp_bias_adj = main_vars['gcm_temp_bias_adj']
+        gcm_prec_monthly_avg = main_vars['gcm_prec_monthly_avg']
+        bias_adj_prec = main_vars['bias_adj_prec']
         
 #        glacier_rgi_table = main_vars['glacier_rgi_table']
 #        glacier_ref_temp = main_vars['glacier_ref_temp']
