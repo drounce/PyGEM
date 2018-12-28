@@ -117,12 +117,12 @@ output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 # Number of chains (min 1, max 3)
 n_chains = 1
 # number of MCMC samples to use
-mcmc_sample_no = 100
+mcmc_sample_no = 15000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 #mcmc_step = 'am'
 mcmc_step = None
-thin_interval = 1
+thin_interval = 10
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
@@ -503,9 +503,11 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 #%% CALIBRATION DATA
 # ===== SHEAN GEODETIC =====
-shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
+shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
 #shean_fn = 'hma_mb_20180803_1229.csv'
-shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+shean_fn = 'hma_mb_20181108_0454.csv'
+#shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'
