@@ -139,6 +139,10 @@ def main(list_packed_vars):
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])
     cal_data.reset_index(drop=True, inplace=True)
+    
+    if debug:
+        print('Number of glaciers (cal_data):', cal_data.shape[0])
+    
     # If group data is included, then add group dictionary and add group name to main_glac_rgi
     if set(['group']).issubset(input.cal_datasets) == True:
         # Group dictionary
@@ -171,6 +175,9 @@ def main(list_packed_vars):
     main_glac_hyps.reset_index(drop=True, inplace=True)
     main_glac_icethickness.reset_index(drop=True, inplace=True)
     main_glac_width.reset_index(drop=True, inplace=True)
+    
+    if debug:
+        print('Number of glaciers (main_glac_rgi):', main_glac_rgi.shape[0])
 
     # ===== LOAD CLIMATE DATA =====
     gcm = class_climate.GCM(name=gcm_name)

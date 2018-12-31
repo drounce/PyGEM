@@ -416,7 +416,7 @@ def convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_a
     glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
     glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
     glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
-                                                      input.binsize/2)
+                                                      input.binsize/2)    
     return (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt, 
             glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, 
             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual)
@@ -554,7 +554,7 @@ def main(list_packed_vars):
         
     # ===== BIAS CORRECTIONS =====
     # Bias adjustments from given filename in argument parser
-    if input.option_bias_adjustment != 0:
+    if input.option_bias_adjustment != 0 and gcm_name != input.ref_gcm_name:
         if gcm_name == 'COAWST':
             biasadj_fn = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
                           str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + 
@@ -566,7 +566,7 @@ def main(list_packed_vars):
         main_glac_biasadj_all = pd.read_csv(input.biasadj_fp + biasadj_fn, index_col=0)
         
     # Option 0 - no bias adjustment
-    if input.option_bias_adjustment == 0:
+    if input.option_bias_adjustment == 0 or gcm_name == input.ref_gcm_name:
         gcm_temp_adj = gcm_temp
         gcm_prec_adj = gcm_prec
         gcm_elev_adj = gcm_elev
@@ -841,7 +841,10 @@ if __name__ == '__main__':
 
     # Loop through all GCMs
     for gcm_name in gcm_list:
-        print('Processing:', gcm_name, rcp_scenario)
+        if args.rcp is None:
+            print('Processing:', gcm_name)
+        else:
+            print('Processing:', gcm_name, rcp_scenario)
         # Pack variables for multiprocessing
         list_packed_vars = []
         n = 0
@@ -975,3 +978,27 @@ if __name__ == '__main__':
             mp_idx = main_vars['mp_idx']
             mp_idx_all = main_vars['mp_idx_all']
         netcdf_fn = main_vars['netcdf_fn']
+        
+#%%
+##    # If you run 100 simulations, see that mass change is slightly different depending on if it's computed using the 
+##    # monthly mass balance and area or with the volume.  This is likely due to using the mean for both the area and the 
+##    # mass balance as this problem doesn't exist when running a single simulation.
+#    ds = xr.open_dataset(input.output_sim_fp + gcm_name + '/' + 'R15_ERA-Interim_c2_ba2_100sets_2000_2017.nc')
+#    vol_annual = ds.volume_glac_annual.values[0,:,0]
+#    mb_monthly = ds.massbaltotal_glac_monthly.values[0,:,0]
+#    area_annual = ds.area_glac_annual.values[0,:,0]
+#    
+#    # Monthly glacier area
+#    area_monthly = np.repeat(area_annual[:-1],12)
+#    # Monthly glacier mass change
+#    #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
+#    masschange_monthly = area_monthly * mb_monthly / 1000 * input.density_water / 1000
+#    masschange_annual = np.zeros((int(masschange_monthly.shape[0]/12)))
+#    # Annual glacier mass change
+#    for nyear in range(int(masschange_monthly.shape[0]/12)):
+#        masschange_annual[nyear] = np.sum(masschange_monthly[12*nyear:12*nyear+12])
+#        
+#    mass_annual = vol_annual * input.density_ice / 1000
+#    masschange_annual_check = mass_annual[1:] - mass_annual[:-1]
+#    A = masschange_annual_check - masschange_annual
+#    B = A / vol_annual[:-1] * 100

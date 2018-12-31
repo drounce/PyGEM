@@ -38,7 +38,8 @@ import run_simulation
 option_plot_cmip5_normalizedchange = 0
 option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 0
-option_output_tables = 1
+option_output_tables = 0
+option_subset_GRACE = 1
 
 option_plot_individual_glaciers = 0
 option_plot_degrees = 0
@@ -88,6 +89,16 @@ watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
 kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
 kaab_csv = pd.read_csv(kaab_dict_fn)
 kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab_name))
+
+# GRACE mascons
+mascon_fp = input.main_directory + '/../GRACE/GSFC.glb.200301_201607_v02.4/'
+mascon_fn = 'mascon.txt'
+mascon_cns = ['CenLat', 'CenLon', 'LatWidth', 'LonWidth', 'Area_arcdeg', 'Area_km2', 'location', 'basin', 
+              'elevation_flag']
+mascon_df = pd.read_csv(mascon_fp + mascon_fn, header=None, names=mascon_cns, skiprows=14, 
+                        delim_whitespace=True)
+mascon_df = mascon_df.sort_values(by=['CenLat', 'CenLon'])
+mascon_df.reset_index(drop=True, inplace=True)
 
 degree_size = 0.5
 peakwater_Nyears = 10
@@ -201,6 +212,10 @@ def select_groups(grouping, main_glac_rgi_all):
     elif grouping == 'degree':
         groups = main_glac_rgi_all.deg_id.unique().tolist()
         group_cn = 'deg_id'
+    elif grouping == 'mascon':
+        groups = main_glac_rgi_all.mascon_idx.unique().tolist()
+        groups = [int(x) for x in groups]
+        group_cn = 'mascon_idx'
     else:
         groups = ['all']
         group_cn = 'all_group'
@@ -210,7 +225,7 @@ def select_groups(grouping, main_glac_rgi_all):
         pass
     return groups, group_cn
 
-def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp):
+def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=None):
     """Partition multimodel data by each group for all GCMs for a given variable
     
     Parameters
@@ -223,6 +238,8 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp)
         variable name
     main_glac_rgi_all : pd.DataFrame
         glacier table
+    rcp : str
+        rcp name
         
     Output
     ------
@@ -230,6 +247,8 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp)
         time values that accompany the multimodel data
     ds_group : list of lists
         dataset containing the multimodel data for a given variable for all the GCMs
+    ds_glac : np.array
+        dataset containing the variable of interest for each gcm and glacier
     """
     # Groups
     groups, group_cn = select_groups(grouping, main_glac_rgi_all)
@@ -244,7 +263,8 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp)
     
     ds_group = [[] for group in groups]
     for ngcm, gcm_name in enumerate(gcm_names):
-        for region in rgi_regions:                        
+        for region in rgi_regions:        
+            print(gcm_name, region)                
             # Load datasets
             if gcm_name == 'ERA-Interim':
                 netcdf_fp = netcdf_fp_era
@@ -264,6 +284,10 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp)
                     time_values = ds[vn_adj].coords['year_plus1'].values
                 except:
                     time_values = ds[vn_adj].coords['year'].values
+            elif 'monthly' in vn_adj:
+                time_values = ds[vn_adj].coords['time'].values
+                
+            
             # Merge datasets
             if region == rgi_regions[0]:
                 vn_glac_all = ds[vn_adj].values[:,:,0]
@@ -272,11 +296,12 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp)
                 vn_glac_all = np.concatenate((vn_glac_all, ds[vn_adj].values[:,:,0]), axis=0)
                 vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn_adj].values[:,:,1]), axis=0)
             
+            print(ds[vn_adj].values[:,:,0].shape[0])
+
         if ngcm == 0:
             ds_glac = vn_glac_all[np.newaxis,:,:]
         else:
             ds_glac = np.concatenate((ds_glac, vn_glac_all[np.newaxis,:,:]), axis=0)
-    
         # Cycle through groups
         for ngroup, group in enumerate(groups):
             # Select subset of data
@@ -500,10 +525,12 @@ for rgi_region in rgi_regions:
     else:
         main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
 
-# Add watersheds, regions, and degree groups to main_glac_rgi_all
+# Add watersheds, regions, degrees, mascons, and all groups to main_glac_rgi_all
+# Watersheds
 main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
+# Regions
 main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
-# Group by degree
+# Degrees
 main_glac_rgi_all['CenLon_round'] = np.floor(main_glac_rgi_all.CenLon.values/degree_size) * degree_size
 main_glac_rgi_all['CenLat_round'] = np.floor(main_glac_rgi_all.CenLat.values/degree_size) * degree_size
 deg_groups = main_glac_rgi_all.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
@@ -513,6 +540,19 @@ cenlon_cenlat = [(main_glac_rgi_all.loc[x,'CenLon_round'], main_glac_rgi_all.loc
                  for x in range(len(main_glac_rgi_all))]
 main_glac_rgi_all['CenLon_CenLat'] = cenlon_cenlat
 main_glac_rgi_all['deg_id'] = main_glac_rgi_all.CenLon_CenLat.map(deg_dict)
+# Mascons
+if grouping == 'mascon' or option_subset_GRACE == 1:
+    main_glac_rgi_all['mascon_idx'] = np.nan
+    for glac in range(main_glac_rgi_all.shape[0]):
+        latlon_dist = (((mascon_df.CenLat.values - main_glac_rgi_all.CenLat.values[glac])**2 + 
+                         (mascon_df.CenLon.values - main_glac_rgi_all.CenLon.values[glac])**2)**0.5)
+        main_glac_rgi_all.loc[glac,'mascon_idx'] = [x[0] for x in np.where(latlon_dist == latlon_dist.min())][0]
+    mascon_groups = main_glac_rgi_all.mascon_idx.unique().tolist()
+    mascon_groups = [int(x) for x in mascon_groups]
+    mascon_groups = sorted(mascon_groups)
+    mascon_latlondict = dict(zip(mascon_groups, mascon_df[['CenLat', 'CenLon']].values[mascon_groups].tolist()))
+    
+# All
 main_glac_rgi_all['all_group'] = 'all'
 
 
@@ -1057,34 +1097,12 @@ if option_plot_cmip5_runoffcomponents == 1:
 
 #%% MAP OF VARIABLE OVERLAID BY DEGREES OR GLACIER DATA
 if option_plot_cmip5_map == 1:    
-#    # Load all glaciers
-#    for rgi_region in rgi_regions:
-#        # Data on all glaciers
-#        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
-#                                                                 rgi_glac_number='all')
-#        if rgi_region == rgi_regions[0]:
-#            main_glac_rgi_all = main_glac_rgi_region
-#        else:
-#            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
-#
-#    # Add watersheds, regions, and degree groups to main_glac_rgi_all
-#    main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
-#    main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
-#    # Group by degree
-#    main_glac_rgi_all['CenLon_round'] = np.floor(main_glac_rgi_all.CenLon.values/degree_size) * degree_size
-#    main_glac_rgi_all['CenLat_round'] = np.floor(main_glac_rgi_all.CenLat.values/degree_size) * degree_size
-#    deg_groups = main_glac_rgi_all.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
-#    deg_dict = dict(zip(deg_groups, np.arange(0,len(deg_groups))))
-#    main_glac_rgi_all.reset_index(drop=True, inplace=True)
-#    cenlon_cenlat = [(main_glac_rgi_all.loc[x,'CenLon_round'], main_glac_rgi_all.loc[x,'CenLat_round']) 
-#                     for x in range(len(main_glac_rgi_all))]
-#    main_glac_rgi_all['CenLon_CenLat'] = cenlon_cenlat
-#    main_glac_rgi_all['deg_id'] = main_glac_rgi_all.CenLon_CenLat.map(deg_dict)
     
     for rcp in rcps:
 #    for rcp in ['rcp45']:
         # Merge all data and partition into groups
-        groups, time_values, ds_vn, ds_glac = partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all)
+        groups, time_values, ds_vn, ds_glac = partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, 
+                                                                          rcp=rcp)
 #%%
         # Create the projection
         fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
@@ -1191,7 +1209,7 @@ if option_plot_cmip5_map == 1:
         elif option_plot_degrees == 1:
             # Group by degree  
             groups_deg, time_values, ds_vn_deg, ds_glac = (
-                    partition_multimodel_groups(gcm_names, 'degree', vn, main_glac_rgi_all))
+                    partition_multimodel_groups(gcm_names, 'degree', vn, main_glac_rgi_all, rcp=rcp))
             # Get values for each group
             for group_idx in range(len(ds_vn_deg)):
                 vn_multimodel_mean_deg = vn_multimodel_mean_processed(vn, ds_vn_deg, group_idx, time_values)
@@ -1306,7 +1324,7 @@ if option_output_tables == 1:
                 ds_vn_rcps = {}
                 for rcp in rcps:
                     groups, time_values, ds_vn, ds_glac = (
-                            partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp))
+                            partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=rcp))
                     ds_vn_rcps[rcp] = ds_vn
 
                 # Load area_glac_annual
@@ -1314,7 +1332,7 @@ if option_output_tables == 1:
                 area_vn = 'area_glac_annual'
                 for rcp in rcps:
                     groups, time_values, ds_area, ds_area_glac = (
-                            partition_multimodel_groups(gcm_names, grouping, area_vn, main_glac_rgi_all, rcp))
+                            partition_multimodel_groups(gcm_names, grouping, area_vn, main_glac_rgi_all, rcp=rcp))
                     ds_area_rcps[rcp] = ds_area
 
                 for rcp in rcps:
@@ -1378,7 +1396,7 @@ if option_output_tables == 1:
                 ds_vn_rcps = {}
                 for rcp in rcps:
                     groups, time_values, ds_vn, ds_glac = (
-                            partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp))
+                            partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=rcp))
                     ds_vn_rcps[rcp] = ds_vn
 
                 for rcp in rcps:
@@ -1409,6 +1427,126 @@ if option_output_tables == 1:
 
                 # Export table
                 runoff_table.to_csv(csv_fp + peakwater_table_fn)
+                
+#%%
+if option_subset_GRACE == 1:
+    
+    vns = ['mass_change']    
+    grouping = 'mascon'
+    gcm_names = ['ERA-Interim']
+    timestep = 'monthly'
+    
+    output_fn = '../mascon_' + timestep + '_GlacierMassGt_ERA-Interim.txt'
+
+
+    # Load volume, mass balance and area to extract monthly glacier mass [Gt]
+    groups, time_values_annual, ds_vol, ds_vol_glac = (
+            partition_multimodel_groups(gcm_names, grouping, 'volume_glac_annual', main_glac_rgi_all))
+    groups, time_values_monthly, ds_mb, ds_mb_glac = (
+            partition_multimodel_groups(gcm_names, grouping, 'massbaltotal_glac_monthly', main_glac_rgi_all))
+    groups, time_values_annual, ds_area, ds_area_glac = (
+            partition_multimodel_groups(gcm_names, grouping, 'area_glac_annual', main_glac_rgi_all))
+    
+    # Monthly glacier area
+    ds_area_glac_monthly = np.repeat(ds_area_glac[:,:,:-1], 12, axis=2)
+    # Monthly glacier mass change
+    #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
+    ds_masschange_glac_monthly = ds_area_glac_monthly * ds_mb_glac / 1000 * input.density_water / 1000
+    # Monthly glacier mass
+    ds_mass_glac_initial = ds_vol_glac[:,:,0][:,:,np.newaxis] * input.density_ice / 1000
+    ds_masschange_glac_monthly_cumsum = np.cumsum(ds_masschange_glac_monthly, axis=2)
+    ds_mass_glac_monthly = np.repeat(ds_mass_glac_initial, len(time_values_monthly), axis=2)
+    ds_mass_glac_monthly[:,:,1:] = ds_mass_glac_monthly[:,:,1:] + ds_masschange_glac_monthly_cumsum[:,:,:-1]
+    
+    # Check to see difference in deriving mass from mass balance or volume
+    # If you run 100 simulations, mass change is slightly different if it's computed using the MB and area or using
+    # the volume.  This is not a problem when only run a single simulation nor is it a proble with the calculation
+    # of volume in the first year.  This suggests that it has something to do with differences in the means and how
+    # outliers might propagate through.
+    ds_mass_glac_annual_fromMB = ds_mass_glac_monthly[:,:,::12]
+    ds_mass_glac_annual_fromVol = ds_vol_glac * input.density_ice / 1000
+        
+    # Group monthly mass
+    ds_mass_mascon_monthly = [[] for group in groups]
+    ngcm = 0
+    for ngroup, group in enumerate(groups):
+        # Select subset of data
+        main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all['mascon_idx'] == group]                        
+        mascon_mass_glac = ds_mass_glac_monthly[0,main_glac_rgi.index.values.tolist(),:]            
+        # Regional sum
+        mascon_mass = mascon_mass_glac.sum(axis=0)                
+        # Record data for multi-model stats
+        if ngcm == 0:
+            ds_mass_mascon_monthly[ngroup] = [group, mascon_mass]
+        else:
+            ds_mass_mascon_monthly[ngroup][1] = np.vstack((ds_mass_mascon_monthly[ngroup][1], mascon_mass))
+
+    # Convert monthly timestep to Year-Month
+    if timestep == 'monthly':
+        time_values_df = pd.DatetimeIndex(time_values_monthly)
+        time_values = [str(x.year) + '-' + str(x.month) for x in time_values_df]
+    elif timestep == 'annual':
+        time_values = time_values_annual[:-1]
+    
+    # Output column names
+    mascon_output_cns = ['mascon_idx', 'CenLat', 'CenLon']
+    for x in time_values:
+        mascon_output_cns.append(x)
+    # Mascon index
+    mascon_output_array = np.reshape(np.array(groups),(-1,1))
+    # Mascon center lat/lon
+    mascon_latlon = np.array([mascon_latlondict[x] for x in groups])
+    mascon_output_array = np.hstack([mascon_output_array, mascon_latlon])
+    # Mascon glacier mass [Gt]
+    mascon_values_list = [ds_mass_mascon_monthly[x][1] for x in range(len(groups))]
+    mascon_values_monthly = np.vstack(mascon_values_list)
+    if timestep == 'annual':
+        mascon_values = mascon_values_monthly[:,::12]
+    elif timestep == 'monthly':
+        mascon_values = mascon_values_monthly
+    mascon_output_array = np.hstack([mascon_output_array, mascon_values])
+    
+    # Output dataframe
+    mascon_output_df = pd.DataFrame(mascon_output_array, columns=mascon_output_cns)
+    mascon_output_df.to_csv(mascon_fp + output_fn, sep=' ', index=False)
+    
+    if timestep == 'annual':
+        headerline=('Annual glacier mass [Gt] for each mascon where at least 1 HMA glacier exists\n' + 
+                    'Glacier mass change modeled using the Python Glacier Evolution Model (PyGEM)\n' +
+                    'forced by ERA-Interim climate data\n'
+                    'Glaciers aggregated according to nearest center latitude and longitude\n' + 
+                    'Years refer to water years (e.g., 2000 is October 1999 - September 2000)\n' +
+                    'Glacier mass refers to mass at the start of the year (e.g., mass_change_2000 = mass_2001 - '
+                    'mass_2000\n' +
+                    'Mascons provided by Bryant Loomis (NASA GSFC mascons)\n' + 
+                    'Contact: drounce@alaska.edu\n' + 
+                    'Column 1: Mascon index used to aggregate glaciers\n' + 
+                    'Column 2: Mascon latitude center [deg]\n' +
+                    'Column 3: Mascon longitude center [deg]\n' +
+                    'Columns 4+: Water year\n' + 
+                    'END OF COMMENTS (first row is header of column names)\n')
+    elif timestep == 'monthly':
+        headerline=('Monthly glacier mass [Gt] for each mascon where at least 1 HMA glacier exists\n' + 
+                    'Glacier mass change modeled using the Python Glacier Evolution Model (PyGEM)\n' +
+                    'forced by ERA-Interim climate data\n'
+                    'Glaciers aggregated according to nearest center latitude and longitude\n' + 
+                    'Glacier mass refers to mass at the start of the month (e.g., mass_change_Sept = mass_Oct - '
+                    'mass_Sept)\n' +
+                    'Mascons provided by Bryant Loomis (NASA GSFC mascons)\n' + 
+                    'Contact: drounce@alaska.edu\n' + 
+                    'Column 1: Mascon index used to aggregate glaciers\n' + 
+                    'Column 2: Mascon latitude center [deg]\n' +
+                    'Column 3: Mascon longitude center [deg]\n' +
+                    'Columns 4+: Year-Month\n' + 
+                    'END OF COMMENTS (first row is header of column names)\n')
+            
+    with open(mascon_fp + output_fn, 'r+') as f:
+        content=f.read()
+        f.seek(0,0)
+        f.write(headerline.rstrip('\r\n') + '\n' + content)
+    
+    
+    
 
 #%%
 ## COUNT HOW MANY BIAS ADJUSTMENTS HAVE RIDICULOUS VALUES
@@ -1433,4 +1571,6 @@ if option_output_tables == 1:
 #            
 #            if ds_prec_large.shape[0] > 0:
 #                print(gcm, rcp, region, ds_prec_large.shape[0])
+                
+
         

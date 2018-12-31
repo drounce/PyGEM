@@ -30,7 +30,7 @@ import run_simulation
 # Script options
 option_plot_futuresim = 0
 option_mb_shean_analysis = 0
-option_mb_shean_regional = 1
+option_mb_shean_regional = 0
 option_geodeticMB_loadcompare = 0
 option_check_biasadj = 0
 option_parameter_relationships = 0
@@ -40,7 +40,6 @@ option_add_metadata2netcdf = 0
 option_merge_netcdfs = 0
 option_spc_subset_vars = 0
 option_var_mon2annual = 0
-
 
 
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER

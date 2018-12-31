@@ -126,13 +126,13 @@ thin_interval = 10
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13]
+rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['23156', '23157']
-#rgi_glac_number = ['03734', '03473']
+#rgi_glac_number = ['23156', '23157']
+rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,48)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
@@ -148,12 +148,12 @@ startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2017
+endyear = 2018
 # Spin up time [years]
 spinupyears = 0
 # Simulation runs
 gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_endyear = 2017
 gcm_spinupyears = 0
 
 # Synthetic simulation options
@@ -454,7 +454,7 @@ option_leapyear = 1
 #                       days_in_month = 29 for these years.
 #  Option 0 - exclude leap years, i.e., February always has 28 days
 # Water year option
-option_wateryear = 1
+option_wateryear = 3
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
@@ -506,8 +506,8 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
 #shean_fn = 'hma_mb_20180803_1229.csv'
 #shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
-shean_fn = 'hma_mb_20181108_0454.csv'
-#shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
+#shean_fn = 'hma_mb_20181108_0454.csv'
+shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'
@@ -746,7 +746,7 @@ option_warningmessages = 1
 #  Option 0 - do not print warning messages within script
 
 #%% MODEL PROPERTIES 
-# Density of ice [kg m-3]
+# Density of ice [kg m-3] (or Gt / 1000 km3)
 density_ice = 900
 # Density of water [kg m-3]
 density_water = 1000

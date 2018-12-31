@@ -58,6 +58,15 @@ def getparser():
 parser = getparser()
 args = parser.parse_args()
 
+#%%
+#rgi_regionsO1 = list(np.arange(1,20))
+#main_glac_rgi_all = pd.DataFrame()
+#for region in rgi_regionsO1:
+#    main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[region], rgi_regionsO2='all', 
+#                                                             rgi_glac_number='all')
+#    main_glac_rgi_all = main_glac_rgi_all.append(main_glac_rgi_region)
+
+
 #%% FILL MISSING MB DATA WITH REGIONAL MEAN AND STD
 if args.option_mbdata_fillwregional == 1:
     print('Filling in missing data with regional estimates...')
