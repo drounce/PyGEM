@@ -263,8 +263,7 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=
     
     ds_group = [[] for group in groups]
     for ngcm, gcm_name in enumerate(gcm_names):
-        for region in rgi_regions:        
-            print(gcm_name, region)                
+        for region in rgi_regions:                     
             # Load datasets
             if gcm_name == 'ERA-Interim':
                 netcdf_fp = netcdf_fp_era
@@ -295,8 +294,6 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=
             else:
                 vn_glac_all = np.concatenate((vn_glac_all, ds[vn_adj].values[:,:,0]), axis=0)
                 vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn_adj].values[:,:,1]), axis=0)
-            
-            print(ds[vn_adj].values[:,:,0].shape[0])
 
         if ngcm == 0:
             ds_glac = vn_glac_all[np.newaxis,:,:]
