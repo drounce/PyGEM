@@ -126,13 +126,13 @@ thin_interval = 10
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [13]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['23156', '23157']
-rgi_glac_number = ['03473']
+rgi_glac_number = ['23156', '23157']
+#rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,48)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
@@ -148,13 +148,19 @@ startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2018
+endyear = 2017
 # Spin up time [years]
 spinupyears = 0
 # Simulation runs
 gcm_startyear = 2000
-gcm_endyear = 2017
+gcm_endyear = 2100
 gcm_spinupyears = 0
+
+# Water year option
+option_wateryear = 1
+#  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
+#  Option 2 - calendar year
+#  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -453,11 +459,6 @@ option_leapyear = 1
 #  Option 1 (default) - leap year days are included, i.e., every 4th year Feb 29th is included in the model, so
 #                       days_in_month = 29 for these years.
 #  Option 0 - exclude leap years, i.e., February always has 28 days
-# Water year option
-option_wateryear = 3
-#  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
-#  Option 2 - calendar year
-#  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
 # User specified start/end dates
 #  note: start and end dates must refer to whole years 
 startmonthday = '06-01'
