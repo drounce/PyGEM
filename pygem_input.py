@@ -125,7 +125,7 @@ mcmc_step = None
 thin_interval = 10
 
 # ===== Bias adjustment option =====
-option_bias_adjustment = 2
+option_bias_adjustment = 1
 #  Option 0 - ignore bias adjustments
 #  Option 1 - new precipitaiton, temperature from Huss and Hock [2015]
 #  Option 2 - Huss and Hock [2015] methods
