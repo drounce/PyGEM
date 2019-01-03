@@ -20,6 +20,7 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
 import matplotlib.patches as mpatches
 import scipy
+from scipy.ndimage import uniform_filter
 import cartopy
 #import geopandas
 import xarray as xr
@@ -37,9 +38,9 @@ import run_simulation
 # Script options
 option_plot_cmip5_normalizedchange = 0
 option_plot_cmip5_runoffcomponents = 0
-option_plot_cmip5_map = 0
+option_plot_cmip5_map = 1
 option_output_tables = 0
-option_subset_GRACE = 1
+option_subset_GRACE = 0
 
 option_plot_individual_glaciers = 0
 option_plot_degrees = 0
@@ -78,9 +79,9 @@ grouping = 'rgi_region'
 #grouping = 'kaab'
 
 # Variable name
-vn = 'mass_change'
+#vn = 'mass_change'
 #vn = 'volume_norm'
-#vn = 'peakwater'
+vn = 'peakwater'
 
 # Group dictionaries
 watershed_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_watershed.csv'
@@ -352,32 +353,35 @@ def vn_multimodel_mean_processed(vn, ds, idx, time_values, every_glacier=0):
             output_multimodel_mean = np.zeros(vn_multimodel_mean.shape)
     # Peak water based on 10-yr running average
     elif vn == 'peakwater':
-        def running_mean(x, N):
-            cumsum = np.cumsum(np.insert(x,0,0))
-            return (cumsum[N:] - cumsum[:-N]) / float(N)
-        vn_runningmean = running_mean(vn_multimodel_mean, peakwater_Nyears)
-        t1_idx = int((peakwater_Nyears-1)/2)
-        t2_idx = len(time_values) - int(np.ceil((peakwater_Nyears-1)/2))
-        time_subset = time_values[t1_idx : t2_idx]
-        output_multimodel_mean = time_subset[np.where(vn_runningmean == vn_runningmean.max())[-1][0]]
+        vn_runningmean = uniform_filter(vn_multimodel_mean, peakwater_Nyears)
+        output_multimodel_mean = time_values[np.where(vn_runningmean == vn_runningmean.max())[-1][0]]
     return output_multimodel_mean
 
 
-def running_mean(x, N):
-    """ Compute running mean for N years"""
-    cumsum = np.cumsum(np.insert(x,0,0))
-    runningmean = (cumsum[N:] - cumsum[:-N]) / float(N)
-    return runningmean
-
-
 def peakwater(runoff, time_values, nyears):
-    """Compute peak water based on the running mean of N years"""
-    runningmean = running_mean(runoff, nyears)
-    t1_idx = int((nyears-1)/2)
-    t2_idx = len(time_values) - int(np.ceil((nyears-1)/2))
-    time_subset = time_values[t1_idx : t2_idx]
+    """Compute peak water based on the running mean of N years
+    
+    Parameters
+    ----------
+    runoff : np.array
+        one-dimensional array of runoff for each timestep
+    time_values : np.array
+        time associated with each timestep
+    nyears : int
+        number of years to compute running mean used to smooth peakwater variations
+        
+    Output
+    ------
+    peakwater_yr : int
+        peakwater year
+    peakwater_chg : float
+        percent change of peak water compared to first timestep (running means used)
+    runoff_chg : float
+        percent change in runoff at the last timestep compared to the first timestep (running means used)
+    """
+    runningmean = uniform_filter(runoff, size=(nyears))
     peakwater_idx = np.where(runningmean == runningmean.max())[-1][0]
-    peakwater_yr = time_subset[peakwater_idx]
+    peakwater_yr = time_values[peakwater_idx]
     peakwater_chg = (runningmean[peakwater_idx] - runningmean[0]) / runningmean[0] * 100
     runoff_chg = (runningmean[-1] - runningmean[0]) / runningmean[0] * 100
     return peakwater_yr, peakwater_chg, runoff_chg
@@ -557,8 +561,8 @@ main_glac_rgi_all['all_group'] = 'all'
 #%% TIME SERIES OF SUBPLOTS FOR EACH GROUP
 if option_plot_cmip5_normalizedchange == 1:
 #    vns = ['volume_glac_annual', 'runoff_glac_annual']
-    vns = ['volume_glac_annual']
-#    vns = ['runoff_glac_annual']
+#    vns = ['volume_glac_annual']
+    vns = ['runoff_glac_annual']
 #    vns = ['temp_glac_annual']
 #    vns = ['prec_glac_annual']
     # NOTE: Temperatures and precipitation will not line up exactly because each region is covered by a different 
@@ -786,12 +790,14 @@ if option_plot_cmip5_normalizedchange == 1:
                     else:
                         ds_multimodels[ngroup][1] = np.vstack((ds_multimodels[ngroup][1], vn_reg_plot))
                     
-                    if ngcm == 0 and vn == 'volume_glac_annual':
-#                        print(group, rcp, gcm_name, vn_reg_masschange)
-                        masschg_multimodels[ngroup] = [group, vn_reg_masschange]
-                    else:
-#                        print(group, rcp, gcm_name, vn_reg_masschange)
-                        masschg_multimodels[ngroup][1] = np.vstack((masschg_multimodels[ngroup][1], vn_reg_masschange))
+                    if vn == 'volume_glac_annual':
+                        if ngcm == 0:
+    #                        print(group, rcp, gcm_name, vn_reg_masschange)
+                            masschg_multimodels[ngroup] = [group, vn_reg_masschange]
+                        else:
+    #                        print(group, rcp, gcm_name, vn_reg_masschange)
+                            masschg_multimodels[ngroup][1] = np.vstack((masschg_multimodels[ngroup][1], 
+                                                                       vn_reg_masschange))
                         
                         
                 # Only add group label once
@@ -821,10 +827,11 @@ if option_plot_cmip5_normalizedchange == 1:
                                                       facecolor=rcp_colordict[rcp], alpha=0.2, label=None)  
                    
                 # Add mass change to plot
-                masschg_multimodel_mean = masschg_multimodels[ngroup][1].mean(axis=0)[0]
+                if vn == 'volume_glac_annual':
+                    masschg_multimodel_mean = masschg_multimodels[ngroup][1].mean(axis=0)[0]
                 
-                print(group, rcp, np.round(masschg_multimodel_mean,0),'Gt', 
-                      np.round((vn_multimodel_mean[-1] - 1)*100,0), '%')
+                    print(group, rcp, np.round(masschg_multimodel_mean,0),'Gt', 
+                          np.round((vn_multimodel_mean[-1] - 1)*100,0), '%')
                 
                 if vn == 'volume_glac_annual' and rcp == rcps[-1]:
                     masschange_str = '(' + str(masschg_multimodel_mean).split('.')[0] + ' Gt)'
@@ -1282,7 +1289,7 @@ if option_plot_cmip5_map == 1:
         fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
 
 
-#%% Output tables of mass change
+#%% Output tables of mass change and peakwater
 if option_output_tables == 1:
     
 #    vns = ['mass_change', 'peakwater']
@@ -1357,17 +1364,14 @@ if option_output_tables == 1:
                         runningmean_years = 10
                         vn_reg_mass = ds_vn_multimodel * input.density_ice / 1000
                         vn_reg_masschgrate = vn_reg_mass[1:] - vn_reg_mass[0:-1]
-                        vn_reg_masschgrate_runningmean = running_mean(vn_reg_masschgrate, runningmean_years)
-                        t1_idx = int((runningmean_years-1)/2)
-                        t2_idx = len(time_values) - int(np.ceil((runningmean_years-1)/2))
-                        time_subset = time_values[t1_idx : t2_idx]
-                        idx_2015 = np.where(time_subset == 2015)[0][0]
+                        vn_reg_masschgrate_runningmean = uniform_filter(vn_reg_masschgrate, (runningmean_years))
+                        idx_2015 = np.where(time_values == 2015)[0][0]
                         print(rcp, group)
                         print('Mass change rate [Gt/yr] 2015:', np.round(vn_reg_masschgrate_runningmean[idx_2015],1), 
                               '\nMass change rate [Gt/yr] 2100:', np.round(vn_reg_masschgrate_runningmean[-1],1))
                         vn_reg_masschgrate_mwe = (
                                 vn_reg_masschgrate * 10**9 * 1000 / 1000 / 10**6 / ds_area_multimodel[0])
-                        vn_reg_masschgrate_mwe_runningmean = running_mean(vn_reg_masschgrate_mwe, runningmean_years)
+                        vn_reg_masschgrate_mwe_runningmean = uniform_filter(vn_reg_masschgrate_mwe, runningmean_years)
                         print('Mass change rate [mwea] 2015:', 
                               np.round(vn_reg_masschgrate_mwe_runningmean[idx_2015],2), 
                               '\nMass change rate [mwea] 2100:', 
