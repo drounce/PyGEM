@@ -22,6 +22,7 @@ import pickle
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
+import pygemfxns_gcmbiasadj as gcmbiasadj
 import class_climate
 
 
@@ -551,7 +552,8 @@ def main(list_packed_vars):
         # Temperature and precipitation sensitivity adjustments
         gcm_temp = gcm_temp + input.synthetic_temp_adjust
         gcm_prec = gcm_prec * input.synthetic_prec_factor
-        
+       
+    #%%
     # ===== BIAS CORRECTIONS =====
     # Bias adjustments from given filename in argument parser
     if input.option_bias_adjustment != 0 and gcm_name != input.ref_gcm_name:
@@ -600,18 +602,6 @@ def main(list_packed_vars):
         # Mean monthly lapse rate
         ref_lr_monthly_avg = main_glac_biasadj[lr_cols].values
         gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))    
-#    # Option 3
-#    elif input.option_bias_adjustment == 3:
-#        tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
-#        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]
-#        bias_adj_prec = main_glac_modelparams[precadj_cols].values
-#        bias_adj_temp = main_glac_modelparams[tempadj_cols].values
-#        # Bias adjusted temperature
-#        gcm_temp_adj = gcm_temp + np.tile(bias_adj_temp, int(gcm_temp.shape[1]/12))
-#        # Bias adjusted precipitation
-#        gcm_prec_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
-#        # Updated elevation, since adjusted according to reference elevation
-#        gcm_elev_adj = main_glac_modelparams['new_gcmelev'].values
 #%%
     # ===== RUN MASS BALANCE =====
     # Dataset to store model simulations and statistics

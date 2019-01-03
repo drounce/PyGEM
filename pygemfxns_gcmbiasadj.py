@@ -92,7 +92,7 @@ def monthly_std_2darray(x):
     return x.reshape(-1,12).transpose().reshape(-1,int(x.shape[1]/12)).std(1).reshape(12,-1).transpose()
 
 
-def temp_biasadj_HH2015(ref_temp, gcm_temp, dates_table_ref, dates_table):
+def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table):
     """
     Huss and Hock (2015) temperature bias correction based on mean and interannual variability
     
@@ -109,8 +109,10 @@ def temp_biasadj_HH2015(ref_temp, gcm_temp, dates_table_ref, dates_table):
     
     Returns
     -------
-    gcm_temp_bias_adj : np.array
+    gcm_temp_biasadj : np.array
         GCM temperature bias corrected to the reference climate dataset according to Huss and Hock (2015)
+    gcm_elev_biasadj : float
+        new gcm elevation is the elevation of the reference climate dataset
     """
     # GCM subset to agree with reference time period to calculate bias corrections
     gcm_subset_idx_start = np.where(dates_table.date.values == dates_table_ref.date.values[0])[0][0]
@@ -147,12 +149,15 @@ def temp_biasadj_HH2015(ref_temp, gcm_temp, dates_table_ref, dates_table):
         t_m_Navg_subset = uniform_filter(t_m_subset,size=(1,N))
         t_m_Navg[:,month::12] = t_m_Navg_subset
     
-    gcm_temp_bias_adj = t_m_Navg + (t_mt - t_m_Navg) * np.tile(variability_monthly_std, int(gcm_temp.shape[1]/12))
+    gcm_temp_biasadj = t_m_Navg + (t_mt - t_m_Navg) * np.tile(variability_monthly_std, int(gcm_temp.shape[1]/12))
     
-    return gcm_temp_bias_adj
+    # Update elevation
+    gcm_elev_biasadj = ref_elev
+    
+    return gcm_temp_biasadj, gcm_elev_biasadj
 
 
-def prec_biasadj_HH2015(ref_prec, gcm_prec, dates_table_ref, dates_table):
+def prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table):
     """
     Huss and Hock (2015) precipitation bias correction based on mean (multiplicative)
     
@@ -166,10 +171,12 @@ def prec_biasadj_HH2015(ref_prec, gcm_prec, dates_table_ref, dates_table):
         dates table for reference time period
     dates_table : pd.DataFrame
         dates_table for GCM time period
+    gcm_elev_biasadj : float
+        new gcm elevation is the elevation of the reference climate dataset
     
     Returns
     -------
-    gcm_prec_bias_adj : np.array
+    gcm_prec_biasadj : np.array
         GCM precipitation bias corrected to the reference climate dataset according to Huss and Hock (2015)
     """
     # GCM subset to agree with reference time period to calculate bias corrections
@@ -189,12 +196,15 @@ def prec_biasadj_HH2015(ref_prec, gcm_prec, dates_table_ref, dates_table):
                             .reshape(-1,int(gcm_prec_nospinup.shape[1]/12)).mean(1).reshape(12,-1).transpose())
     bias_adj_prec_monthly = ref_prec_monthly_avg / gcm_prec_monthly_avg
     # Bias adjusted precipitation accounting for differences in monthly mean
-    gcm_prec_bias_adj = gcm_prec * np.tile(bias_adj_prec_monthly, int(gcm_temp.shape[1]/12))
+    gcm_prec_biasadj = gcm_prec * np.tile(bias_adj_prec_monthly, int(gcm_temp.shape[1]/12))
     
-    return gcm_prec_bias_adj
+    # Update elevation
+    gcm_elev_biasadj = ref_elev
+    
+    return gcm_prec_biasadj, gcm_elev_biasadj
 
 
-def prec_biasadj_opt1(ref_prec, gcm_prec, dates_table_ref, dates_table):
+def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table):
     """
     Precipitation bias correction based on mean with limited maximum
     
@@ -211,9 +221,12 @@ def prec_biasadj_opt1(ref_prec, gcm_prec, dates_table_ref, dates_table):
     
     Returns
     -------
-    gcm_prec_bias_adj : np.array
+    gcm_prec_biasadj : np.array
         GCM precipitation bias corrected to the reference climate dataset according to Huss and Hock (2015)
+    gcm_elev_biasadj : float
+        new gcm elevation is the elevation of the reference climate dataset
     """
+    #%%
     # GCM subset to agree with reference time period to calculate bias corrections
     gcm_subset_idx_start = np.where(dates_table.date.values == dates_table_ref.date.values[0])[0][0]
     gcm_subset_idx_end = np.where(dates_table.date.values == dates_table_ref.date.values[-1])[0][0]
@@ -225,47 +238,62 @@ def prec_biasadj_opt1(ref_prec, gcm_prec, dates_table_ref, dates_table):
     
     # PRECIPITATION BIAS CORRECTIONS
     # Monthly mean precipitation
-    ref_prec_monthly_avg = (ref_prec_nospinup.reshape(-1,12).transpose()
-                            .reshape(-1,int(ref_prec_nospinup.shape[1]/12)).mean(1).reshape(12,-1).transpose())
-    gcm_prec_monthly_avg = (gcm_prec_nospinup.reshape(-1,12).transpose()
-                            .reshape(-1,int(gcm_prec_nospinup.shape[1]/12)).mean(1).reshape(12,-1).transpose())
+    ref_prec_monthly_avg = monthly_avg_2darray(ref_prec_nospinup)
+    gcm_prec_monthly_avg = monthly_avg_2darray(gcm_prec_nospinup)
     bias_adj_prec_monthly = ref_prec_monthly_avg / gcm_prec_monthly_avg
     # Bias adjusted precipitation accounting for differences in monthly mean
-    gcm_prec_bias_adj = gcm_prec * np.tile(bias_adj_prec_monthly, int(gcm_prec.shape[1]/12))
+    gcm_prec_biasadj_raw = gcm_prec * np.tile(bias_adj_prec_monthly, int(gcm_prec.shape[1]/12))
     
-    # Monthly maximum used for identifying outliers
+    # Adjust variance based on zscore and reference standard deviation
+    ref_prec_monthly_std = monthly_std_2darray(ref_prec_nospinup)
+    gcm_prec_biasadj_raw_monthly_avg = monthly_avg_2darray(gcm_prec_biasadj_raw[:,0:ref_prec.shape[1]])
+    gcm_prec_biasadj_raw_monthly_std = monthly_std_2darray(gcm_prec_biasadj_raw[:,0:ref_prec.shape[1]])
+    # Calculate value compared to mean and standard deviation
+    gcm_prec_biasadj_zscore = (
+            (gcm_prec_biasadj_raw - np.tile(gcm_prec_biasadj_raw_monthly_avg, int(gcm_prec.shape[1]/12))) / 
+             np.tile(gcm_prec_biasadj_raw_monthly_std, int(gcm_prec.shape[1]/12)))
+    gcm_prec_biasadj = (
+            np.tile(gcm_prec_biasadj_raw_monthly_avg, int(gcm_prec.shape[1]/12)) +
+            gcm_prec_biasadj_zscore * np.tile(ref_prec_monthly_std, int(gcm_prec.shape[1]/12)))
+    gcm_prec_biasadj[gcm_prec_biasadj < 0] = 0
+    
+    # Identify outliers using reference's monthly maximum adjusted for future increases
     ref_prec_monthly_max = (ref_prec_nospinup.reshape(-1,12).transpose()
                             .reshape(-1,int(ref_prec_nospinup.shape[1]/12)).max(1).reshape(12,-1).transpose())
-    gcm_prec_max_check = np.tile(ref_prec_monthly_max, int(gcm_prec_bias_adj.shape[1]/12))        
-    # For wet years in the future, enable monthly maximum to be increased by the annual increase in precipitation
-    # for that given wet year.
+    gcm_prec_max_check = np.tile(ref_prec_monthly_max, int(gcm_prec_biasadj.shape[1]/12))        
+    # For wetter years in future, adjust monthly max by the annual increase in precipitation
     gcm_prec_annual = annual_sum_2darray(gcm_prec)
     gcm_prec_annual_norm = gcm_prec_annual / gcm_prec_annual.mean(1)[:,np.newaxis]
-    gcm_prec_annual_norm_repeated = np.repeat(gcm_prec_annual_norm, 12).reshape(gcm_prec_bias_adj.shape)
+    gcm_prec_annual_norm_repeated = np.repeat(gcm_prec_annual_norm, 12).reshape(gcm_prec_biasadj.shape)
     gcm_prec_max_check_adj = gcm_prec_max_check * gcm_prec_annual_norm_repeated
     gcm_prec_max_check_adj[gcm_prec_max_check_adj < gcm_prec_max_check] = (
             gcm_prec_max_check[gcm_prec_max_check_adj < gcm_prec_max_check])
     
-    # Identify outliers and replace with monthly mean adjusted for the normalized annual variation
+    # Replace outliers with monthly mean adjusted for the normalized annual variation
     outlier_replacement = (gcm_prec_annual_norm_repeated * 
-                           np.tile(ref_prec_monthly_avg, int(gcm_prec_bias_adj.shape[1]/12)))
-    gcm_prec_bias_adj[gcm_prec_bias_adj > gcm_prec_max_check_adj] = (
-            outlier_replacement[gcm_prec_bias_adj > gcm_prec_max_check_adj])
-    return gcm_prec_bias_adj
+                           np.tile(ref_prec_monthly_avg, int(gcm_prec_biasadj.shape[1]/12)))
+    gcm_prec_biasadj[gcm_prec_biasadj > gcm_prec_max_check_adj] = (
+            outlier_replacement[gcm_prec_biasadj > gcm_prec_max_check_adj])
+    
+    # Update elevation
+    gcm_elev_biasadj = ref_elev
+    #%%
+    return gcm_prec_biasadj, gcm_elev_biasadj
     
     
-def plot_biasadj(ref_temp, gcm_temp_bias_adj, ref_prec, gcm_prec, gcm_prec_bias_adj, dates_table_ref, dates_table):
+def plot_biasadj(ref_temp, gcm_temp_biasadj, ref_prec, gcm_prec, gcm_prec_biasadj, dates_table_ref, dates_table):
     """
     Plot bias adjusted climate data to check values are realistic and adjustment performing as expected
     """
+    #%%
     fig_h = 16
     fig_w = 12
     fig, ax = plt.subplots(5, 1, squeeze=False, figsize=(fig_w,fig_h), gridspec_kw = {'wspace':0, 'hspace':0.2})
     #  Subplot #1: Monthly temperatures with annual on top
-    gcm_temp_bias_adj_annual_avg = annual_avg_2darray(gcm_temp_bias_adj)
+    gcm_temp_biasadj_annual_avg = annual_avg_2darray(gcm_temp_biasadj)
     ax[0,0].plot(dates_table_ref.date.values, ref_temp[0,:], color='b', linewidth=1, label='era')
-    ax[0,0].plot(dates_table.date.values, gcm_temp_bias_adj[0,:], color='r', linewidth=1, label='gcm_adj')
-    ax[0,0].plot(dates_table.date.values[::12], gcm_temp_bias_adj_annual_avg[0,:], color='k', linewidth=2, 
+    ax[0,0].plot(dates_table.date.values, gcm_temp_biasadj[0,:], color='r', linewidth=1, label='gcm_adj')
+    ax[0,0].plot(dates_table.date.values[::12], gcm_temp_biasadj_annual_avg[0,:], color='k', linewidth=2, 
                  label='gcm_adj_yr')
     ax[0,0].set_ylabel('Temp [degC]')
     ax[0,0].legend()    
@@ -288,14 +316,14 @@ def plot_biasadj(ref_temp, gcm_temp_bias_adj, ref_prec, gcm_prec, gcm_prec_bias_
     
     # Subplot #2: Monthly Precipitation bias adjusted
     ax[1,0].plot(dates_table_ref.date.values, ref_prec[0,:], color='b', linewidth=1, label='era')
-    ax[1,0].plot(dates_table.date.values, gcm_prec_bias_adj[0,:], color='k', linewidth=1, label='gcm_adj')
+    ax[1,0].plot(dates_table.date.values, gcm_prec_biasadj[0,:], color='k', linewidth=1, label='gcm_adj')
     ax[1,0].set_ylabel('Prec [m]')
     ax[1,0].legend()
     
     # Subplot #3: Monthly Precipitation (reference, gcm, and gcm corrected)
     ax[2,0].plot(dates_table_ref.date.values, ref_prec[0,:], color='b', linewidth=1, label='era')
     ax[2,0].plot(dates_table_ref.date.values, gcm_prec_subset[0,:], color='r', linewidth=1, label='gcm')
-    ax[2,0].plot(dates_table_ref.date.values, gcm_prec_bias_adj[0,0:ref_prec.shape[1]], color='k', linewidth=1, 
+    ax[2,0].plot(dates_table_ref.date.values, gcm_prec_biasadj[0,0:ref_prec.shape[1]], color='k', linewidth=1, 
                  label='gcm_adj')
     ax[2,0].set_ylabel('Prec [m]')
     ax[2,0].legend()
@@ -325,8 +353,8 @@ def plot_biasadj(ref_temp, gcm_temp_bias_adj, ref_prec, gcm_prec, gcm_prec_bias_
     ax[4,0].plot(np.arange(0,12), ref_prec_monthly_avg[0,:], color='b', linewidth=1, label='era')
     ax[4,0].fill_between(np.arange(0,12), ref_prec_monthly_low, ref_prec_monthly_high, facecolor='b', alpha=0.2)  
     
-    gcm_prec_biasadj_monthly_avg = monthly_avg_2darray(gcm_prec_bias_adj[:,0:ref_prec.shape[1]])
-    gcm_prec_biasadj_monthly_std = monthly_std_2darray(gcm_prec_bias_adj[:,0:ref_prec.shape[1]])
+    gcm_prec_biasadj_monthly_avg = monthly_avg_2darray(gcm_prec_biasadj[:,0:ref_prec.shape[1]])
+    gcm_prec_biasadj_monthly_std = monthly_std_2darray(gcm_prec_biasadj[:,0:ref_prec.shape[1]])
     gcm_prec_biasadj_monthly_low = gcm_prec_biasadj_monthly_avg[0,:] - gcm_prec_biasadj_monthly_std[0,:]
     gcm_prec_biasadj_monthly_high = gcm_prec_biasadj_monthly_avg[0,:] + gcm_prec_biasadj_monthly_std[0,:]
     ax[4,0].plot(np.arange(0,12), gcm_prec_biasadj_monthly_avg[0,:], color='k', linewidth=1, label='gcm_adj')
@@ -336,7 +364,7 @@ def plot_biasadj(ref_temp, gcm_temp_bias_adj, ref_prec, gcm_prec, gcm_prec_bias_
     ax[4,0].xaxis.set_major_locator(plt.MultipleLocator(1))
     ax[4,0].set_xticklabels(month_labels)
     ax[4,0].legend()
-    
+    #%%
     # Save figure
     fig.set_size_inches(fig_w, fig_h)
     figure_fn = ('biasadjplots_' + gcm_name + '_' + rcp_scenario + '_biasadjopt' + str(input.option_bias_adjustment) +
@@ -447,33 +475,36 @@ def main(list_packed_vars):
                 gcm_elev[glac] = gcm_elev_d01[glac]
 
     #%% ===== BIAS CORRECTIONS =====     
-    # OPTION 2: Adjust temp and prec according to Huss and Hock (2015) accounts for means and interannual variability
-    if input.option_bias_adjustment == 2:
-        # Temperature bias correction
-        gcm_temp_bias_adj = temp_biasadj_HH2015(ref_temp, gcm_temp, dates_table_ref, dates_table)
-        # Precipitation bias correction
-        gcm_prec_bias_adj = prec_biasadj_HH2015(ref_prec, gcm_prec, dates_table_ref, dates_table)
-
     # OPTION 1: Adjust temp and prec similar to Huss and Hock (2015) but limit maximum precipitation
     #  - temperature accounts for means and interannual variability
     #  - precipitation corrects
-    elif input.option_bias_adjustment == 1:
+    if input.option_bias_adjustment == 1:
         # Temperature bias correction
-        gcm_temp_bias_adj = temp_biasadj_HH2015(ref_temp, gcm_temp, dates_table_ref, dates_table)
+        gcm_temp_biasadj, gcm_elev_biasadj = temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, 
+                                                                 dates_table)
         # Precipitation bias correction
-        gcm_prec_bias_adj = prec_biasadj_opt1(ref_prec, gcm_prec, dates_table_ref, dates_table)
-            
-    #%% CHECK FOR UNREALISTIC VALUES
-    if gcm_prec_bias_adj.max() > 10:
+        gcm_prec_biasadj, gcm_elev_biasadj = prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, 
+                                                               dates_table)
+    
+    # OPTION 2: Adjust temp and prec according to Huss and Hock (2015) accounts for means and interannual variability
+    elif input.option_bias_adjustment == 2:
+        # Temperature bias correction
+        gcm_temp_biasadj, gcm_elev_biasadj = temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, 
+                                                                 dates_table)
+        # Precipitation bias correction
+        gcm_prec_biasadj, gcm_elev_biasadj = prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, dates_table_ref, 
+                                                                 dates_table)
+ 
+    if gcm_prec_biasadj.max() > 10:
         print('precipitation bias too high, needs to be modified')
-        print(np.where(gcm_prec_bias_adj > 10))
-    elif gcm_prec_bias_adj.min() < 0:
+        print(np.where(gcm_prec_biasadj > 10))
+    elif gcm_prec_biasadj.min() < 0:
         print('Negative precipitation value')
-        print(np.where(gcm_prec_bias_adj < 0))
+        print(np.where(gcm_prec_biasadj < 0))
         
     #%% PLOT BIAS ADJUSTED DATA
     if option_plot_adj:
-        plot_biasadj(ref_temp, gcm_temp_bias_adj, ref_prec, gcm_prec, gcm_prec_bias_adj, dates_table_ref, dates_table)
+        plot_biasadj(ref_temp, gcm_temp_biasadj, ref_prec, gcm_prec, gcm_prec_biasadj, dates_table_ref, dates_table)
 
     #%% Export variables as global to view in variable explorer
     if args.option_parallels == 0:
@@ -566,5 +597,5 @@ if __name__ == '__main__':
         gcm_prec = main_vars['gcm_prec']
         gcm_elev = main_vars['gcm_elev']
         gcm_lr = main_vars['gcm_lr']
-        gcm_temp_bias_adj = main_vars['gcm_temp_bias_adj']        
-        gcm_prec_bias_adj = main_vars['gcm_prec_bias_adj']
+        gcm_temp_biasadj = main_vars['gcm_temp_biasadj']        
+        gcm_prec_biasadj = main_vars['gcm_prec_biasadj']
