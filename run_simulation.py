@@ -506,11 +506,26 @@ def main(list_packed_vars):
         # Lapse rate
         if gcm_name == 'ERA-Interim':
             gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-#        else:
-#            # Mean monthly lapse rate
-#            ref_lr_monthly_avg_all = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
-#            ref_lr_monthly_avg = ref_lr_monthly_avg_all[main_glac_rgi['O1Index'].values]
-#            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))    
+        else:
+            # Compute lapse rates based on reference climate data
+            # Adjust reference dates in event that reference is longer than GCM data
+            if input.startyear >= input.gcm_startyear:
+                ref_startyear = input.startyear
+            else:
+                ref_startyear = input.gcm_startyear
+            if input.endyear <= input.gcm_endyear:
+                ref_endyear = input.endyear
+            else:
+                ref_endyear = input.gcm_endyear
+            dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
+                                                       spinupyears=input.spinupyears)
+            # Monthly average from reference climate data
+            ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
+            ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi, 
+                                                                           dates_table_ref)
+            ref_lr_monthly_avg = gcmbiasadj.monthly_avg_2darray(ref_lr)
+            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+               
         # COAWST data has two domains, so need to merge the two domains
         if gcm_name == 'COAWST':
             gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn,
@@ -528,6 +543,7 @@ def main(list_packed_vars):
                     gcm_temp[glac,:] = gcm_temp_d01[glac,:]
                     gcm_elev[glac] = gcm_elev_d01[glac]
   
+    # ===== SYNTHETIC SIMULATION =====
     elif input.option_synthetic_sim == 1:
         # Air temperature [degC]
         gcm_temp_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
@@ -553,55 +569,47 @@ def main(list_packed_vars):
         gcm_temp = gcm_temp + input.synthetic_temp_adjust
         gcm_prec = gcm_prec * input.synthetic_prec_factor
        
-    #%%
     # ===== BIAS CORRECTIONS =====
-    # Bias adjustments from given filename in argument parser
-    if input.option_bias_adjustment != 0 and gcm_name != input.ref_gcm_name:
-        if gcm_name == 'COAWST':
-            biasadj_fn = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_biasadj_opt' + 
-                          str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + 
-                          str(input.endyear) + '_wy' + str(input.option_wateryear) + '.csv')
-        else:
-            biasadj_fn = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_biasadj_opt' +
-                          str(input.option_bias_adjustment) + '_' + str(input.startyear) + '_' + 
-                          str(input.endyear) + '_wy' + str(input.option_wateryear) + '.csv')
-        main_glac_biasadj_all = pd.read_csv(input.biasadj_fp + biasadj_fn, index_col=0)
-        
-    # Option 0 - no bias adjustment
+    # No adjustments
     if input.option_bias_adjustment == 0 or gcm_name == input.ref_gcm_name:
         gcm_temp_adj = gcm_temp
         gcm_prec_adj = gcm_prec
         gcm_elev_adj = gcm_elev
-#    # Option 1
-#    elif input.option_bias_adjustment == 1:
-#        gcm_temp_adj = gcm_temp + main_glac_modelparams['temp_adj'].values[:,np.newaxis]
-#        gcm_prec_adj = gcm_prec * main_glac_modelparams['prec_adj'].values[:,np.newaxis]
-#        gcm_elev_adj = gcm_elev
-    # Option 2
-    elif input.option_bias_adjustment == 2:
-        main_glac_biasadj = main_glac_biasadj_all.loc[main_glac_rgi['O1Index'].values,:]
-        tempvar_cols = ['tempvar_' + str(n) for n in range(1,13)]
-        tempavg_cols = ['tempavg_' + str(n) for n in range(1,13)]
-        tempadj_cols = ['tempadj_' + str(n) for n in range(1,13)]
-        precadj_cols = ['precadj_' + str(n) for n in range(1,13)]
-        lr_cols = ['lravg_' + str(n) for n in range(1,13)]
-        bias_adj_prec = main_glac_biasadj[precadj_cols].values
-        variability_monthly_std = main_glac_biasadj[tempvar_cols].values
-        gcm_temp_monthly_avg = main_glac_biasadj[tempavg_cols].values
-        gcm_temp_monthly_adj = main_glac_biasadj[tempadj_cols].values
-        # Monthly temperature bias adjusted according to monthly average
-        t_mt = gcm_temp + np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
-        # Mean monthly temperature bias adjusted according to monthly average
-        t_m25avg = np.tile(gcm_temp_monthly_avg + gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
-        # Bias adjusted temperature accounting for monthly mean and variability
-        gcm_temp_adj = t_m25avg + (t_mt - t_m25avg) * np.tile(variability_monthly_std, int(gcm_temp.shape[1]/12))
-        # Bias adjusted precipitation
-        gcm_prec_adj = gcm_prec * np.tile(bias_adj_prec, int(gcm_temp.shape[1]/12))
-        # Updated elevation, since adjusted according to reference elevation
-        gcm_elev_adj = main_glac_biasadj['new_gcmelev'].values
-        # Mean monthly lapse rate
-        ref_lr_monthly_avg = main_glac_biasadj[lr_cols].values
-        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))    
+    # Bias correct based on reference climate data
+    else:
+        # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+        ref_temp, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.temp_fn, ref_gcm.temp_vn, 
+                                                                         main_glac_rgi, dates_table_ref)
+        ref_prec, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.prec_fn, ref_gcm.prec_vn, 
+                                                                         main_glac_rgi, dates_table_ref)
+        ref_elev = ref_gcm.importGCMfxnearestneighbor_xarray(ref_gcm.elev_fn, ref_gcm.elev_vn, main_glac_rgi)
+        
+        # OPTION 1: Adjust temp using Huss and Hock (2015), prec similar but addresses for variance and outliers
+        if input.option_bias_adjustment == 1:
+            # Temperature bias correction
+            gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, 
+                                                                        dates_table_ref, dates_table)
+            # Precipitation bias correction
+            gcm_prec_adj, gcm_elev_adj = gcmbiasadj.prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, 
+                                                                      dates_table_ref, dates_table)
+        
+        # OPTION 2: Adjust temp and prec using Huss and Hock (2015)
+        elif input.option_bias_adjustment == 2:
+            # Temperature bias correction
+            gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, 
+                                                                        dates_table_ref, dates_table)
+            # Precipitation bias correction
+            gcm_prec_adj, gcm_elev_adj = gcmbiasadj.prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, 
+                                                                        dates_table_ref, dates_table)
+ 
+    # Checks on precipitation data
+    if gcm_prec_adj.max() > 10:
+        print('precipitation bias too high, needs to be modified')
+        print(np.where(gcm_prec_adj > 10))
+    elif gcm_prec_adj.min() < 0:
+        print('Negative precipitation value')
+        print(np.where(gcm_prec_adj < 0))
+    
 #%%
     # ===== RUN MASS BALANCE =====
     # Dataset to store model simulations and statistics
@@ -615,8 +623,8 @@ def main(list_packed_vars):
     output_ds_all_stats, encoding = create_xrdataset(main_glac_rgi, dates_table, record_stats=1)
     
     for glac in range(main_glac_rgi.shape[0]):
-#        if glac%200 == 0:
-        print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+        if glac%200 == 0:
+            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_gcm_elev = gcm_elev_adj[glac]
@@ -937,8 +945,8 @@ if __name__ == '__main__':
         gcm_temp_adj = main_vars['gcm_temp_adj']
         gcm_prec_adj = main_vars['gcm_prec_adj']
         gcm_elev_adj = main_vars['gcm_elev_adj']
-        if input.option_bias_adjustment != 0:
-            main_glac_biasadj = main_vars['main_glac_biasadj']
+#        if input.option_bias_adjustment != 0:
+#            main_glac_biasadj = main_vars['main_glac_biasadj']
         gcm_temp_lrglac = main_vars['gcm_lr']
         output_ds_all = main_vars['output_ds_all']
         modelparameters = main_vars['modelparameters']
@@ -964,10 +972,10 @@ if __name__ == '__main__':
         glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
         modelparameters_all = main_vars['modelparameters_all']
         sim_iters = main_vars['sim_iters']
-        if input.option_calibration == 2:
-            mp_idx = main_vars['mp_idx']
-            mp_idx_all = main_vars['mp_idx_all']
-        netcdf_fn = main_vars['netcdf_fn']
+#        if input.option_calibration == 2:
+#            mp_idx = main_vars['mp_idx']
+#            mp_idx_all = main_vars['mp_idx_all']
+#        netcdf_fn = main_vars['netcdf_fn']
         
 #%%
 ##    # If you run 100 simulations, see that mass change is slightly different depending on if it's computed using the 

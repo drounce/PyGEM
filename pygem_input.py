@@ -131,7 +131,7 @@ rgi_regionsO1 = [13]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['23156', '23157']
+rgi_glac_number = ['23156']
 #rgi_glac_number = ['03473', '03474']
 #rgi_glac_number = glac_num_fromrange(1,48)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
@@ -296,7 +296,7 @@ elif option_calibration == 2:
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 100
+sim_iters = 1
 #print('\n\nChange back sim_iters\n\n')
 sim_burn = 0
 # Simulation output filepath

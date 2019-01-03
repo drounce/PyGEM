@@ -124,20 +124,16 @@ def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_tab
     gcm_temp_nospinup = gcm_temp_subset[:,input.spinupyears*12:]        
     
     # Mean monthly temperature
-    ref_temp_monthly_avg = (ref_temp_nospinup.reshape(-1,12).transpose()
-                            .reshape(-1,int(ref_temp_nospinup.shape[1]/12)).mean(1).reshape(12,-1).transpose())
-    gcm_temp_monthly_avg = (gcm_temp_nospinup.reshape(-1,12).transpose()
-                            .reshape(-1,int(gcm_temp_nospinup.shape[1]/12)).mean(1).reshape(12,-1).transpose())
+    ref_temp_monthly_avg = monthly_avg_2darray(ref_temp_nospinup)
+    gcm_temp_monthly_avg = monthly_avg_2darray(gcm_temp_nospinup)
     # Monthly bias adjustment (additive)
     gcm_temp_monthly_adj = ref_temp_monthly_avg - gcm_temp_monthly_avg
     # Monthly temperature bias adjusted according to monthly average
     t_mt = gcm_temp + np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
     
     # Calculate monthly standard deviation of temperature
-    ref_temp_monthly_std = (ref_temp_nospinup.reshape(-1,12).transpose()
-                            .reshape(-1,int(ref_temp_nospinup.shape[1]/12)).std(1).reshape(12,-1).transpose())
-    gcm_temp_monthly_std = (gcm_temp_nospinup.reshape(-1,12).transpose()
-                            .reshape(-1,int(gcm_temp_nospinup.shape[1]/12)).std(1).reshape(12,-1).transpose())
+    ref_temp_monthly_std = monthly_std_2darray(ref_temp_nospinup)
+    gcm_temp_monthly_std = monthly_std_2darray(gcm_temp_nospinup)
     variability_monthly_std = ref_temp_monthly_std / gcm_temp_monthly_std
     # Mean monthly temperature bias adjusted according to monthly average
     #  t_m25avg is the avg monthly temp in a 25-year period around the given year
@@ -190,13 +186,11 @@ def prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_tab
     
     # PRECIPITATION BIAS CORRECTIONS
     # Calculate monthly mean precipitation
-    ref_prec_monthly_avg = (ref_prec_nospinup.reshape(-1,12).transpose()
-                            .reshape(-1,int(ref_prec_nospinup.shape[1]/12)).mean(1).reshape(12,-1).transpose())
-    gcm_prec_monthly_avg = (gcm_prec_nospinup.reshape(-1,12).transpose()
-                            .reshape(-1,int(gcm_prec_nospinup.shape[1]/12)).mean(1).reshape(12,-1).transpose())
+    ref_prec_monthly_avg = monthly_avg_2darray(ref_prec_nospinup)
+    gcm_prec_monthly_avg = monthly_avg_2darray(gcm_prec_nospinup)
     bias_adj_prec_monthly = ref_prec_monthly_avg / gcm_prec_monthly_avg
     # Bias adjusted precipitation accounting for differences in monthly mean
-    gcm_prec_biasadj = gcm_prec * np.tile(bias_adj_prec_monthly, int(gcm_temp.shape[1]/12))
+    gcm_prec_biasadj = gcm_prec * np.tile(bias_adj_prec_monthly, int(gcm_prec.shape[1]/12))
     
     # Update elevation
     gcm_elev_biasadj = ref_elev
