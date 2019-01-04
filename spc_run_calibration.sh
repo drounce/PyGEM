@@ -1,6 +1,6 @@
 #!/bin/sh
 #SBATCH --partition=t1standard
-#SBATCH --ntasks=168
+#SBATCH --ntasks=576
 #SBATCH --tasks-per-node=24
 
 # activate environment
@@ -10,8 +10,10 @@ source activate pygem_hpc
 # delete previous rgi_glac_number batch filenames
 find -name 'rgi_glac_number_batch_*' -exec rm {} \;
 
+IGNORE_REGIONNAME_SWITCH=1
+
 # split glaciers into batches for different nodes
-python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES
+python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -ignore_regionname=$IGNORE_REGIONNAME_SWITCH
 
 # list rgi_glac_number batch filenames
 rgi_fns=$(find rgi_glac_number_batch*)

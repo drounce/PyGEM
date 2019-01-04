@@ -2,6 +2,7 @@
 
 # Built-in libraries
 import argparse
+import os
 # External libraries
 import numpy as np
 import pickle
@@ -82,7 +83,31 @@ if args.spc_region is not None:
     rgi_regionsO1 = [int(args.spc_region)]
 else:
     rgi_regionsO1 = input.rgi_regionsO1
+    
+# Check if the batch files need to be updated
+batch_list = []
+count_glac = 0
+batch_str = 'rgi_glac_number_batch_'
+for i in os.listdir():
 
+    # Check string
+    if args.ignore_regionname == 0:
+        check_str = 'R' + str(rgi_regionsO1[0]) + '_' + batch_str
+    elif args.ignore_regionname == 1:
+        check_str = batch_str
+    
+    # List batch fns and count total number of glaciers
+    if i.startswith(check_str) and i.endswith('.pkl'):
+        with open(i, 'rb') as f:
+            rgi_glac_number = pickle.load(f)
+            batch_list.append(i)
+            
+            print(i, len(rgi_glac_number))
+        
+        count_glac += len(rgi_glac_number)
+    
+
+# Load glacier numbers
 if input.rgi_glac_number == 'all':
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all',
                                                           rgi_glac_number='all')
@@ -91,18 +116,25 @@ if input.rgi_glac_number == 'all':
     rgi_glac_number = [str(x).zfill(5) for x in glacno]    
 else:
     rgi_glac_number = input.rgi_glac_number
+
+# Check if need to update old files or not
+#  (different number of glaciers or batches)
+if count_glac != len(rgi_glac_number) or args.n_batches != len(batch_list):
+    # Delete old files
+    for i in batch_list:
+        os.remove(i)
     
-rgi_glac_number_batches = split_list(rgi_glac_number, n=args.n_batches)
+    # Split list of glacier numbers
+    rgi_glac_number_batches = split_list(rgi_glac_number, n=args.n_batches)
 
-# Export lists
-for n in range(len(rgi_glac_number_batches)):
-#    print('Batch', n, ':\n', rgi_glac_number_batches[n], '\n')
-    if args.ignore_regionname == 0:
-        batch_fn = 'R' + str(rgi_regionsO1[0]) + '_rgi_glac_number_batch_' + str(n) + '.pkl'
-    elif args.ignore_regionname == 1:
-        batch_fn = 'rgi_glac_number_batch_' + str(n) + '.pkl'
-        
-#    print('Batch', n, ':\n', batch_fn, '\n')
-    with open(batch_fn, 'wb') as f:
-        pickle.dump(rgi_glac_number_batches[n], f)
-
+    # Export new lists
+    for n in range(len(rgi_glac_number_batches)):
+    #    print('Batch', n, ':\n', rgi_glac_number_batches[n], '\n')
+        if args.ignore_regionname == 0:
+            batch_fn = 'R' + str(rgi_regionsO1[0]) + '_' + batch_str + str(n) + '.pkl'
+        elif args.ignore_regionname == 1:
+            batch_fn = batch_str + str(n) + '.pkl'
+            
+    #    print('Batch', n, ':\n', batch_fn, '\n')
+        with open(batch_fn, 'wb') as f:
+            pickle.dump(rgi_glac_number_batches[n], f)

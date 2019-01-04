@@ -161,9 +161,10 @@ spinupyears = 0
 gcm_startyear = 2000
 gcm_endyear = 2100
 gcm_spinupyears = 0
+gcm_wateryear = 1
 
 # Water year option
-option_wateryear = 1
+option_wateryear = 3
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
@@ -310,11 +311,7 @@ output_sim_fp = output_filepath + 'simulations/'
 # Simulation output statistics
 #sim_stat_cns = ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%']
 sim_stat_cns = ['mean', 'std']
-# Output package variables
-output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 
-                            'refreeze_glac_monthly', 'melt_glac_monthly', 'frontalablation_glac_monthly', 
-                            'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
-                            'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual']
+
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -738,6 +735,11 @@ output_package = 2
 output_glacier_attr_vns = ['glacno', 'RGIId_float', 'CenLon', 'CenLat', 'O1Region', 'O2Region', 'Area', 'Zmin', 'Zmax', 
                            'Zmed', 'Slope', 'Aspect', 'Lmax', 'Form', 'TermType', 'Surging']
 time_names = ['time', 'year', 'year_plus1']
+# Output package variables
+output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 
+                            'refreeze_glac_monthly', 'melt_glac_monthly', 'frontalablation_glac_monthly', 
+                            'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
+                            'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual']
 
 #%% WARNING MESSAGE OPTION
 option_warningmessages = 1

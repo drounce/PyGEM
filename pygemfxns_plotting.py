@@ -38,8 +38,8 @@ import run_simulation
 # Script options
 option_plot_cmip5_normalizedchange = 0
 option_plot_cmip5_runoffcomponents = 0
-option_plot_cmip5_map = 1
-option_output_tables = 0
+option_plot_cmip5_map = 0
+option_output_tables = 1
 option_subset_GRACE = 0
 
 option_plot_individual_glaciers = 0
@@ -49,13 +49,15 @@ option_plot_individual_gcms = 0
 
 
 #%% ===== Input data =====
-netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
+#netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
+netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
 csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 
 # Regions
 rgi_regions = [13, 14, 15]
+#rgi_regions = [13]
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -65,12 +67,13 @@ kaab_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/kaab201
 #kaab_csv = pd.read_csv(kaab_dict_fn)
 #kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab))
 # GCMs and RCP scenarios
-#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-#             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
-gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
              'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
+#gcm_names = ['CSIRO-Mk3-6-0', 'GFDL-CM3']
+#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+#             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
 rcps = ['rcp26', 'rcp45', 'rcp85']
-#rcps = ['rcp45', 'rcp85']
+#rcps = ['rcp26']
 
 # Grouping
 #grouping = 'all'
@@ -264,15 +267,17 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=
     
     ds_group = [[] for group in groups]
     for ngcm, gcm_name in enumerate(gcm_names):
-        for region in rgi_regions:                     
+        for region in rgi_regions:
+                   
             # Load datasets
             if gcm_name == 'ERA-Interim':
                 netcdf_fp = netcdf_fp_era
                 ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
             else:
                 netcdf_fp = netcdf_fp_cmip5 + vn_adj + '/'
-                ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' 
-                         + vn_adj + '.nc')    
+                ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba' + str(input.option_bias_adjustment) +
+                         '_100sets_2000_2100--' + vn_adj + '.nc')
+            
             # Bypass GCMs that are missing a rcp scenario
             try:
                 ds = xr.open_dataset(netcdf_fp + ds_fn)
@@ -287,7 +292,6 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=
             elif 'monthly' in vn_adj:
                 time_values = ds[vn_adj].coords['time'].values
                 
-            
             # Merge datasets
             if region == rgi_regions[0]:
                 vn_glac_all = ds[vn_adj].values[:,:,0]
@@ -1293,8 +1297,8 @@ if option_plot_cmip5_map == 1:
 if option_output_tables == 1:
     
 #    vns = ['mass_change', 'peakwater']
-#    vns = ['peakwater']
-    vns = ['mass_change']
+    vns = ['peakwater']
+#    vns = ['mass_change']
     
     
 #    groupings = ['all', 'rgi_region', 'watershed', 'kaab']
@@ -1573,5 +1577,3 @@ if option_subset_GRACE == 1:
 #            if ds_prec_large.shape[0] > 0:
 #                print(gcm, rcp, region, ds_prec_large.shape[0])
                 
-
-        
