@@ -479,7 +479,7 @@ def main(list_packed_vars):
     
     # Select dates including future projections
     dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
-                                           spinupyears=input.gcm_spinupyears)
+                                           spinupyears=input.gcm_spinupyears, option_wateryear=input.gcm_wateryear)
     # Synthetic simulation dates
     if input.option_synthetic_sim == 1:
         dates_table_synthetic = modelsetup.datesmodelrun(
@@ -518,7 +518,8 @@ def main(list_packed_vars):
             else:
                 ref_endyear = input.gcm_endyear
             dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
-                                                       spinupyears=input.spinupyears)
+                                                       spinupyears=input.spinupyears, 
+                                                       option_wateryear=input.option_wateryear)
             # Monthly average from reference climate data
             ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
             ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi, 

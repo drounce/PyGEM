@@ -119,6 +119,11 @@ def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_tab
     gcm_subset_idx_end = np.where(dates_table.date.values == dates_table_ref.date.values[-1])[0][0]
     gcm_temp_subset = gcm_temp[:,gcm_subset_idx_start:gcm_subset_idx_end+1]
     
+#    print('reference start date:', dates_table_ref.date.values[0],
+#          '\ngcm start date:', dates_table.date.values[gcm_subset_idx_start],
+#          '\nreference start date:', dates_table_ref.date.values[-1],
+#          '\ngcm end date:', dates_table.date.values[gcm_subset_idx_end])
+    
     # Remove spinup years, so adjustment performed over calibration period
     ref_temp_nospinup = ref_temp[:,input.spinupyears*12:]
     gcm_temp_nospinup = gcm_temp_subset[:,input.spinupyears*12:]        
