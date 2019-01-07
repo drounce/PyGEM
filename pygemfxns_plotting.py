@@ -24,7 +24,7 @@ from scipy.ndimage import uniform_filter
 import cartopy
 #import geopandas
 import xarray as xr
-from osgeo import ogr
+from osgeo import gdal, ogr, osr
 import pickle
 # Local Libraries
 import pygem_input as input
@@ -65,6 +65,7 @@ rgi_regions = [13, 14, 15]
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
 watershed_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/HMA_basins_20181018_4plot.shp'
 kaab_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/kaab2015_regions.shp'
+srtm_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA.tif'
 #kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_w_watersheds_kaab.csv'
 #kaab_csv = pd.read_csv(kaab_dict_fn)
 #kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab))
@@ -1623,7 +1624,8 @@ if option_subset_GRACE == 1:
 #%% PLOT CALIBRATION MODEL PARAMETERS
 if option_plot_modelparam == 1:
     
-    vns = ['ddfsnow', 'tempchange', 'precfactor']
+#    vns = ['ddfsnow', 'tempchange', 'precfactor']
+    vns = ['precfactor']
     option_addbackground_group = 0
     modelparams_fn = 'modelparams_all_mean_20181018.csv'
     
@@ -1683,6 +1685,19 @@ if option_plot_modelparam == 1:
         ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
         ax.set_xlabel(xlabel, size=12)
         ax.set_ylabel(ylabel, size=12)
+        
+#        # Add background DEM
+#        gtif = gdal.Open(srtm_fn)
+#        arr = gtif.ReadAsArray()   #Values
+#        trans = gtif.GetGeoTransform()  #Defining bounds
+#        extent = (trans[0], trans[0] + gtif.RasterXSize*trans[1],
+#                trans[3] + gtif.RasterYSize*trans[5], trans[3])
+#        norm_srtm = plt.Normalize(3000,6000)
+#        srtm = ax.imshow(arr[:,:],extent=extent,transform=cartopy.crs.PlateCarree(), norm=norm_srtm, origin='upper', 
+#                         cmap='Greys')
+#        
+#        plt.colorbar(srtm, ax=ax, fraction=0.03, pad=0.02)
+        
             
         # Add group and attribute of interest
         if grouping == 'rgi_region':
@@ -1743,8 +1758,7 @@ if option_plot_modelparam == 1:
             modelparam_value = main_glac_rgi_all[vn].values
             glac_lons = main_glac_rgi_all.CenLon.values
             glac_lats = main_glac_rgi_all.CenLat.values
-            sc = ax.scatter(glac_lons, glac_lats, c=modelparam_value, cmap=cmap, norm=norm, 
-                            s=area_sizes,
+            sc = ax.scatter(glac_lons, glac_lats, c=modelparam_value, cmap=cmap, norm=norm, s=area_sizes,
                             edgecolor='grey', linewidth=0.25, transform=cartopy.crs.PlateCarree(), zorder=2)
             
             # Add legend for glacier sizes
@@ -1775,9 +1789,9 @@ if option_plot_modelparam == 1:
                 col_idx = int((x[i] - x.min()) / degree_size)
                 z_array[row_idx, col_idx] = z[i]
             if vn == 'tempchange':
-                ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu_r', norm=norm, zorder=2)
+                ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu_r', norm=norm, zorder=2, alpha=0.8)
             else:
-                ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu', norm=norm, zorder=2)
+                ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu', norm=norm, zorder=2, alpha=0.8)
             
         
         # Save figure
