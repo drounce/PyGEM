@@ -39,11 +39,12 @@ import run_simulation
 option_plot_cmip5_normalizedchange = 0
 option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 0
-option_output_tables = 1
+option_output_tables = 0
 option_subset_GRACE = 0
+option_plot_modelparam = 1
 
 option_plot_individual_glaciers = 0
-option_plot_degrees = 0
+option_plot_degrees = 1
 option_plot_pies = 0
 option_plot_individual_gcms = 0
 
@@ -54,6 +55,7 @@ netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulat
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
 csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
+cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20181018/'
 
 # Regions
 rgi_regions = [13, 14, 15]
@@ -77,8 +79,8 @@ rcps = ['rcp26', 'rcp45', 'rcp85']
 
 # Grouping
 #grouping = 'all'
-grouping = 'rgi_region'
-#grouping = 'watershed'
+#grouping = 'rgi_region'
+grouping = 'watershed'
 #grouping = 'kaab'
 
 # Variable name
@@ -174,7 +176,10 @@ vn_dict = {'volume_glac_annual': 'Normalized Volume [-]',
            'runoff_glac_annual': 'Normalized Runoff [-]',
            'peakwater': 'Peak Water [yr]',
            'temp_glac_annual': 'Temperature [degC]',
-           'prec_glac_annual': 'Precipitation [m]'}
+           'prec_glac_annual': 'Precipitation [m]',
+           'precfactor': 'Precipitation Factor [-]',
+           'tempchange': 'Temperature bias [degC]', 
+           'ddfsnow': 'DDFsnow [mm w.e. d-1 degC-1]'}
 rcp_dict = {'rcp26': '2.6',
             'rcp45': '4.5',
             'rcp60': '6.0',
@@ -226,7 +231,7 @@ def select_groups(grouping, main_glac_rgi_all):
     try:
         groups = sorted(groups, key=str.lower)
     except:
-        pass
+        groups = sorted(groups)
     return groups, group_cn
 
 def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=None):
@@ -320,6 +325,44 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=
                 ds_group[ngroup][1] = np.vstack((ds_group[ngroup][1], vn_reg))
                 
     return groups, time_values, ds_group, ds_glac
+
+
+def partition_modelparams_groups(grouping, vn, main_glac_rgi_all):
+    """Partition model parameters by each group
+    
+    Parameters
+    ----------
+    grouping : str
+        name of grouping to use
+    vn : str
+        variable name
+    main_glac_rgi_all : pd.DataFrame
+        glacier table
+        
+    Output
+    ------
+    groups : list
+        list of group names
+    ds_group : list of lists
+        dataset containing the multimodel data for a given variable for all the GCMs
+    """
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi_all)
+    
+    ds_group = [[] for group in groups]
+    
+    # Cycle through groups
+    for ngroup, group in enumerate(groups):
+        # Select subset of data
+        main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
+        vn_glac = main_glac_rgi_all[vn].values[main_glac_rgi.index.values.tolist()]             
+        # Regional sum
+        vn_reg = vn_glac.mean(axis=0)                
+        
+        # Record data for each group
+        ds_group[ngroup] = [group, vn_reg]
+                
+    return groups, ds_group
 
  
 def vn_multimodel_mean_processed(vn, ds, idx, time_values, every_glacier=0):
@@ -1118,7 +1161,7 @@ if option_plot_cmip5_map == 1:
         if grouping == 'rgi_region':
             ax.add_feature(cartopy.feature.BORDERS, alpha=0.15)
         ax.add_feature(cartopy.feature.COASTLINE)
-        # Set the extentqg
+        # Set the extent
         ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
         # Label title, x, and y axes
         ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
@@ -1576,4 +1619,177 @@ if option_subset_GRACE == 1:
 #            
 #            if ds_prec_large.shape[0] > 0:
 #                print(gcm, rcp, region, ds_prec_large.shape[0])
+
+#%% PLOT CALIBRATION MODEL PARAMETERS
+if option_plot_modelparam == 1:
+    
+    vns = ['ddfsnow', 'tempchange', 'precfactor']
+    option_addbackground_group = 0
+    modelparams_fn = 'modelparams_all_mean_20181018.csv'
+    
+    east = 104
+    west = 67
+    south = 25
+    north = 48
+    
+    colorbar_dict = {'volume_norm':[0,1],
+                     'peakwater':[2000,2100],
+                     'precfactor':[0.8,1.2],
+                     'tempchange':[-2,2],
+                     'ddfsnow':[3.6,4.6]}
+    
+    # Load mean of all model parameters
+    if os.path.isfile(cal_fp + modelparams_fn) == False:
+        modelparams_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(input.modelparams_colnames))), 
+                                           columns=input.modelparams_colnames)
+        for glac in range(main_glac_rgi_all.shape[0]):
+            
+            glac_rgiid_full = main_glac_rgi_all.loc[main_glac_rgi_all.index.values[glac],'RGIId']
+            if glac%200 == 0:
+                print(glac_rgiid_full)
+            
+            glacno = str(glac_rgiid_full.split('-')[1])
+            regionO1 = int(glacno.split('.')[0])
+            
+            ds_mp = xr.open_dataset(cal_fp + 'reg' + str(regionO1) + '/' + glacno + '.nc')
+            cn_subset = input.modelparams_colnames
+            modelparams_all.iloc[glac,:] = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values,columns=ds_mp.mp.values)
+                                            [input.modelparams_colnames].mean().values)
+            modelparams_all.to_csv(cal_fp + modelparams_fn, index=False)
+    else:
+        modelparams_all = pd.read_csv(cal_fp + modelparams_fn)
+        
+    # Convert ddfsnow from [m w.e. to mm w.e.]
+    modelparams_all['ddfsnow'] = modelparams_all['ddfsnow'] * 1000
+    modelparams_all['ddfice'] = modelparams_all['ddfice'] * 1000
+        
+    # Add model parameters to main_glac_rgi_all
+    main_glac_rgi_all[input.modelparams_colnames] = modelparams_all
+
+    for vn in vns:
+    
+        # Group data
+        groups, ds_group = partition_modelparams_groups(grouping, vn, main_glac_rgi_all)
+    
+        # Create the projection
+        fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
+        # Add country borders for reference
+        ax.add_feature(cartopy.feature.BORDERS, alpha=0.15, zorder=10)
+        ax.add_feature(cartopy.feature.COASTLINE)
+        # Set the extent
+        ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
+        # Label title, x, and y axes
+        ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+        ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+        ax.set_xlabel(xlabel, size=12)
+        ax.set_ylabel(ylabel, size=12)
+            
+        # Add group and attribute of interest
+        if grouping == 'rgi_region':
+            group_shp = cartopy.io.shapereader.Reader(rgiO1_shp_fn)
+            group_shp_attr = 'RGI_CODE'
+        elif grouping == 'watershed':
+            group_shp = cartopy.io.shapereader.Reader(watershed_shp_fn)
+            group_shp_attr = 'watershed'
+        elif grouping == 'kaab':
+            group_shp = cartopy.io.shapereader.Reader(kaab_shp_fn)
+            group_shp_attr = 'kaab_name'
+            
+        
+#        cmap = mpl.cm.RdYlBu
+        cmap = 'RdYlBu'
+        if vn == 'tempchange':
+            cmap = 'RdYlBu_r'
+#            cmap = mpl.cm.RdYlBu_r
+        norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])
+        
+        # Add attribute of interest to the shapefile
+        if option_addbackground_group == 1:
+            for rec in group_shp.records():
+                if rec.attributes[group_shp_attr] in groups:
+                    # Group index
+                    ds_idx = groups.index(rec.attributes[group_shp_attr])          
+                    # Value to plot
+                    rec.attributes['value'] = ds_group[ds_idx][1]
+        
+                    # Add polygon to plot
+                    ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), 
+                                      facecolor=cmap(norm(rec.attributes['value'])),
+                                      edgecolor='None', zorder=1)
+                    # plot polygon outlines on top of everything with their labels
+                    ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor='None', 
+                                      edgecolor='grey', linewidth=0.75, zorder=3)
+                    ax.text(title_location[rec.attributes[group_shp_attr]][0], 
+                            title_location[rec.attributes[group_shp_attr]][1], 
+                            title_dict[rec.attributes[group_shp_attr]], horizontalalignment='center', size=12, zorder=4)
+                    if rec.attributes[group_shp_attr] == 'Karakoram':
+                        ax.plot([72.2, 76.2], [34.3, 35.8], color='black', linewidth=0.75)
+                    elif rec.attributes[group_shp_attr] == 'Pamir':
+                        ax.plot([69.2, 73], [37.3, 38.3], color='black', linewidth=0.75)
+                        
+        
+        # Add colorbar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm._A = []
+        plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.02)
+        fig.text(0.95, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
+        
+        if option_plot_individual_glaciers == 1:
+            # Plot individual glaciers
+            area_cutoffs = [100, 10, 1, 0.1]
+            area_cutoffs_size = [1000, 100, 10, 2]
+            area_sizes = size_thresholds(main_glac_rgi_all.Area.values, area_cutoffs, area_cutoffs_size)
                 
+            modelparam_value = main_glac_rgi_all[vn].values
+            glac_lons = main_glac_rgi_all.CenLon.values
+            glac_lats = main_glac_rgi_all.CenLat.values
+            sc = ax.scatter(glac_lons, glac_lats, c=modelparam_value, cmap=cmap, norm=norm, 
+                            s=area_sizes,
+                            edgecolor='grey', linewidth=0.25, transform=cartopy.crs.PlateCarree(), zorder=2)
+            
+            # Add legend for glacier sizes
+            legend_glac = []
+            legend_glac_labels = []
+            legend_glac_markersize = [20, 10, 5, 2]
+            for i_area, area_cutoff_size in enumerate(area_cutoffs_size):
+                legend_glac.append(Line2D([0], [0], linestyle='None', marker='o', color='grey', 
+                                          label=(str(area_cutoffs[i_area]) + 'km$^2$'), 
+                                          markerfacecolor='grey', markersize=legend_glac_markersize[i_area]))
+            plt.legend(handles=legend_glac, loc='lower left', fontsize=12)
+    
+        elif option_plot_degrees == 1:
+            # Group by degree  
+            groups_deg, ds_vn_deg = partition_modelparams_groups('degree', vn, main_glac_rgi_all)
+    
+            z = [ds_vn_deg[ds_idx][1] for ds_idx in range(len(ds_vn_deg))]
+            x = np.array([x[0] for x in deg_groups]) 
+            y = np.array([x[1] for x in deg_groups])
+            lons = np.arange(x.min(), x.max() + 2 * degree_size, degree_size)
+            lats = np.arange(y.min(), y.max() + 2 * degree_size, degree_size)
+            x_adj = np.arange(x.min(), x.max() + 1 * degree_size, degree_size) - x.min()
+            y_adj = np.arange(y.min(), y.max() + 1 * degree_size, degree_size) - y.min()
+            z_array = np.zeros((len(y_adj), len(x_adj)))
+            z_array[z_array==0] = np.nan
+            for i in range(len(z)):
+                row_idx = int((y[i] - y.min()) / degree_size)
+                col_idx = int((x[i] - x.min()) / degree_size)
+                z_array[row_idx, col_idx] = z[i]
+            if vn == 'tempchange':
+                ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu_r', norm=norm, zorder=2)
+            else:
+                ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu', norm=norm, zorder=2)
+            
+        
+        # Save figure
+        fig.set_size_inches(10,6)
+        if option_plot_individual_glaciers == 1:
+            fig_fn = vn + '_wglac.png'
+        elif option_plot_degrees == 1:
+            if degree_size < 1:
+                degsize_name = 'pt' + str(int(degree_size * 100))
+            else:
+                degsize_name = str(degree_size)
+            fig_fn = vn + '_' + degsize_name + 'deg.png'
+        else:
+            fig_fn = vn + '_' + grouping + '.png'
+        fig.savefig(figure_fp + '../cal/' + fig_fn, bbox_inches='tight', dpi=300)

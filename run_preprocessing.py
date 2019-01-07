@@ -59,7 +59,7 @@ parser = getparser()
 args = parser.parse_args()
 
 #%%
-#rgi_regionsO1 = list(np.arange(1,20))
+#rgi_regionsO1 = [13,14,15]
 #main_glac_rgi_all = pd.DataFrame()
 #for region in rgi_regionsO1:
 #    main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[region], rgi_regionsO2='all', 
@@ -140,14 +140,14 @@ if args.option_mbdata_fillwregional == 1:
             pd.Series(list(zip(main_glac_nodata['O1Region'], main_glac_nodata['O2Region']))).map(reg_dict_mb))
     ds_nodata['mb_mwea_sigma'] = (
             pd.Series(list(zip(main_glac_nodata['O1Region'], main_glac_nodata['O2Region']))).map(reg_dict_mb_sigma))
-    # Export csv of all glaciers including those with data and those with filled values
-    ds_export = ds.copy()
-    ds_export.drop(['rgi_regO1', 'rgi_str'], axis=1, inplace=True)
-    ds_export = ds_export.append(ds_nodata)
-    ds_export = ds_export.sort_values('RGIId', ascending=True)
-    ds_export.reset_index(drop=True, inplace=True)
-    output_fn = ds_fn.replace('.csv', '_all_filled.csv')
-    ds_export.to_csv(ds_fp + output_fn, index=False)
+#    # Export csv of all glaciers including those with data and those with filled values
+#    ds_export = ds.copy()
+#    ds_export.drop(['rgi_regO1', 'rgi_str'], axis=1, inplace=True)
+#    ds_export = ds_export.append(ds_nodata)
+#    ds_export = ds_export.sort_values('RGIId', ascending=True)
+#    ds_export.reset_index(drop=True, inplace=True)
+#    output_fn = ds_fn.replace('.csv', '_all_filled.csv')
+#    ds_export.to_csv(ds_fp + output_fn, index=False)
     
 
 #%% COAWST Climate Data

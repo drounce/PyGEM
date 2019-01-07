@@ -101,6 +101,8 @@ def merge_batches(gcm_name):
             # Export to netcdf
             ds_all.to_netcdf(netcdf_fp + '../' + ds_all_fn, encoding=encoding)
             
+            print('Merged ', gcm_name, reg, rcp)
+            
 #            # Zip file to reduce file size
 #            # Check file path exists
 #            if os.path.exists(zipped_fp) == False:
@@ -459,43 +461,3 @@ if args.subset_vars == 1:
     
 if args.vars_mon2annualseasonal == 1:
     vars_mon2annualseasonal(args.gcm_name)
-
-
-#%% TESTING
-import random
-
-fn = random.randint
-
-with open('ips.txt', 'w') as f: 
-    for i in np.arange(0,9000000):
-        f.write('{0}.{1}.{2}.{3} username-{4}\n'.format(
-            fn(0,255),
-            fn(0,255),
-            fn(0,255),
-            fn(0,255),
-            fn(0, 9000000),
-        ))
-
-import time
-from collections import defaultdict
-
-def read_file(filename):
-    with open(filename) as data:
-
-        accounts = defaultdict(set)
-
-        for line in data:
-            IP, username = line.split()[:2]
-            accounts[username].add(IP)
-
-    print("The accounts will be deleted from memory in 5 seconds")
-    time.sleep(5)
-    accounts.clear()
-
-    print("The accounts have been deleted from memory")
-    time.sleep(5)
-
-    print("End of script")
-
-if __name__ == '__main__':
-    read_file('ips.txt')
