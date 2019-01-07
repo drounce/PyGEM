@@ -7,16 +7,16 @@
 module load lang/Anaconda3/2.5.0
 source activate pygem_hpc
 
-# delete previous rgi_glac_number batch filenames
-find -name 'rgi_glac_number_batch_*' -exec rm {} \;
-
+REGNO="15"
 IGNORE_REGIONNAME_SWITCH=1
+ADD_CAL_SWITCH=1
 
 # split glaciers into batches for different nodes
-python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -ignore_regionname=$IGNORE_REGIONNAME_SWITCH
+python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -spc_region=$REGNO -add_cal=$ADD_CAL_SWITCH
 
 # list rgi_glac_number batch filenames
-rgi_fns=$(find rgi_glac_number_batch*)
+CHECK_STR="Cal_R$REGNO_rgi_glac_number_batch"
+rgi_fns=$(find $CHECK_STR*)
 echo rgi_glac_number filenames:$rgi_fns
 # create list
 list_rgi_fns=($rgi_fns)

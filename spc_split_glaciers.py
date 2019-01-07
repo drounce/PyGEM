@@ -36,6 +36,8 @@ def getparser():
                         help='rgi region number for supercomputer')
     parser.add_argument('-ignore_regionname', action='store', type=int, default=0,
                         help='switch to include the region name or not in the batch filenames')
+    parser.add_argument('-add_cal', action='store', type=int, default=0,
+                        help='switch to add "cal" to batch filenames')
     return parser
 
 
@@ -95,14 +97,15 @@ for i in os.listdir():
         check_str = 'R' + str(rgi_regionsO1[0]) + '_' + batch_str
     elif args.ignore_regionname == 1:
         check_str = batch_str
+        
+    if args.add_cal == 1:
+        check_str = 'Cal_' + check_str
     
     # List batch fns and count total number of glaciers
     if i.startswith(check_str) and i.endswith('.pkl'):
         with open(i, 'rb') as f:
             rgi_glac_number = pickle.load(f)
             batch_list.append(i)
-            
-            print(i, len(rgi_glac_number))
         
         count_glac += len(rgi_glac_number)
     
@@ -134,6 +137,9 @@ if count_glac != len(rgi_glac_number) or args.n_batches != len(batch_list):
             batch_fn = 'R' + str(rgi_regionsO1[0]) + '_' + batch_str + str(n) + '.pkl'
         elif args.ignore_regionname == 1:
             batch_fn = batch_str + str(n) + '.pkl'
+        
+        if args.add_cal == 1:
+            batch_fn = 'Cal_' + batch_fn
             
     #    print('Batch', n, ':\n', batch_fn, '\n')
         with open(batch_fn, 'wb') as f:
