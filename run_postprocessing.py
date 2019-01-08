@@ -99,7 +99,7 @@ def merge_batches(gcm_name):
             ds_all.glac.values = np.arange(0,len(ds_all.glac.values))
             ds_all_fn = i.split(splitter)[0] + '.nc'
             # Export to netcdf
-            ds_all.to_netcdf(netcdf_fp + '../' + ds_all_fn, encoding=encoding)
+            ds_all.to_netcdf(input.output_sim_fp + ds_all_fn, encoding=encoding)
             
             print('Merged ', gcm_name, reg, rcp)
             
@@ -107,12 +107,13 @@ def merge_batches(gcm_name):
             # Check file path exists
             if os.path.exists(zipped_fp) == False:
                 os.makedirs(zipped_fp)
-            with zipfile.ZipFile(zipped_fp + ds_all_fn + '.zip', mode='w', compression=zipfile.ZIP_DEFLATED) as myzip:
-                myzip.write(netcdf_fp + '../' + ds_all_fn, arcname=ds_all_fn)
                 
-            # Remove files in output_list
-            for i in output_list:
-                os.remove(netcdf_fp + i)
+            with zipfile.ZipFile(zipped_fp + ds_all_fn + '.zip', mode='w', compression=zipfile.ZIP_DEFLATED) as myzip:
+                myzip.write(input.output_sim_fp + ds_all_fn, arcname=ds_all_fn)
+                
+#            # Remove files in output_list
+#            for i in output_list:
+#                os.remove(netcdf_fp + i)
                 
 def subset_vars(gcm_name):    
     vns_all = input.output_variables_package2
@@ -121,7 +122,7 @@ def subset_vars(gcm_name):
     if input.output_package == 2:
         vns_all = input.output_variables_package2
     
-    netcdf_fp = input.output_sim_fp + gcm_name + '/'
+    netcdf_fp = input.output_sim_fp
     
     regions = []
     rcps = []
@@ -177,15 +178,15 @@ def subset_vars(gcm_name):
                     vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
                     print(gcm_name, 'Region', reg, rcp, 'Vol remain [%]:', vol_remain_perc)
             
-            # Delete file
-            for i in output_list:
-                os.remove(netcdf_fp + i)
-            
-    # Delete directory
-    for i in os.listdir(netcdf_fp):
-        if i.endswith('.DS_Store'):
-            os.remove(netcdf_fp + i)
-    os.rmdir(netcdf_fp)
+#            # Delete file
+#            for i in output_list:
+#                os.remove(netcdf_fp + i)
+#            
+#    # Delete directory
+#    for i in os.listdir(netcdf_fp):
+#        if i.endswith('.DS_Store'):
+#            os.remove(netcdf_fp + i)
+#    os.rmdir(netcdf_fp)
     
     
 def coords_attrs_dict(ds, vn):
@@ -402,8 +403,13 @@ def vars_mon2annualseasonal(gcm_name):
                         option_wateryear = 2
                     else:
                         option_wateryear = 3
+                    
+                    print('CHANGE BACK OPTION WATER YEAR HERE - DUE TO MANUAL ERROR')
+                    option_wateryear=input.gcm_wateryear
+                    
                     dates_table = modelsetup.datesmodelrun(startyear=ds.year.values[0], endyear=ds.year.values[-1], 
                                                            spinupyears=0, option_wateryear=option_wateryear)
+                    
                     # For seasonal calculations copy monthly values and remove the other season's values
                     ds_mean_summer = ds_mean.copy()
                     ds_var_summer = ds_var.copy()                    
@@ -448,16 +454,18 @@ def vars_mon2annualseasonal(gcm_name):
                 # Remove file
 #                os.remove(netcdf_fp + i)
 
-
+    
 #%%
-parser = getparser()
-args = parser.parse_args()
-
-if args.merge_batches == 1:
-    merge_batches(args.gcm_name)
+if __name__ == '__main__':
+    parser = getparser()
+    args = parser.parse_args()
     
-if args.subset_vars == 1:
-    subset_vars(args.gcm_name)
+    if args.merge_batches == 1:
+        merge_batches(args.gcm_name)
+        
+    if args.subset_vars == 1:
+        subset_vars(args.gcm_name)
+        
+    if args.vars_mon2annualseasonal == 1:
+        vars_mon2annualseasonal(args.gcm_name)
     
-if args.vars_mon2annualseasonal == 1:
-    vars_mon2annualseasonal(args.gcm_name)

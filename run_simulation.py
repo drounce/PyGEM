@@ -113,7 +113,7 @@ def calc_stats(vn, ds, stats_cns=input.sim_stat_cns, glac=0):
 
 
 def create_xrdataset(main_glac_rgi, dates_table, sim_iters=input.sim_iters, stat_cns=input.sim_stat_cns, 
-                     record_stats=0):
+                     record_stats=0, option_wateryear=option_wateryear):
     """
     Create empty xarray dataset that will be used to record simulation runs.
     
@@ -148,9 +148,9 @@ def create_xrdataset(main_glac_rgi, dates_table, sim_iters=input.sim_iters, stat
         year_plus1_values = np.concatenate((annual_columns[input.spinupyears:annual_columns.shape[0]], 
                                             np.array([annual_columns[annual_columns.shape[0]-1]+1])))
         # Year type for attributes
-        if input.option_wateryear == 1:
+        if option_wateryear == 1:
             year_type = 'water year'
-        elif input.option_wateryear == 2:
+        elif option_wateryear == 2:
             year_type = 'calendar year'
         else:
             year_type = 'custom year'
@@ -620,8 +620,10 @@ def main(list_packed_vars):
     elif input.option_calibration == 2:
         sim_iters = input.sim_iters
     # Create datasets
-    output_ds_all, encoding = create_xrdataset(main_glac_rgi, dates_table, sim_iters=sim_iters)
-    output_ds_all_stats, encoding = create_xrdataset(main_glac_rgi, dates_table, record_stats=1)
+    output_ds_all, encoding = create_xrdataset(main_glac_rgi, dates_table, sim_iters=sim_iters, 
+                                               option_wateryear=input.gcm_wateryear)
+    output_ds_all_stats, encoding = create_xrdataset(main_glac_rgi, dates_table, record_stats=1, 
+                                                     option_wateryear=input.gcm_wateryear)
     
     for glac in range(main_glac_rgi.shape[0]):
         if glac%200 == 0:
