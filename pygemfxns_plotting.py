@@ -41,7 +41,8 @@ option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 0
 option_output_tables = 0
 option_subset_GRACE = 0
-option_plot_modelparam = 1
+option_plot_modelparam = 0
+option_plot_era_normalizedchange = 0
 
 option_plot_individual_glaciers = 0
 option_plot_degrees = 1
@@ -80,9 +81,9 @@ rcps = ['rcp26', 'rcp45', 'rcp85']
 #rcps = ['rcp26']
 
 # Grouping
-#grouping = 'all'
+grouping = 'all'
 #grouping = 'rgi_region'
-grouping = 'watershed'
+#grouping = 'watershed'
 #grouping = 'kaab'
 
 # Variable name
@@ -177,11 +178,11 @@ vn_dict = {'volume_glac_annual': 'Normalized Volume [-]',
            'volume_norm': 'Normalized Volume Remaining [-]',
            'runoff_glac_annual': 'Normalized Runoff [-]',
            'peakwater': 'Peak Water [yr]',
-           'temp_glac_annual': 'Temperature [degC]',
+           'temp_glac_annual': 'Temperature [$^\circ$C]',
            'prec_glac_annual': 'Precipitation [m]',
            'precfactor': 'Precipitation Factor [-]',
-           'tempchange': 'Temperature bias [degC]', 
-           'ddfsnow': 'DDFsnow [mm w.e. d-1 degC-1]'}
+           'tempchange': 'Temperature bias [$^\circ$C]', 
+           'ddfsnow': 'DDFsnow [mm w.e. d$^{-1}$ $^\circ$C$^{-1}$]'}
 rcp_dict = {'rcp26': '2.6',
             'rcp45': '4.5',
             'rcp60': '6.0',
@@ -201,8 +202,8 @@ south = 15
 north = 50
 xtick = 5
 ytick = 5
-xlabel = 'Longitude [deg]'
-ylabel = 'Latitude [deg]'
+xlabel = 'Longitude [$^\circ$]'
+ylabel = 'Latitude [$^\circ$]'
 
 
 #%% FUNCTIONS
@@ -325,6 +326,85 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=
                 ds_group[ngroup] = [group, vn_reg]
             else:
                 ds_group[ngroup][1] = np.vstack((ds_group[ngroup][1], vn_reg))
+                
+    return groups, time_values, ds_group, ds_glac
+
+def partition_era_groups(grouping, vn, main_glac_rgi_all):
+    """Partition multimodel data by each group for all GCMs for a given variable
+    
+    Parameters
+    ----------
+    grouping : str
+        name of grouping to use
+    vn : str
+        variable name
+    main_glac_rgi_all : pd.DataFrame
+        glacier table
+        
+    Output
+    ------
+    time_values : np.array
+        time values that accompany the multimodel data
+    ds_group : list of lists
+        dataset containing the multimodel data for a given variable for all the GCMs
+    ds_glac : np.array
+        dataset containing the variable of interest for each gcm and glacier
+    """
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi_all)
+    
+    # variable name
+    if vn == 'volume_norm' or vn == 'mass_change':
+        vn_adj = 'volume_glac_annual'
+    elif vn == 'peakwater':
+        vn_adj = 'runoff_glac_annual'
+    else:
+        vn_adj = vn
+    
+    ds_group = [[] for group in groups]
+    for region in rgi_regions:
+        # Load datasets
+        ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+        ds = xr.open_dataset(netcdf_fp_era + ds_fn)
+        # Extract time variable
+        if 'annual' in vn_adj:
+            try:
+                time_values = ds[vn_adj].coords['year_plus1'].values
+            except:
+                time_values = ds[vn_adj].coords['year'].values
+        elif 'monthly' in vn_adj:
+            time_values = ds[vn_adj].coords['time'].values
+            
+        # Merge datasets
+        if region == rgi_regions[0]:
+            vn_glac_all = ds[vn_adj].values[:,:,0]
+            vn_glac_std_all = ds[vn_adj].values[:,:,1]
+        else:
+            vn_glac_all = np.concatenate((vn_glac_all, ds[vn_adj].values[:,:,0]), axis=0)
+            vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn_adj].values[:,:,1]), axis=0)
+
+    ds_glac = [vn_glac_all, vn_glac_std_all]
+    
+    # Cycle through groups
+    for ngroup, group in enumerate(groups):
+        # Select subset of data
+        main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
+        vn_glac = vn_glac_all[main_glac_rgi.index.values.tolist(),:]
+        vn_glac_std = vn_glac_std_all[main_glac_rgi.index.values.tolist(),:]
+        vn_glac_var = vn_glac_std **2                
+        
+        # Regional mean, standard deviation, and variance
+        #  mean: E(X+Y) = E(X) + E(Y)
+        #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
+        #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
+        #  std: std(X+Y) = (Var(X+Y))**0.5
+        # Regional sum
+        vn_reg = vn_glac.sum(axis=0)
+        vn_reg_var = vn_glac_var.sum(axis=0)
+#        vn_reg_std = vn_glac_var**0.5
+        
+        # Record data for multi-model stats
+        ds_group[ngroup] = [group, vn_reg, vn_reg_var]
                 
     return groups, time_values, ds_group, ds_glac
 
@@ -1635,6 +1715,8 @@ if option_plot_modelparam == 1:
     south = 25
     north = 48
     
+    labelsize = 13
+    
     colorbar_dict = {'volume_norm':[0,1],
                      'peakwater':[2000,2100],
                      'precfactor':[0.8,1.2],
@@ -1684,8 +1766,8 @@ if option_plot_modelparam == 1:
         # Label title, x, and y axes
         ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
         ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
-        ax.set_xlabel(xlabel, size=12)
-        ax.set_ylabel(ylabel, size=12)
+        ax.set_xlabel(xlabel, size=labelsize)
+        ax.set_ylabel(ylabel, size=labelsize)
         
 #        # Add background DEM
 #        gtif = gdal.Open(srtm_fn)
@@ -1755,8 +1837,8 @@ if option_plot_modelparam == 1:
         # Add colorbar
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm._A = []
-        plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.02)
-        fig.text(0.95, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
+        plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
+        fig.text(0.98, 0.5, vn_dict[vn], va='center', rotation='vertical', size=labelsize)
         
         if option_plot_individual_glaciers == 1:
             # Plot individual glaciers
@@ -1804,15 +1886,70 @@ if option_plot_modelparam == 1:
             
         
         # Save figure
-        fig.set_size_inches(10,6)
+        fig.set_size_inches(6,4)
         if option_plot_individual_glaciers == 1:
-            fig_fn = vn + '_wglac.png'
+            fig_fn = 'mp_' + vn + '_wglac.png'
         elif option_plot_degrees == 1:
             if degree_size < 1:
                 degsize_name = 'pt' + str(int(degree_size * 100))
             else:
                 degsize_name = str(degree_size)
-            fig_fn = vn + '_' + degsize_name + 'deg.png'
+            fig_fn = 'mp_' + vn + '_' + degsize_name + 'deg.png'
         else:
-            fig_fn = vn + '_' + grouping + '.png'
+            fig_fn = 'mp_' + vn + '_' + grouping + '.png'
         fig.savefig(figure_fp + '../cal/' + fig_fn, bbox_inches='tight', dpi=300)
+        
+#%% ERA-INTERIM NORMALIZED CHANGE 2000-2018
+if option_plot_era_normalizedchange == 1:
+    
+    vns = ['volume_glac_annual']
+    grouping = 'all'
+    glac_float = 15.01024
+    labelsize = 13
+    
+    for vn in vns:
+        groups, time_values, ds_group, ds_glac = partition_era_groups(grouping, vn, main_glac_rgi_all)
+        
+        if vn == 'volume_glac_annual':
+            group_idx = 0
+            vn_norm = ds_group[group_idx][1] / ds_group[group_idx][1][0]
+            vn_norm_upper = (ds_group[group_idx][1] + ds_group[group_idx][2]) / ds_group[group_idx][1][0]
+            vn_norm_lower = (ds_group[group_idx][1] - ds_group[group_idx][2]) / ds_group[group_idx][1][0]
+            
+            glac_idx =  np.where(main_glac_rgi_all['RGIId_float'].values == glac_float)[0][0]
+            vn_glac_norm = ds_glac[0][glac_idx,:] / ds_glac[0][glac_idx,0]
+            vn_glac_norm_upper = (ds_glac[0][glac_idx,:] + ds_glac[1][glac_idx,:]) / ds_glac[0][glac_idx,0] 
+            vn_glac_norm_lower = (ds_glac[0][glac_idx,:] - ds_glac[1][glac_idx,:]) / ds_glac[0][glac_idx,0]
+            
+        fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
+        # All glaciers
+        ax[0,0].plot(time_values, vn_norm, color='k', linewidth=1, label='HMA')
+        ax[0,0].fill_between(time_values, vn_norm_lower, vn_norm_upper, facecolor='k', alpha=0.15, label=r'$\pm$1 std')
+
+        # Individual glacier        
+        ax[0,0].plot(time_values, vn_glac_norm, color='b', linewidth=1, label=glac_float)
+        ax[0,0].fill_between(time_values, vn_glac_norm_lower, vn_glac_norm_upper, facecolor='b', alpha=0.15, label=None)
+        
+        # Tick parameters
+        ax[0,0].tick_params(axis='both', which='major', labelsize=labelsize, direction='inout')
+        ax[0,0].tick_params(axis='both', which='minor', labelsize=labelsize, direction='inout')
+        # X-label
+        ax[0,0].set_xlim(time_values.min(), time_values.max())
+        ax[0,0].xaxis.set_tick_params(labelsize=labelsize)
+        ax[0,0].xaxis.set_major_locator(plt.MultipleLocator(5))
+        ax[0,0].xaxis.set_minor_locator(plt.MultipleLocator(1))
+        # Y-label
+        ax[0,0].set_ylabel('Normalized volume [-]', fontsize=labelsize+1)
+        ax[0,0].yaxis.set_tick_params(labelsize=labelsize)
+        ax[0,0].yaxis.set_major_locator(plt.MultipleLocator(0.1))
+        ax[0,0].yaxis.set_minor_locator(plt.MultipleLocator(0.02))
+        
+        # Legend
+        ax[0,0].legend(loc='lower left', fontsize=labelsize-2)
+
+        # Save figure
+        fig.set_size_inches(5,3)
+        glac_float_str = str(glac_float).replace('.','-')
+        figure_fn = 'HMA_volchange_wglac' + glac_float_str + '.png'
+        
+        fig.savefig(cal_fp + figure_fn, bbox_inches='tight', dpi=300)
