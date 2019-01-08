@@ -66,6 +66,7 @@ rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi6
 watershed_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/HMA_basins_20181018_4plot.shp'
 kaab_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/kaab2015_regions.shp'
 srtm_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA.tif'
+srtm_contour_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA_countours_2km_gt3000m_smooth.shp'
 #kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_w_watersheds_kaab.csv'
 #kaab_csv = pd.read_csv(kaab_dict_fn)
 #kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab))
@@ -107,7 +108,7 @@ mascon_df = pd.read_csv(mascon_fp + mascon_fn, header=None, names=mascon_cns, sk
 mascon_df = mascon_df.sort_values(by=['CenLat', 'CenLon'])
 mascon_df.reset_index(drop=True, inplace=True)
 
-degree_size = 0.5
+degree_size = 0.25
 peakwater_Nyears = 10
 
 # Plot label dictionaries
@@ -1624,8 +1625,8 @@ if option_subset_GRACE == 1:
 #%% PLOT CALIBRATION MODEL PARAMETERS
 if option_plot_modelparam == 1:
     
-#    vns = ['ddfsnow', 'tempchange', 'precfactor']
-    vns = ['precfactor']
+    vns = ['ddfsnow', 'tempchange', 'precfactor']
+#    vns = ['precfactor']
     option_addbackground_group = 0
     modelparams_fn = 'modelparams_all_mean_20181018.csv'
     
@@ -1697,6 +1698,14 @@ if option_plot_modelparam == 1:
 #                         cmap='Greys')
 #        
 #        plt.colorbar(srtm, ax=ax, fraction=0.03, pad=0.02)
+        
+#        # Add contour lines
+        srtm_contour_fn
+        srtm_contour_shp = cartopy.io.shapereader.Reader(srtm_contour_fn)
+        srtm_contour_feature = cartopy.feature.ShapelyFeature(srtm_contour_shp.geometries(), cartopy.crs.PlateCarree(),
+                                                              edgecolor='black', facecolor='none', linewidth=0.15)
+        ax.add_feature(srtm_contour_feature, zorder=9)
+        
         
             
         # Add group and attribute of interest

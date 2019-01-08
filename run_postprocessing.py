@@ -103,16 +103,16 @@ def merge_batches(gcm_name):
             
             print('Merged ', gcm_name, reg, rcp)
             
-#            # Zip file to reduce file size
-#            # Check file path exists
-#            if os.path.exists(zipped_fp) == False:
-#                os.makedirs(zipped_fp)
-#            with zipfile.ZipFile(zipped_fp + ds_all_fn + '.zip', mode='w', compression=zipfile.ZIP_DEFLATED) as myzip:
-#                myzip.write(netcdf_fp + ds_all_fn, arcname=ds_all_fn)
-#                
-#            # Remove files in output_list
-#            for i in output_list:
-#                os.remove(netcdf_fp + i)
+            # Zip file to reduce file size
+            # Check file path exists
+            if os.path.exists(zipped_fp) == False:
+                os.makedirs(zipped_fp)
+            with zipfile.ZipFile(zipped_fp + ds_all_fn + '.zip', mode='w', compression=zipfile.ZIP_DEFLATED) as myzip:
+                myzip.write(netcdf_fp + '../' + ds_all_fn, arcname=ds_all_fn)
+                
+            # Remove files in output_list
+            for i in output_list:
+                os.remove(netcdf_fp + i)
                 
 def subset_vars(gcm_name):    
     vns_all = input.output_variables_package2
@@ -177,15 +177,15 @@ def subset_vars(gcm_name):
                     vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
                     print(gcm_name, 'Region', reg, rcp, 'Vol remain [%]:', vol_remain_perc)
             
-#            # Delete file
-#            for i in output_list:
-#                os.remove(netcdf_fp + i)
-#            
-#    # Delete directory
-#    for i in os.listdir(netcdf_fp):
-#        if i.endswith('.DS_Store'):
-#            os.remove(netcdf_fp + i)
-#    os.rmdir(netcdf_fp)
+            # Delete file
+            for i in output_list:
+                os.remove(netcdf_fp + i)
+            
+    # Delete directory
+    for i in os.listdir(netcdf_fp):
+        if i.endswith('.DS_Store'):
+            os.remove(netcdf_fp + i)
+    os.rmdir(netcdf_fp)
     
     
 def coords_attrs_dict(ds, vn):
