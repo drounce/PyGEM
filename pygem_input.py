@@ -1,4 +1,5 @@
-﻿"""Model inputs required to run PyGEM"""
+﻿
+"""Model inputs required to run PyGEM"""
 
 # Built-in libraries
 import os
@@ -120,14 +121,15 @@ n_chains = 1
 mcmc_sample_no = 15000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
-#mcmc_step = 'am'
-mcmc_step = None
-thin_interval = 10
+print('\n\nchange step back to None\n\n')
+mcmc_step = 'am'
+#mcmc_step = None
+thin_interval = 1
 
 # ===== Bias adjustment option =====
 option_bias_adjustment = 1
 #  Option 0 - ignore bias adjustments
-#  Option 1 - new precipitaiton, temperature from Huss and Hock [2015]
+#  Option 1 - new precipitation, temperature from Huss and Hock [2015]
 #  Option 2 - Huss and Hock [2015] methods
 
 # ===== GLACIER SELECTION =====
@@ -136,10 +138,11 @@ rgi_regionsO1 = [13]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
+rgi_glac_number = ['13590']
 #rgi_glac_number = ['04562']
-#rgi_glac_number = ['03473', '03474']
-#rgi_glac_number = glac_num_fromrange(1,48)
+#rgi_glac_number = ['03473']
+#rgi_glac_number = glac_num_fromrange(1,10)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
 if 'rgi_glac_number' not in locals():
@@ -159,9 +162,9 @@ endyear = 2018
 spinupyears = 0
 # Simulation runs
 gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_endyear = 2018
 gcm_spinupyears = 0
-gcm_wateryear = 1
+gcm_wateryear = 3
 
 # Water year option
 option_wateryear = 3
@@ -208,22 +211,42 @@ zscore_update_threshold = 0.1
 #                      str(mcmc_sample_no) + 'iter_' + str(mcmc_burn_no) + 'burn_' + str(strftime("%Y%m%d")) + '.csv')
 
 # MCMC distribution parameters
+#mcmc_distribution_type = 'truncnormal'
+#precfactor_mu = 0
+#precfactor_sigma = 1
+#precfactor_boundlow = -2
+#precfactor_boundhigh = 2
+#precfactor_start = precfactor_mu
+#tempchange_mu = 0
+#tempchange_sigma = 4
+#tempchange_boundlow = -10
+#tempchange_boundhigh = 10
+#tempchange_start = tempchange_mu
+#ddfsnow_mu = 0.0041
+#ddfsnow_sigma = 0.0015
+#ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
+#ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
+#ddfsnow_start=ddfsnow_mu
+
+## PARAMETERS TESTING
 mcmc_distribution_type = 'truncnormal'
+
 precfactor_mu = 0
 precfactor_sigma = 1
-precfactor_boundlow = -2
-precfactor_boundhigh = 2
+precfactor_boundlow = -3
+precfactor_boundhigh = 3
 precfactor_start = precfactor_mu
 tempchange_mu = 0
 tempchange_sigma = 4
-tempchange_boundlow = -10
-tempchange_boundhigh = 10
+tempchange_boundlow = -12
+tempchange_boundhigh = 12
 tempchange_start = tempchange_mu
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
 ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
 ddfsnow_start=ddfsnow_mu
+
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
@@ -507,11 +530,13 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 #%% CALIBRATION DATA
 # ===== SHEAN GEODETIC =====
-shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
-#shean_fn = 'hma_mb_20180803_1229.csv'
-#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+#shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
 #shean_fn = 'hma_mb_20181108_0454.csv'
-shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
+#shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
+shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
+#shean_fn = 'hma_mb_20180803_1229.csv'
+shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'

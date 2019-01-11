@@ -24,6 +24,7 @@ import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import class_climate
+import class_mbdata
 
 
 #%% FUNCTIONS
@@ -113,7 +114,7 @@ def calc_stats(vn, ds, stats_cns=input.sim_stat_cns, glac=0):
 
 
 def create_xrdataset(main_glac_rgi, dates_table, sim_iters=input.sim_iters, stat_cns=input.sim_stat_cns, 
-                     record_stats=0, option_wateryear=option_wateryear):
+                     record_stats=0, option_wateryear=input.gcm_wateryear):
     """
     Create empty xarray dataset that will be used to record simulation runs.
     
@@ -480,6 +481,29 @@ def main(list_packed_vars):
     # Select dates including future projections
     dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
                                            spinupyears=input.gcm_spinupyears, option_wateryear=input.gcm_wateryear)
+    
+    
+    # =================
+    if debug:
+        # Select dates including future projections
+        #  - nospinup dates_table needed to get the proper time indices
+        dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
+                                                         spinupyears=0, option_wateryear=input.gcm_wateryear)
+    
+        # ===== LOAD CALIBRATION DATA =====
+        cal_data = pd.DataFrame()
+        for dataset in input.cal_datasets:
+            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
+            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
+            cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+        cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+        cal_data.reset_index(drop=True, inplace=True)
+    
+    # =================
+    
+    
+    
+    
     # Synthetic simulation dates
     if input.option_synthetic_sim == 1:
         dates_table_synthetic = modelsetup.datesmodelrun(
@@ -626,7 +650,7 @@ def main(list_packed_vars):
                                                      option_wateryear=input.gcm_wateryear)
     
     for glac in range(main_glac_rgi.shape[0]):
-        if glac%200 == 0:
+        if glac == 0 or glac == main_glac_rgi.shape[0]:
             print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
@@ -687,7 +711,7 @@ def main(list_packed_vars):
                 modelparameters = modelparameters_all.iloc[mp_idx,:]
                 
             if debug:
-                print(glacier_RGIId, ':', [modelparameters[2], modelparameters[4], modelparameters[7]])
+#                print(glacier_RGIId, ':', [modelparameters[2], modelparameters[4], modelparameters[7]])
                 debug_mb = True
             else:
                 debug_mb = False
@@ -708,9 +732,9 @@ def main(list_packed_vars):
             mb_mwea = glac_wide_massbaltotal_annual.mean()
             #  units: m w.e. based on initial area
             
-            if debug:
-                print('mb_model [mwe]:', glac_wide_massbaltotal_annual.sum())
-                print('mb_model [mwea]:', mb_mwea.round(6))
+#            if debug:
+#                print('mb_model [mwe]:', glac_wide_massbaltotal_annual.sum())
+#                print('mb_model [mwea]:', mb_mwea.round(6))
 
             # RECORD PARAMETERS TO DATASET
             if input.output_package == 2:
@@ -749,7 +773,11 @@ def main(list_packed_vars):
             # Mean and standard deviation of glacier-wide mass balance
             mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
                             (dates_table.shape[0] / 12))
-            print('mb_model [mwea] mean:', round(mb_mwea_all,6))       
+            print('mb_model [mwea] mean:', round(mb_mwea_all,4))   
+            # Calibration
+            cal_idx = np.where(cal_data.glacno == main_glac_rgi.glacno)[0][0]
+            mb_cal_mwea = cal_data.loc[cal_idx, 'mb_mwe'] / (cal_data.loc[cal_idx, 't2'] - cal_data.loc[cal_idx, 't1'])
+            print('mb_cal [mwea]:', round(mb_cal_mwea,4))
                 
     # Export statistics to netcdf
     if input.output_package == 2:
@@ -975,6 +1003,7 @@ if __name__ == '__main__':
         glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
         modelparameters_all = main_vars['modelparameters_all']
         sim_iters = main_vars['sim_iters']
+        cal_data = main_vars['cal_data']
 #        if input.option_calibration == 2:
 #            mp_idx = main_vars['mp_idx']
 #            mp_idx_all = main_vars['mp_idx_all']

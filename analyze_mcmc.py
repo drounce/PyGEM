@@ -38,7 +38,8 @@ acorr_maxlags = 100
 
 # Export option
 #mcmc_output_netcdf_fp = input.output_fp_cal + 'netcdf/'
-mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg15/'
+#mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg13/'
+mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2/reg13/'
 mcmc_output_figures_fp = input.output_fp_cal + 'figures/'
 mcmc_output_tables_fp = input.output_fp_cal + 'tables/'
 mcmc_output_csv_fp = input.output_fp_cal + 'csv/'
@@ -473,7 +474,7 @@ def write_csv_results(models, variables, distribution_type='truncnormal'):
         csv_input['gelman_rubin'] = gelman_rubin_values
     csv_input.to_csv(output_csv_fn, index=False)
 
-
+#%%
 def plot_mc_results(netcdf_fn, glacier_cal_data,
                     iters=50, burn=0, distribution_type='truncnormal',
                     precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma,
@@ -531,7 +532,6 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
     .png files
         Saves two figures of (1) trace, histogram, and autocorrelation, and (2) pair-wise scatter plots.
     """
-    #%%
     # Open dataset
     ds = xr.open_dataset(netcdf_fn)
     # Create list of model output to be used with functions
@@ -730,54 +730,58 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
     # Save figure
     plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + distribution_type + '_plots_' + str(len(dfs)) + 'chain_'
                 + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
+    plt.clf()
     #%%
-    # ===== PAIRWISE SCATTER PLOTS ===========================================================
-    fig = plt.figure(figsize=(10,12))
-    plt.subplots_adjust(wspace=0.1, hspace=0.1)
-    plt.suptitle('mcmc_pairwise_scatter_' + glacier_str + '_' + distribution_type, y=0.94)
-
-    df = dfs[0]
-    nvars = len(variables)
-    for h, vn1 in enumerate(variables):
-        v1 = chain = df[vn1].values
-        for j, vn2 in enumerate(variables):
-            v2 = chain = df[vn2].values
-            nsub = h * nvars + j + 1
-            ax = fig.add_subplot(nvars, nvars, nsub)
-            if h == j:
-                plt.hist(v1)
-                plt.tick_params(axis='both', bottom=False, left=False, labelleft=False, labelbottom=False)
-            elif h > j:
-                plt.plot(v2, v1, 'o', mfc='none', mec='black')
-            else:
-                # Need to plot blank, so axis remain correct
-                plt.plot(v2, v1, 'o', mfc='none', mec='none')
-                slope, intercept, r_value, p_value, std_err = linregress(v2, v1)
-                text2plot = (vn_label_nounits_dict[vn2] + '/\n' + vn_label_nounits_dict[vn1] + '\n$R^2$=' +
-                             '{:.2f}'.format((r_value**2)))
-                ax.text(0.5, 0.5, text2plot, transform=ax.transAxes, fontsize=14,
-                        verticalalignment='center', horizontalalignment='center')
-            # Plot bottom left
-            if (h+1 == nvars) and (j == 0):
-                plt.tick_params(axis='both', which='both', left=True, right=False, labelbottom=True,
-                                labelleft=True, labelright=False)
-                plt.xlabel(vn_label_dict[vn2])
-                plt.ylabel(vn_label_dict[vn1])
-            # Plot bottom only
-            elif h + 1 == nvars:
-                plt.tick_params(axis='both', which='both', left=False, right=False, labelbottom=True,
-                                labelleft=False, labelright=False)
-                plt.xlabel(vn_label_dict[vn2])
-            # Plot left only (exclude histogram values)
-            elif (h !=0) and (j == 0):
-                plt.tick_params(axis='both', which='both', left=True, right=False, labelbottom=False,
-                                labelleft=True, labelright=False)
-                plt.ylabel(vn_label_dict[vn1])
-            else:
-                plt.tick_params(axis='both', left=False, right=False, labelbottom=False,
-                                labelleft=False, labelright=False)
-    plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + distribution_type + '_pairwisescatter_' + str(len(dfs)) +
-                'chain_' + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
+#    # ===== PAIRWISE SCATTER PLOTS ===========================================================
+#    fig = plt.figure(figsize=(10,12))
+#    plt.subplots_adjust(wspace=0.1, hspace=0.1)
+#    plt.suptitle('mcmc_pairwise_scatter_' + glacier_str + '_' + distribution_type, y=0.94)
+#
+#    df = dfs[0]
+#    nvars = len(variables)
+#    for h, vn1 in enumerate(variables):
+#        v1 = chain = df[vn1].values
+#        for j, vn2 in enumerate(variables):
+#            v2 = chain = df[vn2].values
+#            nsub = h * nvars + j + 1
+#            ax = fig.add_subplot(nvars, nvars, nsub)
+#            if h == j:
+#                plt.hist(v1)
+#                plt.tick_params(axis='both', bottom=False, left=False, labelleft=False, labelbottom=False)
+#            elif h > j:
+#                plt.plot(v2, v1, 'o', mfc='none', mec='black')
+#            else:
+#                # Need to plot blank, so axis remain correct
+#                plt.plot(v2, v1, 'o', mfc='none', mec='none')
+#                slope, intercept, r_value, p_value, std_err = linregress(v2, v1)
+#                text2plot = (vn_label_nounits_dict[vn2] + '/\n' + vn_label_nounits_dict[vn1] + '\n$R^2$=' +
+#                             '{:.2f}'.format((r_value**2)))
+#                ax.text(0.5, 0.5, text2plot, transform=ax.transAxes, fontsize=14,
+#                        verticalalignment='center', horizontalalignment='center')
+#            # Plot bottom left
+#            if (h+1 == nvars) and (j == 0):
+#                plt.tick_params(axis='both', which='both', left=True, right=False, labelbottom=True,
+#                                labelleft=True, labelright=False)
+#                plt.xlabel(vn_label_dict[vn2])
+#                plt.ylabel(vn_label_dict[vn1])
+#            # Plot bottom only
+#            elif h + 1 == nvars:
+#                plt.tick_params(axis='both', which='both', left=False, right=False, labelbottom=True,
+#                                labelleft=False, labelright=False)
+#                plt.xlabel(vn_label_dict[vn2])
+#            # Plot left only (exclude histogram values)
+#            elif (h !=0) and (j == 0):
+#                plt.tick_params(axis='both', which='both', left=True, right=False, labelbottom=False,
+#                                labelleft=True, labelright=False)
+#                plt.ylabel(vn_label_dict[vn1])
+#            else:
+#                plt.tick_params(axis='both', left=False, right=False, labelbottom=False,
+#                                labelleft=False, labelright=False)
+#    fig_autocor_fp = mcmc_output_figures_fp + 'autocorrelation/'
+#    if os.path.exists(fig_autocor_fp) == False:
+#        os.makedirs(fig_autocor_fp)
+#    plt.savefig(fig_autocor_fp + glacier_str + '_' + distribution_type + '_pairwisescatter_' + str(len(dfs)) + 'chain_' 
+#                + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
 
 
 def plot_mc_results2(netcdf_fn, glacier_cal_data, burns=[0,1000,3000,5000],
@@ -1404,12 +1408,13 @@ rgi_glac_number = []
 
 #mcmc_output_netcdf_fp = mcmc_output_netcdf_fp + 'single_obs_inlist/'
 
-#for i in os.listdir(mcmc_output_netcdf_fp):
-for i in ['15.03473.nc']:
-    glacier_str = i.replace('.nc', '')
-    if glacier_str.startswith(str(input.rgi_regionsO1[0])):
-        rgi_glac_number.append(glacier_str.split('.')[1])
-rgi_glac_number = sorted(rgi_glac_number)
+##for i in os.listdir(mcmc_output_netcdf_fp):
+#for i in ['13.00001.nc']:
+#    glacier_str = i.replace('.nc', '')
+#    if glacier_str.startswith(str(input.rgi_regionsO1[0])):
+#        rgi_glac_number.append(glacier_str.split('.')[1])
+#rgi_glac_number = sorted(rgi_glac_number)
+rgi_glac_number = input.rgi_glac_number
 
 
 # Glacier RGI data
@@ -1433,20 +1438,84 @@ cal_data.reset_index(drop=True, inplace=True)
 #%%
 
 # ===== PROCESS EACH NETCDF FILE =====
-for n, glac_str_noreg in enumerate(rgi_glac_number[0:1]):
+mb_compare_cols = ['RGIId', 'glacno', 'mb_cal_mwea', 'mb_mod_mwea']
+mb_compare = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(mb_compare_cols))), columns=mb_compare_cols)
+mb_compare['RGIId'] = main_glac_rgi['RGIId']
+mb_compare['glacno'] = main_glac_rgi['glacno']
+
+#%%
+for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     # Glacier string
-    glacier_str = str(input.rgi_regionsO1[0]) + '.' + glac_str_noreg
+    glacier_str = glac_str_wRGI.split('-')[1]
     # Glacier number
     glacno = int(glacier_str.split('.')[1])
     # RGI information
     glacier_rgi_table = main_glac_rgi.iloc[np.where(main_glac_rgi['glacno'] == glacno)]
     # Calibration data
-    glacier_cal_data = (cal_data.iloc[np.where(cal_data['glacno'] == glacno)[0],:]).copy()
+    cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+    glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
     # MCMC Analysis
-    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=0)
+    
+    print('switch back to 15000 iterations')
+    print(mcmc_output_netcdf_fp)
+    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=5000,
+                    distribution_type=input.mcmc_distribution_type)
+    
+#    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=0)
 #    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
 #    summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
 #            filename = mcmc_output_tables_fp + glacier_str + '.txt')
+    
+    # Find difference between modeled mean massbalance and observation
+    ds = xr.open_dataset(mcmc_output_netcdf_fp + glacier_str + '.nc')
+    df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
+    mb_mod_mwea = df.massbal.mean()
+    mb_cal_mwea = (glacier_cal_data.loc[cal_idx,'mb_mwe']/ 
+                   (glacier_cal_data.loc[cal_idx,'t2'] - glacier_cal_data.loc[cal_idx,'t1'])).values[0]
+    
+    # Record data
+    mb_compare.loc[n,'mb_cal_mwea'] = mb_cal_mwea
+    mb_compare.loc[n,'mb_mod_mwea'] = mb_mod_mwea
+
+mb_compare['dif_cal_mod'] = mb_compare.mb_cal_mwea - mb_compare.mb_mod_mwea
+dif = mb_compare.mb_cal_mwea - mb_compare.mb_mod_mwea
+print(dif)
+    
+#%%
+#dif = mb_compare.mb_cal_mwea - mb_compare.mb_mod_mwea
+#dif_exceedpt05 = dif.copy()
+#dif_exceedpt05[abs(dif) > 0.05] = 1
+#dif_exceedpt05[abs(dif) <= 0.05] = 0
+#print('difference exceeds 0.05 mwea:', int(np.sum(dif_exceedpt05)))
+#dif_exceedpt1 = dif.copy()
+#dif_exceedpt1[abs(dif) > 0.1] = 1
+#dif_exceedpt1[abs(dif) <= 0.1] = 0
+#print('difference exceeds 0.1 mwea:', int(np.sum(dif_exceedpt1)))
+#dif_exceedpt2 = dif.copy()
+#dif_exceedpt2[abs(dif) > 0.2] = 1
+#dif_exceedpt2[abs(dif) <= 0.2] = 0
+#print('difference exceeds 0.2 mwea:', int(np.sum(dif_exceedpt2)))
+#dif_exceedpt4 = dif.copy()
+#dif_exceedpt4[abs(dif) > 0.4] = 1
+#dif_exceedpt4[abs(dif) <= 0.4] = 0
+#print('difference exceeds 0.4 mwea:', int(np.sum(dif_exceedpt4)))
+
+#%%
+#for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
+#    if abs(mb_compare.loc[n, 'dif_cal_mod']) > 0.3 and abs(mb_compare.loc[n, 'dif_cal_mod']) <= 0.4:
+#        # Glacier string
+#        glacier_str = glac_str_wRGI.split('-')[1]
+#        # Glacier number
+#        glacno = int(glacier_str.split('.')[1])
+#        # RGI information
+#        glacier_rgi_table = main_glac_rgi.iloc[np.where(main_glac_rgi['glacno'] == glacno)]
+#        # Calibration data
+#        cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+#        glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
+#        # MCMC Analysis
+#        plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=0)  
+#        print(glacier_str)
+        #%%
 
 ## histogram assessments
 #for iters in [10000,15000]:

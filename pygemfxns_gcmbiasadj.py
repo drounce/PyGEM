@@ -503,6 +503,7 @@ def main(list_packed_vars):
         
     #%% PLOT BIAS ADJUSTED DATA
     if option_plot_adj:
+        print('plotting')
         plot_biasadj(ref_temp, gcm_temp_biasadj, ref_prec, gcm_prec, gcm_prec_biasadj, dates_table_ref, dates_table)
 
     #%% Export variables as global to view in variable explorer

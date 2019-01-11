@@ -400,9 +400,9 @@ def main(list_packed_vars):
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=1))
         
-                if debug:
-                    mb_mwea = glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)
-                    print('\n\nmodelparameters:', modelparameters_copy, '\nmb_mwea:', mb_mwea)
+#                if debug:
+#                    mb_mwea = glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)
+#                    print('\n\nmodelparameters:', modelparameters_copy, '\nmb_mwea:', mb_mwea)
                     
                 # Return glacier-wide mass balance [mwea] for comparison
                 return glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)  
@@ -471,6 +471,7 @@ def main(list_packed_vars):
             t2 = glacier_cal_data.loc[cal_idx, 't2']
             t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
             t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+            # Observed mass balance [mwea]
             observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
             observed_error = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
 

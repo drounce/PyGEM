@@ -30,9 +30,10 @@ import pickle
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
+import pygemfxns_gcmbiasadj as gcmbiasadj
 import class_mbdata
 import class_climate
-import run_simulation
+#import run_simulation
 
 
 # Script options
@@ -43,6 +44,8 @@ option_output_tables = 0
 option_subset_GRACE = 0
 option_plot_modelparam = 0
 option_plot_era_normalizedchange = 0
+option_compare_GCMwCal = 0
+option_plot_mcmc_errors = 1
 
 option_plot_individual_glaciers = 0
 option_plot_degrees = 1
@@ -51,9 +54,9 @@ option_plot_individual_gcms = 0
 
 
 #%% ===== Input data =====
-#netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
-netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc_vars/'
+netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
 csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20181018/'
@@ -72,24 +75,24 @@ srtm_contour_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRT
 #kaab_csv = pd.read_csv(kaab_dict_fn)
 #kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab))
 # GCMs and RCP scenarios
-gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
-#gcm_names = ['CSIRO-Mk3-6-0', 'GFDL-CM3']
-#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
 #             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
-rcps = ['rcp26', 'rcp45', 'rcp85']
-#rcps = ['rcp26']
+#gcm_names = ['CSIRO-Mk3-6-0', 'GFDL-CM3']
+gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+             'MPI-ESM-LR', 'NorESM1-M']
+#rcps = ['rcp26', 'rcp45', 'rcp85']
+rcps = ['rcp26']
 
 # Grouping
-grouping = 'all'
+#grouping = 'all'
 #grouping = 'rgi_region'
 #grouping = 'watershed'
-#grouping = 'kaab'
+grouping = 'kaab'
 
 # Variable name
-#vn = 'mass_change'
+vn = 'mass_change'
 #vn = 'volume_norm'
-vn = 'peakwater'
+#vn = 'peakwater'
 
 # Group dictionaries
 watershed_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_watershed.csv'
@@ -1422,15 +1425,15 @@ if option_plot_cmip5_map == 1:
 if option_output_tables == 1:
     
 #    vns = ['mass_change', 'peakwater']
-    vns = ['peakwater']
-#    vns = ['mass_change']
+#    vns = ['peakwater']
+    vns = ['mass_change']
     
     
 #    groupings = ['all', 'rgi_region', 'watershed', 'kaab']
-    groupings = ['all']
+#    groupings = ['all']
 #    groupings = ['rgi_region']
 #    groupings = ['watershed']
-#    groupings = ['kaab']
+    groupings = ['kaab']
     
      # Create filepath if it does not exist
     if os.path.exists(csv_fp) == False:
@@ -1453,12 +1456,14 @@ if option_output_tables == 1:
                     table_cns.append(rcp + '_VolChg_std_%')
                 output_table = pd.DataFrame(np.zeros((len(groups), len(table_cns))), index=groups, columns=table_cns)
                 
+                #%%
                 # Load volume_glac_annual
                 ds_vn_rcps = {}
                 for rcp in rcps:
                     groups, time_values, ds_vn, ds_glac = (
                             partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=rcp))
                     ds_vn_rcps[rcp] = ds_vn
+                #%%
 
                 # Load area_glac_annual
                 ds_area_rcps = {}
@@ -1470,6 +1475,7 @@ if option_output_tables == 1:
 
                 for rcp in rcps:
                     for ngroup, group in enumerate(groups):
+                        print(rcp, group)
                         ds_vn_multimodel = ds_vn_rcps[rcp][ngroup][1].mean(axis=0)
                         ds_vn_multimodel_std = ds_vn_rcps[rcp][ngroup][1].std(axis=0)
                         
@@ -1478,33 +1484,38 @@ if option_output_tables == 1:
                         # Mass change [Gt]
                         #  Gt = km3 ice * density_ice / 1000
                         #  divide by 1000 because density of ice is 900 kg/m3 or 0.900 Gt/km3
-                        vn_reg_masschange = (ds_vn_multimodel[-1] - ds_vn_multimodel[0]) * input.density_ice / 1000
-                        vn_reg_masschange_std = ds_vn_multimodel_std[-1] * input.density_ice / 1000
-                        output_table.loc[group, rcp + '_MassChg_Gt'] = np.round(vn_reg_masschange,1)
-                        output_table.loc[group, rcp + '_MassChg_std_Gt'] = np.round(vn_reg_masschange_std,1)
+                        vn_reg_masschange = (ds_vn_multimodel - ds_vn_multimodel[0]) * input.density_ice / 1000
+                        vn_reg_masschange_std = ds_vn_multimodel_std * input.density_ice / 1000
+                        output_table.loc[group, rcp + '_MassChg_Gt'] = np.round(vn_reg_masschange[-1],1)
+                        output_table.loc[group, rcp + '_MassChg_std_Gt'] = np.round(vn_reg_masschange_std[-1],1)
                         
                         # Volume change [%]
-                        vn_reg_volchg = (ds_vn_multimodel[-1] - ds_vn_multimodel[0]) / ds_vn_multimodel[0] * 100
-                        vn_reg_volchg_std = ds_vn_multimodel_std[-1] / ds_vn_multimodel[0] * 100
-                        output_table.loc[group, rcp + '_VolChg_%'] = np.round(vn_reg_volchg,1)
-                        output_table.loc[group, rcp + '_VolChg_std_%'] = np.round(vn_reg_volchg_std,1)
+                        vn_reg_volchg = (ds_vn_multimodel - ds_vn_multimodel[0]) / ds_vn_multimodel[0] * 100
+                        vn_reg_volchg_std = ds_vn_multimodel_std / ds_vn_multimodel[0] * 100                        
+                        output_table.loc[group, rcp + '_VolChg_%'] = np.round(vn_reg_volchg[-1],1)
+                        output_table.loc[group, rcp + '_VolChg_std_%'] = np.round(vn_reg_volchg_std[-1],1)
+                        
+                        
+                        
+                        
                         
                         # Mass change rate [Gt/yr]
                         runningmean_years = 10
                         vn_reg_mass = ds_vn_multimodel * input.density_ice / 1000
                         vn_reg_masschgrate = vn_reg_mass[1:] - vn_reg_mass[0:-1]
                         vn_reg_masschgrate_runningmean = uniform_filter(vn_reg_masschgrate, (runningmean_years))
-                        idx_2015 = np.where(time_values == 2015)[0][0]
-                        print(rcp, group)
-                        print('Mass change rate [Gt/yr] 2015:', np.round(vn_reg_masschgrate_runningmean[idx_2015],1), 
-                              '\nMass change rate [Gt/yr] 2100:', np.round(vn_reg_masschgrate_runningmean[-1],1))
+#                        print('Mass change rate [Gt/yr] 2015:', np.round(vn_reg_masschgrate_runningmean[idx_2015],1), 
+#                              '\nMass change rate [Gt/yr] 2100:', np.round(vn_reg_masschgrate_runningmean[-1],1))
                         vn_reg_masschgrate_mwe = (
                                 vn_reg_masschgrate * 10**9 * 1000 / 1000 / 10**6 / ds_area_multimodel[0])
                         vn_reg_masschgrate_mwe_runningmean = uniform_filter(vn_reg_masschgrate_mwe, runningmean_years)
-                        print('Mass change rate [mwea] 2015:', 
-                              np.round(vn_reg_masschgrate_mwe_runningmean[idx_2015],2), 
-                              '\nMass change rate [mwea] 2100:', 
-                              np.round(vn_reg_masschgrate_mwe_runningmean[-1],2))
+                        
+                        idx_2015 = np.where(time_values == 2015)[0][0]
+                        if group in ['Karakoram', 'Kunlun']:
+                            print('Vol change [%] 2015:', np.round(vn_reg_volchg[idx_2015],1), 
+                                  '\nVol change [%] 2100:', np.round(vn_reg_volchg[-1],1))
+                            print('Mass balance [mwea] 2000-2015:', np.round(vn_reg_masschgrate_mwe[idx_2015],2), 
+                                  '\nMass balance [mwea] 2000-2100:', np.round(vn_reg_masschgrate_mwe[-1],2))
                         
                 # Export table
                 output_table.to_csv(csv_fp + masschg_table_fn)
@@ -1953,3 +1964,333 @@ if option_plot_era_normalizedchange == 1:
         figure_fn = 'HMA_volchange_wglac' + glac_float_str + '.png'
         
         fig.savefig(cal_fp + figure_fn, bbox_inches='tight', dpi=300)
+        
+#%% COMPARE GCM MASS BALANCE 2000-2018 TO CALIBRATION DATA
+if option_compare_GCMwCal == 1:
+
+    change_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc_vars_20180109_changeArea/'
+    constant_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc_vars_20180109_constantArea/'
+    change_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc_vars_era_chgArea/'
+    constant_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc_vars_era_conArea_100sims/'
+    
+    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 
+                 'IPSL-CM5A-LR', 'NorESM1-M']
+    rcps = ['rcp26']
+    region = 13
+
+    netcdf_fp = netcdf_fp_cmip5
+    
+    # Glacier hypsometry [km**2], total area
+    main_glac_hyps_raw = modelsetup.import_Husstable(main_glac_rgi_all, [region], input.hyps_filepath,
+                                                     input.hyps_filedict, input.hyps_colsdrop)
+    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+                                                     spinupyears=0)
+    cal_data = pd.DataFrame()
+    for dataset in input.cal_datasets:
+        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
+        cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_all, main_glac_hyps_raw, dates_table_nospinup)
+        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+    cal_data.reset_index(drop=True, inplace=True)
+#%%
+    def retrieve_mb_mwea_all(netcdf_fp, gcm, rcp=None):
+        vn_area = 'area_glac_annual'
+        if gcm == 'ERA-Interim':
+            try:
+                ds_area_fn = 'R' + str(region) + '_' + gcm + '_c2_ba1_1sets_2000_2018--' + vn_area + '.nc'
+                ds_area = xr.open_dataset(netcdf_fp + vn_area + '/' + ds_area_fn)
+            except:
+                ds_area_fn = 'R' + str(region) + '_' + gcm + '_c2_ba1_100sets_2000_2018--' + vn_area + '.nc'
+                ds_area = xr.open_dataset(netcdf_fp + vn_area + '/' + ds_area_fn)
+        else:
+            ds_area_fn = 'R' + str(region) + '_' + gcm + '_' + rcp + '_c2_ba1_1sets_2000_2018--' + vn_area + '.nc'
+            ds_area = xr.open_dataset(netcdf_fp + vn_area + '/' + ds_area_fn)
+        
+        vn_mb = 'massbaltotal_glac_monthly'
+        if gcm == 'ERA-Interim':
+            try:
+                ds_mb_fn = 'R' + str(region) + '_' + gcm + '_c2_ba1_1sets_2000_2018--' + vn_mb + '.nc'
+                ds_mb = xr.open_dataset(netcdf_fp + vn_mb + '/' + ds_mb_fn)
+            except:
+                ds_mb_fn = 'R' + str(region) + '_' + gcm + '_c2_ba1_100sets_2000_2018--' + vn_mb + '.nc'
+                ds_mb = xr.open_dataset(netcdf_fp + vn_mb + '/' + ds_mb_fn)
+        else:
+            ds_mb_fn = 'R' + str(region) + '_' + gcm + '_' + rcp + '_c2_ba1_1sets_2000_2018--' + vn_mb + '.nc'
+            ds_mb = xr.open_dataset(netcdf_fp + vn_mb + '/' + ds_mb_fn)
+        
+        print(ds_mb_fn)
+    
+        # Convert to mass balance
+        mb_monthly_all = ds_mb[vn_mb].values[:,:,0]
+        area_all = ds_area[vn_area].values[:,:,0]
+#        time_values = ds_mb.year_plus1.values
+#        time_values_mb = time_values[:-1]
+        mb_annual_all = gcmbiasadj.annual_sum_2darray(mb_monthly_all)
+        mb_2000_2018_mwea_all = (mb_annual_all * area_all[:,:-1]).sum(axis=1) / area_all[:,0] / 18
+        
+        return mb_2000_2018_mwea_all
+
+    #%%
+    gcm_names = ['CanESM2']
+    for gcm in gcm_names:
+        for rcp in rcps:
+            
+            mb_2000_2018_mwea_all_constantArea = retrieve_mb_mwea_all(constant_fp, gcm, rcp)
+            mb_2000_2018_mwea_all_changeArea = retrieve_mb_mwea_all(change_fp, gcm, rcp)
+            
+            mb_2000_2018_mwea_all_cal = cal_data.mb_mwe.values / 18
+            
+#            mb_compare = pd.DataFrame(np.stack((mb_2000_2018_mwea_all_cal, mb_2000_2018_mwea_all_constantArea,
+#                                mb_2000_2018_mwea_all_changeArea), axis=1), 
+#                                columns=['cal_mb_mwea', 'constA_mb_mwea', 'chgA_mb_mwea'])
+#            mb_compare['Const-Chg'] = mb_compare.constA_mb_mwea - mb_compare.chgA_mb_mwea
+#            mb_compare['cal-const'] = mb_compare.cal_mb_mwea - mb_compare.constA_mb_mwea
+#            print(gcm, rcp, '\nCal-Const median:', np.round(np.nanmedian(mb_compare['cal-const']),2),
+#                  '\nCal-Const mean:', np.round(np.nanmean(mb_compare['cal-const']),2),
+#                  '\nCal-Const std:', np.round(np.nanstd(mb_compare['cal-const']),2),
+#                  '\nCal-Const min:', np.round(np.nanmin(mb_compare['cal-const']),2),
+#                  '\nCal-Const max:', np.round(np.nanmax(mb_compare['cal-const']),2),
+#                  '\nDif due to Area Change (median, std):', np.round(np.nanmedian(mb_compare['Const-Chg']),2),
+#                  np.round(np.nanstd(mb_compare['Const-Chg']),2))
+            
+    for gcm in ['ERA-Interim']:
+        mb_2000_2018_mwea_all_constantArea_era = retrieve_mb_mwea_all(constant_fp_era, gcm)
+        mb_2000_2018_mwea_all_changeArea_era = retrieve_mb_mwea_all(change_fp_era, gcm)
+        
+        mb_compare = pd.DataFrame(np.stack((mb_2000_2018_mwea_all_cal, mb_2000_2018_mwea_all_constantArea_era,
+                            mb_2000_2018_mwea_all_changeArea_era, mb_2000_2018_mwea_all_constantArea,
+                            mb_2000_2018_mwea_all_changeArea), axis=1), 
+                            columns=['cal_mb_mwea', 'constA_mb_mwea_era', 'chgA_mb_mwea_era', 'constA_mb_mwea', 
+                                     'chgA_mb_mwea'])
+        
+        mb_compare['era-gcm'] = mb_compare['constA_mb_mwea_era'] - mb_compare['constA_mb_mwea']
+#        mb_compare['cal-const'] = mb_compare.cal_mb_mwea_era - mb_compare.constA_mb_mwea_era
+        print(gcm, rcp, '\nERA - GCM median:', np.round(np.nanmedian(mb_compare['era-gcm']),2),
+              '\nera-gcm mean:', np.round(np.nanmean(mb_compare['era-gcm']),2),
+              '\nera-gcm std:', np.round(np.nanstd(mb_compare['era-gcm']),2),
+              '\nera-gcm min:', np.round(np.nanmin(mb_compare['era-gcm']),2),
+              '\nera-gcm max:', np.round(np.nanmax(mb_compare['era-gcm']),2))
+        
+
+#%%
+if option_plot_mcmc_errors == 1:
+    print('plot mcmc errors for all of HMA:\n1. Spatial distribution - do certain regions perform poorly' + 
+          '\n2. How many chains are actually "good" and how many are bad?')
+    print(mcmc_fp)
+    
+    # Load cal data
+    shean_fp = input.main_directory + '/../DEMs/Shean_2018_1109/'
+    shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
+    ds_cal = pd.read_csv(shean_fp + shean_fn)
+    # Glacier number and index for comparison
+    ds_cal['O1region'] = ds_cal['RGIId'].astype(int)
+    ds_cal['glacno'] = ((ds_cal['RGIId'] % 1) * 10**5).round(0).astype(int)
+    ds_cal['RGIId_full'] = ('RGI60-' + ds_cal['O1region'].map(str) + '.' + 
+                           (ds_cal['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1])
+    
+    # Add calibration data to main_glac_rgi_all
+    rand_idx = np.random.randint(0,main_glac_rgi_all.shape[0])
+    if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
+        (ds_cal.loc[rand_idx,'RGIId_full'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
+        main_glac_rgi_all['mb_cal_mwea'] = ds_cal['mb_mwea'] 
+    else:
+        main_glac_rgi_all['mb_cal_mwea'] = np.nan
+        for glac in main_glac_rgi_all:
+            cal_idx = np.where(ds_cal['RGIId_full'] == main_glac_rgi_all.loc[glac, 'RGIId'])[0][0]
+            main_glac_rgi_all.loc[glac,'mb_cal_mwea'] = ds_cal.loc[cal_idx,'mb_mwea']
+    
+
+    # Load ERA-Interim modeled mass balance to data
+    if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
+        (ds_cal.loc[rand_idx,'RGIId_full'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
+        df_mean_all = pd.read_csv(shean_fp + 'mcmc_mean_all.csv', index_col=0)
+        df_median_all = pd.read_csv(shean_fp + 'mcmc_median_all.csv', index_col=0)
+    else:
+        # Load data for each glacier
+        mcmc_cns = ['massbal', 'precfactor', 'tempchange', 'ddfsnow', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 
+                    'tempsnow']
+        df_mean_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+        df_median_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+        for n, glac_str_wRGI in enumerate(main_glac_rgi_all['RGIId'].values):
+            # Glacier string
+            glacier_str = glac_str_wRGI.split('-')[1]
+            ds = xr.open_dataset(mcmc_fp + glacier_str + '.nc')
+            df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
+            df = df[mcmc_cns]
+            df_mean_all.loc[n,:] = df.mean()
+            df_median_all.loc[n,:] = df.median()
+        # Export stats, so only had to load them once
+        export_cns = ['RGIId']
+        for cn in mcmc_cns:
+            export_cns.append(cn)
+        df_mean_all['RGIId'] = main_glac_rgi_all['RGIId']
+        df_mean_all = df_mean_all[export_cns]
+        df_median_all['RGIId'] = main_glac_rgi_all['RGIId']
+        df_median_all = df_median_all[export_cns] 
+        df_mean_all.to_csv(shean_fp + 'mcmc_mean_all.csv')
+        df_median_all.to_csv(shean_fp + 'mcmc_median_all.csv')
+    
+    # Add to main_glac_rgi
+    if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
+        (ds_cal.loc[rand_idx,'RGIId_full'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
+        main_glac_rgi_all['mb_era_mean'] = df_mean_all['massbal']
+        main_glac_rgi_all['mb_era_med'] = df_median_all['massbal']
+    
+    #%%
+    main_glac_rgi_all['dif_mean_med'] = main_glac_rgi_all['mb_era_mean'] - main_glac_rgi_all['mb_era_med']
+    main_glac_rgi_all['dif_cal_era'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_mean']
+
+    #%%
+    def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=figure_fp):
+        """
+        Plot histogram for any bin size
+        """           
+        data = df[cn].values
+        hist, bin_edges = np.histogram(data,bins) # make the histogram
+        fig,ax = plt.subplots()    
+        # Plot the histogram heights against integers on the x axis
+        ax.bar(range(len(hist)),hist,width=1, edgecolor='k') 
+        # Set the ticks to the middle of the bars
+        ax.set_xticks([0.5+i for i,j in enumerate(hist)])
+        # Set the xticklabels to a string that tells us what the bin edges were
+        ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)], rotation=45, ha='right')
+        ax.set_xlabel(xlabel, fontsize=16)
+        ax.set_ylabel(ylabel, fontsize=16)
+        # Save figure
+        fig.set_size_inches(6,4)
+        fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+#%%
+    # Histogram: Mass balance [mwea], Observation - ERA
+    hist_cn = 'dif_cal_era'
+    low_bin = int(main_glac_rgi_all[hist_cn].min())
+    high_bin = int(main_glac_rgi_all[hist_cn].max() + 1)
+    bins = [low_bin, -0.25, -0.2, -0.15, -0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, high_bin]
+    plot_hist(main_glac_rgi_all, hist_cn, bins, xlabel='Mass balance [mwea]\n(Calibration - MCMC_mean)', 
+              ylabel='# Glaciers', fig_fn='MB_cal_vs_mcmc_hist.png', fig_fp=figure_fp + '../cal/')
+   #%%           
+    # Histogram: Mass balance [mwea], MCMC mean - median
+    hist_cn = 'dif_mean_med'
+    low_bin = int(main_glac_rgi_all[hist_cn].min())
+    high_bin = int(main_glac_rgi_all[hist_cn].max() + 1)
+    bins = [-1, -0.1, -0.05, -0.02, 0.02, 0.05, 0.1, high_bin]
+    plot_hist(main_glac_rgi_all, hist_cn, bins, xlabel='MCMC Mass balance [mwea]\n(Mean - Median)', 
+              ylabel='# Glaciers', fig_fn='MB_mean_vs_med_mcmc_hist.png', fig_fp=figure_fp + '../cal/')
+    
+    #%%
+    # Map: Mass change, difference between calibration data and median data
+    #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
+    main_glac_rgi_all['mb_cal_Gta'] = main_glac_rgi_all['mb_cal_mwea'] * main_glac_rgi_all['Area'] / 1000
+    main_glac_rgi_all['mb_era_Gta'] = main_glac_rgi_all['mb_era_mean'] * main_glac_rgi_all['Area'] / 1000
+    
+    #%%
+    
+    def partition_sum_groups(grouping, vn, main_glac_rgi_all):
+        """Partition model parameters by each group
+        
+        Parameters
+        ----------
+        grouping : str
+            name of grouping to use
+        vn : str
+            variable name
+        main_glac_rgi_all : pd.DataFrame
+            glacier table
+            
+        Output
+        ------
+        groups : list
+            list of group names
+        ds_group : list of lists
+            dataset containing the multimodel data for a given variable for all the GCMs
+        """
+        # Groups
+        groups, group_cn = select_groups(grouping, main_glac_rgi_all)
+        
+        ds_group = [[] for group in groups]
+        
+        # Cycle through groups
+        for ngroup, group in enumerate(groups):
+            # Select subset of data
+            main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
+            vn_glac = main_glac_rgi_all[vn].values[main_glac_rgi.index.values.tolist()]             
+            # Regional sum
+            vn_reg = vn_glac.sum(axis=0)                
+            
+            # Record data for each group
+            ds_group[ngroup] = [group, vn_reg]
+                
+        return groups, ds_group
+    #%%
+    grouping='degree'
+    
+    groups, ds_group_cal = partition_sum_groups(grouping, 'mb_cal_Gta', main_glac_rgi_all)
+    groups, ds_group_era = partition_sum_groups(grouping, 'mb_era_Gta', main_glac_rgi_all)
+    groups, ds_group_area = partition_sum_groups(grouping, 'Area', main_glac_rgi_all)
+    
+#    ds_group_dif = [[] for x in ds_group_cal ]
+    #%%
+    # Group difference [Gt/yr]
+    dif_cal_era_Gta = (np.array([x[1] for x in ds_group_cal]) - np.array([x[1] for x in ds_group_era])).tolist()
+    ds_group_dif_cal_era_Gta = [[x[0],dif_cal_era_Gta[n]] for n, x in enumerate(ds_group_cal)]
+    # Group difference [mwea]
+    area = [x[1] for x in ds_group_area]
+    ds_group_dif_cal_era_mwea = [[x[0], dif_cal_era_Gta[n] / area[n] * 1000] for n, x in enumerate(ds_group_cal)]
+    #%%
+    fig_fn = 'MB_cal_vs_mcmc_map.png'
+    
+    east = 104
+    west = 67
+    south = 25
+    north = 48
+    
+    labelsize = 13
+    
+    norm = plt.Normalize(-0.2, 0.05)
+    
+    # Create the projection
+    fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
+    # Add country borders for reference
+    ax.add_feature(cartopy.feature.BORDERS, alpha=0.15, zorder=10)
+    ax.add_feature(cartopy.feature.COASTLINE)
+    # Set the extent
+    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
+    # Label title, x, and y axes
+    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+    ax.set_xlabel(xlabel, size=labelsize)
+    ax.set_ylabel(ylabel, size=labelsize)            
+    
+    cmap = 'RdYlBu_r'
+
+    # Add colorbar
+#    sm = plt.cm.ScalarMappable(cmap=cmap)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm._A = []
+    plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
+    fig.text(1, 0.5, 'Mass balance [mwea]\n(Observation - MCMC)', va='center', rotation='vertical', size=labelsize)    
+
+    # Group by degree  
+    groups_deg = groups
+    ds_vn_deg = ds_group_dif_cal_era_mwea
+
+    z = [ds_vn_deg[ds_idx][1] for ds_idx in range(len(ds_vn_deg))]
+    x = np.array([x[0] for x in deg_groups]) 
+    y = np.array([x[1] for x in deg_groups])
+    lons = np.arange(x.min(), x.max() + 2 * degree_size, degree_size)
+    lats = np.arange(y.min(), y.max() + 2 * degree_size, degree_size)
+    x_adj = np.arange(x.min(), x.max() + 1 * degree_size, degree_size) - x.min()
+    y_adj = np.arange(y.min(), y.max() + 1 * degree_size, degree_size) - y.min()
+    z_array = np.zeros((len(y_adj), len(x_adj)))
+    z_array[z_array==0] = np.nan
+    for i in range(len(z)):
+        row_idx = int((y[i] - y.min()) / degree_size)
+        col_idx = int((x[i] - x.min()) / degree_size)
+        z_array[row_idx, col_idx] = z[i]    
+    ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu_r', norm=norm, zorder=2, alpha=0.8)
+    
+    # Save figure
+    fig.set_size_inches(6,4)
+    fig.savefig(figure_fp + '../cal/' + fig_fn, bbox_inches='tight', dpi=300)
+    
+
+
