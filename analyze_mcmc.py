@@ -20,10 +20,12 @@ from scipy.stats import norm
 from scipy.stats import truncnorm
 from scipy.stats import uniform
 from scipy.stats import linregress
+from scipy.stats import lognorm
 # Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import class_mbdata
+import class_climate
 
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
@@ -31,7 +33,9 @@ cal_datasets = ['shean']
 #cal_datasets = ['shean', 'wgms_d']
 
 # mcmc model parameters
-parameters = ['precfactor', 'tempchange', 'ddfsnow']
+#parameters = ['precfactor', 'tempchange', 'ddfsnow']
+#parameters = ['precfactor', 'tempchange']
+parameters = ['tempchange']
 parameters_all = ['ddfsnow', 'precfactor', 'tempchange', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 'tempsnow']
 # Autocorrelation lags
 acorr_maxlags = 100
@@ -39,8 +43,9 @@ acorr_maxlags = 100
 # Export option
 #mcmc_output_netcdf_fp = input.output_fp_cal + 'netcdf/'
 #mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg13/'
-mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2/reg13/'
-mcmc_output_figures_fp = input.output_fp_cal + 'figures/'
+#mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_allglac_1ch_tn_20190108/'
+mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2/'
+mcmc_output_figures_fp = mcmc_output_netcdf_fp + 'figures/'
 mcmc_output_tables_fp = input.output_fp_cal + 'tables/'
 mcmc_output_csv_fp = input.output_fp_cal + 'csv/'
 mcmc_output_hist_fp = input.output_fp_cal + 'hist/'
@@ -608,6 +613,11 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
         for n_df, df in enumerate(dfs):
             chain = df[vn].values
             runs = np.arange(0,chain.shape[0])
+            
+#            print('\nplot subset of trace\n')
+#            chain=chain[chain.shape[0] - 400 : chain.shape[0]]
+#            runs=runs[chain.shape[0] - 400 : chain.shape[0]]
+            
             if n_df == 0:
                 plt.plot(runs, chain, color='b')
             elif n_df == 1:
@@ -634,18 +644,27 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
             y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
         elif vn == 'precfactor':
             if distribution_type == 'truncnormal':
-                z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b),
-                                      truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
-                x_values_raw = precfactor_mu + precfactor_sigma * z_score
-                y_values = truncnorm.pdf(x_values_raw, precfactor_a, precfactor_b, loc=precfactor_mu,
-                                         scale=precfactor_sigma)
+#                z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b),
+#                                      truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
+#                x_values_raw = precfactor_mu + precfactor_sigma * z_score
+#                y_values = truncnorm.pdf(x_values_raw, precfactor_a, precfactor_b, loc=precfactor_mu,
+#                                         scale=precfactor_sigma)
+                
+                print('\nlog normal prior\n')
+                
+                precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
+                
+                x_values = np.linspace(lognorm.ppf(0.01, precfactor_lognorm_sigma), 
+                                       lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
+                y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
+                
             elif distribution_type == 'uniform':
                 z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                 x_values_raw = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
                 y_values = uniform.pdf(x_values_raw, loc=precfactor_boundlow,
                                        scale=(precfactor_boundhigh - precfactor_boundlow))
             # transform the precfactor values from the truncated normal to the actual values
-            x_values = prec_transformation(x_values_raw)
+#            x_values = prec_transformation(x_values_raw)
         elif vn == 'tempchange':
             if distribution_type == 'truncnormal':
                 z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
@@ -1423,6 +1442,20 @@ main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_region
 # Glacier hypsometry [km**2], total area
 main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath,
                                              input.hyps_filedict, input.hyps_colsdrop)
+# Elevation bins
+elev_bins = main_glac_hyps.columns.values.astype(int)   
+# Select dates including future projections
+dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+                                       spinupyears=input.spinupyears)
+# ===== LOAD CLIMATE DATA =====
+gcm = class_climate.GCM(name=input.ref_gcm_name)
+# Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+# Lapse rate [K m-1]
+gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+
 #%%
 # Select dates including future projections
 #dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
@@ -1455,71 +1488,55 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     cal_idx = np.where(cal_data['glacno'] == glacno)[0]
     glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
     # MCMC Analysis
+    ds = xr.open_dataset(mcmc_output_netcdf_fp + glacier_str + '.nc')
+    df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
+    mb_era_mwea = df.massbal.mean()
+    mb_obs_mwea = (glacier_cal_data.loc[cal_idx,'mb_mwe']/ 
+                   (glacier_cal_data.loc[cal_idx,'t2'] - glacier_cal_data.loc[cal_idx,'t1'])).values[0]    
+    # Record data
+    mb_compare.loc[n,'mb_obs_mwea'] = mb_obs_mwea
+    mb_compare.loc[n,'mb_era_mwea'] = mb_era_mwea    
+    dif = mb_compare.loc[n,'mb_obs_mwea'] - mb_compare.loc[n,'mb_era_mwea']
+    print(dif)
     
-    print('switch back to 15000 iterations')
-    print(mcmc_output_netcdf_fp)
-    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=5000,
-                    distribution_type=input.mcmc_distribution_type)
+    
+    #%% Adjustments
+    # Select subsets of data
+    glacier_gcm_elev = gcm_elev[n]
+    glacier_gcm_temp = gcm_temp[n,:]
+    glacier_gcm_lrgcm = gcm_lr[n,:]
+    glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
+    
+    # Find tempchange where no melt occurs - aka max positive accumulation
+    # Downscale using gcm and glacier lapse rates
+    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+    lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
+    tempchange_min = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
+                            (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
+    if tempchange_min < input.tempchange_boundlow:
+        tempchange_min = input.tempchange_boundlow
+    
+    tempchange_shift = tempchange_min - input.tempchange_boundlow
+    tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
+    tempchange_boundhigh = input.tempchange_boundhigh
+    tempchange_mu = np.mean([tempchange_boundlow, tempchange_boundhigh])
+    tempchange_sigma = (input.tempchange_sigma * (tempchange_boundhigh - tempchange_min) / 
+                        (input.tempchange_boundhigh - input.tempchange_boundlow))
+    tempchange_sigma = input.tempchange_sigma
+    tempchange_start = tempchange_mu
+    
+    
+    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=len(ds.iter.values),
+                    distribution_type=input.mcmc_distribution_type, tempchange_mu=tempchange_mu, 
+                    tempchange_sigma=tempchange_sigma, tempchange_boundlow=tempchange_boundlow,
+                    tempchange_boundhigh=tempchange_boundhigh)
+    
+    
+    
     
 #    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=0)
 #    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
 #    summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
 #            filename = mcmc_output_tables_fp + glacier_str + '.txt')
     
-    # Find difference between modeled mean massbalance and observation
-    ds = xr.open_dataset(mcmc_output_netcdf_fp + glacier_str + '.nc')
-    df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
-    mb_mod_mwea = df.massbal.mean()
-    mb_cal_mwea = (glacier_cal_data.loc[cal_idx,'mb_mwe']/ 
-                   (glacier_cal_data.loc[cal_idx,'t2'] - glacier_cal_data.loc[cal_idx,'t1'])).values[0]
-    
-    # Record data
-    mb_compare.loc[n,'mb_cal_mwea'] = mb_cal_mwea
-    mb_compare.loc[n,'mb_mod_mwea'] = mb_mod_mwea
-
-mb_compare['dif_cal_mod'] = mb_compare.mb_cal_mwea - mb_compare.mb_mod_mwea
-dif = mb_compare.mb_cal_mwea - mb_compare.mb_mod_mwea
-print(dif)
-    
 #%%
-#dif = mb_compare.mb_cal_mwea - mb_compare.mb_mod_mwea
-#dif_exceedpt05 = dif.copy()
-#dif_exceedpt05[abs(dif) > 0.05] = 1
-#dif_exceedpt05[abs(dif) <= 0.05] = 0
-#print('difference exceeds 0.05 mwea:', int(np.sum(dif_exceedpt05)))
-#dif_exceedpt1 = dif.copy()
-#dif_exceedpt1[abs(dif) > 0.1] = 1
-#dif_exceedpt1[abs(dif) <= 0.1] = 0
-#print('difference exceeds 0.1 mwea:', int(np.sum(dif_exceedpt1)))
-#dif_exceedpt2 = dif.copy()
-#dif_exceedpt2[abs(dif) > 0.2] = 1
-#dif_exceedpt2[abs(dif) <= 0.2] = 0
-#print('difference exceeds 0.2 mwea:', int(np.sum(dif_exceedpt2)))
-#dif_exceedpt4 = dif.copy()
-#dif_exceedpt4[abs(dif) > 0.4] = 1
-#dif_exceedpt4[abs(dif) <= 0.4] = 0
-#print('difference exceeds 0.4 mwea:', int(np.sum(dif_exceedpt4)))
-
-#%%
-#for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
-#    if abs(mb_compare.loc[n, 'dif_cal_mod']) > 0.3 and abs(mb_compare.loc[n, 'dif_cal_mod']) <= 0.4:
-#        # Glacier string
-#        glacier_str = glac_str_wRGI.split('-')[1]
-#        # Glacier number
-#        glacno = int(glacier_str.split('.')[1])
-#        # RGI information
-#        glacier_rgi_table = main_glac_rgi.iloc[np.where(main_glac_rgi['glacno'] == glacno)]
-#        # Calibration data
-#        cal_idx = np.where(cal_data['glacno'] == glacno)[0]
-#        glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
-#        # MCMC Analysis
-#        plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=0)  
-#        print(glacier_str)
-        #%%
-
-## histogram assessments
-#for iters in [10000,15000]:
-#    for region in [13, 14, 15]:
-#        #write_table(region=region, iters=iters, burn=0)
-#        #plot_histograms(region=region, iters=iters, burn=0)
-#        plot_histograms_2(region=region, iters=iters, burn=0)

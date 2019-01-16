@@ -104,34 +104,6 @@ main_directory = os.getcwd()
 # Output filepath
 output_filepath = main_directory + '/../Output/'
 
-# Calibration option (1 = minimization, 2 = MCMC)
-option_calibration = 2
-# Calibration datasets
-cal_datasets = ['shean']
-#cal_datasets = ['wgms_d']
-#cal_datasets = ['wgms_d', 'group']
-#cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
-# Calibration output filepath (currently only for option 1)
-output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
-
-# ===== MCMC and ensemble selections ========
-# Number of chains (min 1, max 3)
-n_chains = 1
-# number of MCMC samples to use
-mcmc_sample_no = 15000
-mcmc_burn_no = 0
-ensemble_no = mcmc_sample_no - mcmc_burn_no
-print('\n\nchange step back to None\n\n')
-mcmc_step = 'am'
-#mcmc_step = None
-thin_interval = 1
-
-# ===== Bias adjustment option =====
-option_bias_adjustment = 1
-#  Option 0 - ignore bias adjustments
-#  Option 1 - new precipitation, temperature from Huss and Hock [2015]
-#  Option 2 - Huss and Hock [2015] methods
-
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
 rgi_regionsO1 = [13]
@@ -139,8 +111,8 @@ rgi_regionsO1 = [13]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['13590']
-#rgi_glac_number = ['04562']
+rgi_glac_number = ['00014']
+#rgi_glac_number = ['13590']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,10)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
@@ -148,6 +120,22 @@ rgi_glac_number = ['13590']
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
     
+# ===== MCMC and ensemble selections ========
+# Number of chains (min 1, max 3)
+n_chains = 1
+# number of MCMC samples to use
+mcmc_sample_no = 15000
+mcmc_burn_no = 0
+ensemble_no = mcmc_sample_no - mcmc_burn_no
+#mcmc_step = 'am'
+mcmc_step = None
+thin_interval = 1
+
+# ===== Bias adjustment option =====
+option_bias_adjustment = 1
+#  Option 0 - ignore bias adjustments
+#  Option 1 - new precipitation, temperature from Huss and Hock [2015]
+#  Option 2 - Huss and Hock [2015] methods
 
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
@@ -186,10 +174,17 @@ option_removeNaNcal = 1
 #  Option 0 (default) - do not remove these glaciers
 #  Option 1 - remove glaciers without cal data
 
-# Can this be removed?
-modelsetup_dir = main_directory + '/../PyGEM_cal_setup/'
-
 #%% ===== CALIBRATION OPTIONS =====
+# Calibration option (1 = minimization, 2 = MCMC)
+option_calibration = 2
+# Calibration datasets
+cal_datasets = ['shean']
+#cal_datasets = ['wgms_d']
+#cal_datasets = ['wgms_d', 'group']
+#cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
+# Calibration output filepath (currently only for option 1)
+output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
+
 # Option 1:
 # Model parameter bounds for each calibration round
 #  first tuple will run as expected; 
@@ -228,24 +223,39 @@ zscore_update_threshold = 0.1
 #ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
 #ddfsnow_start=ddfsnow_mu
 
-## PARAMETERS TESTING
-mcmc_distribution_type = 'truncnormal'
+#precfactor_lognorm_sigma = 0.25
+precfactor_lognorm_tau = 4
 
+# PARAMETERS TESTING
+mcmc_distribution_type = 'truncnormal'
 precfactor_mu = 0
 precfactor_sigma = 1
-precfactor_boundlow = -3
-precfactor_boundhigh = 3
+precfactor_boundlow = -2
+precfactor_boundhigh = 2
 precfactor_start = precfactor_mu
 tempchange_mu = 0
 tempchange_sigma = 4
-tempchange_boundlow = -12
-tempchange_boundhigh = 12
+tempchange_boundlow = -10
+tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
 ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
 ddfsnow_start=ddfsnow_mu
+
+
+#%% SIMULATION OUTPUT
+# Number of model parameter sets for simulation
+#  if 1, the median is used
+sim_iters = 100
+#print('\n\nChange back sim_iters\n\n')
+sim_burn = 0
+# Simulation output filepath
+output_sim_fp = output_filepath + 'simulations/'
+# Simulation output statistics
+#sim_stat_cns = ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%']
+sim_stat_cns = ['mean', 'std']
 
 
 #%% MODEL PARAMETERS 
@@ -323,18 +333,6 @@ elif option_calibration == 2:
             13: output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg13/',
             14: output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg14/',
             15: output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg15/'}
-#%% SIMULATION OUTPUT
-# Number of model parameter sets for simulation
-#  if 1, the median is used
-sim_iters = 100
-#print('\n\nChange back sim_iters\n\n')
-sim_burn = 0
-# Simulation output filepath
-output_sim_fp = output_filepath + 'simulations/'
-# Simulation output statistics
-#sim_stat_cns = ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%']
-sim_stat_cns = ['mean', 'std']
-
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -530,12 +528,12 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 #%% CALIBRATION DATA
 # ===== SHEAN GEODETIC =====
-#shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
+shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
 #shean_fn = 'hma_mb_20181108_0454.csv'
-#shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
-shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
+shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
+#shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
 #shean_fn = 'hma_mb_20180803_1229.csv'
-shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
 
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
