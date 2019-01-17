@@ -215,38 +215,36 @@ def main(list_packed_vars):
     #           distributions, and output these sets of parameters and their corresponding mass balances to be used in 
     #           the simulations.
     if input.option_calibration == 2:
-        
-        def prec_transformation(precfactor_raw, lowbnd=input.precfactor_boundlow):
-            """
-            Converts raw precipitation factors from normal distribution to correct values.
-        
-            Takes raw values from normal distribution and converts them to correct precipitation factors according to:
-                if x >= 0:
-                    f(x) = x + 1
-                else:
-                    f(x) = 1 - x / lowbnd * (1 - (1/(1-lowbnd)))
-            i.e., normally distributed values from -2 to 2 and converts them to be 1/3 to 3.
-        
-            Parameters
-            ----------
-            precfactor_raw : float
-                numpy array of untransformed precipitation factor values
-        
-            Returns
-            -------
-            x : float
-                array of corrected precipitation factors
-            """        
-            x = precfactor_raw.copy()
-            x[x >= 0] = x[x >= 0] + 1
-            x[x < 0] = 1 - x[x < 0] / lowbnd * (1 - (1/(1-lowbnd)))        
-            return x
 
-        # ===== Define functions needed for MCMC method =====        
-        def run_MCMC(distribution_type='truncnormal', precfactor_dist_type=input.precfactor_dist_type,
-                     precfactor_lognorm_mu=input.precfactor_lognorm_mu, 
-                     precfactor_lognorm_tau=input.precfactor_lognorm_tau, 
-                     precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma,
+        # ===== Define functions needed for MCMC method =====
+#        def prec_transformation(precfactor_raw):
+#            """
+#            Converts raw precipitation factors from normal distribution to correct values.
+#
+#            Takes raw values from normal distribution and converts them to correct precipitation factors according to:
+#                if x >= 0:
+#                    f(x) = x + 1
+#                else:
+#                    f(x) = 1 / (1 - x)
+#            i.e., normally distributed values from -2 to 2 and converts them to be 1/3 to 3.
+#
+#            Parameters
+#            ----------
+#            precfactor_raw : float
+#                numpy array of untransformed precipitation factor values
+#
+#            Returns
+#            -------
+#            precfactor : float
+#                array of corrected precipitation factors
+#            """        
+#            precfactor = precfactor_raw.copy()
+#            precfactor[precfactor >= 0] = precfactor[precfactor >= 0] + 1
+#            precfactor[precfactor < 0] = 1 / (1 - precfactor[precfactor < 0])            
+#            return precfactor
+        
+        def run_MCMC(distribution_type='truncnormal', 
+                     precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma, 
                      precfactor_boundlow=input.precfactor_boundlow, precfactor_boundhigh=input.precfactor_boundhigh, 
                      precfactor_start=input.precfactor_start,
                      tempchange_mu=input.tempchange_mu, tempchange_sigma=input.tempchange_sigma, 
@@ -268,12 +266,6 @@ def main(list_packed_vars):
             ----------
             distribution_type : str
                 Distribution type either 'truncnormal' or 'uniform' (default normal)
-            precfactor_dist_type : str
-                Distribution type of precipitation factor (either 'lognormal' or 'custom')
-            precfactor_lognorm_mu : float
-                Lognormal mean of precipitation factor (default assigned from input)
-            precfactor_lognorm_tau : float
-                Lognormal tau (1/variance) of precipitation factor (default assigned from input)
             precfactor_mu : float
                 Mean of precipitation factor (default assigned from input)
             precfactor_sigma : float
@@ -354,21 +346,22 @@ def main(list_packed_vars):
             # Temperature change and precipitation factor depend on distribution type
             if distribution_type == 'truncnormal':
                 # Precipitation factor [-]
-                
-                if precfactor_dist_type =='lognormal':
-                    #  lognormal distribution (roughly 0.3 to 3)
-                    precfactor_start = np.exp(precfactor_start)
-                    precfactor = pymc.Lognormal('precfactor', mu=precfactor_lognorm_mu, tau=precfactor_lognorm_tau,
-                                                value=precfactor_start)
-                elif precfactor_dist_type =='custom':
-                    #  truncated normal distribution with transformation: if x >= 0, x+1; else, 1/(1-x)
-                    precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
-                                                      a=precfactor_boundlow, b=precfactor_boundhigh, 
-                                                      value=precfactor_start)
+                #  truncated normal distribution (-2 to 2) to reflect that we have confidence in the data, but allow for 
+                #  bias (following the transformation) to range from 1/3 to 3.  
+                #  Transformation is if x >= 0, x+1; else, 1/(1-x)
+#                precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
+#                                                  a=precfactor_boundlow, b=precfactor_boundhigh, value=precfactor_start)
+                precfactor = pymc.Lognormal('precfactor', mu=0, tau=input.precfactor_lognorm_tau)
                 # Temperature change [degC]
-                #  truncated normal distribution (-10 to 10)
+                #  truncated normal distribution (-10 to 10) to reflect that we have confidence in the data, but allow
+                #  for bias to still be present.
                 tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
                                                   a=tempchange_boundlow, b=tempchange_boundhigh, value=tempchange_start)
+                # Degree day factor of snow [mwe degC-1 d-1]
+                #  truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
+                #  (Braithwaite, 2008)
+#                ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_boundlow, 
+#                                               b=ddfsnow_boundhigh, value=ddfsnow_start)
             elif distribution_type == 'uniform':
                 # Precipitation factor [-]
                 precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh, 
@@ -376,35 +369,35 @@ def main(list_packed_vars):
                 # Temperature change [degC]
                 tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh, 
                                           value=tempchange_start)
+                # Degree day factor of snow [mwe degC-1 d-1]
+#                ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_boundlow, upper=ddfsnow_boundhigh, value=ddfsnow_start)
+#                print('ddfsnow is truncated normal still - others are uniform')
+#                ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_boundlow, 
+#                                               b=ddfsnow_boundhigh, value=ddfsnow_start)
             else:
                 print('\n\nINVALID DISTRIBUTION TYPE\n\n')
-            # Degree day factor of snow [mwe degC-1 d-1]
-            #  always truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
-            #  (Braithwaite, 2008), since it's based on data
-            ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_boundlow, 
-                                           b=ddfsnow_boundhigh, value=ddfsnow_start)
                     
             
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
             @deterministic(plot=False)
-#            def massbal(tempchange=tempchange):
-#            def massbal(tempchange=tempchange, precfactor=precfactor):
-            def massbal(tempchange=tempchange, precfactor=precfactor, ddfsnow=ddfsnow):
-                """
-                Likelihood function for mass balance [mwea] based on model parameters
-                """
+            def massbal(tempchange=tempchange):
+#            def massbal(precfactor=precfactor, ddfsnow=ddfsnow, tempchange=tempchange):
+                # Copy model parameters and change them based on the probability distribtions we have given
                 modelparameters_copy = modelparameters.copy()
+#                if precfactor is not None:
+#                    modelparameters_copy[2] = float(precfactor)
+#                    # Precipitation factor transformation
+#                    if modelparameters_copy[2] >= 0:
+#                        modelparameters_copy[2] = modelparameters_copy[2] + 1
+#                    else:
+#                        modelparameters_copy[2] = 1 / (1 - modelparameters_copy[2])
+#                if ddfsnow is not None:
+#                    modelparameters_copy[4] = float(ddfsnow)
+#                    # Degree day factor of ice is proportional to ddfsnow
+#                    modelparameters_copy[5] = modelparameters_copy[4] / input.ddfsnow_iceratio
                 if tempchange is not None:
                     modelparameters_copy[7] = float(tempchange)
-                if precfactor is not None:
-                    if precfactor_dist_type == 'lognormal':
-                        modelparameters_copy[2] = float(precfactor)
-                    elif precfactor_dist_type == 'custom':
-                        modelparameters_copy[2] = prec_transformation(np.array([0]))[0]
-                if ddfsnow is not None:
-                    modelparameters_copy[4] = float(ddfsnow)
-                    # Degree day factor of ice is proportional to ddfsnow
-                    modelparameters_copy[5] = modelparameters_copy[4] / input.ddfsnow_iceratio
+#                    print('modelparameters:', modelparameters_copy)
                 # Mass balance calculations
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -418,68 +411,75 @@ def main(list_packed_vars):
                 
                 mb_mwea = glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)
                 
-                if debug:
-                    mb_mwea = glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)
-                    print('\n\nmodelparameters:', modelparameters_copy, '\nmb_mwea:', mb_mwea)
-
+#                if tempchange < tempchange_min:
+#                    mb_mwea += 10**6
+        
+#                if debug:
+#                    mb_mwea = glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)
+#                    print('\n\nmodelparameters:', modelparameters_copy, '\nmb_mwea:', mb_mwea)
+                    
+                # Return glacier-wide mass balance [mwea] for comparison
                 return mb_mwea
             
             # Observed distribution
-            #  Observed data defines the observed likelihood of mass balances (based on geodetic observations)
+            #  This observation data defines the observed likelihood of the mass balances, and allows us to fit the 
+            #  probability distribution of the mass balance to the results.
+            print('obs_massbal:', observed_massbal, 'obs_error:', observed_error)
             obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
                                       value=float(observed_massbal), observed=True)
             
-            if debug:
-                print('obs_massbal:', observed_massbal, 'obs_error:', observed_error)
+#            print('TRUNCATED OBSERVATIONS')
+#            mb_boundlow = observed_massbal - 0.05
+#            mb_boundhigh = observed_massbal + 0.05
+#            obs_massbal = pymc.TruncatedNormal('obs_massbal', mu=massbal, tau=(1/(observed_error**2)), 
+#                                               a=mb_boundlow, b=mb_boundhigh,
+#                                               value=float(observed_massbal), observed=True)
             
             # Set model
             if dbname is None:
-                model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
+#                model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
+#                                   'massbal':massbal, 'obs_massbal':obs_massbal})
+                model = pymc.MCMC({'tempchange':tempchange,
                                    'massbal':massbal, 'obs_massbal':obs_massbal})
-#                model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange,
-#                                   'massbal':massbal, 'obs_massbal':obs_massbal})
-#                model = pymc.MCMC({'tempchange':tempchange,
-#                                   'massbal':massbal, 'obs_massbal':obs_massbal})
-    
 #            else:
 #                model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
 #                                   'massbal':massbal, 'obs_massbal':obs_massbal}, db='pickle', dbname=dbname)
-    
-            # Step method (if changed from default)
-            #  Adaptive metropolis is supposed to perform block update, i.e., update all model parameters together based
-            #  on their covariance, which would reduce autocorrelation; however, tests show doesn't make a difference.
+            # set step method if specified
             if step == 'am':
-                model.use_step_method(pymc.AdaptiveMetropolis, precfactor, delay = 1000)
+#                model.use_step_method(pymc.AdaptiveMetropolis, precfactor, delay = 1000)
                 model.use_step_method(pymc.AdaptiveMetropolis, tempchange, delay = 1000)
-                model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, delay = 1000)
-                
-            # Sample
+#                model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, delay = 1000)
+#            print('CHANGE STEP METHOD')
+#            model.use_step_method(pymc.Metropolis, precfactor, proposal_sd=2, proposal_distribution='Normal')
+#            model.use_step_method(pymc.Metropolis, tempchange, proposal_sd=4, proposal_distribution='Normal')
+            # sample
+            #  note: divide by zero warning here that does not affect model run
             if args.progress_bar == 1:
                 progress_bar_switch = True
             else:
                 progress_bar_switch = False
-            model.sample(iter=iterations, burn=burn, thin=thin,
-                         tune_interval=tune_interval, tune_throughout=tune_throughout,
-                         save_interval=save_interval, verbose=verbose, progress_bar=progress_bar_switch)
 #            model.sample(iter=iterations, burn=burn, thin=thin,
-#                         tune_interval=tune_interval, tune_throughout=False,
+#                         tune_interval=tune_interval, tune_throughout=tune_throughout,
 #                         save_interval=save_interval, verbose=verbose, progress_bar=progress_bar_switch)
-            
-            # Close database
+            model.sample(iter=iterations, burn=burn, thin=thin,
+                         tune_interval=tune_interval, tune_throughout=False,
+                         save_interval=save_interval, verbose=verbose, progress_bar=progress_bar_switch)
+            #close database
             model.db.close()
             return model        
 
 
-        #%%
         # ===== Begin MCMC process =====
         # loop through each glacier selected
+        #%%
         for glac in range(main_glac_rgi.shape[0]):
-
+#%%
             if debug:
                 print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
 
             # Set model parameters
-            modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
+            modelparameters = [input.lrgcm, input.lrglac, input.precfactor,
+                               input.precgrad, input.ddfsnow, input.ddfice,
                                input.tempsnow, input.tempchange]
 
             # Select subsets of data
@@ -511,132 +511,143 @@ def main(list_packed_vars):
                 print('observed_massbal:',observed_massbal, 'observed_error:',observed_error)
             
             # ===== RUN MARKOV CHAIN MONTE CARLO METHOD ====================            
+            
+            #%% FIND TEMPERATURE WHERE MASS BALANCE WILL CHANGE BY AT LEAST 0.01 MWEA
+            
+            # Load precipitation - assume all precipitation falls as snow
+            #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
+            glac_bin_precsnow = (glacier_gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
+                                 glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
+            glac_idx_t0 = glacier_area_t0.nonzero()[0]
+            # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
+            if input.option_preclimit == 1:
+                # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
+                if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
+                    # Indices of upper 25%
+                    glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]   
+                    # Exponential decay according to elevation difference from the 75% elevation
+                    #  prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
+                    glac_bin_precsnow = (
+                            glac_bin_precsnow[glac_idx_upper25[0],:] * 
+                            np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
+                            (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]]))[:,np.newaxis])
+                    # Precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
+                    for month in range(0,glac_bin_precsnow.shape[1]):
+                        glac_bin_precsnow[glac_idx_upper25[(glac_bin_precsnow[glac_idx_upper25,month] < 0.875 * 
+                            glac_bin_precsnow[glac_idx_t0,month].max()) & 
+                            (glac_bin_precsnow[glac_idx_upper25,month] != 0)], month] = (
+                                                            0.875 * glac_bin_precsnow[glac_idx_t0,month].max())
+            # Compute max accumulation [mwea]
+            #  sum(prec [m] * area [km2]) / area [km2] / (t2 - t1)
+            mb_acc_max = ((glac_bin_precsnow * glacier_area_t0[:,np.newaxis]).sum() / glacier_area_t0.sum() / 
+                          (glac_bin_precsnow.shape[1] / 12))
+
+            mb_threshold = 0.05
+            def find_tempchange_lowbound(tempchange_4opt):
+                """
+                Objective function to estimate temperature change lower bound
+                """
+                # Use a subset of model parameters to reduce number of constraints required
+                modelparameters[7] = tempchange_4opt[0]
+                # Mass balance calculations
+                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
+                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               option_areaconstant=1)) 
+                # Glacier-wide mass balance
+                mb_mwea = glac_wide_massbaltotal.sum() / (len(glac_wide_massbaltotal)/12)
+                mb_acc_max_adj = mb_acc_max - mb_threshold
+                return abs(mb_mwea - mb_acc_max_adj)
+            
+            
+            # Find tempchange where no melt occurs - aka max positive accumulation
+            # Downscale using gcm and glacier lapse rates
+            #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+            lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
+            tempchange_acc_max = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
+                                        (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
+            tempchange_init = [tempchange_acc_max+10]
+            tempchange_bnds=(-100,100)
+            # Run the optimization
+            tempchange_opt_lowbnd_all = minimize(find_tempchange_lowbound, tempchange_init, bounds=[tempchange_bnds], 
+                                                 method='SLSQP', options={'ftol':1e-6, 'eps':1.4901161193847656e-08})
+            tempchange_opt_lowbnd = tempchange_opt_lowbnd_all.x[0]
+            
+            
+            def find_tempchange_opt(tempchange_4opt):
+                """
+                Objective function to estimate temperature change lower bound
+                """
+                # Use a subset of model parameters to reduce number of constraints required
+                modelparameters[7] = tempchange_4opt[0]
+                # Mass balance calculations
+                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
+                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                    massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               option_areaconstant=1)) 
+                # Glacier-wide mass balance
+                mb_mwea = glac_wide_massbaltotal.sum() / (len(glac_wide_massbaltotal)/12)
+                return abs(mb_mwea - observed_massbal)
+            
+            # Find tempchange where temperature is optimized
+            tempchange_opt_all = minimize(find_tempchange_opt, tempchange_init, bounds=[tempchange_bnds], 
+                                      method='SLSQP', options={'ftol':1e-6, 'eps':1.4901161193847656e-08})
+            tempchange_opt = tempchange_opt_all.x[0]
+            
+            if tempchange_opt_lowbnd < input.tempchange_boundlow:
+                tempchange_min = input.tempchange_boundlow
+            else:
+                tempchange_min = tempchange_opt_lowbnd
+            
+            
+            
+#            # NEW SETUP
+#            tempchange_shift = tempchange_min - input.tempchange_boundlow
+#            tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
+#            tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
+#            tempchange_mu = tempchange_opt
+#            tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
+            
+            
             # OLD SETUP
             tempchange_mu = input.tempchange_mu
             tempchange_sigma = input.tempchange_sigma
             tempchange_boundlow = input.tempchange_boundlow
             tempchange_boundhigh = input.tempchange_boundhigh
+            
+
             tempchange_start = tempchange_mu
-            
-            # NEW SETUP
-            if input.new_setup == 1:
-                print('\nUSING NEW SETUP\n')
-                # Load precipitation - assume all precipitation falls as snow
-                #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
-                glac_bin_precsnow = (glacier_gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
-                                     glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
-                glac_idx_t0 = glacier_area_t0.nonzero()[0]
-                # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
-                if input.option_preclimit == 1:
-                    # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
-                    if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
-                        # Indices of upper 25%
-                        glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]   
-                        # Exponential decay according to elevation difference from the 75% elevation
-                        #  prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
-                        glac_bin_precsnow = (
-                                glac_bin_precsnow[glac_idx_upper25[0],:] * 
-                                np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
-                                (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]]))[:,np.newaxis])
-                        # Precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
-                        for month in range(0,glac_bin_precsnow.shape[1]):
-                            glac_bin_precsnow[glac_idx_upper25[(glac_bin_precsnow[glac_idx_upper25,month] < 0.875 * 
-                                glac_bin_precsnow[glac_idx_t0,month].max()) & 
-                                (glac_bin_precsnow[glac_idx_upper25,month] != 0)], month] = (
-                                                                0.875 * glac_bin_precsnow[glac_idx_t0,month].max())
-                # Compute max accumulation [mwea]
-                #  sum(prec [m] * area [km2]) / area [km2] / (t2 - t1)
-                mb_acc_max = ((glac_bin_precsnow * glacier_area_t0[:,np.newaxis]).sum() / glacier_area_t0.sum() / 
-                              (glac_bin_precsnow.shape[1] / 12))
-    
-                mb_threshold = 0.05
-                def find_tempchange_lowbound(tempchange_4opt):
-                    """
-                    Objective function to estimate temperature change lower bound
-                    """
-                    # Use a subset of model parameters to reduce number of constraints required
-                    modelparameters[7] = tempchange_4opt[0]
-                    # Mass balance calculations
-                    (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-                     glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-                     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-                     glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
-                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                        massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                                   glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                                   option_areaconstant=1)) 
-                    # Glacier-wide mass balance
-                    mb_mwea = glac_wide_massbaltotal.sum() / (len(glac_wide_massbaltotal)/12)
-                    mb_acc_max_adj = mb_acc_max - mb_threshold
-                    return abs(mb_mwea - mb_acc_max_adj)
-                
-                
-                # Find tempchange where no melt occurs - aka max positive accumulation
-                # Downscale using gcm and glacier lapse rates
-                #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
-                lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
-                tempchange_acc_max = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
-                                            (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
-                tempchange_init = [tempchange_acc_max+10]
-                tempchange_bnds=(-100,100)
-                # Run the optimization
-                tempchange_opt_lowbnd_all = minimize(find_tempchange_lowbound, tempchange_init, bounds=[tempchange_bnds], 
-                                                     method='SLSQP', options={'ftol':1e-6, 'eps':1.4901161193847656e-08})
-                tempchange_opt_lowbnd = tempchange_opt_lowbnd_all.x[0]
-                
-                
-                def find_tempchange_opt(tempchange_4opt):
-                    """
-                    Objective function to estimate temperature change lower bound
-                    """
-                    # Use a subset of model parameters to reduce number of constraints required
-                    modelparameters[7] = tempchange_4opt[0]
-                    # Mass balance calculations
-                    (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-                     glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-                     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-                     glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
-                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                        massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                                   glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                                   option_areaconstant=1)) 
-                    # Glacier-wide mass balance
-                    mb_mwea = glac_wide_massbaltotal.sum() / (len(glac_wide_massbaltotal)/12)
-                    return abs(mb_mwea - observed_massbal)
-                
-                # Find tempchange where temperature is optimized
-                tempchange_opt_all = minimize(find_tempchange_opt, tempchange_init, bounds=[tempchange_bnds], 
-                                          method='SLSQP', options={'ftol':1e-6, 'eps':1.4901161193847656e-08})
-                tempchange_opt = tempchange_opt_all.x[0]
-                
-                if tempchange_opt_lowbnd < input.tempchange_boundlow:
-                    tempchange_min = input.tempchange_boundlow
-                else:
-                    tempchange_min = tempchange_opt_lowbnd
-                
-                # Adjust parameters
-                tempchange_shift = tempchange_min - input.tempchange_boundlow
-                tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
-                tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
-                tempchange_mu = tempchange_opt
-                tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
-                tempchange_start = tempchange_mu
-            
             
             # specify distribution type
             distribution_type = input.mcmc_distribution_type
             # fit the MCMC model
             for n_chain in range(0,input.n_chains):
                 print(glacier_str + ' chain' + str(n_chain))
-                if n_chain == 0:                    
-                    model = run_MCMC(distribution_type=distribution_type, 
-                                     precfactor_dist_type=input.precfactor_dist_type, iterations=input.mcmc_sample_no, 
+                if n_chain == 0:
+                    
+                    print('\nchanged tempchange_boundlow\n\nMake sure starting point above this\n')
+                    
+                    
+#                    model = run_MCMC(distribution_type=distribution_type, iterations=input.mcmc_sample_no, 
+#                                     burn=input.mcmc_burn_no, step=input.mcmc_step, 
+#                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+#                                     tempchange_boundlow=tempchange_min, tempchange_start=tempchange_start)
+                    model = run_MCMC(distribution_type=distribution_type, iterations=input.mcmc_sample_no, 
                                      burn=input.mcmc_burn_no, step=input.mcmc_step, 
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
-                                     tempchange_start=tempchange_start)                    
+                                     tempchange_start=tempchange_start)
+                    
                 elif n_chain == 1:
                     # Chains start at lowest values
                     model = run_MCMC(distribution_type=distribution_type, precfactor_start=input.precfactor_boundlow,
@@ -649,17 +660,16 @@ def main(list_packed_vars):
                                      iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
                    
                 # Select data from model to be stored in netcdf
-                if input.precfactor_dist_type == 'custom':    
-                    precfactor_values = prec_transformation(model.trace('precfactor')[:])
-                else:
-                    precfactor_values = model.trace('precfactor')[:]
+#                df = pd.DataFrame({'tempchange': model.trace('tempchange')[:],
+#                                   'precfactor': prec_transformation(model.trace('precfactor')[:]),
+#                                   'ddfsnow': model.trace('ddfsnow')[:], 
+#                                   'massbal': model.trace('massbal')[:]})
                 df = pd.DataFrame({'tempchange': model.trace('tempchange')[:],
-                                   'precfactor': precfactor_values,
-                                   'ddfsnow': model.trace('ddfsnow')[:],
+#                                   'precfactor': model.trace('precfactor')[:],
                                    'massbal': model.trace('massbal')[:]})
                 # set columns for other variables
-#                df['precfactor'] = np.full(df.shape[0], input.precfactor)
-#                df['ddfsnow'] = np.full(df.shape[0], input.ddfsnow)
+                df['precfactor'] = np.full(df.shape[0], input.precfactor)
+                df['ddfsnow'] = np.full(df.shape[0], input.ddfsnow)
                 df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
                 df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
                 df['lrglac'] = np.full(df.shape[0], input.lrglac)
@@ -1679,7 +1689,8 @@ if __name__ == '__main__':
         icethickness_t0 = main_vars['icethickness_t0']
         width_t0 = main_vars['width_t0']
         
-        if input.option_calibration == 2 and input.new_setup == 1:
+        if input.option_calibration == 2:
+            lowest_bin = main_vars['lowest_bin']
             tempchange_min = main_vars['tempchange_min']
             tempchange_shift = main_vars['tempchange_shift']
             tempchange_boundlow = main_vars['tempchange_boundlow']

@@ -21,9 +21,11 @@ from scipy.stats import truncnorm
 from scipy.stats import uniform
 from scipy.stats import linregress
 from scipy.stats import lognorm
+from scipy.optimize import minimize
 # Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
+import pygemfxns_massbalance as massbalance
 import class_mbdata
 import class_climate
 
@@ -33,9 +35,9 @@ cal_datasets = ['shean']
 #cal_datasets = ['shean', 'wgms_d']
 
 # mcmc model parameters
-#parameters = ['precfactor', 'tempchange', 'ddfsnow']
-#parameters = ['precfactor', 'tempchange']
-parameters = ['tempchange']
+parameters = ['tempchange', 'precfactor', 'ddfsnow']
+#parameters = ['tempchange', 'precfactor']
+#parameters = ['tempchange']
 parameters_all = ['ddfsnow', 'precfactor', 'tempchange', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 'tempsnow']
 # Autocorrelation lags
 acorr_maxlags = 100
@@ -53,7 +55,7 @@ mcmc_output_hist_fp = input.output_fp_cal + 'hist/'
 debug = False
 
 
-def prec_transformation(precfactor_raw):
+def prec_transformation(precfactor_raw, lowbnd=input.precfactor_boundlow):
     """
     Converts raw precipitation factors from normal distribution to correct values.
 
@@ -61,7 +63,7 @@ def prec_transformation(precfactor_raw):
         if x >= 0:
             f(x) = x + 1
         else:
-            f(x) = 1 / (1 - x)
+            f(x) = 1 - x / lowbnd * (1 - (1/(1-lowbnd)))
     i.e., normally distributed values from -2 to 2 and converts them to be 1/3 to 3.
 
     Parameters
@@ -71,13 +73,13 @@ def prec_transformation(precfactor_raw):
 
     Returns
     -------
-    precfactor : float
+    x : float
         array of corrected precipitation factors
-    """
-    precfactor = precfactor_raw.copy()
-    precfactor[precfactor >= 0] = precfactor[precfactor >= 0] + 1
-    precfactor[precfactor < 0] = 1 / (1 - precfactor[precfactor < 0])
-    return precfactor
+    """        
+    x = precfactor_raw.copy()
+    x[x >= 0] = x[x >= 0] + 1
+    x[x < 0] = 1 - x[x < 0] / lowbnd * (1 - (1/(1-lowbnd)))        
+    return x
 
 
 def effective_n(ds, vn, iters, burn):
@@ -482,6 +484,9 @@ def write_csv_results(models, variables, distribution_type='truncnormal'):
 #%%
 def plot_mc_results(netcdf_fn, glacier_cal_data,
                     iters=50, burn=0, distribution_type='truncnormal',
+                    precfactor_dist_type=input.precfactor_dist_type,
+                    precfactor_lognorm_mu=input.precfactor_lognorm_mu, 
+                    precfactor_lognorm_tau=input.precfactor_lognorm_tau,
                     precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma,
                     precfactor_boundlow=input.precfactor_boundlow,
                     precfactor_boundhigh=input.precfactor_boundhigh,
@@ -506,7 +511,12 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
         Number of iterations to burn in with the Markov Chain
     distribution_type : str
         Distribution type either 'truncnormal' or 'uniform' (default truncnormal)
-    glacier_RGIId_float : str
+    precfactor_dist_type : str
+        Distribution type of precipitation factor (either 'lognormal' or 'custom')
+    precfactor_lognorm_mu : float
+        Lognormal mean of precipitation factor (default assigned from input)
+    precfactor_lognorm_tau : float
+        Lognormal tau (1/variance) of precipitation factor (default assigned from input)
     precfactor_mu : float
         Mean of precipitation factor (default assigned from input)
     precfactor_sigma : float
@@ -643,28 +653,24 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
             x_values = observed_massbal + observed_error * z_score
             y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
         elif vn == 'precfactor':
-            if distribution_type == 'truncnormal':
-#                z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b),
-#                                      truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
-#                x_values_raw = precfactor_mu + precfactor_sigma * z_score
-#                y_values = truncnorm.pdf(x_values_raw, precfactor_a, precfactor_b, loc=precfactor_mu,
-#                                         scale=precfactor_sigma)
-                
-                print('\nlog normal prior\n')
-                
-                precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
-                
-                x_values = np.linspace(lognorm.ppf(0.01, precfactor_lognorm_sigma), 
-                                       lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
-                y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
-                
+            if distribution_type == 'truncnormal':   
+                if precfactor_dist_type == 'lognormal':
+                    precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
+                    x_values = np.linspace(lognorm.ppf(1e-6, precfactor_lognorm_sigma), 
+                                           lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
+                    y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
+                elif precfactor_dist_type == 'custom':
+                    z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b),
+                                          truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
+                    x_values_raw = precfactor_mu + precfactor_sigma * z_score
+                    y_values = truncnorm.pdf(x_values_raw, precfactor_a, precfactor_b, loc=precfactor_mu,
+                                             scale=precfactor_sigma)       
+                    x_values = prec_transformation(x_values_raw)
             elif distribution_type == 'uniform':
                 z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-                x_values_raw = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
-                y_values = uniform.pdf(x_values_raw, loc=precfactor_boundlow,
+                x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
+                y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
                                        scale=(precfactor_boundhigh - precfactor_boundlow))
-            # transform the precfactor values from the truncated normal to the actual values
-#            x_values = prec_transformation(x_values_raw)
         elif vn == 'tempchange':
             if distribution_type == 'truncnormal':
                 z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
@@ -1442,6 +1448,13 @@ main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_region
 # Glacier hypsometry [km**2], total area
 main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath,
                                              input.hyps_filedict, input.hyps_colsdrop)
+# Ice thickness [m], average
+main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.thickness_filepath, 
+                                                     input.thickness_filedict, input.thickness_colsdrop)
+main_glac_hyps[main_glac_icethickness == 0] = 0
+# Width [km], average
+main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.width_filepath,
+                                              input.width_filedict, input.width_colsdrop)
 # Elevation bins
 elev_bins = main_glac_hyps.columns.values.astype(int)   
 # Select dates including future projections
@@ -1483,7 +1496,8 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     # Glacier number
     glacno = int(glacier_str.split('.')[1])
     # RGI information
-    glacier_rgi_table = main_glac_rgi.iloc[np.where(main_glac_rgi['glacno'] == glacno)]
+#    glacier_rgi_table = main_glac_rgi.iloc[np.where(main_glac_rgi['glacno'] == glacno)]
+    glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
     # Calibration data
     cal_idx = np.where(cal_data['glacno'] == glacno)[0]
     glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
@@ -1505,38 +1519,219 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     glacier_gcm_elev = gcm_elev[n]
     glacier_gcm_temp = gcm_temp[n,:]
     glacier_gcm_lrgcm = gcm_lr[n,:]
+    glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+    glacier_gcm_prec = gcm_prec[n,:]
     glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
+    icethickness_t0 = main_glac_icethickness.iloc[n,:].values.astype(float)
+    width_t0 = main_glac_width.iloc[n,:].values.astype(float)
+    # Set model parameters
+    modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
+                       input.tempsnow, input.tempchange]
     
-    # Find tempchange where no melt occurs - aka max positive accumulation
-    # Downscale using gcm and glacier lapse rates
-    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
-    lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
-    tempchange_min = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
-                            (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
-    if tempchange_min < input.tempchange_boundlow:
-        tempchange_min = input.tempchange_boundlow
+    observed_massbal = mb_obs_mwea.copy()
     
-    tempchange_shift = tempchange_min - input.tempchange_boundlow
-    tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
-    tempchange_boundhigh = input.tempchange_boundhigh
-    tempchange_mu = np.mean([tempchange_boundlow, tempchange_boundhigh])
-    tempchange_sigma = (input.tempchange_sigma * (tempchange_boundhigh - tempchange_min) / 
-                        (input.tempchange_boundhigh - input.tempchange_boundlow))
+    # OLD SETUP
+    tempchange_mu = input.tempchange_mu
     tempchange_sigma = input.tempchange_sigma
+    tempchange_boundlow = input.tempchange_boundlow
+    tempchange_boundhigh = input.tempchange_boundhigh
     tempchange_start = tempchange_mu
+    
+    # NEW SETUP
+    if input.new_setup == 1:
+        print('\nUSING NEW SETUP\n')
+        # Load precipitation - assume all precipitation falls as snow
+        #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
+        glac_bin_precsnow = (glacier_gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
+                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
+        glac_idx_t0 = glacier_area_t0.nonzero()[0]
+        # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
+        if input.option_preclimit == 1:
+            # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
+            if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
+                # Indices of upper 25%
+                glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]   
+                # Exponential decay according to elevation difference from the 75% elevation
+                #  prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
+                glac_bin_precsnow = (
+                        glac_bin_precsnow[glac_idx_upper25[0],:] * 
+                        np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
+                        (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]]))[:,np.newaxis])
+                # Precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
+                for month in range(0,glac_bin_precsnow.shape[1]):
+                    glac_bin_precsnow[glac_idx_upper25[(glac_bin_precsnow[glac_idx_upper25,month] < 0.875 * 
+                        glac_bin_precsnow[glac_idx_t0,month].max()) & 
+                        (glac_bin_precsnow[glac_idx_upper25,month] != 0)], month] = (
+                                                        0.875 * glac_bin_precsnow[glac_idx_t0,month].max())
+        # Compute max accumulation [mwea]
+        #  sum(prec [m] * area [km2]) / area [km2] / (t2 - t1)
+        mb_acc_max = ((glac_bin_precsnow * glacier_area_t0[:,np.newaxis]).sum() / glacier_area_t0.sum() / 
+                      (glac_bin_precsnow.shape[1] / 12))
+
+        mb_threshold = 0.05
+        def find_tempchange_lowbound(tempchange_4opt):
+            """
+            Objective function to estimate temperature change lower bound
+            """
+            # Use a subset of model parameters to reduce number of constraints required
+            modelparameters[7] = tempchange_4opt[0]
+            # Mass balance calculations
+            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
+             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                           option_areaconstant=1)) 
+            # Glacier-wide mass balance
+            mb_mwea = glac_wide_massbaltotal.sum() / (len(glac_wide_massbaltotal)/12)
+            mb_acc_max_adj = mb_acc_max - mb_threshold
+            return abs(mb_mwea - mb_acc_max_adj)
+        
+        
+        # Find tempchange where no melt occurs - aka max positive accumulation
+        # Downscale using gcm and glacier lapse rates
+        #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+        lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
+        tempchange_acc_max = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
+                                    (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
+        tempchange_init = [tempchange_acc_max+10]
+        tempchange_bnds=(-100,100)
+        # Run the optimization
+        tempchange_opt_lowbnd_all = minimize(find_tempchange_lowbound, tempchange_init, bounds=[tempchange_bnds], 
+                                             method='SLSQP', options={'ftol':1e-6, 'eps':1.4901161193847656e-08})
+        tempchange_opt_lowbnd = tempchange_opt_lowbnd_all.x[0]
+        
+        
+        def find_tempchange_opt(tempchange_4opt):
+            """
+            Objective function to estimate temperature change lower bound
+            """
+            # Use a subset of model parameters to reduce number of constraints required
+            modelparameters[7] = tempchange_4opt[0]
+            # Mass balance calculations
+            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
+             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
+             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
+             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                           option_areaconstant=1)) 
+            # Glacier-wide mass balance
+            mb_mwea = glac_wide_massbaltotal.sum() / (len(glac_wide_massbaltotal)/12)
+            return abs(mb_mwea - observed_massbal)
+        
+        # Find tempchange where temperature is optimized
+        tempchange_opt_all = minimize(find_tempchange_opt, tempchange_init, bounds=[tempchange_bnds], 
+                                  method='SLSQP', options={'ftol':1e-6, 'eps':1.4901161193847656e-08})
+        tempchange_opt = tempchange_opt_all.x[0]
+        
+        if tempchange_opt_lowbnd < input.tempchange_boundlow:
+            tempchange_min = input.tempchange_boundlow
+        else:
+            tempchange_min = tempchange_opt_lowbnd
+        
+        # Adjust parameters
+        tempchange_shift = tempchange_min - input.tempchange_boundlow
+        tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
+        tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
+        tempchange_mu = tempchange_opt
+        tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
+        tempchange_start = tempchange_mu
+
     
     
     plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=len(ds.iter.values),
-                    distribution_type=input.mcmc_distribution_type, tempchange_mu=tempchange_mu, 
-                    tempchange_sigma=tempchange_sigma, tempchange_boundlow=tempchange_boundlow,
-                    tempchange_boundhigh=tempchange_boundhigh)
-    
-    
-    
+                    distribution_type=input.mcmc_distribution_type, precfactor_dist_type=input.precfactor_dist_type,
+                    tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+                    tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
     
 #    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=0)
 #    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
 #    summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
 #            filename = mcmc_output_tables_fp + glacier_str + '.txt')
+
+
+#%% TEST PREC TRANSFORMATION FUNCTION
+#def prec_transformation(precfactor_raw, lowbnd=input.precfactor_boundlow):
+#    """
+#    Converts raw precipitation factors from normal distribution to correct values.
+#
+#    Takes raw values from normal distribution and converts them to correct precipitation factors according to:
+#        if x >= 0:
+#            f(x) = x + 1
+#        else:
+#            f(x) = 1 - x / lowbnd * (1 - (1/(1-lowbnd)))
+#    i.e., normally distributed values from -2 to 2 and converts them to be 1/3 to 3.
+#
+#    Parameters
+#    ----------
+#    precfactor_raw : float
+#        numpy array of untransformed precipitation factor values
+#
+#    Returns
+#    -------
+#    x : float
+#        array of corrected precipitation factors
+#    """        
+#    x = precfactor_raw.copy()
+#    x[x >= 0] = x[x >= 0] + 1
+#    x[x < 0] = 1 - x[x < 0] / lowbnd * (1 - (1/(1-lowbnd)))        
+#    return x
+
+#def prec_transformation_old(precfactor_raw):
+#    """
+#    Converts raw precipitation factors from normal distribution to correct values.
+#
+#    Takes raw values from normal distribution and converts them to correct precipitation factors according to:
+#        if x >= 0:
+#            f(x) = x + 1
+#        else:
+#            f(x) = 1 / (1 - x)
+#    i.e., normally distributed values from -2 to 2 and converts them to be 1/3 to 3.
+#
+#    Parameters
+#    ----------
+#    precfactor_raw : float
+#        numpy array of untransformed precipitation factor values
+#
+#    Returns
+#    -------
+#    precfactor : float
+#        array of corrected precipitation factors
+#    """        
+#    precfactor = precfactor_raw.copy()
+#    precfactor[precfactor >= 0] = precfactor[precfactor >= 0] + 1
+#    precfactor[precfactor < 0] = 1 / (1 - precfactor[precfactor < 0])            
+#    return precfactor
     
-#%%
+#x = np.random.normal(size=(int(1e6)))
+#x_prec = prec_transformation(x)
+#x_prec_old = prec_transformation_old(x)
+##(x1, x_bins, x_patches) = plt.hist(x_prec, bins=1000)
+#
+##y = np.arange(input.precfactor_boundlow,0,0.01)
+###y2 = 1 - y/input.precfactor_boundlow * (1 - (1/(1-input.precfactor_boundlow)))
+##y_prec = prec_transformation(y)
+#
+#y = np.arange(-2,2,0.01)
+#y_prec = prec_transformation(y)
+#
+#y_prec_dydx = (y_prec[:-1] - y_prec[1:]) / (y[:-1] - y[1:])
+#y_pdf = norm.pdf(y)
+#
+#plt.plot(y,y_prec, label='precfactor (x_ax:raw, y_ax:precfactor)')
+#plt.plot(y[:-1],y_prec_dydx, label='slope_precfactor (x_ax:raw, y_ax:slope)')
+#plt.plot(y, y_pdf, label='untransformed pdf (x_ax:raw, y_ax:pdf)')
+#plt.hist(x_prec, density=True, bins=100, label='transformed pdf (x_ax:precfactor, y_ax:pdf)')
+#plt.xlim(-2,3)
+##plt.xlabel()
+##plt.ylabel('Precfactor')
+#plt.legend()
+#plt.savefig(input.output_filepath + 'figures/prec_transformation_new.png', bbox_inches='tight', dpi=300)
+
+

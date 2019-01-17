@@ -1,5 +1,4 @@
-﻿
-"""Model inputs required to run PyGEM"""
+﻿"""Model inputs to run PyGEM"""
 
 # Built-in libraries
 import os
@@ -8,6 +7,7 @@ import pandas as pd
 import numpy as np
 
 
+# ===== FUNCTIONS TO SELECT GLACIERS ======
 def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
     """
     Generate list of glaciers that have calibration data and select number of glaciers to include.
@@ -101,7 +101,7 @@ def get_same_glaciers(glac_fp):
 #%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
 # Model setup directory
 main_directory = os.getcwd()
-# Output filepath
+# Output directory
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
@@ -111,6 +111,7 @@ rgi_regionsO1 = [13]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
+#rgi_glac_number = ['00001']
 rgi_glac_number = ['00014']
 #rgi_glac_number = ['13590']
 #rgi_glac_number = ['03473']
@@ -119,17 +120,6 @@ rgi_glac_number = ['00014']
 #                                    + '/')
 if 'rgi_glac_number' not in locals():
     rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
-    
-# ===== MCMC and ensemble selections ========
-# Number of chains (min 1, max 3)
-n_chains = 1
-# number of MCMC samples to use
-mcmc_sample_no = 15000
-mcmc_burn_no = 0
-ensemble_no = mcmc_sample_no - mcmc_burn_no
-#mcmc_step = 'am'
-mcmc_step = None
-thin_interval = 1
 
 # ===== Bias adjustment option =====
 option_bias_adjustment = 1
@@ -185,7 +175,7 @@ cal_datasets = ['shean']
 # Calibration output filepath (currently only for option 1)
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
-# Option 1:
+# OPTION 1: Minimization
 # Model parameter bounds for each calibration round
 #  first tuple will run as expected; 
 precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
@@ -195,44 +185,27 @@ tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
 # Threshold to update the model parameters (based on the difference in zscores)
 zscore_update_threshold = 0.1
 
-# MCMC export configuration
-#mcmc_output_fp = main_directory + '/../MCMC_data/'
-#mcmc_output_netcdf_fp = output_fp_cal + 'netcdf/'
-#mcmc_output_csv_fp = output_fp_cal + 'csv/'
-#mcmc_output_figs_fp = output_fp_cal + 'figures/'
-#mcmc_output_filename = ('parameter_sets_' + str(len(rgi_glac_number)) + 'glaciers_' + str(mcmc_sample_no) + 'samples_' 
-#                        + str(ensemble_no) + 'ensembles_' + str(strftime("%Y%m%d")) + '.nc')
-#mcmc_output_csv_fn = ('parameter_stats_' + str(len(rgi_glac_number)) + 'glaciers_' + str(n_chains) + 'chains_' + 
-#                      str(mcmc_sample_no) + 'iter_' + str(mcmc_burn_no) + 'burn_' + str(strftime("%Y%m%d")) + '.csv')
+# OPTION 2: MCMC 
+# Chain options 
+n_chains = 1 # (min 1, max 3)
+mcmc_sample_no = 5000
+mcmc_burn_no = 0
+ensemble_no = mcmc_sample_no - mcmc_burn_no
+mcmc_step = None
+#mcmc_step = 'am'
+thin_interval = 1
 
 # MCMC distribution parameters
-#mcmc_distribution_type = 'truncnormal'
-#precfactor_mu = 0
-#precfactor_sigma = 1
-#precfactor_boundlow = -2
-#precfactor_boundhigh = 2
-#precfactor_start = precfactor_mu
-#tempchange_mu = 0
-#tempchange_sigma = 4
-#tempchange_boundlow = -10
-#tempchange_boundhigh = 10
-#tempchange_start = tempchange_mu
-#ddfsnow_mu = 0.0041
-#ddfsnow_sigma = 0.0015
-#ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
-#ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
-#ddfsnow_start=ddfsnow_mu
-
-#precfactor_lognorm_sigma = 0.25
-precfactor_lognorm_tau = 4
-
-# PARAMETERS TESTING
 mcmc_distribution_type = 'truncnormal'
+precfactor_dist_type = 'lognormal'
+#precfactor_dist_type = 'custom'
+precfactor_lognorm_mu = 0
+precfactor_lognorm_tau = 4
 precfactor_mu = 0
 precfactor_sigma = 1
 precfactor_boundlow = -2
 precfactor_boundhigh = 2
-precfactor_start = precfactor_mu
+precfactor_start = precfactor_lognorm_mu
 tempchange_mu = 0
 tempchange_sigma = 4
 tempchange_boundlow = -10
@@ -244,11 +217,13 @@ ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma
 ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
 ddfsnow_start=ddfsnow_mu
 
+# option for new automatic priors for tempchange
+new_setup = 1
 
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 100
+sim_iters = 1
 #print('\n\nChange back sim_iters\n\n')
 sim_burn = 0
 # Simulation output filepath
@@ -528,12 +503,12 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 #%% CALIBRATION DATA
 # ===== SHEAN GEODETIC =====
-shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
+#shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
 #shean_fn = 'hma_mb_20181108_0454.csv'
-shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
-#shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
+#shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
+shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
 #shean_fn = 'hma_mb_20180803_1229.csv'
-#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
 
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
@@ -742,9 +717,6 @@ terminus_percentage = 20
 #  Huss and Hock (2015) use 20% to calculate new area and ice thickness
 
 #%% OUTPUT OPTIONS
-# Netcdf filename prefix
-netcdf_fn_prefix = 'PyGEM_R'
-# Netcdf output package number
 output_package = 2
     # Option 0 - no netcdf package
     # Option 1 - "raw package" [preferred units: m w.e.]

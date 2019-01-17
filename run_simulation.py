@@ -723,46 +723,81 @@ def main(list_packed_vars):
             
             
             print('REMOVE ITERATING THROUGH TEMPCHANGE')
-            tempchange_iters = np.arange(1.5, 15, 0.01).tolist()
-            mb_vs_tempchange = np.zeros((len(tempchange_iters),2))
+#            tempchange_iters = np.arange(-1.5, 5, 0.01).tolist()
+#            tempchange_iters = np.arange(3, 13, 0.01).tolist()
+            tempchange_iters = np.arange(-10, 10, 0.1).tolist()
+            ddfsnow_iters = np.arange(0.0026, 0.00561, 0.0005).tolist()
+            precfactor_iters = np.arange(0.3,3.01,0.1).tolist()
+            
+#            tempchange_iters = [10]
+#            ddfsnow_iters = [0.0041]
+            
+            mb_vs_tempchange = np.zeros((len(tempchange_iters),1+len(ddfsnow_iters)))
             mb_vs_tempchange[:,0] = tempchange_iters
-            for n, tempchange in enumerate(tempchange_iters):
-                modelparameters[7] = tempchange
+            
+            mb_vs_precfactor = np.zeros((len(precfactor_iters),1+len(ddfsnow_iters)))
+            mb_vs_precfactor[:,0] = precfactor_iters
+            
+#            for n, tempchange in enumerate(tempchange_iters):
+#                modelparameters[7] = tempchange
+            for n, precfactor in enumerate(precfactor_iters):
+                modelparameters[2] = precfactor
                 
-                # run mass balance calculation
-                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
-                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
-                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
-                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                    massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                               option_areaconstant=0, debug=debug_mb))
-                # Annual glacier-wide mass balance [m w.e.]
-                glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
-                # Average annual glacier-wide mass balance [m w.e.a.]
-                mb_mwea = glac_wide_massbaltotal_annual.mean()
-                #  units: m w.e. based on initial area
+                for c, ddfsnow in enumerate(ddfsnow_iters):
+                    modelparameters[4] = ddfsnow
+                    
+                    # run mass balance calculation
+                    (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+                     glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
+                     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
+                     glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
+                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                        massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
+                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                                   glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                                   option_areaconstant=0, debug=debug_mb))
+                    # Annual glacier-wide mass balance [m w.e.]
+                    glac_wide_massbaltotal_annual = np.sum(glac_wide_massbaltotal.reshape(-1,12), axis=1)
+                    # Average annual glacier-wide mass balance [m w.e.a.]
+                    mb_mwea = glac_wide_massbaltotal_annual.mean()
+                    #  units: m w.e. based on initial area
                 
                 
-                
-                mb_vs_tempchange[n,1] = mb_mwea
-                print(modelparameters[7], np.round(mb_mwea,3))
+                    mb_vs_precfactor[n,1+c] = mb_mwea
+#                    mb_vs_tempchange[n,1+c] = mb_mwea
+                print(modelparameters[2], modelparameters[4], np.round(mb_mwea,3))
             print('REMOVE RECORDING AND SAVING')
-            np.savetxt(input.output_filepath + 'cal_opt2/13-13590_mb_vs_tempchange.csv', mb_vs_tempchange, 
+#            np.savetxt(input.output_filepath + 'cal_opt2/' + glacier_RGIId + '_mb_vs_tempchange.csv', mb_vs_tempchange, 
+#                       delimiter=',')
+            np.savetxt(input.output_filepath + 'cal_opt2/' + glacier_RGIId + '_mb_vs_precfactor.csv', mb_vs_precfactor, 
                        delimiter=',')
             #%%
             import matplotlib.pyplot as plt
-            fig = plt.figure(figsize=(8,6))
-            plt.subplots_adjust(wspace=0.1, hspace=0.1)
-            plt.suptitle('Mass balance versus Tempchange ' + glacier_RGIId, y=0.94)
-            plt.plot(mb_vs_tempchange[:,0], mb_vs_tempchange[:,1])
-            plt.xlabel('Tempchange [degC]')
-            plt.ylabel('Mass balance [mwea]')
+            # MB vs. tempchange
+#            fig = plt.figure(figsize=(6,4))
+#            plt.subplots_adjust(wspace=0.1, hspace=0.1)
+#            plt.suptitle('Mass balance versus Tempchange ' + glacier_RGIId, y=0.94)
+#            plt.xlabel('Tempchange [degC]', fontsize=14)
+#            plt.ylabel('Mass balance [mwea]', fontsize=14)
+#            for c, ddfsnow in enumerate(ddfsnow_iters):
+#                plt.plot(mb_vs_tempchange[:,0], mb_vs_tempchange[:,1+c], label=str(np.round(ddfsnow,4)))
+#            plt.legend(title='DDFsnow', frameon=False)
+##            plt.legend(title='DDFsnow\n[mwe d$^{-1}$ $^\circ$C$^{-1}$]')
+#            plt.savefig(input.output_filepath + 'cal_opt2/figures/' + glacier_RGIId + '_mb_vs_tempchange.png', 
+#                        bbox_inches='tight', dpi=300)
             
-            plt.savefig(input.output_filepath + 'cal_opt2/figures/' + glacier_RGIId + '_mb_vs_tempchange.png', 
-                        bbox_inches='tight', dpi=72)
+            # MB vs. precfactor
+            fig = plt.figure(figsize=(6,4))
+            plt.subplots_adjust(wspace=0.1, hspace=0.1)
+            plt.suptitle('Mass balance versus Precfactor' + glacier_RGIId, y=0.94)
+            plt.xlabel('Precfactor [-]', fontsize=14)
+            plt.ylabel('Mass balance [mwea]', fontsize=14)
+            for c, ddfsnow in enumerate(ddfsnow_iters):
+                plt.plot(mb_vs_precfactor[:,0], mb_vs_precfactor[:,1+c], label=str(np.round(ddfsnow,4)))
+            plt.legend(title='DDFsnow', frameon=False)
+#            plt.legend(title='DDFsnow\n[mwe d$^{-1}$ $^\circ$C$^{-1}$]')
+            plt.savefig(input.output_filepath + 'cal_opt2/figures/' + glacier_RGIId + '_mb_vs_precfactor.png', 
+                        bbox_inches='tight', dpi=300)
             #%%
                 
             
