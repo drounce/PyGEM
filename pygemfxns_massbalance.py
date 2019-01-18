@@ -149,8 +149,13 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
         # Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
         surfacetype_ddf_dict = surfacetypeDDFdict(modelparameters)
         
-        # ANNUAL LOOP (daily or monthly timestep contained within loop)
-        for year in range(0, annual_columns.shape[0]): 
+    # ANNUAL LOOP (daily or monthly timestep contained within loop)
+    for year in range(0, annual_columns.shape[0]): 
+        # Check ice still exists:
+        if icethickness_t0.max() > 0:    
+        
+#        # ANNUAL LOOP (daily or monthly timestep contained within loop)
+#        for year in range(0, annual_columns.shape[0]): 
             # Glacier indices
             glac_idx_t0 = glacier_area_t0.nonzero()[0]
             # Functions currently set up for monthly timestep

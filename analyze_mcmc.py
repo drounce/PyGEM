@@ -547,6 +547,7 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
     .png files
         Saves two figures of (1) trace, histogram, and autocorrelation, and (2) pair-wise scatter plots.
     """
+    #%%
     # Open dataset
     ds = xr.open_dataset(netcdf_fn)
     # Create list of model output to be used with functions
@@ -753,8 +754,24 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
 #        chain_neff = effective_n(dfs[0], vn, 15000, 0)
 #        plt.text(int(0.6*acorr_lags), 0.85, 'n_eff=' + str(chain_neff))
     # Save figure
-    plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + distribution_type + '_plots_' + str(len(dfs)) + 'chain_'
-                + str(iters) + 'iter_' + str(burn) + 'burn' + '.png', bbox_inches='tight')
+    if distribution_type == 'truncnormal':
+        disttype_short = 'TN'
+    else:
+        disttype_short = 'U'
+    if input.new_setup == 1:
+        setup_short = 'newsetup'
+    else:
+        setup_short = 'oldsetup'
+    str_ending = ''
+    if 'tempchange' in variables and input.new_setup == 1:
+        str_ending += '_TCpt' + str(int(input.tempchange_mb_threshold*100)).zfill(2)
+    if 'precfactor' in variables:
+        if precfactor_dist_type == 'custom':
+            str_ending += '_PFcust'
+        else:
+            str_ending += '_PFln'    
+    plt.savefig(mcmc_output_figures_fp + glacier_str + '_' + disttype_short + '_' + str(len(variables)-1) + 'V_' + 
+                str(int(iters/1000)) + 'k_' + setup_short + str_ending + '.png', bbox_inches='tight')
     plt.clf()
     #%%
 #    # ===== PAIRWISE SCATTER PLOTS ===========================================================
@@ -1539,7 +1556,6 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     
     # NEW SETUP
     if input.new_setup == 1:
-        print('\nUSING NEW SETUP\n')
         # Load precipitation - assume all precipitation falls as snow
         #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
         glac_bin_precsnow = (glacier_gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
@@ -1553,10 +1569,10 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                 glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]   
                 # Exponential decay according to elevation difference from the 75% elevation
                 #  prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
-                glac_bin_precsnow = (
-                        glac_bin_precsnow[glac_idx_upper25[0],:] * 
-                        np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
-                        (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]]))[:,np.newaxis])
+                glac_bin_precsnow[glac_idx_upper25,:] = (
+                                glac_bin_precsnow[glac_idx_upper25[0],:] * 
+                                np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
+                                   (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]]))[:,np.newaxis])                
                 # Precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
                 for month in range(0,glac_bin_precsnow.shape[1]):
                     glac_bin_precsnow[glac_idx_upper25[(glac_bin_precsnow[glac_idx_upper25,month] < 0.875 * 
@@ -1568,7 +1584,6 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         mb_acc_max = ((glac_bin_precsnow * glacier_area_t0[:,np.newaxis]).sum() / glacier_area_t0.sum() / 
                       (glac_bin_precsnow.shape[1] / 12))
 
-        mb_threshold = 0.05
         def find_tempchange_lowbound(tempchange_4opt):
             """
             Objective function to estimate temperature change lower bound
@@ -1587,7 +1602,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                                            option_areaconstant=1)) 
             # Glacier-wide mass balance
             mb_mwea = glac_wide_massbaltotal.sum() / (len(glac_wide_massbaltotal)/12)
-            mb_acc_max_adj = mb_acc_max - mb_threshold
+            mb_acc_max_adj = mb_acc_max - input.tempchange_mb_threshold
             return abs(mb_mwea - mb_acc_max_adj)
         
         
@@ -1630,22 +1645,33 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                                   method='SLSQP', options={'ftol':1e-6, 'eps':1.4901161193847656e-08})
         tempchange_opt = tempchange_opt_all.x[0]
         
-        if tempchange_opt_lowbnd < input.tempchange_boundlow:
-            tempchange_min = input.tempchange_boundlow
-        else:
-            tempchange_min = tempchange_opt_lowbnd
+#        if tempchange_opt_lowbnd < input.tempchange_boundlow:
+#            tempchange_min = input.tempchange_boundlow
+#        else:
+#            tempchange_min = tempchange_opt_lowbnd
+#        
+#        # Adjust parameters
+#        tempchange_shift = tempchange_min - input.tempchange_boundlow
+#        tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
+#        tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
+#        tempchange_mu = tempchange_opt
+#        tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
+#        tempchange_start = tempchange_mu
         
         # Adjust parameters
-        tempchange_shift = tempchange_min - input.tempchange_boundlow
+        tempchange_shift = tempchange_opt_lowbnd - input.tempchange_boundlow
         tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
         tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
-        tempchange_mu = tempchange_opt
-        tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
+        if abs(tempchange_opt - tempchange_boundlow) > 0.1:
+            tempchange_mu = tempchange_opt
+            tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
+        else:
+            tempchange_mu = input.tempchange_mu + tempchange_shift
+            tempchange_sigma = input.tempchange_sigma
         tempchange_start = tempchange_mu
 
-    
-    
-    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=len(ds.iter.values),
+    netcdf_fn = mcmc_output_netcdf_fp + glacier_str + '.nc'
+    plot_mc_results(netcdf_fn, glacier_cal_data, iters=len(ds.iter.values),
                     distribution_type=input.mcmc_distribution_type, precfactor_dist_type=input.precfactor_dist_type,
                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                     tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
