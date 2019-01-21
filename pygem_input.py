@@ -111,11 +111,10 @@ rgi_regionsO1 = [13]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['00001']
-#rgi_glac_number = ['00014']
-rgi_glac_number = ['13590']
-#rgi_glac_number = ['45048']
-#rgi_glac_number = ['45063']
+#rgi_glac_number = ['00001', '00014', '13590', '45048']
+#rgi_glac_number = ['01081']
+rgi_glac_number = ['26860']
+#rgi_glac_number = ['03036']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,10)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
@@ -506,12 +505,12 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 #%% CALIBRATION DATA
 # ===== SHEAN GEODETIC =====
-#shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
+shean_fp = main_directory + '/../DEMs/Shean_2018_1109/'
 #shean_fn = 'hma_mb_20181108_0454.csv'
-#shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
-shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
+shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
+#shean_fp = main_directory + '/../DEMs/Shean_2018_0806/'
 #shean_fn = 'hma_mb_20180803_1229.csv'
-shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
+#shean_fn = 'hma_mb_20180803_1229_all_filled.csv'
 
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'

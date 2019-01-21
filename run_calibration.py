@@ -414,12 +414,16 @@ def main(list_packed_vars):
                     massbalance.runmassbalance(modelparameters_copy, glacier_rgi_table, glacier_area_t0, 
                                                icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                               option_areaconstant=1))
-                
-                mb_mwea = glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)
+                                               option_areaconstant=0))
+                # Compute glacier volume change for every time step and use this to compute mass balance
+                glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+                # Mass change [km3 mwe]
+                #  mb [mwea] * (1 km / 1000 m) * area [km2]
+                glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+                # Mean annual mass balance [mwea]
+                mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
                 
                 if debug:
-                    mb_mwea = glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / (t2 - t1)
                     print('\n\nmodelparameters:', modelparameters_copy, '\nmb_mwea:', mb_mwea)
 
                 return mb_mwea
@@ -516,7 +520,7 @@ def main(list_packed_vars):
             tempchange_start = tempchange_mu
             
             # NEW SETUP
-            if input.new_setup == 1:
+            if input.new_setup == 1 and icethickness_t0.max() > 0:
                 # Load precipitation - assume all precipitation falls as snow
                 #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
                 glac_bin_precsnow = (glacier_gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
@@ -561,9 +565,15 @@ def main(list_packed_vars):
                         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                                    width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                                    glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                                   option_areaconstant=1)) 
-                    # Glacier-wide mass balance
-                    mb_mwea = glac_wide_massbaltotal.sum() / (len(glac_wide_massbaltotal)/12)
+                                                   option_areaconstant=0))
+                    # Compute glacier volume change for every time step and use this to compute mass balance
+                    glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+                    # Mass change [km3 mwe]
+                    #  mb [mwea] * (1 km / 1000 m) * area [km2]
+                    glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+                    # Mean annual mass balance [mwea]
+                    mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
+                    # Mass balance with offset to avoid edge effect
                     mb_acc_max_adj = mb_acc_max - input.tempchange_mb_threshold
                     return abs(mb_mwea - mb_acc_max_adj)
                 
@@ -597,40 +607,78 @@ def main(list_packed_vars):
                         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                                    width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                                    glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                                   option_areaconstant=1)) 
-                    # Glacier-wide mass balance
-                    mb_mwea = glac_wide_massbaltotal.sum() / (len(glac_wide_massbaltotal)/12)
+                                                   option_areaconstant=0)) 
+                    # Compute glacier volume change for every time step and use this to compute mass balance
+                    glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+                    # Mass change [km3 mwe]
+                    #  mb [mwea] * (1 km / 1000 m) * area [km2]
+                    glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+                    # Mean annual mass balance [mwea]
+                    mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
                     return abs(mb_mwea - observed_massbal)
                 
                 # Find tempchange where temperature is optimized
+                tempchange_opt_ftol = 1e-6
                 tempchange_opt_all = minimize(find_tempchange_opt, tempchange_init, bounds=[tempchange_bnds], 
-                                          method='SLSQP', options={'ftol':1e-6, 'eps':1.4901161193847656e-08})
+                                          method='SLSQP', options={'ftol':tempchange_opt_ftol, 
+                                                                   'eps':1.4901161193847656e-08})
                 tempchange_opt = tempchange_opt_all.x[0]
                 
-#                if tempchange_opt_lowbnd < input.tempchange_boundlow:
-#                    tempchange_min = input.tempchange_boundlow
-#                else:
-#                    tempchange_min = tempchange_opt_lowbnd
-#                
+
+                # If optimization successful, then mass balance can be obtained just by changing temperature
+                #  i.e., no max_acc_mb issues
+                if tempchange_opt_all.fun < tempchange_opt_ftol:       
+                    tempchange_mu = tempchange_opt
+                    tempchange_shift = tempchange_opt - input.tempchange_mu
+                    tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
+                    tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
+                    
+                    # Adjust lowerbound based on maximum mass balance
+                    if tempchange_opt_lowbnd > tempchange_boundlow:
+                        tempchange_boundlow = tempchange_opt_lowbnd
+                        
+                    # Adjust mean and standard deviation if lower bound is 
+                    print('test if this would ever happen!')
+                    if abs(tempchange_opt - tempchange_boundlow) > 0.1:
+                        tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
+                    
+                    tempchange_start = tempchange_mu
+
 #                # Adjust parameters
-#                tempchange_shift = tempchange_min - input.tempchange_boundlow
+#                tempchange_shift = tempchange_opt_lowbnd - input.tempchange_boundlow
 #                tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
 #                tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
-#                tempchange_mu = tempchange_opt
-#                tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
+##                # Check the optimized tempchange isn't the lower bound (max accumulation case)
+##                #  and that the optimized temperature is between the bounds.
+##                if (abs(tempchange_opt - tempchange_boundlow) > 0.1 and 
+##                    (tempchange_boundlow < tempchange_opt < tempchange_boundhigh)):
+##                    tempchange_mu = tempchange_opt
+##                    tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
+##                else:
+##                    tempchange_mu = input.tempchange_mu + tempchange_shift
+##                    tempchange_sigma = input.tempchange_sigma
+##                tempchange_start = tempchange_mu
+#                
+#                # Check the optimized tempchange isn't the lower bound (max accumulation case)
+#                #  and that the optimized temperature is between the bounds.
+#                if (abs(tempchange_opt - tempchange_boundlow) > 0.1 and 
+#                    (tempchange_boundlow < tempchange_opt < tempchange_boundhigh)):
+#                    tempchange_mu = tempchange_opt
+#                    tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
+#                # Check for cases where observed MB > max modeled MB
+#                #  in these cases, tempchange must be near that value
+#                elif mb_acc_max < observed_massbal:
+#                    tempchange_mu = tempchange_boundlow
+#                    tempchange_sigma = 1
+#                    tempchange_boundhigh = tempchange_boundlow + 10
+#                # Otherwise, shift parameters
+#                else:
+#                    tempchange_mu = input.tempchange_mu + tempchange_shift
+#                    tempchange_sigma = input.tempchange_sigma
 #                tempchange_start = tempchange_mu
                 
-                # Adjust parameters
-                tempchange_shift = tempchange_opt_lowbnd - input.tempchange_boundlow
-                tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
-                tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
-                if abs(tempchange_opt - tempchange_boundlow) > 0.1:
-                    tempchange_mu = tempchange_opt
-                    tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
-                else:
-                    tempchange_mu = input.tempchange_mu + tempchange_shift
-                    tempchange_sigma = input.tempchange_sigma
-                tempchange_start = tempchange_mu
+                print('mu:', tempchange_mu, 'sigma:', tempchange_sigma, '\nlowbnd:', tempchange_boundlow, '\nhighbnd:',
+                      tempchange_boundhigh, '\nstart:', tempchange_start)
                 #%%
             
             
@@ -648,14 +696,22 @@ def main(list_packed_vars):
                                      tempchange_start=tempchange_start)                    
                 elif n_chain == 1:
                     # Chains start at lowest values
-                    model = run_MCMC(distribution_type=distribution_type, precfactor_start=input.precfactor_boundlow,
-                                     tempchange_start=input.tempchange_boundlow, ddfsnow_start=input.ddfsnow_boundlow, 
-                                     iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
+                    model = run_MCMC(distribution_type=distribution_type, 
+                                     precfactor_dist_type=input.precfactor_dist_type, iterations=input.mcmc_sample_no, 
+                                     burn=input.mcmc_burn_no, step=input.mcmc_step,
+                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+                                     tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
+                                     tempchange_start=tempchange_boundlow, precfactor_start=input.precfactor_boundlow, 
+                                     ddfsnow_start=input.ddfsnow_boundlow)
                 elif n_chain == 2:
                     # Chains start at highest values
-                    model = run_MCMC(distribution_type=distribution_type, precfactor_start=input.precfactor_boundhigh,
-                                     tempchange_start=input.tempchange_boundlow, ddfsnow_start=input.ddfsnow_boundlow, 
-                                     iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step)
+                    model = run_MCMC(distribution_type=distribution_type,
+                                     precfactor_dist_type=input.precfactor_dist_type, iterations=input.mcmc_sample_no, 
+                                     burn=input.mcmc_burn_no, step=input.mcmc_step,
+                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+                                     tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
+                                     tempchange_start=tempchange_boundhigh, precfactor_start=input.precfactor_boundhigh, 
+                                     ddfsnow_start=input.ddfsnow_boundhigh)
                    
                 # Select data from model to be stored in netcdf
                 if input.precfactor_dist_type == 'custom':    

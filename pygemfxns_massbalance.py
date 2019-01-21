@@ -89,7 +89,10 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
         Glacier-wide volume [km3 ice] for each timestep
     glac_wide_ELA_annual : np.ndarray
         Equilibrium line altitude [masl] for each year
-    """        
+    """       
+    if debug:
+        print('\n\nDEBUGGING MASS BALANCE FUNCTION\n\n')
+    
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12
@@ -154,8 +157,9 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
         # Check ice still exists:
         if icethickness_t0.max() > 0:    
         
-#        # ANNUAL LOOP (daily or monthly timestep contained within loop)
-#        for year in range(0, annual_columns.shape[0]): 
+            if debug:
+                print(year, 'max ice thickness [m]:', icethickness_t0.max())
+
             # Glacier indices
             glac_idx_t0 = glacier_area_t0.nonzero()[0]
             # Functions currently set up for monthly timestep
@@ -351,14 +355,40 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
 #                        print('melt:', glac_bin_melt[:,step].sum())
                 
                 # ===== RETURN TO ANNUAL LOOP =====
-                # FRONTAL ABLATION
+                # Mass loss cannot exceed glacier volume
+                #  mb [mwea] = -1 * sum{area [km2] * ice thickness [m]} / total area [km2] * density_ice / density_water
+                mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * input.density_ice / input.density_water).sum() 
+                               / glacier_area_t0.sum())
+                # Check annual climatic mass balance
+                mb_mwea = ((glacier_area_t0 * glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
+                            glacier_area_t0.sum()) 
                 
+                if debug:
+                    print('mb_max_loss:', mb_max_loss, 'mb_check:', mb_mwea)
+                    
+                # If mass loss exceeds glacier mass, reduce all components
+                if mb_mwea < mb_max_loss:                    
+                    glac_bin_acc[:,12*year:12*(year+1)] = glac_bin_acc[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea
+                    glac_bin_refreeze[:,12*year:12*(year+1)] = (
+                            glac_bin_refreeze[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea)
+                    glac_bin_melt[:,12*year:12*(year+1)] = glac_bin_melt[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea
+                    
+                    glac_bin_massbalclim[:,12*year:12*(year+1)] = (
+                            glac_bin_acc[:,12*year:12*(year+1)] + glac_bin_refreeze[:,12*year:12*(year+1)] - 
+                            glac_bin_melt[:,12*year:12*(year+1)])
+                    
+                    if debug:
+                        mb_mwea_adj = ((glacier_area_t0 * glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
+                                       glacier_area_t0.sum()) 
+                        print('mb adjusted:', mb_mwea_adj)
+                    
+                
+                # FRONTAL ABLATION
 #                if debug:
 #                    print('\nyear:', year)
 #                    print('sea level:', sea_level, 
 #                          'bed elev:', round(elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
 #                                             icethickness_initial[glac_idx_t0[0]], 2))
-                
                 # Glacier bed altitude [masl]
                 glacier_bedelev = (elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
                                    icethickness_initial[glac_idx_t0[0]])
