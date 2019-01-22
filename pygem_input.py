@@ -112,10 +112,17 @@ rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['00001', '00014', '13590', '45048']
-#rgi_glac_number = ['01081']
-rgi_glac_number = ['26860']
-#rgi_glac_number = ['03036']
-#rgi_glac_number = ['03473']
+#rgi_glac_number = ['00035'] # too positive
+#rgi_glac_number = ['00626'] # too positive
+#rgi_glac_number = ['00660']
+#rgi_glac_number = ['00708'] # too negative
+#rgi_glac_number = ['00965'] # one of biggest glaciers
+#rgi_glac_number = ['00982'] # one of biggest glaciers
+#rgi_glac_number = ['04933'] # one of biggest glaciers
+rgi_glac_number = ['08085'] # one of biggest glaciers
+#rgi_glac_number = ['26860']
+#rgi_glac_number = ['03743']
+#rgi_glac_number = ['03743']
 #rgi_glac_number = glac_num_fromrange(1,10)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
@@ -213,11 +220,13 @@ tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
 tempchange_mb_threshold = 0.1
+tempchange_mb_max_loss = -2
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
 ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
 ddfsnow_start=ddfsnow_mu
+
 
 # option for new automatic priors for tempchange
 new_setup = 1

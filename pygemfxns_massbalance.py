@@ -157,8 +157,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
         # Check ice still exists:
         if icethickness_t0.max() > 0:    
         
-            if debug:
-                print(year, 'max ice thickness [m]:', icethickness_t0.max())
+#            if debug:
+#                print(year, 'max ice thickness [m]:', icethickness_t0.max())
 
             # Glacier indices
             glac_idx_t0 = glacier_area_t0.nonzero()[0]
@@ -191,14 +191,14 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                             modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
                     
-                    if debug:
-                        if year >= 34:
-                            print(year)
-                            print('glac_idx_t0:', glac_idx_t0)
-                            print('modelparams[2] and [3]:', modelparameters[2], modelparameters[3])
-                            print('GCM prec:', glacier_gcm_prec[12*year:12*(year+1)])
-                            print('max prec:', glac_bin_precsnow[glac_idx_t0,12*year:12*(year+1)].max())
-                            print('prec', glac_bin_precsnow[glac_idx_t0,12*year:12*(year+1)])
+#                    if debug:
+#                        if year >= 34:
+#                            print(year)
+#                            print('glac_idx_t0:', glac_idx_t0)
+#                            print('modelparams[2] and [3]:', modelparameters[2], modelparameters[3])
+#                            print('GCM prec:', glacier_gcm_prec[12*year:12*(year+1)])
+#                            print('max prec:', glac_bin_precsnow[glac_idx_t0,12*year:12*(year+1)].max())
+#                            print('prec', glac_bin_precsnow[glac_idx_t0,12*year:12*(year+1)])
                     
                     
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
@@ -363,8 +363,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 mb_mwea = ((glacier_area_t0 * glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
                             glacier_area_t0.sum()) 
                 
-                if debug:
-                    print('mb_max_loss:', mb_max_loss, 'mb_check:', mb_mwea)
+#                if debug:
+#                    print('mb_max_loss:', mb_max_loss, 'mb_check:', mb_mwea)
                     
                 # If mass loss exceeds glacier mass, reduce all components
                 if mb_mwea < mb_max_loss:                    
@@ -377,10 +377,10 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                             glac_bin_acc[:,12*year:12*(year+1)] + glac_bin_refreeze[:,12*year:12*(year+1)] - 
                             glac_bin_melt[:,12*year:12*(year+1)])
                     
-                    if debug:
-                        mb_mwea_adj = ((glacier_area_t0 * glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
-                                       glacier_area_t0.sum()) 
-                        print('mb adjusted:', mb_mwea_adj)
+#                    if debug:
+#                        mb_mwea_adj = ((glacier_area_t0 * glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
+#                                       glacier_area_t0.sum()) 
+#                        print('mb adjusted:', mb_mwea_adj)
                     
                 
                 # FRONTAL ABLATION

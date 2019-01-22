@@ -725,14 +725,14 @@ def main(list_packed_vars):
             print('REMOVE ITERATING THROUGH TEMPCHANGE')
 #            tempchange_iters = np.arange(-1.5, 5, 0.01).tolist()
 #            tempchange_iters = np.arange(-15, 0, 0.5).tolist()
-            tempchange_iters = np.arange(-3, 20, 0.1).tolist()
+            tempchange_iters = np.arange(-5, 17, 0.5).tolist()
             
             ddfsnow_iters = [0.0031, 0.0041, 0.0051]
             precfactor_iters = [0.5, 1, 2]
             
-            precfactor_iters = [1]
-            ddfsnow_iters = [0.0041]
-            tempchange_iters = [11.15]
+#            precfactor_iters = [1]
+#            ddfsnow_iters = [0.0041]
+#            tempchange_iters = [11.15]
 
             mb_vs_parameters = np.zeros((len(ddfsnow_iters) * len(precfactor_iters) * len(tempchange_iters), 4))
             count=0
@@ -756,8 +756,7 @@ def main(list_packed_vars):
                             massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
                                                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                                        glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-#                                                       option_areaconstant=0, debug=debug_mb))
-                                                       option_areaconstant=0, debug=1))
+                                                       option_areaconstant=0, debug=debug_mb))
                         
                         # Compute glacier volume change for every time step and use this to compute mass balance
                         #  this will work for any indexing
@@ -768,55 +767,56 @@ def main(list_packed_vars):
                         # Mean annual mass balance [mwea]
                         mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
                                    (glac_wide_masschange.shape[0] / 12))
-                        print(modelparameters, '\nmb_mwea:', mb_mwea)
+#                        print(modelparameters, '\nmb_mwea:', mb_mwea)
                         #%%
-#                        mb_vs_parameters[count,:] = np.array([precfactor, tempchange, ddfsnow, mb_mwea])
-#                        count += 1
-#                    print(modelparameters[2], modelparameters[7], modelparameters[4], np.round(mb_mwea,3))
-#                print('REMOVE RECORDING AND SAVING')
-#            np.savetxt(input.output_filepath + 'cal_opt2/figures/' + glacier_RGIId + '_mb_vs_parameters.csv', 
-#                       mb_vs_parameters, delimiter=',')
-#            import matplotlib.pyplot as plt
-#            from matplotlib.lines import Line2D
-#            # MB vs. tempchange
-#            fig = plt.figure(figsize=(6,4))
-#            plt.subplots_adjust(wspace=0.1, hspace=0.1)
-#            plt.suptitle('Mass balance versus Parameters ' + glacier_RGIId, y=0.94)
-#            plt.xlabel('Tempchange [degC]', fontsize=14)
-#            plt.ylabel('Mass balance [mwea]', fontsize=14)
-#
-#            # Subset data for each precfactor
-#            prec_linedict = {0.5:'--',
-#                             1:'-',
-#                             2:':',
-#                             20: '-.'}
-#            ddfsnow_colordict = {0.0031:'b',
-#                                 0.0041:'k',
-#                                 0.0051:'r'}
-#            for precfactor in precfactor_iters:
-#                modelparameters[2] = precfactor
-#                mb_vs_parameters_subset = mb_vs_parameters[mb_vs_parameters[:,0] == precfactor]
-#                for ddfsnow in ddfsnow_iters:
-#                    mb_vs_parameters_plot =  mb_vs_parameters_subset[mb_vs_parameters_subset[:,2] == ddfsnow]
-#                    plt.plot(mb_vs_parameters_plot[:,1], mb_vs_parameters_plot[:,3], 
-#                             linestyle=prec_linedict[precfactor], color=ddfsnow_colordict[ddfsnow])                
-#            # Add legend
-#            leg_lines = []
-#            leg_names = []
-#            x_min = mb_vs_parameters[:,1].min()
-#            x_max = mb_vs_parameters[:,1].max()
-#            y_min = mb_vs_parameters[:,3].min()
-#            for precfactor in reversed(precfactor_iters):
-#                line = Line2D([x_min,y_min],[x_min,y_min], linestyle=prec_linedict[precfactor], color='gray')
-#                leg_lines.append(line)
-#                leg_names.append('PF ' + str(precfactor))
-#            for ddfsnow in ddfsnow_iters:
-#                line = Line2D([x_min,y_min],[x_min,y_min], linestyle='-', color=ddfsnow_colordict[ddfsnow])
-#                leg_lines.append(line)
-#                leg_names.append('DDFsnow ' + str(np.round(ddfsnow,4)))
-#            plt.legend(leg_lines, leg_names, loc='lower left', frameon=False)
-#            plt.savefig(input.output_filepath + 'cal_opt2/figures/' + glacier_RGIId + '_mb_vs_parameters.png', 
-#                        bbox_inches='tight', dpi=300)
+                        mb_vs_parameters[count,:] = np.array([precfactor, tempchange, ddfsnow, mb_mwea])
+                        count += 1
+                    print(modelparameters[2], modelparameters[7], modelparameters[4], np.round(mb_mwea,3))
+                print('REMOVE RECORDING AND SAVING')
+            np.savetxt(input.output_filepath + 'cal_opt2/figures/' + glacier_RGIId + '_mb_vs_parameters.csv', 
+                       mb_vs_parameters, delimiter=',')
+            #%%
+            import matplotlib.pyplot as plt
+            from matplotlib.lines import Line2D
+            # MB vs. tempchange
+            fig = plt.figure(figsize=(6,4))
+            plt.subplots_adjust(wspace=0.1, hspace=0.1)
+            plt.suptitle('Mass balance versus Parameters ' + glacier_RGIId, y=0.94)
+            plt.xlabel('Tempchange [degC]', fontsize=14)
+            plt.ylabel('Mass balance [mwea]', fontsize=14)
+
+            # Subset data for each precfactor
+            prec_linedict = {0.5:'--',
+                             1:'-',
+                             2:':',
+                             20: '-.'}
+            ddfsnow_colordict = {0.0031:'b',
+                                 0.0041:'k',
+                                 0.0051:'r'}
+            for precfactor in precfactor_iters:
+                modelparameters[2] = precfactor
+                mb_vs_parameters_subset = mb_vs_parameters[mb_vs_parameters[:,0] == precfactor]
+                for ddfsnow in ddfsnow_iters:
+                    mb_vs_parameters_plot =  mb_vs_parameters_subset[mb_vs_parameters_subset[:,2] == ddfsnow]
+                    plt.plot(mb_vs_parameters_plot[:,1], mb_vs_parameters_plot[:,3], 
+                             linestyle=prec_linedict[precfactor], color=ddfsnow_colordict[ddfsnow])                
+            # Add legend
+            leg_lines = []
+            leg_names = []
+            x_min = mb_vs_parameters[:,1].min()
+            x_max = mb_vs_parameters[:,1].max()
+            y_min = mb_vs_parameters[:,3].min()
+            for precfactor in reversed(precfactor_iters):
+                line = Line2D([x_min,y_min],[x_min,y_min], linestyle=prec_linedict[precfactor], color='gray')
+                leg_lines.append(line)
+                leg_names.append('PF ' + str(precfactor))
+            for ddfsnow in ddfsnow_iters:
+                line = Line2D([x_min,y_min],[x_min,y_min], linestyle='-', color=ddfsnow_colordict[ddfsnow])
+                leg_lines.append(line)
+                leg_names.append('DDFsnow ' + str(np.round(ddfsnow,4)))
+            plt.legend(leg_lines, leg_names, frameon=False)
+            plt.savefig(input.output_filepath + 'cal_opt2/figures/' + glacier_RGIId + '_mb_vs_parameters.png', 
+                        bbox_inches='tight', dpi=300)
             #%%
                 
             

@@ -1629,17 +1629,16 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     t2 = glacier_cal_data.loc[cal_idx, 't2'].values[0]
     t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
     t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+    observed_massbal = mb_compare.loc[n,'obs_mb_mwea']
+    
     # MCMC Analysis
     ds = xr.open_dataset(mcmc_output_netcdf_fp + glacier_str + '.nc')
     df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
-    mb_era_mwea = df.massbal.mean()
-    mb_obs_mwea = (glacier_cal_data.loc[cal_idx,'mb_mwe']/ 
-                   (glacier_cal_data.loc[cal_idx,'t2'] - glacier_cal_data.loc[cal_idx,'t1'])).values[0]    
+    mod_mb_mwea = df.massbal.mean()  
     # Record data
-    mb_compare.loc[n,'mb_obs_mwea'] = mb_obs_mwea
-    mb_compare.loc[n,'mb_era_mwea'] = mb_era_mwea    
-    dif = mb_compare.loc[n,'mb_obs_mwea'] - mb_compare.loc[n,'mb_era_mwea']
-    print(dif)
+    mb_compare.loc[n,'mod_mb_mwea'] = mod_mb_mwea    
+
+    print(observed_massbal - mod_mb_mwea)
     
     # Select subsets of data
     glacier_gcm_elev = gcm_elev[n]
@@ -1650,11 +1649,10 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
     icethickness_t0 = main_glac_icethickness.iloc[n,:].values.astype(float)
     width_t0 = main_glac_width.iloc[n,:].values.astype(float)
+    glac_idx_t0 = glacier_area_t0.nonzero()[0]
     # Set model parameters
     modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
                        input.tempsnow, input.tempchange]
-    
-    observed_massbal = mb_obs_mwea.copy()
     
     # OLD SETUP
     tempchange_mu = input.tempchange_mu
@@ -1666,41 +1664,10 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     # NEW SETUP
     if input.new_setup == 1:
         #%%
-        # Load precipitation - assume all precipitation falls as snow
-        #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
-        glac_bin_precsnow = (glacier_gcm_prec * modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
-                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
-        glac_idx_t0 = glacier_area_t0.nonzero()[0]
-        # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
-        if input.option_preclimit == 1:
-            # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
-            if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
-                # Indices of upper 25%
-                glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 > 75]   
-                # Exponential decay according to elevation difference from the 75% elevation
-                #  prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
-                glac_bin_precsnow[glac_idx_upper25,:] = (
-                                glac_bin_precsnow[glac_idx_upper25[0],:] * 
-                                np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
-                                   (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]]))[:,np.newaxis])                
-                # Precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
-                for month in range(0,glac_bin_precsnow.shape[1]):
-                    glac_bin_precsnow[glac_idx_upper25[(glac_bin_precsnow[glac_idx_upper25,month] < 0.875 * 
-                        glac_bin_precsnow[glac_idx_t0,month].max()) & 
-                        (glac_bin_precsnow[glac_idx_upper25,month] != 0)], month] = (
-                                                        0.875 * glac_bin_precsnow[glac_idx_t0,month].max())            
-        
-        # Compute max accumulation [mwea]
-        #  sum(prec [m] * area [km2]) / area [km2] / (t2 - t1)
-        mb_acc_max = ((glac_bin_precsnow * glacier_area_t0[:,np.newaxis]).sum() / glacier_area_t0.sum() / 
-                      (glac_bin_precsnow.shape[1] / 12))
-
-        def find_tempchange_lowbound(tempchange_4opt):
+        def mb_mwea_calc(modelparameters):
             """
-            Objective function to estimate temperature change lower bound
+            Run the mass balance and calculate the mass balance [mwea]
             """
-            # Use a subset of model parameters to reduce number of constraints required
-            modelparameters[7] = tempchange_4opt[0]
             # Mass balance calculations
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
@@ -1718,83 +1685,103 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
             # Mean annual mass balance [mwea]
             mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
+            return mb_mwea
+        
+        
+        # Compute max accumulation [mwea]
+        modelparameters_max = modelparameters.copy()
+        modelparameters_max[7] = -100
+        modelparameters_max[2] = 1
+        mb_max_acc = mb_mwea_calc(modelparameters_max)
+        def find_tempchange_bndlow(tempchange_4opt):
+            """
+            Minimum tempchange if all snow and no melt (precfactor/mass redistribution will alter most positive MB)
+            Offset minimum temperature by tempchange_mb_threshold to avoid "edge effects"
+            """
+            # Use a subset of model parameters to reduce number of constraints required
+            modelparameters[7] = tempchange_4opt[0]
+            modelparameters[2] = modelparameters_max[2]
+            # Mean annual mass balance [mwea]
+            mb_mwea = mb_mwea_calc(modelparameters)
             # Mass balance with offset to avoid edge effect
-            mb_acc_max_adj = mb_acc_max - input.tempchange_mb_threshold
+            mb_acc_max_adj = mb_max_acc - input.tempchange_mb_threshold
             return abs(mb_mwea - mb_acc_max_adj)
-        
-        
-        # Find tempchange where no melt occurs - aka max positive accumulation
-        # Downscale using gcm and glacier lapse rates
+        # Set lower temperature bound based on max positive mass balance
+        # Temperature at the lowest bin
         #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
         lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
-        tempchange_acc_max = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
+        tempchange_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
                                     (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
-        tempchange_init = [tempchange_acc_max+10]
-        tempchange_bnds=(-100,100)
+        tempchange_opt_bndlow_init = [tempchange_max_acc + 1]
+        tempchange_opt_bndlow_bnds=(-100,100)
         # Run the optimization
-        tempchange_opt_lowbnd_all = minimize(find_tempchange_lowbound, tempchange_init, bounds=[tempchange_bnds], 
-                                             method='SLSQP', options={'ftol':1e-6, 'eps':1.4901161193847656e-08})
-        tempchange_opt_lowbnd = tempchange_opt_lowbnd_all.x[0]
+        tempchange_opt_bndlow_all = minimize(find_tempchange_bndlow, tempchange_opt_bndlow_init, 
+                                             bounds=[tempchange_opt_bndlow_bnds], method='L-BFGS-B')
+        tempchange_opt_bndlow = tempchange_opt_bndlow_all.x[0]
+
+        # Maximum loss
+        #  - limit to -2 mwea unless observation is less than complete loss
+        mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * input.density_ice / input.density_water).sum() 
+                       / glacier_area_t0.sum() / (t2 - t1))        
+        # Shrink the solution space through short grid search
+        modelparameters[7] = tempchange_opt_bndlow + 1
+        mb_mwea_1 = mb_mwea_calc(modelparameters)
+        mb_max_loss_dif = abs(mb_mwea_1 - mb_max_loss)
+        tempchange_step = 0.5
+        while mb_max_loss_dif > 0.01:
+            modelparameters[7] = modelparameters[7] + tempchange_step
+            mb_mwea_1 = mb_mwea_calc(modelparameters)
+            mb_max_loss_dif = abs(mb_mwea_1 - mb_max_loss)
+            
+        def find_tempchange_bndhigh(tempchange_4opt):
+            """
+            Find the maximum tempchange if entire glacier melts.
+            Offset the maximum loss by 0.01, so optimization avoids flat region.
+            """
+            # Use a subset of model parameters to reduce number of constraints required
+            modelparameters[7] = tempchange_4opt[0]
+            modelparameters[2] = 1
+            # Mean annual mass balance [mwea]
+            mb_mwea = mb_mwea_calc(modelparameters)
+            return mb_mwea - mb_max_loss
+
+        # Find maximum temperature change beyond which glacier completely melts
+        tempchange_opt_bndhigh_init = [modelparameters[7] - tempchange_step]
+        tempchange_opt_bndhigh_bnds = (modelparameters[7] - tempchange_step, modelparameters[7] + tempchange_step)
+        tempchange_opt_bndhigh_all = minimize(find_tempchange_bndhigh, tempchange_opt_bndhigh_init, 
+                                              bounds=[tempchange_opt_bndhigh_bnds], method='L-BFGS-B')
+        tempchange_opt_bndhigh = tempchange_opt_bndhigh_all.x[0]
         
         
         def find_tempchange_opt(tempchange_4opt):
             """
-            Objective function to estimate temperature change lower bound
+            Find optimal temperature based on observed mass balance
             """
             # Use a subset of model parameters to reduce number of constraints required
             modelparameters[7] = tempchange_4opt[0]
-            # Mass balance calculations
-            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
-             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
-             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, 
-             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                           option_areaconstant=0)) 
-            # Compute glacier volume change for every time step and use this to compute mass balance
-            glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-            # Mass change [km3 mwe]
-            #  mb [mwea] * (1 km / 1000 m) * area [km2]
-            glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
             # Mean annual mass balance [mwea]
-            mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
-            mb_mwea - observed_massbal
+            mb_mwea = mb_mwea_calc(modelparameters)
             return abs(mb_mwea - observed_massbal)
-        
-        # Find tempchange where temperature is optimized
-        tempchange_opt_ftol = 1e-6
-        tempchange_opt_all = minimize(find_tempchange_opt, tempchange_init, bounds=[tempchange_bnds], 
-                                  method='SLSQP', options={'ftol':tempchange_opt_ftol, 'eps':1.4901161193847656e-08})
+        # Find optimized tempchange in agreement with observed mass balance
+        tempchange_opt_init = [np.mean([tempchange_opt_bndlow, tempchange_opt_bndhigh])]
+        tempchange_opt_bnds = (tempchange_opt_bndlow, tempchange_opt_bndhigh)
+        tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, 
+                                      bounds=[tempchange_opt_bnds], method='L-BFGS-B')
         tempchange_opt = tempchange_opt_all.x[0]
-        
+          
+        # Adjust parameters         
+        tempchange_mu = tempchange_opt
+        tempchange_boundlow = tempchange_opt_bndlow
+        tempchange_boundhigh = tempchange_opt_bndhigh
+        if tempchange_mu > tempchange_opt_bndhigh:
+            tempchange_mu = tempchange_opt_bndhigh - 1e-3
+        elif tempchange_mu < tempchange_opt_bndlow:
+            tempchange_mu = tempchange_opt_bndlow + 1e-3
+        tempchange_sigma = 1
+        tempchange_start = tempchange_mu
+  
         #%%
-        
-        # Adjust parameters
-        # Extreme case: Observed mass loss < total glacier volume
-#        tempchange_boundlow = 
-        
-        
-#        # If optimization successful, then mass balance can be obtained just by changing temperature
-#        #  i.e., no max_acc_mb issues
-#        if tempchange_opt_all.fun < tempchange_opt_ftol:       
-#            tempchange_mu = tempchange_opt
-#            tempchange_shift = tempchange_opt - input.tempchange_mu
-#            tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
-#            tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
-#            
-#            # Adjust lowerbound based on maximum mass balance
-#            if tempchange_opt_lowbnd > tempchange_boundlow:
-#                tempchange_boundlow = tempchange_opt_lowbnd
-#                
-#            # Adjust mean and standard deviation if lower bound is 
-#            print('test if this would ever happen!')
-#            if abs(tempchange_opt - tempchange_boundlow) > 0.1:
-#                tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
-            #%%
-            
-            
+        # OLD SCHEME FROM 1/18/19
 #        tempchange_shift = tempchange_opt_lowbnd - input.tempchange_boundlow
 #        tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
 #        tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
@@ -1809,24 +1796,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
 #            tempchange_mu = input.tempchange_mu + tempchange_shift
 #            tempchange_sigma = input.tempchange_sigma
 #        tempchange_start = tempchange_mu
-#        
-#        # Check the optimized tempchange isn't the lower bound (max accumulation case)
-#        #  and that the optimized temperature is between the bounds.
-#        if (abs(tempchange_opt - tempchange_boundlow) > 0.1 and 
-#            (tempchange_boundlow < tempchange_opt < tempchange_boundhigh)):
-#            tempchange_mu = tempchange_opt
-#            tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
-#        # Check for cases where observed MB > max modeled MB
-#        #  in these cases, tempchange must be near that value
-#        elif mb_acc_max < observed_massbal:
-#            tempchange_mu = tempchange_boundlow
-#            tempchange_sigma = input.tempchange_sigma
-#            tempchange_boundhigh = tempchange_boundlow + 10
-#        # Otherwise, shift parameters
-#        else:
-#            tempchange_mu = input.tempchange_mu + tempchange_shift
-#            tempchange_sigma = input.tempchange_sigma
-#        tempchange_start = tempchange_mu
+        #%%
 
         print('mu:', tempchange_mu, 'sigma:', tempchange_sigma, '\nlowbnd:', tempchange_boundlow, '\nhighbnd:',
               tempchange_boundhigh, '\nstart:', tempchange_start)
