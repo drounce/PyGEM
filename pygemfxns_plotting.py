@@ -56,14 +56,15 @@ option_plot_individual_gcms = 0
 #%% ===== Input data =====
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
-mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
+#mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
+mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
 csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20181018/'
 
 # Regions
-rgi_regions = [13, 14, 15]
-#rgi_regions = [13]
+#rgi_regions = [13, 14, 15]
+rgi_regions = [15]
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -2095,10 +2096,9 @@ if option_plot_mcmc_errors == 1:
         main_glac_rgi_all['mb_cal_mwea'] = ds_cal['mb_mwea'] 
     else:
         main_glac_rgi_all['mb_cal_mwea'] = np.nan
-        for glac in main_glac_rgi_all:
+        for glac in range(main_glac_rgi_all.shape[0]):
             cal_idx = np.where(ds_cal['RGIId_full'] == main_glac_rgi_all.loc[glac, 'RGIId'])[0][0]
             main_glac_rgi_all.loc[glac,'mb_cal_mwea'] = ds_cal.loc[cal_idx,'mb_mwea']
-    
 
     # Load ERA-Interim modeled mass balance to data
     if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
@@ -2135,6 +2135,8 @@ if option_plot_mcmc_errors == 1:
         (ds_cal.loc[rand_idx,'RGIId_full'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
         main_glac_rgi_all['mb_era_mean'] = df_mean_all['massbal']
         main_glac_rgi_all['mb_era_med'] = df_median_all['massbal']
+#    else:
+        
     
     #%%
     main_glac_rgi_all['dif_mean_med'] = main_glac_rgi_all['mb_era_mean'] - main_glac_rgi_all['mb_era_med']

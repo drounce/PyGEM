@@ -8,7 +8,6 @@ module load lang/Anaconda3/2.5.0
 source activate pygem_hpc
 
 REGNO="15"
-IGNORE_REGIONNAME_SWITCH=1
 ADD_CAL_SWITCH=1
 
 # split glaciers into batches for different nodes
@@ -26,7 +25,7 @@ echo partition: $SLURM_JOB_PARTITION
 echo num_nodes: $SLURM_JOB_NUM_NODES nodes: $SLURM_JOB_NODELIST
 echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
 
-for i in rgi_glac_number_batch*
+for i in $rgi_fns 
 do
   # print the filename
   echo $i
