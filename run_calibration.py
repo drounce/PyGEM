@@ -243,15 +243,17 @@ def main(list_packed_vars):
             return x
 
         # ===== Define functions needed for MCMC method =====        
-        def run_MCMC(distribution_type='truncnormal', precfactor_dist_type=input.precfactor_dist_type,
+        def run_MCMC(precfactor_disttype=input.precfactor_disttype,
                      precfactor_lognorm_mu=input.precfactor_lognorm_mu, 
                      precfactor_lognorm_tau=input.precfactor_lognorm_tau, 
                      precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma,
                      precfactor_boundlow=input.precfactor_boundlow, precfactor_boundhigh=input.precfactor_boundhigh, 
                      precfactor_start=input.precfactor_start,
+                     tempchange_disttype=input.tempchange_disttype,
                      tempchange_mu=input.tempchange_mu, tempchange_sigma=input.tempchange_sigma, 
                      tempchange_boundlow=input.tempchange_boundlow, tempchange_boundhigh=input.tempchange_boundhigh,
                      tempchange_start=input.tempchange_start,
+                     ddfsnow_disttype=input.ddfsnow_disttype,
                      ddfsnow_mu=input.ddfsnow_mu, ddfsnow_sigma=input.ddfsnow_sigma, 
                      ddfsnow_boundlow=input.ddfsnow_boundlow, ddfsnow_boundhigh=input.ddfsnow_boundhigh,
                      ddfsnow_start=input.ddfsnow_start,
@@ -266,10 +268,8 @@ def main(list_packed_vars):
 
             Parameters
             ----------
-            distribution_type : str
-                Distribution type either 'truncnormal' or 'uniform' (default normal)
-            precfactor_dist_type : str
-                Distribution type of precipitation factor (either 'lognormal' or 'custom')
+            precfactor_disttype : str
+                Distribution type of precipitation factor (either 'lognormal', 'uniform', or 'custom')
             precfactor_lognorm_mu : float
                 Lognormal mean of precipitation factor (default assigned from input)
             precfactor_lognorm_tau : float
@@ -284,6 +284,8 @@ def main(list_packed_vars):
                 Upper boundary of precipitation factor (default assigned from input)
             precfactor_start : float
                 Starting value of precipitation factor for sampling iterations (default assigned from input)
+            tempchange_disttype : str
+                Distribution type of tempchange (either 'truncnormal' or 'uniform')  
             tempchange_mu : float
                 Mean of temperature change (default assigned from input)
             tempchange_sigma : float
@@ -294,6 +296,8 @@ def main(list_packed_vars):
                 Upper boundary of temperature change (default assigned from input)
             tempchange_start : float
                 Starting value of temperature change for sampling iterations (default assigned from input)
+            ddfsnow_disttype : str
+                Distribution type of degree day factor of snow (either 'truncnormal' or 'uniform')
             ddfsnow_mu : float
                 Mean of degree day factor of snow (default assigned from input)
             ddfsnow_sigma : float 
@@ -350,40 +354,38 @@ def main(list_packed_vars):
                 A trace, or Markov Chain, is an array of values outputed by the MCMC simulation which defines the
                 posterior probability distribution of the variable at hand.
             """        
-            # Assign prior distributions
-            # Temperature change and precipitation factor depend on distribution type
-            if distribution_type == 'truncnormal':
-                # Precipitation factor [-]
-                
-                if precfactor_dist_type =='lognormal':
-                    #  lognormal distribution (roughly 0.3 to 3)
-                    precfactor_start = np.exp(precfactor_start)
-                    precfactor = pymc.Lognormal('precfactor', mu=precfactor_lognorm_mu, tau=precfactor_lognorm_tau,
-                                                value=precfactor_start)
-                elif precfactor_dist_type =='custom':
-                    #  truncated normal distribution with transformation: if x >= 0, x+1; else, 1/(1-x)
-                    precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
-                                                      a=precfactor_boundlow, b=precfactor_boundhigh, 
-                                                      value=precfactor_start)
-                # Temperature change [degC]
-                #  truncated normal distribution (-10 to 10)
-                tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
-                                                  a=tempchange_boundlow, b=tempchange_boundhigh, value=tempchange_start)
-            elif distribution_type == 'uniform':
-                # Precipitation factor [-]
+            # PRIOR DISTRIBUTIONS
+            # Precipitation factor [-]
+            if precfactor_disttype =='lognormal':
+                #  lognormal distribution (roughly 0.3 to 3)
+                precfactor_start = np.exp(precfactor_start)
+                precfactor = pymc.Lognormal('precfactor', mu=precfactor_lognorm_mu, tau=precfactor_lognorm_tau,
+                                            value=precfactor_start)
+            elif precfactor_disttype == 'uniform':
                 precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh, 
                                           value=precfactor_start)
-                # Temperature change [degC]
+            elif precfactor_disttype =='custom':
+                #  truncated normal distribution with transformation
+                precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
+                                                  a=precfactor_boundlow, b=precfactor_boundhigh, 
+                                                  value=precfactor_start)
+            # Temperature change [degC]
+            if tempchange_disttype =='truncnormal':
+                tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
+                                                  a=tempchange_boundlow, b=tempchange_boundhigh, value=tempchange_start)
+            elif tempchange_disttype =='uniform':
                 tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh, 
                                           value=tempchange_start)
-            else:
-                print('\n\nINVALID DISTRIBUTION TYPE\n\n')
+                
             # Degree day factor of snow [mwe degC-1 d-1]
             #  always truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015 
-            #  (Braithwaite, 2008), since it's based on data
-            ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_boundlow, 
-                                           b=ddfsnow_boundhigh, value=ddfsnow_start)
-                    
+            #  (Braithwaite, 2008), since it's based on data; uniform should only be used for testing
+            if ddfsnow_disttype == 'truncnormal':
+                ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_boundlow, 
+                                               b=ddfsnow_boundhigh, value=ddfsnow_start)
+            if ddfsnow_disttype == 'uniform':
+                ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_boundlow, upper=ddfsnow_boundhigh, 
+                                       value=ddfsnow_start)
             
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
             @deterministic(plot=False)
@@ -397,10 +399,9 @@ def main(list_packed_vars):
                 if tempchange is not None:
                     modelparameters_copy[7] = float(tempchange)
                 if precfactor is not None:
-                    if precfactor_dist_type == 'lognormal':
-                        modelparameters_copy[2] = float(precfactor)
-                    elif precfactor_dist_type == 'custom':
-                        modelparameters_copy[2] = prec_transformation(np.array([0]))[0]
+                    modelparameters_copy[2] = float(precfactor)
+                    if precfactor_disttype == 'custom':
+                        modelparameters_copy[2] = prec_transformation(np.array([precfactor]))[0]
                 if ddfsnow is not None:
                     modelparameters_copy[4] = float(ddfsnow)
                     # Degree day factor of ice is proportional to ddfsnow
@@ -552,8 +553,8 @@ def main(list_packed_vars):
                 mb_max_acc = mb_mwea_calc(modelparameters_max)
                 def find_tempchange_bndlow(tempchange_4opt):
                     """
-                    Minimum tempchange if all snow and no melt (precfactor/mass redistribution will alter most positive MB)
-                    Offset minimum temperature by tempchange_mb_threshold to avoid "edge effects"
+                    Minimum tempchange if all snow/no melt (precfactor/mass redistribution will alter most positive MB)
+                    Offset minimum temperature by tempchange_mb_threshold to avoid edge effects
                     """
                     # Use a subset of model parameters to reduce number of constraints required
                     modelparameters[7] = tempchange_4opt[0]
@@ -652,39 +653,33 @@ def main(list_packed_vars):
 ##                    tempchange_sigma = input.tempchange_sigma
 ##                tempchange_start = tempchange_mu
             
-            # specify distribution type
-            distribution_type = input.mcmc_distribution_type
             # fit the MCMC model
             for n_chain in range(0,input.n_chains):
                 print(glacier_str + ' chain' + str(n_chain))
                 if n_chain == 0:                    
-                    model = run_MCMC(distribution_type=distribution_type, 
-                                     precfactor_dist_type=input.precfactor_dist_type, iterations=input.mcmc_sample_no, 
-                                     burn=input.mcmc_burn_no, step=input.mcmc_step, 
+                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step, 
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                                      tempchange_start=tempchange_start)                    
                 elif n_chain == 1:
                     # Chains start at lowest values
-                    model = run_MCMC(distribution_type=distribution_type, 
-                                     precfactor_dist_type=input.precfactor_dist_type, iterations=input.mcmc_sample_no, 
-                                     burn=input.mcmc_burn_no, step=input.mcmc_step,
+                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
-                                     tempchange_start=tempchange_boundlow, precfactor_start=input.precfactor_boundlow, 
+                                     tempchange_start=tempchange_boundlow, 
+                                     precfactor_start=input.precfactor_boundlow, 
                                      ddfsnow_start=input.ddfsnow_boundlow)
                 elif n_chain == 2:
                     # Chains start at highest values
-                    model = run_MCMC(distribution_type=distribution_type,
-                                     precfactor_dist_type=input.precfactor_dist_type, iterations=input.mcmc_sample_no, 
-                                     burn=input.mcmc_burn_no, step=input.mcmc_step,
+                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
-                                     tempchange_start=tempchange_boundhigh, precfactor_start=input.precfactor_boundhigh, 
+                                     tempchange_start=tempchange_boundhigh, 
+                                     precfactor_start=input.precfactor_boundhigh, 
                                      ddfsnow_start=input.ddfsnow_boundhigh)
                    
                 # Select data from model to be stored in netcdf
-                if input.precfactor_dist_type == 'custom':    
+                if input.precfactor_disttype == 'custom':    
                     precfactor_values = prec_transformation(model.trace('precfactor')[:])
                 else:
                     precfactor_values = model.trace('precfactor')[:]

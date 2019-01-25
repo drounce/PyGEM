@@ -56,14 +56,15 @@ option_plot_individual_gcms = 0
 #%% ===== Input data =====
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
-mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
+#mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
+mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
 csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20181018/'
 
 # Regions
-rgi_regions = [13, 14, 15]
-#rgi_regions = [13]
+#rgi_regions = [13, 14, 15]
+rgi_regions = [15]
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -2095,10 +2096,9 @@ if option_plot_mcmc_errors == 1:
         main_glac_rgi_all['mb_cal_mwea'] = ds_cal['mb_mwea'] 
     else:
         main_glac_rgi_all['mb_cal_mwea'] = np.nan
-        for glac in main_glac_rgi_all:
+        for glac in range(main_glac_rgi_all.shape[0]):
             cal_idx = np.where(ds_cal['RGIId_full'] == main_glac_rgi_all.loc[glac, 'RGIId'])[0][0]
             main_glac_rgi_all.loc[glac,'mb_cal_mwea'] = ds_cal.loc[cal_idx,'mb_mwea']
-    
 
     # Load ERA-Interim modeled mass balance to data
     if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
@@ -2111,6 +2111,9 @@ if option_plot_mcmc_errors == 1:
                     'tempsnow']
         df_mean_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
         df_median_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+        df_std_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+        df_min_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+        df_max_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
         for n, glac_str_wRGI in enumerate(main_glac_rgi_all['RGIId'].values):
             # Glacier string
             glacier_str = glac_str_wRGI.split('-')[1]
@@ -2119,6 +2122,10 @@ if option_plot_mcmc_errors == 1:
             df = df[mcmc_cns]
             df_mean_all.loc[n,:] = df.mean()
             df_median_all.loc[n,:] = df.median()
+            df_std_all.loc[n,:] = df.std()
+            df_min_all.loc[n,:] = df.min()
+            df_max_all.loc[n,:] = df.max()
+            
         # Export stats, so only had to load them once
         export_cns = ['RGIId']
         for cn in mcmc_cns:
@@ -2130,15 +2137,59 @@ if option_plot_mcmc_errors == 1:
         df_mean_all.to_csv(shean_fp + 'mcmc_mean_all.csv')
         df_median_all.to_csv(shean_fp + 'mcmc_median_all.csv')
     
+    #%%
     # Add to main_glac_rgi
-    if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
-        (ds_cal.loc[rand_idx,'RGIId_full'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
+    if (main_glac_rgi_all.shape[0] == df_mean_all.shape[0] and 
+        (df_mean_all.loc[rand_idx,'RGIId'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
         main_glac_rgi_all['mb_era_mean'] = df_mean_all['massbal']
         main_glac_rgi_all['mb_era_med'] = df_median_all['massbal']
-    
-    #%%
+
     main_glac_rgi_all['dif_mean_med'] = main_glac_rgi_all['mb_era_mean'] - main_glac_rgi_all['mb_era_med']
-    main_glac_rgi_all['dif_cal_era'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_mean']
+    main_glac_rgi_all['dif_cal_era_mean'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_mean']
+    main_glac_rgi_all['dif_cal_era_med'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_med']
+
+    # remove nan values
+    main_glac_rgi_all = (
+            main_glac_rgi_all.drop(np.where(np.isnan(main_glac_rgi_all['mb_era_mean'].values) == True)[0].tolist(), 
+                                   axis=0))
+    main_glac_rgi_all.reset_index(drop=True, inplace=True)
+    
+    #%% FIND MODE
+#    def calc_mode(chain, nbins):
+#        """
+#        Calculate heights of histogram based on given bins
+#        
+#        Parameters
+#        ----------
+#        chain : np.array
+#            values to bin
+#        nbins : int
+#            number of bins
+#            
+#        Returns
+#        -------
+#        hist : np.array
+#            number of values in each bin
+#        bins : np.array
+#            bin edges, note there will be one more edge than the len(hist) since the hist is between all the edges
+#        bin_spacing : float
+#            bin spacing
+#        """
+#        # Histogram
+#        x_range = chain.max() - chain.min()
+#        bin_spacing = np.round(x_range,-int(np.floor(np.log10(abs(x_range))))) / nbins
+#        bin_start = np.floor(chain.min()*(1/bin_spacing)) * bin_spacing
+#        bin_end = np.ceil(chain.max() * (1/bin_spacing)) * bin_spacing
+#        bins = np.arange(bin_start, bin_end + bin_spacing, bin_spacing)
+#        hist, bins = np.histogram(chain, bins=bins)
+#        return hist, bins, bin_spacing
+    # Histogram
+    chain=df.massbal.values
+    bin_spacing = 0.01
+    bin_start = np.floor(chain.min()*(1/bin_spacing)) * bin_spacing
+    bin_end = np.ceil(chain.max() * (1/bin_spacing)) * bin_spacing
+    bins = np.arange(bin_start, bin_end + bin_spacing, bin_spacing)
+    hist, bins = np.histogram(chain, bins=bins)
 
     #%%
     def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=figure_fp):
@@ -2159,30 +2210,29 @@ if option_plot_mcmc_errors == 1:
         # Save figure
         fig.set_size_inches(6,4)
         fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
-#%%
+
     # Histogram: Mass balance [mwea], Observation - ERA
-    hist_cn = 'dif_cal_era'
+    hist_cn = 'dif_cal_era_mean'
     low_bin = int(main_glac_rgi_all[hist_cn].min())
     high_bin = int(main_glac_rgi_all[hist_cn].max() + 1)
-    bins = [low_bin, -0.25, -0.2, -0.15, -0.1, -0.05, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, high_bin]
+    bins = [low_bin, -0.2, -0.1, -0.05, -0.02, 0.02, 0.05, 0.1, 0.2, high_bin]
     plot_hist(main_glac_rgi_all, hist_cn, bins, xlabel='Mass balance [mwea]\n(Calibration - MCMC_mean)', 
               ylabel='# Glaciers', fig_fn='MB_cal_vs_mcmc_hist.png', fig_fp=figure_fp + '../cal/')
-   #%%           
+              
+         
     # Histogram: Mass balance [mwea], MCMC mean - median
-    hist_cn = 'dif_mean_med'
+    hist_cn = 'dif_cal_era_med'
     low_bin = int(main_glac_rgi_all[hist_cn].min())
     high_bin = int(main_glac_rgi_all[hist_cn].max() + 1)
-    bins = [-1, -0.1, -0.05, -0.02, 0.02, 0.05, 0.1, high_bin]
-    plot_hist(main_glac_rgi_all, hist_cn, bins, xlabel='MCMC Mass balance [mwea]\n(Mean - Median)', 
+    bins = [-1, -0.2, -0.1, -0.05, -0.02, 0.02, 0.05, 0.1, 0.2, high_bin]
+    plot_hist(main_glac_rgi_all, hist_cn, bins, xlabel='MCMC Mass balance [mwea]\n(Calibration - MCMC_median)', 
               ylabel='# Glaciers', fig_fn='MB_mean_vs_med_mcmc_hist.png', fig_fp=figure_fp + '../cal/')
     
     #%%
     # Map: Mass change, difference between calibration data and median data
     #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
     main_glac_rgi_all['mb_cal_Gta'] = main_glac_rgi_all['mb_cal_mwea'] * main_glac_rgi_all['Area'] / 1000
-    main_glac_rgi_all['mb_era_Gta'] = main_glac_rgi_all['mb_era_mean'] * main_glac_rgi_all['Area'] / 1000
-    
-    #%%
+    main_glac_rgi_all['mb_era_Gta'] = main_glac_rgi_all['mb_era_med'] * main_glac_rgi_all['Area'] / 1000
     
     def partition_sum_groups(grouping, vn, main_glac_rgi_all):
         """Partition model parameters by each group
@@ -2220,7 +2270,7 @@ if option_plot_mcmc_errors == 1:
             ds_group[ngroup] = [group, vn_reg]
                 
         return groups, ds_group
-    #%%
+
     grouping='degree'
     
     groups, ds_group_cal = partition_sum_groups(grouping, 'mb_cal_Gta', main_glac_rgi_all)
@@ -2228,14 +2278,14 @@ if option_plot_mcmc_errors == 1:
     groups, ds_group_area = partition_sum_groups(grouping, 'Area', main_glac_rgi_all)
     
 #    ds_group_dif = [[] for x in ds_group_cal ]
-    #%%
+
     # Group difference [Gt/yr]
     dif_cal_era_Gta = (np.array([x[1] for x in ds_group_cal]) - np.array([x[1] for x in ds_group_era])).tolist()
     ds_group_dif_cal_era_Gta = [[x[0],dif_cal_era_Gta[n]] for n, x in enumerate(ds_group_cal)]
     # Group difference [mwea]
     area = [x[1] for x in ds_group_area]
     ds_group_dif_cal_era_mwea = [[x[0], dif_cal_era_Gta[n] / area[n] * 1000] for n, x in enumerate(ds_group_cal)]
-    #%%
+
     fig_fn = 'MB_cal_vs_mcmc_map.png'
     
     east = 104
@@ -2245,7 +2295,7 @@ if option_plot_mcmc_errors == 1:
     
     labelsize = 13
     
-    norm = plt.Normalize(-0.2, 0.05)
+    norm = plt.Normalize(-0.2, 0.2)
     
     # Create the projection
     fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
@@ -2292,5 +2342,3 @@ if option_plot_mcmc_errors == 1:
     fig.set_size_inches(6,4)
     fig.savefig(figure_fp + '../cal/' + fig_fn, bbox_inches='tight', dpi=300)
     
-
-

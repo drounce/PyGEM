@@ -106,12 +106,12 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13]
+rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
-#rgi_glac_number = ['00001', '00014', '13590', '45048']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['00001']
 #rgi_glac_number = ['00035'] # too positive
 #rgi_glac_number = ['00626'] # too positive
 #rgi_glac_number = ['00660']
@@ -119,11 +119,15 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = ['00965'] # one of biggest glaciers
 #rgi_glac_number = ['00982'] # one of biggest glaciers
 #rgi_glac_number = ['04933'] # one of biggest glaciers
-rgi_glac_number = ['08085'] # one of biggest glaciers
+#rgi_glac_number = ['08085'] # one of biggest glaciers
 #rgi_glac_number = ['26860']
+#rgi_glac_number = ['01081'] # too positive
+#rgi_glac_number = ['00014'] # too negative
+#rgi_glac_number = ['07204']
+#rgi_glac_number = ['03473']
 #rgi_glac_number = ['03743']
-#rgi_glac_number = ['03743']
-#rgi_glac_number = glac_num_fromrange(1,10)
+#rgi_glac_number = ['13119']
+#rgi_glac_number = glac_num_fromrange(7219,7226)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
 #                                    + '/')
 if 'rgi_glac_number' not in locals():
@@ -196,7 +200,7 @@ zscore_update_threshold = 0.1
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 5000
+mcmc_sample_no = 500
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
@@ -204,29 +208,30 @@ mcmc_step = None
 thin_interval = 1
 
 # MCMC distribution parameters
-mcmc_distribution_type = 'truncnormal'
-precfactor_dist_type = 'lognormal'
-#precfactor_dist_type = 'custom'
+precfactor_disttype = 'lognormal'
+#precfactor_disttype = 'custom'
 precfactor_lognorm_mu = 0
 precfactor_lognorm_tau = 4
 precfactor_mu = 0
 precfactor_sigma = 1
-precfactor_boundlow = -2
-precfactor_boundhigh = 2
-precfactor_start = precfactor_lognorm_mu
+precfactor_boundlow = 0.1
+precfactor_boundhigh = 10
+precfactor_start = 1
+#tempchange_disttype = 'truncnormal'
+tempchange_disttype = 'uniform'
 tempchange_mu = 0
 tempchange_sigma = 4
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
 tempchange_mb_threshold = 0.1
-tempchange_mb_max_loss = -2
+ddfsnow_disttype = 'truncnormal'
+#ddfsnow_disttype = 'uniform
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
 ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
 ddfsnow_start=ddfsnow_mu
-
 
 # option for new automatic priors for tempchange
 new_setup = 1
@@ -323,25 +328,39 @@ elif option_calibration == 2:
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
 # Variable names
-eraint_varnames = ['temperature', 'precipitation', 'geopotential', 'temperature_pressurelevels']
+#era_varnames = ['temperature', 'precipitation', 'geopotential', 'temperature_pressurelevels']
+era_varnames = ['temperature']
 #  Note: do not change variable names as these are set to run with the download_erainterim_data.py script.
 #        If option 2 is being used to calculate the lapse rates, then the pressure level data is unnecessary.
 # Dates
 eraint_start_date = '19790101'
 eraint_end_date = '20180501'
+era5_downloadyearstart = 1979
+era5_downloadyearend = 2018
 # Resolution
 grid_res = '0.5/0.5'
 # Bounding box (N/W/S/E)
-bounding_box = '90/0/-90/360'
+#bounding_box = '90/0/-90/360'
+bounding_box = '50/70/25/105'
 # Lapse rate option
 option_lr_method = 1
 #  Option 0 - lapse rates are constant defined by input
 #  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  Option 2 - lapse rates derived from surrounding pixels (varies spatially and temporally)
 #    Note: Be careful with option 2 as the ocean vs land/glacier temperatures can causeƒ unrealistic inversions
-# Filepath
+
+# ERA-Interim
+era5_fp = main_directory + '/../Climate_data/ERA5/'
+era5_temp_fn = 'ERA5_Temp2m_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) + '.nc'
+era5_prec_fn = 'ERA5_TotalPrec_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) + '.nc'
+era5_elev_fn = 'ERA5_geopotential.nc'
+era5_pressureleveltemp_fn = ('ERA5_pressureleveltemp_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) 
+                             + '.nc')
+era5_lr_fn = ('ERA5_lapserates_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) +'_opt' + 
+              str(option_lr_method) + '_HMA.nc')
+
+# ERA-Interim
 eraint_fp = main_directory + '/../Climate_data/ERA_Interim/download/'
-# Filenames
 eraint_temp_fn = 'ERAInterim_Temp2m_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
 eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
 eraint_elev_fn = 'ERAInterim_geopotential.nc'

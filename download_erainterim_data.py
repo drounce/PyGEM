@@ -14,6 +14,7 @@ from datetime import datetime
 # Local libraries
 import pygem_input as input
 
+#%%
 
 class eraint_variable2download():
     """
@@ -53,6 +54,22 @@ class eraint_variable2download():
                 "target": input.eraint_fp + input.eraint_temp_fn,
                 }
             
+        elif self.vn == 'temperature_era5':
+            self.properties = {
+                "class": "ea",
+                "dataset": "era5",
+                "date": date_list,
+                "expver": "1",
+                "grid": input.grid_res,
+                "levtype": "sfc",
+                "param": "167.128",
+                "area": input.bounding_box,
+                "stream": "moda",
+                "type": "an",
+                "format": "netcdf",
+                "target": input.eraint_fp + input.eraint_temp_fn,
+                }
+            
         elif self.vn == 'precipitation':
             self.properties = {
                 "class": "ei",
@@ -68,6 +85,22 @@ class eraint_variable2download():
                 "type": "fc",
                 "format": "netcdf",
                 "target": input.eraint_fp + input.eraint_prec_fn,
+                }
+            
+        elif self.vn == 'temperature_era5':
+            self.properties = {
+                "class": "ea",
+                "dataset": "era5",
+                "date": date_list,
+                "expver": "1",
+                "grid": input.grid_res,
+                "levtype": "sfc",
+                "param": "167.128",
+                "area": input.bounding_box,
+                "stream": "moda",
+                "type": "an",
+                "format": "netcdf",
+                "target": input.eraint_fp + input.eraint_temp_fn,
                 }
             
         elif self.vn == 'geopotential':
@@ -129,7 +162,7 @@ if not os.path.isdir(input.eraint_fp):
 # Open server
 server = ECMWFDataServer()
 # Download data for each variable
-for varname in input.eraint_varnames:
+for varname in input.era_varnames:
     class_variable = eraint_variable2download(varname)
     # Check if data already downloaded
     if not os.path.isfile(class_variable.properties['target']):
