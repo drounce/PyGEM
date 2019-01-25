@@ -846,7 +846,7 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
                 logpost_tempchange = - (1 / (2 * tempchange_sigma**2)) * (chain_tempchange - tempchange_mu)**2
             elif tempchange_disttype == 'uniform':
                 logpost_tempchange = 0
-        
+
         if 'precfactor' in variables:
             if precfactor_disttype == 'lognormal':
                 precfactor_lognorm_sigma = (1/precfactor_lognorm_tau)**2
