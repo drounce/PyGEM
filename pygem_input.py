@@ -111,7 +111,7 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 rgi_glac_number = 'all'
-#rgi_glac_number = ['00001']
+rgi_glac_number = ['00001']
 #rgi_glac_number = ['00035'] # too positive
 #rgi_glac_number = ['00626'] # too positive
 #rgi_glac_number = ['00660']
