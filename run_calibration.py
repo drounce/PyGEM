@@ -524,6 +524,7 @@ def main(list_packed_vars):
             
             # NEW SETUP
             if input.new_setup == 1 and icethickness_t0.max() > 0:
+#            def new_bounds()
                 def mb_mwea_calc(modelparameters):
                     """
                     Run the mass balance and calculate the mass balance [mwea]
@@ -627,43 +628,29 @@ def main(list_packed_vars):
                 tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, 
                                               bounds=[tempchange_opt_bnds], method='L-BFGS-B')
                 tempchange_opt = tempchange_opt_all.x[0]
-                  
-                # Adjust parameters         
+                
+                # Adjust tempchange bounds
                 tempchange_mu = tempchange_opt
                 tempchange_boundlow = tempchange_opt_bndlow
                 tempchange_boundhigh = tempchange_opt_bndhigh
-                if tempchange_mu > tempchange_opt_bndhigh:
-                    tempchange_mu = tempchange_opt_bndhigh - 1e-3
-                elif tempchange_mu < tempchange_opt_bndlow:
-                    tempchange_mu = tempchange_opt_bndlow + 1e-3
-#                tempchange_sigma = input.tempchange_sigma
                 tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 6
+                # Move mean off the edge
+                if abs(tempchange_mu - tempchange_boundlow) < tempchange_sigma:
+                    tempchange_mu = tempchange_boundlow + tempchange_sigma
+                elif abs(tempchange_mu - tempchange_boundhigh) < tempchange_sigma:
+                    tempchange_mu = tempchange_boundhigh - tempchange_sigma
                 tempchange_start = tempchange_mu
                 
-                # Adjust the precipitation factor bounds, if the observation in near the mb_max_acc
+                # Adjust precipitation factor bounds (if needed)
                 mb_obs_max = observed_massbal + 3 * observed_error
-                
-                if mb_obs_max / mb_max_acc > 1.5:
-                    precfactor_boundlow = 0.1
-                    precfactor_boundhigh = 10
+                pf_max_ratio = mb_obs_max / mb_max_acc        
+                if pf_max_ratio > 1.5:
+                    precfactor_boundhigh = np.round(pf_max_ratio,0) + 2
+                    precfactor_boundlow = 1 / precfactor_boundhigh
                 else:
-                    precfactor_boundlow = input.precfactor_boundlow
                     precfactor_boundhigh = input.precfactor_boundhigh
-
-#                # Adjust parameters
-#                tempchange_shift = tempchange_opt_lowbnd - input.tempchange_boundlow
-#                tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
-#                tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
-##                # Check the optimized tempchange isn't the lower bound (max accumulation case)
-##                #  and that the optimized temperature is between the bounds.
-##                if (abs(tempchange_opt - tempchange_boundlow) > 0.1 and 
-##                    (tempchange_boundlow < tempchange_opt < tempchange_boundhigh)):
-##                    tempchange_mu = tempchange_opt
-##                    tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
-##                else:
-##                    tempchange_mu = input.tempchange_mu + tempchange_shift
-##                    tempchange_sigma = input.tempchange_sigma
-##                tempchange_start = tempchange_mu
+                    precfactor_boundlow = input.precfactor_boundlow
+                
             
             # fit the MCMC model
             for n_chain in range(0,input.n_chains):

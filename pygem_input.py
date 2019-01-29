@@ -112,12 +112,19 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
-#rgi_glac_number = modelsetup.glac_num_fromrange(7219,7226)
-#rgi_glac_number = modelsetup.get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
+#rgi_glac_number = ['12112']
+#rgi_glac_number = ['02703']
+#rgi_glac_number = ['01081'] # too positive
+#rgi_glac_number = ['00014'] # too negative
+#rgi_glac_number = ['07204']
+#rgi_glac_number = ['03743']
+#rgi_glac_number = ['13119']
+#rgi_glac_number = glac_num_fromrange(1,2)
+#rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
-#rgi_glac_number = modelsetup.get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=0)
+#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=0)
 
 # ===== Bias adjustment option =====
 option_bias_adjustment = 1
@@ -182,12 +189,24 @@ zscore_update_threshold = 0.1
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 2500
+mcmc_sample_no = 5000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
 #mcmc_step = 'am'
 thin_interval = 1
+
+
+#print('\nDELETE HERE\n')
+#rgi_glac_number = ['00014'] # too negative
+#rgi_glac_number = ['03473'] 
+#rgi_glac_number = ['04092'] # too positive
+##rgi_glac_number = ['04515']
+rgi_glac_number = ['05536'] # PF_max_ratio of 1.47
+#rgi_glac_number = ['01081'] # too positive
+#rgi_glac_number = ['11167'] # way too positive
+#rgi_glac_number = ['12112'] # too positive (big glacier)
+
 
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
@@ -197,10 +216,10 @@ precfactor_lognorm_mu = 0
 precfactor_lognorm_tau = 4
 precfactor_mu = 0
 precfactor_sigma = 1.5
-#precfactor_boundlow = -3
-#precfactor_boundhigh = 3
-precfactor_boundlow = 0.5
-precfactor_boundhigh = 2
+precfactor_boundlow = 0
+precfactor_boundhigh = 10
+#precfactor_boundlow = 0.5
+#precfactor_boundhigh = 1.5
 precfactor_start = 1
 tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'

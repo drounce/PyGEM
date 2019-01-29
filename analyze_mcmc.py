@@ -773,7 +773,7 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
         x_extent_min = np.min([chain.min(), x_values.min()])
         x_extent_max = np.max([chain.max(), x_values.max()])
         if vn == 'precfactor':
-            ax[row_idx,col_idx].set_xlim(input.precfactor_boundlow, input.precfactor_boundhigh)
+            ax[row_idx,col_idx].set_xlim(precfactor_boundlow, precfactor_boundhigh)
         else:
             ax[row_idx,col_idx].set_xlim(x_extent_min, x_extent_max)
 
@@ -1002,7 +1002,7 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
     
     np.savetxt(input.output_filepath + 'cal_opt2/figures/' + glacier_RGIId + '_mb_vs_parameters.csv', 
                mb_vs_parameters, delimiter=',')
-    
+
     # MB vs. model parameters
     plt.figure(figsize=(6,4))
     plt.subplots_adjust(wspace=0.1, hspace=0.1)
@@ -1013,6 +1013,7 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
     # Subset data for each precfactor
     prec_linedict = {0.5:'--',
                      1:'-',
+                     1.5:':',
                      2:':',
                      20: '-.'}
     ddfsnow_colordict = {0.0031:'b',
@@ -1718,23 +1719,16 @@ cal_data.reset_index(drop=True, inplace=True)
 #%%
 
 # ===== PROCESS EACH NETCDF FILE =====
-mb_compare_cols = ['RGIId', 'glacno', 'obs_mb_mwea', 'mod_mb_mwea']
+mb_compare_cols = ['RGIId', 'glacno', 'obs_mb_mwea', 'max_loss_mwea', 'max_acc_mwea', 'mod_mb_mwea', 'max_acc_mwea', 
+                   'mb_obs_max', 'PF_max_ratio', 'PF_low', 'PF_high', 'TC_mu', 'TC_sigma', 'TC_low', 'TC_high']
 mb_compare = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(mb_compare_cols))), columns=mb_compare_cols)
+mb_compare[:] = np.nan
 mb_compare['RGIId'] = main_glac_rgi['RGIId']
 mb_compare['glacno'] = main_glac_rgi['glacno']
 mb_compare['obs_mb_mwea'] = cal_data.mb_mwe / (cal_data.t2 - cal_data.t1)
 # Add maximum loss based on glacier volume
 mb_compare['max_loss_mwea'] = ((-1 * (main_glac_hyps * main_glac_icethickness).sum(axis=1) / main_glac_hyps.sum(axis=1) 
                                * input.density_ice / input.density_water).values / (cal_data.t2 - cal_data.t1).values)
-# Add maximum accumulation based on modeled accumulation (precipitation factor=1) and no melt
-mb_compare['mod_mb_max_acc'] = np.zeros((main_glac_rgi.shape[0]))
-count_exceedance = 0
-
-# Count how many observations have mass loss greater than glacier mass
-#for n in range(main_glac_rgi.shape[0]):
-#    if mb_compare.loc[n,'obs_mb_mwea'] < mb_compare.loc[n,'max_loss_mwea']:
-#        print(main_glac_rgi.loc[n,'RGIId'].split('-')[1], 'Obs:', np.round(mb_compare.loc[n,'obs_mb_mwea'],2), 
-#              'Max loss:', np.round(mb_compare.loc[n,'max_loss_mwea'],2))
 
 #%%
 for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
@@ -1743,7 +1737,6 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     # Glacier number
     glacno = int(glacier_str.split('.')[1])
     # RGI information
-#    glacier_rgi_table = main_glac_rgi.iloc[np.where(main_glac_rgi['glacno'] == glacno)]
     glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
     # Calibration data
     cal_idx = np.where(cal_data['glacno'] == glacno)[0]
@@ -1759,11 +1752,8 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     # MCMC Analysis
     ds = xr.open_dataset(mcmc_output_netcdf_fp + glacier_str + '.nc')
     df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
-    mod_mb_mwea = df.massbal.mean()  
-    # Record data
-    mb_compare.loc[n,'mod_mb_mwea'] = mod_mb_mwea    
-
-    print(observed_massbal - mod_mb_mwea)
+    mb_compare.loc[n,'mod_mb_mwea'] = df.massbal.mean()    
+    print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
     
     # Select subsets of data
     glacier_gcm_elev = gcm_elev[n]
@@ -1845,9 +1835,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         tempchange_opt_bndlow = tempchange_opt_bndlow_all.x[0]
 
         # Maximum loss
-        #  - limit to -2 mwea unless observation is less than complete loss
-        mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * input.density_ice / input.density_water).sum() 
-                       / glacier_area_t0.sum() / (t2 - t1))        
+        mb_max_loss = mb_compare.loc[n,'max_loss_mwea']      
         # Shrink the solution space through short grid search
         modelparameters[7] = tempchange_opt_bndlow + 1
         mb_mwea_1 = mb_mwea_calc(modelparameters)
@@ -1894,58 +1882,46 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                                       bounds=[tempchange_opt_bnds], method='L-BFGS-B')
         tempchange_opt = tempchange_opt_all.x[0]
           
-        # Adjust parameters         
+        # Adjust tempchange bounds
         tempchange_mu = tempchange_opt
         tempchange_boundlow = tempchange_opt_bndlow
         tempchange_boundhigh = tempchange_opt_bndhigh
-        if tempchange_mu > tempchange_opt_bndhigh:
-            tempchange_mu = tempchange_opt_bndhigh - 1e-3
-        elif tempchange_mu < tempchange_opt_bndlow:
-            tempchange_mu = tempchange_opt_bndlow + 1e-3
-#        tempchange_sigma = input.tempchange_sigma
         tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 6
+        # Move mean off the edge
+        if abs(tempchange_mu - tempchange_boundlow) < tempchange_sigma:
+            tempchange_mu = tempchange_boundlow + tempchange_sigma
+        elif abs(tempchange_mu - tempchange_boundhigh) < tempchange_sigma:
+            tempchange_mu = tempchange_boundhigh - tempchange_sigma
         tempchange_start = tempchange_mu
         
-        
-        #%%
-        # Adjust the precipitation factor bounds, if the observation in near the mb_max_acc
+        # Adjust precipitation factor bounds (if needed)
         mb_obs_max = observed_massbal + 3 * observed_error
-        
-        if mb_obs_max / mb_max_acc > 1.5:
-            precfactor_boundlow = 0.1
-            precfactor_boundhigh = 10
+        pf_max_ratio = mb_obs_max / mb_max_acc        
+        if pf_max_ratio > 1.5:
+            precfactor_boundhigh = np.round(pf_max_ratio,0) + 2
+            precfactor_boundlow = 1 / precfactor_boundhigh
         else:
-            precfactor_boundlow = input.precfactor_boundlow
             precfactor_boundhigh = input.precfactor_boundhigh
-  
-        #%%
-        # OLD SCHEME FROM 1/18/19
-#        tempchange_shift = tempchange_opt_lowbnd - input.tempchange_boundlow
-#        tempchange_boundlow = input.tempchange_boundlow + tempchange_shift
-#        tempchange_boundhigh = input.tempchange_boundhigh + tempchange_shift
-#        #%%
-#        # Check the optimized tempchange isn't the lower bound (max accumulation case)
-#        #  and that the optimized temperature is between the bounds.
-#        if (abs(tempchange_opt - tempchange_boundlow) > 0.1 and 
-#            (tempchange_boundlow < tempchange_opt < tempchange_boundhigh)):
-#            tempchange_mu = tempchange_opt
-#            tempchange_sigma = (tempchange_mu - tempchange_boundlow) / 3
-#        else:
-#            tempchange_mu = input.tempchange_mu + tempchange_shift
-#            tempchange_sigma = input.tempchange_sigma
-#        tempchange_start = tempchange_mu
-        #%%
+            precfactor_boundlow = input.precfactor_boundlow
 
-        print('mu:', tempchange_mu, 'sigma:', tempchange_sigma, '\nlowbnd:', tempchange_boundlow, '\nhighbnd:',
-              tempchange_boundhigh, '\nstart:', tempchange_start)
+        print('PF_max_ratio:', np.round(pf_max_ratio,2),
+              '\nPF_low:', precfactor_boundlow, 'PF_high:', precfactor_boundhigh,
+              '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2), 
+              '\nTC_low:', np.round(tempchange_boundlow,2), '\nTC_high:', np.round(tempchange_boundhigh,2), 
+              '\nTC_start:', np.round(tempchange_start,2))
+        
+        mb_compare.loc[n,'max_acc_mwea'] = mb_max_acc
+        mb_compare.loc[n,'mb_obs_max'] = mb_obs_max
+        mb_compare.loc[n,'PF_max_ratio'] = pf_max_ratio
+        mb_compare.loc[n,'PF_low'] = precfactor_boundlow
+        mb_compare.loc[n,'PF_high'] = precfactor_boundhigh
+        mb_compare.loc[n,'TC_mu'] = tempchange_mu
+        mb_compare.loc[n,'TC_sigma'] = tempchange_sigma
+        mb_compare.loc[n,'TC_low'] = tempchange_boundlow
+        mb_compare.loc[n,'TC_high'] = tempchange_boundhigh
+        
+        
         #%%
-    
-#    # Calculate number of glaciers that exceed max accumulation
-#    mb_compare.loc[n,'mod_mb_max_acc'] = mb_acc_max
-#    if mb_obs_mwea > mb_acc_max:
-#        count_exceedance += 1
-#        print(glacier_str, 'Obs:', np.round(mb_obs_mwea,2), 'Model max:', np.round(mb_acc_max,2))
-#print(count_exceedance)  
 
     netcdf_fn = mcmc_output_netcdf_fp + glacier_str + '.nc'
     iters = len(ds.iter.values)
@@ -1960,14 +1936,19 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
                         tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                         tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
+
+#%%
+## Export comparison
+#mb_compare_fn = 'mb_compare_' + 'R' + str(input.rgi_regionsO1[0]) + '_' + str(main_glac_rgi.shape[0]) + 'glac.csv'
+#mb_compare.to_csv('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/PyGEM/../Output/cal_opt2/' + mb_compare_fn)
     
     #%% Plot mass balance vs parameters
 ##    tempchange_iters = np.arange(-1.5, 5, 0.01).tolist()
-#    tempchange_iters = np.arange(-10, 15, 0.5).tolist()
+#    tempchange_iters = np.arange(-10, 20, 0.5).tolist()
 ##    tempchange_iters = np.arange(-3, 20, 0.1).tolist()
 #    
 #    ddfsnow_iters = [0.0031, 0.0041, 0.0051]
-#    precfactor_iters = [0.5, 1, 2]
+#    precfactor_iters = [0.5, 1, 1.5]
 #    plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
 #                          glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
 #                          glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0)
