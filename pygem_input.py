@@ -112,16 +112,8 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
-#rgi_glac_number = ['04515']
+rgi_glac_number = 'all'
 #rgi_glac_number = ['03473']
-#rgi_glac_number = ['12112']
-#rgi_glac_number = ['02703']
-#rgi_glac_number = ['01081'] # too positive
-#rgi_glac_number = ['00014'] # too negative
-#rgi_glac_number = ['07204']
-#rgi_glac_number = ['03743']
-#rgi_glac_number = ['13119']
 #rgi_glac_number = modelsetup.glac_num_fromrange(7219,7226)
 #rgi_glac_number = modelsetup.get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
@@ -196,14 +188,6 @@ ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
 #mcmc_step = 'am'
 thin_interval = 1
-
-
-print('\nDELETE HERE\n')
-rgi_glac_number = ['04092']
-#rgi_glac_number = ['03473']
-#rgi_glac_number = ['04515']
-
-
 
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
