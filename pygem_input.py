@@ -108,11 +108,14 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [3]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
+
+rgi_glac_number = ['03628']
+
 #rgi_glac_number = ['03473']
 #rgi_glac_number = ['12112']
 #rgi_glac_number = ['02703']
@@ -151,10 +154,10 @@ option_wateryear = 3
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-gcm_startyear = 2000
-gcm_endyear = 2018
+gcm_startyear = 1980
+gcm_endyear = 2017
 gcm_spinupyears = 0
-gcm_wateryear = 3
+gcm_wateryear = 1
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -167,7 +170,7 @@ synthetic_prec_factor = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC)
-option_calibration = 2
+option_calibration = 1
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['wgms_d']
@@ -198,13 +201,18 @@ thin_interval = 1
 
 
 #print('\nDELETE HERE\n')
+
+#rgi_glac_number = ['02827'] # PF_max_ratio of 1.48 - good!
+#rgi_glac_number = ['05536'] # PF_max_ratio of 1.47 - good!
+#rgi_glac_number = ['11167'] # way too positive - good! (max loss issue)
+#rgi_glac_number = ['03473'] # good!
+#rgi_glac_number = ['04092'] # too positive - good! (max loss issue)
+
+
 #rgi_glac_number = ['00014'] # too negative
-#rgi_glac_number = ['03473'] 
-#rgi_glac_number = ['04092'] # too positive
-##rgi_glac_number = ['04515']
-rgi_glac_number = ['05536'] # PF_max_ratio of 1.47
+
 #rgi_glac_number = ['01081'] # too positive
-#rgi_glac_number = ['11167'] # way too positive
+#rgi_glac_number = ['04515']
 #rgi_glac_number = ['12112'] # too positive (big glacier)
 
 
@@ -216,10 +224,10 @@ precfactor_lognorm_mu = 0
 precfactor_lognorm_tau = 4
 precfactor_mu = 0
 precfactor_sigma = 1.5
-precfactor_boundlow = 0
-precfactor_boundhigh = 10
-#precfactor_boundlow = 0.5
-#precfactor_boundhigh = 1.5
+#precfactor_boundlow = 0
+#precfactor_boundhigh = 10
+precfactor_boundlow = 0.5
+precfactor_boundhigh = 1.5
 precfactor_start = 1
 tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'
@@ -319,6 +327,7 @@ modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
 # Model parameter filepath
 if option_calibration == 1:
     modelparams_fp_dict = {
+            3:  output_filepath + 'cal_opt1/',
             6:  output_filepath + 'cal_opt1/reg6/',
             13: output_filepath + 'cal_opt1/reg13/',
             14: output_filepath + 'cal_opt1/reg14/',

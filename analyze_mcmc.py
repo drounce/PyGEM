@@ -1719,8 +1719,8 @@ cal_data.reset_index(drop=True, inplace=True)
 #%%
 
 # ===== PROCESS EACH NETCDF FILE =====
-mb_compare_cols = ['RGIId', 'glacno', 'obs_mb_mwea', 'max_loss_mwea', 'max_acc_mwea', 'mod_mb_mwea', 'max_acc_mwea', 
-                   'mb_obs_max', 'PF_max_ratio', 'PF_low', 'PF_high', 'TC_mu', 'TC_sigma', 'TC_low', 'TC_high']
+mb_compare_cols = ['RGIId', 'glacno', 'obs_mb_mwea', 'max_loss_mwea', 'max_acc_mwea', 'mod_mb_mwea', 'mb_obs_max', 
+                   'PF_max_ratio', 'PF_low', 'PF_high', 'TC_mu', 'TC_sigma', 'TC_low', 'TC_high']
 mb_compare = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(mb_compare_cols))), columns=mb_compare_cols)
 mb_compare[:] = np.nan
 mb_compare['RGIId'] = main_glac_rgi['RGIId']
@@ -1898,7 +1898,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         mb_obs_max = observed_massbal + 3 * observed_error
         pf_max_ratio = mb_obs_max / mb_max_acc        
         if pf_max_ratio > 1.5:
-            precfactor_boundhigh = np.round(pf_max_ratio,0) + 2
+            precfactor_boundhigh = np.round(pf_max_ratio,0) + 1
             precfactor_boundlow = 1 / precfactor_boundhigh
         else:
             precfactor_boundhigh = input.precfactor_boundhigh

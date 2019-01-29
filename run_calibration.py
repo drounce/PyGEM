@@ -644,8 +644,8 @@ def main(list_packed_vars):
                 # Adjust precipitation factor bounds (if needed)
                 mb_obs_max = observed_massbal + 3 * observed_error
                 pf_max_ratio = mb_obs_max / mb_max_acc        
-                if pf_max_ratio > 1.5:
-                    precfactor_boundhigh = np.round(pf_max_ratio,0) + 2
+                if pf_max_ratio > 1:
+                    precfactor_boundhigh = np.round(pf_max_ratio,0) + 1
                     precfactor_boundlow = 1 / precfactor_boundhigh
                 else:
                     precfactor_boundhigh = input.precfactor_boundhigh

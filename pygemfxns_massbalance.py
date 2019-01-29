@@ -92,7 +92,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     """       
     if debug:
         print('\n\nDEBUGGING MASS BALANCE FUNCTION\n\n')
-    
+    #%%
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12
@@ -133,7 +133,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     # marine-terminating. Modify the sea level, so sea level is consistent with lowest elevation bin that has ice.
     if glacier_rgi_table.loc['TermType'] == 1:
         sea_level = elev_bins[glac_idx_initial[0]] - (elev_bins[1] - elev_bins[0]) / 2
-    
     
     #  glac_idx_initial is used with advancing glaciers to ensure no bands are added in a discontinuous section
     # Run mass balance only on pixels that have an ice thickness (some glaciers do not have an ice thickness)
@@ -384,11 +383,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     
                 
                 # FRONTAL ABLATION
-#                if debug:
-#                    print('\nyear:', year)
-#                    print('sea level:', sea_level, 
-#                          'bed elev:', round(elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
-#                                             icethickness_initial[glac_idx_t0[0]], 2))
+                if debug:
+                    print('\nyear:', year)
+                    print('sea level:', sea_level, 
+                          'bed elev:', round(elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
+                                             icethickness_initial[glac_idx_t0[0]], 2))
                 # Glacier bed altitude [masl]
                 glacier_bedelev = (elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
                                    icethickness_initial[glac_idx_t0[0]])
@@ -457,7 +456,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     
                     # Frontal ablation [mwe] in each bin
                     bin_count = 0
-                    while frontalablation_volumeloss > input.tolerance:
+                    while (frontalablation_volumeloss > input.tolerance) and (bin_count < len(glac_idx_fa)):
                         if frontalablation_volumeloss >= glac_bin_volume[glac_idx_fa[bin_count]]:
                             glac_bin_frontalablation[glac_idx_fa[bin_count], step] = (
                                     glac_bin_volume[glac_idx_fa[bin_count]] / 
@@ -468,10 +467,16 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                                     frontalablation_volumeloss / (glacier_area_t0[glac_idx_fa[bin_count]] * 10**6)
                                     * input.density_ice / input.density_water)
                         
-                        frontalablation_volumeloss = round(frontalablation_volumeloss - (
-                                glac_bin_frontalablation[glac_idx_fa[bin_count], step] * 
-                                input.density_water / input.density_ice *
-                                glacier_area_t0[glac_idx_fa[bin_count]] * 10**6),6)
+                        
+                        frontalablation_volumeloss += (
+                                -1 * glac_bin_frontalablation[glac_idx_fa[bin_count], step] * input.density_water / 
+                                input.density_ice * glacier_area_t0[glac_idx_fa[bin_count]] * 10**6)
+                        
+#                        frontalablation_volumeloss = round(frontalablation_volumeloss - (
+#                                glac_bin_frontalablation[glac_idx_fa[bin_count], step] * 
+#                                input.density_water / input.density_ice *
+#                                glacier_area_t0[glac_idx_fa[bin_count]] * 10**6),6)
+                        
                         bin_count += 1         
                         
                         
@@ -566,6 +571,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 icethickness_t0 = icethickness_t1.copy()
                 glacier_area_t0 = glacier_area_t1.copy()
                 width_t0 = width_t1.copy()   
+                #%%
     # Remove the spinup years of the variables that are being exported
     if input.timestep == 'monthly':
         colstart = input.spinupyears * annual_divisor
