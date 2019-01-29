@@ -7,7 +7,29 @@ import pandas as pd
 import numpy as np
 
 
-# ===== FUNCTIONS TO SELECT GLACIERS ======
+#%% Functions to select specific glacier numbers
+def get_same_glaciers(glac_fp):
+    """
+    Get same 1000 glaciers for testing of priors
+    
+    Parameters
+    ----------
+    glac_fp : str
+        filepath to where netcdf files of individual glaciers are held
+    
+    Returns
+    -------
+    glac_list : list
+        list of rgi glacier numbers
+    """
+    glac_list = []
+    for i in os.listdir(glac_fp):
+        if i.endswith('.nc'):
+            glac_list.append(i.split('.')[1])
+    glac_list = sorted(glac_list)
+    return glac_list
+    
+
 def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
     """
     Generate list of glaciers that have calibration data and select number of glaciers to include.
@@ -56,6 +78,7 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
         num = num[0:number_glaciers]
     return num
 
+
 def glac_num_fromrange(int_low, int_high):
     """
     Generate list of glaciers for all numbers between two integers.
@@ -76,29 +99,8 @@ def glac_num_fromrange(int_low, int_high):
     y = [str(i).zfill(5) for i in x]
     return y
 
-def get_same_glaciers(glac_fp):
-    """
-    Get same 1000 glaciers for testing of priors
-    
-    Parameters
-    ----------
-    glac_fp : str
-        filepath to where netcdf files of individual glaciers are held
-    
-    Returns
-    -------
-    glac_list : list
-        list of rgi glacier numbers
-    """
-    glac_list = []
-    for i in os.listdir(glac_fp):
-        if i.endswith('.nc'):
-            glac_list.append(i.split('.')[1])
-    glac_list = sorted(glac_list)
-    return glac_list
-    
 
-#%% MODEL PARAMETERS THAT ARE FREQUENTLY ADJUSTED DURING DEVELOPMENT
+#%%
 # Model setup directory
 main_directory = os.getcwd()
 # Output directory
@@ -110,28 +112,20 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
-rgi_glac_number = ['00001']
-#rgi_glac_number = ['00035'] # too positive
-#rgi_glac_number = ['00626'] # too positive
-#rgi_glac_number = ['00660']
-#rgi_glac_number = ['00708'] # too negative
-#rgi_glac_number = ['00965'] # one of biggest glaciers
-#rgi_glac_number = ['00982'] # one of biggest glaciers
-#rgi_glac_number = ['04933'] # one of biggest glaciers
-#rgi_glac_number = ['08085'] # one of biggest glaciers
-#rgi_glac_number = ['26860']
+#rgi_glac_number = 'all'
+#rgi_glac_number = ['04515']
+#rgi_glac_number = ['03473']
+#rgi_glac_number = ['12112']
+#rgi_glac_number = ['02703']
 #rgi_glac_number = ['01081'] # too positive
 #rgi_glac_number = ['00014'] # too negative
 #rgi_glac_number = ['07204']
-#rgi_glac_number = ['03473']
 #rgi_glac_number = ['03743']
 #rgi_glac_number = ['13119']
-#rgi_glac_number = glac_num_fromrange(7219,7226)
-#rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + str(rgi_regionsO1[0]) 
-#                                    + '/')
-if 'rgi_glac_number' not in locals():
-    rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 10, option_random=0)
+#rgi_glac_number = modelsetup.glac_num_fromrange(7219,7226)
+#rgi_glac_number = modelsetup.get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
+#                                               str(rgi_regionsO1[0]) + '/')
+#rgi_glac_number = modelsetup.get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=0)
 
 # ===== Bias adjustment option =====
 option_bias_adjustment = 1
@@ -150,17 +144,18 @@ startyear = 2000
 endyear = 2018
 # Spin up time [years]
 spinupyears = 0
-# Simulation runs
-gcm_startyear = 2000
-gcm_endyear = 2018
-gcm_spinupyears = 0
-gcm_wateryear = 3
-
 # Water year option
 option_wateryear = 3
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
+
+# Simulation runs
+#  simulation runs are separate such that calibration runs can be run at same time as simulations
+gcm_startyear = 2000
+gcm_endyear = 2018
+gcm_spinupyears = 0
+gcm_wateryear = 3
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -170,11 +165,6 @@ synthetic_endyear = 2000
 synthetic_spinupyears = 0
 synthetic_temp_adjust = 0
 synthetic_prec_factor = 1
-
-# Remove NaN values (glaciers without calibration data)
-option_removeNaNcal = 1
-#  Option 0 (default) - do not remove these glaciers
-#  Option 1 - remove glaciers without cal data
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC)
@@ -200,33 +190,44 @@ zscore_update_threshold = 0.1
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 500
+mcmc_sample_no = 2500
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
 #mcmc_step = 'am'
 thin_interval = 1
 
+
+print('\nDELETE HERE\n')
+rgi_glac_number = ['04092']
+#rgi_glac_number = ['03473']
+#rgi_glac_number = ['04515']
+
+
+
 # MCMC distribution parameters
-precfactor_disttype = 'lognormal'
+#precfactor_disttype = 'lognormal'
+precfactor_disttype = 'uniform'
 #precfactor_disttype = 'custom'
 precfactor_lognorm_mu = 0
 precfactor_lognorm_tau = 4
 precfactor_mu = 0
-precfactor_sigma = 1
-precfactor_boundlow = 0.1
-precfactor_boundhigh = 10
+precfactor_sigma = 1.5
+#precfactor_boundlow = -3
+#precfactor_boundhigh = 3
+precfactor_boundlow = 0.5
+precfactor_boundhigh = 2
 precfactor_start = 1
-#tempchange_disttype = 'truncnormal'
-tempchange_disttype = 'uniform'
+tempchange_disttype = 'truncnormal'
+#tempchange_disttype = 'uniform'
 tempchange_mu = 0
-tempchange_sigma = 4
+tempchange_sigma = 2
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
 tempchange_mb_threshold = 0.1
 ddfsnow_disttype = 'truncnormal'
-#ddfsnow_disttype = 'uniform
+#ddfsnow_disttype = 'uniform'
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
@@ -335,7 +336,7 @@ era_varnames = ['temperature']
 # Dates
 eraint_start_date = '19790101'
 eraint_end_date = '20180501'
-era5_downloadyearstart = 1979
+era5_downloadyearstart = 2017
 era5_downloadyearend = 2018
 # Resolution
 grid_res = '0.5/0.5'

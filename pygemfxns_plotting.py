@@ -57,7 +57,7 @@ option_plot_individual_gcms = 0
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
 #mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
-mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2/'
+mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_20190124/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
 csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20181018/'
@@ -654,11 +654,23 @@ for rgi_region in rgi_regions:
     # Data on all glaciers
     main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
                                                              rgi_glac_number='all')
+     # Glacier hypsometry [km**2]
+    main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, [rgi_region], input.hyps_filepath,
+                                                        input.hyps_filedict, input.hyps_colsdrop)
+    # Ice thickness [m], average
+    main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, [rgi_region], 
+                                                             input.thickness_filepath, input.thickness_filedict, 
+                                                             input.thickness_colsdrop)
+    
     if rgi_region == rgi_regions[0]:
         main_glac_rgi_all = main_glac_rgi_region
+        main_glac_hyps_all = main_glac_hyps_region
+        main_glac_icethickness_all = main_glac_icethickness_region
     else:
         main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
-
+        main_glac_hyps_all = pd.concat([main_glac_hyps_all, main_glac_hyps_region])
+        main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region])
+        
 # Add watersheds, regions, degrees, mascons, and all groups to main_glac_rgi_all
 # Watersheds
 main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
@@ -2079,6 +2091,7 @@ if option_plot_mcmc_errors == 1:
           '\n2. How many chains are actually "good" and how many are bad?')
     print(mcmc_fp)
     
+
     # Load cal data
     shean_fp = input.main_directory + '/../DEMs/Shean_2018_1109/'
     shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
@@ -2094,11 +2107,13 @@ if option_plot_mcmc_errors == 1:
     if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
         (ds_cal.loc[rand_idx,'RGIId_full'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
         main_glac_rgi_all['mb_cal_mwea'] = ds_cal['mb_mwea'] 
+        main_glac_rgi_all['mb_cal_sigma'] = ds_cal['mb_mwea_sigma'] 
     else:
         main_glac_rgi_all['mb_cal_mwea'] = np.nan
         for glac in range(main_glac_rgi_all.shape[0]):
             cal_idx = np.where(ds_cal['RGIId_full'] == main_glac_rgi_all.loc[glac, 'RGIId'])[0][0]
             main_glac_rgi_all.loc[glac,'mb_cal_mwea'] = ds_cal.loc[cal_idx,'mb_mwea']
+            main_glac_rgi_all.loc[glac,'mb_cal_sigma'] = ds_cal.loc[cal_idx,'mb_mwea_sigma'] 
 
     # Load ERA-Interim modeled mass balance to data
     if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
@@ -2138,15 +2153,26 @@ if option_plot_mcmc_errors == 1:
         df_median_all.to_csv(shean_fp + 'mcmc_median_all.csv')
     
     #%%
+    # Maximum loss if entire glacier melted between 2000 and 2018
+    mb_max_loss = ((main_glac_hyps_all * main_glac_icethickness_all * input.density_ice / 
+                    input.density_water).sum(axis=1).values / main_glac_hyps_all.sum(axis=1).values / (2018 - 2000))
+    main_glac_rgi_all['mb_max_loss'] = mb_max_loss
+    
+    #%%
     # Add to main_glac_rgi
     if (main_glac_rgi_all.shape[0] == df_mean_all.shape[0] and 
         (df_mean_all.loc[rand_idx,'RGIId'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
         main_glac_rgi_all['mb_era_mean'] = df_mean_all['massbal']
         main_glac_rgi_all['mb_era_med'] = df_median_all['massbal']
+        main_glac_rgi_all['mb_era_std'] = df_std_all['massbal']
+        main_glac_rgi_all['mb_era_min'] = df_min_all['massbal']
+        main_glac_rgi_all['mb_era_max'] = df_max_all['massbal']
 
     main_glac_rgi_all['dif_mean_med'] = main_glac_rgi_all['mb_era_mean'] - main_glac_rgi_all['mb_era_med']
     main_glac_rgi_all['dif_cal_era_mean'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_mean']
     main_glac_rgi_all['dif_cal_era_med'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_med']
+    
+    #%%
 
     # remove nan values
     main_glac_rgi_all = (

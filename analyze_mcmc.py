@@ -739,7 +739,8 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
         if row_idx + 1 == len(variables):
             ax[row_idx,col_idx].set_xlabel('Parameter Value', size=14)
         ax[row_idx,col_idx].set_ylabel('PDF', size=14)
-        plt.xlim(x_values.min(), x_values.max())
+        
+        
         
         # Ensemble/Posterior distribution                
         for n_chain, df in enumerate(dfs):
@@ -771,7 +772,10 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
         # Set extent
         x_extent_min = np.min([chain.min(), x_values.min()])
         x_extent_max = np.max([chain.max(), x_values.max()])
-        ax[row_idx,col_idx].set_xlim(x_extent_min, x_extent_max)
+        if vn == 'precfactor':
+            ax[row_idx,col_idx].set_xlim(input.precfactor_boundlow, input.precfactor_boundhigh)
+        else:
+            ax[row_idx,col_idx].set_xlim(x_extent_min, x_extent_max)
 
         # ===== COLUMN 3: Normalized autocorrelation ======
         col_idx=2
@@ -824,127 +828,127 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
                 bbox_inches='tight', dpi=300)
     fig.clf()
 
-    # ===== LOG POSTERIOR PLOT ================================================================
-    fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(6, 4))
-    fig.suptitle('log(posterior)_' + glacier_str, y=0.94)
-
-    chain_legend = []
-    for n_df, df in enumerate(dfs):
-        chain = df[vn].values
-        runs = np.arange(0,chain.shape[0])
-        
-        # LOG POSTERIOR
-        chain_massbal = df['massbal'].values
-        chain_tempchange = df['tempchange'].values
-        chain_precfactor = df['precfactor'].values
-        chain_ddfsnow = df['ddfsnow'].values
-        
-        logpost_massbal = -(1 / (2 * observed_error**2)) * (observed_massbal - chain_massbal)**2 
-        
-        if 'tempchange' in variables: 
-            if tempchange_disttype == 'truncnormal':
-                logpost_tempchange = - (1 / (2 * tempchange_sigma**2)) * (chain_tempchange - tempchange_mu)**2
-            elif tempchange_disttype == 'uniform':
-                logpost_tempchange = 0
-
-        if 'precfactor' in variables:
-            if precfactor_disttype == 'lognormal':
-                precfactor_lognorm_sigma = (1/precfactor_lognorm_tau)**2
-                logpost_precfactor = (np.exp(-1/(2 * precfactor_lognorm_sigma**2) * (np.log(chain_precfactor) - 
-                                                 precfactor_lognorm_mu)**2) * (1 / chain_precfactor))                
-            elif precfactor_disttype == 'uniform':
-                logpost_precfactor = 0
-            elif precfactor_disttype == 'custom':
-                print('\nNEED TO UPDATE CUSTOM LOG(POSTERIOR) CALCULATIONS\n')
-                logpost_precfactor = 0
-                
-        if 'ddfsnow' in variables:
-            if ddfsnow_disttype == 'truncnormal':
-                logpost_ddfsnow = - (1 / (2 * ddfsnow_sigma**2)) * (chain_ddfsnow - ddfsnow_mu)**2
-            elif ddfsnow_disttype == 'uniform':
-                logpost_ddfsnow = 0
-
-        logposterior = logpost_massbal + logpost_tempchange + logpost_precfactor + logpost_ddfsnow
-                        
-        if n_df == 0:
-            ax[0,0].plot(runs, logposterior, color='b', linewidth=0.2)
-        elif n_df == 1:
-            ax[0,0].plot(runs, logposterior, color='r', linewidth=0.2)
-        else:
-            ax[0,0].plot(runs, logposterior, color='y', linewidth=0.2)
-        chain_legend.append('chain' + str(n_df + 1))
-    
-    ax[0,0].legend(chain_legend)
-    ax[0,0].set_xlabel('Step Number', size=14)
-    ax[0,0].set_ylabel('Log(posterior)', size=14)
-    ax[0,0].set_xlim(0, len(chain))
-    
-    # Save figure            
-#    fig_logposterior_fp = mcmc_output_figures_fp + 'logposterior/'
-#    if os.path.exists(fig_logposterior_fp) == False:
-#        os.makedirs(fig_logposterior_fp)
-    fig.savefig(mcmc_output_figures_fp + glacier_str + '_logpost_' + str(int(iters/1000)) + 'k' + str_ending + '.png', 
-                bbox_inches='tight', dpi=300)
-    fig.clf()
-        
-    # ===== PAIRWISE SCATTER PLOTS ===========================================================
-    fig, ax = plt.subplots(len(variables), len(variables), squeeze=False, figsize=(12, len(variables)*3), 
-                           gridspec_kw={'wspace':0, 'hspace':0})
-    fig.suptitle('mcmc_pairwise_scatter_' + glacier_str, y=0.94)
-
-    df = dfs[0]
-    for h, vn1 in enumerate(variables):
-        v1 = df[vn1].values
-        for j, vn2 in enumerate(variables):
-            v2 = df[vn2].values
-            if h == j:
-                # Histogram
-                hist, bins, bin_spacing = calc_histogram(v1, nbins)  
-                ax[h,j].bar(bins[1:], hist, width=bin_spacing, align='center', alpha=0.2, edgecolor='black', color='b')
-                if h == 0:
-                    ax[h,j].text(bins[-1], int(0.98*hist.max()), 'n='+str(int(len(v1)/1000)) + 'k', fontsize=14, 
-                                 verticalalignment='center', horizontalalignment='right')
-            elif h > j:
-                # Scatterplot
-                subset_idx1 = int(v1.shape[0]/3)
-                subset_idx2 = 2*int(v1.shape[0]/3)
-                v1_subset1 = v1[0:subset_idx1]
-                v1_subset2 = v1[subset_idx1:subset_idx2]
-                v1_subset3 = v1[subset_idx2:]
-                v2_subset1 = v2[0:subset_idx1]
-                v2_subset2 = v2[subset_idx1:subset_idx2]
-                v2_subset3 = v2[subset_idx2:]
-                #ax[h,j].plot(v2, v1, 'o', mfc='none', mec='black')
-                ax[h,j].plot(v2_subset1, v1_subset1, 'o', mfc='none', mec='b', ms=1, alpha=1)
-                ax[h,j].plot(v2_subset2, v1_subset2, 'o', mfc='none', mec='r', ms=1, alpha=1)
-                ax[h,j].plot(v2_subset3, v1_subset3, 'o', mfc='none', mec='y', ms=1, alpha=1)
-            else:
-                # Correlation coefficient
-                slope, intercept, r_value, p_value, std_err = linregress(v2, v1)
-                text2plot = (vn_label_nounits_dict[vn1] + '/\n' + vn_label_nounits_dict[vn2] + '\n$R^2$=' +
-                             '{:.2f}'.format((r_value**2)))
-                ax[h,j].text(0.5, 0.5, text2plot, fontsize=14, verticalalignment='center', horizontalalignment='center')
-
-            # Only show x-axis on bottom and y-axis on left
-            if h + 1 < len(variables):
-                ax[h,j].xaxis.set_major_formatter(plt.NullFormatter())
-            if h == j or j != 0:
-                ax[h,j].yaxis.set_major_formatter(plt.NullFormatter())
-            
-            # Add labels
-            if j == 0:
-                if h > 0:
-                    ax[h,j].set_ylabel(vn_label_dict[vn1], fontsize=14)
-                else:
-                    ax[h,j].set_ylabel('Mass balance\n ', fontsize=14)
-            if h + 1 == len(variables):            
-                ax[h,j].set_xlabel(vn_label_dict[vn2], fontsize=14)
-
-#    fig_autocor_fp = mcmc_output_figures_fp + 'autocorrelation/'
-#    if os.path.exists(fig_autocor_fp) == False:
-#        os.makedirs(fig_autocor_fp)
-    fig.savefig(mcmc_output_figures_fp + glacier_str + '_scatter_' + str(int(iters/1000)) + 'k' + str_ending + '.png', 
-                bbox_inches='tight', dpi=300)
+#    # ===== LOG POSTERIOR PLOT ================================================================
+#    fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(6, 4))
+#    fig.suptitle('log(posterior)_' + glacier_str, y=0.94)
+#
+#    chain_legend = []
+#    for n_df, df in enumerate(dfs):
+#        chain = df[vn].values
+#        runs = np.arange(0,chain.shape[0])
+#        
+#        # LOG POSTERIOR
+#        chain_massbal = df['massbal'].values
+#        chain_tempchange = df['tempchange'].values
+#        chain_precfactor = df['precfactor'].values
+#        chain_ddfsnow = df['ddfsnow'].values
+#        
+#        logpost_massbal = -(1 / (2 * observed_error**2)) * (observed_massbal - chain_massbal)**2 
+#        
+#        if 'tempchange' in variables: 
+#            if tempchange_disttype == 'truncnormal':
+#                logpost_tempchange = - (1 / (2 * tempchange_sigma**2)) * (chain_tempchange - tempchange_mu)**2
+#            elif tempchange_disttype == 'uniform':
+#                logpost_tempchange = 0
+#
+#        if 'precfactor' in variables:
+#            if precfactor_disttype == 'lognormal':
+#                precfactor_lognorm_sigma = (1/precfactor_lognorm_tau)**2
+#                logpost_precfactor = (np.exp(-1/(2 * precfactor_lognorm_sigma**2) * (np.log(chain_precfactor) - 
+#                                                 precfactor_lognorm_mu)**2) * (1 / chain_precfactor))                
+#            elif precfactor_disttype == 'uniform':
+#                logpost_precfactor = 0
+#            elif precfactor_disttype == 'custom':
+#                print('\nNEED TO UPDATE CUSTOM LOG(POSTERIOR) CALCULATIONS\n')
+#                logpost_precfactor = 0
+#                
+#        if 'ddfsnow' in variables:
+#            if ddfsnow_disttype == 'truncnormal':
+#                logpost_ddfsnow = - (1 / (2 * ddfsnow_sigma**2)) * (chain_ddfsnow - ddfsnow_mu)**2
+#            elif ddfsnow_disttype == 'uniform':
+#                logpost_ddfsnow = 0
+#
+#        logposterior = logpost_massbal + logpost_tempchange + logpost_precfactor + logpost_ddfsnow
+#                        
+#        if n_df == 0:
+#            ax[0,0].plot(runs, logposterior, color='b', linewidth=0.2)
+#        elif n_df == 1:
+#            ax[0,0].plot(runs, logposterior, color='r', linewidth=0.2)
+#        else:
+#            ax[0,0].plot(runs, logposterior, color='y', linewidth=0.2)
+#        chain_legend.append('chain' + str(n_df + 1))
+#    
+#    ax[0,0].legend(chain_legend)
+#    ax[0,0].set_xlabel('Step Number', size=14)
+#    ax[0,0].set_ylabel('Log(posterior)', size=14)
+#    ax[0,0].set_xlim(0, len(chain))
+#    
+#    # Save figure            
+##    fig_logposterior_fp = mcmc_output_figures_fp + 'logposterior/'
+##    if os.path.exists(fig_logposterior_fp) == False:
+##        os.makedirs(fig_logposterior_fp)
+#    fig.savefig(mcmc_output_figures_fp + glacier_str + '_logpost_' + str(int(iters/1000)) + 'k' + str_ending + '.png', 
+#                bbox_inches='tight', dpi=300)
+#    fig.clf()
+#        
+#    # ===== PAIRWISE SCATTER PLOTS ===========================================================
+#    fig, ax = plt.subplots(len(variables), len(variables), squeeze=False, figsize=(12, len(variables)*3), 
+#                           gridspec_kw={'wspace':0, 'hspace':0})
+#    fig.suptitle('mcmc_pairwise_scatter_' + glacier_str, y=0.94)
+#
+#    df = dfs[0]
+#    for h, vn1 in enumerate(variables):
+#        v1 = df[vn1].values
+#        for j, vn2 in enumerate(variables):
+#            v2 = df[vn2].values
+#            if h == j:
+#                # Histogram
+#                hist, bins, bin_spacing = calc_histogram(v1, nbins)  
+#                ax[h,j].bar(bins[1:], hist, width=bin_spacing, align='center', alpha=0.2, edgecolor='black', color='b')
+#                if h == 0:
+#                    ax[h,j].text(bins[-1], int(0.98*hist.max()), 'n='+str(int(len(v1)/1000)) + 'k', fontsize=14, 
+#                                 verticalalignment='center', horizontalalignment='right')
+#            elif h > j:
+#                # Scatterplot
+#                subset_idx1 = int(v1.shape[0]/3)
+#                subset_idx2 = 2*int(v1.shape[0]/3)
+#                v1_subset1 = v1[0:subset_idx1]
+#                v1_subset2 = v1[subset_idx1:subset_idx2]
+#                v1_subset3 = v1[subset_idx2:]
+#                v2_subset1 = v2[0:subset_idx1]
+#                v2_subset2 = v2[subset_idx1:subset_idx2]
+#                v2_subset3 = v2[subset_idx2:]
+#                #ax[h,j].plot(v2, v1, 'o', mfc='none', mec='black')
+#                ax[h,j].plot(v2_subset1, v1_subset1, 'o', mfc='none', mec='b', ms=1, alpha=1)
+#                ax[h,j].plot(v2_subset2, v1_subset2, 'o', mfc='none', mec='r', ms=1, alpha=1)
+#                ax[h,j].plot(v2_subset3, v1_subset3, 'o', mfc='none', mec='y', ms=1, alpha=1)
+#            else:
+#                # Correlation coefficient
+#                slope, intercept, r_value, p_value, std_err = linregress(v2, v1)
+#                text2plot = (vn_label_nounits_dict[vn1] + '/\n' + vn_label_nounits_dict[vn2] + '\n$R^2$=' +
+#                             '{:.2f}'.format((r_value**2)))
+#                ax[h,j].text(0.5, 0.5, text2plot, fontsize=14, verticalalignment='center', horizontalalignment='center')
+#
+#            # Only show x-axis on bottom and y-axis on left
+#            if h + 1 < len(variables):
+#                ax[h,j].xaxis.set_major_formatter(plt.NullFormatter())
+#            if h == j or j != 0:
+#                ax[h,j].yaxis.set_major_formatter(plt.NullFormatter())
+#            
+#            # Add labels
+#            if j == 0:
+#                if h > 0:
+#                    ax[h,j].set_ylabel(vn_label_dict[vn1], fontsize=14)
+#                else:
+#                    ax[h,j].set_ylabel('Mass balance\n ', fontsize=14)
+#            if h + 1 == len(variables):            
+#                ax[h,j].set_xlabel(vn_label_dict[vn2], fontsize=14)
+#
+##    fig_autocor_fp = mcmc_output_figures_fp + 'autocorrelation/'
+##    if os.path.exists(fig_autocor_fp) == False:
+##        os.makedirs(fig_autocor_fp)
+#    fig.savefig(mcmc_output_figures_fp + glacier_str + '_scatter_' + str(int(iters/1000)) + 'k' + str_ending + '.png', 
+#                bbox_inches='tight', dpi=300)
 
 
 def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
@@ -1749,7 +1753,8 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     t2 = glacier_cal_data.loc[cal_idx, 't2'].values[0]
     t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
     t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
-    observed_massbal = mb_compare.loc[n,'obs_mb_mwea']
+    observed_massbal = (glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)).values[0]
+    observed_error = (glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)).values[0]
     
     # MCMC Analysis
     ds = xr.open_dataset(mcmc_output_netcdf_fp + glacier_str + '.nc')
@@ -1897,8 +1902,21 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             tempchange_mu = tempchange_opt_bndhigh - 1e-3
         elif tempchange_mu < tempchange_opt_bndlow:
             tempchange_mu = tempchange_opt_bndlow + 1e-3
-        tempchange_sigma = 1
+#        tempchange_sigma = input.tempchange_sigma
+        tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 6
         tempchange_start = tempchange_mu
+        
+        
+        #%%
+        # Adjust the precipitation factor bounds, if the observation in near the mb_max_acc
+        mb_obs_max = observed_massbal + 3 * observed_error
+        
+        if mb_obs_max / mb_max_acc > 1.5:
+            precfactor_boundlow = 0.1
+            precfactor_boundhigh = 10
+        else:
+            precfactor_boundlow = input.precfactor_boundlow
+            precfactor_boundhigh = input.precfactor_boundhigh
   
         #%%
         # OLD SCHEME FROM 1/18/19
@@ -1935,6 +1953,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     if input.new_setup == 1:
         plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
                         newsetup=1, mb_max_acc=mb_max_acc, mb_max_loss=mb_max_loss,
+                        precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
                         tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                         tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
     else:
@@ -1944,7 +1963,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
     
     #%% Plot mass balance vs parameters
 ##    tempchange_iters = np.arange(-1.5, 5, 0.01).tolist()
-#    tempchange_iters = np.arange(-15, 5, 0.5).tolist()
+#    tempchange_iters = np.arange(-10, 15, 0.5).tolist()
 ##    tempchange_iters = np.arange(-3, 20, 0.1).tolist()
 #    
 #    ddfsnow_iters = [0.0031, 0.0041, 0.0051]

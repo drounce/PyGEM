@@ -1,15 +1,15 @@
-"""
-pygemfxns_modelsetup.py is a list of functions that are used to set up the model with the required input for the main
-script.
-"""
+""" List of functions used to set up different aspects of the model """
 
+# Built-in libaries
+import os
+# External libraries
 import pandas as pd
 import numpy as np
 from datetime import datetime
-
+# Local libraries
 import pygem_input as input
 
-#========= FUNCTIONS (alphabetical order) ===================================
+
 def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=input.spinupyears, 
                   option_wateryear=input.option_wateryear):
     """
@@ -324,27 +324,3 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
     # Development Note: if create another method for selecting glaciers,
     #                   make sure that update way to select glacier
     #                   hypsometry as well.
-    
-
-#========= FUNCTIONS NO LONGER USED (alphabetical order) ==============================================================
-# EXAMPLE CODE OF SEARCHING FOR A FILENAME
-#def selectglaciersrgitable_old():
-#    """
-#    The upper portion of this code was replaced by a dictionary based on the user input to speed up computation time.
-#    This has been kept as an example code of searching for a filename.
-#    """
-#    # Select glaciers according to RGI V60 tables.
-#    glacier_table = pd.DataFrame()
-#    for x_region in input.rgi_regionsO1:
-#        # print(f"\nRegion: {x_region}")
-#        rgi_regionsO1_findname = str(x_region) + '_rgi60_'
-#        # print(f"Looking for region {x_region} filename...")
-#        # Look up the RGI tables associated with the specific regions
-#        # defined above and concatenate all the areas of interest into a
-#        # single file
-#        for rgi_regionsO1_file in os.listdir(input.rgi_filepath):
-#            if re.match(rgi_regionsO1_findname, rgi_regionsO1_file):
-#                # if a match for the region is found, then open the file and
-#                # select the subregions and/or glaciers from that file
-#                rgi_regionsO1_fullfile = input.rgi_filepath + rgi_regionsO1_file
-#                csv_regionO1 = pd.read_csv(rgi_regionsO1_fullfile)

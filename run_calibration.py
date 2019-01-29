@@ -366,9 +366,11 @@ def main(list_packed_vars):
                                           value=precfactor_start)
             elif precfactor_disttype =='custom':
                 #  truncated normal distribution with transformation
-                precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
-                                                  a=precfactor_boundlow, b=precfactor_boundhigh, 
-                                                  value=precfactor_start)
+#                precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
+#                                                  a=precfactor_boundlow, b=precfactor_boundhigh, 
+#                                                  value=precfactor_start)
+                precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh, 
+                                          value=precfactor_start)
             # Temperature change [degC]
             if tempchange_disttype =='truncnormal':
                 tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
@@ -578,7 +580,6 @@ def main(list_packed_vars):
                 tempchange_opt_bndlow = tempchange_opt_bndlow_all.x[0]
         
                 # Maximum loss
-                #  - limit to -2 mwea unless observation is less than complete loss
                 mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * input.density_ice / input.density_water).sum() 
                                / glacier_area_t0.sum() / (t2 - t1))        
                 # Shrink the solution space through short grid search
@@ -635,8 +636,19 @@ def main(list_packed_vars):
                     tempchange_mu = tempchange_opt_bndhigh - 1e-3
                 elif tempchange_mu < tempchange_opt_bndlow:
                     tempchange_mu = tempchange_opt_bndlow + 1e-3
-                tempchange_sigma = 1
+#                tempchange_sigma = input.tempchange_sigma
+                tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 6
                 tempchange_start = tempchange_mu
+                
+                # Adjust the precipitation factor bounds, if the observation in near the mb_max_acc
+                mb_obs_max = observed_massbal + 3 * observed_error
+                
+                if mb_obs_max / mb_max_acc > 1.5:
+                    precfactor_boundlow = 0.1
+                    precfactor_boundhigh = 10
+                else:
+                    precfactor_boundlow = input.precfactor_boundlow
+                    precfactor_boundhigh = input.precfactor_boundhigh
 
 #                # Adjust parameters
 #                tempchange_shift = tempchange_opt_lowbnd - input.tempchange_boundlow
@@ -658,12 +670,14 @@ def main(list_packed_vars):
                 print(glacier_str + ' chain' + str(n_chain))
                 if n_chain == 0:                    
                     model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step, 
+                                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                                      tempchange_start=tempchange_start)                    
                 elif n_chain == 1:
                     # Chains start at lowest values
                     model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
+                                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                                      tempchange_start=tempchange_boundlow, 
@@ -672,6 +686,7 @@ def main(list_packed_vars):
                 elif n_chain == 2:
                     # Chains start at highest values
                     model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
+                                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                                      tempchange_start=tempchange_boundhigh, 
