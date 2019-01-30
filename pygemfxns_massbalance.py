@@ -518,6 +518,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     #  changes to _t0 not _t1, since t1 will be done in the mass redistribution
                     if glac_bin_frontalablation[:,step].max() > 0:
                         # Frontal ablation loss [mwe]
+                        #  fa_change tracks whether entire bin is lost or not
                         fa_change = abs(glac_bin_frontalablation[:, step] * input.density_water / input.density_ice
                                         - icethickness_t0)
                         fa_change[fa_change <= input.tolerance] = 0
@@ -537,8 +538,9 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         # Otherwise, reduce glacier area such that glacier retreats and ice thickness remains the same
                         #  A_1 = (V_0 - V_loss) / h_1,  units: A_1 = (m ice * km2) / (m ice) = km2
                         glacier_area_t0[np.where(fa_change != 0)[0]] = (
-                                (glacier_area_t0[np.where(fa_change != 0)[0]] * icethickness_t0[np.where(fa_change != 0)[0]]
-                                 - glacier_area_t0[np.where(fa_change != 0)[0]] * 
+                                (glacier_area_t0[np.where(fa_change != 0)[0]] * 
+                                 icethickness_t0[np.where(fa_change != 0)[0]] - 
+                                 glacier_area_t0[np.where(fa_change != 0)[0]] * 
                                  glac_bin_frontalablation[np.where(fa_change != 0)[0], step] * input.density_water 
                                  / input.density_ice) / icethickness_t0[np.where(fa_change != 0)[0]])
     
@@ -546,16 +548,24 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                             print('glacier area t1:', glacier_area_t0[bins_wfa].round(3))
                             print('ice thickness t1:', icethickness_t0[bins_wfa].round(1))
                     
-                    # Mass redistribution according to Huss empirical curves
-                    glacier_area_t1, icethickness_t1, width_t1 = (
-                            massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
-                                                   glac_bin_massbalclim_annual, year, glac_idx_initial, 
-                                                   glac_area_initial))
-                    # update surface type for bins that have retreated
-                    surfacetype[glacier_area_t1 == 0] = 0
-                    # update surface type for bins that have advanced 
-                    surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = (
-                            surfacetype[glacier_area_t0.nonzero()[0][0]])
+                    # Redistribute mass if glacier was not fully removed by frontal ablation
+                    if glacier_area_t0.max() > 0:
+                        # Mass redistribution according to Huss empirical curves
+                        glacier_area_t1, icethickness_t1, width_t1 = (
+                                massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
+                                                       glac_bin_massbalclim_annual, year, glac_idx_initial, 
+                                                       glac_area_initial))
+                        # update surface type for bins that have retreated
+                        surfacetype[glacier_area_t1 == 0] = 0
+                        # update surface type for bins that have advanced 
+                        surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = (
+                                surfacetype[glacier_area_t0.nonzero()[0][0]])
+                    else:
+                        glacier_area_t1 = np.zeros(glacier_area_t0.shape)
+                        icethickness_t1 = np.zeros(glacier_area_t0.shape)
+                        width_t1 = np.zeros(glacier_area_t0.shape)
+                        surfacetype = np.zeros(glacier_area_t0.shape)
+                        
                 # Record glacier properties (area [km**2], thickness [m], width [km])
                 # if first year, record initial glacier properties (area [km**2], ice thickness [m ice], width [km])
                 if year == 0:
@@ -727,6 +737,13 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
     #  otherwise, the glacier disappears (area and thickness were already set to zero above)
     if -1 * glacier_volumechange < (icethickness_t0 / 1000 * glacier_area_t0).sum():
         # Determine where glacier exists
+        
+        # Check for negative glacier areas
+        #  shouldn't need these three lines, but Anna mentioned she was finding negative areas somehow? 2019/01/30
+        glacier_area_t0[glacier_area_t0 < 0] = 0
+        icethickness_t0[glacier_area_t0 < 0] = 0
+        width_t0[glacier_area_t0 < 0] = 0
+        
         glac_idx_t0 = glacier_area_t0.nonzero()[0]
         # Compute ice thickness [m ice], glacier area [km**2] and ice thickness change [m ice] after 
         #  redistribution of gains/losses
