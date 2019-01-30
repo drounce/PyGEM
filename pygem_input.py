@@ -108,22 +108,12 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [3]
+rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-
-rgi_glac_number = ['03628']
-
 #rgi_glac_number = ['03473']
-#rgi_glac_number = ['12112']
-#rgi_glac_number = ['02703']
-#rgi_glac_number = ['01081'] # too positive
-#rgi_glac_number = ['00014'] # too negative
-#rgi_glac_number = ['07204']
-#rgi_glac_number = ['03743']
-#rgi_glac_number = ['13119']
 #rgi_glac_number = glac_num_fromrange(1,2)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
@@ -170,7 +160,7 @@ synthetic_prec_factor = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC)
-option_calibration = 1
+option_calibration = 2
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['wgms_d']
@@ -198,23 +188,6 @@ ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
 #mcmc_step = 'am'
 thin_interval = 1
-
-
-#print('\nDELETE HERE\n')
-
-#rgi_glac_number = ['02827'] # PF_max_ratio of 1.48 - good!
-#rgi_glac_number = ['05536'] # PF_max_ratio of 1.47 - good!
-#rgi_glac_number = ['11167'] # way too positive - good! (max loss issue)
-#rgi_glac_number = ['03473'] # good!
-#rgi_glac_number = ['04092'] # too positive - good! (max loss issue)
-
-
-#rgi_glac_number = ['00014'] # too negative
-
-#rgi_glac_number = ['01081'] # too positive
-#rgi_glac_number = ['04515']
-#rgi_glac_number = ['12112'] # too positive (big glacier)
-
 
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
