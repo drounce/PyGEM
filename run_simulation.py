@@ -507,7 +507,8 @@ def main(list_packed_vars):
     # Synthetic simulation dates
     if input.option_synthetic_sim == 1:
         dates_table_synthetic = modelsetup.datesmodelrun(
-                startyear=input.synthetic_startyear, endyear=input.synthetic_endyear, spinupyears=0)
+                startyear=input.synthetic_startyear, endyear=input.synthetic_endyear, 
+                option_wateryear=input.gcm_wateryear, spinupyears=0)
         
     # ===== LOAD CLIMATE DATA =====
     if gcm_name == 'ERA-Interim' or gcm_name == 'COAWST':
@@ -863,7 +864,7 @@ if __name__ == '__main__':
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
     dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
-                                           spinupyears=input.gcm_spinupyears)
+                                           option_wateryear= input.gcm_wateryear, spinupyears=input.gcm_spinupyears)
     
     # Define chunk size for parallel processing
     if args.option_parallels != 0:

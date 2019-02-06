@@ -354,6 +354,7 @@ def main(list_packed_vars):
                 A trace, or Markov Chain, is an array of values outputed by the MCMC simulation which defines the
                 posterior probability distribution of the variable at hand.
             """        
+            #%%
             # PRIOR DISTRIBUTIONS
             # Precipitation factor [-]
             if precfactor_disttype =='lognormal':
@@ -371,7 +372,7 @@ def main(list_packed_vars):
 #                                                  value=precfactor_start)
                 precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh, 
                                           value=precfactor_start)
-            # Temperature change [degC]
+            # Temperature change [degC]            
             if tempchange_disttype =='truncnormal':
                 tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2), 
                                                   a=tempchange_boundlow, b=tempchange_boundhigh, value=tempchange_start)
@@ -390,8 +391,9 @@ def main(list_packed_vars):
                                        value=ddfsnow_start)
             
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
+#            @deterministic(plot=True)
             @deterministic(plot=False)
-#            def massbal(tempchange=tempchange):
+#            def massbal(tempchange=tempchange, precfactor=None, ddfsnow=None):
 #            def massbal(tempchange=tempchange, precfactor=precfactor):
             def massbal(tempchange=tempchange, precfactor=precfactor, ddfsnow=ddfsnow):
                 """
@@ -417,7 +419,7 @@ def main(list_packed_vars):
                     massbalance.runmassbalance(modelparameters_copy, glacier_rgi_table, glacier_area_t0, 
                                                icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                               option_areaconstant=0))
+                                               option_areaconstant=1))
                 # Compute glacier volume change for every time step and use this to compute mass balance
                 glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
                 # Mass change [km3 mwe]
@@ -427,9 +429,12 @@ def main(list_packed_vars):
                 mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
                 
                 if debug:
-                    print('\n\nmodelparameters:', modelparameters_copy, '\nmb_mwea:', mb_mwea)
+                    print('\nmodelparameters:', np.round(modelparameters_copy[7],2), 
+                          np.round(modelparameters_copy[2],2), np.round(modelparameters_copy[4],4),
+                          '   mb_mwea:', np.round(mb_mwea,2))
 
                 return mb_mwea
+            
             
             # Observed distribution
             #  Observed data defines the observed likelihood of mass balances (based on geodetic observations)
@@ -524,7 +529,7 @@ def main(list_packed_vars):
             
             # NEW SETUP
             if input.new_setup == 1 and icethickness_t0.max() > 0:
-#            def new_bounds()
+                #%%
                 def mb_mwea_calc(modelparameters):
                     """
                     Run the mass balance and calculate the mass balance [mwea]
@@ -549,91 +554,102 @@ def main(list_packed_vars):
                     return mb_mwea
                 
                 
-                # Compute max accumulation [mwea]
-                modelparameters_max = modelparameters.copy()
-                modelparameters_max[7] = -100
-                modelparameters_max[2] = 1
-                mb_max_acc = mb_mwea_calc(modelparameters_max)
-                def find_tempchange_bndlow(tempchange_4opt):
-                    """
-                    Minimum tempchange if all snow/no melt (precfactor/mass redistribution will alter most positive MB)
-                    Offset minimum temperature by tempchange_mb_threshold to avoid edge effects
-                    """
-                    # Use a subset of model parameters to reduce number of constraints required
-                    modelparameters[7] = tempchange_4opt[0]
-                    modelparameters[2] = modelparameters_max[2]
-                    # Mean annual mass balance [mwea]
-                    mb_mwea = mb_mwea_calc(modelparameters)
-                    # Mass balance with offset to avoid edge effect
-                    mb_acc_max_adj = mb_max_acc - input.tempchange_mb_threshold
-                    return abs(mb_mwea - mb_acc_max_adj)
-                # Set lower temperature bound based on max positive mass balance
+                #%% ----- LOWER BOUND -----
+                # Lower temperature bound based on max positive mass balance adjusted to avoid edge effects
                 # Temperature at the lowest bin
                 #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
                 lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
                 tempchange_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
                                             (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
-                tempchange_opt_bndlow_init = [tempchange_max_acc + 1]
-                tempchange_opt_bndlow_bnds=(-100,100)
-                # Run the optimization
-                tempchange_opt_bndlow_all = minimize(find_tempchange_bndlow, tempchange_opt_bndlow_init, 
-                                                     bounds=[tempchange_opt_bndlow_bnds], method='L-BFGS-B')
-                tempchange_opt_bndlow = tempchange_opt_bndlow_all.x[0]
-        
-                # Maximum loss
-                mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * input.density_ice / input.density_water).sum() 
-                               / glacier_area_t0.sum() / (t2 - t1))        
-                # Shrink the solution space through short grid search
-                modelparameters[7] = tempchange_opt_bndlow + 1
+                # Compute max accumulation [mwea]
+                modelparameters_max = modelparameters.copy()
+                modelparameters_max[7] = -100
+                modelparameters_max[2] = 1
+                mb_max_acc = mb_mwea_calc(modelparameters_max)
+                # Adjust lower bound to avoid edge effects
+                modelparameters[7] = tempchange_max_acc
                 mb_mwea_1 = mb_mwea_calc(modelparameters)
-                mb_max_loss_dif = abs(mb_mwea_1 - mb_max_loss)
-                tempchange_step = 0.5
-                while mb_max_loss_dif > 0.01:
-                    modelparameters[7] = modelparameters[7] + tempchange_step
-                    mb_mwea_1 = mb_mwea_calc(modelparameters)
-                    mb_max_loss_dif = abs(mb_mwea_1 - mb_max_loss)
-                    
-                def find_tempchange_bndhigh(tempchange_4opt):
-                    """
-                    Find the maximum tempchange if entire glacier melts.
-                    Offset the maximum loss by 0.01, so optimization avoids flat region.
-                    """
-                    # Use a subset of model parameters to reduce number of constraints required
-                    modelparameters[7] = tempchange_4opt[0]
-                    modelparameters[2] = 1
-                    # Mean annual mass balance [mwea]
-                    mb_mwea = mb_mwea_calc(modelparameters)
-                    return mb_mwea - mb_max_loss
+                mb_slope = 0
+                while mb_slope > input.tempchange_slope_threshold:
+                    modelparameters[7] = modelparameters[7] + input.tempchange_step
+                    mb_mwea_2 = mb_mwea_calc(modelparameters)
+                    mb_slope = (mb_mwea_2 - mb_mwea_1) / input.tempchange_step
+                    mb_mwea_1 = mb_mwea_2
+                tempchange_boundlow = modelparameters[7]
+                
+#                # Adjust lower bound to avoid edge effects
+#                modelparameters[7] = tempchange_max_acc
+#                mb_mwea_1 = mb_mwea_calc(modelparameters)
+#                mb_slope = 0
+##                while abs(mb_max_acc - mb_mwea_1) < input.tempchange_mb_threshold:
+#                while abs(mb_max_acc - mb_mwea_1) < 0.5:
+#                    modelparameters[7] = modelparameters[7] + input.tempchange_step
+#                    mb_mwea_1 = mb_mwea_calc(modelparameters)
+#                tempchange_boundlow = modelparameters[7]
+#        
+#                print(tempchange_boundlow)
         
-                # Find maximum temperature change beyond which glacier completely melts
-                tempchange_opt_bndhigh_init = [modelparameters[7] - tempchange_step]
-                tempchange_opt_bndhigh_bnds = (modelparameters[7] - tempchange_step, modelparameters[7] + tempchange_step)
-                tempchange_opt_bndhigh_all = minimize(find_tempchange_bndhigh, tempchange_opt_bndhigh_init, 
-                                                      bounds=[tempchange_opt_bndhigh_bnds], method='L-BFGS-B')
-                tempchange_opt_bndhigh = tempchange_opt_bndhigh_all.x[0]
+                #%% ----- UPPER BOUND -----
+                # Upper temperature bound based on max loss adjusted to avoid edge effects
+                # Maximum loss 
+                mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0).sum() / glacier_area_t0.sum() * 
+                               input.density_ice / input.density_water / (t2 - t1))
+                # Looping forward to roughly find max loss temperature
+                modelparameters[7] = tempchange_boundlow
+                mb_mwea_1 = mb_mwea_calc(modelparameters)
+                while abs(mb_mwea_1 - mb_max_loss) > 0.01:
+                    modelparameters[7] = modelparameters[7] + 1
+                    mb_mwea_1 = mb_mwea_calc(modelparameters)
+                # Loop backward to avoid edge effects
+                mb_slope = 0
+                while mb_slope > input.tempchange_slope_threshold:
+                    modelparameters[7] = modelparameters[7] - input.tempchange_step
+                    mb_mwea_2 = mb_mwea_calc(modelparameters)
+                    mb_slope = (mb_mwea_1 - mb_mwea_2) / input.tempchange_step
+                    mb_mwea_1 = mb_mwea_2
+                tempchange_boundhigh = modelparameters[7]
+        
+        
+                #%%
+                # Adjust precipitation factor bounds (if needed)
+                mb_obs_max = observed_massbal + 3 * observed_error
+                modelparameters[7] = tempchange_boundlow
+#                mb_max_acc_adj = mb_mwea_calc(modelparameters)
+#                pf_max_ratio = mb_obs_max / mb_max_acc_adj
+                pf_max_ratio = mb_obs_max / mb_max_acc   
+                if pf_max_ratio > 1:
+#                    precfactor_boundhigh = pf_max_ratio + 2
+                    precfactor_boundhigh = pf_max_ratio + 1
+                    precfactor_boundlow = 1 / precfactor_boundhigh
+                else:
+                    precfactor_boundhigh = input.precfactor_boundhigh
+                    precfactor_boundlow = input.precfactor_boundlow
                 
-                
+                if precfactor_boundhigh > 10:
+                    precfactor_boundhigh = 10
+                    
+                #%% ----- MEAN -----
                 def find_tempchange_opt(tempchange_4opt):
                     """
                     Find optimal temperature based on observed mass balance
                     """
                     # Use a subset of model parameters to reduce number of constraints required
                     modelparameters[7] = tempchange_4opt[0]
+                    modelparameters[2] = np.mean([precfactor_boundlow, precfactor_boundhigh])
                     # Mean annual mass balance [mwea]
                     mb_mwea = mb_mwea_calc(modelparameters)
                     return abs(mb_mwea - observed_massbal)
                 # Find optimized tempchange in agreement with observed mass balance
-                tempchange_opt_init = [np.mean([tempchange_opt_bndlow, tempchange_opt_bndhigh])]
-                tempchange_opt_bnds = (tempchange_opt_bndlow, tempchange_opt_bndhigh)
+                tempchange_opt_init = [np.mean([tempchange_boundlow, tempchange_boundhigh])]
+                tempchange_opt_bnds = (tempchange_boundlow, tempchange_boundhigh)
                 tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, 
                                               bounds=[tempchange_opt_bnds], method='L-BFGS-B')
                 tempchange_opt = tempchange_opt_all.x[0]
-                
+                  
                 # Adjust tempchange bounds
                 tempchange_mu = tempchange_opt
-                tempchange_boundlow = tempchange_opt_bndlow
-                tempchange_boundhigh = tempchange_opt_bndhigh
-                tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 6
+#                tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 6
+                tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 4
                 # Move mean off the edge
                 if abs(tempchange_mu - tempchange_boundlow) < tempchange_sigma:
                     tempchange_mu = tempchange_boundlow + tempchange_sigma
@@ -641,15 +657,8 @@ def main(list_packed_vars):
                     tempchange_mu = tempchange_boundhigh - tempchange_sigma
                 tempchange_start = tempchange_mu
                 
-                # Adjust precipitation factor bounds (if needed)
-                mb_obs_max = observed_massbal + 3 * observed_error
-                pf_max_ratio = mb_obs_max / mb_max_acc        
-                if pf_max_ratio > 1:
-                    precfactor_boundhigh = np.round(pf_max_ratio,0) + 1
-                    precfactor_boundlow = 1 / precfactor_boundhigh
-                else:
-                    precfactor_boundhigh = input.precfactor_boundhigh
-                    precfactor_boundlow = input.precfactor_boundlow
+                print(tempchange_mu)
+                #%%
                 
             
             # fit the MCMC model
@@ -1620,71 +1629,71 @@ if __name__ == '__main__':
         for n in range(len(list_packed_vars)):
             main(list_packed_vars[n])
 
-    # Combine output (if desired)
-    if input.option_calibration == 1:
-        # Merge csv summary files into single file    
-        # Count glaciers
-        glac_count = 0
-        output_temp = input.output_fp_cal + 'temp/'
-        for i in os.listdir(output_temp):
-            if i.startswith(str(rgi_regionsO1[0])) and i.endswith('.nc'):
-                glac_count += 1
-        
-        # Model parameters - combine into single file
-        check_modelparams_str = (
-                'modelparams_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
-                str(input.endyear))
-        output_modelparams_all_fn = (
-                'R' + str(rgi_regionsO1[0]) + '_' + str(glac_count) + check_modelparams_str + '.csv')
-        # Sorted list of files to merge
-        output_list = []
-        for i in os.listdir(output_temp):
-            if check_modelparams_str in i:
-                output_list.append(i)
-        output_list = sorted(output_list)
-        # Merge model parameters csv summary file
-        list_count = 0
-        for i in output_list:
-            list_count += 1
-            # Append results
-            if list_count == 1:
-                output_all = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
-            else:
-                output_2join = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
-                output_all = output_all.append(output_2join, ignore_index=True)
-            # Remove file after its been merged
-            os.remove(input.output_fp_cal + 'temp/' + i)
-        # Export joined files
-        output_all.to_csv(input.output_fp_cal + output_modelparams_all_fn)
-        
-        # Calibration comparison - combine into single file
-        check_calcompare_str = (
-                'calcompare_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
-                str(input.endyear))
-        output_calcompare_all_fn = (
-                'R' + str(rgi_regionsO1[0]) + '_' + str(glac_count) + check_calcompare_str + '.csv')
-        # Sorted list of files to merge
-        output_list = []
-        for i in os.listdir(output_temp):
-            if check_calcompare_str in i:
-                output_list.append(i)
-        output_list = sorted(output_list)
-        # Merge cal compare csv summary file
-        list_count = 0
-        for i in output_list:
-            list_count += 1
-            # Append results
-            if list_count == 1:
-                output_all = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
-            else:
-                output_2join = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
-                output_all = output_all.append(output_2join, ignore_index=True)
-            # Remove file after its been merged
-            os.remove(input.output_fp_cal + 'temp/' + i)
-        # Export joined files
-        output_all.to_csv(input.output_fp_cal + output_calcompare_all_fn)
-
-    print('Total processing time:', time.time()-time_start, 's')
+#    # Combine output (if desired)
+#    if input.option_calibration == 1:
+#        # Merge csv summary files into single file    
+#        # Count glaciers
+#        glac_count = 0
+#        output_temp = input.output_fp_cal + 'temp/'
+#        for i in os.listdir(output_temp):
+#            if i.startswith(str(rgi_regionsO1[0])) and i.endswith('.nc'):
+#                glac_count += 1
+#        
+#        # Model parameters - combine into single file
+#        check_modelparams_str = (
+#                'modelparams_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
+#                str(input.endyear))
+#        output_modelparams_all_fn = (
+#                'R' + str(rgi_regionsO1[0]) + '_' + str(glac_count) + check_modelparams_str + '.csv')
+#        # Sorted list of files to merge
+#        output_list = []
+#        for i in os.listdir(output_temp):
+#            if check_modelparams_str in i:
+#                output_list.append(i)
+#        output_list = sorted(output_list)
+#        # Merge model parameters csv summary file
+#        list_count = 0
+#        for i in output_list:
+#            list_count += 1
+#            # Append results
+#            if list_count == 1:
+#                output_all = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
+#            else:
+#                output_2join = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
+#                output_all = output_all.append(output_2join, ignore_index=True)
+#            # Remove file after its been merged
+#            os.remove(input.output_fp_cal + 'temp/' + i)
+#        # Export joined files
+#        output_all.to_csv(input.output_fp_cal + output_modelparams_all_fn)
+#        
+#        # Calibration comparison - combine into single file
+#        check_calcompare_str = (
+#                'calcompare_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) + 
+#                str(input.endyear))
+#        output_calcompare_all_fn = (
+#                'R' + str(rgi_regionsO1[0]) + '_' + str(glac_count) + check_calcompare_str + '.csv')
+#        # Sorted list of files to merge
+#        output_list = []
+#        for i in os.listdir(output_temp):
+#            if check_calcompare_str in i:
+#                output_list.append(i)
+#        output_list = sorted(output_list)
+#        # Merge cal compare csv summary file
+#        list_count = 0
+#        for i in output_list:
+#            list_count += 1
+#            # Append results
+#            if list_count == 1:
+#                output_all = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
+#            else:
+#                output_2join = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
+#                output_all = output_all.append(output_2join, ignore_index=True)
+#            # Remove file after its been merged
+#            os.remove(input.output_fp_cal + 'temp/' + i)
+#        # Export joined files
+#        output_all.to_csv(input.output_fp_cal + output_calcompare_all_fn)
+#
+#    print('Total processing time:', time.time()-time_start, 's')
 
     #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
     # Place local variables in variable explorer
@@ -1712,11 +1721,23 @@ if __name__ == '__main__':
         width_t0 = main_vars['width_t0']
         
         if input.option_calibration == 2 and input.new_setup == 1:
+            observed_massbal=main_vars['observed_massbal']
+            observed_error=main_vars['observed_error']
+            mb_max_loss = main_vars['mb_max_loss']
             tempchange_boundlow = main_vars['tempchange_boundlow']
             tempchange_boundhigh = main_vars['tempchange_boundhigh']
             tempchange_mu = main_vars['tempchange_mu']
             tempchange_sigma = main_vars['tempchange_sigma']
             tempchange_start = main_vars['tempchange_start']
+            t1_idx = main_vars['t1_idx']
+            t2_idx = main_vars['t2_idx']
+            t1 = main_vars['t1']
+            t2 = main_vars['t2']
+            iterations=input.mcmc_sample_no
+            burn=input.mcmc_burn_no
+            step=input.mcmc_step
+            precfactor_boundlow = main_vars['precfactor_boundlow']
+            precfactor_boundhigh = main_vars['precfactor_boundhigh']
             glacier_gcm_prec = main_vars['glacier_gcm_prec']
             glacier_gcm_temp = main_vars['glacier_gcm_temp']
             glacier_gcm_elev = main_vars['glacier_gcm_elev']

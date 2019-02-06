@@ -20,6 +20,7 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
 import matplotlib.patches as mpatches
 import scipy
+from scipy import stats
 from scipy.ndimage import uniform_filter
 import cartopy
 #import geopandas
@@ -46,6 +47,7 @@ option_plot_modelparam = 0
 option_plot_era_normalizedchange = 0
 option_compare_GCMwCal = 0
 option_plot_mcmc_errors = 1
+option_plot_maxloss_issues = 0
 
 option_plot_individual_glaciers = 0
 option_plot_degrees = 1
@@ -57,14 +59,14 @@ option_plot_individual_gcms = 0
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
 #mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
-mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_20190124/'
+mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190204/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
 csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20181018/'
 
 # Regions
-#rgi_regions = [13, 14, 15]
-rgi_regions = [15]
+rgi_regions = [13, 14, 15]
+#rgi_regions = [15]
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -667,9 +669,9 @@ for rgi_region in rgi_regions:
         main_glac_hyps_all = main_glac_hyps_region
         main_glac_icethickness_all = main_glac_icethickness_region
     else:
-        main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region])
-        main_glac_hyps_all = pd.concat([main_glac_hyps_all, main_glac_hyps_region])
-        main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region])
+        main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region], sort=False)
+        main_glac_hyps_all = pd.concat([main_glac_hyps_all, main_glac_hyps_region], sort=False)
+        main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region], sort=False)
         
 # Add watersheds, regions, degrees, mascons, and all groups to main_glac_rgi_all
 # Watersheds
@@ -2115,50 +2117,71 @@ if option_plot_mcmc_errors == 1:
             main_glac_rgi_all.loc[glac,'mb_cal_mwea'] = ds_cal.loc[cal_idx,'mb_mwea']
             main_glac_rgi_all.loc[glac,'mb_cal_sigma'] = ds_cal.loc[cal_idx,'mb_mwea_sigma'] 
 
+    #%%
     # Load ERA-Interim modeled mass balance to data
-    if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
-        (ds_cal.loc[rand_idx,'RGIId_full'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
-        df_mean_all = pd.read_csv(shean_fp + 'mcmc_mean_all.csv', index_col=0)
-        df_median_all = pd.read_csv(shean_fp + 'mcmc_median_all.csv', index_col=0)
-    else:
-        # Load data for each glacier
-        mcmc_cns = ['massbal', 'precfactor', 'tempchange', 'ddfsnow', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 
-                    'tempsnow']
-        df_mean_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
-        df_median_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
-        df_std_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
-        df_min_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
-        df_max_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
-        for n, glac_str_wRGI in enumerate(main_glac_rgi_all['RGIId'].values):
-            # Glacier string
-            glacier_str = glac_str_wRGI.split('-')[1]
-            ds = xr.open_dataset(mcmc_fp + glacier_str + '.nc')
-            df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
-            df = df[mcmc_cns]
-            df_mean_all.loc[n,:] = df.mean()
-            df_median_all.loc[n,:] = df.median()
-            df_std_all.loc[n,:] = df.std()
-            df_min_all.loc[n,:] = df.min()
-            df_max_all.loc[n,:] = df.max()
+#    if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
+#        (ds_cal.loc[rand_idx,'RGIId_full'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
+#        df_mean_all = pd.read_csv(shean_fp + 'mcmc_mean_all.csv', index_col=0)
+#        df_median_all = pd.read_csv(shean_fp + 'mcmc_median_all.csv', index_col=0)
+#    else:
+    # Load data for each glacier
+    mcmc_cns = ['massbal', 'precfactor', 'tempchange', 'ddfsnow', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 
+                'tempsnow']
+    df_mean_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+    df_median_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+    df_std_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+    df_min_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+    df_max_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
+    for n, glac_str_wRGI in enumerate(main_glac_rgi_all['RGIId'].values):
+        if n%500 == 0:
+            print(n, glac_str_wRGI)
+        # Glacier string
+        glacier_str = glac_str_wRGI.split('-')[1]
+        ds = xr.open_dataset(mcmc_fp + glacier_str + '.nc')
+        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
+        df = df[mcmc_cns]
+        df_mean_all.loc[n,:] = df.mean()
+        df_median_all.loc[n,:] = df.median()
+        df_std_all.loc[n,:] = df.std()
+        df_min_all.loc[n,:] = df.min()
+        df_max_all.loc[n,:] = df.max()
             
-        # Export stats, so only had to load them once
-        export_cns = ['RGIId']
-        for cn in mcmc_cns:
-            export_cns.append(cn)
-        df_mean_all['RGIId'] = main_glac_rgi_all['RGIId']
-        df_mean_all = df_mean_all[export_cns]
-        df_median_all['RGIId'] = main_glac_rgi_all['RGIId']
-        df_median_all = df_median_all[export_cns] 
-        df_mean_all.to_csv(shean_fp + 'mcmc_mean_all.csv')
-        df_median_all.to_csv(shean_fp + 'mcmc_median_all.csv')
+    # Export stats, so only had to load them once
+    export_cns = ['RGIId']
+    for cn in mcmc_cns:
+        export_cns.append(cn)
+    df_mean_all['RGIId'] = main_glac_rgi_all['RGIId']
+    df_mean_all = df_mean_all[export_cns]
+    df_median_all['RGIId'] = main_glac_rgi_all['RGIId']
+    df_median_all = df_median_all[export_cns] 
+    df_mean_all.to_csv(shean_fp + 'mcmc_mean_all.csv')
+    df_median_all.to_csv(shean_fp + 'mcmc_median_all.csv')
     
     #%%
+    
     # Maximum loss if entire glacier melted between 2000 and 2018
-    mb_max_loss = ((main_glac_hyps_all * main_glac_icethickness_all * input.density_ice / 
-                    input.density_water).sum(axis=1).values / main_glac_hyps_all.sum(axis=1).values / (2018 - 2000))
+    mb_max_loss = (-1 * (main_glac_hyps_all * main_glac_icethickness_all * input.density_ice / 
+                   input.density_water).sum(axis=1).values / main_glac_hyps_all.sum(axis=1).values / (2018 - 2000))
     main_glac_rgi_all['mb_max_loss'] = mb_max_loss
-    
-    #%%
+
+#    # Truncated normal - updated means to remove portions of observations that are below max mass loss!
+#    main_glac_rgi_all['mb_cal_dist_mean'] = np.nan
+#    main_glac_rgi_all['mb_cal_dist_med'] = np.nan
+#    main_glac_rgi_all['mb_cal_dist_std'] = np.nan
+#    main_glac_rgi_all['mb_cal_dist_95low'] = np.nan
+#    main_glac_rgi_all['mb_cal_dist_95high']  = np.nan
+#    for glac in range(main_glac_rgi_all.shape[0]):
+#        cal_mu = main_glac_rgi_all.loc[glac, 'mb_cal_mwea']
+#        cal_sigma = main_glac_rgi_all.loc[glac, 'mb_cal_sigma']
+#        cal_lowbnd = main_glac_rgi_all.loc[glac, 'mb_max_loss']
+#        cal_rvs = stats.truncnorm.rvs((cal_lowbnd - cal_mu) / cal_sigma, np.inf, loc=cal_mu, scale=cal_sigma, 
+#                                      size=int(1e5))
+#        main_glac_rgi_all.loc[glac,'mb_cal_dist_mean'] = np.mean(cal_rvs)
+#        main_glac_rgi_all.loc[glac,'mb_cal_dist_med'] = np.median(cal_rvs)
+#        main_glac_rgi_all.loc[glac,'mb_cal_dist_std'] = np.std(cal_rvs)
+#        main_glac_rgi_all.loc[glac,'mb_cal_dist_95low'] = np.percentile(cal_rvs, 2.5)
+#        main_glac_rgi_all.loc[glac,'mb_cal_dist_95high']  = np.percentile(cal_rvs, 97.5)        
+
     # Add to main_glac_rgi
     if (main_glac_rgi_all.shape[0] == df_mean_all.shape[0] and 
         (df_mean_all.loc[rand_idx,'RGIId'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
@@ -2168,56 +2191,18 @@ if option_plot_mcmc_errors == 1:
         main_glac_rgi_all['mb_era_min'] = df_min_all['massbal']
         main_glac_rgi_all['mb_era_max'] = df_max_all['massbal']
 
-    main_glac_rgi_all['dif_mean_med'] = main_glac_rgi_all['mb_era_mean'] - main_glac_rgi_all['mb_era_med']
+#%%
+#    main_glac_rgi_all['dif_mean_med'] = main_glac_rgi_all['mb_era_mean'] - main_glac_rgi_all['mb_era_med']
     main_glac_rgi_all['dif_cal_era_mean'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_mean']
     main_glac_rgi_all['dif_cal_era_med'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_med']
-    
-    #%%
-
+#%%
     # remove nan values
     main_glac_rgi_all = (
             main_glac_rgi_all.drop(np.where(np.isnan(main_glac_rgi_all['mb_era_mean'].values) == True)[0].tolist(), 
                                    axis=0))
     main_glac_rgi_all.reset_index(drop=True, inplace=True)
     
-    #%% FIND MODE
-#    def calc_mode(chain, nbins):
-#        """
-#        Calculate heights of histogram based on given bins
-#        
-#        Parameters
-#        ----------
-#        chain : np.array
-#            values to bin
-#        nbins : int
-#            number of bins
-#            
-#        Returns
-#        -------
-#        hist : np.array
-#            number of values in each bin
-#        bins : np.array
-#            bin edges, note there will be one more edge than the len(hist) since the hist is between all the edges
-#        bin_spacing : float
-#            bin spacing
-#        """
-#        # Histogram
-#        x_range = chain.max() - chain.min()
-#        bin_spacing = np.round(x_range,-int(np.floor(np.log10(abs(x_range))))) / nbins
-#        bin_start = np.floor(chain.min()*(1/bin_spacing)) * bin_spacing
-#        bin_end = np.ceil(chain.max() * (1/bin_spacing)) * bin_spacing
-#        bins = np.arange(bin_start, bin_end + bin_spacing, bin_spacing)
-#        hist, bins = np.histogram(chain, bins=bins)
-#        return hist, bins, bin_spacing
-    # Histogram
-    chain=df.massbal.values
-    bin_spacing = 0.01
-    bin_start = np.floor(chain.min()*(1/bin_spacing)) * bin_spacing
-    bin_end = np.ceil(chain.max() * (1/bin_spacing)) * bin_spacing
-    bins = np.arange(bin_start, bin_end + bin_spacing, bin_spacing)
-    hist, bins = np.histogram(chain, bins=bins)
 
-    #%%
     def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=figure_fp):
         """
         Plot histogram for any bin size
@@ -2239,8 +2224,8 @@ if option_plot_mcmc_errors == 1:
 
     # Histogram: Mass balance [mwea], Observation - ERA
     hist_cn = 'dif_cal_era_mean'
-    low_bin = int(main_glac_rgi_all[hist_cn].min())
-    high_bin = int(main_glac_rgi_all[hist_cn].max() + 1)
+    low_bin = np.floor(main_glac_rgi_all[hist_cn].min())
+    high_bin = np.ceil(main_glac_rgi_all[hist_cn].max())
     bins = [low_bin, -0.2, -0.1, -0.05, -0.02, 0.02, 0.05, 0.1, 0.2, high_bin]
     plot_hist(main_glac_rgi_all, hist_cn, bins, xlabel='Mass balance [mwea]\n(Calibration - MCMC_mean)', 
               ylabel='# Glaciers', fig_fn='MB_cal_vs_mcmc_hist.png', fig_fp=figure_fp + '../cal/')
@@ -2248,17 +2233,22 @@ if option_plot_mcmc_errors == 1:
          
     # Histogram: Mass balance [mwea], MCMC mean - median
     hist_cn = 'dif_cal_era_med'
-    low_bin = int(main_glac_rgi_all[hist_cn].min())
-    high_bin = int(main_glac_rgi_all[hist_cn].max() + 1)
-    bins = [-1, -0.2, -0.1, -0.05, -0.02, 0.02, 0.05, 0.1, 0.2, high_bin]
+    low_bin = np.floor(main_glac_rgi_all[hist_cn].min())
+    high_bin = np.ceil(main_glac_rgi_all[hist_cn].max() + 1)
+    bins = [low_bin, -0.2, -0.1, -0.05, -0.02, 0.02, 0.05, 0.1, 0.2, high_bin]
     plot_hist(main_glac_rgi_all, hist_cn, bins, xlabel='MCMC Mass balance [mwea]\n(Calibration - MCMC_median)', 
               ylabel='# Glaciers', fig_fn='MB_mean_vs_med_mcmc_hist.png', fig_fp=figure_fp + '../cal/')
     
-    #%%
     # Map: Mass change, difference between calibration data and median data
     #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
     main_glac_rgi_all['mb_cal_Gta'] = main_glac_rgi_all['mb_cal_mwea'] * main_glac_rgi_all['Area'] / 1000
-    main_glac_rgi_all['mb_era_Gta'] = main_glac_rgi_all['mb_era_med'] * main_glac_rgi_all['Area'] / 1000
+    main_glac_rgi_all['mb_cal_Gta_var'] = (main_glac_rgi_all['mb_cal_sigma'] * main_glac_rgi_all['Area'] / 1000)**2
+    main_glac_rgi_all['mb_era_Gta'] = main_glac_rgi_all['mb_era_mean'] * main_glac_rgi_all['Area'] / 1000
+    main_glac_rgi_all['mb_era_Gta_var'] = (main_glac_rgi_all['mb_era_std'] * main_glac_rgi_all['Area'] / 1000)**2
+    print('All MB cal (mean +/- 1 std) [gt/yr]:', np.round(main_glac_rgi_all['mb_cal_Gta'].sum(),3), 
+          '+/-', np.round(main_glac_rgi_all['mb_cal_Gta_var'].sum()**0.5,3),
+          '\nAll MB ERA (mean +/- 1 std) [gt/yr]:', np.round(main_glac_rgi_all['mb_era_Gta'].sum(),3), 
+          '+/-', np.round(main_glac_rgi_all['mb_era_Gta_var'].sum()**0.5,3))
     
     def partition_sum_groups(grouping, vn, main_glac_rgi_all):
         """Partition model parameters by each group
@@ -2321,7 +2311,7 @@ if option_plot_mcmc_errors == 1:
     
     labelsize = 13
     
-    norm = plt.Normalize(-0.2, 0.2)
+    norm = plt.Normalize(-0.1, 0.1)
     
     # Create the projection
     fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
@@ -2348,6 +2338,207 @@ if option_plot_mcmc_errors == 1:
     # Group by degree  
     groups_deg = groups
     ds_vn_deg = ds_group_dif_cal_era_mwea
+
+    z = [ds_vn_deg[ds_idx][1] for ds_idx in range(len(ds_vn_deg))]
+    x = np.array([x[0] for x in deg_groups]) 
+    y = np.array([x[1] for x in deg_groups])
+    lons = np.arange(x.min(), x.max() + 2 * degree_size, degree_size)
+    lats = np.arange(y.min(), y.max() + 2 * degree_size, degree_size)
+    x_adj = np.arange(x.min(), x.max() + 1 * degree_size, degree_size) - x.min()
+    y_adj = np.arange(y.min(), y.max() + 1 * degree_size, degree_size) - y.min()
+    z_array = np.zeros((len(y_adj), len(x_adj)))
+    z_array[z_array==0] = np.nan
+    for i in range(len(z)):
+        row_idx = int((y[i] - y.min()) / degree_size)
+        col_idx = int((x[i] - x.min()) / degree_size)
+        z_array[row_idx, col_idx] = z[i]    
+    ax.pcolormesh(lons, lats, z_array, cmap='RdYlBu_r', norm=norm, zorder=2, alpha=0.8)
+    
+    # Save figure
+    fig.set_size_inches(6,4)
+    fig.savefig(figure_fp + '../cal/' + fig_fn, bbox_inches='tight', dpi=300)
+    
+
+#%%
+if option_plot_maxloss_issues == 1:
+
+    # Load cal data
+    shean_fp = input.main_directory + '/../DEMs/Shean_2018_1109/'
+    shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
+    ds_cal = pd.read_csv(shean_fp + shean_fn)
+    # Glacier number and index for comparison
+    ds_cal['O1region'] = ds_cal['RGIId'].astype(int)
+    ds_cal['glacno'] = ((ds_cal['RGIId'] % 1) * 10**5).round(0).astype(int)
+    ds_cal['RGIId_full'] = ('RGI60-' + ds_cal['O1region'].map(str) + '.' + 
+                           (ds_cal['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1])
+    
+    # Add calibration data to main_glac_rgi_all
+    rand_idx = np.random.randint(0,main_glac_rgi_all.shape[0])
+    if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
+        (ds_cal.loc[rand_idx,'RGIId_full'] == main_glac_rgi_all.loc[rand_idx, 'RGIId'])):
+        main_glac_rgi_all['mb_cal_mwea'] = ds_cal['mb_mwea'] 
+        main_glac_rgi_all['mb_cal_sigma'] = ds_cal['mb_mwea_sigma'] 
+    else:
+        main_glac_rgi_all['mb_cal_mwea'] = np.nan
+        for glac in range(main_glac_rgi_all.shape[0]):
+            cal_idx = np.where(ds_cal['RGIId_full'] == main_glac_rgi_all.loc[glac, 'RGIId'])[0][0]
+            main_glac_rgi_all.loc[glac,'mb_cal_mwea'] = ds_cal.loc[cal_idx,'mb_mwea']
+            main_glac_rgi_all.loc[glac,'mb_cal_sigma'] = ds_cal.loc[cal_idx,'mb_mwea_sigma'] 
+
+
+    # Maximum loss if entire glacier melted between 2000 and 2018
+    mb_max_loss = (-1 * (main_glac_hyps_all * main_glac_icethickness_all * input.density_ice / 
+                   input.density_water).sum(axis=1).values / main_glac_hyps_all.sum(axis=1).values / (2018 - 2000))
+    main_glac_rgi_all['mb_max_loss'] = mb_max_loss
+
+    # Z-score of where max loss falls on mb_cal
+    main_glac_rgi_all['max_loss_Z'] = ((main_glac_rgi_all['mb_max_loss'] - main_glac_rgi_all['mb_cal_mwea']) /
+                                       main_glac_rgi_all['mb_cal_sigma'])
+    
+    # Truncated normal - updated means to remove portions of observations that are below max mass loss!
+    main_glac_rgi_all['mb_cal_dist_mean'] = np.nan
+    main_glac_rgi_all['mb_cal_dist_med'] = np.nan
+    main_glac_rgi_all['mb_cal_dist_std'] = np.nan
+    for glac in range(main_glac_rgi_all.shape[0]):
+        cal_mu = main_glac_rgi_all.loc[glac, 'mb_cal_mwea']
+        cal_sigma = main_glac_rgi_all.loc[glac, 'mb_cal_sigma']
+        cal_lowbnd = main_glac_rgi_all.loc[glac, 'mb_max_loss']
+        cal_rvs = stats.truncnorm.rvs((cal_lowbnd - cal_mu) / cal_sigma, np.inf, loc=cal_mu, scale=cal_sigma, 
+                                      size=int(1e5))
+        main_glac_rgi_all.loc[glac,'mb_cal_dist_mean'] = np.mean(cal_rvs)
+        main_glac_rgi_all.loc[glac,'mb_cal_dist_med'] = np.median(cal_rvs)
+        main_glac_rgi_all.loc[glac,'mb_cal_dist_std'] = np.std(cal_rvs)    
+    
+    # remove nan values
+    main_glac_rgi_all = (
+            main_glac_rgi_all.drop(np.where(np.isnan(main_glac_rgi_all['max_loss_Z'].values) == True)[0].tolist(), 
+                                   axis=0))
+    main_glac_rgi_all.reset_index(drop=True, inplace=True)
+    
+    #%%
+
+    def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=figure_fp):
+        """
+        Plot histogram for any bin size
+        """           
+        data = df[cn].values
+        hist, bin_edges = np.histogram(data,bins) # make the histogram
+        fig,ax = plt.subplots()    
+        # Plot the histogram heights against integers on the x axis
+        ax.bar(range(len(hist)),hist,width=1, edgecolor='k') 
+        # Set the ticks to the middle of the bars
+        ax.set_xticks([0.5+i for i,j in enumerate(hist)])
+        # Set the xticklabels to a string that tells us what the bin edges were
+        ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)], rotation=45, ha='right')
+        ax.set_xlabel(xlabel, fontsize=16)
+        ax.set_ylabel(ylabel, fontsize=16)
+        ax.set_ylim(0,10000)
+        # Save figure
+        fig.set_size_inches(6,4)
+        fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+
+    # Histogram: Mass balance [mwea], Observation - ERA
+    hist_cn = 'max_loss_Z'
+    low_bin = np.floor(main_glac_rgi_all[hist_cn].min())
+    high_bin = np.ceil(main_glac_rgi_all[hist_cn].max())
+    bins = [low_bin, -2, -1.5, -1, -0.5, 0, 0.5, 1, 2, high_bin]
+    plot_hist(main_glac_rgi_all, hist_cn, bins, xlabel='Max Loss Z-score \n[(Max_Loss - Obs_MB) / Obs_sigma]', 
+              ylabel='# Glaciers', fig_fn='maxloss_zscore_hist.png', fig_fp=figure_fp + '../cal/')
+              
+         
+
+#%%    
+    # Map: Mass change, difference between calibration data and median data
+    def partition_sum_groups(grouping, vn, main_glac_rgi_all):
+        """Partition model parameters by each group
+        
+        Parameters
+        ----------
+        grouping : str
+            name of grouping to use
+        vn : str
+            variable name
+        main_glac_rgi_all : pd.DataFrame
+            glacier table
+            
+        Output
+        ------
+        groups : list
+            list of group names
+        ds_group : list of lists
+            dataset containing the multimodel data for a given variable for all the GCMs
+        """
+        # Groups
+        groups, group_cn = select_groups(grouping, main_glac_rgi_all)
+        
+        ds_group = [[] for group in groups]
+        
+        # Cycle through groups
+        for ngroup, group in enumerate(groups):
+            # Select subset of data
+            main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
+            vn_glac = main_glac_rgi_all[vn].values[main_glac_rgi.index.values.tolist()]             
+            # Regional sum
+            vn_reg = vn_glac.sum(axis=0)                
+            
+            # Record data for each group
+            ds_group[ngroup] = [group, vn_reg]
+                
+        return groups, ds_group
+
+    grouping='degree'
+    
+    main_glac_rgi_all['count'] = 1
+    main_glac_rgi_all['count_gtNeg2'] = 0
+    main_glac_rgi_all['count_gtNeg1'] = 0
+    main_glac_rgi_all['count_gt0'] = 0
+    main_glac_rgi_all.loc[main_glac_rgi_all['max_loss_Z'] > -2, 'count_gtNeg2'] = 1
+    main_glac_rgi_all.loc[main_glac_rgi_all['max_loss_Z'] > -1, 'count_gtNeg1'] = 1
+    main_glac_rgi_all.loc[main_glac_rgi_all['max_loss_Z'] > 0, 'count_gt0'] = 1
+    groups, ds_group_zscore = partition_sum_groups(grouping, 'count_gt0', main_glac_rgi_all)
+    groups, ds_group_count = partition_sum_groups(grouping, 'count', main_glac_rgi_all)
+    
+    ds_group_zscore_perc = [[x[0], ds_group_zscore[n][1] / ds_group_count[n][1] * 100] 
+                            for n, x in enumerate(ds_group_zscore)]
+    
+    fig_fn = 'max_loss_zscore_map.png'
+    
+    east = 104
+    west = 67
+    south = 25
+    north = 48
+    
+    labelsize = 13
+    
+    norm = plt.Normalize(0, 10)
+#    norm = plt.Normalize(0, 100)
+    
+    # Create the projection
+    fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
+    # Add country borders for reference
+    ax.add_feature(cartopy.feature.BORDERS, alpha=0.15, zorder=10)
+    ax.add_feature(cartopy.feature.COASTLINE)
+    # Set the extent
+    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
+    # Label title, x, and y axes
+    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+    ax.set_xlabel(xlabel, size=labelsize)
+    ax.set_ylabel(ylabel, size=labelsize)            
+    
+    cmap = 'RdYlBu_r'
+
+    # Add colorbar
+#    sm = plt.cm.ScalarMappable(cmap=cmap)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm._A = []
+    plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
+    fig.text(1, 0.5, 'Count', va='center', rotation='vertical', size=labelsize)    
+
+    # Group by degree  
+    groups_deg = groups
+    ds_vn_deg = ds_group_zscore
+#    ds_vn_deg = ds_group_zscore_perc
 
     z = [ds_vn_deg[ds_idx][1] for ds_idx in range(len(ds_vn_deg))]
     x = np.array([x[0] for x in deg_groups]) 

@@ -108,12 +108,22 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [13]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
+
+#rgi_glac_number = ['00001']
+
 #rgi_glac_number = ['03473']
+#rgi_glac_number = ['12112']
+#rgi_glac_number = ['02703']
+#rgi_glac_number = ['01081'] # too positive
+#rgi_glac_number = ['00014'] # too negative
+#rgi_glac_number = ['07204']
+#rgi_glac_number = ['03743']
+#rgi_glac_number = ['13119']
 #rgi_glac_number = glac_num_fromrange(1,2)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
@@ -144,19 +154,21 @@ option_wateryear = 3
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-gcm_startyear = 1980
-gcm_endyear = 2017
+#gcm_startyear = 1980
+#gcm_endyear = 2017
+gcm_startyear = 2000
+gcm_endyear = 2015
 gcm_spinupyears = 0
-gcm_wateryear = 1
+gcm_wateryear = 2
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
 option_synthetic_sim = 0
-synthetic_startyear = 1990
-synthetic_endyear = 2000
+synthetic_startyear = 1995
+synthetic_endyear = 2015
 synthetic_spinupyears = 0
-synthetic_temp_adjust = 0
-synthetic_prec_factor = 1
+synthetic_temp_adjust = 3
+synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC)
@@ -182,12 +194,28 @@ zscore_update_threshold = 0.1
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 5000
+mcmc_sample_no = 2000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
 #mcmc_step = 'am'
 thin_interval = 1
+
+
+#print('\nDELETE HERE\n')
+
+#rgi_glac_number = ['02827'] # PF_max_ratio of 1.48 - good!
+#rgi_glac_number = ['05536'] # PF_max_ratio of 1.47 - good!
+#rgi_glac_number = ['11167'] # way too positive - good! (max loss issue)
+#rgi_glac_number = ['03473'] # good!
+#rgi_glac_number = ['04092'] # too positive - good! (max loss issue)
+
+#rgi_glac_number = ['04515']
+#rgi_glac_number = ['10994']
+#rgi_glac_number = ['12112'] # too positive (big glacier)
+
+#rgi_glac_number = ['05000']
+rgi_glac_number = ['43483']
 
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
@@ -209,13 +237,19 @@ tempchange_sigma = 2
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
-tempchange_mb_threshold = 0.1
+tempchange_mb_threshold = 0.5
+tempchange_step = 0.1
+tempchange_slope_threshold = -0.2
 ddfsnow_disttype = 'truncnormal'
 #ddfsnow_disttype = 'uniform'
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
-ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma 
+ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma
 ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
+#ddfsnow_sigma_lit = 0.0015
+#ddfsnow_sigma = 0.0015*1.5
+#ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma_lit
+#ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma_lit
 ddfsnow_start=ddfsnow_mu
 
 # option for new automatic priors for tempchange
@@ -300,7 +334,9 @@ modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
 # Model parameter filepath
 if option_calibration == 1:
     modelparams_fp_dict = {
+            1:  output_filepath + 'cal_opt1/',
             3:  output_filepath + 'cal_opt1/',
+            4:  output_filepath + 'cal_opt1/',
             6:  output_filepath + 'cal_opt1/reg6/',
             13: output_filepath + 'cal_opt1/reg13/',
             14: output_filepath + 'cal_opt1/reg14/',

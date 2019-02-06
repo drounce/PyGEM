@@ -14,7 +14,7 @@ ADD_CAL_SWITCH=1
 python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -spc_region=$REGNO -add_cal=$ADD_CAL_SWITCH
 
 # list rgi_glac_number batch filenames
-CHECK_STR="Cal_R$REGNO_rgi_glac_number_batch"
+CHECK_STR="Cal_R${REGNO}_rgi_glac_number_batch"
 rgi_fns=$(find $CHECK_STR*)
 echo rgi_glac_number filenames:$rgi_fns
 # create list
