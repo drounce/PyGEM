@@ -600,20 +600,18 @@ def main(list_packed_vars):
                         modelparameters[7] = modelparameters[7] + input.tempchange_step
                         mb_norm = mb_norm_calc(mb_mwea_calc(modelparameters))
                     tempchange_boundlow = modelparameters[7]
-        
-                if input.tempchange_edge_method == 'mb_norm_slope':
-                    modelparameters[7] = tempchange_max_acc
-                    tc_norm_1 = tc_norm_calc(modelparameters[7])
-                    mb_norm_1 = mb_norm_calc(mb_max_acc)
+                elif input.tempchange_edge_method == 'mb_norm_slope':
+                    tempchange_boundlow = tempchange_max_acc
                     mb_slope = 0
                     while mb_slope > input.tempchange_edge_mbnormslope:
-                        modelparameters[7] = modelparameters[7] + input.tempchange_step
+                        tempchange_boundlow += input.tempchange_step
+                        modelparameters[7] = tempchange_boundlow + 0.5
                         tc_norm_2 = tc_norm_calc(modelparameters[7])
                         mb_norm_2 = mb_norm_calc(mb_mwea_calc(modelparameters))
-                        mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)            
-                        tc_norm_1 = tc_norm_2
-                        mb_norm_1 = mb_norm_2
-                    tempchange_boundlow = modelparameters[7]
+                        modelparameters[7] = tempchange_boundlow - 0.5
+                        tc_norm_1 = tc_norm_calc(modelparameters[7])
+                        mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters))
+                        mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)  
         
                 # UPPER BOUND
                 # Loop backward to avoid edge effects
@@ -624,20 +622,19 @@ def main(list_packed_vars):
                         modelparameters[7] = modelparameters[7] - input.tempchange_step
                         mb_norm = mb_norm_calc(mb_mwea_calc(modelparameters))
                     tempchange_boundhigh = modelparameters[7]
-                
-                if input.tempchange_edge_method == 'mb_norm_slope':
-                    modelparameters[7] = tempchange_max_loss
-                    tc_norm_2 = tc_norm_calc(modelparameters[7])
-                    mb_norm_2 = mb_norm_calc(mb_max_loss)
+                    
+                elif input.tempchange_edge_method == 'mb_norm_slope':
+                    tempchange_boundhigh = tempchange_max_loss
                     mb_slope = 0
                     while mb_slope > input.tempchange_edge_mbnormslope:
-                        modelparameters[7] = modelparameters[7] - input.tempchange_step
+                        tempchange_boundhigh -= input.tempchange_step
+                        modelparameters[7] = tempchange_boundhigh + 0.5
+                        tc_norm_2 = tc_norm_calc(modelparameters[7])
+                        mb_norm_2 = mb_norm_calc(mb_mwea_calc(modelparameters))
+                        modelparameters[7] = tempchange_boundhigh - 0.5
                         tc_norm_1 = tc_norm_calc(modelparameters[7])
                         mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters))
-                        mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)            
-                        tc_norm_2 = tc_norm_1
-                        mb_norm_2 = mb_norm_1
-                    tempchange_boundhigh = modelparameters[7]
+                        mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)  
                 
                 # ----- PRECFACTOR BOUNDS (if needed) ------
                 # Ensure MB(TC_boundlow, PF_boundhigh) = MB_obs_max
@@ -645,8 +642,6 @@ def main(list_packed_vars):
                 modelparameters[7] = tempchange_boundlow
                 modelparameters[2] = input.precfactor_boundhigh
                 mb_TCboundlow = mb_mwea_calc(modelparameters)
-                
-                print('MB_obs_max:', np.round(mb_obs_max,2), 'MB_TCboundlow:', np.round(mb_TCboundlow,2))
                 
                 if mb_TCboundlow < mb_obs_max:
                     PF_loop = 1
@@ -660,7 +655,7 @@ def main(list_packed_vars):
                         print('PF:', np.round(modelparameters[2],2), 'TC:', np.round(modelparameters[7],2), 'MB:', 
                               np.round(mb_TCboundlow,2))
                         
-                    precfactor_boundhigh = modelparameters[2] + 2
+                    precfactor_boundhigh = modelparameters[2] + input.precfactor_boundhigh_adj
                     precfactor_boundlow = 1 / precfactor_boundhigh
                     if input.precfactor_boundlow < precfactor_boundlow:
                         precfactor_boundlow = input.precfactor_boundlow
@@ -695,7 +690,7 @@ def main(list_packed_vars):
                     tempchange_mu = tempchange_boundlow + tempchange_sigma
                 elif abs(tempchange_mu - tempchange_boundhigh) < tempchange_sigma:
                     tempchange_mu = tempchange_boundhigh - tempchange_sigma
-                tempchange_start = tempchange_mu                
+                tempchange_start = tempchange_mu                  
                 
                 #%%
                 
