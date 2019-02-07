@@ -108,7 +108,7 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13]
+#rgi_regionsO1 = [13]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
@@ -194,7 +194,7 @@ zscore_update_threshold = 0.1
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 2000
+mcmc_sample_no = 5000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
@@ -214,8 +214,12 @@ thin_interval = 1
 #rgi_glac_number = ['10994']
 #rgi_glac_number = ['12112'] # too positive (big glacier)
 
-#rgi_glac_number = ['05000']
-rgi_glac_number = ['43483']
+#rgi_regionsO1 = [15]
+#rgi_glac_number = ['06881']
+
+rgi_regionsO1 = [13]
+rgi_glac_number = ['05000']
+#rgi_glac_number = ['43483']
 
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
@@ -226,10 +230,11 @@ precfactor_lognorm_tau = 4
 precfactor_mu = 0
 precfactor_sigma = 1.5
 #precfactor_boundlow = 0
-#precfactor_boundhigh = 10
+#precfactor_boundhigh = 2
 precfactor_boundlow = 0.5
 precfactor_boundhigh = 1.5
 precfactor_start = 1
+precfactor_step = 0.1
 tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'
 tempchange_mu = 0
@@ -237,9 +242,12 @@ tempchange_sigma = 2
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
-tempchange_mb_threshold = 0.5
 tempchange_step = 0.1
-tempchange_slope_threshold = -0.2
+tempchange_sigma_adj = 4
+tempchange_edge_method = 'mb_norm'
+#tempchange_edge_method = 'mb_norm_slope'
+tempchange_edge_mbnorm = 0.9
+tempchange_edge_mbnormslope = -0.2
 ddfsnow_disttype = 'truncnormal'
 #ddfsnow_disttype = 'uniform'
 ddfsnow_mu = 0.0041
