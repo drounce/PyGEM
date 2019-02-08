@@ -1079,25 +1079,25 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
         mb_vs_parameters_subset = mb_vs_parameters.loc[mb_vs_parameters.loc[:,'precfactor'] == precfactor]
         for ddfsnow in [0.0041]:
             mb_vs_parameters_plot =  mb_vs_parameters_subset.loc[mb_vs_parameters_subset.loc[:,'ddfsnow'] == ddfsnow]
-#            ax.plot(mb_vs_parameters_plot.loc[:,'tempbias'], mb_vs_parameters_plot.loc[:,'massbal_norm'], 
-#                    linestyle=prec_linedict[precfactor], color=ddfsnow_colordict[ddfsnow], label='model')  
-            ax.plot(mb_vs_parameters_plot.loc[:,'tempbias_norm'], mb_vs_parameters_plot.loc[:,'massbal_norm'], 
+            ax.plot(mb_vs_parameters_plot.loc[:,'tempbias'], mb_vs_parameters_plot.loc[:,'massbal_norm'], 
                     linestyle=prec_linedict[precfactor], color=ddfsnow_colordict[ddfsnow], label='model')  
+#            ax.plot(mb_vs_parameters_plot.loc[:,'tempbias_norm'], mb_vs_parameters_plot.loc[:,'massbal_norm'], 
+#                    linestyle=prec_linedict[precfactor], color=ddfsnow_colordict[ddfsnow], label='model')  
     
     # Add horizontal line of mass balance observations
     ax.axhline((observed_massbal - mb_max_loss) / (mb_max_acc - mb_max_loss), color='gray', linewidth=2, label='obs')    
 #    ax.axhline(observed_massbal - 1.96*observed_error, color='gray', linewidth=1) 
 #    ax.axhline(observed_massbal + 1.96*observed_error, color='gray', linewidth=1)         
 #    ax.set_xlim(np.min(tempchange_iters), np.max(tempchange_iters))
-#    ax.set_xlim(tempchange_max_acc,tempchange_max_loss)
-    ax.set_xlim(0,1)
+    ax.set_xlim(tempchange_max_acc,tempchange_max_loss)
+#    ax.set_xlim(0,1)
     ax.set_ylim(0,1)
     
     
     # Add slope on secondary axis
     ax2 = ax.twinx()
-#    ax2.plot(mb_slope.loc[:,'tempbias'], mb_slope.loc[:,'slope_norm'], color='yellow', label='slope')
-    ax2.plot(mb_slope.loc[:,'tempbias_norm'], mb_slope.loc[:,'slope_norm'], color='yellow', label='slope')
+    ax2.plot(mb_slope.loc[:,'tempbias'], mb_slope.loc[:,'slope_norm'], color='yellow', label='slope')
+#    ax2.plot(mb_slope.loc[:,'tempbias_norm'], mb_slope.loc[:,'slope_norm'], color='yellow', label='slope')
     ax2.set_ylim(-3,0)
     
     # Labels
@@ -1967,7 +1967,16 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             return (tc - tempchange_max_acc) / (tempchange_max_loss - tempchange_max_acc)
 
         # LOWER BOUND
-        if input.tempchange_edge_method == 'mb_norm':
+        if input.tempchange_edge_method == 'mb':
+            modelparameters[7] = tempchange_max_acc
+            modelparameters[2] = 1
+            mb_mwea = mb_max_acc
+            while mb_mwea > mb_max_acc - input.tempchange_edge_mb:
+                modelparameters[7] = modelparameters[7] + input.tempchange_step
+                mb_mwea = mb_mwea_calc(modelparameters)
+                print(np.round(modelparameters[7],2), np.round(mb_max_acc - mb_mwea,2))
+            tempchange_boundlow = modelparameters[7]
+        elif input.tempchange_edge_method == 'mb_norm':
             modelparameters[7] = tempchange_max_acc
             mb_norm = mb_norm_calc(mb_max_acc)
             while mb_norm > input.tempchange_edge_mbnorm:
@@ -1985,11 +1994,20 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                 modelparameters[7] = tempchange_boundlow - 0.5
                 tc_norm_1 = tc_norm_calc(modelparameters[7])
                 mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters))
-                mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)  
+                mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)
 
         # UPPER BOUND
         # Loop backward to avoid edge effects
-        if input.tempchange_edge_method == 'mb_norm':
+        if input.tempchange_edge_method == 'mb':
+            modelparameters[7] = tempchange_max_loss
+            modelparameters[2] = 1
+            mb_mwea = mb_max_loss
+            while mb_mwea < mb_max_loss + input.tempchange_edge_mb:
+                modelparameters[7] = modelparameters[7] - input.tempchange_step
+                mb_mwea = mb_mwea_calc(modelparameters)
+                print(np.round(modelparameters[7],2), np.round(mb_max_acc - mb_mwea,2))
+            tempchange_boundhigh = modelparameters[7]
+        elif input.tempchange_edge_method == 'mb_norm':
             modelparameters[7] = tempchange_max_loss
             mb_norm = mb_norm_calc(mb_max_loss)
             while mb_norm < 1 - input.tempchange_edge_mbnorm:
@@ -2008,12 +2026,14 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                 modelparameters[7] = tempchange_boundhigh - 0.5
                 tc_norm_1 = tc_norm_calc(modelparameters[7])
                 mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters))
-                mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)  
-        
+                mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1) 
+
         # ----- PRECFACTOR BOUNDS (if needed) ------
         # Ensure MB(TC_boundlow, PF_boundhigh) = MB_obs_max
         mb_obs_max = observed_massbal + 3 * observed_error
-        modelparameters[7] = tempchange_boundlow
+        tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / input.tempchange_sigma_adj
+        modelparameters[7] = tempchange_boundlow + tempchange_sigma
+#        modelparameters[7] = tempchange_boundlow
         modelparameters[2] = input.precfactor_boundhigh
         mb_TCboundlow = mb_mwea_calc(modelparameters)
         
@@ -2023,7 +2043,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             while mb_TCboundlow < mb_obs_max and PF_loop == 1:
                 modelparameters[2] = modelparameters[2] + input.precfactor_step
                 mb_TCboundlow = mb_mwea_calc(modelparameters)
-                if modelparameters[2] >= 10:
+                if modelparameters[2] >= 20:
                     PF_loop = 0
                     
                 print('PF:', np.round(modelparameters[2],2), 'TC:', np.round(modelparameters[7],2), 'MB:', 
@@ -2035,7 +2055,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                 precfactor_boundlow = input.precfactor_boundlow
         else:
             precfactor_boundhigh = input.precfactor_boundhigh
-            precfactor_boundlow = input.precfactor_boundlow                    
+            precfactor_boundlow = input.precfactor_boundlow     
                 
             
         # ----- TEMPBIAS: MEAN -----
@@ -2084,19 +2104,19 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         
         #%%
 
-#    netcdf_fn = mcmc_output_netcdf_fp + glacier_str + '.nc'
-#    iters = len(ds.iter.values)
-#    burn = 0
-#    if input.new_setup == 1:
-#        plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
-#                        newsetup=1, mb_max_acc=mb_max_acc, mb_max_loss=mb_max_loss,
-#                        precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
-#                        tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
-#                        tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
-#    else:
-#        plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
-#                        tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
-#                        tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
+    netcdf_fn = mcmc_output_netcdf_fp + glacier_str + '.nc'
+    iters = len(ds.iter.values)
+    burn = 0
+    if input.new_setup == 1:
+        plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
+                        newsetup=1, mb_max_acc=mb_max_acc, mb_max_loss=mb_max_loss,
+                        precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
+                        tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+                        tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
+    else:
+        plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
+                        tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+                        tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
 
 #%%
 ## Export comparison
