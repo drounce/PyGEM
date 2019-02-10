@@ -824,9 +824,11 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
             str_ending += '_DDFu'
             
     str_ending += '_TCsig' + str(input.tempchange_sigma_adj)
-            
-    if input.tempchange_edge_method == 'mb_norm':
-        str_ending += '_edgeMBpt' + str(int(input.tempchange_edge_mbnorm*100)).zfill(2)
+      
+    if input.tempchange_edge_method == 'mb':
+        str_ending += '_edgeMBpt' + str(int(input.tempchange_edge_mb*100)).zfill(2)
+    elif input.tempchange_edge_method == 'mb_norm':
+        str_ending += '_edgeMBNormpt' + str(int(input.tempchange_edge_mbnorm*100)).zfill(2)
     elif input.tempchange_edge_method == 'mb_norm_slope':
         str_ending += '_edgeSpt' + str(int(input.tempchange_edge_mbnormslope*100)).zfill(2)
     

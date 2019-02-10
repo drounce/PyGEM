@@ -2245,10 +2245,12 @@ if option_plot_mcmc_errors == 1:
     main_glac_rgi_all['mb_cal_Gta_var'] = (main_glac_rgi_all['mb_cal_sigma'] * main_glac_rgi_all['Area'] / 1000)**2
     main_glac_rgi_all['mb_era_Gta'] = main_glac_rgi_all['mb_era_mean'] * main_glac_rgi_all['Area'] / 1000
     main_glac_rgi_all['mb_era_Gta_var'] = (main_glac_rgi_all['mb_era_std'] * main_glac_rgi_all['Area'] / 1000)**2
+    main_glac_rgi_all['mb_era_Gta_med'] = main_glac_rgi_all['mb_era_med'] * main_glac_rgi_all['Area'] / 1000
     print('All MB cal (mean +/- 1 std) [gt/yr]:', np.round(main_glac_rgi_all['mb_cal_Gta'].sum(),3), 
           '+/-', np.round(main_glac_rgi_all['mb_cal_Gta_var'].sum()**0.5,3),
           '\nAll MB ERA (mean +/- 1 std) [gt/yr]:', np.round(main_glac_rgi_all['mb_era_Gta'].sum(),3), 
-          '+/-', np.round(main_glac_rgi_all['mb_era_Gta_var'].sum()**0.5,3))
+          '+/-', np.round(main_glac_rgi_all['mb_era_Gta_var'].sum()**0.5,3),
+          '\nAll MB ERA (med) [gt/yr]:', np.round(main_glac_rgi_all['mb_era_Gta_med'].sum(),3))
     
     def partition_sum_groups(grouping, vn, main_glac_rgi_all):
         """Partition model parameters by each group

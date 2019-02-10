@@ -218,10 +218,10 @@ thin_interval = 1
 
 rgi_regionsO1 = [13]
 rgi_glac_number = ['05000']
-#rgi_glac_number = ['43483']
+rgi_glac_number = ['43483']
 
-#rgi_regionsO1 = [15]
-#rgi_glac_number = ['06881']
+rgi_regionsO1 = [15]
+rgi_glac_number = ['06881']
 
 
 # MCMC distribution parameters
@@ -251,7 +251,7 @@ tempchange_sigma_adj = 6
 tempchange_edge_method = 'mb'
 #tempchange_edge_method = 'mb_norm'
 #tempchange_edge_method = 'mb_norm_slope'
-tempchange_edge_mb = 0.5
+tempchange_edge_mb = 1
 tempchange_edge_mbnorm = 0.9
 tempchange_edge_mbnormslope = -0.75
 ddfsnow_disttype = 'truncnormal'

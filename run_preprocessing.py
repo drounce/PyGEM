@@ -67,12 +67,16 @@ args = parser.parse_args()
 #    main_glac_rgi_all = main_glac_rgi_all.append(main_glac_rgi_region)
 
 
-#%% FILL MISSING MB DATA WITH REGIONAL MEAN AND STD
+#%% REMOVE POOR OBSERVATIONS AND FILL MISSING MB DATA WITH REGIONAL MEAN AND STD
 if args.option_mbdata_fillwregional == 1:
     print('Filling in missing data with regional estimates...')
     # Input data
     ds_fp = input.shean_fp
-    ds_fn = input.shean_fn    
+    ds_fn = 'hma_mb_20181108_0454.csv'
+    kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
+    kaab_csv = pd.read_csv(kaab_dict_fn)
+    kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab_name))
+    
     # Load mass balance measurements and identify unique rgi regions 
     ds = pd.read_csv(ds_fp + ds_fn)
     ds = ds.sort_values('RGIId', ascending=True)
@@ -81,74 +85,147 @@ if args.option_mbdata_fillwregional == 1:
     ds['rgi_regO1'] = ds['RGIId'].astype(int)
     ds['rgi_str'] = ds['RGIId'].apply(lambda x: '%.5f' % x)
     rgi_regionsO1 = sorted(ds['rgi_regO1'].unique().tolist())
-    # Associate the 2nd order rgi regions with each glacier
-    main_glac_rgi_all = pd.DataFrame()
+
+    main_glac_rgi = pd.DataFrame()
     for region in rgi_regionsO1:
         main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[region], rgi_regionsO2='all', 
                                                                  rgi_glac_number='all')
-        main_glac_rgi_all = main_glac_rgi_all.append(main_glac_rgi_region)
-    main_glac_rgi_all.reset_index(drop=True, inplace=True)
+        main_glac_rgi = main_glac_rgi.append(main_glac_rgi_region)
+    main_glac_rgi.reset_index(drop=True, inplace=True)
+    
     # Add mass balance and uncertainty to main_glac_rgi
     # Select glaciers with data such that main_glac_rgi and ds indices are aligned correctly
-    main_glac_rgi = (main_glac_rgi_all.iloc[np.where(main_glac_rgi_all['RGIId_float'].isin(ds['RGIId']) == True)[0],:]
-                    ).copy()
-    main_glac_rgi.reset_index(drop=True, inplace=True)
-    main_glac_rgi['mb_mwea'] = ds['mb_mwea']
-    main_glac_rgi['mb_mwea_sigma'] = ds['mb_mwea_sigma']    
-    # Regional mass balances
-    mb_regional_cols = ['rgi_O1', 'rgi_O2', 'mb_mwea', 'mb_mwea_sigma']
-    mb_regional = pd.DataFrame(columns=mb_regional_cols)
-    reg_dict_mb = {}
-    reg_dict_mb_sigma = {}
-    for region in rgi_regionsO1:
-        # 1st order regional mass balances
-        main_glac_subset = main_glac_rgi.loc[main_glac_rgi['O1Region'] == region]
-        A = pd.DataFrame(columns=mb_regional_cols)
-        A.loc[0,'rgi_O1'] = region
-        A.loc[0,'rgi_O2'] = 'all'
-        A.loc[0,'mb_mwea'] = ((main_glac_subset['Area'] * main_glac_subset['mb_mwea']).sum() / 
-                              main_glac_subset['Area'].sum())
-        A.loc[0,'mb_mwea_sigma'] = ((main_glac_subset['Area'] * main_glac_subset['mb_mwea_sigma']).sum() / 
-                                    main_glac_subset['Area'].sum())
-        mb_regional = mb_regional.append(A, sort=False)
-        # 2nd order regional mass balances
-        rgi_regionsO2 = sorted(main_glac_subset['O2Region'].unique().tolist())
-        for regionO2 in rgi_regionsO2:
-            main_glac_subset_O2 = main_glac_subset.loc[main_glac_subset['O2Region'] == regionO2]
-            A = pd.DataFrame(columns=mb_regional_cols)
-            A.loc[0,'rgi_O1'] = region
-            A.loc[0,'rgi_O2'] = regionO2
-            A.loc[0,'mb_mwea'] = ((main_glac_subset_O2['Area'] * main_glac_subset_O2['mb_mwea']).sum() / 
-                                  main_glac_subset_O2['Area'].sum())
-            A.loc[0,'mb_mwea_sigma'] = ((main_glac_subset_O2['Area'] * main_glac_subset_O2['mb_mwea_sigma']).sum() / 
-                                        main_glac_subset_O2['Area'].sum())
-            mb_regional = mb_regional.append(A, sort=False)
-            # Create dictionary 
-            reg_dict_mb[region, regionO2] = A.loc[0,'mb_mwea']
-            reg_dict_mb_sigma[region, regionO2] = A.loc[0,'mb_mwea_sigma']
-    # Fill in mass balance of glaciers with no data using regional estimates
-    main_glac_nodata = (
-            main_glac_rgi_all.iloc[np.where(main_glac_rgi_all['RGIId_float'].isin(ds['RGIId']) == False)[0],:]).copy()
-    main_glac_nodata.reset_index(drop=True, inplace=True)
-    # Dictionary linking regions and regional mass balances
-    ds_nodata = pd.DataFrame(columns=ds.columns)
-    ds_nodata.drop(['rgi_regO1', 'rgi_str'], axis=1, inplace=True)
-    ds_nodata['RGIId'] = main_glac_nodata['RGIId_float']
-    ds_nodata['t1'] = ds['t1'].min()
-    ds_nodata['t2'] = ds['t2'].max()
-    ds_nodata['mb_mwea'] = (
-            pd.Series(list(zip(main_glac_nodata['O1Region'], main_glac_nodata['O2Region']))).map(reg_dict_mb))
-    ds_nodata['mb_mwea_sigma'] = (
-            pd.Series(list(zip(main_glac_nodata['O1Region'], main_glac_nodata['O2Region']))).map(reg_dict_mb_sigma))
-#    # Export csv of all glaciers including those with data and those with filled values
-#    ds_export = ds.copy()
-#    ds_export.drop(['rgi_regO1', 'rgi_str'], axis=1, inplace=True)
-#    ds_export = ds_export.append(ds_nodata)
-#    ds_export = ds_export.sort_values('RGIId', ascending=True)
-#    ds_export.reset_index(drop=True, inplace=True)
-#    output_fn = ds_fn.replace('.csv', '_all_filled.csv')
-#    ds_export.to_csv(ds_fp + output_fn, index=False)
+    main_glac_rgi_wdata = (
+            main_glac_rgi.iloc[np.where(main_glac_rgi['RGIId_float'].isin(ds['RGIId']) == True)[0],:]).copy()
+    main_glac_rgi_wdata.reset_index(drop=True, inplace=True)
+    dict_rgi_mb = dict(zip(main_glac_rgi_wdata.RGIId, ds.mb_mwea))
+    dict_rgi_mb_sigma = dict(zip(main_glac_rgi_wdata.RGIId, ds.mb_mwea_sigma))
+    main_glac_rgi['mb_mwea'] = main_glac_rgi.RGIId.map(dict_rgi_mb)
+    main_glac_rgi['mb_mwea_sigma'] = main_glac_rgi.RGIId.map(dict_rgi_mb_sigma)
+
+    # Too high of sigma causes large issues for model
+    #  sigma theoretically should be independent of region
+    all_sigma_mean = main_glac_rgi['mb_mwea_sigma'].mean()
+    all_sigma_std = main_glac_rgi['mb_mwea_sigma'].std()
+#    all_sigma_q1 = main_glac_rgi['mb_mwea_sigma'].quantile(0.25)
+#    all_sigma_q3 = main_glac_rgi['mb_mwea_sigma'].quantile(0.75)
+#    all_sigma_IQR = all_sigma_q3 - all_sigma_q1
+    all_sigma_threshold = all_sigma_mean + 3 * all_sigma_std
     
+    print('Sigma Threshold:\n# glaciers removed:', 
+          main_glac_rgi.query('(mb_mwea_sigma > @all_sigma_threshold)').shape[0],
+          '\n% Area removed:', 
+          np.round(main_glac_rgi.query('(mb_mwea_sigma > @all_sigma_threshold)').Area.sum() / main_glac_rgi.Area.sum() 
+          * 100,1))
+    
+    main_glac_rgi.loc[main_glac_rgi.query('(mb_mwea_sigma > @all_sigma_threshold)').index.values, 'mb_mwea'] = np.nan
+    main_glac_rgi.loc[main_glac_rgi.query('(mb_mwea_sigma > @all_sigma_threshold)').index.values, 
+                      'mb_mwea_sigma'] = np.nan
+    
+    # Loop through groups
+    main_glac_rgi['kaab'] = main_glac_rgi.RGIId.map(kaab_dict)
+    # Regional mass balance mean and stdev
+    groups = main_glac_rgi.kaab.unique().tolist()
+    group_cn = 'kaab'
+    groups = [x for x in groups if str(x) != 'nan']
+
+    for ngroup, group in enumerate(groups):
+        # Select subset of data
+        main_glac_rgi_group = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].copy()
+        group_stats = pd.Series()
+        group_stats['mean'] = np.nanmean(main_glac_rgi_group['mb_mwea'])
+        group_stats['std'] = main_glac_rgi_group['mb_mwea'].std()
+#        group_stats['q1'] = main_glac_rgi_group['mb_mwea'].quantile(0.25)
+#        group_stats['q3'] = main_glac_rgi_group['mb_mwea'].quantile(0.75)
+#        group_stats['IQR'] = group_stats['q3'] - group_stats['q1']
+#        group_stats['sigma_mean'] = main_glac_rgi_group['mb_mwea_sigma'].mean()
+#        group_stats['sigma_std'] = main_glac_rgi_group['mb_mwea_sigma'].std()
+#        group_stats['sigma_q1'] = main_glac_rgi_group['mb_mwea_sigma'].quantile(0.25)
+#        group_stats['sigma_q3'] = main_glac_rgi_group['mb_mwea_sigma'].quantile(0.75)
+#        group_stats['sigma_IQR'] = group_stats['sigma_q3'] - group_stats['sigma_q1']
+    
+        main_glac_rgi_group['zscore'] = (main_glac_rgi_group['mb_mwea'] - group_stats['mean']) / group_stats['std']
+        main_glac_rgi.loc[main_glac_rgi.query('(kaab == @group)').index.values, 'zscore'] = main_glac_rgi_group.zscore
+        
+        group_stats['mean_weighted'] = (
+                (main_glac_rgi_group.query('(-3 <= zscore <= 3)').mb_mwea * 
+                 main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area).sum() / 
+                main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area.sum())
+
+        group_stats['std_weighted'] = (
+                (main_glac_rgi_group.query('(-3 <= zscore <= 3)').mb_mwea_sigma *
+                 main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area).sum() / 
+                 main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area.sum())
+                
+        print('\n',group, 'mean:', np.round(group_stats.mean_weighted, 2), 'std:', np.round(group_stats.std_weighted,2), 
+              '\n# glaciers removed:', main_glac_rgi.query('(kaab == @group) & (abs(zscore) > 3)').shape[0],
+              '\n% area removed:', np.round(main_glac_rgi.query('(kaab == @group) & (abs(zscore) > 3)').Area.sum() / 
+              main_glac_rgi.query('(kaab == @group)').Area.sum() * 100,2))
+        
+        # Replace regional outliers with mean and std
+        main_glac_rgi.loc[main_glac_rgi.query('(kaab == @group) & (abs(zscore) > 3)').index.values, 'mb_mwea'] = (
+                group_stats['mean_weighted'])
+        main_glac_rgi.loc[main_glac_rgi.query('(kaab == @group) & (abs(zscore) > 3)').index.values, 'mb_mwea_sigma'] = (
+                group_stats['std_weighted'])
+        
+        # Replace missing values with mean and std
+        main_glac_rgi.loc[(main_glac_rgi['kaab'] == group) & 
+                          (main_glac_rgi.mb_mwea.isnull() == True), 'mb_mwea'] = group_stats['mean_weighted']
+        main_glac_rgi.loc[(main_glac_rgi['kaab'] == group) & 
+                          (main_glac_rgi.mb_mwea_sigma.isnull() == True), 'mb_mwea_sigma'] = group_stats['std_weighted']
+        
+        
+    # Glaciers without a region compare to all HMA
+    all_mean_weighted = ((main_glac_rgi.query('(-3 <= zscore <= 3)').mb_mwea * 
+                          main_glac_rgi.query('(-3 <= zscore <= 3)').Area).sum() / 
+                         main_glac_rgi.query('(-3 <= zscore <= 3)').Area.sum())
+    all_std_weighted = ((main_glac_rgi.query('(-3 <= zscore <= 3)').mb_mwea_sigma * 
+                          main_glac_rgi.query('(-3 <= zscore <= 3)').Area).sum() / 
+                         main_glac_rgi.query('(-3 <= zscore <= 3)').Area.sum())
+    
+    # Replace outliers with mean and std
+    main_glac_rgi.loc[main_glac_rgi['kaab'].isnull() == True, 'zscore'] = (
+            main_glac_rgi.loc[main_glac_rgi['kaab'].isnull() == True, 'mb_mwea'] - all_mean_weighted / all_std_weighted)
+    main_glac_rgi.loc[(main_glac_rgi['kaab'].isnull() == True) & 
+                      (abs(main_glac_rgi['zscore']) > 3), 'mb_mwea'] = all_mean_weighted
+    main_glac_rgi.loc[(main_glac_rgi['kaab'].isnull() == True) & 
+                      (abs(main_glac_rgi['zscore']) > 3), 'mb_mwea_sigma'] = all_std_weighted
+                      
+    # Replace missing values with mean and std
+    main_glac_rgi.loc[(main_glac_rgi['kaab'].isnull() == True) & 
+                      (main_glac_rgi['mb_mwea'].isnull() == True), 'mb_mwea'] = all_mean_weighted
+    main_glac_rgi.loc[(main_glac_rgi['kaab'].isnull() == True) & 
+                      (main_glac_rgi['mb_mwea_sigma'].isnull() == True), 'mb_mwea_sigma'] = all_std_weighted
+    
+    print('\nHMA mean:', np.round(all_mean_weighted,2), 'std:', np.round(all_std_weighted,2))
+    
+    # Export filled dataset
+    ds_export = pd.DataFrame(columns=ds.columns)
+    ds_export['RGIId'] = main_glac_rgi['RGIId_float']
+    export_cns = ds.columns.tolist()
+    remove_cns = ['RGIId', 'rgi_regO1', 'rgi_str', 'mb_mwea', 'mb_mwea_sigma', 'mb_m3wea', 'mb_m3wea_sigma']
+    for cn in remove_cns:
+        export_cns.remove(cn)
+    for cn in export_cns:
+        export_dict = dict(zip(main_glac_rgi_wdata.RGIId, ds[cn]))
+        ds_export[cn] = main_glac_rgi.RGIId.map(export_dict)
+    
+    ds_export['mb_mwea'] = main_glac_rgi['mb_mwea']
+    ds_export['mb_mwea_sigma'] = main_glac_rgi['mb_mwea_sigma']
+    nodata_idx = np.where(ds_export['z_min'].isnull() == True)[0]
+    ds_export.loc[nodata_idx, 'area_m2'] = main_glac_rgi.loc[nodata_idx, 'Area'] * 10**6
+    ds_export['mb_m3wea'] = ds_export['mb_mwea'] * ds_export['area_m2']
+    ds_export['mb_m3wea_sigma'] = ds_export['mb_mwea_sigma'] * ds_export['area_m2']
+    ds_export.loc[nodata_idx, 't1'] = ds_export['t1'].min()
+    ds_export.loc[nodata_idx, 't2'] = ds_export['t2'].max()
+    ds_export.loc[nodata_idx, 'dt'] = ds_export['t2'] - ds_export['t1']
+    ds_export.loc[nodata_idx, 'z_med'] = main_glac_rgi.loc[nodata_idx, 'Zmed']
+    ds_export.loc[nodata_idx, 'z_min'] = main_glac_rgi.loc[nodata_idx, 'Zmin']
+    ds_export.loc[nodata_idx, 'z_max'] = main_glac_rgi.loc[nodata_idx, 'Zmax']
+    ds_export.loc[nodata_idx, 'z_slope'] = main_glac_rgi.loc[nodata_idx, 'Slope']
+    ds_export.loc[nodata_idx, 'z_aspect'] = main_glac_rgi.loc[nodata_idx, 'Aspect']
+    output_fn = ds_fn.replace('.csv', '_all_filled.csv')
+    ds_export.to_csv(ds_fp + output_fn, index=False)
 
 #%% COAWST Climate Data
 if args.option_coawstmerge == 1:
