@@ -222,6 +222,7 @@ rgi_glac_number = ['43483']
 
 rgi_regionsO1 = [15]
 rgi_glac_number = ['06881']
+rgi_glac_number = ['00010']
 
 
 # MCMC distribution parameters
@@ -248,8 +249,8 @@ tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
 tempchange_step = 0.1
 tempchange_sigma_adj = 6
-tempchange_edge_method = 'mb'
-#tempchange_edge_method = 'mb_norm'
+#tempchange_edge_method = 'mb'
+tempchange_edge_method = 'mb_norm'
 #tempchange_edge_method = 'mb_norm_slope'
 tempchange_edge_mb = 1
 tempchange_edge_mbnorm = 0.9

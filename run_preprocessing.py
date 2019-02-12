@@ -153,9 +153,9 @@ if args.option_mbdata_fillwregional == 1:
                 main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area.sum())
 
         group_stats['std_weighted'] = (
-                (main_glac_rgi_group.query('(-3 <= zscore <= 3)').mb_mwea_sigma *
-                 main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area).sum() / 
-                 main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area.sum())
+                ((main_glac_rgi_group.query('(-3 <= zscore <= 3)').mb_mwea_sigma**2 *
+                  main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area).sum() / 
+                  main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area.sum())**0.5)
                 
         print('\n',group, 'mean:', np.round(group_stats.mean_weighted, 2), 'std:', np.round(group_stats.std_weighted,2), 
               '\n# glaciers removed:', main_glac_rgi.query('(kaab == @group) & (abs(zscore) > 3)').shape[0],
@@ -179,9 +179,9 @@ if args.option_mbdata_fillwregional == 1:
     all_mean_weighted = ((main_glac_rgi.query('(-3 <= zscore <= 3)').mb_mwea * 
                           main_glac_rgi.query('(-3 <= zscore <= 3)').Area).sum() / 
                          main_glac_rgi.query('(-3 <= zscore <= 3)').Area.sum())
-    all_std_weighted = ((main_glac_rgi.query('(-3 <= zscore <= 3)').mb_mwea_sigma * 
+    all_std_weighted = (((main_glac_rgi.query('(-3 <= zscore <= 3)').mb_mwea_sigma**2 * 
                           main_glac_rgi.query('(-3 <= zscore <= 3)').Area).sum() / 
-                         main_glac_rgi.query('(-3 <= zscore <= 3)').Area.sum())
+                         main_glac_rgi.query('(-3 <= zscore <= 3)').Area.sum())**0.5)
     
     # Replace outliers with mean and std
     main_glac_rgi.loc[main_glac_rgi['kaab'].isnull() == True, 'zscore'] = (
