@@ -1140,7 +1140,7 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
     ax.axhline(observed_massbal - 1.96*observed_error, color='gray', linewidth=1) 
     ax.axhline(observed_massbal + 1.96*observed_error, color='gray', linewidth=1)         
     ax.set_xlim(np.min(tempchange_iters), np.max(tempchange_iters))
-#    ax.set_ylim(-6,2)
+    ax.set_ylim(mb_max_loss,np.ceil(mb_vs_parameters['massbal'].max()))
     
     # Add slope on secondary axis
     ax2 = ax.twinx()
@@ -1931,7 +1931,18 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
             return mb_mwea
         
-        #%%
+        def find_tempchange_opt(tempchange_4opt, precfactor_4opt):
+            """
+            Find optimal temperature based on observed mass balance
+            """
+            # Use a subset of model parameters to reduce number of constraints required
+            modelparameters[2] = precfactor_4opt
+            modelparameters[7] = tempchange_4opt[0]
+            # Mean annual mass balance [mwea]
+            mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+            return abs(mb_mwea - observed_massbal)
+        
+
         # ----- TEMPBIAS: UPPER BOUND -----
         # MAXIMUM LOSS - AREA EVOLVING
         mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0).sum() / glacier_area_t0.sum() * 
@@ -1969,13 +1980,8 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             
         print('mb_max_loss:', np.round(mb_max_loss,2), 'TC_max_loss_AreaEvolve:', np.round(tempchange_max_loss,2),
               '\nmb_AreaConstant:', np.round(mb_tc_boundhigh,2), 'TC_boundhigh:', np.round(tempchange_boundhigh,2), 
-              '\nmb_obs_min:', np.round(mb_obs_min,2))
-        # Important notes:
-        #  - If mb_obs_min < mb_max_loss, then need to use constant area in order to get reasonable bounds
-        #  - At high TC values, same TC will produce much more melt for constant area than changing area because 
-        #    changing area is able to retreat to higher elevations and melt less over time
+              '\nmb_obs_min:', np.round(mb_obs_min,2))        
         
-
         # ----- TEMPBIAS: LOWER BOUND -----
         # Lower temperature bound based on max positive mass balance adjusted to avoid edge effects
         # Temperature at the lowest bin
@@ -2031,145 +2037,123 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
               '\nmb_obs_max:', np.round(mb_obs_max,2)
               )
         
-        #%%
-#        # UPPER BOUND ADJUSTMENTS
-#        # Loop backward to avoid edge effects
-#        if input.tempchange_edge_method == 'mb':
-#            modelparameters[7] = tempchange_max_loss
-#            modelparameters[2] = 1
-#            mb_mwea = mb_max_loss
-#            while mb_mwea < mb_max_loss + input.tempchange_edge_mb:
-#                modelparameters[7] = modelparameters[7] - input.tempchange_step
-#                mb_mwea = mb_mwea_calc(modelparameters)
-#            tempchange_boundhigh = modelparameters[7]
-#        elif input.tempchange_edge_method == 'mb_norm':
-#            modelparameters[7] = tempchange_max_loss
-#            mb_norm = mb_norm_calc(mb_max_loss)
-#            while mb_norm < 1 - input.tempchange_edge_mbnorm:
-#                modelparameters[7] = modelparameters[7] - input.tempchange_step
-#                mb_norm = mb_norm_calc(mb_mwea_calc(modelparameters))
-#            tempchange_boundhigh = modelparameters[7]
-#        elif input.tempchange_edge_method == 'mb_norm_slope':
-#            tempchange_boundhigh = tempchange_max_loss
-#            mb_slope = 0
-#            while mb_slope > input.tempchange_edge_mbnormslope:
-#                tempchange_boundhigh -= input.tempchange_step
-#                modelparameters[7] = tempchange_boundhigh + 0.5
-#                tc_norm_2 = tc_norm_calc(modelparameters[7])
-#                mb_norm_2 = mb_norm_calc(mb_mwea_calc(modelparameters))
-#                modelparameters[7] = tempchange_boundhigh - 0.5
-#                tc_norm_1 = tc_norm_calc(modelparameters[7])
-#                mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters))
-#                mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1) 
-        #%%
         tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / input.tempchange_sigma_adj
         if tempchange_sigma > input.tempchange_sigma:
             tempchange_sigma = input.tempchange_sigma
         
+        #%%
+
         # OPTIMAL TEMPERATURE CHANGE (PF = 1)
-        def find_tempchange_opt(tempchange_4opt):
-            """
-            Find optimal temperature based on observed mass balance
-            """
-            # Use a subset of model parameters to reduce number of constraints required
-            modelparameters[7] = tempchange_4opt[0]
-            # Mean annual mass balance [mwea]
-            mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-            return abs(mb_mwea - observed_massbal)
         # Find optimized tempchange in agreement with observed mass balance
-        tempchange_opt_init = [np.mean([tempchange_boundlow, tempchange_boundhigh])]
+        precfactor_4opt = (input.precfactor_boundhigh + input.precfactor_boundlow) / 2
+        tempchange_opt_init = [(tempchange_boundlow + tempchange_boundhigh) / 2]
         tempchange_opt_bnds = (tempchange_boundlow, tempchange_boundhigh)
-        tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, 
+        tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, args=(precfactor_4opt), 
                                       bounds=[tempchange_opt_bnds], method='L-BFGS-B')
         tempchange_opt = tempchange_opt_all.x[0]
-        print(tempchange_opt)
+        
         
         #%%
         
-#        # ADJUST TEMPCHANGE AWAY FROM EDGE by 1 sigma and optimize (PF ~= 1)
-#        if tempchange_opt < tempchange_boundlow + tempchange_sigma:
-#            print('\nAdjust TC_opt away from lower bound')
-#            # Alter PF such that TC_opt is reasonable (at least 1 sigma away)
-#            tempchange_opt = tempchange_boundlow + tempchange_sigma
-#            modelparameters[7] = tempchange_opt
-#            precfactor_mu = input.precfactor_boundlow
-#            modelparameters[2] = precfactor_mu
-#            mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#            while mb_mwea < observed_massbal:
-#                precfactor_mu += input.precfactor_step
-#                modelparameters[2] = precfactor_mu
-#                mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#                print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
-#                      'Mod:', np.round(mb_mwea,2), 'Obs:', np.round(observed_massbal,2))  
-#        else:
-#            precfactor_mu = np.mean([input.precfactor_boundlow, input.precfactor_boundhigh])
-#        
-#        
-#        # ----- CHECK LOWER BOUND CAN BE REACHED -----
-#        # First, check if observation above threshold such that lower bound for precfactor should be set to 1
-#        if input.tempchange_edge_method == 'mb':
-#            mb_check = observed_massbal
-#            mb_threshold = mb_max_acc - input.tempchange_edge_mb
-#        elif input.tempchange_edge_method == 'mb_norm':
-#            mb_check = mb_norm_calc(observed_massbal)
-#            mb_threshold = input.tempchange_edge_mbnorm
-#        elif input.tempchange_edge_method == 'mb_norm_slope':
-#            mb_check = mb_norm_calc(observed_massbal)
-#            mb_threshold = (mb_norm_1 + mb_norm_2) / 2
-#            
-#        if mb_check > mb_threshold:
-#            precfactor_boundlow = 1
-#        else:
-#            precfactor_boundlow = input.precfactor_boundlow
-#
-#        # Second, adjust precfactor down to 0 (if needed)
-#        modelparameters[7] = tempchange_opt + tempchange_sigma
-#        modelparameters[2] = precfactor_boundlow
-#        mb_mod_min = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#        print('\nCheck lower bound can be reached with TC_opt + 1 sigma, PF_boundlow')
-#        while mb_mod_min > mb_obs_min and precfactor_boundlow > 0:
-#            precfactor_boundlow -= input.precfactor_step
-#            if precfactor_boundlow < 0:
-#                precfactor_boundlow = 0
-#            modelparameters[2] = precfactor_boundlow
-#            mb_mod_min = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#            print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
-#                  'mod_min:', np.round(mb_mod_min,2), 'obs_min:', np.round(mb_obs_min,2))
-#        print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
-#                  'mod_min:', np.round(mb_mod_min,2), 'obs_min:', np.round(mb_obs_min,2))
-#        
-#        # Then shift TC_opt (if needed)
-#        while mb_mod_min > mb_obs_min and tempchange_opt < tempchange_boundhigh - tempchange_sigma:
-#            modelparameters[2] = precfactor_boundlow
-#            tempchange_opt += input.tempchange_step
-#            modelparameters[7] = tempchange_opt + tempchange_sigma
-#            mb_mod_min = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#            print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
-#                  'mod_min:', np.round(mb_mod_min,2), 'obs_min:', np.round(mb_obs_min,2))
-#        print('TC_opt:', np.round(tempchange_opt,1))
-#        
-#
-#        # ----- CHECK UPPER BOUND CAN BE REACHED -----
-#        print('\nCheck upper bound can be reached with TC_opt - 1 sigma, PF_boundhigh')
-#        
-#        precfactor_boundhigh = precfactor_mu + (precfactor_mu - precfactor_boundlow)
-#        modelparameters[7] = tempchange_opt - tempchange_sigma
-#        modelparameters[2] = precfactor_boundhigh
-#        mb_mod_max = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#        while mb_mod_max < mb_obs_max and precfactor_boundhigh < 20:
-#            precfactor_boundhigh += input.precfactor_step
-#            modelparameters[2] = precfactor_boundhigh
-#            mb_mod_max = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#            print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
-#                  'mod_min:', np.round(mb_mod_max,2), 'obs_min:', np.round(mb_obs_max,2))
-#            
-#        tempchange_mu = tempchange_opt
-#        tempchange_start = tempchange_mu
-##%%
-#        print('\nParameters:\nPF_low:', np.round(precfactor_boundlow,2), 'PF_high:', np.round(precfactor_boundhigh,2),
-#              '\nTC_low:', np.round(tempchange_boundlow,2), 'TC_high:', np.round(tempchange_boundhigh,2),
-#              '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2))
-#        
+        # ADJUST TEMPCHANGE AWAY FROM EDGE by 1 sigma and optimize (PF ~= 1)
+        if tempchange_opt < tempchange_boundlow + tempchange_sigma:
+            print('\nAdjust TC_opt away from lower bound')
+            # Alter PF such that TC_opt is reasonable (at least 1 sigma away)
+            tempchange_opt = tempchange_boundlow + tempchange_sigma
+            modelparameters[7] = tempchange_opt
+            precfactor_mu = input.precfactor_boundlow
+            modelparameters[2] = precfactor_mu
+            mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+            while mb_mwea < observed_massbal:
+                precfactor_mu += input.precfactor_step
+                modelparameters[2] = precfactor_mu
+                mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+                print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
+                      'Mod:', np.round(mb_mwea,2), 'Obs:', np.round(observed_massbal,2))  
+        else:
+            precfactor_mu = np.mean([input.precfactor_boundlow, input.precfactor_boundhigh])
+        
+        
+        #%%
+        # ----- CHECK LOWER BOUND CAN BE REACHED -----
+        # Is observation above threshold?
+        if observed_massbal > mb_tc_boundlow:
+            precfactor_boundlow = 1
+        else:
+            precfactor_boundlow = input.precfactor_boundlow
+            
+        # Adjust precfactor down to 0 (if needed)
+        modelparameters[7] = tempchange_opt + tempchange_sigma
+        modelparameters[2] = precfactor_boundlow
+        mb_mod_min = mb_mwea_calc(modelparameters, option_areaconstant=1)
+        print('\nCheck lower bound can be reached with TC_opt + 1 sigma, PF_boundlow')
+        while mb_mod_min > mb_obs_min and precfactor_boundlow > 0:
+            precfactor_boundlow -= input.precfactor_step
+            if precfactor_boundlow < 0:
+                precfactor_boundlow = 0
+            modelparameters[2] = precfactor_boundlow
+            mb_mod_min = mb_mwea_calc(modelparameters, option_areaconstant=1)
+            print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
+                  'mod_min:', np.round(mb_mod_min,2), 'obs_min:', np.round(mb_obs_min,2))
+        print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
+                  'mod_min:', np.round(mb_mod_min,2), 'obs_min:', np.round(mb_obs_min,2))
+        
+        #%%
+        
+        # If still can't reach minimum observed mass balance, then shift TC_opt
+        while mb_mod_min > mb_obs_min and tempchange_opt < tempchange_boundhigh - tempchange_sigma:
+            modelparameters[2] = precfactor_boundlow
+            tempchange_opt += input.tempchange_step
+            modelparameters[7] = tempchange_opt + tempchange_sigma
+            mb_mod_min = mb_mwea_calc(modelparameters, option_areaconstant=1)
+            print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
+                  'mod_min:', np.round(mb_mod_min,2), 'obs_min:', np.round(mb_obs_min,2))
+        print('TC_opt:', np.round(tempchange_opt,1))
+        
+        #%%
+        
+
+        # ----- CHECK UPPER BOUND CAN BE REACHED -----
+        print('\nCheck upper bound can be reached with TC_opt - 1 sigma, PF_boundhigh')
+        
+        precfactor_boundhigh = precfactor_mu + (precfactor_mu - precfactor_boundlow)
+        modelparameters[7] = tempchange_opt - tempchange_sigma
+        modelparameters[2] = precfactor_boundhigh
+        mb_mod_max = mb_mwea_calc(modelparameters, option_areaconstant=1)
+        while mb_mod_max < mb_obs_max and precfactor_boundhigh < 20:
+            precfactor_boundhigh += input.precfactor_step
+            modelparameters[2] = precfactor_boundhigh
+            mb_mod_max = mb_mwea_calc(modelparameters, option_areaconstant=1)
+            print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
+                  'mod_max:', np.round(mb_mod_max,2), 'obs_max:', np.round(mb_obs_max,2))
+        print('TC:', np.round(modelparameters[7],1), 'PF:', np.round(modelparameters[2],1), 
+                  'mod_max:', np.round(mb_mod_max,2), 'obs_max:', np.round(mb_obs_max,2))
+            
+        #%%
+        
+        # ----- ADJUST TEMPCHANGE ONE LAST TIME IF ANYTHING HAS CHANGED -----
+        if precfactor_mu != (precfactor_boundhigh + precfactor_boundlow) / 2:
+            precfactor_4opt = (precfactor_boundhigh + precfactor_boundlow) / 2
+            tempchange_opt_init = [(tempchange_boundlow + tempchange_boundhigh) / 2]
+            tempchange_opt_bnds = (tempchange_boundlow, tempchange_boundhigh)
+            tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, args=(precfactor_4opt), 
+                                          bounds=[tempchange_opt_bnds], method='L-BFGS-B')
+            tempchange_opt = tempchange_opt_all.x[0]
+            
+        print('TC_opt:', tempchange_opt)
+        
+        tempchange_mu = tempchange_opt
+        tempchange_start = tempchange_mu
+        
+        precfactor_start = precfactor_mu
+        
+        
+        
+#%%
+        print('\nParameters:\nPF_low:', np.round(precfactor_boundlow,2), 'PF_high:', np.round(precfactor_boundhigh,2),
+              '\nTC_low:', np.round(tempchange_boundlow,2), 'TC_high:', np.round(tempchange_boundhigh,2),
+              '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2))
+        
 #        print('\n\nNEED TO TEST EXAMPLE WHERE ITS AT THE UPPER BOUND!\n\n')
 #        
 #        mb_compare.loc[n,'max_acc_mwea'] = mb_max_acc
@@ -2180,21 +2164,21 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
 #        mb_compare.loc[n,'TC_sigma'] = tempchange_sigma
 #        mb_compare.loc[n,'TC_low'] = tempchange_boundlow
 #        mb_compare.loc[n,'TC_high'] = tempchange_boundhigh
-#        
-#        
-#    netcdf_fn = mcmc_output_netcdf_fp + glacier_str + '.nc'
-#    iters = len(ds.iter.values)
-#    burn = 0
-#    if input.new_setup == 1:
-#        plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
-#                        newsetup=1, mb_max_acc=mb_max_acc, mb_max_loss=mb_max_loss,
-#                        precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
-#                        tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
-#                        tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
-#    else:
-#        plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
-#                        tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
-#                        tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
+        
+        
+    netcdf_fn = mcmc_output_netcdf_fp + glacier_str + '.nc'
+    iters = len(ds.iter.values)
+    burn = 0
+    if input.new_setup == 1:
+        plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
+                        newsetup=1, mb_max_acc=mb_max_acc, mb_max_loss=mb_max_loss,
+                        precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
+                        tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+                        tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
+    else:
+        plot_mc_results(netcdf_fn, glacier_cal_data, iters=iters, burn=burn,
+                        tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+                        tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh)
 
 #%%
 ## Export comparison
