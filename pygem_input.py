@@ -218,15 +218,20 @@ thin_interval = 1
 
 #rgi_regionsO1 = [13]
 #rgi_glac_number = ['05000']
-##rgi_glac_number = ['43483']
-##rgi_glac_number = ['00094']
-##
+#rgi_glac_number = ['43483']
+#rgi_glac_number = ['00094']
+
 #rgi_regionsO1 = [15]
-#rgi_glac_number = ['06881']
+##rgi_glac_number = ['06881']
 ##rgi_glac_number = ['00010']
-#
-##rgi_glac_number = ['03473']
+#rgi_glac_number = ['03473']
 ##rgi_glac_number = ['02846']
+#
+##rgi_glac_number = ['00621']
+##rgi_glac_number = ['01078']
+##rgi_glac_number = ['01485']
+
+
 
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
@@ -246,7 +251,7 @@ precfactor_boundhigh_adj = 0
 tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'
 tempchange_mu = 0
-tempchange_sigma = 1
+tempchange_sigma = 0.5
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
