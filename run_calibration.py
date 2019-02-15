@@ -683,6 +683,8 @@ def main(list_packed_vars):
                 
                 if tempchange_boundlow > input.tempchange_mu:
                     tempchange_init = tempchange_boundlow + 3 * tempchange_sigma
+                elif tempchange_boundhigh < input.tempchange_mu:
+                    tempchange_init = tempchange_boundhigh - 3 * tempchange_sigma
                 else:
                     tempchange_init = input.tempchange_mu
                 
@@ -718,8 +720,43 @@ def main(list_packed_vars):
                     tempchange_opt = tempchange_4opt
                     
 #                print('PF opt:', np.round(precfactor_opt,2), 'TC opt:', np.round(tempchange_opt,2))
+        
+                # TEMPCHANGE_SIGMA: derived from mb_obs_min and mb_obs_max
+                # MB_obs_min
+#                print('MB_OBS_MIN:', np.round(mb_obs_min,2))
+                tempchange_adj = input.tempchange_step
+                modelparameters[2] = precfactor_opt
+                modelparameters[7] = tempchange_opt + tempchange_adj
+                mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+                while mb_mwea > mb_obs_min and modelparameters[7] < tempchange_boundhigh:
+                    tempchange_adj += input.tempchange_step
+                    modelparameters[7] = tempchange_opt + tempchange_adj
+                    if modelparameters[7] > tempchange_boundhigh:
+                        modelparameters[7] = tempchange_boundhigh
+                    mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                    print('PF_opt:', np.round(precfactor_opt,2), 'TC:', np.round(modelparameters[7],2), 
+#                          'mb_min:', np.round(mb_mwea,2))
                 
+#                print('TC_adj:', np.round(tempchange_adj,2), 'TC_sigma:', np.round(tempchange_sigma,2))
                 
+                # MB_obs_max
+#                print('MB_OBS_MAX:', np.round(mb_obs_max,2))
+                modelparameters[2] = precfactor_opt
+                modelparameters[7] = tempchange_opt - tempchange_adj
+                mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+                while mb_mwea < mb_obs_max and modelparameters[7] > tempchange_boundlow:
+                    tempchange_adj += input.tempchange_step
+                    modelparameters[7] = tempchange_opt - tempchange_adj
+                    if modelparameters[7] < tempchange_boundlow:
+                        modelparameters[7] = tempchange_boundlow
+                    mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                    print('PF_opt:', np.round(precfactor_opt,2), 'TC:', np.round(modelparameters[7],2), 
+#                          'mb_min:', np.round(mb_mwea,2))
+        
+                tempchange_sigma = tempchange_adj / 3
+                
+#                print('TC_adj:', np.round(tempchange_adj,2), 'TC_sigma:', np.round(tempchange_sigma,2))
+        
                 # PRECIPITATION FACTOR: LOWER BOUND
                 # Check PF_boundlow = 0
                 modelparameters[2] = 0
@@ -733,6 +770,7 @@ def main(list_packed_vars):
                         modelparameters[7] = tempchange_opt + tempchange_sigma
                         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
                 else:
+                    # Determine lower bound
                     precfactor_boundlow = precfactor_opt
                     modelparameters[2] = precfactor_boundlow
                     modelparameters[7] = tempchange_opt + tempchange_sigma
@@ -758,9 +796,8 @@ def main(list_packed_vars):
                     modelparameters[2] = precfactor_boundhigh
                     mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
 #                print('PF_high:', np.round(precfactor_boundhigh,2), 
-#                      'obs_max:', np.round(mb_obs_max,2), 'mb_max:', np.round(mb_mwea,2))        
+#                      'obs_max:', np.round(mb_obs_max,2), 'mb_max:', np.round(mb_mwea,2))  
                 
-        
                 # TEMPERATURE BIAS: RE-CENTER
                 precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
                 tempchange_opt_init = [tempchange_opt]
@@ -770,9 +807,137 @@ def main(list_packed_vars):
                 tempchange_opt = tempchange_opt_all.x[0]
 #                print('TC_opt re-centered:', np.round(tempchange_opt,2))
                 
-                precfactor_start = (precfactor_boundlow + precfactor_boundhigh) / 2
+                
+                precfactor_start = precfactor_mu
                 tempchange_mu = tempchange_opt
                 tempchange_start = tempchange_mu
+
+                #%% ----- NEW SCHEME - old -----
+#                # Check mb_obs_max can be found with tempboundlow + 3 * tempchange_sigma
+#        
+#                tempchange_sigma = input.tempchange_sigma
+#                
+#                if tempchange_boundlow > input.tempchange_mu:
+#                    tempchange_init = tempchange_boundlow + 3 * tempchange_sigma
+#                else:
+#                    tempchange_init = input.tempchange_mu
+#                
+#                # OPTIMAL PRECIPITATION FACTOR (TC = 0 or TC_boundlow)
+#                # Find optimized tempchange in agreement with observed mass balance
+#                tempchange_4opt = tempchange_init
+#                precfactor_opt_init = [1]
+#                precfactor_opt_bnds = (0, 10)
+#                precfactor_opt_all = minimize(find_precfactor_opt, precfactor_opt_init, args=(tempchange_4opt), 
+#                                              bounds=[precfactor_opt_bnds], method='L-BFGS-B')
+#                precfactor_opt = precfactor_opt_all.x[0]
+#                print('PF opt:', np.round(precfactor_opt,2))
+#                
+#                # Adjust precfactor so it's not < 0.5 or greater than 5
+#                precfactor_opt_low = 0.5
+#                precfactor_opt_high = 5
+#                
+#                if precfactor_opt < precfactor_opt_low:
+#                    precfactor_opt = precfactor_opt_low
+#                    tempchange_opt_init = [(tempchange_boundlow + tempchange_boundhigh) / 2]
+#                    tempchange_opt_bnds = (tempchange_boundlow, tempchange_boundhigh)
+#                    tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, args=(precfactor_opt), 
+#                                                  bounds=[tempchange_opt_bnds], method='L-BFGS-B')
+#                    tempchange_opt = tempchange_opt_all.x[0]
+#                elif precfactor_opt > precfactor_opt_high:
+#                    precfactor_opt = precfactor_opt_high
+#                    tempchange_opt_init = [(tempchange_boundlow + tempchange_boundhigh) / 2]
+#                    tempchange_opt_bnds = (tempchange_boundlow, tempchange_boundhigh)
+#                    tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, args=(precfactor_opt), 
+#                                                  bounds=[tempchange_opt_bnds], method='L-BFGS-B')
+#                    tempchange_opt = tempchange_opt_all.x[0]
+#                else:
+#                    tempchange_opt = tempchange_4opt
+#                    
+#                print('PF opt:', np.round(precfactor_opt,2), 'TC opt:', np.round(tempchange_opt,2))
+#                
+#                
+#                # TEMPCHANGE_BOUNDS:
+#                tempchange_adj = input.tempchange_step
+#                modelparameters[2] = precfactor_opt
+#                modelparameters[7] = tempchange_opt + tempchange_adj
+#                mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                while mb_mwea > mb_obs_min:
+#                    tempchange_adj += input.tempchange_step
+#                    modelparameters[7] = tempchange_opt + tempchange_adj
+#                    mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                    print('PF_opt:', np.round(precfactor_opt,2), 'TC_opt:', np.round(modelparameters[7],2), 
+#                          'obs_min:', np.round(mb_obs_min,2), 'mb_min:', np.round(mb_mwea,2))
+#                    
+#                
+#                tempchange_adj = input.tempchange_step
+#                modelparameters[2] = precfactor_opt
+#                modelparameters[7] = tempchange_opt + tempchange_adj
+#                mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                while mb_mwea > mb_obs_min:
+#                    tempchange_adj += input.tempchange_step
+#                    modelparameters[7] = tempchange_opt + tempchange_adj
+#                    mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#        #            print('PF_opt:', np.round(precfactor_opt,2), 'TC_opt:', np.round(modelparameters[7],2), 
+#        #                  'obs_min:', np.round(mb_obs_min,2), 'mb_min:', np.round(mb_mwea,2))
+#                    
+#                tempchange_sigma = tempchange_adj / 3
+#                
+#        
+#                # PRECIPITATION FACTOR: LOWER BOUND
+#                # Check PF_boundlow = 0
+#                modelparameters[2] = 0
+#                modelparameters[7] = tempchange_opt + tempchange_sigma
+#                mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                if mb_mwea > mb_obs_min:
+#                    # Adjust TC_opt if PF=0 and TC = TC_opt + TC_sigma doesn't reach minimum observation
+#                    precfactor_boundlow = 0
+#                    while mb_mwea > mb_obs_min:
+#                        tempchange_opt += input.tempchange_step
+#                        modelparameters[7] = tempchange_opt + tempchange_sigma
+#        #                modelparameters[7] = tempchange_opt + 2 * tempchange_sigma
+#                        mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                else:
+#                    precfactor_boundlow = precfactor_opt
+#                    modelparameters[2] = precfactor_boundlow
+#                    modelparameters[7] = tempchange_opt + tempchange_sigma
+#        #            modelparameters[7] = tempchange_opt + 2 * tempchange_sigma
+#                    mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                    while mb_mwea > mb_obs_min and precfactor_boundlow > 0:
+#                        precfactor_boundlow -= input.precfactor_step
+#                        if precfactor_boundlow < 0:
+#                            precfactor_boundlow = 0
+#                        modelparameters[2] = precfactor_boundlow
+#                        mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                
+#                print('PF_low:', np.round(precfactor_boundlow,2), 'TC_opt:', np.round(tempchange_opt,2), 
+#                      'obs_min:', np.round(mb_obs_min,2), 'mb_min:', np.round(mb_mwea,2))
+#                
+#                
+#                # PRECIPITATION FACTOR: UPPER BOUND
+#                precfactor_boundhigh = precfactor_opt
+#                modelparameters[2] = precfactor_boundhigh
+#                modelparameters[7] = tempchange_opt - tempchange_sigma
+#        #        modelparameters[7] = tempchange_opt - 2 * tempchange_sigma
+#                mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                while mb_mwea < mb_obs_max:
+#                    precfactor_boundhigh += input.precfactor_step
+#                    modelparameters[2] = precfactor_boundhigh
+#                    mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                print('PF_high:', np.round(precfactor_boundhigh,2), 
+#                      'obs_max:', np.round(mb_obs_max,2), 'mb_max:', np.round(mb_mwea,2))        
+#                
+#                # TEMPERATURE BIAS: RE-CENTER
+#                precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
+#                tempchange_opt_init = [tempchange_opt]
+#                tempchange_opt_bnds = (tempchange_boundlow, tempchange_boundhigh)
+#                tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, args=(precfactor_mu), 
+#                                              bounds=[tempchange_opt_bnds], method='L-BFGS-B')
+#                tempchange_opt = tempchange_opt_all.x[0]
+#                print('TC_opt re-centered:', np.round(tempchange_opt,2))
+#                
+#                precfactor_start = precfactor_mu
+#                tempchange_mu = tempchange_opt
+#                tempchange_start = tempchange_mu
                 
                 
                 #%%

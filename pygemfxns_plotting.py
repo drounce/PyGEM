@@ -2117,6 +2117,7 @@ if option_plot_mcmc_errors == 1:
             main_glac_rgi_all.loc[glac,'mb_cal_mwea'] = ds_cal.loc[cal_idx,'mb_mwea']
             main_glac_rgi_all.loc[glac,'mb_cal_sigma'] = ds_cal.loc[cal_idx,'mb_mwea_sigma'] 
 
+
     #%%
     # Load ERA-Interim modeled mass balance to data
 #    if (main_glac_rgi_all.shape[0] == ds_cal.shape[0] and 
@@ -2124,6 +2125,10 @@ if option_plot_mcmc_errors == 1:
 #        df_mean_all = pd.read_csv(shean_fp + 'mcmc_mean_all.csv', index_col=0)
 #        df_median_all = pd.read_csv(shean_fp + 'mcmc_median_all.csv', index_col=0)
 #    else:
+    
+    burn_no = 1000
+    print('\nBURN NUMBER:', burn_no,'\n')
+    
     # Load data for each glacier
     mcmc_cns = ['massbal', 'precfactor', 'tempchange', 'ddfsnow', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 
                 'tempsnow']
@@ -2138,7 +2143,7 @@ if option_plot_mcmc_errors == 1:
         # Glacier string
         glacier_str = glac_str_wRGI.split('-')[1]
         ds = xr.open_dataset(mcmc_fp + glacier_str + '.nc')
-        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
+        df = pd.DataFrame(ds['mp_value'].values[burn_no:,:,0], columns=ds.mp.values)
         df = df[mcmc_cns]
         df_mean_all.loc[n,:] = df.mean()
         df_median_all.loc[n,:] = df.median()
@@ -2191,11 +2196,11 @@ if option_plot_mcmc_errors == 1:
         main_glac_rgi_all['mb_era_min'] = df_min_all['massbal']
         main_glac_rgi_all['mb_era_max'] = df_max_all['massbal']
 
-#%%
+
 #    main_glac_rgi_all['dif_mean_med'] = main_glac_rgi_all['mb_era_mean'] - main_glac_rgi_all['mb_era_med']
     main_glac_rgi_all['dif_cal_era_mean'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_mean']
     main_glac_rgi_all['dif_cal_era_med'] = main_glac_rgi_all['mb_cal_mwea'] - main_glac_rgi_all['mb_era_med']
-#%%
+
     # remove nan values
     main_glac_rgi_all = (
             main_glac_rgi_all.drop(np.where(np.isnan(main_glac_rgi_all['mb_era_mean'].values) == True)[0].tolist(), 

@@ -202,34 +202,18 @@ mcmc_step = None
 thin_interval = 1
 
 
-#print('\nDELETE HERE\n')
-
-#rgi_glac_number = ['02827'] # PF_max_ratio of 1.48 - good!
-#rgi_glac_number = ['05536'] # PF_max_ratio of 1.47 - good!
-#rgi_glac_number = ['11167'] # way too positive - good! (max loss issue)
-#rgi_glac_number = ['03473'] # good!
-#rgi_glac_number = ['04092'] # too positive - good! (max loss issue)
-
-#rgi_glac_number = ['04515']
-#rgi_glac_number = ['10994']
-#rgi_glac_number = ['12112'] # too positive (big glacier)
-
-
-
-#rgi_regionsO1 = [13]
+rgi_regionsO1 = [13]
 #rgi_glac_number = ['05000']
-#rgi_glac_number = ['43483']
+rgi_glac_number = ['43483']
 #rgi_glac_number = ['00094']
 
 #rgi_regionsO1 = [15]
-##rgi_glac_number = ['06881']
-##rgi_glac_number = ['00010']
-#rgi_glac_number = ['03473']
-##rgi_glac_number = ['02846']
-#
-##rgi_glac_number = ['00621']
-##rgi_glac_number = ['01078']
-##rgi_glac_number = ['01485']
+###rgi_glac_number = ['02703']
+###rgi_glac_number = ['12644']
+#rgi_glac_number = ['01484']
+###rgi_glac_number = ['02229']
+#rgi_glac_number = ['04151']
+#rgi_glac_number = ['06563']
 
 
 
@@ -251,7 +235,7 @@ precfactor_boundhigh_adj = 0
 tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'
 tempchange_mu = 0
-tempchange_sigma = 0.5
+tempchange_sigma = 0.33
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
@@ -263,8 +247,8 @@ tempchange_edge_method = 'mb_norm'
 tempchange_edge_mb = 1
 tempchange_edge_mbnorm = 0.9
 tempchange_edge_mbnormslope = -0.75
-ddfsnow_disttype = 'truncnormal'
-#ddfsnow_disttype = 'uniform'
+#ddfsnow_disttype = 'truncnormal'
+ddfsnow_disttype = 'uniform'
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma
