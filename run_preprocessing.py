@@ -72,7 +72,7 @@ if args.option_mbdata_fillwregional == 1:
     print('Filling in missing data with regional estimates...')
     # Input data
     ds_fp = input.shean_fp
-    ds_fn = 'hma_mb_20181108_0454.csv'
+    ds_fn = 'hma_mb_20190215_0815_std+mean.csv'
     kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
     kaab_csv = pd.read_csv(kaab_dict_fn)
     kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab_name))

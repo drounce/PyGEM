@@ -5,8 +5,9 @@
 # Built-in libaries
 import os
 # External libraries
-import cdsapi
+#import cdsapi
 import numpy as np
+import xarray as xr
 # Local libraries
 import pygem_input as input
 
@@ -22,16 +23,17 @@ class era5_variable():
         dictionary containing properties associated with the ERA5 variable
     """
     
-    def __init__(self, vn):
+    def __init__(self, vn, year_list):
         """
         Add variable name and specific properties associated with each variable.
         """
         # Dates formatted properly as a string
-        year_list = np.arange(input.era5_downloadyearstart, input.era5_downloadyearend + 1)
-        year_list = [str(x) for x in year_list]
+#        year_list = np.arange(input.era5_downloadyearstart, input.era5_downloadyearend + 1)
+#        year_list = [str(x) for x in year_list]
         
         # Variable name
         self.vn = vn
+        self.year_list = year_list
         
         if self.vn == 'temperature':
             self.level = 'reanalysis-era5-single-levels'
@@ -111,16 +113,33 @@ class era5_variable():
 # Check directory to store data exists or create it
 if not os.path.isdir(input.era5_fp):
     os.makedirs(input.era5_fp)
+    
+vns = ['temperature']
+
+# Dates formatted properly as a string
+year_list = np.arange(input.era5_downloadyearstart, input.era5_downloadyearend + 1)
+year_list = [str(x) for x in year_list]
 
 # Download data for each variable
-for vn in input.era_varnames:
-    # Create a Client instance
-    c = cdsapi.Client()
-    class_vn = era5_variable(vn)
+#for vn in input.era_varnames:
+for vn in vns:
     
-    # Download data
-    if not os.path.isfile(class_vn.fn):
-        c.retrieve(class_vn.level, class_vn.properties, class_vn.fn)
+    for year in year_list:
+        print(year)
+        # Create a Client instance
+    #    c = cdsapi.Client()
+        class_vn = era5_variable(vn, [year])
+        
+        # Download data
+    #    if not os.path.isfile(class_vn.fn):
+    #        c.retrieve(class_vn.level, class_vn.properties, class_vn.fn)
+        
+#        # Convert to daily mean
+#        ds = xr.open_dataset(input.era5_fp + 'ERA5_Temp2m_2017_2018.nc')
+#        
+#        if vn == 'temperature':
+#            ds_monthly = ds.resample(time='1MS').mean()
+        
         
 #%% LAPSE RATES
 ## Create netcdf file for lapse rates using temperature data to fill in dimensions
@@ -200,3 +219,4 @@ for vn in input.era_varnames:
 #                        ((elev_subset * temp_subset).mean(axis=(1,2)) - elev_subset.mean() * 
 #                         temp_subset.mean(axis=(1,2))) / ((elev_subset**2).mean() - (elev_subset.mean())**2))
 #    netcdf_output.close()
+    
