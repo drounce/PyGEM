@@ -206,17 +206,13 @@ thin_interval = 1
 ##rgi_glac_number = ['05000']
 #rgi_glac_number = ['43483']
 ##rgi_glac_number = ['00094']
-#
-rgi_regionsO1 = [15]
-#rgi_glac_number = ['01152', '01484', '02229', '02231',  '02703', '02846', '03473', '03743', '04151', '04415', 
-#                   '04438', '04515', '06558', '06563', '06881', '07500', '07886', '07893', '09991', '11003', 
-#                   '11909', '11926', '12479', '12644']
 
-rgi_glac_number = ['12062']
-#rgi_glac_number = ['03473']
-#rgi_glac_number = ['07886']
-#rgi_glac_number = ['07500']
-#rgi_glac_number = ['07893']
+rgi_regionsO1 = [14]
+rgi_glac_number = ['07524']
+
+rgi_regionsO1 = [15]
+rgi_glac_number = ['11909']
+
 
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
@@ -242,7 +238,7 @@ tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
 tempchange_step = 0.1
 tempchange_sigma_adj = 6
-tempchange_mu_adj = 0.25
+tempchange_mu_adj = 0.1
 #tempchange_edge_method = 'mb'
 tempchange_edge_method = 'mb_norm'
 #tempchange_edge_method = 'mb_norm_slope'
@@ -567,7 +563,8 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2019_0213/'
 #shean_fn = 'hma_mb_20190215_0815_std+mean.csv'
-shean_fn = 'hma_mb_20190215_0815_std+mean_all_filled.csv'
+#shean_fn = 'hma_mb_20190215_0815_std+mean_all_filled_kaab.csv'
+shean_fn = 'hma_mb_20190215_0815_std+mean_all_filled_bolch.csv'
 
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'

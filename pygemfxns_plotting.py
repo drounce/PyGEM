@@ -65,8 +65,7 @@ csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20181018/'
 
 # Regions
-#rgi_regions = [13, 14, 15]
-rgi_regions = [15]
+rgi_regions = [13, 14, 15]
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -2129,10 +2128,11 @@ if option_plot_mcmc_errors == 1:
     burn_no = 0
     thin_interval = 1
     print('\nBURN NUMBER:', burn_no,'\n')
-    
+    #%%
     # Load data for each glacier
-    mcmc_cns = ['massbal', 'precfactor', 'tempchange', 'ddfsnow', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 
+    mcmc_cns = ['RGIId', 'massbal', 'precfactor', 'tempchange', 'ddfsnow', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 
                 'tempsnow']
+    df_cns = ['massbal', 'precfactor', 'tempchange', 'ddfsnow', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 'tempsnow']
     df_mean_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
     df_median_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
     df_std_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(mcmc_cns))), columns=mcmc_cns)
@@ -2145,26 +2145,20 @@ if option_plot_mcmc_errors == 1:
         glacier_str = glac_str_wRGI.split('-')[1]
         ds = xr.open_dataset(mcmc_fp + glacier_str + '.nc')
         df = pd.DataFrame(ds['mp_value'].values[burn_no::thin_interval,:,0], columns=ds.mp.values)
-        df = df[mcmc_cns]
-        df_mean_all.loc[n,:] = df.mean()
+        df = df[df_cns]
+        df_mean_all.loc[n,df_cns] = df.mean()
+        df_mean_all.loc[n,'RGIId'] = glac_str_wRGI
         df_median_all.loc[n,:] = df.median()
+        df_median_all.loc[n,'RGIId'] = glac_str_wRGI
         df_std_all.loc[n,:] = df.std()
+        df_std_all.loc[n,'RGIId'] = glac_str_wRGI
         df_min_all.loc[n,:] = df.min()
+        df_min_all.loc[n,'RGIId'] = glac_str_wRGI
         df_max_all.loc[n,:] = df.max()
-            
-#    # Export stats, so only had to load them once
-#    export_cns = ['RGIId']
-#    for cn in mcmc_cns:
-#        export_cns.append(cn)
-#    df_mean_all['RGIId'] = main_glac_rgi_all['RGIId']
-#    df_mean_all = df_mean_all[export_cns]
-#    df_median_all['RGIId'] = main_glac_rgi_all['RGIId']
-#    df_median_all = df_median_all[export_cns] 
-#    df_mean_all.to_csv(shean_fp + 'mcmc_mean_all.csv')
-#    df_median_all.to_csv(shean_fp + 'mcmc_median_all.csv')
+        df_max_all.loc[n,'RGIId'] = glac_str_wRGI
+
     
     #%%
-    
     # Maximum loss if entire glacier melted between 2000 and 2018
     mb_max_loss = (-1 * (main_glac_hyps_all * main_glac_icethickness_all * input.density_ice / 
                    input.density_water).sum(axis=1).values / main_glac_hyps_all.sum(axis=1).values / (2018 - 2000))
@@ -2327,7 +2321,7 @@ if option_plot_mcmc_errors == 1:
     
     labelsize = 13
     
-    norm = plt.Normalize(-0.05, 0.05)
+    norm = plt.Normalize(-0.1, 0.1)
     
     # Create the projection
     fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
@@ -2373,6 +2367,8 @@ if option_plot_mcmc_errors == 1:
     # Save figure
     fig.set_size_inches(6,4)
     fig.savefig(figure_fp + '../cal/' + fig_fn, bbox_inches='tight', dpi=300)
+    
+    main_glac_rgi_all.to_csv(input.output_filepath + 'main_glac_rgi_R15_20190220_adjp25_HMA_v2.csv')
     
 
 #%%
@@ -2581,6 +2577,6 @@ if option_plot_maxloss_issues == 1:
     
 #%%
 #main_glac_rgi_all['cal_norm'] = (main_glac_rgi_all.mb_cal_mwea - main_glac_rgi_all.mb_max_loss) / main_glac_rgi_all.mb_cal_sigma
-#A = main_glac_rgi_all.loc[main_glac_rgi_all['Area'] > 10]
-#A.plot.scatter('mb_cal_mwea', 'dif_cal_era_mean')
+#A = main_glac_rgi_all.copy()
+#A.plot.scatter('Area', 'dif_cal_era_mean')
     

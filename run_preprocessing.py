@@ -73,9 +73,15 @@ if args.option_mbdata_fillwregional == 1:
     # Input data
     ds_fp = input.shean_fp
     ds_fn = 'hma_mb_20190215_0815_std+mean.csv'
-    kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
-    kaab_csv = pd.read_csv(kaab_dict_fn)
-    kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab_name))
+    
+    dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
+    dict_cn = 'kaab_name'
+    dict_csv = pd.read_csv(dict_fn)
+    rgi_dict = dict(zip(dict_csv.RGIId, dict_csv[dict_cn]))
+    dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_bolch.csv'
+    dict_cn = 'bolch_name'
+    dict_csv = pd.read_csv(dict_fn)
+    rgi_dict = dict(zip(dict_csv.RGIId, dict_csv[dict_cn]))
     
     # Load mass balance measurements and identify unique rgi regions 
     ds = pd.read_csv(ds_fp + ds_fn)
@@ -123,7 +129,7 @@ if args.option_mbdata_fillwregional == 1:
                       'mb_mwea_sigma'] = np.nan
     
     # Loop through groups
-    main_glac_rgi['kaab'] = main_glac_rgi.RGIId.map(kaab_dict)
+    main_glac_rgi['kaab'] = main_glac_rgi.RGIId.map(rgi_dict)
     # Regional mass balance mean and stdev
     groups = main_glac_rgi.kaab.unique().tolist()
     group_cn = 'kaab'
