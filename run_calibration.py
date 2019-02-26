@@ -870,7 +870,7 @@ def main(list_packed_vars):
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                                      tempchange_start=tempchange_boundlow, 
-                                     precfactor_start=input.precfactor_boundlow, 
+                                     precfactor_start=precfactor_boundlow, 
                                      ddfsnow_start=input.ddfsnow_boundlow)
                 elif n_chain == 2:
                     # Chains start at highest values
@@ -879,7 +879,7 @@ def main(list_packed_vars):
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                                      tempchange_start=tempchange_boundhigh, 
-                                     precfactor_start=input.precfactor_boundhigh, 
+                                     precfactor_start=precfactor_boundhigh, 
                                      ddfsnow_start=input.ddfsnow_boundhigh)
                    
                 # Select data from model to be stored in netcdf
