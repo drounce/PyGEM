@@ -59,13 +59,15 @@ option_plot_individual_gcms = 0
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
 #mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
-mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190220_adjp25/'
+#mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190222_adjp10/'
+mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190224_adjp15/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
 csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20181018/'
 
 # Regions
 rgi_regions = [13, 14, 15]
+#rgi_regions = [14]
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -2368,7 +2370,7 @@ if option_plot_mcmc_errors == 1:
     fig.set_size_inches(6,4)
     fig.savefig(figure_fp + '../cal/' + fig_fn, bbox_inches='tight', dpi=300)
     
-    main_glac_rgi_all.to_csv(input.output_filepath + 'main_glac_rgi_R15_20190220_adjp25_HMA_v2.csv')
+    main_glac_rgi_all.to_csv(input.output_filepath + 'main_glac_rgi_HMA_20190224_adjp15.csv')
     
 
 #%%

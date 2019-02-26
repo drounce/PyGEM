@@ -2185,6 +2185,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                   'mb_min:', np.round(mb_mwea,2))
 
         tempchange_sigma = tempchange_adj / 3
+#        tempchange_sigma = tempchange_adj / 6
         
         print('TC_adj:', np.round(tempchange_adj,2), '\nTC_sigma:', np.round(tempchange_sigma,2))
             

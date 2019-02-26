@@ -54,7 +54,8 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
     region_no = int(region_no)
     # get shean's data, convert to dataframe, get
     # glacier numbers
-    csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv'
+    current_directory = os.getcwd()
+    csv_path = current_directory + '/../DEMs/Shean_2019_0213/hma_mb_20190215_0815_std+mean.csv'
     ds_all = pd.read_csv(csv_path)
     ds_reg = ds_all[(ds_all['RGIId'] > region_no) & (ds_all['RGIId'] < region_no + 1)].copy()
     if option_random == 1:
@@ -113,21 +114,11 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 rgi_glac_number = 'all'
-
-#rgi_glac_number = ['00001']
-
-#rgi_glac_number = ['03473']
-#rgi_glac_number = ['12112']
-#rgi_glac_number = ['02703']
-#rgi_glac_number = ['01081'] # too positive
-#rgi_glac_number = ['00014'] # too negative
-#rgi_glac_number = ['07204']
-#rgi_glac_number = ['03743']
-#rgi_glac_number = ['13119']
+rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,2)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
-#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=0)
+#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
 
 # ===== Bias adjustment option =====
 option_bias_adjustment = 1
@@ -157,9 +148,9 @@ option_wateryear = 3
 #gcm_startyear = 1980
 #gcm_endyear = 2017
 gcm_startyear = 2000
-gcm_endyear = 2015
+gcm_endyear = 2005
 gcm_spinupyears = 0
-gcm_wateryear = 2
+gcm_wateryear = 1
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -200,19 +191,6 @@ ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
 #mcmc_step = 'am'
 thin_interval = 1
-
-
-#rgi_regionsO1 = [13]
-##rgi_glac_number = ['05000']
-#rgi_glac_number = ['43483']
-##rgi_glac_number = ['00094']
-
-rgi_regionsO1 = [14]
-rgi_glac_number = ['07524']
-
-rgi_regionsO1 = [15]
-rgi_glac_number = ['11909']
-
 
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
@@ -275,7 +253,8 @@ sim_stat_cns = ['mean', 'std']
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
-option_import_modelparams = 1
+option_import_modelparams = 0
+print('\n\nCHANGE OPTION IMPORT MODEL PARAMS BACK TO 1\n')
 #  Option 1 (default) - calibrated model parameters in netcdf files
 #  Option 0 - use the parameters set by the input
 precfactor = 1
@@ -287,7 +266,8 @@ precgrad = 0.0001
 ddfsnow = 0.0041
 #  range 2.6 - 5.1 * 10^-3
 # Temperature adjustment [deg C]
-tempchange = 0
+print('\nCHANGE TEMPCHANGE BACK TO 0\n\n')
+tempchange = -2
 #  range -10 to 10
 # Lapse rate from gcm to glacier [K m-1]
 lrgcm = -0.0065
@@ -348,9 +328,9 @@ if option_calibration == 1:
             15: output_filepath + 'cal_opt1/reg15/'}
 elif option_calibration == 2:
     modelparams_fp_dict = {
-            13: output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg13/',
-            14: output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg14/',
-            15: output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg15/'}
+            13: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
+            14: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
+            15: output_filepath + 'cal_opt2_spc_20190224_adjp15/'}
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
