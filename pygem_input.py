@@ -267,7 +267,7 @@ ddfsnow = 0.0041
 #  range 2.6 - 5.1 * 10^-3
 # Temperature adjustment [deg C]
 print('\nCHANGE TEMPCHANGE BACK TO 0\n\n')
-tempchange = -2
+tempchange = 10
 #  range -10 to 10
 # Lapse rate from gcm to glacier [K m-1]
 lrgcm = -0.0065
