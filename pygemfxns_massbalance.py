@@ -681,7 +681,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
-            glac_wide_volume_annual, glac_wide_ELA_annual)
+            glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, offglac_wide_refreeze, offglac_wide_melt,
+            offglac_wide_snowpack, offglac_wide_runoff)
 
 
 #%% ===================================================================================================================
