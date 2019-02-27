@@ -37,50 +37,19 @@ cal_datasets = ['shean']
 
 # mcmc model parameters
 parameters = ['tempchange', 'precfactor', 'ddfsnow']
-#parameters = ['tempchange', 'precfactor']
-#parameters = ['tempchange']
 parameters_all = ['ddfsnow', 'precfactor', 'tempchange', 'ddfice', 'lrgcm', 'lrglac', 'precgrad', 'tempsnow']
 # Autocorrelation lags
 acorr_maxlags = 100
 
 # Export option
-#mcmc_output_netcdf_fp = input.output_fp_cal + 'netcdf/'
-#mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_allglac_1ch_tn_20181018/reg13/'
-#mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_allglac_1ch_tn_20190108/'
-mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2/'
+mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/'
+#mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2/'
 mcmc_output_figures_fp = mcmc_output_netcdf_fp + 'figures/'
 mcmc_output_tables_fp = input.output_fp_cal + 'tables/'
 mcmc_output_csv_fp = input.output_fp_cal + 'csv/'
 mcmc_output_hist_fp = input.output_fp_cal + 'hist/'
 
 debug = False
-
-
-def prec_transformation(precfactor_raw, lowbnd=input.precfactor_boundlow):
-    """
-    Converts raw precipitation factors from normal distribution to correct values.
-
-    Takes raw values from normal distribution and converts them to correct precipitation factors according to:
-        if x >= 0:
-            f(x) = x + 1
-        else:
-            f(x) = 1 - x / lowbnd * (1 - (1/(1-lowbnd)))
-    i.e., normally distributed values from -2 to 2 and converts them to be 1/3 to 3.
-
-    Parameters
-    ----------
-    precfactor_raw : float
-        numpy array of untransformed precipitation factor values
-
-    Returns
-    -------
-    x : float
-        array of corrected precipitation factors
-    """        
-    x = precfactor_raw.copy()
-    x[x >= 0] = x[x >= 0] + 1
-    x[x < 0] = 1 - x[x < 0] / lowbnd * (1 - (1/(1-lowbnd)))        
-    return x
 
 
 def effective_n(ds, vn, iters, burn):
@@ -263,8 +232,7 @@ def batchsd(trace, batches=5):
 def summary(netcdf, glacier_cal_data, iters=[5000, 10000, 25000], alpha=0.05, start=0,
             batches=100, chain=None, roundto=3, filename='output.txt'):
         """
-        Generate a pretty-printed summary of the mcmc chain for different
-        chain lengths.
+        Generate a pretty-printed summary of the mcmc chain for different chain lengths.
 
         Parameters
         ----------
@@ -394,8 +362,7 @@ def summary(netcdf, glacier_cal_data, iters=[5000, 10000, 25000], alpha=0.05, st
         file.close()
 
 
-def stats(trace, alpha=0.05, start=0, batches=100,
-              chain=None, quantiles=(2.5, 25, 50, 75, 97.5)):
+def stats(trace, alpha=0.05, start=0, batches=100, chain=None, quantiles=(2.5, 25, 50, 75, 97.5)):
         """
         Generate posterior statistics for node.
 
@@ -708,7 +675,6 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
                 x_values_raw = precfactor_mu + precfactor_sigma * z_score
                 y_values = truncnorm.pdf(x_values_raw, precfactor_a, precfactor_b, loc=precfactor_mu,
                                          scale=precfactor_sigma)       
-                x_values = prec_transformation(x_values_raw)
             elif precfactor_disttype == 'uniform':
                 z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                 x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
@@ -1481,83 +1447,84 @@ def plot_mc_results2(netcdf_fn, glacier_cal_data, burns=[0,1000,3000,5000],
     return dfs
 
 
-def write_table(region=15, iters=1000, burn=0):
-    '''
-    Writes a csv table that lists MCMC assessment values for
-    each glacier (represented by a netcdf file.
+#def write_table(region=15, iters=1000, burn=0):
+#    '''
+#    Writes a csv table that lists MCMC assessment values for
+#    each glacier (represented by a netcdf file.
+#
+#    Writes out the values of effective_n (autocorrelation with
+#    lag 100), Gelman-Rubin Statistic, MC_error.
+#
+#    Parameters
+#    ----------
+#    region : int
+#        number of the glacier region (13, 14 or 15)
+#    iters : int
+#        Number of iterations associated with the Markov Chain
+#    burn : list of ints
+#        List of burn in values to plot for Gelman-Rubin stats
+#
+#    Returns
+#    -------
+#    dfs : list of pandas.DataFrame
+#        dataframes containing statistical information for all glaciers
+#    .csv files
+#        Saves tables to csv file.
+#
+#    '''
+#
+#    dfs=[]
+#
+#    variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+#
+#    # find all netcdf files (representing glaciers)
+#    filelist = glob.glob(mcmc_output_netcdf_fp + str(region) + '*.nc')
+#
+#    for vn in variables:
+#
+#        # create lists of each value
+#        glac_no = []
+#        effective_n_list = []
+#        gelman_rubin_list = []
+#        mc_error = []
+#
+#
+#        # iterate through each glacier
+#        for netcdf in filelist:
+#            print(netcdf)
+#            # open dataset
+#            ds = xr.open_dataset(netcdf)
+#
+#            # find values for this glacier and append to lists
+#            glac_no.append(netcdf[-11:-3])
+#            effective_n_list.append(effective_n(ds, vn=vn, iters=iters, burn=burn))
+#            # test if multiple chains exist
+#            if len(ds.chain) > 1:
+#                gelman_rubin_list.append(gelman_rubin(ds, vn=vn, iters=iters, burn=burn))
+#            mc_error.append(MC_error(ds, vn=vn, iters=iters, burn=burn)[0])
+#
+#            ds.close()
+#
+#        mean = abs(np.mean(mc_error))
+#        mc_error /= mean
+#
+#        # create dataframe
+#        data = {'Glacier': glac_no,
+#                'Effective N' : effective_n_list,
+#                'MC Error' : mc_error}
+#        if len(gelman_rubin_list) > 0:
+#            data['Gelman-Rubin'] = gelman_rubin_list
+#        df = pd.DataFrame(data)
+#        df.set_index('Glacier', inplace=True)
+#
+#        # save csv
+#        df.to_csv(mcmc_output_csv_fp + 'region' + str(region) + '_' +
+#                  str(iters) + 'iterations_' + str(burn) + 'burn_' + str(vn) + '.csv')
+#
+#        dfs.append(df)
+#
+#    return dfs
 
-    Writes out the values of effective_n (autocorrelation with
-    lag 100), Gelman-Rubin Statistic, MC_error.
-
-    Parameters
-    ----------
-    region : int
-        number of the glacier region (13, 14 or 15)
-    iters : int
-        Number of iterations associated with the Markov Chain
-    burn : list of ints
-        List of burn in values to plot for Gelman-Rubin stats
-
-    Returns
-    -------
-    dfs : list of pandas.DataFrame
-        dataframes containing statistical information for all glaciers
-    .csv files
-        Saves tables to csv file.
-
-    '''
-
-    dfs=[]
-
-    variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
-
-    # find all netcdf files (representing glaciers)
-    filelist = glob.glob(mcmc_output_netcdf_fp + str(region) + '*.nc')
-
-    for vn in variables:
-
-        # create lists of each value
-        glac_no = []
-        effective_n_list = []
-        gelman_rubin_list = []
-        mc_error = []
-
-
-        # iterate through each glacier
-        for netcdf in filelist:
-            print(netcdf)
-            # open dataset
-            ds = xr.open_dataset(netcdf)
-
-            # find values for this glacier and append to lists
-            glac_no.append(netcdf[-11:-3])
-            effective_n_list.append(effective_n(ds, vn=vn, iters=iters, burn=burn))
-            # test if multiple chains exist
-            if len(ds.chain) > 1:
-                gelman_rubin_list.append(gelman_rubin(ds, vn=vn, iters=iters, burn=burn))
-            mc_error.append(MC_error(ds, vn=vn, iters=iters, burn=burn)[0])
-
-            ds.close()
-
-        mean = abs(np.mean(mc_error))
-        mc_error /= mean
-
-        # create dataframe
-        data = {'Glacier': glac_no,
-                'Effective N' : effective_n_list,
-                'MC Error' : mc_error}
-        if len(gelman_rubin_list) > 0:
-            data['Gelman-Rubin'] = gelman_rubin_list
-        df = pd.DataFrame(data)
-        df.set_index('Glacier', inplace=True)
-
-        # save csv
-        df.to_csv(mcmc_output_csv_fp + 'region' + str(region) + '_' +
-                  str(iters) + 'iterations_' + str(burn) + 'burn_' + str(vn) + '.csv')
-
-        dfs.append(df)
-
-    return dfs
 
 
 def plot_histograms(iters, burn, region=15, dfs=None):
@@ -2320,45 +2287,3 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
 #    plot_mc_results2(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, burns=[0,1000,2000], plot_res=500)
 #    summary(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data,
 #            filename = mcmc_output_tables_fp + glacier_str + '.txt')
-
-#%% TEST PREC TRANSFORMATION FUNCTION
-#def prec_transformation(precfactor_raw, lowbnd=input.precfactor_boundlow):
-#    """
-#    Converts raw precipitation factors from normal distribution to correct values.
-#
-#    Takes raw values from normal distribution and converts them to correct precipitation factors according to:
-#        if x >= 0:
-#            f(x) = x + 1
-#        else:
-#            f(x) = 1 - x / lowbnd * (1 - (1/(1-lowbnd)))
-#    i.e., normally distributed values from -2 to 2 and converts them to be 1/3 to 3.
-#
-#    Parameters
-#    ----------
-#    precfactor_raw : float
-#        numpy array of untransformed precipitation factor values
-#
-#    Returns
-#    -------
-#    x : float
-#        array of corrected precipitation factors
-#    """        
-#    x = precfactor_raw.copy()
-#    x[x >= 0] = x[x >= 0] + 1
-#    x[x < 0] = 1 - x[x < 0] / lowbnd * (1 - (1/(1-lowbnd)))        
-#    return x
-    
-#x = np.random.normal(size=(int(1e6)))
-#x_prec = prec_transformation(x)
-#x_prec_old = prec_transformation_old(x)
-#y = np.arange(-2,2,0.01)
-#y_prec = prec_transformation(y)
-#y_prec_dydx = (y_prec[:-1] - y_prec[1:]) / (y[:-1] - y[1:])
-#y_pdf = norm.pdf(y)
-#plt.plot(y,y_prec, label='precfactor (x_ax:raw, y_ax:precfactor)')
-#plt.plot(y[:-1],y_prec_dydx, label='slope_precfactor (x_ax:raw, y_ax:slope)')
-#plt.plot(y, y_pdf, label='untransformed pdf (x_ax:raw, y_ax:pdf)')
-#plt.hist(x_prec, density=True, bins=100, label='transformed pdf (x_ax:precfactor, y_ax:pdf)')
-#plt.xlim(-2,3)
-#plt.legend()
-#plt.savefig(input.output_filepath + 'figures/prec_transformation_new.png', bbox_inches='tight', dpi=300)

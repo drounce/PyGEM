@@ -114,7 +114,7 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 rgi_glac_number = 'all'
-rgi_glac_number = ['03473']
+#rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,2)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
@@ -185,7 +185,7 @@ zscore_update_threshold = 0.1
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 5000
+mcmc_sample_no = 15000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
@@ -216,7 +216,7 @@ tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
 tempchange_step = 0.1
 tempchange_sigma_adj = 6
-tempchange_mu_adj = 0.1
+tempchange_mu_adj = 0.12
 #tempchange_edge_method = 'mb'
 tempchange_edge_method = 'mb_norm'
 #tempchange_edge_method = 'mb_norm_slope'
@@ -253,8 +253,7 @@ sim_stat_cns = ['mean', 'std']
 
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
-option_import_modelparams = 0
-print('\n\nCHANGE OPTION IMPORT MODEL PARAMS BACK TO 1\n')
+option_import_modelparams = 1
 #  Option 1 (default) - calibrated model parameters in netcdf files
 #  Option 0 - use the parameters set by the input
 precfactor = 1
@@ -266,8 +265,7 @@ precgrad = 0.0001
 ddfsnow = 0.0041
 #  range 2.6 - 5.1 * 10^-3
 # Temperature adjustment [deg C]
-print('\nCHANGE TEMPCHANGE BACK TO 0\n\n')
-tempchange = 10
+tempchange = 0
 #  range -10 to 10
 # Lapse rate from gcm to glacier [K m-1]
 lrgcm = -0.0065
@@ -335,8 +333,8 @@ elif option_calibration == 2:
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
 # Variable names
-#era_varnames = ['temperature', 'precipitation', 'geopotential', 'temperature_pressurelevels']
-era_varnames = ['temperature']
+era_varnames = ['temperature', 'precipitation', 'geopotential', 'temperature_pressurelevels']
+#era_varnames = ['temperature']
 #  Note: do not change variable names as these are set to run with the download_erainterim_data.py script.
 #        If option 2 is being used to calculate the lapse rates, then the pressure level data is unnecessary.
 # Dates

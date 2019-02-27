@@ -5,7 +5,7 @@
 # Built-in libaries
 import os
 # External libraries
-#import cdsapi
+import cdsapi
 import numpy as np
 import xarray as xr
 # Local libraries
@@ -110,35 +110,49 @@ class era5_variable():
     
 
 #%% DOWNLOAD DATA FROM SERVER
-# Check directory to store data exists or create it
-if not os.path.isdir(input.era5_fp):
-    os.makedirs(input.era5_fp)
-    
-vns = ['temperature']
-
-# Dates formatted properly as a string
-year_list = np.arange(input.era5_downloadyearstart, input.era5_downloadyearend + 1)
-year_list = [str(x) for x in year_list]
-
-# Download data for each variable
-#for vn in input.era_varnames:
-for vn in vns:
-    
-    for year in year_list:
-        print(year)
-        # Create a Client instance
-    #    c = cdsapi.Client()
-        class_vn = era5_variable(vn, [year])
-        
-        # Download data
-    #    if not os.path.isfile(class_vn.fn):
-    #        c.retrieve(class_vn.level, class_vn.properties, class_vn.fn)
-        
-#        # Convert to daily mean
-#        ds = xr.open_dataset(input.era5_fp + 'ERA5_Temp2m_2017_2018.nc')
+## Check directory to store data exists or create it
+#if not os.path.isdir(input.era5_fp):
+#    os.makedirs(input.era5_fp)
+#    
+#vns = ['temperature']
+#
+## Dates formatted properly as a string
+#year_list = np.arange(input.era5_downloadyearstart, input.era5_downloadyearend + 1)
+#year_list = [str(x) for x in year_list]
+#
+## Download data for each variable
+##for vn in input.era_varnames:
+#for vn in vns:
+#    
+#    for year in year_list:
+#        print(year)
+#        # Create a Client instance
+#    #    c = cdsapi.Client()
+#        class_vn = era5_variable(vn, [year])
 #        
-#        if vn == 'temperature':
-#            ds_monthly = ds.resample(time='1MS').mean()
+#        # Download data
+#    #    if not os.path.isfile(class_vn.fn):
+#    #        c.retrieve(class_vn.level, class_vn.properties, class_vn.fn)
+#        
+##        # Convert to daily mean
+##        ds = xr.open_dataset(input.era5_fp + 'ERA5_Temp2m_2017_2018.nc')
+##        
+##        if vn == 'temperature':
+##            ds_monthly = ds.resample(time='1MS').mean()
+    
+#%% MONTHLY MEAN
+c = cdsapi.Client()
+c.retrieve('reanalysis-era5-complete', {    # do not change this!
+    'class'   : 'ea',
+    'expver'  : '1',
+    'stream'  : 'moda',
+    'type'    : 'an',
+    'param'   : '167.128',
+    'levtype' : 'sfc',
+    'date'    : '2018-01-01',
+    'decade'  : '2010',
+    'format'  : 'netcdf',
+}, 'monthly-mean-daily-mean-temp-an-sfc.nc')
         
         
 #%% LAPSE RATES

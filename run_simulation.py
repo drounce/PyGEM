@@ -731,40 +731,41 @@ def main(list_packed_vars):
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                            option_areaconstant=0, debug=debug_mb))
-
-            print('glac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3),
-                  '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3),
-                  '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3),
-                  '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3),
-                  '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3),
-                  '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3),
-                  '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3),
-                  '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3),
-                  '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3),
-                  '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3))
             
-            if input.tempchange == 10:
-                print('\nCheck:\nglac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3) - 788.615,
-                      '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3) - 37.726,
-                      '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3) - 4393.866,
-                      '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3) - 15654.951,
-                      '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3) - 0,
-                      '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3) - -14828.611,
-                      '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3) - 372.894,
-                      '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3) - 35.418,
-                      '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3) - 4051266667.632,
-                      '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3) - 0.078)
-            elif input.tempchange == -2:
-                print('\nCheck:\nglac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3) - 4427.581,
-                      '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3) - 31.717,
-                      '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3) - 104795.446,
-                      '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3) - 965.784,
-                      '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3) - 0,
-                      '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3) - 2386.95,
-                      '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3) - 429.629,
-                      '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3) - 50.285,
-                      '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3) - 506045258.719,
-                      '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3) - 0.522)
+# CHECKING OUTPUT OF 15.03473 WITH TEMPCHANGE=10 AND -2 FOR DEBUGGING NEW OFF-GLACIER OUTPUT
+#            print('glac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3),
+#                  '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3),
+#                  '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3),
+#                  '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3),
+#                  '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3),
+#                  '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3),
+#                  '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3),
+#                  '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3),
+#                  '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3),
+#                  '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3))
+#            
+#            if input.tempchange == 10:
+#                print('\nCheck:\nglac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3) - 788.615,
+#                      '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3) - 37.726,
+#                      '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3) - 4393.866,
+#                      '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3) - 15654.951,
+#                      '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3) - 0,
+#                      '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3) - -14828.611,
+#                      '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3) - 372.894,
+#                      '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3) - 35.418,
+#                      '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3) - 4051266667.632,
+#                      '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3) - 0.078)
+#            elif input.tempchange == -2:
+#                print('\nCheck:\nglac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3) - 4427.581,
+#                      '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3) - 31.717,
+#                      '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3) - 104795.446,
+#                      '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3) - 965.784,
+#                      '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3) - 0,
+#                      '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3) - 2386.95,
+#                      '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3) - 429.629,
+#                      '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3) - 50.285,
+#                      '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3) - 506045258.719,
+#                      '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3) - 0.522)
             #%%
             
     #        # Compute glacier volume change for every time step and use this to compute mass balance
