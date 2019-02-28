@@ -114,8 +114,8 @@ rgi_regionsO1 = [15]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 rgi_glac_number = 'all'
-#rgi_glac_number = ['03473']
-#rgi_glac_number = glac_num_fromrange(1,2)
+rgi_glac_number = ['03473']
+#rgi_glac_number = glac_num_fromrange(1,30000)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
@@ -195,7 +195,6 @@ thin_interval = 1
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
 precfactor_disttype = 'uniform'
-#precfactor_disttype = 'custom'
 precfactor_lognorm_mu = 0
 precfactor_lognorm_tau = 4
 precfactor_mu = 0
@@ -254,6 +253,7 @@ sim_stat_cns = ['mean', 'std']
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
 option_import_modelparams = 1
+#print('\nSWITCH OPTION BACK!\n')
 #  Option 1 (default) - calibrated model parameters in netcdf files
 #  Option 0 - use the parameters set by the input
 precfactor = 1

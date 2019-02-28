@@ -480,7 +480,7 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
     burn : int
         Number of iterations to burn in with the Markov Chain
     precfactor_disttype : str
-        Distribution type of precipitation factor (either 'lognormal', 'uniform', or 'custom')
+        Distribution type of precipitation factor (either 'lognormal' or 'uniform')
     precfactor_lognorm_mu : float
         Lognormal mean of precipitation factor (default assigned from input)
     precfactor_lognorm_tau : float
@@ -668,13 +668,7 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
                 precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
                 x_values = np.linspace(lognorm.ppf(1e-6, precfactor_lognorm_sigma), 
                                        lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
-                y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
-            elif precfactor_disttype == 'custom':
-                z_score = np.linspace(truncnorm.ppf(0.01, precfactor_a, precfactor_b),
-                                      truncnorm.ppf(0.99, precfactor_a, precfactor_b), 100)
-                x_values_raw = precfactor_mu + precfactor_sigma * z_score
-                y_values = truncnorm.pdf(x_values_raw, precfactor_a, precfactor_b, loc=precfactor_mu,
-                                         scale=precfactor_sigma)       
+                y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)  
             elif precfactor_disttype == 'uniform':
                 z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                 x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
@@ -780,8 +774,6 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
             str_ending += '_PFln'
         elif precfactor_disttype == 'uniform':
             str_ending += '_PFu'
-        elif precfactor_disttype == 'custom':
-            str_ending += '_PFc'
     
     if 'ddfsnow' in variables:     
         if ddfsnow_disttype == 'truncnormal': 
@@ -837,9 +829,6 @@ def plot_mc_results(netcdf_fn, glacier_cal_data,
 #                logpost_precfactor = (np.exp(-1/(2 * precfactor_lognorm_sigma**2) * (np.log(chain_precfactor) - 
 #                                                 precfactor_lognorm_mu)**2) * (1 / chain_precfactor))                
 #            elif precfactor_disttype == 'uniform':
-#                logpost_precfactor = 0
-#            elif precfactor_disttype == 'custom':
-#                print('\nNEED TO UPDATE CUSTOM LOG(POSTERIOR) CALCULATIONS\n')
 #                logpost_precfactor = 0
 #                
 #        if 'ddfsnow' in variables:

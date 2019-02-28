@@ -215,32 +215,6 @@ def main(list_packed_vars):
     #           distributions, and output these sets of parameters and their corresponding mass balances to be used in 
     #           the simulations.
     if input.option_calibration == 2:
-        
-        def prec_transformation(precfactor_raw, lowbnd=input.precfactor_boundlow):
-            """
-            Converts raw precipitation factors from normal distribution to correct values.
-        
-            Takes raw values from normal distribution and converts them to correct precipitation factors according to:
-                if x >= 0:
-                    f(x) = x + 1
-                else:
-                    f(x) = 1 - x / lowbnd * (1 - (1/(1-lowbnd)))
-            i.e., normally distributed values from -2 to 2 and converts them to be 1/3 to 3.
-        
-            Parameters
-            ----------
-            precfactor_raw : float
-                numpy array of untransformed precipitation factor values
-        
-            Returns
-            -------
-            x : float
-                array of corrected precipitation factors
-            """        
-            x = precfactor_raw.copy()
-            x[x >= 0] = x[x >= 0] + 1
-            x[x < 0] = 1 - x[x < 0] / lowbnd * (1 - (1/(1-lowbnd)))        
-            return x
 
         # ===== Define functions needed for MCMC method =====        
         def run_MCMC(precfactor_disttype=input.precfactor_disttype,
@@ -404,8 +378,6 @@ def main(list_packed_vars):
                     modelparameters_copy[7] = float(tempchange)
                 if precfactor is not None:
                     modelparameters_copy[2] = float(precfactor)
-                    if precfactor_disttype == 'custom':
-                        modelparameters_copy[2] = prec_transformation(np.array([precfactor]))[0]
                 if ddfsnow is not None:
                     modelparameters_copy[4] = float(ddfsnow)
                     # Degree day factor of ice is proportional to ddfsnow
@@ -581,6 +553,19 @@ def main(list_packed_vars):
                     mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
                     return abs(mb_mwea - observed_massbal)
                 
+                # ----- TEMPBIAS: max accumulation -----
+                # Lower temperature bound based on max positive mass balance adjusted to avoid edge effects
+                # Temperature at the lowest bin
+                #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+                lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
+                tempchange_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
+                                            (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
+                tempchange_boundlow = tempchange_max_acc
+                # Compute max accumulation [mwea]
+                modelparameters[2] = 1
+                modelparameters[7] = -100
+                mb_max_acc = mb_mwea_calc(modelparameters, option_areaconstant=1)
+                
                 # ----- TEMPBIAS: UPPER BOUND -----
                 # MAXIMUM LOSS - AREA EVOLVING
                 mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0).sum() / glacier_area_t0.sum() * 
@@ -617,25 +602,8 @@ def main(list_packed_vars):
                         modelparameters[7] = modelparameters[7] - input.tempchange_step
                         mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=1)
                     tempchange_boundhigh = modelparameters[7] + input.tempchange_step
-                    
-#                print('mb_max_loss:', np.round(mb_max_loss,2), 
-#                      'TC_max_loss_AreaEvolve:', np.round(tempchange_max_loss,2),
-#                      '\nmb_AreaConstant:', np.round(mb_tc_boundhigh,2), 
-#                      'TC_boundhigh:', np.round(tempchange_boundhigh,2), 
-#                      '\nmb_obs_min:', np.round(mb_obs_min,2))         
                 
                 # ----- TEMPBIAS: LOWER BOUND -----
-                # Lower temperature bound based on max positive mass balance adjusted to avoid edge effects
-                # Temperature at the lowest bin
-                #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
-                lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
-                tempchange_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
-                                            (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
-                # Compute max accumulation [mwea]
-                modelparameters[2] = 1
-                modelparameters[7] = -100
-                mb_max_acc = mb_mwea_calc(modelparameters, option_areaconstant=1)
-                
                 # AVOID EDGE EFFECTS (ONLY RELEVANT AT TC LOWER BOUND)
                 def mb_norm_calc(mb):
                     """ Normalized mass balance based on max accumulation and max loss """
@@ -671,15 +639,7 @@ def main(list_packed_vars):
                         tc_norm_1 = tc_norm_calc(modelparameters[7])
                         mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters, option_areaconstant=1))
                         mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)
-                        
-                
-                mb_tc_boundlow = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#                print('\nmb_max_acc:', np.round(mb_max_acc,2), 'TC_max_acc:', np.round(tempchange_max_acc,2),
-#                      '\nmb_TC_boundlow_PF1:', np.round(mb_tc_boundlow,2), 
-#                      'TC_boundlow:', np.round(tempchange_boundlow,2),
-#                      '\nmb_obs_max:', np.round(mb_obs_max,2)
-#                      )
-                
+                    
                 # ----- OTHER PARAMETERS -----
                 # Assign TC_sigma
                 tempchange_sigma = input.tempchange_sigma
@@ -689,7 +649,6 @@ def main(list_packed_vars):
                 if input.tempchange_mu < tempchange_boundlow:
                     tempchange_init = tempchange_boundlow 
                 elif input.tempchange_mu > tempchange_boundhigh:
-        #            tempchange_init = tempchange_boundhigh - 2 * tempchange_sigma
                     tempchange_init = tempchange_boundhigh
                 else:
                     tempchange_init = input.tempchange_mu
@@ -702,7 +661,6 @@ def main(list_packed_vars):
                 precfactor_opt_all = minimize(find_precfactor_opt, precfactor_opt_init, args=(tempchange_4opt), 
                                               bounds=[precfactor_opt_bnds], method='L-BFGS-B')
                 precfactor_opt = precfactor_opt_all.x[0]
-#                print('PF opt:', np.round(precfactor_opt,2))
                 
                 # Adjust precfactor so it's not < 0.5 or greater than 5
                 precfactor_opt_low = 0.5
@@ -723,42 +681,24 @@ def main(list_packed_vars):
                     tempchange_opt = tempchange_opt_all.x[0]
                 else:
                     tempchange_opt = tempchange_4opt
-                    
-#                print('PF opt:', np.round(precfactor_opt,2), 'TC opt:', np.round(tempchange_opt,2))
-                
-
+    
                 # TEMPCHANGE_SIGMA: derived from mb_obs_min and mb_obs_max
                 # MB_obs_min
                 #  note: tempchange_boundhigh does not require a limit because glacier is not evolving
-#                print('MB_OBS_MIN:', np.round(mb_obs_min,2))
                 tempchange_adj = input.tempchange_step
                 modelparameters[2] = precfactor_opt
-        #        modelparameters[4] = input.ddfsnow_mu
-        #        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
                 modelparameters[7] = tempchange_opt + tempchange_adj
                 mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-        #        while mb_mwea > mb_obs_min and modelparameters[7] < tempchange_boundhigh:
                 while mb_mwea > mb_obs_min:    
                     tempchange_adj += input.tempchange_step
                     modelparameters[7] = tempchange_opt + tempchange_adj
-        #            if modelparameters[7] > tempchange_boundhigh:
-        #                modelparameters[7] = tempchange_boundhigh
                     mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#                    print('PF_opt:', np.round(precfactor_opt,2), 'TC:', np.round(modelparameters[7],2), 
-#                          'mb_min:', np.round(mb_mwea,2))
                     
                 # Expand upper bound if necessary
                 if modelparameters[7] > tempchange_boundhigh:
-#                    print('EXPAND UPPER BOUND')
-#                    print(tempchange_boundhigh, 'vs', modelparameters[7])
                     tempchange_boundhigh = modelparameters[7]
-                
-                    
                 # MB_obs_max
-#                print('MB_OBS_MAX:', np.round(mb_obs_max,2))
                 modelparameters[2] = precfactor_opt
-        #        modelparameters[4] = input.ddfsnow_mu
-        #        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
                 modelparameters[7] = tempchange_opt - tempchange_adj
                 mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
                 while mb_mwea < mb_obs_max and modelparameters[7] > tempchange_boundlow:
@@ -767,19 +707,12 @@ def main(list_packed_vars):
                     if modelparameters[7] < tempchange_boundlow:
                         modelparameters[7] = tempchange_boundlow
                     mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#                    print('PF_opt:', np.round(precfactor_opt,2), 'TC:', np.round(modelparameters[7],2), 
-#                          'mb_min:', np.round(mb_mwea,2))
-        
+    
                 tempchange_sigma = tempchange_adj / 3
                 
-#                print('TC_adj:', np.round(tempchange_adj,2), '\nTC_sigma:', np.round(tempchange_sigma,2))
-
-        
                 # PRECIPITATION FACTOR: LOWER BOUND
                 # Check PF_boundlow = 0
                 modelparameters[2] = 0
-        #        modelparameters[4] = input.ddfsnow_mu 
-        #        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
                 modelparameters[7] = tempchange_opt + tempchange_sigma
                 mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
                 if mb_mwea > mb_obs_min:
@@ -801,35 +734,25 @@ def main(list_packed_vars):
                             precfactor_boundlow = 0
                         modelparameters[2] = precfactor_boundlow
                         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#                
-#                print('PF_low:', np.round(precfactor_boundlow,2), 'TC_opt:', np.round(tempchange_opt,2), 
-#                      'obs_min:', np.round(mb_obs_min,2), 'mb_min:', np.round(mb_mwea,2))
-         
+    
                 # PRECIPITATION FACTOR: UPPER BOUND
                 precfactor_boundhigh = precfactor_opt
                 modelparameters[2] = precfactor_boundhigh
-        #        modelparameters[4] = input.ddfsnow_mu
-        #        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
                 modelparameters[7] = tempchange_opt - tempchange_sigma
                 mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
                 while mb_mwea < mb_obs_max:
                     precfactor_boundhigh += input.precfactor_step
                     modelparameters[2] = precfactor_boundhigh
                     mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#                print('PF_high:', np.round(precfactor_boundhigh,2), 
-#                      'obs_max:', np.round(mb_obs_max,2), 'mb_max:', np.round(mb_mwea,2))  
-                
-                precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
-
                 
                 # TEMPERATURE BIAS: RE-CENTER
+                precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
                 if abs(precfactor_opt - precfactor_mu) > 0.01:
                     tempchange_opt_init = [tempchange_opt]
                     tempchange_opt_bnds = (tempchange_boundlow, tempchange_boundhigh)
                     tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, args=(precfactor_mu), 
                                                   bounds=[tempchange_opt_bnds], method='L-BFGS-B')
                     tempchange_opt = tempchange_opt_all.x[0]
-#                print('TC_opt re-centered:', np.round(tempchange_opt,2))
                 
                 
                 precfactor_start = precfactor_mu
@@ -885,12 +808,8 @@ def main(list_packed_vars):
                                      ddfsnow_start=input.ddfsnow_boundhigh)
                    
                 # Select data from model to be stored in netcdf
-                if input.precfactor_disttype == 'custom':    
-                    precfactor_values = prec_transformation(model.trace('precfactor')[:])
-                else:
-                    precfactor_values = model.trace('precfactor')[:]
                 df = pd.DataFrame({'tempchange': model.trace('tempchange')[:],
-                                   'precfactor': precfactor_values,
+                                   'precfactor': model.trace('precfactor')[:],
                                    'ddfsnow': model.trace('ddfsnow')[:],
                                    'massbal': model.trace('massbal')[:]})
                 # set columns for other variables
