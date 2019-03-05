@@ -300,6 +300,13 @@ def selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1,
     glacier_table_copy.reset_index(inplace=True)
     # change old index to 'O1Index' to be easier to recall what it is
     glacier_table_copy.rename(columns={'index': 'O1Index'}, inplace=True)
+    # Record the reference date 
+    glacier_table_copy['RefDate'] = glacier_table_copy['BgnDate']
+    # if there is an end date, then roughly average the year
+    enddate_idx = glacier_table_copy.loc[(glacier_table_copy['EndDate'] > 0), 'EndDate'].index.values
+    glacier_table_copy.loc[enddate_idx,'RefDate'] = (
+            np.mean((glacier_table_copy.loc[enddate_idx,['BgnDate', 'EndDate']].values / 10**4).astype(int), 
+                    axis=1).astype(int) * 10**4 + 9999)    
     # drop columns of data that is not being used
     glacier_table_copy.drop(rgi_cols_drop, axis=1, inplace=True)
     # add column with the O1 glacier numbers

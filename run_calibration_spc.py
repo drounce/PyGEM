@@ -5,7 +5,6 @@
 import os
 import argparse
 import multiprocessing
-import resource
 import time
 import inspect
 # External libraries
@@ -22,8 +21,6 @@ import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
 import class_climate
 import class_mbdata
-
-#from memory_profiler import profile
 
 
 #%% FUNCTIONS
@@ -67,16 +64,10 @@ def getparser():
     parser.add_argument('-progress_bar', action='store', type=int, default=0,
                         help='Boolean for the progress bar to turn it on or off (default 0 is off)')
     parser.add_argument('-debug', action='store', type=int, default=0,
-                        help='Boolean for debugging to turn it on or off (default 0 is off)')
-                        
-                        
-    parser.add_argument('-rgi_glac_number', action='store', type=str, default=None,
-                        help='rgi glacier number for supercomputer')
-                        
-                        
+                        help='Boolean for debugging to turn it on or off (default 0 is off')
     return parser
 
-#@profile
+
 def main(list_packed_vars):
     """
     Model calibration
@@ -91,154 +82,12 @@ def main(list_packed_vars):
     netcdf files of the calibration output
         Depending on the calibration scheme additional output may be exported as well
     """
-##    # Unpack variables
-##    count = list_packed_vars[0]
-##    chunk = list_packed_vars[1]
-##    chunk_size = list_packed_vars[2]
-##    main_glac_rgi_all = list_packed_vars[3]
-##    gcm_name = list_packed_vars[4]
-#    rgi_glac_number = list_packed_vars[0]
-#    gcm_name = list_packed_vars[1]
-#    count = list_packed_vars[2]
-#
-#    time_start = time.time()
-#    parser = getparser()
-#    args = parser.parse_args()
-#    
-#    if args.debug == 1:
-#        debug = True
-#    else:
-#        debug = False
-#        
-#    # RGI region
-#    if args.spc_region is not None:
-#        rgi_regionsO1 = [int(args.spc_region)]
-#    else:
-#        rgi_regionsO1 = input.rgi_regionsO1
-#
-#    # ===== LOAD GLACIER DATA =====
-#    #  'raw' refers to the glacier subset that includes glaciers with and without calibration data
-#    #  after the calibration data has been imported, then all glaciers without data will be dropped
-#    # Glacier RGI data
-##    main_glac_rgi_raw = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
-#    main_glac_rgi_raw = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-#                                                          rgi_glac_number=rgi_glac_number)
-#    # Glacier hypsometry [km**2], total area
-#    main_glac_hyps_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.hyps_filepath,
-#                                                     input.hyps_filedict, input.hyps_colsdrop)
-#    # Ice thickness [m], average
-#    main_glac_icethickness_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, 
-#                                                             input.thickness_filepath, input.thickness_filedict, 
-#                                                             input.thickness_colsdrop)
-#    main_glac_hyps_raw[main_glac_icethickness_raw == 0] = 0
-#    # Width [km], average
-#    main_glac_width_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.width_filepath,
-#                                                      input.width_filedict, input.width_colsdrop)
-#    elev_bins = main_glac_hyps_raw.columns.values.astype(int)
-#    # Add volume [km**3] and mean elevation [m a.s.l.]
-#    main_glac_rgi_raw['Volume'], main_glac_rgi_raw['Zmean'] = (
-#            modelsetup.hypsometrystats(main_glac_hyps_raw, main_glac_icethickness_raw))
-#    # Select dates including future projections
-#    #  - nospinup dates_table needed to get the proper time indices
-#    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-#                                                     spinupyears=0)
-#    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-#                                           spinupyears=input.spinupyears)
-#
-#    # ===== LOAD CALIBRATION DATA =====
-#    cal_data = pd.DataFrame()
-#    for dataset in input.cal_datasets:
-#        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
-#        cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_raw, main_glac_hyps_raw, dates_table_nospinup)
-#        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-#    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-#    cal_data.reset_index(drop=True, inplace=True)
-#    
-#    if debug:
-#        print('Number of glaciers (cal_data):', cal_data.shape[0])
-#    
-#    # If group data is included, then add group dictionary and add group name to main_glac_rgi
-#    if set(['group']).issubset(input.cal_datasets) == True:
-#        # Group dictionary
-#        group_dict_raw = pd.read_csv(input.mb_group_fp + input.mb_group_dict_fn)
-#        # Remove groups that have no data
-#        group_names_wdata = np.unique(cal_data[np.isnan(cal_data.glacno)].group_name.values).tolist()
-#        group_dict_raw_wdata = group_dict_raw.loc[group_dict_raw.group_name.isin(group_names_wdata)]
-#        # Create dictionary to map group names to main_glac_rgi
-#        group_dict = dict(zip(group_dict_raw_wdata['RGIId'], group_dict_raw_wdata['group_name']))
-#        group_names_unique = list(set(group_dict.values()))
-#        group_dict_keyslist = [[] for x in group_names_unique]
-#        for n, group in enumerate(group_names_unique):
-#            group_dict_keyslist[n] = [group, [k for k, v in group_dict.items() if v == group]]
-#        # Add group name to main_glac_rgi
-#        main_glac_rgi_raw['group_name'] = main_glac_rgi_raw['RGIId'].map(group_dict)
-#    else:
-#        main_glac_rgi_raw['group_name'] = np.nan
-#
-#    # Drop glaciers that do not have any calibration data (individual or group)    
-#    main_glac_rgi = ((main_glac_rgi_raw.iloc[np.unique(
-#            np.append(main_glac_rgi_raw[main_glac_rgi_raw['group_name'].notnull() == True].index.values, 
-#                      np.where(main_glac_rgi_raw[input.rgi_O1Id_colname].isin(cal_data['glacno']) == True)[0])), :])
-#            .copy())
-#    # select glacier data
-#    main_glac_hyps = main_glac_hyps_raw.iloc[main_glac_rgi.index.values]
-#    main_glac_icethickness = main_glac_icethickness_raw.iloc[main_glac_rgi.index.values]
-#    main_glac_width = main_glac_width_raw.iloc[main_glac_rgi.index.values]
-#    # Reset index
-#    main_glac_rgi.reset_index(drop=True, inplace=True)
-#    main_glac_hyps.reset_index(drop=True, inplace=True)
-#    main_glac_icethickness.reset_index(drop=True, inplace=True)
-#    main_glac_width.reset_index(drop=True, inplace=True)
-#    
-#    if debug:
-#        print('Number of glaciers (main_glac_rgi):', main_glac_rgi.shape[0])
-#
-#    # ===== LOAD CLIMATE DATA =====
-#    gcm = class_climate.GCM(name=gcm_name)
-#    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-#    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-#    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-#    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-#    # Lapse rate [K m-1]
-#    if gcm_name == 'ERA-Interim':
-#        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-#    else:
-#        # Mean monthly lapse rate
-#        ref_lr_monthly_avg = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
-#        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-#    # COAWST data has two domains, so need to merge the two domains
-#    if gcm_name == 'COAWST':
-#        gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn, main_glac_rgi, 
-#                                                                         dates_table)
-#        gcm_prec_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn_d01, gcm.prec_vn, main_glac_rgi, 
-#                                                                         dates_table)
-#        gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
-#        # Check if glacier outside of high-res (d02) domain
-#        for glac in range(main_glac_rgi.shape[0]):
-#            glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
-#            glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
-#            if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or 
-#                ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
-#                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
-#                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
-#                gcm_elev[glac] = gcm_elev_d01[glac]
-    
-    
-    
-    # ======= NEW AS OF 03/05/2019 ==========================    
     # Unpack variables
     count = list_packed_vars[0]
-    gcm_name = list_packed_vars[1] 
-    main_glac_rgi = list_packed_vars[2]
-    main_glac_hyps = list_packed_vars[3]
-    main_glac_icethickness = list_packed_vars[4]
-    main_glac_width = list_packed_vars[5]
-    gcm_temp = list_packed_vars[6]
-    gcm_prec = list_packed_vars[7]
-    gcm_elev = list_packed_vars[8]
-    gcm_lr = list_packed_vars[9]
-    cal_data = list_packed_vars[10]
-    
+    chunk = list_packed_vars[1]
+    chunk_size = list_packed_vars[2]
+    main_glac_rgi_all = list_packed_vars[3]
+    gcm_name = list_packed_vars[4]
 
     time_start = time.time()
     parser = getparser()
@@ -254,13 +103,111 @@ def main(list_packed_vars):
         rgi_regionsO1 = [int(args.spc_region)]
     else:
         rgi_regionsO1 = input.rgi_regionsO1
-        
-        
-        
-    # ======= END 03/05/2019 ==========================  
+
+    # ===== LOAD GLACIER DATA =====
+    #  'raw' refers to the glacier subset that includes glaciers with and without calibration data
+    #  after the calibration data has been imported, then all glaciers without data will be dropped
+    # Glacier RGI data
+    main_glac_rgi_raw = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
+    # Glacier hypsometry [km**2], total area
+    main_glac_hyps_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.hyps_filepath,
+                                                     input.hyps_filedict, input.hyps_colsdrop)
+    # Ice thickness [m], average
+    main_glac_icethickness_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, 
+                                                             input.thickness_filepath, input.thickness_filedict, 
+                                                             input.thickness_colsdrop)
+    main_glac_hyps_raw[main_glac_icethickness_raw == 0] = 0
+    # Width [km], average
+    main_glac_width_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.width_filepath,
+                                                      input.width_filedict, input.width_colsdrop)
+    elev_bins = main_glac_hyps_raw.columns.values.astype(int)
+    # Add volume [km**3] and mean elevation [m a.s.l.]
+    main_glac_rgi_raw['Volume'], main_glac_rgi_raw['Zmean'] = (
+            modelsetup.hypsometrystats(main_glac_hyps_raw, main_glac_icethickness_raw))
+    # Select dates including future projections
+    #  - nospinup dates_table needed to get the proper time indices
+    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+                                                     spinupyears=0)
+    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+                                           spinupyears=input.spinupyears)
+
+    # ===== LOAD CALIBRATION DATA =====
+    cal_data = pd.DataFrame()
+    for dataset in input.cal_datasets:
+        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
+        cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_raw, main_glac_hyps_raw, dates_table_nospinup)
+        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+    cal_data.reset_index(drop=True, inplace=True)
     
+    if debug:
+        print('Number of glaciers (cal_data):', cal_data.shape[0])
     
+    # If group data is included, then add group dictionary and add group name to main_glac_rgi
+    if set(['group']).issubset(input.cal_datasets) == True:
+        # Group dictionary
+        group_dict_raw = pd.read_csv(input.mb_group_fp + input.mb_group_dict_fn)
+        # Remove groups that have no data
+        group_names_wdata = np.unique(cal_data[np.isnan(cal_data.glacno)].group_name.values).tolist()
+        group_dict_raw_wdata = group_dict_raw.loc[group_dict_raw.group_name.isin(group_names_wdata)]
+        # Create dictionary to map group names to main_glac_rgi
+        group_dict = dict(zip(group_dict_raw_wdata['RGIId'], group_dict_raw_wdata['group_name']))
+        group_names_unique = list(set(group_dict.values()))
+        group_dict_keyslist = [[] for x in group_names_unique]
+        for n, group in enumerate(group_names_unique):
+            group_dict_keyslist[n] = [group, [k for k, v in group_dict.items() if v == group]]
+        # Add group name to main_glac_rgi
+        main_glac_rgi_raw['group_name'] = main_glac_rgi_raw['RGIId'].map(group_dict)
+    else:
+        main_glac_rgi_raw['group_name'] = np.nan
+
+    # Drop glaciers that do not have any calibration data (individual or group)    
+    main_glac_rgi = ((main_glac_rgi_raw.iloc[np.unique(
+            np.append(main_glac_rgi_raw[main_glac_rgi_raw['group_name'].notnull() == True].index.values, 
+                      np.where(main_glac_rgi_raw[input.rgi_O1Id_colname].isin(cal_data['glacno']) == True)[0])), :])
+            .copy())
+    # select glacier data
+    main_glac_hyps = main_glac_hyps_raw.iloc[main_glac_rgi.index.values]
+    main_glac_icethickness = main_glac_icethickness_raw.iloc[main_glac_rgi.index.values]
+    main_glac_width = main_glac_width_raw.iloc[main_glac_rgi.index.values]
+    # Reset index
+    main_glac_rgi.reset_index(drop=True, inplace=True)
+    main_glac_hyps.reset_index(drop=True, inplace=True)
+    main_glac_icethickness.reset_index(drop=True, inplace=True)
+    main_glac_width.reset_index(drop=True, inplace=True)
     
+    if debug:
+        print('Number of glaciers (main_glac_rgi):', main_glac_rgi.shape[0])
+
+    # ===== LOAD CLIMATE DATA =====
+    gcm = class_climate.GCM(name=gcm_name)
+    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+    # Lapse rate [K m-1]
+    if gcm_name == 'ERA-Interim':
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    else:
+        # Mean monthly lapse rate
+        ref_lr_monthly_avg = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
+        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+    # COAWST data has two domains, so need to merge the two domains
+    if gcm_name == 'COAWST':
+        gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn, main_glac_rgi, 
+                                                                         dates_table)
+        gcm_prec_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn_d01, gcm.prec_vn, main_glac_rgi, 
+                                                                         dates_table)
+        gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
+        # Check if glacier outside of high-res (d02) domain
+        for glac in range(main_glac_rgi.shape[0]):
+            glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
+            glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
+            if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or 
+                ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
+                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
+                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
+                gcm_elev[glac] = gcm_elev_d01[glac]
 
     # ===== CALIBRATION =====
     # Option 2: use MCMC method to determine posterior probability distributions of the three parameters tempchange,
@@ -555,16 +502,12 @@ def main(list_packed_vars):
             tempchange_boundlow = input.tempchange_boundlow
             tempchange_boundhigh = input.tempchange_boundhigh
             tempchange_start = tempchange_mu
-            precfactor_boundlow = input.precfactor_boundlow
-            precfactor_boundhigh = input.precfactor_boundhigh
-            precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
-            precfactor_start = precfactor_mu
             
             
             # NEW SETUP
             if input.new_setup == 1 and icethickness_t0.max() > 0:
                 #%%
-                
+                print('here')
                 def mb_mwea_calc(modelparameters, option_areaconstant=1):
                     """
                     Run the mass balance and calculate the mass balance [mwea]
@@ -662,11 +605,11 @@ def main(list_packed_vars):
                         mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=1)
                     tempchange_boundhigh = modelparameters[7] + input.tempchange_step
                     
-#                print('mb_max_loss:', np.round(mb_max_loss,2), 
-#                      'TC_max_loss_AreaEvolve:', np.round(tempchange_max_loss,2),
-#                      '\nmb_AreaConstant:', np.round(mb_tc_boundhigh,2), 
-#                      'TC_boundhigh:', np.round(tempchange_boundhigh,2), 
-#                      '\nmb_obs_min:', np.round(mb_obs_min,2))
+                print('mb_max_loss:', np.round(mb_max_loss,2), 
+                      'TC_max_loss_AreaEvolve:', np.round(tempchange_max_loss,2),
+                      '\nmb_AreaConstant:', np.round(mb_tc_boundhigh,2), 
+                      'TC_boundhigh:', np.round(tempchange_boundhigh,2), 
+                      '\nmb_obs_min:', np.round(mb_obs_min,2))
                 
                 # ----- TEMPBIAS: LOWER BOUND -----
                 # AVOID EDGE EFFECTS (ONLY RELEVANT AT TC LOWER BOUND)
@@ -705,12 +648,12 @@ def main(list_packed_vars):
                         mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters, option_areaconstant=1))
                         mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)
                     
-#                mb_tc_boundlow = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#                print('\nmb_max_acc:', np.round(mb_max_acc,2), 'TC_max_acc:', np.round(tempchange_max_acc,2),
-#                      '\nmb_TC_boundlow_PF1:', np.round(mb_tc_boundlow,2), 
-#                      'TC_boundlow:', np.round(tempchange_boundlow,2),
-#                      '\nmb_obs_max:', np.round(mb_obs_max,2)
-#                      )
+                mb_tc_boundlow = mb_mwea_calc(modelparameters, option_areaconstant=1)
+                print('\nmb_max_acc:', np.round(mb_max_acc,2), 'TC_max_acc:', np.round(tempchange_max_acc,2),
+                      '\nmb_TC_boundlow_PF1:', np.round(mb_tc_boundlow,2), 
+                      'TC_boundlow:', np.round(tempchange_boundlow,2),
+                      '\nmb_obs_max:', np.round(mb_obs_max,2)
+                      )
                     
                 # ----- OTHER PARAMETERS -----
                 # Assign TC_sigma
@@ -734,6 +677,8 @@ def main(list_packed_vars):
                                               bounds=[precfactor_opt_bnds], method='L-BFGS-B')
                 precfactor_opt = precfactor_opt_all.x[0]
                 
+                print('prec optimized')
+                
                 # Adjust precfactor so it's not < 0.5 or greater than 5
                 precfactor_opt_low = 0.5
                 precfactor_opt_high = 5
@@ -753,6 +698,8 @@ def main(list_packed_vars):
                     tempchange_opt = tempchange_opt_all.x[0]
                 else:
                     tempchange_opt = tempchange_4opt
+                    
+                print('temp optimized')
     
                 # TEMPCHANGE_SIGMA: derived from mb_obs_min and mb_obs_max
                 # MB_obs_min
@@ -782,6 +729,8 @@ def main(list_packed_vars):
     
                 tempchange_sigma = tempchange_adj / 3
                 
+                print('tempchange_sigma:', tempchange_sigma)
+                
                 # PRECIPITATION FACTOR: LOWER BOUND
                 # Check PF_boundlow = 0
                 modelparameters[2] = 0
@@ -806,6 +755,8 @@ def main(list_packed_vars):
                             precfactor_boundlow = 0
                         modelparameters[2] = precfactor_boundlow
                         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+                        
+                print('precfactor lower bound:', precfactor_boundlow)
     
                 # PRECIPITATION FACTOR: UPPER BOUND
                 precfactor_boundhigh = precfactor_opt
@@ -816,6 +767,8 @@ def main(list_packed_vars):
                     precfactor_boundhigh += input.precfactor_step
                     modelparameters[2] = precfactor_boundhigh
                     mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+                    
+                print('precfactor upper bound:', precfactor_boundhigh)
                 
                 # TEMPERATURE BIAS: RE-CENTER
                 precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
@@ -825,6 +778,8 @@ def main(list_packed_vars):
                     tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, args=(precfactor_mu), 
                                                   bounds=[tempchange_opt_bnds], method='L-BFGS-B')
                     tempchange_opt = tempchange_opt_all.x[0]
+                    
+                print('temp optimized again')
                 
                 
                 precfactor_start = precfactor_mu
@@ -853,7 +808,6 @@ def main(list_packed_vars):
             # fit the MCMC model
             for n_chain in range(0,input.n_chains):
                 print(glacier_str + ' chain' + str(n_chain))
-                print('\nProcessing time prior to chain:',time.time()-time_start, 's')
                 if n_chain == 0:                    
                     model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step, 
                                      precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
@@ -909,7 +863,6 @@ def main(list_packed_vars):
             if not os.path.exists(input.output_fp_cal):
                 os.makedirs(input.output_fp_cal)
             ds.to_netcdf(input.output_fp_cal + glacier_str + '.nc')
-            ds.close()
             
             
 #            #%%
@@ -1398,7 +1351,6 @@ def main(list_packed_vars):
                                         'mp': df.columns.values,
                                         'chain': [0]})
                 ds.to_netcdf(output_fullfn)
-                ds.close()
         
         # ==============================================================
         # ===== Individual glacier optimization using objective minimization ===== 
@@ -1792,8 +1744,6 @@ if __name__ == '__main__':
     if args.rgi_glac_number_fn is not None:
         with open(args.rgi_glac_number_fn, 'rb') as f:
             rgi_glac_number = pickle.load(f)
-    elif args.rgi_glac_number is not None:
-        rgi_glac_number = [args.rgi_glac_number]
     else:
         rgi_glac_number = input.rgi_glac_number    
 
@@ -1808,209 +1758,13 @@ if __name__ == '__main__':
         # if not running in parallel, chunk size is all glaciers
         chunk_size = main_glac_rgi_all.shape[0]
 
-#    # Pack variables for parallel processing
-#    list_packed_vars = []
-#    n = 0
-#    for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-#        n += 1
-#        list_packed_vars.append([n, chunk, chunk_size, main_glac_rgi_all, gcm_name])
-        
-        
-    #%% =================================================
-#    # Define chunk size for parallel processing
-#    if args.option_parallels != 0:
-#        num_cores = int(np.min([len(rgi_glac_number), args.num_simultaneous_processes]))
-#        chunk_size = int(np.ceil(len(rgi_glac_number) / num_cores))
-#    else:
-#        # if not running in parallel, chunk size is all glaciers
-#        num_cores = 1
-#        chunk_size = len(rgi_glac_number)
-#    
-#    def split_list(lst, n=1):
-#        """
-#        Split list of glaciers into batches for the supercomputer.
-#        
-#        Parameters
-#        ----------
-#        lst : list
-#            List that you want to split into separate batches
-#        n : int
-#            Number of batches to split glaciers into.
-#        
-#        Returns
-#        -------
-#        lst_batches : list
-#            list of n lists that have sequential values in each list
-#        """
-#        # If batches is more than list, then there will be one glacier in each batch
-#        if n > len(lst):
-#            n = len(lst)
-#        n_perlist_low = int(len(lst)/n)
-#        n_perlist_high = int(np.ceil(len(lst)/n))
-#        lst_copy = lst.copy()
-#        count = 0
-#        lst_batches = []
-#        for x in np.arange(n):
-#            count += 1
-#            if count <= n_perlist_low:
-#                lst_subset = lst_copy[0:n_perlist_high]
-#                lst_batches.append(lst_subset)
-#                [lst_copy.remove(i) for i in lst_subset]
-#            else:
-#                lst_subset = lst_copy[0:n_perlist_low]
-#                lst_batches.append(lst_subset)
-#                [lst_copy.remove(i) for i in lst_subset]
-#        return lst_batches    
-#    
-#    rgi_glac_number_batches = split_list(rgi_glac_number, n=num_cores)
-#    
-#    list_packed_vars = []
-#    n = 0
-#    for batch in rgi_glac_number_batches:
-#        n += 1
-#        list_packed_vars.append([batch, gcm_name, n])
-        
-    
-    #%%===================================================
-    # Pack variables for multiprocessing
-#    list_packed_vars = []
-#    for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-#        main_glac_rgi_raw = main_glac_rgi_all.loc[chunk:chunk+chunk_size-1].copy()
-#        list_packed_vars.append([main_glac_rgi_raw, gcm_name])
-        
-    # ===== LOAD GLACIER DATA =====
-    # Glacier hypsometry [km**2], total area
-    main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, input.hyps_filepath,
-                                                     input.hyps_filedict, input.hyps_colsdrop)
-
-    # Ice thickness [m], average
-    main_glac_icethickness_all = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, 
-                                                             input.thickness_filepath, input.thickness_filedict, 
-                                                             input.thickness_colsdrop)
-    main_glac_hyps_all[main_glac_icethickness_all == 0] = 0
-    # Width [km], average
-    main_glac_width_all = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, input.width_filepath,
-                                                      input.width_filedict, input.width_colsdrop)
-    elev_bins = main_glac_hyps_all.columns.values.astype(int)
-    # Add volume [km**3] and mean elevation [m a.s.l.]
-    main_glac_rgi_all['Volume'], main_glac_rgi_all['Zmean'] = (
-            modelsetup.hypsometrystats(main_glac_hyps_all, main_glac_icethickness_all))
-    # Select dates including future projections
-    #  - nospinup dates_table needed to get the proper time indices
-    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-                                                     spinupyears=0)
-    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-                                           spinupyears=input.spinupyears)
-
-    # ===== LOAD CALIBRATION DATA =====
-    cal_data = pd.DataFrame()
-    for dataset in input.cal_datasets:
-        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
-        cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_all, main_glac_hyps_all, dates_table_nospinup)
-        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-    cal_data.reset_index(drop=True, inplace=True)
-    
-    # If group data is included, then add group dictionary and add group name to main_glac_rgi
-    if set(['group']).issubset(input.cal_datasets) == True:
-        # Group dictionary
-        group_dict_raw = pd.read_csv(input.mb_group_fp + input.mb_group_dict_fn)
-        # Remove groups that have no data
-        group_names_wdata = np.unique(cal_data[np.isnan(cal_data.glacno)].group_name.values).tolist()
-        group_dict_raw_wdata = group_dict_raw.loc[group_dict_raw.group_name.isin(group_names_wdata)]
-        # Create dictionary to map group names to main_glac_rgi
-        group_dict = dict(zip(group_dict_raw_wdata['RGIId'], group_dict_raw_wdata['group_name']))
-        group_names_unique = list(set(group_dict.values()))
-        group_dict_keyslist = [[] for x in group_names_unique]
-        for n, group in enumerate(group_names_unique):
-            group_dict_keyslist[n] = [group, [k for k, v in group_dict.items() if v == group]]
-        # Add group name to main_glac_rgi
-        main_glac_rgi_all['group_name'] = main_glac_rgi_all['RGIId'].map(group_dict)
-    else:
-        main_glac_rgi_all['group_name'] = np.nan
-
-    # Drop glaciers that do not have any calibration data (individual or group)    
-    main_glac_rgi = ((main_glac_rgi_all.iloc[np.unique(
-            np.append(main_glac_rgi_all[main_glac_rgi_all['group_name'].notnull() == True].index.values, 
-                      np.where(main_glac_rgi_all[input.rgi_O1Id_colname].isin(cal_data['glacno']) == True)[0])), :])
-            .copy())
-    # select glacier data
-    main_glac_hyps = main_glac_hyps_all.iloc[main_glac_rgi.index.values]
-    main_glac_icethickness = main_glac_icethickness_all.iloc[main_glac_rgi.index.values]
-    main_glac_width = main_glac_width_all.iloc[main_glac_rgi.index.values]
-    # Reset index
-    main_glac_rgi.reset_index(drop=True, inplace=True)
-    main_glac_hyps.reset_index(drop=True, inplace=True)
-    main_glac_icethickness.reset_index(drop=True, inplace=True)
-    main_glac_width.reset_index(drop=True, inplace=True)
-
-    # ===== LOAD CLIMATE DATA =====
-    gcm = class_climate.GCM(name=gcm_name)
-    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-    # Lapse rate [K m-1]
-    if gcm_name == 'ERA-Interim':
-        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-    else:
-        # Mean monthly lapse rate
-        ref_lr_monthly_avg = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
-        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-    # COAWST data has two domains, so need to merge the two domains
-    if gcm_name == 'COAWST':
-        gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn, main_glac_rgi, 
-                                                                         dates_table)
-        gcm_prec_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn_d01, gcm.prec_vn, main_glac_rgi, 
-                                                                         dates_table)
-        gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
-        # Check if glacier outside of high-res (d02) domain
-        for glac in range(main_glac_rgi.shape[0]):
-            glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
-            glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
-            if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or 
-                ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
-                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
-                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
-                gcm_elev[glac] = gcm_elev_d01[glac]
-                
-                
-    # Pack variables for multiprocessing
+    # Pack variables for parallel processing
     list_packed_vars = []
     n = 0
-    for chunk in range(0, main_glac_rgi.shape[0], chunk_size):
+    for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
         n += 1
-        main_glac_rgi_chunk = main_glac_rgi.loc[chunk:chunk+chunk_size-1].copy()
-        main_glac_hyps_chunk = main_glac_hyps.loc[chunk:chunk+chunk_size-1].copy()
-        main_glac_icethickness_chunk = main_glac_icethickness.loc[chunk:chunk+chunk_size-1].copy()
-        main_glac_width_chunk = main_glac_width.loc[chunk:chunk+chunk_size-1].copy()
-        gcm_temp_chunk = gcm_temp[chunk:chunk+chunk_size]
-        gcm_prec_chunk = gcm_prec[chunk:chunk+chunk_size]
-        gcm_elev_chunk = gcm_elev[chunk:chunk+chunk_size]
-        gcm_lr_chunk = gcm_lr[chunk:chunk+chunk_size]
-        cal_data_chunk = cal_data.loc[chunk:chunk+chunk_size-1]
-        
-        list_packed_vars.append([n,
-                                 gcm_name, 
-                                 main_glac_rgi_chunk, 
-                                 main_glac_hyps_chunk, 
-                                 main_glac_icethickness_chunk, 
-                                 main_glac_width_chunk,
-                                 gcm_temp_chunk,
-                                 gcm_prec_chunk,
-                                 gcm_elev_chunk,
-                                 gcm_lr_chunk,
-                                 cal_data_chunk
-                                 ])
-    
-    # Parallel processing
-    for n in range(len(list_packed_vars)):
-        main(list_packed_vars[n])
-        
-    #%%===================================================
+        list_packed_vars.append([n, chunk, chunk_size, main_glac_rgi_all, gcm_name])
 
-    print(rgi_glac_number)
-    
     # Parallel processing
     if args.option_parallels != 0:
         print('Processing in parallel with ' + str(num_cores) + ' cores...')
@@ -2020,10 +1774,6 @@ if __name__ == '__main__':
     else:
         for n in range(len(list_packed_vars)):
             main(list_packed_vars[n])
-            
-#    print('memory:', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 10**6, 'GB')
-            
-    #%%
 
 #    # Combine output (if desired)
 #    if input.option_calibration == 1:
@@ -2092,86 +1842,86 @@ if __name__ == '__main__':
 #    print('Total processing time:', time.time()-time_start, 's')
 
     #%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
-#    # Place local variables in variable explorer
-#    if (args.option_parallels == 0):
-#        main_vars_list = list(main_vars.keys())
-##            gcm_name = main_vars['gcm_name']
-#        main_glac_rgi = main_vars['main_glac_rgi']
-#        main_glac_hyps = main_vars['main_glac_hyps']
-#        main_glac_icethickness = main_vars['main_glac_icethickness']
-#        main_glac_width = main_vars['main_glac_width']
-#        elev_bins = main_vars['elev_bins']
-#        dates_table = main_vars['dates_table']
-#        dates_table_nospinup = main_vars['dates_table_nospinup']
-#        cal_data = main_vars['cal_data']
-#        gcm_temp = main_vars['gcm_temp']
-#        gcm_prec = main_vars['gcm_prec']
-#        gcm_elev = main_vars['gcm_elev']
-#        gcm_lr = main_vars['gcm_lr']
-#        modelparameters = main_vars['modelparameters']
-#        glacier_area_t0 = main_vars['glacier_area_t0']
-#        glacier_cal_data = main_vars['glacier_cal_data']
-#        cal_idx = main_vars['cal_idx']
-#        modelparameters = main_vars['modelparameters']
-#        icethickness_t0 = main_vars['icethickness_t0']
-#        width_t0 = main_vars['width_t0']
-#        
-#        if input.option_calibration == 2 and input.new_setup == 1:
-#            observed_massbal=main_vars['observed_massbal']
-#            observed_error=main_vars['observed_error']
-#            mb_max_loss = main_vars['mb_max_loss']
-#            tempchange_boundlow = main_vars['tempchange_boundlow']
-#            tempchange_boundhigh = main_vars['tempchange_boundhigh']
-#            tempchange_mu = main_vars['tempchange_mu']
-#            tempchange_sigma = main_vars['tempchange_sigma']
-#            tempchange_start = main_vars['tempchange_start']
-#            t1_idx = main_vars['t1_idx']
-#            t2_idx = main_vars['t2_idx']
-#            t1 = main_vars['t1']
-#            t2 = main_vars['t2']
-#            iterations=input.mcmc_sample_no
-#            burn=input.mcmc_burn_no
-#            step=input.mcmc_step
-#            precfactor_boundlow = main_vars['precfactor_boundlow']
-#            precfactor_boundhigh = main_vars['precfactor_boundhigh']
-#            glacier_gcm_prec = main_vars['glacier_gcm_prec']
-#            glacier_gcm_temp = main_vars['glacier_gcm_temp']
-#            glacier_gcm_elev = main_vars['glacier_gcm_elev']
-#            glacier_rgi_table = main_vars['glacier_rgi_table']
-#            glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
-#            glacier_gcm_lrglac = main_vars['glacier_gcm_lrglac']
-#            
-#        if input.option_calibration == 1:
-#            glacier_cal_compare = main_vars['glacier_cal_compare']
-#            main_glac_cal_compare = main_vars['main_glac_cal_compare']
-#            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
-#            main_glac_output = main_vars['main_glac_output']
-#            main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
-#            main_glacwide_mbclim_mwe = main_vars['main_glacwide_mbclim_mwe']
-#    #            glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
-#    #            glac_wide_area_annual = main_vars['glac_wide_area_annual']
-#    #            glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
-#    #            glacier_rgi_table = main_vars['glacier_rgi_table']
-#    #            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
-#    #            main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
-#    #            main_glac_output = main_vars['main_glac_output']
-#            if set(['group']).issubset(input.cal_datasets):
-#                group_dict_keyslist = main_vars['group_dict_keyslist']
-#                group_dict_keyslist_names = main_vars['group_dict_keyslist_names']
-#                cal_data_idx_groups = main_vars['cal_data_idx_groups']
-#                cal_data = main_vars['cal_data']
-#                cal_individual_glacno = main_vars['cal_individual_glacno']
-#
-#
-##            # Find tempchange at which the mean temp at the median glacier elevation is zero
-##            middle_bin = np.where(abs(elev_bins - glacier_rgi_table.Zmed) == 
-##                                  abs(elev_bins - glacier_rgi_table.Zmed).min())[0][0]
-##            A = (glacier_gcm_temp + glacier_gcm_lrgcm * (elev_bins[middle_bin] - glacier_gcm_elev)).max()
-#            
-##            tempchange=0
-##            glac_bin_temp = (glacier_gcm_temp + glacier_gcm_lrgcm * 
-##                             (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
-##                             glacier_gcm_lrglac * (elev_bins - 
-##                             glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis] + tempchange)
-##            glac_bin_temp[glacier_area_t0 == 0, :] = 0
-##            A = glac_bin_temp.max(axis=1)
+    # Place local variables in variable explorer
+    if (args.option_parallels == 0):
+        main_vars_list = list(main_vars.keys())
+#            gcm_name = main_vars['gcm_name']
+        main_glac_rgi = main_vars['main_glac_rgi']
+        main_glac_hyps = main_vars['main_glac_hyps']
+        main_glac_icethickness = main_vars['main_glac_icethickness']
+        main_glac_width = main_vars['main_glac_width']
+        elev_bins = main_vars['elev_bins']
+        dates_table = main_vars['dates_table']
+        dates_table_nospinup = main_vars['dates_table_nospinup']
+        cal_data = main_vars['cal_data']
+        gcm_temp = main_vars['gcm_temp']
+        gcm_prec = main_vars['gcm_prec']
+        gcm_elev = main_vars['gcm_elev']
+        gcm_lr = main_vars['gcm_lr']
+        modelparameters = main_vars['modelparameters']
+        glacier_area_t0 = main_vars['glacier_area_t0']
+        glacier_cal_data = main_vars['glacier_cal_data']
+        cal_idx = main_vars['cal_idx']
+        modelparameters = main_vars['modelparameters']
+        icethickness_t0 = main_vars['icethickness_t0']
+        width_t0 = main_vars['width_t0']
+        
+        if input.option_calibration == 2 and input.new_setup == 1:
+            observed_massbal=main_vars['observed_massbal']
+            observed_error=main_vars['observed_error']
+            mb_max_loss = main_vars['mb_max_loss']
+            tempchange_boundlow = main_vars['tempchange_boundlow']
+            tempchange_boundhigh = main_vars['tempchange_boundhigh']
+            tempchange_mu = main_vars['tempchange_mu']
+            tempchange_sigma = main_vars['tempchange_sigma']
+            tempchange_start = main_vars['tempchange_start']
+            t1_idx = main_vars['t1_idx']
+            t2_idx = main_vars['t2_idx']
+            t1 = main_vars['t1']
+            t2 = main_vars['t2']
+            iterations=input.mcmc_sample_no
+            burn=input.mcmc_burn_no
+            step=input.mcmc_step
+            precfactor_boundlow = main_vars['precfactor_boundlow']
+            precfactor_boundhigh = main_vars['precfactor_boundhigh']
+            glacier_gcm_prec = main_vars['glacier_gcm_prec']
+            glacier_gcm_temp = main_vars['glacier_gcm_temp']
+            glacier_gcm_elev = main_vars['glacier_gcm_elev']
+            glacier_rgi_table = main_vars['glacier_rgi_table']
+            glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
+            glacier_gcm_lrglac = main_vars['glacier_gcm_lrglac']
+            
+        if input.option_calibration == 1:
+            glacier_cal_compare = main_vars['glacier_cal_compare']
+            main_glac_cal_compare = main_vars['main_glac_cal_compare']
+            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
+            main_glac_output = main_vars['main_glac_output']
+            main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
+            main_glacwide_mbclim_mwe = main_vars['main_glacwide_mbclim_mwe']
+    #            glac_wide_massbaltotal = main_vars['glac_wide_massbaltotal']
+    #            glac_wide_area_annual = main_vars['glac_wide_area_annual']
+    #            glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
+    #            glacier_rgi_table = main_vars['glacier_rgi_table']
+    #            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
+    #            main_glac_massbal_compare = main_vars['main_glac_massbal_compare']
+    #            main_glac_output = main_vars['main_glac_output']
+            if set(['group']).issubset(input.cal_datasets):
+                group_dict_keyslist = main_vars['group_dict_keyslist']
+                group_dict_keyslist_names = main_vars['group_dict_keyslist_names']
+                cal_data_idx_groups = main_vars['cal_data_idx_groups']
+                cal_data = main_vars['cal_data']
+                cal_individual_glacno = main_vars['cal_individual_glacno']
+
+
+#            # Find tempchange at which the mean temp at the median glacier elevation is zero
+#            middle_bin = np.where(abs(elev_bins - glacier_rgi_table.Zmed) == 
+#                                  abs(elev_bins - glacier_rgi_table.Zmed).min())[0][0]
+#            A = (glacier_gcm_temp + glacier_gcm_lrgcm * (elev_bins[middle_bin] - glacier_gcm_elev)).max()
+            
+#            tempchange=0
+#            glac_bin_temp = (glacier_gcm_temp + glacier_gcm_lrgcm * 
+#                             (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
+#                             glacier_gcm_lrglac * (elev_bins - 
+#                             glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis] + tempchange)
+#            glac_bin_temp[glacier_area_t0 == 0, :] = 0
+#            A = glac_bin_temp.max(axis=1)

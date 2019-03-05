@@ -42,8 +42,8 @@ parameters_all = ['ddfsnow', 'precfactor', 'tempchange', 'ddfice', 'lrgcm', 'lrg
 acorr_maxlags = 100
 
 # Export option
-mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/'
-#mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2/'
+#mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/'
+mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2/'
 mcmc_output_figures_fp = mcmc_output_netcdf_fp + 'figures/'
 mcmc_output_tables_fp = input.output_fp_cal + 'tables/'
 mcmc_output_csv_fp = input.output_fp_cal + 'csv/'
@@ -1898,7 +1898,6 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         
     # NEW SETUP
     if input.new_setup == 1 and icethickness_t0.max() > 0:
-        #%%
         def mb_mwea_calc(modelparameters, option_areaconstant=1):
             """
             Run the mass balance and calculate the mass balance [mwea]
@@ -1945,7 +1944,20 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
             return abs(mb_mwea - observed_massbal)
         
-        #%%
+        # ----- TEMPBIAS: max accumulation -----
+        # Lower temperature bound based on max positive mass balance adjusted to avoid edge effects
+        # Temperature at the lowest bin
+        #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+        lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
+        tempchange_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
+                                    (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
+        tempchange_boundlow = tempchange_max_acc
+        # Compute max accumulation [mwea]
+        modelparameters[2] = 1
+        modelparameters[7] = -100
+        mb_max_acc = mb_mwea_calc(modelparameters, option_areaconstant=1)
+        
+        
         # ----- TEMPBIAS: UPPER BOUND -----
         # MAXIMUM LOSS - AREA EVOLVING
         mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0).sum() / glacier_area_t0.sum() * 
@@ -1955,7 +1967,7 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         modelparameters[7] = tempchange_boundlow
         mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
         # use absolute value because with area evolving the maximum value is a limit
-        while abs(mb_mwea_1 - mb_max_loss) > 0.001:
+        while mb_mwea_1 - mb_max_loss > 0:
             modelparameters[7] = modelparameters[7] + 1
             mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
         # Looping backward for tempchange at max loss 
@@ -1964,7 +1976,6 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
         tempchange_max_loss = modelparameters[7] + input.tempchange_step
         
-        #%%
         # MB_OBS_MIN - AREA CONSTANT
         # Check if tempchange below min observation; if not, adjust upper TC bound to include mb_obs_min
         mb_tc_boundhigh = mb_mwea_calc(modelparameters, option_areaconstant=1)
@@ -1984,25 +1995,13 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                 mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=1)
             tempchange_boundhigh = modelparameters[7] + input.tempchange_step
             
-        print('mb_max_loss:', np.round(mb_max_loss,2), 
-              'TC_max_loss_AreaEvolve:', np.round(tempchange_max_loss,2),
-              '\nmb_AreaConstant:', np.round(mb_tc_boundhigh,2), 
-              'TC_boundhigh:', np.round(tempchange_boundhigh,2), 
-              '\nmb_obs_min:', np.round(mb_obs_min,2))
+#                print('mb_max_loss:', np.round(mb_max_loss,2), 
+#                      'TC_max_loss_AreaEvolve:', np.round(tempchange_max_loss,2),
+#                      '\nmb_AreaConstant:', np.round(mb_tc_boundhigh,2), 
+#                      'TC_boundhigh:', np.round(tempchange_boundhigh,2), 
+#                      '\nmb_obs_min:', np.round(mb_obs_min,2))
         
-        #%%
         # ----- TEMPBIAS: LOWER BOUND -----
-        # Lower temperature bound based on max positive mass balance adjusted to avoid edge effects
-        # Temperature at the lowest bin
-        #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
-        lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
-        tempchange_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
-                                    (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
-        # Compute max accumulation [mwea]
-        modelparameters[2] = 1
-        modelparameters[7] = -100
-        mb_max_acc = mb_mwea_calc(modelparameters, option_areaconstant=1)
-        
         # AVOID EDGE EFFECTS (ONLY RELEVANT AT TC LOWER BOUND)
         def mb_norm_calc(mb):
             """ Normalized mass balance based on max accumulation and max loss """
@@ -2038,16 +2037,14 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                 tc_norm_1 = tc_norm_calc(modelparameters[7])
                 mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters, option_areaconstant=1))
                 mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)
-                
-        
-        mb_tc_boundlow = mb_mwea_calc(modelparameters, option_areaconstant=1)
-        print('\nmb_max_acc:', np.round(mb_max_acc,2), 'TC_max_acc:', np.round(tempchange_max_acc,2),
-              '\nmb_TC_boundlow_PF1:', np.round(mb_tc_boundlow,2), 
-              'TC_boundlow:', np.round(tempchange_boundlow,2),
-              '\nmb_obs_max:', np.round(mb_obs_max,2)
-              )
-
-        #%%        
+            
+#                mb_tc_boundlow = mb_mwea_calc(modelparameters, option_areaconstant=1)
+#                print('\nmb_max_acc:', np.round(mb_max_acc,2), 'TC_max_acc:', np.round(tempchange_max_acc,2),
+#                      '\nmb_TC_boundlow_PF1:', np.round(mb_tc_boundlow,2), 
+#                      'TC_boundlow:', np.round(tempchange_boundlow,2),
+#                      '\nmb_obs_max:', np.round(mb_obs_max,2)
+#                      )
+            
         # ----- OTHER PARAMETERS -----
         # Assign TC_sigma
         tempchange_sigma = input.tempchange_sigma
@@ -2057,7 +2054,6 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         if input.tempchange_mu < tempchange_boundlow:
             tempchange_init = tempchange_boundlow 
         elif input.tempchange_mu > tempchange_boundhigh:
-#            tempchange_init = tempchange_boundhigh - 2 * tempchange_sigma
             tempchange_init = tempchange_boundhigh
         else:
             tempchange_init = input.tempchange_mu
@@ -2070,9 +2066,6 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         precfactor_opt_all = minimize(find_precfactor_opt, precfactor_opt_init, args=(tempchange_4opt), 
                                       bounds=[precfactor_opt_bnds], method='L-BFGS-B')
         precfactor_opt = precfactor_opt_all.x[0]
-        print('PF opt:', np.round(precfactor_opt,2))
-        
-        #%%
         
         # Adjust precfactor so it's not < 0.5 or greater than 5
         precfactor_opt_low = 0.5
@@ -2093,44 +2086,24 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             tempchange_opt = tempchange_opt_all.x[0]
         else:
             tempchange_opt = tempchange_4opt
-            
-        print('PF opt:', np.round(precfactor_opt,2), 'TC opt:', np.round(tempchange_opt,2))
-        
-        #%%
 
         # TEMPCHANGE_SIGMA: derived from mb_obs_min and mb_obs_max
         # MB_obs_min
         #  note: tempchange_boundhigh does not require a limit because glacier is not evolving
-        print('MB_OBS_MIN:', np.round(mb_obs_min,2))
         tempchange_adj = input.tempchange_step
         modelparameters[2] = precfactor_opt
-#        modelparameters[4] = input.ddfsnow_mu
-#        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
         modelparameters[7] = tempchange_opt + tempchange_adj
         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#        while mb_mwea > mb_obs_min and modelparameters[7] < tempchange_boundhigh:
         while mb_mwea > mb_obs_min:    
             tempchange_adj += input.tempchange_step
             modelparameters[7] = tempchange_opt + tempchange_adj
-#            if modelparameters[7] > tempchange_boundhigh:
-#                modelparameters[7] = tempchange_boundhigh
             mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-            print('PF_opt:', np.round(precfactor_opt,2), 'TC:', np.round(modelparameters[7],2), 
-                  'mb_min:', np.round(mb_mwea,2))
             
         # Expand upper bound if necessary
         if modelparameters[7] > tempchange_boundhigh:
-            print('EXPAND UPPER BOUND')
-            print(tempchange_boundhigh, 'vs', modelparameters[7])
             tempchange_boundhigh = modelparameters[7]
-        
-        
-        #%%        
         # MB_obs_max
-        print('MB_OBS_MAX:', np.round(mb_obs_max,2))
         modelparameters[2] = precfactor_opt
-#        modelparameters[4] = input.ddfsnow_mu
-#        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
         modelparameters[7] = tempchange_opt - tempchange_adj
         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
         while mb_mwea < mb_obs_max and modelparameters[7] > tempchange_boundlow:
@@ -2138,21 +2111,13 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
             modelparameters[7] = tempchange_opt - tempchange_adj
             if modelparameters[7] < tempchange_boundlow:
                 modelparameters[7] = tempchange_boundlow
-            mb_mwea = mb_mwea_calc(modelparameters, option_areDeteaconstant=1)
-            print('PF_opt:', np.round(precfactor_opt,2), 'TC:', np.round(modelparameters[7],2), 
-                  'mb_min:', np.round(mb_mwea,2))
+            mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
 
         tempchange_sigma = tempchange_adj / 3
-#        tempchange_sigma = tempchange_adj / 6
         
-        print('TC_adj:', np.round(tempchange_adj,2), '\nTC_sigma:', np.round(tempchange_sigma,2))
-            
-        #%%
         # PRECIPITATION FACTOR: LOWER BOUND
         # Check PF_boundlow = 0
         modelparameters[2] = 0
-#        modelparameters[4] = input.ddfsnow_mu 
-#        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
         modelparameters[7] = tempchange_opt + tempchange_sigma
         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
         if mb_mwea > mb_obs_min:
@@ -2174,36 +2139,25 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
                     precfactor_boundlow = 0
                 modelparameters[2] = precfactor_boundlow
                 mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-        
-        print('PF_low:', np.round(precfactor_boundlow,2), 'TC_opt:', np.round(tempchange_opt,2), 
-              'obs_min:', np.round(mb_obs_min,2), 'mb_min:', np.round(mb_mwea,2))
 
-#%%        
         # PRECIPITATION FACTOR: UPPER BOUND
         precfactor_boundhigh = precfactor_opt
         modelparameters[2] = precfactor_boundhigh
-#        modelparameters[4] = input.ddfsnow_mu
-#        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
         modelparameters[7] = tempchange_opt - tempchange_sigma
         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
         while mb_mwea < mb_obs_max:
             precfactor_boundhigh += input.precfactor_step
             modelparameters[2] = precfactor_boundhigh
             mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-        print('PF_high:', np.round(precfactor_boundhigh,2), 
-              'obs_max:', np.round(mb_obs_max,2), 'mb_max:', np.round(mb_mwea,2))  
         
-        precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
-        
-        #%%        
         # TEMPERATURE BIAS: RE-CENTER
+        precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
         if abs(precfactor_opt - precfactor_mu) > 0.01:
             tempchange_opt_init = [tempchange_opt]
             tempchange_opt_bnds = (tempchange_boundlow, tempchange_boundhigh)
             tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, args=(precfactor_mu), 
                                           bounds=[tempchange_opt_bnds], method='L-BFGS-B')
             tempchange_opt = tempchange_opt_all.x[0]
-        print('TC_opt re-centered:', np.round(tempchange_opt,2))
         
         
         precfactor_start = precfactor_mu
@@ -2255,21 +2209,21 @@ for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
 #mb_compare.to_csv('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/PyGEM/../Output/cal_opt2/' + mb_compare_fn)
     
     #%% Plot mass balance vs parameters
-##    tempchange_iters = np.arange(-1.5, 5, 0.01).tolist()
-#    tc_iter_step = 0.1
-#    tc_iter_high = np.max([tempchange_max_loss, tempchange_boundhigh])
-#    tempchange_iters = np.arange(int(tempchange_max_acc), int(tc_iter_high)+tc_iter_step, tc_iter_step).tolist()
-##    tempchange_iters = np.arange(-15, 25, 1).tolist()
-#    
-#    ddfsnow_iters = [0.0031, 0.0041, 0.0051]
-#    precfactor_iters = [np.round(precfactor_boundlow,1), np.round(precfactor_opt,1), np.round(precfactor_boundhigh,1)]
-##    ddfsnow_iters = [0.0041]
-##    precfactor_iters = [1]
-#    plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
-#                          glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-#                          glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
-#                          observed_error, mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, 
-#                          option_areaconstant=1)
+#    tempchange_iters = np.arange(-1.5, 5, 0.01).tolist()
+    tc_iter_step = 0.1
+    tc_iter_high = np.max([tempchange_max_loss, tempchange_boundhigh])
+    tempchange_iters = np.arange(int(tempchange_max_acc), int(tc_iter_high)+tc_iter_step, tc_iter_step).tolist()
+#    tempchange_iters = np.arange(-15, 25, 1).tolist()
+    
+    ddfsnow_iters = [0.0031, 0.0041, 0.0051]
+    precfactor_iters = [np.round(precfactor_boundlow,1), np.round(precfactor_opt,1), np.round(precfactor_boundhigh,1)]
+#    ddfsnow_iters = [0.0041]
+#    precfactor_iters = [1]
+    plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
+                          glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                          glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
+                          observed_error, mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, 
+                          option_areaconstant=1)
 
     #%% Other plots
 #    plot_mc_results(mcmc_output_netcdf_fp + glacier_str + '.nc', glacier_cal_data, iters=15000, burn=0)

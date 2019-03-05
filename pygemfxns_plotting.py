@@ -314,7 +314,12 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=
             else:
                 vn_glac_all = np.concatenate((vn_glac_all, ds[vn_adj].values[:,:,0]), axis=0)
                 vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn_adj].values[:,:,1]), axis=0)
-
+            
+            try:
+                ds.close()
+            except:
+                continue
+            
         if ngcm == 0:
             ds_glac = vn_glac_all[np.newaxis,:,:]
         else:
@@ -389,6 +394,9 @@ def partition_era_groups(grouping, vn, main_glac_rgi_all):
         else:
             vn_glac_all = np.concatenate((vn_glac_all, ds[vn_adj].values[:,:,0]), axis=0)
             vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn_adj].values[:,:,1]), axis=0)
+        
+        # Close dataset
+        ds.close()
 
     ds_glac = [vn_glac_all, vn_glac_std_all]
     
@@ -578,6 +586,7 @@ def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
     ds_elev = xr.open_dataset(gcm.fx_fp + gcm.elev_fn)
     gcm_lat_values_all = ds_elev.lat.values
     gcm_lon_values_all = ds_elev.lon.values
+    ds_elev.close()
     # Lat/lon dictionary to convert
     gcm_lat_dict = dict(zip(range(gcm_lat_values_all.shape[0]), list(gcm_lat_values_all)))
     gcm_lon_dict = dict(zip(range(gcm_lon_values_all.shape[0]), list(gcm_lon_values_all)))
@@ -802,6 +811,12 @@ if option_plot_cmip5_normalizedchange == 1:
                     else:
                         vn_glac_all = np.concatenate((vn_glac_all, ds[vn].values[:,:,0]), axis=0)
                         vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn].values[:,:,1]), axis=0)
+                    
+                    try:
+                        ds.close()
+                    except:
+                        continue
+                    
                 
                 # Cycle through groups  
                 row_idx = 0
@@ -1118,6 +1133,11 @@ if option_plot_cmip5_runoffcomponents == 1:
                     else:
                         vn_glac_all = np.concatenate((vn_glac_all, ds[vn].values[:,:,0]), axis=0)
                         vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn].values[:,:,1]), axis=0)
+                    
+                    try:
+                        ds.close()
+                    except:
+                        continue
                 
                 # Cycle through groups
                 for ngroup, group in enumerate(groups):
@@ -1768,6 +1788,7 @@ if option_plot_modelparam == 1:
             modelparams_all.iloc[glac,:] = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values,columns=ds_mp.mp.values)
                                             [input.modelparams_colnames].mean().values)
             modelparams_all.to_csv(cal_fp + modelparams_fn, index=False)
+            ds_mp.close()
     else:
         modelparams_all = pd.read_csv(cal_fp + modelparams_fn)
         
@@ -2044,6 +2065,10 @@ if option_compare_GCMwCal == 1:
         mb_annual_all = gcmbiasadj.annual_sum_2darray(mb_monthly_all)
         mb_2000_2018_mwea_all = (mb_annual_all * area_all[:,:-1]).sum(axis=1) / area_all[:,0] / 18
         
+        # Close datasets
+        ds_area.close()
+        ds_mb.close()
+        
         return mb_2000_2018_mwea_all
 
     #%%
@@ -2158,6 +2183,8 @@ if option_plot_mcmc_errors == 1:
         df_min_all.loc[n,'RGIId'] = glac_str_wRGI
         df_max_all.loc[n,:] = df.max()
         df_max_all.loc[n,'RGIId'] = glac_str_wRGI
+        
+        ds.close()
 
     
     #%%

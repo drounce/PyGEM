@@ -27,10 +27,9 @@ import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
 
 #%%
-option_metrics_vs_chainlength = 0
-option_metrics_thresholds = 0
+option_metrics_vs_chainlength = 1
 option_hist_compare_mb = 0
-option_prior_vs_posterior = 1
+option_prior_vs_posterior = 0
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -69,11 +68,14 @@ regions = ['13', '14', '15']
 cal_datasets = ['shean']
 
 burn=0
-iterstep = 3000
+iterstep = 1000
 itermax = 25000
 chainlength = 15000
 iterations = np.arange(0, 25000, iterstep)
-iterations[0] = 1000
+if iterations[1] < 1000: 
+    iterations[0] = 1000
+else:
+    iterations = iterations[1:]
 if iterations[-1] != itermax:
     iterations = np.append(iterations, itermax)
 # Bounds (90% bounds --> 95% above/below given threshold)
@@ -591,17 +593,23 @@ def metrics_vs_chainlength(regions, iters, burn=0):
     .pkl files
         saves .pkl files of the metrics for various iterations (if they don't already exist)
     """
+for batman in [0]:
+    iters = iterations
+    
     filelist = []
     for region in regions:
         filelist.extend(glob.glob(mcmc_output_netcdf_fp + str(region) + '*.nc'))
         
     # Check if list already exists
-    if os.path.isfile(en_fn_pkl):
-        with open(en_fn_pkl, 'rb') as f:
+    iter_ending = '_' + str(iterstep) + 'iterstep.pkl'
+    en_fn_pkl.replace('.pkl', iter_ending)
+    
+    if os.path.isfile(en_fn_pkl.replace('.pkl', iter_ending)):
+        with open(en_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
             en_list = pickle.load(f)
-        with open(mc_fn_pkl, 'rb') as f:
+        with open(mc_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
             mc_list = pickle.load(f)
-        with open(gr_fn_pkl, 'rb') as f:
+        with open(gr_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
             gr_list = pickle.load(f)
     else:
         # Lists to record metrics
@@ -611,10 +619,12 @@ def metrics_vs_chainlength(regions, iters, burn=0):
         mc_list = [[vn, []] for vn in variables]
     
         # iterate through each glacier
+        count = 0
         for netcdf in filelist:
             glac_str = netcdf.split('/')[-1].split('.nc')[0]
             glac_no.append(glac_str)
-            print(glac_str)
+            count += 1
+            print(count, glac_str)
     
             # open dataset
             ds = xr.open_dataset(netcdf)
@@ -640,10 +650,10 @@ def metrics_vs_chainlength(regions, iters, burn=0):
         if os.path.exists(mcmc_output_csv_fp) == False:
             os.makedirs(mcmc_output_csv_fp)
                 
-        pickle_data(en_fn_pkl, en_list)
-        pickle_data(mc_fn_pkl, mc_list)
+        pickle_data(en_fn_pkl.replace('.pkl', iter_ending), en_list)
+        pickle_data(mc_fn_pkl.replace('.pkl', iter_ending), mc_list)
         if len(ds.chain) > 1:
-            pickle_data(gr_fn_pkl, gr_list)
+            pickle_data(gr_fn_pkl.replace('.pkl', iter_ending), gr_list)
     
     colors = ['#387ea0', '#fcb200', '#d20048']
     figwidth=6.5
@@ -654,8 +664,8 @@ def metrics_vs_chainlength(regions, iters, burn=0):
     # Metric statistics
     df_cns = ['iters', 'mean', 'std', 'median', 'lowbnd', 'highbnd']
 
-    for nmetric, metric in enumerate(metrics):
-#    for nmetric, metric in enumerate(['Gelman-Rubin']):
+#    for nmetric, metric in enumerate(metrics):
+    for nmetric, metric in enumerate(['MC Error']):
         
         if metric == 'Effective N':
             metric_list = en_list
@@ -664,8 +674,8 @@ def metrics_vs_chainlength(regions, iters, burn=0):
         elif metric == 'Gelman-Rubin':
             metric_list = gr_list
             
-        for nvar, vn in enumerate(variables):
-#        for nvar, vn in enumerate(['massbal']):
+#        for nvar, vn in enumerate(variables):
+        for nvar, vn in enumerate(['massbal']):
             
             metric_df = pd.DataFrame(np.zeros((len(iterations), len(df_cns))), columns=df_cns)
             metric_df['iters'] = iterations
@@ -676,7 +686,14 @@ def metrics_vs_chainlength(regions, iters, burn=0):
                 metric_df.loc[niter,'median'] = np.median(iter_list)
                 metric_df.loc[niter,'std'] = np.std(iter_list)
                 metric_df.loc[niter,'lowbnd'] = np.percentile(iter_list,low_percentile)
-                metric_df.loc[niter,'highbnd'] = np.percentile(iter_list,high_percentile)  
+                metric_df.loc[niter,'highbnd'] = np.percentile(iter_list,high_percentile)
+                
+                if iteration == 10000:
+                    A = iter_list.copy()
+            
+            if metric == 'MC Error':
+                metric_idx = np.where(metric_df.iters == 10000)[0][0]
+                print(metric, vn, '\n', metric_df.loc[metric_idx,'highbnd'])
                 
         
             # ===== Plot =====
@@ -856,7 +873,6 @@ def prior_vs_posterior_single(glac_no, iters=[1000,15000], precfactor_disttype=i
     .png files
         saves figure showing how prior and posterior comparison
     """    
-for batman in [0]:
     region = [int(glac_no.split('.')[0])]
     rgi_glac_number = [glac_no.split('.')[1]]
 
@@ -1035,6 +1051,9 @@ for batman in [0]:
                 # Plot fitted distribution
                 ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=colors[count_iter], linestyle=linestyles[n_chain])
     
+    # Close dataset
+    ds.close()
+    
     # Legend (Note: hard code the spacing between the two legends)
     leg_lines = []
     line = Line2D([0,1],[0,1], color='white')
@@ -1110,3 +1129,4 @@ if option_prior_vs_posterior == 1:
     iters=[1000,15000]
     for glac in glac_no:
         prior_vs_posterior_single(glac, iters=iters)
+        
