@@ -30,7 +30,11 @@ import pygemfxns_modelsetup as modelsetup
 #%%
 option_metrics_vs_chainlength = 0
 option_observation_vs_calibration = 0
-option_prior_vs_posterior = 1
+option_prior_vs_posterior = 0
+
+# Paper figures
+option_papermcmc_prior_vs_posterior = 0
+option_papermcmc_solutionspace = 1
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -87,7 +91,7 @@ colors = ['#387ea0', '#fcb200', '#d20048']
 linestyles = ['-', '--', ':']
 
 
-def load_glacier_data(regions, filepath=mcmc_output_netcdf_fp):
+def load_glacier_and_cal_data(regions, filepath=mcmc_output_netcdf_fp):
     """ Load main_glac_rgi data and cal_data
     
     Parameters
@@ -153,6 +157,124 @@ def load_glacier_data(regions, filepath=mcmc_output_netcdf_fp):
     cal_data.reset_index(inplace=True, drop=True)
     
     return main_glac_rgi, cal_data, glac_no
+
+
+def load_glacierdata_byglacno(glac_no):
+    """ Load glacier data, climate data, and calibration data for list of glaciers 
+    
+    Parameters
+    ----------
+    glac_no : list
+        list of glacier numbers (ex. ['13.0001', 15.00001'])
+    
+    Returns
+    -------
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, gcm_temp, gcm_prec, gcm_elev, gcm_lr, 
+    cal_data, dates_table
+    """
+    glac_no_byregion = {}
+    regions = [int(i.split('.')[0]) for i in glac_no]
+    regions = list(set(regions))
+    for region in regions:
+        glac_no_byregion[region] = []
+    for i in glac_no:
+        region = i.split('.')[0]
+        glac_no_only = i.split('.')[1]
+        glac_no_byregion[int(region)].append(glac_no_only)
+        
+    for region in regions:
+        glac_no_byregion[region] = sorted(glac_no_byregion[region])
+        
+    # Load data for glaciers
+    dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
+    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+                                           spinupyears=input.spinupyears)
+    
+    count = 0
+    for region in regions:
+        count += 1
+        # ====== GLACIER data =====
+        main_glac_rgi_region = modelsetup.selectglaciersrgitable(
+                rgi_regionsO1=[region], rgi_regionsO2 = 'all', rgi_glac_number=glac_no_byregion[region])
+        # Glacier hypsometry
+        main_glac_hyps_region = modelsetup.import_Husstable(
+                main_glac_rgi_region, [region], input.hyps_filepath,input.hyps_filedict, input.hyps_colsdrop)
+        # Ice thickness [m], average
+        main_glac_icethickness_region = modelsetup.import_Husstable(
+                main_glac_rgi_region, [region], input.thickness_filepath, input.thickness_filedict, 
+                input.thickness_colsdrop)
+        main_glac_hyps_region[main_glac_icethickness_region == 0] = 0
+        # Width [km], average
+        main_glac_width_region = modelsetup.import_Husstable(
+                main_glac_rgi_region, [region], input.width_filepath, input.width_filedict, input.width_colsdrop)
+        # ===== CLIMATE DATA =====
+        gcm = class_climate.GCM(name=input.ref_gcm_name)
+        # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+        gcm_temp_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
+                gcm.temp_fn, gcm.temp_vn, main_glac_rgi_region, dates_table_nospinup)
+        gcm_prec_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
+                gcm.prec_fn, gcm.prec_vn, main_glac_rgi_region, dates_table_nospinup)
+        gcm_elev_region = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_region)
+        # Lapse rate [K m-1]
+        gcm_lr_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
+                gcm.lr_fn, gcm.lr_vn, main_glac_rgi_region, dates_table_nospinup)
+        # ===== CALIBRATION DATA =====
+        cal_data_region = pd.DataFrame()
+        for dataset in cal_datasets:
+            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
+            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table_nospinup)
+            cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
+        cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
+        cal_data_region.reset_index(drop=True, inplace=True)
+        # ===== APPEND DATASETS =====
+        if count == 1:
+            main_glac_rgi = main_glac_rgi_region
+            main_glac_hyps = main_glac_hyps_region
+            main_glac_icethickness = main_glac_icethickness_region
+            main_glac_width = main_glac_width_region
+            gcm_temp = gcm_temp_region
+            gcm_prec = gcm_prec_region
+            gcm_elev = gcm_elev_region
+            gcm_lr = gcm_lr_region
+            cal_data = cal_data_region
+        else:
+            main_glac_rgi = main_glac_rgi.append(main_glac_rgi_region)
+            # If more columns in region, then need to expand existing dataset
+            if main_glac_hyps_region.shape[1] > main_glac_hyps.shape[1]:
+                all_col = list(main_glac_hyps.columns.values)
+                reg_col = list(main_glac_hyps_region.columns.values)
+                new_cols = [item for item in reg_col if item not in all_col]
+                for new_col in new_cols:
+                    main_glac_hyps[new_col] = 0
+                    main_glac_icethickness[new_col] = 0
+                    main_glac_width[new_col] = 0
+            elif main_glac_hyps_region.shape[1] < main_glac_hyps.shape[1]:
+                all_col = list(main_glac_hyps.columns.values)
+                reg_col = list(main_glac_hyps_region.columns.values)
+                new_cols = [item for item in all_col if item not in reg_col]
+                for new_col in new_cols:
+                    main_glac_hyps_region[new_col] = 0
+                    main_glac_icethickness_region[new_col] = 0
+                    main_glac_width_region[new_col] = 0
+            main_glac_hyps = main_glac_hyps.append(main_glac_hyps_region)
+            main_glac_icethickness = main_glac_icethickness.append(main_glac_icethickness_region)
+            main_glac_width = main_glac_width.append(main_glac_width_region)
+            gcm_temp = np.vstack([gcm_temp, gcm_temp_region])
+            gcm_prec = np.vstack([gcm_temp, gcm_temp_region])
+            gcm_elev = np.vstack([gcm_temp, gcm_temp_region])
+            gcm_lr = np.vstack([gcm_temp, gcm_temp_region])
+            cal_data = cal_data.append(cal_data_region)
+        
+    # reset index
+    main_glac_rgi.reset_index(inplace=True, drop=True)
+    main_glac_hyps.reset_index(inplace=True, drop=True)
+    main_glac_icethickness.reset_index(inplace=True, drop=True)
+    main_glac_width.reset_index(inplace=True, drop=True)
+    cal_data.reset_index(inplace=True, drop=True)
+    
+    return (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
+            gcm_temp, gcm_prec, gcm_elev, gcm_lr, 
+            cal_data, dates_table)
 
     
 def effective_n(ds, vn, iters, burn, chain=0):
@@ -490,6 +612,7 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
         modelparameters[7] = modelparameters[7] - input.tempchange_step
         mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
     tempchange_max_loss = modelparameters[7] + input.tempchange_step
+
     
     # MB_OBS_MIN - AREA CONSTANT
     # Check if tempchange below min observation; if not, adjust upper TC bound to include mb_obs_min
@@ -509,6 +632,12 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
             modelparameters[7] = modelparameters[7] - input.tempchange_step
             mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=1)
         tempchange_boundhigh = modelparameters[7] + input.tempchange_step
+        
+    print('mb_max_loss:', np.round(mb_max_loss,2), 
+          'TC_max_loss_AreaEvolve:', np.round(tempchange_max_loss,2),
+          '\nmb_AreaConstant:', np.round(mb_tc_boundhigh,2), 
+          'TC_boundhigh:', np.round(tempchange_boundhigh,2), 
+          '\nmb_obs_min:', np.round(mb_obs_min,2))
     
     # ----- TEMPBIAS: LOWER BOUND -----
     # AVOID EDGE EFFECTS (ONLY RELEVANT AT TC LOWER BOUND)
@@ -546,6 +675,13 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
             tc_norm_1 = tc_norm_calc(modelparameters[7])
             mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters, option_areaconstant=1))
             mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)
+            
+    mb_tc_boundlow = mb_mwea_calc(modelparameters, option_areaconstant=1)
+    print('\nmb_max_acc:', np.round(mb_max_acc,2), 'TC_max_acc:', np.round(tempchange_max_acc,2),
+          '\nmb_TC_boundlow_PF1:', np.round(mb_tc_boundlow,2), 
+          'TC_boundlow:', np.round(tempchange_boundlow,2),
+          '\nmb_obs_max:', np.round(mb_obs_max,2)
+          )
         
     # ----- OTHER PARAMETERS -----
     # Assign TC_sigma
@@ -553,21 +689,25 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
     if (tempchange_boundhigh - tempchange_boundlow) / 6 < tempchange_sigma:
         tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 6
     
-    if input.tempchange_mu < tempchange_boundlow:
+    tempchange_init = 0
+    if tempchange_boundlow > 0:
         tempchange_init = tempchange_boundlow 
-    elif input.tempchange_mu > tempchange_boundhigh:
+    elif tempchange_boundhigh < 0:
         tempchange_init = tempchange_boundhigh
-    else:
-        tempchange_init = input.tempchange_mu
         
     # OPTIMAL PRECIPITATION FACTOR (TC = 0 or TC_boundlow)
     # Find optimized tempchange in agreement with observed mass balance
     tempchange_4opt = tempchange_init
+    print('tempchange_4opt:', tempchange_init,
+          '\nddfsnow_4opt:', )
     precfactor_opt_init = [1]
     precfactor_opt_bnds = (0, 10)
     precfactor_opt_all = minimize(find_precfactor_opt, precfactor_opt_init, args=(tempchange_4opt), 
                                   bounds=[precfactor_opt_bnds], method='L-BFGS-B')
     precfactor_opt = precfactor_opt_all.x[0]
+    
+    precfactor_opt_init = precfactor_opt
+    print('\nprecfactor_opt:', precfactor_opt)
     
     # Adjust precfactor so it's not < 0.5 or greater than 5
     precfactor_opt_low = 0.5
@@ -588,6 +728,11 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
         tempchange_opt = tempchange_opt_all.x[0]
     else:
         tempchange_opt = tempchange_4opt
+        
+    tempchange_opt_init = tempchange_opt
+        
+    print('\nprecfactor_opt (adjusted):', precfactor_opt)
+    print('tempchange_opt:', tempchange_opt)
 
     # TEMPCHANGE_SIGMA: derived from mb_obs_min and mb_obs_max
     # MB_obs_min
@@ -600,6 +745,8 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
         tempchange_adj += input.tempchange_step
         modelparameters[7] = tempchange_opt + tempchange_adj
         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+        
+    print('tempchange_adj_4min:', tempchange_adj)
         
     # Expand upper bound if necessary
     if modelparameters[7] > tempchange_boundhigh:
@@ -614,6 +761,8 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
         if modelparameters[7] < tempchange_boundlow:
             modelparameters[7] = tempchange_boundlow
         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
+        
+    print('tempchange_adj_4max:', tempchange_adj)
 
     tempchange_sigma = tempchange_adj / 3
     
@@ -641,7 +790,7 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
                 precfactor_boundlow = 0
             modelparameters[2] = precfactor_boundlow
             mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-
+            
     # PRECIPITATION FACTOR: UPPER BOUND
     precfactor_boundhigh = precfactor_opt
     modelparameters[2] = precfactor_boundhigh
@@ -676,7 +825,139 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
     tempchange_start = tempchange_mu
 
     return (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
-            tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start)
+            tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start, tempchange_max_loss, 
+            tempchange_max_acc, mb_max_loss, mb_max_acc, precfactor_opt_init, tempchange_opt_init)
+    
+    
+def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
+                          glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                          glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
+                          observed_error, mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, 
+                          option_areaconstant=0, option_plotsteps=1):
+    """
+    Plot the mass balance [mwea] versus all model parameters to see how parameters effect mass balance
+    """
+    mb_vs_parameters = pd.DataFrame(np.zeros((len(ddfsnow_iters) * len(precfactor_iters) * len(tempchange_iters), 4)),
+                                    columns=['precfactor', 'tempbias', 'ddfsnow', 'massbal'])
+    count=0
+    for n, precfactor in enumerate(precfactor_iters):
+        modelparameters[2] = precfactor
+        
+        for n, tempchange in enumerate(tempchange_iters):
+            modelparameters[7] = tempchange
+
+            for c, ddfsnow in enumerate(ddfsnow_iters):
+                
+                modelparameters[4] = ddfsnow
+                modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
+                
+                # run mass balance calculation
+                if modelparameters[2] == 1:
+                    option_areaconstant = 0
+                else:
+                    option_areaconstant = 1
+                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
+                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
+                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
+                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, 
+                 offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
+                    massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
+                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               option_areaconstant=option_areaconstant))
+                
+                # Compute glacier volume change for every time step and use this to compute mass balance
+                #  this will work for any indexing
+                glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+                # Mass change [km3 mwe]
+                #  mb [mwea] * (1 km / 1000 m) * area [km2]
+                glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+                # Mean annual mass balance [mwea]
+                mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
+                           (glac_wide_masschange.shape[0] / 12))
+                mb_vs_parameters.loc[count,:] = np.array([precfactor, tempchange, ddfsnow, mb_mwea])
+                count += 1
+            print(modelparameters[2], modelparameters[7], modelparameters[4], np.round(mb_mwea,3))
+
+    # Subset data for each precfactor
+    linestyles = ['-', '--', ':', '-.']
+    linecolors = ['b', 'k', 'r']
+    prec_linedict = {precfactor : linestyles[n] for n, precfactor in enumerate(precfactor_iters)} 
+    ddfsnow_colordict = {ddfsnow : linecolors[n] for n, ddfsnow in enumerate(ddfsnow_iters)} 
+    
+    # Plot the mass balance versus model parameters
+    fig, ax = plt.subplots(figsize=(6,4))
+    
+    for precfactor in precfactor_iters:
+        modelparameters[2] = precfactor
+        mb_vs_parameters_subset = mb_vs_parameters.loc[mb_vs_parameters.loc[:,'precfactor'] == precfactor]
+        for ddfsnow in ddfsnow_iters:
+            mb_vs_parameters_plot =  mb_vs_parameters_subset.loc[mb_vs_parameters_subset.loc[:,'ddfsnow'] == ddfsnow]
+            ax.plot(mb_vs_parameters_plot.loc[:,'tempbias'], mb_vs_parameters_plot.loc[:,'massbal'], 
+                    linestyle=prec_linedict[precfactor], color=ddfsnow_colordict[ddfsnow])    
+    
+    # Add horizontal line of mass balance observations
+    ax.axhline(observed_massbal, color='gray', linewidth=2)    
+    observed_mb_min = observed_massbal - 3*observed_error
+    observed_mb_max = observed_massbal + 3*observed_error  
+    ax.fill_between([np.min(tempchange_iters), np.max(tempchange_iters)], observed_mb_min, observed_mb_max, 
+                    facecolor='gray', alpha=0.15, label=None)
+    
+    if option_plotsteps == 1:
+        marker_size = 20
+        markeredge_color = 'black'
+        marker_color = 'black'
+        ax.plot([tempchange_boundhigh], [mb_max_loss], marker='*', markersize=marker_size, 
+                markeredgecolor=markeredge_color, color=marker_color)
+        ax.plot([tempchange_boundlow], [mb_max_loss + 0.9*(mb_max_acc - mb_max_loss)], marker='*', markersize=marker_size, 
+                markeredgecolor=markeredge_color, color=marker_color)
+        ax.plot([tempchange_opt_init[0]], [observed_massbal], marker='*', markersize=marker_size, 
+                markeredgecolor=markeredge_color, color=marker_color)
+        ax.plot([tempchange_opt_init[0] + tempchange_sigma*3], [observed_mb_min], marker='*', markersize=marker_size, 
+                markeredgecolor=markeredge_color, color=marker_color)
+        ax.plot([tempchange_opt_init[0] - tempchange_sigma*3], [observed_mb_max], marker='*', markersize=marker_size, 
+                markeredgecolor=markeredge_color, color=marker_color)
+        ax.plot([tempchange_opt_init[0] - tempchange_sigma], [observed_mb_max], marker='*', markersize=marker_size, 
+                markeredgecolor=markeredge_color, color=marker_color)
+        ax.plot([tempchange_opt_init[0] + tempchange_sigma], [observed_mb_min], marker='*', markersize=marker_size, 
+                markeredgecolor=markeredge_color, color=marker_color)
+        ax.plot([tempchange_mu], [observed_massbal], marker='*', markersize=marker_size, 
+                markeredgecolor=markeredge_color, color=marker_color)
+    
+    #    ax.text(tempchange_boundhigh, mb_max_loss, '1', fontsize=20)
+     
+    ax.set_xlim(np.min(tempchange_iters), np.max(tempchange_iters))
+    if observed_massbal - 3*observed_error < mb_max_loss:
+        ylim_lower = observed_massbal - 3*observed_error
+    else:
+        ylim_lower = np.floor(mb_max_loss)
+    ax.set_ylim(ylim_lower,np.ceil(mb_vs_parameters['massbal'].max()))
+    ax.set_ylim(-2,2)
+    
+    # Labels
+    ax.set_title('Mass balance versus Parameters ' + glacier_str)
+    ax.set_xlabel('Temperature Bias [$^\circ$C]', fontsize=14)
+    ax.set_ylabel('Mass Balance [mwea]', fontsize=14)
+    
+    # Add legend
+    leg_lines = []
+    leg_names = []
+    x_min = mb_vs_parameters.loc[:,'tempbias'].min()
+    y_min = mb_vs_parameters.loc[:,'massbal'].min()
+    for precfactor in reversed(precfactor_iters):
+        line = Line2D([x_min,y_min],[x_min,y_min], linestyle=prec_linedict[precfactor], color='gray')
+        leg_lines.append(line)
+        leg_names.append('PF ' + str(precfactor))
+    for ddfsnow in ddfsnow_iters:
+        line = Line2D([x_min,y_min],[x_min,y_min], linestyle='-', color=ddfsnow_colordict[ddfsnow])
+        leg_lines.append(line)
+        leg_names.append('DDF ' + str(np.round(ddfsnow*10**3,1)))
+        
+        
+    ax.legend(leg_lines, leg_names, loc='upper right', frameon=False)
+    fig.savefig(mcmc_output_figures_fp + glacier_str + '_mb_vs_parameters.png', 
+                bbox_inches='tight', dpi=300)    
     
 
 # ===== PLOT OPTIONS ==================================================================================================
@@ -904,7 +1185,7 @@ def observation_vs_calibration(regions, chainlength=chainlength, burn=0):
         saves .csv file of comparison
     """
 
-    main_glac_rgi, cal_data, glac_no = load_glacier_data(regions)
+    main_glac_rgi, cal_data, glac_no = load_glacier_and_cal_data(regions)
     
     # Mass balance comparison: observations and model
     mb_compare_cols = ['glacno', 'obs_mwea', 'obs_mwea_std', 'mod_mwea', 'mod_mwea_std', 'dif_mwea']
@@ -1041,7 +1322,8 @@ def prior_vs_posterior_single(glac_no, iters=[1000,15000], precfactor_disttype=i
                            input.tempsnow, input.tempchange]
         
         (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
-         tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start) = (
+         tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start, tempchange_max_loss, 
+         tempchange_max_acc, mb_max_loss, mb_max_acc, precfactor_opt_init, tempchange_opt_init) = (
                  retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                                            glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, 
@@ -1211,11 +1493,102 @@ if option_observation_vs_calibration == 1:
 if option_prior_vs_posterior == 1:
     glac_no = ['13.26360']
     iters=[1000,10000]
-#    main_glac_rgi, cal_data, glac_no = load_glacier_data(regions)
+#    main_glac_rgi, cal_data, glac_no = load_glacier_and_cal_data(regions)
     for nglac, glac in enumerate(glac_no):
 #        if main_glac_rgi.loc[nglac,'Area'] > 20:
 #            print(main_glac_rgi.loc[nglac,'RGIId'], glac)
         prior_vs_posterior_single(glac, iters=iters)
+        
+        
+#%%
+if option_papermcmc_prior_vs_posterior == 1:
+    print('code figure!')
+    
+if option_papermcmc_solutionspace == 1:
+    
+    glac_no = ['13.26360']
+    
+    (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
+     gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = (
+             load_glacierdata_byglacno(glac_no))
+
+    # Elevation bins
+    elev_bins = main_glac_hyps.columns.values.astype(int) 
+    
+    for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
+        # Glacier string
+        glacier_str = glac_str_wRGI.split('-')[1]
+        print(glacier_str)
+        # Glacier number
+        glacno = int(glacier_str.split('.')[1])
+        # RGI information
+        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
+        # Calibration data
+        cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+        glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
+        # Select observed mass balance, error, and time data
+        t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
+        t2 = glacier_cal_data.loc[cal_idx, 't2'].values[0]
+        t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
+        t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+        observed_massbal = (glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)).values[0]
+        observed_error = (glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)).values[0]
+        mb_obs_max = observed_massbal + 3 * observed_error
+        mb_obs_min = observed_massbal - 3 * observed_error
+        
+        # MCMC Analysis
+        ds = xr.open_dataset(mcmc_output_netcdf_fp + glacier_str + '.nc')
+        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
+        print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
+        
+        # Select subsets of data
+        glacier_gcm_elev = gcm_elev[n]
+        glacier_gcm_temp = gcm_temp[n,:]
+        glacier_gcm_lrgcm = gcm_lr[n,:]
+        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        glacier_gcm_prec = gcm_prec[n,:]
+        glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
+        icethickness_t0 = main_glac_icethickness.iloc[n,:].values.astype(float)
+        width_t0 = main_glac_width.iloc[n,:].values.astype(float)
+        glac_idx_t0 = glacier_area_t0.nonzero()[0]
+        # Set model parameters
+        modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
+                           input.tempsnow, input.tempchange]
+        
+        # RETRIEVE PARAMETERS FOR PRIOR DISTRIBUTIONS
+        (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
+         tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start, tempchange_max_loss, 
+         tempchange_max_acc, mb_max_loss, mb_max_acc, precfactor_opt_init, tempchange_opt_init) = (
+                 retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                                           glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, 
+                                           observed_massbal, mb_obs_min, mb_obs_max))
+        ddfsnow_mu = input.ddfsnow_mu
+        ddfsnow_sigma = input.ddfsnow_sigma
+        ddfsnow_boundlow = input.ddfsnow_boundlow
+        ddfsnow_boundhigh = input.ddfsnow_boundhigh
+    
+        print('\nParameters:\nPF_low:', np.round(precfactor_boundlow,2), 'PF_high:', 
+              np.round(precfactor_boundhigh,2), '\nTC_low:', np.round(tempchange_boundlow,2), 
+              'TC_high:', np.round(tempchange_boundhigh,2),
+              '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2))
+    
+        tc_iter_step = 0.1
+        tc_iter_high = np.max([tempchange_max_loss, tempchange_boundhigh])
+        tempchange_iters = np.arange(int(tempchange_max_acc), np.ceil(tc_iter_high)+tc_iter_step, tc_iter_step).tolist()
+        ddfsnow_iters = [0.0026, 0.0041, 0.0056]
+        precfactor_iters = [int(precfactor_boundlow*10)/10, int((precfactor_boundlow + precfactor_boundhigh)/2*10)/10, 
+                            int(precfactor_boundhigh*10)/10]
+        if 1 in precfactor_iters == False:
+            precfactor_iters.append(1)
+            precfactor_iters = sorted(precfactor_iters)
+    
+        plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
+                              glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                              glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
+                              observed_error, mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, 
+                              option_areaconstant=1)
+        
 #%%
 #percentiles = np.arange(5,100,5)
 #mcerror_percentiles = []

@@ -731,12 +731,11 @@ def main(list_packed_vars):
                 if (tempchange_boundhigh - tempchange_boundlow) / 6 < tempchange_sigma:
                     tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 6
                 
-                if input.tempchange_mu < tempchange_boundlow:
+                tempchange_init = 0
+                if tempchange_boundlow > 0:
                     tempchange_init = tempchange_boundlow 
-                elif input.tempchange_mu > tempchange_boundhigh:
+                elif tempchange_boundhigh < 0:
                     tempchange_init = tempchange_boundhigh
-                else:
-                    tempchange_init = input.tempchange_mu
                     
                 # OPTIMAL PRECIPITATION FACTOR (TC = 0 or TC_boundlow)
                 # Find optimized tempchange in agreement with observed mass balance
