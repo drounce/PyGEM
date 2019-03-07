@@ -446,6 +446,15 @@ def main(list_packed_vars):
                                                icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=1))
+#                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+#                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
+#                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
+#                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
+#                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+#                    massbalance.runmassbalance(modelparameters_copy, glacier_rgi_table, glacier_area_t0, 
+#                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+#                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+#                                               option_areaconstant=1))
                 # Compute glacier volume change for every time step and use this to compute mass balance
                 glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
                 # Mass change [km3 mwe]
@@ -453,11 +462,6 @@ def main(list_packed_vars):
                 glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
                 # Mean annual mass balance [mwea]
                 mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
-                
-                if debug:
-                    print('\nmodelparameters:', np.round(modelparameters_copy[7],2), 
-                          np.round(modelparameters_copy[2],2), np.round(modelparameters_copy[4],4),
-                          '   mb_mwea:', np.round(mb_mwea,2))
 
                 return mb_mwea
             
@@ -580,6 +584,15 @@ def main(list_packed_vars):
                                                    width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                                    glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                    option_areaconstant=option_areaconstant))
+#                    (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+#                     glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
+#                     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
+#                     glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
+#                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+#                        massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+#                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+#                                                   glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+#                                                   option_areaconstant=1))
                     # Compute glacier volume change for every time step and use this to compute mass balance
                     glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
                     # Mass change [km3 mwe]
@@ -2002,15 +2015,8 @@ if __name__ == '__main__':
                                  gcm_lr_chunk,
                                  cal_data_chunk
                                  ])
-    
-    # Parallel processing
-    for n in range(len(list_packed_vars)):
-        main(list_packed_vars[n])
         
     #%%===================================================
-
-    print(rgi_glac_number)
-    
     # Parallel processing
     if args.option_parallels != 0:
         print('Processing in parallel with ' + str(num_cores) + ' cores...')

@@ -961,9 +961,7 @@ if __name__ == '__main__':
 #            list_packed_vars.append([main_glac_rgi_all.loc[chunk:chunk+chunk_size-1].copy(), gcm_name])
             
         #%%
-        print(rgi_glac_number)
-        print(num_cores)
-        
+
         def split_list(lst, n=1):
             """
             Split list of glaciers into batches for the supercomputer.

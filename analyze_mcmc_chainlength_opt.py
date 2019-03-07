@@ -11,6 +11,7 @@ from matplotlib.ticker import MultipleLocator
 import numpy as np
 import pandas as pd
 import pymc
+from scipy import stats
 from scipy.stats.kde import gaussian_kde
 from scipy.stats import norm
 from scipy.stats import truncnorm
@@ -27,9 +28,9 @@ import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
 
 #%%
-option_metrics_vs_chainlength = 1
-option_hist_compare_mb = 0
-option_prior_vs_posterior = 0
+option_metrics_vs_chainlength = 0
+option_observation_vs_calibration = 0
+option_prior_vs_posterior = 1
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -70,7 +71,7 @@ cal_datasets = ['shean']
 burn=0
 iterstep = 1000
 itermax = 25000
-chainlength = 15000
+chainlength = 10000
 iterations = np.arange(0, 25000, iterstep)
 if iterations[1] < 1000: 
     iterations[0] = 1000
@@ -85,9 +86,76 @@ high_percentile = 95
 colors = ['#387ea0', '#fcb200', '#d20048']
 linestyles = ['-', '--', ':']
 
-          
+
+def load_glacier_data(regions, filepath=mcmc_output_netcdf_fp):
+    """ Load main_glac_rgi data and cal_data
     
-def effective_n(ds, vn, iters, burn):
+    Parameters
+    ----------
+    regions : list of strings
+        list of regions
+    filepath : str
+        filepath of folder to load glacier data from
+        
+    Returns
+    -------
+    main_glac_rgi : pd.DataFrame
+        main glacier dataframe containing glacier properties
+    cal_data : pd.DataFrame
+        calibration dataframe containing information regarding the calibration data for each glacier
+    glac_no : list of strings
+        list of the glacier numbers
+    """
+    filelist = []
+    for region in regions:
+        filelist.extend(glob.glob(mcmc_output_netcdf_fp + str(region) + '*.nc'))
+    
+    glac_no = []
+    reg_no = []
+    for netcdf in filelist:
+        glac_str = netcdf.split('/')[-1].split('.nc')[0]
+        glac_no.append(glac_str)
+        reg_no.append(glac_str.split('.')[0])
+        
+    # Load data for glaciers
+    main_glac_rgi = pd.DataFrame()
+    cal_data = pd.DataFrame()
+    dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
+    reg_no = sorted([i for i in set(reg_no)])
+    glac_no = sorted(glac_no)
+    for region in reg_no:
+        reg_glac_list = []
+        for glac in glac_no:
+            if glac.split('.')[0] == region:
+                reg_glac_list.append(glac.split('.')[1])
+                
+        # Glacier data
+        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[int(region)], rgi_regionsO2 = 'all',
+                                                                 rgi_glac_number=reg_glac_list)
+        # Glacier hypsometry
+        main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, [int(region)], input.hyps_filepath,
+                                                            input.hyps_filedict, input.hyps_colsdrop)
+        # Calibration data
+        cal_data_region = pd.DataFrame()
+        for dataset in cal_datasets:
+            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=int(region))
+            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table_nospinup)
+            cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
+        cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
+        cal_data_region.reset_index(drop=True, inplace=True)
+        
+        # Append datasets
+        main_glac_rgi = main_glac_rgi.append(main_glac_rgi_region)
+        cal_data = cal_data.append(cal_data_region)
+        
+    # reset index
+    main_glac_rgi.reset_index(inplace=True, drop=True)
+    cal_data.reset_index(inplace=True, drop=True)
+    
+    return main_glac_rgi, cal_data, glac_no
+
+    
+def effective_n(ds, vn, iters, burn, chain=0):
     """
     Compute the effective sample size of a trace.
 
@@ -111,7 +179,7 @@ def effective_n(ds, vn, iters, burn):
         effective sample size
     """
     # Effective sample size
-    x = ds['mp_value'].sel(chain=0, mp=vn).values[burn:iters]
+    x = ds['mp_value'].sel(chain=chain, mp=vn).values[burn:iters]
     # detrend trace using mean to be consistent with statistics
     # definition of autocorrelation
     x = (x - x.mean())
@@ -179,17 +247,10 @@ def gelman_rubin(ds, vn, iters=1000, burn=0, debug=False):
     return pymc.gelman_rubin(chain)
 
 
-def MC_error(ds, vn, iters=None, burn=0, chain_no=0, batches=5):
-    """
-    Calculates MC Error using the batch simulation method.
-    Also returns mean of trace
+def mc_error(ds, vn, iters=None, burn=0, chain=None, method='overlapping'):
+    """ Calculates Monte Carlo standard error using the batch mean method for each chain
 
-    Calculates the simulation standard error, accounting for non-independent
-    samples. The trace is divided into batches, and the standard deviation of
-    the batch means is calculated.
-
-    With datasets of multiple chains, choses the highest MC error of all
-    the chains and returns this value unless a chain number is specified
+    For multiple chains, it outputs a list of the values
 
     Parameters
     ----------
@@ -197,71 +258,116 @@ def MC_error(ds, vn, iters=None, burn=0, chain_no=0, batches=5):
         Dataset containing MCMC iterations for a single glacier with 3 chains
     vn : str
         Parameter variable name
-    chain_no : int
-        Number of chain to use (0, 1 or 2)
-        If none, finds the highest MC error of the three chains
-        and returns this value
-    batches : int
-        Number of batches to divide the trace in (default 5)
-
+    iters : int
+        Number of iterations to use
+    
+    Returns
+    -------
+    chains_mcse : list of floats
+        list of the Monte Carlo standard error for each chain
+    chains_ci : list of floats
+        list of the +/- confidence interval value for each chain
     """
     if iters is None:
         iters = len(ds.mp_value)
 
-    # get iterations from ds
-    trace = [ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:iters]
-             for n_chain in ds.chain.values]
-
-    result = batchsd(trace, batches)
-    mean = np.mean(trace[chain_no])
-
-    if len(ds.chain) <= chain_no or chain_no < 0:
-
-        raise ValueError('Given chain_no is invalid')
-
-    else:
-
-        return (result[chain_no], mean)
+    trace = [ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:iters] for n_chain in ds.chain.values]
+    
+    mcse_output = [mcse_batchmeans(i, method=method) for i in trace]
+    
+    chains_mcse = [i[0] for i in mcse_output]
+    chains_ci = [i[1] for i in mcse_output]
+    
+    return chains_mcse, chains_ci
 
 
-def batchsd(trace, batches=5):
-    """
-    Calculates MC Error using the batch simulation method.
-
-    Calculates the simulation standard error, accounting for non-independent
-    samples. The trace is divided into batches, and the standard deviation of
-    the batch means is calculated.
-    With datasets of multiple chains, choses the highest MC error of all
-    the chains and returns this value unless a chain number is specified
-
+def mcse_batchmeans(trace, t_quantile=0.95, method='overlapping'):
+    """ Calculates Monte Carlo standard error for a given trace using batch means method from Flegal and Jones (2010) 
+    
+    Splitting uses all values in trace, so batches can have different lengths (maximum difference is 1)
+    
     Parameters
     ----------
     trace: np.ndarray
         Array representing MCMC chain
-    batches : int
-        Number of batches to divide the trace in (default 5)
-
+    t_quantile : float
+        student t-test quantile (default = 0.95)
+    method : str
+        method used to compute batch means (default = 'overlapping', other option is 'nonoverlapping')
+    
+        
+    Returns
+    -------
+    trace_mcse : float
+        Monte Carlo standard error for a given trace
+    trace_ci : float
+        +/- value for confidence interval
     """
-    # see if one trace or multiple
-    if len(np.shape(trace)) > 1:
+    # Number of batches (n**0.5 based on Flegal and Jones (2010))
+    batches = int(len(trace)**0.5)
+    batch_size = int(len(trace)/batches)
+    # Split into batches
+    if method == 'overlapping':
+        trace_batches = [trace[i:i+batch_size] for i in range(0,int(len(trace)-batches+1))]
+    elif method == 'nonoverlapping':
+        trace_batches = split_array(trace,batches)
+    # Sample batch means
+    trace_batches_means = [np.mean(i) for i in trace_batches]
+    # Batch mean estimator
+    trace_batches_mean = np.mean(trace_batches_means)
+    # Sample variance
+    if method == 'overlapping':
+        trace_samplevariance = (
+                (len(trace)/batches) / len(trace) * np.sum([(i - trace_batches_mean)**2 for i in trace_batches_means]))
+    elif method == 'nonoverlapping':
+        trace_samplevariance = (
+                (len(trace)/batches) / (batches-1) * np.sum([(i - trace_batches_mean)**2 for i in trace_batches_means]))
+    # Monte Carlo standard error
+    trace_mcse = trace_samplevariance**0.5 / len(trace)**0.5
+    # Confidence interval value (actual confidence interval is batch_mean_estimator +/- trace_ci)
+    trace_ci = stats.t.ppf(t_quantile, (len(trace)**0.5)-1) * trace_mcse
+    
+    return trace_mcse, trace_ci
 
-        return np.array([batchsd(t, batches) for t in trace])
 
-    else:
-        if batches == 1:
-            return np.std(trace) / np.sqrt(len(trace))
-
-        try:
-            batched_traces = np.resize(trace, (batches, int(len(trace) / batches)))
-        except ValueError:
-            # If batches do not divide evenly, trim excess samples
-            resid = len(trace) % batches
-            batched_traces = np.resize(trace[:-resid],
-                (batches, len(trace[:-resid]) / batches))
-
-        means = np.mean(batched_traces, 1)
-
-        return np.std(means) / np.sqrt(batches)
+def split_array(arr, n=1):
+    """
+    Split array of glaciers into batches for batch means.
+    
+    Parameters
+    ----------
+    arr : np.array
+        array that you want to split into separate batches
+    n : int
+        Number of batches to split glaciers into.
+    
+    Returns
+    -------
+    arr_batches : np.array
+        list of n arrays that have sequential values in each list
+    """
+    # If batches is more than list, the one in each list
+    if n > len(arr):
+        n = len(arr)
+    # number of values per list rounded down/up
+    n_perlist_low = int(len(arr)/n)
+    n_perlist_high = int(np.ceil(len(arr)/n))
+    # number of lists with higher number per list (uses all values of array, but chains not necessarily equal length)
+    n_lists_high = len(arr)%n
+    # loop through and select values
+    count = 0
+    arr_batches = []
+    for x in np.arange(n):
+        count += 1
+        if count <= n_lists_high:
+            arr_subset = arr[0:n_perlist_high]
+            arr_batches.append(arr_subset)
+            arr = arr[n_perlist_high:]
+        else:
+            arr_subset = arr[0:n_perlist_low]
+            arr_batches.append(arr_subset)
+            arr = arr[n_perlist_low:]
+    return arr_batches 
     
     
 def pickle_data(fn, data):
@@ -306,7 +412,7 @@ def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=
 def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                               glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
                               glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, observed_massbal, mb_obs_min,
-                              mb_obs_max):
+                              mb_obs_max):    
     def mb_mwea_calc(modelparameters, option_areaconstant=1):
         """
         Run the mass balance and calculate the mass balance [mwea]
@@ -366,6 +472,7 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
     modelparameters[7] = -100
     mb_max_acc = mb_mwea_calc(modelparameters, option_areaconstant=1)
     
+    
     # ----- TEMPBIAS: UPPER BOUND -----
     # MAXIMUM LOSS - AREA EVOLVING
     mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0).sum() / glacier_area_t0.sum() * 
@@ -375,7 +482,7 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
     modelparameters[7] = tempchange_boundlow
     mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
     # use absolute value because with area evolving the maximum value is a limit
-    while abs(mb_mwea_1 - mb_max_loss) > 0.001:
+    while mb_mwea_1 - mb_max_loss > 0:
         modelparameters[7] = modelparameters[7] + 1
         mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
     # Looping backward for tempchange at max loss 
@@ -571,8 +678,8 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
     return (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
             tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start)
     
-    
 
+# ===== PLOT OPTIONS ==================================================================================================
 def metrics_vs_chainlength(regions, iters, burn=0):
     """
     Plot Gelman-Rubin, Monte Carlo error, and effective sample size for each parameter for various chain lengths
@@ -593,8 +700,8 @@ def metrics_vs_chainlength(regions, iters, burn=0):
     .pkl files
         saves .pkl files of the metrics for various iterations (if they don't already exist)
     """
-for batman in [0]:
-    iters = iterations
+#for batman in [0]:
+#    iters = iterations
     
     filelist = []
     for region in regions:
@@ -612,12 +719,13 @@ for batman in [0]:
         with open(gr_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
             gr_list = pickle.load(f)
     else:
+        #%%
         # Lists to record metrics
         glac_no = []
-        en_list = [[vn, []] for vn in variables]
-        gr_list = [[vn, []] for vn in variables]
-        mc_list = [[vn, []] for vn in variables]
-    
+        en_list = {}
+        gr_list = {}
+        mc_list = {}
+        
         # iterate through each glacier
         count = 0
         for netcdf in filelist:
@@ -626,25 +734,32 @@ for batman in [0]:
             count += 1
             print(count, glac_str)
     
+            en_list[glac_str] = {}
+            gr_list[glac_str] = {}
+            mc_list[glac_str] = {}
             # open dataset
             ds = xr.open_dataset(netcdf)
-            
-            # calculate metrics for each variable
+
+            # Metrics for each parameter
             for nvar, vn in enumerate(variables):
-                # metrics
-                en = [effective_n(ds, vn=vn, iters=i, burn=burn) for i in iters]
-                mc = [MC_error(ds, vn=vn, iters=i, burn=burn)[0] for i in iters]
+                # Effective sample size
+                en = [effective_n(ds, vn=vn, iters=i, burn=burn) for i in iters]                
+                en_list[glac_str][vn] = dict(zip(iters, en))
+                
+                # Monte Carlo error
+                # the first [0] extracts the MC error as opposed to the confidence interval
+                # the second [0] extracts the first chain
+                mc = [mc_error(ds, vn=vn, iters=i, burn=burn, method='overlapping')[0][0] for i in iters]
+                mc_list[glac_str][vn] = dict(zip(iters, mc))
+
+                # Gelman-Rubin Statistic                
                 if len(ds.chain) > 1:
                     gr = [gelman_rubin(ds, vn=vn, iters=i, burn=burn) for i in iters]
-                # append to list
-                en_list[nvar][1].append(en)
-                mc_list[nvar][1].append(mc)
-                # test if multiple chains exist
-                if len(ds.chain) > 1:
-                    gr_list[nvar][1].append(gr)
+                    gr_list[glac_str][vn] = dict(zip(iters, gr))
     
             # close datase
             ds.close()
+        
             
         # Pickle lists for next time
         if os.path.exists(mcmc_output_csv_fp) == False:
@@ -664,8 +779,8 @@ for batman in [0]:
     # Metric statistics
     df_cns = ['iters', 'mean', 'std', 'median', 'lowbnd', 'highbnd']
 
-#    for nmetric, metric in enumerate(metrics):
-    for nmetric, metric in enumerate(['MC Error']):
+    for nmetric, metric in enumerate(metrics):
+#    for nmetric, metric in enumerate(['MC Error']):
         
         if metric == 'Effective N':
             metric_list = en_list
@@ -674,8 +789,8 @@ for batman in [0]:
         elif metric == 'Gelman-Rubin':
             metric_list = gr_list
             
-#        for nvar, vn in enumerate(variables):
-        for nvar, vn in enumerate(['massbal']):
+        for nvar, vn in enumerate(variables):
+#        for nvar, vn in enumerate(['massbal']):
             
             metric_df = pd.DataFrame(np.zeros((len(iterations), len(df_cns))), columns=df_cns)
             metric_df['iters'] = iterations
@@ -688,8 +803,8 @@ for batman in [0]:
                 metric_df.loc[niter,'lowbnd'] = np.percentile(iter_list,low_percentile)
                 metric_df.loc[niter,'highbnd'] = np.percentile(iter_list,high_percentile)
                 
-                if iteration == 10000:
-                    A = iter_list.copy()
+#                if iteration == 10000:
+#                    A = iter_list.copy()
             
             if metric == 'MC Error':
                 metric_idx = np.where(metric_df.iters == 10000)[0][0]
@@ -755,9 +870,20 @@ for batman in [0]:
     figure_fn = 'chainlength_vs_metrics.png'
     fig.savefig(mcmc_output_figures_fp + figure_fn, bbox_inches='tight', dpi=300)
     
-
-#%%
-def hist_obs_vs_cal(regions, chainlength=chainlength, burn=0):
+##    #%%
+##    # Plot glacier area vs. mass balance
+##    A = [i[9] for i in mc_list[0][1]]
+##    #%%
+##    fig, ax = plt.subplots()
+##    ax.scatter(main_glac_rgi['Area'].values, A, s=5)
+##    
+##    ax.set(xlabel='Area [km2]', ylabel='Monte Carlo Error\nMass Balance [mwea]')
+##    ax.set_ylim(0,0.04)
+##    fig.savefig(mcmc_output_figures_fp + "MB_MCerror_scatter.png")
+##    plt.show()   
+    
+#%%        
+def observation_vs_calibration(regions, chainlength=chainlength, burn=0):
     """
     Compare mass balance observations with model calibration
     
@@ -772,56 +898,13 @@ def hist_obs_vs_cal(regions, chainlength=chainlength, burn=0):
 
     Returns
     -------
-    .png file
+    .png files
         saves histogram of differences between observations and calibration
     .csv file
         saves .csv file of comparison
     """
-    filelist = []
-    for region in regions:
-        filelist.extend(glob.glob(mcmc_output_netcdf_fp + str(region) + '*.nc'))
-    
-    glac_no = []
-    reg_no = []
-    for netcdf in filelist:
-        glac_str = netcdf.split('/')[-1].split('.nc')[0]
-        glac_no.append(glac_str)
-        reg_no.append(glac_str.split('.')[0])
-    
-    # Load data for glaciers
-    main_glac_rgi = pd.DataFrame()
-    cal_data = pd.DataFrame()
-    dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
-    reg_no = sorted([i for i in set(reg_no)])
-    glac_no = sorted(glac_no)
-    for region in reg_no:
-        reg_glac_list = []
-        for glac in glac_no:
-            if glac.split('.')[0] == region:
-                reg_glac_list.append(glac.split('.')[1])
-                
-        # Glacier data
-        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[int(region)], rgi_regionsO2 = 'all',
-                                                                 rgi_glac_number=reg_glac_list)
-        # Glacier hypsometry
-        main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, [int(region)], input.hyps_filepath,
-                                                            input.hyps_filedict, input.hyps_colsdrop)
-        # Calibration data
-        cal_data_region = pd.DataFrame()
-        for dataset in cal_datasets:
-            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=int(region))
-            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table_nospinup)
-            cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
-        cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
-        cal_data_region.reset_index(drop=True, inplace=True)
-        
-        # Append datasets
-        main_glac_rgi = main_glac_rgi.append(main_glac_rgi_region)
-        cal_data = cal_data.append(cal_data_region)
-        
-    # reset index
-    main_glac_rgi.reset_index(inplace=True, drop=True)
-    cal_data.reset_index(inplace=True, drop=True)
+
+    main_glac_rgi, cal_data, glac_no = load_glacier_data(regions)
     
     # Mass balance comparison: observations and model
     mb_compare_cols = ['glacno', 'obs_mwea', 'obs_mwea_std', 'mod_mwea', 'mod_mwea_std', 'dif_mwea']
@@ -839,7 +922,7 @@ def hist_obs_vs_cal(regions, chainlength=chainlength, burn=0):
         mb_compare.loc[nglac, 'mod_mwea_std'] = np.std(mb_all)
         # close dataset
         ds.close()
-    
+
     # export csv
     mb_compare['dif_mwea'] = mb_compare['obs_mwea'] - mb_compare['mod_mwea']
     mb_compare.to_csv(mcmc_output_csv_fp + 'mb_compare_' + str(int(chainlength/1000)) + 'k.csv')
@@ -854,6 +937,7 @@ def hist_obs_vs_cal(regions, chainlength=chainlength, burn=0):
         dif_bins[-1] = bin_max
     hist_fn = 'hist_' + str(int(chainlength/1000)) + 'kch_dif_mwea.png'
     plot_hist(mb_compare, 'dif_mwea', dif_bins, fig_fn=hist_fn)
+    #%%
     
 
 def prior_vs_posterior_single(glac_no, iters=[1000,15000], precfactor_disttype=input.precfactor_disttype, 
@@ -1121,12 +1205,51 @@ def prior_vs_posterior_single(glac_no, iters=[1000,15000], precfactor_disttype=i
 if option_metrics_vs_chainlength == 1:
     metrics_vs_chainlength(regions, iterations, burn=burn)    
 
-if option_hist_compare_mb == 1:
-    hist_obs_vs_cal(regions, chainlength=chainlength, burn=burn)
+if option_observation_vs_calibration == 1:
+    observation_vs_calibration(regions, chainlength=chainlength, burn=burn)
 
 if option_prior_vs_posterior == 1:
     glac_no = ['13.26360']
-    iters=[1000,15000]
-    for glac in glac_no:
+    iters=[1000,10000]
+#    main_glac_rgi, cal_data, glac_no = load_glacier_data(regions)
+    for nglac, glac in enumerate(glac_no):
+#        if main_glac_rgi.loc[nglac,'Area'] > 20:
+#            print(main_glac_rgi.loc[nglac,'RGIId'], glac)
         prior_vs_posterior_single(glac, iters=iters)
-        
+#%%
+#percentiles = np.arange(5,100,5)
+#mcerror_percentiles = []
+#for npercentile in percentiles:
+#    print(npercentile, np.percentile(A,npercentile))
+#    mcerror_percentiles.append(np.percentile(A,npercentile))
+#    
+#fig, ax = plt.subplots()
+#ax.plot(percentiles, mcerror_percentiles)
+#
+#ax.set(xlabel='Percentile', ylabel='Mass Balance MC Error [mwea]')
+#ax.grid()
+#
+#fig.savefig(mcmc_output_figures_fp + "massbal_mcerror_vs_percentiles.png")
+#plt.show()
+
+#%%
+## open dataset
+#glac_str = '13.00964'
+#netcdf = mcmc_output_netcdf_fp + glac_str + '.nc'
+#chainlength = 10000
+#vn = 'massbal'
+#burn = 0
+#t_quantile = 0.95
+#
+#ds = xr.open_dataset(netcdf)
+#
+## Trying to use kstest to test if distribution is not uniform
+#chain = ds['mp_value'].sel(chain=0, mp='precfactor').values[burn:chainlength]
+#bins = np.arange(int(chain.min()*100)/100,int(chain.max()*100+1)/100, 0.1)
+#plt.hist(chain, bins=bins)
+#plt.show()
+#from scipy.stats import kstest
+#n = uniform(loc=int(chain.min()*100)/100, scale=int(chain.max()*100+1)/100)
+#kstest(chain, 'norm')
+#
+#ds.close()

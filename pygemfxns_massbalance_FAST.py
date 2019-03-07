@@ -47,11 +47,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
         option to turn on print statements for development or debugging of code (default False)
     Returns
     -------
-    bin_temp : np.ndarray
+    glac_bin_temp : np.ndarray
         Temperature [degC] for each elevation bin and timestep
-    bin_prec : np.ndarray
+    glac_bin_prec : np.ndarray
         Precipitation (only liquid) [m] for each elevation bin and timestep
-    bin_acc : np.ndarray
+    glac_bin_acc : np.ndarray
         Accumulation (solid precipitation) [mwe] for each elevation bin and timestep
     glac_bin_refreeze : np.ndarray
         Refreeze [mwe] for each elevation bin and timestep
@@ -87,17 +87,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
         Glacier-wide volume [km3 ice] for each timestep
     glac_wide_ELA_annual : np.ndarray
         Equilibrium line altitude [masl] for each year
-        
-    offglac_wide_runoff : np.ndarray
-        Off-glacier runoff [m3] for each timestep
-    offglac_bin_acc : np.ndarray
-        Off-glacier accumulation (solid precipitation) [mwe] for each elevation bin and timestep
-    offglac_bin_refreeze : np.ndarray
-        Off-glacier refreeze [mwe] for each elevation bin and timestep
-    offglac_bin_snowpack : np.ndarray
-        Off-glacier snowpack [mwe] for each elevation bin and timestep
-    offglac_bin_melt : np.ndarray
-        Off-glacier melt [mwe] for each elevation bin and timestep
     """       
     if debug:
         print('\n\nDEBUGGING MASS BALANCE FUNCTION\n\n')
@@ -105,48 +94,34 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12
+#    annual_columns = np.unique(dates_table['wateryear'].values)
     annual_columns = np.arange(0, int(dates_table.shape[0] / 12))
     # Variables to export
-    nbins = elev_bins.shape[0]
-    nmonths = glacier_gcm_temp.shape[0]
-    nyears = annual_columns.shape[0]
-    bin_temp = np.zeros((nbins,nmonths))
-    bin_prec = np.zeros((nbins,nmonths))
-    bin_acc = np.zeros((nbins,nmonths))
-    bin_refreezepotential = np.zeros((nbins,nmonths))
-    bin_refreeze = np.zeros((nbins,nmonths))
-    bin_meltsnow = np.zeros((nbins,nmonths))
-    bin_meltrefreeze = np.zeros((nbins,nmonths))
-    bin_meltglac = np.zeros((nbins,nmonths))
-    bin_melt = np.zeros((nbins,nmonths))
-    bin_snowpack = np.zeros((nbins,nmonths))
-    glac_bin_refreeze = np.zeros((nbins,nmonths))
-    glac_bin_melt = np.zeros((nbins,nmonths))
-    glac_bin_frontalablation = np.zeros((nbins,nmonths))
-    glac_bin_snowpack = np.zeros((nbins,nmonths))
-    glac_bin_massbalclim = np.zeros((nbins,nmonths))
-    glac_bin_massbalclim_annual = np.zeros((nbins,nyears))
-    glac_bin_surfacetype_annual = np.zeros((nbins,nyears))
-    glac_bin_icethickness_annual = np.zeros((nbins, nyears + 1))
-    glac_bin_area_annual = np.zeros((nbins, nyears + 1))
-    glac_bin_width_annual = np.zeros((nbins, nyears + 1))
-
-    offglac_bin_prec = np.zeros((nbins,nmonths))
-    offglac_bin_melt = np.zeros((nbins,nmonths))
-    offglac_bin_refreeze = np.zeros((nbins,nmonths))
-    offglac_bin_snowpack = np.zeros((nbins,nmonths))
-    offglac_bin_area_annual = np.zeros((nbins, nyears + 1))
-    
+    glac_bin_temp = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_prec = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_acc = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_refreezepotential = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_refreeze = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_melt = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_meltsnow = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_meltrefreeze = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_meltglac = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_frontalablation = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_snowpack = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_massbalclim = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    glac_bin_massbalclim_annual = np.zeros((elev_bins.shape[0],annual_columns.shape[0]))
+    glac_bin_surfacetype_annual = np.zeros((elev_bins.shape[0],annual_columns.shape[0]))
+    glac_bin_icethickness_annual = np.zeros((elev_bins.shape[0], annual_columns.shape[0] + 1))
+    glac_bin_area_annual = np.zeros((elev_bins.shape[0], annual_columns.shape[0] + 1))
+    glac_bin_width_annual = np.zeros((elev_bins.shape[0], annual_columns.shape[0] + 1))
     # Local variables
-    bin_precsnow = np.zeros((nbins,nmonths))
-    refreeze_potential = np.zeros(nbins)
-    snowpack_remaining = np.zeros(nbins)
+    glac_bin_precsnow = np.zeros((elev_bins.shape[0],glacier_gcm_temp.shape[0]))
+    refreeze_potential = np.zeros(elev_bins.shape[0])
+    snowpack_remaining = np.zeros(elev_bins.shape[0])
     dayspermonth = dates_table['daysinmonth'].values
-    surfacetype_ddf = np.zeros(nbins)
+    surfacetype_ddf = np.zeros(elev_bins.shape[0])
     glac_idx_initial = glacier_area_t0.nonzero()[0]
     glac_area_initial = glacier_area_t0.copy()
-    
-    
     
     # Sea level for marine-terminating glaciers
     sea_level = 0
@@ -175,7 +150,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
         surfacetype_ddf_dict = surfacetypeDDFdict(modelparameters)
         
     # ANNUAL LOOP (daily or monthly timestep contained within loop)
-    for year in range(0, nyears): 
+    for year in range(0, annual_columns.shape[0]): 
         # Check ice still exists:
         if icethickness_t0.max() > 0:    
         
@@ -184,13 +159,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
 
             # Glacier indices
             glac_idx_t0 = glacier_area_t0.nonzero()[0]
-            
-            # Off-glacier area and indices
-            if option_areaconstant == 0:
-                offglac_bin_area_annual[:,year] = glac_area_initial - glacier_area_t0
-                offglac_idx = np.where(offglac_bin_area_annual[:,year] > 0)[0]
-            
-            
             # Functions currently set up for monthly timestep
             #  only compute mass balance while glacier exists
             if (input.timestep == 'monthly') and (glac_idx_t0.shape[0] != 0):      
@@ -198,7 +166,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 if input.option_temp2bins == 1:
                     # Downscale using gcm and glacier lapse rates
                     #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
-                    bin_temp[:,12*year:12*(year+1)] = (glacier_gcm_temp[12*year:12*(year+1)] + 
+                    glac_bin_temp[:,12*year:12*(year+1)] = (glacier_gcm_temp[12*year:12*(year+1)] + 
                          glacier_gcm_lrgcm[12*year:12*(year+1)] * 
                          (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
                          glacier_gcm_lrglac[12*year:12*(year+1)] * (elev_bins - 
@@ -206,17 +174,28 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 # Option to adjust air temperature based on changes in surface elevation
                 if input.option_adjusttemp_surfelev == 1:
                     # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)
-                    bin_temp[:,12*year:12*(year+1)] = (bin_temp[:,12*year:12*(year+1)] + 
-                                                       glacier_gcm_lrglac[12*year:12*(year+1)] * 
-                                                       (icethickness_t0 - icethickness_initial)[:,np.newaxis])
+                    glac_bin_temp[:,12*year:12*(year+1)] = (glac_bin_temp[:,12*year:12*(year+1)] + 
+                                                            glacier_gcm_lrglac[12*year:12*(year+1)] * 
+                                                            (icethickness_t0 - icethickness_initial)[:,np.newaxis])
+                # remove off-glacier values
+                glac_bin_temp[surfacetype==0,12*year:12*(year+1)] = 0
                 
                 # PRECIPITATION/ACCUMULATION: Downscale the precipitation (liquid and solid) to each bin
                 if input.option_prec2bins == 1:
                     # Precipitation using precipitation factor and precipitation gradient
                     #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
-                    bin_precsnow[:,12*year:12*(year+1)] = (glacier_gcm_prec[12*year:12*(year+1)] * 
+                    glac_bin_precsnow[:,12*year:12*(year+1)] = (glacier_gcm_prec[12*year:12*(year+1)] * 
                             modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
+                    
+#                    if debug:
+#                        if year >= 34:
+#                            print(year)
+#                            print('glac_idx_t0:', glac_idx_t0)
+#                            print('modelparams[2] and [3]:', modelparameters[2], modelparameters[3])
+#                            print('GCM prec:', glacier_gcm_prec[12*year:12*(year+1)])
+#                            print('max prec:', glac_bin_precsnow[glac_idx_t0,12*year:12*(year+1)].max())
+#                            print('prec', glac_bin_precsnow[glac_idx_t0,12*year:12*(year+1)])
                     
                     
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
@@ -228,40 +207,47 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                                                        > 75]   
                         # Exponential decay according to elevation difference from the 75% elevation
                         #  prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
-                        bin_precsnow[glac_idx_upper25,12*year:12*(year+1)] = (
-                                bin_precsnow[glac_idx_upper25[0],12*year:12*(year+1)] * 
+                        glac_bin_precsnow[glac_idx_upper25,12*year:12*(year+1)] = (
+                                glac_bin_precsnow[glac_idx_upper25[0],12*year:12*(year+1)] * 
                                 np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
                                    (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]]))[:,np.newaxis])
                         # Precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
                         for month in range(0,12):
-                            bin_precsnow[glac_idx_upper25[(bin_precsnow[glac_idx_upper25,month] < 0.875 * 
-                                bin_precsnow[glac_idx_t0,month].max()) & 
-                                (bin_precsnow[glac_idx_upper25,month] != 0)], month] = (
-                                                                0.875 * bin_precsnow[glac_idx_t0,month].max())
-                # Separate total precipitation into liquid (bin_prec) and solid (bin_acc)
+                            glac_bin_precsnow[glac_idx_upper25[(glac_bin_precsnow[glac_idx_upper25,month] < 0.875 * 
+                                glac_bin_precsnow[glac_idx_t0,month].max()) & 
+                                (glac_bin_precsnow[glac_idx_upper25,month] != 0)], month] = (
+                                                                0.875 * glac_bin_precsnow[glac_idx_t0,month].max())
+                # Separate total precipitation into liquid (glac_bin_prec) and solid (glac_bin_acc)
                 if input.option_accumulation == 1:
                     # if temperature above threshold, then rain
-                    bin_prec[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] > modelparameters[6]] = (
-                        bin_precsnow[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] > modelparameters[6]])
+                    glac_bin_prec[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] > modelparameters[6]] = (
+                        glac_bin_precsnow[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] 
+                                                                 > modelparameters[6]])
                     # if temperature below threshold, then snow
-                    bin_acc[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] <= modelparameters[6]] = (
-                        bin_precsnow[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] <= modelparameters[6]])
+                    glac_bin_acc[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] <= modelparameters[6]] = (
+                        glac_bin_precsnow[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] 
+                                                                 <= modelparameters[6]])
                 elif input.option_accumulation == 2:
                     # If temperature between min/max, then mix of snow/rain using linear relationship between min/max
-                    bin_prec[:,12*year:12*(year+1)] = ((1/2 + (bin_temp[:,12*year:12*(year+1)] - 
-                            modelparameters[6]) / 2) * bin_precsnow[:,12*year:12*(year+1)])
-                    bin_acc[:,12*year:12*(year+1)] = (bin_precsnow[:,12*year:12*(year+1)] - 
-                           bin_prec[:,12*year:12*(year+1)])
+                    glac_bin_prec[:,12*year:12*(year+1)] = ((1/2 + (glac_bin_temp[:,12*year:12*(year+1)] - 
+                                 modelparameters[6]) / 2) * glac_bin_precsnow[:,12*year:12*(year+1)])
+                    glac_bin_acc[:,12*year:12*(year+1)] = (glac_bin_precsnow[:,12*year:12*(year+1)] - 
+                                glac_bin_prec[:,12*year:12*(year+1)])
                     # If temperature above maximum threshold, then all rain
-                    bin_prec[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] > modelparameters[6] + 1] = (
-                            bin_precsnow[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] > 
-                                         modelparameters[6] + 1])
-                    bin_acc[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] > modelparameters[6] + 1] = 0
+                    (glac_bin_prec[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] > modelparameters[6] + 1]
+                        ) = (glac_bin_precsnow[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] > 
+                                                                      modelparameters[6] + 1])
+                    (glac_bin_acc[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] > modelparameters[6] + 1] 
+                        ) = 0
                     # If temperature below minimum threshold, then all snow
-                    (bin_acc[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] <= modelparameters[6] - 1]
-                        )= (bin_precsnow[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] <= 
-                                         modelparameters[6] - 1])
-                    bin_prec[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] <= modelparameters[6] - 1] = 0
+                    (glac_bin_acc[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] <= modelparameters[6] - 1]
+                        )= (glac_bin_precsnow[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] <= 
+                                                                     modelparameters[6] - 1])
+                    (glac_bin_prec[:,12*year:12*(year+1)][glac_bin_temp[:,12*year:12*(year+1)] <= modelparameters[6] - 
+                                   1]) = 0
+                # remove off-glacier values
+                glac_bin_prec[surfacetype==0,12*year:12*(year+1)] = 0
+                glac_bin_acc[surfacetype==0,12*year:12*(year+1)] = 0
                 
                 # POTENTIAL REFREEZE: compute potential refreeze [m w.e.] for each bin
                 if input.option_refreezing == 1:
@@ -271,7 +257,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     exit()
                 elif input.option_refreezing == 2:
                     # Refreeze based on air temperature based on Woodward et al. (1997)
-                    bin_temp_annual = annualweightedmean_array(bin_temp[:,12*year:12*(year+1)], 
+                    bin_temp_annual = annualweightedmean_array(glac_bin_temp[:,12*year:12*(year+1)], 
                                                                dates_table.iloc[12*year:12*(year+1),:])
                     bin_refreezepotential_annual = (-0.69 * bin_temp_annual + 0.0096) * 1/100
                     #   R(m) = -0.69 * Tair + 0.0096 * (1 m / 100 cm)
@@ -280,7 +266,9 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     bin_refreezepotential_annual[bin_refreezepotential_annual < 0] = 0
                     # Place annual refreezing in user-defined month for accounting and melt purposes
                     placeholder = (12 - dates_table.loc[0,'month'] + input.refreeze_month) % 12
-                    bin_refreezepotential[:,12*year + placeholder] = bin_refreezepotential_annual  
+                    glac_bin_refreezepotential[:,12*year + placeholder] = bin_refreezepotential_annual  
+                # remove off-glacier values
+                glac_bin_refreezepotential[surfacetype==0,12*year:12*(year+1)] = 0
                 
                 # ENTER MONTHLY LOOP (monthly loop required as )
                 for month in range(0,12):
@@ -289,90 +277,78 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     
                     # SNOWPACK, REFREEZE, MELT, AND CLIMATIC MASS BALANCE
                     # Snowpack [m w.e.] = snow remaining + new snow
-                    bin_snowpack[:,step] = snowpack_remaining + bin_acc[:,step]  
+                    glac_bin_snowpack[:,step] = snowpack_remaining + glac_bin_acc[:,step]
                     # Energy available for melt [degC day]    
-                    melt_energy_available = bin_temp[:,step]*dayspermonth[step]
+                    melt_energy_available = glac_bin_temp[:,step]*dayspermonth[step]
                     melt_energy_available[melt_energy_available < 0] = 0
                     # Snow melt [m w.e.]
-                    bin_meltsnow[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
+                    glac_bin_meltsnow[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
                     # snow melt cannot exceed the snow depth
-                    bin_meltsnow[bin_meltsnow[:,step] > bin_snowpack[:,step], step] = (
-                            bin_snowpack[bin_meltsnow[:,step] > bin_snowpack[:,step], step])
+                    glac_bin_meltsnow[glac_bin_meltsnow[:,step] > glac_bin_snowpack[:,step], step] = (
+                            glac_bin_snowpack[glac_bin_meltsnow[:,step] > glac_bin_snowpack[:,step], step])
                     # Energy remaining after snow melt [degC day]
-                    melt_energy_available = melt_energy_available - bin_meltsnow[:,step] / surfacetype_ddf_dict[2]
+                    melt_energy_available = melt_energy_available - glac_bin_meltsnow[:,step] / surfacetype_ddf_dict[2]
                     # remove low values of energy available caused by rounding errors in the step above
                     melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
                     # Compute the refreeze, refreeze melt, and any changes to the snow depth
                     # Refreeze potential [m w.e.]
                     #  timing of refreeze potential will vary with the method (air temperature approach updates annual 
                     #  and heat conduction approach updates monthly), so check if refreeze is being udpated
-                    if bin_refreezepotential[:,step].max() > 0:
-                        refreeze_potential = bin_refreezepotential[:,step]
+                    if glac_bin_refreezepotential[:,step].max() > 0:
+                        refreeze_potential = glac_bin_refreezepotential[:,step]
                     # Refreeze [m w.e.]
                     #  refreeze in ablation zone cannot exceed amount of snow melt (accumulation zone modified below)
-                    bin_refreeze[:,step] = bin_meltsnow[:,step]
+                    glac_bin_refreeze[:,step] = glac_bin_meltsnow[:,step]
                     # refreeze cannot exceed refreeze potential
-                    bin_refreeze[bin_refreeze[:,step] > refreeze_potential, step] = (
-                            refreeze_potential[bin_refreeze[:,step] > refreeze_potential])
-                    bin_refreeze[abs(bin_refreeze[:,step]) < input.tolerance, step] = 0
+                    glac_bin_refreeze[glac_bin_refreeze[:,step] > refreeze_potential, step] = (
+                            refreeze_potential[glac_bin_refreeze[:,step] > refreeze_potential])
+                    glac_bin_refreeze[abs(glac_bin_refreeze[:,step]) < input.tolerance, step] = 0
                     # Refreeze melt [m w.e.]
-                    bin_meltrefreeze[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
+                    glac_bin_meltrefreeze[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
                     # refreeze melt cannot exceed the refreeze
-                    bin_meltrefreeze[bin_meltrefreeze[:,step] > bin_refreeze[:,step], step] = (
-                            bin_refreeze[bin_meltrefreeze[:,step] > bin_refreeze[:,step], step])
+                    glac_bin_meltrefreeze[glac_bin_meltrefreeze[:,step] > glac_bin_refreeze[:,step], step] = (
+                            glac_bin_refreeze[glac_bin_meltrefreeze[:,step] > glac_bin_refreeze[:,step], step])
                     # Energy remaining after refreeze melt [degC day]
-                    melt_energy_available = (melt_energy_available - bin_meltrefreeze[:,step] / 
+                    melt_energy_available = (melt_energy_available - glac_bin_meltrefreeze[:,step] / 
                                              surfacetype_ddf_dict[2])
                     melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
                     # Snow remaining [m w.e.]
-                    snowpack_remaining = (bin_snowpack[:,step] + bin_refreeze[:,step] - 
-                                          bin_meltsnow[:,step] - bin_meltrefreeze[:,step])
+                    snowpack_remaining = (glac_bin_snowpack[:,step] + glac_bin_refreeze[:,step] - 
+                                          glac_bin_meltsnow[:,step] - glac_bin_meltrefreeze[:,step])
                     snowpack_remaining[abs(snowpack_remaining) < input.tolerance] = 0
                     # Compute melt from remaining energy, if any exits, and additional refreeze in the accumulation zone
                     # DDF based on surface type [m w.e. degC-1 day-1]
                     for surfacetype_idx in surfacetype_ddf_dict: 
                         surfacetype_ddf[surfacetype == surfacetype_idx] = surfacetype_ddf_dict[surfacetype_idx]
                     # Glacier melt [m w.e.] based on remaining energy
-                    bin_meltglac[glac_idx_t0,step] = surfacetype_ddf[glac_idx_t0] * melt_energy_available[glac_idx_t0]
+                    glac_bin_meltglac[:,step] = surfacetype_ddf * melt_energy_available
                     # Energy remaining after glacier surface melt [degC day]
                     #  must specify on-glacier values, otherwise this will divide by zero and cause an error
-                    melt_energy_available[glac_idx_t0] = (melt_energy_available[glac_idx_t0] - 
-                                         bin_meltglac[glac_idx_t0, step] / surfacetype_ddf[glac_idx_t0])
+                    melt_energy_available[surfacetype != 0] = (melt_energy_available[surfacetype != 0] - 
+                                         glac_bin_meltglac[surfacetype != 0, step] / surfacetype_ddf[surfacetype != 0])
                     melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
                     # Additional refreeze in the accumulation area [m w.e.]
                     #  refreeze in accumulation zone = refreeze of snow + refreeze of underlying snow/firn
-                    bin_refreeze[elev_bins >= elev_bins[firnline_idx], step] = (
-                            bin_refreeze[elev_bins >= elev_bins[firnline_idx], step] +
+                    glac_bin_refreeze[elev_bins >= elev_bins[firnline_idx], step] = (
+                            glac_bin_refreeze[elev_bins >= elev_bins[firnline_idx], step] +
                             glac_bin_melt[elev_bins >= elev_bins[firnline_idx], step])
                     # refreeze cannot exceed refreeze potential
-                    bin_refreeze[glac_bin_refreeze[:,step] > refreeze_potential, step] = (
-                            refreeze_potential[bin_refreeze[:,step] > refreeze_potential])
+                    glac_bin_refreeze[glac_bin_refreeze[:,step] > refreeze_potential, step] = (
+                            refreeze_potential[glac_bin_refreeze[:,step] > refreeze_potential])
                     # update refreeze potential
-                    refreeze_potential = refreeze_potential - bin_refreeze[:,step]
+                    refreeze_potential = refreeze_potential - glac_bin_refreeze[:,step]
                     refreeze_potential[abs(refreeze_potential) < input.tolerance] = 0
                     # TOTAL MELT (snow + refreeze + glacier)
-                    bin_melt[:,step] = bin_meltglac[:,step] + bin_meltrefreeze[:,step] + bin_meltsnow[:,step]                    
-                    glac_bin_melt[glac_idx_t0,step] = bin_melt[glac_idx_t0,step]
-                    glac_bin_refreeze[glac_idx_t0,step] = bin_refreeze[glac_idx_t0,step]
-                    glac_bin_snowpack[glac_idx_t0,step] = bin_snowpack[glac_idx_t0,step]
+                    glac_bin_melt[:,step] = (glac_bin_meltglac[:,step] + glac_bin_meltrefreeze[:,step] + 
+                                             glac_bin_meltsnow[:,step])
                     # CLIMATIC MASS BALANCE [m w.e.]
-                    glac_bin_massbalclim[glac_idx_t0,step] = (
-                            bin_acc[glac_idx_t0,step] + glac_bin_refreeze[glac_idx_t0,step] - 
-                            glac_bin_melt[glac_idx_t0,step])
-                    
-                    # OFF-GLACIER ACCUMULATION, MELT, REFREEZE, AND SNOWPACK
-                    if option_areaconstant == 0:
-                        offglac_bin_prec[offglac_idx,step] = bin_prec[offglac_idx,step]
-                        offglac_bin_melt[offglac_idx,step] = (bin_meltsnow[offglac_idx,step] + 
-                                                              bin_meltrefreeze[offglac_idx,step])
-                        offglac_bin_refreeze[offglac_idx,step] = bin_refreeze[offglac_idx,step]
-                        offglac_bin_snowpack[offglac_idx,step] = bin_snowpack[offglac_idx,step]
-                    
+                    #  climatic mass balance = accumulation + refreeze - melt
+                    glac_bin_massbalclim[:,step] = (glac_bin_acc[:,step] + glac_bin_refreeze[:,step] - 
+                                                    glac_bin_melt[:,step])
                     
 #                    if debug:
 #                        print('\nyear:', year, step)
 #                        print('accumulation:', glac_bin_acc[:,step].sum())
-#                        print('accumulation:', bin_acc[:,step].sum())
 #                        print('melt:', glac_bin_melt[:,step].sum())
                 
                 # ===== RETURN TO ANNUAL LOOP =====
@@ -389,13 +365,13 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     
                 # If mass loss exceeds glacier mass, reduce all components
                 if mb_mwea < mb_max_loss:                    
-                    bin_acc[:,12*year:12*(year+1)] = bin_acc[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea
+                    glac_bin_acc[:,12*year:12*(year+1)] = glac_bin_acc[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea
                     glac_bin_refreeze[:,12*year:12*(year+1)] = (
                             glac_bin_refreeze[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea)
                     glac_bin_melt[:,12*year:12*(year+1)] = glac_bin_melt[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea
                     
                     glac_bin_massbalclim[:,12*year:12*(year+1)] = (
-                            bin_acc[:,12*year:12*(year+1)] + glac_bin_refreeze[:,12*year:12*(year+1)] - 
+                            glac_bin_acc[:,12*year:12*(year+1)] + glac_bin_refreeze[:,12*year:12*(year+1)] - 
                             glac_bin_melt[:,12*year:12*(year+1)])
                     
 #                    if debug:
@@ -608,35 +584,49 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     if input.timestep == 'monthly':
         colstart = input.spinupyears * annual_divisor
         colend = glacier_gcm_temp.shape[0] + 1
-    bin_temp = bin_temp[:,colstart:colend]
-    bin_prec = bin_prec[:,colstart:colend]
-    bin_acc = bin_acc[:,colstart:colend]
-    bin_melt = bin_melt[:,colstart:colend]
-    bin_refreeze = bin_refreeze[:,colstart:colend]
-    bin_snowpack = bin_snowpack[:,colstart:colend]
+    glac_bin_temp = glac_bin_temp[:,colstart:colend]
+    glac_bin_prec = glac_bin_prec[:,colstart:colend]
+    glac_bin_acc = glac_bin_acc[:,colstart:colend]
     glac_bin_refreeze = glac_bin_refreeze[:,colstart:colend]
     glac_bin_snowpack = glac_bin_snowpack[:,colstart:colend]
     glac_bin_melt = glac_bin_melt[:,colstart:colend]
     glac_bin_frontalablation = glac_bin_frontalablation[:,colstart:colend]
     glac_bin_massbalclim = glac_bin_massbalclim[:,colstart:colend]
-    glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,input.spinupyears:nyears+1]
-    glac_bin_area_annual = glac_bin_area_annual[:,input.spinupyears:nyears+1]
-    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,input.spinupyears:nyears+1]
-    glac_bin_width_annual = glac_bin_width_annual[:,input.spinupyears:nyears+1]
-    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,input.spinupyears:nyears+1]
-    
+    glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    glac_bin_area_annual = glac_bin_area_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    glac_bin_width_annual = glac_bin_width_annual[:,input.spinupyears:annual_columns.shape[0]+1]
+    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,input.spinupyears:annual_columns.shape[0]+1]
     # Additional output:
+    glac_wide_prec = np.zeros(glac_bin_temp.shape[1])
+    glac_wide_acc = np.zeros(glac_bin_temp.shape[1])
+    glac_wide_refreeze = np.zeros(glac_bin_temp.shape[1])
+    glac_wide_melt = np.zeros(glac_bin_temp.shape[1])
+    glac_wide_frontalablation = np.zeros(glac_bin_temp.shape[1])
+    # Compute desired output
     glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
-    glac_wide_area = glac_bin_area.sum(axis=0)    
-    glac_wide_prec = calc_glacwide(bin_prec, glac_bin_area, glac_wide_area)
-    glac_wide_acc = calc_glacwide(bin_acc, glac_bin_area, glac_wide_area)
-    glac_wide_refreeze = calc_glacwide(bin_refreeze, glac_bin_area, glac_wide_area)
-    glac_wide_melt = calc_glacwide(bin_melt, glac_bin_area, glac_wide_area)
-    glac_wide_frontalablation = calc_glacwide(glac_bin_frontalablation, glac_bin_area, glac_wide_area) 
+    glac_wide_area = glac_bin_area.sum(axis=0)
+    glac_wide_prec_mkm2 = (glac_bin_prec * glac_bin_area).sum(axis=0)
+    glac_wide_prec[glac_wide_prec_mkm2 > 0] = (glac_wide_prec_mkm2[glac_wide_prec_mkm2 > 0] / 
+                                               glac_wide_area[glac_wide_prec_mkm2 > 0])
+    glac_wide_acc_mkm2 = (glac_bin_acc * glac_bin_area).sum(axis=0)
+    glac_wide_acc[glac_wide_acc_mkm2 > 0] = (glac_wide_acc_mkm2[glac_wide_acc_mkm2 > 0] / 
+                                             glac_wide_area[glac_wide_acc_mkm2 > 0])
+    glac_wide_snowpack = glac_wide_acc_mkm2 / 1000
+    glac_wide_refreeze_mkm2 = (glac_bin_refreeze * glac_bin_area).sum(axis=0)
+    glac_wide_refreeze[glac_wide_refreeze_mkm2 > 0] = (glac_wide_refreeze_mkm2[glac_wide_refreeze_mkm2 > 0] / 
+                                                       glac_wide_area[glac_wide_refreeze_mkm2 > 0])
+    glac_wide_melt_mkm2 = (glac_bin_melt * glac_bin_area).sum(axis=0)
+    glac_wide_melt[glac_wide_melt_mkm2 > 0] = (glac_wide_melt_mkm2[glac_wide_melt_mkm2 > 0] / 
+                                               glac_wide_area[glac_wide_melt_mkm2 > 0])
+    glac_wide_frontalablation_mkm2 = (glac_bin_frontalablation * glac_bin_area).sum(axis=0)
+    glac_wide_frontalablation[glac_wide_frontalablation_mkm2 > 0] = (
+            glac_wide_frontalablation_mkm2[glac_wide_frontalablation_mkm2 > 0] / 
+            glac_wide_area[glac_wide_frontalablation_mkm2 > 0])
     glac_wide_massbalclim = glac_wide_acc + glac_wide_refreeze - glac_wide_melt
     glac_wide_massbaltotal = glac_wide_massbalclim - glac_wide_frontalablation
-    glac_wide_runoff = calc_runoff(glac_wide_prec, glac_wide_melt, glac_wide_refreeze, glac_wide_area)
-    glac_wide_snowpack = calc_glacwide(glac_bin_snowpack, glac_bin_area, glac_wide_area)
+    glac_wide_runoff = (glac_wide_prec + glac_wide_melt - glac_wide_refreeze) * glac_wide_area * (1000)**2
+    #  units: (m + m w.e. - m w.e.) * km**2 * (1000 m / 1 km)**2 = m**3
     glac_wide_snowline = (glac_bin_snowpack > 0).argmax(axis=0)
     glac_wide_snowline[glac_wide_snowline > 0] = (elev_bins[glac_wide_snowline[glac_wide_snowline > 0]] - 
                                                   input.binsize/2)
@@ -645,33 +635,12 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
     glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
                                                       input.binsize/2)  
-
-    # OFF-GLACIER Output
-    if option_areaconstant == 0:
-        offglac_bin_area_annual = offglac_bin_area_annual[:,input.spinupyears:nyears+1]   
-        offglac_bin_area = offglac_bin_area_annual[:,0:offglac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
-        offglac_wide_area = offglac_bin_area.sum(axis=0)
-        offglac_wide_prec = calc_glacwide(bin_prec, offglac_bin_area, offglac_wide_area)
-    #    offglac_wide_acc = calc_glacwide(bin_acc, offglac_bin_area, offglac_wide_area)
-        offglac_wide_refreeze = calc_glacwide(bin_refreeze, offglac_bin_area, offglac_wide_area)
-        offglac_wide_melt = calc_glacwide(bin_melt, offglac_bin_area, offglac_wide_area)
-        offglac_wide_snowpack = calc_glacwide(bin_snowpack, offglac_bin_area, offglac_wide_area)
-        offglac_wide_runoff = calc_runoff(offglac_wide_prec, offglac_wide_melt, offglac_wide_refreeze, 
-                                          offglac_wide_area)
-    else:
-        offglac_wide_prec = np.zeros(glac_wide_area.shape)
-        offglac_wide_refreeze = np.zeros(glac_wide_area.shape)
-        offglac_wide_melt = np.zeros(glac_wide_area.shape)
-        offglac_wide_snowpack = np.zeros(glac_wide_area.shape)
-        offglac_wide_runoff = np.zeros(glac_wide_area.shape)
-    
     # Return the desired output
-    return (bin_temp, bin_prec, bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+    return (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, 
             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual, 
             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack, glac_wide_area_annual, 
-            glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, offglac_wide_refreeze, offglac_wide_melt,
-            offglac_wide_snowpack, offglac_wide_runoff)  
+            glac_wide_volume_annual, glac_wide_ELA_annual)
 
 
 #%% ===================================================================================================================
@@ -714,20 +683,6 @@ def annualweightedmean_array(var, dates_table):
               'Exiting the model run.\n')
         exit()
     return var_annual
-
-def calc_glacwide(bin_var, area_bin, area_wide):
-    """Calculate glacier wide sum of a variable"""
-    var_wide = np.zeros(bin_var.shape[1])
-    var_wide_mkm2 = (bin_var * area_bin).sum(axis=0)
-    var_wide[var_wide_mkm2 > 0] = var_wide_mkm2[var_wide_mkm2 > 0] / area_wide[var_wide_mkm2 > 0]
-    return var_wide
-
-def calc_runoff(prec_wide, melt_wide, refreeze_wide, area_wide):
-    """
-    Calculate runoff from precipitation, melt, and refreeze [units: m3]
-      units: (m + m w.e. - m w.e.) * km**2 * (1000 m / 1 km)**2 = m**3
-    """
-    return (prec_wide + melt_wide - refreeze_wide) * area_wide * 1000**2
    
 
 def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
@@ -1255,8 +1210,6 @@ def surfacetypeDDFdict(modelparameters,
         Dictionary relating the surface types with their respective degree day factors
     """        
     surfacetype_ddf_dict = {
-#            0: 0,
-            0: modelparameters[4],
             1: modelparameters[5],
             2: modelparameters[4]}
     if option_surfacetype_firn == 1:
