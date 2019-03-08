@@ -38,6 +38,9 @@ def getparser():
                         help='switch to include the region name or not in the batch filenames')
     parser.add_argument('-add_cal', action='store', type=int, default=0,
                         help='switch to add "cal" to batch filenames')
+    parser.add_argument('-load_glacno')
+    parser.add_argument('-glacno_fn', action='store', type=str, default=None,
+                        help='load specific glacier numbers from file name')
     return parser
 
 
@@ -111,7 +114,10 @@ for i in os.listdir():
     
 
 # Load glacier numbers
-if input.rgi_glac_number == 'all':
+if args.glacno_fn is not None:
+    with open(input.modelparams_fp_dict[rgi_regionsO1[0]] + args.glacno_fn, 'rb') as f:
+        rgi_glac_number = pickle.load(f)
+elif input.rgi_glac_number == 'all':
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all',
                                                           rgi_glac_number='all')
     # Create list of glacier numbers as strings with 5 digits
@@ -119,6 +125,7 @@ if input.rgi_glac_number == 'all':
     rgi_glac_number = [str(x).zfill(5) for x in glacno]    
 else:
     rgi_glac_number = input.rgi_glac_number
+    
 
 # Check if need to update old files or not
 #  (different number of glaciers or batches)
@@ -144,3 +151,4 @@ if count_glac != len(rgi_glac_number) or args.n_batches != len(batch_list):
     #    print('Batch', n, ':\n', batch_fn, '\n')
         with open(batch_fn, 'wb') as f:
             pickle.dump(rgi_glac_number_batches[n], f)
+            

@@ -29,12 +29,16 @@ import pygemfxns_modelsetup as modelsetup
 
 #%%
 option_metrics_vs_chainlength = 0
+option_metrics_histogram_all = 0
 option_observation_vs_calibration = 0
 option_prior_vs_posterior = 0
 
+option_priors_tocsv = 1
+
 # Paper figures
 option_papermcmc_prior_vs_posterior = 0
-option_papermcmc_solutionspace = 1
+option_papermcmc_solutionspace = 0
+option_papermcmc_allglaciers_posteriorchanges = 0
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -57,32 +61,18 @@ metrics = ['Gelman-Rubin', 'MC Error', 'Effective N']
 
 
 # Export option
-mcmc_output_netcdf_fp = input.output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/'
-mcmc_output_figures_fp = mcmc_output_netcdf_fp + 'figures/'
-mcmc_output_csv_fp = mcmc_output_netcdf_fp + 'csv/'
-
-en_fn_pkl = mcmc_output_csv_fp + 'effective_n_list.pkl'
-mc_fn_pkl = mcmc_output_csv_fp + 'mc_error_list.pkl'
-gr_fn_pkl = mcmc_output_csv_fp + 'gelman_rubin_list.pkl'
-en_fn_csv = mcmc_output_csv_fp + 'effective_n_stats.csv'
-mc_fn_csv = mcmc_output_csv_fp + 'mc_error_stats.csv'
-gr_fn_csv = mcmc_output_csv_fp + 'gelman_rubin_stats.csv'
+mcmc_output_netcdf_fp_3chain = input.output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/'
+mcmc_output_netcdf_fp_all = input.output_filepath + 'cal_opt2_spc_20190222_adjp10/'
+mcmc_output_figures_fp = input.output_filepath + 'figures/'
+#mcmc_output_csv_fp = mcmc_output_netcdf_fp + 'csv/'
 
 regions = ['13', '14', '15']
 
 cal_datasets = ['shean']
 
 burn=0
-iterstep = 1000
-itermax = 25000
+
 chainlength = 10000
-iterations = np.arange(0, 25000, iterstep)
-if iterations[1] < 1000: 
-    iterations[0] = 1000
-else:
-    iterations = iterations[1:]
-if iterations[-1] != itermax:
-    iterations = np.append(iterations, itermax)
 # Bounds (90% bounds --> 95% above/below given threshold)
 low_percentile = 5
 high_percentile = 95
@@ -91,75 +81,7 @@ colors = ['#387ea0', '#fcb200', '#d20048']
 linestyles = ['-', '--', ':']
 
 
-def load_glacier_and_cal_data(regions, filepath=mcmc_output_netcdf_fp):
-    """ Load main_glac_rgi data and cal_data
-    
-    Parameters
-    ----------
-    regions : list of strings
-        list of regions
-    filepath : str
-        filepath of folder to load glacier data from
-        
-    Returns
-    -------
-    main_glac_rgi : pd.DataFrame
-        main glacier dataframe containing glacier properties
-    cal_data : pd.DataFrame
-        calibration dataframe containing information regarding the calibration data for each glacier
-    glac_no : list of strings
-        list of the glacier numbers
-    """
-    filelist = []
-    for region in regions:
-        filelist.extend(glob.glob(mcmc_output_netcdf_fp + str(region) + '*.nc'))
-    
-    glac_no = []
-    reg_no = []
-    for netcdf in filelist:
-        glac_str = netcdf.split('/')[-1].split('.nc')[0]
-        glac_no.append(glac_str)
-        reg_no.append(glac_str.split('.')[0])
-        
-    # Load data for glaciers
-    main_glac_rgi = pd.DataFrame()
-    cal_data = pd.DataFrame()
-    dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
-    reg_no = sorted([i for i in set(reg_no)])
-    glac_no = sorted(glac_no)
-    for region in reg_no:
-        reg_glac_list = []
-        for glac in glac_no:
-            if glac.split('.')[0] == region:
-                reg_glac_list.append(glac.split('.')[1])
-                
-        # Glacier data
-        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[int(region)], rgi_regionsO2 = 'all',
-                                                                 rgi_glac_number=reg_glac_list)
-        # Glacier hypsometry
-        main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, [int(region)], input.hyps_filepath,
-                                                            input.hyps_filedict, input.hyps_colsdrop)
-        # Calibration data
-        cal_data_region = pd.DataFrame()
-        for dataset in cal_datasets:
-            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=int(region))
-            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table_nospinup)
-            cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
-        cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
-        cal_data_region.reset_index(drop=True, inplace=True)
-        
-        # Append datasets
-        main_glac_rgi = main_glac_rgi.append(main_glac_rgi_region)
-        cal_data = cal_data.append(cal_data_region)
-        
-    # reset index
-    main_glac_rgi.reset_index(inplace=True, drop=True)
-    cal_data.reset_index(inplace=True, drop=True)
-    
-    return main_glac_rgi, cal_data, glac_no
-
-
-def load_glacierdata_byglacno(glac_no):
+def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
     """ Load glacier data, climate data, and calibration data for list of glaciers 
     
     Parameters
@@ -172,6 +94,7 @@ def load_glacierdata_byglacno(glac_no):
     main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, gcm_temp, gcm_prec, gcm_elev, gcm_lr, 
     cal_data, dates_table
     """
+    #%%
     glac_no_byregion = {}
     regions = [int(i.split('.')[0]) for i in glac_no]
     regions = list(set(regions))
@@ -184,6 +107,9 @@ def load_glacierdata_byglacno(glac_no):
         
     for region in regions:
         glac_no_byregion[region] = sorted(glac_no_byregion[region])
+        
+        
+        # ADD EXCEPTION IF ALL GLACIERS ARE INCLUDED...
         
     # Load data for glaciers
     dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
@@ -199,25 +125,6 @@ def load_glacierdata_byglacno(glac_no):
         # Glacier hypsometry
         main_glac_hyps_region = modelsetup.import_Husstable(
                 main_glac_rgi_region, [region], input.hyps_filepath,input.hyps_filedict, input.hyps_colsdrop)
-        # Ice thickness [m], average
-        main_glac_icethickness_region = modelsetup.import_Husstable(
-                main_glac_rgi_region, [region], input.thickness_filepath, input.thickness_filedict, 
-                input.thickness_colsdrop)
-        main_glac_hyps_region[main_glac_icethickness_region == 0] = 0
-        # Width [km], average
-        main_glac_width_region = modelsetup.import_Husstable(
-                main_glac_rgi_region, [region], input.width_filepath, input.width_filedict, input.width_colsdrop)
-        # ===== CLIMATE DATA =====
-        gcm = class_climate.GCM(name=input.ref_gcm_name)
-        # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-        gcm_temp_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
-                gcm.temp_fn, gcm.temp_vn, main_glac_rgi_region, dates_table_nospinup)
-        gcm_prec_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
-                gcm.prec_fn, gcm.prec_vn, main_glac_rgi_region, dates_table_nospinup)
-        gcm_elev_region = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_region)
-        # Lapse rate [K m-1]
-        gcm_lr_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
-                gcm.lr_fn, gcm.lr_vn, main_glac_rgi_region, dates_table_nospinup)
         # ===== CALIBRATION DATA =====
         cal_data_region = pd.DataFrame()
         for dataset in cal_datasets:
@@ -226,55 +133,89 @@ def load_glacierdata_byglacno(glac_no):
             cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
         cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
         cal_data_region.reset_index(drop=True, inplace=True)
+        
+        # ===== OTHER DATA =====
+        if option_loadhyps_climate == 1:
+            # Ice thickness [m], average
+            main_glac_icethickness_region = modelsetup.import_Husstable(
+                    main_glac_rgi_region, [region], input.thickness_filepath, input.thickness_filedict, 
+                    input.thickness_colsdrop)
+            main_glac_hyps_region[main_glac_icethickness_region == 0] = 0
+            # Width [km], average
+            main_glac_width_region = modelsetup.import_Husstable(
+                    main_glac_rgi_region, [region], input.width_filepath, input.width_filedict, input.width_colsdrop)
+            # ===== CLIMATE DATA =====
+            gcm = class_climate.GCM(name=input.ref_gcm_name)
+            # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+            gcm_temp_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
+                    gcm.temp_fn, gcm.temp_vn, main_glac_rgi_region, dates_table_nospinup)
+            gcm_prec_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
+                    gcm.prec_fn, gcm.prec_vn, main_glac_rgi_region, dates_table_nospinup)
+            gcm_elev_region = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_region)
+            # Lapse rate [K m-1]
+            gcm_lr_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
+                    gcm.lr_fn, gcm.lr_vn, main_glac_rgi_region, dates_table_nospinup)
+        
         # ===== APPEND DATASETS =====
         if count == 1:
             main_glac_rgi = main_glac_rgi_region
-            main_glac_hyps = main_glac_hyps_region
-            main_glac_icethickness = main_glac_icethickness_region
-            main_glac_width = main_glac_width_region
-            gcm_temp = gcm_temp_region
-            gcm_prec = gcm_prec_region
-            gcm_elev = gcm_elev_region
-            gcm_lr = gcm_lr_region
             cal_data = cal_data_region
+        
+            if option_loadhyps_climate == 1:
+                main_glac_hyps = main_glac_hyps_region
+                main_glac_icethickness = main_glac_icethickness_region
+                main_glac_width = main_glac_width_region
+                gcm_temp = gcm_temp_region
+                gcm_prec = gcm_prec_region
+                gcm_elev = gcm_elev_region
+                gcm_lr = gcm_lr_region
+                
         else:
             main_glac_rgi = main_glac_rgi.append(main_glac_rgi_region)
-            # If more columns in region, then need to expand existing dataset
-            if main_glac_hyps_region.shape[1] > main_glac_hyps.shape[1]:
-                all_col = list(main_glac_hyps.columns.values)
-                reg_col = list(main_glac_hyps_region.columns.values)
-                new_cols = [item for item in reg_col if item not in all_col]
-                for new_col in new_cols:
-                    main_glac_hyps[new_col] = 0
-                    main_glac_icethickness[new_col] = 0
-                    main_glac_width[new_col] = 0
-            elif main_glac_hyps_region.shape[1] < main_glac_hyps.shape[1]:
-                all_col = list(main_glac_hyps.columns.values)
-                reg_col = list(main_glac_hyps_region.columns.values)
-                new_cols = [item for item in all_col if item not in reg_col]
-                for new_col in new_cols:
-                    main_glac_hyps_region[new_col] = 0
-                    main_glac_icethickness_region[new_col] = 0
-                    main_glac_width_region[new_col] = 0
-            main_glac_hyps = main_glac_hyps.append(main_glac_hyps_region)
-            main_glac_icethickness = main_glac_icethickness.append(main_glac_icethickness_region)
-            main_glac_width = main_glac_width.append(main_glac_width_region)
-            gcm_temp = np.vstack([gcm_temp, gcm_temp_region])
-            gcm_prec = np.vstack([gcm_temp, gcm_temp_region])
-            gcm_elev = np.vstack([gcm_temp, gcm_temp_region])
-            gcm_lr = np.vstack([gcm_temp, gcm_temp_region])
             cal_data = cal_data.append(cal_data_region)
-        
+            
+            if option_loadhyps_climate == 1:
+                # If more columns in region, then need to expand existing dataset
+                if main_glac_hyps_region.shape[1] > main_glac_hyps.shape[1]:
+                    all_col = list(main_glac_hyps.columns.values)
+                    reg_col = list(main_glac_hyps_region.columns.values)
+                    new_cols = [item for item in reg_col if item not in all_col]
+                    for new_col in new_cols:
+                        main_glac_hyps[new_col] = 0
+                        main_glac_icethickness[new_col] = 0
+                        main_glac_width[new_col] = 0
+                elif main_glac_hyps_region.shape[1] < main_glac_hyps.shape[1]:
+                    all_col = list(main_glac_hyps.columns.values)
+                    reg_col = list(main_glac_hyps_region.columns.values)
+                    new_cols = [item for item in all_col if item not in reg_col]
+                    for new_col in new_cols:
+                        main_glac_hyps_region[new_col] = 0
+                        main_glac_icethickness_region[new_col] = 0
+                        main_glac_width_region[new_col] = 0
+                main_glac_hyps = main_glac_hyps.append(main_glac_hyps_region)
+                main_glac_icethickness = main_glac_icethickness.append(main_glac_icethickness_region)
+                main_glac_width = main_glac_width.append(main_glac_width_region)
+            
+                gcm_temp = np.vstack([gcm_temp, gcm_temp_region])
+                gcm_prec = np.vstack([gcm_prec, gcm_prec_region])
+                gcm_elev = np.concatenate([gcm_elev, gcm_elev_region])
+                gcm_lr = np.vstack([gcm_lr, gcm_lr_region])
+            
     # reset index
     main_glac_rgi.reset_index(inplace=True, drop=True)
-    main_glac_hyps.reset_index(inplace=True, drop=True)
-    main_glac_icethickness.reset_index(inplace=True, drop=True)
-    main_glac_width.reset_index(inplace=True, drop=True)
     cal_data.reset_index(inplace=True, drop=True)
     
-    return (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-            gcm_temp, gcm_prec, gcm_elev, gcm_lr, 
-            cal_data, dates_table)
+    if option_loadhyps_climate == 1:
+        main_glac_hyps.reset_index(inplace=True, drop=True)
+        main_glac_icethickness.reset_index(inplace=True, drop=True)
+        main_glac_width.reset_index(inplace=True, drop=True)
+    
+    if option_loadhyps_climate == 0:
+        return main_glac_rgi, cal_data
+    else:
+        return (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
+                gcm_temp, gcm_prec, gcm_elev, gcm_lr, 
+                cal_data, dates_table)
 
     
 def effective_n(ds, vn, iters, burn, chain=0):
@@ -511,7 +452,7 @@ def pickle_data(fn, data):
         pickle.dump(data, f)
         
         
-def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=mcmc_output_figures_fp):
+def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=input.output_filepath):
         """
         Plot histogram for any bin size
         """           
@@ -698,8 +639,7 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
     # OPTIMAL PRECIPITATION FACTOR (TC = 0 or TC_boundlow)
     # Find optimized tempchange in agreement with observed mass balance
     tempchange_4opt = tempchange_init
-    print('tempchange_4opt:', tempchange_init,
-          '\nddfsnow_4opt:', )
+    print('tempchange_4opt:', tempchange_init)
     precfactor_opt_init = [1]
     precfactor_opt_bnds = (0, 10)
     precfactor_opt_all = minimize(find_precfactor_opt, precfactor_opt_init, args=(tempchange_4opt), 
@@ -833,7 +773,7 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
                           glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
                           observed_error, mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, 
-                          option_areaconstant=0, option_plotsteps=1):
+                          option_areaconstant=0, option_plotsteps=1, fig_fp=input.output_filepath):
     """
     Plot the mass balance [mwea] versus all model parameters to see how parameters effect mass balance
     """
@@ -956,12 +896,12 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
         
         
     ax.legend(leg_lines, leg_names, loc='upper right', frameon=False)
-    fig.savefig(mcmc_output_figures_fp + glacier_str + '_mb_vs_parameters.png', 
+    fig.savefig(fig_fp + glacier_str + '_mb_vs_parameters.png', 
                 bbox_inches='tight', dpi=300)    
     
 
 # ===== PLOT OPTIONS ==================================================================================================
-def metrics_vs_chainlength(regions, iters, burn=0):
+def metrics_vs_chainlength(netcdf_fp, regions, iters, burn=0, nchain=3):
     """
     Plot Gelman-Rubin, Monte Carlo error, and effective sample size for each parameter for various chain lengths
 
@@ -981,13 +921,25 @@ def metrics_vs_chainlength(regions, iters, burn=0):
     .pkl files
         saves .pkl files of the metrics for various iterations (if they don't already exist)
     """
+##%%
 #for batman in [0]:
+#    netcdf_fp = mcmc_output_netcdf_fp_3chain
+#    nchain = 3
 #    iters = iterations
     
+    # Load netcdf filenames    
     filelist = []
     for region in regions:
-        filelist.extend(glob.glob(mcmc_output_netcdf_fp + str(region) + '*.nc'))
-        
+        filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))  
+    
+    # ===== LOAD OR CALCULATE METRICS =====
+    fig_fp = netcdf_fp + 'figures/'
+    csv_fp = netcdf_fp + 'csv/'
+    en_fn_pkl = csv_fp + 'effective_n_list.pkl'
+    mc_fn_pkl = csv_fp + 'mc_error_list.pkl'
+    gr_fn_pkl = csv_fp + 'gelman_rubin_list.pkl'
+    glacno_fn_pkl = csv_fp + 'glacno_list.pkl'
+    
     # Check if list already exists
     iter_ending = '_' + str(iterstep) + 'iterstep.pkl'
     en_fn_pkl.replace('.pkl', iter_ending)
@@ -997,10 +949,12 @@ def metrics_vs_chainlength(regions, iters, burn=0):
             en_list = pickle.load(f)
         with open(mc_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
             mc_list = pickle.load(f)
-        with open(gr_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
-            gr_list = pickle.load(f)
+        if nchain > 1:
+            with open(gr_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
+                gr_list = pickle.load(f)
+        with open(glacno_fn_pkl, 'rb') as f:
+            glac_no = pickle.load(f)
     else:
-        #%%
         # Lists to record metrics
         glac_no = []
         en_list = {}
@@ -1013,7 +967,8 @@ def metrics_vs_chainlength(regions, iters, burn=0):
             glac_str = netcdf.split('/')[-1].split('.nc')[0]
             glac_no.append(glac_str)
             count += 1
-            print(count, glac_str)
+            if count%250 == 0:
+                print(count, glac_str)
     
             en_list[glac_str] = {}
             gr_list[glac_str] = {}
@@ -1043,14 +998,16 @@ def metrics_vs_chainlength(regions, iters, burn=0):
         
             
         # Pickle lists for next time
-        if os.path.exists(mcmc_output_csv_fp) == False:
-            os.makedirs(mcmc_output_csv_fp)
+        if os.path.exists(csv_fp) == False:
+            os.makedirs(csv_fp)
                 
         pickle_data(en_fn_pkl.replace('.pkl', iter_ending), en_list)
         pickle_data(mc_fn_pkl.replace('.pkl', iter_ending), mc_list)
         if len(ds.chain) > 1:
             pickle_data(gr_fn_pkl.replace('.pkl', iter_ending), gr_list)
-    
+        pickle_data(glacno_fn_pkl, glac_no)
+        
+    # ===== PLOT METRICS =====
     colors = ['#387ea0', '#fcb200', '#d20048']
     figwidth=6.5
     figheight=8
@@ -1061,8 +1018,6 @@ def metrics_vs_chainlength(regions, iters, burn=0):
     df_cns = ['iters', 'mean', 'std', 'median', 'lowbnd', 'highbnd']
 
     for nmetric, metric in enumerate(metrics):
-#    for nmetric, metric in enumerate(['MC Error']):
-        
         if metric == 'Effective N':
             metric_list = en_list
         elif metric == 'MC Error':
@@ -1071,21 +1026,16 @@ def metrics_vs_chainlength(regions, iters, burn=0):
             metric_list = gr_list
             
         for nvar, vn in enumerate(variables):
-#        for nvar, vn in enumerate(['massbal']):
-            
             metric_df = pd.DataFrame(np.zeros((len(iterations), len(df_cns))), columns=df_cns)
             metric_df['iters'] = iterations
             
             for niter, iteration in enumerate(iterations):
-                iter_list = [i[niter] for i in metric_list[nvar][1]]
+                iter_list = [metric_list[i][vn][iteration] for i in glac_no]
                 metric_df.loc[niter,'mean'] = np.mean(iter_list)
                 metric_df.loc[niter,'median'] = np.median(iter_list)
                 metric_df.loc[niter,'std'] = np.std(iter_list)
                 metric_df.loc[niter,'lowbnd'] = np.percentile(iter_list,low_percentile)
                 metric_df.loc[niter,'highbnd'] = np.percentile(iter_list,high_percentile)
-                
-#                if iteration == 10000:
-#                    A = iter_list.copy()
             
             if metric == 'MC Error':
                 metric_idx = np.where(metric_df.iters == 10000)[0][0]
@@ -1146,25 +1096,14 @@ def metrics_vs_chainlength(regions, iters, burn=0):
                 
     # Save figure
     fig.set_size_inches(figwidth,figheight)
-    if os.path.exists(mcmc_output_figures_fp) == False:
-        os.makedirs(mcmc_output_figures_fp)
+    if os.path.exists(fig_fp) == False:
+        os.makedirs(fig_fp)
     figure_fn = 'chainlength_vs_metrics.png'
-    fig.savefig(mcmc_output_figures_fp + figure_fn, bbox_inches='tight', dpi=300)
-    
-##    #%%
-##    # Plot glacier area vs. mass balance
-##    A = [i[9] for i in mc_list[0][1]]
-##    #%%
-##    fig, ax = plt.subplots()
-##    ax.scatter(main_glac_rgi['Area'].values, A, s=5)
-##    
-##    ax.set(xlabel='Area [km2]', ylabel='Monte Carlo Error\nMass Balance [mwea]')
-##    ax.set_ylim(0,0.04)
-##    fig.savefig(mcmc_output_figures_fp + "MB_MCerror_scatter.png")
-##    plt.show()   
+    fig.savefig(fig_fp + figure_fn, bbox_inches='tight', dpi=300)
+
     
 #%%        
-def observation_vs_calibration(regions, chainlength=chainlength, burn=0):
+def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn=0, chain_no=0):
     """
     Compare mass balance observations with model calibration
     
@@ -1184,9 +1123,32 @@ def observation_vs_calibration(regions, chainlength=chainlength, burn=0):
     .csv file
         saves .csv file of comparison
     """
-
-    main_glac_rgi, cal_data, glac_no = load_glacier_and_cal_data(regions)
+#%%
+#for batman in [0]:
+#    netcdf_fp = mcmc_output_netcdf_fp_3chain
+#    chain_no = 0
     
+    
+    
+    csv_fp = netcdf_fp + 'csv/'
+    
+    filelist = []
+    for region in regions:
+        filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
+    
+    glac_no = []
+    reg_no = []
+    for netcdf in filelist:
+        glac_str = netcdf.split('/')[-1].split('.nc')[0]
+        glac_no.append(glac_str)
+        reg_no.append(glac_str.split('.')[0])
+    glac_no = sorted(glac_no)
+        
+    (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
+     gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+    
+    
+    #%%
     # Mass balance comparison: observations and model
     mb_compare_cols = ['glacno', 'obs_mwea', 'obs_mwea_std', 'mod_mwea', 'mod_mwea_std', 'dif_mwea']
     mb_compare = pd.DataFrame(np.zeros((len(glac_no), len(mb_compare_cols))), columns=mb_compare_cols)
@@ -1196,17 +1158,19 @@ def observation_vs_calibration(regions, chainlength=chainlength, burn=0):
     for nglac, glac in enumerate(glac_no):
         # open dataset
         if nglac%500 == 0:
-            print(glac)
-        ds = xr.open_dataset(mcmc_output_netcdf_fp + glac + '.nc')
-        mb_all = ds['mp_value'].sel(chain=0, mp='massbal').values[burn:chainlength]
+            print(nglac, glac)
+        ds = xr.open_dataset(netcdf_fp + glac + '.nc')
+        mb_all = ds['mp_value'].sel(chain=chain_no, mp='massbal').values[burn:chainlength]
         mb_compare.loc[nglac, 'mod_mwea'] = np.mean(mb_all)
         mb_compare.loc[nglac, 'mod_mwea_std'] = np.std(mb_all)
         # close dataset
         ds.close()
 
     # export csv
+    if os.path.exists(csv_fp) == False:
+        os.makedirs(csv_fp)   
     mb_compare['dif_mwea'] = mb_compare['obs_mwea'] - mb_compare['mod_mwea']
-    mb_compare.to_csv(mcmc_output_csv_fp + 'mb_compare_' + str(int(chainlength/1000)) + 'k.csv')
+    mb_compare.to_csv(csv_fp + 'mb_compare_' + str(int(chainlength/1000)) + 'k.csv')
 
     # plot histogram
     dif_bins = [-1,-0.2, -0.1, -0.05,-0.02, 0.02, 0.05, 0.1, 0.2, 1]
@@ -1221,7 +1185,7 @@ def observation_vs_calibration(regions, chainlength=chainlength, burn=0):
     #%%
     
 
-def prior_vs_posterior_single(glac_no, iters=[1000,15000], precfactor_disttype=input.precfactor_disttype, 
+def prior_vs_posterior_single(glac_no, netcdf_fp, iters=[1000,15000], precfactor_disttype=input.precfactor_disttype, 
                               tempchange_disttype = input.tempchange_disttype, 
                               ddfsnow_disttype = input.ddfsnow_disttype):
     """ Plot prior vs posterior of individual glacier for different chain lengths
@@ -1303,7 +1267,7 @@ def prior_vs_posterior_single(glac_no, iters=[1000,15000], precfactor_disttype=i
         mb_obs_min = observed_massbal - 3 * observed_error
         
         # MCMC Analysis
-        ds = xr.open_dataset(mcmc_output_netcdf_fp + glacier_str + '.nc')
+        ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
         df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
         print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
         
@@ -1485,10 +1449,28 @@ def prior_vs_posterior_single(glac_no, iters=[1000,15000], precfactor_disttype=i
 
 #%%         
 if option_metrics_vs_chainlength == 1:
-    metrics_vs_chainlength(regions, iterations, burn=burn)    
+    # 3 chain metrics
+    print('3 CHAIN METRICS')
+    iterstep = 1000
+    itermax = 25000
+    iterations = np.arange(0, itermax, iterstep)
+    if iterations[1] < 1000: 
+        iterations[0] = 1000
+    else:
+        iterations = iterations[1:]
+    if iterations[-1] != itermax:
+        iterations = np.append(iterations, itermax)
+    metrics_vs_chainlength(mcmc_output_netcdf_fp_3chain, regions, iterations, burn=burn, nchain=3) 
+    
+
+if option_metrics_histogram_all == 1:
+    print('code this plot!')
+    
 
 if option_observation_vs_calibration == 1:
-    observation_vs_calibration(regions, chainlength=chainlength, burn=burn)
+    observation_vs_calibration(regions, mcmc_output_netcdf_fp_3chain, chainlength=chainlength, burn=burn)
+
+
 
 if option_prior_vs_posterior == 1:
     glac_no = ['13.26360']
@@ -1507,18 +1489,29 @@ if option_papermcmc_prior_vs_posterior == 1:
 if option_papermcmc_solutionspace == 1:
     
     glac_no = ['13.26360']
+    netcdf_fp = mcmc_output_netcdf_fp_3chain
+    
+    filelist = []
+    for region in regions:
+        filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
+    
+    glac_no = []
+    reg_no = []
+    for netcdf in filelist:
+        glac_str = netcdf.split('/')[-1].split('.nc')[0]
+        glac_no.append(glac_str)
+        reg_no.append(glac_str.split('.')[0])
+    glac_no = sorted(glac_no)
     
     (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-     gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = (
-             load_glacierdata_byglacno(glac_no))
-
+     gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+    
     # Elevation bins
     elev_bins = main_glac_hyps.columns.values.astype(int) 
     
     for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
         # Glacier string
         glacier_str = glac_str_wRGI.split('-')[1]
-        print(glacier_str)
         # Glacier number
         glacno = int(glacier_str.split('.')[1])
         # RGI information
@@ -1537,7 +1530,7 @@ if option_papermcmc_solutionspace == 1:
         mb_obs_min = observed_massbal - 3 * observed_error
         
         # MCMC Analysis
-        ds = xr.open_dataset(mcmc_output_netcdf_fp + glacier_str + '.nc')
+        ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
         df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
         print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
         
@@ -1589,6 +1582,128 @@ if option_papermcmc_solutionspace == 1:
                               observed_error, mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, 
                               option_areaconstant=1)
         
+ #%%       
+if option_papermcmc_allglaciers_posteriorchanges == 1:
+    print('code changes!')
+    
+
+#%%
+if option_priors_tocsv == 1:
+    netcdf_fp = mcmc_output_netcdf_fp_3chain
+    
+    regions = ['13']
+    
+    filelist = []
+    for region in regions:
+        filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
+    
+    glac_no = []
+    reg_no = []
+    for netcdf in filelist:
+        glac_str = netcdf.split('/')[-1].split('.nc')[0]
+        glac_no.append(glac_str)
+        reg_no.append(glac_str.split('.')[0])
+    glac_no = sorted(glac_no)
+    
+    glac_no = [glac_no[1]]
+    
+    (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
+     gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+    
+    # Elevation bins
+    elev_bins = main_glac_hyps.columns.values.astype(int) 
+    
+    prior_cns = ['glacier_str', 'pf_bndlow', 'pf_bndhigh', 'pf_mu', 'tc_bndlow', 'tc_bndhigh', 'tc_mu', 'tc_std', 
+                 'ddfsnow_bndlow', 'ddfsnow_bndhigh', 'ddfsnow_mu', 'ddfsnow_std', 'mb_max_loss', 'mb_max_acc', 
+                 'tc_maxloss', 'tc_max_acc','pf_opt_init', 'tc_opt_init']
+    priors_df = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(prior_cns))), columns=prior_cns)
+    glacier_str_all = [i.split('-')[1] for i in main_glac_rgi['RGIId'].values]
+    priors_df['glacier_str'] = glacier_str_all
+    priors_df['ddfsnow_mu'] = input.ddfsnow_mu
+    priors_df['ddfsnow_std'] = input.ddfsnow_sigma
+    priors_df['ddfsnow_bndlow'] = input.ddfsnow_boundlow
+    priors_df['ddfsnow_bndhigh'] = input.ddfsnow_boundhigh
+    
+    for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
+        # Glacier string
+        glacier_str = glac_str_wRGI.split('-')[1]
+        print(n, glacier_str)
+            
+        # Glacier number
+        glacno = int(glacier_str.split('.')[1])
+        # RGI information
+        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
+        # Calibration data
+        cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+        glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
+        # Select observed mass balance, error, and time data
+        t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
+        t2 = glacier_cal_data.loc[cal_idx, 't2'].values[0]
+        t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
+        t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+        observed_massbal = (glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)).values[0]
+        observed_error = (glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)).values[0]
+        mb_obs_max = observed_massbal + 3 * observed_error
+        mb_obs_min = observed_massbal - 3 * observed_error
+        
+        # MCMC Analysis
+        ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
+        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
+        print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
+        
+        if 'priors' in list(ds.data_vars):
+            ds_priors = pd.Series(ds['priors'].values, index=ds['dim_0'])
+        else:
+        
+            # Select subsets of data
+            glacier_gcm_elev = gcm_elev[n]
+            glacier_gcm_temp = gcm_temp[n,:]
+            glacier_gcm_lrgcm = gcm_lr[n,:]
+            glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+            glacier_gcm_prec = gcm_prec[n,:]
+            glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
+            icethickness_t0 = main_glac_icethickness.iloc[n,:].values.astype(float)
+            width_t0 = main_glac_width.iloc[n,:].values.astype(float)
+            glac_idx_t0 = glacier_area_t0.nonzero()[0]
+            # Set model parameters
+            modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
+                               input.tempsnow, input.tempchange]
+            
+            # RETRIEVE PARAMETERS FOR PRIOR DISTRIBUTIONS
+            (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
+             tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start, tempchange_max_loss, 
+             tempchange_max_acc, mb_max_loss, mb_max_acc, precfactor_opt_init, tempchange_opt_init) = (
+                     retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               t1_idx, t2_idx, t1, t2, observed_massbal, mb_obs_min, mb_obs_max))
+    
+            # Record parameters        
+            priors_df.loc[n, 'pf_bndlow'] = precfactor_boundlow
+            priors_df.loc[n, 'pf_bndhigh'] = precfactor_boundhigh
+            priors_df.loc[n, 'pf_mu'] = precfactor_mu
+            priors_df.loc[n, 'tc_bndlow'] = tempchange_boundlow
+            priors_df.loc[n, 'tc_bndhigh'] = tempchange_boundhigh
+            priors_df.loc[n, 'tc_mu'] = tempchange_mu
+            priors_df.loc[n, 'tc_std'] = tempchange_sigma
+            priors_df.loc[n, 'mb_max_loss'] = mb_max_loss
+            priors_df.loc[n, 'mb_max_acc'] = mb_max_acc
+            priors_df.loc[n, 'tc_max_loss'] = tempchange_max_loss
+            priors_df.loc[n, 'tc_max_acc'] = tempchange_max_acc
+            priors_df.loc[n, 'pf_opt_init'] = precfactor_opt_init
+            priors_df.loc[n, 'tc_opt_init'] = tempchange_opt_init
+        
+            ds_prior_cns = prior_cns[1:]
+            ds_priors = priors_df.loc[n, ds_prior_cns]
+            ds['priors'] = ds_priors
+            ds.close()
+            ds.to_netcdf(netcdf_fp + glacier_str + '.nc')
+            ds.close()
+        
+        print(ds_priors)
+        
+        
+        
 #%%
 #percentiles = np.arange(5,100,5)
 #mcerror_percentiles = []
@@ -1608,7 +1723,7 @@ if option_papermcmc_solutionspace == 1:
 #%%
 ## open dataset
 #glac_str = '13.00964'
-#netcdf = mcmc_output_netcdf_fp + glac_str + '.nc'
+#netcdf = filepath + glac_str + '.nc'
 #chainlength = 10000
 #vn = 'massbal'
 #burn = 0

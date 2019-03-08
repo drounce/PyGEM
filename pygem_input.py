@@ -109,7 +109,7 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13]
+rgi_regionsO1 = [14]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
@@ -326,10 +326,14 @@ if option_calibration == 1:
             14: output_filepath + 'cal_opt1/reg14/',
             15: output_filepath + 'cal_opt1/reg15/'}
 elif option_calibration == 2:
+#    modelparams_fp_dict = {
+#            13: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
+#            14: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
+#            15: output_filepath + 'cal_opt2_spc_20190224_adjp15/'}
     modelparams_fp_dict = {
-            13: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
-            14: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
-            15: output_filepath + 'cal_opt2_spc_20190224_adjp15/'}
+            13: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
+            14: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
+            15: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/'}
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
