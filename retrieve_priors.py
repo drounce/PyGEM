@@ -191,7 +191,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
 def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                               glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
                               glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, observed_massbal, mb_obs_min,
-                              mb_obs_max):    
+                              mb_obs_max, debug=False):    
     def mb_mwea_calc(modelparameters, option_areaconstant=1):
         """
         Run the mass balance and calculate the mass balance [mwea]
@@ -290,11 +290,12 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
             mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=1)
         tempchange_boundhigh = modelparameters[7] + input.tempchange_step
         
-#    print('mb_max_loss:', np.round(mb_max_loss,2), 
-#          'TC_max_loss_AreaEvolve:', np.round(tempchange_max_loss,2),
-#          '\nmb_AreaConstant:', np.round(mb_tc_boundhigh,2), 
-#          'TC_boundhigh:', np.round(tempchange_boundhigh,2), 
-#          '\nmb_obs_min:', np.round(mb_obs_min,2))
+    if debug:
+        print('mb_max_loss:', np.round(mb_max_loss,2), 
+              'TC_max_loss_AreaEvolve:', np.round(tempchange_max_loss,2),
+              '\nmb_AreaConstant:', np.round(mb_tc_boundhigh,2), 
+              'TC_boundhigh:', np.round(tempchange_boundhigh,2), 
+              '\nmb_obs_min:', np.round(mb_obs_min,2))
     
     # ----- TEMPBIAS: LOWER BOUND -----
     # AVOID EDGE EFFECTS (ONLY RELEVANT AT TC LOWER BOUND)
@@ -332,13 +333,14 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
             tc_norm_1 = tc_norm_calc(modelparameters[7])
             mb_norm_1 = mb_norm_calc(mb_mwea_calc(modelparameters, option_areaconstant=1))
             mb_slope = (mb_norm_2 - mb_norm_1) / (tc_norm_2 - tc_norm_1)
-            
-#    mb_tc_boundlow = mb_mwea_calc(modelparameters, option_areaconstant=1)
-#    print('\nmb_max_acc:', np.round(mb_max_acc,2), 'TC_max_acc:', np.round(tempchange_max_acc,2),
-#          '\nmb_TC_boundlow_PF1:', np.round(mb_tc_boundlow,2), 
-#          'TC_boundlow:', np.round(tempchange_boundlow,2),
-#          '\nmb_obs_max:', np.round(mb_obs_max,2)
-#          )
+    
+    if debug: 
+        mb_tc_boundlow = mb_mwea_calc(modelparameters, option_areaconstant=1)
+        print('\nmb_max_acc:', np.round(mb_max_acc,2), 'TC_max_acc:', np.round(tempchange_max_acc,2),
+              '\nmb_TC_boundlow_PF1:', np.round(mb_tc_boundlow,2), 
+              'TC_boundlow:', np.round(tempchange_boundlow,2),
+              '\nmb_obs_max:', np.round(mb_obs_max,2)
+              )
         
     # ----- OTHER PARAMETERS -----
     # Assign TC_sigma
@@ -355,7 +357,6 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
     # OPTIMAL PRECIPITATION FACTOR (TC = 0 or TC_boundlow)
     # Find optimized tempchange in agreement with observed mass balance
     tempchange_4opt = tempchange_init
-#    print('tempchange_4opt:', tempchange_init)
     precfactor_opt_init = [1]
     precfactor_opt_bnds = (0, 10)
     precfactor_opt_all = minimize(find_precfactor_opt, precfactor_opt_init, args=(tempchange_4opt), 
@@ -366,7 +367,10 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
         precfactor_opt1 = precfactor_opt[0]
     except:
         precfactor_opt1 = precfactor_opt
-#    print('\nprecfactor_opt:', precfactor_opt)
+        
+    if debug:    
+        print('tempchange_4opt:', tempchange_init)
+        print('\nprecfactor_opt:', precfactor_opt)
     
     # Adjust precfactor so it's not < 0.5 or greater than 5
     precfactor_opt_low = 0.5
@@ -393,8 +397,9 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
     except:
         tempchange_opt1 = tempchange_opt
         
-#    print('\nprecfactor_opt (adjusted):', precfactor_opt)
-#    print('tempchange_opt:', tempchange_opt)
+    if debug:
+        print('\nprecfactor_opt (adjusted):', precfactor_opt)
+        print('tempchange_opt:', tempchange_opt)
 
     # TEMPCHANGE_SIGMA: derived from mb_obs_min and mb_obs_max
     # MB_obs_min
@@ -408,7 +413,8 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
         modelparameters[7] = tempchange_opt + tempchange_adj
         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
         
-#    print('tempchange_adj_4min:', tempchange_adj)
+    if debug:
+        print('tempchange_adj_4min:', tempchange_adj)
         
     # Expand upper bound if necessary
     if modelparameters[7] > tempchange_boundhigh:
@@ -423,8 +429,9 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
         if modelparameters[7] < tempchange_boundlow:
             modelparameters[7] = tempchange_boundlow
         mb_mwea = mb_mwea_calc(modelparameters, option_areaconstant=1)
-        
-#    print('tempchange_adj_4max:', tempchange_adj)
+    
+    if debug:
+        print('tempchange_adj_4max:', tempchange_adj)
 
     tempchange_sigma = tempchange_adj / 3
     
@@ -471,7 +478,6 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
         tempchange_opt_all = minimize(find_tempchange_opt, tempchange_opt_init, args=(precfactor_mu), 
                                       bounds=[tempchange_opt_bnds], method='L-BFGS-B')
         tempchange_opt = tempchange_opt_all.x[0]
-    
     
     precfactor_start = precfactor_mu
     if tempchange_boundlow < tempchange_opt + input.tempchange_mu_adj < tempchange_boundhigh:
@@ -541,17 +547,16 @@ def main(list_packed_vars):
         observed_error = glacier_cal_data['mb_mwe_err'] / (t2 - t1)
         mb_obs_max = observed_massbal + 3 * observed_error
         mb_obs_min = observed_massbal - 3 * observed_error
-
-        # MCMC Analysis
-        ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc') 
         
         netcdf_fp_new = netcdf_fp + 'wpriors/'
         if os.path.exists(netcdf_fp_new) == False:
             os.makedirs(netcdf_fp_new)
         
         if os.path.isfile(netcdf_fp_new + glacier_str + '.nc'):
+            ds = xr.open_dataset(netcdf_fp_new + glacier_str + '.nc') 
             ds_priors = pd.Series(ds['priors'].values, index=ds['dim_0'])
         else:
+            ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc') 
         
             # Select subsets of data
             glacier_gcm_elev = gcm_elev[n]
