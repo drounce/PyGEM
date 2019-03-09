@@ -516,7 +516,7 @@ def main(list_packed_vars):
     
     prior_cns = ['glacier_str', 'pf_bndlow', 'pf_bndhigh', 'pf_mu', 'tc_bndlow', 'tc_bndhigh', 'tc_mu', 'tc_std', 
                  'ddfsnow_bndlow', 'ddfsnow_bndhigh', 'ddfsnow_mu', 'ddfsnow_std', 'mb_max_loss', 'mb_max_acc', 
-                 'tc_maxloss', 'tc_max_acc','pf_opt_init', 'tc_opt_init']
+                 'tc_max_loss', 'tc_max_acc','pf_opt_init', 'tc_opt_init']
     priors_df = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(prior_cns))), columns=prior_cns)
     glacier_str_all = [i.split('-')[1] for i in main_glac_rgi['RGIId'].values]
     priors_df['glacier_str'] = glacier_str_all
@@ -666,7 +666,7 @@ if __name__ == '__main__':
         pickle_data(pickle_fn, glac_no)
     else:
         
-#        glac_no = [glac_no[0]]
+        glac_no = ['15.06686']
         
         (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
          gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)

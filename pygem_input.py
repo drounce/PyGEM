@@ -115,8 +115,8 @@ rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 rgi_glac_number = 'all'
 #rgi_glac_number = ['00002']
-rgi_glac_number = ['03473']
-#rgi_glac_number = glac_num_fromrange(1,30000)
+#rgi_glac_number = ['03473']
+#rgi_glac_number = glac_num_fromrange(1,4)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
@@ -146,10 +146,10 @@ option_wateryear = 3
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-#gcm_startyear = 1980
-#gcm_endyear = 2017
-gcm_startyear = 2000
-gcm_endyear = 2005
+gcm_startyear = 1980
+gcm_endyear = 2017
+#gcm_startyear = 2000
+#gcm_endyear = 2005
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
@@ -241,9 +241,9 @@ new_setup = 1
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 1
+sim_iters = 100
 #print('\n\nChange back sim_iters\n\n')
-sim_burn = 0
+sim_burn = 200
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
 # Simulation output statistics
@@ -326,14 +326,18 @@ if option_calibration == 1:
             14: output_filepath + 'cal_opt1/reg14/',
             15: output_filepath + 'cal_opt1/reg15/'}
 elif option_calibration == 2:
+    modelparams_fp_dict = {
+            13: output_filepath + 'cal_opt2/',
+            14: output_filepath + 'cal_opt2/',
+            15: output_filepath + 'cal_opt2/'}
 #    modelparams_fp_dict = {
 #            13: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
 #            14: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
 #            15: output_filepath + 'cal_opt2_spc_20190224_adjp15/'}
-    modelparams_fp_dict = {
-            13: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
-            14: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
-            15: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/'}
+#    modelparams_fp_dict = {
+#            13: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
+#            14: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
+#            15: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/'}
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -773,7 +777,9 @@ time_names = ['time', 'year', 'year_plus1']
 output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 
                             'refreeze_glac_monthly', 'melt_glac_monthly', 'frontalablation_glac_monthly', 
                             'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
-                            'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual']
+                            'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual', 
+                            'offglac_prec_monthly', 'offglac_refreeze_monthly', 'offglac_melt_monthly', 
+                            'offglac_snowpack_monthly', 'offglac_runoff_monthly']
 
 #%% WARNING MESSAGE OPTION
 option_warningmessages = 1

@@ -43,6 +43,8 @@ def getparser():
         RGI region number for supercomputer 
     rgi_glac_number_fn : str
         filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
+    rgi_glac_number : str
+        rgi glacier number to run for supercomputer
     progress_bar : int
         Switch for turning the progress bar on or off (default = 0 (off))
     debug : int
@@ -68,20 +70,58 @@ def getparser():
                         help='Boolean for the progress bar to turn it on or off (default 0 is off)')
     parser.add_argument('-debug', action='store', type=int, default=0,
                         help='Boolean for debugging to turn it on or off (default 0 is off)')
-                        
-                        
     parser.add_argument('-rgi_glac_number', action='store', type=str, default=None,
                         help='rgi glacier number for supercomputer')
-                        
-                        
     return parser
+
 
 def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                               glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
                               glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, observed_massbal, mb_obs_min,
                               mb_obs_max, debug=False): 
-    """Calculate parameters for prior distribution for the MCMC analysis
+    """
+    Calculate parameters for prior distributions for the MCMC analysis
     
+    Parameters
+    ----------
+    modelparameters
+    glacier_rgi_table
+    glacier_area_t0
+    icethickness_t0
+    width_t0
+    elev_bins
+    glacier_gcm_temp
+    glacier_gcm_prec
+    glacier_gcm_elev
+    glacier_gcm_lrgcm
+    glacier_gcm_lrglac
+    dates_table
+    t1_idx
+    t2_idx
+    t1
+    t2
+    observed_massbal
+    mb_obs_min
+    mb_obs_max
+    debug=False
+    
+    Returns
+    -------
+    precfactor_boundlow
+    precfactor_boundhigh
+    precfactor_mu
+    precfactor_start
+    tempchange_boundlow
+    tempchange_boundhigh
+    tempchange_mu
+    tempchange_sigma
+    tempchange_start
+    tempchange_max_loss
+    tempchange_max_acc
+    mb_max_loss
+    mb_max_acc
+    precfactor_opt1
+    tempchange_opt1
     """
     def mb_mwea_calc(modelparameters, option_areaconstant=1):
         """
@@ -402,142 +442,7 @@ def main(list_packed_vars):
     -------
     netcdf files of the calibration output
         Depending on the calibration scheme additional output may be exported as well
-    """
-##    # Unpack variables
-##    count = list_packed_vars[0]
-##    chunk = list_packed_vars[1]
-##    chunk_size = list_packed_vars[2]
-##    main_glac_rgi_all = list_packed_vars[3]
-##    gcm_name = list_packed_vars[4]
-#    rgi_glac_number = list_packed_vars[0]
-#    gcm_name = list_packed_vars[1]
-#    count = list_packed_vars[2]
-#
-#    time_start = time.time()
-#    parser = getparser()
-#    args = parser.parse_args()
-#    
-#    if args.debug == 1:
-#        debug = True
-#    else:
-#        debug = False
-#        
-#    # RGI region
-#    if args.spc_region is not None:
-#        rgi_regionsO1 = [int(args.spc_region)]
-#    else:
-#        rgi_regionsO1 = input.rgi_regionsO1
-#
-#    # ===== LOAD GLACIER DATA =====
-#    #  'raw' refers to the glacier subset that includes glaciers with and without calibration data
-#    #  after the calibration data has been imported, then all glaciers without data will be dropped
-#    # Glacier RGI data
-##    main_glac_rgi_raw = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
-#    main_glac_rgi_raw = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-#                                                          rgi_glac_number=rgi_glac_number)
-#    # Glacier hypsometry [km**2], total area
-#    main_glac_hyps_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.hyps_filepath,
-#                                                     input.hyps_filedict, input.hyps_colsdrop)
-#    # Ice thickness [m], average
-#    main_glac_icethickness_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, 
-#                                                             input.thickness_filepath, input.thickness_filedict, 
-#                                                             input.thickness_colsdrop)
-#    main_glac_hyps_raw[main_glac_icethickness_raw == 0] = 0
-#    # Width [km], average
-#    main_glac_width_raw = modelsetup.import_Husstable(main_glac_rgi_raw, rgi_regionsO1, input.width_filepath,
-#                                                      input.width_filedict, input.width_colsdrop)
-#    elev_bins = main_glac_hyps_raw.columns.values.astype(int)
-#    # Add volume [km**3] and mean elevation [m a.s.l.]
-#    main_glac_rgi_raw['Volume'], main_glac_rgi_raw['Zmean'] = (
-#            modelsetup.hypsometrystats(main_glac_hyps_raw, main_glac_icethickness_raw))
-#    # Select dates including future projections
-#    #  - nospinup dates_table needed to get the proper time indices
-#    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-#                                                     spinupyears=0)
-#    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-#                                           spinupyears=input.spinupyears)
-#
-#    # ===== LOAD CALIBRATION DATA =====
-#    cal_data = pd.DataFrame()
-#    for dataset in input.cal_datasets:
-#        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
-#        cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_raw, main_glac_hyps_raw, dates_table_nospinup)
-#        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-#    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-#    cal_data.reset_index(drop=True, inplace=True)
-#    
-#    if debug:
-#        print('Number of glaciers (cal_data):', cal_data.shape[0])
-#    
-#    # If group data is included, then add group dictionary and add group name to main_glac_rgi
-#    if set(['group']).issubset(input.cal_datasets) == True:
-#        # Group dictionary
-#        group_dict_raw = pd.read_csv(input.mb_group_fp + input.mb_group_dict_fn)
-#        # Remove groups that have no data
-#        group_names_wdata = np.unique(cal_data[np.isnan(cal_data.glacno)].group_name.values).tolist()
-#        group_dict_raw_wdata = group_dict_raw.loc[group_dict_raw.group_name.isin(group_names_wdata)]
-#        # Create dictionary to map group names to main_glac_rgi
-#        group_dict = dict(zip(group_dict_raw_wdata['RGIId'], group_dict_raw_wdata['group_name']))
-#        group_names_unique = list(set(group_dict.values()))
-#        group_dict_keyslist = [[] for x in group_names_unique]
-#        for n, group in enumerate(group_names_unique):
-#            group_dict_keyslist[n] = [group, [k for k, v in group_dict.items() if v == group]]
-#        # Add group name to main_glac_rgi
-#        main_glac_rgi_raw['group_name'] = main_glac_rgi_raw['RGIId'].map(group_dict)
-#    else:
-#        main_glac_rgi_raw['group_name'] = np.nan
-#
-#    # Drop glaciers that do not have any calibration data (individual or group)    
-#    main_glac_rgi = ((main_glac_rgi_raw.iloc[np.unique(
-#            np.append(main_glac_rgi_raw[main_glac_rgi_raw['group_name'].notnull() == True].index.values, 
-#                      np.where(main_glac_rgi_raw[input.rgi_O1Id_colname].isin(cal_data['glacno']) == True)[0])), :])
-#            .copy())
-#    # select glacier data
-#    main_glac_hyps = main_glac_hyps_raw.iloc[main_glac_rgi.index.values]
-#    main_glac_icethickness = main_glac_icethickness_raw.iloc[main_glac_rgi.index.values]
-#    main_glac_width = main_glac_width_raw.iloc[main_glac_rgi.index.values]
-#    # Reset index
-#    main_glac_rgi.reset_index(drop=True, inplace=True)
-#    main_glac_hyps.reset_index(drop=True, inplace=True)
-#    main_glac_icethickness.reset_index(drop=True, inplace=True)
-#    main_glac_width.reset_index(drop=True, inplace=True)
-#    
-#    if debug:
-#        print('Number of glaciers (main_glac_rgi):', main_glac_rgi.shape[0])
-#
-#    # ===== LOAD CLIMATE DATA =====
-#    gcm = class_climate.GCM(name=gcm_name)
-#    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-#    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-#    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-#    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-#    # Lapse rate [K m-1]
-#    if gcm_name == 'ERA-Interim':
-#        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-#    else:
-#        # Mean monthly lapse rate
-#        ref_lr_monthly_avg = np.genfromtxt(gcm.lr_fp + gcm.lr_fn, delimiter=',')
-#        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-#    # COAWST data has two domains, so need to merge the two domains
-#    if gcm_name == 'COAWST':
-#        gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn, main_glac_rgi, 
-#                                                                         dates_table)
-#        gcm_prec_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn_d01, gcm.prec_vn, main_glac_rgi, 
-#                                                                         dates_table)
-#        gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
-#        # Check if glacier outside of high-res (d02) domain
-#        for glac in range(main_glac_rgi.shape[0]):
-#            glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
-#            glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
-#            if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or 
-#                ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
-#                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
-#                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
-#                gcm_elev[glac] = gcm_elev_d01[glac]
-    
-    
-    
-    # ======= NEW AS OF 03/05/2019 ==========================    
+    """         
     # Unpack variables
     count = list_packed_vars[0]
     gcm_name = list_packed_vars[1] 
@@ -566,13 +471,6 @@ def main(list_packed_vars):
         rgi_regionsO1 = [int(args.spc_region)]
     else:
         rgi_regionsO1 = input.rgi_regionsO1
-        
-        
-        
-    # ======= END 03/05/2019 ==========================  
-    
-    
-    
 
     # ===== CALIBRATION =====
     # Option 2: use MCMC method to determine posterior probability distributions of the three parameters tempchange,
@@ -693,7 +591,6 @@ def main(list_packed_vars):
                 A trace, or Markov Chain, is an array of values outputed by the MCMC simulation which defines the
                 posterior probability distribution of the variable at hand.
             """        
-            #%%
             # PRIOR DISTRIBUTIONS
             # Precipitation factor [-]
             if precfactor_disttype =='lognormal':
@@ -702,13 +599,6 @@ def main(list_packed_vars):
                 precfactor = pymc.Lognormal('precfactor', mu=precfactor_lognorm_mu, tau=precfactor_lognorm_tau,
                                             value=precfactor_start)
             elif precfactor_disttype == 'uniform':
-                precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh, 
-                                          value=precfactor_start)
-            elif precfactor_disttype =='custom':
-                #  truncated normal distribution with transformation
-#                precfactor = pymc.TruncatedNormal('precfactor', mu=precfactor_mu, tau=1/(precfactor_sigma**2), 
-#                                                  a=precfactor_boundlow, b=precfactor_boundhigh, 
-#                                                  value=precfactor_start)
                 precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh, 
                                           value=precfactor_start)
             # Temperature change [degC]            
@@ -730,10 +620,7 @@ def main(list_packed_vars):
                                        value=ddfsnow_start)
             
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
-#            @deterministic(plot=True)
             @deterministic(plot=False)
-#            def massbal(tempchange=tempchange, precfactor=None, ddfsnow=None):
-#            def massbal(tempchange=tempchange, precfactor=precfactor):
             def massbal(tempchange=tempchange, precfactor=precfactor, ddfsnow=ddfsnow):
                 """
                 Likelihood function for mass balance [mwea] based on model parameters
@@ -758,15 +645,6 @@ def main(list_packed_vars):
                                                icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=1))
-#                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-#                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
-#                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
-#                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
-#                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-#                    massbalance.runmassbalance(modelparameters_copy, glacier_rgi_table, glacier_area_t0, 
-#                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
-#                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                               option_areaconstant=1))
                 # Compute glacier volume change for every time step and use this to compute mass balance
                 glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
                 # Mass change [km3 mwe]
@@ -788,13 +666,8 @@ def main(list_packed_vars):
             
             # Set model
             if dbname is None:
-#                model = pymc.MCMC({'tempchange':tempchange,
-#                                   'massbal':massbal, 'obs_massbal':obs_massbal})            
-#                model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange,
-#                                   'massbal':massbal, 'obs_massbal':obs_massbal})
                 model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
                                    'massbal':massbal, 'obs_massbal':obs_massbal})
-                
             else:
                 model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow, 
                                    'massbal':massbal, 'obs_massbal':obs_massbal}, db='pickle', dbname=dbname)
@@ -803,9 +676,6 @@ def main(list_packed_vars):
             #  Adaptive metropolis is supposed to perform block update, i.e., update all model parameters together based
             #  on their covariance, which would reduce autocorrelation; however, tests show doesn't make a difference.
             if step == 'am':
-#                model.use_step_method(pymc.AdaptiveMetropolis, precfactor, delay = 1000)
-#                model.use_step_method(pymc.AdaptiveMetropolis, tempchange, delay = 1000)
-#                model.use_step_method(pymc.AdaptiveMetropolis, ddfsnow, delay = 1000)
                 model.use_step_method(pymc.AdaptiveMetropolis, [precfactor, tempchange, ddfsnow], delay = 1000)
                 
             # Sample
@@ -880,8 +750,7 @@ def main(list_packed_vars):
             ddfsnow_mu = input.ddfsnow_mu
             ddfsnow_sigma = input.ddfsnow_sigma
             
-            
-            
+
             # NEW SETUP
             if input.new_setup == 1 and icethickness_t0.max() > 0:             
                 (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
@@ -934,8 +803,6 @@ def main(list_packed_vars):
                                    'ddfsnow': model.trace('ddfsnow')[:],
                                    'massbal': model.trace('massbal')[:]})
                 # set columns for other variables
-#                df['precfactor'] = np.full(df.shape[0], input.precfactor)
-#                df['ddfsnow'] = np.full(df.shape[0], input.ddfsnow)
                 df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
                 df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
                 df['lrglac'] = np.full(df.shape[0], input.lrglac)
@@ -949,11 +816,10 @@ def main(list_packed_vars):
                 if debug:
                     print('df_chains:', df_chains)
                     
-                    
             # Record calibration data
             prior_cns = ['pf_bndlow', 'pf_bndhigh', 'pf_mu', 'tc_bndlow', 'tc_bndhigh', 'tc_mu', 'tc_std', 
                          'ddfsnow_bndlow', 'ddfsnow_bndhigh', 'ddfsnow_mu', 'ddfsnow_std', 'mb_max_loss', 'mb_max_acc', 
-                         'tc_maxloss', 'tc_max_acc','pf_opt_init', 'tc_opt_init']
+                         'tc_max_loss', 'tc_max_acc','pf_opt_init', 'tc_opt_init']
             prior_values = [precfactor_boundlow, precfactor_boundhigh, precfactor_mu, tempchange_boundlow, 
                             tempchange_boundhigh, tempchange_mu, tempchange_sigma, ddfsnow_boundlow, ddfsnow_boundhigh, 
                             ddfsnow_mu, ddfsnow_sigma, mb_max_loss, mb_max_acc, tempchange_max_loss, tempchange_max_acc,
@@ -973,12 +839,11 @@ def main(list_packed_vars):
             ds.to_netcdf(input.output_fp_cal + glacier_str + '.nc')
             ds.close()
             
-            
 #            #%%
 #            # Example of accessing netcdf file and putting it back into pandas dataframe
 #            A = xr.open_dataset(input.mcmc_output_netcdf_fp + 'reg' + str(rgi_regionsO1[0]) + '/15.03734.nc')
 #            B = pd.DataFrame(A['mp_value'].sel(chain=0).values, columns=A.mp.values)
-            priors = pd.Series(ds.priors, index=ds.prior_cns)
+#            priors = pd.Series(ds.priors, index=ds.prior_cns)
 #            #%%
 
         # ==============================================================
