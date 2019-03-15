@@ -36,8 +36,8 @@ option_prior_vs_posterior = 0
 
 # Paper figures
 option_papermcmc_prior_vs_posterior = 0
-option_papermcmc_solutionspace = 0
-option_papermcmc_allglaciers_posteriorchanges = 1
+option_papermcmc_solutionspace = 1
+option_papermcmc_allglaciers_posteriorchanges = 0
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -499,10 +499,11 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
                 modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
                 
                 # run mass balance calculation
-                if modelparameters[2] == 1:
-                    option_areaconstant = 0
-                else:
-                    option_areaconstant = 1
+#                if modelparameters[2] == 1:
+#                    option_areaconstant = 0
+#                else:
+#                    option_areaconstant = 1
+                option_areaconstant = 0
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
                  glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
@@ -603,7 +604,7 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
         
         
     ax.legend(leg_lines, leg_names, loc='upper right', frameon=False)
-    fig.savefig(fig_fp + glacier_str + '_mb_vs_parameters.png', 
+    fig.savefig(fig_fp + glacier_str + '_mb_vs_parameters_areachg.png', 
                 bbox_inches='tight', dpi=300)    
     
 
@@ -1308,7 +1309,7 @@ if option_papermcmc_solutionspace == 1:
                               glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
                               observed_error, tempchange_boundhigh, tempchange_boundlow, tempchange_opt_init, 
-                              mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, option_areaconstant=1,
+                              mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, option_areaconstant=0,
                               option_plotsteps=1, fig_fp=fig_fp)
 
   

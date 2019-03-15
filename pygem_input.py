@@ -115,8 +115,8 @@ rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 rgi_glac_number = 'all'
 #rgi_glac_number = ['00002']
-#rgi_glac_number = ['03473']
-#rgi_glac_number = glac_num_fromrange(1,4)
+#rgi_glac_number = ['03473', '03474']
+rgi_glac_number = glac_num_fromrange(1,48)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
@@ -146,12 +146,13 @@ option_wateryear = 3
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-gcm_startyear = 1980
-gcm_endyear = 2017
 #gcm_startyear = 2000
-#gcm_endyear = 2005
+#gcm_endyear = 2017
+gcm_startyear = 2000
+gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
+gcm_constantarea_years = 15
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -186,7 +187,7 @@ zscore_update_threshold = 0.1
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 1000
+mcmc_sample_no = 10000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
@@ -331,9 +332,9 @@ elif option_calibration == 2:
             14: output_filepath + 'cal_opt2/',
             15: output_filepath + 'cal_opt2/'}
 #    modelparams_fp_dict = {
-#            13: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
-#            14: output_filepath + 'cal_opt2_spc_20190224_adjp15/',
-#            15: output_filepath + 'cal_opt2_spc_20190224_adjp15/'}
+#            13: output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/',
+#            14: output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/',
+#            15: output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/'}
 #    modelparams_fp_dict = {
 #            13: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
 #            14: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',

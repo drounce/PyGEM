@@ -1088,14 +1088,17 @@ if __name__ == '__main__':
         count_ds = 0
         for i in output_list:
             count_ds += 1
+            
+            print(count_ds, 'output_list file:', i)
+            
             ds = xr.open_dataset(output_sim_fp + i)
             # Merge datasets of stats into one output
             if count_ds == 1:
                 ds_all = ds
             else:
                 ds_all = xr.merge((ds_all, ds))
-            # Close dataset
-            ds.close()
+#            # Close dataset
+#            ds.close()
         # Filename
         ds_all_fn = i.split('--')[0] + '.nc'
         # Encoding
@@ -1113,6 +1116,7 @@ if __name__ == '__main__':
         else:
             ds_all.to_netcdf(output_sim_fp + ds_all_fn)
         # Close dataset
+        ds.close()
         ds_all.close()
         # Remove files in output_list
         for i in output_list:

@@ -50,20 +50,20 @@ option_plot_mcmc_errors = 1
 option_plot_maxloss_issues = 0
 
 option_plot_individual_glaciers = 0
-option_plot_degrees = 1
+option_plot_degrees = 0
 option_plot_pies = 0
 option_plot_individual_gcms = 0
 
 
 #%% ===== Input data =====
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
-netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim/'
 #mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
 #mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190222_adjp10/'
-mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190224_adjp15/'
+mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190308_adjp12/cal_opt2/'
 figure_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/figures/cmip5/'
 csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
-cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20181018/'
+cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190308_adjp12/cal_opt2/'
 
 # Regions
 rgi_regions = [13, 14, 15]
@@ -88,10 +88,10 @@ gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL
 rcps = ['rcp26']
 
 # Grouping
-#grouping = 'all'
+grouping = 'all'
 #grouping = 'rgi_region'
 #grouping = 'watershed'
-grouping = 'kaab'
+#grouping = 'kaab'
 
 # Variable name
 vn = 'mass_change'
@@ -287,7 +287,7 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=
             # Load datasets
             if gcm_name == 'ERA-Interim':
                 netcdf_fp = netcdf_fp_era
-                ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+                ds_fn = 'R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc'
             else:
                 netcdf_fp = netcdf_fp_cmip5 + vn_adj + '/'
                 ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba' + str(input.option_bias_adjustment) +
@@ -376,7 +376,7 @@ def partition_era_groups(grouping, vn, main_glac_rgi_all):
     ds_group = [[] for group in groups]
     for region in rgi_regions:
         # Load datasets
-        ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+        ds_fn = 'R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc'
         ds = xr.open_dataset(netcdf_fp_era + ds_fn)
         # Extract time variable
         if 'annual' in vn_adj:
@@ -1952,7 +1952,7 @@ if option_plot_era_normalizedchange == 1:
     
     vns = ['volume_glac_annual']
     grouping = 'all'
-    glac_float = 15.01024
+    glac_float = 13.26360
     labelsize = 13
     
     for vn in vns:
@@ -2000,7 +2000,7 @@ if option_plot_era_normalizedchange == 1:
         glac_float_str = str(glac_float).replace('.','-')
         figure_fn = 'HMA_volchange_wglac' + glac_float_str + '.png'
         
-        fig.savefig(cal_fp + figure_fn, bbox_inches='tight', dpi=300)
+        fig.savefig(cal_fp + '../' + figure_fn, bbox_inches='tight', dpi=300)
         
 #%% COMPARE GCM MASS BALANCE 2000-2018 TO CALIBRATION DATA
 if option_compare_GCMwCal == 1:
@@ -2121,8 +2121,6 @@ if option_plot_mcmc_errors == 1:
     
 
     # Load cal data
-#    shean_fp = input.main_directory + '/../DEMs/Shean_2018_1109/'
-#    shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
     ds_cal = pd.read_csv(input.shean_fp + input.shean_fn)
     # Glacier number and index for comparison
     ds_cal['O1region'] = ds_cal['RGIId'].astype(int)
@@ -2152,8 +2150,8 @@ if option_plot_mcmc_errors == 1:
 #        df_median_all = pd.read_csv(shean_fp + 'mcmc_median_all.csv', index_col=0)
 #    else:
     
-    burn_no = 0
-    thin_interval = 1
+    burn_no = 200
+    thin_interval = 1 
     print('\nBURN NUMBER:', burn_no,'\n')
     #%%
     # Load data for each glacier
@@ -2397,7 +2395,7 @@ if option_plot_mcmc_errors == 1:
     fig.set_size_inches(6,4)
     fig.savefig(figure_fp + '../cal/' + fig_fn, bbox_inches='tight', dpi=300)
     
-    main_glac_rgi_all.to_csv(input.output_filepath + 'main_glac_rgi_HMA_20190224_adjp15.csv')
+    main_glac_rgi_all.to_csv(input.output_filepath + 'main_glac_rgi_HMA_20190308_adjp12_100iters.csv')
     
 
 #%%
@@ -2608,4 +2606,42 @@ if option_plot_maxloss_issues == 1:
 #main_glac_rgi_all['cal_norm'] = (main_glac_rgi_all.mb_cal_mwea - main_glac_rgi_all.mb_max_loss) / main_glac_rgi_all.mb_cal_sigma
 #A = main_glac_rgi_all.copy()
 #A.plot.scatter('Area', 'dif_cal_era_mean')
+
+#%%
+
+# Compute mass change from 2000 - 2018
     
+# variable name
+vn = 'volume_glac_annual'
+rgi_regions = [13, 14, 15]
+
+for region in rgi_regions:
+    # Load datasets
+    ds_fn = 'R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc'
+    ds = xr.open_dataset(netcdf_fp_era + ds_fn)
+    # Extract time variable
+    if 'annual' in vn:
+        try:
+            time_values = ds[vn].coords['year_plus1'].values
+        except:
+            time_values = ds[vn].coords['year'].values
+    elif 'monthly' in vn:
+        time_values = ds[vn].coords['time'].values
+        
+    # Merge datasets
+    if region == rgi_regions[0]:
+        vn_glac_all = ds[vn].values[:,:,0]
+        vn_glac_std_all = ds[vn].values[:,:,1]
+    else:
+        vn_glac_all = np.concatenate((vn_glac_all, ds[vn].values[:,:,0]), axis=0)
+        vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn].values[:,:,1]), axis=0)
+    
+    # Close dataset
+    ds.close()
+    
+# Mass change for text on plot
+#  Gt = km3 ice * density_ice / 1000
+#  divide by 1000 because density of ice is 900 kg/m3 or 0.900 Gt/km3
+vn_reg_masschange = (vn_reg[-1] - vn_reg[0]) * input.density_ice / 1000
+
+A = (vn_glac_all[:,20].sum() - vn_glac_all[:,-1].sum()) * input.density_ice / 1000 / 18

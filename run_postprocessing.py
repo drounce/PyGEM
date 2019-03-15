@@ -13,6 +13,8 @@ import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 
 
+#%run run_postprocessing.py -gcm_name='ERA-Interim' -merge_batches=1
+
 #%% Functions
 def getparser():
     """
@@ -24,6 +26,8 @@ def getparser():
         gcm name
     merge_batches (optional) : int
         switch to run merge_batches fxn (1 merge, 0 ignore)
+    debug : int
+        Switch for turning debug printing on or off (default = 0 (off))
         
     Returns
     -------
@@ -39,12 +43,19 @@ def getparser():
                         help='Switch to subset variables or not')
     parser.add_argument('-vars_mon2annualseasonal', action='store', type=int, default=0,
                         help='Switch to compute annual and seasonal data or not')
-    
+    parser.add_argument('-debug', action='store', type=int, default=0,
+                        help='Boolean for debugging to turn it on or off (default 0 is off)')
     return parser
 
 
 # ===== REQUIRED INPUT =====
 def merge_batches(gcm_name):   
+    """ MERGE BATCHES """
+    
+#for gcm_name in ['ERA-Interim']:
+#    debug=True
+    
+    
     splitter = '_batch'
     netcdf_fp = input.output_sim_fp + gcm_name + '/'
     zipped_fp = netcdf_fp + '../spc_zipped/'
@@ -53,15 +64,23 @@ def merge_batches(gcm_name):
     rcps = []
     for i in os.listdir(netcdf_fp):
         if i.endswith('.nc'):
+            
             i_region = int(i.split('_')[0][1:])
-            i_rcp = i.split('_')[2]
-        
             if i_region not in regions:
                 regions.append(i_region)
-            if i_rcp not in rcps:
-                rcps.append(i_rcp)
+            
+            if gcm_name not in ['ERA-Interim']:
+                i_rcp = i.split('_')[2]
+                if i_rcp not in rcps:
+                    rcps.append(i_rcp)
     regions = sorted(regions)
     rcps = sorted(rcps)
+    
+    if len(rcps) == 0:
+        rcps = [None]
+    
+    if debug:
+        print(regions, rcps)
     
     # Encoding
     # Add variables to empty dataset and merge together
@@ -74,9 +93,16 @@ def merge_batches(gcm_name):
                 encoding[vn] = {'_FillValue': False}
     
     for reg in regions:
+#    for reg in [15]:
+        
+        check_str = 'R' + str(reg) + '_' + gcm_name
+        
         for rcp in rcps:
-            print('R', reg, rcp, ':')
-            check_str = 'R' + str(reg) + '_' + gcm_name + '_' + rcp
+            print('R', reg, 'RCP', rcp, ':')
+            
+            if rcp is not None:
+                check_str += 'R' + str(reg) + '_' + gcm_name + '_' + rcp
+            
             output_list = []
             
             for i in os.listdir(netcdf_fp):
@@ -84,7 +110,10 @@ def merge_batches(gcm_name):
                     output_list.append([int(i.split(splitter)[1].split('.')[0]), i])
             output_list = sorted(output_list)
             output_list = [i[1] for i in output_list]
-    
+            
+            if debug:
+                print(output_list)
+            
             # Open datasets and combine
             count_ds = 0
             for i in output_list:
@@ -459,6 +488,11 @@ def vars_mon2annualseasonal(gcm_name):
 if __name__ == '__main__':
     parser = getparser()
     args = parser.parse_args()
+    
+    if args.debug == 1:
+        debug = True
+    else:
+        debug = False
     
     if args.merge_batches == 1:
         merge_batches(args.gcm_name)

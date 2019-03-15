@@ -531,7 +531,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 
                 # MASS REDISTRIBUTION
                 # Mass redistribution ignored for calibration and spinup years (glacier properties constant) 
-                if (option_areaconstant == 1) or (year < input.spinupyears):
+                if (option_areaconstant == 1) or (year < input.spinupyears) or (year < input.gcm_constantarea_years):
                     glacier_area_t1 = glacier_area_t0
                     icethickness_t1 = icethickness_t0
                     width_t1 = width_t0

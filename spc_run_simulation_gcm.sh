@@ -12,7 +12,7 @@ REGNO="13"
 
 # gcm list
 GCM_NAMES_FP="../Climate_data/cmip5/"
-GCM_NAMES_FN="gcm_rcp60_filenames_important.txt"
+GCM_NAMES_FN="gcm_rcp85_filenames_glaciermip.txt"
 # determine gcm names and rcp scenario
 GCM_NAMES_LST="$(< $GCM_NAMES_FP$GCM_NAMES_FN)"
 RCP="$(cut -d'_' -f2 <<<"$GCM_NAMES_FN")"
