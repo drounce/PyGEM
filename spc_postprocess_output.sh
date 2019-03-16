@@ -9,8 +9,8 @@ echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
 
 # region
 MERGE_SWITCH=1
-SUBSET_SWITCH=1
-MON2ANNUAL_SWITCH=1
+SUBSET_SWITCH=0
+MON2ANNUAL_SWITCH=0
 
 # gcm list
 GCM_NAMES_FP="../Climate_data/cmip5/"

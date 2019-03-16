@@ -31,6 +31,7 @@ import run_calibration as calibration
 
 #%%
 option_observation_vs_calibration = 0
+option_GRACE_2deg = 1
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -47,9 +48,6 @@ vn_label_units_dict = {'massbal':'[mwea]',
                        'tempchange':'[$^\circ$C]',                                                               
                        'ddfsnow':'[mwe d$^{-1}$ $^\circ$C$^{-1}$]'}
 
-
-
-
 # Export option
 #sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim/ERA-Interim_2000_2018_areachg/'
 sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim/ERA-Interim_1980_2017_nochg/'
@@ -58,7 +56,7 @@ sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim/ERA-Interim_198
 figure_fp = sim_netcdf_fp + 'figures/'
 
 regions = [13, 14, 15]
-degree_size = 0.25
+degree_size = 0.5
 
 cal_datasets = ['shean']
 
@@ -131,46 +129,16 @@ def select_groups(grouping, main_glac_rgi_all):
     except:
         groups = sorted(groups)
     return groups, group_cn
-    
 
-# ===== PLOT OPTIONS ==================================================================================================    
-#%%        
-def observation_vs_calibration(regions, netcdf_fp):
-    """
-    Compare mass balance observations with model calibration
-    
-    Parameters
-    ----------
-    regions : list of strings
-        list of regions
-    Returns
-    -------
-    .png files
-        saves histogram of differences between observations and calibration
-    .csv file
-        saves .csv file of comparison
-    """
-#%%
-for batman in [0]:
-    netcdf_fp = sim_netcdf_fp
-    
-    # variable name    
-    vn = 'volume_glac_annual'
-#    t1_idx = 0
-#    t2_idx = 216
-    t1_idx = 240
-    t2_idx = 455
-    t1 = 2000
-    t2 = 2018
-    
+
+def load_masschange_monthly(regions, ds_ending, netcdf_fp=sim_netcdf_fp, option_add_caldata=0):
+    """ Load monthly mass change data """
     count = 0
     for region in regions:
         count += 1
         
         # Load datasets
-#        ds_fn = 'R' + str(region) + '_ERA-Interim_c2_ba1_100sets_2000_2018.nc'
-        ds_fn = 'R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc'
-#        ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
+        ds_fn = 'R' + str(region) + ds_ending
         ds = xr.open_dataset(netcdf_fp + ds_fn)
 
         main_glac_rgi_region_ds = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
@@ -179,9 +147,6 @@ for batman in [0]:
         time_values = pd.Series(ds.massbaltotal_glac_monthly.coords['time'].values)
         
         # ===== GLACIER DATA =====
-        dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
-        dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-                                               spinupyears=input.spinupyears)
         main_glac_rgi_region = modelsetup.selectglaciersrgitable(
                 rgi_regionsO1=[region], rgi_regionsO2 = 'all', rgi_glac_number='all')
         if (main_glac_rgi_region['glacno'] - main_glac_rgi_region_ds['glacno']).sum() == 0:
@@ -195,27 +160,36 @@ for batman in [0]:
                 input.thickness_colsdrop)
         main_glac_hyps_region[main_glac_icethickness_region == 0] = 0
         # ===== CALIBRATION DATA =====
-#        cal_data_region = pd.DataFrame()
-#        for dataset in cal_datasets:
-#            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
-#            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table_nospinup)
-#            cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
-#        cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
-#        cal_data_region.reset_index(drop=True, inplace=True)
+        if option_add_caldata == 1:
+            dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+                                                            spinupyears=0)
+            cal_data_region = pd.DataFrame()
+            for dataset in cal_datasets:
+                cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
+                cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table_nospinup)
+                cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
+            cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
+            cal_data_region.reset_index(drop=True, inplace=True)
         
         # ===== APPEND DATASETS =====
         if count == 1:
             main_glac_rgi = main_glac_rgi_region
             main_glac_hyps = main_glac_hyps_region
             main_glac_icethickness = main_glac_icethickness_region
-#            cal_data = cal_data_region
             glac_wide_massbaltotal = glac_wide_massbaltotal_region
             glac_wide_area_annual = glac_wide_area_annual_region
+            
+            if option_add_caldata == 1:
+                cal_data = cal_data_region
+            
         else:
             main_glac_rgi = main_glac_rgi.append(main_glac_rgi_region)
-#            cal_data = cal_data.append(cal_data_region)
+            
             glac_wide_massbaltotal = np.concatenate([glac_wide_massbaltotal, glac_wide_massbaltotal_region])
             glac_wide_area_annual = np.concatenate([glac_wide_area_annual, glac_wide_area_annual_region])
+            
+            if option_add_caldata == 1:
+                cal_data = cal_data.append(cal_data_region)
             
             # If more columns in region, then need to expand existing dataset
             if main_glac_hyps_region.shape[1] > main_glac_hyps.shape[1]:
@@ -239,7 +213,9 @@ for batman in [0]:
     main_glac_rgi.reset_index(inplace=True, drop=True)
     main_glac_hyps.reset_index(inplace=True, drop=True)
     main_glac_icethickness.reset_index(inplace=True, drop=True)
-#    cal_data.reset_index(inplace=True, drop=True)
+    if option_add_caldata == 1:
+        cal_data.reset_index(inplace=True, drop=True)
+        
     # Volume [km**3] and mean elevation [m a.s.l.]
     main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
     
@@ -251,6 +227,43 @@ for batman in [0]:
     # Mass change [km3 mwe]
     #  mb [mwea] * (1 km / 1000 m) * area [km2]
     glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+    
+    if option_add_caldata == 1:
+        return main_glac_rgi, glac_wide_masschange, glac_wide_area, time_values, cal_data
+    else:
+        return main_glac_rgi, glac_wide_masschange, glac_wide_area, time_values
+    
+
+# ===== PLOT OPTIONS ==================================================================================================    
+#%%        
+def observation_vs_calibration(regions, netcdf_fp):
+    """
+    Compare mass balance observations with model calibration
+    
+    Parameters
+    ----------
+    regions : list of strings
+        list of regions
+    Returns
+    -------
+    .png files
+        saves histogram of differences between observations and calibration
+    .csv file
+        saves .csv file of comparison
+    """
+#%% 
+if option_observation_vs_calibration == 1:
+#    observation_vs_calibration(regions, sim_netcdf_fp)
+    
+#    t1_idx = 0
+#    t2_idx = 216
+    t1_idx = 240
+    t2_idx = 455
+    t1 = 2000
+    t2 = 2018
+    
+    main_glac_rgi, glac_wide_masschange, glac_wide_area, time_values = (
+            load_masschange_monthly(regions, ds_ending='_ERA-Interim_c2_ba1_100sets_1980_2017.nc'))
     
     # Mean annual mass balance [mwea]
     glac_wide_mb_mwea = glac_wide_masschange[:,t1_idx:t2_idx+1].sum(axis=1) / glac_wide_area[:,0] * 1000 / (t2 - t1)
@@ -487,149 +500,121 @@ for batman in [0]:
     fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=True,
                            figsize=(5,4), gridspec_kw = {'wspace':0, 'hspace':0})
     ax[0,0].plot(time_values, region_mass_norm, color='k', linewidth=1, label=None)
+    ax[0,0].set_ylabel('Normalized Mass [-]')
                     
-#                    # Group labels
-#                    if add_group_label == 1:
-#                        ax[row_idx, col_idx].text(0.5, 0.99, title_dict[group], size=14, horizontalalignment='center', 
-#                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes)
-#                                
-#                    # Tick parameters
-#                    ax[row_idx, col_idx].tick_params(axis='both', which='major', labelsize=25, direction='inout')
-#                    ax[row_idx, col_idx].tick_params(axis='both', which='minor', labelsize=15, direction='inout')
-#                    # X-label
-#                    ax[row_idx, col_idx].set_xlim(time_values.min(), time_values.max())
-#                    ax[row_idx, col_idx].xaxis.set_tick_params(labelsize=14)
-#                    ax[row_idx, col_idx].xaxis.set_major_locator(plt.MultipleLocator(50))
-#                    ax[row_idx, col_idx].xaxis.set_minor_locator(plt.MultipleLocator(10))
-#                    if col_idx == 0 and row_idx == num_rows-1:
-#                        ax[row_idx, col_idx].set_xticklabels(['','2000','2050','2100'])
-#                    elif row_idx == num_rows-1:
-#                        ax[row_idx, col_idx].set_xticklabels(['','','2050','2100'])
-#                    else:
-#                        ax[row_idx, col_idx].set_xticklabels(['','','',''])
-#                    #  labels are the first one, 2000, 2050, 2100, and 2101
-#                    # Y-label
-#                    ax[row_idx, col_idx].yaxis.set_tick_params(labelsize=14)
-##                    ax[row_idx, col_idx].yaxis.set_major_locator(MaxNLocator(prune='both'))
-#                    if vn == 'volume_glac_annual':
-#                        if option_plot_individual_gcms == 1:
-#                            ax[row_idx, col_idx].set_ylim(0,1.35)
-#                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.2))
-#                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
-#                    elif vn == 'runoff_glac_annual':
-#                        ax[row_idx, col_idx].set_ylim(0,2)
-#                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.5))
-#                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
-#                        ax[row_idx, col_idx].set_yticklabels(['','','0.5','1.0','1.5', ''])
-#                    elif vn == 'temp_glac_annual':
-#                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator())
-#                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator())
-#                    elif vn == 'prec_glac_annual':
-#                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator())
-#                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator())
-#                    
-#                    # Count column index to plot
-#                    col_idx += 1
-#                    
-#                    # Record data for multi-model stats
-#                    if ngcm == 0:
-#                        ds_multimodels[ngroup] = [group, vn_reg_plot]
-#                    else:
-#                        ds_multimodels[ngroup][1] = np.vstack((ds_multimodels[ngroup][1], vn_reg_plot))
-#                    
-#                    if vn == 'volume_glac_annual':
-#                        if ngcm == 0:
-#    #                        print(group, rcp, gcm_name, vn_reg_masschange)
-#                            masschg_multimodels[ngroup] = [group, vn_reg_masschange]
-#                        else:
-#    #                        print(group, rcp, gcm_name, vn_reg_masschange)
-#                            masschg_multimodels[ngroup][1] = np.vstack((masschg_multimodels[ngroup][1], 
-#                                                                       vn_reg_masschange))
-#                        
-#                        
-#                # Only add group label once
-#                add_group_label = 0
-#            
-#            if vn == 'temp_glac_annual' or vn == 'prec_glac_annual':
-#                skip_fill = 1
-#            else:
-#                skip_fill = 0
-#            
-#            # Multi-model mean
-#            row_idx = 0
-#            col_idx = 0
-#            for ngroup, group in enumerate(groups):
-#                if (ngroup % num_cols == 0) and (ngroup != 0):
-#                    row_idx += 1
-#                    col_idx = 0
-#                # Multi-model statistics
-#                vn_multimodel_mean = ds_multimodels[ngroup][1].mean(axis=0)
-#                vn_multimodel_std = ds_multimodels[ngroup][1].std(axis=0)
-#                vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
-#                vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
-#                ax[row_idx, col_idx].plot(time_values, vn_multimodel_mean, color=rcp_colordict[rcp], 
-#                                          linewidth=multimodel_linewidth, label=rcp)
-#                if skip_fill == 0:
-#                    ax[row_idx, col_idx].fill_between(time_values, vn_multimodel_stdlow, vn_multimodel_stdhigh, 
-#                                                      facecolor=rcp_colordict[rcp], alpha=0.2, label=None)  
-#                   
-#                # Add mass change to plot
-#                if vn == 'volume_glac_annual':
-#                    masschg_multimodel_mean = masschg_multimodels[ngroup][1].mean(axis=0)[0]
-#                
-#                    print(group, rcp, np.round(masschg_multimodel_mean,0),'Gt', 
-#                          np.round((vn_multimodel_mean[-1] - 1)*100,0), '%')
-#                
-#                if vn == 'volume_glac_annual' and rcp == rcps[-1]:
-#                    masschange_str = '(' + str(masschg_multimodel_mean).split('.')[0] + ' Gt)'
-#                    if grouping == 'all':
-#                        ax[row_idx, col_idx].text(0.5, 0.93, masschange_str, size=12, horizontalalignment='center', 
-#                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes, 
-#                                                  color=rcp_colordict[rcp])
-#                    else:
-#                        ax[row_idx, col_idx].text(0.5, 0.88, masschange_str, size=12, horizontalalignment='center', 
-#                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes, 
-#                                                  color=rcp_colordict[rcp])
-#                # Adjust subplot column index
-#                col_idx += 1
-#
-#        # RCP Legend
-#        rcp_lines = []
-#        for rcp in rcps:
-#            line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
-#            rcp_lines.append(line)
-#        rcp_labels = [rcp_dict[rcp] for rcp in rcps]
-#        if vn == 'temp_glac_annual' or vn == 'prec_glac_annual':
-#            legend_loc = 'upper left'
-#        else:
-#            legend_loc = 'lower left'
-#        ax[0,0].legend(rcp_lines, rcp_labels, loc=legend_loc, fontsize=12, labelspacing=0, handlelength=1, 
-#                       handletextpad=0.5, borderpad=0, frameon=False, title='RCP')
-#        
-##        # GCM Legend
-##        gcm_lines = []
-##        for gcm_name in gcm_names:
-##            line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
-##            gcm_lines.append(line)
-##        gcm_legend = gcm_names.copy()
-##        fig.legend(gcm_lines, gcm_legend, loc='center right', title='GCMs', bbox_to_anchor=(1.06,0.5), 
-##                   handlelength=0, handletextpad=0, borderpad=0, frameon=False)
-#        
-#        # Y-Label
-#        if len(groups) == 1:
-#            fig.text(-0.01, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
-#        else:
-#            fig.text(0.03, 0.5, vn_dict[vn], va='center', rotation='vertical', size=16)
-##        fig.text(0.03, 0.5, 'Normalized\nVolume [-]', va='center', ha='center', rotation='vertical', size=16)
-##        fig.text(0.03, 0.5, 'Normalized\nGlacier Runoff [-]', va='center', ha='center', rotation='vertical', size=16)
-        
+    print('ADD UNCERTAINTY TO PLOT!')
+    
     # Save figure
     fig.set_size_inches(6.5,4)
-    figure_fn = 'test.png'
+    figure_fn = 'Normalized_Mass_1980-2017.png'
     fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
     
     
 #%%
-#if option_observation_vs_calibration == 1:
-#    observation_vs_calibration(regions, mcmc_output_netcdf_fp_3chain, chainlength=chainlength, burn=burn)
+if option_GRACE_2deg == 1:
+    grouping = 'degree'
+    
+    main_glac_rgi, glac_wide_masschange, glac_wide_area, time_values = (
+            load_masschange_monthly(regions, ds_ending='_ERA-Interim_c2_ba1_100sets_1980_2017.nc'))
+    
+    # Add watersheds, regions, degrees, mascons, and all groups to main_glac_rgi_all
+    # Degrees
+    main_glac_rgi['CenLon_round'] = np.floor(main_glac_rgi.CenLon.values/degree_size) * degree_size
+    main_glac_rgi['CenLat_round'] = np.floor(main_glac_rgi.CenLat.values/degree_size) * degree_size
+    deg_groups = main_glac_rgi.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
+    deg_dict = dict(zip(deg_groups, np.arange(0,len(deg_groups))))
+    main_glac_rgi.reset_index(drop=True, inplace=True)
+    cenlon_cenlat = [(main_glac_rgi.loc[x,'CenLon_round'], main_glac_rgi.loc[x,'CenLat_round']) 
+                     for x in range(len(main_glac_rgi))]
+    main_glac_rgi['CenLon_CenLat'] = cenlon_cenlat
+    main_glac_rgi['deg_id'] = main_glac_rgi.CenLon_CenLat.map(deg_dict)
+    
+    #%%
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi)
+    
+    ds_group = {}
+    
+    # Cycle through groups
+    for ngroup, group in enumerate(groups):
+        if ngroup%50 == 0:
+            print(group)
+        # Select subset of data
+        main_glac_rgi_subset = main_glac_rgi.loc[main_glac_rgi[group_cn] == group]                        
+        vn_glac = glac_wide_masschange[main_glac_rgi_subset.index.values.tolist(),:]             
+        # Regional sum
+        vn_reg = vn_glac.sum(axis=0)                
+        # Record data
+        ds_group[ngroup] = vn_reg
+        
+#    #%%
+#    lats = [x[1] for x in deg_groups]
+#    lons = [x[0] for x in deg_groups]
+#    values_list = [x[1] for x in ds_group]
+#    values = np.vstack(values_list)
+
+
+    # Convert monthly timestep to Year-Month
+    if timestep == 'monthly':
+        time_values_df = pd.DatetimeIndex(time_values_monthly)
+        time_values = [str(x.year) + '-' + str(x.month) for x in time_values_df]
+    elif timestep == 'annual':
+        time_values = time_values_annual[:-1]
+    
+    # Output column names
+    mascon_output_cns = ['deg_idx', 'CenLat', 'CenLon']
+#    for x in time_values:
+#        mascon_output_cns.append(x)
+#    # Mascon index
+#    mascon_output_array = np.reshape(np.array(groups),(-1,1))
+#    # Mascon center lat/lon
+#    mascon_latlon = np.array([mascon_latlondict[x] for x in groups])
+#    mascon_output_array = np.hstack([mascon_output_array, mascon_latlon])
+#    # Mascon glacier mass [Gt]
+#    mascon_values_list = [ds_mass_mascon_monthly[x][1] for x in range(len(groups))]
+#    mascon_values_monthly = np.vstack(mascon_values_list)
+#    if timestep == 'annual':
+#        mascon_values = mascon_values_monthly[:,::12]
+#    elif timestep == 'monthly':
+#        mascon_values = mascon_values_monthly
+#    mascon_output_array = np.hstack([mascon_output_array, mascon_values])
+#    
+#    # Output dataframe
+#    mascon_output_df = pd.DataFrame(mascon_output_array, columns=mascon_output_cns)
+#    mascon_output_df.to_csv(mascon_fp + output_fn, sep=' ', index=False)
+#    
+#    if timestep == 'annual':
+#        headerline=('Annual glacier mass [Gt] for each mascon where at least 1 HMA glacier exists\n' + 
+#                    'Glacier mass change modeled using the Python Glacier Evolution Model (PyGEM)\n' +
+#                    'forced by ERA-Interim climate data\n'
+#                    'Glaciers aggregated according to nearest center latitude and longitude\n' + 
+#                    'Years refer to water years (e.g., 2000 is October 1999 - September 2000)\n' +
+#                    'Glacier mass refers to mass at the start of the year (e.g., mass_change_2000 = mass_2001 - '
+#                    'mass_2000\n' +
+#                    'Mascons provided by Bryant Loomis (NASA GSFC mascons)\n' + 
+#                    'Contact: drounce@alaska.edu\n' + 
+#                    'Column 1: Mascon index used to aggregate glaciers\n' + 
+#                    'Column 2: Mascon latitude center [deg]\n' +
+#                    'Column 3: Mascon longitude center [deg]\n' +
+#                    'Columns 4+: Water year\n' + 
+#                    'END OF COMMENTS (first row is header of column names)\n')
+#    elif timestep == 'monthly':
+#        headerline=('Monthly glacier mass [Gt] for each mascon where at least 1 HMA glacier exists\n' + 
+#                    'Glacier mass change modeled using the Python Glacier Evolution Model (PyGEM)\n' +
+#                    'forced by ERA-Interim climate data\n'
+#                    'Glaciers aggregated according to nearest center latitude and longitude\n' + 
+#                    'Glacier mass refers to mass at the start of the month (e.g., mass_change_Sept = mass_Oct - '
+#                    'mass_Sept)\n' +
+#                    'Mascons provided by Bryant Loomis (NASA GSFC mascons)\n' + 
+#                    'Contact: drounce@alaska.edu\n' + 
+#                    'Column 1: Mascon index used to aggregate glaciers\n' + 
+#                    'Column 2: Mascon latitude center [deg]\n' +
+#                    'Column 3: Mascon longitude center [deg]\n' +
+#                    'Columns 4+: Year-Month\n' + 
+#                    'END OF COMMENTS (first row is header of column names)\n')
+#            
+#    with open(mascon_fp + output_fn, 'r+') as f:
+#        content=f.read()
+#        f.seek(0,0)
+#        f.write(headerline.rstrip('\r\n') + '\n' + content)
         

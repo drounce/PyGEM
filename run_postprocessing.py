@@ -52,7 +52,7 @@ def getparser():
 def merge_batches(gcm_name):   
     """ MERGE BATCHES """
     
-#for gcm_name in ['ERA-Interim']:
+#for gcm_name in ['CanESM2']:
 #    debug=True
     
     
@@ -92,16 +92,19 @@ def merge_batches(gcm_name):
             if vn not in noencoding_vn:
                 encoding[vn] = {'_FillValue': False}
     
+    merged_list = []
     for reg in regions:
 #    for reg in [15]:
         
         check_str = 'R' + str(reg) + '_' + gcm_name
         
+        print(check_str)
+        
         for rcp in rcps:
             print('R', reg, 'RCP', rcp, ':')
             
             if rcp is not None:
-                check_str += 'R' + str(reg) + '_' + gcm_name + '_' + rcp
+                check_str += '_' + rcp
             
             output_list = []
             
@@ -132,6 +135,10 @@ def merge_batches(gcm_name):
             
             print('Merged ', gcm_name, reg, rcp)
             
+            merged_list.append(input.output_sim_fp + ds_all_fn)
+            
+            print(merged_list)
+            
             # Zip file to reduce file size
             # Check file path exists
             if os.path.exists(zipped_fp) == False:
@@ -140,9 +147,13 @@ def merge_batches(gcm_name):
             with zipfile.ZipFile(zipped_fp + ds_all_fn + '.zip', mode='w', compression=zipfile.ZIP_DEFLATED) as myzip:
                 myzip.write(input.output_sim_fp + ds_all_fn, arcname=ds_all_fn)
                 
-#            # Remove files in output_list
-#            for i in output_list:
-#                os.remove(netcdf_fp + i)
+            # Remove unzipped files
+            for i in merged_list:
+                os.remove(i)
+            
+            # Remove files in output_list
+            for i in output_list:
+                os.remove(netcdf_fp + i)
                 
 def subset_vars(gcm_name):    
     vns_all = input.output_variables_package2
