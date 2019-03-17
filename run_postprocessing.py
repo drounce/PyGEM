@@ -92,7 +92,7 @@ def merge_batches(gcm_name):
             if vn not in noencoding_vn:
                 encoding[vn] = {'_FillValue': False}
     
-    merged_list = []
+    
     for reg in regions:
 #    for reg in [15]:
         
@@ -107,6 +107,7 @@ def merge_batches(gcm_name):
                 check_str += '_' + rcp
             
             output_list = []
+            merged_list = []
             
             for i in os.listdir(netcdf_fp):
                 if i.startswith(check_str) and splitter in i:
