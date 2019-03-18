@@ -38,7 +38,7 @@ import class_climate
 
 
 # Script options
-option_plot_cmip5_normalizedchange = 0
+option_plot_cmip5_normalizedchange = 1
 option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 0
 option_output_tables = 0
@@ -46,17 +46,17 @@ option_subset_GRACE = 0
 option_plot_modelparam = 0
 option_plot_era_normalizedchange = 0
 option_compare_GCMwCal = 0
-option_plot_mcmc_errors = 1
+option_plot_mcmc_errors = 0
 option_plot_maxloss_issues = 0
 
 option_plot_individual_glaciers = 0
 option_plot_degrees = 0
 option_plot_pies = 0
-option_plot_individual_gcms = 0
+option_plot_individual_gcms = 1
 
 
 #%% ===== Input data =====
-netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/20181108_vars/'
+netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/'
 netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim/'
 #mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
 #mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190222_adjp10/'
@@ -66,8 +66,8 @@ csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190308_adjp12/cal_opt2/'
 
 # Regions
-rgi_regions = [13, 14, 15]
-#rgi_regions = [14]
+#rgi_regions = [13, 14, 15]
+rgi_regions = [13]
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -81,9 +81,9 @@ srtm_contour_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRT
 # GCMs and RCP scenarios
 #gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
 #             'IPSL-CM5A-MR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']
-#gcm_names = ['CSIRO-Mk3-6-0', 'GFDL-CM3']
-gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-             'MPI-ESM-LR', 'NorESM1-M']
+gcm_names = ['CanESM2']
+#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+#             'MPI-ESM-LR', 'NorESM1-M']
 #rcps = ['rcp26', 'rcp45', 'rcp85']
 rcps = ['rcp26']
 
@@ -718,8 +718,8 @@ main_glac_rgi_all['all_group'] = 'all'
 #%% TIME SERIES OF SUBPLOTS FOR EACH GROUP
 if option_plot_cmip5_normalizedchange == 1:
 #    vns = ['volume_glac_annual', 'runoff_glac_annual']
-#    vns = ['volume_glac_annual']
-    vns = ['runoff_glac_annual']
+    vns = ['volume_glac_annual']
+#    vns = ['runoff_glac_annual']
 #    vns = ['temp_glac_annual']
 #    vns = ['prec_glac_annual']
     # NOTE: Temperatures and precipitation will not line up exactly because each region is covered by a different 
@@ -790,9 +790,8 @@ if option_plot_cmip5_normalizedchange == 1:
                         netcdf_fp = netcdf_fp_era
                         ds_fn = 'R' + str(region) + '--ERA-Interim_c2_ba0_200sets_2000_2017_stats.nc'
                     else:
-                        netcdf_fp = netcdf_fp_cmip5 + vn + '/'
-                        ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba2_100sets_2000_2100--' 
-                                 + vn + '.nc')    
+                        netcdf_fp = netcdf_fp_cmip5 + gcm_name + '/'
+                        ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba1_100sets_2000_2100.nc')    
                     # Bypass GCMs that are missing a rcp scenario
                     try:
                         ds = xr.open_dataset(netcdf_fp + ds_fn)
@@ -971,43 +970,43 @@ if option_plot_cmip5_normalizedchange == 1:
             else:
                 skip_fill = 0
             
-            # Multi-model mean
-            row_idx = 0
-            col_idx = 0
-            for ngroup, group in enumerate(groups):
-                if (ngroup % num_cols == 0) and (ngroup != 0):
-                    row_idx += 1
-                    col_idx = 0
-                # Multi-model statistics
-                vn_multimodel_mean = ds_multimodels[ngroup][1].mean(axis=0)
-                vn_multimodel_std = ds_multimodels[ngroup][1].std(axis=0)
-                vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
-                vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
-                ax[row_idx, col_idx].plot(time_values, vn_multimodel_mean, color=rcp_colordict[rcp], 
-                                          linewidth=multimodel_linewidth, label=rcp)
-                if skip_fill == 0:
-                    ax[row_idx, col_idx].fill_between(time_values, vn_multimodel_stdlow, vn_multimodel_stdhigh, 
-                                                      facecolor=rcp_colordict[rcp], alpha=0.2, label=None)  
-                   
-                # Add mass change to plot
-                if vn == 'volume_glac_annual':
-                    masschg_multimodel_mean = masschg_multimodels[ngroup][1].mean(axis=0)[0]
-                
-                    print(group, rcp, np.round(masschg_multimodel_mean,0),'Gt', 
-                          np.round((vn_multimodel_mean[-1] - 1)*100,0), '%')
-                
-                if vn == 'volume_glac_annual' and rcp == rcps[-1]:
-                    masschange_str = '(' + str(masschg_multimodel_mean).split('.')[0] + ' Gt)'
-                    if grouping == 'all':
-                        ax[row_idx, col_idx].text(0.5, 0.93, masschange_str, size=12, horizontalalignment='center', 
-                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes, 
-                                                  color=rcp_colordict[rcp])
-                    else:
-                        ax[row_idx, col_idx].text(0.5, 0.88, masschange_str, size=12, horizontalalignment='center', 
-                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes, 
-                                                  color=rcp_colordict[rcp])
-                # Adjust subplot column index
-                col_idx += 1
+#            # Multi-model mean
+#            row_idx = 0
+#            col_idx = 0
+#            for ngroup, group in enumerate(groups):
+#                if (ngroup % num_cols == 0) and (ngroup != 0):
+#                    row_idx += 1
+#                    col_idx = 0
+#                # Multi-model statistics
+#                vn_multimodel_mean = ds_multimodels[ngroup][1].mean(axis=0)
+#                vn_multimodel_std = ds_multimodels[ngroup][1].std(axis=0)
+#                vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
+#                vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
+#                ax[row_idx, col_idx].plot(time_values, vn_multimodel_mean, color=rcp_colordict[rcp], 
+#                                          linewidth=multimodel_linewidth, label=rcp)
+#                if skip_fill == 0:
+#                    ax[row_idx, col_idx].fill_between(time_values, vn_multimodel_stdlow, vn_multimodel_stdhigh, 
+#                                                      facecolor=rcp_colordict[rcp], alpha=0.2, label=None)  
+#                   
+#                # Add mass change to plot
+#                if vn == 'volume_glac_annual':
+#                    masschg_multimodel_mean = masschg_multimodels[ngroup][1].mean(axis=0)[0]
+#                
+#                    print(group, rcp, np.round(masschg_multimodel_mean,0),'Gt', 
+#                          np.round((vn_multimodel_mean[-1] - 1)*100,0), '%')
+#                
+#                if vn == 'volume_glac_annual' and rcp == rcps[-1]:
+#                    masschange_str = '(' + str(masschg_multimodel_mean).split('.')[0] + ' Gt)'
+#                    if grouping == 'all':
+#                        ax[row_idx, col_idx].text(0.5, 0.93, masschange_str, size=12, horizontalalignment='center', 
+#                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes, 
+#                                                  color=rcp_colordict[rcp])
+#                    else:
+#                        ax[row_idx, col_idx].text(0.5, 0.88, masschange_str, size=12, horizontalalignment='center', 
+#                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes, 
+#                                                  color=rcp_colordict[rcp])
+#                # Adjust subplot column index
+#                col_idx += 1
 
         # RCP Legend
         rcp_lines = []
@@ -2611,37 +2610,37 @@ if option_plot_maxloss_issues == 1:
 
 # Compute mass change from 2000 - 2018
     
-# variable name
-vn = 'volume_glac_annual'
-rgi_regions = [13, 14, 15]
-
-for region in rgi_regions:
-    # Load datasets
-    ds_fn = 'R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc'
-    ds = xr.open_dataset(netcdf_fp_era + ds_fn)
-    # Extract time variable
-    if 'annual' in vn:
-        try:
-            time_values = ds[vn].coords['year_plus1'].values
-        except:
-            time_values = ds[vn].coords['year'].values
-    elif 'monthly' in vn:
-        time_values = ds[vn].coords['time'].values
-        
-    # Merge datasets
-    if region == rgi_regions[0]:
-        vn_glac_all = ds[vn].values[:,:,0]
-        vn_glac_std_all = ds[vn].values[:,:,1]
-    else:
-        vn_glac_all = np.concatenate((vn_glac_all, ds[vn].values[:,:,0]), axis=0)
-        vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn].values[:,:,1]), axis=0)
-    
-    # Close dataset
-    ds.close()
-    
-# Mass change for text on plot
-#  Gt = km3 ice * density_ice / 1000
-#  divide by 1000 because density of ice is 900 kg/m3 or 0.900 Gt/km3
-vn_reg_masschange = (vn_reg[-1] - vn_reg[0]) * input.density_ice / 1000
-
-A = (vn_glac_all[:,20].sum() - vn_glac_all[:,-1].sum()) * input.density_ice / 1000 / 18
+## variable name
+#vn = 'volume_glac_annual'
+#rgi_regions = [13, 14, 15]
+#
+#for region in rgi_regions:
+#    # Load datasets
+#    ds_fn = 'R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc'
+#    ds = xr.open_dataset(netcdf_fp_era + ds_fn)
+#    # Extract time variable
+#    if 'annual' in vn:
+#        try:
+#            time_values = ds[vn].coords['year_plus1'].values
+#        except:
+#            time_values = ds[vn].coords['year'].values
+#    elif 'monthly' in vn:
+#        time_values = ds[vn].coords['time'].values
+#        
+#    # Merge datasets
+#    if region == rgi_regions[0]:
+#        vn_glac_all = ds[vn].values[:,:,0]
+#        vn_glac_std_all = ds[vn].values[:,:,1]
+#    else:
+#        vn_glac_all = np.concatenate((vn_glac_all, ds[vn].values[:,:,0]), axis=0)
+#        vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn].values[:,:,1]), axis=0)
+#    
+#    # Close dataset
+#    ds.close()
+#    
+## Mass change for text on plot
+##  Gt = km3 ice * density_ice / 1000
+##  divide by 1000 because density of ice is 900 kg/m3 or 0.900 Gt/km3
+#vn_reg_masschange = (vn_reg[-1] - vn_reg[0]) * input.density_ice / 1000
+#
+#A = (vn_glac_all[:,20].sum() - vn_glac_all[:,-1].sum()) * input.density_ice / 1000 / 18

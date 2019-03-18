@@ -587,7 +587,9 @@ def main(list_packed_vars):
             ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi, 
                                                                            dates_table_ref)
             ref_lr_monthly_avg = gcmbiasadj.monthly_avg_2darray(ref_lr)
-            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+#            ref_lr_monthly_avg = np.roll(ref_lr_monthly_avg, -4)
+#            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+            gcm_lr = gcmbiasadj.monthly_lr_rolled(ref_lr, dates_table_ref, dates_table)
                
         # COAWST data has two domains, so need to merge the two domains
         if gcm_name == 'COAWST':
@@ -1190,25 +1192,26 @@ if __name__ == '__main__':
 #        netcdf_fn = main_vars['netcdf_fn']
         
 #%%
-##    # If you run 100 simulations, see that mass change is slightly different depending on if it's computed using the 
-##    # monthly mass balance and area or with the volume.  This is likely due to using the mean for both the area and the 
-##    # mass balance as this problem doesn't exist when running a single simulation.
-#    ds = xr.open_dataset(input.output_sim_fp + gcm_name + '/' + 'R15_ERA-Interim_c2_ba2_100sets_2000_2017.nc')
+#    ds = xr.open_dataset(input.output_sim_fp + 'CanESM2/R13_CanESM2_rcp26_c2_ba1_100sets_2000_2100.nc')
 #    vol_annual = ds.volume_glac_annual.values[0,:,0]
 #    mb_monthly = ds.massbaltotal_glac_monthly.values[0,:,0]
 #    area_annual = ds.area_glac_annual.values[0,:,0]
+#
+#    # ===== MASS CHANGE CALCULATIONS =====
+#    # Compute glacier volume change for every time step and use this to compute mass balance
+##    glac_wide_area = np.repeat(area_annual[:,:-1], 12, axis=1)
+#    glac_wide_area = np.repeat(area_annual[:-1], 12)
 #    
-#    # Monthly glacier area
-#    area_monthly = np.repeat(area_annual[:-1],12)
-#    # Monthly glacier mass change
-#    #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
-#    masschange_monthly = area_monthly * mb_monthly / 1000 * input.density_water / 1000
-#    masschange_annual = np.zeros((int(masschange_monthly.shape[0]/12)))
-#    # Annual glacier mass change
-#    for nyear in range(int(masschange_monthly.shape[0]/12)):
-#        masschange_annual[nyear] = np.sum(masschange_monthly[12*nyear:12*nyear+12])
-#        
-#    mass_annual = vol_annual * input.density_ice / 1000
-#    masschange_annual_check = mass_annual[1:] - mass_annual[:-1]
-#    A = masschange_annual_check - masschange_annual
-#    B = A / vol_annual[:-1] * 100
+#    # Mass change [km3 mwe]
+#    #  mb [mwea] * (1 km / 1000 m) * area [km2]
+#    glac_wide_masschange = mb_monthly / 1000 * glac_wide_area
+#    
+#    print('Average mass balance:', np.round(glac_wide_masschange.sum() / 101, 2), 'Gt/yr')
+#    
+#    print('Average mass balance:', np.round(mb_monthly.sum() / 101, 2), 'mwea')
+#    
+#    A = mb_monthly[0:18*12]
+#    print(A.sum() / 18)
+#    
+#    print('Vol change[%]:', vol_annual[-1] / vol_annual[0] * 100)
+        

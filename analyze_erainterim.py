@@ -1,6 +1,8 @@
 """ Analyze MCMC output - chain length, etc. """
 
 # Built-in libraries
+import collections
+import decimal
 import glob
 import os
 import pickle
@@ -30,8 +32,8 @@ import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
 
 #%%
-option_observation_vs_calibration = 0
-option_GRACE_2deg = 1
+option_observation_vs_calibration = 1
+option_GRACE_2deg = 0
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -49,14 +51,14 @@ vn_label_units_dict = {'massbal':'[mwea]',
                        'ddfsnow':'[mwe d$^{-1}$ $^\circ$C$^{-1}$]'}
 
 # Export option
-#sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim/ERA-Interim_2000_2018_areachg/'
-sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim/ERA-Interim_1980_2017_nochg/'
+sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim/ERA-Interim_2000_2018_nochg/'
+#sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim/ERA-Interim_1980_2017_nochg/'
 #sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/'
 
 figure_fp = sim_netcdf_fp + 'figures/'
 
 regions = [13, 14, 15]
-degree_size = 0.5
+degree_size = 0.1
 
 cal_datasets = ['shean']
 
@@ -255,15 +257,17 @@ def observation_vs_calibration(regions, netcdf_fp):
 if option_observation_vs_calibration == 1:
 #    observation_vs_calibration(regions, sim_netcdf_fp)
     
-#    t1_idx = 0
-#    t2_idx = 216
-    t1_idx = 240
-    t2_idx = 455
+    t1_idx = 0
+    t2_idx = 216
+#    t1_idx = 240
+#    t2_idx = 455
     t1 = 2000
     t2 = 2018
     
+#    main_glac_rgi, glac_wide_masschange, glac_wide_area, time_values = (
+#            load_masschange_monthly(regions, ds_ending='_ERA-Interim_c2_ba1_100sets_1980_2017.nc'))
     main_glac_rgi, glac_wide_masschange, glac_wide_area, time_values = (
-            load_masschange_monthly(regions, ds_ending='_ERA-Interim_c2_ba1_100sets_1980_2017.nc'))
+            load_masschange_monthly(regions, ds_ending='_ERA-Interim_c2_ba1_100sets_2000_2018.nc'))
     
     # Mean annual mass balance [mwea]
     glac_wide_mb_mwea = glac_wide_masschange[:,t1_idx:t2_idx+1].sum(axis=1) / glac_wide_area[:,0] * 1000 / (t2 - t1)
@@ -514,8 +518,10 @@ if option_observation_vs_calibration == 1:
 if option_GRACE_2deg == 1:
     grouping = 'degree'
     
+#    main_glac_rgi, glac_wide_masschange, glac_wide_area, time_values = (
+#            load_masschange_monthly(regions, ds_ending='_ERA-Interim_c2_ba1_100sets_1980_2017.nc'))
     main_glac_rgi, glac_wide_masschange, glac_wide_area, time_values = (
-            load_masschange_monthly(regions, ds_ending='_ERA-Interim_c2_ba1_100sets_1980_2017.nc'))
+            load_masschange_monthly(regions, ds_ending='_ERA-Interim_c2_ba1_100sets_2000_2018.nc'))
     
     # Add watersheds, regions, degrees, mascons, and all groups to main_glac_rgi_all
     # Degrees
@@ -529,11 +535,11 @@ if option_GRACE_2deg == 1:
     main_glac_rgi['CenLon_CenLat'] = cenlon_cenlat
     main_glac_rgi['deg_id'] = main_glac_rgi.CenLon_CenLat.map(deg_dict)
     
-    #%%
     # Groups
     groups, group_cn = select_groups(grouping, main_glac_rgi)
     
-    ds_group = {}
+    ds_group_masschange = {}
+    ds_group_area = {}
     
     # Cycle through groups
     for ngroup, group in enumerate(groups):
@@ -541,80 +547,114 @@ if option_GRACE_2deg == 1:
             print(group)
         # Select subset of data
         main_glac_rgi_subset = main_glac_rgi.loc[main_glac_rgi[group_cn] == group]                        
-        vn_glac = glac_wide_masschange[main_glac_rgi_subset.index.values.tolist(),:]             
+        masschange_glac = glac_wide_masschange[main_glac_rgi_subset.index.values.tolist(),:]
+        area_glac = glac_wide_area[main_glac_rgi_subset.index.values.tolist(),:]
         # Regional sum
-        vn_reg = vn_glac.sum(axis=0)                
+        masschange_reg = masschange_glac.sum(axis=0)
+        area_reg =  area_glac.sum(axis=0)            
         # Record data
-        ds_group[ngroup] = vn_reg
+        ds_group_masschange[ngroup] = masschange_reg
+        ds_group_area[ngroup] = area_reg
         
-#    #%%
-#    lats = [x[1] for x in deg_groups]
-#    lons = [x[0] for x in deg_groups]
-#    values_list = [x[1] for x in ds_group]
-#    values = np.vstack(values_list)
-
-
-    # Convert monthly timestep to Year-Month
-    if timestep == 'monthly':
-        time_values_df = pd.DatetimeIndex(time_values_monthly)
-        time_values = [str(x.year) + '-' + str(x.month) for x in time_values_df]
-    elif timestep == 'annual':
-        time_values = time_values_annual[:-1]
+    latitude = np.arange(main_glac_rgi.CenLat_round.min(), main_glac_rgi.CenLat_round.max() + degree_size, degree_size)
+    longitude = np.arange(main_glac_rgi.CenLon_round.min(), main_glac_rgi.CenLon_round.max() + degree_size, degree_size)
     
-    # Output column names
-    mascon_output_cns = ['deg_idx', 'CenLat', 'CenLon']
-#    for x in time_values:
-#        mascon_output_cns.append(x)
-#    # Mascon index
-#    mascon_output_array = np.reshape(np.array(groups),(-1,1))
-#    # Mascon center lat/lon
-#    mascon_latlon = np.array([mascon_latlondict[x] for x in groups])
-#    mascon_output_array = np.hstack([mascon_output_array, mascon_latlon])
-#    # Mascon glacier mass [Gt]
-#    mascon_values_list = [ds_mass_mascon_monthly[x][1] for x in range(len(groups))]
-#    mascon_values_monthly = np.vstack(mascon_values_list)
-#    if timestep == 'annual':
-#        mascon_values = mascon_values_monthly[:,::12]
-#    elif timestep == 'monthly':
-#        mascon_values = mascon_values_monthly
-#    mascon_output_array = np.hstack([mascon_output_array, mascon_values])
+    masschange_3d = np.zeros((len(longitude), len(latitude), len(time_values)))
+    area_3d = np.zeros((len(longitude), len(latitude), len(time_values)))
+    
+#    #%%
+#    def round_degsize(x, degree_size=degree_size):
+#        """ Round scalar or array to nearest degree_size - avoids rounding errors with np.where """
+#        ndigits = -1 * len(str(degree_size).split('.')[1])
+#        if np.isscalar(x):
+#            return np.around(int(np.floor(x/degree_size)) * degree_size, ndigits)
+#        else:
+#            return np.array([np.around(int(np.floor(i/degree_size)) * degree_size, ndigits) for i in x])
 #    
-#    # Output dataframe
-#    mascon_output_df = pd.DataFrame(mascon_output_array, columns=mascon_output_cns)
-#    mascon_output_df.to_csv(mascon_fp + output_fn, sep=' ', index=False)
-#    
-#    if timestep == 'annual':
-#        headerline=('Annual glacier mass [Gt] for each mascon where at least 1 HMA glacier exists\n' + 
-#                    'Glacier mass change modeled using the Python Glacier Evolution Model (PyGEM)\n' +
-#                    'forced by ERA-Interim climate data\n'
-#                    'Glaciers aggregated according to nearest center latitude and longitude\n' + 
-#                    'Years refer to water years (e.g., 2000 is October 1999 - September 2000)\n' +
-#                    'Glacier mass refers to mass at the start of the year (e.g., mass_change_2000 = mass_2001 - '
-#                    'mass_2000\n' +
-#                    'Mascons provided by Bryant Loomis (NASA GSFC mascons)\n' + 
-#                    'Contact: drounce@alaska.edu\n' + 
-#                    'Column 1: Mascon index used to aggregate glaciers\n' + 
-#                    'Column 2: Mascon latitude center [deg]\n' +
-#                    'Column 3: Mascon longitude center [deg]\n' +
-#                    'Columns 4+: Water year\n' + 
-#                    'END OF COMMENTS (first row is header of column names)\n')
-#    elif timestep == 'monthly':
-#        headerline=('Monthly glacier mass [Gt] for each mascon where at least 1 HMA glacier exists\n' + 
-#                    'Glacier mass change modeled using the Python Glacier Evolution Model (PyGEM)\n' +
-#                    'forced by ERA-Interim climate data\n'
-#                    'Glaciers aggregated according to nearest center latitude and longitude\n' + 
-#                    'Glacier mass refers to mass at the start of the month (e.g., mass_change_Sept = mass_Oct - '
-#                    'mass_Sept)\n' +
-#                    'Mascons provided by Bryant Loomis (NASA GSFC mascons)\n' + 
-#                    'Contact: drounce@alaska.edu\n' + 
-#                    'Column 1: Mascon index used to aggregate glaciers\n' + 
-#                    'Column 2: Mascon latitude center [deg]\n' +
-#                    'Column 3: Mascon longitude center [deg]\n' +
-#                    'Columns 4+: Year-Month\n' + 
-#                    'END OF COMMENTS (first row is header of column names)\n')
-#            
-#    with open(mascon_fp + output_fn, 'r+') as f:
-#        content=f.read()
-#        f.seek(0,0)
-#        f.write(headerline.rstrip('\r\n') + '\n' + content)
+##    longitude = round_degsize(longitude)
+##    latitude = round_degsize(latitude)
+    #%%
+    for ngroup, group in enumerate(groups):        
+        lon_idx = np.where(np.isclose(longitude, deg_groups[ngroup][0]))[0][0]
+        lat_idx = np.where(np.isclose(latitude, deg_groups[ngroup][1]))[0][0]
+        masschange_3d[lon_idx, lat_idx, :] = ds_group_masschange[ngroup]
+        area_3d[lon_idx, lat_idx, :] = ds_group_area[ngroup]
+    #%%
+    
+    # Create empty datasets for each variable and merge them
+    # Coordinate values
+    output_variables = ['masschange_monthly', 'area_monthly']    
+    # Year type for attributes
+    if time_values[0].to_pydatetime().month == 10:
+        year_type = 'water year'
+    elif time_values[0].to_pydatetime().month == 1:
+        year_type = 'calendar year'
+    else:
+        year_type = 'custom year'
+
+    # Variable coordinates dictionary
+    output_coords_dict = {
+            'masschange_monthly': collections.OrderedDict(
+                    [('longitude', longitude), ('latitude', latitude), ('time', time_values)]),
+            'area_monthly': collections.OrderedDict(
+                    [('longitude', longitude), ('latitude', latitude), ('time', time_values)]),
+            }
+    # Attributes dictionary
+    output_attrs_dict = {
+            'longitude': {
+                    'long_name': 'longitude',
+                     'degree_size':degree_size},
+            'latitude': {
+                    'long_name': 'latitude',
+                     'degree_size':degree_size},
+            'time': {
+                    'long_name': 'date',
+                     'year_type':year_type},
+            'masschange_monthly': {
+                    'long_name': 'glacier mass change',
+                    'units': 'Gt',
+                    'temporal_resolution': 'monthly',
+                    'comment': ('mass change of all glaciers with center in grid (glaciers spanning multiple grids' +
+                                'are counted in grid where their center latitude/longitude is located)')},
+            'area_monthly': {
+                    'long_name': 'glacier area',
+                    'units': 'km**2',
+                    'temporal_resolution': 'monthly',
+                    'comment': ('area of all glaciers with center in grid (glaciers spanning multiple grids' +
+                                'are counted in grid where their center latitude/longitude is located')},
+                }
+    # Add variables to empty dataset and merge together
+    count_vn = 0
+    encoding = {}
+    for vn in output_variables:
+        count_vn += 1
+        empty_holder = np.zeros([len(output_coords_dict[vn][i]) for i in list(output_coords_dict[vn].keys())])
+        output_ds = xr.Dataset({vn: xr.DataArray(empty_holder, 
+                                                 dims=list(output_coords_dict[vn].keys()), 
+                                                 coords=output_coords_dict[vn])})
+        # Merge datasets of stats into one output
+        if count_vn == 1:
+            output_ds_all = output_ds
+        else:
+            output_ds_all = xr.merge((output_ds_all, output_ds))
+    # Add attributes
+    for vn in output_ds_all.variables:
+        try:
+            output_ds_all[vn].attrs = output_attrs_dict[vn]
+        except:
+            pass
+        # Encoding (specify _FillValue, offsets, etc.)
+        encoding[vn] = {'_FillValue': False}
         
+    # Add values
+    output_ds_all.masschange_monthly[:,:,:] = masschange_3d
+    output_ds_all.area_monthly[:,:,:] = area_3d
+
+    # Export netcdf
+#    netcdf_fn = 'ERA-Interim_1980_2017_masschange_p' + str(int(degree_size*100)) + 'deg.nc'
+    netcdf_fn = 'ERA-Interim_2000_2018_masschange_p' + str(int(degree_size*100)) + 'deg.nc'
+    output_ds_all.to_netcdf(sim_netcdf_fp + netcdf_fn, encoding=encoding)   
+    # Close datasets
+    output_ds_all.close()
+    
+    print(np.round(output_ds_all.masschange_monthly[:,:,:].values.sum() / 18,2), 'Gt/yr')

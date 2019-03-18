@@ -52,8 +52,14 @@ def getparser():
     """
     parser = argparse.ArgumentParser(description="run gcm bias corrections from gcm list in parallel")
     # add arguments
-    parser.add_argument('gcm_file', action='store', type=str, default=None,
-                        help='text file full of gcm names')
+#    parser.add_argument('-gcm_file', action='store', type=str, default=None,
+#                        help='text file full of gcm names')
+    parser.add_argument('-gcm_list_fn', action='store', type=str, default=input.ref_gcm_name,
+                        help='text file full of commands to run')
+    parser.add_argument('-gcm_name', action='store', type=str, default=None,
+                        help='GCM name used for model run')
+    parser.add_argument('-rcp', action='store', type=str, default=None,
+                        help='rcp scenario used for model run (ex. rcp26)')
     parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=2,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
@@ -92,6 +98,71 @@ def monthly_std_2darray(x):
     return x.reshape(-1,12).transpose().reshape(-1,int(x.shape[1]/12)).std(1).reshape(12,-1).transpose()
 
 
+#def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table):
+#    """
+#    Huss and Hock (2015) temperature bias correction based on mean and interannual variability
+#    
+#    Parameters
+#    ----------
+#    ref_temp : np.array
+#        time series of reference temperature
+#    gcm_temp : np.array
+#        time series of GCM temperature
+#    dates_table_ref : pd.DataFrame
+#        dates table for reference time period
+#    dates_table : pd.DataFrame
+#        dates_table for GCM time period
+#    
+#    Returns
+#    -------
+#    gcm_temp_biasadj : np.array
+#        GCM temperature bias corrected to the reference climate dataset according to Huss and Hock (2015)
+#    gcm_elev_biasadj : float
+#        new gcm elevation is the elevation of the reference climate dataset
+#    """
+#    # GCM subset to agree with reference time period to calculate bias corrections
+#    gcm_subset_idx_start = np.where(dates_table.date.values == dates_table_ref.date.values[0])[0][0]
+#    gcm_subset_idx_end = np.where(dates_table.date.values == dates_table_ref.date.values[-1])[0][0]
+#    gcm_temp_subset = gcm_temp[:,gcm_subset_idx_start:gcm_subset_idx_end+1]
+#    
+##    print('reference start date:', dates_table_ref.date.values[0],
+##          '\ngcm start date:', dates_table.date.values[gcm_subset_idx_start],
+##          '\nreference start date:', dates_table_ref.date.values[-1],
+##          '\ngcm end date:', dates_table.date.values[gcm_subset_idx_end])
+#    
+#    # Remove spinup years, so adjustment performed over calibration period
+#    ref_temp_nospinup = ref_temp[:,input.spinupyears*12:]
+#    gcm_temp_nospinup = gcm_temp_subset[:,input.spinupyears*12:]        
+#    
+#    # Mean monthly temperature
+#    ref_temp_monthly_avg = monthly_avg_2darray(ref_temp_nospinup)
+#    gcm_temp_monthly_avg = monthly_avg_2darray(gcm_temp_nospinup)
+#    # Monthly bias adjustment (additive)
+#    gcm_temp_monthly_adj = ref_temp_monthly_avg - gcm_temp_monthly_avg
+#    # Monthly temperature bias adjusted according to monthly average
+#    t_mt = gcm_temp + np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
+#    
+#    # Calculate monthly standard deviation of temperature
+#    ref_temp_monthly_std = monthly_std_2darray(ref_temp_nospinup)
+#    gcm_temp_monthly_std = monthly_std_2darray(gcm_temp_nospinup)
+#    variability_monthly_std = ref_temp_monthly_std / gcm_temp_monthly_std
+#    # Mean monthly temperature bias adjusted according to monthly average
+#    #  t_m25avg is the avg monthly temp in a 25-year period around the given year
+#    N = 25
+#    t_m_Navg = np.zeros(t_mt.shape)
+#    for month in range(0,12):
+#        t_m_subset = t_mt[:,month::12]
+#        # Uniform filter computes running average and uses 'reflects' values at borders
+#        t_m_Navg_subset = uniform_filter(t_m_subset,size=(1,N))
+#        t_m_Navg[:,month::12] = t_m_Navg_subset
+#    
+#    gcm_temp_biasadj = t_m_Navg + (t_mt - t_m_Navg) * np.tile(variability_monthly_std, int(gcm_temp.shape[1]/12))
+#    
+#    # Update elevation
+#    gcm_elev_biasadj = ref_elev
+#    
+#    return gcm_temp_biasadj, gcm_elev_biasadj
+    
 def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table):
     """
     Huss and Hock (2015) temperature bias correction based on mean and interannual variability
@@ -118,28 +189,39 @@ def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_tab
     gcm_subset_idx_start = np.where(dates_table.date.values == dates_table_ref.date.values[0])[0][0]
     gcm_subset_idx_end = np.where(dates_table.date.values == dates_table_ref.date.values[-1])[0][0]
     gcm_temp_subset = gcm_temp[:,gcm_subset_idx_start:gcm_subset_idx_end+1]
-    
-#    print('reference start date:', dates_table_ref.date.values[0],
+
+#    print('ref start date:', dates_table_ref.date.values[0],
 #          '\ngcm start date:', dates_table.date.values[gcm_subset_idx_start],
-#          '\nreference start date:', dates_table_ref.date.values[-1],
+#          '\nref end date:', dates_table_ref.date.values[-1],
 #          '\ngcm end date:', dates_table.date.values[gcm_subset_idx_end])
     
     # Remove spinup years, so adjustment performed over calibration period
     ref_temp_nospinup = ref_temp[:,input.spinupyears*12:]
-    gcm_temp_nospinup = gcm_temp_subset[:,input.spinupyears*12:]        
+    gcm_temp_nospinup = gcm_temp_subset[:,input.spinupyears*12:]
     
     # Mean monthly temperature
     ref_temp_monthly_avg = monthly_avg_2darray(ref_temp_nospinup)
     gcm_temp_monthly_avg = monthly_avg_2darray(gcm_temp_nospinup)
+    # Standard deviation monthly temperature
+    ref_temp_monthly_std = monthly_std_2darray(ref_temp_nospinup)
+    gcm_temp_monthly_std = monthly_std_2darray(gcm_temp_nospinup)
+    
+    # Roll months so they are aligned with simulation months
+    roll_amt = -1*(12 - gcm_subset_idx_start%12)
+    ref_temp_monthly_avg = np.roll(ref_temp_monthly_avg, roll_amt)
+    gcm_temp_monthly_avg = np.roll(gcm_temp_monthly_avg, roll_amt)
+    ref_temp_monthly_std = np.roll(ref_temp_monthly_std, roll_amt)
+    gcm_temp_monthly_std = np.roll(gcm_temp_monthly_std, roll_amt)
+    
     # Monthly bias adjustment (additive)
     gcm_temp_monthly_adj = ref_temp_monthly_avg - gcm_temp_monthly_avg
+    # Monthly variability
+    variability_monthly_std = ref_temp_monthly_std / gcm_temp_monthly_std
+    
     # Monthly temperature bias adjusted according to monthly average
     t_mt = gcm_temp + np.tile(gcm_temp_monthly_adj, int(gcm_temp.shape[1]/12))
     
-    # Calculate monthly standard deviation of temperature
-    ref_temp_monthly_std = monthly_std_2darray(ref_temp_nospinup)
-    gcm_temp_monthly_std = monthly_std_2darray(gcm_temp_nospinup)
-    variability_monthly_std = ref_temp_monthly_std / gcm_temp_monthly_std
+    
     # Mean monthly temperature bias adjusted according to monthly average
     #  t_m25avg is the avg monthly temp in a 25-year period around the given year
     N = 25
@@ -225,7 +307,6 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     gcm_elev_biasadj : float
         new gcm elevation is the elevation of the reference climate dataset
     """
-    #%%
     # GCM subset to agree with reference time period to calculate bias corrections
     gcm_subset_idx_start = np.where(dates_table.date.values == dates_table_ref.date.values[0])[0][0]
     gcm_subset_idx_end = np.where(dates_table.date.values == dates_table_ref.date.values[-1])[0][0]
@@ -235,16 +316,19 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     ref_prec_nospinup = ref_prec[:,input.spinupyears*12:]
     gcm_prec_nospinup = gcm_prec_subset[:,input.spinupyears*12:]
     
+    # Roll months so they are aligned with simulation months
+    roll_amt = -1*(12 - gcm_subset_idx_start%12)
+    
     # PRECIPITATION BIAS CORRECTIONS
     # Monthly mean precipitation
-    ref_prec_monthly_avg = monthly_avg_2darray(ref_prec_nospinup)
-    gcm_prec_monthly_avg = monthly_avg_2darray(gcm_prec_nospinup)
+    ref_prec_monthly_avg = np.roll(monthly_avg_2darray(ref_prec_nospinup), roll_amt)
+    gcm_prec_monthly_avg = np.roll(monthly_avg_2darray(gcm_prec_nospinup), roll_amt)
     bias_adj_prec_monthly = ref_prec_monthly_avg / gcm_prec_monthly_avg
     # Bias adjusted precipitation accounting for differences in monthly mean
     gcm_prec_biasadj_raw = gcm_prec * np.tile(bias_adj_prec_monthly, int(gcm_prec.shape[1]/12))
     
     # Adjust variance based on zscore and reference standard deviation
-    ref_prec_monthly_std = monthly_std_2darray(ref_prec_nospinup)
+    ref_prec_monthly_std = np.roll(monthly_std_2darray(ref_prec_nospinup), roll_amt)
     gcm_prec_biasadj_raw_monthly_avg = monthly_avg_2darray(gcm_prec_biasadj_raw[:,0:ref_prec.shape[1]])
     gcm_prec_biasadj_raw_monthly_std = monthly_std_2darray(gcm_prec_biasadj_raw[:,0:ref_prec.shape[1]])
     # Calculate value compared to mean and standard deviation
@@ -257,8 +341,9 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     gcm_prec_biasadj[gcm_prec_biasadj < 0] = 0
     
     # Identify outliers using reference's monthly maximum adjusted for future increases
-    ref_prec_monthly_max = (ref_prec_nospinup.reshape(-1,12).transpose()
-                            .reshape(-1,int(ref_prec_nospinup.shape[1]/12)).max(1).reshape(12,-1).transpose())
+    ref_prec_monthly_max = np.roll((ref_prec_nospinup.reshape(-1,12).transpose()
+                                    .reshape(-1,int(ref_prec_nospinup.shape[1]/12)).max(1).reshape(12,-1).transpose()), 
+                                   roll_amt)
     gcm_prec_max_check = np.tile(ref_prec_monthly_max, int(gcm_prec_biasadj.shape[1]/12))        
     # For wetter years in future, adjust monthly max by the annual increase in precipitation
     gcm_prec_annual = annual_sum_2darray(gcm_prec)
@@ -276,9 +361,112 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     
     # Update elevation
     gcm_elev_biasadj = ref_elev
-    #%%
-    return gcm_prec_biasadj, gcm_elev_biasadj
     
+    return gcm_prec_biasadj, gcm_elev_biasadj
+
+
+#def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table):
+#    """
+#    Precipitation bias correction based on mean with limited maximum
+#    
+#    Parameters
+#    ----------
+#    ref_prec : np.array
+#        time series of reference precipitation
+#    gcm_prec : np.array
+#        time series of GCM precipitation
+#    dates_table_ref : pd.DataFrame
+#        dates table for reference time period
+#    dates_table : pd.DataFrame
+#        dates_table for GCM time period
+#    
+#    Returns
+#    -------
+#    gcm_prec_biasadj : np.array
+#        GCM precipitation bias corrected to the reference climate dataset according to Huss and Hock (2015)
+#    gcm_elev_biasadj : float
+#        new gcm elevation is the elevation of the reference climate dataset
+#    """
+#    #%%
+#    # GCM subset to agree with reference time period to calculate bias corrections
+#    gcm_subset_idx_start = np.where(dates_table.date.values == dates_table_ref.date.values[0])[0][0]
+#    gcm_subset_idx_end = np.where(dates_table.date.values == dates_table_ref.date.values[-1])[0][0]
+#    gcm_prec_subset = gcm_prec[:,gcm_subset_idx_start:gcm_subset_idx_end+1]
+#    
+#    # Remove spinup years, so adjustment performed over calibration period
+#    ref_prec_nospinup = ref_prec[:,input.spinupyears*12:]
+#    gcm_prec_nospinup = gcm_prec_subset[:,input.spinupyears*12:]
+#    
+#    # PRECIPITATION BIAS CORRECTIONS
+#    # Monthly mean precipitation
+#    ref_prec_monthly_avg = monthly_avg_2darray(ref_prec_nospinup)
+#    gcm_prec_monthly_avg = monthly_avg_2darray(gcm_prec_nospinup)
+#    bias_adj_prec_monthly = ref_prec_monthly_avg / gcm_prec_monthly_avg
+#    # Bias adjusted precipitation accounting for differences in monthly mean
+#    gcm_prec_biasadj_raw = gcm_prec * np.tile(bias_adj_prec_monthly, int(gcm_prec.shape[1]/12))
+#    
+#    # Adjust variance based on zscore and reference standard deviation
+#    ref_prec_monthly_std = monthly_std_2darray(ref_prec_nospinup)
+#    gcm_prec_biasadj_raw_monthly_avg = monthly_avg_2darray(gcm_prec_biasadj_raw[:,0:ref_prec.shape[1]])
+#    gcm_prec_biasadj_raw_monthly_std = monthly_std_2darray(gcm_prec_biasadj_raw[:,0:ref_prec.shape[1]])
+#    # Calculate value compared to mean and standard deviation
+#    gcm_prec_biasadj_zscore = (
+#            (gcm_prec_biasadj_raw - np.tile(gcm_prec_biasadj_raw_monthly_avg, int(gcm_prec.shape[1]/12))) / 
+#             np.tile(gcm_prec_biasadj_raw_monthly_std, int(gcm_prec.shape[1]/12)))
+#    gcm_prec_biasadj = (
+#            np.tile(gcm_prec_biasadj_raw_monthly_avg, int(gcm_prec.shape[1]/12)) +
+#            gcm_prec_biasadj_zscore * np.tile(ref_prec_monthly_std, int(gcm_prec.shape[1]/12)))
+#    gcm_prec_biasadj[gcm_prec_biasadj < 0] = 0
+#    
+#    # Identify outliers using reference's monthly maximum adjusted for future increases
+#    ref_prec_monthly_max = (ref_prec_nospinup.reshape(-1,12).transpose()
+#                            .reshape(-1,int(ref_prec_nospinup.shape[1]/12)).max(1).reshape(12,-1).transpose())
+#    gcm_prec_max_check = np.tile(ref_prec_monthly_max, int(gcm_prec_biasadj.shape[1]/12))        
+#    # For wetter years in future, adjust monthly max by the annual increase in precipitation
+#    gcm_prec_annual = annual_sum_2darray(gcm_prec)
+#    gcm_prec_annual_norm = gcm_prec_annual / gcm_prec_annual.mean(1)[:,np.newaxis]
+#    gcm_prec_annual_norm_repeated = np.repeat(gcm_prec_annual_norm, 12).reshape(gcm_prec_biasadj.shape)
+#    gcm_prec_max_check_adj = gcm_prec_max_check * gcm_prec_annual_norm_repeated
+#    gcm_prec_max_check_adj[gcm_prec_max_check_adj < gcm_prec_max_check] = (
+#            gcm_prec_max_check[gcm_prec_max_check_adj < gcm_prec_max_check])
+#    
+#    # Replace outliers with monthly mean adjusted for the normalized annual variation
+#    outlier_replacement = (gcm_prec_annual_norm_repeated * 
+#                           np.tile(ref_prec_monthly_avg, int(gcm_prec_biasadj.shape[1]/12)))
+#    gcm_prec_biasadj[gcm_prec_biasadj > gcm_prec_max_check_adj] = (
+#            outlier_replacement[gcm_prec_biasadj > gcm_prec_max_check_adj])
+#    
+#    # Update elevation
+#    gcm_elev_biasadj = ref_elev
+#    #%%
+#    return gcm_prec_biasadj, gcm_elev_biasadj
+    
+def monthly_lr_rolled(ref_lr, dates_table_ref, dates_table):
+    """ Monthly average lapse rate from reference data rolled to ensure proper months 
+    
+    Parameters
+    ----------
+    ref_LR : np.array
+        time series of reference lapse rates
+    dates_table_ref : pd.DataFrame
+        dates table for reference time period
+    dates_table : pd.DataFrame
+        dates_table for GCM time period
+    
+    Returns
+    -------
+    gcm_lr : np.array
+        lapse rates based on monthly average of reference data
+    """
+    # GCM subset to agree with reference time period to calculate bias corrections
+    gcm_subset_idx_start = np.where(dates_table.date.values == dates_table_ref.date.values[0])[0][0]
+    
+    # Roll months so they are aligned with simulation months
+    roll_amt = -1*(12 - gcm_subset_idx_start%12)
+    ref_lr_monthly_avg = np.roll(monthly_avg_2darray(ref_lr), roll_amt)
+    gcm_lr = np.tile(ref_lr_monthly_avg, int(dates_table.shape[0]/12))
+    return gcm_lr
+        
     
 def plot_biasadj(ref_temp, gcm_temp_biasadj, ref_prec, gcm_prec, gcm_prec_biasadj, dates_table_ref, dates_table):
     """
@@ -387,7 +575,7 @@ def main(list_packed_vars):
         sizes.  Additionally, using the bias adjustment will cause the GCM climate data to use the reference elevation
         since the adjustments were made from the GCM climate data to be consistent with the reference dataset.
     """
-    # Unpack variables
+    # Unpack variables    
     count = list_packed_vars[0]
     chunk = list_packed_vars[1]
     main_glac_rgi_all = list_packed_vars[2]
@@ -397,7 +585,12 @@ def main(list_packed_vars):
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
-    rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
+    
+    if (gcm_name != input.ref_gcm_name) and (args.rcp is None):
+        rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
+    elif args.rcp is not None:
+        rcp_scenario = args.rcp
+#    rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
 
     # ===== LOAD OTHER GLACIER DATA =====
     main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :]
@@ -424,10 +617,14 @@ def main(list_packed_vars):
         ref_endyear = input.endyear
     else:
         ref_endyear = input.gcm_endyear
+#    dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
+#                                               spinupyears=input.spinupyears)
+#    dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear,
+#                                           spinupyears=input.spinupyears)
     dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
-                                               spinupyears=input.spinupyears)
-    dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear,
-                                           spinupyears=input.spinupyears)
+                                               spinupyears=input.spinupyears, option_wateryear=input.option_wateryear)
+    dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
+                                           spinupyears=input.gcm_spinupyears, option_wateryear=input.gcm_wateryear)
 
     # ===== LOAD CLIMATE DATA =====
     # Reference climate data
@@ -455,7 +652,9 @@ def main(list_packed_vars):
     if gcm_name == 'ERA-Interim':
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     else:
-        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+#        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
+        gcm_lr = monthly_lr_rolled(ref_lr, dates_table_ref, dates_table)
+
     # COAWST data has two domains, so need to merge the two domains
     if gcm_name == 'COAWST':
         gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn, main_glac_rgi, 
@@ -545,32 +744,69 @@ if __name__ == '__main__':
         # if not running in parallel, chunk size is all glaciers
         chunk_size = main_glac_rgi_all.shape[0]
 
-    # Read GCM names from command file
-    with open(args.gcm_file, 'r') as gcm_fn:
-        gcm_list = gcm_fn.read().splitlines()
-        rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
-        print('Found %d gcm(s) to process'%(len(gcm_list)))
+    # Read GCM names from argument parser
+    gcm_name = args.gcm_list_fn
+    if args.gcm_name is not None:
+        gcm_list = [args.gcm_name]
+        rcp_scenario = args.rcp
+    elif args.gcm_list_fn == input.ref_gcm_name:
+        gcm_list = [input.ref_gcm_name]
+    else:
+        with open(args.gcm_list_fn, 'r') as gcm_fn:
+            gcm_list = gcm_fn.read().splitlines()
+            rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
+            print('Found %d gcms to process'%(len(gcm_list)))
 
     # Loop through all GCMs
     for gcm_name in gcm_list:
+        if args.rcp is None:
+            print('Processing:', gcm_name)
+        else:
+            print('Processing:', gcm_name, rcp_scenario)
         # Pack variables for multiprocessing
         list_packed_vars = []
         n = 0
         for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-            n += 1
+            n = n + 1
             list_packed_vars.append([n, chunk, main_glac_rgi_all, chunk_size, gcm_name])
-
+            
         # Parallel processing
         if args.option_parallels != 0:
-            print('Processing', gcm_name, 'in parallel')
+            print('Processing in parallel with ' + str(num_cores) + ' cores...')
             with multiprocessing.Pool(args.num_simultaneous_processes) as p:
                 p.map(main,list_packed_vars)
-        # No parallel processing
+        # If not in parallel, then only should be one loop
         else:
-            print('Processing', gcm_name, 'without parallel')
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
+
+#    # Read GCM names from command file
+#    with open(args.gcm_file, 'r') as gcm_fn:
+#        gcm_list = gcm_fn.read().splitlines()
+#        rcp_scenario = os.path.basename(args.gcm_file).split('_')[1]
+#        print('Found %d gcm(s) to process'%(len(gcm_list)))
+#
+#    # Loop through all GCMs
+#    for gcm_name in gcm_list:
+#        # Pack variables for multiprocessing
+#        list_packed_vars = []
+#        n = 0
+#        for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
+#            n += 1
+#            list_packed_vars.append([n, chunk, main_glac_rgi_all, chunk_size, gcm_name])
+#
+#        # Parallel processing
+#        if args.option_parallels != 0:
+#            print('Processing', gcm_name, 'in parallel')
+#            with multiprocessing.Pool(args.num_simultaneous_processes) as p:
+#                p.map(main,list_packed_vars)
+#        # No parallel processing
+#        else:
+#            print('Processing', gcm_name, 'without parallel')
+#            # Loop through the chunks and export bias adjustments
+#            for n in range(len(list_packed_vars)):
+#                main(list_packed_vars[n])
 
     print('Total processing time:', time.time()-time_start, 's')
 
@@ -599,3 +835,6 @@ if __name__ == '__main__':
         gcm_lr = main_vars['gcm_lr']
         gcm_temp_biasadj = main_vars['gcm_temp_biasadj']        
         gcm_prec_biasadj = main_vars['gcm_prec_biasadj']
+        
+        
+    #%%    
