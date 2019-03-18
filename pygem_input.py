@@ -122,7 +122,7 @@ rgi_glac_number = ['54431']
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
 
 # ===== Bias adjustment option =====
-option_bias_adjustment = 1
+option_bias_adjustment = 2
 #  Option 0 - ignore bias adjustments
 #  Option 1 - new precipitation, temperature from Huss and Hock [2015]
 #  Option 2 - Huss and Hock [2015] methods
