@@ -5,6 +5,7 @@ import glob
 import os
 import pickle
 # External libraries
+import cartopy
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MultipleLocator
@@ -32,12 +33,13 @@ import run_calibration as calibration
 option_metrics_vs_chainlength = 0
 option_metrics_histogram_all = 0
 option_observation_vs_calibration = 0
-option_prior_vs_posterior = 0
+option_prior_vs_posterior_single = 0
 
 # Paper figures
 option_papermcmc_prior_vs_posterior = 0
-option_papermcmc_solutionspace = 1
+option_papermcmc_solutionspace = 0
 option_papermcmc_allglaciers_posteriorchanges = 0
+option_papermcmc_spatialdistribution_parameter = 1
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -48,7 +50,8 @@ vn_title_dict = {'massbal':'Mass\nBalance',
 vn_label_dict = {'massbal':'Mass Balance\n[mwea]',                                                                      
                  'precfactor':'Precipitation Factor\n[-]',                                                              
                  'tempchange':'Temperature Bias\n[$^\circ$C]',                                                               
-                 'ddfsnow':'Degree Day Factor of Snow\n[mwe d$^{-1}$ $^\circ$C$^{-1}$]'}
+                 'ddfsnow':'Degree Day Factor of Snow\n[mwe d$^{-1}$ $^\circ$C$^{-1}$]',
+                 'dif_masschange':'Mass Balance [mwea]\n(Observation - Model)'}
 vn_label_units_dict = {'massbal':'[mwea]',                                                                      
                        'precfactor':'[-]',                                                              
                        'tempchange':'[$^\circ$C]',                                                               
@@ -65,7 +68,7 @@ metrics = ['Gelman-Rubin', 'MC Error', 'Effective N']
 
 # Export option
 mcmc_output_netcdf_fp_3chain = input.output_filepath + 'cal_opt2_spc_3000glac_3chain_adj12_wpriors/'
-mcmc_output_netcdf_fp_all = input.output_filepath + 'cal_opt2_spc_20190222_adjp10/'
+mcmc_output_netcdf_fp_all = input.output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/'
 mcmc_output_figures_fp = input.output_filepath + 'figures/'
 #mcmc_output_csv_fp = mcmc_output_netcdf_fp + 'csv/'
 
@@ -83,6 +86,21 @@ high_percentile = 95
 colors = ['#387ea0', '#fcb200', '#d20048']
 linestyles = ['-', '--', ':']
 
+# Group dictionaries
+watershed_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_watershed.csv'
+watershed_csv = pd.read_csv(watershed_dict_fn)
+watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
+kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
+kaab_csv = pd.read_csv(kaab_dict_fn)
+kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab_name))
+
+# Shapefiles
+rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
+watershed_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/HMA_basins_20181018_4plot.shp'
+kaab_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/kaab2015_regions.shp'
+srtm_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA.tif'
+srtm_contour_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA_countours_2km_gt3000m_smooth.shp'
+
 
 def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
     """ Load glacier data, climate data, and calibration data for list of glaciers 
@@ -97,7 +115,6 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
     main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, gcm_temp, gcm_prec, gcm_elev, gcm_lr, 
     cal_data, dates_table
     """
-    #%%
     glac_no_byregion = {}
     regions = [int(i.split('.')[0]) for i in glac_no]
     regions = list(set(regions))
@@ -111,8 +128,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
     for region in regions:
         glac_no_byregion[region] = sorted(glac_no_byregion[region])
         
-        
-        # ADD EXCEPTION IF ALL GLACIERS ARE INCLUDED...
+        # EXCEPTION COULD BE ADDED HERE INSTEAD
         
     # Load data for glaciers
     dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
@@ -123,7 +139,13 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
     for region in regions:
         count += 1
         # ====== GLACIER data =====
-        main_glac_rgi_region = modelsetup.selectglaciersrgitable(
+        if ((region == 13 and len(glac_no_byregion[region]) == 54429) or 
+            (region == 14 and len(glac_no_byregion[region]) == 27988) or
+            (region == 15 and len(glac_no_byregion[region]) == 13119) ):
+            main_glac_rgi_region = modelsetup.selectglaciersrgitable(
+                rgi_regionsO1=[region], rgi_regionsO2 = 'all', rgi_glac_number='all')
+        else:
+            main_glac_rgi_region = modelsetup.selectglaciersrgitable(
                 rgi_regionsO1=[region], rgi_regionsO2 = 'all', rgi_glac_number=glac_no_byregion[region])
         # Glacier hypsometry
         main_glac_hyps_region = modelsetup.import_Husstable(
@@ -219,6 +241,81 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
         return (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
                 gcm_temp, gcm_prec, gcm_elev, gcm_lr, 
                 cal_data, dates_table)
+        
+        
+def select_groups(grouping, main_glac_rgi_all):
+    """
+    Select groups based on grouping
+    """
+    if grouping == 'rgi_region':
+        groups = main_glac_rgi_all.O1Region.unique().tolist()
+        group_cn = 'O1Region'
+    elif grouping == 'watershed':
+        groups = main_glac_rgi_all.watershed.unique().tolist()
+        group_cn = 'watershed'
+    elif grouping == 'kaab':
+        groups = main_glac_rgi_all.kaab.unique().tolist()
+        group_cn = 'kaab'
+        groups = [x for x in groups if str(x) != 'nan']  
+    elif grouping == 'degree':
+        groups = main_glac_rgi_all.deg_id.unique().tolist()
+        group_cn = 'deg_id'
+    elif grouping == 'mascon':
+        groups = main_glac_rgi_all.mascon_idx.unique().tolist()
+        groups = [int(x) for x in groups]
+        group_cn = 'mascon_idx'
+    else:
+        groups = ['all']
+        group_cn = 'all_group'
+    try:
+        groups = sorted(groups, key=str.lower)
+    except:
+        groups = sorted(groups)
+    return groups, group_cn
+
+
+def partition_groups(grouping, vn, main_glac_rgi_all, regional_calc='mean'):
+    """Partition variable by each group
+    
+    Parameters
+    ----------
+    grouping : str
+        name of grouping to use
+    vn : str
+        variable name
+    main_glac_rgi_all : pd.DataFrame
+        glacier table
+    regional_calc : str
+        calculation used to compute region value (mean or sum)
+        
+    Output
+    ------
+    groups : list
+        list of group names
+    ds_group : list of lists
+        dataset containing the multimodel data for a given variable for all the GCMs
+    """
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi_all)
+    
+    ds_group = [[] for group in groups]
+    
+    # Cycle through groups
+    for ngroup, group in enumerate(groups):
+        # Select subset of data
+        main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
+        vn_glac = main_glac_rgi_all[vn].values[main_glac_rgi.index.values.tolist()]  
+
+        # Regional calc
+        if regional_calc == 'mean':           
+            vn_reg = vn_glac.mean(axis=0)
+        elif regional_calc == 'sum':
+            vn_reg = vn_glac.sum(axis=0)      
+        
+        # Record data for each group
+        ds_group[ngroup] = [group, vn_reg]
+                
+    return groups, ds_group
 
     
 def effective_n(ds, vn, iters, burn, chain=0):
@@ -1175,7 +1272,7 @@ if option_metrics_histogram_all == 1:
     print('code this plot!')
 
 
-if option_prior_vs_posterior == 1:
+if option_prior_vs_posterior_single == 1:
     glac_no = ['13.26360']
     iters=[1000,10000]
 #    main_glac_rgi, cal_data, glac_no = load_glacier_and_cal_data(regions)
@@ -1193,9 +1290,212 @@ if option_observation_vs_calibration == 1:
 #%%
 if option_papermcmc_prior_vs_posterior == 1:
     print('Prior vs posterior showing two example glaciers side-by-side!')
+    glac_no = ['13.26360', '14.08487']
+    netcdf_fp = mcmc_output_netcdf_fp_3chain
+    fig_fp = netcdf_fp + 'figures/'
+    if os.path.exists(fig_fp) == False:
+        os.makedirs(fig_fp)
+    iters=[1000,15000]
+    
+    main_glac_rgi, cal_data = load_glacierdata_byglacno(glac_no, option_loadhyps_climate=0)
+
+    # PRIOR VS POSTERIOR PLOTS 
+    fig, ax = plt.subplots(4, 2, squeeze=False, figsize=(6.5, 8), 
+                           gridspec_kw={'wspace':0.2, 'hspace':0.6})
+
+    for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
+        # Glacier string
+        glacier_str = glac_str_wRGI.split('-')[1]
+        print(glacier_str)
+        # Glacier number
+        glacno = int(glacier_str.split('.')[1])
+        # RGI information
+        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
+        # Calibration data
+        cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+        glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
+        # Select observed mass balance, error, and time data
+        t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
+        t2 = glacier_cal_data.loc[cal_idx, 't2'].values[0]
+        t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
+        t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+        observed_massbal = (glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)).values[0]
+        observed_error = (glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)).values[0]
+        mb_obs_max = observed_massbal + 3 * observed_error
+        mb_obs_min = observed_massbal - 3 * observed_error
+        
+        # MCMC Analysis
+        ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
+        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
+        print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
+        
+        # Priors
+        try:
+            priors = pd.Series(ds.priors, index=ds['dim_0'])
+        except:
+            priors = pd.Series(ds.priors, index=ds.prior_cns)
+        
+        precfactor_boundlow = priors['pf_bndlow']
+        precfactor_boundhigh = priors['pf_bndhigh']
+        precfactor_boundmu = priors['pf_mu']
+        tempchange_boundlow = priors['tc_bndlow']
+        tempchange_boundhigh = priors['tc_bndhigh']
+        tempchange_mu = priors['tc_mu']
+        tempchange_sigma = priors['tc_std']
+        ddfsnow_boundhigh = priors['ddfsnow_bndhigh']
+        ddfsnow_boundlow = priors['ddfsnow_bndlow']
+        ddfsnow_mu = priors['ddfsnow_mu']
+        ddfsnow_sigma = priors['ddfsnow_std']
+        mb_max_loss = priors['mb_max_loss']
+        mb_max_acc = priors['mb_max_acc']
+        try:
+            tempchange_max_loss = priors['tc_max_loss']
+        except: # typo in initial code - issue fixed 03/08/2019
+            tempchange_max_loss = priors['tc_maxloss']
+        tempchange_max_acc = priors['tc_max_acc']
+        precfactor_opt_init = priors['pf_opt_init']
+        tempchange_opt_init = priors['tc_opt_init']
+        
+        print('\nParameters:\nPF_low:', np.round(precfactor_boundlow,2), 'PF_high:', 
+              np.round(precfactor_boundhigh,2), '\nTC_low:', np.round(tempchange_boundlow,2), 
+              'TC_high:', np.round(tempchange_boundhigh,2),
+              '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2))
+        
+        param_idx_dict = {'massbal':[0,n],
+                          'precfactor':[1,n],
+                          'tempchange':[2,n],
+                          'ddfsnow':[3,n]}
+        
+        z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
+        for nvar, vn in enumerate(variables):
+        
+            # PRIOR DISTRIBUTIONS
+            if vn == 'massbal':
+                x_values = observed_massbal + observed_error * z_score
+                y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
+            elif vn == 'precfactor': 
+                if input.precfactor_disttype == 'uniform':
+                    z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                    x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
+                    y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
+                                           scale=(precfactor_boundhigh - precfactor_boundlow))
+                elif input.precfactor_disttype == 'lognormal':
+                    precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
+                    x_values = np.linspace(lognorm.ppf(1e-6, precfactor_lognorm_sigma), 
+                                           lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
+                    y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
+            elif vn == 'tempchange':
+                if input.tempchange_disttype == 'uniform':
+                    z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                    x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
+                    y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
+                                           scale=(tempchange_boundhigh - tempchange_boundlow))
+                elif input.tempchange_disttype == 'truncnormal':
+                    tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
+                    tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
+                    z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
+                                          truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
+                    x_values = tempchange_mu + tempchange_sigma * z_score
+                    y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu,
+                                             scale=tempchange_sigma)
+            elif vn == 'ddfsnow':            
+                if input.ddfsnow_disttype == 'truncnormal':
+                    ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
+                    ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
+                    z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b),
+                                          truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
+                    x_values = ddfsnow_mu + ddfsnow_sigma * z_score
+                    y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
+                elif input.ddfsnow_disttype == 'uniform':
+                    z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                    x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
+                    y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
+                                           scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
+            
+            nrow = param_idx_dict[vn][0]
+            ncol = param_idx_dict[vn][1]
+            ax[nrow,ncol].plot(x_values, y_values, color='k')
+            
+            # Labels
+            ax[nrow,ncol].set_xlabel(vn_label_dict[vn], size=10)
+            if nvar == 0:
+                ax[nrow,ncol].set_title(glacier_str, fontsize=12)
+    
+            # Ensemble/Posterior distribution                
+            for n_chain in range(len(ds.chain.values)):
+                for count_iter, n_iters in enumerate(iters):
+                    chain = ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:n_iters]
+                
+                    # gaussian distribution
+                    kde = gaussian_kde(chain)
+                    x_values_kde = x_values.copy()
+                    y_values_kde = kde(x_values_kde)
+                    
+                    # Plot fitted distribution
+                    ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=colors[count_iter], 
+                                       linestyle=linestyles[n_chain])
+        # Close dataset
+        ds.close()        
+        
+    # Legend (Note: hard code the spacing between the two legends)
+    leg_lines = []
+    leg_labels = []
+    for count_iter, n_iters in enumerate(iters):
+#        line = Line2D([0,1],[0,1], color='white')
+#        leg_lines.append(line)
+#        leg_labels.append('')
+        line = Line2D([0,1],[0,1], color=colors[count_iter])
+        leg_lines.append(line)
+        leg_labels.append(str(int(n_iters)))    
+    chain_labels = ['Center', 'Lower Bound', 'Upper Bound']
+    for n_chain in range(len(ds.chain.values)):
+#        line = Line2D([0,1],[0,1], color='white')
+#        leg_lines.append(line)
+#        leg_labels.append('')
+        line = Line2D([0,1],[0,1], color='gray', linestyle=linestyles[n_chain])
+        leg_lines.append(line)
+        leg_labels.append(chain_labels[n_chain])
+    
+    fig.legend(leg_lines, leg_labels, loc='lower center', bbox_to_anchor=(0.5,0.01),
+               handlelength=2, handletextpad=0.5, borderpad=0.3, frameon=True, ncol=5)
+    fig.subplots_adjust(bottom=0.15)
+    
+    fig.text(0.02, 0.5, 'Probability Density', va='center', rotation='vertical', size=12)
+    
+        
+    # Save figure
+    str_ending = ''
+    if 'tempchange' in variables:    
+        if input.tempchange_disttype == 'truncnormal': 
+            str_ending += '_TCtn'
+        elif input.tempchange_disttype == 'uniform':
+            str_ending += '_TCu'
+    if 'precfactor' in variables:                
+        if input.precfactor_disttype == 'lognormal': 
+            str_ending += '_PFln'
+        elif input.precfactor_disttype == 'uniform':
+            str_ending += '_PFu'
+    if 'ddfsnow' in variables:     
+        if input.ddfsnow_disttype == 'truncnormal': 
+            str_ending += '_DDFtn'
+        elif input.ddfsnow_disttype == 'uniform':
+            str_ending += '_DDFu'        
+    if input.tempchange_edge_method == 'mb':
+        str_ending += '_edgeMBpt' + str(int(input.tempchange_edge_mb*100)).zfill(2)
+    elif input.tempchange_edge_method == 'mb_norm':
+        str_ending += '_edgeMBNormpt' + str(int(input.tempchange_edge_mbnorm*100)).zfill(2)
+    elif input.tempchange_edge_method == 'mb_norm_slope':
+        str_ending += '_edgeSpt' + str(int(input.tempchange_edge_mbnormslope*100)).zfill(2)
+    str_ending += '_TCadjp' + str(int(input.tempchange_mu_adj*100)).zfill(2)
+        
+    if os.path.exists(mcmc_output_figures_fp) == False:
+        os.makedirs(mcmc_output_figures_fp)        
+    fig.savefig(fig_fp + 'prior_v_posteriors_2glac.png', 
+                bbox_inches='tight', dpi=300)
+    fig.clf()
     
     
-    
+    #%%
 if option_papermcmc_solutionspace == 1:
     
     glac_no = ['13.26360']
@@ -1311,8 +1611,9 @@ if option_papermcmc_solutionspace == 1:
                               observed_error, tempchange_boundhigh, tempchange_boundlow, tempchange_opt_init, 
                               mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, option_areaconstant=0,
                               option_plotsteps=1, fig_fp=fig_fp)
+        
 
-  
+#%%
 if option_papermcmc_allglaciers_posteriorchanges == 1:
     netcdf_fp = mcmc_output_netcdf_fp_3chain
     
@@ -1511,23 +1812,266 @@ if option_papermcmc_allglaciers_posteriorchanges == 1:
         os.makedirs(fig_fp)
     figure_fn = 'posterior_vs_prior_difference_histograms.png'
     fig.savefig(fig_fp + figure_fn, bbox_inches='tight', dpi=300)
-    
-        
+
 #%%
-#percentiles = np.arange(5,100,5)
-#mcerror_percentiles = []
-#for npercentile in percentiles:
-#    print(npercentile, np.percentile(A,npercentile))
-#    mcerror_percentiles.append(np.percentile(A,npercentile))
-#    
-#fig, ax = plt.subplots()
-#ax.plot(percentiles, mcerror_percentiles)
-#
-#ax.set(xlabel='Percentile', ylabel='Mass Balance MC Error [mwea]')
-#ax.grid()
-#
-#fig.savefig(mcmc_output_figures_fp + "massbal_mcerror_vs_percentiles.png")
-#plt.show()
+if option_papermcmc_spatialdistribution_parameter == 1:
+    print('plot spatial distribution')
+    
+    netcdf_fp = mcmc_output_netcdf_fp_all
+    figure_fp = netcdf_fp + '../'
+    grouping = 'degree'
+    degree_size = 0.25
+    
+    vns = ['ddfsnow', 'tempchange', 'precfactor', 'dif_masschange']
+    modelparams_fn = '../main_glac_rgi_20190308_wcal_wposteriors.csv'
+    
+    east = 104
+    west = 67
+    south = 25
+    north = 48
+    xtick = 5
+    ytick = 5
+    xlabel = 'Longitude [$^\circ$]'
+    ylabel = 'Latitude [$^\circ$]'
+    
+    labelsize = 13
+    
+    colorbar_dict = {'precfactor':[0,5],
+                     'tempchange':[-5,5],
+                     'ddfsnow':[0.0036,0.0046],
+                     'dif_masschange':[-0.1,0.1]}
+    
+    # Load all glaciers
+    filelist = []
+    for region in regions:
+        filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
+    
+    glac_no = []
+    reg_no = []
+    for netcdf in filelist:
+        glac_str = netcdf.split('/')[-1].split('.nc')[0]
+        glac_no.append(glac_str)
+        reg_no.append(glac_str.split('.')[0])
+    glac_no = sorted(glac_no)
+    
+    main_glac_rgi, cal_data = load_glacierdata_byglacno(glac_no, option_loadhyps_climate=0)
+    
+    #%%
+    # Load mean of all model parameters
+    if os.path.isfile(mcmc_output_netcdf_fp_all + modelparams_fn) == False:
+        
+        posterior_cns = ['glacno', 'mb_mean', 'mb_std', 'pf_mean', 'pf_std', 'tc_mean', 'tc_std', 'ddfsnow_mean', 
+                         'ddfsnow_std']
+        
+        posterior_all = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(posterior_cns))), columns=posterior_cns)
+        
+        for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
+            if n%500 == 0:
+                print(n, glac_str_wRGI)
+            # Glacier string
+            glacier_str = glac_str_wRGI.split('-')[1]
+            # Glacier number
+            glacno = int(glacier_str.split('.')[1])
+            # RGI information
+            glac_idx = main_glac_rgi.index.values[n]
+            glacier_rgi_table = main_glac_rgi.loc[glac_idx, :]
+            # Calibration data
+            glacier_cal_data = (cal_data.loc[glac_idx,:]).copy()        
+            # Select observed mass balance, error, and time data
+            t1 = glacier_cal_data['t1']
+            t2 = glacier_cal_data['t2']
+            t1_idx = int(glacier_cal_data['t1_idx'])
+            t2_idx = int(glacier_cal_data['t2_idx'])
+            observed_massbal = glacier_cal_data['mb_mwe'] / (t2 - t1)
+            observed_error = glacier_cal_data['mb_mwe_err'] / (t2 - t1)
+            mb_obs_max = observed_massbal + 3 * observed_error
+            mb_obs_min = observed_massbal - 3 * observed_error
+            
+            # MCMC Analysis
+            ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
+            df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
+            
+            # Posteriors            
+            posterior_row = [glacier_str, 
+                             df.massbal.mean(), df.massbal.std(), 
+                             df.precfactor.mean(), df.precfactor.std(), 
+                             df.tempchange.mean(), df.tempchange.std(),
+                             df.ddfsnow.mean(), df.ddfsnow.std()]
+            posterior_all.loc[n,:] = posterior_row
+            
+            ds.close()
+        modelparams_all = main_glac_rgi[['RGIId', 'CenLon', 'CenLat', 'O1Region', 'Area', 'RefDate', 'glacno', 
+                                         'RGIId_float']]
+        modelparams_all = pd.concat([modelparams_all, cal_data[['mb_mwe', 'mb_mwe_err', 't1', 't2', 'area_km2']]], 
+                                    axis=1)
+        modelparams_all['mb_mwea'] = cal_data['mb_mwe'] / (cal_data['t2'] - cal_data['t1'])
+        modelparams_all['mb_mwea_err'] = cal_data['mb_mwe_err'] / (cal_data['t2'] - cal_data['t1'])
+        modelparams_all = pd.concat([modelparams_all, posterior_all], axis=1)
+        modelparams_all.to_csv(netcdf_fp + modelparams_fn)
+    else:
+        modelparams_all = pd.read_csv(netcdf_fp + modelparams_fn)
+        
+    #%%
+    modelparams_all['dif_cal_era_mean'] = modelparams_all['mb_mwea'] - modelparams_all['mb_mean']
+
+    # remove nan values
+    modelparams_all = (
+            modelparams_all.drop(np.where(np.isnan(modelparams_all['mb_mean'].values) == True)[0].tolist(), 
+                                   axis=0))
+    modelparams_all.reset_index(drop=True, inplace=True)
+    
+    # Histogram: Mass balance [mwea], Observation - ERA
+    hist_cn = 'dif_cal_era_mean'
+    low_bin = np.floor(modelparams_all[hist_cn].min())
+    high_bin = np.ceil(modelparams_all[hist_cn].max())
+    bins = [low_bin, -0.2, -0.1, -0.05, -0.02, 0.02, 0.05, 0.1, 0.2, high_bin]
+    plot_hist(modelparams_all, hist_cn, bins, xlabel='Mass balance [mwea]\n(Calibration - MCMC_mean)', 
+              ylabel='# Glaciers', fig_fn='MB_cal_vs_mcmc_hist.png', fig_fp=figure_fp)
+              
+              
+    # Histogram: Glacier Area [km2]
+    hist_cn = 'Area'
+    low_bin = np.floor(modelparams_all[hist_cn].min())
+    high_bin = np.ceil(modelparams_all[hist_cn].max() + 1)
+    bins = [0, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25, 50, 100, high_bin]
+    plot_hist(modelparams_all, hist_cn, bins, xlabel='Glacier Area [km2]', 
+              ylabel='# Glaciers', fig_fn='Glacier_Area.png', fig_fp=figure_fp)
+              
+    # Scatterplot: Glacier Area [km2] vs. Mass balance, color-coded by mass balance difference
+    fig, ax = plt.subplots()
+    cmap = 'RdYlBu_r'
+    norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])    
+    ax.scatter(modelparams_all['Area'], modelparams_all['mb_mwea'], c=modelparams_all['dif_cal_era_mean'], 
+               cmap=cmap, norm=norm, s=5)
+    ax.set_xlim([0,200])
+    ax.set_ylim([-2.5,1.25])
+    ax.set_ylabel('Mass Balance [mwea]', size=12)
+    ax.set_xlabel('Area [km$^2$]', size=12)
+    # Inset axis over main axis
+    ax_inset = plt.axes([.35, .19, .48, .35])
+    ax_inset.scatter(modelparams_all['Area'], modelparams_all['mb_mwea'], c=modelparams_all['dif_cal_era_mean'], 
+               cmap=cmap, norm=norm, s=3)
+    ax_inset.set_xlim([0,5])
+    # Add colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm._A = []
+    plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
+    fig.text(1.01, 0.5, 'Mass Balance [mwea]\n(Observation - Model)', va='center', rotation='vertical', size=12)
+    # Save figure
+    fig.set_size_inches(6,4)
+    fig_fn = 'MB_vs_area_wdif.png'
+    fig.savefig(figure_fp + fig_fn, bbox_inches='tight', dpi=300)
+
+
+    # Map: Mass change, difference between calibration data and median data
+    #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
+    modelparams_all['mb_cal_Gta'] = modelparams_all['mb_mwea'] * modelparams_all['Area'] / 1000
+    modelparams_all['mb_cal_Gta_var'] = (modelparams_all['mb_mwea_err'] * modelparams_all['Area'] / 1000)**2
+    modelparams_all['mb_era_Gta'] = modelparams_all['mb_mean'] * modelparams_all['Area'] / 1000
+    modelparams_all['mb_era_Gta_var'] = (modelparams_all['mb_std'] * modelparams_all['Area'] / 1000)**2
+    print('All MB cal (mean +/- 1 std) [gt/yr]:', np.round(modelparams_all['mb_cal_Gta'].sum(),3), 
+          '+/-', np.round(modelparams_all['mb_cal_Gta_var'].sum()**0.5,3),
+          '\nAll MB ERA (mean +/- 1 std) [gt/yr]:', np.round(modelparams_all['mb_era_Gta'].sum(),3), 
+          '+/-', np.round(modelparams_all['mb_era_Gta_var'].sum()**0.5,3))
+    #%%
+    
+    # Add watersheds, regions, degrees, mascons, and all groups to main_glac_rgi_all
+    # Watersheds
+    modelparams_all['watershed'] = modelparams_all.RGIId.map(watershed_dict)
+    # Regions
+    modelparams_all['kaab'] = modelparams_all.RGIId.map(kaab_dict)
+    # Degrees
+    modelparams_all['CenLon_round'] = np.floor(modelparams_all.CenLon.values/degree_size) * degree_size
+    modelparams_all['CenLat_round'] = np.floor(modelparams_all.CenLat.values/degree_size) * degree_size
+    deg_groups = modelparams_all.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
+    deg_dict = dict(zip(deg_groups, np.arange(0,len(deg_groups))))
+    modelparams_all.reset_index(drop=True, inplace=True)
+    cenlon_cenlat = [(modelparams_all.loc[x,'CenLon_round'], modelparams_all.loc[x,'CenLat_round']) 
+                     for x in range(len(modelparams_all))]
+    modelparams_all['CenLon_CenLat'] = cenlon_cenlat
+    modelparams_all['deg_id'] = modelparams_all.CenLon_CenLat.map(deg_dict)
+    # All
+    modelparams_all['all_group'] = 'all'
+
+    # Rename columns    
+    modelparams_all = modelparams_all.rename(columns={'pf_mean':'precfactor', 'tc_mean':'tempchange', 
+                                                      'ddfsnow_mean':'ddfsnow'})
+
+    for vn in vns:
+    
+        # Group data
+        if vn in ['precfactor', 'tempchange', 'ddfsnow']:
+            groups, ds_vn_deg = partition_groups(grouping, vn, modelparams_all, regional_calc='mean')
+        elif vn == 'dif_masschange':
+            # Group calculations
+            groups, ds_group_cal = partition_groups(grouping, 'mb_cal_Gta', modelparams_all, regional_calc='sum')
+            groups, ds_group_era = partition_groups(grouping, 'mb_era_Gta', modelparams_all, regional_calc='sum')
+            groups, ds_group_area = partition_groups(grouping, 'Area', modelparams_all, regional_calc='sum')
+        
+            # Group difference [Gt/yr]
+            dif_cal_era_Gta = (np.array([x[1] for x in ds_group_cal]) - np.array([x[1] for x in ds_group_era])).tolist()
+            ds_group_dif_cal_era_Gta = [[x[0],dif_cal_era_Gta[n]] for n, x in enumerate(ds_group_cal)]
+            # Group difference [mwea]
+            area = [x[1] for x in ds_group_area]
+            ds_group_dif_cal_era_mwea = [[x[0], dif_cal_era_Gta[n] / area[n] * 1000] for n, x in enumerate(ds_group_cal)]
+            ds_vn_deg = ds_group_dif_cal_era_mwea
+    
+        # Create the projection
+        fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
+        # Add country borders for reference
+        ax.add_feature(cartopy.feature.BORDERS, alpha=0.15, zorder=10)
+        ax.add_feature(cartopy.feature.COASTLINE)
+        # Set the extent
+        ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
+        # Label title, x, and y axes
+        ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+        ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+        ax.set_xlabel(xlabel, size=labelsize)
+        ax.set_ylabel(ylabel, size=labelsize)
+        
+        # Add contour lines
+        srtm_contour_shp = cartopy.io.shapereader.Reader(srtm_contour_fn)
+        srtm_contour_feature = cartopy.feature.ShapelyFeature(srtm_contour_shp.geometries(), cartopy.crs.PlateCarree(),
+                                                              edgecolor='black', facecolor='none', linewidth=0.15)
+        ax.add_feature(srtm_contour_feature, zorder=9)            
+            
+        cmap = 'RdYlBu'
+        if vn in ['tempchange', 'dif_masschange']:
+            cmap = 'RdYlBu_r'
+        norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])                        
+        
+        # Add colorbar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm._A = []
+        plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
+        if vn in ['precfactor', 'tempchange']:
+            fig.text(1, 0.5, vn_label_dict[vn], va='center', ha='center', rotation='vertical', size=labelsize)
+        else:
+            fig.text(1.05, 0.5, vn_label_dict[vn], va='center', ha='center', rotation='vertical', size=labelsize)
+
+        z = [ds_vn_deg[ds_idx][1] for ds_idx in range(len(ds_vn_deg))]
+        x = np.array([x[0] for x in deg_groups]) 
+        y = np.array([x[1] for x in deg_groups])
+        lons = np.arange(x.min(), x.max() + 2 * degree_size, degree_size)
+        lats = np.arange(y.min(), y.max() + 2 * degree_size, degree_size)
+        x_adj = np.arange(x.min(), x.max() + 1 * degree_size, degree_size) - x.min()
+        y_adj = np.arange(y.min(), y.max() + 1 * degree_size, degree_size) - y.min()
+        z_array = np.zeros((len(y_adj), len(x_adj)))
+        z_array[z_array==0] = np.nan
+        for i in range(len(z)):
+            row_idx = int((y[i] - y.min()) / degree_size)
+            col_idx = int((x[i] - x.min()) / degree_size)
+            z_array[row_idx, col_idx] = z[i]
+        ax.pcolormesh(lons, lats, z_array, cmap=cmap, norm=norm, zorder=2, alpha=0.8)            
+        
+        # Save figure
+        fig.set_size_inches(6,4)
+        if degree_size < 1:
+            degsize_name = 'pt' + str(int(degree_size * 100))
+        else:
+            degsize_name = str(degree_size)
+        fig_fn = 'mp_' + vn + '_' + degsize_name + 'deg.png'
+        fig.savefig(figure_fp + fig_fn, bbox_inches='tight', dpi=300)
 
 #%%
 ## open dataset

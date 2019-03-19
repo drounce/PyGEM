@@ -219,7 +219,7 @@ def select_groups(grouping, main_glac_rgi_all):
     Select groups based on grouping
     """
     if grouping == 'rgi_region':
-        groups = rgi_regions
+        groups = main_glac_rgi_all.O1Region.unique().tolist()
         group_cn = 'O1Region'
     elif grouping == 'watershed':
         groups = main_glac_rgi_all.watershed.unique().tolist()
