@@ -31,15 +31,16 @@ import run_calibration as calibration
 
 #%%
 option_metrics_vs_chainlength = 0
-option_metrics_histogram_all = 0
 option_observation_vs_calibration = 0
 option_prior_vs_posterior_single = 0
 
 # Paper figures
+option_metrics_histogram_all = 0
+option_plot_era_normalizedchange = 0
 option_papermcmc_prior_vs_posterior = 0
 option_papermcmc_solutionspace = 0
 option_papermcmc_allglaciers_posteriorchanges = 0
-option_papermcmc_spatialdistribution_parameter = 1
+option_papermcmc_modelparameter_map = 1
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -286,7 +287,7 @@ def partition_groups(grouping, vn, main_glac_rgi_all, regional_calc='mean'):
     main_glac_rgi_all : pd.DataFrame
         glacier table
     regional_calc : str
-        calculation used to compute region value (mean or sum)
+        calculation used to compute region value (mean, sum, area_weighted_mean)
         
     Output
     ------
@@ -304,13 +305,17 @@ def partition_groups(grouping, vn, main_glac_rgi_all, regional_calc='mean'):
     for ngroup, group in enumerate(groups):
         # Select subset of data
         main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
-        vn_glac = main_glac_rgi_all[vn].values[main_glac_rgi.index.values.tolist()]  
+        vn_glac = main_glac_rgi_all[vn].values[main_glac_rgi.index.values.tolist()]
+        if 'area_weighted' in regional_calc:
+            vn_glac_area = main_glac_rgi_all['Area'].values[main_glac_rgi.index.values.tolist()]
 
         # Regional calc
         if regional_calc == 'mean':           
             vn_reg = vn_glac.mean(axis=0)
         elif regional_calc == 'sum':
-            vn_reg = vn_glac.sum(axis=0)      
+            vn_reg = vn_glac.sum(axis=0)
+        elif regional_calc == 'area_weighted_mean':
+            vn_reg = (vn_glac * vn_glac_area).sum() / vn_glac_area.sum()
         
         # Record data for each group
         ds_group[ngroup] = [group, vn_reg]
@@ -1268,10 +1273,184 @@ if option_metrics_vs_chainlength == 1:
     
 
 if option_metrics_histogram_all == 1:
-#    metrics_vs_chainlength(mcmc_output_netcdf_fp_3chain, regions, iterations, burn=burn, nchain=3) 
-    print('code this plot!')
+    iters = 10000
+    burn = 0
+    netcdf_fp = mcmc_output_netcdf_fp_all
+    figure_fp = netcdf_fp + '../'
+    
+    metrics = ['MC Error', 'Effective N']
+    
+    en_fn_pkl = figure_fp + 'effective_n_list.pkl'
+    mc_fn_pkl = figure_fp + 'mc_error_list.pkl'
+    glacno_fn_pkl = figure_fp + 'glacno_list.pkl'
 
+    # Check if list already exists
+    iter_ending = '_' + str(iters) + 'iters.pkl'
+    en_fn_pkl.replace('.pkl', iter_ending)
+    
+    if os.path.isfile(en_fn_pkl.replace('.pkl', iter_ending)):
+        with open(en_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
+            en_list = pickle.load(f)
+        with open(mc_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
+            mc_list = pickle.load(f)
+        with open(glacno_fn_pkl, 'rb') as f:
+            glac_no = pickle.load(f)
+    else:
+        # Load netcdf filenames    
+        filelist = []
+        for region in regions:
+            filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
+        filelist = sorted(filelist)
+        
+        # ===== CALCULATE METRICS =====
+        # Lists to record metrics
+        glac_no = []
+        en_list = {}
+        gr_list = {}
+        mc_list = {}
+            
+        # iterate through each glacier
+        for n, netcdf in enumerate(filelist):
+#        for n, netcdf in enumerate(filelist[0:1000]):
 
+            glac_str = netcdf.split('/')[-1].split('.nc')[0]
+            
+            if glac_str.startswith('14.'):
+                if n%100 == 0:
+                    print(n, glac_str)
+                glac_no.append(glac_str)
+            
+                en_list[glac_str] = {}
+                mc_list[glac_str] = {}
+                
+                # open dataset
+                ds = xr.open_dataset(netcdf)
+        
+                # Metrics for each parameter
+                for nvar, vn in enumerate(variables):
+                    # Effective sample size
+                    try:
+                        en = effective_n(ds, vn=vn, iters=iters, burn=burn) 
+                    except:
+                        en = 0
+                    en_list[glac_str][vn] = en
+                    # Monte Carlo error
+                    # the first [0] extracts the MC error as opposed to the confidence interval
+                    # the second [0] extracts the first chain
+                    mc = mc_error(ds, vn=vn, iters=iters, burn=burn, method='overlapping')[0][0]
+                    mc_list[glac_str][vn] = mc
+        
+                # close datase
+                ds.close()
+            
+                # Pickle lists for next time
+                pickle_data(en_fn_pkl.replace('.pkl', iter_ending), en_list)
+                pickle_data(mc_fn_pkl.replace('.pkl', iter_ending), mc_list)
+                pickle_data(glacno_fn_pkl, glac_no)
+                
+                # Subset region 13
+    #            en_list = {i: en_list[i] for i in sorted(list(en_list))[:54429] }
+    #            mc_list = {i: mc_list[i] for i in sorted(list(mc_list))[:54429] }
+    #            glac_no = sorted(list(glac_no))[:54429]
+        
+#    #%%
+#    # ===== PLOT METRICS =====
+#    colors = ['#fcb200', '#d20048']
+#    figwidth=6.5
+#    figheight=8
+#    
+#    # bins and ticks
+#    bdict = {}
+#    tdict = {}
+#    major = {}
+#    minor = {}
+#    bdict['MC Error massbal'] = np.arange(0, 0.025, 0.001)
+#    bdict['MC Error precfactor'] = np.arange(0, 0.15, 0.005)
+#    bdict['MC Error tempchange'] = np.arange(0, 0.075, 0.0025)
+#    bdict['MC Error ddfsnow'] = np.arange(0, 0.06, 0.002)
+#    bdict['Effective N massbal'] = np.arange(0, 8000, 400)
+#    bdict['Effective N ddfsnow'] = np.arange(0, 3500, 175)
+#    bdict['Effective N tempchange'] = np.arange(0, 2000, 100)
+#    bdict['Effective N precfactor'] = np.arange(0, 2500, 125)
+#    tdict['MC Error'] = np.arange(0, 21, 4)
+#    tdict['Effective N'] = np.arange(0, 21, 4)
+#    
+#    fig, ax = plt.subplots(len(variables), len(metrics), squeeze=False, sharex=False, sharey=False,
+#                           figsize=(figwidth,figheight), gridspec_kw = {'wspace':0.1, 'hspace':0.5})      
+#
+#    for nmetric, metric in enumerate(metrics):
+#        if metric == 'Effective N':
+#            metric_list = en_list
+#        elif metric == 'MC Error':
+#            metric_list = mc_list
+#            
+#        for nvar, vn in enumerate(variables):
+#            
+#            print(metric, vn)
+#
+#            metric_vn_list = [metric_list[i][vn] for i in glac_no]
+#            
+#            # Adjust ddfsnow units [*10^3, so mm w.e.]
+#            if metric == 'MC Error' and vn == 'ddfsnow':
+#                metric_vn_list = [i * 10**3 for i in metric_vn_list]
+#            vn_label_units_dict = {'massbal':'[mwea]',                                                                      
+#                                   'precfactor':'[-]',                                                              
+#                                   'tempchange':'[$^\circ$C]',                                                               
+#                                   'ddfsnow':'[mm w.e. d$^{-1}$ $^\circ$C$^{-1}$]'}
+#            
+#            # ===== Plot =====
+#            # compute histogram and change to percentage of glaciers
+#            metric_vn_list_nonan = [x for x in metric_vn_list if str(x) != 'nan']
+#            hist, bins = np.histogram(metric_vn_list_nonan, bins=bdict[metric + ' ' + vn])
+##            hist, bins = np.histogram(metric_vn_list, bins=bdict[metric + ' ' + vn])
+#            hist = hist * 100.0 / hist.sum()
+#
+#            # plot histogram
+#            ax[nvar,nmetric].bar(x=bins[1:], height=hist, width=(bins[1]-bins[0]), align='center', 
+#                                 edgecolor='black', color=colors[nmetric])
+#            # create uniform bins based on metric
+#            ax[nvar,nmetric].set_yticks(tdict[metric])
+#            
+#            # find cumulative percentage and plot it
+#            ax2 = ax[nvar,nmetric].twinx()
+#            cum_hist = [hist[0:i].sum() for i in range(len(hist))]
+#            if metric=='Effective N':
+#                percent = 5
+#                q = 0.05
+#            else:
+#                percent = 95
+#                q = 0.95
+#            index = 0
+#            quantile = np.percentile(metric_vn_list,percent)
+#            ax2.plot(bins[:-1], cum_hist, color='black', linewidth=1.25, label='Cumulative %')
+#            ax2.set_yticks(np.arange(0, 110, 20))
+#            ax2.axvline(quantile, color='black', linewidth=1.25, linestyle='--')
+#            
+#            print(metric, vn, quantile)
+#            
+#            # axis labels
+#            if nmetric == 0:
+#                ax[nvar,nmetric].set_ylabel(vn_title_dict[vn] + '\n\n% of Glaciers', fontsize=12, labelpad=3)
+#                ax2.yaxis.set_major_formatter(plt.NullFormatter())
+#                ax2.set_yticks([])
+#            if nmetric == 1:
+#                ax2.set_ylabel('Cumulative %', fontsize=12, rotation = 270, labelpad=15)
+#                ax[nvar,nmetric].set_yticks([])
+#            if metric == 'MC Error':
+#                ax[nvar,nmetric].set_xlabel(vn_label_units_dict[vn], fontsize=10)
+#            #elif metric == 'Effective N':
+#                #ax[nvar,nmetric].set_xlabel('Effective Sample Size', fontsize=10)
+#            
+#            # niceties
+#            if nvar == 0:
+#                ax[nvar,nmetric].set_title(metric_title_dict[metric], fontsize=12)
+#                
+#    # Save figure
+#    fig.set_size_inches(6.5,8)
+#    figure_fn = 'histograms_all.png'
+#    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+    
+#%%
 if option_prior_vs_posterior_single == 1:
     glac_no = ['13.26360']
     iters=[1000,10000]
@@ -1814,11 +1993,9 @@ if option_papermcmc_allglaciers_posteriorchanges == 1:
     fig.savefig(fig_fp + figure_fn, bbox_inches='tight', dpi=300)
 
 #%%
-if option_papermcmc_spatialdistribution_parameter == 1:
-    print('plot spatial distribution')
-    
+if option_papermcmc_modelparameter_map == 1:    
     netcdf_fp = mcmc_output_netcdf_fp_all
-    figure_fp = netcdf_fp + '../'
+    figure_fp = netcdf_fp + '../figures/'
     grouping = 'degree'
     degree_size = 0.25
     
@@ -1840,25 +2017,25 @@ if option_papermcmc_spatialdistribution_parameter == 1:
                      'tempchange':[-5,5],
                      'ddfsnow':[0.0036,0.0046],
                      'dif_masschange':[-0.1,0.1]}
-    
-    # Load all glaciers
-    filelist = []
-    for region in regions:
-        filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
-    
-    glac_no = []
-    reg_no = []
-    for netcdf in filelist:
-        glac_str = netcdf.split('/')[-1].split('.nc')[0]
-        glac_no.append(glac_str)
-        reg_no.append(glac_str.split('.')[0])
-    glac_no = sorted(glac_no)
-    
-    main_glac_rgi, cal_data = load_glacierdata_byglacno(glac_no, option_loadhyps_climate=0)
-    
+
     #%%
     # Load mean of all model parameters
     if os.path.isfile(mcmc_output_netcdf_fp_all + modelparams_fn) == False:
+        
+        # Load all glaciers
+        filelist = []
+        for region in regions:
+            filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
+        
+        glac_no = []
+        reg_no = []
+        for netcdf in filelist:
+            glac_str = netcdf.split('/')[-1].split('.nc')[0]
+            glac_no.append(glac_str)
+            reg_no.append(glac_str.split('.')[0])
+        glac_no = sorted(glac_no)
+        
+        main_glac_rgi, cal_data = load_glacierdata_byglacno(glac_no, option_loadhyps_climate=0)
         
         posterior_cns = ['glacno', 'mb_mean', 'mb_std', 'pf_mean', 'pf_std', 'tc_mean', 'tc_std', 'ddfsnow_mean', 
                          'ddfsnow_std']
@@ -1940,7 +2117,7 @@ if option_papermcmc_spatialdistribution_parameter == 1:
     # Scatterplot: Glacier Area [km2] vs. Mass balance, color-coded by mass balance difference
     fig, ax = plt.subplots()
     cmap = 'RdYlBu_r'
-    norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])    
+    norm = plt.Normalize(colorbar_dict['dif_masschange'][0], colorbar_dict['dif_masschange'][1])    
     ax.scatter(modelparams_all['Area'], modelparams_all['mb_mwea'], c=modelparams_all['dif_cal_era_mean'], 
                cmap=cmap, norm=norm, s=5)
     ax.set_xlim([0,200])
@@ -2001,7 +2178,9 @@ if option_papermcmc_spatialdistribution_parameter == 1:
     
         # Group data
         if vn in ['precfactor', 'tempchange', 'ddfsnow']:
-            groups, ds_vn_deg = partition_groups(grouping, vn, modelparams_all, regional_calc='mean')
+            groups, ds_vn_deg = partition_groups(grouping, vn, modelparams_all, regional_calc='area_weighted_mean')
+            groups, ds_group_area = partition_groups(grouping, 'Area', modelparams_all, regional_calc='sum')
+
         elif vn == 'dif_masschange':
             # Group calculations
             groups, ds_group_cal = partition_groups(grouping, 'mb_cal_Gta', modelparams_all, regional_calc='sum')
@@ -2072,6 +2251,210 @@ if option_papermcmc_spatialdistribution_parameter == 1:
             degsize_name = str(degree_size)
         fig_fn = 'mp_' + vn + '_' + degsize_name + 'deg.png'
         fig.savefig(figure_fp + fig_fn, bbox_inches='tight', dpi=300)
+        
+#%%
+if option_plot_era_normalizedchange == 1:
+    
+    vn = 'massbaltotal_glac_monthly'
+    grouping = 'all'
+    glac_float = 13.26360
+    labelsize = 13
+    
+    netcdf_fp_era = input.output_sim_fp + '/ERA-Interim/ERA-Interim_2000_2018_nochg/'
+    
+    rgi_regions = [13,14,15]
+    
+    # Load all glaciers
+    for rgi_region in rgi_regions:
+        # Data on all glaciers
+        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
+                                                                 rgi_glac_number='all')
+         # Glacier hypsometry [km**2]
+        main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, [rgi_region], input.hyps_filepath,
+                                                            input.hyps_filedict, input.hyps_colsdrop)
+        # Ice thickness [m], average
+        main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, [rgi_region], 
+                                                                 input.thickness_filepath, input.thickness_filedict, 
+                                                                 input.thickness_colsdrop)
+        
+        if rgi_region == rgi_regions[0]:
+            main_glac_rgi_all = main_glac_rgi_region
+            main_glac_hyps_all = main_glac_hyps_region
+            main_glac_icethickness_all = main_glac_icethickness_region
+        else:
+            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region], sort=False)
+            main_glac_hyps_all = pd.concat([main_glac_hyps_all, main_glac_hyps_region], sort=False)
+            main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region], sort=False)
+    # All
+    main_glac_rgi_all['all_group'] = 'all'
+    
+    def partition_era_groups(grouping, vn, main_glac_rgi_all):
+        """Partition multimodel data by each group for all GCMs for a given variable
+        
+        Parameters
+        ----------
+        grouping : str
+            name of grouping to use
+        vn : str
+            variable name
+        main_glac_rgi_all : pd.DataFrame
+            glacier table
+            
+        Output
+        ------
+        time_values : np.array
+            time values that accompany the multimodel data
+        ds_group : list of lists
+            dataset containing the multimodel data for a given variable for all the GCMs
+        ds_glac : np.array
+            dataset containing the variable of interest for each gcm and glacier
+        """
+        # Groups
+        groups, group_cn = select_groups(grouping, main_glac_rgi_all)
+        
+        # variable name
+        if vn == 'volume_norm' or vn == 'mass_change':
+            vn_adj = 'volume_glac_annual'
+        elif vn == 'peakwater':
+            vn_adj = 'runoff_glac_annual'
+        else:
+            vn_adj = vn
+        
+        ds_group = [[] for group in groups]
+        for region in rgi_regions:
+            # Load datasets
+            ds_fn = 'R' + str(region) + '_ERA-Interim_c2_ba1_100sets_2000_2018.nc'
+            ds = xr.open_dataset(netcdf_fp_era + ds_fn)
+            # Extract time variable
+            if 'annual' in vn_adj:
+                try:
+                    time_values = ds[vn_adj].coords['year_plus1'].values
+                except:
+                    time_values = ds[vn_adj].coords['year'].values
+            elif 'monthly' in vn_adj:
+                time_values = ds[vn_adj].coords['time'].values
+                
+            # Merge datasets
+            if region == rgi_regions[0]:
+                vn_glac_all = ds[vn_adj].values[:,:,0]
+                vn_glac_std_all = ds[vn_adj].values[:,:,1]
+            else:
+                vn_glac_all = np.concatenate((vn_glac_all, ds[vn_adj].values[:,:,0]), axis=0)
+                vn_glac_std_all = np.concatenate((vn_glac_std_all, ds[vn_adj].values[:,:,1]), axis=0)
+            
+            # Close dataset
+            ds.close()
+    
+        ds_glac = [vn_glac_all, vn_glac_std_all]
+        
+        # Cycle through groups
+        for ngroup, group in enumerate(groups):
+            # Select subset of data
+            main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all[group_cn] == group]                        
+            vn_glac = vn_glac_all[main_glac_rgi.index.values.tolist(),:]
+            vn_glac_std = vn_glac_std_all[main_glac_rgi.index.values.tolist(),:]
+            vn_glac_var = vn_glac_std **2                
+            
+            # Regional mean, standard deviation, and variance
+            #  mean: E(X+Y) = E(X) + E(Y)
+            #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
+            #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
+            #  std: std(X+Y) = (Var(X+Y))**0.5
+            # Regional sum
+            vn_reg = vn_glac.sum(axis=0)
+            vn_reg_var = vn_glac_var.sum(axis=0)
+    #        vn_reg_std = vn_glac_var**0.5
+            
+            # Record data for multi-model stats
+            ds_group[ngroup] = [group, vn_reg, vn_reg_var]
+                    
+        return groups, time_values, ds_group, ds_glac
+    
+    
+    groups, time_values, ds_group_mb, ds_glac_mb = partition_era_groups(grouping, 'massbaltotal_glac_monthly', 
+                                                                        main_glac_rgi_all)
+    groups, time_values_area, ds_group_area, ds_glac_area = partition_era_groups(grouping, 'area_glac_annual', 
+                                                                                 main_glac_rgi_all)
+    
+    #%%
+    mb_glac = ds_glac_mb[0]
+    mb_glac_std = ds_glac_mb[1]
+    area_glac = np.repeat(ds_glac_area[0][:,:-1], 12, axis=1)
+    
+    # Monthly glacier mass change
+    #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
+    masschange_glac = area_glac * mb_glac / 1000
+    masschange_glac_var = (area_glac * mb_glac_std / 1000)**2
+    
+    masschange_all = masschange_glac.sum(axis=0)
+    masschange_all_std = masschange_glac_var.sum(axis=0)**0.5
+    
+#    # Map: Mass change, difference between calibration data and median data
+#    #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
+#    main_glac_rgi_all['mb_era_Gta'] = main_glac_rgi_all['mb_era_mean'] * main_glac_rgi_all['Area'] / 1000
+#    main_glac_rgi_all['mb_era_Gta_var'] = (main_glac_rgi_all['mb_era_std'] * main_glac_rgi_all['Area'] / 1000)**2
+#    main_glac_rgi_all['mb_era_Gta_med'] = main_glac_rgi_all['mb_era_med'] * main_glac_rgi_all['Area'] / 1000
+#    print('All MB cal (mean +/- 1 std) [gt/yr]:', np.round(main_glac_rgi_all['mb_cal_Gta'].sum(),3), 
+#          '+/-', np.round(main_glac_rgi_all['mb_cal_Gta_var'].sum()**0.5,3),
+#          '\nAll MB ERA (mean +/- 1 std) [gt/yr]:', np.round(main_glac_rgi_all['mb_era_Gta'].sum(),3), 
+#          '+/-', np.round(main_glac_rgi_all['mb_era_Gta_var'].sum()**0.5,3),
+    # OLD WAY OF COMPUTING STANDARD DEVIATION IS BASED ON GLACIER ANNUAL MASS BALANCE
+    # NEW WAY ALLOWS MASS BALANCE AT EVERY TIME STEP TO PROPAGATE
+    
+    print('check calculations!')
+    
+    A = masschange_all.sum() / 18
+    B =  masschange_all_std.sum() / 18
+    
+
+#%%
+    
+#    for vn in vns:
+#        groups, time_values, ds_group, ds_glac = partition_era_groups(grouping, vn, main_glac_rgi_all)
+#        
+#        if vn == 'volume_glac_annual':
+#            group_idx = 0
+#            vn_norm = ds_group[group_idx][1] / ds_group[group_idx][1][0]
+#            vn_norm_upper = (ds_group[group_idx][1] + ds_group[group_idx][2]) / ds_group[group_idx][1][0]
+#            vn_norm_lower = (ds_group[group_idx][1] - ds_group[group_idx][2]) / ds_group[group_idx][1][0]
+#            
+#            glac_idx =  np.where(main_glac_rgi_all['RGIId_float'].values == glac_float)[0][0]
+#            vn_glac_norm = ds_glac[0][glac_idx,:] / ds_glac[0][glac_idx,0]
+#            vn_glac_norm_upper = (ds_glac[0][glac_idx,:] + ds_glac[1][glac_idx,:]) / ds_glac[0][glac_idx,0] 
+#            vn_glac_norm_lower = (ds_glac[0][glac_idx,:] - ds_glac[1][glac_idx,:]) / ds_glac[0][glac_idx,0]
+#            
+#        fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
+#        # All glaciers
+#        ax[0,0].plot(time_values, vn_norm, color='k', linewidth=1, label='HMA')
+#        ax[0,0].fill_between(time_values, vn_norm_lower, vn_norm_upper, facecolor='k', alpha=0.15, label=r'$\pm$1 std')
+#
+#        # Individual glacier        
+#        ax[0,0].plot(time_values, vn_glac_norm, color='b', linewidth=1, label=glac_float)
+#        ax[0,0].fill_between(time_values, vn_glac_norm_lower, vn_glac_norm_upper, facecolor='b', alpha=0.15, label=None)
+#        
+#        # Tick parameters
+#        ax[0,0].tick_params(axis='both', which='major', labelsize=labelsize, direction='inout')
+#        ax[0,0].tick_params(axis='both', which='minor', labelsize=labelsize, direction='inout')
+#        # X-label
+#        ax[0,0].set_xlim(time_values.min(), time_values.max())
+#        ax[0,0].xaxis.set_tick_params(labelsize=labelsize)
+#        ax[0,0].xaxis.set_major_locator(plt.MultipleLocator(5))
+#        ax[0,0].xaxis.set_minor_locator(plt.MultipleLocator(1))
+#        # Y-label
+#        ax[0,0].set_ylabel('Normalized volume [-]', fontsize=labelsize+1)
+#        ax[0,0].yaxis.set_tick_params(labelsize=labelsize)
+#        ax[0,0].yaxis.set_major_locator(plt.MultipleLocator(0.1))
+#        ax[0,0].yaxis.set_minor_locator(plt.MultipleLocator(0.02))
+#        
+#        # Legend
+#        ax[0,0].legend(loc='lower left', fontsize=labelsize-2)
+#
+#        # Save figure
+#        fig.set_size_inches(5,3)
+#        glac_float_str = str(glac_float).replace('.','-')
+#        figure_fn = 'HMA_volchange_wglac' + glac_float_str + '.png'
+#        
+#        fig.savefig(cal_fp + '../' + figure_fn, bbox_inches='tight', dpi=300)
 
 #%%
 ## open dataset

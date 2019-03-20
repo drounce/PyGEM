@@ -38,13 +38,13 @@ import class_climate
 
 
 # Script options
-option_plot_cmip5_normalizedchange = 1
+option_plot_cmip5_normalizedchange = 0
 option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 0
 option_output_tables = 0
 option_subset_GRACE = 0
 option_plot_modelparam = 0
-option_plot_era_normalizedchange = 0
+option_plot_era_normalizedchange = 1
 option_compare_GCMwCal = 0
 option_plot_mcmc_errors = 0
 option_plot_maxloss_issues = 0
@@ -57,7 +57,7 @@ option_plot_individual_gcms = 1
 
 #%% ===== Input data =====
 netcdf_fp_cmip5 = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc/'
-netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim/'
+netcdf_fp_era = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim/ERA-Interim_1980_2017_nochg'
 #mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_allglac_1ch_tn_20190108/'
 #mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190222_adjp10/'
 mcmc_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190308_adjp12/cal_opt2/'
@@ -66,8 +66,8 @@ csv_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/csv/cmip5/'
 cal_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/cal_opt2_spc_20190308_adjp12/cal_opt2/'
 
 # Regions
-#rgi_regions = [13, 14, 15]
-rgi_regions = [13]
+rgi_regions = [13, 14, 15]
+#rgi_regions = [13]
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'

@@ -81,8 +81,8 @@ def merge_batches(gcm_name):
     if len(rcps) == 0:
         rcps = [None]
     
-    if debug:
-        print(regions, rcps)
+    print('Regions:', regions, 
+          '\nRCPs:', rcps)
     
     # Encoding
     # Add variables to empty dataset and merge together
@@ -103,10 +103,12 @@ def merge_batches(gcm_name):
         print(check_str)
         
         for rcp in rcps:
-            print('R', reg, 'RCP', rcp, ':')
+#        for rcp in ['rcp85']:
             
             if rcp is not None:
-                check_str += '_' + rcp
+                check_str = 'R' + str(reg) + '_' + gcm_name + '_' + rcp
+                
+            print('R', reg, 'RCP', rcp, ':', 'check_str:', check_str)
             
             output_list = []
             merged_list = []
@@ -117,8 +119,8 @@ def merge_batches(gcm_name):
             output_list = sorted(output_list)
             output_list = [i[1] for i in output_list]
             
-            if debug:
-                print(output_list)
+#            if debug:
+            print(output_list)
             
             # Open datasets and combine
             count_ds = 0
@@ -176,7 +178,7 @@ def extract_subset(gcm_name):
     regions = []
     rcps = []
     for i in os.listdir(netcdf_fp):
-        if i.endswith('.nc'):
+        if i.endswith('.nc') and gcm_name in i:
             i_region = int(i.split('_')[0][1:])
             i_rcp = i.split('_')[2]
         
