@@ -25,6 +25,7 @@ import xarray as xr
 import class_climate
 import class_mbdata
 import pygem_input as input
+import pygemfxns_gcmbiasadj as gcmbiasadj
 import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
@@ -35,12 +36,12 @@ option_observation_vs_calibration = 0
 option_prior_vs_posterior_single = 0
 
 # Paper figures
-option_metrics_histogram_all = 0
+option_metrics_histogram_all = 1
 option_plot_era_normalizedchange = 0
 option_papermcmc_prior_vs_posterior = 0
 option_papermcmc_solutionspace = 0
 option_papermcmc_allglaciers_posteriorchanges = 0
-option_papermcmc_modelparameter_map = 1
+option_papermcmc_modelparameter_map = 0
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -805,7 +806,6 @@ def metrics_vs_chainlength(netcdf_fp, regions, iters, burn=0, nchain=3):
     
             # close datase
             ds.close()
-        
             
         # Pickle lists for next time
         if os.path.exists(csv_fp) == False:
@@ -1315,7 +1315,7 @@ if option_metrics_histogram_all == 1:
 
             glac_str = netcdf.split('/')[-1].split('.nc')[0]
             
-            if glac_str.startswith('14.'):
+            if glac_str.startswith('15.'):
                 if n%100 == 0:
                     print(n, glac_str)
                 glac_no.append(glac_str)
@@ -2258,9 +2258,11 @@ if option_plot_era_normalizedchange == 1:
     vn = 'massbaltotal_glac_monthly'
     grouping = 'all'
     glac_float = 13.26360
+    glac_str = '13.26360'
     labelsize = 13
     
     netcdf_fp_era = input.output_sim_fp + '/ERA-Interim/ERA-Interim_2000_2018_nochg/'
+    figure_fp = netcdf_fp_era + 'figures/'
     
     rgi_regions = [13,14,15]
     
@@ -2284,7 +2286,10 @@ if option_plot_era_normalizedchange == 1:
         else:
             main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region], sort=False)
             main_glac_hyps_all = pd.concat([main_glac_hyps_all, main_glac_hyps_region], sort=False)
-            main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region], sort=False)
+            main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region], 
+                                                   sort=False)
+    main_glac_hyps_all = main_glac_hyps_all.fillna(0)
+    main_glac_icethickness_all = main_glac_icethickness_all.fillna(0)
     # All
     main_glac_rgi_all['all_group'] = 'all'
     
@@ -2376,85 +2381,105 @@ if option_plot_era_normalizedchange == 1:
     groups, time_values_area, ds_group_area, ds_glac_area = partition_era_groups(grouping, 'area_glac_annual', 
                                                                                  main_glac_rgi_all)
     
-    #%%
+    # Datasets
     mb_glac = ds_glac_mb[0]
     mb_glac_std = ds_glac_mb[1]
     area_glac = np.repeat(ds_glac_area[0][:,:-1], 12, axis=1)
+    area_glac_annual = ds_glac_area[0][:,:-1]
+    
+    # Mass balance [mwea]
+    mb_glac_annual = gcmbiasadj.annual_sum_2darray(mb_glac)
+    mb_glac_annual_mwea = mb_glac_annual.sum(axis=1) / mb_glac_annual.shape[1]
+    mb_glac_var = mb_glac_std**2
+    mb_glac_var_annual = gcmbiasadj.annual_sum_2darray(mb_glac_var)
+    mb_glac_std_annual = mb_glac_var_annual**0.5
+    mb_glac_std_annual_mwea = (mb_glac_var_annual.sum(axis=1) / mb_glac_var_annual.shape[1])**0.5
     
     # Monthly glacier mass change
     #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
-    masschange_glac = area_glac * mb_glac / 1000
-    masschange_glac_var = (area_glac * mb_glac_std / 1000)**2
-    
+    masschange_glac = area_glac * mb_glac / 1000 
     masschange_all = masschange_glac.sum(axis=0)
-    masschange_all_std = masschange_glac_var.sum(axis=0)**0.5
+    masschange_all_Gta = masschange_all.sum() / (masschange_all.shape[0] / 12)
     
-#    # Map: Mass change, difference between calibration data and median data
-#    #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
-#    main_glac_rgi_all['mb_era_Gta'] = main_glac_rgi_all['mb_era_mean'] * main_glac_rgi_all['Area'] / 1000
-#    main_glac_rgi_all['mb_era_Gta_var'] = (main_glac_rgi_all['mb_era_std'] * main_glac_rgi_all['Area'] / 1000)**2
-#    main_glac_rgi_all['mb_era_Gta_med'] = main_glac_rgi_all['mb_era_med'] * main_glac_rgi_all['Area'] / 1000
-#    print('All MB cal (mean +/- 1 std) [gt/yr]:', np.round(main_glac_rgi_all['mb_cal_Gta'].sum(),3), 
-#          '+/-', np.round(main_glac_rgi_all['mb_cal_Gta_var'].sum()**0.5,3),
-#          '\nAll MB ERA (mean +/- 1 std) [gt/yr]:', np.round(main_glac_rgi_all['mb_era_Gta'].sum(),3), 
-#          '+/-', np.round(main_glac_rgi_all['mb_era_Gta_var'].sum()**0.5,3),
-    # OLD WAY OF COMPUTING STANDARD DEVIATION IS BASED ON GLACIER ANNUAL MASS BALANCE
-    # NEW WAY ALLOWS MASS BALANCE AT EVERY TIME STEP TO PROPAGATE
+    masschange_glac_var = (area_glac * mb_glac_std / 1000)**2
+    masschange_glac_var_annual = gcmbiasadj.annual_sum_2darray(masschange_glac_var)
+    masschange_all_var = masschange_glac_var.sum(axis=0)
+    masschange_all_var_annual = masschange_glac_var_annual.sum(axis=0)
+    masschange_all_std_Gta = (masschange_all_var_annual.sum() / masschange_all_var_annual.shape[0])**0.5
     
-    print('check calculations!')
+    print('check calculations for how to estimate standard deviation of Gt/yr', 
+          '\n currently underestimates, but unclear if this is due to simulation or the methods for computing std')
     
-    A = masschange_all.sum() / 18
-    B =  masschange_all_std.sum() / 18
+    # Initial mass
+    #  Area [km2] * ice thickness [m ice] * density_ice [kg/m3] / density_water [kg/m3] * (1 km / 1000 m) 
+    #  * (1 Gt/ 1km3 water)
+    mass_glac_init_Gt = ((main_glac_hyps_all.values * main_glac_icethickness_all.values).sum(axis=1) * 
+                 input.density_ice / input.density_water / 1000)
+    mass_all_init_Gt = mass_glac_init_Gt.sum()
+    # Normalized mass time series
+    mass_all_timeseries_cumsum = np.cumsum(masschange_all)
+    mass_all_timeseries = mass_all_init_Gt + mass_all_timeseries_cumsum
+    norm_mass_all_timeseries = mass_all_timeseries / mass_all_init_Gt
+    # Normalized mass time series +/- 95% confidence interval
+    mass_all_timeseries_cumsum_std = np.cumsum((masschange_all_var))**0.5
+    norm_mass_all_timeseries_std = mass_all_timeseries_cumsum_std / mass_all_init_Gt    
+    norm_mass_all_timeseries_upper = norm_mass_all_timeseries + 1.96*norm_mass_all_timeseries_std
+    norm_mass_all_timeseries_lower = norm_mass_all_timeseries - 1.96*norm_mass_all_timeseries_std
+    vn_norm = norm_mass_all_timeseries
+    vn_norm_upper = norm_mass_all_timeseries_upper
+    vn_norm_lower = norm_mass_all_timeseries_lower
     
+    # One glacier
+    glac_idx =  np.where(main_glac_rgi_all['RGIId_float'].values == glac_float)[0][0]
+    single_mass_glac_init_Gt = mass_glac_init_Gt[glac_idx]
+    # Normalized mass time series
+    single_mass_timeseries_cumsum = np.cumsum(masschange_glac[glac_idx])
+    single_mass_timeseries = single_mass_glac_init_Gt + single_mass_timeseries_cumsum
+    single_norm_mass_timeseries = single_mass_timeseries / single_mass_glac_init_Gt
+    # Normalized mass time series +/- 95% confidence interval
+    single_mass_timeseries_cumsum_std = np.cumsum((masschange_glac_var[glac_idx]))**0.5
+    single_norm_mass_timeseries_std = single_mass_timeseries_cumsum_std / single_mass_glac_init_Gt    
+    single_norm_mass_timeseries_upper = single_norm_mass_timeseries + 1.96*single_norm_mass_timeseries_std
+    single_norm_mass_timeseries_lower = single_norm_mass_timeseries - 1.96*single_norm_mass_timeseries_std
 
-#%%
+    vn_glac_norm = single_norm_mass_timeseries
+    vn_glac_norm_upper = single_norm_mass_timeseries_upper
+    vn_glac_norm_lower = single_norm_mass_timeseries_lower
     
-#    for vn in vns:
-#        groups, time_values, ds_group, ds_glac = partition_era_groups(grouping, vn, main_glac_rgi_all)
-#        
-#        if vn == 'volume_glac_annual':
-#            group_idx = 0
-#            vn_norm = ds_group[group_idx][1] / ds_group[group_idx][1][0]
-#            vn_norm_upper = (ds_group[group_idx][1] + ds_group[group_idx][2]) / ds_group[group_idx][1][0]
-#            vn_norm_lower = (ds_group[group_idx][1] - ds_group[group_idx][2]) / ds_group[group_idx][1][0]
-#            
-#            glac_idx =  np.where(main_glac_rgi_all['RGIId_float'].values == glac_float)[0][0]
-#            vn_glac_norm = ds_glac[0][glac_idx,:] / ds_glac[0][glac_idx,0]
-#            vn_glac_norm_upper = (ds_glac[0][glac_idx,:] + ds_glac[1][glac_idx,:]) / ds_glac[0][glac_idx,0] 
-#            vn_glac_norm_lower = (ds_glac[0][glac_idx,:] - ds_glac[1][glac_idx,:]) / ds_glac[0][glac_idx,0]
-#            
-#        fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
-#        # All glaciers
-#        ax[0,0].plot(time_values, vn_norm, color='k', linewidth=1, label='HMA')
-#        ax[0,0].fill_between(time_values, vn_norm_lower, vn_norm_upper, facecolor='k', alpha=0.15, label=r'$\pm$1 std')
-#
-#        # Individual glacier        
-#        ax[0,0].plot(time_values, vn_glac_norm, color='b', linewidth=1, label=glac_float)
-#        ax[0,0].fill_between(time_values, vn_glac_norm_lower, vn_glac_norm_upper, facecolor='b', alpha=0.15, label=None)
-#        
-#        # Tick parameters
-#        ax[0,0].tick_params(axis='both', which='major', labelsize=labelsize, direction='inout')
-#        ax[0,0].tick_params(axis='both', which='minor', labelsize=labelsize, direction='inout')
-#        # X-label
-#        ax[0,0].set_xlim(time_values.min(), time_values.max())
-#        ax[0,0].xaxis.set_tick_params(labelsize=labelsize)
-#        ax[0,0].xaxis.set_major_locator(plt.MultipleLocator(5))
-#        ax[0,0].xaxis.set_minor_locator(plt.MultipleLocator(1))
-#        # Y-label
-#        ax[0,0].set_ylabel('Normalized volume [-]', fontsize=labelsize+1)
-#        ax[0,0].yaxis.set_tick_params(labelsize=labelsize)
-#        ax[0,0].yaxis.set_major_locator(plt.MultipleLocator(0.1))
-#        ax[0,0].yaxis.set_minor_locator(plt.MultipleLocator(0.02))
-#        
-#        # Legend
-#        ax[0,0].legend(loc='lower left', fontsize=labelsize-2)
-#
-#        # Save figure
-#        fig.set_size_inches(5,3)
-#        glac_float_str = str(glac_float).replace('.','-')
-#        figure_fn = 'HMA_volchange_wglac' + glac_float_str + '.png'
-#        
-#        fig.savefig(cal_fp + '../' + figure_fn, bbox_inches='tight', dpi=300)
+    # ===== PLOT ======
+    fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
+    # All glaciers
+    ax[0,0].plot(time_values, vn_norm, color='k', linewidth=1, label='HMA')
+    ax[0,0].fill_between(time_values, vn_norm_lower, vn_norm_upper, facecolor='k', alpha=0.15, label=r'$\pm$95%')
+
+    # Individual glacier        
+    ax[0,0].plot(time_values, vn_glac_norm, color='b', linewidth=1, label=glac_str)
+    ax[0,0].fill_between(time_values, vn_glac_norm_lower, vn_glac_norm_upper, facecolor='b', alpha=0.15, label=None)
+    
+    # Tick parameters
+#    ax[0,0].tick_params(axis='both', which='major', labelsize=labelsize, direction='inout')
+#    ax[0,0].tick_params(axis='both', which='minor', labelsize=labelsize, direction='inout')
+    # X-label
+    ax[0,0].set_xlim(time_values.min(), time_values.max())
+#    ax[0,0].xaxis.set_tick_params(labelsize=labelsize)
+#    ax[0,0].xaxis.set_major_locator(plt.MultipleLocator(5))
+#    ax[0,0].xaxis.set_minor_locator(plt.MultipleLocator(1))
+    # Y-label
+    ax[0,0].set_ylabel('Normalized volume [-]', fontsize=labelsize+1)
+#    ax[0,0].yaxis.set_tick_params(labelsize=labelsize)
+#    ax[0,0].yaxis.set_major_locator(plt.MultipleLocator(0.1))
+#    ax[0,0].yaxis.set_minor_locator(plt.MultipleLocator(0.02))
+    
+    # Legend
+    ax[0,0].legend(loc='lower left', fontsize=labelsize-2)
+
+    # Save figure
+    fig.set_size_inches(5,3)
+    glac_float_str = str(glac_str).replace('.','-')
+#    figure_fn = 'HMA_normalizedchange_wglac' + glac_float_str + '.png'
+    figure_fn = 'test.png'
+    
+    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
 
 #%%
 ## open dataset

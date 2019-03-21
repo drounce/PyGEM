@@ -156,9 +156,9 @@ def merge_batches(gcm_name):
 #            for i in merged_list:
 #                os.remove(i)
             
-#            # Remove batch files
-#            for i in output_list:
-#                os.remove(netcdf_fp + i)
+            # Remove batch files
+            for i in output_list:
+                os.remove(netcdf_fp + i)
   
 
 def extract_subset(gcm_name):    
@@ -167,8 +167,9 @@ def extract_subset(gcm_name):
     
     vns_all = input.output_variables_package2
     
-    vns_subset = ['temp_glac_monthly', 'prec_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly',
-                  'offglac_runoff_monthly', 'area_glac_annual', 'volume_glac_annual', 'glacier_table']
+    vns_subset = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 'massbaltotal_glac_monthly', 
+                  'runoff_glac_monthly', 'offglac_runoff_monthly', 'area_glac_annual', 'volume_glac_annual', 
+                  'glacier_table']
     
     # List of variable names to drop from merged file            
     drop_vns = [item for item in vns_all if item not in vns_subset]
