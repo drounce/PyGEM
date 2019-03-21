@@ -250,16 +250,27 @@ class GCM():
                 glac_variable_series[glac,:] = (
                         data[vn][start_idx:end_idx+1, latlon_nearidx[0], latlon_nearidx[1]].values)
         else:
+            #  argmin() finds the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
+            #  extract the position's value as opposed to having an array
             lat_nearidx = (np.abs(main_glac_rgi[self.rgi_lat_colname].values[:,np.newaxis] - 
                                   data.variables[self.lat_vn][:].values).argmin(axis=1))
             lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 
                                   data.variables[self.lon_vn][:].values).argmin(axis=1))
-            #  argmin() is finding the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
-            #  extract the position's value as opposed to having an array
-            for glac in range(main_glac_rgi.shape[0]):
-                # Select the slice of GCM data for each glacier
-                glac_variable_series[glac,:] = (
-                        data[vn][start_idx:end_idx+1, lat_nearidx[glac], lon_nearidx[glac]].values)
+            # Find unique latitude/longitudes
+            latlon_nearidx = list(zip(lat_nearidx, lon_nearidx))
+            latlon_nearidx_unique = list(set(latlon_nearidx))
+            # Create dictionary of time series for each unique latitude/longitude
+            glac_variable_dict = {}
+            for latlon in latlon_nearidx_unique:
+                glac_variable_dict[latlon] = data[vn][start_idx:end_idx+1, latlon[0], latlon[1]].values
+            # Convert to series
+            glac_variable_series = np.array([glac_variable_dict[x] for x in latlon_nearidx])    
+
+#            for glac in range(main_glac_rgi.shape[0]):
+#                # Select the slice of GCM data for each glacier
+#                glac_variable_series[glac,:] = (
+#                        data[vn][start_idx:end_idx+1, lat_nearidx[glac], lon_nearidx[glac]].values)
+                
         # Perform corrections to the data if necessary
         # Surface air temperature corrections
         if (vn == 'tas') or (vn == 't2m') or (vn == 'T2'):
@@ -305,9 +316,9 @@ if __name__ == '__main__':
 
     print('loaded')
     # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-#    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
 #    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+#    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
 #    if gcm.name == 'ERA-Interim':
 #        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
 #    else:
@@ -328,49 +339,3 @@ if __name__ == '__main__':
 #                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
 #                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
 #                gcm_elev[glac] = gcm_elev_d01[glac]
-    
-    #%%
-#    filename = gcm.elev_fn
-#    vn = gcm.elev_vn
-#    
-#    # Import netcdf file
-#    data = xr.open_dataset(gcm.fx_fp + filename)
-#    glac_variable = np.zeros(main_glac_rgi.shape[0])
-#    # If time dimension included, then set the time index (required for ERA Interim, but not for CMIP5 or COAWST)
-#    if 'time' in data[vn].coords:
-#        time_idx = 0
-#        #  ERA Interim has only 1 value of time, so index is 0
-#    # Find Nearest Neighbor
-#     #  argmin() finds the minimum distance between the glacier lat/lon and the GCM pixel
-#    lat_nearidx = (np.abs(main_glac_rgi[gcm.rgi_lat_colname].values[:,np.newaxis] - 
-#                          data.variables[gcm.lat_vn][:].values).argmin(axis=1))
-#    lon_nearidx = (np.abs(main_glac_rgi[gcm.rgi_lon_colname].values[:,np.newaxis] - 
-#                          data.variables[gcm.lon_vn][:].values).argmin(axis=1))
-#    
-#    latlon_nearidx = list(zip(lat_nearidx, lon_nearidx))
-#    latlon_nearidx_unique = list(set(latlon_nearidx))
-#    
-#    glac_variable_dict = {}
-#    for latlon in latlon_nearidx_unique:
-#        try:
-#            glac_variable_dict[latlon] = data[vn][time_idx, latlon[0], latlon[1]].values
-#        except:
-#            glac_variable_dict[latlon] = data[vn][latlon[0], latlon[1]].values
-#    
-#    glac_variable = np.array([glac_variable_dict[x] for x in latlon_nearidx])    
-#            
-#    # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
-#    if vn == gcm.elev_vn:
-#        # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
-#        if 'units' in data[vn].attrs and (data[vn].attrs['units'] == 'm**2 s**-2'):  
-#            # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
-#            glac_variable = glac_variable / 9.80665
-#        # Elseif units already in m.a.s.l., then continue
-#        elif 'units' in data[vn].attrs and data[vn].attrs['units'] == 'm':
-#            pass
-#        # Otherwise, provide warning
-#        else:
-#            print('Check units of elevation from GCM is m.')
-    
-    
-    
