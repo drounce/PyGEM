@@ -6,6 +6,7 @@ import os
 import pickle
 # External libraries
 import cartopy
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.ticker import MultipleLocator
@@ -36,12 +37,12 @@ option_observation_vs_calibration = 0
 option_prior_vs_posterior_single = 0
 
 # Paper figures
-option_metrics_histogram_all = 1
+option_metrics_histogram_all = 0
 option_plot_era_normalizedchange = 0
 option_papermcmc_prior_vs_posterior = 0
 option_papermcmc_solutionspace = 0
 option_papermcmc_allglaciers_posteriorchanges = 0
-option_papermcmc_modelparameter_map = 0
+option_papermcmc_modelparameter_map = 1
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -1997,7 +1998,7 @@ if option_papermcmc_modelparameter_map == 1:
     netcdf_fp = mcmc_output_netcdf_fp_all
     figure_fp = netcdf_fp + '../figures/'
     grouping = 'degree'
-    degree_size = 0.25
+    degree_size = 0.5
     
     vns = ['ddfsnow', 'tempchange', 'precfactor', 'dif_masschange']
     modelparams_fn = '../main_glac_rgi_20190308_wcal_wposteriors.csv'
@@ -2173,8 +2174,9 @@ if option_papermcmc_modelparameter_map == 1:
     # Rename columns    
     modelparams_all = modelparams_all.rename(columns={'pf_mean':'precfactor', 'tc_mean':'tempchange', 
                                                       'ddfsnow_mean':'ddfsnow'})
-
-    for vn in vns:
+#%%
+#    for vn in vns:
+    for vn in ['precfactor']:
     
         # Group data
         if vn in ['precfactor', 'tempchange', 'ddfsnow']:
@@ -2194,7 +2196,7 @@ if option_papermcmc_modelparameter_map == 1:
             area = [x[1] for x in ds_group_area]
             ds_group_dif_cal_era_mwea = [[x[0], dif_cal_era_Gta[n] / area[n] * 1000] for n, x in enumerate(ds_group_cal)]
             ds_vn_deg = ds_group_dif_cal_era_mwea
-    
+    #%%
         # Create the projection
         fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
         # Add country borders for reference
@@ -2217,14 +2219,25 @@ if option_papermcmc_modelparameter_map == 1:
         cmap = 'RdYlBu'
         if vn in ['tempchange', 'dif_masschange']:
             cmap = 'RdYlBu_r'
-        norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])                        
+            norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])       
+        if vn == 'precfactor':
+            mycolorlist = ["darkred","navajowhite", "lightskyblue", "slateblue","navy"]
+            cmap = mpl.colors.LinearSegmentedColormap.from_list("mylist", mycolorlist, N=len(mycolorlist))
+            bounds = [0,0.5,1.5,2.5,3.5,4.5]
+            norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+        elif vn == 'tempchange':
+            cmap = plt.cm.get_cmap(cmap, 5)
+            norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])                        
         
         # Add colorbar
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm._A = []
-        plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
+        cbar = plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
+        # Set tick marks manually
+        if vn == 'precfactor':
+            cbar.set_ticks([0.25, 1, 2, 3,4])
         if vn in ['precfactor', 'tempchange']:
-            fig.text(1, 0.5, vn_label_dict[vn], va='center', ha='center', rotation='vertical', size=labelsize)
+            fig.text(1.02, 0.5, vn_label_dict[vn], va='center', ha='center', rotation='vertical', size=labelsize)
         else:
             fig.text(1.05, 0.5, vn_label_dict[vn], va='center', ha='center', rotation='vertical', size=labelsize)
 

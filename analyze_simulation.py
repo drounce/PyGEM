@@ -33,8 +33,10 @@ import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
 
 # Script options
-option_plot_cmip5_normalizedchange = 1
+option_plot_cmip5_normalizedchange = 0
+option_cmip5_heatmap_w_volchange = 1
 option_map_gcm_changes = 0
+option_region_map_nodata = 0
 
 
 #%% ===== Input data =====
@@ -44,13 +46,12 @@ netcdf_fp_era = input.output_sim_fp + '/ERA-Interim/ERA-Interim_1980_2017_nochg'
 #%%
 regions = [13, 14, 15]
 
-
 # GCMs and RCP scenarios
-#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
-#             'MPI-ESM-LR', 'NorESM1-M']
-#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR']
+gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
+             'MPI-ESM-LR', 'NorESM1-M']
+#gcm_names = ['CanESM2', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR']
 #gcm_names = ['CanESM2', 'CCSM4']
-gcm_names = ['CanESM2']
+#gcm_names = ['CanESM2']
 #rcps = ['rcp26', 'rcp45', 'rcp85']
 rcps = ['rcp26', 'rcp85']
 #rcps = ['rcp85']
@@ -77,6 +78,87 @@ vn_label_units_dict = {'massbal':'[mwea]',
                        'precfactor':'[-]',                                                              
                        'tempchange':'[$^\circ$C]',                                                               
                        'ddfsnow':'[mwe d$^{-1}$ $^\circ$C$^{-1}$]'}
+title_dict = {'Amu_Darya': 'Amu Darya',
+              'Brahmaputra': 'Brahmaputra',
+              'Ganges': 'Ganges',
+              'Ili': 'Ili',
+              'Indus': 'Indus',
+              'Inner_Tibetan_Plateau': 'Inner TP',
+              'Inner_Tibetan_Plateau_extended': 'Inner TP ext',
+              'Irrawaddy': 'Irrawaddy',
+              'Mekong': 'Mekong',
+              'Salween': 'Salween',
+              'Syr_Darya': 'Syr Darya',
+              'Tarim': 'Tarim',
+              'Yangtze': 'Yangtze',
+              'inner_TP': 'Inner TP',
+              'Karakoram': 'Karakoram',
+              'Yigong': 'Yigong',
+              'Yellow': 'Yellow',
+              'Bhutan': 'Bhutan',
+              'Everest': 'Everest',
+              'West Nepal': 'West Nepal',
+              'Spiti Lahaul': 'Spiti Lahaul',
+              'tien_shan': 'Tien Shan',
+              'Pamir': 'Pamir',
+              'pamir_alai': 'Pamir Alai',
+              'Kunlun': 'Kunlun',
+              'Hindu Kush': 'Hindu Kush',
+              13: 'Central Asia',
+              14: 'South Asia West',
+              15: 'South Asia East',
+              'all': 'HMA'
+              }
+title_location = {'Syr_Darya': [68, 46.1],
+                  'Ili': [83.6, 45.5],
+                  'Amu_Darya': [64.6, 36.9],
+                  'Tarim': [83.0, 39.2],
+                  'Inner_Tibetan_Plateau_extended': [100, 40],
+                  'Indus': [70.7, 31.9],
+                  'Inner_Tibetan_Plateau': [85, 32.4],
+                  'Yangtze': [106.0, 29.8],
+                  'Ganges': [81.3, 26.6],
+                  'Brahmaputra': [92.0, 26],
+                  'Irrawaddy': [96.2, 23.8],
+                  'Salween': [98.5, 20.8],
+                  'Mekong': [103.8, 17.5],
+                  'Yellow': [106.0, 36],
+                  13: [84,39],
+                  14: [72, 33],
+                  15: [84,26.8],
+                  'inner_TP': [89, 33.5],
+                  'Karakoram': [68.7, 33],
+                  'Yigong': [97.5, 26.2],
+                  'Bhutan': [92.1, 26],
+                  'Everest': [85, 26.3],
+                  'West Nepal': [76.5, 28],
+                  'Spiti Lahaul': [70, 31.4],
+                  'tien_shan': [80, 42],
+                  'Pamir': [66, 36],
+                  'pamir_alai': [65.2, 40.2],
+                  'Kunlun': [79, 37.5],
+                  'Hindu Kush': [64, 34.5]
+                  }
+vn_dict = {'volume_glac_annual': 'Volume [-]',
+           'volume_norm': 'Normalized Volume Remaining [-]',
+           'runoff_glac_annual': 'Normalized Runoff [-]',
+           'peakwater': 'Peak Water [yr]',
+           'temp_glac_annual': 'Temperature [$^\circ$C]',
+           'prec_glac_annual': 'Precipitation [m]',
+           'precfactor': 'Precipitation Factor [-]',
+           'tempchange': 'Temperature bias [$^\circ$C]', 
+           'ddfsnow': 'DDFsnow [mm w.e. d$^{-1}$ $^\circ$C$^{-1}$]'}
+rcp_dict = {'rcp26': '2.6',
+            'rcp45': '4.5',
+            'rcp60': '6.0',
+            'rcp85': '8.5'}
+# Colors list
+colors_rgb = [(0.00, 0.57, 0.57), (0.71, 0.43, 1.00), (0.86, 0.82, 0.00), (0.00, 0.29, 0.29), (0.00, 0.43, 0.86), 
+              (0.57, 0.29, 0.00), (1.00, 0.43, 0.71), (0.43, 0.71, 1.00), (0.14, 1.00, 0.14), (1.00, 0.71, 0.47), 
+              (0.29, 0.00, 0.57), (0.57, 0.00, 0.00), (0.71, 0.47, 1.00), (1.00, 1.00, 0.47)]
+gcm_colordict = dict(zip(gcm_names, colors_rgb[0:len(gcm_names)]))
+rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp60':'m', 'rcp85':'r'}
+rcp_styledict = {'rcp26':':', 'rcp45':'--', 'rcp85':'-.'}
 
 cal_datasets = ['shean']
 
@@ -119,7 +201,7 @@ south = 25
 north = 48
 
 
-#%%
+#%% ===== FUNCTIONS =====
 def select_groups(grouping, main_glac_rgi_all):
     """
     Select groups based on grouping
@@ -151,7 +233,6 @@ def select_groups(grouping, main_glac_rgi_all):
     return groups, group_cn
 
 
-#%% LOAD ALL GLACIERS
 def load_glacier_data(rgi_regions):
     """
     Load glacier data (main_glac_rgi, hyps, and ice thickness)
@@ -210,25 +291,104 @@ def load_glacier_data(rgi_regions):
     
     return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all
 
-#def load_gcm_data():
+
+def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input.option_bias_adjustment):
+    """ Load temperature, precipitation, and elevation data associated with GCM/RCP
+    """
+    regions = list(set(main_glac_rgi.O1Region.tolist()))
+    for region in regions:
+        main_glac_rgi_region = main_glac_rgi.loc[main_glac_rgi['O1Region'] == region]
+        main_glac_rgi_region.reset_index(drop=True, inplace=True)
+        
+        gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp)
+    
+        # Air temperature [degC], Precipitation [m], Elevation [m asl]
+        gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi_region, 
+                                                                     dates_table)
+        # 
+        gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi_region, 
+                                                                     dates_table)
+        # Elevation [m asl]
+        gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_region)          
+
+        # Adjust reference dates in event that reference is longer than GCM data
+        if input.startyear >= input.gcm_startyear:
+            ref_startyear = input.startyear
+        else:
+            ref_startyear = input.gcm_startyear
+        if input.endyear <= input.gcm_endyear:
+            ref_endyear = input.endyear
+        else:
+            ref_endyear = input.gcm_endyear
+        dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
+                                                   spinupyears=input.spinupyears, 
+                                                   option_wateryear=input.option_wateryear)
+        # Monthly average from reference climate data
+        ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
+           
+        # ===== BIAS CORRECTIONS =====
+        # No adjustments
+        if option_bias_adjustment == 0:
+            gcm_temp_adj = gcm_temp
+            gcm_prec_adj = gcm_prec
+            gcm_elev_adj = gcm_elev
+        # Bias correct based on reference climate data
+        else:
+            # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+            ref_temp, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.temp_fn, ref_gcm.temp_vn, 
+                                                                             main_glac_rgi_region, dates_table_ref)
+            ref_prec, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.prec_fn, ref_gcm.prec_vn, 
+                                                                             main_glac_rgi_region, dates_table_ref)
+            ref_elev = ref_gcm.importGCMfxnearestneighbor_xarray(ref_gcm.elev_fn, ref_gcm.elev_vn, 
+                                                                 main_glac_rgi_region)
+            
+            # OPTION 1: Adjust temp using Huss and Hock (2015), prec similar but addresses for variance and outliers
+            if input.option_bias_adjustment == 1:
+                # Temperature bias correction
+                gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, 
+                                                                            dates_table_ref, dates_table)
+                # Precipitation bias correction
+                gcm_prec_adj, gcm_elev_adj = gcmbiasadj.prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, 
+                                                                          dates_table_ref, dates_table)
+            
+            # OPTION 2: Adjust temp and prec using Huss and Hock (2015)
+            elif input.option_bias_adjustment == 2:
+                # Temperature bias correction
+                gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, 
+                                                                            dates_table_ref, dates_table)
+                # Precipitation bias correction
+                gcm_prec_adj, gcm_elev_adj = gcmbiasadj.prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, 
+                                                                            dates_table_ref, dates_table)
+        # Concatenate datasets
+        if region == regions[0]:
+            gcm_temp_adj_all = gcm_temp_adj
+            gcm_prec_adj_all = gcm_prec_adj
+            gcm_elev_adj_all = gcm_elev_adj
+        else:
+            gcm_temp_adj_all = np.vstack([gcm_temp_adj_all, gcm_temp_adj])
+            gcm_prec_adj_all = np.vstack([gcm_prec_adj_all, gcm_prec_adj])
+            gcm_elev_adj_all = np.concatenate([gcm_elev_adj_all, gcm_elev_adj])
+    
+    return gcm_temp_adj_all, gcm_prec_adj_all, gcm_elev_adj_all
     
 
 
 #%%
-if option_plot_cmip5_normalizedchange == 1:
-    vn = 'volume_glac_annual'
+if option_cmip5_heatmap_w_volchange == 1:
     vns_heatmap = ['massbaltotal_glac_monthly', 'temp_glac_monthly', 'prec_glac_monthly']
-#    vns_heatmap = ['massbaltotal_glac_monthly', 'temp_glac_monthly']
     figure_fp = input.output_sim_fp + 'figures/'
+    
+    option_plot_multimodel = 1
+    option_plot_single = 0
 
-    area_cutoffs = [20]
+    area_cutoffs = [1]
     nyears = 18
 
     multimodel_linewidth = 2
     alpha=0.2
     
+    # Load glaciers
     main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
-
     
     # Groups
     groups, group_cn = select_groups(grouping, main_glac_rgi)
@@ -237,86 +397,20 @@ if option_plot_cmip5_normalizedchange == 1:
     dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
                                            spinupyears=input.gcm_spinupyears, option_wateryear=input.gcm_wateryear)
     
-    #%%
     # Glacier and grouped annual specific mass balance and mass change
     for rcp in rcps:
         for ngcm, gcm_name in enumerate(gcm_names):
             
-            #%%
-            region = 15
-            option_bias_adjustment=1
-            # NEED TO SUBSET REGIONS AND THEN COMBINE!
-            main_glac_rgi_region = main_glac_rgi.loc[main_glac_rgi['O1Region'] == region]
-            main_glac_rgi_region.reset_index(drop=True, inplace=True)
+            print(rcp, gcm_name)
             
-            gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp)
-        
-            # Air temperature [degC], Precipitation [m], Elevation [m asl]
-            gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi_region, 
-                                                                         dates_table)
-            # 
-            gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi_region, 
-                                                                         dates_table)
-            # Elevation [m asl]
-            gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_region)          
-
-#            # Adjust reference dates in event that reference is longer than GCM data
-#            if input.startyear >= input.gcm_startyear:
-#                ref_startyear = input.startyear
-#            else:
-#                ref_startyear = input.gcm_startyear
-#            if input.endyear <= input.gcm_endyear:
-#                ref_endyear = input.endyear
-#            else:
-#                ref_endyear = input.gcm_endyear
-#            dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
-#                                                       spinupyears=input.spinupyears, 
-#                                                       option_wateryear=input.option_wateryear)
-#            # Monthly average from reference climate data
-#            ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
-#               
-#            # ===== BIAS CORRECTIONS =====
-#            # No adjustments
-#            if option_bias_adjustment == 0:
-#                gcm_temp_adj = gcm_temp
-#                gcm_prec_adj = gcm_prec
-#                gcm_elev_adj = gcm_elev
-#            # Bias correct based on reference climate data
-#            else:
-#                # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-#                ref_temp, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.temp_fn, ref_gcm.temp_vn, 
-#                                                                                 main_glac_rgi_region, dates_table_ref)
-#                ref_prec, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.prec_fn, ref_gcm.prec_vn, 
-#                                                                                 main_glac_rgi_region, dates_table_ref)
-#                ref_elev = ref_gcm.importGCMfxnearestneighbor_xarray(ref_gcm.elev_fn, ref_gcm.elev_vn, 
-#                                                                     main_glac_rgi_region)
-#                
-#                # OPTION 1: Adjust temp using Huss and Hock (2015), prec similar but addresses for variance and outliers
-#                if input.option_bias_adjustment == 1:
-#                    # Temperature bias correction
-#                    gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, 
-#                                                                                dates_table_ref, dates_table)
-#                    # Precipitation bias correction
-#                    gcm_prec_adj, gcm_elev_adj = gcmbiasadj.prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, 
-#                                                                              dates_table_ref, dates_table)
-#                
-#                # OPTION 2: Adjust temp and prec using Huss and Hock (2015)
-#                elif input.option_bias_adjustment == 2:
-#                    # Temperature bias correction
-#                    gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, 
-#                                                                                dates_table_ref, dates_table)
-#                    # Precipitation bias correction
-#                    gcm_prec_adj, gcm_elev_adj = gcmbiasadj.prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, 
-#                                                                                dates_table_ref, dates_table)
-            #%%
+            # Climate data
+            temp_glac_all, prectotal_glac_all, elev_glac_all = retrieve_gcm_data(gcm_name, rcp, main_glac_rgi)
             
             # Extract data from netcdf
             group_glacidx = {}
-            vol_reg_dict = {}
-            temp_reg_dict = {}
-            prec_reg_dict = {}
-            acc_reg_dict = {}
-            prectotal_reg_dict = {}
+            vol_group_dict = {}
+            temp_group_dict = {}
+            prectotal_group_dict = {}
             
             for region in regions:
                        
@@ -339,15 +433,6 @@ if option_plot_cmip5_normalizedchange == 1:
                     # Mass balance
                     mb_glac_all = ds['massbaltotal_glac_monthly'].values[:,:,0]
                     mb_glac_std_all = ds['massbaltotal_glac_monthly'].values[:,:,1]
-                    # Temperature
-                    temp_glac_all = ds['temp_glac_monthly'].values[:,:,0]
-                    temp_glac_std_all = ds['temp_glac_monthly'].values[:,:,1]
-                    # Precipitation
-                    prec_glac_all = ds['prec_glac_monthly'].values[:,:,0]
-                    prec_glac_std_all = ds['prec_glac_monthly'].values[:,:,1]
-                    # Accumulation
-                    acc_glac_all = ds['acc_glac_monthly'].values[:,:,0]
-                    acc_glac_std_all = ds['acc_glac_monthly'].values[:,:,1]
                 else:
                     # Volume
                     vol_glac_all = np.concatenate((vol_glac_all, ds['volume_glac_annual'].values[:,:,0]), axis=0)
@@ -358,31 +443,9 @@ if option_plot_cmip5_normalizedchange == 1:
                     # Mass balance
                     mb_glac_all = np.concatenate((mb_glac_all, ds['massbaltotal_glac_monthly'].values[:,:,0]), axis=0)
                     mb_glac_std_all = np.concatenate((mb_glac_std_all, ds['massbaltotal_glac_monthly'].values[:,:,1]),axis=0)
-                    # Temperature
-                    temp_glac_all = np.concatenate((temp_glac_all, ds['temp_glac_monthly'].values[:,:,0]), axis=0)
-                    temp_glac_std_all = np.concatenate((temp_glac_std_all, ds['temp_glac_monthly'].values[:,:,1]),axis=0)
-                    # Precipitation
-                    prec_glac_all = np.concatenate((prec_glac_all, ds['prec_glac_monthly'].values[:,:,0]), axis=0)
-                    prec_glac_std_all = np.concatenate((prec_glac_std_all, ds['prec_glac_monthly'].values[:,:,1]),axis=0)
-                    # Accumulation
-                    acc_glac_all = np.concatenate((acc_glac_all, ds['acc_glac_monthly'].values[:,:,0]), axis=0)
-                    acc_glac_std_all = np.concatenate((acc_glac_std_all, ds['acc_glac_monthly'].values[:,:,1]),axis=0)
     
                 ds.close()
-                
-            # Cycle through groups
-            for ngroup, group in enumerate(groups):
-                # Select subset of data
-                group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
-                group_glacidx[group] = group_glac_indices
-                
-                # Regional Volume, Temperature, Precipitation, and Accumulation
-                vol_reg_dict[group] = vol_glac_all[group_glac_indices,:].sum(axis=0)
-                temp_reg_dict[group] = (gcmbiasadj.annual_avg_2darray(temp_glac_all[group_glac_indices,:])).mean(axis=0)
-                prec_reg_dict[group] = (gcmbiasadj.annual_sum_2darray(prec_glac_all[group_glac_indices,:])).mean(axis=0)
-                acc_reg_dict[group] = (gcmbiasadj.annual_sum_2darray(acc_glac_all[group_glac_indices,:])).mean(axis=0)
-                prectotal_reg_dict[group] = prec_reg_dict[group] + acc_reg_dict[group]
-                
+               
             # Annual Mass Balance
             mb_glac_all_annual = gcmbiasadj.annual_sum_2darray(mb_glac_all)
             # mask values where volume is zero
@@ -390,75 +453,177 @@ if option_plot_cmip5_normalizedchange == 1:
             
             # Annual Temperature, Precipitation, and Accumulation
             temp_glac_all_annual = gcmbiasadj.annual_avg_2darray(temp_glac_all)
-            prec_glac_all_annual = gcmbiasadj.annual_sum_2darray(prec_glac_all)
-            acc_glac_all_annual = gcmbiasadj.annual_sum_2darray(acc_glac_all)
-            prectotal_glac_all_annual = prec_glac_all_annual + acc_glac_all_annual
+            prectotal_glac_all_annual = gcmbiasadj.annual_sum_2darray(prectotal_glac_all)
             
-            #%%
+            # Groups
+            for ngroup, group in enumerate(groups):
+                # Select subset of data
+                group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
+                group_glacidx[group] = group_glac_indices
+                
+                # Regional Volume, and Area-weighted Temperature and Precipitation
+                vol_group_all = vol_glac_all[group_glac_indices,:].sum(axis=0)
+                
+                temp_group_all = ((temp_glac_all_annual[group_glac_indices,:] * 
+                                   area_glac_all[group_glac_indices,:][:,0][:,np.newaxis]).sum(axis=0) / 
+                                  area_glac_all[group_glac_indices,:][:,0].sum())
+                prectotal_group_all = ((prectotal_glac_all_annual[group_glac_indices,:] * 
+                                        area_glac_all[group_glac_indices,:][:,0][:,np.newaxis]).sum(axis=0) / 
+                                       area_glac_all[group_glac_indices,:][:,0].sum())
+                    
+                # Expand dimensions for multi-model calculations
+                vol_group_all = np.expand_dims(vol_group_all, axis=1)
+                temp_group_all = np.expand_dims(temp_group_all, axis=1)
+                prectotal_group_all = np.expand_dims(prectotal_group_all, axis=1)
+
+                vol_group_dict[group] = vol_group_all
+                temp_group_dict[group] = temp_group_all
+                prectotal_group_dict[group] = prectotal_group_all
+                
+            # Expand dimensions for multi-model calculations
+            mb_glac_all_annual = np.expand_dims(mb_glac_all_annual, axis=2)
+            temp_glac_all_annual = np.expand_dims(temp_glac_all_annual, axis=2)
+            prectotal_glac_all_annual = np.expand_dims(prectotal_glac_all_annual, axis=2)
             
+            # ===== MULTI-MODEL =====
+            if ngcm == 0:
+                mb_glac_all_annual_multimodel = mb_glac_all_annual
+                temp_glac_all_annual_multimodel = temp_glac_all_annual
+                prectotal_glac_all_annual_multimodel = prectotal_glac_all_annual
+                
+                vol_group_dict_multimodel = vol_group_dict
+                temp_group_dict_multimodel = temp_group_dict
+                prectotal_group_dict_multimodel = prectotal_group_dict
+                
+            else:
+                mb_glac_all_annual_multimodel = np.append(mb_glac_all_annual_multimodel, 
+                                                          mb_glac_all_annual, axis=2)
+                temp_glac_all_annual_multimodel = np.append(temp_glac_all_annual_multimodel, 
+                                                            temp_glac_all_annual, axis=2)
+                prectotal_glac_all_annual_multimodel = np.append(prectotal_glac_all_annual_multimodel, 
+                                                                 prectotal_glac_all_annual, axis=2)
+                
+                for ngroup, group in enumerate(groups):
+                    vol_group_dict_multimodel[group] = np.append(vol_group_dict_multimodel[group], 
+                                                                 vol_group_dict[group], axis=1)
+                    temp_group_dict_multimodel[group] = np.append(temp_group_dict_multimodel[group], 
+                                                                  temp_group_dict[group], axis=1)
+                    prectotal_group_dict_multimodel[group] = np.append(prectotal_group_dict_multimodel[group], 
+                                                                       prectotal_group_dict[group], axis=1)
+
+
+#%%        
+        def plot_heatmap(rcp, mb_glac_all_annual, temp_glac_all_annual, prectotal_glac_all_annual, 
+                         vol_group_dict, temp_group_dict, prectotal_group_dict, gcm_name=None):
             cmap_dict = {'massbaltotal_glac_monthly':'RdYlBu',
                          'temp_glac_monthly':'RdYlBu_r',
                          'prec_glac_monthly':'RdYlBu'}
             norm_dict = {'massbaltotal_glac_monthly':plt.Normalize(-2,2),
-                         'temp_glac_monthly':plt.Normalize(-2,2),
-                         'prec_glac_monthly':plt.Normalize(0.5,1.5)}
-            ylabel_dict = {'massbaltotal_glac_monthly':'Normalized Volume\n[-]',
-                           'temp_glac_monthly':'Temperature Change\n[$^\circ$C]',
-                           'prec_glac_monthly':'Precipitation Change\n[%]'}
+                         'temp_glac_monthly':plt.Normalize(0,6),
+                         'prec_glac_monthly':plt.Normalize(0.9,1.15)}
+#            ylabel_dict = {'massbaltotal_glac_monthly':'Normalized Volume\n[-]',
+#                           'temp_glac_monthly':'Temperature Change\n[$^\circ$C]',
+#                           'prec_glac_monthly':'Precipitation Change\n[%]'}
+            line_label_dict = {'massbaltotal_glac_monthly':'Regional volume [-]',
+                               'temp_glac_monthly':'Regional mean',
+                               'prec_glac_monthly':'Regional mean'}
+            line_loc_dict = {'massbaltotal_glac_monthly':(0.17,0.85),
+                             'temp_glac_monthly':(0.47,0.85),
+                             'prec_glac_monthly':(0.75,0.85)}
+#            colorbar_dict = {'massbaltotal_glac_monthly':(0.23, 1.02, 'Mass Balance\n[mwea]', 
+#                                                          [0.125, 0.92, 0.215, 0.02]),
+#                             'temp_glac_monthly':(0.51, 1.02, 'Temperature Change\n[$^\circ$C]',
+#                                                 [0.125, 0.92, 0.215, 0.02]),
+#                             'prec_glac_monthly':(0.79, 1.02, 'Precipitation Change\n[%]',
+#                                                 [0.405, 0.92, 0.215, 0.02])
+#                             }
+            
             
             for area_cutoff in area_cutoffs:
                 
                 # Plot the normalized volume change for each region, along with the mass balances
                 fig, ax = plt.subplots(len(groups), len(vns_heatmap), squeeze=False, sharex=True, sharey=False, 
-                                       gridspec_kw = {'wspace':0.6, 'hspace':0.2})
-                fig.subplots_adjust(top=0.9)
+                                       gridspec_kw = {'wspace':0.3, 'hspace':0.1})
+                fig.subplots_adjust(top=0.88)
             
-                for nregion, region in enumerate(regions):
+                
+                for nvar, vn_heatmap in enumerate(vns_heatmap):
                     
-                    for nvar, vn_heatmap in enumerate(vns_heatmap):
-                        
-                        print(region, vn_heatmap)
-                        
+                    cmap = cmap_dict[vn_heatmap]
+                    norm = norm_dict[vn_heatmap]
+                    
+                    for nregion, region in enumerate(regions):
+
                         if vn_heatmap == 'massbaltotal_glac_monthly':
-                            var_line = vol_reg_dict[region][:-1] / vol_reg_dict[region][0]
                             zmesh = mb_glac_all_annual
+                            var_line = vol_group_dict[region][:-1] / vol_group_dict[region][0]
+                            
                         elif vn_heatmap == 'temp_glac_monthly':
-                            var_line = temp_reg_dict[region] - temp_reg_dict[region][0:nyears].mean()
                             zmesh = temp_glac_all_annual - temp_glac_all_annual[:,0:nyears].mean(axis=1)[:,np.newaxis]
+                            var_line = temp_group_dict[region] - temp_group_dict[region][0:nyears].mean()
+                            
                         elif vn_heatmap == 'prec_glac_monthly':
-                            var_line = prectotal_reg_dict[region] / prectotal_reg_dict[region][0:nyears].mean()
                             zmesh = (prectotal_glac_all_annual /
                                      prectotal_glac_all_annual[:,0:nyears].mean(axis=1)[:,np.newaxis])
+                            var_line = prectotal_group_dict[region] / prectotal_group_dict[region][0:nyears].mean()
                             
-                        cmap = cmap_dict[vn_heatmap]
-                        norm = norm_dict[vn_heatmap]
-                                                 
-                        ax[nregion,nvar].plot(time_values_annual[:-1], var_line, color='k', linewidth=2, 
-                                              label=str(region))
-                        ax[nregion,nvar].set_ylabel(ylabel_dict[vn_heatmap], size=10)
-                    
-                        # Plot mesh of mass balance values
-                        # Only for glaciers greater than 1 km2
+                        # HEATMAP (only glaciers greater than area threshold)
                         glac_idx4mesh = np.where(main_glac_rgi.loc[group_glacidx[region],'Area'] > area_cutoff)[0]
                         z = zmesh[glac_idx4mesh,:]
                         x = time_values_annual[:-1]
                         y = np.array(range(len(glac_idx4mesh)))
+                        ax[nregion,nvar].pcolormesh(x, y, z, cmap=cmap, norm=norm)
+                        if nvar > 0:
+                            ax[nregion,nvar].yaxis.set_ticklabels([])
+                             
+                        # LINE
                         ax2 = ax[nregion,nvar].twinx()
-                        ax[nregion,nvar].set_zorder(2)
-                        ax[nregion,nvar].patch.set_visible(False)
-                        ax2.pcolormesh(x, y, z, cmap=cmap, norm=norm)
-#                        if nvar < len(vns_heatmap) - 1:
-#                        ax2.yaxis.set_ticklabels([])
-                        ax2.yaxis.set_visible(False)
-                        
+                        ax2.plot(time_values_annual[:-1], var_line, color='gray', linewidth=1, label=str(region))
+                        ax2.tick_params(axis='y', colors='gray')
+                        ax2.set_zorder(2)
+                        ax2.patch.set_visible(False)
+                        ax2.set_xlim([time_values_annual[0], time_values_annual[-2]])
+                        if vn_heatmap == 'massbaltotal_glac_monthly':
+                            ax2.set_ylim([0,1.05])
+                            ax2.yaxis.set_ticks(np.arange(0,1.05,0.2))
+                        elif vn_heatmap == 'temp_glac_monthly' and gcm_name == None and rcp == 'rcp85':
+                            ax2.set_ylim([-0.5, 6.1])
+                            ax2.yaxis.set_ticks(np.arange(0,6.1,2))
+                        elif vn_heatmap == 'prec_glac_monthly' and gcm_name == None and rcp == 'rcp85':
+                            ax2.set_ylim([0.9, 1.15])
+                            ax2.yaxis.set_ticks(np.arange(0.9,1.21,0.1))
+                            
+
+                    # Line legend
+                    line = Line2D([0,1],[0,1], linestyle='-', color='gray')
+                    leg_line = [line]
+                    leg_label = [line_label_dict[vn_heatmap]]
+                    leg = fig.legend(leg_line, leg_label, loc='upper left', 
+                                     bbox_to_anchor=line_loc_dict[vn_heatmap], 
+                                     handlelength=1.5, handletextpad=0.5, borderpad=0, frameon=False)
+                    for text in leg.get_texts():
+                        text.set_color('gray')
+                    
+
+    #                # COLORBARS
+    #                fig.text(colorbar_dict[vn_heatmap][0], colorbar_dict[vn_heatmap][1], colorbar_dict[vn_heatmap][2], 
+    #                         ha='center', va='center', size=12)
+    #                sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    #                sm._A = []
+    #                cax = plt.axes(colorbar_dict[vn_heatmap][3])
+    #                plt.colorbar(sm, cax=cax, orientation='horizontal')
+    #                cax.xaxis.set_ticks_position('top')
+    #                for n, label in enumerate(cax.xaxis.get_ticklabels()):
+    #                    if n%2 != 0:
+    #                        label.set_visible(False)
                 
                 # Mass balance colorbar
-                fig.text(0.22, 1.02, 'Mass balance\n[mwea]', ha='center', va='center', size=12)
+                fig.text(0.23, 1.02, 'Mass Balance\n[mwea]', ha='center', va='center', size=12)
                 cmap=cmap_dict['massbaltotal_glac_monthly']
                 norm=norm_dict['massbaltotal_glac_monthly']
                 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
                 sm._A = []
-                cax = plt.axes([0.13, 0.92, 0.18, 0.02])
+                cax = plt.axes([0.125, 0.92, 0.215, 0.02])
                 plt.colorbar(sm, cax=cax, orientation='horizontal')
                 cax.xaxis.set_ticks_position('top')
                 for n, label in enumerate(cax.xaxis.get_ticklabels()):
@@ -466,12 +631,12 @@ if option_plot_cmip5_normalizedchange == 1:
                         label.set_visible(False)
                 
                 # Temperature colorbar
-                fig.text(0.52, 1.02, 'Temperature Change\n[$^\circ$C]', ha='center', va='center', size=12)
+                fig.text(0.51, 1.02, 'Temperature Change\n[$^\circ$C]', ha='center', va='center', size=12)
                 cmap=cmap_dict['temp_glac_monthly']
                 norm=norm_dict['temp_glac_monthly']
                 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
                 sm._A = []
-                cax = plt.axes([0.42, 0.92, 0.18, 0.02])
+                cax = plt.axes([0.405, 0.92, 0.215, 0.02])
                 plt.colorbar(sm, cax=cax, orientation='horizontal')
                 cax.xaxis.set_ticks_position('top')
                 for n, label in enumerate(cax.xaxis.get_ticklabels()):
@@ -479,32 +644,70 @@ if option_plot_cmip5_normalizedchange == 1:
                         label.set_visible(False)
                 
                 # Precipitation colorbar
-                fig.text(0.81, 1.02, 'Precipitation Change\n[%]', ha='center', va='center', size=12)
+                fig.text(0.79, 1.02, 'Precipitation Change\n[%]', ha='center', va='center', size=12)
                 cmap=cmap_dict['prec_glac_monthly']
                 norm=norm_dict['prec_glac_monthly']
                 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
                 sm._A = []
-                cax = plt.axes([0.71, 0.92, 0.18, 0.02])
+                cax = plt.axes([0.685, 0.92, 0.215, 0.02])
                 plt.colorbar(sm, cax=cax, orientation='horizontal')
                 cax.xaxis.set_ticks_position('top')
                 for n, label in enumerate(cax.xaxis.get_ticklabels()):
                     if n%2 != 0:
                         label.set_visible(False)
-                        
-                    
+                            
                 # Label y-axis
-                fig.text(0, 0.80, 'Region 13', va='center', rotation='vertical', size=12) 
-                fig.text(0, 0.52, 'Region 14', va='center', rotation='vertical', size=12) 
-                fig.text(0, 0.25, 'Region 15', va='center', rotation='vertical', size=12)  
-                
-                print('NEED TO ADD SOMETHING TO STATE WHAT LINES ARE - REGIONAL AVERAGES, ALTHOUGH VOLUME CHANGE FOR FIRST')
+                fig.text(0.035, 0.78, 'Region 13', va='center', rotation='vertical', size=12) 
+                fig.text(0.035, 0.51, 'Region 14', va='center', rotation='vertical', size=12) 
+                fig.text(0.035, 0.25, 'Region 15', va='center', rotation='vertical', size=12)
+                fig.text(-0.01, 0.5, 'Glacier Number \n(only glaciers greater than ' + str(area_cutoff) + 'km$^2$)', 
+                         va='center', ha='center', rotation='vertical', size=12)  
                     
                 # Save figure
                 fig.set_size_inches(8,6)
-                figure_fn = gcm_name + '_' + rcp + '_areagt' + str(area_cutoff) + 'km2.png'
+                if gcm_name == None:
+                    figure_fn = ('multimodel_' + rcp + '_' + str(len(gcm_names)) + 'gcms_areagt' + str(area_cutoff) 
+                                 + 'km2.png')
+                else:
+                    figure_fn = gcm_name + '_' + rcp + '_areagt' + str(area_cutoff) + 'km2.png'
                 fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
                 plt.show()
                 plt.close()
+                
+
+        if option_plot_multimodel == 1:
+            mb_glac_all_annual = mb_glac_all_annual_multimodel.mean(axis=2)
+            temp_glac_all_annual = temp_glac_all_annual_multimodel.mean(axis=2)
+            prectotal_glac_all_annual = prectotal_glac_all_annual_multimodel.mean(axis=2)
+            
+            vol_group_dict_single = {}
+            temp_group_dict_single = {}
+            prectotal_group_dict_single = {}
+            for ngroup, group in enumerate(groups):
+                vol_group_dict_single[group] = vol_group_dict_multimodel[group].mean(axis=1)
+                temp_group_dict_single[group] = temp_group_dict_multimodel[group].mean(axis=1)
+                prectotal_group_dict_single[group] = prectotal_group_dict_multimodel[group].mean(axis=1)
+                
+            plot_heatmap(rcp, mb_glac_all_annual, temp_glac_all_annual, prectotal_glac_all_annual, 
+                         vol_group_dict_single, temp_group_dict_single, prectotal_group_dict_single)
+            
+        if option_plot_single == 1:
+            for ngcm, gcm_name in enumerate(gcm_names):
+                mb_glac_all_annual = mb_glac_all_annual_multimodel[:,:,ngcm]
+                temp_glac_all_annual = temp_glac_all_annual_multimodel[:,:,ngcm]
+                prectotal_glac_all_annual = prectotal_glac_all_annual_multimodel[:,:,ngcm]
+                
+                vol_group_dict_single = {}
+                temp_group_dict_single = {}
+                prectotal_group_dict_single = {}
+                for ngroup, group in enumerate(groups):
+                    vol_group_dict_single[group] = vol_group_dict_multimodel[group][:,ngcm]
+                    temp_group_dict_single[group] = temp_group_dict_multimodel[group][:,ngcm]
+                    prectotal_group_dict_single[group] = prectotal_group_dict_multimodel[group][:,ngcm]
+                    
+                plot_heatmap(rcp, mb_glac_all_annual, temp_glac_all_annual, prectotal_glac_all_annual, 
+                             vol_group_dict_single, temp_group_dict_single, prectotal_group_dict_single,
+                             gcm_name=gcm_name)
         
 #%%
 if option_map_gcm_changes == 1:
@@ -640,8 +843,410 @@ if option_map_gcm_changes == 1:
                 fig_fn = gcm_name + '_' + rcp + '_' + vn + '.png'
                 fig.savefig(figure_fp + fig_fn, bbox_inches='tight', dpi=300)
                 plt.close()
-            
-            
-            
-            
+                
+                
+#%% TIME SERIES OF SUBPLOTS FOR EACH GROUP
+if option_plot_cmip5_normalizedchange == 1:
+    vns = ['volume_glac_annual']
+#    vns = ['runoff_glac_monthly']
     
+    figure_fp = input.output_sim_fp + 'figures/'
+    option_plot_individual_gcms = 1
+    
+    # Load glaciers
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi)
+    #%%
+    
+    if grouping == 'watershed':
+        groups.remove('Irrawaddy')
+        groups.remove('Yellow')
+
+    multimodel_linewidth = 2
+    alpha=0.2
+    
+    
+    reg_legend = []
+    num_cols_max = 4
+    if len(groups) < num_cols_max:
+        num_cols = len(groups)
+    else:
+        num_cols = num_cols_max
+    num_rows = int(np.ceil(len(groups)/num_cols))
+        
+    for vn in vns:
+        fig, ax = plt.subplots(num_rows, num_cols, squeeze=False, sharex=False, sharey=True,
+                               figsize=(5*num_rows,4*num_cols), gridspec_kw = {'wspace':0, 'hspace':0})
+        add_group_label = 1
+        
+        for rcp in rcps:
+#        for rcp in ['rcp85']:
+            ds_multimodels = [[] for group in groups]
+            if vn == 'volume_glac_annual':
+                masschg_multimodels = [[] for group in groups]
+            
+            for ngcm, gcm_name in enumerate(gcm_names):
+#            for ngcm, gcm_name in enumerate(['CanESM2']):
+#                print(ngcm, gcm_name)
+            
+                # Merge all data, then select group data
+                for region in regions:                        
+                    # Load datasets
+                    ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba' + str(input.option_bias_adjustment) +
+                             '_100sets_2000_2100--subset.nc')
+                    ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
+  
+                    # Bypass GCMs that are missing a rcp scenario
+                    try:
+                        ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
+                    except:
+                        continue
+                    # Extract time variable
+                    time_values_annual = ds.coords['year_plus1'].values
+                    time_values_monthly = ds.coords['time'].values
+                    # Extract data
+                    vn_glac_region = ds[vn].values[:,:,0]
+                    vn_glac_std_region = ds[vn].values[:,:,1]
+                    
+#                    A = vn_glac_std_region
+                    
+                    print('UPDATE ME HERE! DELETE ME!')
+                    
+                    
+                    # Convert monthly values to annual
+                    if vn == 'runoff_glac_monthly':
+                        vn_glac_region = gcmbiasadj.annual_sum_2darray(vn_glac_region)
+                        time_values_annual = time_values_annual[:-1]
+                        
+                        print('adjust std')
+                        
+
+                    # Merge datasets
+                    if region == regions[0]:
+                        vn_glac_all = vn_glac_region
+                        vn_glac_std_all = vn_glac_std_region                        
+                    else:
+                        vn_glac_all = np.concatenate((vn_glac_all, vn_glac_region), axis=0)
+                        vn_glac_std_all = np.concatenate((vn_glac_std_all, vn_glac_std_region), axis=0)                    
+                    try:
+                        ds.close()
+                    except:
+                        continue
+                    
+                # Cycle through groups  
+                row_idx = 0
+                col_idx = 0
+                for ngroup, group in enumerate(groups):
+#                for ngroup, group in enumerate([groups[1]]):
+                    # Set subplot position
+                    if (ngroup % num_cols == 0) and (ngroup != 0):
+                        row_idx += 1
+                        col_idx = 0
+                        
+                    # Select subset of data
+                    group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
+                    vn_glac = vn_glac_all[group_glac_indices,:]
+                    vn_glac_std = vn_glac_std_all[group_glac_indices,:]
+                    vn_glac_var = vn_glac_std **2
+                     
+                    # Plot data
+                    if vn == 'volume_glac_annual':
+                        # Regional mean, standard deviation, and variance
+                        #  mean: E(X+Y) = E(X) + E(Y)
+                        #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
+                        #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
+                        #  std: std(X+Y) = (Var(X+Y))**0.5
+                        vn_reg = vn_glac.sum(axis=0)
+                        vn_reg_var = vn_glac_var.sum(axis=0)
+                        vn_reg_std = vn_reg_var**0.5
+                        vn_reg_stdhigh = vn_reg + vn_reg_std
+                        vn_reg_stdlow = vn_reg - vn_reg_std
+                        # Regional normalized volume           
+                        vn_reg_norm = vn_reg / vn_reg[0]
+                        vn_reg_norm_stdhigh = vn_reg_stdhigh / vn_reg[0]
+                        vn_reg_norm_stdlow = vn_reg_stdlow / vn_reg[0]
+                        vn_reg_plot = vn_reg_norm.copy()
+                        vn_reg_plot_stdlow = vn_reg_norm_stdlow.copy()
+                        vn_reg_plot_stdhigh = vn_reg_norm_stdhigh.copy()
+                        
+                        # Mass change for text on plot
+                        #  Gt = km3 ice * density_ice / 1000
+                        #  divide by 1000 because density of ice is 900 kg/m3 or 0.900 Gt/km3
+                        vn_reg_masschange = (vn_reg[-1] - vn_reg[15]) * input.density_ice / 1000
+                        
+#                    elif ('prec' in vn) or ('temp' in vn):       
+#                        # Regional mean function (monthly data)
+#                        reg_mean_temp_biasadj, reg_mean_prec_biasadj = (
+#                                select_region_climatedata(gcm_name, rcp, main_glac_rgi))
+#                        # Annual region mean
+#                        if 'prec' in vn:
+#                            reg_var_mean_annual = reg_mean_prec_biasadj.reshape(-1,12).sum(axis=1)
+#                        elif 'temp' in vn:
+#                            reg_var_mean_annual = reg_mean_temp_biasadj.reshape(-1,12).mean(axis=1)
+#                        # Plot data
+#                        vn_reg_plot = reg_var_mean_annual.copy()
+                    elif vn == 'runoff_glac_annual':
+                        # Regional mean, standard deviation, and variance
+                        #  mean: E(X+Y) = E(X) + E(Y)
+                        #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
+                        #    assuming X and Y are indepdent, then Cov(X,Y)=0, so Var(X+Y) = Var(X) + Var(Y)
+                        #  std: std(X+Y) = (Var(X+Y))**0.5
+                        vn_reg = vn_glac.sum(axis=0)
+                        vn_reg_var = vn_glac_var.sum(axis=0)
+                        vn_reg_std = vn_reg_var**0.5
+                        vn_reg_stdhigh = vn_reg + vn_reg_std
+                        vn_reg_stdlow = vn_reg - vn_reg_std
+                        # Runoff from 2000 - 2017
+                        t1_idx = np.where(time_values_annual == 2000)[0][0]
+                        t2_idx = np.where(time_values_annual == 2017)[0][0]
+                        vn_reg_2000_2017_mean = vn_reg[t1_idx:t2_idx+1].sum() / (t2_idx - t1_idx + 1)
+                        # Regional normalized volume        
+                        vn_reg_norm = vn_reg / vn_reg_2000_2017_mean
+                        vn_reg_norm_stdhigh = vn_reg_stdhigh / vn_reg_2000_2017_mean
+                        vn_reg_norm_stdlow = vn_reg_stdlow / vn_reg_2000_2017_mean
+                        vn_reg_plot = vn_reg_norm.copy()
+                        vn_reg_plot_stdlow = vn_reg_norm_stdlow.copy()
+                        vn_reg_plot_stdhigh = vn_reg_norm_stdhigh.copy()
+
+                    # ===== Plot =====                    
+                    if option_plot_individual_gcms == 1:
+                        ax[row_idx, col_idx].plot(time_values_annual, vn_reg_plot, color=rcp_colordict[rcp], 
+                                                  linewidth=1, alpha=alpha, label=None)
+    #                    # Volume change uncertainty
+    #                    if vn == 'volume_glac_annual':
+    #                        ax[row_idx, col_idx].fill_between(
+    #                                time_values, vn_reg_plot_stdlow, vn_reg_plot_stdhigh, 
+    #                                facecolor=gcm_colordict[gcm_name], alpha=0.15, label=None)
+                    
+                    # Group labels
+#                    ax[row_idx, col_idx].set_title(title_dict[group], size=14)
+                    if add_group_label == 1:
+                        ax[row_idx, col_idx].text(0.5, 0.99, title_dict[group], size=14, horizontalalignment='center', 
+                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes)
+                                
+                    # Tick parameters
+                    ax[row_idx, col_idx].tick_params(axis='both', which='major', labelsize=25, direction='inout')
+                    ax[row_idx, col_idx].tick_params(axis='both', which='minor', labelsize=15, direction='inout')
+                    # X-label
+                    ax[row_idx, col_idx].set_xlim(time_values_annual.min(), time_values_annual.max())
+                    ax[row_idx, col_idx].xaxis.set_tick_params(labelsize=14)
+                    ax[row_idx, col_idx].xaxis.set_major_locator(plt.MultipleLocator(50))
+                    ax[row_idx, col_idx].xaxis.set_minor_locator(plt.MultipleLocator(10))
+                    if col_idx == 0 and row_idx == num_rows-1:
+                        ax[row_idx, col_idx].set_xticklabels(['','2000','2050','2100'])
+                    elif row_idx == num_rows-1:
+                        ax[row_idx, col_idx].set_xticklabels(['','','2050','2100'])
+                    else:
+                        ax[row_idx, col_idx].set_xticklabels(['','','',''])
+                    #  labels are the first one, 2000, 2050, 2100, and 2101
+                    # Y-label
+                    ax[row_idx, col_idx].yaxis.set_tick_params(labelsize=14)
+#                    ax[row_idx, col_idx].yaxis.set_major_locator(MaxNLocator(prune='both'))
+                    if vn == 'volume_glac_annual':
+#                        if option_plot_individual_gcms == 1:
+#                            ax[row_idx, col_idx].set_ylim(0,1.35)
+                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.2))
+                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+                    elif vn == 'runoff_glac_annual':
+                        ax[row_idx, col_idx].set_ylim(0,2)
+                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.5))
+                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+                        ax[row_idx, col_idx].set_yticklabels(['','','0.5','1.0','1.5', ''])
+                    elif vn == 'temp_glac_annual':
+                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator())
+                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator())
+                    elif vn == 'prec_glac_annual':
+                        ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator())
+                        ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator())
+                    
+                    # Count column index to plot
+                    col_idx += 1
+                    
+                    # Record data for multi-model stats
+                    if ngcm == 0:
+                        ds_multimodels[ngroup] = [group, vn_reg_plot]
+                    else:
+                        ds_multimodels[ngroup][1] = np.vstack((ds_multimodels[ngroup][1], vn_reg_plot))
+                    
+                    if vn == 'volume_glac_annual':
+                        if ngcm == 0:
+    #                        print(group, rcp, gcm_name, vn_reg_masschange)
+                            masschg_multimodels[ngroup] = [group, vn_reg_masschange]
+                        else:
+    #                        print(group, rcp, gcm_name, vn_reg_masschange)
+                            masschg_multimodels[ngroup][1] = np.vstack((masschg_multimodels[ngroup][1], 
+                                                                       vn_reg_masschange))
+                        
+                        
+                # Only add group label once
+                add_group_label = 0
+            
+            if vn == 'temp_glac_annual' or vn == 'prec_glac_annual':
+                skip_fill = 1
+            else:
+                skip_fill = 0
+            
+            # Multi-model mean
+            row_idx = 0
+            col_idx = 0
+            for ngroup, group in enumerate(groups):
+                if (ngroup % num_cols == 0) and (ngroup != 0):
+                    row_idx += 1
+                    col_idx = 0
+                # Multi-model statistics
+                vn_multimodel_mean = ds_multimodels[ngroup][1].mean(axis=0)
+                vn_multimodel_std = ds_multimodels[ngroup][1].std(axis=0)
+                vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
+                vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
+                ax[row_idx, col_idx].plot(time_values_annual, vn_multimodel_mean, color=rcp_colordict[rcp], 
+                                          linewidth=multimodel_linewidth, label=rcp)
+                if skip_fill == 0:
+                    ax[row_idx, col_idx].fill_between(time_values_annual, vn_multimodel_stdlow, vn_multimodel_stdhigh, 
+                                                      facecolor=rcp_colordict[rcp], alpha=0.2, label=None)  
+                   
+                # Add mass change to plot
+                if vn == 'volume_glac_annual':
+                    masschg_multimodel_mean = masschg_multimodels[ngroup][1].mean(axis=0)[0]
+                
+                    print(group, rcp, np.round(masschg_multimodel_mean,0),'Gt', 
+                          np.round((vn_multimodel_mean[-1] - 1)*100,0), '%')
+                
+                if vn == 'volume_glac_annual' and rcp == rcps[-1]:
+                    masschange_str = '(' + str(masschg_multimodel_mean).split('.')[0] + ' Gt)'
+                    if grouping == 'all':
+                        ax[row_idx, col_idx].text(0.5, 0.93, masschange_str, size=12, horizontalalignment='center', 
+                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes, 
+                                                  color=rcp_colordict[rcp])
+                    else:
+                        ax[row_idx, col_idx].text(0.5, 0.88, masschange_str, size=12, horizontalalignment='center', 
+                                                  verticalalignment='top', transform=ax[row_idx, col_idx].transAxes, 
+                                                  color=rcp_colordict[rcp])
+                # Adjust subplot column index
+                col_idx += 1
+
+        # RCP Legend
+        rcp_lines = []
+        for rcp in rcps:
+            line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
+            rcp_lines.append(line)
+        rcp_labels = [rcp_dict[rcp] for rcp in rcps]
+        if vn == 'temp_glac_annual' or vn == 'prec_glac_annual':
+            legend_loc = 'upper left'
+        else:
+            legend_loc = 'lower left'
+        ax[0,0].legend(rcp_lines, rcp_labels, loc=legend_loc, fontsize=12, labelspacing=0, handlelength=1, 
+                       handletextpad=0.5, borderpad=0, frameon=False, title='RCP')
+        
+#        # GCM Legend
+#        gcm_lines = []
+#        for gcm_name in gcm_names:
+#            line = Line2D([0,1],[0,1], linestyle='-', color=gcm_colordict[gcm_name])
+#            gcm_lines.append(line)
+#        gcm_legend = gcm_names.copy()
+#        fig.legend(gcm_lines, gcm_legend, loc='center right', title='GCMs', bbox_to_anchor=(1.06,0.5), 
+#                   handlelength=0, handletextpad=0, borderpad=0, frameon=False)
+        
+        # Y-Label
+        if len(groups) == 1:
+            fig.text(-0.01, 0.5, vn_dict[vn], va='center', rotation='vertical', size=14)
+        else:
+            fig.text(0.03, 0.5, vn_dict[vn], va='center', rotation='vertical', size=16)
+#        fig.text(0.03, 0.5, 'Normalized\nVolume [-]', va='center', ha='center', rotation='vertical', size=16)
+#        fig.text(0.03, 0.5, 'Normalized\nGlacier Runoff [-]', va='center', ha='center', rotation='vertical', size=16)
+        
+        # Save figure
+        if len(groups) == 1:
+            fig.set_size_inches(4, 4)
+        else:
+            fig.set_size_inches(7, num_rows*2)
+#        if option_plot_individual_gcms == 1:
+#            figure_fn = grouping + '_' + vn + '_wgcms_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
+#        else:
+        figure_fn = grouping + '_' + vn + '_' + str(len(gcm_names)) + 'gcms_' + str(len(rcps)) +  'rcps.png'
+                
+        
+        fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)    
+            
+            
+            
+            
+#%%
+# Regional maps
+if option_region_map_nodata == 1:
+    figure_fp = netcdf_fp_cmip5 + '../figures/'
+    grouping = 'rgi_region'
+    
+    east = 104
+    west = 65
+    south = 26.5
+    north = 45
+    xtick = 5
+    ytick = 5
+    xlabel = 'Longitude [$^\circ$]'
+    ylabel = 'Latitude [$^\circ$]'
+    
+    labelsize = 13
+    
+    colorbar_dict = {'precfactor':[0,5],
+                     'tempchange':[-5,5],
+                     'ddfsnow':[0.0036,0.0046],
+                     'dif_masschange':[-0.1,0.1]}
+    
+    
+    
+    # Add group and attribute of interest
+    if grouping == 'rgi_region':
+        group_shp = cartopy.io.shapereader.Reader(rgiO1_shp_fn)
+        group_shp_attr = 'RGI_CODE'
+    elif grouping == 'watershed':
+        group_shp = cartopy.io.shapereader.Reader(watershed_shp_fn)
+        group_shp_attr = 'watershed'
+    elif grouping == 'kaab':
+        group_shp = cartopy.io.shapereader.Reader(kaab_shp_fn)
+        group_shp_attr = 'Name'
+    
+    # Load glaciers
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi)
+#%%
+    # Create the projection
+    fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
+    # Add country borders for reference
+    ax.add_feature(cartopy.feature.BORDERS, alpha=0.15, zorder=10)
+    ax.add_feature(cartopy.feature.COASTLINE)
+    # Set the extent
+    ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
+    # Label title, x, and y axes
+    ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+    ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+    ax.set_xlabel(xlabel, size=labelsize)
+    ax.set_ylabel(ylabel, size=labelsize)
+    
+#    # Add contour lines
+#    srtm_contour_shp = cartopy.io.shapereader.Reader(srtm_contour_fn)
+#    srtm_contour_feature = cartopy.feature.ShapelyFeature(srtm_contour_shp.geometries(), cartopy.crs.PlateCarree(),
+#                                                          edgecolor='black', facecolor='none', linewidth=0.15)
+#    ax.add_feature(srtm_contour_feature, zorder=2)  
+
+    # Add attribute of interest to the shapefile
+    for rec in group_shp.records():
+        # plot polygon outlines on top of everything with their labels
+        ax.add_geometries(rec.geometry, cartopy.crs.PlateCarree(), facecolor='None', 
+                          edgecolor='black', linewidth=2, zorder=3)
+    for group in groups:
+        print(group, title_location[group][0])
+        ax.text(title_location[group][0], 
+                title_location[group][1], 
+                title_dict[group], horizontalalignment='center', size=12, zorder=4)
+        if group == 'Karakoram':
+            ax.plot([72.2, 76.2], [34.3, 35.8], color='black', linewidth=1.5)
+        elif group == 'Pamir':
+            ax.plot([69.2, 73], [37.3, 38.3], color='black', linewidth=1.5)     
+    
+    # Save figure
+    fig.set_size_inches(6,4)
+    fig_fn = grouping + '_only_map.png'
+    fig.savefig(figure_fp + fig_fn, bbox_inches='tight', dpi=300)
