@@ -2175,8 +2175,8 @@ if option_papermcmc_modelparameter_map == 1:
     modelparams_all = modelparams_all.rename(columns={'pf_mean':'precfactor', 'tc_mean':'tempchange', 
                                                       'ddfsnow_mean':'ddfsnow'})
 #%%
-#    for vn in vns:
-    for vn in ['precfactor']:
+    for vn in vns:
+#    for vn in ['precfactor']:
     
         # Group data
         if vn in ['precfactor', 'tempchange', 'ddfsnow']:
@@ -2223,7 +2223,8 @@ if option_papermcmc_modelparameter_map == 1:
         if vn == 'precfactor':
             mycolorlist = ["darkred","navajowhite", "lightskyblue", "slateblue","navy"]
             cmap = mpl.colors.LinearSegmentedColormap.from_list("mylist", mycolorlist, N=len(mycolorlist))
-            bounds = [0,0.5,1.5,2.5,3.5,4.5]
+#            bounds = [0,0.5,1.5,2.5,3.5,4.5]
+            bounds = [0,1,2,3,4,5]
             norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
         elif vn == 'tempchange':
             cmap = plt.cm.get_cmap(cmap, 5)
@@ -2234,8 +2235,8 @@ if option_papermcmc_modelparameter_map == 1:
         sm._A = []
         cbar = plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
         # Set tick marks manually
-        if vn == 'precfactor':
-            cbar.set_ticks([0.25, 1, 2, 3,4])
+#        if vn == 'precfactor':
+#            cbar.set_ticks([0.25, 1, 2, 3,4])
         if vn in ['precfactor', 'tempchange']:
             fig.text(1.02, 0.5, vn_label_dict[vn], va='center', ha='center', rotation='vertical', size=labelsize)
         else:

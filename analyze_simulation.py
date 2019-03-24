@@ -33,8 +33,8 @@ import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
 
 # Script options
-option_plot_cmip5_normalizedchange = 0
-option_cmip5_heatmap_w_volchange = 1
+option_plot_cmip5_normalizedchange = 1
+option_cmip5_heatmap_w_volchange = 0
 option_map_gcm_changes = 0
 option_region_map_nodata = 0
 
@@ -49,17 +49,18 @@ regions = [13, 14, 15]
 # GCMs and RCP scenarios
 gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
              'MPI-ESM-LR', 'NorESM1-M']
-#gcm_names = ['CanESM2', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR']
+#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'IPSL-CM5A-LR', 
+#             'MPI-ESM-LR', 'NorESM1-M']
 #gcm_names = ['CanESM2', 'CCSM4']
-#gcm_names = ['CanESM2']
-#rcps = ['rcp26', 'rcp45', 'rcp85']
-rcps = ['rcp26', 'rcp85']
+#gcm_names = ['GISS-E2-R']
+rcps = ['rcp26', 'rcp45', 'rcp85']
+#rcps = ['rcp26', 'rcp85']
 #rcps = ['rcp85']
 
 # Grouping
 #grouping = 'all'
-grouping = 'rgi_region'
-#grouping = 'watershed'
+#grouping = 'rgi_region'
+grouping = 'watershed'
 #grouping = 'kaab'
 #grouping = 'degree'
 
@@ -142,6 +143,7 @@ title_location = {'Syr_Darya': [68, 46.1],
 vn_dict = {'volume_glac_annual': 'Volume [-]',
            'volume_norm': 'Normalized Volume Remaining [-]',
            'runoff_glac_annual': 'Normalized Runoff [-]',
+           'runoff_glac_monthly': 'Normalized Runoff [-]',
            'peakwater': 'Peak Water [yr]',
            'temp_glac_annual': 'Temperature [$^\circ$C]',
            'prec_glac_annual': 'Precipitation [m]',
@@ -847,11 +849,11 @@ if option_map_gcm_changes == 1:
                 
 #%% TIME SERIES OF SUBPLOTS FOR EACH GROUP
 if option_plot_cmip5_normalizedchange == 1:
-    vns = ['volume_glac_annual']
-#    vns = ['runoff_glac_monthly']
+#    vns = ['volume_glac_annual']
+    vns = ['runoff_glac_monthly']
     
     figure_fp = input.output_sim_fp + 'figures/'
-    option_plot_individual_gcms = 1
+    option_plot_individual_gcms = 0
     
     # Load glaciers
     main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
@@ -879,19 +881,20 @@ if option_plot_cmip5_normalizedchange == 1:
         fig, ax = plt.subplots(num_rows, num_cols, squeeze=False, sharex=False, sharey=True,
                                figsize=(5*num_rows,4*num_cols), gridspec_kw = {'wspace':0, 'hspace':0})
         add_group_label = 1
-        
+        #%%
         for rcp in rcps:
-#        for rcp in ['rcp85']:
+#        for rcp in ['rcp45']:
             ds_multimodels = [[] for group in groups]
             if vn == 'volume_glac_annual':
                 masschg_multimodels = [[] for group in groups]
             
             for ngcm, gcm_name in enumerate(gcm_names):
-#            for ngcm, gcm_name in enumerate(['CanESM2']):
+#            for ngcm, gcm_name in enumerate(['GISS-E2-R']):
 #                print(ngcm, gcm_name)
             
                 # Merge all data, then select group data
-                for region in regions:                        
+                for region in regions:  
+#                for region in [13]:                        
                     # Load datasets
                     ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba' + str(input.option_bias_adjustment) +
                              '_100sets_2000_2100--subset.nc')
@@ -911,7 +914,9 @@ if option_plot_cmip5_normalizedchange == 1:
                     
 #                    A = vn_glac_std_region
                     
-                    print('UPDATE ME HERE! DELETE ME!')
+#                    print('ADD ANNUAL RUNOFF STANDARD DEVIATION! DELETE ME!')
+                    
+                    print(rcp, gcm_name, region, np.min(vn_glac_region.sum(axis=0)))
                     
                     
                     # Convert monthly values to annual
@@ -919,7 +924,8 @@ if option_plot_cmip5_normalizedchange == 1:
                         vn_glac_region = gcmbiasadj.annual_sum_2darray(vn_glac_region)
                         time_values_annual = time_values_annual[:-1]
                         
-                        print('adjust std')
+                        vn_glac_std_region = gcmbiasadj.annual_sum_2darray(vn_glac_std_region)
+#                        print('adjust std')
                         
 
                     # Merge datasets
@@ -986,7 +992,7 @@ if option_plot_cmip5_normalizedchange == 1:
 #                            reg_var_mean_annual = reg_mean_temp_biasadj.reshape(-1,12).mean(axis=1)
 #                        # Plot data
 #                        vn_reg_plot = reg_var_mean_annual.copy()
-                    elif vn == 'runoff_glac_annual':
+                    elif vn == 'runoff_glac_monthly':
                         # Regional mean, standard deviation, and variance
                         #  mean: E(X+Y) = E(X) + E(Y)
                         #  var: Var(X+Y) = Var(X) + Var(Y) + 2*Cov(X,Y)
@@ -1012,7 +1018,11 @@ if option_plot_cmip5_normalizedchange == 1:
                     # ===== Plot =====                    
                     if option_plot_individual_gcms == 1:
                         ax[row_idx, col_idx].plot(time_values_annual, vn_reg_plot, color=rcp_colordict[rcp], 
-                                                  linewidth=1, alpha=alpha, label=None)
+                                                  linewidth=1, alpha=alpha, label=None, zorder=1)
+                    
+                    if rcp == 'rcp45':
+                        if group == 'Brahmaputra':
+                            print(gcm_name, np.min(vn_reg_plot))
     #                    # Volume change uncertainty
     #                    if vn == 'volume_glac_annual':
     #                        ax[row_idx, col_idx].fill_between(
@@ -1100,10 +1110,11 @@ if option_plot_cmip5_normalizedchange == 1:
                 vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
                 vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
                 ax[row_idx, col_idx].plot(time_values_annual, vn_multimodel_mean, color=rcp_colordict[rcp], 
-                                          linewidth=multimodel_linewidth, label=rcp)
+                                          linewidth=multimodel_linewidth, label=rcp, zorder=3)
                 if skip_fill == 0:
                     ax[row_idx, col_idx].fill_between(time_values_annual, vn_multimodel_stdlow, vn_multimodel_stdhigh, 
-                                                      facecolor=rcp_colordict[rcp], alpha=0.2, label=None)  
+                                                      facecolor=rcp_colordict[rcp], alpha=0.2, label=None,
+                                                      zorder=2)  
                    
                 # Add mass change to plot
                 if vn == 'volume_glac_annual':
@@ -1192,9 +1203,7 @@ if option_region_map_nodata == 1:
                      'tempchange':[-5,5],
                      'ddfsnow':[0.0036,0.0046],
                      'dif_masschange':[-0.1,0.1]}
-    
-    
-    
+
     # Add group and attribute of interest
     if grouping == 'rgi_region':
         group_shp = cartopy.io.shapereader.Reader(rgiO1_shp_fn)
@@ -1211,7 +1220,7 @@ if option_region_map_nodata == 1:
     
     # Groups
     groups, group_cn = select_groups(grouping, main_glac_rgi)
-#%%
+
     # Create the projection
     fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
     # Add country borders for reference

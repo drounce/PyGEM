@@ -161,15 +161,14 @@ def merge_batches(gcm_name):
                 os.remove(netcdf_fp + i)
   
 
-def extract_subset(gcm_name):    
-#for batman in [0]:
-#    gcm_name = 'CCSM4'
+def extract_subset(gcm_name):  
+#gcm_names = ['IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
+#for gcm_name in gcm_names:
     
     vns_all = input.output_variables_package2
     
-    vns_subset = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 'massbaltotal_glac_monthly', 
-                  'runoff_glac_monthly', 'offglac_runoff_monthly', 'area_glac_annual', 'volume_glac_annual', 
-                  'glacier_table']
+    vns_subset = ['massbaltotal_glac_monthly', 'runoff_glac_monthly', 'offglac_runoff_monthly', 'area_glac_annual', 
+                  'volume_glac_annual', 'glacier_table']
     
     # List of variable names to drop from merged file            
     drop_vns = [item for item in vns_all if item not in vns_subset]
@@ -199,45 +198,35 @@ def extract_subset(gcm_name):
                 if i.startswith(check_str):
                     ds_fn = i
                     output_list.append(i)
-                    
-            # Encoding
-            encoding = {}
-            noencoding_vn = ['stats', 'glac_attrs']
-            # Encoding (specify _FillValue, offsets, etc.)
-            for vn in vns_subset:
-                if vn not in noencoding_vn:
-                    encoding[vn] = {'_FillValue': False}
-                    
-            print(ds_fn)
                 
-            # Open datasets and combine
-            ds = xr.open_dataset(netcdf_fp + ds_fn)
-            # Drop variables
-            ds = ds.drop(drop_vns)                
-            ds_new_fn = ds_fn.split('.nc')[0] + '--subset.nc'
-            # Export to netcdf
-            subset_fp = input.output_sim_fp + '/spc_subset/'
-            # Add filepath if it doesn't exist
-            if not os.path.exists(subset_fp):
-                os.makedirs(subset_fp)
-            ds.to_netcdf(subset_fp + ds_new_fn, encoding=encoding)
-            ds.close()
+                    # Encoding
+                    encoding = {}
+                    noencoding_vn = ['stats', 'glac_attrs']
+                    # Encoding (specify _FillValue, offsets, etc.)
+                    for vn in vns_subset:
+                        if vn not in noencoding_vn:
+                            encoding[vn] = {'_FillValue': False}
+                        
+                    # Open datasets and combine
+                    ds = xr.open_dataset(netcdf_fp + ds_fn)
+                    # Drop variables
+                    ds = ds.drop(drop_vns)                
+                    ds_new_fn = ds_fn.split('.nc')[0] + '--subset.nc'
+                    # Export to netcdf
+                    subset_fp = input.output_sim_fp + '/spc_subset/'
+                    # Add filepath if it doesn't exist
+                    if not os.path.exists(subset_fp):
+                        os.makedirs(subset_fp)
+                    ds.to_netcdf(subset_fp + ds_new_fn, encoding=encoding)
+                    ds.close()
+                        
+                    vol_glac_all = ds.volume_glac_annual.values[:,:,0]
+                    vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
+                    print(gcm_name, 'Region', reg, rcp, 'Vol remain [%]:', np.round(vol_remain_perc,1))
+                    
+                    # Remove file
+                    os.remove(netcdf_fp + i)
                 
-#            if vn == 'volume_glac_annual':
-            vol_glac_all = ds.volume_glac_annual.values[:,:,0]
-            vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
-            print(gcm_name, 'Region', reg, rcp, 'Vol remain [%]:', np.round(vol_remain_perc,1))
-            
-#            # Delete file
-#            for i in output_list:
-#                os.remove(netcdf_fp + i)
-            
-##    # Delete directory
-##    for i in os.listdir(netcdf_fp):
-##        if i.endswith('.DS_Store'):
-##            os.remove(netcdf_fp + i)
-##    os.rmdir(netcdf_fp)
-
               
 def subset_byvar(gcm_name):    
     vns_all = input.output_variables_package2
