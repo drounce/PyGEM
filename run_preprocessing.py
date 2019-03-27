@@ -368,7 +368,7 @@ if args.option_wgms == 1:
     mandict = {10402: 'RGI60-13.10093',
                10401: 'RGI60-15.03734',
                6846: 'RGI60-15.12707'}
-    
+    #%%
     # ===== WGMS (D) Geodetic mass balance data =====
     if 'wgms_d' in input.wgms_datasets:
         print('Processing geodetic thickness change data')
@@ -379,8 +379,7 @@ if args.option_wgms == 1:
         wgms_mb_geo_all['RGIId_wgmsdictv6'] = wgms_mb_geo_all['RGIId_wgmsdict'].map(rgiv56_dict)
         # Use dictionaries to convert wgms data to RGIIds
         wgms_mb_geo_RGIIds_all_raw_wdicts = wgms_mb_geo_all[['RGIId_rgidict', 'RGIId_mandict','RGIId_wgmsdictv6']]
-        wgms_mb_geo_RGIIds_all_raw = (
-                wgms_mb_geo_RGIIds_all_raw_wdicts.apply(lambda x: sorted(x, key=pd.isnull), 1).iloc[:,0])
+        wgms_mb_geo_RGIIds_all_raw = wgms_mb_geo_RGIIds_all_raw_wdicts.apply(lambda x: sorted(x, key=pd.isnull)[0], 1)
         # Determine regions and glacier numbers
         wgms_mb_geo_all['RGIId'] = wgms_mb_geo_RGIIds_all_raw.values
         wgms_mb_geo_all['version'], wgms_mb_geo_all['glacno'] = wgms_mb_geo_RGIIds_all_raw.str.split('-').dropna().str
@@ -417,8 +416,7 @@ if args.option_wgms == 1:
         wgms_mb_glac_all['RGIId_wgmsdictv6'] = wgms_mb_glac_all['RGIId_wgmsdict'].map(rgiv56_dict)
         # Use dictionaries to convert wgms data to RGIIds
         wgms_mb_glac_RGIIds_all_raw_wdicts = wgms_mb_glac_all[['RGIId_rgidict', 'RGIId_mandict','RGIId_wgmsdictv6']]
-        wgms_mb_glac_RGIIds_all_raw = (
-                wgms_mb_glac_RGIIds_all_raw_wdicts.apply(lambda x: sorted(x, key=pd.isnull), 1).iloc[:,0])
+        wgms_mb_glac_RGIIds_all_raw = wgms_mb_glac_RGIIds_all_raw_wdicts.apply(lambda x: sorted(x, key=pd.isnull)[0], 1)        
         # Determine regions and glacier numbers
         wgms_mb_glac_all['RGIId'] = wgms_mb_glac_RGIIds_all_raw.values
         wgms_mb_glac_all['version'], wgms_mb_glac_all['glacno'] = (
