@@ -33,10 +33,12 @@ import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
 
 # Script options
-option_plot_cmip5_normalizedchange = 1
+option_plot_cmip5_normalizedchange = 0
 option_cmip5_heatmap_w_volchange = 0
 option_map_gcm_changes = 0
 option_region_map_nodata = 0
+
+option_glaciermip_table = 1
 
 
 #%% ===== Input data =====
@@ -59,8 +61,8 @@ rcps = ['rcp26', 'rcp45', 'rcp85']
 
 # Grouping
 #grouping = 'all'
-#grouping = 'rgi_region'
-grouping = 'watershed'
+grouping = 'rgi_region'
+#grouping = 'watershed'
 #grouping = 'kaab'
 #grouping = 'degree'
 
@@ -849,8 +851,8 @@ if option_map_gcm_changes == 1:
                 
 #%% TIME SERIES OF SUBPLOTS FOR EACH GROUP
 if option_plot_cmip5_normalizedchange == 1:
-#    vns = ['volume_glac_annual']
-    vns = ['runoff_glac_monthly']
+    vns = ['volume_glac_annual']
+#    vns = ['runoff_glac_monthly']
     
     figure_fp = input.output_sim_fp + 'figures/'
     option_plot_individual_gcms = 0
@@ -1135,7 +1137,7 @@ if option_plot_cmip5_normalizedchange == 1:
                                                   color=rcp_colordict[rcp])
                 # Adjust subplot column index
                 col_idx += 1
-
+                
         # RCP Legend
         rcp_lines = []
         for rcp in rcps:
@@ -1259,3 +1261,89 @@ if option_region_map_nodata == 1:
     fig.set_size_inches(6,4)
     fig_fn = grouping + '_only_map.png'
     fig.savefig(figure_fp + fig_fn, bbox_inches='tight', dpi=300)
+    
+ 
+#%%
+if option_glaciermip_table == 1:
+    vn = 'massbaltotal_glac_monthly'
+    startyear = 2015
+    endyear = 2100
+    
+    # Load glaciers
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi)
+    
+    #%%
+    # Load mass balance data
+    ds_all = {}
+    for rcp in rcps:
+#    for rcp in ['rcp26']:
+        ds_all[rcp] = {}
+        for ngcm, gcm_name in enumerate(gcm_names):
+#        for ngcm, gcm_name in enumerate(['CanESM2']):
+            
+            print(rcp, gcm_name)
+        
+            # Merge all data, then select group data
+            for region in regions:                       
+                # Load datasets
+                ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba' + str(input.option_bias_adjustment) +
+                         '_100sets_2000_2100--subset.nc')
+                ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
+  
+                # Bypass GCMs that are missing a rcp scenario
+                try:
+                    ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
+                except:
+                    continue
+                # Extract time variable
+                time_values_annual = ds.coords['year_plus1'].values
+                time_values_monthly = ds.coords['time'].values
+                # Extract start/end indices for calendar year!
+                time_values_df = pd.DatetimeIndex(time_values_monthly)
+                time_values = np.array([x.year for x in time_values_df])
+                time_idx_start = np.where(time_values == startyear)[0][0]
+                time_idx_end = np.where(time_values == endyear)[0][0]
+                year_idx_start = np.where(time_values_annual == startyear)[0][0]
+                year_idx_end = np.where(time_values_annual == endyear)[0][0]
+                
+                # Extract data
+                mb_glac_region = ds[vn].values[:,:,0]
+                mb_glac_region_subset = mb_glac_region[:,time_idx_start:time_idx_end]
+                area_glac_region = ds['area_glac_annual'].values[:,:,0]
+                area_glac_region_subset = area_glac_region[:,year_idx_start:year_idx_end].repeat(12,axis=1)
+                
+                # Volume change [km3]
+                volchg_glac_region_subset = (mb_glac_region_subset / 1000 * area_glac_region_subset * 
+                                             (input.density_water / input.density_ice))
+                volchg_glac_region_subset_annual = gcmbiasadj.annual_sum_2darray(volchg_glac_region_subset)
+
+                # Merge datasets
+                if region == regions[0]:
+                    volchg_glac_all = volchg_glac_region_subset_annual 
+                else:
+                    volchg_glac_all = np.concatenate((volchg_glac_all, volchg_glac_region_subset_annual ), axis=0)
+                try:
+                    ds.close()
+                except:
+                    continue
+            
+            # Convert to volume change
+            volchg_glac_all_cumsum = np.cumsum(volchg_glac_all, axis=1)
+            vol_glac_all = vol_init[:,np.newaxis] + volchg_glac_all_cumsum
+            
+            # Check that volume is never negative!!!!!!
+            print('CHECK THAT VOLUME IS NEVER NEGATIVE!')
+            
+            ds_all[rcp][gcm_name] = {}
+            for ngroup, group in enumerate(groups):
+                # Sum volume change for group
+                group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
+                volchg_group = vol_glac_all[group_glac_indices,:].sum(axis=0)
+
+                ds_all[rcp][gcm_name][group] = volchg_group
+            
+            #%%
+    for group in groups:
+    

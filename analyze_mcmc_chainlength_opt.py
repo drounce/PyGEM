@@ -42,7 +42,7 @@ option_plot_era_normalizedchange = 0
 option_papermcmc_prior_vs_posterior = 0
 option_papermcmc_solutionspace = 0
 option_papermcmc_allglaciers_posteriorchanges = 0
-option_papermcmc_modelparameter_map = 1
+option_papermcmc_modelparameter_map = 0
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -75,7 +75,7 @@ mcmc_output_netcdf_fp_all = input.output_filepath + 'cal_opt2_spc_20190308_adjp1
 mcmc_output_figures_fp = input.output_filepath + 'figures/'
 #mcmc_output_csv_fp = mcmc_output_netcdf_fp + 'csv/'
 
-regions = ['13', '14', '15']
+regions = [13, 14, 15]
 
 cal_datasets = ['shean']
 
@@ -880,22 +880,22 @@ def metrics_vs_chainlength(netcdf_fp, regions, iters, burn=0, nchain=3):
                 ax[nvar,nmetric].yaxis.set_minor_locator(MultipleLocator(0.01))
             elif metric == 'MC Error':
                 if vn == 'massbal':
-                    ax[nvar,nmetric].axhline(y=0.005, color='k', linestyle='--', linewidth=2)
+                    ax[nvar,nmetric].axhline(y=0.0026, color='k', linestyle='--', linewidth=2)
                     ax[nvar,nmetric].set_ylim(0,0.012)
                     ax[nvar,nmetric].yaxis.set_major_locator(MultipleLocator(0.005))
                     ax[nvar,nmetric].yaxis.set_minor_locator(MultipleLocator(0.001))
                 elif vn == 'precfactor':
-                    ax[nvar,nmetric].axhline(y=0.05, color='k', linestyle='--', linewidth=2)
+                    ax[nvar,nmetric].axhline(y=0.026, color='k', linestyle='--', linewidth=2)
                     ax[nvar,nmetric].set_ylim(0,0.12)
                     ax[nvar,nmetric].yaxis.set_major_locator(MultipleLocator(0.05))
                     ax[nvar,nmetric].yaxis.set_minor_locator(MultipleLocator(0.01))
                 elif vn == 'tempchange':
-                    ax[nvar,nmetric].axhline(y=0.05, color='k', linestyle='--', linewidth=2)
+                    ax[nvar,nmetric].axhline(y=0.026, color='k', linestyle='--', linewidth=2)
                     ax[nvar,nmetric].set_ylim(0,0.12)
                     ax[nvar,nmetric].yaxis.set_major_locator(MultipleLocator(0.05))
                     ax[nvar,nmetric].yaxis.set_minor_locator(MultipleLocator(0.01))
                 elif vn == 'ddfsnow':
-                    ax[nvar,nmetric].axhline(y=0.05, color='k', linestyle='--', linewidth=2)
+                    ax[nvar,nmetric].axhline(y=0.026, color='k', linestyle='--', linewidth=2)
                     ax[nvar,nmetric].set_ylim(0,0.12)
                     ax[nvar,nmetric].yaxis.set_major_locator(MultipleLocator(0.05))
                     ax[nvar,nmetric].yaxis.set_minor_locator(MultipleLocator(0.01))
@@ -1010,7 +1010,11 @@ def prior_vs_posterior_single(glac_no, netcdf_fp, iters=[1000,15000], precfactor
     -------
     .png files
         saves figure showing how prior and posterior comparison
-    """    
+    """
+for batman in [0]:
+    glac_no = '13.00001'
+    netcdf_fp = mcmc_output_netcdf_fp_all
+    
     region = [int(glac_no.split('.')[0])]
     rgi_glac_number = [glac_no.split('.')[1]]
 
@@ -1114,153 +1118,152 @@ def prior_vs_posterior_single(glac_no, netcdf_fp, iters=[1000,15000], precfactor
               '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2))
        
         #%%
-    # PRIOR VS POSTERIOR PLOTS 
-    fig, ax = plt.subplots(2, 2, squeeze=False, figsize=(6.5, 5), 
-                           gridspec_kw={'wspace':0.3, 'hspace':0.5})
-    
-    param_idx_dict = {'massbal':[0,0],
-                      'precfactor':[0,1],
-                      'tempchange':[1,0],
-                      'ddfsnow':[1,1]}
-    
-    z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
-    for nvar, vn in enumerate(variables):
-        
-        # PRIOR DISTRIBUTIONS
-        if vn == 'massbal':
-            x_values = observed_massbal + observed_error * z_score
-            y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
-        elif vn == 'precfactor': 
-            if precfactor_disttype == 'uniform':
-                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-                x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
-                y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
-                                       scale=(precfactor_boundhigh - precfactor_boundlow))
-            elif precfactor_disttype == 'lognormal':
-                precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
-                x_values = np.linspace(lognorm.ppf(1e-6, precfactor_lognorm_sigma), 
-                                       lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
-                y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
-        elif vn == 'tempchange':
-            if tempchange_disttype == 'uniform':
-                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-                x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
-                y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
-                                       scale=(tempchange_boundhigh - tempchange_boundlow))
-            elif tempchange_disttype == 'truncnormal':
-                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
-                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
-                z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
-                                      truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
-                x_values = tempchange_mu + tempchange_sigma * z_score
-                y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu,
-                                         scale=tempchange_sigma)
-        elif vn == 'ddfsnow':            
-            if ddfsnow_disttype == 'truncnormal':
-                ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
-                ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
-                z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b),
-                                      truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
-                x_values = ddfsnow_mu + ddfsnow_sigma * z_score
-                y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
-            elif ddfsnow_disttype == 'uniform':
-                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-                x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
-                y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
-                                       scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
-        
-        nrow = param_idx_dict[vn][0]
-        ncol = param_idx_dict[vn][1]
-        ax[nrow,ncol].plot(x_values, y_values, color='k')
-        
-        # Labels
-        ax[nrow,ncol].set_xlabel(vn_label_dict[vn], size=12)
-        if ncol == 0:
-            ax[nrow,ncol].set_ylabel('Probability Density', size=12)
-
-        # Ensemble/Posterior distribution                
-        for n_chain in range(len(ds.chain.values)):
-            for count_iter, n_iters in enumerate(iters):
-                chain = ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:n_iters]
-            
-                # gaussian distribution
-                kde = gaussian_kde(chain)
-                x_values_kde = x_values.copy()
-                y_values_kde = kde(x_values_kde)
-                
-                # Plot fitted distribution
-                ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=colors[count_iter], linestyle=linestyles[n_chain])
-    
-    # Close dataset
-    ds.close()
-    
-    # Legend (Note: hard code the spacing between the two legends)
-    leg_lines = []
-    line = Line2D([0,1],[0,1], color='white')
-    leg_lines.append(line)
-    leg_labels = ['Steps']
-    
-    for count_iter, n_iters in enumerate(iters):
-        line = Line2D([0,1],[0,1], color=colors[count_iter])
-        leg_lines.append(line)
-    iter_labels = [str(int(i)) for i in iters]
-    for label in iter_labels:
-        leg_labels.append(label)
-    
-    for n in range(8):
-        line = Line2D([0,1],[0,1], color='white')
-        leg_lines.append(line)
-        leg_labels.append(' ')    
-    line = Line2D([0,1],[0,1], color='white')
-    leg_lines.append(line)
-    leg_labels.append('Starting Point')
-    
-    for n_chain in range(len(ds.chain.values)):
-        line = Line2D([0,1],[0,1], color='gray', linestyle=linestyles[n_chain])
-        leg_lines.append(line)
-    chain_labels = ['Center', 'Lower Bound', 'Upper Bound  ']
-    for n in chain_labels:
-        leg_labels.append(n)
-    
-    fig.legend(leg_lines, leg_labels, loc='upper right', bbox_to_anchor=(1.1,0.85), 
-               handlelength=1, handletextpad=0.5, borderpad=0.3, frameon=False)
-        
-    # Save figure
-    str_ending = ''
-    if 'tempchange' in variables:    
-        if tempchange_disttype == 'truncnormal': 
-            str_ending += '_TCtn'
-        elif tempchange_disttype == 'uniform':
-            str_ending += '_TCu'
-    if 'precfactor' in variables:                
-        if precfactor_disttype == 'lognormal': 
-            str_ending += '_PFln'
-        elif precfactor_disttype == 'uniform':
-            str_ending += '_PFu'
-    if 'ddfsnow' in variables:     
-        if ddfsnow_disttype == 'truncnormal': 
-            str_ending += '_DDFtn'
-        elif ddfsnow_disttype == 'uniform':
-            str_ending += '_DDFu'        
-    if input.tempchange_edge_method == 'mb':
-        str_ending += '_edgeMBpt' + str(int(input.tempchange_edge_mb*100)).zfill(2)
-    elif input.tempchange_edge_method == 'mb_norm':
-        str_ending += '_edgeMBNormpt' + str(int(input.tempchange_edge_mbnorm*100)).zfill(2)
-    elif input.tempchange_edge_method == 'mb_norm_slope':
-        str_ending += '_edgeSpt' + str(int(input.tempchange_edge_mbnormslope*100)).zfill(2)
-    str_ending += '_TCadjp' + str(int(input.tempchange_mu_adj*100)).zfill(2)
-        
-    if os.path.exists(mcmc_output_figures_fp) == False:
-        os.makedirs(mcmc_output_figures_fp)        
-    fig.savefig(mcmc_output_figures_fp + 'prior_v_posteriors_' + glacier_str + str_ending + '.png', 
-                bbox_inches='tight', dpi=300)
-    fig.clf()
+#    # PRIOR VS POSTERIOR PLOTS 
+#    fig, ax = plt.subplots(2, 2, squeeze=False, figsize=(6.5, 5), 
+#                           gridspec_kw={'wspace':0.3, 'hspace':0.5})
+#    
+#    param_idx_dict = {'massbal':[0,0],
+#                      'precfactor':[0,1],
+#                      'tempchange':[1,0],
+#                      'ddfsnow':[1,1]}
+#    
+#    z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
+#    for nvar, vn in enumerate(variables):
+#        
+#        # PRIOR DISTRIBUTIONS
+#        if vn == 'massbal':
+#            x_values = observed_massbal + observed_error * z_score
+#            y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
+#        elif vn == 'precfactor': 
+#            if precfactor_disttype == 'uniform':
+#                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+#                x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
+#                y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
+#                                       scale=(precfactor_boundhigh - precfactor_boundlow))
+#            elif precfactor_disttype == 'lognormal':
+#                precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
+#                x_values = np.linspace(lognorm.ppf(1e-6, precfactor_lognorm_sigma), 
+#                                       lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
+#                y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
+#        elif vn == 'tempchange':
+#            if tempchange_disttype == 'uniform':
+#                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+#                x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
+#                y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
+#                                       scale=(tempchange_boundhigh - tempchange_boundlow))
+#            elif tempchange_disttype == 'truncnormal':
+#                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
+#                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
+#                z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
+#                                      truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
+#                x_values = tempchange_mu + tempchange_sigma * z_score
+#                y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu,
+#                                         scale=tempchange_sigma)
+#        elif vn == 'ddfsnow':            
+#            if ddfsnow_disttype == 'truncnormal':
+#                ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
+#                ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
+#                z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b),
+#                                      truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
+#                x_values = ddfsnow_mu + ddfsnow_sigma * z_score
+#                y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
+#            elif ddfsnow_disttype == 'uniform':
+#                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+#                x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
+#                y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
+#                                       scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
+#        
+#        nrow = param_idx_dict[vn][0]
+#        ncol = param_idx_dict[vn][1]
+#        ax[nrow,ncol].plot(x_values, y_values, color='k')
+#        
+#        # Labels
+#        ax[nrow,ncol].set_xlabel(vn_label_dict[vn], size=12)
+#        if ncol == 0:
+#            ax[nrow,ncol].set_ylabel('Probability Density', size=12)
+#
+#        # Ensemble/Posterior distribution                
+#        for n_chain in range(len(ds.chain.values)):
+#            for count_iter, n_iters in enumerate(iters):
+#                chain = ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:n_iters]
+#            
+#                # gaussian distribution
+#                kde = gaussian_kde(chain)
+#                x_values_kde = x_values.copy()
+#                y_values_kde = kde(x_values_kde)
+#                
+#                # Plot fitted distribution
+#                ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=colors[count_iter], linestyle=linestyles[n_chain])
+#    
+#    # Close dataset
+#    ds.close()
+#    
+#    # Legend (Note: hard code the spacing between the two legends)
+#    leg_lines = []
+#    line = Line2D([0,1],[0,1], color='white')
+#    leg_lines.append(line)
+#    leg_labels = ['Steps']
+#    
+#    for count_iter, n_iters in enumerate(iters):
+#        line = Line2D([0,1],[0,1], color=colors[count_iter])
+#        leg_lines.append(line)
+#    iter_labels = [str(int(i)) for i in iters]
+#    for label in iter_labels:
+#        leg_labels.append(label)
+#    
+#    for n in range(8):
+#        line = Line2D([0,1],[0,1], color='white')
+#        leg_lines.append(line)
+#        leg_labels.append(' ')    
+#    line = Line2D([0,1],[0,1], color='white')
+#    leg_lines.append(line)
+#    leg_labels.append('Starting Point')
+#    
+#    for n_chain in range(len(ds.chain.values)):
+#        line = Line2D([0,1],[0,1], color='gray', linestyle=linestyles[n_chain])
+#        leg_lines.append(line)
+#    chain_labels = ['Center', 'Lower Bound', 'Upper Bound  ']
+#    for n in chain_labels:
+#        leg_labels.append(n)
+#    
+#    fig.legend(leg_lines, leg_labels, loc='upper right', bbox_to_anchor=(1.1,0.85), 
+#               handlelength=1, handletextpad=0.5, borderpad=0.3, frameon=False)
+#        
+#    # Save figure
+#    str_ending = ''
+#    if 'tempchange' in variables:    
+#        if tempchange_disttype == 'truncnormal': 
+#            str_ending += '_TCtn'
+#        elif tempchange_disttype == 'uniform':
+#            str_ending += '_TCu'
+#    if 'precfactor' in variables:                
+#        if precfactor_disttype == 'lognormal': 
+#            str_ending += '_PFln'
+#        elif precfactor_disttype == 'uniform':
+#            str_ending += '_PFu'
+#    if 'ddfsnow' in variables:     
+#        if ddfsnow_disttype == 'truncnormal': 
+#            str_ending += '_DDFtn'
+#        elif ddfsnow_disttype == 'uniform':
+#            str_ending += '_DDFu'        
+#    if input.tempchange_edge_method == 'mb':
+#        str_ending += '_edgeMBpt' + str(int(input.tempchange_edge_mb*100)).zfill(2)
+#    elif input.tempchange_edge_method == 'mb_norm':
+#        str_ending += '_edgeMBNormpt' + str(int(input.tempchange_edge_mbnorm*100)).zfill(2)
+#    elif input.tempchange_edge_method == 'mb_norm_slope':
+#        str_ending += '_edgeSpt' + str(int(input.tempchange_edge_mbnormslope*100)).zfill(2)
+#    str_ending += '_TCadjp' + str(int(input.tempchange_mu_adj*100)).zfill(2)
+#        
+#    if os.path.exists(mcmc_output_figures_fp) == False:
+#        os.makedirs(mcmc_output_figures_fp)        
+#    fig.savefig(mcmc_output_figures_fp + 'prior_v_posteriors_' + glacier_str + str_ending + '.png', 
+#                bbox_inches='tight', dpi=300)
+#    fig.clf()
  
 
 #%%         
 if option_metrics_vs_chainlength == 1:
     # 3 chain metrics
-    print('3 CHAIN METRICS')
     iterstep = 1000
     itermax = 25000
     iterations = np.arange(0, itermax, iterstep)
@@ -1284,6 +1287,33 @@ if option_metrics_histogram_all == 1:
     en_fn_pkl = figure_fp + 'effective_n_list.pkl'
     mc_fn_pkl = figure_fp + 'mc_error_list.pkl'
     glacno_fn_pkl = figure_fp + 'glacno_list.pkl'
+    
+#    # Manually merge, since better to run files through each region due to their size
+#    glac_no = []
+#    en_list = {}
+#    mc_list = {}
+#    iter_ending = '_' + str(iters) + 'iters.pkl'
+#    
+#    for region in regions:
+#        # Glacier number
+#        glacno_fn_pkl_region = figure_fp + 'R' + str(region) + '_glacno_list.pkl'
+#        with open(glacno_fn_pkl_region, 'rb') as f:
+#            glac_no_region = pickle.load(f)
+#        glac_no += glac_no_region
+#        
+#        en_fn_pkl_region = figure_fp + 'R' + str(region) + '_effective_n_list.pkl'
+#        with open(en_fn_pkl_region.replace('.pkl', iter_ending), 'rb') as f:
+#            en_list_region = pickle.load(f)
+#        en_list = {**en_list, **en_list_region}
+#        
+#        mc_fn_pkl_region = figure_fp + 'R' + str(region) + '_mc_error_list.pkl'
+#        with open(mc_fn_pkl_region.replace('.pkl', iter_ending), 'rb') as f:
+#            mc_list_region = pickle.load(f)
+#        mc_list = {**mc_list, **mc_list_region}
+#        
+#    pickle_data(en_fn_pkl.replace('.pkl', iter_ending), en_list)
+#    pickle_data(mc_fn_pkl.replace('.pkl', iter_ending), mc_list)
+#    pickle_data(glacno_fn_pkl, glac_no)
 
     # Check if list already exists
     iter_ending = '_' + str(iters) + 'iters.pkl'
@@ -1349,107 +1379,108 @@ if option_metrics_histogram_all == 1:
                 pickle_data(mc_fn_pkl.replace('.pkl', iter_ending), mc_list)
                 pickle_data(glacno_fn_pkl, glac_no)
                 
-                # Subset region 13
-    #            en_list = {i: en_list[i] for i in sorted(list(en_list))[:54429] }
-    #            mc_list = {i: mc_list[i] for i in sorted(list(mc_list))[:54429] }
-    #            glac_no = sorted(list(glac_no))[:54429]
+#                # Subset region 13
+#                en_list = {i: en_list[i] for i in sorted(list(en_list))[:54429] }
+#                mc_list = {i: mc_list[i] for i in sorted(list(mc_list))[:54429] }
+#                glac_no = sorted(list(glac_no))[:54429]
         
-#    #%%
-#    # ===== PLOT METRICS =====
-#    colors = ['#fcb200', '#d20048']
-#    figwidth=6.5
-#    figheight=8
-#    
-#    # bins and ticks
-#    bdict = {}
-#    tdict = {}
-#    major = {}
-#    minor = {}
-#    bdict['MC Error massbal'] = np.arange(0, 0.025, 0.001)
-#    bdict['MC Error precfactor'] = np.arange(0, 0.15, 0.005)
-#    bdict['MC Error tempchange'] = np.arange(0, 0.075, 0.0025)
-#    bdict['MC Error ddfsnow'] = np.arange(0, 0.06, 0.002)
-#    bdict['Effective N massbal'] = np.arange(0, 8000, 400)
-#    bdict['Effective N ddfsnow'] = np.arange(0, 3500, 175)
-#    bdict['Effective N tempchange'] = np.arange(0, 2000, 100)
-#    bdict['Effective N precfactor'] = np.arange(0, 2500, 125)
-#    tdict['MC Error'] = np.arange(0, 21, 4)
-#    tdict['Effective N'] = np.arange(0, 21, 4)
-#    
-#    fig, ax = plt.subplots(len(variables), len(metrics), squeeze=False, sharex=False, sharey=False,
-#                           figsize=(figwidth,figheight), gridspec_kw = {'wspace':0.1, 'hspace':0.5})      
-#
-#    for nmetric, metric in enumerate(metrics):
-#        if metric == 'Effective N':
-#            metric_list = en_list
-#        elif metric == 'MC Error':
-#            metric_list = mc_list
-#            
-#        for nvar, vn in enumerate(variables):
-#            
-#            print(metric, vn)
-#
-#            metric_vn_list = [metric_list[i][vn] for i in glac_no]
-#            
-#            # Adjust ddfsnow units [*10^3, so mm w.e.]
-#            if metric == 'MC Error' and vn == 'ddfsnow':
-#                metric_vn_list = [i * 10**3 for i in metric_vn_list]
-#            vn_label_units_dict = {'massbal':'[mwea]',                                                                      
-#                                   'precfactor':'[-]',                                                              
-#                                   'tempchange':'[$^\circ$C]',                                                               
-#                                   'ddfsnow':'[mm w.e. d$^{-1}$ $^\circ$C$^{-1}$]'}
-#            
-#            # ===== Plot =====
-#            # compute histogram and change to percentage of glaciers
-#            metric_vn_list_nonan = [x for x in metric_vn_list if str(x) != 'nan']
-#            hist, bins = np.histogram(metric_vn_list_nonan, bins=bdict[metric + ' ' + vn])
-##            hist, bins = np.histogram(metric_vn_list, bins=bdict[metric + ' ' + vn])
-#            hist = hist * 100.0 / hist.sum()
-#
-#            # plot histogram
-#            ax[nvar,nmetric].bar(x=bins[1:], height=hist, width=(bins[1]-bins[0]), align='center', 
-#                                 edgecolor='black', color=colors[nmetric])
-#            # create uniform bins based on metric
-#            ax[nvar,nmetric].set_yticks(tdict[metric])
-#            
-#            # find cumulative percentage and plot it
-#            ax2 = ax[nvar,nmetric].twinx()
-#            cum_hist = [hist[0:i].sum() for i in range(len(hist))]
-#            if metric=='Effective N':
-#                percent = 5
-#                q = 0.05
-#            else:
-#                percent = 95
-#                q = 0.95
-#            index = 0
-#            quantile = np.percentile(metric_vn_list,percent)
-#            ax2.plot(bins[:-1], cum_hist, color='black', linewidth=1.25, label='Cumulative %')
-#            ax2.set_yticks(np.arange(0, 110, 20))
-#            ax2.axvline(quantile, color='black', linewidth=1.25, linestyle='--')
-#            
-#            print(metric, vn, quantile)
-#            
-#            # axis labels
-#            if nmetric == 0:
-#                ax[nvar,nmetric].set_ylabel(vn_title_dict[vn] + '\n\n% of Glaciers', fontsize=12, labelpad=3)
-#                ax2.yaxis.set_major_formatter(plt.NullFormatter())
-#                ax2.set_yticks([])
-#            if nmetric == 1:
-#                ax2.set_ylabel('Cumulative %', fontsize=12, rotation = 270, labelpad=15)
-#                ax[nvar,nmetric].set_yticks([])
-#            if metric == 'MC Error':
-#                ax[nvar,nmetric].set_xlabel(vn_label_units_dict[vn], fontsize=10)
-#            #elif metric == 'Effective N':
-#                #ax[nvar,nmetric].set_xlabel('Effective Sample Size', fontsize=10)
-#            
-#            # niceties
-#            if nvar == 0:
-#                ax[nvar,nmetric].set_title(metric_title_dict[metric], fontsize=12)
-#                
-#    # Save figure
-#    fig.set_size_inches(6.5,8)
-#    figure_fn = 'histograms_all.png'
-#    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+    #%%
+    # ===== PLOT METRICS =====
+    colors = ['#fcb200', '#d20048']
+    figwidth=6.5
+    figheight=8
+    
+    # bins and ticks
+    bdict = {}
+    tdict = {}
+    major = {}
+    minor = {}
+    bdict['MC Error massbal'] = np.arange(0, 0.021, 0.001)
+    bdict['MC Error precfactor'] = np.arange(0, 0.11, 0.005)
+    bdict['MC Error tempchange'] = np.arange(0, 0.051, 0.002)
+    bdict['MC Error ddfsnow'] = np.arange(0.02, 0.06, 0.002)
+    bdict['Effective N massbal'] = np.arange(0, 5000, 400)
+    bdict['Effective N precfactor'] = np.arange(0, 2000, 100)
+    bdict['Effective N tempchange'] = np.arange(0, 2000, 100)
+    bdict['Effective N ddfsnow'] = np.arange(0, 2000, 100)
+    tdict['MC Error'] = np.arange(0, 21, 4)
+    tdict['Effective N'] = np.arange(0, 21, 4)
+    
+    fig, ax = plt.subplots(len(variables), len(metrics), squeeze=False, sharex=False, sharey=False,
+                           figsize=(figwidth,figheight), gridspec_kw = {'wspace':0.1, 'hspace':0.5})      
+
+    for nmetric, metric in enumerate(metrics):
+        if metric == 'Effective N':
+            metric_list = en_list
+        elif metric == 'MC Error':
+            metric_list = mc_list
+            
+        for nvar, vn in enumerate(variables):
+
+            metric_vn_list = [metric_list[i][vn] for i in glac_no]
+            
+            # Adjust ddfsnow units [*10^3, so mm w.e.]
+            if metric == 'MC Error' and vn == 'ddfsnow':
+                metric_vn_list = [i * 10**3 for i in metric_vn_list]
+            vn_label_units_dict = {'massbal':'[mwea]',                                                                      
+                                   'precfactor':'[-]',                                                              
+                                   'tempchange':'[$^\circ$C]',                                                               
+                                   'ddfsnow':'[mm w.e. d$^{-1}$ $^\circ$C$^{-1}$]'}
+            # Remove nan values
+            metric_vn_list_nonan = [x for x in metric_vn_list if str(x) != 'nan']
+            
+            
+            # ===== Plot =====
+            # compute histogram and change to percentage of glaciers
+            hist, bins = np.histogram(metric_vn_list_nonan, bins=bdict[metric + ' ' + vn])
+#            hist, bins = np.histogram(metric_vn_list, bins=bdict[metric + ' ' + vn])
+            hist = hist * 100.0 / hist.sum()
+
+            # plot histogram
+            ax[nvar,nmetric].bar(x=bins[1:], height=hist, width=(bins[1]-bins[0]), align='center', 
+                                 edgecolor='black', color=colors[nmetric])
+            # create uniform bins based on metric
+            ax[nvar,nmetric].set_yticks(tdict[metric])
+            
+            # find cumulative percentage and plot it
+            ax2 = ax[nvar,nmetric].twinx()
+            cum_hist = [hist[0:i].sum() for i in range(len(hist))]
+            if metric=='Effective N':
+                percent = 5
+                q = 0.05
+            else:
+                percent = 95
+                q = 0.95
+            index = 0
+            quantile = np.percentile(metric_vn_list_nonan,percent)
+            ax2.plot(bins[:-1], cum_hist, color='black', linewidth=1.25, label='Cumulative %')
+            ax2.set_yticks(np.arange(0, 110, 20))
+            ax2.axvline(quantile, color='black', linewidth=1.25, linestyle='--')
+            ax2.set_ylim([0,100])
+            
+            print(metric, vn, quantile)
+            
+            # axis labels
+            if nmetric == 0:
+                ax[nvar,nmetric].set_ylabel(vn_title_dict[vn] + '\n\n% of Glaciers', fontsize=12, labelpad=3)
+                ax2.yaxis.set_major_formatter(plt.NullFormatter())
+                ax2.set_yticks([])
+            if nmetric == 1:
+                ax2.set_ylabel('Cumulative %', fontsize=12, rotation = 270, labelpad=15)
+                ax[nvar,nmetric].set_yticks([])
+            if metric == 'MC Error':
+                ax[nvar,nmetric].set_xlabel(vn_label_units_dict[vn], fontsize=10)
+            #elif metric == 'Effective N':
+                #ax[nvar,nmetric].set_xlabel('Effective Sample Size', fontsize=10)
+            
+            # niceties
+            if nvar == 0:
+                ax[nvar,nmetric].set_title(metric_title_dict[metric], fontsize=12)
+                
+    # Save figure
+    fig.set_size_inches(6.5,8)
+    figure_fn = 'histograms_all.png'
+    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
     
 #%%
 if option_prior_vs_posterior_single == 1:
@@ -1795,7 +1826,8 @@ if option_papermcmc_solutionspace == 1:
 
 #%%
 if option_papermcmc_allglaciers_posteriorchanges == 1:
-    netcdf_fp = mcmc_output_netcdf_fp_3chain
+#    netcdf_fp = mcmc_output_netcdf_fp_3chain
+    netcdf_fp = mcmc_output_netcdf_fp_all
     
     fig_fp = netcdf_fp + 'figures/'
     if os.path.exists(fig_fp) == False:
@@ -1821,8 +1853,8 @@ if option_papermcmc_allglaciers_posteriorchanges == 1:
                          'post_ddfsnow_mu', 'post_ddfsnow_std', 'prior_ddfsnow_mu', 'prior_ddfsnow_std']
     prior_compare = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(prior_compare_cns))), columns=prior_compare_cns)
     
-    for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
-#    for n, glac_str_wRGI in enumerate([main_glac_rgi['RGIId'].values[0]]):
+#    for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
+    for n, glac_str_wRGI in enumerate([main_glac_rgi['RGIId'].values[0]]):
         if n%500 == 0:
             print(n, glac_str_wRGI)
         # Glacier string
@@ -1848,150 +1880,150 @@ if option_papermcmc_allglaciers_posteriorchanges == 1:
         ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
         df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
         
-        # Priors
-        try:
-            priors = pd.Series(ds.priors, index=ds['dim_0'])
-        except:
-            priors = pd.Series(ds.priors, index=ds.prior_cns)
+#        # Priors
+#        try:
+#            priors = pd.Series(ds.priors, index=ds['dim_0'])
+#        except:
+#            priors = pd.Series(ds.priors, index=ds.prior_cns)
         
-        precfactor_boundlow = priors['pf_bndlow']
-        precfactor_boundhigh = priors['pf_bndhigh']
-        precfactor_mu = priors['pf_mu']
-        precfactor_std = ((precfactor_boundhigh - precfactor_boundlow)**2 / 12)**0.5
-        #  std_uniform = ((b - a)^2 / 12) ^ 0.5
-        tempchange_boundlow = priors['tc_bndlow']
-        tempchange_boundhigh = priors['tc_bndhigh']
-        tempchange_mu = priors['tc_mu']
-        tempchange_sigma = priors['tc_std']
-        ddfsnow_boundhigh = priors['ddfsnow_bndhigh']
-        ddfsnow_boundlow = priors['ddfsnow_bndlow']
-        ddfsnow_mu = priors['ddfsnow_mu']
-        ddfsnow_sigma = priors['ddfsnow_std']
-        mb_max_loss = priors['mb_max_loss']
-        mb_max_acc = priors['mb_max_acc']
-        try:
-            tempchange_max_loss = priors['tc_max_loss']
-        except: # typo in initial code - issue fixed 03/08/2019
-            tempchange_max_loss = priors['tc_maxloss']
-        tempchange_max_acc = priors['tc_max_acc']
-        precfactor_opt_init = priors['pf_opt_init']
-        tempchange_opt_init = priors['tc_opt_init']
-        
-        prior_compare_row = [df.massbal.mean(), df.massbal.std(), observed_massbal, observed_error,
-                             df.precfactor.mean(), df.precfactor.std(), precfactor_mu, precfactor_std,
-                             df.tempchange.mean(), df.tempchange.std(), tempchange_mu, tempchange_sigma,
-                             df.ddfsnow.mean(), df.ddfsnow.std(), ddfsnow_mu, ddfsnow_sigma]
-        prior_compare.loc[n,:] = prior_compare_row
-        
-        ds.close()
-        
-    # ===== PLOT METRICS =====
-    figwidth=6.5
-    figheight=8
-    
-    # Bin spacing (note: offset them, so centered on 0)
-    bdict = {}
-    bdict['massbal-Mean'] = np.arange(-0.1, 0.11, 0.01) - 0.005
-    bdict['precfactor-Mean'] = np.arange(-0.3, 0.32, 0.02) - 0.01
-    bdict['tempchange-Mean'] = np.arange(-0.3, 0.32, 0.02) - 0.01
-    bdict['ddfsnow-Mean'] = np.arange(-0.5, 0.5, 0.05) - 0.025
-    bdict['massbal-Standard Deviation'] = np.arange(-0.2, 0.22, 0.02) - 0.002
-    bdict['precfactor-Standard Deviation'] = np.arange(-0.4, 0.42, 0.02) - 0.01
-    bdict['tempchange-Standard Deviation'] = np.arange(-0.4, 0.42, 0.02) - 0.01
-    bdict['ddfsnow-Standard Deviation'] = np.arange(-1.5, 1.51, 0.1) - 0.025
-    
-    tdict = {}
-    glac_ylim = 40
-    tdict['Mean'] = np.arange(0, glac_ylim + 1, 10)
-    tdict['Standard Deviation'] = np.arange(0, glac_ylim + 1, 10)
-    
-    estimators = ['Mean', 'Standard Deviation']
-    
-    fig, ax = plt.subplots(len(variables), len(estimators), squeeze=False, sharex=False, sharey=False,
-                           figsize=(figwidth,figheight), gridspec_kw = {'wspace':0.1, 'hspace':0.5})    
-    
-    for nvar, vn in enumerate(variables):
-
-        if vn == 'massbal':
-            mean_prior = prior_compare['mb_obs'].values
-            mean_post = prior_compare['post_mb_mu'].values
-            std_prior = prior_compare['mb_std'].values
-            std_post = prior_compare['post_mb_std'].values
-        elif vn == 'precfactor':
-            mean_prior = prior_compare['prior_pf_mu'].values
-            mean_post = prior_compare['post_pf_mu'].values
-            std_prior = prior_compare['prior_pf_std'].values
-            std_post = prior_compare['post_pf_std'].values
-        elif vn == 'tempchange':
-            mean_prior = prior_compare['prior_tc_mu'].values
-            mean_post = prior_compare['post_tc_mu'].values
-            std_prior = prior_compare['prior_tc_std'].values
-            std_post = prior_compare['post_tc_std'].values
-        elif vn == 'ddfsnow':
-            mean_prior = prior_compare['prior_ddfsnow_mu'].values * 1000
-            mean_post = prior_compare['post_ddfsnow_mu'].values * 1000
-            std_prior = prior_compare['prior_ddfsnow_std'].values * 1000
-            std_post = prior_compare['post_ddfsnow_std'].values * 1000     
-            vn_label_units_dict['ddfsnow'] = '[10$^{3}$ mwe d$^{-1}$ $^\circ$C$^{-1}$]'
-        
-        dif_mean = mean_post - mean_prior
-        dif_std = std_post - std_prior
-
-        for nest, estimator in enumerate(estimators):
-            if estimator == 'Mean':
-                dif = dif_mean
-                bcolor = 'blue'
-            elif estimator == 'Standard Deviation':
-                dif = dif_std
-                bcolor = 'red'
-        
-            # ===== Plot =====
-            hist, bins = np.histogram(dif, bins=bdict[vn + '-' + estimator])
-            hist = hist * 100.0 / hist.sum()
-            bins_centered = bins[1:] + (bins[0] - bins[1]) / 2
-    
-            # plot histogram
-            ax[nvar,nest].bar(x=bins_centered, height=hist, width=(bins[1]-bins[0]), align='center',
-                              edgecolor='black', color=bcolor, alpha=0.5)
-            ax[nvar,nest].set_yticks(tdict[estimator])
-            ax[nvar,nest].set_ylim(0,glac_ylim)
-            
-#            # Cumulative percentage
-#            cum_hist = [hist[0:i].sum() for i in range(len(hist))]
-#            ax2 = ax[nvar,nest].twinx()    
-#            ax2.plot(bins_centered, cum_hist, color='black',
-#                                linewidth=1, label='Cumulative %')
-#            ax2.set_yticks(np.arange(0, 110, 20))
-#            ax2.set_ylim(0,100)
-
-            # Scatter plot instead
+#        precfactor_boundlow = priors['pf_bndlow']
+#        precfactor_boundhigh = priors['pf_bndhigh']
+#        precfactor_mu = priors['pf_mu']
+#        precfactor_std = ((precfactor_boundhigh - precfactor_boundlow)**2 / 12)**0.5
+#        #  std_uniform = ((b - a)^2 / 12) ^ 0.5
+#        tempchange_boundlow = priors['tc_bndlow']
+#        tempchange_boundhigh = priors['tc_bndhigh']
+#        tempchange_mu = priors['tc_mu']
+#        tempchange_sigma = priors['tc_std']
+#        ddfsnow_boundhigh = priors['ddfsnow_bndhigh']
+#        ddfsnow_boundlow = priors['ddfsnow_bndlow']
+#        ddfsnow_mu = priors['ddfsnow_mu']
+#        ddfsnow_sigma = priors['ddfsnow_std']
+#        mb_max_loss = priors['mb_max_loss']
+#        mb_max_acc = priors['mb_max_acc']
+#        try:
+#            tempchange_max_loss = priors['tc_max_loss']
+#        except: # typo in initial code - issue fixed 03/08/2019
+#            tempchange_max_loss = priors['tc_maxloss']
+#        tempchange_max_acc = priors['tc_max_acc']
+#        precfactor_opt_init = priors['pf_opt_init']
+#        tempchange_opt_init = priors['tc_opt_init']
+#        
+#        prior_compare_row = [df.massbal.mean(), df.massbal.std(), observed_massbal, observed_error,
+#                             df.precfactor.mean(), df.precfactor.std(), precfactor_mu, precfactor_std,
+#                             df.tempchange.mean(), df.tempchange.std(), tempchange_mu, tempchange_sigma,
+#                             df.ddfsnow.mean(), df.ddfsnow.std(), ddfsnow_mu, ddfsnow_sigma]
+#        prior_compare.loc[n,:] = prior_compare_row
+#        
+#        ds.close()
+#        
+#    # ===== PLOT METRICS =====
+#    figwidth=6.5
+#    figheight=8
+#    
+#    # Bin spacing (note: offset them, so centered on 0)
+#    bdict = {}
+#    bdict['massbal-Mean'] = np.arange(-0.1, 0.11, 0.01) - 0.005
+#    bdict['precfactor-Mean'] = np.arange(-0.3, 0.32, 0.02) - 0.01
+#    bdict['tempchange-Mean'] = np.arange(-0.3, 0.32, 0.02) - 0.01
+#    bdict['ddfsnow-Mean'] = np.arange(-0.5, 0.5, 0.05) - 0.025
+#    bdict['massbal-Standard Deviation'] = np.arange(-0.2, 0.22, 0.02) - 0.002
+#    bdict['precfactor-Standard Deviation'] = np.arange(-0.4, 0.42, 0.02) - 0.01
+#    bdict['tempchange-Standard Deviation'] = np.arange(-0.4, 0.42, 0.02) - 0.01
+#    bdict['ddfsnow-Standard Deviation'] = np.arange(-1.5, 1.51, 0.1) - 0.025
+#    
+#    tdict = {}
+#    glac_ylim = 40
+#    tdict['Mean'] = np.arange(0, glac_ylim + 1, 10)
+#    tdict['Standard Deviation'] = np.arange(0, glac_ylim + 1, 10)
+#    
+#    estimators = ['Mean', 'Standard Deviation']
+#    
+#    fig, ax = plt.subplots(len(variables), len(estimators), squeeze=False, sharex=False, sharey=False,
+#                           figsize=(figwidth,figheight), gridspec_kw = {'wspace':0.1, 'hspace':0.5})    
+#    
+#    for nvar, vn in enumerate(variables):
+#
+#        if vn == 'massbal':
+#            mean_prior = prior_compare['mb_obs'].values
+#            mean_post = prior_compare['post_mb_mu'].values
+#            std_prior = prior_compare['mb_std'].values
+#            std_post = prior_compare['post_mb_std'].values
+#        elif vn == 'precfactor':
+#            mean_prior = prior_compare['prior_pf_mu'].values
+#            mean_post = prior_compare['post_pf_mu'].values
+#            std_prior = prior_compare['prior_pf_std'].values
+#            std_post = prior_compare['post_pf_std'].values
+#        elif vn == 'tempchange':
+#            mean_prior = prior_compare['prior_tc_mu'].values
+#            mean_post = prior_compare['post_tc_mu'].values
+#            std_prior = prior_compare['prior_tc_std'].values
+#            std_post = prior_compare['post_tc_std'].values
+#        elif vn == 'ddfsnow':
+#            mean_prior = prior_compare['prior_ddfsnow_mu'].values * 1000
+#            mean_post = prior_compare['post_ddfsnow_mu'].values * 1000
+#            std_prior = prior_compare['prior_ddfsnow_std'].values * 1000
+#            std_post = prior_compare['post_ddfsnow_std'].values * 1000     
+#            vn_label_units_dict['ddfsnow'] = '[10$^{3}$ mwe d$^{-1}$ $^\circ$C$^{-1}$]'
+#        
+#        dif_mean = mean_post - mean_prior
+#        dif_std = std_post - std_prior
+#
+#        for nest, estimator in enumerate(estimators):
 #            if estimator == 'Mean':
-#                ax[nvar,nest].scatter(mean_prior, mean_post, marker='o', facecolors="none", edgecolors='b')
-#                mean_min = np.min([np.min(mean_prior), np.min(mean_post)])
-#                mean_max = np.max([np.max(mean_prior), np.max(mean_post)])
-#                ax[nvar,nest].plot([mean_min, mean_max], [mean_min, mean_max], linestyle='-', color='k')
+#                dif = dif_mean
+#                bcolor = 'blue'
 #            elif estimator == 'Standard Deviation':
-#                ax[nvar,nest].scatter(std_prior, std_post, marker='o', facecolors="none", edgecolors='b')
-#                std_min = np.min([np.min(std_prior), np.min(std_post)])
-#                std_max = np.max([np.max(std_prior), np.max(std_post)])
-#                ax[nvar,nest].plot([std_min, std_max], [std_min, std_max], linestyle='-', color='k')      
-                
-            # niceties
-            if nvar == 0:
-                ax[nvar,nest].set_title(estimator, fontsize=12)
-            if nest == 0:
-                ax[nvar,nest].set_ylabel(vn_title_dict[vn] + '\n\n% of Glaciers', fontsize=12, labelpad=3)
-            if nest == 1:
-                ax[nvar,nest].yaxis.set_major_locator(plt.NullLocator())
-            
-            ax[nvar,nest].set_xlabel(vn_label_units_dict[vn], fontsize=10)
-                
-    # Save figure
-    fig.set_size_inches(figwidth,figheight)
-    if os.path.exists(fig_fp) == False:
-        os.makedirs(fig_fp)
-    figure_fn = 'posterior_vs_prior_difference_histograms.png'
-    fig.savefig(fig_fp + figure_fn, bbox_inches='tight', dpi=300)
+#                dif = dif_std
+#                bcolor = 'red'
+#        
+#            # ===== Plot =====
+#            hist, bins = np.histogram(dif, bins=bdict[vn + '-' + estimator])
+#            hist = hist * 100.0 / hist.sum()
+#            bins_centered = bins[1:] + (bins[0] - bins[1]) / 2
+#    
+#            # plot histogram
+#            ax[nvar,nest].bar(x=bins_centered, height=hist, width=(bins[1]-bins[0]), align='center',
+#                              edgecolor='black', color=bcolor, alpha=0.5)
+#            ax[nvar,nest].set_yticks(tdict[estimator])
+#            ax[nvar,nest].set_ylim(0,glac_ylim)
+#            
+##            # Cumulative percentage
+##            cum_hist = [hist[0:i].sum() for i in range(len(hist))]
+##            ax2 = ax[nvar,nest].twinx()    
+##            ax2.plot(bins_centered, cum_hist, color='black',
+##                                linewidth=1, label='Cumulative %')
+##            ax2.set_yticks(np.arange(0, 110, 20))
+##            ax2.set_ylim(0,100)
+#
+#            # Scatter plot instead
+##            if estimator == 'Mean':
+##                ax[nvar,nest].scatter(mean_prior, mean_post, marker='o', facecolors="none", edgecolors='b')
+##                mean_min = np.min([np.min(mean_prior), np.min(mean_post)])
+##                mean_max = np.max([np.max(mean_prior), np.max(mean_post)])
+##                ax[nvar,nest].plot([mean_min, mean_max], [mean_min, mean_max], linestyle='-', color='k')
+##            elif estimator == 'Standard Deviation':
+##                ax[nvar,nest].scatter(std_prior, std_post, marker='o', facecolors="none", edgecolors='b')
+##                std_min = np.min([np.min(std_prior), np.min(std_post)])
+##                std_max = np.max([np.max(std_prior), np.max(std_post)])
+##                ax[nvar,nest].plot([std_min, std_max], [std_min, std_max], linestyle='-', color='k')      
+#                
+#            # niceties
+#            if nvar == 0:
+#                ax[nvar,nest].set_title(estimator, fontsize=12)
+#            if nest == 0:
+#                ax[nvar,nest].set_ylabel(vn_title_dict[vn] + '\n\n% of Glaciers', fontsize=12, labelpad=3)
+#            if nest == 1:
+#                ax[nvar,nest].yaxis.set_major_locator(plt.NullLocator())
+#            
+#            ax[nvar,nest].set_xlabel(vn_label_units_dict[vn], fontsize=10)
+#                
+#    # Save figure
+#    fig.set_size_inches(figwidth,figheight)
+#    if os.path.exists(fig_fp) == False:
+#        os.makedirs(fig_fp)
+#    figure_fn = 'posterior_vs_prior_difference_histograms.png'
+#    fig.savefig(fig_fp + figure_fn, bbox_inches='tight', dpi=300)
 
 #%%
 if option_papermcmc_modelparameter_map == 1:    
@@ -2114,7 +2146,7 @@ if option_papermcmc_modelparameter_map == 1:
     bins = [0, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 25, 50, 100, high_bin]
     plot_hist(modelparams_all, hist_cn, bins, xlabel='Glacier Area [km2]', 
               ylabel='# Glaciers', fig_fn='Glacier_Area.png', fig_fp=figure_fp)
-              
+    
     # Scatterplot: Glacier Area [km2] vs. Mass balance, color-coded by mass balance difference
     fig, ax = plt.subplots()
     cmap = 'RdYlBu_r'
@@ -2131,15 +2163,18 @@ if option_papermcmc_modelparameter_map == 1:
                cmap=cmap, norm=norm, s=3)
     ax_inset.set_xlim([0,5])
     # Add colorbar
+    cmap = 'RdYlBu'
+    cmap = plt.cm.get_cmap(cmap, 5)
+    norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])                   
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm._A = []
-    plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
+    cbar = plt.colorbar(sm, ax=ax, fraction=0.04, pad=0.01)
+    cbar.set_ticks(list(np.arange(colorbar_dict[vn][0], colorbar_dict[vn][1] + 0.01, 0.04)))
     fig.text(1.01, 0.5, 'Mass Balance [mwea]\n(Observation - Model)', va='center', rotation='vertical', size=12)
     # Save figure
     fig.set_size_inches(6,4)
     fig_fn = 'MB_vs_area_wdif.png'
     fig.savefig(figure_fp + fig_fn, bbox_inches='tight', dpi=300)
-
 
     # Map: Mass change, difference between calibration data and median data
     #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
@@ -2175,8 +2210,8 @@ if option_papermcmc_modelparameter_map == 1:
     modelparams_all = modelparams_all.rename(columns={'pf_mean':'precfactor', 'tc_mean':'tempchange', 
                                                       'ddfsnow_mean':'ddfsnow'})
 #%%
-    for vn in vns:
-#    for vn in ['precfactor']:
+#    for vn in vns:
+    for vn in ['tempchange']:
     
         # Group data
         if vn in ['precfactor', 'tempchange', 'ddfsnow']:
@@ -2196,7 +2231,7 @@ if option_papermcmc_modelparameter_map == 1:
             area = [x[1] for x in ds_group_area]
             ds_group_dif_cal_era_mwea = [[x[0], dif_cal_era_Gta[n] / area[n] * 1000] for n, x in enumerate(ds_group_cal)]
             ds_vn_deg = ds_group_dif_cal_era_mwea
-    #%%
+
         # Create the projection
         fig, ax = plt.subplots(1, 1, figsize=(10,5), subplot_kw={'projection':cartopy.crs.PlateCarree()})
         # Add country borders for reference
@@ -2228,7 +2263,10 @@ if option_papermcmc_modelparameter_map == 1:
             norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
         elif vn == 'tempchange':
             cmap = plt.cm.get_cmap(cmap, 5)
-            norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])                        
+            norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])    
+        elif vn == 'dif_masschange':
+            cmap = plt.cm.get_cmap(cmap, 5)
+            norm = plt.Normalize(colorbar_dict[vn][0], colorbar_dict[vn][1])                   
         
         # Add colorbar
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
@@ -2236,7 +2274,11 @@ if option_papermcmc_modelparameter_map == 1:
         cbar = plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
         # Set tick marks manually
 #        if vn == 'precfactor':
-#            cbar.set_ticks([0.25, 1, 2, 3,4])
+#            cbar.set_ticks([0, 0.5, 1.5, 2.5, 3.5, 4.5])
+        if vn == 'tempchange':
+            cbar.set_ticks(list(np.arange(colorbar_dict[vn][0], colorbar_dict[vn][1] + 0.01, 2)))
+        if vn == 'dif_masschange':
+            cbar.set_ticks(list(np.arange(colorbar_dict[vn][0], colorbar_dict[vn][1] + 0.01, 0.04)))
         if vn in ['precfactor', 'tempchange']:
             fig.text(1.02, 0.5, vn_label_dict[vn], va='center', ha='center', rotation='vertical', size=labelsize)
         else:
