@@ -50,7 +50,7 @@ def getparser():
     return parser
 
 
-# ===== REQUIRED INPUT =====
+
 def merge_batches(gcm_name):   
     """ MERGE BATCHES """
     
@@ -589,4 +589,3 @@ if __name__ == '__main__':
         
     if args.vars_mon2annualseasonal == 1:
         vars_mon2annualseasonal(args.gcm_name)
-    

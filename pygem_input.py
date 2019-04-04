@@ -114,9 +114,9 @@ rgi_regionsO1 = [13]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['00001']
+rgi_glac_number = ['00001']
 #rgi_glac_number = ['03473', '03474']
-rgi_glac_number = glac_num_fromrange(1,3)
+#rgi_glac_number = glac_num_fromrange(1,4)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
@@ -143,16 +143,16 @@ option_wateryear = 3
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
+constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
 #gcm_startyear = 2000
 #gcm_endyear = 2017
-gcm_startyear = 2000
+gcm_startyear = 2015
 gcm_endyear = 2100
 gcm_spinupyears = 0
-gcm_wateryear = 1
-gcm_constantarea_years = 15
+gcm_wateryear = 2
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -165,7 +165,7 @@ synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015)
-option_calibration = 3
+option_calibration = 2
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['wgms_d']
@@ -363,6 +363,7 @@ option_lr_method = 1
 #  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  Option 2 - lapse rates derived from surrounding pixels (varies spatially and temporally)
 #    Note: Be careful with option 2 as the ocean vs land/glacier temperatures can causeƒ unrealistic inversions
+#    This is the option used by Marzeion et al. (2012)
 
 # ERA-Interim
 era5_fp = main_directory + '/../Climate_data/ERA5/'

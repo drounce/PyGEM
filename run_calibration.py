@@ -1052,7 +1052,7 @@ def main(list_packed_vars):
         ddfsnow_iceratio = 0.5
 
         
-        # ===== Begin MCMC process =====
+        # ===== Begin processing =====
         # loop through each glacier selected
         for glac in range(main_glac_rgi.shape[0]):
 
@@ -1126,13 +1126,31 @@ def main(list_packed_vars):
             # Round 3: optimize tempbias
             if debug:
                 print('Round 3:')
-            modelparameters_subset = [precfactor_opt, modelparameters[3], ddfsnow_opt, modelparameters[7]]
-            precfactor_bnds = (precfactor_opt, precfactor_opt)
-            ddfsnow_bnds = (ddfsnow_opt, ddfsnow_opt)
-            tempchange_bnds = (tempchange_bndlow, tempchange_bndhigh)
-            modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
-                                                 precfactor_bnds=precfactor_bnds, tempchange_bnds=tempchange_bnds, 
-                                                 ddfsnow_bnds=ddfsnow_bnds)
+            
+            dif_mb_mwea = abs(observed_massbal - mb_mwea)
+            if debug:
+                print('dif:', np.round(dif_mb_mwea,2))
+            count = 0
+            while dif_mb_mwea > 0.1 and count < 20:
+                if count > 0:
+                    if mb_mwea - observed_massbal > 0:
+                        modelparameters[7] += 1
+                    else:
+                        modelparameters[7] -= 1
+                modelparameters_subset = [precfactor_opt, modelparameters[3], ddfsnow_opt, modelparameters[7]]
+                precfactor_bnds = (precfactor_opt, precfactor_opt)
+                ddfsnow_bnds = (ddfsnow_opt, ddfsnow_opt)
+                tempchange_bnds = (tempchange_bndlow, tempchange_bndhigh)
+                modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
+                                                     precfactor_bnds=precfactor_bnds, tempchange_bnds=tempchange_bnds, 
+                                                     ddfsnow_bnds=ddfsnow_bnds)
+                dif_mb_mwea = abs(observed_massbal - mb_mwea)
+                
+                    
+                print(observed_massbal, mb_mwea, modelparameters[7])
+                count += 1
+                if debug:
+                    print('dif:', np.round(dif_mb_mwea,2), 'count:', count)
             
             tempchange_opt = modelparams[7]
             if debug:

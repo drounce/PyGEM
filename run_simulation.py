@@ -1216,3 +1216,32 @@ if __name__ == '__main__':
 #    print('Vol change[%]:', vol_annual[-1] / vol_annual[0] * 100)
 #    ds.close()
         
+#    #%%
+#    # ===== MASS CHANGE CALCULATIONS: ISSUE WITH USING AVERAGE MB AND AREA TO COMPUTE VOLUME CHANGE ======
+#    # Mean volume change from each volume simulation
+#    A = output_ds_all.volume_glac_annual.values[0,:,:]
+#    A_volchg = A[-1,:] - A[0,:]
+#    A_volchg_mean = np.mean(A_volchg)
+#    
+#    # Mean volume change from each mass balance and area simulation
+#    B = output_ds_all.massbaltotal_glac_monthly.values[0,:,:]
+#    B_area = (output_ds_all.area_glac_annual.values[0,:-1,:]).repeat(12,axis=0)
+#    B_volchg_monthly = B / 1000 * B_area / 0.9
+#    B_volchg = np.sum(B_volchg_monthly, axis=0)
+#    B_volchg_mean = np.mean(B_volchg)
+#    
+#    print('Volume change from each simulation of volume agree with each simulation of mass balance and area:',
+#          'from volume:', np.round(A_volchg_mean,9), 'from MB/area:', np.round(B_volchg_mean,9), 
+#          'difference:', np.round(A_volchg_mean - B_volchg_mean,9))
+#    
+#    # Mean volume change based on the mean mass balance and mean area (these are what we output because files would be
+#    # too large to output every simulation)
+#    B_mean = B.mean(axis=1)
+#    B_mean_area = B_area.mean(axis=1)
+#    B_mean_volchg_monthly = B_mean / 1000 * B_mean_area / 0.9
+#    B_mean_volchg = np.sum(B_mean_volchg_monthly)
+#    
+#    print('\nVolume change from each simulation of volume is different than using mean mass balance and area',
+#          'from volume', np.round(A_volchg_mean,9), 'from mean MB/area:', np.round(B_mean_volchg,9),
+#          'difference:', np.round(A_volchg_mean - B_mean_volchg,9))
+        

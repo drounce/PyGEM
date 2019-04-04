@@ -717,7 +717,7 @@ if option_cmip5_heatmap_w_volchange == 1:
 if option_map_gcm_changes == 1:
     figure_fp = input.output_sim_fp + 'figures/gcm_changes/'
     if os.path.exists(figure_fp) == False:
-            os.makedirs(figure_fp)
+        os.makedirs(figure_fp)
             
     nyears = 30
     
@@ -1265,16 +1265,20 @@ if option_region_map_nodata == 1:
  
 #%%
 if option_glaciermip_table == 1:
-    vn = 'massbaltotal_glac_monthly'
+#    vn = 'massbaltotal_glac_monthly'
     startyear = 2015
     endyear = 2100
+    
+    output_fp = input.output_sim_fp + 'GlacierMIP/'
+    if os.path.exists(output_fp) == False:
+        os.makedirs(output_fp)
     
     # Load glaciers
     main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
     # Groups
     groups, group_cn = select_groups(grouping, main_glac_rgi)
     
-    #%%
+
     # Load mass balance data
     ds_all = {}
     for rcp in rcps:
@@ -1282,11 +1286,12 @@ if option_glaciermip_table == 1:
         ds_all[rcp] = {}
         for ngcm, gcm_name in enumerate(gcm_names):
 #        for ngcm, gcm_name in enumerate(['CanESM2']):
-            
-            print(rcp, gcm_name)
         
+            print(rcp, gcm_name)
+            
             # Merge all data, then select group data
-            for region in regions:                       
+            for region in regions:      
+                
                 # Load datasets
                 ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba' + str(input.option_bias_adjustment) +
                          '_100sets_2000_2100--subset.nc')
@@ -1297,6 +1302,7 @@ if option_glaciermip_table == 1:
                     ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
                 except:
                     continue
+                
                 # Extract time variable
                 time_values_annual = ds.coords['year_plus1'].values
                 time_values_monthly = ds.coords['time'].values
@@ -1308,33 +1314,18 @@ if option_glaciermip_table == 1:
                 year_idx_start = np.where(time_values_annual == startyear)[0][0]
                 year_idx_end = np.where(time_values_annual == endyear)[0][0]
                 
-                # Extract data
-                mb_glac_region = ds[vn].values[:,:,0]
-                mb_glac_region_subset = mb_glac_region[:,time_idx_start:time_idx_end]
-                area_glac_region = ds['area_glac_annual'].values[:,:,0]
-                area_glac_region_subset = area_glac_region[:,year_idx_start:year_idx_end].repeat(12,axis=1)
-                
-                # Volume change [km3]
-                volchg_glac_region_subset = (mb_glac_region_subset / 1000 * area_glac_region_subset * 
-                                             (input.density_water / input.density_ice))
-                volchg_glac_region_subset_annual = gcmbiasadj.annual_sum_2darray(volchg_glac_region_subset)
+                time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
+                vol_glac_region = ds['volume_glac_annual'].values[:,year_idx_start:year_idx_end+1,0]
 
                 # Merge datasets
                 if region == regions[0]:
-                    volchg_glac_all = volchg_glac_region_subset_annual 
+                    vol_glac_all = vol_glac_region
                 else:
-                    volchg_glac_all = np.concatenate((volchg_glac_all, volchg_glac_region_subset_annual ), axis=0)
+                    vol_glac_all = np.concatenate((vol_glac_all, vol_glac_region), axis=0)
                 try:
                     ds.close()
                 except:
                     continue
-            
-            # Convert to volume change
-            volchg_glac_all_cumsum = np.cumsum(volchg_glac_all, axis=1)
-            vol_glac_all = vol_init[:,np.newaxis] + volchg_glac_all_cumsum
-            
-            # Check that volume is never negative!!!!!!
-            print('CHECK THAT VOLUME IS NEVER NEGATIVE!')
             
             ds_all[rcp][gcm_name] = {}
             for ngroup, group in enumerate(groups):
@@ -1343,7 +1334,77 @@ if option_glaciermip_table == 1:
                 volchg_group = vol_glac_all[group_glac_indices,:].sum(axis=0)
 
                 ds_all[rcp][gcm_name][group] = volchg_group
-            
-            #%%
-    for group in groups:
+
+    #%%    
+    # Export csv files
+    output_cns = ['year'] + gcm_names
     
+    summary_cns = []
+    for rcp in rcps:
+        cn_mean = rcp + '-mean'
+        cn_std = rcp + '-std'
+        cn_min = rcp + '-min'
+        cn_max = rcp + '-max'
+        summary_cns.append(cn_mean)
+        summary_cns.append(cn_std)
+        summary_cns.append(cn_min)
+        summary_cns.append(cn_max)
+    output_summary = pd.DataFrame(np.zeros((len(groups),len(summary_cns))), index=groups, columns=summary_cns)
+    
+
+    for group in groups:
+        for rcp in rcps:
+            
+            print(group, rcp)
+            
+            output = pd.DataFrame(np.zeros((len(time_values_annual_subset), len(output_cns))), columns=output_cns)
+            output['year'] = time_values_annual_subset
+            
+            for gcm_name in gcm_names:
+                output[gcm_name] = ds_all[rcp][gcm_name][group]
+            
+            # Export csv file
+            if grouping == 'rgi_region':
+                grouping_prefix = 'R'
+            else:
+                grouping_prefix = ''
+            output_fn = ('GlacierMIP_' + grouping_prefix + str(group) + '_' + rcp + '_' + str(startyear) + '-' + 
+                         str(endyear) + '_volume_km3ice.csv')
+            
+            output.to_csv(output_fp + output_fn, index=False)
+            
+            vol_data = output[gcm_names].values
+            vol_remain_perc = vol_data[-1,:] / vol_data[0,:] * 100
+            
+            rcp_cns = [rcp + '-mean', rcp+'-std', rcp+'-min', rcp+'-max']
+            output_summary.loc[group, rcp_cns] = [vol_remain_perc.mean(), vol_remain_perc.std(), vol_remain_perc.min(), 
+                                                  vol_remain_perc.max()]
+            
+    # Export summary
+    output_summary_fn = ('GlacierMIP_' + grouping + '_summary_' + str(startyear) + '-' + str(endyear) + 
+                         '_volume_remaining_km3ice.csv')
+    output_summary.to_csv(output_fp + output_summary_fn)
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
