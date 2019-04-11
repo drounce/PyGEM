@@ -990,7 +990,7 @@ def main(list_packed_vars):
 
             # Differnece [mwea] = Observed mass balance [mwea] - mb_mwea
 #            mb_dif_mwea = observed_massbal - mb_mwea
-            
+#            
 #            print('Obs[mwea]:', np.round(observed_massbal,2), 'Model[mwea]:', np.round(mb_mwea,2))
 #            print('Dif[mwea]:', np.round(mb_dif_mwea,2))      
             
@@ -1126,6 +1126,18 @@ def main(list_packed_vars):
             # Round 3: optimize tempbias
             if debug:
                 print('Round 3:')
+                
+            # ----- TEMPBIAS: max accumulation -----
+            # Lower temperature bound based on no positive temperatures
+            # Temperature at the lowest bin
+            #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+            lowest_bin = np.where(glacier_area_t0 > 0)[0][0]
+            tempchange_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm * 
+                                        (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
+            tempchange_bndlow = tempchange_max_acc
+            
+            if debug:
+                print('tempchange_bndlow:', np.round(tempchange_bndlow,2))
             
             dif_mb_mwea = abs(observed_massbal - mb_mwea)
             if debug:
@@ -1137,6 +1149,10 @@ def main(list_packed_vars):
                         modelparameters[7] += 1
                     else:
                         modelparameters[7] -= 1
+                    # Temperature cannot exceed lower bound
+                    if modelparameters[7] < tempchange_bndlow:
+                        modelparameters[7] = tempchange_bndlow
+                    
                 modelparameters_subset = [precfactor_opt, modelparameters[3], ddfsnow_opt, modelparameters[7]]
                 precfactor_bnds = (precfactor_opt, precfactor_opt)
                 ddfsnow_bnds = (ddfsnow_opt, ddfsnow_opt)
@@ -1146,13 +1162,17 @@ def main(list_packed_vars):
                                                      ddfsnow_bnds=ddfsnow_bnds)
                 dif_mb_mwea = abs(observed_massbal - mb_mwea)
                 
-                    
-                print(observed_massbal, mb_mwea, modelparameters[7])
                 count += 1
                 if debug:
-                    print('dif:', np.round(dif_mb_mwea,2), 'count:', count)
+                    print('dif:', np.round(dif_mb_mwea,2), 'count:', count, 'tc:', np.round(modelparameters[7],2))
             
+                # Break loop if at lower bound
+                if abs(tempchange_bndlow - modelparams[7]) < 0.1:
+                    count=20
+            
+            # Record optimal temperature bias
             tempchange_opt = modelparams[7]
+                
             if debug:
                 print('mb_mwea:', np.round(mb_mwea,2), 'precfactor:', np.round(precfactor_opt,2), 
                       'ddfsnow:', np.round(ddfsnow_opt,5), 'tempchange:', np.round(tempchange_opt,2))

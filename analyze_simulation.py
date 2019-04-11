@@ -1266,7 +1266,7 @@ if option_region_map_nodata == 1:
 #%%
 if option_glaciermip_table == 1:
 #    vn = 'massbaltotal_glac_monthly'
-    startyear = 2015
+    startyear = 2000
     endyear = 2100
     
     output_fp = input.output_sim_fp + 'GlacierMIP/'
@@ -1384,27 +1384,4 @@ if option_glaciermip_table == 1:
     output_summary_fn = ('GlacierMIP_' + grouping + '_summary_' + str(startyear) + '-' + str(endyear) + 
                          '_volume_remaining_km3ice.csv')
     output_summary.to_csv(output_fp + output_summary_fn)
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
             
