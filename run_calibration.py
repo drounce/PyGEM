@@ -23,8 +23,6 @@ import pygemfxns_massbalance as massbalance
 import class_climate
 import class_mbdata
 
-#from memory_profiler import profile
-
 
 #%% FUNCTIONS
 def getparser():
