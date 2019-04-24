@@ -74,10 +74,10 @@ if args.option_mbdata_fillwregional == 1:
     ds_fp = input.shean_fp
     ds_fn = 'hma_mb_20190215_0815_std+mean.csv'
     
-    dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
-    dict_cn = 'kaab_name'
-    dict_csv = pd.read_csv(dict_fn)
-    rgi_dict = dict(zip(dict_csv.RGIId, dict_csv[dict_cn]))
+#    dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
+#    dict_cn = 'kaab_name'
+#    dict_csv = pd.read_csv(dict_fn)
+#    rgi_dict = dict(zip(dict_csv.RGIId, dict_csv[dict_cn]))
     dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_bolch.csv'
     dict_cn = 'bolch_name'
     dict_csv = pd.read_csv(dict_fn)
@@ -125,16 +125,19 @@ if args.option_mbdata_fillwregional == 1:
           * 100,1))
     
     main_glac_rgi.loc[main_glac_rgi.query('(mb_mwea_sigma > @all_sigma_threshold)').index.values, 'mb_mwea'] = np.nan
-    main_glac_rgi.loc[main_glac_rgi.query('(mb_mwea_sigma > @all_sigma_threshold)').index.values, 
-                      'mb_mwea_sigma'] = np.nan
+    (main_glac_rgi.loc[main_glac_rgi.query('(mb_mwea_sigma > @all_sigma_threshold)').index.values, 
+                       'mb_mwea_sigma']) = np.nan
     
     # Loop through groups
-    main_glac_rgi['kaab'] = main_glac_rgi.RGIId.map(rgi_dict)
+    main_glac_rgi['group'] = main_glac_rgi.RGIId.map(rgi_dict)
     # Regional mass balance mean and stdev
-    groups = main_glac_rgi.kaab.unique().tolist()
-    group_cn = 'kaab'
+    groups = main_glac_rgi.group.unique().tolist()
+    group_cn = 'group'
     groups = [x for x in groups if str(x) != 'nan']
 
+    removal_glaciers = 0
+    removal_area = 0
+    total_area = 0
     for ngroup, group in enumerate(groups):
         # Select subset of data
         main_glac_rgi_group = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].copy()
@@ -151,7 +154,7 @@ if args.option_mbdata_fillwregional == 1:
 #        group_stats['sigma_IQR'] = group_stats['sigma_q3'] - group_stats['sigma_q1']
     
         main_glac_rgi_group['zscore'] = (main_glac_rgi_group['mb_mwea'] - group_stats['mean']) / group_stats['std']
-        main_glac_rgi.loc[main_glac_rgi.query('(kaab == @group)').index.values, 'zscore'] = main_glac_rgi_group.zscore
+        main_glac_rgi.loc[main_glac_rgi.query('(group == @group)').index.values, 'zscore'] = main_glac_rgi_group.zscore
         
         group_stats['mean_weighted'] = (
                 (main_glac_rgi_group.query('(-3 <= zscore <= 3)').mb_mwea * 
@@ -164,22 +167,27 @@ if args.option_mbdata_fillwregional == 1:
                   main_glac_rgi_group.query('(-3 <= zscore <= 3)').Area.sum())**0.5)
                 
         print('\n',group, 'mean:', np.round(group_stats.mean_weighted, 2), 'std:', np.round(group_stats.std_weighted,2), 
-              '\n# glaciers removed:', main_glac_rgi.query('(kaab == @group) & (abs(zscore) > 3)').shape[0],
-              '\n% area removed:', np.round(main_glac_rgi.query('(kaab == @group) & (abs(zscore) > 3)').Area.sum() / 
-              main_glac_rgi.query('(kaab == @group)').Area.sum() * 100,2))
+              '\n# glaciers removed:', main_glac_rgi.query('(group == @group) & (abs(zscore) > 3)').shape[0],
+              '\n% area removed:', np.round(main_glac_rgi.query('(group == @group) & (abs(zscore) > 3)').Area.sum() / 
+              main_glac_rgi.query('(group == @group)').Area.sum() * 100,2))
+        
+        removal_glaciers += main_glac_rgi.query('(group == @group) & (abs(zscore) > 3)').shape[0]
+        removal_area += main_glac_rgi.query('(group == @group) & (abs(zscore) > 3)').Area.sum()
+        total_area += main_glac_rgi.query('(group == @group)').Area.sum()
         
         # Replace regional outliers with mean and std
-        main_glac_rgi.loc[main_glac_rgi.query('(kaab == @group) & (abs(zscore) > 3)').index.values, 'mb_mwea'] = (
+        main_glac_rgi.loc[main_glac_rgi.query('(group == @group) & (abs(zscore) > 3)').index.values, 'mb_mwea'] = (
                 group_stats['mean_weighted'])
-        main_glac_rgi.loc[main_glac_rgi.query('(kaab == @group) & (abs(zscore) > 3)').index.values, 'mb_mwea_sigma'] = (
+        main_glac_rgi.loc[main_glac_rgi.query('(group == @group) & (abs(zscore) > 3)').index.values, 'mb_mwea_sigma'] = (
                 group_stats['std_weighted'])
         
         # Replace missing values with mean and std
-        main_glac_rgi.loc[(main_glac_rgi['kaab'] == group) & 
+        main_glac_rgi.loc[(main_glac_rgi['group'] == group) & 
                           (main_glac_rgi.mb_mwea.isnull() == True), 'mb_mwea'] = group_stats['mean_weighted']
-        main_glac_rgi.loc[(main_glac_rgi['kaab'] == group) & 
+        main_glac_rgi.loc[(main_glac_rgi['group'] == group) & 
                           (main_glac_rgi.mb_mwea_sigma.isnull() == True), 'mb_mwea_sigma'] = group_stats['std_weighted']
-        
+    
+    print('\nHMA:\n # glaciers removed:', removal_glaciers, 'area_removed[%]:', removal_area/total_area*100)
         
     # Glaciers without a region compare to all HMA
     all_mean_weighted = ((main_glac_rgi.query('(-3 <= zscore <= 3)').mb_mwea * 
@@ -190,48 +198,48 @@ if args.option_mbdata_fillwregional == 1:
                          main_glac_rgi.query('(-3 <= zscore <= 3)').Area.sum())**0.5)
     
     # Replace outliers with mean and std
-    main_glac_rgi.loc[main_glac_rgi['kaab'].isnull() == True, 'zscore'] = (
-            main_glac_rgi.loc[main_glac_rgi['kaab'].isnull() == True, 'mb_mwea'] - all_mean_weighted / all_std_weighted)
-    main_glac_rgi.loc[(main_glac_rgi['kaab'].isnull() == True) & 
+    main_glac_rgi.loc[main_glac_rgi['group'].isnull() == True, 'zscore'] = (
+            main_glac_rgi.loc[main_glac_rgi['group'].isnull() == True, 'mb_mwea'] - all_mean_weighted / all_std_weighted)
+    main_glac_rgi.loc[(main_glac_rgi['group'].isnull() == True) & 
                       (abs(main_glac_rgi['zscore']) > 3), 'mb_mwea'] = all_mean_weighted
-    main_glac_rgi.loc[(main_glac_rgi['kaab'].isnull() == True) & 
+    main_glac_rgi.loc[(main_glac_rgi['group'].isnull() == True) & 
                       (abs(main_glac_rgi['zscore']) > 3), 'mb_mwea_sigma'] = all_std_weighted
                       
     # Replace missing values with mean and std
-    main_glac_rgi.loc[(main_glac_rgi['kaab'].isnull() == True) & 
+    main_glac_rgi.loc[(main_glac_rgi['group'].isnull() == True) & 
                       (main_glac_rgi['mb_mwea'].isnull() == True), 'mb_mwea'] = all_mean_weighted
-    main_glac_rgi.loc[(main_glac_rgi['kaab'].isnull() == True) & 
+    main_glac_rgi.loc[(main_glac_rgi['group'].isnull() == True) & 
                       (main_glac_rgi['mb_mwea_sigma'].isnull() == True), 'mb_mwea_sigma'] = all_std_weighted
     
     print('\nHMA mean:', np.round(all_mean_weighted,2), 'std:', np.round(all_std_weighted,2))
     
-    # Export filled dataset
-    ds_export = pd.DataFrame(columns=ds.columns)
-    ds_export['RGIId'] = main_glac_rgi['RGIId_float']
-    export_cns = ds.columns.tolist()
-    remove_cns = ['RGIId', 'rgi_regO1', 'rgi_str', 'mb_mwea', 'mb_mwea_sigma', 'mb_m3wea', 'mb_m3wea_sigma']
-    for cn in remove_cns:
-        export_cns.remove(cn)
-    for cn in export_cns:
-        export_dict = dict(zip(main_glac_rgi_wdata.RGIId, ds[cn]))
-        ds_export[cn] = main_glac_rgi.RGIId.map(export_dict)
-    
-    ds_export['mb_mwea'] = main_glac_rgi['mb_mwea']
-    ds_export['mb_mwea_sigma'] = main_glac_rgi['mb_mwea_sigma']
-    nodata_idx = np.where(ds_export['z_min'].isnull() == True)[0]
-    ds_export.loc[nodata_idx, 'area_m2'] = main_glac_rgi.loc[nodata_idx, 'Area'] * 10**6
-    ds_export['mb_m3wea'] = ds_export['mb_mwea'] * ds_export['area_m2']
-    ds_export['mb_m3wea_sigma'] = ds_export['mb_mwea_sigma'] * ds_export['area_m2']
-    ds_export.loc[nodata_idx, 't1'] = ds_export['t1'].min()
-    ds_export.loc[nodata_idx, 't2'] = ds_export['t2'].max()
-    ds_export.loc[nodata_idx, 'dt'] = ds_export['t2'] - ds_export['t1']
-    ds_export.loc[nodata_idx, 'z_med'] = main_glac_rgi.loc[nodata_idx, 'Zmed']
-    ds_export.loc[nodata_idx, 'z_min'] = main_glac_rgi.loc[nodata_idx, 'Zmin']
-    ds_export.loc[nodata_idx, 'z_max'] = main_glac_rgi.loc[nodata_idx, 'Zmax']
-    ds_export.loc[nodata_idx, 'z_slope'] = main_glac_rgi.loc[nodata_idx, 'Slope']
-    ds_export.loc[nodata_idx, 'z_aspect'] = main_glac_rgi.loc[nodata_idx, 'Aspect']
-    output_fn = ds_fn.replace('.csv', '_all_filled.csv')
-    ds_export.to_csv(ds_fp + output_fn, index=False)
+#    # Export filled dataset
+#    ds_export = pd.DataFrame(columns=ds.columns)
+#    ds_export['RGIId'] = main_glac_rgi['RGIId_float']
+#    export_cns = ds.columns.tolist()
+#    remove_cns = ['RGIId', 'rgi_regO1', 'rgi_str', 'mb_mwea', 'mb_mwea_sigma', 'mb_m3wea', 'mb_m3wea_sigma']
+#    for cn in remove_cns:
+#        export_cns.remove(cn)
+#    for cn in export_cns:
+#        export_dict = dict(zip(main_glac_rgi_wdata.RGIId, ds[cn]))
+#        ds_export[cn] = main_glac_rgi.RGIId.map(export_dict)
+#    
+#    ds_export['mb_mwea'] = main_glac_rgi['mb_mwea']
+#    ds_export['mb_mwea_sigma'] = main_glac_rgi['mb_mwea_sigma']
+#    nodata_idx = np.where(ds_export['z_min'].isnull() == True)[0]
+#    ds_export.loc[nodata_idx, 'area_m2'] = main_glac_rgi.loc[nodata_idx, 'Area'] * 10**6
+#    ds_export['mb_m3wea'] = ds_export['mb_mwea'] * ds_export['area_m2']
+#    ds_export['mb_m3wea_sigma'] = ds_export['mb_mwea_sigma'] * ds_export['area_m2']
+#    ds_export.loc[nodata_idx, 't1'] = ds_export['t1'].min()
+#    ds_export.loc[nodata_idx, 't2'] = ds_export['t2'].max()
+#    ds_export.loc[nodata_idx, 'dt'] = ds_export['t2'] - ds_export['t1']
+#    ds_export.loc[nodata_idx, 'z_med'] = main_glac_rgi.loc[nodata_idx, 'Zmed']
+#    ds_export.loc[nodata_idx, 'z_min'] = main_glac_rgi.loc[nodata_idx, 'Zmin']
+#    ds_export.loc[nodata_idx, 'z_max'] = main_glac_rgi.loc[nodata_idx, 'Zmax']
+#    ds_export.loc[nodata_idx, 'z_slope'] = main_glac_rgi.loc[nodata_idx, 'Slope']
+#    ds_export.loc[nodata_idx, 'z_aspect'] = main_glac_rgi.loc[nodata_idx, 'Aspect']
+#    output_fn = ds_fn.replace('.csv', '_all_filled.csv')
+#    ds_export.to_csv(ds_fp + output_fn, index=False)
 
 #%% COAWST Climate Data
 if args.option_coawstmerge == 1:

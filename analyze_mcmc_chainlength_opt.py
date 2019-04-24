@@ -37,6 +37,8 @@ import run_calibration as calibration
 option_observation_vs_calibration = 0
 option_prior_vs_posterior_single = 0
 
+option_raw_plotchain = 0
+
 
 # Paper figures
 option_metrics_vs_chainlength = 0
@@ -44,9 +46,9 @@ option_metrics_histogram_all = 0
 option_plot_era_normalizedchange = 0
 option_papermcmc_prior_vs_posterior = 0
 option_papermcmc_solutionspace = 0
-option_papermcmc_allglaciers_posteriorchanges = 1
+option_papermcmc_allglaciers_posteriorchanges = 0
 option_papermcmc_modelparameter_map = 0
-option_papermcmc_hh2015_map = 0
+option_papermcmc_hh2015_map = 1
 
 
 
@@ -113,6 +115,7 @@ rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi6
 rgi_glac_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA.shp'
 watershed_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/HMA_basins_20181018_4plot.shp'
 kaab_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/kaab2015_regions.shp'
+bolch_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/himap_regions/boundary_mountain_regions_hma_v3.shp'
 srtm_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA.tif'
 srtm_contour_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA_countours_2km_gt3000m_smooth.shp'
 
@@ -687,12 +690,12 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
         
         xytxt_list = [(tempchange_boundhigh, mb_max_loss, '1'), 
                       (tempchange_boundlow, mb_max_loss + 0.9*(mb_max_acc - mb_max_loss), '3'),
-                      (tempchange_opt_init, observed_massbal, '5'),
+                      (tempchange_opt_init, observed_massbal, '4'),
                       (tempchange_opt_init + 3*tempchange_sigma, observed_mb_min, '6'),
                       (tempchange_opt_init - 3*tempchange_sigma, observed_mb_max, '6'),
                       (tempchange_opt_init - tempchange_sigma, observed_mb_max, '7'),
                       (tempchange_opt_init + tempchange_sigma, observed_mb_min, '7'),
-                      (tempchange_mu, observed_massbal, '8')]
+                      (tempchange_mu, observed_massbal, '9')]
         for xytxt in xytxt_list: 
             x,y,txt = xytxt[0], xytxt[1], xytxt[2]
             ax.plot([x], [y], marker=marker, markersize=marker_size, 
@@ -987,9 +990,9 @@ def grid_values(vn, grouping, modelparams_all, midpt_value=np.nan):
     
     
 def plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure_fp, fig_fn_prefix='', 
-                          option_contour_lines=0, option_rgi_outlines=0):
+                          option_contour_lines=0, option_rgi_outlines=0, option_group_regions=0):
     """Plot spatial map of model parameters"""
-    
+    #%%
     fig = plt.figure()
     
     gs = mpl.gridspec.GridSpec(20, 1)
@@ -998,7 +1001,7 @@ def plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure
     ax2 = plt.subplot(gs[12:20,0])
     
     cmap = 'RdYlBu_r'
-    cmap = plt.cm.get_cmap(cmap, 5)
+#    cmap = plt.cm.get_cmap(cmap, 5)
     norm = plt.Normalize(colorbar_dict['dif_masschange'][0], colorbar_dict['dif_masschange'][1])    
     
     vn = 'dif_masschange'
@@ -1006,8 +1009,8 @@ def plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure
     ax1.pcolormesh(lons, lats, z_array, cmap=cmap, norm=norm, zorder=2, alpha=0.8)  
 
     # Add country borders for reference
-    ax1.add_feature(cartopy.feature.BORDERS, facecolor='none', edgecolor='lightgrey', zorder=10)
-    ax1.add_feature(cartopy.feature.COASTLINE, facecolor='none', edgecolor='lightgrey', zorder=10)
+#    ax1.add_feature(cartopy.feature.BORDERS, facecolor='none', edgecolor='lightgrey', zorder=10)
+#    ax1.add_feature(cartopy.feature.COASTLINE, facecolor='none', edgecolor='lightgrey', zorder=10)
     # Set the extent
     ax1.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
     # Label title, x, and y axes
@@ -1026,8 +1029,28 @@ def plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure
         rgi_feature = cartopy.feature.ShapelyFeature(rgi_shp.geometries(), cartopy.crs.PlateCarree(),
                                                      edgecolor='black', facecolor='none', linewidth=0.1)
         ax1.add_feature(rgi_feature, zorder=9)         
+    if option_group_regions == 1:
+        rgi_shp = cartopy.io.shapereader.Reader(bolch_shp_fn)
+        rgi_feature = cartopy.feature.ShapelyFeature(rgi_shp.geometries(), cartopy.crs.PlateCarree(),
+                                                     edgecolor='lightgrey', facecolor='none', linewidth=1)
+        ax1.add_feature(rgi_feature, zorder=9)
+        ax1.text(101., 28.0, 'Hengduan\nShan', zorder=10, size=8, va='center', ha='center')
+        ax1.text(99.0, 26.5, 'Nyainqentanglha', zorder=10, size=8, va='center', ha='center')
+        ax1.plot([98,96], [27,29.3], color='k', linewidth=0.25, zorder=10)
+        ax1.text(93.0, 27.5, 'Eastern Himalaya', zorder=10, size=8, va='center', ha='center')
+        ax1.text(80.0, 27.3, 'Central Himalaya', zorder=10, size=8, va='center', ha='center')
+        ax1.text(72.0, 31.7, 'Western Himalaya', zorder=10, size=8, va='center', ha='center')
+        ax1.text(70.5, 33.7, 'Eastern\nHindu Kush', zorder=10, size=8, va='center', ha='center')
+        ax1.text(79.0, 39.7, 'Karakoram', zorder=10, size=8, va='center', ha='center')
+        ax1.plot([76,78], [36,39], color='k', linewidth=0.25, zorder=10)
+        ax1.text(80.7, 38.0, 'Western\nKunlun Shan', zorder=10, size=8, va='center', ha='center')
+        ax1.text(86.0, 33.7, 'Tibetan Interior\nMountains', zorder=10, size=8, va='center', ha='center')
+        ax1.text(73.0, 29.0, 'Gandise Mountains', zorder=10, size=8, va='center', ha='center')
+        ax1.plot([77.5,81.5], [29,31.4], color='k', linewidth=0.25, zorder=10)
+        
 
     # Scatter plot
+    ax2.axhline(y=0, xmin=0, xmax=200, color='black', linewidth=0.5)
     ax2.scatter(modelparams_all['Area'], modelparams_all['mb_mwea'], c=modelparams_all['dif_cal_era_mean'], 
                cmap=cmap, norm=norm, s=5)
     ax2.set_xlim([0,200])
@@ -1037,6 +1060,7 @@ def plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure
     
     # Inset axis over main axis
     ax_inset = plt.axes([.37, 0.16, .51, .14])
+    ax_inset.axhline(y=0, xmin=0, xmax=5, color='black', linewidth=0.5)
     ax_inset.scatter(modelparams_all['Area'], modelparams_all['mb_mwea'], c=modelparams_all['dif_cal_era_mean'], 
                cmap=cmap, norm=norm, s=3)
     ax_inset.set_xlim([0,5])
@@ -1063,10 +1087,12 @@ def plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure
         degsize_name = str(degree_size)
     fig_fn = fig_fn_prefix + 'MB_dif_map_scatter_' + degsize_name + 'deg.eps'
     fig.savefig(figure_fp + fig_fn, bbox_inches='tight', dpi=300)
+    #%%
     
 
 def plot_spatialmap_parameters(vns, grouping, modelparams_all, xlabel, ylabel, midpt_dict, cmap_dict, title_adj, 
-                               figure_fp, fig_fn_prefix='', option_contour_lines=0, option_rgi_outlines=0):
+                               figure_fp, fig_fn_prefix='', option_contour_lines=0, option_rgi_outlines=0,
+                               option_group_regions=0):
     """Plot spatial map of model parameters"""
     
     fig, ax = plt.subplots(len(vns), 1, subplot_kw={'projection':cartopy.crs.PlateCarree()},
@@ -1095,62 +1121,61 @@ def plot_spatialmap_parameters(vns, grouping, modelparams_all, xlabel, ylabel, m
         else:
             ax.pcolormesh(lons, lats, z_array, cmap=cmap, norm=norm, zorder=2, alpha=0.8)
         
-        if len(vns) > 1:
+        # Set the extent
+        ax[nvar].set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
+        # Label title, x, and y axes
+        ax[nvar].set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
+        ax[nvar].set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
+        if nvar + 1 == len(vns):
+            ax[nvar].set_xlabel(xlabel, size=labelsize, labelpad=0)
+        
+        # Add colorbar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm._A = []
+        cbar = plt.colorbar(sm, ax=ax[nvar], fraction=0.03, pad=0.01)
+        # Set tick marks manually
+        if vn == 'dif_masschange':
+            cbar.set_ticks(list(np.arange(colorbar_dict[vn][0], colorbar_dict[vn][1] + 0.01, 0.05)))
+        ax[nvar].text(lons.max()+title_adj[vn], lats.mean(), vn_title_wunits_dict[vn], va='center', ha='center', 
+                      rotation='vertical', size=labelsize)
+        
+        if option_group_regions == 1:
+            rgi_shp = cartopy.io.shapereader.Reader(bolch_shp_fn)
+            rgi_feature = cartopy.feature.ShapelyFeature(rgi_shp.geometries(), cartopy.crs.PlateCarree(),
+                                                         edgecolor='lightgrey', facecolor='none', linewidth=1)
+            ax[nvar].add_feature(rgi_feature, zorder=9)
+            ax[nvar].text(101., 28.0, 'Hengduan\nShan', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].text(99.0, 26.5, 'Nyainqentanglha', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].plot([98,96], [27,29.3], color='k', linewidth=0.25, zorder=10)
+            ax[nvar].text(93.0, 27.5, 'Eastern Himalaya', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].text(80.0, 27.3, 'Central Himalaya', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].text(72.0, 31.7, 'Western Himalaya', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].text(70.5, 33.7, 'Eastern\nHindu Kush', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].text(79.0, 39.7, 'Karakoram', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].plot([76,78], [36,39], color='k', linewidth=0.25, zorder=10)
+            ax[nvar].text(80.7, 38.0, 'Western\nKunlun Shan', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].text(86.0, 33.7, 'Tibetan Interior\nMountains', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].text(73.0, 29.0, 'Gandise Mountains', zorder=10, size=8, va='center', ha='center')
+            ax[nvar].plot([77.5,81.5], [29,31.4], color='k', linewidth=0.25, zorder=10)
+            
+        else:
             # Add country borders for reference
             ax[nvar].add_feature(cartopy.feature.BORDERS, facecolor='none', edgecolor='lightgrey', zorder=10)
             ax[nvar].add_feature(cartopy.feature.COASTLINE, facecolor='none', edgecolor='lightgrey', zorder=10)
-            # Set the extent
-            ax[nvar].set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
-            # Label title, x, and y axes
-            ax[nvar].set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
-            ax[nvar].set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
-            if nvar + 1 == len(vns):
-                ax[nvar].set_xlabel(xlabel, size=labelsize, labelpad=0)
-    #        ax[nvar].set_ylabel(ylabel, size=labelsize)
             
-            # Add colorbar
-            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-            sm._A = []
-            cbar = plt.colorbar(sm, ax=ax[nvar], fraction=0.03, pad=0.01)
-            # Set tick marks manually
-            if vn == 'dif_masschange':
-                cbar.set_ticks(list(np.arange(colorbar_dict[vn][0], colorbar_dict[vn][1] + 0.01, 0.05)))
-            ax[nvar].text(lons.max()+title_adj[vn], lats.mean(), vn_title_wunits_dict[vn], va='center', ha='center', 
-                          rotation='vertical', size=labelsize)
-        else:
-            
-            # Add country borders for reference
-            ax.add_feature(cartopy.feature.BORDERS, facecolor='none', edgecolor='lightgrey', zorder=10)
-            ax.add_feature(cartopy.feature.COASTLINE, facecolor='none', edgecolor='lightgrey', zorder=10)
-            # Set the extent
-            ax.set_extent([east, west, south, north], cartopy.crs.PlateCarree())    
-            # Label title, x, and y axes
-            ax.set_xticks(np.arange(east,west+1,xtick), cartopy.crs.PlateCarree())
-            ax.set_yticks(np.arange(south,north+1,ytick), cartopy.crs.PlateCarree())
-            ax.set_xlabel(xlabel, size=labelsize, labelpad=0)
-            ax.set_ylabel(ylabel, size=labelsize)
-            
-            # Add colorbar
-            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-            sm._A = []
-            cbar = plt.colorbar(sm, ax=ax, fraction=0.03, pad=0.01)
-            # Set tick marks manually
-            if vn == 'dif_masschange':
-                cbar.set_ticks(list(np.arange(colorbar_dict[vn][0], colorbar_dict[vn][1] + 0.01, 0.05)))
-            ax.text(lons.max()+title_adj[vn], lats.mean(), vn_title_wunits_dict[vn], va='center', ha='center', 
-                          rotation='vertical', size=labelsize)
-        
         # Add contour lines and/or rgi outlines
         if option_contour_lines == 1:
             srtm_contour_shp = cartopy.io.shapereader.Reader(srtm_contour_fn)
-            srtm_contour_feature = cartopy.feature.ShapelyFeature(srtm_contour_shp.geometries(), cartopy.crs.PlateCarree(),
-                                                                  edgecolor='lightgrey', facecolor='none', linewidth=0.05)
-            ax1.add_feature(srtm_contour_feature, zorder=9)   
+            srtm_contour_feature = cartopy.feature.ShapelyFeature(srtm_contour_shp.geometries(), 
+                                                                  cartopy.crs.PlateCarree(),
+                                                                  edgecolor='lightgrey', facecolor='none', 
+                                                                  linewidth=0.05)
+            ax[nvar].add_feature(srtm_contour_feature, zorder=9)   
         if option_rgi_outlines == 1:
             rgi_shp = cartopy.io.shapereader.Reader(rgi_glac_shp_fn)
             rgi_feature = cartopy.feature.ShapelyFeature(rgi_shp.geometries(), cartopy.crs.PlateCarree(),
                                                          edgecolor='black', facecolor='none', linewidth=0.1)
-            ax1.add_feature(rgi_feature, zorder=9)         
+            ax[nvar].add_feature(rgi_feature, zorder=9)    
     
 
     # Add subplot labels
@@ -1779,7 +1804,7 @@ if option_papermcmc_prior_vs_posterior == 1:
     fig_fp = netcdf_fp + 'figures/'
     if os.path.exists(fig_fp) == False:
         os.makedirs(fig_fp)
-    iters=[1000,15000]
+    iters=[1000,10000]
     
     iter_colors = ['#387ea0', '#fcb200', '#d20048']
     
@@ -1905,7 +1930,7 @@ if option_papermcmc_prior_vs_posterior == 1:
             # Labels
             ax[nrow,ncol].set_xlabel(vn_label_dict[vn], size=10, labelpad=1)
             if nvar == 0:
-                ax[nrow,ncol].set_title(glacier_str, fontsize=12)
+                ax[nrow,ncol].set_title('Glacier RGI60-' + glacier_str, fontsize=12)
     
             # Ensemble/Posterior distribution                
             for n_chain in range(len(ds.chain.values)):
@@ -1921,21 +1946,38 @@ if option_papermcmc_prior_vs_posterior == 1:
                     y_values_kde = kde(x_values_kde)
                     
                     # Plot fitted distribution
-                    if n_chain == 0 and vn == 'massbal':
-                        ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=iter_colors[count_iter], 
-                                           linestyle=linestyles[n_chain], label=str(n_iters))
-                    else:
-                        ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=iter_colors[count_iter], 
-                                           linestyle=linestyles[n_chain])
+                    ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=iter_colors[count_iter], 
+                                       linestyle=linestyles[n_chain])
+#                    if n_chain == 0 and vn == 'massbal':
+#                        ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=iter_colors[count_iter], 
+#                                           linestyle=linestyles[n_chain], label=str(int(n_iters/1000)) + 'k steps')
+#                    else:
+#                        ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=iter_colors[count_iter], 
+#                                           linestyle=linestyles[n_chain])
         # Close dataset
         ds.close()
     
     # Legend for first subplot
-    ax[0,1].legend(title='Steps', loc='upper right', handlelength=1, handletextpad=0.05, borderpad=0.2)
+#    ax[0,1].legend(title='Steps', loc='upper right', handlelength=1, handletextpad=0.05, borderpad=0.2)
+    leg_lines = []
+    leg_labels = []
+    chain_labels = ['Prior', '1000', '10000']
+    chain_colors = ['black', '#387ea0', '#fcb200']
+    for n_chain in range(len(ds.chain.values)):
+#        line = Line2D([0,1],[0,1], color='white')
+#        leg_lines.append(line)
+#        leg_labels.append('')
+        line = Line2D([0,1],[0,1], color=chain_colors[n_chain])
+        leg_lines.append(line)
+        leg_labels.append(chain_labels[n_chain])
+    fig.legend(leg_lines, leg_labels, loc='upper right', 
+               bbox_to_anchor=(0.87,0.885), 
+               handlelength=1.5, handletextpad=0.25, borderpad=0.2, frameon=True)
+    
     # Legend (Note: hard code the spacing between the two legends) 
     leg_lines = []
     leg_labels = []
-    chain_labels = ['Mean', 'Lower Bound', 'Upper Bound']
+    chain_labels = ['Center', 'Lower Bound', 'Upper Bound']
     for n_chain in range(len(ds.chain.values)):
 #        line = Line2D([0,1],[0,1], color='white')
 #        leg_lines.append(line)
@@ -1943,7 +1985,6 @@ if option_papermcmc_prior_vs_posterior == 1:
         line = Line2D([0,1],[0,1], color='gray', linestyle=linestyles[n_chain])
         leg_lines.append(line)
         leg_labels.append(chain_labels[n_chain])
-    
     fig.legend(leg_lines, leg_labels, title='Overdispersed Starting Point', loc='lower center', 
                bbox_to_anchor=(0.47,-0.005), handlelength=1.5, handletextpad=0.25, borderpad=0.2, frameon=True, 
                ncol=3, columnspacing=0.75)
@@ -2129,7 +2170,7 @@ if option_papermcmc_solutionspace == 1:
                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
                               observed_error, tempchange_boundhigh, tempchange_boundlow, tempchange_opt_init, 
                               mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, option_areaconstant=0,
-                              option_plotsteps=0, fig_fp=fig_fp)
+                              option_plotsteps=1, fig_fp=fig_fp)
         
 
 #%%
@@ -2624,7 +2665,7 @@ if option_papermcmc_modelparameter_map == 1:
     
     #%%
     # Map & Scatterplot of mass balance difference
-    plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure_fp=figure_fp)
+    plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure_fp=figure_fp, option_group_regions=1)
     
     # Spatial distribution of parameters    
 #    vns = ['dif_masschange', 'precfactor', 'tempchange', 'ddfsnow']
@@ -2645,7 +2686,7 @@ if option_papermcmc_modelparameter_map == 1:
                  'ddfsnow':6}
     
     plot_spatialmap_parameters(vns, grouping, modelparams_all, xlabel, ylabel, midpt_dict, cmap_dict, title_adj, 
-                               figure_fp=figure_fp)
+                               figure_fp=figure_fp, option_group_regions=1)
     
 #%%   
 if option_papermcmc_hh2015_map == 1:    
@@ -2803,7 +2844,7 @@ if option_papermcmc_hh2015_map == 1:
     #%%    
     # Map & Scatterplot of mass balance difference
     plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure_fp=figure_fp, 
-                          fig_fn_prefix='HH2015_')
+                          fig_fn_prefix='HH2015_', option_group_regions=1)
     
     # Spatial distribution of parameters    
 #    vns = ['dif_masschange', 'precfactor', 'tempchange', 'ddfsnow']
@@ -2823,7 +2864,7 @@ if option_papermcmc_hh2015_map == 1:
                  'ddfsnow':6}
     
     plot_spatialmap_parameters(vns, grouping, modelparams_all, xlabel, ylabel, midpt_dict, cmap_dict, title_adj, 
-                               figure_fp=figure_fp, fig_fn_prefix='HH2015_')
+                               figure_fp=figure_fp, fig_fn_prefix='HH2015_', option_group_regions=1)
 
         
 #%%
@@ -3078,3 +3119,44 @@ if option_plot_era_normalizedchange == 1:
 #kstest(chain, 'norm')
 #
 #ds.close()
+    
+#%%
+if option_raw_plotchain == 1:
+    print('plot chain')
+    iter_length = 20
+    output_filepath = input.output_filepath + 'cal_opt2/'
+    ds = xr.open_dataset(output_filepath + '13.03473.nc')
+    df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
+    ds.close()
+    fig, ax = plt.subplots(2, 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0.25})
+    # All glaciers
+    ax[0,0].plot(df.index.values[0:iter_length], df.massbal.values[0:iter_length], color='k', label='massbal')
+    ax[0,0].plot(df.index.values[0:iter_length], df.precfactor.values[0:iter_length], color='b', label='precfactor')
+    ax[0,0].plot(df.index.values[0:iter_length], df.tempchange.values[0:iter_length], color='r', label='tempchange')
+    ax2 = ax[0,0].twinx()
+    ax2.plot(df.index.values[0:iter_length], df.ddfsnow.values[0:iter_length], color='g', label='ddfsnow')
+    ax[0,0].legend(loc='upper left')
+    ax2.legend(loc='upper right')
+    ax[0,0].set_title('Chains')
+    ax[0,0].set_xlabel('Step Number')
+    ax[0,0].set_ylabel('Parameter value')
+    
+    # Change
+    dif_mb = df.massbal.values[1:iter_length+1] - df.massbal.values[0:iter_length]
+    dif_ddfsnow = df.ddfsnow.values[1:iter_length+1] - df.ddfsnow.values[0:iter_length]
+    dif_precfactor = df.precfactor.values[1:iter_length+1] - df.precfactor.values[0:iter_length]
+    dif_tempchange = df.tempchange.values[1:iter_length+1] - df.tempchange.values[0:iter_length]
+#    ax[1,0].plot(df.index.values[0:iter_length], dif_mb, color='k', label='massbal')
+    ax[1,0].plot(df.index.values[0:iter_length], dif_precfactor, color='b', label='precfactor')
+    ax[1,0].plot(df.index.values[0:iter_length], dif_tempchange, color='r', label='tempchange')
+    ax[1,0].set_ylim(-2,2)
+    ax3 = ax[1,0].twinx()
+    ax3.plot(df.index.values[0:iter_length], dif_ddfsnow, color='g', label='ddfsnow')
+    ax3.set_ylim(-0.0015,0.0015)
+    ax[1,0].set_title('Difference Step_t - Step_t-1')
+    ax[1,0].set_xlabel('Step Number')
+    ax[1,0].set_ylabel('Parameter value Step_t - Step_t-1')
+    plt.show()
+    
+    #%%
+    

@@ -162,7 +162,7 @@ def merge_batches(gcm_name):
   
 
 def extract_subset(gcm_name):  
-#gcm_names = ['IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
+#gcm_names = ['IPSL-CM5A-MR']
 #for gcm_name in gcm_names:
     
     vns_all = input.output_variables_package2
@@ -224,8 +224,8 @@ def extract_subset(gcm_name):
                     vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
                     print(gcm_name, 'Region', reg, rcp, 'Vol remain [%]:', np.round(vol_remain_perc,1))
                     
-                    # Remove file
-                    os.remove(netcdf_fp + i)
+#                    # Remove file
+#                    os.remove(netcdf_fp + i)
                 
               
 def subset_byvar(gcm_name):    

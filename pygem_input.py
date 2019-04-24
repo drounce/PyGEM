@@ -114,8 +114,8 @@ rgi_regionsO1 = [13]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['45062']
-#rgi_glac_number = ['03473', '03474']
+#rgi_glac_number = ['45062']
+rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,4)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
@@ -165,7 +165,7 @@ synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015)
-option_calibration = 3
+option_calibration = 2
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['wgms_d']
@@ -187,7 +187,7 @@ zscore_update_threshold = 0.1
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 10000
+mcmc_sample_no = 1000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None

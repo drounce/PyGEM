@@ -777,7 +777,7 @@ def main(list_packed_vars):
                                      precfactor_start=precfactor_start,
                                      tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
-                                     tempchange_start=tempchange_start)                    
+                                     tempchange_start=tempchange_start)   
                 elif n_chain == 1:
                     # Chains start at lowest values
                     model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
@@ -796,6 +796,9 @@ def main(list_packed_vars):
                                      tempchange_start=tempchange_boundhigh, 
                                      precfactor_start=precfactor_boundhigh, 
                                      ddfsnow_start=input.ddfsnow_boundhigh)
+                    
+                if debug:
+                    print('acceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
                    
                 # Select data from model to be stored in netcdf
                 df = pd.DataFrame({'tempchange': model.trace('tempchange')[:],
@@ -808,13 +811,17 @@ def main(list_packed_vars):
                 df['lrglac'] = np.full(df.shape[0], input.lrglac)
                 df['precgrad'] = np.full(df.shape[0], input.precgrad)
                 df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
+                
+                if debug:
+                    print('mb_mwea:', np.round(df.massbal.mean(),2), 'mb_mwea_std:', np.round(df.massbal.std(),2))
+                
                 if n_chain == 0:
                     df_chains = df.values[:, :, np.newaxis]
                 else:
                     df_chains = np.dstack((df_chains, df.values))
                     
-                if debug:
-                    print('df_chains:', df_chains)
+#                if debug:
+#                    print('df_chains:', df_chains)
                     
             # Record calibration data
             prior_cns = ['pf_bndlow', 'pf_bndhigh', 'pf_mu', 'tc_bndlow', 'tc_bndhigh', 'tc_mu', 'tc_std', 
