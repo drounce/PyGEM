@@ -46,7 +46,7 @@ def getparser():
 
 def split_list(lst, n=1):
     """
-    Split list of glaciers into batches for the supercomputer.
+    Split list into batches for the supercomputer.
     
     Parameters
     ----------
@@ -70,7 +70,7 @@ def split_list(lst, n=1):
     lst_batches = []
     for x in np.arange(n):
         count += 1
-        if count <= n_perlist_low:
+        if count <= len(lst) % n:
             lst_subset = lst_copy[0:n_perlist_high]
             lst_batches.append(lst_subset)
             [lst_copy.remove(i) for i in lst_subset]
@@ -78,7 +78,7 @@ def split_list(lst, n=1):
             lst_subset = lst_copy[0:n_perlist_low]
             lst_batches.append(lst_subset)
             [lst_copy.remove(i) for i in lst_subset]
-    return lst_batches    
+    return lst_batches   
 
 parser = getparser()
 args = parser.parse_args()
