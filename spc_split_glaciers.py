@@ -78,7 +78,8 @@ def split_list(lst, n=1):
             lst_subset = lst_copy[0:n_perlist_low]
             lst_batches.append(lst_subset)
             [lst_copy.remove(i) for i in lst_subset]
-    return lst_batches   
+    return lst_batches    
+ 
 
 parser = getparser()
 args = parser.parse_args()

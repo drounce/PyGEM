@@ -39,6 +39,8 @@ def getparser():
         text file that contains the climate data to be used in the model simulation
     gcm_name (optional) : str
         gcm name
+    rcp (optional) : str
+        representative concentration pathway (ex. 'rcp26')
     num_simultaneous_processes (optional) : int
         number of cores to use in parallels
     option_parallels (optional) : int
@@ -471,7 +473,7 @@ def main(list_packed_vars):
     Returns
     -------
     netcdf files of the simulation output (specific output is dependent on the output option)
-    """
+    """    
     # Unpack variables
     count = list_packed_vars[0]
     chunk = list_packed_vars[1]
@@ -584,6 +586,7 @@ def main(list_packed_vars):
                                                        option_wateryear=input.option_wateryear)
             # Monthly average from reference climate data
             ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
+            print(ref_startyear, ref_endyear)
             ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi, 
                                                                            dates_table_ref)
             ref_lr_monthly_avg = gcmbiasadj.monthly_avg_2darray(ref_lr)
@@ -702,6 +705,12 @@ def main(list_packed_vars):
         glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
+        
+        if input.hindcast == 1:
+            glacier_gcm_prec = np.flip(glacier_gcm_prec, axis=0)
+            glacier_gcm_temp = np.flip(glacier_gcm_temp, axis=0)
+            glacier_gcm_lrgcm = np.flip(glacier_gcm_lrgcm, axis=0)
+            glacier_gcm_lrglac = np.flip(glacier_gcm_lrglac, axis=0)
 
         # get glacier number
         if rgi_regionsO1[0] >= 10:
@@ -755,8 +764,7 @@ def main(list_packed_vars):
                 debug_mb = True
             else:
                 debug_mb = False
-                
-                        
+                       
             # run mass balance calculation
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -769,51 +777,33 @@ def main(list_packed_vars):
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                            option_areaconstant=0, debug=debug_mb))
             
-## CHECKING OUTPUT OF 15.03473 WITH TEMPCHANGE=10 AND -2 FOR DEBUGGING NEW OFF-GLACIER OUTPUT
-#            print('glac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3),
-#                  '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3),
-#                  '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3),
-#                  '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3),
-#                  '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3),
-#                  '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3),
-#                  '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3),
-#                  '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3),
-#                  '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3),
-#                  '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3))
-#            
-#            if input.tempchange == 10:
-#                print('\nCheck:\nglac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3) - 788.615,
-#                      '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3) - 37.726,
-#                      '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3) - 4393.866,
-#                      '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3) - 15654.951,
-#                      '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3) - 0,
-#                      '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3) - -14828.611,
-#                      '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3) - 372.894,
-#                      '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3) - 35.418,
-#                      '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3) - 4051266667.632,
-#                      '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3) - 0.078)
-#            elif input.tempchange == -2:
-#                print('\nCheck:\nglac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3) - 4427.581,
-#                      '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3) - 31.717,
-#                      '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3) - 104795.446,
-#                      '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3) - 965.784,
-#                      '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3) - 0,
-#                      '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3) - 2386.95,
-#                      '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3) - 429.629,
-#                      '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3) - 50.285,
-#                      '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3) - 506045258.719,
-#                      '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3) - 0.522)
-#            else:
-#                print('\nCheck:\nglac_bin_acc.sum():', np.round(glac_bin_acc.sum(),3) - 4985.875,
-#                      '\nglac_bin_refreeze.sum():', np.round(glac_bin_refreeze.sum(),3) - 37.214,
-#                      '\nglac_bin_snowpack.sum():', np.round(glac_bin_snowpack.sum(),3) - 111228.174,
-#                      '\nglac_bin_melt.sum():', np.round(glac_bin_melt.sum(),3) - 1990.687,
-#                      '\nglac_bin_frontablation.sum():', np.round(glac_bin_frontalablation.sum(),3) - 0,
-#                      '\nglac_bin_massbalclim.sum():', np.round(glac_bin_massbalclim.sum(),3) - 1722.101,
-#                      '\nglac_bin_area_annual.sum():', np.round(glac_bin_area_annual.sum(),3) - 426.739,
-#                      '\nglac_wide_volume_annual.sum():', np.round(glac_wide_volume_annual.sum(),3) - 49.18,
-#                      '\nglac_wide_runoff.sum():', np.round(glac_wide_runoff.sum(),3) - 970445046.241,
-#                      '\nglac_wide_snowpack.sum():', np.round(glac_wide_snowpack.sum(),3) - 225.038)
+            # Good check if area doesn't evolve, then this should be the same
+            if input.hindcast == 1:
+                glac_bin_temp = np.flip(glac_bin_temp, axis=1)
+                glac_bin_prec = np.flip(glac_bin_prec, axis=1)
+                glac_bin_acc = np.flip(glac_bin_acc, axis=1)
+                glac_bin_refreeze = np.flip(glac_bin_refreeze, axis=1)
+                glac_bin_snowpack = np.flip(glac_bin_snowpack, axis=1)
+                glac_bin_melt = np.flip(glac_bin_melt, axis=1)
+                glac_bin_frontalablation = np.flip(glac_bin_frontalablation, axis=1)
+                glac_bin_massbalclim = np.flip(glac_bin_massbalclim, axis=1)
+                glac_bin_massbalclim_annual = np.flip(glac_bin_massbalclim_annual, axis=1)
+                glac_bin_area_annual = np.flip(glac_bin_area_annual, axis=1)
+                glac_bin_icethickness_annual = np.flip(glac_bin_icethickness_annual, axis=1)
+                glac_bin_width_annual = np.flip(glac_bin_width_annual, axis=1)
+                glac_bin_surfacetype_annual = np.flip(glac_bin_surfacetype_annual, axis=1)
+                glac_wide_massbaltotal = np.flip(glac_wide_massbaltotal, axis=0)
+                glac_wide_runoff = np.flip(glac_wide_runoff, axis=0)
+                glac_wide_snowline = np.flip(glac_wide_snowline, axis=0)
+                glac_wide_snowpack = np.flip(glac_wide_snowpack, axis=0)
+                glac_wide_area_annual = np.flip(glac_wide_area_annual, axis=0)
+                glac_wide_volume_annual = np.flip(glac_wide_volume_annual, axis=0)
+                glac_wide_ELA_annual = np.flip(glac_wide_ELA_annual, axis=0)
+                offglac_wide_prec = np.flip(offglac_wide_prec, axis=0)
+                offglac_wide_refreeze = np.flip(offglac_wide_refreeze, axis=0)
+                offglac_wide_melt = np.flip(offglac_wide_melt, axis=0)
+                offglac_wide_snowpack = np.flip(offglac_wide_snowpack, axis=0)
+                offglac_wide_runoff = np.flip(offglac_wide_runoff, axis=0)
 
             # Compute glacier volume change for every time step and use this to compute mass balance
             #  this will work for any indexing
@@ -880,13 +870,13 @@ def main(list_packed_vars):
             
             print('mb_mwea_all IS CALCULATED POORLY - NEEDS TO BE UPDATED TO ACCOUNT FOR AREA CHANGES (see above)')
             
-            mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
-                            (dates_table.shape[0] / 12))
-            print('mb_model [mwea] mean:', round(mb_mwea_all,4))   
-            # Calibration
-            cal_idx = np.where(cal_data.glacno == main_glac_rgi.glacno)[0][0]
-            mb_cal_mwea = cal_data.loc[cal_idx, 'mb_mwe'] / (cal_data.loc[cal_idx, 't2'] - cal_data.loc[cal_idx, 't1'])
-            print('mb_cal [mwea]:', round(mb_cal_mwea,4))
+        mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
+                        (dates_table.shape[0] / 12))
+        print('mb_model [mwea] mean:', round(mb_mwea_all,4))   
+#            # Calibration
+#            cal_idx = np.where(cal_data.glacno == main_glac_rgi.glacno)[0][0]
+#            mb_cal_mwea = cal_data.loc[cal_idx, 'mb_mwe'] / (cal_data.loc[cal_idx, 't2'] - cal_data.loc[cal_idx, 't1'])
+#            print('mb_cal [mwea]:', round(mb_cal_mwea,4))
                 
     # Export statistics to netcdf
     if input.output_package == 2:
@@ -951,13 +941,6 @@ if __name__ == '__main__':
     # Select all glaciers in a region
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
                                                           rgi_glac_number=rgi_glac_number)
-    # Processing needed for netcdf files
-#    main_glac_rgi_all_float = main_glac_rgi_all.copy()
-#    main_glac_rgi_all_float.drop(labels=['RGIId'], axis=1, inplace=True)
-#    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi_all, rgi_regionsO1, input.hyps_filepath,
-#                                                 input.hyps_filedict, input.hyps_colsdrop)
-#    dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
-#                                           option_wateryear= input.gcm_wateryear, spinupyears=input.gcm_spinupyears)
     
     # Define chunk size for parallel processing
     if args.option_parallels != 0:
@@ -991,60 +974,8 @@ if __name__ == '__main__':
         list_packed_vars = []
         n = 0
         for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-            n = n + 1
             list_packed_vars.append([n, chunk, main_glac_rgi_all, chunk_size, gcm_name])
-        
-#        # Pack variables for multiprocessing
-#        list_packed_vars = []
-#        for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-#            list_packed_vars.append([main_glac_rgi_all.loc[chunk:chunk+chunk_size-1].copy(), gcm_name])
-            
-#        def split_list(lst, n=1):
-#            """
-#            Split list of glaciers into batches for the supercomputer.
-#            
-#            Parameters
-#            ----------
-#            lst : list
-#                List that you want to split into separate batches
-#            n : int
-#                Number of batches to split glaciers into.
-#            
-#            Returns
-#            -------
-#            lst_batches : list
-#                list of n lists that have sequential values in each list
-#            """
-#            # If batches is more than list, then there will be one glacier in each batch
-#            if n > len(lst):
-#                n = len(lst)
-#            n_perlist_low = int(len(lst)/n)
-#            n_perlist_high = int(np.ceil(len(lst)/n))
-#            lst_copy = lst.copy()
-#            count = 0
-#            lst_batches = []
-#            for x in np.arange(n):
-#                count += 1
-#                if count <= n_perlist_low:
-#                    lst_subset = lst_copy[0:n_perlist_high]
-#                    lst_batches.append(lst_subset)
-#                    [lst_copy.remove(i) for i in lst_subset]
-#                else:
-#                    lst_subset = lst_copy[0:n_perlist_low]
-#                    lst_batches.append(lst_subset)
-#                    [lst_copy.remove(i) for i in lst_subset]
-#            return lst_batches    
-#        
-#        rgi_glac_number_batches = split_list(rgi_glac_number, n=num_cores)
-#        
-#        list_packed_vars = []
-#        n = 0
-#        for batch in rgi_glac_number_batches:
-#            n += 1
-#            list_packed_vars.append([batch, gcm_name, n])
-        
-        
-        #%%
+            n += 1
 
         # Parallel processing
         if args.option_parallels != 0:
@@ -1057,7 +988,6 @@ if __name__ == '__main__':
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
                 
-        #%%
         # Merge netcdf files together into one
         # Filenames to merge
         output_list_sorted = []
@@ -1099,8 +1029,9 @@ if __name__ == '__main__':
                 ds_all = ds
             else:
                 ds_all = xr.merge((ds_all, ds))
-#            # Close dataset
-#            ds.close()
+            # Close dataset
+            ds.close()
+                
         # Filename
         ds_all_fn = i.split('--')[0] + '.nc'
         # Encoding

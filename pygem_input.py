@@ -109,14 +109,14 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13]
+rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
-#rgi_glac_number = ['45062']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['00001']
 #rgi_glac_number = ['03473']
-rgi_glac_number = glac_num_fromrange(1,67)
+#rgi_glac_number = glac_num_fromrange(1,67)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
@@ -152,7 +152,15 @@ constantarea_years = 0
 gcm_startyear = 2015
 gcm_endyear = 2100
 gcm_spinupyears = 0
-gcm_wateryear = 2
+gcm_wateryear = 1
+
+# Hindcast flips the array such that 1960 - 2000 would go from 2000-1960 ensuring that the glacier area at 2000 is 
+# what it's supposed to be.
+hindcast = 1
+if hindcast == 1:
+    constantarea_years = 18 # constant years so glacier doesn't evolve until before 2000
+    gcm_startyear = 1955
+    gcm_endyear = 2017
 
 # Synthetic simulation options
 #  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
@@ -255,7 +263,7 @@ sim_stat_cns = ['mean', 'std']
 #%% MODEL PARAMETERS 
 # Option to import calibration parameters for each glacier
 option_import_modelparams = 1
-#print('\nSWITCH OPTION BACK!\n')
+#print('\nSWITCH OPTION IMPORT MODEL PARAMS BACK!\n')
 #  Option 1 (default) - calibrated model parameters in netcdf files
 #  Option 0 - use the parameters set by the input
 precfactor = 1
