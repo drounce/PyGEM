@@ -238,14 +238,7 @@ ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma
 ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
-#ddfsnow_sigma_lit = 0.0015
-#ddfsnow_sigma = 0.0015*1.5
-#ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma_lit
-#ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma_lit
 ddfsnow_start=ddfsnow_mu
-
-# option for new automatic priors for tempchange
-new_setup = 1
 
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation

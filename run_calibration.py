@@ -83,48 +83,45 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
     
     Parameters
     ----------
-    modelparameters
-    glacier_rgi_table
-    glacier_area_t0
-    icethickness_t0
-    width_t0
-    elev_bins
-    glacier_gcm_temp
-    glacier_gcm_prec
-    glacier_gcm_elev
-    glacier_gcm_lrgcm
-    glacier_gcm_lrglac
-    dates_table
-    t1_idx
-    t2_idx
-    t1
-    t2
-    observed_massbal
-    mb_obs_min
-    mb_obs_max
-    debug=False
+    modelparameters : np.array
+        glacier model parameters
+    glacier_rgi_table : pd.DataFrame
+        table of RGI information for a particular glacier
+    glacier_area_t0, icethickness_t0, width_t0, elev_bins : np.arrays
+        relevant glacier properties data
+    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac : np.arrays
+        relevant glacier climate data
+    dates_table : pd.DataFrame
+        table of date/time information
+    observed_massbal, mb_obs_min, mb_obs_max, t1, t2, t1_idx, t2_idx: floats (all except _idx) and integers (_idx)
+        values related to the mass balance observations and their proper date/time indices
+    debug : boolean
+        switch to debug the function or not (default=False)
     
     Returns
     -------
-    precfactor_boundlow
-    precfactor_boundhigh
-    precfactor_mu
-    precfactor_start
-    tempchange_boundlow
-    tempchange_boundhigh
-    tempchange_mu
-    tempchange_sigma
-    tempchange_start
-    tempchange_max_loss
-    tempchange_max_acc
-    mb_max_loss
-    mb_max_acc
-    precfactor_opt1
-    tempchange_opt1
+    precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start : floats
+        data for precipitation factor's prior distribution
+    tempchange_boundlow, tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start : floats
+        data for temperature bias' prior distribution
+    tempchange_max_loss, tempchange_max_acc, mb_max_loss, mb_max_acc : floats
+        temperature change and mass balance associated with maximum accumulation and maximum loss
+    precfactor_opt1, tempchange_opt1 : floats
+        initial optimized values of precipitation factor and temperature change
     """
     def mb_mwea_calc(modelparameters, option_areaconstant=1):
         """
         Run the mass balance and calculate the mass balance [mwea]
+        
+        Parameters
+        ----------
+        option_areaconstant : int
+            Switch to keep area constant (1) or not (0)
+        
+        Returns
+        -------
+        mb_mwea : float
+            mass balance [m w.e. a-1]
         """
         # Mass balance calculations
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
@@ -427,7 +424,6 @@ def retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t
             tempchange_max_acc, mb_max_loss, mb_max_acc, precfactor_opt1, tempchange_opt1)
     
 
-#@profile
 def main(list_packed_vars):
     """
     Model calibration
@@ -455,7 +451,6 @@ def main(list_packed_vars):
     gcm_lr = list_packed_vars[9]
     cal_data = list_packed_vars[10]
     
-
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
@@ -749,9 +744,8 @@ def main(list_packed_vars):
             ddfsnow_mu = input.ddfsnow_mu
             ddfsnow_sigma = input.ddfsnow_sigma
             
-
             # NEW SETUP
-            if input.new_setup == 1 and icethickness_t0.max() > 0:             
+            if icethickness_t0.max() > 0:             
                 (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
                  tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start, tempchange_max_loss, 
                  tempchange_max_acc, mb_max_loss, mb_max_acc, precfactor_opt_init, tempchange_opt_init) = (
@@ -785,7 +779,7 @@ def main(list_packed_vars):
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                                      tempchange_start=tempchange_boundlow, 
                                      precfactor_start=precfactor_boundlow, 
-                                     ddfsnow_start=input.ddfsnow_boundlow)
+                                     ddfsnow_start=ddfsnow_boundlow)
                 elif n_chain == 2:
                     # Chains start at highest values
                     model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
@@ -794,7 +788,7 @@ def main(list_packed_vars):
                                      tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
                                      tempchange_start=tempchange_boundhigh, 
                                      precfactor_start=precfactor_boundhigh, 
-                                     ddfsnow_start=input.ddfsnow_boundhigh)
+                                     ddfsnow_start=ddfsnow_boundhigh)
                     
                 if debug:
                     print('acceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
@@ -818,9 +812,6 @@ def main(list_packed_vars):
                     df_chains = df.values[:, :, np.newaxis]
                 else:
                     df_chains = np.dstack((df_chains, df.values))
-                    
-#                if debug:
-#                    print('df_chains:', df_chains)
                     
             # Record calibration data
             prior_cns = ['pf_bndlow', 'pf_bndhigh', 'pf_mu', 'tc_bndlow', 'tc_bndhigh', 'tc_mu', 'tc_std', 
@@ -2428,17 +2419,3 @@ if __name__ == '__main__':
 #                cal_data_idx_groups = main_vars['cal_data_idx_groups']
 #                cal_data = main_vars['cal_data']
 #                cal_individual_glacno = main_vars['cal_individual_glacno']
-#
-#
-##            # Find tempchange at which the mean temp at the median glacier elevation is zero
-##            middle_bin = np.where(abs(elev_bins - glacier_rgi_table.Zmed) == 
-##                                  abs(elev_bins - glacier_rgi_table.Zmed).min())[0][0]
-##            A = (glacier_gcm_temp + glacier_gcm_lrgcm * (elev_bins[middle_bin] - glacier_gcm_elev)).max()
-#            
-##            tempchange=0
-##            glac_bin_temp = (glacier_gcm_temp + glacier_gcm_lrgcm * 
-##                             (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
-##                             glacier_gcm_lrglac * (elev_bins - 
-##                             glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis] + tempchange)
-##            glac_bin_temp[glacier_area_t0 == 0, :] = 0
-##            A = glac_bin_temp.max(axis=1)
