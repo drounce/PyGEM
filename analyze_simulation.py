@@ -38,12 +38,13 @@ option_cmip5_heatmap_w_volchange = 0
 option_map_gcm_changes = 0
 option_region_map_nodata = 0
 
-option_glaciermip_table = 1
+option_glaciermip_table = 0
+option_zemp_compare = 1
 
 
 #%% ===== Input data =====
 netcdf_fp_cmip5 = input.output_sim_fp + 'spc_subset/'
-netcdf_fp_era = input.output_sim_fp + '/ERA-Interim/ERA-Interim_1980_2017_nochg'
+netcdf_fp_era = input.output_sim_fp + '/ERA-Interim/ERA-Interim_1980_2017_nochg/'
 
 #%%
 regions = [13, 14, 15]
@@ -61,12 +62,12 @@ rcps = ['rcp26', 'rcp45', 'rcp85']
 
 # Grouping
 #grouping = 'all'
-grouping = 'rgi_region'
+#grouping = 'rgi_region'
 #grouping = 'watershed'
-#grouping = 'kaab'
+grouping = 'kaab'
 #grouping = 'degree'
 
-degree_size = 0.5
+degree_size = 0.25
 
 vn_title_dict = {'massbal':'Mass\nBalance',                                                                      
                  'precfactor':'Precipitation\nFactor',                                                              
@@ -180,6 +181,9 @@ watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
 kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
 kaab_csv = pd.read_csv(kaab_dict_fn)
 kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab_name))
+hex_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_hexbins.csv'
+hex_csv = pd.read_csv(hex_dict_fn)
+hex_dict = dict(zip(hex_csv.RGIId, hex_csv.hexid))
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -227,6 +231,9 @@ def select_groups(grouping, main_glac_rgi_all):
         groups = main_glac_rgi_all.mascon_idx.unique().tolist()
         groups = [int(x) for x in groups]
         group_cn = 'mascon_idx'
+    elif grouping == 'hexagon':
+        groups = main_glac_rgi_all.hexid.unique().tolist()
+        group_cn = 'hexid'
     else:
         groups = ['all']
         group_cn = 'all_group'
@@ -269,6 +276,8 @@ def load_glacier_data(rgi_regions):
     main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
     # Regions
     main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
+    # Hexbins
+    main_glac_rgi_all['hexid'] = main_glac_rgi_all.RGIId.map(hex_dict)
     # Degrees
     main_glac_rgi_all['CenLon_round'] = np.floor(main_glac_rgi_all.CenLon.values/degree_size) * degree_size
     main_glac_rgi_all['CenLat_round'] = np.floor(main_glac_rgi_all.CenLat.values/degree_size) * degree_size
@@ -1265,9 +1274,15 @@ if option_region_map_nodata == 1:
  
 #%%
 if option_glaciermip_table == 1:
-#    vn = 'massbaltotal_glac_monthly'
-    startyear = 2000
+    startyear = 2015
     endyear = 2100
+    vn = 'volume_glac_annual'
+#    vn = 'area_glac_annual'
+    
+    if vn == 'volume_glac_annual':
+        output_prefix = 'Volume'
+    elif vn == 'area_glac_annual':
+        output_prefix = 'Area'
     
     output_fp = input.output_sim_fp + 'GlacierMIP/'
     if os.path.exists(output_fp) == False:
@@ -1315,13 +1330,13 @@ if option_glaciermip_table == 1:
                 year_idx_end = np.where(time_values_annual == endyear)[0][0]
                 
                 time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
-                vol_glac_region = ds['volume_glac_annual'].values[:,year_idx_start:year_idx_end+1,0]
+                var_glac_region = ds[vn].values[:,year_idx_start:year_idx_end+1,0]
 
                 # Merge datasets
                 if region == regions[0]:
-                    vol_glac_all = vol_glac_region
+                    var_glac_all = var_glac_region
                 else:
-                    vol_glac_all = np.concatenate((vol_glac_all, vol_glac_region), axis=0)
+                    var_glac_all = np.concatenate((var_glac_all, var_glac_region), axis=0)
                 try:
                     ds.close()
                 except:
@@ -1331,57 +1346,259 @@ if option_glaciermip_table == 1:
             for ngroup, group in enumerate(groups):
                 # Sum volume change for group
                 group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
-                volchg_group = vol_glac_all[group_glac_indices,:].sum(axis=0)
+                varchg_group = var_glac_all[group_glac_indices,:].sum(axis=0)
 
-                ds_all[rcp][gcm_name][group] = volchg_group
-
-    #%%    
+                ds_all[rcp][gcm_name][group] = varchg_group
+   
     # Export csv files
-    output_cns = ['year'] + gcm_names
-    
-    summary_cns = []
-    for rcp in rcps:
-        cn_mean = rcp + '-mean'
-        cn_std = rcp + '-std'
-        cn_min = rcp + '-min'
-        cn_max = rcp + '-max'
-        summary_cns.append(cn_mean)
-        summary_cns.append(cn_std)
-        summary_cns.append(cn_min)
-        summary_cns.append(cn_max)
-    output_summary = pd.DataFrame(np.zeros((len(groups),len(summary_cns))), index=groups, columns=summary_cns)
-    
+    output_cns = time_values_annual_subset.tolist()
+    output_rns = ['Alaska','Western Canada and U.S.','Arctic Canada North','Arctic Canada South','Greenland','Iceland',
+                  'Svalbard','Scandinavia','Russian Arctic','North Asia','Central Europe','Caucasus','Central Asia',
+                  'South Asia West','South Asia East','Low Latitudes','Southern Andes','New Zealand',
+                  'Antarctic and Subantarctic']
+    group_dict = {13:'Central Asia', 14:'South Asia West', 15:'South Asia East'}
+    rcp_dict = {'rcp26':'RCP26', 'rcp45':'RCP45', 'rcp60':'RCP60', 'rcp85':'RCP85'}
 
-    for group in groups:
+    for gcm in gcm_names: 
         for rcp in rcps:
             
-            print(group, rcp)
+            print(gcm, rcp)
             
-            output = pd.DataFrame(np.zeros((len(time_values_annual_subset), len(output_cns))), columns=output_cns)
-            output['year'] = time_values_annual_subset
+            output = pd.DataFrame(np.zeros((len(output_rns), len(output_cns))) + -9999, 
+                                      index=output_rns, columns=output_cns)
             
-            for gcm_name in gcm_names:
-                output[gcm_name] = ds_all[rcp][gcm_name][group]
+            for group in groups:
+                
+                # Convert volume to water equivalent
+                if vn == 'volume_glac_annual':
+                    output_gcm_rcp_group = ds_all[rcp][gcm_name][group] * input.density_ice / input.density_water
+                elif vn == 'area_glac_annual':
+                    output_gcm_rcp_group = ds_all[rcp][gcm_name][group]
+                
+                
+                output.loc[group_dict[group],:] = output_gcm_rcp_group
+                
+                # Export txt file
+                output_fn = output_prefix + '_PyGEM_' + gcm + '_' + rcp_dict[rcp] + '_r1i1p1.txt'
+                output.to_csv(output_fp + output_fn, sep=',')
+                
+                txt_header = 'David Rounce, drounce@alaska.edu'
+                if vn == 'volume_glac_annual':
+                    txt_header += ', Volume [km3 we]'
+                elif vn == 'area_glac_annual':
+                    txt_header += ', Area [km2]'
+                with open(output_fp + output_fn, 'r+') as f:
+                    content = f.read()
+                    f.seek(0, 0)
+                    f.write(txt_header.rstrip('\r\n') + '\n' + content)
+
+#    # Export csv files
+#    output_cns = ['year'] + gcm_names
+#    
+#    summary_cns = []
+#    for rcp in rcps:
+#        cn_mean = rcp + '-mean'
+#        cn_std = rcp + '-std'
+#        cn_min = rcp + '-min'
+#        cn_max = rcp + '-max'
+#        summary_cns.append(cn_mean)
+#        summary_cns.append(cn_std)
+#        summary_cns.append(cn_min)
+#        summary_cns.append(cn_max)
+#    output_summary = pd.DataFrame(np.zeros((len(groups),len(summary_cns))), index=groups, columns=summary_cns)
+#    
+#
+#    for group in groups:
+#        for rcp in rcps:
+#            
+#            print(group, rcp)
+#            
+#            output = pd.DataFrame(np.zeros((len(time_values_annual_subset), len(output_cns))), columns=output_cns)
+#            output['year'] = time_values_annual_subset
+#            
+#            for gcm_name in gcm_names:
+#                output[gcm_name] = ds_all[rcp][gcm_name][group]
+#            
+#            # Export csv file
+#            if grouping == 'rgi_region':
+#                grouping_prefix = 'R'
+#            else:
+#                grouping_prefix = ''
+#            output_fn = ('GlacierMIP_' + grouping_prefix + str(group) + '_' + rcp + '_' + str(startyear) + '-' + 
+#                         str(endyear) + '_volume_km3ice.csv')
+#            
+#            output.to_csv(output_fp + output_fn, index=False)
+#            
+#            vol_data = output[gcm_names].values
+#            vol_remain_perc = vol_data[-1,:] / vol_data[0,:] * 100
+#            
+#            rcp_cns = [rcp + '-mean', rcp+'-std', rcp+'-min', rcp+'-max']
+#            output_summary.loc[group, rcp_cns] = [vol_remain_perc.mean(), vol_remain_perc.std(), vol_remain_perc.min(), 
+#                                                  vol_remain_perc.max()]
+#            
+#    # Export summary
+#    output_summary_fn = ('GlacierMIP_' + grouping + '_summary_' + str(startyear) + '-' + str(endyear) + 
+#                         '_volume_remaining_km3ice.csv')
+#    output_summary.to_csv(output_fp + output_summary_fn)
+                    
+#%%      
+if option_zemp_compare == 1:
+    startyear = 1980
+    endyear = 2016
+#    vn = 'volume_glac_annual'
+    vn = 'massbaltotal_glac_monthly'
+    
+    grouping = 'rgi_region'
+    subgrouping = 'hexagon'
+#    subgrouping = 'degree'
+#    degree_size = 1
+    
+    netcdf_fp = netcdf_fp_era
+    
+    zemp_fp = netcdf_fp_era + '../'
+    zemp_fn = 'zemp_annual_mwe.csv'
+    zemp_df = pd.read_csv(zemp_fp + zemp_fn)
+    zemp_idx_start = np.where(zemp_df['year'] == startyear)[0][0]
+    zemp_idx_end = np.where(zemp_df['year'] == endyear)[0][0]
+    zemp_subset = zemp_df.loc[zemp_idx_start:zemp_idx_end]
+    
+    output_fp = netcdf_fp_era + 'figures/'
+    if os.path.exists(output_fp) == False:
+        os.makedirs(output_fp)
+    
+    # Load glaciers
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi)
+    subgroups, subgroup_cn = select_groups(subgrouping, main_glac_rgi)
+    
+    # Load mass balance data
+    ds_all = {}
+        
+    # Merge all data, then select group data
+    for region in regions:      
+        
+        # Load datasets
+        ds_fn = ('R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc')
+        ds = xr.open_dataset(netcdf_fp_era + ds_fn)
+        
+        # Extract time variable
+        time_values_annual = ds.coords['year_plus1'].values
+        time_values_monthly = ds.coords['time'].values
+        # Extract start/end indices for calendar year!
+        time_values_df = pd.DatetimeIndex(time_values_monthly)
+        time_values_yr = np.array([x.year for x in time_values_df])
+        if input.gcm_wateryear == 1:
+            time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
+        time_idx_start = np.where(time_values_yr == startyear)[0][0]
+        time_idx_end = np.where(time_values_yr == endyear)[0][0]
+        time_values_monthly_subset = time_values_monthly[time_idx_start:time_idx_end + 12]
+        year_idx_start = np.where(time_values_annual == startyear)[0][0]
+        year_idx_end = np.where(time_values_annual == endyear)[0][0]
+        time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
+        
+        if 'annual' in vn:
+            var_glac_region = ds[vn].values[:,year_idx_start:year_idx_end+1,0]
+        else:
+            var_glac_region_raw = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
+            var_glac_region_raw_std = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 1]
+            area_glac_region = np.repeat(ds['area_glac_annual'].values[:,year_idx_start:year_idx_end+1,0], 12, axis=1)
             
-            # Export csv file
-            if grouping == 'rgi_region':
-                grouping_prefix = 'R'
-            else:
-                grouping_prefix = ''
-            output_fn = ('GlacierMIP_' + grouping_prefix + str(group) + '_' + rcp + '_' + str(startyear) + '-' + 
-                         str(endyear) + '_volume_km3ice.csv')
+            # Area average
+            volchg_monthly_glac_region = var_glac_region_raw * area_glac_region
+            volchg_monthly_glac_region_std = var_glac_region_raw_std * area_glac_region
+
+        # Merge datasets
+        if region == regions[0]:
+            var_glac_all = volchg_monthly_glac_region
+            var_glac_all_std = volchg_monthly_glac_region_std
+            area_glac_all = area_glac_region
+        else:
+            var_glac_all = np.concatenate((var_glac_all, volchg_monthly_glac_region), axis=0)
+            var_glac_all_std = np.concatenate((var_glac_all_std, volchg_monthly_glac_region_std), axis=0)
+            area_glac_all = np.concatenate((area_glac_all, area_glac_region), axis=0)
+        try:
+            ds.close()
+        except:
+            continue
+    
+    ds_all = {}
+    ds_all_std = {}
+    for ngroup, group in enumerate(groups):
+        # Sum volume change for group
+        group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
+        varchg_group = var_glac_all[group_glac_indices,:].sum(axis=0)
+        area_group = area_glac_all[group_glac_indices,:].sum(axis=0)
+        varchg_group_std_sos1 = (var_glac_all_std[group_glac_indices,:]**2).sum(axis=0)**0.5
+        
+        # Uncertainty associated with volume change based on subgroups
+        #  sum standard deviations in each subgroup assuming that they are uncorrelated
+        #  then use the root sum of squares using the uncertainty of each subgroup to get the uncertainty of the group
+        main_glac_rgi_subset = main_glac_rgi.loc[main_glac_rgi[group_cn] == group]
+        subgroups_subset = main_glac_rgi_subset[subgroup_cn].unique()
+        
+        subgroup_std = np.zeros((len(subgroups_subset), varchg_group.shape[0]))
+        for nsubgroup, subgroup in enumerate(subgroups_subset):
+            main_glac_rgi_subgroup = main_glac_rgi.loc[main_glac_rgi[subgroup_cn] == subgroup]
+            subgroup_indices = main_glac_rgi.loc[main_glac_rgi[subgroup_cn] == subgroup].index.values.tolist()
+            # subgroup uncertainty is sum of each glacier since assumed to be perfectly correlated
+            subgroup_std[nsubgroup,:] = var_glac_all_std[subgroup_indices,:].sum(axis=0)
+        varchg_group_std = (subgroup_std**2).sum(axis=0)**0.5        
+        
+        # Group's monthly mass balance [mwea]
+        mb_mwea_group = (varchg_group / area_group).reshape(-1,12).sum(1)
+        # annual uncertainty is the sum of monthly stdev since assumed to be perfectly correlated
+        mb_mwea_group_std = (varchg_group_std / area_group).reshape(-1,12).sum(1)
+#        mb_mwea_group_std_rsos = ((varchg_group_std / area_group)**2).reshape(-1,12).sum(1)**0.5
+        
+        ds_all[group] = mb_mwea_group
+        ds_all_std[group] = mb_mwea_group_std
+
+    #%%
+    fig, ax = plt.subplots(len(groups), 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
+    for ngroup, group in enumerate(groups):
+        
+        zemp_group = zemp_subset[str(group)].values
+        zemp_group_std = zemp_subset[str(group) + '_sig'].values
+        mb_mwea_group = ds_all[group]
+        mb_mwea_group_std = ds_all_std[group]
+        years = zemp_subset['year'].values
+        dif_group = zemp_group - mb_mwea_group
             
-            output.to_csv(output_fp + output_fn, index=False)
-            
-            vol_data = output[gcm_names].values
-            vol_remain_perc = vol_data[-1,:] / vol_data[0,:] * 100
-            
-            rcp_cns = [rcp + '-mean', rcp+'-std', rcp+'-min', rcp+'-max']
-            output_summary.loc[group, rcp_cns] = [vol_remain_perc.mean(), vol_remain_perc.std(), vol_remain_perc.min(), 
-                                                  vol_remain_perc.max()]
-            
-    # Export summary
-    output_summary_fn = ('GlacierMIP_' + grouping + '_summary_' + str(startyear) + '-' + str(endyear) + 
-                         '_volume_remaining_km3ice.csv')
-    output_summary.to_csv(output_fp + output_summary_fn)
-            
+        # All glaciers
+        ax[ngroup,0].plot(years, zemp_group, color='k', label='Zemp et al. (2019)')
+        ax[ngroup,0].fill_between(years, zemp_group + zemp_group_std, zemp_group - zemp_group_std, 
+                                  facecolor='lightgrey', label=None, zorder=1)
+    
+        ax[ngroup,0].plot(years, mb_mwea_group, color='b', label='ERA-Interim')
+        ax[ngroup,0].fill_between(years, mb_mwea_group + mb_mwea_group_std, mb_mwea_group - mb_mwea_group_std, 
+                                  facecolor='lightblue', label=None, zorder=1)
+        ax[ngroup,0].set_ylim(-1.1,0.75)
+        ax[ngroup,0].set_xlim(1980,2016)
+        if ngroup == 0:
+            ax[ngroup,0].legend(loc=(0.02,0.02), ncol=1, fontsize=10, frameon=False, handlelength=1.5, 
+                                handletextpad=0.25, columnspacing=1, borderpad=0, labelspacing=0)
+        if ngroup + 1 == len(groups):
+            ax[ngroup,0].set_xlabel('Year')
+        else:
+            ax[ngroup,0].xaxis.set_ticklabels([])
+        ax[ngroup,0].yaxis.set_ticks(np.arange(-1, 0.55, 0.5))
+    
+    # Add text
+    fig.text(0.01, 0.5, 'Mass Balance (m w.e. $\mathregular{a^{-1}}$)', va='center', rotation='vertical', size=12)
+    fig.text(0.5, 0.845, 'Central Asia', horizontalalignment='center', zorder=4, color='black', fontsize=10)
+    fig.text(0.5, 0.59, 'South Asia West', horizontalalignment='center', zorder=4, color='black', fontsize=10)
+    fig.text(0.5, 0.34, 'South Asia East', horizontalalignment='center', zorder=4, color='black', fontsize=10)
+    fig.text(0.135, 0.845, 'A', zorder=4, color='black', fontsize=12, fontweight='bold')
+    fig.text(0.135, 0.59, 'B', zorder=4, color='black', fontsize=12, fontweight='bold')
+    fig.text(0.135, 0.34, 'C', zorder=4, color='black', fontsize=12, fontweight='bold')
+    
+    # Save figure
+    fig.set_size_inches(6,4)
+    fig.savefig(output_fp + 'Zemp2019_vs_ERA-Interim_' + str(startyear) + '-' + str(endyear) + '.eps', 
+                bbox_inches='tight', dpi=300)    
+        
+        
+        
+                    
