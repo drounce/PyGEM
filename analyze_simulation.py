@@ -1568,7 +1568,7 @@ if option_zemp_compare == 1:
         dif_group = zemp_group - mb_mwea_group
             
         # All glaciers
-        ax[ngroup,0].plot(years, zemp_group, color='k', label='Zemp et al. (2019)')
+        ax[ngroup,0].plot(years, zemp_group, color='k', label='Zemp (2019)')
         ax[ngroup,0].fill_between(years, zemp_group + zemp_group_std, zemp_group - zemp_group_std, 
                                   facecolor='lightgrey', label=None, zorder=1)
     
@@ -1581,7 +1581,7 @@ if option_zemp_compare == 1:
             ax[ngroup,0].legend(loc=(0.02,0.02), ncol=1, fontsize=10, frameon=False, handlelength=1.5, 
                                 handletextpad=0.25, columnspacing=1, borderpad=0, labelspacing=0)
         if ngroup + 1 == len(groups):
-            ax[ngroup,0].set_xlabel('Year')
+            ax[ngroup,0].set_xlabel('Year', size=12)
         else:
             ax[ngroup,0].xaxis.set_ticklabels([])
         ax[ngroup,0].yaxis.set_ticks(np.arange(-1, 0.55, 0.5))
@@ -1709,9 +1709,8 @@ if option_gardelle_compare == 1:
         ax[0,0].errorbar(gardelle, era_ela, xerr=era_ela_std, yerr=gardelle_std, capsize=1, linewidth=0.5, 
                          color='darkgrey', zorder=2)
     
-#    ax[0,0].set_title('Equilibrium Line Altitude (m)', size=12)
-    ax[0,0].set_xlabel('Observed ELA (Gardelle et al., 2013)')
-    ax[0,0].set_ylabel('Modeled ELA (ERA-Interim)')
+    ax[0,0].set_xlabel('ELA (m) (Gardelle, 2013)', size=12)    
+    ax[0,0].set_ylabel('Modeled ELA (m)', size=12)
     ymin = 4000
     ymax = 6300
     xmin = 4000
@@ -1721,7 +1720,7 @@ if option_gardelle_compare == 1:
     ax[0,0].plot([np.min([xmin,ymin]),np.max([xmax,ymax])], [np.min([xmin,ymin]),np.max([xmax,ymax])], color='k', 
                  linewidth=0.5, zorder=1)
     ax[0,0].yaxis.set_ticks(np.arange(4500, ymax+1, 500))
-    ax[0,0].xaxis.set_ticks(np.arange(4500, xmax+1, 500))
+    ax[0,0].xaxis.set_ticks(np.arange(4500, 6500, 500))
     
     # Ensure proper order for legend
     handles, labels = ax[0,0].get_legend_handles_labels()
@@ -1734,14 +1733,14 @@ if option_gardelle_compare == 1:
     
     
     # Save figure
-    fig.set_size_inches(3,4)
+    fig.set_size_inches(2.75,4)
     fig.savefig(output_fp + 'gardelle2013_compare_regional_ELA_gt10km2.eps', bbox_inches='tight', dpi=300)
+    #%%
 
 
 if option_wgms_compare == 1:
     regions = [13, 14, 15]
-    cal_datasets = ['wgms_d']
-#    cal_datasets = ['wgms_ee']
+    cal_datasets = ['wgms_d', 'wgms_ee']
     
     startyear=1980
     endyear=2017
@@ -1757,9 +1756,8 @@ if option_wgms_compare == 1:
     # Load glaciers
     main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
     
-    # Load mass balance data
+    # Modeled Mass Balance
     ds_all = {}  
-    # Merge all data, then select group data
     for region in regions:      
         
         # Load datasets
@@ -1802,8 +1800,8 @@ if option_wgms_compare == 1:
             ds.close()
         except:
             continue
-        #%%
-    
+
+    # Calibration data
     for nreg, reg in enumerate(regions): 
         # Load glaciers
         main_glac_rgi_reg, main_glac_hyps_reg, main_glac_icethickness_reg = load_glacier_data([reg])
@@ -1825,72 +1823,113 @@ if option_wgms_compare == 1:
     glacnodict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi.index.values))
     cal_data_all['glac_idx'] = cal_data_all['RGIId'].map(glacnodict)
     
-#    #%%
-#    # Remove glaciers that don't have data over the entire glacier
-#    cal_data_all['elev_dif'] = cal_data_all['z2'] - cal_data_all['z1']
-#    main_glac_rgi['elev_range'] = main_glac_rgi['Zmax'] - main_glac_rgi['Zmin']
-#    # add elevation range to cal_data
-#    elevrange_dict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['elev_range']))
-#    cal_data_all['elev_range'] = cal_data_all['RGIId'].map(elevrange_dict)
-#    # check difference (see if within 100 m of glacier)
-#    elev_margin_of_safety = 100
-#    cal_data_all['elev_check'] = cal_data_all['elev_dif'] - (cal_data_all['elev_range'] - elev_margin_of_safety)
-#    cal_data_all = cal_data_all[cal_data_all['elev_check'] > 0]
-#    cal_data_all.reset_index(drop=True, inplace=True)
-#    
-#    cal_data_all['mb_mwe_era'] = np.nan
-#    cal_data_all['mb_mwea_era'] = np.nan
-#    cal_data_all['mb_mwe_era_std'] = np.nan
-#    for n in range(cal_data_all.shape[0]):
-#        glac_idx = cal_data_all.loc[n,'glac_idx']
-#        t1_idx = int(cal_data_all.loc[n,'t1_idx'])
-#        t2_idx = int(cal_data_all.loc[n,'t2_idx'])
-#        t1 = cal_data_all.loc[n,'t1']
-#        t2 = cal_data_all.loc[n,'t2']
-#        cal_data_all.loc[n,'mb_mwe_era'] = var_glac_all[glac_idx, t1_idx:t2_idx].sum()
-#        cal_data_all.loc[n,'mb_mwea_era'] = var_glac_all[glac_idx, t1_idx:t2_idx].sum() / (t2-t1)
-#    cal_data_all['mb_mwea'] = cal_data_all['mb_mwe'] / (t2-t1)
-#    cal_data_all['year'] = (cal_data_all['t2'] + cal_data_all['t1']) / 2
-#
-##    # GLACIERS CAN HAVE EXTREME MASS BALANCES OVER SHORT PERIODS OF TIME...
-##    cal_data_all = cal_data_all[(cal_data_all['t2'] - cal_data_all['t1']) > 1]
-##    cal_data_all.reset_index(drop=True, inplace=True)
-#
-##%%      
-#    fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
-#            
-#    # All glaciers
-#    cmap = 'RdYlBu_r'
-#    norm = plt.Normalize(startyear, endyear)
-#    a = ax[0,0].scatter(cal_data_all.mb_mwe.values, cal_data_all.mb_mwe_era.values, c=cal_data_all['year'].values,
-#                        cmap=cmap, norm=norm, zorder=3, s=10)
-#    a.set_facecolor('none')
-#    
-#    ymin = -2.5
-#    ymax = 2.5
-#    xmin = -2.5
-#    xmax = 2.5
-#    ax[0,0].set_xlim(xmin,xmax)
-#    ax[0,0].set_ylim(ymin,ymax)
-#    ax[0,0].plot([np.min([xmin,ymin]),np.max([xmax,ymax])], [np.min([xmin,ymin]),np.max([xmax,ymax])], 
-#                 color='k', linewidth=0.25, zorder=1)
-#    ax[0,0].yaxis.set_ticks(np.arange(-2, ymax+0.1, 1))
-#    ax[0,0].xaxis.set_ticks(np.arange(-2, xmax+0.11, 1))
-#    ax[0,0].set_title('Mass Balance (m w.e.)', size=12)
-#    ax[0,0].set_ylabel('Modeled')
-#    ax[0,0].set_xlabel('Glaciological (WGMS, 2017)')
-#    
-#    # Add colorbar
-#    fig.colorbar(a, ax=ax[0,0])
-#    
-#    # Add text
-#    fig.text(0.15, 0.85, 'E', va='center', size=12, fontweight='bold')
-#    fig.text(0.57, 0.20, 'n=' + str(cal_data_all.shape[0]) + '\nglaciers=' + 
-#             str(cal_data_all.glacno.unique().shape[0]), va='center', ha='center', size=12)
-#    
-#    # Save figure
-#    fig.set_size_inches(3,4)
-#    fig.savefig(output_fp + 'wgms2017_glaciological_compare.eps', bbox_inches='tight', dpi=300)
+    # Remove glaciers that don't have data over the entire glacier
+    cal_data_all['elev_dif'] = cal_data_all['z2'] - cal_data_all['z1']
+    main_glac_rgi['elev_range'] = main_glac_rgi['Zmax'] - main_glac_rgi['Zmin']
+    # add elevation range to cal_data
+    elevrange_dict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['elev_range']))
+    cal_data_all['elev_range'] = cal_data_all['RGIId'].map(elevrange_dict)
+    # check difference (see if within 100 m of glacier)
+    elev_margin_of_safety = 100
+    cal_data_all['elev_check'] = cal_data_all['elev_dif'] - (cal_data_all['elev_range'] - elev_margin_of_safety)
+    cal_data_all = cal_data_all[cal_data_all['elev_check'] > 0]
+    cal_data_all.reset_index(drop=True, inplace=True)
+    
+    cal_data_all['mb_mwe_era'] = np.nan
+    cal_data_all['mb_mwea_era'] = np.nan
+    cal_data_all['mb_mwe_era_std'] = np.nan
+    for n in range(cal_data_all.shape[0]):
+        glac_idx = cal_data_all.loc[n,'glac_idx']
+        t1_idx = int(cal_data_all.loc[n,'t1_idx'])
+        t2_idx = int(cal_data_all.loc[n,'t2_idx'])
+        t1 = cal_data_all.loc[n,'t1']
+        t2 = cal_data_all.loc[n,'t2']
+        cal_data_all.loc[n,'mb_mwe_era'] = var_glac_all[glac_idx, t1_idx:t2_idx].sum()
+        cal_data_all.loc[n,'mb_mwea_era'] = var_glac_all[glac_idx, t1_idx:t2_idx].sum() / (t2-t1)
+    cal_data_all['mb_mwea'] = cal_data_all['mb_mwe'] / (cal_data_all['t2'] - cal_data_all['t1'])
+    cal_data_all['year'] = (cal_data_all['t2'] + cal_data_all['t1']) / 2
+
+    # Remove data that spans less than a year
+    #cal_data_all = cal_data_all[(cal_data_all['t2'] - cal_data_all['t1']) > 1]
+    #cal_data_all.reset_index(drop=True, inplace=True)
+ 
+    #%%
+    fig, ax = plt.subplots(1, 2, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0.27, 'hspace':0})
+    
+    datatypes = ['mb_geo', 'mb_glac']
+    cmap = 'RdYlBu_r'
+    norm = plt.Normalize(startyear, endyear)
+    
+    for nplot, datatype in enumerate(datatypes):
+        cal_data_plot = cal_data_all[cal_data_all['obs_type'] == datatype]
+        cal_data_plot.reset_index(drop=True, inplace=True)
+
+        if datatype == 'mb_geo':
+            # All glaciers
+            a = ax[0,nplot].scatter(cal_data_plot.mb_mwea.values, cal_data_plot.mb_mwea_era.values, 
+                                    c=cal_data_plot['year'].values, cmap=cmap, norm=norm, zorder=3, s=15,
+                                    marker='D')
+            a.set_facecolor('none')
+            ymin = -1.25
+            ymax = 0.6
+            xmin = -1.25
+            xmax = 0.6
+            ax[0,nplot].set_xlim(xmin,xmax)
+            ax[0,nplot].set_ylim(ymin,ymax)
+            ax[0,nplot].plot([np.min([xmin,ymin]),np.max([xmax,ymax])], [np.min([xmin,ymin]),np.max([xmax,ymax])], 
+                             color='k', linewidth=0.25, zorder=1)
+            ax[0,nplot].yaxis.set_ticks(np.arange(-1, ymax+0.1, 0.5))
+            ax[0,nplot].xaxis.set_ticks(np.arange(-1, xmax+0.11, 0.5))
+            
+            ax[0,nplot].set_ylabel('$\mathregular{B_{mod}}$ (m w.e. $\mathregular{a^{-1}}$)', labelpad=0, size=12)
+            ax[0,nplot].set_xlabel('$\mathregular{B_{geo}}$ (m w.e. $\mathregular{a^{-1}}$)\n(WGMS, 2017)', labelpad=0, size=12)
+            # Add text
+            ax[0,nplot].text(0.05, 0.95, 'E', va='center', size=12, fontweight='bold', transform=ax[0,nplot].transAxes)
+            ax[0,nplot].text(0.7, 0.1, 'n=' + str(cal_data_plot.shape[0]) + '\nglaciers=' + 
+                             str(cal_data_plot.glacno.unique().shape[0]), va='center', ha='center', size=12,
+                             transform=ax[0,nplot].transAxes)
+        
+        elif datatype == 'mb_glac':
+            # All glaciers
+            a = ax[0,nplot].scatter(cal_data_plot.mb_mwe.values, cal_data_plot.mb_mwe_era.values, 
+                                    c=cal_data_plot['year'].values, cmap=cmap, norm=norm, zorder=3, s=15,
+                                    marker='o')
+            a.set_facecolor('none')
+            ymin = -2.5
+            ymax = 2.5
+            xmin = -2.5
+            xmax = 2.5
+            ax[0,nplot].set_xlim(xmin,xmax)
+            ax[0,nplot].set_ylim(ymin,ymax)
+            ax[0,nplot].plot([np.min([xmin,ymin]),np.max([xmax,ymax])], [np.min([xmin,ymin]),np.max([xmax,ymax])], 
+                             color='k', linewidth=0.25, zorder=1)
+            ax[0,nplot].yaxis.set_ticks(np.arange(-2, ymax+0.1, 1))
+            ax[0,nplot].xaxis.set_ticks(np.arange(-2, xmax+0.11, 1))
+            
+            
+            ax[0,nplot].set_ylabel('$\mathregular{B_{mod}}$ (m w.e.)', labelpad=0, size=12)
+            ax[0,nplot].set_xlabel('$\mathregular{B_{glac}}$ (m w.e.)\n(WGMS, 2017)', labelpad=2, size=12)
+            # Add text
+            ax[0,nplot].text(0.05, 0.95, 'F', va='center', size=12, fontweight='bold', transform=ax[0,nplot].transAxes)
+            ax[0,nplot].text(0.7, 0.1, 'n=' + str(cal_data_plot.shape[0]) + '\nglaciers=' + 
+                             str(cal_data_plot.glacno.unique().shape[0]), va='center', ha='center', size=12,
+                             transform=ax[0,nplot].transAxes)
+    
+    # Add title
+    #ax[0,nplot].set_title('Mass Balance (m w.e.)', size=12)
+
+    # Add colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm._A = []
+    fig.subplots_adjust(right=0.9)
+    cbar_ax = fig.add_axes([0.92, 0.16, 0.03, 0.67])
+    cbar = fig.colorbar(sm, cax=cbar_ax)
+    
+    # Save figure
+    fig.set_size_inches(6.75,4)
+    fig_fn = 'wgms2017_compare.eps'
+    fig.savefig(output_fp + fig_fn, bbox_inches='tight', dpi=300)
+        
     
         
     
