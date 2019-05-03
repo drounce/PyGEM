@@ -39,7 +39,9 @@ option_map_gcm_changes = 0
 option_region_map_nodata = 0
 
 option_glaciermip_table = 0
-option_zemp_compare = 1
+option_zemp_compare = 0
+option_gardelle_compare = 0
+option_wgms_compare = 1
 
 
 #%% ===== Input data =====
@@ -1474,8 +1476,7 @@ if option_zemp_compare == 1:
     subgroups, subgroup_cn = select_groups(subgrouping, main_glac_rgi)
     
     # Load mass balance data
-    ds_all = {}
-        
+    ds_all = {}  
     # Merge all data, then select group data
     for region in regions:      
         
@@ -1555,7 +1556,7 @@ if option_zemp_compare == 1:
         ds_all[group] = mb_mwea_group
         ds_all_std[group] = mb_mwea_group_std
 
-    #%%
+#%%
     fig, ax = plt.subplots(len(groups), 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
     for ngroup, group in enumerate(groups):
         
@@ -1586,7 +1587,7 @@ if option_zemp_compare == 1:
         ax[ngroup,0].yaxis.set_ticks(np.arange(-1, 0.55, 0.5))
     
     # Add text
-    fig.text(0.01, 0.5, 'Mass Balance (m w.e. $\mathregular{a^{-1}}$)', va='center', rotation='vertical', size=12)
+    fig.text(-0.05, 0.5, 'Mass Balance (m w.e. $\mathregular{a^{-1}}$)', va='center', rotation='vertical', size=12)
     fig.text(0.5, 0.845, 'Central Asia', horizontalalignment='center', zorder=4, color='black', fontsize=10)
     fig.text(0.5, 0.59, 'South Asia West', horizontalalignment='center', zorder=4, color='black', fontsize=10)
     fig.text(0.5, 0.34, 'South Asia East', horizontalalignment='center', zorder=4, color='black', fontsize=10)
@@ -1595,10 +1596,302 @@ if option_zemp_compare == 1:
     fig.text(0.135, 0.34, 'C', zorder=4, color='black', fontsize=12, fontweight='bold')
     
     # Save figure
-    fig.set_size_inches(6,4)
-    fig.savefig(output_fp + 'Zemp2019_vs_ERA-Interim_' + str(startyear) + '-' + str(endyear) + '.eps', 
+    fig.set_size_inches(4,4)
+    fig.savefig(output_fp + 'Zemp2019_vs_ERA-Interim_' + str(startyear) + '-' + str(endyear) + '_squeezed.eps', 
                 bbox_inches='tight', dpi=300)    
+    #%%
+
+
+if option_gardelle_compare == 1:
+    startyear = 1980
+    endyear = 2016
+    
+    group_data_dict = {'Yigong': [1999, 9, 4970, 320, '+', 'k', 50],
+                       'Bhutan': [2000, 11, 5690, 440, 'o', 'None', 30],
+                       'Everest': [2009, 10, 5840, 320, '^', 'None', 30],
+                       'West Nepal': [2009, 8, 5590, 138, '*', 'None', 50],
+                       'Spiti Lahaul': [2002, 8, 5390, 140, 's', 'None', 25],
+                       'Hindu Kush': [2000, 9, 5050, 160, 'x', 'k', 30],
+                       'Karakoram': [1998, 9, 5030, 280, 'D', 'None', 25],
+                       'Pamir': [2000, 7, 4580, 250, 'v', 'None', 30]}
+
+    grouping = 'kaab'
+    
+    netcdf_fp = netcdf_fp_era
+    
+    output_fp = netcdf_fp_era + 'figures/'
+    if os.path.exists(output_fp) == False:
+        os.makedirs(output_fp)
+    
+    # Load glaciers
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi)
+    
+    # Load mass balance data
+    ds_all = {}  
+    # Merge all data, then select group data
+    for region in regions:      
         
+        # Load datasets
+        ds_fn = ('R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc')
+        ds = xr.open_dataset(netcdf_fp_era + ds_fn)
         
+        # Extract time variable
+        time_values_annual = ds.coords['year_plus1'].values
+        time_values_monthly = ds.coords['time'].values
+        # Extract start/end indices for calendar year!
+        time_values_df = pd.DatetimeIndex(time_values_monthly)
+        time_values_yr = np.array([x.year for x in time_values_df])
+        if input.gcm_wateryear == 1:
+            time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
+        time_idx_start = np.where(time_values_yr == startyear)[0][0]
+        time_idx_end = np.where(time_values_yr == endyear)[0][0]
+        time_values_monthly_subset = time_values_monthly[time_idx_start:time_idx_end + 12]
+        year_idx_start = np.where(time_values_annual == startyear)[0][0]
+        year_idx_end = np.where(time_values_annual == endyear)[0][0]
+        time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
         
-                    
+        var_glac_region = ds['ELA_glac_annual'].values[:,year_idx_start:year_idx_end+1,0]
+        var_glac_region_std = ds['ELA_glac_annual'].values[:,year_idx_start:year_idx_end+1,1]
+#        var_glac_region = ds['snowline_glac_monthly'].values[:,time_idx_start:time_idx_end+1,0]
+#        var_glac_region_std = ds['snowline_glac_monthly'].values[:,time_idx_start:time_idx_end+1,1]
+
+        # Merge datasets
+        if region == regions[0]:
+            var_glac_all = var_glac_region
+            var_glac_all_std = var_glac_region_std
+        else:
+            var_glac_all = np.concatenate((var_glac_all, var_glac_region), axis=0)
+            var_glac_all_std = np.concatenate((var_glac_all_std, var_glac_region_std), axis=0)
+        try:
+            ds.close()
+        except:
+            continue
+        
+        #%%
+    ds_all = {}
+    ds_all_std = {}
+    for ngroup, group in enumerate(group_data_dict.keys()):
+        # ELA for given year
+        ela_year_idx = np.where(time_values_annual_subset == group_data_dict[group][0])[0][0]
+        group_glac_indices = main_glac_rgi.loc[(main_glac_rgi[group_cn] == group) & 
+                                               (main_glac_rgi['Area'] > 10)].index.values.tolist()
+        ela_subset = var_glac_all[group_glac_indices, ela_year_idx]
+        ela_subset_std = var_glac_all_std[group_glac_indices, ela_year_idx]
+        
+        ds_all[group] = [ela_subset.mean(), ela_subset.std()]
+        ds_all_std[group] = [ela_subset_std.mean(), ela_subset.std()]
+        
+#        print(group, str(ela_subset.shape[0]), 'glaciers', 
+#              np.round(ela_subset.mean(),0), '+/-', np.round(ela_subset.std(),0))
+        
+    #%%
+    fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
+    for ngroup, group in enumerate(sorted(group_data_dict.keys())):
+        
+        gardelle = group_data_dict[group][2]
+        gardelle_std = group_data_dict[group][3]
+        era_ela = ds_all[group][0]
+        era_ela_std = ds_all[group][1]
+        
+        group_label = group
+        if group == 'Yigong':
+            group_label = 'Hengduan Shan'
+        
+        print(group, np.round(gardelle,0), '+/-', np.round(gardelle_std,0), 'vs.', 
+              np.round(era_ela,0), '+/-', np.round(era_ela_std,0))
+            
+        # All glaciers
+        ax[0,0].scatter(gardelle, era_ela, color='k', label=group_label, marker=group_data_dict[group][4],
+                        facecolor=group_data_dict[group][5], s=group_data_dict[group][6], zorder=3)
+        ax[0,0].errorbar(gardelle, era_ela, xerr=era_ela_std, yerr=gardelle_std, capsize=1, linewidth=0.5, 
+                         color='darkgrey', zorder=2)
+    
+#    ax[0,0].set_title('Equilibrium Line Altitude (m)', size=12)
+    ax[0,0].set_xlabel('Observed ELA (Gardelle et al., 2013)')
+    ax[0,0].set_ylabel('Modeled ELA (ERA-Interim)')
+    ymin = 4000
+    ymax = 6300
+    xmin = 4000
+    xmax = 6500
+    ax[0,0].set_xlim(xmin,xmax)
+    ax[0,0].set_ylim(4300,ymax)
+    ax[0,0].plot([np.min([xmin,ymin]),np.max([xmax,ymax])], [np.min([xmin,ymin]),np.max([xmax,ymax])], color='k', 
+                 linewidth=0.5, zorder=1)
+    ax[0,0].yaxis.set_ticks(np.arange(4500, ymax+1, 500))
+    ax[0,0].xaxis.set_ticks(np.arange(4500, xmax+1, 500))
+    
+    # Ensure proper order for legend
+    handles, labels = ax[0,0].get_legend_handles_labels()
+    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t:t[0]))
+    ax[0,0].legend(handles, labels, loc=(0.02,0.57), ncol=1, fontsize=10, frameon=False, handlelength=1.5, 
+                   handletextpad=0.25, columnspacing=1, borderpad=0, labelspacing=0)
+    
+    # Add text
+    fig.text(0.15, 0.85, 'D', va='center', size=12, fontweight='bold')
+    
+    
+    # Save figure
+    fig.set_size_inches(3,4)
+    fig.savefig(output_fp + 'gardelle2013_compare_regional_ELA_gt10km2.eps', bbox_inches='tight', dpi=300)
+
+
+if option_wgms_compare == 1:
+    regions = [13, 14, 15]
+    cal_datasets = ['wgms_d']
+#    cal_datasets = ['wgms_ee']
+    
+    startyear=1980
+    endyear=2017
+    wateryear=1
+    
+    output_fp = netcdf_fp_era + 'figures/'
+    if os.path.exists(output_fp) == False:
+        os.makedirs(output_fp)
+    
+    dates_table  = modelsetup.datesmodelrun(startyear=startyear, endyear=endyear, spinupyears=0, 
+                                            option_wateryear=wateryear)
+    
+    # Load glaciers
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    
+    # Load mass balance data
+    ds_all = {}  
+    # Merge all data, then select group data
+    for region in regions:      
+        
+        # Load datasets
+        ds_fn = ('R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc')
+        ds = xr.open_dataset(netcdf_fp_era + ds_fn)
+        
+        # Extract time variable
+        time_values_annual = ds.coords['year_plus1'].values
+        time_values_monthly = ds.coords['time'].values
+        # Extract start/end indices for calendar year!
+        time_values_df = pd.DatetimeIndex(time_values_monthly)
+        time_values_yr = np.array([x.year for x in time_values_df])
+        if input.gcm_wateryear == 1:
+            time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
+        time_idx_start = np.where(time_values_yr == startyear)[0][0]
+        time_idx_end = np.where(time_values_yr == endyear)[0][0]
+        time_values_monthly_subset = time_values_monthly[time_idx_start:time_idx_end + 12]
+        year_idx_start = np.where(time_values_annual == startyear)[0][0]
+        year_idx_end = np.where(time_values_annual == endyear)[0][0]
+        time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
+        
+        var_glac_region_raw = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
+        var_glac_region_raw_std = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 1]
+        area_glac_region = np.repeat(ds['area_glac_annual'].values[:,year_idx_start:year_idx_end+1,0], 12, axis=1)
+        
+        # Area average
+        volchg_monthly_glac_region = var_glac_region_raw
+        volchg_monthly_glac_region_std = var_glac_region_raw_std
+
+        # Merge datasets
+        if region == regions[0]:
+            var_glac_all = volchg_monthly_glac_region
+            var_glac_all_std = volchg_monthly_glac_region_std
+            area_glac_all = area_glac_region
+        else:
+            var_glac_all = np.concatenate((var_glac_all, volchg_monthly_glac_region), axis=0)
+            var_glac_all_std = np.concatenate((var_glac_all_std, volchg_monthly_glac_region_std), axis=0)
+            area_glac_all = np.concatenate((area_glac_all, area_glac_region), axis=0)
+        try:
+            ds.close()
+        except:
+            continue
+        #%%
+    
+    for nreg, reg in enumerate(regions): 
+        # Load glaciers
+        main_glac_rgi_reg, main_glac_hyps_reg, main_glac_icethickness_reg = load_glacier_data([reg])
+
+        cal_data = pd.DataFrame()
+        for dataset in cal_datasets:
+            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=reg)
+            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_reg, main_glac_hyps_reg, dates_table)
+            cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+        cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+        cal_data.reset_index(drop=True, inplace=True)
+        
+        if nreg == 0:
+            cal_data_all = cal_data
+        else:
+            cal_data_all = pd.concat([cal_data_all, cal_data], sort=False)
+    
+    # Link glacier index number from main_glac_rgi to cal_data to facilitate grabbing the data
+    glacnodict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi.index.values))
+    cal_data_all['glac_idx'] = cal_data_all['RGIId'].map(glacnodict)
+    
+#    #%%
+#    # Remove glaciers that don't have data over the entire glacier
+#    cal_data_all['elev_dif'] = cal_data_all['z2'] - cal_data_all['z1']
+#    main_glac_rgi['elev_range'] = main_glac_rgi['Zmax'] - main_glac_rgi['Zmin']
+#    # add elevation range to cal_data
+#    elevrange_dict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['elev_range']))
+#    cal_data_all['elev_range'] = cal_data_all['RGIId'].map(elevrange_dict)
+#    # check difference (see if within 100 m of glacier)
+#    elev_margin_of_safety = 100
+#    cal_data_all['elev_check'] = cal_data_all['elev_dif'] - (cal_data_all['elev_range'] - elev_margin_of_safety)
+#    cal_data_all = cal_data_all[cal_data_all['elev_check'] > 0]
+#    cal_data_all.reset_index(drop=True, inplace=True)
+#    
+#    cal_data_all['mb_mwe_era'] = np.nan
+#    cal_data_all['mb_mwea_era'] = np.nan
+#    cal_data_all['mb_mwe_era_std'] = np.nan
+#    for n in range(cal_data_all.shape[0]):
+#        glac_idx = cal_data_all.loc[n,'glac_idx']
+#        t1_idx = int(cal_data_all.loc[n,'t1_idx'])
+#        t2_idx = int(cal_data_all.loc[n,'t2_idx'])
+#        t1 = cal_data_all.loc[n,'t1']
+#        t2 = cal_data_all.loc[n,'t2']
+#        cal_data_all.loc[n,'mb_mwe_era'] = var_glac_all[glac_idx, t1_idx:t2_idx].sum()
+#        cal_data_all.loc[n,'mb_mwea_era'] = var_glac_all[glac_idx, t1_idx:t2_idx].sum() / (t2-t1)
+#    cal_data_all['mb_mwea'] = cal_data_all['mb_mwe'] / (t2-t1)
+#    cal_data_all['year'] = (cal_data_all['t2'] + cal_data_all['t1']) / 2
+#
+##    # GLACIERS CAN HAVE EXTREME MASS BALANCES OVER SHORT PERIODS OF TIME...
+##    cal_data_all = cal_data_all[(cal_data_all['t2'] - cal_data_all['t1']) > 1]
+##    cal_data_all.reset_index(drop=True, inplace=True)
+#
+##%%      
+#    fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
+#            
+#    # All glaciers
+#    cmap = 'RdYlBu_r'
+#    norm = plt.Normalize(startyear, endyear)
+#    a = ax[0,0].scatter(cal_data_all.mb_mwe.values, cal_data_all.mb_mwe_era.values, c=cal_data_all['year'].values,
+#                        cmap=cmap, norm=norm, zorder=3, s=10)
+#    a.set_facecolor('none')
+#    
+#    ymin = -2.5
+#    ymax = 2.5
+#    xmin = -2.5
+#    xmax = 2.5
+#    ax[0,0].set_xlim(xmin,xmax)
+#    ax[0,0].set_ylim(ymin,ymax)
+#    ax[0,0].plot([np.min([xmin,ymin]),np.max([xmax,ymax])], [np.min([xmin,ymin]),np.max([xmax,ymax])], 
+#                 color='k', linewidth=0.25, zorder=1)
+#    ax[0,0].yaxis.set_ticks(np.arange(-2, ymax+0.1, 1))
+#    ax[0,0].xaxis.set_ticks(np.arange(-2, xmax+0.11, 1))
+#    ax[0,0].set_title('Mass Balance (m w.e.)', size=12)
+#    ax[0,0].set_ylabel('Modeled')
+#    ax[0,0].set_xlabel('Glaciological (WGMS, 2017)')
+#    
+#    # Add colorbar
+#    fig.colorbar(a, ax=ax[0,0])
+#    
+#    # Add text
+#    fig.text(0.15, 0.85, 'E', va='center', size=12, fontweight='bold')
+#    fig.text(0.57, 0.20, 'n=' + str(cal_data_all.shape[0]) + '\nglaciers=' + 
+#             str(cal_data_all.glacno.unique().shape[0]), va='center', ha='center', size=12)
+#    
+#    # Save figure
+#    fig.set_size_inches(3,4)
+#    fig.savefig(output_fp + 'wgms2017_glaciological_compare.eps', bbox_inches='tight', dpi=300)
+    
+        
+    
+

@@ -109,13 +109,13 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [13]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
 #rgi_glac_number = ['00001']
-#rgi_glac_number = ['03473']
+rgi_glac_number = ['18096']
 #rgi_glac_number = glac_num_fromrange(1,67)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
@@ -147,19 +147,19 @@ constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-#gcm_startyear = 2000
-#gcm_endyear = 2017
-gcm_startyear = 2015
-gcm_endyear = 2100
+gcm_startyear = 2000
+gcm_endyear = 2017
+#gcm_startyear = 2015
+#gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
 # Hindcast flips the array such that 1960 - 2000 would go from 2000-1960 ensuring that the glacier area at 2000 is 
 # what it's supposed to be.
-hindcast = 1
+hindcast = 0
 if hindcast == 1:
     constantarea_years = 18 # constant years so glacier doesn't evolve until before 2000
-    gcm_startyear = 1955
+    gcm_startyear = 1980
     gcm_endyear = 2017
 
 # Synthetic simulation options

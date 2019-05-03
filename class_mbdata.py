@@ -332,6 +332,11 @@ class MBData():
             ds.loc[ds.AREA_SURVEY_YEAR.notnull(), 'area_km2'] = ds.loc[ds.AREA_SURVEY_YEAR.notnull(), 
                                                                        'AREA_SURVEY_YEAR']
             # Time indices
+            # remove data that does not have reference date or survey data
+            ds = ds[np.isnan(ds['REFERENCE_DATE']) == False]
+            ds = ds[np.isnan(ds['SURVEY_DATE']) == False]
+            ds.reset_index(drop=True, inplace=True)
+            # Extract date information
             ds['t1_year'] = ds['REFERENCE_DATE'].astype(str).str.split('.').str[0].str[:4].astype(int)
             ds['t1_month'] = ds['REFERENCE_DATE'].astype(str).str.split('.').str[0].str[4:6].astype(int)
             ds['t1_day'] = ds['REFERENCE_DATE'].astype(str).str.split('.').str[0].str[6:].astype(int)
@@ -364,6 +369,18 @@ class MBData():
                                                 .values[0])
                     except:
                         ds.loc[x, 't2_day'] = 28    
+            # Replace poor values of months
+            ds['t1_month'] = ds['t1_month'].map(lambda x: x if x <=12 else x%12)
+            ds['t2_month'] = ds['t2_month'].map(lambda x: x if x <=12 else x%12)
+            # Replace poor values of days
+            ds['t1_daysinmonth'] = (
+                    [calendar.monthrange(ds.loc[x,'t1_year'], ds.loc[x,'t1_month'])[1] for x in range(ds.shape[0])])
+            ds['t2_daysinmonth'] = (
+                    [calendar.monthrange(ds.loc[x,'t2_year'], ds.loc[x,'t2_month'])[1] for x in range(ds.shape[0])])
+            ds['t1_day'] = (ds.apply(lambda x: x['t1_day'] if x['t1_day'] <= x['t1_daysinmonth'] 
+                                     else x['t1_daysinmonth'], axis=1))
+            ds['t2_day'] = (ds.apply(lambda x: x['t2_day'] if x['t2_day'] <= x['t2_daysinmonth'] 
+                                     else x['t2_daysinmonth'], axis=1))
             # Calculate decimal year and drop measurements outside of calibration period
             ds['t1_datetime'] = pd.to_datetime(
                     pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
@@ -410,10 +427,9 @@ class MBData():
             ds['obs_type'] = 'mb_geo'
             ds['group_name'] = np.nan
             ds['sla_m'] = np.nan
-        
         elif self.name == 'wgms_ee':
             # Load all data
-            ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')
+            ds_all = pd.read_csv(self.ds_fp + self.ds_fn, encoding='latin1')            
             ds_all['RegO1'] = ds_all[self.rgi_glacno_cn].values.astype(int)
             # Select data for specific region
             ds_reg = ds_all[ds_all['RegO1']==self.rgi_regionO1].copy()
@@ -466,7 +482,7 @@ class MBData():
             ds['t1_day'] = ds['BEGIN_PERIOD'].astype(str).str.split('.').str[0].str[6:].astype(int)
             ds['t2_year'] = ds['END_PERIOD'].astype(str).str.split('.').str[0].str[:4].astype(int)
             ds['t2_month'] = ds['END_PERIOD'].astype(str).str.split('.').str[0].str[4:6].astype(int)
-            ds['t2_day'] = ds['END_PERIOD'].astype(str).str.split('.').str[0].str[6:].astype(int)
+            ds['t2_day'] = ds['END_PERIOD'].astype(str).str.split('.').str[0].str[6:].astype(int)            
             # if annual measurement and month/day unknown for start or end period, then replace with water year
             # Add latitude 
             latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
@@ -516,7 +532,9 @@ class MBData():
                     ds.loc[x, 't2_month'] = ds.loc[x, 'winter_end']
                 ds.loc[x, 't1_day'] = 1
                 ds.loc[x, 't2_day'] = calendar.monthrange(ds.loc[x, 't2_year'], ds.loc[x, 't2_month'])[1]
-                
+            # Replace poor values of months
+            ds['t1_month'] = ds['t1_month'].map(lambda x: x if x <=12 else x%12)
+            ds['t2_month'] = ds['t2_month'].map(lambda x: x if x <=12 else x%12)
             # Calculate decimal year and drop measurements outside of calibration period
             ds['t1_datetime'] = pd.to_datetime(
                     pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
@@ -776,10 +794,10 @@ class MBData():
 #%% Testing
 if __name__ == '__main__':
     # Glacier selection
-    rgi_regionsO1 = [15]
+    rgi_regionsO1 = [13]
     rgi_glac_number = 'all'
 #    rgi_glac_number = ['03473', '03733']
-    startyear = 1970
+    startyear = 1980
     endyear = 2017
     
     # Select glaciers
@@ -795,8 +813,8 @@ if __name__ == '__main__':
     elev_bin_interval = elev_bins[1] - elev_bins[0]
     
     # Testing    
-    mb1 = MBData(name='mauer', rgi_regionO1=rgi_regionsO1[0])
-#    mb1 = MBData(name='wgms_d', rgi_regionO1=rgi_regionsO1[0])
+#    mb1 = MBData(name='mauer', rgi_regionO1=rgi_regionsO1[0])
+    mb1 = MBData(name='wgms_d', rgi_regionO1=rgi_regionsO1[0])
 #    mb1 = MBData(name='cogley', rgi_regionO1=rgi_regionsO1[0])
     ds_output = mb1.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)
     
