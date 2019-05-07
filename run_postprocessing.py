@@ -161,9 +161,9 @@ def merge_batches(gcm_name):
                 os.remove(netcdf_fp + i)
   
 
-def extract_subset(gcm_name):  
-#gcm_names = ['IPSL-CM5A-MR']
-#for gcm_name in gcm_names:
+#def extract_subset(gcm_name):  
+gcm_names = ['MIROC-ESM-CHEM']
+for gcm_name in gcm_names:
     
     vns_all = input.output_variables_package2
     

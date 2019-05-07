@@ -40,8 +40,8 @@ option_region_map_nodata = 0
 
 option_glaciermip_table = 0
 option_zemp_compare = 0
-option_gardelle_compare = 0
-option_wgms_compare = 1
+option_gardelle_compare = 1
+option_wgms_compare = 0
 
 
 #%% ===== Input data =====
@@ -1556,7 +1556,6 @@ if option_zemp_compare == 1:
         ds_all[group] = mb_mwea_group
         ds_all_std[group] = mb_mwea_group_std
 
-#%%
     fig, ax = plt.subplots(len(groups), 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
     for ngroup, group in enumerate(groups):
         
@@ -1606,6 +1605,25 @@ if option_gardelle_compare == 1:
     startyear = 1980
     endyear = 2016
     
+#    groups = ['Bhutan', 'Everest', 'Hindu Kush', 'Karakoram', 'Pamir', 'Spiti Lahaul', 'West Nepal', 'Yigong']
+#    csv_fn = ['Bhutan_20001117_wRGIIds.csv', 'Everest_wRGIIds.csv', 'HinduKush_20001117_wRGIIds.csv', 
+#              'Karakoram_wRGIIds.csv', 'Pamir_20000916_wRGIIds.csv', 'SpitiLahaul_wRGIIds.csv', 
+#              'WestNepal_wRGIIds.csv', 'Yigong_19990923_wRGIIds.csv']
+#    gardelle_ELAs_dict = {}
+#    for n, group in enumerate(groups):
+#        ds = pd.read_csv(input.main_directory + '/../qgis_himat/Gardelle_etal2013/' + csv_fn[n])
+#        A = list(ds.RGIId.unique())
+#        print(group, len(A), '\n', A)
+#        gardelle_ELAs_dict[group] = A
+#    
+#    with open(input.main_directory + '/../qgis_himat/Gardelle_etal2013/gardelle_ELAs_dict.pkl', 'wb') as f:
+#        pickle.dump(gardelle_ELAs_dict, f)
+    
+    gardelle_dict_fn = input.main_directory + '/../qgis_himat/Gardelle_etal2013/gardelle_ELAs_dict.pkl'
+    with open(gardelle_dict_fn, 'rb') as f:
+        gardelle_group_RGIIds = pickle.load(f)
+        
+    #%%
     group_data_dict = {'Yigong': [1999, 9, 4970, 320, '+', 'k', 50],
                        'Bhutan': [2000, 11, 5690, 440, 'o', 'None', 30],
                        'Everest': [2009, 10, 5840, 320, '^', 'None', 30],
@@ -1669,25 +1687,30 @@ if option_gardelle_compare == 1:
             ds.close()
         except:
             continue
-        
-        #%%
+
+    #%%
     ds_all = {}
     ds_all_std = {}
-    for ngroup, group in enumerate(group_data_dict.keys()):
+#    for ngroup, group in enumerate(group_data_dict.keys()):
+    for ngroup, group in enumerate(['West Nepal']):
         # ELA for given year
         ela_year_idx = np.where(time_values_annual_subset == group_data_dict[group][0])[0][0]
-        group_glac_indices = main_glac_rgi.loc[(main_glac_rgi[group_cn] == group) & 
-                                               (main_glac_rgi['Area'] > 10)].index.values.tolist()
+        group_RGIIds = gardelle_group_RGIIds[group]
+        group_glac_indices = []
+        for RGIId in group_RGIIds:
+            group_glac_indices.append(main_glac_rgi.loc[main_glac_rgi['RGIId'] == RGIId].index.values[0])
+#        group_glac_indices = main_glac_rgi.loc[(main_glac_rgi[group_cn] == group) & 
+#                                               (main_glac_rgi['Area'] > 10)].index.values.tolist()
         ela_subset = var_glac_all[group_glac_indices, ela_year_idx]
         ela_subset_std = var_glac_all_std[group_glac_indices, ela_year_idx]
         
         ds_all[group] = [ela_subset.mean(), ela_subset.std()]
         ds_all_std[group] = [ela_subset_std.mean(), ela_subset.std()]
         
-#        print(group, str(ela_subset.shape[0]), 'glaciers', 
-#              np.round(ela_subset.mean(),0), '+/-', np.round(ela_subset.std(),0))
+        print(group, str(ela_subset.shape[0]), 'glaciers', 
+              np.round(ela_subset.mean(),0), '+/-', np.round(ela_subset.std(),0))
         
-    #%%
+        #%%
     fig, ax = plt.subplots(1, 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
     for ngroup, group in enumerate(sorted(group_data_dict.keys())):
         
@@ -1706,17 +1729,17 @@ if option_gardelle_compare == 1:
         # All glaciers
         ax[0,0].scatter(gardelle, era_ela, color='k', label=group_label, marker=group_data_dict[group][4],
                         facecolor=group_data_dict[group][5], s=group_data_dict[group][6], zorder=3)
-        ax[0,0].errorbar(gardelle, era_ela, xerr=era_ela_std, yerr=gardelle_std, capsize=1, linewidth=0.5, 
+        ax[0,0].errorbar(gardelle, era_ela, xerr=gardelle_std, yerr=era_ela_std, capsize=1, linewidth=0.5, 
                          color='darkgrey', zorder=2)
     
     ax[0,0].set_xlabel('ELA (m) (Gardelle, 2013)', size=12)    
     ax[0,0].set_ylabel('Modeled ELA (m)', size=12)
-    ymin = 4000
-    ymax = 6300
+    ymin = 3500
+    ymax = 7000
     xmin = 4000
     xmax = 6500
     ax[0,0].set_xlim(xmin,xmax)
-    ax[0,0].set_ylim(4300,ymax)
+    ax[0,0].set_ylim(3500,ymax)
     ax[0,0].plot([np.min([xmin,ymin]),np.max([xmax,ymax])], [np.min([xmin,ymin]),np.max([xmax,ymax])], color='k', 
                  linewidth=0.5, zorder=1)
     ax[0,0].yaxis.set_ticks(np.arange(4500, ymax+1, 500))
@@ -1734,7 +1757,7 @@ if option_gardelle_compare == 1:
     
     # Save figure
     fig.set_size_inches(2.75,4)
-    fig.savefig(output_fp + 'gardelle2013_compare_regional_ELA_gt10km2.eps', bbox_inches='tight', dpi=300)
+    fig.savefig(output_fp + 'gardelle2013_compare_regional_ELA_RGIIds.eps', bbox_inches='tight', dpi=300)
     #%%
 
 
@@ -1835,6 +1858,7 @@ if option_wgms_compare == 1:
     cal_data_all = cal_data_all[cal_data_all['elev_check'] > 0]
     cal_data_all.reset_index(drop=True, inplace=True)
     
+    #%%
     cal_data_all['mb_mwe_era'] = np.nan
     cal_data_all['mb_mwea_era'] = np.nan
     cal_data_all['mb_mwe_era_std'] = np.nan
@@ -1845,15 +1869,63 @@ if option_wgms_compare == 1:
         t1 = cal_data_all.loc[n,'t1']
         t2 = cal_data_all.loc[n,'t2']
         cal_data_all.loc[n,'mb_mwe_era'] = var_glac_all[glac_idx, t1_idx:t2_idx].sum()
-        cal_data_all.loc[n,'mb_mwea_era'] = var_glac_all[glac_idx, t1_idx:t2_idx].sum() / (t2-t1)
+        cal_data_all.loc[n,'mb_mwe_era_std'] = var_glac_all_std[glac_idx, t1_idx:t2_idx].sum() 
+        cal_data_all.loc[n,'mb_mwe_era_std_rsos'] = ((var_glac_all_std[glac_idx, t1_idx:t2_idx]**2).sum())**0.5
+        
+    cal_data_all['mb_mwea_era'] = cal_data_all['mb_mwe_era'] / (cal_data_all['t2'] - cal_data_all['t1'])
+    cal_data_all['mb_mwea_era_std'] = cal_data_all['mb_mwe_era_std'] / (cal_data_all['t2'] - cal_data_all['t1'])
+    cal_data_all['mb_mwea_era_std_rsos'] = cal_data_all['mb_mwe_era_std_rsos'] / (cal_data_all['t2']-cal_data_all['t1'])
     cal_data_all['mb_mwea'] = cal_data_all['mb_mwe'] / (cal_data_all['t2'] - cal_data_all['t1'])
     cal_data_all['year'] = (cal_data_all['t2'] + cal_data_all['t1']) / 2
 
     # Remove data that spans less than a year
     #cal_data_all = cal_data_all[(cal_data_all['t2'] - cal_data_all['t1']) > 1]
     #cal_data_all.reset_index(drop=True, inplace=True)
- 
-    #%%
+    
+    # Print summary of errors
+    cal_data_all['dif_mb_mwea'] = cal_data_all['mb_mwea'] - cal_data_all['mb_mwea_era']
+    cal_data_all['dif_mb_mwe'] = cal_data_all['mb_mwe'] - cal_data_all['mb_mwe_era']
+    A = cal_data_all.copy()
+    print('All\n  Mean (+/-) std [mwea]:', 
+          np.round(A['dif_mb_mwea'].mean(),2), '+/-', np.round(A['dif_mb_mwea'].std(),2), 'count:', A.shape[0],
+          '\n  Mean standard deviation (correlated):',np.round(A['mb_mwea_era_std'].mean(),2),
+          '\n  Mean standard deviation (uncorrelated):',np.round(A['mb_mwea_era_std_rsos'].mean(),2))
+    # More than 1 year
+    A = cal_data_all.copy()
+    A = A[(A['t2'] - A['t1']) >= 1]
+    print('All (> 1 yr)\n  Mean (+/-) std [mwea]:', 
+          np.round(A['dif_mb_mwea'].mean(),2), '+/-', np.round(A['dif_mb_mwea'].std(),2), 'count:', A.shape[0],
+          '\n  Mean standard deviation (correlated):',np.round(A['mb_mwea_era_std'].mean(),2),
+          '\n  Mean standard deviation (uncorrelated):',np.round(A['mb_mwea_era_std_rsos'].mean(),2))
+    # Less than 1 year
+    A = cal_data_all.copy()
+    A = A[(A['t2'] - A['t1']) < 1]
+    print('All (< 1 yr)\n  Mean (+/-) std [mwea]:', 
+          np.round(A['dif_mb_mwea'].mean(),2), '+/-', np.round(A['dif_mb_mwea'].std(),2), 'count:', A.shape[0],
+          '\n  Mean standard deviation (correlated):',np.round(A['mb_mwea_era_std'].mean(),2),
+          '\n  Mean standard deviation (uncorrelated):',np.round(A['mb_mwea_era_std_rsos'].mean(),2))
+    # Geodetic
+    A = cal_data_all.copy()
+    A = A[A['obs_type'] == 'mb_geo']
+    print('Geodetic\n  Mean (+/-) std [mwea]:', 
+          np.round(A['dif_mb_mwea'].mean(),2), '+/-', np.round(A['dif_mb_mwea'].std(),2), 'count:', A.shape[0],
+          '\n  Mean standard deviation (correlated):',np.round(A['mb_mwea_era_std'].mean(),2),
+          '\n  Mean standard deviation (uncorrelated):',np.round(A['mb_mwea_era_std_rsos'].mean(),2))
+    # Glaciological
+    A = cal_data_all.copy()
+    A = A[A['obs_type'] == 'mb_glac']
+    print('Glaciological\n  Mean (+/-) std [mwea]:', 
+          np.round(A['dif_mb_mwea'].mean(),2), '+/-', np.round(A['dif_mb_mwea'].std(),2), 'count:', A.shape[0],
+          '\n  Mean standard deviation (correlated):',np.round(A['mb_mwea_era_std'].mean(),2),
+          '\n  Mean standard deviation (uncorrelated):',np.round(A['mb_mwea_era_std_rsos'].mean(),2))
+    # Glaciological
+    A = cal_data_all.copy()
+    A = A[(A['obs_type'] == 'mb_glac') & ((A['t2'] - A['t1']) >= 1)]
+    print('Glaciological (> 1 yr)\n  Mean (+/-) std [mwea]:', 
+          np.round(A['dif_mb_mwea'].mean(),2), '+/-', np.round(A['dif_mb_mwea'].std(),2), 'count:', A.shape[0],
+          '\n  Mean standard deviation (correlated):',np.round(A['mb_mwea_era_std'].mean(),2),
+          '\n  Mean standard deviation (uncorrelated):',np.round(A['mb_mwea_era_std_rsos'].mean(),2))
+
     fig, ax = plt.subplots(1, 2, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0.27, 'hspace':0})
     
     datatypes = ['mb_geo', 'mb_glac']

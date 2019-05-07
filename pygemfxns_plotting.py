@@ -38,7 +38,7 @@ import class_climate
 
 
 # Script options
-option_plot_cmip5_normalizedchange = 0
+option_plot_cmip5_normalizedchange = 1
 option_plot_cmip5_runoffcomponents = 0
 option_plot_cmip5_map = 0
 option_output_tables = 0
@@ -52,7 +52,7 @@ option_plot_maxloss_issues = 0
 option_plot_individual_glaciers = 0
 option_plot_degrees = 0
 option_plot_pies = 0
-option_plot_individual_gcms = 1
+option_plot_individual_gcms = 0
 
 
 #%% ===== Input data =====
@@ -85,8 +85,8 @@ rgi_glac_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi
 gcm_names = ['CanESM2']
 #gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0',  'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 
 #             'MPI-ESM-LR', 'NorESM1-M']
-#rcps = ['rcp26', 'rcp45', 'rcp85']
-rcps = ['rcp26']
+rcps = ['rcp26', 'rcp45', 'rcp85']
+#rcps = ['rcp26']
 
 # Grouping
 grouping = 'all'

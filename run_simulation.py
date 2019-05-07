@@ -455,7 +455,11 @@ def convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_a
     glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
     glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
     glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
-                                                      input.binsize/2)    
+                                                      input.binsize/2)
+    # ELA can't be below minimum elevation
+    glac_zmin_annual = elev_bins[(glac_bin_area_annual > 0).argmax(axis=0)][:-1]
+    glac_wide_ELA_annual[glac_wide_ELA_annual < glac_zmin_annual] = (
+            glac_zmin_annual[glac_wide_ELA_annual < glac_zmin_annual])
     return (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt, 
             glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, 
             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual)
