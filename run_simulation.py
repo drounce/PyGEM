@@ -782,22 +782,24 @@ def main(list_packed_vars):
                 massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                           option_areaconstant=0, debug=debug_mb))
+                                           option_areaconstant=0, debug=0,
+#                                           debug=debug_mb
+                                           ))
             
             if input.hindcast == 1:                
-                glac_bin_temp = glac_bin_temp[::-1]
-                glac_bin_prec = glac_bin_prec[::-1]
-                glac_bin_acc = glac_bin_acc[::-1]
-                glac_bin_refreeze = glac_bin_refreeze[::-1]
-                glac_bin_snowpack = glac_bin_snowpack[::-1]
-                glac_bin_melt = glac_bin_melt[::-1]
-                glac_bin_frontalablation = glac_bin_frontalablation[::-1]
-                glac_bin_massbalclim = glac_bin_massbalclim[::-1]
-                glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[::-1]
-                glac_bin_area_annual = glac_bin_area_annual[::-1]
-                glac_bin_icethickness_annual = glac_bin_icethickness_annual[::-1]
-                glac_bin_width_annual = glac_bin_width_annual[::-1]
-                glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[::-1]
+                glac_bin_temp = glac_bin_temp[:,::-1]
+                glac_bin_prec = glac_bin_prec[:,::-1]
+                glac_bin_acc = glac_bin_acc[:,::-1]
+                glac_bin_refreeze = glac_bin_refreeze[:,::-1]
+                glac_bin_snowpack = glac_bin_snowpack[:,::-1]
+                glac_bin_melt = glac_bin_melt[:,::-1]
+                glac_bin_frontalablation = glac_bin_frontalablation[:,::-1]
+                glac_bin_massbalclim = glac_bin_massbalclim[:,::-1]
+                glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,::-1]
+                glac_bin_area_annual = glac_bin_area_annual[:,::-1]
+                glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,::-1]
+                glac_bin_width_annual = glac_bin_width_annual[:,::-1]
+                glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,::-1]
                 glac_wide_massbaltotal = glac_wide_massbaltotal[::-1]
                 glac_wide_runoff = glac_wide_runoff[::-1]
                 glac_wide_snowline = glac_wide_snowline[::-1]
@@ -810,8 +812,9 @@ def main(list_packed_vars):
                 offglac_wide_melt = offglac_wide_melt[::-1]
                 offglac_wide_snowpack = offglac_wide_snowpack[::-1]
                 offglac_wide_runoff = offglac_wide_runoff[::-1]
-
+                
             
+            print(glac_wide_ELA_annual)
             
             if debug:
                 # Compute glacier volume change for every time step and use this to compute mass balance
@@ -834,6 +837,9 @@ def main(list_packed_vars):
                                                   glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
                                                   glac_bin_frontalablation, glac_bin_massbalclim_annual, 
                                                   glac_bin_area_annual, glac_bin_icethickness_annual))
+                
+                print(glac_wide_ELA_annual)
+            
                 # Record output to xarray dataset
                 output_ds_all.temp_glac_monthly[glac, :, n_iter] = glac_wide_temp
                 output_ds_all.prec_glac_monthly[glac, :, n_iter] = glac_wide_prec
@@ -863,10 +869,10 @@ def main(list_packed_vars):
                 stats = calc_stats(vn, output_ds_all, glac=glac)
                 output_ds_all_stats[vn].values[glac,:,:] = stats            
         
-        if debug:
-            mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
-                            (dates_table.shape[0] / 12))
-            print('mb_model [mwea] mean:', round(mb_mwea_all,4))   
+#        if debug:
+#            mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
+#                            (dates_table.shape[0] / 12))
+#            print('mb_model [mwea] mean:', round(mb_mwea_all,4))   
 #            # Calibration
 #            cal_idx = np.where(cal_data.glacno == main_glac_rgi.glacno)[0][0]
 #            mb_cal_mwea = cal_data.loc[cal_idx, 'mb_mwe'] / (cal_data.loc[cal_idx, 't2'] - cal_data.loc[cal_idx, 't1'])
