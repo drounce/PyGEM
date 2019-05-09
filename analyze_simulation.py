@@ -40,7 +40,7 @@ option_region_map_nodata = 0
 
 option_glaciermip_table = 0
 option_zemp_compare = 0
-option_gardelle_compare = 1
+option_gardelle_compare = 0
 option_wgms_compare = 0
 
 
@@ -1618,7 +1618,7 @@ if option_gardelle_compare == 1:
 #    
 #    with open(input.main_directory + '/../qgis_himat/Gardelle_etal2013/gardelle_ELAs_dict.pkl', 'wb') as f:
 #        pickle.dump(gardelle_ELAs_dict, f)
-    
+    #%%
     gardelle_dict_fn = input.main_directory + '/../qgis_himat/Gardelle_etal2013/gardelle_ELAs_dict.pkl'
     with open(gardelle_dict_fn, 'rb') as f:
         gardelle_group_RGIIds = pickle.load(f)

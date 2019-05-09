@@ -456,10 +456,13 @@ def convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_a
     glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
     glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
                                                       input.binsize/2)
-    # ELA can't be below minimum elevation
-    glac_zmin_annual = elev_bins[(glac_bin_area_annual > 0).argmax(axis=0)][:-1]
+    # ELA and snowline can't be below minimum elevation
+    glac_zmin_annual = elev_bins[(glac_bin_area_annual > 0).argmax(axis=0)][:-1] - input.binsize/2
     glac_wide_ELA_annual[glac_wide_ELA_annual < glac_zmin_annual] = (
             glac_zmin_annual[glac_wide_ELA_annual < glac_zmin_annual])
+    glac_zmin = elev_bins[(glac_bin_area > 0).argmax(axis=0)] - input.binsize/2
+    glac_wide_snowline[glac_wide_snowline < glac_zmin] = glac_zmin[glac_wide_snowline < glac_zmin]
+    
     return (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt, 
             glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, 
             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual)
@@ -711,10 +714,10 @@ def main(list_packed_vars):
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
         
         if input.hindcast == 1:
-            glacier_gcm_prec = np.flip(glacier_gcm_prec, axis=0)
-            glacier_gcm_temp = np.flip(glacier_gcm_temp, axis=0)
-            glacier_gcm_lrgcm = np.flip(glacier_gcm_lrgcm, axis=0)
-            glacier_gcm_lrglac = np.flip(glacier_gcm_lrglac, axis=0)
+            glacier_gcm_prec = glacier_gcm_prec[::-1]
+            glacier_gcm_temp = glacier_gcm_temp[::-1]
+            glacier_gcm_lrgcm = glacier_gcm_lrgcm[::-1]
+            glacier_gcm_lrglac = glacier_gcm_lrglac[::-1]
 
         # get glacier number
         if rgi_regionsO1[0] >= 10:
@@ -781,45 +784,45 @@ def main(list_packed_vars):
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                            option_areaconstant=0, debug=debug_mb))
             
-            # Good check if area doesn't evolve, then this should be the same
-            if input.hindcast == 1:
-                glac_bin_temp = np.flip(glac_bin_temp, axis=1)
-                glac_bin_prec = np.flip(glac_bin_prec, axis=1)
-                glac_bin_acc = np.flip(glac_bin_acc, axis=1)
-                glac_bin_refreeze = np.flip(glac_bin_refreeze, axis=1)
-                glac_bin_snowpack = np.flip(glac_bin_snowpack, axis=1)
-                glac_bin_melt = np.flip(glac_bin_melt, axis=1)
-                glac_bin_frontalablation = np.flip(glac_bin_frontalablation, axis=1)
-                glac_bin_massbalclim = np.flip(glac_bin_massbalclim, axis=1)
-                glac_bin_massbalclim_annual = np.flip(glac_bin_massbalclim_annual, axis=1)
-                glac_bin_area_annual = np.flip(glac_bin_area_annual, axis=1)
-                glac_bin_icethickness_annual = np.flip(glac_bin_icethickness_annual, axis=1)
-                glac_bin_width_annual = np.flip(glac_bin_width_annual, axis=1)
-                glac_bin_surfacetype_annual = np.flip(glac_bin_surfacetype_annual, axis=1)
-                glac_wide_massbaltotal = np.flip(glac_wide_massbaltotal, axis=0)
-                glac_wide_runoff = np.flip(glac_wide_runoff, axis=0)
-                glac_wide_snowline = np.flip(glac_wide_snowline, axis=0)
-                glac_wide_snowpack = np.flip(glac_wide_snowpack, axis=0)
-                glac_wide_area_annual = np.flip(glac_wide_area_annual, axis=0)
-                glac_wide_volume_annual = np.flip(glac_wide_volume_annual, axis=0)
-                glac_wide_ELA_annual = np.flip(glac_wide_ELA_annual, axis=0)
-                offglac_wide_prec = np.flip(offglac_wide_prec, axis=0)
-                offglac_wide_refreeze = np.flip(offglac_wide_refreeze, axis=0)
-                offglac_wide_melt = np.flip(offglac_wide_melt, axis=0)
-                offglac_wide_snowpack = np.flip(offglac_wide_snowpack, axis=0)
-                offglac_wide_runoff = np.flip(offglac_wide_runoff, axis=0)
+            if input.hindcast == 1:                
+                glac_bin_temp = glac_bin_temp[::-1]
+                glac_bin_prec = glac_bin_prec[::-1]
+                glac_bin_acc = glac_bin_acc[::-1]
+                glac_bin_refreeze = glac_bin_refreeze[::-1]
+                glac_bin_snowpack = glac_bin_snowpack[::-1]
+                glac_bin_melt = glac_bin_melt[::-1]
+                glac_bin_frontalablation = glac_bin_frontalablation[::-1]
+                glac_bin_massbalclim = glac_bin_massbalclim[::-1]
+                glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[::-1]
+                glac_bin_area_annual = glac_bin_area_annual[::-1]
+                glac_bin_icethickness_annual = glac_bin_icethickness_annual[::-1]
+                glac_bin_width_annual = glac_bin_width_annual[::-1]
+                glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[::-1]
+                glac_wide_massbaltotal = glac_wide_massbaltotal[::-1]
+                glac_wide_runoff = glac_wide_runoff[::-1]
+                glac_wide_snowline = glac_wide_snowline[::-1]
+                glac_wide_snowpack = glac_wide_snowpack[::-1]
+                glac_wide_area_annual = glac_wide_area_annual[::-1]
+                glac_wide_volume_annual = glac_wide_volume_annual[::-1]
+                glac_wide_ELA_annual = glac_wide_ELA_annual[::-1]
+                offglac_wide_prec = offglac_wide_prec[::-1]
+                offglac_wide_refreeze = offglac_wide_refreeze[::-1]
+                offglac_wide_melt = offglac_wide_melt[::-1]
+                offglac_wide_snowpack = offglac_wide_snowpack[::-1]
+                offglac_wide_runoff = offglac_wide_runoff[::-1]
 
-            # Compute glacier volume change for every time step and use this to compute mass balance
-            #  this will work for any indexing
-            glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-            # Mass change [km3 mwe]
-            #  mb [mwea] * (1 km / 1000 m) * area [km2]
-            glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
-            # Mean annual mass balance [mwea]
-            mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
-                       (glac_wide_masschange.shape[0] / 12))
+            
             
             if debug:
+                # Compute glacier volume change for every time step and use this to compute mass balance
+                #  this will work for any indexing
+                glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+                # Mass change [km3 mwe]
+                #  mb [mwea] * (1 km / 1000 m) * area [km2]
+                glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+                # Mean annual mass balance [mwea]
+                mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
+                           (glac_wide_masschange.shape[0] / 12))
                 print('mb_model [mwea]:', mb_mwea.round(6))
 
             # RECORD PARAMETERS TO DATASET
@@ -858,25 +861,12 @@ def main(list_packed_vars):
         for vn in ds_vns:
             if vn in input.output_variables_package2:
                 stats = calc_stats(vn, output_ds_all, glac=glac)
-                output_ds_all_stats[vn].values[glac,:,:] = stats
-                
+                output_ds_all_stats[vn].values[glac,:,:] = stats            
+        
         if debug:
-#            # Mean annual glacier-wide mass balance
-#            # Compute glacier volume change for every time step and use this to compute mass balance
-#            #  this will work for any indexing
-#            glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-#            # Volume change [km3]
-#            #  mb [mwea] * input.density_water / input.density_ice * (1 km / 1000 m) * area [km2]
-#            glac_wide_volchange = (glac_wide_massbaltotal * input.density_water / input.density_ice / 
-#                                   1000 * glac_wide_area)
-#            mb_mwea = (glac_wide_volchange.sum() / glac_wide_area[0] * 1000 * input.density_ice / 
-#                       input.density_water / (glac_wide_volchange.shape[0] / 12))
-            
-            print('mb_mwea_all IS CALCULATED POORLY - NEEDS TO BE UPDATED TO ACCOUNT FOR AREA CHANGES (see above)')
-            
-        mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
-                        (dates_table.shape[0] / 12))
-        print('mb_model [mwea] mean:', round(mb_mwea_all,4))   
+            mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
+                            (dates_table.shape[0] / 12))
+            print('mb_model [mwea] mean:', round(mb_mwea_all,4))   
 #            # Calibration
 #            cal_idx = np.where(cal_data.glacno == main_glac_rgi.glacno)[0][0]
 #            mb_cal_mwea = cal_data.loc[cal_idx, 'mb_mwe'] / (cal_data.loc[cal_idx, 't2'] - cal_data.loc[cal_idx, 't1'])
@@ -1033,8 +1023,8 @@ if __name__ == '__main__':
                 ds_all = ds
             else:
                 ds_all = xr.merge((ds_all, ds))
-            # Close dataset
-            ds.close()
+            # Close dataset (NOTE: closing dataset here causes error on supercomputer)
+#            ds.close()
                 
         # Filename
         ds_all_fn = i.split('--')[0] + '.nc'
@@ -1058,7 +1048,6 @@ if __name__ == '__main__':
         # Remove files in output_list
         for i in output_list:
             os.remove(output_sim_fp + i)
-    
 
     print('Total processing time:', time.time()-time_start, 's')
     

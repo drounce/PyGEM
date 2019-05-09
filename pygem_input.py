@@ -109,13 +109,13 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [13]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
+rgi_glac_number = 'all'
 #rgi_glac_number = ['00001']
-rgi_glac_number = ['05313']
+#rgi_glac_number = ['05313']
 #rgi_glac_number = glac_num_fromrange(1,67)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
@@ -156,7 +156,7 @@ gcm_wateryear = 1
 
 # Hindcast flips the array such that 1960 - 2000 would go from 2000-1960 ensuring that the glacier area at 2000 is 
 # what it's supposed to be.
-hindcast = 0
+hindcast = 1
 if hindcast == 1:
     constantarea_years = 18 # constant years so glacier doesn't evolve until before 2000
     gcm_startyear = 1980
@@ -328,14 +328,14 @@ if option_calibration == 1:
             14: output_filepath + 'cal_opt1/reg14/',
             15: output_filepath + 'cal_opt1/reg15/'}
 elif option_calibration == 2:
-#    modelparams_fp_dict = {
-#            13: output_filepath + 'cal_opt2/',
-#            14: output_filepath + 'cal_opt2/',
-#            15: output_filepath + 'cal_opt2/'}
     modelparams_fp_dict = {
-            13: output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/',
-            14: output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/',
-            15: output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/'}
+            13: output_filepath + 'cal_opt2/',
+            14: output_filepath + 'cal_opt2/',
+            15: output_filepath + 'cal_opt2/'}
+#    modelparams_fp_dict = {
+#            13: output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/',
+#            14: output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/',
+#            15: output_filepath + 'cal_opt2_spc_20190308_adjp12/cal_opt2/'}
 #    modelparams_fp_dict = {
 #            13: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
 #            14: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
