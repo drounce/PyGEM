@@ -814,8 +814,6 @@ def main(list_packed_vars):
                 offglac_wide_runoff = offglac_wide_runoff[::-1]
                 
             
-            print(glac_wide_ELA_annual)
-            
             if debug:
                 # Compute glacier volume change for every time step and use this to compute mass balance
                 #  this will work for any indexing
@@ -837,8 +835,6 @@ def main(list_packed_vars):
                                                   glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
                                                   glac_bin_frontalablation, glac_bin_massbalclim_annual, 
                                                   glac_bin_area_annual, glac_bin_icethickness_annual))
-                
-                print(glac_wide_ELA_annual)
             
                 # Record output to xarray dataset
                 output_ds_all.temp_glac_monthly[glac, :, n_iter] = glac_wide_temp
