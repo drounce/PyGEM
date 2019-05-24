@@ -593,7 +593,8 @@ def main(list_packed_vars):
                                                        option_wateryear=input.option_wateryear)
             # Monthly average from reference climate data
             ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
-            print(ref_startyear, ref_endyear)
+            if debug:
+                print(ref_startyear, ref_endyear)
             ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi, 
                                                                            dates_table_ref)
             ref_lr_monthly_avg = gcmbiasadj.monthly_avg_2darray(ref_lr)
@@ -825,8 +826,10 @@ def main(list_packed_vars):
                 mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
                            (glac_wide_masschange.shape[0] / 12))
                 print('mb_model [mwea]:', mb_mwea.round(6))
+                
+            
 
-            # RECORD PARAMETERS TO DATASET
+            # RECORD PARAMETERS TO DATASET            
             if input.output_package == 2:
                 (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt, 
                  glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, 
@@ -835,7 +838,7 @@ def main(list_packed_vars):
                                                   glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
                                                   glac_bin_frontalablation, glac_bin_massbalclim_annual, 
                                                   glac_bin_area_annual, glac_bin_icethickness_annual))
-            
+
                 # Record output to xarray dataset
                 output_ds_all.temp_glac_monthly[glac, :, n_iter] = glac_wide_temp
                 output_ds_all.prec_glac_monthly[glac, :, n_iter] = glac_wide_prec
@@ -854,6 +857,12 @@ def main(list_packed_vars):
                 output_ds_all.offglac_melt_monthly[glac, :, n_iter] = offglac_wide_melt
                 output_ds_all.offglac_snowpack_monthly[glac, :, n_iter] = offglac_wide_snowpack
                 output_ds_all.offglac_runoff_monthly[glac, :, n_iter] = offglac_wide_runoff
+                
+            print('glac runoff max:', np.round(glac_wide_runoff.max(),0), 
+                  'glac prec max:', np.round(glac_wide_prec.max(),2),
+                  'glac refr max:', np.round(glac_wide_refreeze.max(),2),
+                  'offglac ref max:', np.round(offglac_wide_refreeze.max(),2))
+            
                 
         # Calculate statistics of simulations
         # List of variables
@@ -1107,6 +1116,8 @@ if __name__ == '__main__':
         glac_wide_area_annual = main_vars['glac_wide_area_annual']
         glac_wide_volume_annual = main_vars['glac_wide_volume_annual']
         glac_wide_runoff = main_vars['glac_wide_runoff']
+        glac_wide_prec = main_vars['glac_wide_prec']
+        glac_wide_refreeze = main_vars['glac_wide_refreeze']
         
         
         modelparameters_all = main_vars['modelparameters_all']
