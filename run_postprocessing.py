@@ -54,8 +54,8 @@ gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-
              'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
              'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
 #gcm_names = ['bcc-csm1-1']
-rcps = ['rcp45']
-regions = [14]
+rcps = ['rcp60']
+regions = [13,14,15]
 zip_fp = '/Volumes/LaCie/PyGEM_simulations/2019_0317/spc_zipped/'
 multimodel_fp = zip_fp + '../multimodel/'
 
@@ -111,13 +111,13 @@ for batman in [0]:
     for region in regions:
         for rcp in rcps:
             
-#            for gcm_name in gcm_names:
-#                gcm_fp = zip_fp + gcm_name + '/'
-#                for i in os.listdir(gcm_fp):
-#                    if str(region) in i and rcp in i:
-#                        with zipfile.ZipFile(gcm_fp + i, 'r') as zipObj:
-#                            # Extract all the contents of zip file in current directory
-#                            zipObj.extractall(multimodel_fp)
+            for gcm_name in gcm_names:
+                gcm_fp = zip_fp + gcm_name + '/'
+                for i in os.listdir(gcm_fp):
+                    if str(region) in i and rcp in i:
+                        with zipfile.ZipFile(gcm_fp + i, 'r') as zipObj:
+                            # Extract all the contents of zip file in current directory
+                            zipObj.extractall(multimodel_fp)
             
             #%%
             list_fns = []

@@ -42,24 +42,27 @@ option_cmip5_mb_vs_climate = 0
 option_map_gcm_changes = 0
 option_region_map_nodata = 0
 option_peakwater_map = 0
-option_runoff_components = 1
+option_runoff_components = 0
 option_runoff_monthlychange = 0
 runoff_erainterim_bywatershed = 0
-
-analyze_multimodel = 0
 
 option_glaciermip_table = 0
 option_zemp_compare = 0
 option_gardelle_compare = 0
 option_wgms_compare = 0
 option_dehecq_compare = 0
+option_uncertainty_fig = 0
 option_nick_snowline = 0
+
+analyze_multimodel = 1
+option_merge_multimodel_datasets = 0
 
 
 #%% ===== Input data =====
 #netcdf_fp_cmip5 = input.output_sim_fp + 'spc_subset/'
 netcdf_fp_cmip5 = input.output_sim_fp + 'spc_multimodel/'
 netcdf_fp_era = input.output_sim_fp + '/ERA-Interim/ERA-Interim_1980_2017_wy_areachg_pre2000/'
+
 
 #%%
 regions = [13, 14, 15]
@@ -328,7 +331,8 @@ def select_groups(grouping, main_glac_rgi_all):
     return groups, group_cn
 
 
-def load_glacier_data(rgi_regions):
+def load_glacier_data(rgi_regions, 
+                      load_caldata=0, startyear=2000, endyear=2018, option_wateryear=3):
     """
     Load glacier data (main_glac_rgi, hyps, and ice thickness)
     """
@@ -352,6 +356,26 @@ def load_glacier_data(rgi_regions):
             main_glac_hyps_all = pd.concat([main_glac_hyps_all, main_glac_hyps_region], sort=False)
             main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region], 
                                                    sort=False)
+            
+        if load_caldata == 1:
+            cal_datasets = ['shean']
+            dates_table = modelsetup.datesmodelrun(startyear=startyear, endyear=endyear, spinupyears=0, 
+                                                   option_wateryear=option_wateryear)
+            # Calibration data
+            cal_data = pd.DataFrame()
+            for dataset in cal_datasets:
+                cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_region)
+                cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table)
+                cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+            cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+            cal_data.reset_index(drop=True, inplace=True)
+            
+            if rgi_region == rgi_regions[0]:
+                cal_data_all = cal_data
+            else:
+                cal_data_all = pd.concat([cal_data_all, cal_data], sort=False)
+        #%%
+        
     main_glac_hyps_all = main_glac_hyps_all.fillna(0)
     main_glac_icethickness_all = main_glac_icethickness_all.fillna(0)
     
@@ -386,7 +410,10 @@ def load_glacier_data(rgi_regions):
     # All
     main_glac_rgi_all['all_group'] = 'all'
     
-    return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all
+    if load_caldata == 0:
+        return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all
+    else:
+        return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all, cal_data_all
 
 
 def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input.option_bias_adjustment):
@@ -469,15 +496,299 @@ def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input
     return gcm_temp_adj_all, gcm_prec_adj_all, gcm_elev_adj_all
 
 
+if option_uncertainty_fig == 1:
+    #%%
+    netcdf_fp_cmip5 = input.output_sim_fp + 'spc_subset/'
+    netcdf_fp_multi = input.output_sim_fp + 'spc_multimodel/'
+    figure_fp = input.output_sim_fp + 'figures/'
+#    gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
+#                 'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
+#                 'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
+    gcm_names = ['GFDL-ESM2G']
+    gcm_single = 'GFDL-ESM2G'
+    rcps = ['rcp26', 'rcp45', 'rcp85']
+    regions = [13,14,15]
+    
+    startyear = 2015
+    endyear = 2100
+    
+    rgiid_small = 'RGI60-15.03854'
+    rgiid_big = 'RGI60-15.03473'
+    
+    vn = 'volume_glac_annual'
+
+    # Load glaciers
+#    main_glac_rgi, main_glac_hyps, main_glac_icethickness, cal_data = (
+#            load_glacier_data(regions, load_caldata=1, startyear=2000, endyear=2018, option_wateryear=3))
+    
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    cal_data = pd.read_csv(input.shean_fp + input.shean_fn)
+    print('Check glacier indices are correct')
+    
+    main_glac_rgi['cal_mwea'] = cal_data['mb_mwea']
+    main_glac_rgi['cal_mwea_sigma'] = cal_data['mb_mwea_sigma']
+    main_glac_rgi['mass_Gt'] = ((main_glac_hyps.values * main_glac_icethickness.values / 1000).sum(axis=1) 
+                                * input.density_ice / input.density_water)
+    
+    #%%
+    # SINGLE GCM DATA
+    region_single = int(rgiid_small.split('-')[1].split('.')[0])
+
+    ds_single_all, ds_single_std_all = {}, {}
+    for rcp in rcps:
+        ds_single_all[rcp], ds_single_std_all[rcp] = {}, {}  
+        for ngcm, gcm_name in enumerate(gcm_names):
+            # Load datasets
+            ds_fn = ('R' + str(region_single) + '_' + gcm_name + '_' + rcp + '_c2_ba1_100sets_2000_2100--subset.nc')
+            ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
+            
+            # Extract time variable
+            time_values_annual = ds.coords['year_plus1'].values
+            time_values_monthly = ds.coords['time'].values
+            time_idx_start = np.where(time_values_annual == startyear)[0][0]
+            time_idx_end = np.where(time_values_annual == endyear)[0][0] + 1
+            # Extract data
+            ds_rgi_table = pd.DataFrame(ds['glacier_table'].values, columns=ds['glacier_table'].glac_attrs)
+            ds_rgi_table['RGIId'] = ['RGI60-' + str(int(ds_rgi_table.loc[x, 'O1Region'])) + '.' +
+                                     str(int(ds_rgi_table.loc[x,'glacno'])).zfill(5) 
+                                     for x in range(ds_rgi_table.shape[0])]
+            glac_idx = np.where(ds_rgi_table['RGIId'] == rgiid_big)[0][0]
+            ds_single_all[rcp][gcm_name] = ds[vn].values[glac_idx,:,0]
+            ds_single_std_all[rcp][gcm_name] = ds[vn].values[glac_idx,:,1]
+            
+            ds.close()
+            
+            #%%
+    # Glacier and grouped annual specific mass balance and mass change
+    ds_multi = {}
+    ds_multi_std = {}
+    for rcp in rcps:
+        for region in regions:
+            
+            # Load datasets
+            ds_fn = 'R' + str(region) + '_multimodel_' + rcp + '_c2_ba1_100sets_2000_2100.nc'
+            ds = xr.open_dataset(netcdf_fp_multi + ds_fn)
+            
+            # Extract time variable
+            time_values_annual = ds.coords['year_plus1'].values
+            time_values_monthly = ds.coords['time'].values        
+            
+            if region == regions[0]: 
+                ds_multi[rcp] = ds[vn].values[:,:,0]
+                ds_multi_std[rcp] = ds[vn].values[:,:,1]
+            else:
+                ds_multi[rcp] = np.concatenate((ds_multi[rcp], ds[vn].values[:,:,0]), axis=0)
+                ds_multi_std[rcp] = np.concatenate((ds_multi_std[rcp], ds[vn].values[:,:,1]), axis=0)
+            
+            ds.close()
+            
+    #%%
+    multimodel_linewidth = 2
+    alpha=0.2
+        
+    fig, ax = plt.subplots(2, 2, squeeze=False, sharex=False, sharey=False, 
+                           gridspec_kw = {'wspace':0.4, 'hspace':0.15})
+    
+    t1_idx = np.where(time_values_annual == startyear)[0][0]
+    t2_idx = np.where(time_values_annual == endyear)[0][0] + 1
+    
+    time_values = time_values_annual[t1_idx:t2_idx]
+    
+    for rcp in rcps:
+        
+        rgi_idx_big = np.where(main_glac_rgi['RGIId'] == rgiid_big)[0][0]
+        rgi_idx_small = np.where(main_glac_rgi['RGIId'] == rgiid_small)[0][0]
+            
+        # LARGE GLACIER, SINGLE GCM IN TOP LEFT
+        vol = ds_single_all[rcp][gcm_single][t1_idx:t2_idx]
+        vol_std = ds_single_std_all[rcp][gcm_single][t1_idx:t2_idx]
+        vol_normalizer = vol[0]
+        
+        vol_norm = vol / vol_normalizer
+        vol_low_norm = (vol - vol_std) / vol_normalizer
+        vol_high_norm = (vol + vol_std) / vol_normalizer
+        # remove values below zero
+        vol_low_norm[vol_low_norm < 0] = 0        
+        # Plot
+        ax[0,0].plot(time_values, vol_norm, color=rcp_colordict[rcp], linewidth=1, zorder=4)
+        ax[0,0].plot(time_values, vol_low_norm, color=rcp_colordict[rcp], linewidth=1, linestyle=':', zorder=4)
+        ax[0,0].plot(time_values, vol_high_norm, color=rcp_colordict[rcp], linewidth=1, linestyle=':', zorder=4)
+        ax[0,0].fill_between(time_values, vol_low_norm, vol_high_norm, 
+                             facecolor=rcp_colordict[rcp], alpha=0.2, zorder=3)
+        # Text
+        ax[0,0].text(0.5, 0.99, rgiid_big + '\n(single GCM)', size=10, horizontalalignment='center', 
+                      verticalalignment='top', transform=ax[0,0].transAxes)
+        ax[0,0].text(0.05, 0.99, 'A', size=12, horizontalalignment='center', 
+                      verticalalignment='top', transform=ax[0,0].transAxes, zorder=5)
+#        ax[0,0].text(0.99, 0.99, '$\mathregular{Mass_{2015}}$: ' + 
+#                                  str(np.round(main_glac_rgi.loc[rgi_idx_big,'mass_Gt'],1)) + ' Gt',
+#                     size=10, horizontalalignment='right', verticalalignment='top', transform=ax[0,0].transAxes)
+#        ax[0,0].text(0.99, 0.92, 'Initial mass: ' + str(np.round(main_glac_rgi.loc[rgi_idx_big,'mass_Gt'],1)) + 'Gt',
+#                     size=10, horizontalalignment='right', verticalalignment='top', transform=ax[0,0].transAxes)
+        # X-label
+        ax[0,0].set_xlim(time_values_annual[t1_idx:t2_idx].min(), 
+                                      time_values_annual[t1_idx:t2_idx].max())
+        ax[0,0].xaxis.set_tick_params(labelsize=12)
+        ax[0,0].xaxis.set_major_locator(plt.MultipleLocator(50))
+        ax[0,0].xaxis.set_minor_locator(plt.MultipleLocator(10))
+        ax[0,0].set_xticklabels(['2015','2050','2100'])        
+        # Y-label
+        ax[0,0].set_ylabel('Mass (-)', size=12)
+        ax[0,0].set_ylim(0,1.1)
+        ax[0,0].yaxis.set_major_locator(plt.MultipleLocator(0.2))
+        ax[0,0].yaxis.set_minor_locator(plt.MultipleLocator(0.05))
+        # Tick parameter
+        ax[0,0].yaxis.set_ticks_position('both')
+        ax[0,0].tick_params(axis='both', which='major', labelsize=12, direction='inout')
+        ax[0,0].tick_params(axis='both', which='minor', labelsize=12, direction='inout')               
+            
+        # LARGE GLACIER, MULTI-MODEL IN TOP RIGHT
+        vol_multi = ds_multi[rcp][rgi_idx_big][t1_idx:t2_idx]
+        vol_multi_std = ds_multi_std[rcp][rgi_idx_big][t1_idx:t2_idx]
+        vol_multi_normalizer = vol_multi[0]
+
+        vol_multi_norm = vol_multi / vol_multi_normalizer
+        vol_multi_low_norm = (vol_multi - vol_multi_std) / vol_multi_normalizer
+        vol_multi_high_norm = (vol_multi + vol_multi_std) / vol_multi_normalizer
+        # remove values below zero
+        vol_multi_low_norm[vol_multi_low_norm < 0] = 0                    
+        # Plot
+        ax[0,1].plot(time_values, vol_multi_norm, color=rcp_colordict[rcp], linewidth=1, zorder=4)
+        ax[0,1].plot(time_values, vol_multi_low_norm, color=rcp_colordict[rcp], linewidth=1, linestyle=':', zorder=4)
+        ax[0,1].plot(time_values, vol_multi_high_norm, color=rcp_colordict[rcp], linewidth=1, linestyle=':', zorder=4)
+        ax[0,1].fill_between(time_values, vol_multi_low_norm, vol_multi_high_norm, 
+                             facecolor=rcp_colordict[rcp], alpha=0.2, zorder=3)
+        # Text
+        ax[0,1].text(0.5, 0.99, rgiid_big + '\n(multi-model mean)', size=10, horizontalalignment='center', 
+                      verticalalignment='top', transform=ax[0,1].transAxes)
+        ax[0,1].text(0.05, 0.99, 'B', size=12, horizontalalignment='center', 
+                      verticalalignment='top', transform=ax[0,1].transAxes, zorder=5)
+        # X-label
+        ax[0,1].set_xlim(time_values_annual[t1_idx:t2_idx].min(), 
+                                      time_values_annual[t1_idx:t2_idx].max())
+        ax[0,1].xaxis.set_tick_params(labelsize=12)
+        ax[0,1].xaxis.set_major_locator(plt.MultipleLocator(50))
+        ax[0,1].xaxis.set_minor_locator(plt.MultipleLocator(10))
+        ax[0,1].set_xticklabels(['2015','2050','2100'])        
+        # Y-label
+        ax[0,1].set_ylabel('Mass (-)', size=12)
+        ax[0,1].set_ylim(0,1.1)
+        ax[0,1].yaxis.set_major_locator(plt.MultipleLocator(0.2))
+        ax[0,1].yaxis.set_minor_locator(plt.MultipleLocator(0.05))
+        # Tick parameters
+        ax[0,1].yaxis.set_ticks_position('both')
+        ax[0,1].tick_params(axis='both', which='major', labelsize=12, direction='inout')
+        ax[0,1].tick_params(axis='both', which='minor', labelsize=12, direction='inout')   
+        
+        
+        # SMALL GLACIER, MULTI-MODEL IN LOWER LEFT
+        vol_multi = ds_multi[rcp][rgi_idx_small][t1_idx:t2_idx]
+        vol_multi_std = ds_multi_std[rcp][rgi_idx_small][t1_idx:t2_idx]
+        vol_multi_normalizer = vol_multi[0]
+
+        vol_multi_norm = vol_multi / vol_multi_normalizer
+        vol_multi_low_norm = (vol_multi - vol_multi_std) / vol_multi_normalizer
+        vol_multi_high_norm = (vol_multi + vol_multi_std) / vol_multi_normalizer
+        # remove values below zero
+        vol_multi_low_norm[vol_multi_low_norm < 0] = 0                    
+        # Plot
+        ax[1,0].plot(time_values, vol_multi_norm, color=rcp_colordict[rcp], linewidth=1, zorder=4)
+        ax[1,0].plot(time_values, vol_multi_low_norm, color=rcp_colordict[rcp], linewidth=1, linestyle=':', zorder=4)
+        ax[1,0].plot(time_values, vol_multi_high_norm, color=rcp_colordict[rcp], linewidth=1, linestyle=':', zorder=4)
+        ax[1,0].fill_between(time_values, vol_multi_low_norm, vol_multi_high_norm, 
+                             facecolor=rcp_colordict[rcp], alpha=0.2, zorder=3)
+        # Text
+        ax[1,0].text(0.5, 0.99, rgiid_small + '\n(multi-model mean)', size=10, horizontalalignment='center', 
+                      verticalalignment='top', transform=ax[1,0].transAxes)
+        ax[1,0].text(0.05, 0.99, 'C', size=12, horizontalalignment='center', 
+                      verticalalignment='top', transform=ax[1,0].transAxes, zorder=5)
+        # X-label
+        ax[1,0].set_xlim(time_values_annual[t1_idx:t2_idx].min(), 
+                                      time_values_annual[t1_idx:t2_idx].max())
+        ax[1,0].xaxis.set_tick_params(labelsize=12)
+        ax[1,0].xaxis.set_major_locator(plt.MultipleLocator(50))
+        ax[1,0].xaxis.set_minor_locator(plt.MultipleLocator(10))
+        ax[1,0].set_xticklabels(['2015','2050','2100'])        
+        # Y-label
+        ax[1,0].set_ylabel('Mass (-)', size=12)
+        ax[1,0].set_ylim(0,33)
+        ax[1,0].yaxis.set_major_locator(plt.MultipleLocator(10))
+        ax[1,0].yaxis.set_minor_locator(plt.MultipleLocator(2))
+        # Tick parameters
+        ax[1,0].yaxis.set_ticks_position('both')
+        ax[1,0].tick_params(axis='both', which='major', labelsize=12, direction='inout')
+        ax[1,0].tick_params(axis='both', which='minor', labelsize=12, direction='inout') 
+        
+        
+        # GLACIER AREA VS MB_SIGMA                
+        # Plot
+        ax[1,1].plot(main_glac_rgi['Area'], main_glac_rgi['cal_mwea_sigma'], 'o', markersize=1, markeredgewidth=0.1,
+                     markerfacecolor='none', markeredgecolor='k')
+        ax[1,1].set_xscale('log')
+        # X-label
+        ax[1,1].set_xlabel('Glacier Area ($\mathregular{km^{2}}$)', size=12, labelpad=0)
+        ax[1,1].set_xticks([1e-1, 1e0, 1e1, 1e2, 1e3])
+        locmin = mpl.ticker.LogLocator(base=10.0,subs=(0.2,0.4,0.6,0.8),numticks=12)
+        ax[1,1].xaxis.set_minor_locator(locmin)
+        ax[1,1].xaxis.set_minor_formatter(mpl.ticker.NullFormatter())
+        ax[1,1].tick_params(axis='both', which='major', labelsize=12)
+        # Text
+        ax[1,1].text(0.05, 0.99, 'D', size=12, horizontalalignment='center', 
+                      verticalalignment='top', transform=ax[1,1].transAxes, zorder=5)
+        # Y-label
+        ax[1,1].set_ylabel('$\mathregular{B_{sigma} (m w.e. {yr^{-1}}}$)', size=12)
+        ax[1,1].yaxis.set_major_locator(plt.MultipleLocator(0.2))
+        ax[1,1].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+#        # Tick parameters
+        ax[1,1].tick_params(axis='both', which='major', labelsize=12, direction='inout')
+        ax[1,1].tick_params(axis='both', which='minor', labelsize=12, direction='inout') 
+        
+        
+    # RCP Legend
+    rcp_dict = {'rcp26': 'RCP 2.6',
+                'rcp45': 'RCP 4.5',
+                'rcp60': 'RCP 6.0',
+                'rcp85': 'RCP 8.5'}
+    rcp_lines = []
+    for rcp in rcps:
+        line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
+        rcp_lines.append(line)
+    rcp_labels = [rcp_dict[rcp] for rcp in rcps]
+    ax[0,1].legend(rcp_lines, rcp_labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
+                   handletextpad=0.25, borderpad=0, frameon=False)
+    
+#    # GCM Legend
+#    gcm_lines = []
+#    for gcm in [gcm_single]:
+#        line = Line2D([0,1],[0,1], color='grey', linewidth=multimodel_linewidth)
+#        gcm_lines.append(line)
+#    ax[0,0].legend(gcm_lines, [gcm_single], loc=(0.07,0.01), fontsize=10, labelspacing=0.25, handlelength=1, 
+#                   handletextpad=0.25, borderpad=0, frameon=False, title='Single GCM')
+
+#    # Label
+#    ylabel_str = 'Mass [-]'
+#    fig.text(-0.01, 0.5, ylabel_str, va='center', rotation='vertical', size=12)
+    
+    # Save figure
+    fig.set_size_inches(6, 6)
+    figure_fn = 'uncertainty_large_small_single_multi.png'
+    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+#    
+    
+                #%%
+
 if analyze_multimodel == 1:
     # Find problematic GCMs
     netcdf_fp_cmip5 = '/Volumes/LaCie/PyGEM_simulations/2019_0317/multimodel/'
-    gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
-             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
-             'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
+#    gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
+#             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
+#             'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
+    gcm_names = ['bcc-csm1-1', 'CESM1-CAM5', 'CCSM4', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
+                 'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
+                 'MIROC-ESM-CHEM', 'MIROC5', 'MRI-CGCM3', 'NorESM1-ME']
 #    rcps = ['rcp26', 'rcp45']
-    rcps = ['rcp85']
-    regions = [15]
+    rcps = ['rcp60']
+    regions = [13, 14, 15]
     
     ds_vns = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 'refreeze_glac_monthly', 'melt_glac_monthly',
               'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
@@ -498,7 +809,7 @@ if analyze_multimodel == 1:
                         print('Corrupt file:  ', A.max(), vn)
                     ds.close()
             
-#            # Check individual GCMs
+            # Check individual GCMs
 #            list_fns = []
 #            for i in os.listdir(netcdf_fp_cmip5):
 #                if str(region) in i and rcp in i:
@@ -536,8 +847,7 @@ if option_runoff_components == 1:
               'offglac_prec_monthly', 'offglac_refreeze_monthly', 'offglac_melt_monthly']
     ds_vns_needarea = ['prec_glac_monthly', 'acc_glac_monthly', 'refreeze_glac_monthly', 'melt_glac_monthly',
                        'offglac_prec_monthly', 'offglac_refreeze_monthly', 'offglac_melt_monthly']
-    grouping = 'all'
-    print('DELETE ME!!! SWITCH BACK TO WATERSHED GROUPINGS')
+    grouping = 'watershed'
     option_include_offglac_runoff = 1
     peakwater_Nyears = 10
     
@@ -2697,22 +3007,6 @@ if option_plot_cmip5_normalizedchange == 1:
         figure_fn = figure_fn.replace('.png','_woffglac.png')
 
     fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
-    
-    #%%
-    # OLD/CUT
-
-##                    elif ('prec' in vn) or ('temp' in vn):       
-##                        # Regional mean function (monthly data)
-##                        reg_mean_temp_biasadj, reg_mean_prec_biasadj = (
-##                                select_region_climatedata(gcm_name, rcp, main_glac_rgi))
-##                        # Annual region mean
-##                        if 'prec' in vn:
-##                            reg_var_mean_annual = reg_mean_prec_biasadj.reshape(-1,12).sum(axis=1)
-##                        elif 'temp' in vn:
-##                            reg_var_mean_annual = reg_mean_temp_biasadj.reshape(-1,12).mean(axis=1)
-##                        # Plot data
-##                        vn_reg_plot = reg_var_mean_annual.copy()
-            
             
 #%%
 # Regional maps
@@ -3859,6 +4153,36 @@ if runoff_erainterim_bywatershed == 1:
               '\n  all perfectly correlated:', np.round(group_annual_runoff_Gta_pc,3),
               '\n  interannual std:', np.round(group_annual_runoff_Gta_interannual_std,3))
         
+if option_merge_multimodel_datasets == 1:
+    ds1 = xr.open_dataset(netcdf_fp_cmip5 + 'R14_multimodel_rcp45_c2_ba1_100sets_2000_2100.nc')
+    ds2 = xr.open_dataset(netcdf_fp_cmip5 + 'R14_multimodel_rcp45_c2_ba1_100sets_2000_2100_good4volume.nc')
+    
+    #ds_vns = ['prec_glac_monthly, acc, refreeze, melt, frontal ablation, massbal
+              
+    ds_vns = ['runoff_glac_monthly', 'volume_glac_annual']
+    
+    ds3 = ds1.copy()
+    
+    for vn in ds_vns:
+        print(vn)
+        
+        ds3[vn].values = ds2[vn].values
+        
+    ds3['area_glac_annual_allgcms'] = ds2['area_glac_annual']
+    
+    # Export merged dataset
+    # Encoding
+    # add variables to empty dataset and merge together
+    encoding = {}
+    noencoding_vn = ['stats', 'glac_attrs']
+    if input.output_package == 2:
+        for encoding_vn in input.output_variables_package2:
+            # Encoding (specify _FillValue, offsets, etc.)
+            if encoding_vn not in noencoding_vn:
+                encoding[encoding_vn] = {'_FillValue': False}
+    
+    ds3.to_netcdf(netcdf_fp_cmip5 + 'R14_multimodel_rcp45_c2_ba1_100sets_2000_2100_modified.nc', encoding=encoding)
+
     
 #%% EXTRA CODE
     
