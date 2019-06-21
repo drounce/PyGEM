@@ -39,7 +39,6 @@ option_prior_vs_posterior_single = 0
 
 option_raw_plotchain = 0
 
-
 # Paper figures
 option_metrics_vs_chainlength = 0
 option_metrics_histogram_all = 0

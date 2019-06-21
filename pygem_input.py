@@ -109,14 +109,14 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13]
+rgi_regionsO1 = [1]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-#rgi_glac_number = 'all'
-rgi_glac_number = ['03983']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['00001']
 #rgi_glac_number = ['05313']
-#rgi_glac_number = glac_num_fromrange(1,67)
+rgi_glac_number = glac_num_fromrange(1,50)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
 #                                               str(rgi_regionsO1[0]) + '/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
@@ -130,27 +130,27 @@ option_bias_adjustment = 1
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
 
-# First year of model run
-startyear = 2000
+# First year of model run (change these to calibration)
+startyear = 1980
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2018
+endyear = 2017
 # Spin up time [years]
 spinupyears = 0
 # Water year option
-option_wateryear = 3
-#  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 1 2000)
+option_wateryear = 1
+#  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 30 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
-constantarea_years = 100
+constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-#gcm_startyear = 1980
-#gcm_endyear = 2017
 gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_endyear = 2017
+#gcm_startyear = 2000
+#gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
@@ -173,10 +173,10 @@ synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015)
-option_calibration = 2
+option_calibration = 3
 # Calibration datasets
-cal_datasets = ['shean']
-#cal_datasets = ['wgms_d']
+#cal_datasets = ['shean']
+cal_datasets = ['mcnabb', 'larsen']
 #cal_datasets = ['wgms_d', 'group']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
 # Calibration output filepath (currently only for option 1)
@@ -581,6 +581,26 @@ mauer_mb_cn = 'geoMassBal'
 mauer_mb_err_cn = 'geoMassBalSig'
 mauer_time1_cn = 't1'
 mauer_time2_cn = 't2'
+
+# ===== MCNABB GEODETIC =====
+mcnabb_fp = main_directory + '/../DEMs/McNabb_data/wgms_dv/'
+mcnabb_fn = 'Alaska_dV_17jun_preprocessed.csv'
+mcnabb_rgiid_cn = 'RGIId'
+mcnabb_mb_cn = 'mb_mwea'
+mcnabb_mb_err_cn = 'mb_mwea_sigma'
+mcnabb_time1_cn = 'date0'
+mcnabb_time2_cn = 'date1'
+mcnabb_area_cn = 'area'
+
+# ===== LARSEN GEODETIC =====
+larsen_fp = main_directory + '/../DEMs/larsen/'
+larsen_fn = 'larsen2015_supplementdata_wRGIIds.csv'
+larsen_rgiid_cn = 'RGIId'
+larsen_mb_cn = 'mb_mwea'
+larsen_mb_err_cn = 'mb_mwea_sigma'
+larsen_time1_cn = 'date0'
+larsen_time2_cn = 'date1'
+larsen_area_cn = 'area'
 
 # ===== WGMS =====
 wgms_datasets = ['wgms_d', 'wgms_ee']

@@ -845,6 +845,7 @@ def main(list_packed_vars):
 
         # ==============================================================
     #%%
+    # Huss and Hock (2015) model calibration steps
     elif input.option_calibration == 3:
         
         def objective(modelparameters_subset):
@@ -1033,8 +1034,7 @@ def main(list_packed_vars):
                                     'chain': [0]})
             ds.to_netcdf(output_fullfn)
             ds.close()
-        
-        
+
         # Huss and Hock (2015) parameters and bounds
         tempchange_init = 0
         tempchange_bndlow = -10
@@ -1044,10 +1044,8 @@ def main(list_packed_vars):
         precfactor_bndhigh = 2
         ddfsnow_init = 0.003
         ddfsnow_bndlow = 0.00175
-        ddfsnow_bndhigh = 0.0045
-        
+        ddfsnow_bndhigh = 0.0045        
         ddfsnow_iceratio = 0.5
-
         
         # ===== Begin processing =====
         # loop through each glacier selected
@@ -1180,9 +1178,6 @@ def main(list_packed_vars):
             if not os.path.exists(netcdf_output_fp):
                 os.makedirs(netcdf_output_fp)
             write_netcdf_modelparams(netcdf_output_fp + glacier_str + '.nc', modelparameters, mb_mwea, observed_massbal)
-
-        
-        
         # ==============================================================
         
     #%%

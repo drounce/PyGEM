@@ -691,7 +691,7 @@ def main(list_packed_vars):
     # Dataset to store model simulations and statistics
     # Number of simulations
     if input.option_calibration == 1:
-            sim_iters = 1
+        sim_iters = 1
     elif input.option_calibration == 2:
         sim_iters = input.sim_iters
     # Create datasets
