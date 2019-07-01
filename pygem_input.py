@@ -113,12 +113,11 @@ rgi_regionsO1 = [1]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
-#rgi_glac_number = ['00001']
-#rgi_glac_number = ['05313']
-rgi_glac_number = glac_num_fromrange(1,50)
-#rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt2_1000glac_3chain_truncnorm/reg' + 
-#                                               str(rgi_regionsO1[0]) + '/')
+#rgi_glac_number = 'all'
+#rgi_glac_number = ['00002']
+#rgi_glac_number = ['00013']
+#rgi_glac_number = glac_num_fromrange(1,20)
+rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
 
 # ===== Bias adjustment option =====
@@ -147,10 +146,10 @@ constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-gcm_startyear = 2000
-gcm_endyear = 2017
 #gcm_startyear = 2000
-#gcm_endyear = 2100
+#gcm_endyear = 2017
+gcm_startyear = 2000
+gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
@@ -173,9 +172,11 @@ synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015)
-option_calibration = 3
+option_calibration = 1
 # Calibration datasets
 #cal_datasets = ['shean']
+#cal_datasets = ['mcnabb']
+#cal_datasets = ['larsen']
 cal_datasets = ['mcnabb', 'larsen']
 #cal_datasets = ['wgms_d', 'group']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
@@ -185,10 +186,14 @@ output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 # OPTION 1: Minimization
 # Model parameter bounds for each calibration round
 #  first tuple will run as expected; 
-precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
+#precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
+#precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
+#ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
+#tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
+precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.8,2)]
 precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
-ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
-tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
+ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
+tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
 # Threshold to update the model parameters (based on the difference in zscores)
 zscore_update_threshold = 0.1
 
@@ -264,7 +269,7 @@ precfactor = 1
 precgrad = 0.0001
 #  range 0.0001 - 0.0010
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 0.0041
+ddfsnow = 0.003
 #  range 2.6 - 5.1 * 10^-3
 # Temperature adjustment [deg C]
 tempchange = 0
@@ -276,7 +281,7 @@ lrglac = -0.0065
 #  k_p in Radic et al. (2013)
 #  c_prec in Huss and Hock (2015)
 # Degree-day factor of ice [m w.e. d-1 degC-1]
-ddfice = 0.0041 / 0.7
+ddfice = 0.0043 / 0.7
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Ratio degree-day factor snow snow to ice
 ddfsnow_iceratio = 0.7
@@ -319,7 +324,7 @@ modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
 # Model parameter filepath
 if option_calibration == 1:
     modelparams_fp_dict = {
-            1:  output_filepath + 'cal_opt1/',
+            1:  output_filepath + 'cal_opt1/reg1/',
             3:  output_filepath + 'cal_opt1/',
             4:  output_filepath + 'cal_opt1/',
             6:  output_filepath + 'cal_opt1/reg6/',

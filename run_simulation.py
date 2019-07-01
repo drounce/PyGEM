@@ -858,10 +858,11 @@ def main(list_packed_vars):
                 output_ds_all.offglac_snowpack_monthly[glac, :, n_iter] = offglac_wide_snowpack
                 output_ds_all.offglac_runoff_monthly[glac, :, n_iter] = offglac_wide_runoff
                 
-            print('glac runoff max:', np.round(glac_wide_runoff.max(),0), 
-                  'glac prec max:', np.round(glac_wide_prec.max(),2),
-                  'glac refr max:', np.round(glac_wide_refreeze.max(),2),
-                  'offglac ref max:', np.round(offglac_wide_refreeze.max(),2))
+#            if debug:
+#                print('glac runoff max:', np.round(glac_wide_runoff.max(),0), 
+#                      'glac prec max:', np.round(glac_wide_prec.max(),2),
+#                      'glac refr max:', np.round(glac_wide_refreeze.max(),2),
+#                      'offglac ref max:', np.round(offglac_wide_refreeze.max(),2))
             
                 
         # Calculate statistics of simulations

@@ -13,10 +13,10 @@ from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 
-pd.read_csv('')
+#pd.read_csv('')
 
 #%% X-Y PLOT
-ds = pd.read_csv(...)
+#ds = pd.read_csv(...)
 
 # X,Y values
 x_values = [0,1,2,3]
@@ -101,10 +101,10 @@ rgiO1_shp_fn = os.getcwd() + '/../RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.
         
 
 # Time, Latitude, Longitude
-lons = [-150,85, -60]
-lats = [66,40,-15]
-values = [-5, 0, 5]
-sizes = [100, 50, 20]
+lons = [7.5,86.8,43.2,85.6,6.9,-69.9,10.6,-70.0,170]
+lats = [46.0,28.0,42.8,28.2,45.8,-33.6,46.5,-30.1,-43]
+values = [2665,5471,3050,4076,2030,3459,2623,4570,900]
+#sizes = [100, 50, 20]
 
 #var_change = temp_change
 
@@ -125,26 +125,26 @@ ax.set_ylabel(ylabel, size=labelsize)
 
 # Add regions
 #  facecolor='none' just plots the lines
-group_shp = cartopy.io.shapereader.Reader(rgiO1_shp_fn)
-group_feature = cartopy.feature.ShapelyFeature(group_shp.geometries(), cartopy.crs.PlateCarree(),
-                                               edgecolor='black', facecolor='grey', alpha=0.2, linewidth=1)
-ax.add_feature(group_feature,zorder=2)
+#group_shp = cartopy.io.shapereader.Reader(rgiO1_shp_fn)
+#group_feature = cartopy.feature.ShapelyFeature(group_shp.geometries(), cartopy.crs.PlateCarree(),
+#                                               edgecolor='black', facecolor='grey', alpha=0.2, linewidth=1)
+#ax.add_feature(group_feature,zorder=2)
 
 # Add colorbar
 cmap = 'RdYlBu_r'
 norm = plt.Normalize(int(np.min(values)), np.ceil(np.max(values)))
-var_label = 'Scale [units]'
+var_label = 'Elevation [m a.s.l.]'
 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
 sm._A = []
 plt.colorbar(sm, ax=ax, fraction=0.024, pad=0.01)
 fig.text(1, 0.5, var_label, va='center', ha='center', rotation='vertical', size=labelsize)
 
-ax.scatter(lons, lats, c=values, s=sizes, cmap=cmap, norm=norm, edgecolors='k', zorder=3)
+ax.scatter(lons, lats, c=values, s=50, cmap=cmap, norm=norm, edgecolors='k', linewidth=0.5, alpha=0.9, zorder=3)
 
 #ax.pcolormesh(lons, lats, var_change, cmap=cmap, norm=norm, zorder=2, alpha=0.8)            
 
 # Title
-ax.set_title('[INSERT TITLE]')
+#ax.set_title('[INSERT TITLE]')
 
 # Save figure
 fig.set_size_inches(6,4)
