@@ -41,7 +41,7 @@ def getparser():
     spc_region (optional) : str
         RGI region number for supercomputer 
     rgi_glac_number_fn : str
-        filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
+        filename of .pkl file containing a list of glacier numbers which is used to run batches on the supercomputer
     rgi_glac_number : str
         rgi glacier number to run for supercomputer
     progress_bar : int
@@ -2060,6 +2060,7 @@ if __name__ == '__main__':
     # Select all glaciers in a region
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all',
                                                           rgi_glac_number=rgi_glac_number)
+    
     # Define chunk size for parallel processing
     if args.option_parallels != 0:
         num_cores = int(np.min([main_glac_rgi_all.shape[0], args.num_simultaneous_processes]))
@@ -2262,7 +2263,7 @@ if __name__ == '__main__':
                                  gcm_lr_chunk,
                                  cal_data_chunk
                                  ])
-        
+
     #%%===================================================
     # Parallel processing
     if args.option_parallels != 0:

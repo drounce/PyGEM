@@ -836,14 +836,14 @@ class MBData():
                 ds.loc[x,'area_km2'] = (
                         main_glac_hyps.iloc[glacnodict[ds.loc[x,'glacno']], 
                                             ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
-            # Time indices
-            ds['t1_year'] = [int(x.split('-')[0]) for x in ds[self.t1_cn].values]
-            ds['t1_month'] = [int(x.split('-')[1]) for x in ds[self.t1_cn].values]
-            ds['t1_day'] = [int(x.split('-')[2]) for x in ds[self.t1_cn].values]
+            # Time
+            ds['t1_year'] = [int(str(x)[0:4]) for x in ds[self.t1_cn].values]
+            ds['t1_month'] = [int(str(x)[4:6]) for x in ds[self.t1_cn].values]
+            ds['t1_day'] = [int(str(x)[6:]) for x in ds[self.t1_cn].values]
+            ds['t2_year'] = [int(str(x)[0:4]) for x in ds[self.t2_cn].values]
+            ds['t2_month'] = [int(str(x)[4:6]) for x in ds[self.t2_cn].values]
+            ds['t2_day'] = [int(str(x)[6:]) for x in ds[self.t2_cn].values]                           
             ds['t1_daysinmonth'] = ds.apply(lambda row: modelsetup.daysinmonth(row['t1_year'], row['t1_month']), axis=1)
-            ds['t2_year'] = [int(x.split('-')[0]) for x in ds[self.t2_cn].values]
-            ds['t2_month'] = [int(x.split('-')[1]) for x in ds[self.t2_cn].values]
-            ds['t2_day'] = [int(x.split('-')[2]) for x in ds[self.t2_cn].values]
             ds['t2_daysinmonth'] = ds.apply(lambda row: modelsetup.daysinmonth(row['t2_year'], row['t2_month']), axis=1)
             ds['t1_datetime'] = pd.to_datetime(
                     pd.DataFrame({'year':ds.t1_year.values, 'month':ds.t1_month.values, 'day':ds.t1_day.values}))
@@ -905,16 +905,16 @@ if __name__ == '__main__':
     elev_bins = main_glac_hyps.columns.values.astype(int)
     elev_bin_interval = elev_bins[1] - elev_bins[0]
     
-    # Testing    
-    mb1 = MBData(name='larsen', rgi_regionO1=rgi_regionsO1[0])
-#    mb1 = MBData(name='mauer', rgi_regionO1=rgi_regionsO1[0])
-#    mb1 = MBData(name='cogley', rgi_regionO1=rgi_regionsO1[0])
-    ds_output = mb1.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)
+#    # Testing    
+#    mb1 = MBData(name='larsen', rgi_regionO1=rgi_regionsO1[0])
+##    mb1 = MBData(name='mauer', rgi_regionO1=rgi_regionsO1[0])
+##    mb1 = MBData(name='cogley', rgi_regionO1=rgi_regionsO1[0])
+#    ds_output = mb1.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)
     
     #%%
-    cal_datasets = ['mcnabb', 'larsen', 'wgms_d', 'wgms_ee']
+    cal_datasets = ['mcnabb']
 #    cal_datasets = ['wgms_d', 'wgms_ee', 'group']
-##    cal_datasets = ['shean']
+#    cal_datasets = ['shean']
 ##    cal_datasets = ['wgms_ee']
 ##    cal_datasets = ['wgms_d']
 ##    cal_datasets = ['group']
@@ -995,6 +995,17 @@ if __name__ == '__main__':
 #    
 #    ds2['mb_mwea'] = ds2['smb'] * density_ice_brun / input.density_water
 #    ds2['mb_mwea_sigma'] = ds2['e_dh'] * density_ice_brun / input.density_water
+#    
+#    # Adjust date to YYYYMMDD format
+#    ds2['y0'] = [str(x.split('-')[0]) for x in ds2['date0'].values]
+#    ds2['m0'] = [str(x.split('-')[1]) for x in ds2['date0'].values]
+#    ds2['d0'] = [str(x.split('-')[2]) for x in ds2['date0'].values]
+#    ds2['y1'] = [str(x.split('-')[0]) for x in ds2['date1'].values]
+#    ds2['m1'] = [str(x.split('-')[1]) for x in ds2['date1'].values]
+#    ds2['d1'] = [str(x.split('-')[2]) for x in ds2['date1'].values]
+#    ds2['date0'] = ds2['y0'] + ds2['m0'] + ds2['d0']
+#    ds2['date1'] = ds2['y1'] + ds2['m1'] + ds2['d1']
+#    ds2.drop(['y0', 'm0', 'd0', 'y1', 'm1', 'd1'], axis=1, inplace=True)
 #    
 #    ds2.to_csv(input.mcnabb_fp + mcnabb_fn.replace('.csv','_preprocessed.csv'))
     
