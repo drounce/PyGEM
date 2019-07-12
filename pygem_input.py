@@ -113,8 +113,8 @@ rgi_regionsO1 = [1]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
-rgi_glac_number = 'all'
-#rgi_glac_number = ['00002']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['00570']
 #rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,2000)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
