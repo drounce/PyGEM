@@ -1754,13 +1754,17 @@ def main(list_packed_vars):
             if debug:
                 print('modified precfactor_bnds_list:', precfactor_bnds_list)
                         
+    
+            zscore_weighted_total = None
+            init_calrounds = len(input.precfactor_bnds_list_init)
             continue_loop = True
             while continue_loop:
                 # Bounds
-                precfactor_bnds = precfactor_bnds_list[calround]
-                precgrad_bnds = precgrad_bnds_list[calround]
-                ddfsnow_bnds = ddfsnow_bnds_list[calround]
-                tempchange_bnds = tempchange_bnds_list[calround]
+                if calround < init_calrounds:
+                    precfactor_bnds = precfactor_bnds_list[calround]
+                    precgrad_bnds = precgrad_bnds_list[calround]
+                    ddfsnow_bnds = ddfsnow_bnds_list[calround]
+                    tempchange_bnds = tempchange_bnds_list[calround]
                 # Initial guess
                 if calround == 0:
                     modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
@@ -1773,6 +1777,15 @@ def main(list_packed_vars):
                 else:
                     modelparameters_init = (
                             [modelparameters[2], modelparameters[3], modelparameters[4], modelparameters[7]])
+                    
+                # For additional calibration rounds if the optimization gets stuck, manually push the temperature bias
+                if calround >= init_calrounds:
+                    # Adjust temperature bias
+                    if zscore_weighted_total > 0:
+                        modelparameters_init[3] = modelparameters_init[3] + 1
+                    else:
+                        modelparameters_init[3] = modelparameters_init[3] - 1     
+                        
                 # Run optimization
                 modelparameters, glacier_cal_compare = (
                         run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds, 
@@ -1780,7 +1793,10 @@ def main(list_packed_vars):
                 calround += 1
                 
                 # Update model parameters if significantly better
+                zscore_weighted_total = glacier_cal_compare['zscore_weighted'].sum()
                 mean_zscore = abs(glacier_cal_compare['zscore_weighted']).sum() / glacier_cal_compare.shape[0]
+                if debug:
+                    print(zscore_weighted_total)
                 if calround == 1:
                     mean_zscore_best = mean_zscore
                     modelparameters_best = modelparameters
@@ -1791,9 +1807,10 @@ def main(list_packed_vars):
                     modelparameters_best = modelparameters
                     glacier_cal_compare_best = glacier_cal_compare
                     cal_round_best = calround
-            
+                    
+                total_calrounds = init_calrounds + input.extra_calrounds
                 # Break loop if gone through all iterations
-                if (calround == len(input.precfactor_bnds_list_init)) or zscore_compare(glacier_cal_compare, cal_idx):
+                if (calround == total_calrounds) or zscore_compare(glacier_cal_compare, cal_idx):
                     continue_loop = False
                     
                 if debug:

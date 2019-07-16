@@ -114,8 +114,8 @@ rgi_regionsO1 = [1]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['00570']
-#rgi_glac_number = ['03473']
+#rgi_glac_number = ['19419']
+rgi_glac_number = ['14683']
 #rgi_glac_number = glac_num_fromrange(1,2000)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
@@ -196,6 +196,8 @@ ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), 
 tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
 # Threshold to update the model parameters (based on the difference in zscores)
 zscore_update_threshold = 0.1
+# Additional calibration rounds in case optimization is getting stuck
+extra_calrounds = 3
 
 # OPTION 2: MCMC 
 # Chain options 
