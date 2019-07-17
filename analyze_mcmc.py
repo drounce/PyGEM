@@ -47,7 +47,9 @@ option_papermcmc_prior_vs_posterior = 0
 option_papermcmc_solutionspace = 0
 option_papermcmc_allglaciers_posteriorchanges = 0
 option_papermcmc_modelparameter_map = 0
-option_papermcmc_hh2015_map = 1
+option_papermcmc_hh2015_map = 0
+
+option_regional_priors = 1
 
 
 
@@ -108,6 +110,9 @@ watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
 kaab_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
 kaab_csv = pd.read_csv(kaab_dict_fn)
 kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab_name))
+himap_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_bolch.csv'
+himap_csv = pd.read_csv(himap_dict_fn)
+himap_dict = dict(zip(himap_csv.RGIId, himap_csv.bolch_name))
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -3157,5 +3162,74 @@ if option_raw_plotchain == 1:
     ax[1,0].set_ylabel('Parameter value Step_t - Step_t-1')
     plt.show()
     
+#%% Regional prior distributions
+if option_regional_priors == 1:
+    grouping = 'kaab'
+    
+    ds = pd.read_csv(input.output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/prior_compare_all.csv')
+    # add himap regions
+    ds['himap'] = ds.RGIId.map(himap_dict)
+    ds['kaab'] = ds.RGIId.map(kaab_dict)
+    regions = list(ds[grouping].unique())
+    regions = [x for x in regions if str(x) != 'nan']
+    
     #%%
+    # Loop through regions and get priors for each
+#    for region in regions:
+    for region in ['Karakoram']:
+        ds_region = ds[ds[grouping] == region]
+        print(region, ds_region.shape)
+        print('precipitation factor:')
+        ds_region.prior_pf_mu.plot.hist(bins=100)
+        plt.show()
+        print('mean:', np.round(ds_region.prior_pf_mu.mean(),2), 'std:', np.round(ds_region.prior_pf_mu.std(),2))
+#        ds_region.prior_tc_mu.plot.hist(bins=100)
+#        plt.show()
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
     
