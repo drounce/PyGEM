@@ -423,6 +423,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                             icethickness_initial[glac_idx_t0])
                     
                     # Option 1: Use Huss and Hock (2015) frontal ablation parameterizations
+                    #  Frontal ablation using width of lowest bin can severely overestimate the actual width of the
+                    #  calving front. Therefore, may need to adjust this.
                     if input.option_frontalablation_k == 1:
                         # Calculate frontal ablation parameter based on slope of lowest 100 m of glacier
                         # Glacier indices used for slope calculation
@@ -455,10 +457,14 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     height_calving_1 = input.af*length**0.5
                     height_calving_2 = input.density_water / input.density_ice * waterdepth
                     height_calving = np.max([height_calving_1, height_calving_2])
+                    # Width of calving front [m]
+                    if glacier_rgi_table.RGIId in input.width_calving_dict:
+                        width_calving = input.width_calving_dict[glacier_rgi_table.RGIId]
+                    else:
+                        width_calving = width_t0[glac_idx_t0[0]] * 1000                    
                     # Volume loss [m3] due to frontal ablation
                     frontalablation_volumeloss = (
-                            np.max([0, (frontalablation_k * waterdepth * height_calving)]) * 
-                            width_t0[glac_idx_t0[0]] * 1000)
+                            np.max([0, (frontalablation_k * waterdepth * height_calving)]) * width_calving)
                     # Maximum volume loss is volume of bins with their bed elevation below sea level
                     glac_idx_fa = np.where((glac_bin_bedelev < sea_level) & (glacier_area_t0 > 0))[0]
                     frontalablation_volumeloss_max = glac_bin_volume[glac_idx_fa].sum()
@@ -466,15 +472,19 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         frontalablation_volumeloss = frontalablation_volumeloss_max
                     
                     if debug:
+                        print('frontalablation_k:', frontalablation_k)
+                        print('width calving:', width_calving)
                         print('frontalablation_volumeloss [m3]:', frontalablation_volumeloss)
                         print('frontalablation_massloss [Gt]:', frontalablation_volumeloss * input.density_water / 
                               input.density_ice / 10**9)
-                        print('glac_idx_fa:', glac_idx_fa)
-                        print('glac_bin_volume:', glac_bin_volume)
-                        print('glac_idx_fa[bin_count]:', glac_idx_fa[0])
-                        print('glac_bin_volume[glac_idx_fa[bin_count]]:', glac_bin_volume[glac_idx_fa[0]])
-                        print('glacier_area_t0[glac_idx_fa[bin_count]]:', glacier_area_t0[glac_idx_fa[0]])
-                        print('glac_bin_frontalablation:', glac_bin_frontalablation[glac_idx_fa[0], step])
+                        print('frontalalabion_volumeloss_max [Gt]:', frontalablation_volumeloss_max * input.density_water / 
+                              input.density_ice / 10**9)
+#                        print('glac_idx_fa:', glac_idx_fa)
+#                        print('glac_bin_volume:', glac_bin_volume[0])
+#                        print('glac_idx_fa[bin_count]:', glac_idx_fa[0])
+#                        print('glac_bin_volume[glac_idx_fa[bin_count]]:', glac_bin_volume[glac_idx_fa[0]])
+#                        print('glacier_area_t0[glac_idx_fa[bin_count]]:', glacier_area_t0[glac_idx_fa[0]])
+#                        print('glac_bin_frontalablation:', glac_bin_frontalablation[glac_idx_fa[0], step])
                     
                     # Frontal ablation [mwe] in each bin
                     bin_count = 0
@@ -514,7 +524,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         print('ice thickness:', icethickness_t0[glac_idx_fa[0]].round(0), 
                               'waterdepth:', waterdepth.round(0), 
                               'height calving front:', height_calving.round(0), 
-                              'width [m]:', (width_t0[glac_idx_fa[0]] * 1000).round(0))                    
+                              'width [m]:', (width_calving).round(0))                    
                         
                 # SURFACE TYPE
                 # Annual surface type [-]

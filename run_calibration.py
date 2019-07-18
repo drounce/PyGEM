@@ -475,6 +475,8 @@ def main(list_packed_vars):
 
         # ===== Define functions needed for MCMC method =====        
         def run_MCMC(precfactor_disttype=input.precfactor_disttype,
+                     precfactor_gamma_alpha=input.precfactor_gamma_alpha, 
+                     precfactor_gamma_beta=input.precfactor_gamma_beta,
                      precfactor_lognorm_mu=input.precfactor_lognorm_mu, 
                      precfactor_lognorm_tau=input.precfactor_lognorm_tau, 
                      precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma,
@@ -587,7 +589,10 @@ def main(list_packed_vars):
             """        
             # PRIOR DISTRIBUTIONS
             # Precipitation factor [-]
-            if precfactor_disttype =='lognormal':
+            if precfactor_disttype == 'gamma':
+                precfactor = pymc.Gamma('precfactor', alpha=precfactor_gamma_alpha, beta=precfactor_gamma_beta,
+                                        value=precfactor_start)
+            elif precfactor_disttype =='lognormal':
                 #  lognormal distribution (roughly 0.3 to 3)
                 precfactor_start = np.exp(precfactor_start)
                 precfactor = pymc.Lognormal('precfactor', mu=precfactor_lognorm_mu, tau=precfactor_lognorm_tau,
@@ -726,69 +731,22 @@ def main(list_packed_vars):
             mb_obs_min = observed_massbal - 3 * observed_error
 
             if debug:
-                print('observed_massbal:',observed_massbal, 'observed_error:',observed_error)
-            
+                print('observed_massbal:', np.round(observed_massbal,2), 'observed_error:',np.round(observed_error,2))
+                
             # ===== RUN MARKOV CHAIN MONTE CARLO METHOD ====================            
-            # OLD SETUP
-            tempchange_mu = input.tempchange_mu
-            tempchange_sigma = input.tempchange_sigma
-            tempchange_boundlow = input.tempchange_boundlow
-            tempchange_boundhigh = input.tempchange_boundhigh
-            tempchange_start = tempchange_mu
-            precfactor_boundlow = input.precfactor_boundlow
-            precfactor_boundhigh = input.precfactor_boundhigh
-            precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
-            precfactor_start = precfactor_mu
-            ddfsnow_boundlow = input.ddfsnow_boundlow
-            ddfsnow_boundhigh=input.ddfsnow_boundhigh
-            ddfsnow_mu = input.ddfsnow_mu
-            ddfsnow_sigma = input.ddfsnow_sigma
-            
-            # NEW SETUP
-            if icethickness_t0.max() > 0:             
-                (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
-                 tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start, tempchange_max_loss, 
-                 tempchange_max_acc, mb_max_loss, mb_max_acc, precfactor_opt_init, tempchange_opt_init) = (
-                         retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                                   glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                                   t1_idx, t2_idx, t1, t2, observed_massbal, mb_obs_min, mb_obs_max))
-        
-                print('\nParameters:\nPF_low:', np.round(precfactor_boundlow,2), 'PF_high:', 
-                      np.round(precfactor_boundhigh,2), '\nTC_low:', np.round(tempchange_boundlow,2), 
-                      'TC_high:', np.round(tempchange_boundhigh,2),
-                      '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2))
-
-            
+            # NEW SETUP - 07/18/2019
             # fit the MCMC model
             for n_chain in range(0,input.n_chains):
                 print(glacier_str + ' chain' + str(n_chain))
                 print('\nProcessing time prior to chain:',time.time()-time_start, 's')
-                if n_chain == 0:                    
-                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step, 
-                                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
+                if n_chain == 0:     
+                    precfactor_start = input.precfactor_gamma_alpha / input.precfactor_gamma_beta
+                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
                                      precfactor_start=precfactor_start,
-                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
-                                     tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
-                                     tempchange_start=tempchange_start)   
-                elif n_chain == 1:
-                    # Chains start at lowest values
-                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
-                                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
-                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
-                                     tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
-                                     tempchange_start=tempchange_boundlow, 
-                                     precfactor_start=precfactor_boundlow, 
-                                     ddfsnow_start=ddfsnow_boundlow)
-                elif n_chain == 2:
-                    # Chains start at highest values
-                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
-                                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
-                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
-                                     tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
-                                     tempchange_start=tempchange_boundhigh, 
-                                     precfactor_start=precfactor_boundhigh, 
-                                     ddfsnow_start=ddfsnow_boundhigh)
+                                     tempchange_mu=input.tempchange_mu, tempchange_sigma=input.tempchange_sigma, 
+                                     tempchange_boundlow=input.tempchange_boundlow, 
+                                     tempchange_boundhigh=input.tempchange_boundhigh,
+                                     tempchange_start=input.tempchange_mu)   
                     
                 if debug:
                     print('acceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
@@ -813,22 +771,22 @@ def main(list_packed_vars):
                 else:
                     df_chains = np.dstack((df_chains, df.values))
                     
-            # Record calibration data
-            prior_cns = ['pf_bndlow', 'pf_bndhigh', 'pf_mu', 'tc_bndlow', 'tc_bndhigh', 'tc_mu', 'tc_std', 
-                         'ddfsnow_bndlow', 'ddfsnow_bndhigh', 'ddfsnow_mu', 'ddfsnow_std', 'mb_max_loss', 'mb_max_acc', 
-                         'tc_max_loss', 'tc_max_acc','pf_opt_init', 'tc_opt_init']
-            prior_values = [precfactor_boundlow, precfactor_boundhigh, precfactor_mu, tempchange_boundlow, 
-                            tempchange_boundhigh, tempchange_mu, tempchange_sigma, ddfsnow_boundlow, ddfsnow_boundhigh, 
-                            ddfsnow_mu, ddfsnow_sigma, mb_max_loss, mb_max_acc, tempchange_max_loss, tempchange_max_acc,
-                            precfactor_opt_init, tempchange_opt_init]
+#            # Record calibration data
+#            prior_cns = ['pf_bndlow', 'pf_bndhigh', 'pf_mu', 'tc_bndlow', 'tc_bndhigh', 'tc_mu', 'tc_std', 
+#                         'ddfsnow_bndlow', 'ddfsnow_bndhigh', 'ddfsnow_mu', 'ddfsnow_std', 'mb_max_loss', 'mb_max_acc', 
+#                         'tc_max_loss', 'tc_max_acc','pf_opt_init', 'tc_opt_init']
+#            prior_values = [precfactor_boundlow, precfactor_boundhigh, precfactor_mu, tempchange_boundlow, 
+#                            tempchange_boundhigh, tempchange_mu, tempchange_sigma, ddfsnow_boundlow, ddfsnow_boundhigh, 
+#                            ddfsnow_mu, ddfsnow_sigma, mb_max_loss, mb_max_acc, tempchange_max_loss, tempchange_max_acc,
+#                            precfactor_opt_init, tempchange_opt_init]
                     
             ds = xr.Dataset({'mp_value': (('iter', 'mp', 'chain'), df_chains),
-                             'priors': (('prior_cns'), prior_values)
+#                             'priors': (('prior_cns'), prior_values)
                              },
                             coords={'iter': df.index.values,
                                     'mp': df.columns.values,
                                     'chain': np.arange(0,n_chain+1),
-                                    'prior_cns': prior_cns
+#                                    'prior_cns': prior_cns
                                     })
                 
             if not os.path.exists(input.output_fp_cal):
@@ -838,12 +796,129 @@ def main(list_packed_vars):
             
 #            #%%
 #            # Example of accessing netcdf file and putting it back into pandas dataframe
-#            A = xr.open_dataset(input.mcmc_output_netcdf_fp + 'reg' + str(rgi_regionsO1[0]) + '/15.03734.nc')
-#            B = pd.DataFrame(A['mp_value'].sel(chain=0).values, columns=A.mp.values)
+            ds = xr.open_dataset(input.output_fp_cal + '13.00014.nc')
+            df = pd.DataFrame(ds['mp_value'].sel(chain=0).values, columns=ds.mp.values)
 #            priors = pd.Series(ds.priors, index=ds.prior_cns)
 #            #%%
 
         # ==============================================================
+            
+#            # ===== RUN MARKOV CHAIN MONTE CARLO METHOD ====================            
+#            # OLD SETUP
+#            tempchange_mu = input.tempchange_mu
+#            tempchange_sigma = input.tempchange_sigma
+#            tempchange_boundlow = input.tempchange_boundlow
+#            tempchange_boundhigh = input.tempchange_boundhigh
+#            tempchange_start = tempchange_mu
+#            precfactor_boundlow = input.precfactor_boundlow
+#            precfactor_boundhigh = input.precfactor_boundhigh
+#            precfactor_mu = (precfactor_boundlow + precfactor_boundhigh) / 2
+#            precfactor_start = precfactor_mu
+#            ddfsnow_boundlow = input.ddfsnow_boundlow
+#            ddfsnow_boundhigh=input.ddfsnow_boundhigh
+#            ddfsnow_mu = input.ddfsnow_mu
+#            ddfsnow_sigma = input.ddfsnow_sigma
+#            
+#            # NEW SETUP
+#            if icethickness_t0.max() > 0:             
+#                (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
+#                 tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start, tempchange_max_loss, 
+#                 tempchange_max_acc, mb_max_loss, mb_max_acc, precfactor_opt_init, tempchange_opt_init) = (
+#                         retrieve_prior_parameters(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+#                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+#                                                   glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+#                                                   t1_idx, t2_idx, t1, t2, observed_massbal, mb_obs_min, mb_obs_max))
+#        
+#                print('\nParameters:\nPF_low:', np.round(precfactor_boundlow,2), 'PF_high:', 
+#                      np.round(precfactor_boundhigh,2), '\nTC_low:', np.round(tempchange_boundlow,2), 
+#                      'TC_high:', np.round(tempchange_boundhigh,2),
+#                      '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2))
+#
+#            
+#            # fit the MCMC model
+#            for n_chain in range(0,input.n_chains):
+#                print(glacier_str + ' chain' + str(n_chain))
+#                print('\nProcessing time prior to chain:',time.time()-time_start, 's')
+#                if n_chain == 0:                    
+#                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step, 
+#                                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
+#                                     precfactor_start=precfactor_start,
+#                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+#                                     tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
+#                                     tempchange_start=tempchange_start)   
+#                elif n_chain == 1:
+#                    # Chains start at lowest values
+#                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
+#                                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
+#                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+#                                     tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
+#                                     tempchange_start=tempchange_boundlow, 
+#                                     precfactor_start=precfactor_boundlow, 
+#                                     ddfsnow_start=ddfsnow_boundlow)
+#                elif n_chain == 2:
+#                    # Chains start at highest values
+#                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
+#                                     precfactor_boundlow=precfactor_boundlow, precfactor_boundhigh=precfactor_boundhigh,
+#                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma, 
+#                                     tempchange_boundlow=tempchange_boundlow, tempchange_boundhigh=tempchange_boundhigh,
+#                                     tempchange_start=tempchange_boundhigh, 
+#                                     precfactor_start=precfactor_boundhigh, 
+#                                     ddfsnow_start=ddfsnow_boundhigh)
+#                    
+#                if debug:
+#                    print('acceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
+#                   
+#                # Select data from model to be stored in netcdf
+#                df = pd.DataFrame({'tempchange': model.trace('tempchange')[:],
+#                                   'precfactor': model.trace('precfactor')[:],
+#                                   'ddfsnow': model.trace('ddfsnow')[:],
+#                                   'massbal': model.trace('massbal')[:]})
+#                # set columns for other variables
+#                df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
+#                df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
+#                df['lrglac'] = np.full(df.shape[0], input.lrglac)
+#                df['precgrad'] = np.full(df.shape[0], input.precgrad)
+#                df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
+#                
+#                if debug:
+#                    print('mb_mwea:', np.round(df.massbal.mean(),2), 'mb_mwea_std:', np.round(df.massbal.std(),2))
+#                
+#                if n_chain == 0:
+#                    df_chains = df.values[:, :, np.newaxis]
+#                else:
+#                    df_chains = np.dstack((df_chains, df.values))
+#                    
+#            # Record calibration data
+#            prior_cns = ['pf_bndlow', 'pf_bndhigh', 'pf_mu', 'tc_bndlow', 'tc_bndhigh', 'tc_mu', 'tc_std', 
+#                         'ddfsnow_bndlow', 'ddfsnow_bndhigh', 'ddfsnow_mu', 'ddfsnow_std', 'mb_max_loss', 'mb_max_acc', 
+#                         'tc_max_loss', 'tc_max_acc','pf_opt_init', 'tc_opt_init']
+#            prior_values = [precfactor_boundlow, precfactor_boundhigh, precfactor_mu, tempchange_boundlow, 
+#                            tempchange_boundhigh, tempchange_mu, tempchange_sigma, ddfsnow_boundlow, ddfsnow_boundhigh, 
+#                            ddfsnow_mu, ddfsnow_sigma, mb_max_loss, mb_max_acc, tempchange_max_loss, tempchange_max_acc,
+#                            precfactor_opt_init, tempchange_opt_init]
+#                    
+#            ds = xr.Dataset({'mp_value': (('iter', 'mp', 'chain'), df_chains),
+#                             'priors': (('prior_cns'), prior_values)
+#                             },
+#                            coords={'iter': df.index.values,
+#                                    'mp': df.columns.values,
+#                                    'chain': np.arange(0,n_chain+1),
+#                                    'prior_cns': prior_cns
+#                                    })
+#                
+#            if not os.path.exists(input.output_fp_cal):
+#                os.makedirs(input.output_fp_cal)
+#            ds.to_netcdf(input.output_fp_cal + glacier_str + '.nc')
+#            ds.close()
+#            
+##            #%%
+##            # Example of accessing netcdf file and putting it back into pandas dataframe
+##            A = xr.open_dataset(input.mcmc_output_netcdf_fp + 'reg' + str(rgi_regionsO1[0]) + '/15.03734.nc')
+##            B = pd.DataFrame(A['mp_value'].sel(chain=0).values, columns=A.mp.values)
+##            priors = pd.Series(ds.priors, index=ds.prior_cns)
+##            #%%
+#
+#        # ==============================================================
     #%%
     # Huss and Hock (2015) model calibration steps
     elif input.option_calibration == 3:
@@ -1217,7 +1292,9 @@ def main(list_packed_vars):
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                           option_areaconstant=1))  
+                                           option_areaconstant=1, 
+                                           debug=False
+                                           ))  
             # Loop through all measurements
             for x in range(glacier_cal_data.shape[0]):
                 cal_idx = glacier_cal_data.index.values[x]
@@ -1235,8 +1312,9 @@ def main(list_packed_vars):
                     z2_idx = glacier_cal_data.loc[cal_idx, 'z2_idx'].astype(int)
                     year_idx = int(t1_idx / 12)
                     bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx+1, year_idx]
+                    glac_bin_massbaltotal = glac_bin_massbalclim - glac_bin_frontalablation
                     glacier_cal_compare.loc[cal_idx, 'model'] = (
-                            (glac_bin_massbalclim[z1_idx:z2_idx+1, t1_idx:t2_idx] * 
+                            (glac_bin_massbaltotal[z1_idx:z2_idx+1, t1_idx:t2_idx] * 
                              bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
                     # Fractional glacier area used to weight z-score
                     glacier_area_total = glac_bin_area_annual[:, year_idx].sum()
@@ -1341,9 +1419,16 @@ def main(list_packed_vars):
                     # Fractional glacier area used to weight z-score
                     glacier_area_total = glac_bin_area_annual[:, year_idx].sum()
                     glacier_cal_compare.loc[cal_idx, 'area_frac'] = bin_area_subset.sum() / glacier_area_total
+                    
+                    
+                    glac_bin_massbaltotal = glac_bin_massbalclim - glac_bin_frontalablation
                     glacier_cal_compare.loc[cal_idx, 'model'] = (
-                            (glac_bin_massbalclim[z1_idx:z2_idx+1, t1_idx:t2_idx] *
+                            (glac_bin_massbaltotal[z1_idx:z2_idx+1, t1_idx:t2_idx] * 
                              bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
+                    
+#                    glacier_cal_compare.loc[cal_idx, 'model'] = (
+#                            (glac_bin_massbalclim[z1_idx:z2_idx+1, t1_idx:t2_idx] * 
+#                             bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
                     # Z-score for modeled mass balance based on observed mass balance and uncertainty
                     #  z-score = (model - measured) / uncertainty
                     glacier_cal_compare.loc[cal_idx, 'uncertainty'] = (input.massbal_uncertainty_mwea *
@@ -1351,9 +1436,6 @@ def main(list_packed_vars):
                     glacier_cal_compare.loc[cal_idx, 'zscore'] = (
                             (glacier_cal_compare.loc[cal_idx, 'model'] - glacier_cal_compare.loc[cal_idx, 'obs']) /
                             glacier_cal_compare.loc[cal_idx, 'uncertainty'])
-                    
-                    print('batman:', glacier_cal_compare.loc[cal_idx, 'model'], glacier_cal_compare.loc[cal_idx, 'obs'])
-                    
                 # Weighted z-score according to timespan and fraction of glacier area covered
                 glacier_cal_compare['zscore_weighted'] = (
                         glacier_cal_compare['zscore'] * (glacier_cal_compare['t2'] - glacier_cal_compare['t1'])
@@ -1430,6 +1512,9 @@ def main(list_packed_vars):
                     year_idx = int(t1_idx / 12)
                     bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]                    
                     group_cum_area_km2 = group_cum_area_km2 + bin_area_subset.sum()
+                    
+                    print('NEED TO CHANGE TO TOTAL MASS BALANCE TO INCLUDE FRONTAL ABLATION')
+                    
                     group_cum_mb_mkm2 = (
                             group_cum_mb_mkm2 + 
                             (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * bin_area_subset[:,np.newaxis]).sum())
@@ -1547,6 +1632,9 @@ def main(list_packed_vars):
                     year_idx = int(t1_idx / 12)
                     bin_area_subset = glac_bin_area_annual[z1_idx:z2_idx, year_idx]                    
                     group_cum_area_km2 = group_cum_area_km2 + bin_area_subset.sum()
+                    
+                    print('NEED TO CHANGE TO TOTAL MASS BALANCE NOT CLIMATIC FOR TIDEWATER GLACIERS')
+                    
                     group_cum_mb_mkm2 = (
                             group_cum_mb_mkm2 + 
                             (glac_bin_massbalclim[z1_idx:z2_idx, t1_idx:t2_idx] * bin_area_subset[:,np.newaxis]).sum())
@@ -1798,8 +1886,6 @@ def main(list_packed_vars):
                 # Update model parameters if significantly better
                 zscore_weighted_total = glacier_cal_compare['zscore_weighted'].sum()
                 mean_zscore = abs(glacier_cal_compare['zscore_weighted']).sum() / glacier_cal_compare.shape[0]
-                if debug:
-                    print(zscore_weighted_total)
                 if calround == 1:
                     mean_zscore_best = mean_zscore
                     modelparameters_best = modelparameters
@@ -1818,12 +1904,15 @@ def main(list_packed_vars):
                     
                 if debug:
                     print('\nCalibration round:', calround,
-                          '\nInitial parameters:\nPrecfactor:', modelparameters_init[0], 
-                          '\nTempbias:', modelparameters_init[3], '\nDDFsnow:', modelparameters_init[2])
-                    print('\nCalibrated parameters:\nPrecfactor:', modelparameters[2], 
-                          '\nTempbias:', modelparameters[7], '\nDDFsnow:', modelparameters[4])
-                    print('\nmean Zscore:', mean_zscore, '\n')
-                          
+                          '\nInitial parameters:\n  Precfactor:', modelparameters_init[0], 
+                          '\n  Tempbias:', modelparameters_init[3], '\n  DDFsnow:', modelparameters_init[2])
+                    print('Calibrated parameters:\n  Precfactor:', modelparameters[2], 
+                          '\n  Tempbias:', modelparameters[7], '\n  DDFsnow:', modelparameters[4])
+                    if glacier_cal_compare.shape[0] == 1:
+                        print('model:', np.round(glacier_cal_compare.loc[0, 'model'],2), 
+                              'obs:', np.round(glacier_cal_compare.loc[0, 'obs'],2))
+                    print('zscore_weighted_total:', np.round(zscore_weighted_total,2), '\n')
+                    
             # RECORD OUTPUT
             mean_zscore = mean_zscore_best
             modelparameters = modelparameters_best
@@ -1839,7 +1928,7 @@ def main(list_packed_vars):
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                           option_areaconstant=1))
+                                           option_areaconstant=1, debug=False))
             # Calibration round
             glacier_cal_compare['calround'] = calround
             # Model vs. observations
@@ -1987,11 +2076,10 @@ def main(list_packed_vars):
                     
                     if debug:
                         print('\nCalibration round:', calround,
-                              '\nInitial parameters:\nPrecfactor:', modelparameters_init[0], 
-                              '\nTempbias:', modelparameters_init[3], '\nDDFsnow:', modelparameters_init[2])
-                        print('\nCalibrated parameters:\nPrecfactor:', modelparameters_group[2], 
-                              '\nTempbias:', modelparameters_group[7], '\nDDFsnow:', modelparameters_group[4])
-                        print('\nZscore:', zscore_abs, '\n')
+                              '\nInitial parameters:\n  Precfactor:', modelparameters_init[0], 
+                              '\n  Tempbias:', modelparameters_init[3], '\n  DDFsnow:', modelparameters_init[2])
+                        print('Calibrated parameters:\n  Precfactor:', modelparameters_group[2], 
+                              '\n  Tempbias:', modelparameters_group[7], '\n  DDFsnow:', modelparameters_group[4])
 
                 # Glacier-wide climatic mass balance over study period (used by transfer functions)
                 # Record model parameters and mbclim

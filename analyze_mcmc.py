@@ -1302,9 +1302,9 @@ def prior_vs_posterior_single(glac_no, netcdf_fp, iters=[1000,15000], precfactor
     .png files
         saves figure showing how prior and posterior comparison
     """
-#for batman in [0]:
-    glac_no = '13.00001'
-    netcdf_fp = mcmc_output_netcdf_fp_all
+for batman in [0]:
+    glac_no = '14.02150'
+    netcdf_fp = input.output_fp_cal
     
     region = [int(glac_no.split('.')[0])]
     rgi_glac_number = [glac_no.split('.')[1]]
@@ -1786,7 +1786,7 @@ if option_metrics_histogram_all == 1:
     
 #%%
 if option_prior_vs_posterior_single == 1:
-    glac_no = ['13.26360']
+    glac_no = ['14.02150']
     iters=[1000,10000]
 #    main_glac_rgi, cal_data, glac_no = load_glacier_and_cal_data(regions)
     for nglac, glac in enumerate(glac_no):
@@ -3175,16 +3175,261 @@ if option_regional_priors == 1:
     
     #%%
     # Loop through regions and get priors for each
+    prior_pf_reg_dict = {}
+    prior_tc_reg_dict = {}
 #    for region in regions:
     for region in ['Karakoram']:
+#    for region in ['inner_TP']:
         ds_region = ds[ds[grouping] == region]
-        print(region, ds_region.shape)
-        print('precipitation factor:')
+        print('\n\n', region, ds_region.shape)
+        
+        # Precipitation Factor
+        print('Precipitation factor:')
         ds_region.prior_pf_mu.plot.hist(bins=100)
         plt.show()
         print('mean:', np.round(ds_region.prior_pf_mu.mean(),2), 'std:', np.round(ds_region.prior_pf_mu.std(),2))
-#        ds_region.prior_tc_mu.plot.hist(bins=100)
-#        plt.show()
+        
+        beta = ds_region.prior_pf_mu.mean() / ds_region.prior_pf_mu.std()
+        alpha = ds_region.prior_pf_mu.mean() * beta
+        
+        print('alpha:', np.round(alpha,2), 'beta:', np.round(beta,2))
+        
+        prior_pf_reg_dict[region] = [alpha, beta]
+        
+        # Temperature Bias
+        print('Temperature bias:')
+        ax = ds_region.prior_tc_mu.plot.hist(bins=100)
+        ax.plot([0,0],[400,400])
+        plt.show()
+        
+        mu = ds_region.prior_tc_mu.mean()
+        std = ds_region.prior_tc_mu.std()
+        print('mean:', np.round(mu,2), 'std:', np.round(std,2))
+        
+#        beta = ds_region.prior_tc_mu.mean() / ds_region.prior_tc_mu.std()
+#        alpha = ds_region.prior_tc_mu.mean() * beta
+#        
+#        print('alpha:', np.round(alpha,2), 'beta:', np.round(beta,2))
+        
+        prior_tc_reg_dict[region] = [mu, std]
+
+
+#%%
+for batman in [0]:
+    glac_no = '14.02150'
+    netcdf_fp = input.output_fp_cal
+    variables = ['massbal', 'tempchange', 'precfactor', 'ddfsnow']
+    iters = [5000]
+    colors_iters = ['blue']
+    
+    region = [int(glac_no.split('.')[0])]
+    rgi_glac_number = [glac_no.split('.')[1]]
+
+    # Glacier RGI data
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=region, rgi_regionsO2 = 'all',
+                                                      rgi_glac_number=rgi_glac_number)
+    # Glacier hypsometry [km**2], total area
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, region, input.hyps_filepath,
+                                                 input.hyps_filedict, input.hyps_colsdrop)
+    # Ice thickness [m], average
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, region, input.thickness_filepath, 
+                                                         input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_hyps[main_glac_icethickness == 0] = 0
+    # Elevation bins
+    elev_bins = main_glac_hyps.columns.values.astype(int)   
+    # Select dates including future projections
+    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+                                           spinupyears=input.spinupyears)
+    
+    # Calibration data
+    cal_data = pd.DataFrame()
+    for dataset in input.cal_datasets:
+        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
+        cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
+        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+    cal_data.reset_index(drop=True, inplace=True)
+
+    for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
+        # Glacier string
+        glacier_str = glac_str_wRGI.split('-')[1]
+        print(glacier_str)
+        # Glacier number
+        glacno = int(glacier_str.split('.')[1])
+        # RGI information
+        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
+        # Calibration data
+        cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+        glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
+        # Select observed mass balance, error, and time data
+        t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
+        t2 = glacier_cal_data.loc[cal_idx, 't2'].values[0]
+        t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
+        t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+        observed_massbal = (glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)).values[0]
+        observed_error = (glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)).values[0]
+        mb_obs_max = observed_massbal + 3 * observed_error
+        mb_obs_min = observed_massbal - 3 * observed_error
+        
+        # MCMC Analysis
+        ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
+        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
+        print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
+        
+        ddfsnow_mu = input.ddfsnow_mu
+        ddfsnow_sigma = input.ddfsnow_sigma
+        ddfsnow_boundlow = input.ddfsnow_boundlow
+        ddfsnow_boundhigh = input.ddfsnow_boundhigh
+        
+        tempchange_mu = input.tempchange_mu
+        tempchange_sigma = input.tempchange_sigma
+        tempchange_boundlow = input.tempchange_boundlow
+        tempchange_boundhigh = input.tempchange_boundhigh
+       
+        #%%
+    # PRIOR VS POSTERIOR PLOTS 
+    fig, ax = plt.subplots(2, 2, squeeze=False, figsize=(6.5, 5), 
+                           gridspec_kw={'wspace':0.3, 'hspace':0.5})
+    
+    param_idx_dict = {'massbal':[0,0],
+                      'precfactor':[0,1],
+                      'tempchange':[1,0],
+                      'ddfsnow':[1,1]}
+    
+    z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
+    for nvar, vn in enumerate(variables):
+        
+        # PRIOR DISTRIBUTIONS
+        if vn == 'massbal':
+            x_values = observed_massbal + observed_error * z_score
+            y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
+        elif vn == 'precfactor': 
+            if input.precfactor_disttype == 'gamma':
+                print('code gamma!')
+                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                x_values = np.linspace(0,10,200)
+                y_values = stats.gamma.pdf(x_values, a=input.precfactor_gamma_alpha, loc=1/input.precfactor_gamma_beta)
+            elif input.precfactor_disttype == 'uniform':
+                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
+                y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
+                                       scale=(precfactor_boundhigh - precfactor_boundlow))
+            elif input.precfactor_disttype == 'lognormal':
+                precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
+                x_values = np.linspace(lognorm.ppf(1e-6, precfactor_lognorm_sigma), 
+                                       lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
+                y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
+        elif vn == 'tempchange':
+            if input.tempchange_disttype == 'uniform':
+                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
+                y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
+                                       scale=(tempchange_boundhigh - tempchange_boundlow))
+            elif input.tempchange_disttype == 'truncnormal':
+                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
+                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
+                z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
+                                      truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
+                x_values = tempchange_mu + tempchange_sigma * z_score
+                y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu,
+                                         scale=tempchange_sigma)
+        elif vn == 'ddfsnow':            
+            if input.ddfsnow_disttype == 'truncnormal':
+                ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
+                ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
+                z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b),
+                                      truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
+                x_values = ddfsnow_mu + ddfsnow_sigma * z_score
+                y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
+            elif input.ddfsnow_disttype == 'uniform':
+                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
+                x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
+                y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
+                                       scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
+        
+        nrow = param_idx_dict[vn][0]
+        ncol = param_idx_dict[vn][1]
+        ax[nrow,ncol].plot(x_values, y_values, color='k')
+        
+        # Labels
+        ax[nrow,ncol].set_xlabel(vn_label_dict[vn], size=12)
+        if ncol == 0:
+            ax[nrow,ncol].set_ylabel('Probability Density', size=12)
+
+        # Ensemble/Posterior distribution                
+        for n_chain in range(len(ds.chain.values)):
+            for count_iter, n_iters in enumerate(iters):
+                print(count_iter, n_iters)
+                chain = ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:n_iters]
+            
+                # gaussian distribution
+                kde = gaussian_kde(chain)
+                x_values_kde = x_values.copy()
+                y_values_kde = kde(x_values_kde)
+                
+                # Plot fitted distribution
+                ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=colors_iters[count_iter], linestyle=linestyles[n_chain])
+    
+    # Close dataset
+    ds.close()
+    
+    # Legend (Note: hard code the spacing between the two legends)
+    leg_lines = []
+    line = Line2D([0,1],[0,1], color='white')
+    leg_lines.append(line)
+    leg_labels = ['Steps']
+    
+    for count_iter, n_iters in enumerate(iters):
+        line = Line2D([0,1],[0,1], color=colors[count_iter])
+        leg_lines.append(line)
+    iter_labels = [str(int(i)) for i in iters]
+    for label in iter_labels:
+        leg_labels.append(label)
+    
+    for n in range(8):
+        line = Line2D([0,1],[0,1], color='white')
+        leg_lines.append(line)
+        leg_labels.append(' ')    
+    line = Line2D([0,1],[0,1], color='white')
+    leg_lines.append(line)
+    leg_labels.append('Starting Point')
+    
+    for n_chain in range(len(ds.chain.values)):
+        line = Line2D([0,1],[0,1], color='gray', linestyle=linestyles[n_chain])
+        leg_lines.append(line)
+    chain_labels = ['Center', 'Lower Bound', 'Upper Bound  ']
+    for n in chain_labels:
+        leg_labels.append(n)
+    
+    fig.legend(leg_lines, leg_labels, loc='upper right', bbox_to_anchor=(1.1,0.85), 
+               handlelength=1, handletextpad=0.5, borderpad=0.3, frameon=False)
+        
+    # Save figure
+    str_ending = ''
+    if 'tempchange' in variables:    
+        if input.tempchange_disttype == 'truncnormal': 
+            str_ending += '_TCtn'
+        elif input.tempchange_disttype == 'uniform':
+            str_ending += '_TCu'
+    if 'precfactor' in variables:                
+        if input.precfactor_disttype == 'lognormal': 
+            str_ending += '_PFln'
+        elif input.precfactor_disttype == 'uniform':
+            str_ending += '_PFu'
+    if 'ddfsnow' in variables:     
+        if input.ddfsnow_disttype == 'truncnormal': 
+            str_ending += '_DDFtn'
+        elif input.ddfsnow_disttype == 'uniform':
+            str_ending += '_DDFu'        
+        
+    if os.path.exists(mcmc_output_figures_fp) == False:
+        os.makedirs(mcmc_output_figures_fp)        
+    fig.savefig(mcmc_output_figures_fp + 'prior_v_posteriors_' + glacier_str + str_ending + '.png', 
+                bbox_inches='tight', dpi=300)
+    fig.clf()
+        
+        
+        
         
     
     

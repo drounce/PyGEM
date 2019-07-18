@@ -114,8 +114,8 @@ rgi_regionsO1 = [1]
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['19419']
-rgi_glac_number = ['14683']
+#rgi_glac_number = ['03473']
+rgi_glac_number = ['14683'] # problematic glacier for Zoe
 #rgi_glac_number = glac_num_fromrange(1,2000)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
@@ -131,25 +131,28 @@ ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
 
 # First year of model run (change these to calibration)
 startyear = 1980
+#startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
 endyear = 2017
+#endyear = 2018
 # Spin up time [years]
 spinupyears = 0
 # Water year option
 option_wateryear = 1
+#option_wateryear = 3
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 30 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
-constantarea_years = 0
+constantarea_years = 37
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
+gcm_startyear = 1980
+gcm_endyear = 2017
 #gcm_startyear = 2000
-#gcm_endyear = 2017
-gcm_startyear = 2000
-gcm_endyear = 2100
+#gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
@@ -202,7 +205,7 @@ extra_calrounds = 3
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 1000
+mcmc_sample_no = 5000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
@@ -211,7 +214,10 @@ thin_interval = 1
 
 # MCMC distribution parameters
 #precfactor_disttype = 'lognormal'
-precfactor_disttype = 'uniform'
+#precfactor_disttype = 'uniform'
+precfactor_disttype = 'gamma'
+precfactor_gamma_alpha = 2.4
+precfactor_gamma_beta = 1.63
 precfactor_lognorm_mu = 0
 precfactor_lognorm_tau = 4
 precfactor_mu = 0
@@ -223,10 +229,11 @@ precfactor_boundhigh = 1.5
 precfactor_start = 1
 precfactor_step = 0.1
 precfactor_boundhigh_adj = 0
+#tempchange_disttype = 'normal'
 tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'
-tempchange_mu = 0
-tempchange_sigma = 0.5
+tempchange_mu = 2.49
+tempchange_sigma = 1.98
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
@@ -293,6 +300,8 @@ tempsnow = 1.0
 #  facilitates calibration similar to Huss and Hock (2015)
 # Frontal ablation  dictating rate [yr-1]
 frontalablation_k = 2
+# Calving width dictionary to override RGI elevation bins, which can be highly inaccurate at the calving front
+width_calving_dict = {'RGI60-01.14683':2500}
 
 # Calving option
 option_frontalablation_k = 1
