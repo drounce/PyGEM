@@ -11,7 +11,8 @@ import pygem_input as input
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                    glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                   dates_table, option_areaconstant=0, debug=False):
+                   dates_table, option_areaconstant=0, frontalablation_k=None, 
+                   debug=False):
     """
     Runs the mass balance and mass redistribution allowing the glacier to evolve.
     Parameters
@@ -151,7 +152,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     # Sea level for marine-terminating glaciers
     sea_level = 0
     rgi_region = int(glacier_rgi_table.RGIId.split('-')[1].split('.')[0])
-    frontalablation_k0 = input.frontalablation_k0dict[rgi_region]
+    if frontalablation_k == None:
+         frontalablation_k0 = input.frontalablation_k0dict[rgi_region]
     # Adjust sea level to account for disagreement between ice thickness estimates and glaciers classified by RGI as
     # marine-terminating. Modify the sea level, so sea level is consistent with lowest elevation bin that has ice.
     if glacier_rgi_table.loc['TermType'] == 1:
@@ -424,8 +426,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     
                     # Option 1: Use Huss and Hock (2015) frontal ablation parameterizations
                     #  Frontal ablation using width of lowest bin can severely overestimate the actual width of the
-                    #  calving front. Therefore, may need to adjust this.
-                    if input.option_frontalablation_k == 1:
+                    #  calving front. Therefore, use estimated calving width from satellite imagery as appropriate.
+                    if input.option_frontalablation_k == 1 and frontalablation_k == None:
                         # Calculate frontal ablation parameter based on slope of lowest 100 m of glacier
                         # Glacier indices used for slope calculation
                         elev_bin_interval = elev_bins[1] - elev_bins[0]
@@ -444,8 +446,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         slope_lowest100m = np.rad2deg(np.arctan(elev_change/length_lowest100m))
                         # Frontal ablation parameter
                         frontalablation_k = frontalablation_k0 * slope_lowest100m
-                    elif input.option_frontalablation_k == 2:
-                        print('add more options for frontal ablation - example calibrated for each glacier')
                     
                     # Calculate frontal ablation
                     # Bed elevation with respect to sea level
@@ -459,7 +459,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     height_calving = np.max([height_calving_1, height_calving_2])
                     # Width of calving front [m]
                     if glacier_rgi_table.RGIId in input.width_calving_dict:
-                        width_calving = input.width_calving_dict[glacier_rgi_table.RGIId]
+                        width_calving = np.float64(input.width_calving_dict[glacier_rgi_table.RGIId])
                     else:
                         width_calving = width_t0[glac_idx_t0[0]] * 1000                    
                     # Volume loss [m3] due to frontal ablation

@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 # Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
+import pygemfxns_massbalance as massbalance
 import class_climate
 
 
@@ -53,6 +54,8 @@ def getparser():
                         help='option to merge COAWST climate data products (1=yes, 0=no)')
     parser.add_argument('-option_mbdata_fillwregional', action='store', type=int, default=0,
                         help='option to fill in missing mass balance data with regional mean and std (1=yes, 0=no)')
+    parser.add_argument('-option_frontalablation_cal', action='store', type=int, default=0,
+                        help='option to calibrate frontal ablation for a glacier')
     return parser
 
 parser = getparser()
@@ -618,6 +621,88 @@ if args.option_createlapserates == 1:
     lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
                             elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)
 
+
+#%%
+if args.option_frontalablation_cal == 1:
+    #%%
+    region = [1]
+    calving_data = pd.read_csv(input.mcnabb_fp + '../alaska_gate_widths_flux.csv')
+    
+    glac_no = [x.split('-')[1] for x in list(calving_data.RGIId.values)]
+    
+    region_all = [int(x.split('.')[0]) for x in glac_no]
+    rgi_glac_number_all = [x.split('.')[1] for x in glac_no]
+    
+    rgi_glac_number = []
+    for n, reg in enumerate(region_all):
+        if reg == region[0]:
+            rgi_glac_number.append(rgi_glac_number_all[n])
+
+    # Glacier RGI data
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=region, rgi_regionsO2 = 'all',
+                                                      rgi_glac_number=rgi_glac_number)
+    # Glacier hypsometry [km**2], total area
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, region, input.hyps_filepath,
+                                                 input.hyps_filedict, input.hyps_colsdrop)
+    # Ice thickness [m], average
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, region, input.thickness_filepath, 
+                                                         input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_hyps[main_glac_icethickness == 0] = 0
+    # Width [km], average
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, region, input.width_filepath,
+                                                  input.width_filedict, input.width_colsdrop)
+    # Elevation bins
+    elev_bins = main_glac_hyps.columns.values.astype(int)   
+    # Select dates including future projections
+    dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2005, spinupyears=0)
+    
+    # ===== LOAD CLIMATE DATA =====
+    gcm = class_climate.GCM(name=input.ref_gcm_name)
+    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+    # Lapse rate [K m-1]
+    gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    #%%
+    
+    for n, glac_str_wRGI in enumerate([main_glac_rgi['RGIId'].values[0]]):
+#    for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
+        # Glacier string
+        glacier_str = glac_str_wRGI.split('-')[1]
+        print(glacier_str)
+        # Glacier number
+        glacno = int(glacier_str.split('.')[1])
+        # RGI information
+        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
+
+        # Select subsets of data
+        glacier_gcm_elev = gcm_elev[n]
+        glacier_gcm_temp = gcm_temp[n,:]
+        glacier_gcm_lrgcm = gcm_lr[n,:]
+        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        glacier_gcm_prec = gcm_prec[n,:]
+        glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
+        icethickness_t0 = main_glac_icethickness.iloc[n,:].values.astype(float)
+        width_t0 = main_glac_width.iloc[n,:].values.astype(float)
+        glac_idx_t0 = glacier_area_t0.nonzero()[0]
+        # Set model parameters
+        modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
+                           input.tempsnow, input.tempchange]
+        frontalablation_k0 = input.frontalablation_k0dict[int(glacier_str.split('.')[0])]
+        
+        (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+         glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
+         glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
+         glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
+         glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, 
+         offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
+            massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, 
+                                       icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                       glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+                                       option_areaconstant=0, frontalablation_k=None,
+                                       debug=True))
+        print('Add objective function and code )
 
 #%% Write csv file from model results
 # Create csv such that not importing the air temperature each time (takes 90 seconds for 13,119 glaciers)

@@ -20,7 +20,7 @@ from scipy.stats.kde import gaussian_kde
 from scipy.stats import norm
 from scipy.stats import truncnorm
 from scipy.stats import uniform
-#from scipy.stats import linregress
+from scipy.stats import linregress
 from scipy.stats import lognorm
 #from scipy.optimize import minimize
 import xarray as xr
@@ -49,8 +49,10 @@ option_papermcmc_allglaciers_posteriorchanges = 0
 option_papermcmc_modelparameter_map = 0
 option_papermcmc_hh2015_map = 0
 
-option_regional_priors = 1
-
+# Updated 2019/07/30
+option_regional_priors = 0
+option_glacier_mcmc_plots = 0
+option_glacier_mb_vs_params = 1
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -58,6 +60,15 @@ vn_title_dict = {'massbal':'Mass Balance',
                  'precfactor':'$\mathregular{k_{p}}$',                                                              
                  'tempchange':'$\mathregular{T_{bias}}$',                                                              
                  'ddfsnow':'$\mathregular{f_{snow}}$'}
+vn_abbreviations_wunits_dict = {
+                'massbal':'B (m w.e. $\mathregular{a^{-1}}$)',                                                                      
+                'precfactor':'$\mathregular{k_{p}}$ (-)',                                                              
+                'tempchange':'$\mathregular{T_{bias}}$ ($\mathregular{^{\circ}C}$)',                                                              
+                'ddfsnow':'$\mathregular{f_{snow}}$ (mm w.e. $\mathregular{d^{-1}}$ $\mathregular{^{\circ}C^{-1}}$)'}
+vn_abbreviations_dict = {'massbal':'$\mathregular{B}$',                                                                      
+                         'precfactor':'$\mathregular{k_{p}}$',                                                              
+                         'tempchange':'$\mathregular{T_{bias}}$',                                                              
+                         'ddfsnow':'$\mathregular{f_{snow}}$'}
 vn_title_wunits_dict = {'massbal':'Mass Balance (m w.e. $\mathregular{a^{-1}}$)',
                  'dif_masschange':'$\mathregular{B_{obs} - B_{mod}}$\n(m w.e. $\mathregular{a^{-1}}$)',
                  'precfactor':'$\mathregular{k_{p}}$ (-)',                                                              
@@ -80,22 +91,78 @@ metric_title_dict = {'Gelman-Rubin':'Gelman-Rubin Statistic',
                      'MC Error': 'Monte Carlo Error',
                      'Effective N': 'Effective Sample Size'}
 metrics = ['Gelman-Rubin', 'MC Error', 'Effective N']
+title_dict = {'Amu_Darya': 'Amu Darya',
+              'Brahmaputra': 'Brahmaputra',
+              'Ganges': 'Ganges',
+              'Ili': 'Ili',
+              'Indus': 'Indus',
+              'Inner_Tibetan_Plateau': 'Inner TP',
+              'Inner_Tibetan_Plateau_extended': 'Inner TP ext',
+              'Irrawaddy': 'Irrawaddy',
+              'Mekong': 'Mekong',
+              'Salween': 'Salween',
+              'Syr_Darya': 'Syr Darya',
+              'Tarim': 'Tarim',
+              'Yangtze': 'Yangtze',
+              'inner_TP': 'Inner TP',
+              'Karakoram': 'Karakoram',
+              'Yigong': 'Yigong',
+              'Yellow': 'Yellow',
+              'Bhutan': 'Bhutan',
+              'Everest': 'Everest',
+              'West Nepal': 'West Nepal',
+              'Spiti Lahaul': 'Spiti Lahaul',
+              'tien_shan': 'Tien Shan',
+              'Pamir': 'Pamir',
+              'pamir_alai': 'Pamir Alai',
+              'Kunlun': 'Kunlun',
+              'Hindu Kush': 'Hindu Kush',
+              13: 'Central Asia',
+              14: 'South Asia West',
+              15: 'South Asia East',
+              'all': 'HMA',
+              'Altun Shan':'Altun Shan',
+              'Central Himalaya':'C Himalaya',
+              'Central Tien Shan':'C Tien Shan',
+              'Dzhungarsky Alatau':'Dzhungarsky Alatau',
+              'Eastern Himalaya':'E Himalaya',
+              'Eastern Hindu Kush':'E Hindu Kush',
+              'Eastern Kunlun Shan':'E Kunlun Shan',
+              'Eastern Pamir':'E Pamir',
+              'Eastern Tibetan Mountains':'E Tibetan Mtns',
+              'Eastern Tien Shan':'E Tien Shan',
+              'Gangdise Mountains':'Gangdise Mtns',
+              'Hengduan Shan':'Hengduan Shan',
+              'Karakoram':'Karakoram',
+              'Northern/Western Tien Shan':'N/W Tien Shan',
+              'Nyainqentanglha':'Nyainqentanglha',
+              'Pamir Alay':'Pamir Alay',
+              'Qilian Shan':'Qilian Shan',
+              'Tanggula Shan':'Tanggula Shan',
+              'Tibetan Interior Mountains':'Tibetan Int Mtns',
+              'Western Himalaya':'W Himalaya',
+              'Western Kunlun Shan':'W Kunlun Shan',
+              'Western Pamir':'W Pamir'
+              }
 
 
 # Export option
 mcmc_output_netcdf_fp_3chain = input.output_filepath + 'cal_opt2_spc_3000glac_3chain_adj12_wpriors/'
-mcmc_output_netcdf_fp_all = input.output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/cal_opt2/'
+#mcmc_output_netcdf_fp_all = input.output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/cal_opt2/'
+mcmc_output_netcdf_fp_all = input.output_filepath + 'cal_opt2_spc_20190730/'
 hh2015_output_netcdf_fp_all = input.output_filepath + 'cal_opt3/cal_opt3/'
 mcmc_output_figures_fp = input.output_filepath + 'figures/'
 #mcmc_output_csv_fp = mcmc_output_netcdf_fp + 'csv/'
 
 regions = [13,14,15]
+#regions = [14, 15]
 
 cal_datasets = ['shean']
 
 burn=0
 
-chainlength = 10000
+#chainlength = 10000
+chainlength = 2000
 # Bounds (90% bounds --> 95% above/below given threshold)
 low_percentile = 5
 high_percentile = 95
@@ -124,7 +191,7 @@ srtm_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA.ti
 srtm_contour_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA_countours_2km_gt3000m_smooth.shp'
 
 
-def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
+def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal_data=1):
     """ Load glacier data, climate data, and calibration data for list of glaciers 
     
     Parameters
@@ -172,14 +239,17 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
         # Glacier hypsometry
         main_glac_hyps_region = modelsetup.import_Husstable(
                 main_glac_rgi_region, [region], input.hyps_filepath,input.hyps_filedict, input.hyps_colsdrop)
-        # ===== CALIBRATION DATA =====
-        cal_data_region = pd.DataFrame()
-        for dataset in cal_datasets:
-            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
-            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table_nospinup)
-            cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
-        cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
-        cal_data_region.reset_index(drop=True, inplace=True)
+        
+        if option_loadcal_data == 1:
+            # ===== CALIBRATION DATA =====
+            cal_data_region = pd.DataFrame()
+            for dataset in cal_datasets:
+                cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
+                cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, 
+                                                         dates_table_nospinup)
+                cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
+            cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
+            cal_data_region.reset_index(drop=True, inplace=True)
         
         # ===== OTHER DATA =====
         if option_loadhyps_climate == 1:
@@ -206,7 +276,9 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
         # ===== APPEND DATASETS =====
         if count == 1:
             main_glac_rgi = main_glac_rgi_region
-            cal_data = cal_data_region
+            
+            if option_loadcal_data == 1:
+                cal_data = cal_data_region
         
             if option_loadhyps_climate == 1:
                 main_glac_hyps = main_glac_hyps_region
@@ -219,7 +291,9 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
                 
         else:
             main_glac_rgi = main_glac_rgi.append(main_glac_rgi_region)
-            cal_data = cal_data.append(cal_data_region)
+            
+            if option_loadcal_data == 1:
+                cal_data = cal_data.append(cal_data_region)
             
             if option_loadhyps_climate == 1:
                 # If more columns in region, then need to expand existing dataset
@@ -250,14 +324,18 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1):
             
     # reset index
     main_glac_rgi.reset_index(inplace=True, drop=True)
-    cal_data.reset_index(inplace=True, drop=True)
+    
+    if option_loadcal_data == 1:
+        cal_data.reset_index(inplace=True, drop=True)
     
     if option_loadhyps_climate == 1:
         main_glac_hyps.reset_index(inplace=True, drop=True)
         main_glac_icethickness.reset_index(inplace=True, drop=True)
         main_glac_width.reset_index(inplace=True, drop=True)
     
-    if option_loadhyps_climate == 0:
+    if option_loadhyps_climate == 0 and option_loadcal_data == 0:
+        return main_glac_rgi
+    if option_loadhyps_climate == 0 and option_loadcal_data == 1:
         return main_glac_rgi, cal_data
     else:
         return (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
@@ -601,8 +679,8 @@ def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=
 def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
                           glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
-                          observed_error, tempchange_boundhigh, tempchange_boundlow, tempchange_opt_init, mb_max_acc, 
-                          mb_max_loss, tempchange_max_acc, tempchange_max_loss, option_areaconstant=0, 
+                          observed_error, tempchange_boundhigh, tempchange_boundlow, 
+                          tempchange_opt_init=None, mb_max_acc=None, mb_max_loss=None, option_areaconstant=0, 
                           option_plotsteps=1, fig_fp=input.output_filepath):
     """
     Plot the mass balance [mwea] versus all model parameters to see how parameters effect mass balance
@@ -711,8 +789,8 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
         ylim_lower = observed_massbal - 3*observed_error
     else:
         ylim_lower = np.floor(mb_max_loss)
-    ax.set_ylim(ylim_lower,np.ceil(mb_vs_parameters['massbal'].max()))
-    ax.set_ylim(-2,2)
+    ax.set_ylim(int(ylim_lower),np.ceil(mb_vs_parameters['massbal'].max()))
+#    ax.set_ylim(-2,2)
     
     # Labels
 #    ax.set_title('Mass balance versus Parameters ' + glacier_str)
@@ -1227,10 +1305,11 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
     """
 #%%
 #for batman in [0]:
-#    netcdf_fp = mcmc_output_netcdf_fp_3chain
+#    netcdf_fp = mcmc_output_netcdf_fp_all
 #    chain_no = 0
     
     csv_fp = netcdf_fp + 'csv/'
+    fig_fp = netcdf_fp + 'figures/'
     
     filelist = []
     for region in regions:
@@ -1265,11 +1344,28 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
         mb_compare.loc[nglac, 'mod_mwea_std'] = np.std(mb_all)
         # close dataset
         ds.close()
+    
+    #%%
+    mb_compare['dif_mwea'] = mb_compare['obs_mwea'] - mb_compare['mod_mwea']
+    mb_compare['Area_km2'] = main_glac_rgi['Area']
+    mb_compare['Zmin'] = main_glac_rgi['Zmin']
+    mb_compare['Zmax'] = main_glac_rgi['Zmax']
+    mb_compare['Zmed'] = main_glac_rgi['Zmed']
+    mb_compare['obs_Gta'] = mb_compare['obs_mwea'] / 1000 * mb_compare['Area_km2']
+    mb_compare['obs_Gta_std'] = mb_compare['obs_mwea_std'] / 1000 * mb_compare['Area_km2']
+    mb_compare['mod_Gta'] = mb_compare['mod_mwea'] / 1000 * mb_compare['Area_km2']
+    mb_compare['mod_Gta_std'] = mb_compare['mod_mwea_std'] / 1000 * mb_compare['Area_km2']
+    
+    print('Observed MB [Gt/yr]:', np.round(mb_compare.obs_Gta.sum(),2), 
+          '(+/-', np.round(mb_compare.obs_Gta_std.sum(),2),')',
+          '\nModeled MB [Gt/yr]:', np.round(mb_compare.mod_Gta.sum(),2),
+          '(+/-', np.round(mb_compare.mod_Gta_std.sum(),2),')'
+          )
+    #%%
 
     # export csv
     if os.path.exists(csv_fp) == False:
         os.makedirs(csv_fp)   
-    mb_compare['dif_mwea'] = mb_compare['obs_mwea'] - mb_compare['mod_mwea']
     mb_compare.to_csv(csv_fp + 'mb_compare_' + str(int(chainlength/1000)) + 'k.csv')
 
     # plot histogram
@@ -1281,7 +1377,23 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
     if bin_max > dif_bins[-1]:
         dif_bins[-1] = bin_max
     hist_fn = 'hist_' + str(int(chainlength/1000)) + 'kch_dif_mwea.png'
-    plot_hist(mb_compare, 'dif_mwea', dif_bins, fig_fn=hist_fn)
+    plot_hist(mb_compare, 'dif_mwea', dif_bins, xlabel='Mass balance (obs - model) [mwea]', ylabel='Count',
+              fig_fp=fig_fp, fig_fn=hist_fn)
+    
+    # plot histogram (z-score)
+    mb_compare['dif_zscore'] = (mb_compare['obs_mwea'] - mb_compare['mod_mwea']) / mb_compare['obs_mwea_std']
+    dif_bins = [-2,-1.25, -0.75, -0.25, -0.1, 0.1, 0.25, 0.75, 1.25, 2]
+    bin_min = np.floor((mb_compare['dif_zscore'].min() * 100))/100
+    bin_max = np.ceil((mb_compare['dif_zscore'].max() * 100))/100
+    if bin_min < dif_bins[0]:
+        dif_bins[0] = bin_min
+    if bin_max > dif_bins[-1]:
+        dif_bins[-1] = bin_max
+    hist_fn = 'hist_' + str(int(chainlength/1000)) + 'kch_dif_zscore.png'
+    plot_hist(mb_compare, 'dif_zscore', dif_bins, xlabel='Mass balance (z-score) [-]', ylabel='Count',
+              fig_fp=fig_fp, fig_fn=hist_fn)
+    
+    
     #%%
     
 
@@ -1302,7 +1414,7 @@ def prior_vs_posterior_single(glac_no, netcdf_fp, iters=[1000,15000], precfactor
     .png files
         saves figure showing how prior and posterior comparison
     """
-for batman in [0]:
+#for batman in [0]:
     glac_no = '14.02150'
     netcdf_fp = input.output_fp_cal
     
@@ -1373,6 +1485,8 @@ for batman in [0]:
         # MCMC Analysis
         ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
         df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
+        print('MB_obs:', np.round(observed_massbal,2), 'MB_obs_std:', np.round(observed_error,2),
+              '\nMB_mod:', np.round(df.massbal.mean(),2), 'MB_mod_std:', np.round(df.massbal.std(),2))
         print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
         
         # Select subsets of data
@@ -1797,7 +1911,9 @@ if option_prior_vs_posterior_single == 1:
         
         
 if option_observation_vs_calibration == 1:
-    observation_vs_calibration(regions, mcmc_output_netcdf_fp_3chain, chainlength=chainlength, burn=burn)
+#    netcdf_fp = mcmc_output_netcdf_fp_3chain
+    netcdf_fp = mcmc_output_netcdf_fp_all
+    observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn=burn)
         
         
 #%%
@@ -2062,8 +2178,9 @@ if option_papermcmc_prior_vs_posterior == 1:
     #%%
 if option_papermcmc_solutionspace == 1:
     
-    glac_no = ['13.26360']
-    netcdf_fp = mcmc_output_netcdf_fp_3chain
+    glac_no = ['13.05086']
+    netcdf_fp = input.output_fp_cal
+#    netcdf_fp = mcmc_output_netcdf_fp_3chain
     
 #    filelist = []
 #    for region in regions:
@@ -3164,21 +3281,66 @@ if option_raw_plotchain == 1:
     
 #%% Regional prior distributions
 if option_regional_priors == 1:
-    grouping = 'kaab'
+    grouping = 'himap'
     
     ds = pd.read_csv(input.output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/prior_compare_all.csv')
+    ds['glacno'] = [x.split('-')[1] for x in ds['RGIId'].values]
     # add himap regions
     ds['himap'] = ds.RGIId.map(himap_dict)
     ds['kaab'] = ds.RGIId.map(kaab_dict)
     regions = list(ds[grouping].unique())
-    regions = [x for x in regions if str(x) != 'nan']
+    regions = [x for x in regions if str(x) != 'nan']    
+
+    # Set up your plot (and/or subplots)
+    # load glacier data
+    main_glac_rgi = load_glacierdata_byglacno(ds.glacno.values.tolist(), option_loadhyps_climate=0, 
+                                              option_loadcal_data=0)
+    # Look for trends in temp_bias priors
+    ds['Area'] = main_glac_rgi['Area'] 
+    ds['tc_range'] = ds['prior_tc_bndhigh'] - ds['prior_tc_bndlow']
+    fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=False, gridspec_kw = {'wspace':0.4, 'hspace':0.15})
+    ax[0,0].scatter(ds['Area'].values, ds['tc_range'].values, color='k', linewidth=1, marker='o', s=0.00001)
+    # Labels
+    ax[0,0].set_xlabel('Area [km2]', size=12)
+    ax[0,0].set_ylabel('TC range [degC]', size=12)       
+    # Limits
+    ax[0,0].set_xlim([0,20])
+    
+#    # Save figure
+#    #  figures can be saved in any format (.jpg, .png, .pdf, etc.)
+#    fig.set_size_inches(4, 4)
+#    figure_fp = os.getcwd() + '/../Output/'
+#    if os.path.exists(figure_fp) == False:
+#        os.makedirs(figure_fp)
+#    figure_fn = 'example_plot_xy.png'
+#    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+    plt.show()
+
+    fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=False, gridspec_kw = {'wspace':0.4, 'hspace':0.15})
+    ax[0,0].scatter(ds['prior_tc_std'].values, ds['tc_range'].values, color='k', linewidth=1, marker='o', s=0.2)
+    # Labels
+    ax[0,0].set_xlabel('TC std [degC]', size=12)
+    ax[0,0].set_ylabel('TC range [degC]', size=12)       
+    # Limits
+#    ax[0,0].set_xlim([0,20])
+    
+#    # Save figure
+#    #  figures can be saved in any format (.jpg, .png, .pdf, etc.)
+#    fig.set_size_inches(4, 4)
+#    figure_fp = os.getcwd() + '/../Output/'
+#    if os.path.exists(figure_fp) == False:
+#        os.makedirs(figure_fp)
+#    figure_fn = 'example_plot_xy.png'
+#    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+    plt.show()
+    
     
     #%%
     # Loop through regions and get priors for each
     prior_pf_reg_dict = {}
     prior_tc_reg_dict = {}
-#    for region in regions:
-    for region in ['Karakoram']:
+    for region in regions:
+#    for region in ['Karakoram']:
 #    for region in ['inner_TP']:
         ds_region = ds[ds[grouping] == region]
         print('\n\n', region, ds_region.shape)
@@ -3212,15 +3374,179 @@ if option_regional_priors == 1:
 #        print('alpha:', np.round(alpha,2), 'beta:', np.round(beta,2))
         
         prior_tc_reg_dict[region] = [mu, std]
+    
+    #%%
+    # Plot histogram and distributions
+    nbins = 50    
+    ncols = 4
+    nrows = int(np.ceil(len(regions)/ncols))
+    
+    # ===== REGIONAL PRIOR: PRECIPITATION FACTOR ======
+    fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.5, 'hspace':0.5})
+    
+    regions = sorted(regions)
+    nrow = 0
+    ncol = 0
+    for nregion, region in enumerate(regions):
+        ds_region = ds[ds[grouping] == region]
+        nglaciers = ds_region.shape[0]
+        
+        # Plot histogram
+        counts, bins, patches = ax[nrow,ncol].hist(ds_region.prior_pf_mu.values, facecolor='grey', edgecolor='grey', 
+                                                   linewidth=0.1, bins=50, density=True)
+        
+        # Plot gamma distribution
+        beta = ds_region.prior_pf_mu.mean() / ds_region.prior_pf_mu.std()
+        alpha = ds_region.prior_pf_mu.mean() * beta
+        rv = stats.gamma(alpha, scale=1/beta)
+        ax[nrow,ncol].plot(bins, rv.pdf(bins), color='k')
+        # add alpha and beta as text
+        gammatext = r'$\alpha$=' + str(np.round(alpha,2)) + '\n' + r'$\beta$=' + str(np.round(beta,2))
+        ax[nrow,ncol].text(0.98, 0.95, gammatext, size=10, horizontalalignment='right', 
+                           verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+        
+        # Title
+        ax[nrow,ncol].text(0.5, 1.01, title_dict[region], size=10, horizontalalignment='center', 
+                           verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        
+        # Adjust row and column
+        ncol += 1
+        if ncol == ncols:
+            nrow += 1
+            ncol = 0
 
+    # Remove extra plots    
+    n_extras = len(regions)%ncols 
+    if n_extras > 0:
+        for nextra in np.arange(0,n_extras):
+            ax[nrow,ncol].axis('off')
+            ncol += 1
+            
+    # Y-label
+    fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
+        
+    # Save figure
+    fig_fp = input.output_fp_cal + 'figures/'
+    if os.path.exists(fig_fp) == False:
+        os.makedirs(fig_fp)    
+    fig.set_size_inches(7, 9)
+    fig.savefig(fig_fp + 'regional_priors_precfactor.png', bbox_inches='tight', dpi=300)
+    
+    #%%
+    # ===== REGIONAL PRIOR: TEMPERATURE BIAS ======
+    fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.5, 'hspace':0.5})    
+    
+    regions = sorted(regions)
+    nrow = 0
+    ncol = 0
+    for nregion, region in enumerate(regions):
+        ds_region = ds[ds[grouping] == region]
+        nglaciers = ds_region.shape[0]
+        
+        # Plot histogram
+        counts, bins, patches = ax[nrow,ncol].hist(ds_region.prior_tc_mu.values, facecolor='grey', edgecolor='grey', 
+                                                   linewidth=0.1, bins=50, density=True)
+        
+        # Plot gamma distribution
+        mu = ds_region.prior_tc_mu.mean()
+        sigma = ds_region.prior_tc_mu.std()
+        rv = stats.norm(loc=mu, scale=sigma)
+        ax[nrow,ncol].plot(bins, rv.pdf(bins), color='k')
+        # add alpha and beta as text
+        normtext = r'$\mu$=' + str(np.round(mu,2)) + '\n' + r'$\sigma$=' + str(np.round(sigma,2))
+        ax[nrow,ncol].text(0.98, 0.95, normtext, size=10, horizontalalignment='right', 
+                           verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+        
+        # Title
+        ax[nrow,ncol].text(0.5, 1.01, title_dict[region], size=10, horizontalalignment='center', 
+                           verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        
+        # Adjust row and column
+        ncol += 1
+        if ncol == ncols:
+            nrow += 1
+            ncol = 0
 
-#%%
-for batman in [0]:
-    glac_no = '14.02150'
+    # Remove extra plots    
+    n_extras = len(regions)%ncols 
+    if n_extras > 0:
+        for nextra in np.arange(0,n_extras):
+            ax[nrow,ncol].axis('off')
+            ncol += 1
+            
+    # Y-label
+    fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
+        
+    # Save figure
+    fig_fp = input.output_fp_cal + 'figures/'
+    if os.path.exists(fig_fp) == False:
+        os.makedirs(fig_fp)    
+    fig.set_size_inches(7, 9)
+    fig.savefig(fig_fp + 'regional_priors_tempbias.png', bbox_inches='tight', dpi=300)
+    
+    #%%
+#    # ===== REGIONAL PRIOR: TEMPERATURE BIAS (GAMMA) ======
+#    fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.5, 'hspace':0.5})
+#    
+#    regions = sorted(regions)
+#    nrow = 0
+#    ncol = 0
+#    for nregion, region in enumerate(regions):
+#        ds_region = ds[ds[grouping] == region]
+#        nglaciers = ds_region.shape[0]
+#        
+#        # Plot histogram
+#        counts, bins, patches = ax[nrow,ncol].hist(ds_region.prior_tc_mu.values, facecolor='grey', edgecolor='grey', 
+#                                                   linewidth=0.1, bins=50, density=True)
+#        
+#        # Plot gamma distribution
+#        beta = ds_region.prior_tc_mu.mean() / ds_region.prior_pf_mu.std()
+#        alpha = ds_region.prior_tc_mu.mean() * beta
+#        rv = stats.gamma(alpha, scale=1/beta)
+#        ax[nrow,ncol].plot(bins, rv.pdf(bins), color='k')
+#        # add alpha and beta as text
+#        gammatext = r'$\alpha$=' + str(np.round(alpha,2)) + '\n' + r'$\beta$=' + str(np.round(beta,2))
+#        ax[nrow,ncol].text(0.98, 0.95, gammatext, size=10, horizontalalignment='right', 
+#                           verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+#        ax[nrow,ncol].set_ylim([0,0.5])
+#        
+#        # Title
+#        ax[nrow,ncol].text(0.5, 1.01, title_dict[region], size=10, horizontalalignment='center', 
+#                           verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+#        
+#        # Adjust row and column
+#        ncol += 1
+#        if ncol == ncols:
+#            nrow += 1
+#            ncol = 0
+#
+#    # Remove extra plots    
+#    n_extras = len(regions)%ncols 
+#    if n_extras > 0:
+#        for nextra in np.arange(0,n_extras):
+#            ax[nrow,ncol].axis('off')
+#            ncol += 1
+#            
+#    # Y-label
+#    fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
+#        
+#    # Save figure
+#    fig_fp = input.output_fp_cal + 'figures/'
+#    if os.path.exists(fig_fp) == False:
+#        os.makedirs(fig_fp)    
+#    fig.set_size_inches(7, 9)
+#    fig.savefig(fig_fp + 'regional_priors_tempbias_gamma.png', bbox_inches='tight', dpi=300)
+
+ 
+#%% PLOT MCMC CHAINS
+if option_glacier_mcmc_plots == 1:
+    glac_no = str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]
+#    glac_no = '15.03473'
     netcdf_fp = input.output_fp_cal
     variables = ['massbal', 'tempchange', 'precfactor', 'ddfsnow']
     iters = [5000]
     colors_iters = ['blue']
+    option_pairwise_scatter = 1
     
     region = [int(glac_no.split('.')[0])]
     rgi_glac_number = [glac_no.split('.')[1]]
@@ -3228,6 +3554,8 @@ for batman in [0]:
     # Glacier RGI data
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=region, rgi_regionsO2 = 'all',
                                                       rgi_glac_number=rgi_glac_number)
+    # Add regions
+    main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
     # Glacier hypsometry [km**2], total area
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, region, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
@@ -3235,15 +3563,30 @@ for batman in [0]:
     main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, region, input.thickness_filepath, 
                                                          input.thickness_filedict, input.thickness_colsdrop)
     main_glac_hyps[main_glac_icethickness == 0] = 0
+    # Width [km], average
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, region, input.width_filepath,
+                                                  input.width_filedict, input.width_colsdrop)
     # Elevation bins
     elev_bins = main_glac_hyps.columns.values.astype(int)   
     # Select dates including future projections
-    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-                                           spinupyears=input.spinupyears)
+    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
+    
+    # ===== LOAD CLIMATE DATA =====
+    gcm = class_climate.GCM(name=input.ref_gcm_name)
+    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+    # Lapse rate [K m-1]
+    gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+
+    # Select dates including future projections
+    #dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
+    dates_table_nospinup = modelsetup.datesmodelrun(startyear=2000, endyear=2018, spinupyears=0)
     
     # Calibration data
     cal_data = pd.DataFrame()
-    for dataset in input.cal_datasets:
+    for dataset in cal_datasets:
         cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
         cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
@@ -3274,41 +3617,59 @@ for batman in [0]:
         # MCMC Analysis
         ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
         df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
+        df['ddfsnow'] = df['ddfsnow'] * 1000
+        print('\nddfsnow converted to mm w.e. d-1 C-1\n')
         print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
         
-        ddfsnow_mu = input.ddfsnow_mu
-        ddfsnow_sigma = input.ddfsnow_sigma
-        ddfsnow_boundlow = input.ddfsnow_boundlow
-        ddfsnow_boundhigh = input.ddfsnow_boundhigh
+        # Select subsets of data
+        glacier_gcm_elev = gcm_elev[n]
+        glacier_gcm_temp = gcm_temp[n,:]
+        glacier_gcm_lrgcm = gcm_lr[n,:]
+        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        glacier_gcm_prec = gcm_prec[n,:]
+        glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
+        icethickness_t0 = main_glac_icethickness.iloc[n,:].values.astype(float)
+        width_t0 = main_glac_width.iloc[n,:].values.astype(float)
+        glac_idx_t0 = glacier_area_t0.nonzero()[0]
+        # Set model parameters
+        modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
+                           input.tempsnow, input.tempchange]
         
-        tempchange_mu = input.tempchange_mu
-        tempchange_sigma = input.tempchange_sigma
-        tempchange_boundlow = input.tempchange_boundlow
-        tempchange_boundhigh = input.tempchange_boundhigh
+        tempchange_boundlow, tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_max_acc = (
+                calibration.retrieve_priors_v2(
+                    modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                    width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                    glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, 
+                    observed_massbal, mb_obs_min, mb_obs_max, debug=True))
+        
+        ddfsnow_mu = input.ddfsnow_mu * 1000
+        ddfsnow_sigma = input.ddfsnow_sigma * 1000
+        ddfsnow_boundlow = input.ddfsnow_boundlow * 1000
+        ddfsnow_boundhigh = input.ddfsnow_boundhigh * 1000
        
-        #%%
     # PRIOR VS POSTERIOR PLOTS 
-    fig, ax = plt.subplots(2, 2, squeeze=False, figsize=(6.5, 5), 
-                           gridspec_kw={'wspace':0.3, 'hspace':0.5})
+    fig, ax = plt.subplots(4, 4, squeeze=False, gridspec_kw={'wspace':0.45, 'hspace':0.5})
     
     param_idx_dict = {'massbal':[0,0],
-                      'precfactor':[0,1],
-                      'tempchange':[1,0],
-                      'ddfsnow':[1,1]}
+                      'precfactor':[1,0],
+                      'tempchange':[2,0],
+                      'ddfsnow':[3,0]}
     
     z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
-    for nvar, vn in enumerate(variables):
+    for nvar, vn in enumerate(variables):        
+        nrow = param_idx_dict[vn][0]
         
-        # PRIOR DISTRIBUTIONS
+        # ====== PRIOR DISTRIBUTIONS ======
         if vn == 'massbal':
             x_values = observed_massbal + observed_error * z_score
             y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
         elif vn == 'precfactor': 
             if input.precfactor_disttype == 'gamma':
-                print('code gamma!')
-                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-                x_values = np.linspace(0,10,200)
-                y_values = stats.gamma.pdf(x_values, a=input.precfactor_gamma_alpha, loc=1/input.precfactor_gamma_beta)
+                x_values = np.linspace(
+                        stats.gamma.ppf(0,input.precfactor_gamma_alpha, scale=1/input.precfactor_gamma_beta), 
+                        stats.gamma.ppf(0.999,input.precfactor_gamma_alpha, scale=1/input.precfactor_gamma_beta), 
+                        100)                                
+                y_values = stats.gamma.pdf(x_values, a=input.precfactor_gamma_alpha, scale=1/input.precfactor_gamma_beta)    
             elif input.precfactor_disttype == 'uniform':
                 z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                 x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
@@ -3346,20 +3707,16 @@ for batman in [0]:
                 x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
                 y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
                                        scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
-        
-        nrow = param_idx_dict[vn][0]
-        ncol = param_idx_dict[vn][1]
-        ax[nrow,ncol].plot(x_values, y_values, color='k')
-        
+        # PLOT PRIOR
+        ax[nrow,0].plot(x_values, y_values, color='k')
         # Labels
-        ax[nrow,ncol].set_xlabel(vn_label_dict[vn], size=12)
-        if ncol == 0:
-            ax[nrow,ncol].set_ylabel('Probability Density', size=12)
-
-        # Ensemble/Posterior distribution                
+        ax[nrow,0].set_xlabel(vn_label_dict[vn], labelpad=0, size=10)
+        ax[nrow,0].set_ylabel('Probability Density', size=10)
+#        fig.text(0.03, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
+        
+        # PLOT POSTERIOR               
         for n_chain in range(len(ds.chain.values)):
             for count_iter, n_iters in enumerate(iters):
-                print(count_iter, n_iters)
                 chain = ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:n_iters]
             
                 # gaussian distribution
@@ -3368,41 +3725,37 @@ for batman in [0]:
                 y_values_kde = kde(x_values_kde)
                 
                 # Plot fitted distribution
-                ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=colors_iters[count_iter], linestyle=linestyles[n_chain])
+                ax[nrow,0].plot(x_values_kde, y_values_kde, color=colors_iters[count_iter], 
+                                linestyle=linestyles[n_chain])
+                
+        # ===== PLOT CHAINS ======
+        x_values = df.index.values
+        y_values = df[vn].values
+        ax[nrow,1].plot(x_values, y_values, color='black', linewidth=0.25)
+        step_idx1 = len(x_values) - 300
+        ax[nrow,2].plot(x_values[step_idx1:], y_values[step_idx1:], color='black', linewidth=0.25)
+        # labels
+        ax[nrow,1].set_ylabel(vn_title_dict[vn], size=10)
+        ax[nrow,1].set_xlabel('Step', labelpad=0, size=10)
+        ax[nrow,2].set_xlabel('Step', labelpad=0, size=10)
+        
+        # ===== PLOT AUTOCORRELATION =====
+        acorr_maxlags = 500
+        chain = df[vn].values
+        chain_norm = chain - chain.mean()
+        if chain.shape[0] <= acorr_maxlags:
+            acorr_lags = chain.shape[0] - 1
+        else:
+            acorr_lags = acorr_maxlags
+        ax[nrow,3].acorr(chain_norm, maxlags=acorr_lags, usevlines=False, marker='.', color='k', ms=1)
+        ax[nrow,3].plot([0,acorr_lags], [0,0], color='k', linewidth=1)
+        ax[nrow,3].set_xlim(0,acorr_lags)
+        ax[nrow,3].set_xlabel('lag')
+        ax[nrow,3].set_ylabel('autocorrelation')
+        
     
     # Close dataset
     ds.close()
-    
-    # Legend (Note: hard code the spacing between the two legends)
-    leg_lines = []
-    line = Line2D([0,1],[0,1], color='white')
-    leg_lines.append(line)
-    leg_labels = ['Steps']
-    
-    for count_iter, n_iters in enumerate(iters):
-        line = Line2D([0,1],[0,1], color=colors[count_iter])
-        leg_lines.append(line)
-    iter_labels = [str(int(i)) for i in iters]
-    for label in iter_labels:
-        leg_labels.append(label)
-    
-    for n in range(8):
-        line = Line2D([0,1],[0,1], color='white')
-        leg_lines.append(line)
-        leg_labels.append(' ')    
-    line = Line2D([0,1],[0,1], color='white')
-    leg_lines.append(line)
-    leg_labels.append('Starting Point')
-    
-    for n_chain in range(len(ds.chain.values)):
-        line = Line2D([0,1],[0,1], color='gray', linestyle=linestyles[n_chain])
-        leg_lines.append(line)
-    chain_labels = ['Center', 'Lower Bound', 'Upper Bound  ']
-    for n in chain_labels:
-        leg_labels.append(n)
-    
-    fig.legend(leg_lines, leg_labels, loc='upper right', bbox_to_anchor=(1.1,0.85), 
-               handlelength=1, handletextpad=0.5, borderpad=0.3, frameon=False)
         
     # Save figure
     str_ending = ''
@@ -3422,58 +3775,169 @@ for batman in [0]:
         elif input.ddfsnow_disttype == 'uniform':
             str_ending += '_DDFu'        
         
-    if os.path.exists(mcmc_output_figures_fp) == False:
-        os.makedirs(mcmc_output_figures_fp)        
-    fig.savefig(mcmc_output_figures_fp + 'prior_v_posteriors_' + glacier_str + str_ending + '.png', 
+    fig_fp = input.output_fp_cal + 'figures/'
+    if os.path.exists(fig_fp) == False:
+        os.makedirs(fig_fp)    
+    fig.set_size_inches(10, 8)
+    fig.savefig(fig_fp + 'prior_v_posteriors_' + glacier_str + str_ending + '.png', 
                 bbox_inches='tight', dpi=300)
+    plt.show()
     fig.clf()
+    #%%
+    # ===== PAIRWISE SCATTER PLOTS ===========================================================
+    if option_pairwise_scatter == 1:
+        fig, ax = plt.subplots(4, 4, squeeze=False, gridspec_kw={'wspace':0.1, 'hspace':0.1})
         
+        for h, vn1 in enumerate(variables):
+            v1 = chain = df[vn1].values
+            
+            for j, vn2 in enumerate(variables):
+                v2 = chain = df[vn2].values
+                
+                # Plot histogram
+                if h == j:
+                    ax[h,j].hist(v1)
+                    ax[h,j].tick_params(axis='both', bottom=False, left=False, labelleft=False, labelbottom=False)
+                # Plot scatter plot
+                elif h > j:
+                    ax[h,j].plot(v2, v1, '.', mfc='none', mec='black', ms=1)
+                # Add text of relationship
+                else:
+                    slope, intercept, r_value, p_value, std_err = linregress(v2, v1)
+                    text2plot = (vn_abbreviations_dict[vn2] + '/\n' + vn_abbreviations_dict[vn1] + '\n$R^2$=' +
+                                 '{:.2f}'.format((r_value**2)))
+                    ax[h,j].text(0.5, 0.5, text2plot, fontsize=12,
+                                 verticalalignment='center', horizontalalignment='center')
+                
+                # Labels
+                # Bottom left
+                if (h+1 == len(variables) and (j == 0)):
+                    ax[h,j].tick_params(axis='both', which='both', left=True, right=False, labelbottom=True,
+                                        labelleft=True, labelright=False)
+                    ax[h,j].set_xlabel(vn_abbreviations_dict[vn2])
+                    ax[h,j].set_ylabel(vn_abbreviations_dict[vn1])
+                # Bottom only
+                elif h + 1 == len(variables):
+                    ax[h,j].tick_params(axis='both', which='both', left=False, right=False, labelbottom=True,
+                                        labelleft=False, labelright=False)
+                    ax[h,j].set_xlabel(vn_abbreviations_dict[vn2])
+                # Left only (exclude histogram values)
+                elif (h !=0) and (j == 0):
+                    ax[h,j].tick_params(axis='both', which='both', left=True, right=False, labelbottom=False,
+                                        labelleft=True, labelright=False)
+                    ax[h,j].set_ylabel(vn_abbreviations_dict[vn1])
+                else:
+                    ax[h,j].tick_params(axis='both', left=False, right=False, labelbottom=False,
+                                        labelleft=False, labelright=False)
+                    
+        fig_fp = input.output_fp_cal + 'figures/autocorrelation/'
+        if os.path.exists(fig_fp) == False:
+            os.makedirs(fig_fp)    
+        fig.set_size_inches(6, 8)
+        fig.savefig(fig_fp + 'pairwisescatter_' + glacier_str + str_ending + '.png', 
+                    bbox_inches='tight', dpi=300)
+        plt.show()
+        fig.clf()
+    
+#%% PLOT MASS BALANCE VS MODEL PARAMETERS
+if option_glacier_mb_vs_params == 1:
+    glac_no = [str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]]
+    netcdf_fp = input.output_fp_cal
+    fig_fp = netcdf_fp + 'figures/'
+    
+    (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
+     gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+    
+    main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
+    
+    # Elevation bins
+    elev_bins = main_glac_hyps.columns.values.astype(int) 
+    
+    for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
+        # Glacier string
+        glacier_str = glac_str_wRGI.split('-')[1]
+        print(glacier_str)
+        # Glacier number
+        glacno = int(glacier_str.split('.')[1])
+        # RGI information
+        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
+        # Calibration data
+        cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+        glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
+        # Select observed mass balance, error, and time data
+        t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
+        t2 = glacier_cal_data.loc[cal_idx, 't2'].values[0]
+        t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
+        t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
+        observed_massbal = (glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)).values[0]
+        observed_error = (glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)).values[0]
+        mb_obs_max = observed_massbal + 3 * observed_error
+        mb_obs_min = observed_massbal - 3 * observed_error
         
+        # MCMC Analysis
+#        ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
+#        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
+#        print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
         
+        # Select subsets of data
+        glacier_gcm_elev = gcm_elev[n]
+        glacier_gcm_temp = gcm_temp[n,:]
+        glacier_gcm_lrgcm = gcm_lr[n,:]
+        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
+        glacier_gcm_prec = gcm_prec[n,:]
+        glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
+        icethickness_t0 = main_glac_icethickness.iloc[n,:].values.astype(float)
+        width_t0 = main_glac_width.iloc[n,:].values.astype(float)
+        glac_idx_t0 = glacier_area_t0.nonzero()[0]
+        # Set model parameters
+        modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
+                           input.tempsnow, input.tempchange]
+    
         
+        tempchange_boundlow, tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_max_acc = (
+                calibration.retrieve_priors_v2(
+                    modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                    width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                    glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, 
+                    observed_massbal, mb_obs_min, mb_obs_max, debug=True))
+        
+        # Iterations to plot
+        if input.precfactor_disttype == 'gamma':
+            precfactor_expected = stats.gamma.ppf(0.5,input.precfactor_gamma_alpha, scale=1/input.precfactor_gamma_beta)
+            precfactor_bndhigh = stats.gamma.ppf(0.95,input.precfactor_gamma_alpha, 
+                                                   scale=1/input.precfactor_gamma_beta)
+            precfactor_iters = [1, int(precfactor_expected*10)/10, int(precfactor_bndhigh*10)/10]
+        tc_iter_step = 0.1
+        tempchange_iters = np.arange(int(tempchange_max_acc), np.ceil(tempchange_boundhigh)+tc_iter_step, 
+                                     tc_iter_step).tolist()
+        ddfsnow_iters = [0.0026, 0.0041, 0.0056]
+        
+        # Max loss [mwea] for plot
+        mb_max_loss = -1 * (glacier_area_t0 * icethickness_t0).sum() / glacier_area_t0.sum() / (t2-t1)
+        
+        # Plot
+        plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
+                              glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                              glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
+                              observed_error, tempchange_boundhigh, tempchange_boundlow, 
+                              mb_max_loss=mb_max_loss, option_areaconstant=0, option_plotsteps=0, fig_fp=fig_fp)
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+#%%
+#cal_fp = input.main_directory + '/../Output/cal_opt2_spc_20190730/'
+#
+#x_list = []
+#for i in os.listdir(cal_fp):
+#    if i.endswith('.nc'):
+#        x_list.append(i)
+#        
+#x_list = np.array(sorted(x_list))
+#y = [int(x.split('.')[1]) for x in x_list]
+#z = y - np.roll(y,1)
+#A = np.where(z!=1)[0]
+#print(A)
+#            
     
     
 

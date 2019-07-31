@@ -109,14 +109,15 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [1]
+rgi_regionsO1 = [14]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['03473']
-rgi_glac_number = ['14683'] # problematic glacier for Zoe
-#rgi_glac_number = glac_num_fromrange(1,2000)
+rgi_glac_number = ['19943']
+#rgi_glac_number = ['25426']
+#rgi_glac_number = ['14683'] # problematic glacier for Zoe
+#rgi_glac_number = glac_num_fromrange(25419,25424)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
 
@@ -130,22 +131,23 @@ option_bias_adjustment = 1
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
 
 # First year of model run (change these to calibration)
-startyear = 1980
-#startyear = 2000
+#startyear = 1980
+startyear = 2000
 #  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
 #  calendar year example: 2000 would start on January 2000
 # Last year of model run
-endyear = 2017
-#endyear = 2018
+#endyear = 2017
+endyear = 2018
 # Spin up time [years]
 spinupyears = 0
 # Water year option
-option_wateryear = 1
-#option_wateryear = 3
+#option_wateryear = 1
+option_wateryear = 3
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 30 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
-constantarea_years = 37
+#constantarea_years = 37
+constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
@@ -174,12 +176,12 @@ synthetic_temp_adjust = 3
 synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
-# Calibration option (1 = minimization, 2 = MCMC, 3=HH2015)
-option_calibration = 1
+# Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
+option_calibration = 4
 # Calibration datasets
-#cal_datasets = ['shean']
+cal_datasets = ['shean']
 #cal_datasets = ['mcnabb']
-cal_datasets = ['larsen']
+#cal_datasets = ['larsen']
 #cal_datasets = ['mcnabb', 'larsen']
 #cal_datasets = ['wgms_d', 'group']
 #cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
@@ -193,7 +195,7 @@ output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 #precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 #ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
 #tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
-precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.8,2)]
+precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.2,5)]
 precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
 tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
@@ -205,7 +207,7 @@ extra_calrounds = 3
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 5000
+mcmc_sample_no = 2000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
@@ -216,8 +218,31 @@ thin_interval = 1
 #precfactor_disttype = 'lognormal'
 #precfactor_disttype = 'uniform'
 precfactor_disttype = 'gamma'
-precfactor_gamma_alpha = 2.4
-precfactor_gamma_beta = 1.63
+precfactor_gamma_region_dict = {'Karakoram': [2.53, 1.69],
+                                'Western Kunlun Shan': [2.41, 1.88],
+                                'Nyainqentanglha': [9.28, 3.01],
+                                'Eastern Himalaya': [3.82, 1.95],
+                                'Central Himalaya': [3.11, 1.54],
+                                'Western Himalaya': [2.95, 1.92],
+                                'Tibetan Interior Mountains': [3.64, 1.58],
+                                'Dzhungarsky Alatau': [4.62, 1.88],
+                                'Central Tien Shan': [3.16, 1.50],
+                                'Northern/Western Tien Shan': [3.88, 1.80],
+                                'Western Pamir': [2.6, 1.78],
+                                'Pamir Alay': [3.99, 2.25],
+                                'Eastern Pamir': [1.8, 1.64],
+                                'Eastern Tibetan Mountains': [6.76, 2.76],
+                                'Qilian Shan': [4.74, 1.69],
+                                'Tanggula Shan': [11.18, 3.53],
+                                'Eastern Kunlun Shan': [3.71, 1.54],
+                                'Hengduan Shan': [7.17, 2.48],
+                                'Gangdise Mountains': [5.89, 2.12],
+                                'Eastern Tien Shan': [3.0, 0.84],
+                                'Altun Shan': [13.13, 2.67],
+                                'Eastern Hindu Kush': [3.9, 2.39]
+                                }
+precfactor_gamma_alpha = 3.0
+precfactor_gamma_beta = 0.84
 precfactor_lognorm_mu = 0
 precfactor_lognorm_tau = 4
 precfactor_mu = 0
@@ -232,8 +257,31 @@ precfactor_boundhigh_adj = 0
 #tempchange_disttype = 'normal'
 tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'
-tempchange_mu = 2.49
-tempchange_sigma = 1.98
+tempchange_norm_region_dict = {'Karakoram': [2.43, 1.95],
+                               'Western Kunlun Shan': [3.39, 1.79],
+                               'Nyainqentanglha':[-0.37, 0.97],
+                               'Eastern Himalaya': [0.08, 1.02],
+                               'Central Himalaya': [0.31, 1.03],
+                               'Western Himalaya': [0.4, 1.08],
+                               'Tibetan Interior Mountains': [0.61, 0.95],
+                               'Dzhungarsky Alatau': [0.48, 0.80],
+                               'Central Tien Shan': [1.08, 1.25],
+                               'Northern/Western Tien Shan': [0.52, 0.99],
+                               'Western Pamir': [0.91, 1.4],
+                               'Pamir Alay': [0.14, 0.97],
+                               'Eastern Pamir': [1.49, 1.28],
+                               'Eastern Tibetan Mountains': [0.41, 0.77],
+                               'Qilian Shan': [0.7, 0.96],
+                               'Tanggula Shan': [-0.11, 0.45],
+                               'Eastern Kunlun Shan': [0.75, 1.01],
+                               'Hengduan Shan': [-0.25, 0.79],
+                               'Gangdise Mountains': [0.25, 0.55],
+                               'Eastern Tien Shan': [1.46, 1.82],
+                               'Altun Shan': [0.11, 0.96],
+                               'Eastern Hindu Kush': [0.5, 1.58]
+                               }
+tempchange_mu = 0.91
+tempchange_sigma = 1.4
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
@@ -278,7 +326,7 @@ precfactor = 1
 precgrad = 0.0001
 #  range 0.0001 - 0.0010
 # Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 0.003
+ddfsnow = 0.0041
 #  range 2.6 - 5.1 * 10^-3
 # Temperature adjustment [deg C]
 tempchange = 0
@@ -290,7 +338,7 @@ lrglac = -0.0065
 #  k_p in Radic et al. (2013)
 #  c_prec in Huss and Hock (2015)
 # Degree-day factor of ice [m w.e. d-1 degC-1]
-ddfice = 0.0043 / 0.7
+ddfice = ddfsnow / 0.7
 #  note: '**' means to the power, so 10**-3 is 0.001
 # Ratio degree-day factor snow snow to ice
 ddfsnow_iceratio = 0.7
@@ -301,7 +349,24 @@ tempsnow = 1.0
 # Frontal ablation  dictating rate [yr-1]
 frontalablation_k = 2
 # Calving width dictionary to override RGI elevation bins, which can be highly inaccurate at the calving front
-width_calving_dict = {'RGI60-01.14683':2500}
+width_calving_dict = {'RGI60-01.01390':5730,
+                      'RGI60-01.03622':1860,
+                      'RGI60-01.10689':4690,
+                      'RGI60-01.13638':940,
+                      'RGI60-01.14443':6010,
+                      'RGI60-01.14683':2240,
+                      'RGI60-01.14878':1570,
+                      'RGI60-01.17807':2130,
+                      'RGI60-01.17840':980,
+                      'RGI60-01.17843':1030,
+                      'RGI60-01.17876':1390,
+                      'RGI60-01.20470':1200,
+                      'RGI60-01.20783':760,
+                      'RGI60-01.20841':420,
+                      'RGI60-01.20891':2050,
+                      'RGI60-01.21001':1580,
+                      'RGI60-01.23642':2820,
+                      'RGI60-01.26736':3560}
 
 # Calving option
 option_frontalablation_k = 1
@@ -688,6 +753,24 @@ massbal_uncertainty_mwea = 0.1
 #  single refers to tolerance if only a single calibration point since we want this to be more exact
 zscore_tolerance_all = 1
 zscore_tolerance_single = 0.1
+
+#%% REGIONS
+grouping = 'himap'
+if grouping == 'watershed':
+    reg_vn = 'watershed'
+    reg_dict_fn = main_directory + '/../qgis_himat/rgi60_HMA_dict_watershed.csv'
+    reg_csv = pd.read_csv(reg_dict_fn)
+    reg_dict = dict(zip(reg_csv.RGIId, reg_csv[reg_vn]))
+elif grouping == 'kaab':
+    reg_vn = 'kaab_name'
+    reg_dict_fn = main_directory + '/../qgis_himat/rgi60_HMA_dict_kaab.csv'
+    reg_csv = pd.read_csv(reg_dict_fn)
+    reg_dict = dict(zip(reg_csv.RGIId, reg_csv[reg_vn]))
+elif grouping == 'himap':
+    reg_vn = 'bolch_name'
+    reg_dict_fn = main_directory + '/../qgis_himat/rgi60_HMA_dict_bolch.csv'
+    reg_csv = pd.read_csv(reg_dict_fn)
+    reg_dict = dict(zip(reg_csv.RGIId, reg_csv[reg_vn]))
 
 #%% TRANSFER FUNCTIONS
 # Slope of line of best fit for parameter vs. median elevation

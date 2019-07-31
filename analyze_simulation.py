@@ -48,7 +48,7 @@ option_runoff_components = 0
 option_runoff_monthlychange = 0
 runoff_erainterim_bywatershed = 0
 
-option_plot_cmip5_normalizedchange_proposal = 1
+option_plot_cmip5_normalizedchange_proposal = 0
 option_runoff_components_proposal = 0
 
 option_glaciermip_table = 0
