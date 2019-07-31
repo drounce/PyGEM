@@ -51,8 +51,8 @@ option_papermcmc_hh2015_map = 0
 
 # Updated 2019/07/30
 option_regional_priors = 0
-option_glacier_mcmc_plots = 0
-option_glacier_mb_vs_params = 1
+option_glacier_mcmc_plots = 1
+option_glacier_mb_vs_params = 0
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  

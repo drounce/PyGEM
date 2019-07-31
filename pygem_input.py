@@ -109,14 +109,12 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [14]
+rgi_regionsO1 = [13]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['19943']
-#rgi_glac_number = ['25426']
-#rgi_glac_number = ['14683'] # problematic glacier for Zoe
+rgi_glac_number = ['45048']
 #rgi_glac_number = glac_num_fromrange(25419,25424)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
@@ -177,7 +175,7 @@ synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 4
+option_calibration = 2
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['mcnabb']
@@ -207,7 +205,7 @@ extra_calrounds = 3
 # OPTION 2: MCMC 
 # Chain options 
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 2000
+mcmc_sample_no = 500
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
