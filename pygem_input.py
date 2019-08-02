@@ -109,13 +109,14 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13]
+rgi_regionsO1 = [14]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-rgi_glac_number = ['45048']
-#rgi_glac_number = glac_num_fromrange(25419,25424)
+#rgi_glac_number = ['00004']
+rgi_glac_number = ['00006']
+#rgi_glac_number = glac_num_fromrange(1,1000)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
 
@@ -175,7 +176,7 @@ synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 2
+option_calibration = 4
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['mcnabb']
@@ -252,8 +253,8 @@ precfactor_boundhigh = 1.5
 precfactor_start = 1
 precfactor_step = 0.1
 precfactor_boundhigh_adj = 0
-#tempchange_disttype = 'normal'
-tempchange_disttype = 'truncnormal'
+tempchange_disttype = 'normal'
+#tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'
 tempchange_norm_region_dict = {'Karakoram': [2.43, 1.95],
                                'Western Kunlun Shan': [3.39, 1.79],
@@ -296,8 +297,10 @@ ddfsnow_disttype = 'truncnormal'
 #ddfsnow_disttype = 'uniform'
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
-ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma
-ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
+ddfsnow_boundlow = 0
+ddfsnow_boundhigh = np.inf
+#ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma
+#ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
 ddfsnow_start=ddfsnow_mu
 
 #%% SIMULATION OUTPUT
@@ -736,7 +739,10 @@ mb_group_t2_cn = 'end_period'
 
 # Minimization details
 method_opt = 'SLSQP'
+#method_opt = 'L-BFGS-B'
 ftol_opt = 1e-3
+#ftol_opt = 1e-6
+
 
 # Limit potential mass balance for future simulations option
 option_mb_envelope = 1

@@ -50,9 +50,11 @@ option_papermcmc_modelparameter_map = 0
 option_papermcmc_hh2015_map = 0
 
 # Updated 2019/07/30
+option_convertcal2table = 0
 option_regional_priors = 0
-option_glacier_mcmc_plots = 1
+option_glacier_mcmc_plots = 0
 option_glacier_mb_vs_params = 0
+option_correlation_scatter = 1
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -3282,8 +3284,10 @@ if option_raw_plotchain == 1:
 #%% Regional prior distributions
 if option_regional_priors == 1:
     grouping = 'himap'
+    fig_fp = input.output_filepath + 'cal_opt4_v5/figures/'
     
-    ds = pd.read_csv(input.output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/prior_compare_all.csv')
+#    ds = pd.read_csv(input.output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/prior_compare_all.csv')
+    ds = pd.read_csv(input.output_filepath + 'cal_opt4_v5/csv/df_all_1000_glac.csv')
     ds['glacno'] = [x.split('-')[1] for x in ds['RGIId'].values]
     # add himap regions
     ds['himap'] = ds.RGIId.map(himap_dict)
@@ -3295,50 +3299,33 @@ if option_regional_priors == 1:
     # load glacier data
     main_glac_rgi = load_glacierdata_byglacno(ds.glacno.values.tolist(), option_loadhyps_climate=0, 
                                               option_loadcal_data=0)
-    # Look for trends in temp_bias priors
-    ds['Area'] = main_glac_rgi['Area'] 
-    ds['tc_range'] = ds['prior_tc_bndhigh'] - ds['prior_tc_bndlow']
-    fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=False, gridspec_kw = {'wspace':0.4, 'hspace':0.15})
-    ax[0,0].scatter(ds['Area'].values, ds['tc_range'].values, color='k', linewidth=1, marker='o', s=0.00001)
-    # Labels
-    ax[0,0].set_xlabel('Area [km2]', size=12)
-    ax[0,0].set_ylabel('TC range [degC]', size=12)       
-    # Limits
-    ax[0,0].set_xlim([0,20])
-    
-#    # Save figure
-#    #  figures can be saved in any format (.jpg, .png, .pdf, etc.)
-#    fig.set_size_inches(4, 4)
-#    figure_fp = os.getcwd() + '/../Output/'
-#    if os.path.exists(figure_fp) == False:
-#        os.makedirs(figure_fp)
-#    figure_fn = 'example_plot_xy.png'
-#    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
-    plt.show()
-
-    fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=False, gridspec_kw = {'wspace':0.4, 'hspace':0.15})
-    ax[0,0].scatter(ds['prior_tc_std'].values, ds['tc_range'].values, color='k', linewidth=1, marker='o', s=0.2)
-    # Labels
-    ax[0,0].set_xlabel('TC std [degC]', size=12)
-    ax[0,0].set_ylabel('TC range [degC]', size=12)       
-    # Limits
+#    # Look for trends in temp_bias priors
+#    ds['Area'] = main_glac_rgi['Area'] 
+#    ds['tc_range'] = ds['prior_tc_bndhigh'] - ds['prior_tc_bndlow']
+#    fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=False, gridspec_kw = {'wspace':0.4, 'hspace':0.15})
+#    ax[0,0].scatter(ds['Area'].values, ds['tc_range'].values, color='k', linewidth=1, marker='o', s=0.00001)
+#    # Labels
+#    ax[0,0].set_xlabel('Area [km2]', size=12)
+#    ax[0,0].set_ylabel('TC range [degC]', size=12)       
+#    # Limits
 #    ax[0,0].set_xlim([0,20])
-    
-#    # Save figure
-#    #  figures can be saved in any format (.jpg, .png, .pdf, etc.)
-#    fig.set_size_inches(4, 4)
-#    figure_fp = os.getcwd() + '/../Output/'
-#    if os.path.exists(figure_fp) == False:
-#        os.makedirs(figure_fp)
-#    figure_fn = 'example_plot_xy.png'
-#    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
-    plt.show()
+#    plt.show()
+#    fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=False, gridspec_kw = {'wspace':0.4, 'hspace':0.15})
+#    ax[0,0].scatter(ds['prior_tc_std'].values, ds['tc_range'].values, color='k', linewidth=1, marker='o', s=0.2)
+#    # Labels
+#    ax[0,0].set_xlabel('TC std [degC]', size=12)
+#    ax[0,0].set_ylabel('TC range [degC]', size=12)       
+#    # Limits
+##    ax[0,0].set_xlim([0,20])
+#    plt.show()
     
     
     #%%
     # Loop through regions and get priors for each
     prior_pf_reg_dict = {}
     prior_tc_reg_dict = {}
+    pf_vn = 'precfactor'
+    tc_vn = 'tempchange'
     for region in regions:
 #    for region in ['Karakoram']:
 #    for region in ['inner_TP']:
@@ -3347,12 +3334,12 @@ if option_regional_priors == 1:
         
         # Precipitation Factor
         print('Precipitation factor:')
-        ds_region.prior_pf_mu.plot.hist(bins=100)
+        ds_region[pf_vn].plot.hist(bins=100)
         plt.show()
-        print('mean:', np.round(ds_region.prior_pf_mu.mean(),2), 'std:', np.round(ds_region.prior_pf_mu.std(),2))
+        print('mean:', np.round(ds_region[pf_vn].mean(),2), 'std:', np.round(ds_region[pf_vn].std(),2))
         
-        beta = ds_region.prior_pf_mu.mean() / ds_region.prior_pf_mu.std()
-        alpha = ds_region.prior_pf_mu.mean() * beta
+        beta = ds_region[pf_vn].mean() / ds_region[pf_vn].std()
+        alpha = ds_region[pf_vn].mean() * beta
         
         print('alpha:', np.round(alpha,2), 'beta:', np.round(beta,2))
         
@@ -3360,12 +3347,12 @@ if option_regional_priors == 1:
         
         # Temperature Bias
         print('Temperature bias:')
-        ax = ds_region.prior_tc_mu.plot.hist(bins=100)
+        ax = ds_region[tc_vn].plot.hist(bins=100)
         ax.plot([0,0],[400,400])
         plt.show()
         
-        mu = ds_region.prior_tc_mu.mean()
-        std = ds_region.prior_tc_mu.std()
+        mu = ds_region[tc_vn].mean()
+        std = ds_region[tc_vn].std()
         print('mean:', np.round(mu,2), 'std:', np.round(std,2))
         
 #        beta = ds_region.prior_tc_mu.mean() / ds_region.prior_tc_mu.std()
@@ -3392,12 +3379,12 @@ if option_regional_priors == 1:
         nglaciers = ds_region.shape[0]
         
         # Plot histogram
-        counts, bins, patches = ax[nrow,ncol].hist(ds_region.prior_pf_mu.values, facecolor='grey', edgecolor='grey', 
+        counts, bins, patches = ax[nrow,ncol].hist(ds_region[pf_vn].values, facecolor='grey', edgecolor='grey', 
                                                    linewidth=0.1, bins=50, density=True)
         
         # Plot gamma distribution
-        beta = ds_region.prior_pf_mu.mean() / ds_region.prior_pf_mu.std()
-        alpha = ds_region.prior_pf_mu.mean() * beta
+        beta = ds_region[pf_vn].mean() / ds_region[pf_vn].std()
+        alpha = ds_region[pf_vn].mean() * beta
         rv = stats.gamma(alpha, scale=1/beta)
         ax[nrow,ncol].plot(bins, rv.pdf(bins), color='k')
         # add alpha and beta as text
@@ -3426,7 +3413,6 @@ if option_regional_priors == 1:
     fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
         
     # Save figure
-    fig_fp = input.output_fp_cal + 'figures/'
     if os.path.exists(fig_fp) == False:
         os.makedirs(fig_fp)    
     fig.set_size_inches(7, 9)
@@ -3444,12 +3430,12 @@ if option_regional_priors == 1:
         nglaciers = ds_region.shape[0]
         
         # Plot histogram
-        counts, bins, patches = ax[nrow,ncol].hist(ds_region.prior_tc_mu.values, facecolor='grey', edgecolor='grey', 
+        counts, bins, patches = ax[nrow,ncol].hist(ds_region[tc_vn].values, facecolor='grey', edgecolor='grey', 
                                                    linewidth=0.1, bins=50, density=True)
         
         # Plot gamma distribution
-        mu = ds_region.prior_tc_mu.mean()
-        sigma = ds_region.prior_tc_mu.std()
+        mu = ds_region[tc_vn].mean()
+        sigma = ds_region[tc_vn].std()
         rv = stats.norm(loc=mu, scale=sigma)
         ax[nrow,ncol].plot(bins, rv.pdf(bins), color='k')
         # add alpha and beta as text
@@ -3478,7 +3464,6 @@ if option_regional_priors == 1:
     fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
         
     # Save figure
-    fig_fp = input.output_fp_cal + 'figures/'
     if os.path.exists(fig_fp) == False:
         os.makedirs(fig_fp)    
     fig.set_size_inches(7, 9)
@@ -3546,7 +3531,7 @@ if option_glacier_mcmc_plots == 1:
     variables = ['massbal', 'tempchange', 'precfactor', 'ddfsnow']
     iters = [5000]
     colors_iters = ['blue']
-    option_pairwise_scatter = 1
+    option_pairwise_scatter = 0
     
     region = [int(glac_no.split('.')[0])]
     rgi_glac_number = [glac_no.split('.')[1]]
@@ -3635,12 +3620,17 @@ if option_glacier_mcmc_plots == 1:
         modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
                            input.tempsnow, input.tempchange]
         
-        tempchange_boundlow, tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_max_acc = (
-                calibration.retrieve_priors_v2(
-                    modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                    width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-                    glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, 
-                    observed_massbal, mb_obs_min, mb_obs_max, debug=True))
+        tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
+                calibration.retrieve_priors_v2(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               t1_idx, t2_idx, t1, t2))
+        
+        # Regional priors
+        precfactor_gamma_alpha = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
+        precfactor_gamma_beta = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][1]                      
+        tempchange_mu = input.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][0]
+        tempchange_sigma = input.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][1]
         
         ddfsnow_mu = input.ddfsnow_mu * 1000
         ddfsnow_sigma = input.ddfsnow_sigma * 1000
@@ -3655,12 +3645,12 @@ if option_glacier_mcmc_plots == 1:
                       'tempchange':[2,0],
                       'ddfsnow':[3,0]}
     
-    z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
     for nvar, vn in enumerate(variables):        
         nrow = param_idx_dict[vn][0]
         
         # ====== PRIOR DISTRIBUTIONS ======
         if vn == 'massbal':
+            z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
             x_values = observed_massbal + observed_error * z_score
             y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
         elif vn == 'precfactor': 
@@ -3686,20 +3676,24 @@ if option_glacier_mcmc_plots == 1:
                 x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
                 y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
                                        scale=(tempchange_boundhigh - tempchange_boundlow))
+            elif input.tempchange_disttype == 'normal':
+                z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
+                x_values = tempchange_mu + tempchange_sigma * z_score
+                y_values = norm.pdf(x_values, loc=tempchange_mu, scale=tempchange_sigma)
             elif input.tempchange_disttype == 'truncnormal':
                 tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
                 tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
                 z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
                                       truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
                 x_values = tempchange_mu + tempchange_sigma * z_score
-                y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu,
+                y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu, 
                                          scale=tempchange_sigma)
         elif vn == 'ddfsnow':            
             if input.ddfsnow_disttype == 'truncnormal':
                 ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
                 ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
-                z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b),
-                                      truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
+                z_score = np.linspace(truncnorm.ppf(0.001, ddfsnow_a, ddfsnow_b),
+                                      truncnorm.ppf(0.999, ddfsnow_a, ddfsnow_b), 100)
                 x_values = ddfsnow_mu + ddfsnow_sigma * z_score
                 y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
             elif input.ddfsnow_disttype == 'uniform':
@@ -3921,11 +3915,177 @@ if option_glacier_mb_vs_params == 1:
                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
                               observed_error, tempchange_boundhigh, tempchange_boundlow, 
                               mb_max_loss=mb_max_loss, option_areaconstant=0, option_plotsteps=0, fig_fp=fig_fp)
+
+
+if option_convertcal2table == 1:
+    netcdf_fp = input.output_filepath + 'cal_opt4_v5/'
+    chain_no = 0
     
+    csv_fp = netcdf_fp + 'csv/'
+    fig_fp = netcdf_fp + 'figures/'
     
+    filelist = []
+    for region in regions:
+        filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
     
+    filelist = sorted(filelist)
+
+    glac_no = []
+    reg_no = []
+    df_all = None
+    for n, netcdf in enumerate(filelist):
+        glac_str = netcdf.split('/')[-1].split('.nc')[0]
+        glac_no.append(glac_str)
+        reg_no.append(glac_str.split('.')[0])
+        
+        if n%500 == 0:
+            print(glac_str)
+        
+        ds = xr.open_dataset(netcdf)
+        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
+        df['glac_no'] = glac_str
+        
+        if df_all is None:
+            df_all = df
+        else:
+            df_all = df_all.append(df)
+
+    glac_no = sorted(glac_no)
+        
+    (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
+     gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+    
+    df_export = main_glac_rgi[['RGIId', 'O1Region', 'glacno', 'Zmin', 'Zmax', 'Zmed']].copy()
+    df_export['precfactor'] = df_all['precfactor'].values
+    df_export['tempchange'] = df_all['tempchange'].values
+    df_export['ddfsnow'] = df_all['ddfsnow'].values
+    df_export['ddfice'] = df_all['ddfice'].values
+    df_export['mb_mwea'] = df_all['mb_mwea'].values
+    df_export['obs_mwea'] = df_all['obs_mwea'].values
+    df_export['dif_mwea'] = df_all['dif_mwea'].values
+    df_export['glacno_str'] = df_all['glac_no'].values
+        
+    if os.path.exists(csv_fp) == False:
+        os.makedirs(csv_fp)
+    df_export.to_csv(csv_fp + 'df_all_' + str(df_export.shape[0]) + '_glac.csv', index=False)
+    
+
 #%%
-#cal_fp = input.main_directory + '/../Output/cal_opt2_spc_20190730/'
+if option_correlation_scatter == 1:
+    
+    netcdf_fp = input.output_filepath + 'cal_opt2_spc_20190730/'
+    csv_fp = netcdf_fp + 'csv/'
+    fig_fp = netcdf_fp + 'figures/'
+    chain_no = 0
+    
+    variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']
+    
+    csv_fp = netcdf_fp + 'csv/'
+    fig_fp = netcdf_fp + 'figures/'
+    
+    filelist = []
+    for region in regions:
+        filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
+    
+    filelist = sorted(filelist)
+
+    #%%
+    glac_no = []
+    reg_no = []
+    df_all = None
+    for n, netcdf in enumerate(filelist):
+#    for n, netcdf in enumerate(filelist[0:500]):
+        glac_str = netcdf.split('/')[-1].split('.nc')[0]
+        glac_no.append(glac_str)
+        reg_no.append(glac_str.split('.')[0])
+        
+        if n%500 == 0:
+            print(glac_str)
+        
+        ds = xr.open_dataset(netcdf)
+        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)
+        ds.close()
+        
+        df_cor = pd.DataFrame(df.mean()).T
+        df_cor['glac_str'] = glac_str
+        col_order = ['glac_str', 'massbal', 'precfactor', 'tempchange', 'ddfsnow', 'ddfice', 'lrgcm', 'lrglac', 
+                     'precgrad']
+        df_cor = df_cor[col_order]
+        
+        # ===== CORRELATION =====
+        def calc_correlation(df, vn1, vn2):
+            """ Calculate correlation between two variables 
+            
+            df : pd.DataFrame
+                dataframe containing chains
+            vn1, vn2 : str
+                variable names based on df columns
+            """
+            v1 = df[vn1]
+            v2 = df[vn2]
+            slope, intercept, r_value, p_value, std_err = linregress(v2, v1)
+            return r_value
+        
+        df_cor['mb/pf'] = calc_correlation(df, 'massbal', 'precfactor')
+        df_cor['mb/tc'] = calc_correlation(df, 'massbal', 'tempchange')
+        df_cor['mb/ddf'] = calc_correlation(df, 'massbal', 'ddfsnow')
+        df_cor['pf/tc'] = calc_correlation(df, 'precfactor', 'tempchange')
+        df_cor['pf/ddf'] = calc_correlation(df, 'precfactor', 'ddfsnow')
+        df_cor['tc/ddf'] = calc_correlation(df, 'tempchange', 'ddfsnow')
+        
+        if df_all is None:
+            df_all = df_cor
+        else:
+            df_all = df_all.append(df_cor)  
+
+    if os.path.exists(csv_fp) == False:
+        os.makedirs(csv_fp)
+    df_all.to_csv(csv_fp + 'correlation_table.csv')
+    #%%
+    # Plot combinations
+    combinations = ['mb/pf', 'mb/tc', 'mb/ddf', 'pf/tc', 'pf/ddf', 'tc/ddf']
+    combination_dict = {'mb/pf':'$\mathregular{B}$ / $\mathregular{k_{p}}$',
+                        'mb/tc':'$\mathregular{B}$ / $\mathregular{T_{bias}}$',
+                        'mb/ddf':'$\mathregular{B}$ / $\mathregular{f_{snow}}$',
+                        'pf/tc':'$\mathregular{k_{p}}$ / $\mathregular{T_{bias}}$',
+                        'pf/ddf':'$\mathregular{k_{p}}$ / $\mathregular{f_{snow}}$',
+                        'tc/ddf':'$\mathregular{T_{bias}}$ / $\mathregular{f_{snow}}$'}
+       
+    nrows = 2
+    ncols = 3 
+    fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.5, 'hspace':0.4})
+    nrow = 0
+    ncol = 0
+    for nvar, combination in enumerate(combinations):
+                
+        # Plot histogram
+        ax[nrow,ncol].hist(df_all[combination], bins=50, color='grey')
+        ax[nrow,ncol].tick_params(axis='both')  
+        ax[nrow,ncol].text(0.5, 1.01, combination_dict[combination], size=12, horizontalalignment='center', 
+                           verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        r_mean = df_all[combination].mean()
+        ax[nrow,ncol].text(0.98, 0.98, np.round(r_mean,2), size=12, horizontalalignment='right', 
+                           verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+        
+        # Adjust row and column
+        ncol += 1
+        if ncol == ncols:
+            nrow += 1
+            ncol = 0
+    
+    fig.text(0.5,0, 'Correlation Coefficient (R)', size=12, horizontalalignment='center')
+                
+    if os.path.exists(fig_fp) == False:
+        os.makedirs(fig_fp)    
+    fig.set_size_inches(6, 4)
+    fig.savefig(fig_fp + 'correlation_scatter.png', 
+                bbox_inches='tight', dpi=300)
+    plt.show()
+    fig.clf()      
+        
+        
+#%%
+#cal_fp = input.main_directory + '/../Output/cal_opt4_v2/'
 #
 #x_list = []
 #for i in os.listdir(cal_fp):
@@ -3936,9 +4096,7 @@ if option_glacier_mb_vs_params == 1:
 #y = [int(x.split('.')[1]) for x in x_list]
 #z = y - np.roll(y,1)
 #A = np.where(z!=1)[0]
-#print(A)
-#            
-    
-    
+#B = [x_list[x-1] for x in A]
+#print(B)
+            
 
-    
