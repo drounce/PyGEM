@@ -11,12 +11,12 @@ import numpy as np
 def get_same_glaciers(glac_fp):
     """
     Get same 1000 glaciers for testing of priors
-    
+
     Parameters
     ----------
     glac_fp : str
         filepath to where netcdf files of individual glaciers are held
-    
+
     Returns
     -------
     glac_list : list
@@ -28,14 +28,14 @@ def get_same_glaciers(glac_fp):
             glac_list.append(i.split('.')[1])
     glac_list = sorted(glac_list)
     return glac_list
-    
+
 
 def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
     """
     Generate list of glaciers that have calibration data and select number of glaciers to include.
-    
+
     The list is currently sorted in terms of area such that the largest glaciers are modeled first.
-    
+
     Parameters
     ----------
     region_no : int
@@ -44,7 +44,7 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
         number of glaciers to include in model run (default = 0)
     option_random : int
         option to select glaciers randomly for model run (default = 0, not random)
-    
+
     Returns
     -------
     num : list of strings
@@ -55,42 +55,50 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
     # get shean's data, convert to dataframe, get
     # glacier numbers
     current_directory = os.getcwd()
-    csv_path = current_directory + '/../DEMs/Shean_2019_0213/hma_mb_20190215_0815_std+mean.csv'
+    csv_path = current_directory + '/../DEMs/Shean_2019_0213/hma_mb_20190215_0815_std+mean_all_filled_bolch.csv'
     ds_all = pd.read_csv(csv_path)
     ds_reg = ds_all[(ds_all['RGIId'] > region_no) & (ds_all['RGIId'] < region_no + 1)].copy()
     if option_random == 1:
         ds_reg = ds_reg.sample(n=number_glaciers)
-        ds_reg.reset_index(drop=True, inplace=True)
     else:
         ds_reg = ds_reg.sort_values('area_m2', ascending=False)
-        ds_reg.reset_index(drop=True, inplace=True)
-    rgi = ds_reg['RGIId']
-    # get only glacier numbers, convert to string
-    num = rgi % 1
-    num = num.round(5)
-    num = num.astype(str)
-    # slice string to remove decimal
-    num = [n[2:] for n in num]
-    # make sure there are 5 digits
-    for i in range(len(num)):
-        while len(num[i]) < 5:
-            num[i] += '0'
-    if number_glaciers > 0:
-        num = num[0:number_glaciers]
+    ds_reg.reset_index(drop=True, inplace=True)
+    
+    
+    # Glacier number and index for comparison
+    ds_reg['glacno'] = ((ds_reg['RGIId'] % 1) * 10**5).round(0).astype(int)
+    ds_reg['glacno_str'] = (ds_reg['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1]
+    num = list(ds_reg['glacno_str'].values)
+
+#    rgi = ds_reg['RGIId']
+#    # get only glacier numbers, convert to string
+#    num = rgi % 1
+#    num = num.round(5)
+#    num = num.astype(str)
+#    # slice string to remove decimal
+#    num = [n[2:] for n in num]
+#    # make sure there are 5 digits
+#    for i in range(len(num)):
+#        while len(num[i]) < 5:
+#            num[i] += '0'
+#    if number_glaciers > 0:
+#        num = num[0:number_glaciers]
+
+    num = sorted(num)
     return num
 
 
 def glac_num_fromrange(int_low, int_high):
     """
     Generate list of glaciers for all numbers between two integers.
-    
+
     Parameters
     ----------
     int_low : int64
         low value of range
     int_high : int64
         high value of range
-    
+
     Returns
     -------
     y : list
@@ -109,16 +117,20 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [14]
+rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['00004']
-rgi_glac_number = ['00006']
-#rgi_glac_number = glac_num_fromrange(1,1000)
+#rgi_glac_number = ['17591']
+#rgi_glac_number = ['01264', '02591', '03331', '05825', '12704', '15017', '16907', '22814', '23792', '26927']
+rgi_glac_number = ['00185', '00301', '00395', '00674', '01715', '02581', '04061', '05225', '05857', '06022', '06636', 
+                   '07532', '07652', '09554', '09882', '10284', '10332', '10497', '10829', '11053', '11971', '12228', 
+                   '12239', '12559']
+#rgi_glac_number = glac_num_fromrange(25429,25454)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
-#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 2, option_random=1)
+#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1000, option_random=1)
+#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 54400, option_random=1)
 
 # ===== Bias adjustment option =====
 option_bias_adjustment = 1
@@ -157,7 +169,7 @@ gcm_endyear = 2017
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
-# Hindcast flips the array such that 1960 - 2000 would go from 2000-1960 ensuring that the glacier area at 2000 is 
+# Hindcast flips the array such that 1960 - 2000 would go from 2000-1960 ensuring that the glacier area at 2000 is
 # what it's supposed to be.
 hindcast = 0
 if hindcast == 1:
@@ -166,7 +178,7 @@ if hindcast == 1:
     gcm_endyear = 2017
 
 # Synthetic simulation options
-#  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years) 
+#  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years)
 option_synthetic_sim = 0
 synthetic_startyear = 1995
 synthetic_endyear = 2015
@@ -176,7 +188,7 @@ synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 4
+option_calibration = 2
 # Calibration datasets
 cal_datasets = ['shean']
 #cal_datasets = ['mcnabb']
@@ -189,7 +201,7 @@ output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
 # OPTION 1: Minimization
 # Model parameter bounds for each calibration round
-#  first tuple will run as expected; 
+#  first tuple will run as expected;
 #precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
 #precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 #ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
@@ -203,10 +215,10 @@ zscore_update_threshold = 0.1
 # Additional calibration rounds in case optimization is getting stuck
 extra_calrounds = 3
 
-# OPTION 2: MCMC 
-# Chain options 
+# OPTION 2: MCMC
+# Chain options
 n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 500
+mcmc_sample_no = 10000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
@@ -217,29 +229,28 @@ thin_interval = 1
 #precfactor_disttype = 'lognormal'
 #precfactor_disttype = 'uniform'
 precfactor_disttype = 'gamma'
-precfactor_gamma_region_dict = {'Karakoram': [2.53, 1.69],
-                                'Western Kunlun Shan': [2.41, 1.88],
-                                'Nyainqentanglha': [9.28, 3.01],
-                                'Eastern Himalaya': [3.82, 1.95],
-                                'Central Himalaya': [3.11, 1.54],
-                                'Western Himalaya': [2.95, 1.92],
-                                'Tibetan Interior Mountains': [3.64, 1.58],
-                                'Dzhungarsky Alatau': [4.62, 1.88],
-                                'Central Tien Shan': [3.16, 1.50],
-                                'Northern/Western Tien Shan': [3.88, 1.80],
-                                'Western Pamir': [2.6, 1.78],
-                                'Pamir Alay': [3.99, 2.25],
-                                'Eastern Pamir': [1.8, 1.64],
-                                'Eastern Tibetan Mountains': [6.76, 2.76],
-                                'Qilian Shan': [4.74, 1.69],
-                                'Tanggula Shan': [11.18, 3.53],
-                                'Eastern Kunlun Shan': [3.71, 1.54],
-                                'Hengduan Shan': [7.17, 2.48],
-                                'Gangdise Mountains': [5.89, 2.12],
-                                'Eastern Tien Shan': [3.0, 0.84],
-                                'Altun Shan': [13.13, 2.67],
-                                'Eastern Hindu Kush': [3.9, 2.39]
-                                }
+precfactor_gamma_region_dict = {'Altun Shan': [8.52, 2.54],
+                                'Central Himalaya': [2.52, 1.38],
+                                'Central Tien Shan': [1.81, 1.37],
+                                'Dzhungarsky Alatau': [2.85, 1.49],
+                                'Eastern Himalaya': [3.03, 1.65],
+                                'Eastern Hindu Kush': [2.86, 1.87],
+                                'Eastern Kunlun Shan': [2.55, 1.45],
+                                'Eastern Pamir': [1.21, 1.48],
+                                'Eastern Tibetan Mountains': [3.92, 2.14],
+                                'Eastern Tien Shan': [1.86, 1.24],
+                                'Gangdise Mountains': [3.66, 1.73],
+                                'Hengduan Shan': [4.88, 1.95],
+                                'Karakoram': [1.29, 1.47],
+                                'Northern/Western Tien Shan': [2.61, 1.48],
+                                'Nyainqentanglha': [6.48, 2.33],
+                                'Pamir Alay': [3.3, 1.88],
+                                'Qilian Shan': [2.74, 1.36],
+                                'Tanggula Shan': [9.03, 2.92],
+                                'Tibetan Interior Mountains': [2.41, 1.35],
+                                'Western Himalaya': [2.15, 1.53],
+                                'Western Kunlun Shan': [1.21, 1.64],
+                                'Western Pamir': [1.85, 1.44]}
 precfactor_gamma_alpha = 3.0
 precfactor_gamma_beta = 0.84
 precfactor_lognorm_mu = 0
@@ -256,29 +267,28 @@ precfactor_boundhigh_adj = 0
 tempchange_disttype = 'normal'
 #tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'
-tempchange_norm_region_dict = {'Karakoram': [2.43, 1.95],
-                               'Western Kunlun Shan': [3.39, 1.79],
-                               'Nyainqentanglha':[-0.37, 0.97],
-                               'Eastern Himalaya': [0.08, 1.02],
-                               'Central Himalaya': [0.31, 1.03],
-                               'Western Himalaya': [0.4, 1.08],
-                               'Tibetan Interior Mountains': [0.61, 0.95],
-                               'Dzhungarsky Alatau': [0.48, 0.80],
-                               'Central Tien Shan': [1.08, 1.25],
-                               'Northern/Western Tien Shan': [0.52, 0.99],
-                               'Western Pamir': [0.91, 1.4],
-                               'Pamir Alay': [0.14, 0.97],
-                               'Eastern Pamir': [1.49, 1.28],
-                               'Eastern Tibetan Mountains': [0.41, 0.77],
-                               'Qilian Shan': [0.7, 0.96],
-                               'Tanggula Shan': [-0.11, 0.45],
-                               'Eastern Kunlun Shan': [0.75, 1.01],
-                               'Hengduan Shan': [-0.25, 0.79],
-                               'Gangdise Mountains': [0.25, 0.55],
-                               'Eastern Tien Shan': [1.46, 1.82],
-                               'Altun Shan': [0.11, 0.96],
-                               'Eastern Hindu Kush': [0.5, 1.58]
-                               }
+tempchange_norm_region_dict = {'Altun Shan': [-0.60, 1.09],
+                               'Central Himalaya': [0.13, 0.9],
+                               'Central Tien Shan': [0.4, 0.85],
+                               'Dzhungarsky Alatau': [0.1, 0.51],
+                               'Eastern Himalaya': [-0.01, 0.87],
+                               'Eastern Hindu Kush': [0.08, 1.19],
+                               'Eastern Kunlun Shan': [0.13, 0.58],
+                               'Eastern Pamir': [0.93, 1.06],
+                               'Eastern Tibetan Mountains': [0.06, 0.45],
+                               'Eastern Tien Shan': [0.45, 1.58],
+                               'Gangdise Mountains': [-0.06, 0.41],
+                               'Hengduan Shan': [-0.28, 0.68],
+                               'Karakoram': [1.39, 1.54],
+                               'Northern/Western Tien Shan': [0.09, 0.66],
+                               'Nyainqentanglha': [-0.41, 0.83],
+                               'Pamir Alay': [-0.03, 0.72],
+                               'Qilian Shan': [0.22, 0.83],
+                               'Tanggula Shan': [-0.13, 0.33],
+                               'Tibetan Interior Mountains': [0.15, 0.75],
+                               'Western Himalaya': [0.11, 0.79],
+                               'Western Kunlun Shan': [2.27, 1.79],
+                               'Western Pamir': [0.54, 1.2]}
 tempchange_mu = 0.91
 tempchange_sigma = 1.4
 tempchange_boundlow = -10
@@ -315,7 +325,7 @@ output_sim_fp = output_filepath + 'simulations/'
 sim_stat_cns = ['mean', 'std']
 
 
-#%% MODEL PARAMETERS 
+#%% MODEL PARAMETERS
 # Option to import calibration parameters for each glacier
 option_import_modelparams = 1
 #print('\nSWITCH OPTION IMPORT MODEL PARAMS BACK!\n')
@@ -453,9 +463,9 @@ era5_fp = main_directory + '/../Climate_data/ERA5/'
 era5_temp_fn = 'ERA5_Temp2m_test.nc'
 era5_prec_fn = 'ERA5_TotalPrec_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) + '.nc'
 era5_elev_fn = 'ERA5_geopotential.nc'
-era5_pressureleveltemp_fn = ('ERA5_pressureleveltemp_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) 
+era5_pressureleveltemp_fn = ('ERA5_pressureleveltemp_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend)
                              + '.nc')
-era5_lr_fn = ('ERA5_lapserates_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) +'_opt' + 
+era5_lr_fn = ('ERA5_lapserates_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) +'_opt' +
               str(option_lr_method) + '_HMA.nc')
 
 # ERA-Interim
@@ -464,7 +474,7 @@ eraint_temp_fn = 'ERAInterim_Temp2m_DailyMeanMonthly_' + eraint_start_date + '_'
 eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
 eraint_elev_fn = 'ERAInterim_geopotential.nc'
 eraint_pressureleveltemp_fn = 'ERAInterim_pressureleveltemp_' + eraint_start_date + '_' + eraint_end_date + '.nc'
-eraint_lr_fn = ('ERAInterim_lapserates_' + eraint_start_date + '_' + eraint_end_date + '_opt' + str(option_lr_method) + 
+eraint_lr_fn = ('ERAInterim_lapserates_' + eraint_start_date + '_' + eraint_end_date + '_opt' + str(option_lr_method) +
                 '_world.nc')
 
 # CMIP5 (GCM data)
@@ -531,7 +541,7 @@ option_shift_elevbins_20m = 1
 binsize = 10
 # Filepath for the hypsometry files
 hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
-# Dictionary of hypsometry filenames 
+# Dictionary of hypsometry filenames
 # (Files from Matthias Huss should be manually pre-processed to be 'RGI-ID', 'Cont_range', and bins starting at 5)
 hyps_filedict = {
                 1:  'area_01_Huss_Alaska_10m.csv',
@@ -588,7 +598,7 @@ option_leapyear = 1
 #                       days_in_month = 29 for these years.
 #  Option 0 - exclude leap years, i.e., February always has 28 days
 # User specified start/end dates
-#  note: start and end dates must refer to whole years 
+#  note: start and end dates must refer to whole years
 startmonthday = '06-01'
 endmonthday = '05-31'
 # Water year starting month
@@ -709,7 +719,7 @@ wgms_d_z2_cn = 'UPPER_BOUND'
 # WGMS (e/ee) glaciological mass balance information
 wgms_e_fn = 'WGMS-FoG-2018-06-E-MASS-BALANCE-OVERVIEW.csv'
 wgms_ee_fn = 'WGMS-FoG-2018-06-EE-MASS-BALANCE.csv'
-wgms_ee_fn_preprocessed = 'wgms_ee_rgiv6_preprocessed.csv' 
+wgms_ee_fn_preprocessed = 'wgms_ee_rgiv6_preprocessed.csv'
 wgms_ee_mb_cn = 'BALANCE'
 wgms_ee_mb_err_cn = 'BALANCE_UNC'
 wgms_ee_t1_cn = 'YEAR'
@@ -791,7 +801,7 @@ precgrad_lobf_slope = 0
 
 #%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
 biasadj_fp = output_filepath + 'biasadj/'
-#biasadj_fn = 
+#biasadj_fn =
 #biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
 #biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
 #biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
@@ -892,18 +902,18 @@ output_package = 2
     #                                             massbal_clim)
     #             annual variables for each bin (area, icethickness, surfacetype)
     # Option 2 - "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
-    #             monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, 
+    #             monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff,
     #                                             snowline)
     #             annual glacier-wide variables (area, volume, ELA)
-output_glacier_attr_vns = ['glacno', 'RGIId_float', 'CenLon', 'CenLat', 'O1Region', 'O2Region', 'Area', 'Zmin', 'Zmax', 
+output_glacier_attr_vns = ['glacno', 'RGIId_float', 'CenLon', 'CenLat', 'O1Region', 'O2Region', 'Area', 'Zmin', 'Zmax',
                            'Zmed', 'Slope', 'Aspect', 'Lmax', 'Form', 'TermType', 'Surging']
 time_names = ['time', 'year', 'year_plus1']
 # Output package variables
-output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 
-                            'refreeze_glac_monthly', 'melt_glac_monthly', 'frontalablation_glac_monthly', 
-                            'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
-                            'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual', 
-                            'offglac_prec_monthly', 'offglac_refreeze_monthly', 'offglac_melt_monthly', 
+output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly',
+                            'refreeze_glac_monthly', 'melt_glac_monthly', 'frontalablation_glac_monthly',
+                            'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly',
+                            'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual',
+                            'offglac_prec_monthly', 'offglac_refreeze_monthly', 'offglac_melt_monthly',
                             'offglac_snowpack_monthly', 'offglac_runoff_monthly']
 
 #%% WARNING MESSAGE OPTION
@@ -914,7 +924,7 @@ option_warningmessages = 1
 #                       currently these messages are only included in a few scripts (e.g., climate data)
 #  Option 0 - do not print warning messages within script
 
-#%% MODEL PROPERTIES 
+#%% MODEL PROPERTIES
 # Density of ice [kg m-3] (or Gt / 1000 km3)
 density_ice = 900
 # Density of water [kg m-3]
@@ -943,3 +953,4 @@ af = 0.7
 # Pass variable to shell script
 if __name__ == '__main__':
     print(rgi_regionsO1[0])
+    print(rgi_glac_number[0:10])

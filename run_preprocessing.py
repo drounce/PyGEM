@@ -56,6 +56,8 @@ def getparser():
                         help='option to fill in missing mass balance data with regional mean and std (1=yes, 0=no)')
     parser.add_argument('-option_frontalablation_cal', action='store', type=int, default=0,
                         help='option to calibrate frontal ablation for a glacier')
+    parser.add_argument('-option_farinotti2019_input', action='store', type=int, default=0,
+                        help='option to produce Farinotti 2019 input products (1=yes, 0=no)')
     return parser
 
 parser = getparser()
@@ -702,7 +704,13 @@ if args.option_frontalablation_cal == 1:
                                        glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                        option_areaconstant=0, frontalablation_k=None,
                                        debug=True))
-        print('Add objective function and code )
+        print('Add objective function and code ')
+    
+#%%    
+if args.option_farinotti2019_input == 1:
+    print("\nProcess the ice thickness and surface elevation data from Farinotti (2019) to produce area," + 
+          "ice thickness, width, and length for each elevation bin\n")
+    
 
 #%% Write csv file from model results
 # Create csv such that not importing the air temperature each time (takes 90 seconds for 13,119 glaciers)
