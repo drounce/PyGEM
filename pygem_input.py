@@ -117,16 +117,17 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [14]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['17591']
-#rgi_glac_number = ['01264', '02591', '03331', '05825', '12704', '15017', '16907', '22814', '23792', '26927']
-rgi_glac_number = ['00185', '00301', '00395', '00674', '01715', '02581', '04061', '05225', '05857', '06022', '06636', 
-                   '07532', '07652', '09554', '09882', '10284', '10332', '10497', '10829', '11053', '11971', '12228', 
-                   '12239', '12559']
+#rgi_glac_number = ['01264', '02591', '03331', '05825']
+rgi_glac_number = ['12704', '15017', '16907', '22814', '23792', '26927']
+#rgi_glac_number = ['00185', '00301', '00395', '00674', '01715', '02581', '04061', '05225', '05857', '06022', '06636', 
+#                   '07532', '07652', '09554', '09882', '10284', '10332', '10497', '10829', '11053', '11971', '12228', 
+#                   '12239', '12559']
 #rgi_glac_number = glac_num_fromrange(25429,25454)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1000, option_random=1)
@@ -217,8 +218,8 @@ extra_calrounds = 3
 
 # OPTION 2: MCMC
 # Chain options
-n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 10000
+n_chains = 3 # (min 1, max 3)
+mcmc_sample_no = 25000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
@@ -460,11 +461,10 @@ option_lr_method = 1
 # ERA-Interim
 era5_fp = main_directory + '/../Climate_data/ERA5/'
 #era5_temp_fn = 'ERA5_Temp2m_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) + '.nc'
-era5_temp_fn = 'ERA5_Temp2m_test.nc'
-era5_prec_fn = 'ERA5_TotalPrec_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) + '.nc'
-era5_elev_fn = 'ERA5_geopotential.nc'
-era5_pressureleveltemp_fn = ('ERA5_pressureleveltemp_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend)
-                             + '.nc')
+era5_temp_fn = 'ERA5_temp_monthly.nc'
+era5_prec_fn = 'ERA5_totalprecip_monthly.nc'
+era5_elev_fn = 'ERA5_geopotential_monthly.nc'
+era5_pressureleveltemp_fn = 'ERA5_pressureleveltemp_monthly.nc'
 era5_lr_fn = ('ERA5_lapserates_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) +'_opt' +
               str(option_lr_method) + '_HMA.nc')
 

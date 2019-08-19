@@ -499,130 +499,46 @@ if args.option_wgms == 1:
 #%% Create netcdf file of lapse rates from temperature pressure level data
 if args.option_createlapserates == 1:
     # Input data
-    gcm_filepath = os.getcwd() + '/../Climate_data/ERA_Interim/HMA_temp_pressurelevel_data/'
-    gcm_filename_prefix = 'HMA_EraInterim_temp_pressurelevels_'
+    gcm_fp = input.era5_fp
+    gcm_fn = input.era5_pressureleveltemp_fn
+        
     tempname = 't'
     levelname = 'level'
-    latname = 'latitude'
-    lonname = 'longitude'
     elev_idx_max = 1
-    elev_idx_min = 10
-    startyear = 1979
-    endyear = 2017
-    output_filepath = '../Output/'
-    output_filename_prefix = 'HMA_Regions13_14_15_ERAInterim_lapserates'
+    elev_idx_min = 19
+    output_fn= 'ERA5_lapserates.nc'
     
-    def lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
-                                elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix):
-        """
-        Create netcdf of lapse rate for every latitude and longitude for each month.
-        
-        The lapse rates are computed based on the slope of a linear line of best fit for the temperature pressure level 
-        data.  Prior to running this function, you must explore the temperature pressure level data to determine the 
-        elevation range indices for a given region, variable names, etc.
+    # Open dataset
+    ds = xr.open_dataset(gcm_fp + gcm_fn)    
+    # extract the pressure levels [Pa]
+    if ds[levelname].attrs['units'] == 'millibars':
+        # convert pressure levels from millibars to Pa
+        levels = ds[levelname].values * 100
+    # Compute the elevation [m a.s.l] of the pressure levels using the barometric pressure formula (pressure in Pa)
+    elev = -input.R_gas*input.temp_std/(input.gravity*input.molarmass_air)*np.log(levels/input.pressure_std)
 
-        Parameters
-        ----------
-        gcm_filepath : str
-            filepath where climate data is located
-        gcm_filename_prefix : str
-            prefix of filename
-        tempname : str
-            temperature variable name
-        levelname : str
-            pressure level variable name
-        latname : str
-            latitude variable name
-        lonname : str
-            longitude variable name
-        elev_idx_max : int
-            index of the maximum pressure level being used
-        elev_idx_min : int
-            index of the minimum pressure level being used
-        startyear : int
-            starting year
-        endyear : int
-            ending year
-        output_filepath : str
-            filepath where output is to be exported
-        output_filename_prefix : str
-            filename prefix of the output
+    # Calculate lapse rates by year
+    lr = np.zeros((ds.time.shape[0], ds.latitude.shape[0], ds.longitude.shape[0]))
+    for ntime, t in enumerate(ds.time.values):        
+        print('time:', ntime, t)
         
-        Returns
-        -------
-        exports netcdf of lapse rates
-        """
-        fullfilename = gcm_filepath + gcm_filename_prefix + str(startyear) + '.nc'
-        data = xr.open_dataset(fullfilename)    
-        # Extract the pressure levels [Pa]
-        if data[levelname].attrs['units'] == 'millibars':
-            # Convert pressure levels from millibars to Pa
-            levels = data[levelname].values * 100
-        # Compute the elevation [m a.s.l] of the pressure levels using the barometric pressure formula (pressure in Pa)
-        elev = -input.R_gas*input.temp_std/(input.gravity*input.molarmass_air)*np.log(levels/input.pressure_std)
-        # Netcdf file for lapse rates ('w' will overwrite existing file)
-        output_fullfilename = (output_filepath + output_filename_prefix + '_' + str(startyear) + '_' + str(endyear) + 
-                               '.nc')
-        netcdf_output = nc.Dataset(output_fullfilename, 'w', format='NETCDF4')
-        # Global attributes
-        netcdf_output.description = ('Lapse rates from ERA Interim pressure level data that span the regions elevation'
-                                     + 'range')
-        netcdf_output.history = 'Created ' + str(strftime("%Y-%m-%d %H:%M:%S"))
-        netcdf_output.source = 'ERA Interim reanalysis data downloaded February 2018'
-        # Dimensions
-        latitude = netcdf_output.createDimension('latitude', data['latitude'].values.shape[0])
-        longitude = netcdf_output.createDimension('longitude', data['longitude'].values.shape[0])
-        time = netcdf_output.createDimension('time', None)
-        # Create dates in proper format for time dimension
-        startdate = str(startyear) + '-01-01'
-        enddate = str(endyear) + '-12-31'
-        startdate = datetime(*[int(item) for item in startdate.split('-')])
-        enddate = datetime(*[int(item) for item in enddate.split('-')])
-        startdate = startdate.strftime('%Y-%m')
-        enddate = enddate.strftime('%Y-%m')
-        dates = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS')})
-        dates = dates['date'].astype(datetime)
-        # Variables associated with dimensions 
-        latitude = netcdf_output.createVariable('latitude', np.float32, ('latitude',))
-        latitude.long_name = 'latitude'
-        latitude.units = 'degrees_north'
-        latitude[:] = data['latitude'].values
-        longitude = netcdf_output.createVariable('longitude', np.float32, ('longitude',))
-        longitude.long_name = 'longitude'
-        longitude.units = 'degrees_east'
-        longitude[:] = data['longitude'].values
-        time = netcdf_output.createVariable('time', np.float64, ('time',))
-        time.long_name = "time"
-        time.units = "hours since 1900-01-01 00:00:00"
-        time.calendar = "gregorian"
-        time[:] = nc.date2num(dates, units=time.units, calendar=time.calendar)
-        lapserate = netcdf_output.createVariable('lapserate', np.float64, ('time', 'latitude', 'longitude'))
-        lapserate.long_name = "lapse rate"
-        lapserate.units = "degC m-1"
-        # Set count to keep track of time position
-        count = 0
-        for year in range(startyear,endyear+1):
-            print(year)
-            fullfilename_year = gcm_filepath + gcm_filename_prefix + str(year) + '.nc'
-            data_year = xr.open_dataset(fullfilename_year)
-            count = count + 1
-            for lat in range(0,latitude[:].shape[0]):
-                for lon in range(0,longitude[:].shape[0]):
-                    data_subset = data_year[tempname].isel(level=range(elev_idx_max,elev_idx_min+1), 
-                                                           latitude=lat, longitude=lon).values
-                    lapserate_subset = (((elev[elev_idx_max:elev_idx_min+1] * data_subset).mean(axis=1) - 
-                                         elev[elev_idx_max:elev_idx_min+1].mean() * data_subset.mean(axis=1)) / 
-                                        ((elev[elev_idx_max:elev_idx_min+1]**2).mean() - 
-                                         (elev[elev_idx_max:elev_idx_min+1].mean())**2))
-                    lapserate[12*(count-1):12*count,lat,lon] = lapserate_subset
-                    # Takes roughly 4 minutes per year to compute the lapse rate for each lat/lon combo in HMA
-        netcdf_output.close()
-        
-        # Application of the lapserate_createnetcdf function
-    print('Creating lapse rates...')
-    lapserates_createnetcdf(gcm_filepath, gcm_filename_prefix, tempname, levelname, latname, lonname, elev_idx_max, 
-                            elev_idx_min, startyear, endyear, output_filepath, output_filename_prefix)
+        ds_subset = ds[tempname][ntime, elev_idx_max:elev_idx_min+1, :, :].values
+        ds_subset_reshape = ds_subset.reshape(ds_subset.shape[0],-1)
+        lr[ntime,:,:] = (np.polyfit(elev[elev_idx_max:elev_idx_min+1], ds_subset_reshape, deg=1)[0]
+                         .reshape(ds_subset.shape[1:]))
 
+    # Export lapse rates with attibutes
+    output_ds = ds.copy()
+    output_ds = output_ds.drop('t')
+    levels_str = (str(ds['level'][elev_idx_max].values) + ' to ' + str(ds['level'][elev_idx_min].values))
+    output_ds['lapserate'] = (('time', 'latitude', 'longitude'), lr, 
+                              {'long_name': 'lapse rate', 
+                               'units': 'degC m-1',
+                               'levels': levels_str})
+    encoding = {'lapserate':{'_FillValue': False}}
+    
+    output_ds.to_netcdf(gcm_fp + output_fn, encoding=encoding)
+        
 
 #%%
 if args.option_frontalablation_cal == 1:

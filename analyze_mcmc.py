@@ -34,27 +34,29 @@ import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
 
 #%%
-option_prior_vs_posterior_single = 0
-option_observation_vs_calibration = 0
-
-option_raw_plotchain = 0
-
 # Paper figures
-option_papermcmc_modelparameter_map_and_postvprior = 0
-option_metrics_histogram_all = 0
-option_metrics_vs_chainlength = 0
-
-option_plot_era_normalizedchange = 0
+option_observation_vs_calibration = 0
 option_papermcmc_prior_vs_posterior = 0
+option_papermcmc_modelparameter_map_and_postvprior = 0
+option_metrics_histogram_all = 1
+option_metrics_vs_chainlength = 0
+option_correlation_scatter = 0
+option_regional_priors = 0
+option_glacier_mb_vs_params = 0
+
 option_papermcmc_solutionspace = 0
 option_papermcmc_hh2015_map = 0
 
-# Updated 2019/07/30
-option_convertcal2table = 0
-option_regional_priors = 0
+# Others
 option_glacier_mcmc_plots = 0
-option_glacier_mb_vs_params = 0
-option_correlation_scatter = 1
+option_raw_plotchain = 0
+option_convertcal2table = 0
+
+
+option_plot_era_normalizedchange = 0
+
+
+
 
 # Export option
 mcmc_output_netcdf_fp_3chain = input.output_filepath + 'cal_opt2_spc_20190815_3chain/'
@@ -799,7 +801,7 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
     else:
         ylim_lower = np.floor(mb_max_loss)
     ax.set_ylim(int(ylim_lower),np.ceil(mb_vs_parameters['massbal'].max()))
-    ax.set_ylim(-2,2)
+#    ax.set_ylim(-2,2)
     
     # Labels
 #    ax.set_title('Mass balance versus Parameters ' + glacier_str)
@@ -1480,279 +1482,6 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
     fig_fn = 'dif_vs_area_wMB_scatterplot_zscore.png'
     fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
     
-    
-    
-    #%%
-    
-
-def prior_vs_posterior_single(glac_no, netcdf_fp, iters=[1000,15000], precfactor_disttype=input.precfactor_disttype, 
-                              tempchange_disttype = input.tempchange_disttype, 
-                              ddfsnow_disttype = input.ddfsnow_disttype):
-    """ Plot prior vs posterior of individual glacier for different chain lengths
-    
-    Parameters
-    ----------
-    iters : list of ints
-        list of chain lengths for compare posteriors of
-    glac_no : str
-        glacier number including region (ex. '15.00001')
-
-    Returns
-    -------
-    .png files
-        saves figure showing how prior and posterior comparison
-    """
-#for batman in [0]:
-    glac_no = '14.02150'
-    netcdf_fp = input.output_fp_cal
-    
-    region = [int(glac_no.split('.')[0])]
-    rgi_glac_number = [glac_no.split('.')[1]]
-
-    # Glacier RGI data
-    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=region, rgi_regionsO2 = 'all',
-                                                      rgi_glac_number=rgi_glac_number)
-    # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, region, input.hyps_filepath,
-                                                 input.hyps_filedict, input.hyps_colsdrop)
-    # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, region, input.thickness_filepath, 
-                                                         input.thickness_filedict, input.thickness_colsdrop)
-    main_glac_hyps[main_glac_icethickness == 0] = 0
-    # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, region, input.width_filepath,
-                                                  input.width_filedict, input.width_colsdrop)
-    # Elevation bins
-    elev_bins = main_glac_hyps.columns.values.astype(int)   
-    # Select dates including future projections
-    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-                                           spinupyears=input.spinupyears)
-    # ===== LOAD CLIMATE DATA =====
-    gcm = class_climate.GCM(name=input.ref_gcm_name)
-    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-    # Lapse rate [K m-1]
-    gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-
-    # Select dates including future projections
-    #dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
-    dates_table_nospinup = modelsetup.datesmodelrun(startyear=2000, endyear=2018, spinupyears=0)
-    
-    # Calibration data
-    cal_data = pd.DataFrame()
-    for dataset in cal_datasets:
-        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
-        cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
-        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-    cal_data.reset_index(drop=True, inplace=True)
-
-    for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
-        # Glacier string
-        glacier_str = glac_str_wRGI.split('-')[1]
-        print(glacier_str)
-        # Glacier number
-        glacno = int(glacier_str.split('.')[1])
-        # RGI information
-        glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
-        # Calibration data
-        cal_idx = np.where(cal_data['glacno'] == glacno)[0]
-        glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
-        # Select observed mass balance, error, and time data
-        t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
-        t2 = glacier_cal_data.loc[cal_idx, 't2'].values[0]
-        t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
-        t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
-        observed_massbal = (glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)).values[0]
-        observed_error = (glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)).values[0]
-        mb_obs_max = observed_massbal + 3 * observed_error
-        mb_obs_min = observed_massbal - 3 * observed_error
-        
-        # MCMC Analysis
-        ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
-        df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
-        print('MB_obs:', np.round(observed_massbal,2), 'MB_obs_std:', np.round(observed_error,2),
-              '\nMB_mod:', np.round(df.massbal.mean(),2), 'MB_mod_std:', np.round(df.massbal.std(),2))
-        print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
-        
-        # Select subsets of data
-        glacier_gcm_elev = gcm_elev[n]
-        glacier_gcm_temp = gcm_temp[n,:]
-        glacier_gcm_lrgcm = gcm_lr[n,:]
-        glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
-        glacier_gcm_prec = gcm_prec[n,:]
-        glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
-        icethickness_t0 = main_glac_icethickness.iloc[n,:].values.astype(float)
-        width_t0 = main_glac_width.iloc[n,:].values.astype(float)
-        glac_idx_t0 = glacier_area_t0.nonzero()[0]
-        # Set model parameters
-        modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
-                           input.tempsnow, input.tempchange]
-        
-        (precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start, tempchange_boundlow, 
-         tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start, tempchange_max_loss, 
-         tempchange_max_acc, mb_max_loss, mb_max_acc, precfactor_opt_init, tempchange_opt_init) = (
-                 calibration.retrieve_prior_parameters(
-                         modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
-                                           glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, 
-                                           observed_massbal, mb_obs_min, mb_obs_max))
-        
-        ddfsnow_mu = input.ddfsnow_mu
-        ddfsnow_sigma = input.ddfsnow_sigma
-        ddfsnow_boundlow = input.ddfsnow_boundlow
-        ddfsnow_boundhigh = input.ddfsnow_boundhigh
-    
-        print('\nParameters:\nPF_low:', np.round(precfactor_boundlow,2), 'PF_high:', 
-              np.round(precfactor_boundhigh,2), '\nTC_low:', np.round(tempchange_boundlow,2), 
-              'TC_high:', np.round(tempchange_boundhigh,2),
-              '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2))
-       
-        #%%
-#    # PRIOR VS POSTERIOR PLOTS 
-#    fig, ax = plt.subplots(2, 2, squeeze=False, figsize=(6.5, 5), 
-#                           gridspec_kw={'wspace':0.3, 'hspace':0.5})
-#    
-#    param_idx_dict = {'massbal':[0,0],
-#                      'precfactor':[0,1],
-#                      'tempchange':[1,0],
-#                      'ddfsnow':[1,1]}
-#    
-#    z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
-#    for nvar, vn in enumerate(variables):
-#        
-#        # PRIOR DISTRIBUTIONS
-#        if vn == 'massbal':
-#            x_values = observed_massbal + observed_error * z_score
-#            y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
-#        elif vn == 'precfactor': 
-#            if precfactor_disttype == 'uniform':
-#                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-#                x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
-#                y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
-#                                       scale=(precfactor_boundhigh - precfactor_boundlow))
-#            elif precfactor_disttype == 'lognormal':
-#                precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
-#                x_values = np.linspace(lognorm.ppf(1e-6, precfactor_lognorm_sigma), 
-#                                       lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
-#                y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
-#        elif vn == 'tempchange':
-#            if tempchange_disttype == 'uniform':
-#                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-#                x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
-#                y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
-#                                       scale=(tempchange_boundhigh - tempchange_boundlow))
-#            elif tempchange_disttype == 'truncnormal':
-#                tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
-#                tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
-#                z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
-#                                      truncnorm.ppf(0.99, tempchange_a, tempchange_b), 100)
-#                x_values = tempchange_mu + tempchange_sigma * z_score
-#                y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu,
-#                                         scale=tempchange_sigma)
-#        elif vn == 'ddfsnow':            
-#            if ddfsnow_disttype == 'truncnormal':
-#                ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
-#                ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
-#                z_score = np.linspace(truncnorm.ppf(0.01, ddfsnow_a, ddfsnow_b),
-#                                      truncnorm.ppf(0.99, ddfsnow_a, ddfsnow_b), 100)
-#                x_values = ddfsnow_mu + ddfsnow_sigma * z_score
-#                y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
-#            elif ddfsnow_disttype == 'uniform':
-#                z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
-#                x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
-#                y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
-#                                       scale=(ddfsnow_boundhigh - ddfsnow_boundlow))
-#        
-#        nrow = param_idx_dict[vn][0]
-#        ncol = param_idx_dict[vn][1]
-#        ax[nrow,ncol].plot(x_values, y_values, color='k')
-#        
-#        # Labels
-#        ax[nrow,ncol].set_xlabel(vn_label_dict[vn], size=12)
-#        if ncol == 0:
-#            ax[nrow,ncol].set_ylabel('Probability Density', size=12)
-#
-#        # Ensemble/Posterior distribution                
-#        for n_chain in range(len(ds.chain.values)):
-#            for count_iter, n_iters in enumerate(iters):
-#                chain = ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:n_iters]
-#            
-#                # gaussian distribution
-#                kde = gaussian_kde(chain)
-#                x_values_kde = x_values.copy()
-#                y_values_kde = kde(x_values_kde)
-#                
-#                # Plot fitted distribution
-#                ax[nrow,ncol].plot(x_values_kde, y_values_kde, color=colors[count_iter], linestyle=linestyles[n_chain])
-#    
-#    # Close dataset
-#    ds.close()
-#    
-#    # Legend (Note: hard code the spacing between the two legends)
-#    leg_lines = []
-#    line = Line2D([0,1],[0,1], color='white')
-#    leg_lines.append(line)
-#    leg_labels = ['Steps']
-#    
-#    for count_iter, n_iters in enumerate(iters):
-#        line = Line2D([0,1],[0,1], color=colors[count_iter])
-#        leg_lines.append(line)
-#    iter_labels = [str(int(i)) for i in iters]
-#    for label in iter_labels:
-#        leg_labels.append(label)
-#    
-#    for n in range(8):
-#        line = Line2D([0,1],[0,1], color='white')
-#        leg_lines.append(line)
-#        leg_labels.append(' ')    
-#    line = Line2D([0,1],[0,1], color='white')
-#    leg_lines.append(line)
-#    leg_labels.append('Starting Point')
-#    
-#    for n_chain in range(len(ds.chain.values)):
-#        line = Line2D([0,1],[0,1], color='gray', linestyle=linestyles[n_chain])
-#        leg_lines.append(line)
-#    chain_labels = ['Center', 'Lower Bound', 'Upper Bound  ']
-#    for n in chain_labels:
-#        leg_labels.append(n)
-#    
-#    fig.legend(leg_lines, leg_labels, loc='upper right', bbox_to_anchor=(1.1,0.85), 
-#               handlelength=1, handletextpad=0.5, borderpad=0.3, frameon=False)
-#        
-#    # Save figure
-#    str_ending = ''
-#    if 'tempchange' in variables:    
-#        if tempchange_disttype == 'truncnormal': 
-#            str_ending += '_TCtn'
-#        elif tempchange_disttype == 'uniform':
-#            str_ending += '_TCu'
-#    if 'precfactor' in variables:                
-#        if precfactor_disttype == 'lognormal': 
-#            str_ending += '_PFln'
-#        elif precfactor_disttype == 'uniform':
-#            str_ending += '_PFu'
-#    if 'ddfsnow' in variables:     
-#        if ddfsnow_disttype == 'truncnormal': 
-#            str_ending += '_DDFtn'
-#        elif ddfsnow_disttype == 'uniform':
-#            str_ending += '_DDFu'        
-#    if input.tempchange_edge_method == 'mb':
-#        str_ending += '_edgeMBpt' + str(int(input.tempchange_edge_mb*100)).zfill(2)
-#    elif input.tempchange_edge_method == 'mb_norm':
-#        str_ending += '_edgeMBNormpt' + str(int(input.tempchange_edge_mbnorm*100)).zfill(2)
-#    elif input.tempchange_edge_method == 'mb_norm_slope':
-#        str_ending += '_edgeSpt' + str(int(input.tempchange_edge_mbnormslope*100)).zfill(2)
-#    str_ending += '_TCadjp' + str(int(input.tempchange_mu_adj*100)).zfill(2)
-#        
-#    if os.path.exists(mcmc_output_figures_fp) == False:
-#        os.makedirs(mcmc_output_figures_fp)        
-#    fig.savefig(mcmc_output_figures_fp + 'prior_v_posteriors_' + glacier_str + str_ending + '.png', 
-#                bbox_inches='tight', dpi=300)
-#    fig.clf()
- 
 
 #%%         
 if option_metrics_vs_chainlength == 1:
@@ -2062,7 +1791,7 @@ if option_metrics_histogram_all == 1:
     netcdf_fp = mcmc_output_netcdf_fp_all
     figure_fp = netcdf_fp + '/figures/'
     csv_fp = netcdf_fp + '/csv/'
-    regions = [13]
+    regions = [13, 14, 15]
     option_merge_regions = 0
     
     metrics = ['MC Error', 'Effective N']
@@ -2302,17 +2031,6 @@ if option_metrics_histogram_all == 1:
 #    fig.set_size_inches(6.5,8)
 #    figure_fn = 'histograms_all' + str(burn) + 'burn.png'
 #    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
-    
-#%%
-if option_prior_vs_posterior_single == 1:
-    glac_no = ['14.02150']
-    iters=[1000,10000]
-#    main_glac_rgi, cal_data, glac_no = load_glacier_and_cal_data(regions)
-    for nglac, glac in enumerate(glac_no):
-#        if main_glac_rgi.loc[nglac,'Area'] > 20:
-#            print(main_glac_rgi.loc[nglac,'RGIId'], glac)
-        prior_vs_posterior_single(glac, iters=iters)
-        
         
         
 if option_observation_vs_calibration == 1:
@@ -2327,12 +2045,22 @@ if option_observation_vs_calibration == 1:
 if option_papermcmc_prior_vs_posterior == 1:
     print('Prior vs posterior showing two example glaciers side-by-side!')
     glac_no = ['13.26360', '14.08487']
-#    netcdf_fp = mcmc_output_netcdf_fp_3chain
+    netcdf_fp = mcmc_output_netcdf_fp_3chain
     netcdf_fp = input.output_filepath + 'cal_opt2_3chain/'
+    burn = 1000
+    iters=[2000,10000]
+    figure_fn = 'prior_v_posteriors_2glac.eps'
+    
+#    glac_no = ['15.10755', '15.12457']
+#    burn = 1000
+#    iters=[10000]
+#    netcdf_fp = mcmc_output_netcdf_fp_all
+#    figure_fn = 'prior_v_posteriors_2glac_poorglaciers.eps'
+#    # note: need to change position and lines of legend below 
+    
     fig_fp = netcdf_fp + 'figures/'
     if os.path.exists(fig_fp) == False:
         os.makedirs(fig_fp)
-    iters=[1000,10000]
     
     iter_colors = ['#387ea0', '#fcb200', '#d20048']
     
@@ -2433,6 +2161,7 @@ if option_papermcmc_prior_vs_posterior == 1:
             for n_chain in range(len(ds.chain.values)):
                 for count_iter, n_iters in enumerate(iters):
                     chain = ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:n_iters]
+                    chain = ds['mp_value'].sel(chain=n_chain, mp=vn).values[burn:n_iters]
                     
                     if vn == 'ddfsnow':
                         chain = chain * 10**3
@@ -2454,7 +2183,9 @@ if option_papermcmc_prior_vs_posterior == 1:
     leg_labels = []
     chain_labels = ['Prior', '1000', '10000']
     chain_colors = ['black', '#387ea0', '#fcb200']
-    for n_chain in range(len(ds.chain.values)):
+#    chain_labels = ['Prior', '10000']
+#    chain_colors = ['black', '#387ea0']
+    for n_chain in range(len(chain_labels)):
 #        line = Line2D([0,1],[0,1], color='white')
 #        leg_lines.append(line)
 #        leg_labels.append('')
@@ -2463,22 +2194,23 @@ if option_papermcmc_prior_vs_posterior == 1:
         leg_labels.append(chain_labels[n_chain])
     fig.legend(leg_lines, leg_labels, loc='upper right', 
                bbox_to_anchor=(0.87,0.885), 
+#               bbox_to_anchor=(0.87,0.815),
                handlelength=1.5, handletextpad=0.25, borderpad=0.2, frameon=True)
     
-    # Legend (Note: hard code the spacing between the two legends) 
-    leg_lines = []
-    leg_labels = []
-    chain_labels = ['Center', 'Lower Bound', 'Upper Bound']
-    for n_chain in range(len(ds.chain.values)):
-#        line = Line2D([0,1],[0,1], color='white')
+#    # Legend (Note: hard code the spacing between the two legends) 
+#    leg_lines = []
+#    leg_labels = []
+#    chain_labels = ['Center', 'Lower Bound', 'Upper Bound']
+#    for n_chain in range(len(ds.chain.values)):
+##        line = Line2D([0,1],[0,1], color='white')
+##        leg_lines.append(line)
+##        leg_labels.append('')
+#        line = Line2D([0,1],[0,1], color='gray', linestyle=linestyles[n_chain])
 #        leg_lines.append(line)
-#        leg_labels.append('')
-        line = Line2D([0,1],[0,1], color='gray', linestyle=linestyles[n_chain])
-        leg_lines.append(line)
-        leg_labels.append(chain_labels[n_chain])
-    fig.legend(leg_lines, leg_labels, title='Overdispersed Starting Point', loc='lower center', 
-               bbox_to_anchor=(0.47,-0.005), handlelength=1.5, handletextpad=0.25, borderpad=0.2, frameon=True, 
-               ncol=3, columnspacing=0.75)
+#        leg_labels.append(chain_labels[n_chain])
+#    fig.legend(leg_lines, leg_labels, title='Overdispersed Starting Point', loc='lower center', 
+#               bbox_to_anchor=(0.47,-0.005), handlelength=1.5, handletextpad=0.25, borderpad=0.2, frameon=True, 
+#               ncol=3, columnspacing=0.75)
         
     # OLD LEGEND WITH ALL OF THEM ON THE BOTTOM
 #    # Legend (Note: hard code the spacing between the two legends)
@@ -2514,8 +2246,7 @@ if option_papermcmc_prior_vs_posterior == 1:
     fig.text(0.56, 0.24, 'H', size=12)
         
     # Save figure
-    fig.savefig(fig_fp + 'prior_v_posteriors_2glac.eps', 
-                bbox_inches='tight', pad_inches=0.02, dpi=300)
+    fig.savefig(fig_fp + figure_fn, bbox_inches='tight', pad_inches=0.02, dpi=300)
     
     
     #%%
@@ -4052,8 +3783,10 @@ if option_glacier_mcmc_plots == 1:
     
 #%% PLOT MASS BALANCE VS MODEL PARAMETERS
 if option_glacier_mb_vs_params == 1:
-    glac_no = [str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]]
-    netcdf_fp = input.output_fp_cal
+    glac_no = ['15.10755']
+#    glac_no = [str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]]
+#    netcdf_fp = input.output_fp_cal
+    netcdf_fp = mcmc_output_netcdf_fp_all
     fig_fp = netcdf_fp + 'figures/'
     
     (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
@@ -4118,11 +3851,12 @@ if option_glacier_mb_vs_params == 1:
                                                    scale=1/input.precfactor_gamma_beta)
             precfactor_iters = [1, int(precfactor_expected*10)/10, int(precfactor_bndhigh*10)/10]
         tc_iter_step = 0.1
-#        tempchange_iters = np.arange(int(tempchange_boundlow), np.ceil(tempchange_boundhigh)+tc_iter_step, 
-#                                     tc_iter_step).tolist()
+        tempchange_iters = np.arange(int(tempchange_boundlow), np.ceil(tempchange_boundhigh)+tc_iter_step, 
+                                     tc_iter_step).tolist()
         
-        print('\n\nDELETE ME!\n\n')
-        tempchange_iters = np.arange(-6, 6+tc_iter_step, tc_iter_step).tolist()
+        # Set manually
+#        print('\n\nTempchange iters set manually for figure generation\n\n')        
+#        tempchange_iters = np.arange(-6, 6+tc_iter_step, tc_iter_step).tolist()
         
         ddfsnow_iters = [0.0026, 0.0041, 0.0056]
         
@@ -4192,7 +3926,6 @@ if option_convertcal2table == 1:
 
 #%%
 if option_correlation_scatter == 1:
-    
     netcdf_fp = input.output_filepath + 'cal_opt2_spc_20190806/'
     csv_fp = netcdf_fp + 'csv/'
     fig_fp = netcdf_fp + 'figures/'
@@ -4279,12 +4012,20 @@ if option_correlation_scatter == 1:
                         'tc/ddf':'$\mathregular{T_{bias}}$ / $\mathregular{f_{snow}}$'}
     
     bdict = {}
-    bdict['mb/pf'] = np.arange(-0.2, 1, 0.05) - 0.025
+    bdict['mb/pf'] = np.arange(-0.2, 1.05, 0.05) - 0.025
     bdict['mb/tc'] = np.arange(-1, 0.2, 0.05) - 0.025
-    bdict['mb/ddf'] = np.arange(-1, 1, 0.05) - 0.025
-    bdict['pf/tc'] = np.arange(-0.2, 1, 0.05) - 0.025
-    bdict['pf/ddf'] = np.arange(-0.2, 1, 0.05) - 0.025
+    bdict['mb/ddf'] = np.arange(-1, 0.2, 0.05) - 0.025
+    bdict['pf/tc'] = np.arange(-0.2, 1.05, 0.05) - 0.025
+    bdict['pf/ddf'] = np.arange(-0.2, 1.05, 0.05) - 0.025
     bdict['tc/ddf'] = np.arange(-1, 0.2, 0.05) - 0.025
+    
+    tdict = {}
+    tdict['mb/pf'] = np.arange(0, 1.05, 0.5)
+    tdict['mb/tc'] = np.arange(-1, 0.05, 0.5)
+    tdict['mb/ddf'] = np.arange(-1, 0.05, 0.5)
+    tdict['pf/tc'] = np.arange(0, 1.05, 0.5)
+    tdict['pf/ddf'] = np.arange(0, 1.05, 0.5)
+    tdict['tc/ddf'] = np.arange(-1, 0.05, 0.5)
        
     nrows = 2
     ncols = 3 
@@ -4299,10 +4040,8 @@ if option_correlation_scatter == 1:
         bins_centered = bins[1:] + (bins[0] - bins[1]) / 2
         ax[nrow,ncol].bar(x=bins_centered, height=hist, width=(bins[1]-bins[0]), align='center',
                           edgecolor='black', color='lightgrey', linewidth=0.2)    
-        ax[nrow,ncol].set_ylim(0,25)            
-        # OLD PLOT
-#        ax[nrow,ncol].hist(df_all[combination], bins=50, color='grey', edgecolor='black', alpha=0.5, linewidth=0.5)
-#        ax[nrow,ncol].tick_params(axis='both')  
+        ax[nrow,ncol].set_ylim(0,18)  
+        ax[nrow,ncol].set_xticks(tdict[combination])          
         ax[nrow,ncol].text(0.5, 1.01, combination_dict[combination], size=12, horizontalalignment='center', 
                            verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
         r_mean = df_all[combination].mean()
@@ -4315,15 +4054,14 @@ if option_correlation_scatter == 1:
             nrow += 1
             ncol = 0
     
+    fig.text(0.04, 0.5, 'Count (%)', va='center', rotation='vertical', size=12)
     fig.text(0.5,0, 'Correlation Coefficient (R)', size=12, horizontalalignment='center')
                 
     if os.path.exists(fig_fp) == False:
         os.makedirs(fig_fp)    
     fig.set_size_inches(6, 4)
     fig.savefig(fig_fp + 'correlation_scatter.png', 
-                bbox_inches='tight', dpi=300)
-    plt.show()
-    fig.clf()      
+                bbox_inches='tight', dpi=300)   
         
         
 #%%
