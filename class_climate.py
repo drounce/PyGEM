@@ -29,8 +29,32 @@ class GCM():
         
         # Source of climate data
         self.name = name
-        # Set parameters for ERA-Interim and CMIP5 netcdf files
-        if self.name == 'ERA-Interim':
+        # Set parameters for ERA5, ERA-Interim, and CMIP5 netcdf files
+        if self.name == 'ERA5':
+            # Variable names
+            self.temp_vn = 't2m'
+            self.tempstd_vn = 't2m_std'
+            self.prec_vn = 'tp'
+            self.elev_vn = 'z'
+            self.lat_vn = 'latitude'
+            self.lon_vn = 'longitude'
+            self.time_vn = 'time'
+            self.lr_vn = 'lapserate'
+            # Variable filenames
+            self.temp_fn = input.era5_temp_fn
+            self.tempstd_fn = input.era5_tempstd_fn
+            self.prec_fn = input.era5_prec_fn
+            self.elev_fn = input.era5_elev_fn
+            self.lr_fn = input.era5_lr_fn
+            # Variable filepaths
+            self.var_fp = input.era5_fp
+            self.fx_fp = input.era5_fp
+            # Extra information
+            self.timestep = input.timestep
+            self.rgi_lat_colname=input.rgi_lat_colname
+            self.rgi_lon_colname=input.rgi_lon_colname
+            
+        elif self.name == 'ERA-Interim':
             # Variable names
             self.temp_vn = 't2m'
             self.prec_vn = 'tp'
@@ -307,20 +331,19 @@ class GCM():
 
 #%% Testing
 if __name__ == '__main__':
-    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
-#    gcm = GCM(name='ERA-Interim')
+#    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
+    gcm = GCM(name='ERA5')
     
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
                                                       rgi_glac_number='all')
     dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2006, spinupyears=0)
 
-    print('loaded')
     # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-#    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-#    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-#    if gcm.name == 'ERA-Interim':
-#        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+    if gcm.name == 'ERA-Interim' or gcm.name == 'ERA5':
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
 #    else:
 #        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 #    # COAWST data has two domains, so need to merge the two domains

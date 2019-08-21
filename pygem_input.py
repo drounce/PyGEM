@@ -117,20 +117,30 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [14]
+rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['17591']
 #rgi_glac_number = ['01264', '02591', '03331', '05825']
-rgi_glac_number = ['12704', '15017', '16907', '22814', '23792', '26927']
+#rgi_glac_number = ['12704', '15017', '16907', '22814', '23792', '26927']
 #rgi_glac_number = ['00185', '00301', '00395', '00674', '01715', '02581', '04061', '05225', '05857', '06022', '06636', 
 #                   '07532', '07652', '09554', '09882', '10284', '10332', '10497', '10829', '11053', '11971', '12228', 
 #                   '12239', '12559']
+rgi_glac_number = ['00149', '00280', '00446', '00547', '00671', '00886', '00964', '01030', '01113', '01358', '01371', 
+                   '01561', '01915', '01934', '01935', '02104', '02116', '02197', '02248', '02688', '02825', '02877', 
+                   '02981', '03502', '03541', '03783', '03791', '03925', '03982', '04066', '04173', '04204', '04569', 
+                   '04611', '04619', '04678', '04897', '04952', '05029', '05172', '05298', '05356', '05361', '05688', 
+                   '05691', '05745', '06184', '06277', '06316', '06419', '06424', '06451', '06462', '06543', '06746', 
+                   '06831', '07001', '07391', '07433', '07556', '07633', '07645', '07665', '07785', '07798', '07868', 
+                   '07907', '07914', '08545', '08858', '08918', '09095', '09117', '09201', '09350', '09520', '09741', 
+                   '09928', '10006', '10113', '10130', '10270', '10293', '10317', '10663', '10793', '10868', '11041', 
+                   '11456', '11631', '11634', '11724', '11764', '11934', '12297', '12465', '12564', '12765', '12890', 
+                   '13081']
 #rgi_glac_number = glac_num_fromrange(25429,25454)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
-#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1000, option_random=1)
+#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 54400, option_random=1)
 
 # ===== Bias adjustment option =====
@@ -458,15 +468,14 @@ option_lr_method = 1
 #    Note: Be careful with option 2 as the ocean vs land/glacier temperatures can causeƒ unrealistic inversions
 #    This is the option used by Marzeion et al. (2012)
 
-# ERA-Interim
+# ERA5
 era5_fp = main_directory + '/../Climate_data/ERA5/'
-#era5_temp_fn = 'ERA5_Temp2m_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) + '.nc'
 era5_temp_fn = 'ERA5_temp_monthly.nc'
+era5_tempstd_fn = 'ERA5_tempstd_monthly.nc'
 era5_prec_fn = 'ERA5_totalprecip_monthly.nc'
 era5_elev_fn = 'ERA5_geopotential_monthly.nc'
 era5_pressureleveltemp_fn = 'ERA5_pressureleveltemp_monthly.nc'
-era5_lr_fn = ('ERA5_lapserates_' + str(era5_downloadyearstart) + '_' + str(era5_downloadyearend) +'_opt' +
-              str(option_lr_method) + '_HMA.nc')
+era5_lr_fn = 'ERA5_lapserates_monthly.nc'
 
 # ERA-Interim
 eraint_fp = main_directory + '/../Climate_data/ERA_Interim/download/'
@@ -531,7 +540,9 @@ rgi_dict = {
             9:  '09_rgi60_RussianArctic.csv',
             13: '13_rgi60_CentralAsia.csv',
             14: '14_rgi60_SouthAsiaWest.csv',
-            15: '15_rgi60_SouthAsiaEast.csv'}
+            15: '15_rgi60_SouthAsiaEast.csv',
+            16: '16_rgi60_LowLatitudes.csv',
+            17: '17_rgi60_SouthernAndes.csv'}
 
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
 # Option to shift all elevation bins by 20 m
@@ -553,7 +564,9 @@ hyps_filedict = {
                 9:  'area_RGI09_10.csv',
                 13: 'area_13_Huss_CentralAsia_10m.csv',
                 14: 'area_14_Huss_SouthAsiaWest_10m.csv',
-                15: 'area_15_Huss_SouthAsiaEast_10m.csv'}
+                15: 'area_15_Huss_SouthAsiaEast_10m.csv',
+                16: 'area_16_Huss_LowLatitudes_10m.csv',
+                17: 'area_17_Huss_SouthernAndes_10m.csv'}
 # Extra columns in hypsometry data that will be dropped
 hyps_colsdrop = ['RGI-ID','Cont_range']
 # Filepath for the ice thickness files
@@ -569,7 +582,9 @@ thickness_filedict = {
                 9:  'thickness_RGI09_10.csv',
                 13: 'thickness_13_Huss_CentralAsia_10m.csv',
                 14: 'thickness_14_Huss_SouthAsiaWest_10m.csv',
-                15: 'thickness_15_Huss_SouthAsiaEast_10m.csv'}
+                15: 'thickness_15_Huss_SouthAsiaEast_10m.csv',
+                16: 'thickness_16_Huss_LowLatitudes_10m.csv',
+                17: 'thickness_17_Huss_SouthernAndes_10m.csv'}
 # Extra columns in ice thickness data that will be dropped
 thickness_colsdrop = ['RGI-ID','Cont_range']
 # Filepath for the width files
@@ -585,7 +600,9 @@ width_filedict = {
                 9:  'width_RGI09_10.csv',
                 13: 'width_13_Huss_CentralAsia_10m.csv',
                 14: 'width_14_Huss_SouthAsiaWest_10m.csv',
-                15: 'width_15_Huss_SouthAsiaEast_10m.csv'}
+                15: 'width_15_Huss_SouthAsiaEast_10m.csv',
+                16: 'width_16_Huss_LowLatitudes_10m.csv',
+                17: 'width_17_Huss_SouthernAndes_10m.csv'}
 # Extra columns in ice thickness data that will be dropped
 width_colsdrop = ['RGI-ID','Cont_range']
 
