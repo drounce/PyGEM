@@ -69,21 +69,6 @@ def get_shean_glacier_nos(region_no, number_glaciers=0, option_random=0):
     ds_reg['glacno'] = ((ds_reg['RGIId'] % 1) * 10**5).round(0).astype(int)
     ds_reg['glacno_str'] = (ds_reg['glacno'] / 10**5).apply(lambda x: '%.5f' % x).astype(str).str.split('.').str[1]
     num = list(ds_reg['glacno_str'].values)
-
-#    rgi = ds_reg['RGIId']
-#    # get only glacier numbers, convert to string
-#    num = rgi % 1
-#    num = num.round(5)
-#    num = num.astype(str)
-#    # slice string to remove decimal
-#    num = [n[2:] for n in num]
-#    # make sure there are 5 digits
-#    for i in range(len(num)):
-#        while len(num[i]) < 5:
-#            num[i] += '0'
-#    if number_glaciers > 0:
-#        num = num[0:number_glaciers]
-
     num = sorted(num)
     return num
 
@@ -121,6 +106,11 @@ rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
+#  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
+#               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
+glac_no = None
+#glac_no = ['1.00042', '1.00013', '1.00570', '1.19515', '1.22193', '1.00390', 
+#           '13.00001', '13.26243', '15.00002', '15.03735']
 #rgi_glac_number = 'all'
 #rgi_glac_number = ['17591']
 #rgi_glac_number = ['01264', '02591', '03331', '05825']
@@ -128,20 +118,21 @@ rgi_regionsO2 = 'all'
 #rgi_glac_number = ['00185', '00301', '00395', '00674', '01715', '02581', '04061', '05225', '05857', '06022', '06636', 
 #                   '07532', '07652', '09554', '09882', '10284', '10332', '10497', '10829', '11053', '11971', '12228', 
 #                   '12239', '12559']
-rgi_glac_number = ['00149', '00280', '00446', '00547', '00671', '00886', '00964', '01030', '01113', '01358', '01371', 
-                   '01561', '01915', '01934', '01935', '02104', '02116', '02197', '02248', '02688', '02825', '02877', 
-                   '02981', '03502', '03541', '03783', '03791', '03925', '03982', '04066', '04173', '04204', '04569', 
-                   '04611', '04619', '04678', '04897', '04952', '05029', '05172', '05298', '05356', '05361', '05688', 
-                   '05691', '05745', '06184', '06277', '06316', '06419', '06424', '06451', '06462', '06543', '06746', 
-                   '06831', '07001', '07391', '07433', '07556', '07633', '07645', '07665', '07785', '07798', '07868', 
-                   '07907', '07914', '08545', '08858', '08918', '09095', '09117', '09201', '09350', '09520', '09741', 
-                   '09928', '10006', '10113', '10130', '10270', '10293', '10317', '10663', '10793', '10868', '11041', 
-                   '11456', '11631', '11634', '11724', '11764', '11934', '12297', '12465', '12564', '12765', '12890', 
-                   '13081']
-#rgi_glac_number = glac_num_fromrange(25429,25454)
+#rgi_glac_number = ['00149', '00280', '00446', '00547', '00671', '00886', '00964', '01030', '01113', '01358', '01371', 
+#                   '01561', '01915', '01934', '01935', '02104', '02116', '02197', '02248', '02688', '02825', '02877', 
+#                   '02981', '03502', '03541', '03783', '03791', '03925', '03982', '04066', '04173', '04204', '04569', 
+#                   '04611', '04619', '04678', '04897', '04952', '05029', '05172', '05298', '05356', '05361', '05688', 
+#                   '05691', '05745', '06184', '06277', '06316', '06419', '06424', '06451', '06462', '06543', '06746', 
+#                   '06831', '07001', '07391', '07433', '07556', '07633', '07645', '07665', '07785', '07798', '07868', 
+#                   '07907', '07914', '08545', '08858', '08918', '09095', '09117', '09201', '09350', '09520', '09741', 
+#                   '09928', '10006', '10113', '10130', '10270', '10293', '10317', '10663', '10793', '10868', '11041', 
+#                   '11456', '11631', '11634', '11724', '11764', '11934', '12297', '12465', '12564', '12765', '12890', 
+#                   '13081']
+rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 54400, option_random=1)
+
 
 # ===== Bias adjustment option =====
 option_bias_adjustment = 1
@@ -268,16 +259,12 @@ precfactor_lognorm_mu = 0
 precfactor_lognorm_tau = 4
 precfactor_mu = 0
 precfactor_sigma = 1.5
-#precfactor_boundlow = 0
-#precfactor_boundhigh = 2
 precfactor_boundlow = 0.5
 precfactor_boundhigh = 1.5
 precfactor_start = 1
-precfactor_step = 0.1
-precfactor_boundhigh_adj = 0
-tempchange_disttype = 'normal'
 #tempchange_disttype = 'truncnormal'
 #tempchange_disttype = 'uniform'
+tempchange_disttype = 'normal'
 tempchange_norm_region_dict = {'Altun Shan': [-0.60, 1.09],
                                'Central Himalaya': [0.13, 0.9],
                                'Central Tien Shan': [0.4, 0.85],
@@ -306,28 +293,19 @@ tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
 tempchange_step = 0.1
-tempchange_sigma_adj = 6
-tempchange_mu_adj = 0.12
-#tempchange_edge_method = 'mb'
-tempchange_edge_method = 'mb_norm'
-#tempchange_edge_method = 'mb_norm_slope'
-tempchange_edge_mb = 1
-tempchange_edge_mbnorm = 0.9
-tempchange_edge_mbnormslope = -0.75
+
 ddfsnow_disttype = 'truncnormal'
 #ddfsnow_disttype = 'uniform'
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = 0
 ddfsnow_boundhigh = np.inf
-#ddfsnow_boundlow = ddfsnow_mu - 1.96 * ddfsnow_sigma
-#ddfsnow_boundhigh = ddfsnow_mu + 1.96 * ddfsnow_sigma
 ddfsnow_start=ddfsnow_mu
 
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 100
+sim_iters = 10
 sim_burn = 200
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
@@ -453,8 +431,6 @@ era_varnames = ['temperature', 'precipitation', 'geopotential', 'temperature_pre
 # Dates
 eraint_start_date = '19790101'
 eraint_end_date = '20180501'
-era5_downloadyearstart = 2017
-era5_downloadyearend = 2018
 # Resolution
 grid_res = '0.5/0.5'
 # Bounding box (N/W/S/E)

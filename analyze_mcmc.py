@@ -56,8 +56,6 @@ option_convertcal2table = 0
 option_plot_era_normalizedchange = 0
 
 
-
-
 # Export option
 mcmc_output_netcdf_fp_3chain = input.output_filepath + 'cal_opt2_spc_20190815_3chain/'
 mcmc_output_netcdf_fp_all = input.output_filepath + 'cal_opt2_spc_20190806/'
@@ -249,7 +247,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
                 rgi_regionsO1=[region], rgi_regionsO2 = 'all', rgi_glac_number=glac_no_byregion[region])
         # Glacier hypsometry
         main_glac_hyps_region = modelsetup.import_Husstable(
-                main_glac_rgi_region, [region], input.hyps_filepath,input.hyps_filedict, input.hyps_colsdrop)
+                main_glac_rgi_region, input.hyps_filepath,input.hyps_filedict, input.hyps_colsdrop)
         
         if option_loadcal_data == 1:
             # ===== CALIBRATION DATA =====
@@ -266,12 +264,12 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
         if option_loadhyps_climate == 1:
             # Ice thickness [m], average
             main_glac_icethickness_region = modelsetup.import_Husstable(
-                    main_glac_rgi_region, [region], input.thickness_filepath, input.thickness_filedict, 
+                    main_glac_rgi_region, input.thickness_filepath, input.thickness_filedict, 
                     input.thickness_colsdrop)
             main_glac_hyps_region[main_glac_icethickness_region == 0] = 0
             # Width [km], average
             main_glac_width_region = modelsetup.import_Husstable(
-                    main_glac_rgi_region, [region], input.width_filepath, input.width_filedict, input.width_colsdrop)
+                    main_glac_rgi_region, input.width_filepath, input.width_filedict, input.width_colsdrop)
             # ===== CLIMATE DATA =====
             gcm = class_climate.GCM(name=input.ref_gcm_name)
             # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
@@ -2967,10 +2965,10 @@ if __name__ == '__main__':
             main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
                                                                      rgi_glac_number='all')
              # Glacier hypsometry [km**2]
-            main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, [rgi_region], input.hyps_filepath,
+            main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, input.hyps_filepath,
                                                                 input.hyps_filedict, input.hyps_colsdrop)
             # Ice thickness [m], average
-            main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, [rgi_region], 
+            main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, 
                                                                      input.thickness_filepath, input.thickness_filedict, 
                                                                      input.thickness_colsdrop)
             
@@ -3506,11 +3504,11 @@ if __name__ == '__main__':
         main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, region, input.hyps_filepath,
                                                      input.hyps_filedict, input.hyps_colsdrop)
         # Ice thickness [m], average
-        main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, region, input.thickness_filepath, 
+        main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath, 
                                                              input.thickness_filedict, input.thickness_colsdrop)
         main_glac_hyps[main_glac_icethickness == 0] = 0
         # Width [km], average
-        main_glac_width = modelsetup.import_Husstable(main_glac_rgi, region, input.width_filepath,
+        main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath,
                                                       input.width_filedict, input.width_colsdrop)
         # Elevation bins
         elev_bins = main_glac_hyps.columns.values.astype(int)   
@@ -3582,10 +3580,10 @@ if __name__ == '__main__':
                                input.tempsnow, input.tempchange]
             
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
-                    calibration.retrieve_priors_v2(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                                   glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                                   t1_idx, t2_idx, t1, t2))
+                    calibration.retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                                width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                                t1_idx, t2_idx, t1, t2))
             
             # Regional priors
             precfactor_gamma_alpha = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
@@ -3933,7 +3931,7 @@ if __name__ == '__main__':
             ds.close()
             
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
-                    calibration.retrieve_priors_v2(
+                    calibration.retrieve_priors(
                         modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                         width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=False))
@@ -4116,7 +4114,7 @@ if __name__ == '__main__':
         
             
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
-                    calibration.retrieve_priors_v2(
+                    calibration.retrieve_priors(
                         modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
                         width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=True))

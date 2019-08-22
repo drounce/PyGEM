@@ -46,15 +46,15 @@ main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1,
                                                   rgi_regionsO2='all', 
                                                   rgi_glac_number='all')
 # Glacier hypsometry [km**2], total area
-main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath, 
+main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath, 
                                              input.hyps_filedict, input.hyps_colsdrop)
 elev_bins = main_glac_hyps.columns.values.astype(int)
 # Ice thickness [m], average
-main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.thickness_filepath, 
+main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath, 
                                                      input.thickness_filedict, input.thickness_colsdrop)
 main_glac_hyps[main_glac_icethickness == 0] = 0
 # Width [km], average
-main_glac_width = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.width_filepath, 
+main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath, 
                                               input.width_filedict, input.width_colsdrop)
 # Add volume [km**3] and mean elevation [m a.s.l.] to the main glaciers table
 main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)

@@ -447,14 +447,14 @@ def main(list_packed_vars):
     # ===== LOAD OTHER GLACIER DATA =====
     main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :]
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.hyps_filepath,
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.thickness_filepath,
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath,
                                                          input.thickness_filedict, input.thickness_colsdrop)
     main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.rgi_regionsO1, input.width_filepath,
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath,
                                                   input.width_filedict, input.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
 

@@ -155,11 +155,10 @@ def load_masschange_monthly(regions, ds_ending, netcdf_fp=sim_netcdf_fp, option_
             print('Region', str(region),': number of glaciers match')
         # Glacier hypsometry
         main_glac_hyps_region = modelsetup.import_Husstable(
-                main_glac_rgi_region, [region], input.hyps_filepath,input.hyps_filedict, input.hyps_colsdrop)     
+                main_glac_rgi_region, input.hyps_filepath,input.hyps_filedict, input.hyps_colsdrop)     
         # Ice thickness [m], average
         main_glac_icethickness_region = modelsetup.import_Husstable(
-                main_glac_rgi_region, [region], input.thickness_filepath, input.thickness_filedict, 
-                input.thickness_colsdrop)
+                main_glac_rgi_region, input.thickness_filepath, input.thickness_filedict, input.thickness_colsdrop)
         main_glac_hyps_region[main_glac_icethickness_region == 0] = 0
         # ===== CALIBRATION DATA =====
         if option_add_caldata == 1:

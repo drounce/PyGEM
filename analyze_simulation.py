@@ -376,10 +376,10 @@ def load_glacier_data(rgi_regions,
         main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
                                                                  rgi_glac_number='all')
          # Glacier hypsometry [km**2]
-        main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, [rgi_region], input.hyps_filepath,
+        main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, input.hyps_filepath,
                                                             input.hyps_filedict, input.hyps_colsdrop)
         # Ice thickness [m], average
-        main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, [rgi_region], 
+        main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, 
                                                                  input.thickness_filepath, input.thickness_filedict, 
                                                                  input.thickness_colsdrop)
         if rgi_region == rgi_regions[0]:

@@ -713,59 +713,87 @@ if args.option_createlapserates == 1:
 if args.option_createtempstd == 1:
     ds_fp = '/Volumes/LaCie/ERA5/'
 #    ds_fn = 't2m_hourly_1979_1989.nc'
-    ds_fn = 't2m_hourly_1990_1999.nc'
+#    ds_fn = 't2m_hourly_1990_1999.nc'
 #    ds_fn = 't2m_hourly_2000_2009.nc'
 #    ds_fn = 't2m_hourly_2010_2019.nc'
+    ds_all_fn = 'ERA5_tempstd_monthly.nc'
+    option_merge_files = 1
     
-    output_fn= 'ERA5_tempstd_monthly_' + ds_fn.split('_')[2] + '_' + ds_fn.split('_')[3]
-    
-    ds = xr.open_dataset(ds_fp + ds_fn)
+    # Merge completed files together
+    if option_merge_files == 1:
+        
+        #%%
+        tempstd_fns = []
+        for i in os.listdir(ds_fp):
+            if i.startswith('ERA5_tempstd_monthly') and i.endswith('.nc'):
+                tempstd_fns.append(i)
+        tempstd_fns = sorted(tempstd_fns)
 
-#    ds_subset = ds.t2m[0:30*24,:,:].values
-#    t2m_daily = np.moveaxis(np.moveaxis(ds_subset, 0, -1).reshape(-1,24).mean(axis=1)
-#                            .reshape(ds_subset.shape[1],ds_subset.shape[2],int(ds_subset.shape[0]/24)), -1, 0)
+        # Open datasets and combine
+        for nfile, tempstd_fn in enumerate(tempstd_fns):
+            print(tempstd_fn)
+            ds = xr.open_dataset(ds_fp + tempstd_fn)
+            # Merge datasets of stats into one output
+            if nfile == 0:
+                ds_all = ds
+            else:
+                ds_all = xr.concat([ds_all, ds], dim='time')
+            
+        # Export to netcdf
+        encoding = {'t2m_std':{'_FillValue': False}}
+        ds_all.to_netcdf(ds_fp + ds_all_fn, encoding=encoding)
+        
+    else:
     
-    # Calculate daily mean temperature
-    ndays = int(ds.time.shape[0] / 24)
-    t2m_daily = np.zeros((ndays, ds.latitude.shape[0], ds.longitude.shape[0]))
-    for nday in np.arange(ndays):
-        if nday%50 == 0:
-            print(str(nday) + ' out of ' + str(ndays))
-        ds_subset = ds.t2m[nday*24:(nday+1)*24, :, :].values
-        t2m_daily[nday,:,:] = (
-                np.moveaxis(np.moveaxis(ds_subset, 0, -1).reshape(-1,24).mean(axis=1)
-                            .reshape(ds_subset.shape[1],ds_subset.shape[2],int(ds_subset.shape[0]/24)), -1, 0))
-
-    # Calculate monthly temperature standard deviation
-    date = ds.time[::24].values
-    date_month = [pd.Timestamp(date[x]).month for x in np.arange(date.shape[0])]
-    date_year = [pd.Timestamp(date[x]).year for x in np.arange(date.shape[0])]
+        output_fn= 'ERA5_tempstd_monthly_' + ds_fn.split('_')[2] + '_' + ds_fn.split('_')[3]
+        
+        ds = xr.open_dataset(ds_fp + ds_fn)
     
-    date_yyyymm = [str(date_year[x]) + '-' + str(date_month[x]).zfill(2) for x in np.arange(date.shape[0])]
-    date_yyyymm_unique = sorted(list(set(date_yyyymm)))
+    #    ds_subset = ds.t2m[0:30*24,:,:].values
+    #    t2m_daily = np.moveaxis(np.moveaxis(ds_subset, 0, -1).reshape(-1,24).mean(axis=1)
+    #                            .reshape(ds_subset.shape[1],ds_subset.shape[2],int(ds_subset.shape[0]/24)), -1, 0)
+        
+        # Calculate daily mean temperature
+        ndays = int(ds.time.shape[0] / 24)
+        t2m_daily = np.zeros((ndays, ds.latitude.shape[0], ds.longitude.shape[0]))
+        for nday in np.arange(ndays):
+            if nday%50 == 0:
+                print(str(nday) + ' out of ' + str(ndays))
+            ds_subset = ds.t2m[nday*24:(nday+1)*24, :, :].values
+            t2m_daily[nday,:,:] = (
+                    np.moveaxis(np.moveaxis(ds_subset, 0, -1).reshape(-1,24).mean(axis=1)
+                                .reshape(ds_subset.shape[1],ds_subset.shape[2],int(ds_subset.shape[0]/24)), -1, 0))
     
-    t2m_monthly_std = np.zeros((len(date_yyyymm_unique), ds.latitude.shape[0], ds.longitude.shape[0]))
-    date_monthly = []
-    for count, yyyymm in enumerate(date_yyyymm_unique):
-        if count%12 == 0:
-            print(yyyymm)
-        date_idx = np.where(np.array(date_yyyymm) == yyyymm)[0]
-        date_monthly.append(date[date_idx[0]])
-        t2m_monthly_std[count,:,:] = t2m_daily[date_idx,:,:].std(axis=0)
-
-    # Export lapse rates with attibutes
-    output_ds = ds.copy()
-    output_ds = output_ds.drop('t2m')
-    output_ds = output_ds.drop('time')
-    output_ds['time'] = date_monthly
-    output_ds['t2m_std'] = (('time', 'latitude', 'longitude'), t2m_monthly_std, 
-                             {'long_name': 'monthly 2m temperature standard deviation', 
-                              'units': 'K'})
-    encoding = {'t2m_std':{'_FillValue': False}}
-    output_ds.to_netcdf(ds_fp + output_fn, encoding=encoding)
-
-    # Close dataset
-    ds.close()
+        # Calculate monthly temperature standard deviation
+        date = ds.time[::24].values
+        date_month = [pd.Timestamp(date[x]).month for x in np.arange(date.shape[0])]
+        date_year = [pd.Timestamp(date[x]).year for x in np.arange(date.shape[0])]
+        
+        date_yyyymm = [str(date_year[x]) + '-' + str(date_month[x]).zfill(2) for x in np.arange(date.shape[0])]
+        date_yyyymm_unique = sorted(list(set(date_yyyymm)))
+        
+        t2m_monthly_std = np.zeros((len(date_yyyymm_unique), ds.latitude.shape[0], ds.longitude.shape[0]))
+        date_monthly = []
+        for count, yyyymm in enumerate(date_yyyymm_unique):
+            if count%12 == 0:
+                print(yyyymm)
+            date_idx = np.where(np.array(date_yyyymm) == yyyymm)[0]
+            date_monthly.append(date[date_idx[0]])
+            t2m_monthly_std[count,:,:] = t2m_daily[date_idx,:,:].std(axis=0)
+    
+        # Export lapse rates with attibutes
+        output_ds = ds.copy()
+        output_ds = output_ds.drop('t2m')
+        output_ds = output_ds.drop('time')
+        output_ds['time'] = date_monthly
+        output_ds['t2m_std'] = (('time', 'latitude', 'longitude'), t2m_monthly_std, 
+                                 {'long_name': 'monthly 2m temperature standard deviation', 
+                                  'units': 'K'})
+        encoding = {'t2m_std':{'_FillValue': False}}
+        output_ds.to_netcdf(ds_fp + output_fn, encoding=encoding)
+    
+        # Close dataset
+        ds.close()
     
 
 #%%
@@ -787,14 +815,14 @@ if args.option_frontalablation_cal == 1:
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=region, rgi_regionsO2 = 'all',
                                                       rgi_glac_number=rgi_glac_number)
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, region, input.hyps_filepath,
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, region, input.thickness_filepath, 
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath, 
                                                          input.thickness_filedict, input.thickness_colsdrop)
     main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, region, input.width_filepath,
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath,
                                                   input.width_filedict, input.width_colsdrop)
     # Elevation bins
     elev_bins = main_glac_hyps.columns.values.astype(int)   

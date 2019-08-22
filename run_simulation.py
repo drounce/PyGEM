@@ -514,15 +514,15 @@ def main(list_packed_vars):
 #    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
 #                                                      rgi_glac_number=rgi_glac_number)
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath,
-                                                 input.hyps_filedict, input.hyps_colsdrop)
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath, input.hyps_filedict, 
+                                                 input.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.thickness_filepath,
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath,
                                                          input.thickness_filedict, input.thickness_colsdrop)
     main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.width_filepath,
-                                                  input.width_filedict, input.width_colsdrop)
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath, input.width_filedict, 
+                                                  input.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
     # Volume [km**3] and mean elevation [m a.s.l.]
     main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
@@ -557,7 +557,7 @@ def main(list_packed_vars):
                 option_wateryear=input.gcm_wateryear, spinupyears=0)
         
     # ===== LOAD CLIMATE DATA =====
-    if gcm_name == 'ERA-Interim' or gcm_name == 'COAWST':
+    if gcm_name in ['ERA5', 'ERA-Interim', 'COAWST']:
         gcm = class_climate.GCM(name=gcm_name)
         # Check that end year is reasonable
         if (input.gcm_endyear > int(time.strftime("%Y"))) and (input.option_synthetic_sim == 0):
@@ -686,7 +686,7 @@ def main(list_packed_vars):
         print('Negative precipitation value')
         print(np.where(gcm_prec_adj < 0))
     
-#%%
+    
     # ===== RUN MASS BALANCE =====
     # Dataset to store model simulations and statistics
     # Number of simulations
@@ -783,7 +783,8 @@ def main(list_packed_vars):
                 massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                           option_areaconstant=0, debug=True,
+                                           option_areaconstant=0,
+                                           debug=False
 #                                           debug=debug_mb
                                            ))
             
@@ -950,12 +951,12 @@ if __name__ == '__main__':
     
     # Define chunk size for parallel processing
     if args.option_parallels != 0:
-        num_cores = int(np.min([len(rgi_glac_number), args.num_simultaneous_processes]))
-        chunk_size = int(np.ceil(len(rgi_glac_number) / num_cores))
+        num_cores = int(np.min([main_glac_rgi_all.shape[0], args.num_simultaneous_processes]))
+        chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / num_cores))
     else:
         # if not running in parallel, chunk size is all glaciers
         num_cores = 1
-        chunk_size = len(rgi_glac_number)
+        chunk_size = main_glac_rgi_all.shape[0]
         
     # Read GCM names from argument parser
     gcm_name = args.gcm_list_fn
@@ -993,7 +994,7 @@ if __name__ == '__main__':
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
-                
+    
         # Merge netcdf files together into one
         # Filenames to merge
         output_list_sorted = []
@@ -1129,57 +1130,57 @@ if __name__ == '__main__':
 #            mp_idx_all = main_vars['mp_idx_all']
 #        netcdf_fn = main_vars['netcdf_fn']
         
-#%%
-#    ds = xr.open_dataset(input.output_sim_fp + 'CanESM2/R13_CanESM2_rcp26_c2_ba1_100sets_2000_2100.nc')
-#    vol_annual = ds.volume_glac_annual.values[0,:,0]
-#    mb_monthly = ds.massbaltotal_glac_monthly.values[0,:,0]
-#    area_annual = ds.area_glac_annual.values[0,:,0]
-#
-#    # ===== MASS CHANGE CALCULATIONS =====
-#    # Compute glacier volume change for every time step and use this to compute mass balance
-##    glac_wide_area = np.repeat(area_annual[:,:-1], 12, axis=1)
-#    glac_wide_area = np.repeat(area_annual[:-1], 12)
-#    
-#    # Mass change [km3 mwe]
-#    #  mb [mwea] * (1 km / 1000 m) * area [km2]
-#    glac_wide_masschange = mb_monthly / 1000 * glac_wide_area
-#    
-#    print('Average mass balance:', np.round(glac_wide_masschange.sum() / 101, 2), 'Gt/yr')
-#    
-#    print('Average mass balance:', np.round(mb_monthly.sum() / 101, 2), 'mwea')
-#    
-#    A = mb_monthly[0:18*12]
-#    print(A.sum() / 18)
-#    
-#    print('Vol change[%]:', vol_annual[-1] / vol_annual[0] * 100)
-#    ds.close()
-        
-#    #%%
-#    # ===== MASS CHANGE CALCULATIONS: ISSUE WITH USING AVERAGE MB AND AREA TO COMPUTE VOLUME CHANGE ======
-#    # Mean volume change from each volume simulation
-#    A = output_ds_all.volume_glac_annual.values[0,:,:]
-#    A_volchg = A[-1,:] - A[0,:]
-#    A_volchg_mean = np.mean(A_volchg)
-#    
-#    # Mean volume change from each mass balance and area simulation
-#    B = output_ds_all.massbaltotal_glac_monthly.values[0,:,:]
-#    B_area = (output_ds_all.area_glac_annual.values[0,:-1,:]).repeat(12,axis=0)
-#    B_volchg_monthly = B / 1000 * B_area / 0.9
-#    B_volchg = np.sum(B_volchg_monthly, axis=0)
-#    B_volchg_mean = np.mean(B_volchg)
-#    
-#    print('Volume change from each simulation of volume agree with each simulation of mass balance and area:',
-#          'from volume:', np.round(A_volchg_mean,9), 'from MB/area:', np.round(B_volchg_mean,9), 
-#          'difference:', np.round(A_volchg_mean - B_volchg_mean,9))
-#    
-#    # Mean volume change based on the mean mass balance and mean area (these are what we output because files would be
-#    # too large to output every simulation)
-#    B_mean = B.mean(axis=1)
-#    B_mean_area = B_area.mean(axis=1)
-#    B_mean_volchg_monthly = B_mean / 1000 * B_mean_area / 0.9
-#    B_mean_volchg = np.sum(B_mean_volchg_monthly)
-#    
-#    print('\nVolume change from each simulation of volume is different than using mean mass balance and area',
-#          'from volume', np.round(A_volchg_mean,9), 'from mean MB/area:', np.round(B_mean_volchg,9),
-#          'difference:', np.round(A_volchg_mean - B_mean_volchg,9))
-        
+##%%
+##    ds = xr.open_dataset(input.output_sim_fp + 'CanESM2/R13_CanESM2_rcp26_c2_ba1_100sets_2000_2100.nc')
+##    vol_annual = ds.volume_glac_annual.values[0,:,0]
+##    mb_monthly = ds.massbaltotal_glac_monthly.values[0,:,0]
+##    area_annual = ds.area_glac_annual.values[0,:,0]
+##
+##    # ===== MASS CHANGE CALCULATIONS =====
+##    # Compute glacier volume change for every time step and use this to compute mass balance
+###    glac_wide_area = np.repeat(area_annual[:,:-1], 12, axis=1)
+##    glac_wide_area = np.repeat(area_annual[:-1], 12)
+##    
+##    # Mass change [km3 mwe]
+##    #  mb [mwea] * (1 km / 1000 m) * area [km2]
+##    glac_wide_masschange = mb_monthly / 1000 * glac_wide_area
+##    
+##    print('Average mass balance:', np.round(glac_wide_masschange.sum() / 101, 2), 'Gt/yr')
+##    
+##    print('Average mass balance:', np.round(mb_monthly.sum() / 101, 2), 'mwea')
+##    
+##    A = mb_monthly[0:18*12]
+##    print(A.sum() / 18)
+##    
+##    print('Vol change[%]:', vol_annual[-1] / vol_annual[0] * 100)
+##    ds.close()
+#        
+##    #%%
+##    # ===== MASS CHANGE CALCULATIONS: ISSUE WITH USING AVERAGE MB AND AREA TO COMPUTE VOLUME CHANGE ======
+##    # Mean volume change from each volume simulation
+##    A = output_ds_all.volume_glac_annual.values[0,:,:]
+##    A_volchg = A[-1,:] - A[0,:]
+##    A_volchg_mean = np.mean(A_volchg)
+##    
+##    # Mean volume change from each mass balance and area simulation
+##    B = output_ds_all.massbaltotal_glac_monthly.values[0,:,:]
+##    B_area = (output_ds_all.area_glac_annual.values[0,:-1,:]).repeat(12,axis=0)
+##    B_volchg_monthly = B / 1000 * B_area / 0.9
+##    B_volchg = np.sum(B_volchg_monthly, axis=0)
+##    B_volchg_mean = np.mean(B_volchg)
+##    
+##    print('Volume change from each simulation of volume agree with each simulation of mass balance and area:',
+##          'from volume:', np.round(A_volchg_mean,9), 'from MB/area:', np.round(B_volchg_mean,9), 
+##          'difference:', np.round(A_volchg_mean - B_volchg_mean,9))
+##    
+##    # Mean volume change based on the mean mass balance and mean area (these are what we output because files would be
+##    # too large to output every simulation)
+##    B_mean = B.mean(axis=1)
+##    B_mean_area = B_area.mean(axis=1)
+##    B_mean_volchg_monthly = B_mean / 1000 * B_mean_area / 0.9
+##    B_mean_volchg = np.sum(B_mean_volchg_monthly)
+##    
+##    print('\nVolume change from each simulation of volume is different than using mean mass balance and area',
+##          'from volume', np.round(A_volchg_mean,9), 'from mean MB/area:', np.round(B_mean_volchg,9),
+##          'difference:', np.round(A_volchg_mean - B_mean_volchg,9))
+#        

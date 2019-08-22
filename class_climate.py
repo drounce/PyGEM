@@ -332,11 +332,13 @@ class GCM():
 #%% Testing
 if __name__ == '__main__':
 #    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
-    gcm = GCM(name='ERA5')
+#    gcm = GCM(name='ERA5')
+    gcm = GCM(name='ERA-Interim')
     
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                      rgi_glac_number='all')
-    dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2006, spinupyears=0)
+                                                      rgi_glac_number=input.rgi_glac_number)
+    dates_table = modelsetup.datesmodelrun(startyear=1980, endyear=2017, spinupyears=0, 
+                                           option_wateryear=input.gcm_wateryear)
 
     # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)

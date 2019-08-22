@@ -312,7 +312,7 @@ binsize = 30 # elevation bin must be an integer greater than 1
 # NEED TO FIX BROKEN FUNCTION FOR PROCESSING FARINOTTI ET AL. (2019) DATA
 #main_glac_hyps, main_glac_thickness, main_glac_width, main_glac_width, main_glac_slope = (
 #        extract_hyps(main_glac_rgi, binsize))
-main_glac_hyps_10m = modelsetup.import_Husstable(main_glac_rgi, rgi_regionsO1, input.hyps_filepath,
+main_glac_hyps_10m = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
                                                  input.hyps_filedict, input.hyps_colsdrop)
 binsize_rgi = int(main_glac_hyps_10m.columns[1]) - int(main_glac_hyps_10m.columns[0])
 
