@@ -399,7 +399,7 @@ def load_glacier_data(rgi_regions,
             # Calibration data
             cal_data = pd.DataFrame()
             for dataset in cal_datasets:
-                cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_region)
+                cal_subset = class_mbdata.MBData(name=dataset)
                 cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table)
                 cal_data = cal_data.append(cal_subset_data, ignore_index=True)
             cal_data = cal_data.sort_values(['glacno', 't1_idx'])
@@ -4117,7 +4117,7 @@ if option_wgms_compare == 1:
 
         cal_data = pd.DataFrame()
         for dataset in cal_datasets:
-            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=reg)
+            cal_subset = class_mbdata.MBData(name=dataset)
             cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_reg, main_glac_hyps_reg, dates_table)
             cal_data = cal_data.append(cal_subset_data, ignore_index=True)
         cal_data = cal_data.sort_values(['glacno', 't1_idx'])

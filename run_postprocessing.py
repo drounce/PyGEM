@@ -25,6 +25,8 @@ def getparser():
     ----------
     gcm_name (optional) : str
         gcm name
+    rcp (optional) : str
+        representative concentration pathway (ex. 'rcp26')
     merge_batches (optional) : int
         switch to run merge_batches fxn (1 merge, 0 ignore)
     debug : int
@@ -38,6 +40,14 @@ def getparser():
     # add arguments
     parser.add_argument('-gcm_name', action='store', type=str, default=None,
                         help='GCM name used for model run')
+    parser.add_argument('-rcp', action='store', type=str, default=None,
+                        help='rcp scenario used for model run (ex. rcp26)')
+    parser.add_argument('-output_sim_fp', action='store', type=str, default=input.output_sim_fp,
+                        help='output simulation filepath where results are being stored by GCM')
+    parser.add_argument('-option_remove_merged_files', action='store', type=int, default=0,
+                        help='Switch to delete merged files or not (1-delete)')
+    parser.add_argument('-option_remove_batch_files', action='store', type=int, default=1,
+                        help='Switch to delete batch files or not (1-delete)')
     parser.add_argument('-merge_batches', action='store', type=int, default=0,
                         help='Switch to merge batches or not (1-merge)')
     parser.add_argument('-extract_subset', action='store', type=int, default=0,
@@ -51,19 +61,19 @@ def getparser():
     return parser
 
 
-gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
-             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
-             'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
-#gcm_names = ['bcc-csm1-1']
-rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
-regions = [13,14,15]
-zip_fp = '/Volumes/LaCie/PyGEM_simulations/2019_0317/spc_zipped/'
-multimodel_fp = zip_fp + '../multimodel/'
-
-ds_vns = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 'refreeze_glac_monthly', 'melt_glac_monthly',
-          'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
-          'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual', 'offglac_prec_monthly', 
-          'offglac_refreeze_monthly', 'offglac_melt_monthly', 'offglac_snowpack_monthly', 'offglac_runoff_monthly']
+#gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
+#             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
+#             'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
+##gcm_names = ['bcc-csm1-1']
+#rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
+#regions = [13,14,15]
+#zip_fp = '/Volumes/LaCie/PyGEM_simulations/2019_0317/spc_zipped/'
+#multimodel_fp = zip_fp + '../multimodel/'
+#
+#ds_vns = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 'refreeze_glac_monthly', 'melt_glac_monthly',
+#          'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
+#          'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual', 'offglac_prec_monthly', 
+#          'offglac_refreeze_monthly', 'offglac_melt_monthly', 'offglac_snowpack_monthly', 'offglac_runoff_monthly']
 #ds_vns = ['temp_glac_monthly']
     
 #for batman in [0]:
@@ -175,16 +185,25 @@ ds_vns = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 'refreez
                 
                     #%%
 
-def merge_batches(gcm_name):   
+def merge_batches(gcm_name, output_sim_fp=input.output_sim_fp, rcp=None,
+                  option_remove_merged_files=0, option_remove_batch_files=0, debug=False):   
     """ MERGE BATCHES """
     
-#for gcm_name in ['CanESM2']:
+#for gcm_name in ['CCSM4', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']:
 #    debug=True
-    
+#    netcdf_fp = input.output_sim_fp + gcm_name + '/'    
     
     splitter = '_batch'
-    netcdf_fp = input.output_sim_fp + gcm_name + '/'
-    zipped_fp = netcdf_fp + '../spc_zipped/'
+    zipped_fp = output_sim_fp + 'spc_zipped/'
+    merged_fp = output_sim_fp + 'spc_merged/'
+    netcdf_fp = output_sim_fp + gcm_name + '/'
+    
+    # Check file path exists
+    if os.path.exists(zipped_fp) == False:
+        os.makedirs(zipped_fp)
+    
+    if os.path.exists(merged_fp) == False:
+        os.makedirs(merged_fp)
     
     regions = []
     rcps = []
@@ -202,11 +221,16 @@ def merge_batches(gcm_name):
     regions = sorted(regions)
     rcps = sorted(rcps)
     
+    # Set RCPs if not for GCM and/or if overriding with argument
     if len(rcps) == 0:
         rcps = [None]
     
-    print('Regions:', regions, 
-          '\nRCPs:', rcps)
+    if rcp is not None:
+        rcps = [rcp]
+    
+    if debug:
+        print('Regions:', regions, 
+              '\nRCPs:', rcps)
     
     # Encoding
     # Add variables to empty dataset and merge together
@@ -220,19 +244,16 @@ def merge_batches(gcm_name):
     
     
     for reg in regions:
-#    for reg in [15]:
         
         check_str = 'R' + str(reg) + '_' + gcm_name
         
-        print(check_str)
-        
         for rcp in rcps:
-#        for rcp in ['rcp85']:
             
             if rcp is not None:
                 check_str = 'R' + str(reg) + '_' + gcm_name + '_' + rcp
                 
-            print('R', reg, 'RCP', rcp, ':', 'check_str:', check_str)
+            if debug:
+                print('Region(s)', reg, 'RCP', rcp, ':', 'check_str:', check_str)
             
             output_list = []
             merged_list = []
@@ -243,13 +264,11 @@ def merge_batches(gcm_name):
             output_list = sorted(output_list)
             output_list = [i[1] for i in output_list]
             
-#            if debug:
-            print(output_list)
-            
             # Open datasets and combine
             count_ds = 0
             for i in output_list:
-                print(i)
+                if debug:
+                    print(i)
                 count_ds += 1
                 ds = xr.open_dataset(netcdf_fp + i)
                 # Merge datasets of stats into one output
@@ -260,29 +279,28 @@ def merge_batches(gcm_name):
             ds_all.glac.values = np.arange(0,len(ds_all.glac.values))
             ds_all_fn = i.split(splitter)[0] + '.nc'
             # Export to netcdf
-            ds_all.to_netcdf(input.output_sim_fp + ds_all_fn, encoding=encoding)
+            ds_all.to_netcdf(merged_fp + ds_all_fn, encoding=encoding)
             
-            print('Merged ', gcm_name, reg, rcp)
+            print('Merged ', gcm_name, rcp, 'Region(s)', reg)
             
-            merged_list.append(input.output_sim_fp + ds_all_fn)
+            merged_list.append(merged_fp + ds_all_fn)
             
-            print(merged_list)
+            if debug:
+                print(merged_list)
             
             # Zip file to reduce file size
-            # Check file path exists
-            if os.path.exists(zipped_fp) == False:
-                os.makedirs(zipped_fp)
-                
             with zipfile.ZipFile(zipped_fp + ds_all_fn + '.zip', mode='w', compression=zipfile.ZIP_DEFLATED) as myzip:
-                myzip.write(input.output_sim_fp + ds_all_fn, arcname=ds_all_fn)
+                myzip.write(merged_fp + ds_all_fn, arcname=ds_all_fn)
                 
-#            # Remove unzipped files
-#            for i in merged_list:
-#                os.remove(i)
+            # Remove unzipped files
+            if option_remove_merged_files == 1:
+                for i in merged_list:
+                    os.remove(i)
             
-            # Remove batch files
-            for i in output_list:
-                os.remove(netcdf_fp + i)
+            if option_remove_batch_files == 1:
+                # Remove batch files
+                for i in output_list:
+                    os.remove(netcdf_fp + i)
   
 
 def extract_subset(gcm_name, netcdf_fp=input.output_sim_fp):
@@ -703,7 +721,9 @@ if __name__ == '__main__':
         debug = False
     
     if args.merge_batches == 1:
-        merge_batches(args.gcm_name)
+        merge_batches(args.gcm_name, output_sim_fp=args.output_sim_fp, rcp=args.rcp,
+                      option_remove_merged_files=args.option_remove_merged_files,
+                      option_remove_batch_files=args.option_remove_batch_files)
         
     if args.extract_subset == 1:
         extract_subset(args.gcm_name)

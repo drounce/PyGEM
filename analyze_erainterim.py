@@ -29,11 +29,13 @@ import class_mbdata
 import pygem_input as input
 import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
+import pygemfxns_gcmbiasadj as gcmbiasadj
 import run_calibration as calibration
 
 #%%
-option_observation_vs_calibration = 1
+option_observation_vs_calibration = 0
 option_GRACE_2deg = 0
+option_trishuli = 1
 
 
 variables = ['massbal', 'precfactor', 'tempchange', 'ddfsnow']  
@@ -166,7 +168,7 @@ def load_masschange_monthly(regions, ds_ending, netcdf_fp=sim_netcdf_fp, option_
                                                             spinupyears=0)
             cal_data_region = pd.DataFrame()
             for dataset in cal_datasets:
-                cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
+                cal_subset = class_mbdata.MBData(name=dataset)
                 cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table_nospinup)
                 cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
             cal_data_region = cal_data_region.sort_values(['glacno', 't1_idx'])
@@ -657,3 +659,145 @@ if option_GRACE_2deg == 1:
     output_ds_all.close()
     
     print(np.round(output_ds_all.masschange_monthly[:,:,:].values.sum() / 18,2), 'Gt/yr')
+
+#%%
+if option_trishuli == 1:
+    glac_no = input.glac_fromcsv(input.main_directory + '/../qgis_himat/trishuli_shp/trishuli_RGIIds.csv')
+    main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glac_no)
+    
+#    ds_new = xr.open_dataset(input.output_sim_fp + 'ERA-Interim/Trishuli_ERA-Interim_c2_ba1_100sets_2000_2017.nc')
+#    ds_old13 = xr.open_dataset(input.output_sim_fp + 'ERA-Interim/ERA-Interim_1980_2017_nochg/' + 
+#                               'R13_ERA-Interim_c2_ba1_100sets_1980_2017.nc')
+#    ds_old15 = xr.open_dataset(input.output_sim_fp + 'ERA-Interim/ERA-Interim_1980_2017_nochg/' + 
+#                               'R15_ERA-Interim_c2_ba1_100sets_1980_2017.nc') 
+#    time_old_idx_start = 12*20
+#    time_new_idx_start = 0
+#    years = np.arange(2000,2018)
+#    option_components = 1
+    
+    ds_new = xr.open_dataset(input.output_sim_fp + 'IPSL-CM5A-LR/' + 
+                             'Trishuli_IPSL-CM5A-LR_rcp85_c2_ba1_100sets_2000_2100.nc')
+    ds_old13 = xr.open_dataset(input.output_sim_fp + 'spc_subset/' + 
+                               'R13_IPSL-CM5A-LR_rcp26_c2_ba1_100sets_2000_2100--subset.nc')  
+    ds_old15 = xr.open_dataset(input.output_sim_fp + 'spc_subset/' + 
+                               'R15_IPSL-CM5A-LR_rcp26_c2_ba1_100sets_2000_2100--subset.nc')    
+    time_old_idx_start = 16*12
+    time_new_idx_start = 16*12
+    years = np.arange(2016,2101)
+    option_components = 0
+    
+    # Concatenate datasets
+    ds_old = xr.concat([ds_old13, ds_old15], dim='glac')
+    
+    df_old = pd.DataFrame(ds_old.glacier_table.values, columns=ds_old.glac_attrs)
+    df_old.reset_index(inplace=True, drop=True)
+    df_old['rgino_str'] = [str(int(df_old.loc[x,'O1Region'])) + '.' + str(int(df_old.loc[x,'glacno'])).zfill(5)
+                            for x in np.arange(df_old.shape[0])]
+    
+    # Find indices to select data from
+    df_old_idx = np.where(df_old.rgino_str.isin(main_glac_rgi.rgino_str.values))[0]
+    
+    runoff_old_monthly = ds_old.runoff_glac_monthly.values[df_old_idx,time_old_idx_start:,0]
+    offglac_runoff_old_monthly = ds_old.offglac_runoff_monthly.values[df_old_idx,time_old_idx_start:,0]
+    totalrunoff_old_monthly = (runoff_old_monthly + offglac_runoff_old_monthly) / 10**9
+    totalrunoff_old = gcmbiasadj.annual_sum_2darray(totalrunoff_old_monthly)
+    totalrunoff_old_trishuli = totalrunoff_old.sum(axis=0)
+    
+    runoff_new_monthly = ds_new.runoff_glac_monthly.values[:,time_new_idx_start:,0]
+    offglac_runoff_new_monthly = ds_new.offglac_runoff_monthly.values[:,time_new_idx_start:,0]
+    totalrunoff_new_monthly = (runoff_new_monthly + offglac_runoff_new_monthly) / 10**9
+    totalrunoff_new = gcmbiasadj.annual_sum_2darray(totalrunoff_new_monthly)
+    totalrunoff_new_trishuli = totalrunoff_new.sum(axis=0)
+
+    dif_runoff = totalrunoff_new_trishuli.sum() - totalrunoff_old_trishuli.sum()
+    print('DIFFERENCE RUNOFF TOTAL:\n', np.round(dif_runoff,1), 'Gt',  
+          np.round(dif_runoff / totalrunoff_old_trishuli.sum()*100,1), '%')
+
+
+    if option_components == 1:
+        area_annual = ds_old.area_glac_annual.values[df_old_idx,20:,0][:,:-1]
+        # Compare precipitation
+        prec_old_monthly = ds_old.prec_glac_monthly.values[df_old_idx,time_old_idx_start:,0]
+        acc_old_monthly = ds_old.acc_glac_monthly.values[df_old_idx,time_old_idx_start:,0]
+        totalprec_old_monthly = prec_old_monthly + acc_old_monthly
+        totalprec_old = gcmbiasadj.annual_sum_2darray(totalprec_old_monthly)
+        totalprec_old_Gt = totalprec_old / 1000 * area_annual
+        totalprec_old_trishuli = totalprec_old_Gt.sum(axis=0)
+        
+        
+        prec_new_monthly = ds_new.prec_glac_monthly.values[:,:,0]
+        acc_new_monthly = ds_new.acc_glac_monthly.values[:,:,0]
+        totalprec_new_monthly = prec_new_monthly + acc_new_monthly
+        totalprec_new = gcmbiasadj.annual_sum_2darray(totalprec_new_monthly)
+        totalprec_new_Gt = totalprec_new / 1000 * area_annual
+        totalprec_new_trishuli = totalprec_new_Gt.sum(axis=0)   
+        
+        pf_dif = totalprec_new / totalprec_old
+        dif_totalprec =  totalprec_new_trishuli.sum() - totalprec_old_trishuli.sum()
+        print('DIFFERENCE PRECIPITATION TOTAL:\n', np.round(dif_totalprec,1), 'Gt',
+              np.round(dif_totalprec / totalprec_old_trishuli.sum() * 100, 1), '%')
+        
+        # Compare melt
+        melt_old_monthly = ds_old.melt_glac_monthly.values[df_old_idx,time_old_idx_start:,0]
+        melt_old = gcmbiasadj.annual_sum_2darray(melt_old_monthly)
+        melt_old_Gt = melt_old / 1000 * area_annual
+        melt_old_trishuli = melt_old_Gt.sum(axis=0)
+        
+        melt_new_monthly = ds_new.melt_glac_monthly.values[:,:,0]
+        melt_new = gcmbiasadj.annual_sum_2darray(melt_new_monthly)
+        melt_new_Gt = melt_new / 1000 * area_annual
+        melt_new_trishuli = melt_new_Gt.sum(axis=0) 
+        
+        dif_melt =  melt_new_trishuli.sum() - melt_old_trishuli.sum()
+        print('DIFFERENCE Melt TOTAL:\n', np.round(dif_melt,1), 'Gt',
+              np.round(dif_melt / melt_old_trishuli.sum() * 100, 1), '%')
+        
+        # Compare refreeze
+        refreeze_old_monthly = ds_old.refreeze_glac_monthly.values[df_old_idx,time_old_idx_start:,0]
+        refreeze_old = gcmbiasadj.annual_sum_2darray(refreeze_old_monthly)
+        refreeze_old_Gt = refreeze_old / 1000 * area_annual
+        refreeze_old_trishuli = refreeze_old_Gt.sum(axis=0)
+        
+        refreeze_new_monthly = ds_new.refreeze_glac_monthly.values[:,:,0]
+        refreeze_new = gcmbiasadj.annual_sum_2darray(refreeze_new_monthly)
+        refreeze_new_Gt = refreeze_new / 1000 * area_annual
+        refreeze_new_trishuli = refreeze_new_Gt.sum(axis=0) 
+        
+        dif_refreeze =  refreeze_new_trishuli.sum() - refreeze_old_trishuli.sum()
+        print('DIFFERENCE refreeze TOTAL:\n', np.round(dif_refreeze,1), 'Gt',
+              np.round(dif_refreeze / refreeze_old_trishuli.sum() * 100, 1), '%')
+    
+    #%%
+    # Set up your plot (and/or subplots)
+    fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=False, gridspec_kw = {'wspace':0.4, 'hspace':0.15})
+    ax[0,0].plot(years, totalrunoff_new_trishuli, color='k', linewidth=1, zorder=2, label='new')
+    ax[0,0].plot(years, totalrunoff_old_trishuli, color='b', linewidth=1, zorder=2, label='old')
+
+#    ax[0,0].text(0.5, 0.99, '[insert text]', size=10, horizontalalignment='center', verticalalignment='top', 
+#                 transform=ax[0,0].transAxes)
+    
+    ax[0,0].set_ylabel('Glacier Runoff [Gt]', size=12)
+    ax[0,0].legend(loc=(0.05, 0.05), fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, 
+                   frameon=False)
+
+    # Save figure
+    #  figures can be saved in any format (.jpg, .png, .pdf, etc.)
+    fig.set_size_inches(4, 4)
+    figure_fp = os.getcwd() + '/../Output/'
+    if os.path.exists(figure_fp) == False:
+        os.makedirs(figure_fp)
+    figure_fn = 'Trishuli_runoff_comparison_2016_2100.png'
+    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

@@ -375,7 +375,7 @@ def selectglaciersrgitable(glac_no=None,
                     glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['O2Region'] == 
                                                                                 regionO2]], axis=0))
         else:
-            print("This study is only focusing on %s glaciers in region %s: %s" % (len(rgi_glac_number), region,
+            print("%s glaciers in region %s are included in this model run: %s" % (len(rgi_glac_number), region,
                                                                                    rgi_glac_number))
             for x_glac in rgi_glac_number:
                 glac_id = 'RGI60-' + str(region).zfill(2) + '.' + x_glac
@@ -384,6 +384,7 @@ def selectglaciersrgitable(glac_no=None,
                 else:
                     glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id]], 
                                                axis=0))
+    glacier_table = glacier_table.copy()
     # reset the index so that it is in sequential order (0, 1, 2, etc.)
     glacier_table.reset_index(inplace=True)
     # change old index to 'O1Index' to be easier to recall what it is
@@ -405,6 +406,9 @@ def selectglaciersrgitable(glac_no=None,
                                                     for x in range(glacier_table.shape[0])]).astype(float))
     # set index name
     glacier_table.index.name = indexname
+    
+    print("This study is focusing on %s glaciers in region %s" % (glacier_table.shape[0], rgi_regionsO1))
+    
     return glacier_table
 
     # OPTION 2: CUSTOMIZE REGIONS USING A SHAPEFILE that specifies the

@@ -2024,7 +2024,7 @@ if option_compare_GCMwCal == 1:
                                                      spinupyears=0)
     cal_data = pd.DataFrame()
     for dataset in input.cal_datasets:
-        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
+        cal_subset = class_mbdata.MBData(name=dataset)
         cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_all, main_glac_hyps_raw, dates_table_nospinup)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])

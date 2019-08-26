@@ -93,6 +93,23 @@ def glac_num_fromrange(int_low, int_high):
     y = [str(i).zfill(5) for i in x]
     return y
 
+def glac_fromcsv(csv_fullfn, cn='RGIId'):
+    """
+    Generate list of glaciers from csv file
+    
+    Parameters
+    ----------
+    csv_fp, csv_fn : str
+        csv filepath and filename
+    
+    Returns
+    -------
+    y : list
+        list of glacier numbers, e.g., ['14.00001', 15.00001']
+    """
+    df = pd.read_csv(csv_fullfn)
+    return [x.split('-')[1] for x in df['RGIId'].values]
+
 
 #%%
 # Model setup directory
@@ -102,16 +119,13 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [13, 14, 15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
-glac_no = None
-#glac_no = ['1.00042', '1.00013', '1.00570', '1.19515', '1.22193', '1.00390', 
-#           '13.00001', '13.26243', '15.00002', '15.03735']
-#rgi_glac_number = 'all'
+rgi_glac_number = 'all'
 #rgi_glac_number = ['17591']
 #rgi_glac_number = ['01264', '02591', '03331', '05825']
 #rgi_glac_number = ['12704', '15017', '16907', '22814', '23792', '26927']
@@ -128,10 +142,16 @@ glac_no = None
 #                   '09928', '10006', '10113', '10130', '10270', '10293', '10317', '10663', '10793', '10868', '11041', 
 #                   '11456', '11631', '11634', '11724', '11764', '11934', '12297', '12465', '12564', '12765', '12890', 
 #                   '13081']
-rgi_glac_number = glac_num_fromrange(1,5)
+#rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 54400, option_random=1)
+
+glac_no = None
+#glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
+#glac_no = ['13.26960', '13.26243', '15.00002', '15.03735', '14.00001', '14.00002', '14.01243']
+if glac_no is not None:
+    rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
 
 # ===== Bias adjustment option =====
@@ -143,13 +163,10 @@ option_bias_adjustment = 1
 # Reference climate dataset
 ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
 
-# First year of model run (change these to calibration)
+# First and last year of model run
 #startyear = 1980
-startyear = 2000
-#  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
-#  calendar year example: 2000 would start on January 2000
-# Last year of model run
 #endyear = 2017
+startyear = 2000
 endyear = 2018
 # Spin up time [years]
 spinupyears = 0
@@ -159,15 +176,18 @@ option_wateryear = 3
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 30 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
+#  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
+#  calendar year example: 2000 would start on January 2000
+# Number of years to not let the area or volume change
 #constantarea_years = 37
 constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-gcm_startyear = 1980
-gcm_endyear = 2017
 #gcm_startyear = 2000
-#gcm_endyear = 2100
+#gcm_endyear = 2017
+gcm_startyear = 2000
+gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
@@ -305,7 +325,7 @@ ddfsnow_start=ddfsnow_mu
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 10
+sim_iters = 100
 sim_burn = 200
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
@@ -413,13 +433,9 @@ elif option_calibration == 2:
 #            14: output_filepath + 'cal_opt2/',
 #            15: output_filepath + 'cal_opt2/'}
     modelparams_fp_dict = {
-            13: output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/cal_opt2/',
-            14: output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/cal_opt2/',
-            15: output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/cal_opt2/'}
-#    modelparams_fp_dict = {
-#            13: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
-#            14: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/',
-#            15: output_filepath + 'cal_opt2_spc_3000glac_3chain_adjp12/'}
+            13: output_filepath + 'cal_opt2_spc_20190806/',
+            14: output_filepath + 'cal_opt2_spc_20190806/',
+            15: output_filepath + 'cal_opt2_spc_20190806/'}
 
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)

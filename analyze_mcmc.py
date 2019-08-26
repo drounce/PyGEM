@@ -253,7 +253,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
             # ===== CALIBRATION DATA =====
             cal_data_region = pd.DataFrame()
             for dataset in cal_datasets:
-                cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
+                cal_subset = class_mbdata.MBData(name=dataset)
                 cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, 
                                                          dates_table_nospinup)
                 cal_data_region = cal_data_region.append(cal_subset_data, ignore_index=True)
@@ -1539,7 +1539,7 @@ if __name__ == '__main__':
             with open(csv_fp + poststd_fn_pkl.replace('.pkl', iter_ending), 'rb') as f:
                 poststd_list = pickle.load(f)
             with open(csv_fp + glacno_fn_pkl, 'rb') as f:
-                glac_no = pickle.load(f)
+                glac_no = pickle.load(f)        
                 
         # Otherwise, process and pickle data
         else:
@@ -1626,6 +1626,87 @@ if __name__ == '__main__':
             pickle_data(csv_fp + postmean_fn_pkl.replace('.pkl', iter_ending), postmean_list)
             pickle_data(csv_fp + poststd_fn_pkl.replace('.pkl', iter_ending), poststd_list)
             pickle_data(csv_fp + glacno_fn_pkl, glac_no)
+            
+        #%%  
+        # Load netcdf filenames    
+        filelist = []
+        filelist.extend(glob.glob(netcdf_fp + '*.nc'))  
+        filelist = sorted(filelist)
+        
+        glacno_all = [x.split('/')[-1].replace('.nc','') for x in filelist]
+        
+        # Identify glaciers not already processed
+        glacno_notprocessed = sorted(list(set(glacno_all) - set(glac_no)))
+        
+        # iterate through each glacier
+        count = 0
+        for count, glac_str in enumerate(glacno_notprocessed):
+            netcdf = netcdf_fp + glac_str + '.nc'
+            glac_no.append(glac_str)
+            print(count, glac_str)
+            
+            en_list[glac_str] = {}
+            gr_list[glac_str] = {}
+            mc_list[glac_str] = {}
+            postmean_list[glac_str] = {}
+            poststd_list[glac_str] = {}
+            
+            # open dataset
+            ds = xr.open_dataset(netcdf)
+
+            # Metrics for each parameter
+            for nvar, vn in enumerate(variables):
+                
+                # Effective sample size
+                if 'Effective N' in metrics:
+                    en = [effective_n(ds, vn=vn, iters=i, burn=burn) for i in iters]                
+                    en_list[glac_str][vn] = dict(zip(iters, en))
+                
+                if 'MC Error' in metrics:
+                    # Monte Carlo error
+                    # the first [0] extracts the MC error as opposed to the confidence interval
+                    # the second [0] extracts the first chain
+                    mc = [mc_error(ds, vn=vn, iters=i, burn=burn, method='overlapping')[0][0] for i in iters]
+                    mc_list[glac_str][vn] = dict(zip(iters, mc))
+
+                # Gelman-Rubin Statistic                
+                if len(ds.chain) > 1 and 'Gelman-Rubin' in metrics:
+                    gr = [gelman_rubin(ds, vn=vn, iters=i, burn=burn) for i in iters]
+                    gr_list[glac_str][vn] = dict(zip(iters, gr))
+                    
+            # Posteriors
+            for nvar, vn in enumerate(variables):
+                postmean_list[glac_str][vn] = {}
+                poststd_list[glac_str][vn] = {}
+            
+            for n_iters in iterations:
+                df = pd.DataFrame(ds['mp_value'].values[burn:n_iters,:,0], columns=ds.mp.values)
+                
+                postmean_list[glac_str]['massbal'][n_iters] = df.massbal.mean() 
+                postmean_list[glac_str]['precfactor'][n_iters] = df.precfactor.mean() 
+                postmean_list[glac_str]['tempchange'][n_iters] = df.tempchange.mean() 
+                postmean_list[glac_str]['ddfsnow'][n_iters] = df.ddfsnow.mean() 
+                poststd_list[glac_str]['massbal'][n_iters] = df.massbal.std() 
+                poststd_list[glac_str]['precfactor'][n_iters] = df.precfactor.std() 
+                poststd_list[glac_str]['tempchange'][n_iters] = df.tempchange.std() 
+                poststd_list[glac_str]['ddfsnow'][n_iters] = df.ddfsnow.std() 
+    
+            # close datase
+            ds.close()
+            
+        #%%
+#        iter_ending2 = '_' + str(iterstep) + 'iterstep_' + str(burn) + 'burn_v2.pkl'
+#        pickle_data(csv_fp + en_fn_pkl.replace('.pkl', iter_ending2), en_list)
+#        pickle_data(csv_fp + mc_fn_pkl.replace('.pkl', iter_ending2), mc_list)
+#        if len(ds.chain) > 1:
+#            pickle_data(csv_fp + gr_fn_pkl.replace('.pkl', iter_ending2), gr_list)
+#        pickle_data(csv_fp + postmean_fn_pkl.replace('.pkl', iter_ending2), postmean_list)
+#        pickle_data(csv_fp + poststd_fn_pkl.replace('.pkl', iter_ending2), poststd_list)
+#        pickle_data(csv_fp + glacno_fn_pkl.replace('.pkl','_v2.pkl'), glac_no)
+#    
+            
+            
+        #%%
         
             
     #def metrics_vs_chainlength(netcdf_fp, regions, iters, burn=0, nchain=3, option_subplot_labels=0):
@@ -3531,7 +3612,7 @@ if __name__ == '__main__':
         # Calibration data
         cal_data = pd.DataFrame()
         for dataset in cal_datasets:
-            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=region)
+            cal_subset = class_mbdata.MBData(name=dataset)
             cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
             cal_data = cal_data.append(cal_subset_data, ignore_index=True)
         cal_data = cal_data.sort_values(['glacno', 't1_idx'])

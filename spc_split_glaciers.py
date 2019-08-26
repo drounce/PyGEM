@@ -32,15 +32,14 @@ def getparser():
     # add arguments
     parser.add_argument('-n_batches', action='store', type=int, default=1,
                         help='number of nodes to split the glaciers amongst')
-    parser.add_argument('-spc_region', action='store', type=int, default=None,
-                        help='rgi region number for supercomputer')
+#    parser.add_argument('-spc_region', action='store', type=int, default=None,
+#                        help='rgi region number for supercomputer')
     parser.add_argument('-ignore_regionname', action='store', type=int, default=0,
                         help='switch to include the region name or not in the batch filenames')
     parser.add_argument('-add_cal', action='store', type=int, default=0,
                         help='switch to add "cal" to batch filenames')
-    parser.add_argument('-load_glacno')
-    parser.add_argument('-glacno_fn', action='store', type=str, default=None,
-                        help='load specific glacier numbers from file name')
+#    parser.add_argument('-glacno_fn', action='store', type=str, default=None,
+#                        help='load specific glacier numbers from file name')
     return parser
 
 
@@ -81,24 +80,23 @@ def split_list(lst, n=1):
     return lst_batches    
  
 
+#%%
 parser = getparser()
-args = parser.parse_args()
-
-# RGI region
-if args.spc_region is not None:
-    rgi_regionsO1 = [int(args.spc_region)]
-else:
-    rgi_regionsO1 = input.rgi_regionsO1
+args = parser.parse_args()   
     
-# Check if the batch files need to be updated
+# Count glaciers in existing batch
 batch_list = []
 count_glac = 0
 batch_str = 'rgi_glac_number_batch_'
+# region string
+regions_str = 'R'
+for region in input.rgi_regionsO1:
+    regions_str += str(region)
+# check files
 for i in os.listdir():
-
-    # Check string
+        
     if args.ignore_regionname == 0:
-        check_str = 'R' + str(rgi_regionsO1[0]) + '_' + batch_str
+        check_str = regions_str + '_' + batch_str
     elif args.ignore_regionname == 1:
         check_str = batch_str
         
@@ -112,44 +110,34 @@ for i in os.listdir():
             batch_list.append(i)
         
         count_glac += len(rgi_glac_number)
-    
 
-# Load glacier numbers
-if args.glacno_fn is not None:
-    with open(input.modelparams_fp_dict[rgi_regionsO1[0]] + args.glacno_fn, 'rb') as f:
-        rgi_glac_number = pickle.load(f)
-elif input.rgi_glac_number == 'all':
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all',
-                                                          rgi_glac_number='all')
-    # Create list of glacier numbers as strings with 5 digits
-    glacno = main_glac_rgi_all.glacno.values
-    rgi_glac_number = [str(x).zfill(5) for x in glacno]    
-else:
-    rgi_glac_number = input.rgi_glac_number
-    
+# Select all glaciers
+main_glac_rgi_all = modelsetup.selectglaciersrgitable(
+        rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 =input.rgi_regionsO2, rgi_glac_number=input.rgi_glac_number, 
+        glac_no=input.glac_no)
+glacno_str = [x.split('-')[1] for x in main_glac_rgi_all.RGIId.values]
 
-# Check if need to update old files or not
+# Check if need to update old batch files or not
 #  (different number of glaciers or batches)
-if count_glac != len(rgi_glac_number) or args.n_batches != len(batch_list):
+if count_glac != len(glacno_str) or args.n_batches != len(batch_list):
     # Delete old files
     for i in batch_list:
         os.remove(i)
     
     # Split list of glacier numbers
-    rgi_glac_number_batches = split_list(rgi_glac_number, n=args.n_batches)
+    rgi_glac_number_batches = split_list(glacno_str, n=args.n_batches)
 
     # Export new lists
     for n in range(len(rgi_glac_number_batches)):
     #    print('Batch', n, ':\n', rgi_glac_number_batches[n], '\n')
         if args.ignore_regionname == 0:
-            batch_fn = 'R' + str(rgi_regionsO1[0]) + '_' + batch_str + str(n) + '.pkl'
+            batch_fn = regions_str + '_' + batch_str + str(n) + '.pkl'
         elif args.ignore_regionname == 1:
             batch_fn = batch_str + str(n) + '.pkl'
         
         if args.add_cal == 1:
             batch_fn = 'Cal_' + batch_fn
             
-    #    print('Batch', n, ':\n', batch_fn, '\n')
+        print('Batch', n, ':\n', batch_fn, '\n')
         with open(batch_fn, 'wb') as f:
             pickle.dump(rgi_glac_number_batches[n], f)
-            

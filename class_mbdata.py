@@ -18,14 +18,11 @@ class MBData():
     ----------
     name : str
         name of mass balance dataset.
-    rgi_regionO1 : int
-        number of RGI order 1 region.
     ds_fp : str
         file path 
     """
     def __init__(self, 
                  name='wgms_d',
-                 rgi_regionO1=input.rgi_regionsO1[0]
                  ):
         """
         Add variable name and specific properties associated with each variable.
@@ -35,7 +32,6 @@ class MBData():
         self.name = name
         # Set parameters for ERA-Interim and CMIP5 netcdf files
         if self.name == 'shean': 
-            self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.shean_fp
             self.ds_fn = input.shean_fn
             self.rgi_glacno_cn = input.shean_rgi_glacno_cn
@@ -46,7 +42,6 @@ class MBData():
             self.area_cn = input.shean_area_cn
             
         elif self.name == 'mcnabb':
-            self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.mcnabb_fp
             self.ds_fn = input.mcnabb_fn
             self.rgi_glacno_cn = input.mcnabb_rgiid_cn
@@ -57,7 +52,6 @@ class MBData():
             self.area_cn = input.mcnabb_area_cn
         
         elif self.name == 'larsen':
-            self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.larsen_fp
             self.ds_fn = input.larsen_fn
             self.rgi_glacno_cn = input.larsen_rgiid_cn
@@ -71,7 +65,6 @@ class MBData():
             self.data_fp = input.brun_fp
             
         elif self.name == 'mauer':
-            self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.mauer_fp
             self.ds_fn = input.mauer_fn
             self.rgi_glacno_cn = input.mauer_rgi_glacno_cn
@@ -81,7 +74,6 @@ class MBData():
             self.t2_cn = input.mauer_time2_cn
             
         elif self.name == 'wgms_d':
-            self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.wgms_fp
             self.ds_fn = input.wgms_d_fn_preprocessed
             self.rgi_glacno_cn = input.wgms_rgi_glacno_cn
@@ -94,7 +86,6 @@ class MBData():
             self.obs_type_cn = input.wgms_obs_type_cn
         
         elif self.name == 'wgms_ee':
-            self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.wgms_fp
             self.ds_fn = input.wgms_ee_fn_preprocessed
             self.rgi_glacno_cn = input.wgms_rgi_glacno_cn
@@ -107,7 +98,6 @@ class MBData():
             self.obs_type_cn = input.wgms_obs_type_cn
             
         elif self.name == 'cogley':
-            self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.cogley_fp
             self.ds_fn = input.cogley_fn_preprocessed
             self.rgi_glacno_cn = input.cogley_rgi_glacno_cn
@@ -118,7 +108,6 @@ class MBData():
             self.obs_type_cn = input.cogley_obs_type_cn
             
         elif self.name == 'group':
-            self.rgi_regionO1 = rgi_regionO1
             self.ds_fp = input.mb_group_fp
             self.ds_fn = input.mb_group_data_fn
             self.ds_dict_fn = input.mb_group_dict_fn
@@ -146,7 +135,6 @@ class MBData():
         ds_output : pandas dataframe
             dataframe of mass balance observations and other relevant information for calibration 
         """     
-        #%%
         # Dictionary linking glacier number (glacno) to index for selecting elevation indices
         glacnodict = dict(zip(main_glac_rgi['rgino_str'], main_glac_rgi.index.values))
         # Column names of output
@@ -781,7 +769,7 @@ class MBData():
         # Select output
         ds_output = ds[ds_output_cols].sort_values(['glacno', 't1_idx'])
         ds_output.reset_index(drop=True, inplace=True)
-        
+
         return ds_output
 
 
@@ -807,9 +795,9 @@ if __name__ == '__main__':
     elev_bin_interval = elev_bins[1] - elev_bins[0]
     
 #    # Testing    
-#    mb1 = MBData(name='larsen', rgi_regionO1=rgi_regionsO1[0])
-##    mb1 = MBData(name='mauer', rgi_regionO1=rgi_regionsO1[0])
-##    mb1 = MBData(name='cogley', rgi_regionO1=rgi_regionsO1[0])
+#    mb1 = MBData(name='larsen')
+##    mb1 = MBData(name='mauer')
+##    mb1 = MBData(name='cogley')
 #    ds_output = mb1.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)
     
     #%%
@@ -821,7 +809,7 @@ if __name__ == '__main__':
     cal_data = pd.DataFrame()
     for dataset in cal_datasets:
         print(dataset)
-        cal_subset = MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
+        cal_subset = MBData(name=dataset)
         cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])
@@ -974,5 +962,5 @@ if __name__ == '__main__':
 #    
 #    
 #    # Select mass balance data
-#    mb1 = MBData(name='mauer', rgi_regionO1=region)
+#    mb1 = MBData(name='mauer')
 #    ds_mb = mb1.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)

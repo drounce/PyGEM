@@ -39,8 +39,8 @@ def getparser():
         number of cores to use in parallels
     option_parallels (optional) : int
         switch to use parallels or not
-    spc_region (optional) : str
-        RGI region number for supercomputer
+#    spc_region (optional) : str
+#        RGI region number for supercomputer
     rgi_glac_number_fn : str
         filename of .pkl file containing a list of glacier numbers which is used to run batches on the supercomputer
     rgi_glac_number : str
@@ -62,8 +62,8 @@ def getparser():
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
-    parser.add_argument('-spc_region', action='store', type=int, default=None,
-                        help='rgi region number for supercomputer')
+#    parser.add_argument('-spc_region', action='store', type=int, default=None,
+#                        help='rgi region number for supercomputer')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-progress_bar', action='store', type=int, default=0,
@@ -259,6 +259,7 @@ def main(list_packed_vars):
         debug = False
 
     # RGI region
+    print('\n\nDELETE ME!\n\n')
     if args.spc_region is not None:
         rgi_regionsO1 = [int(args.spc_region)]
     else:
@@ -597,7 +598,6 @@ def main(list_packed_vars):
                 print('observed_massbal:', np.round(observed_massbal,2), 'observed_error:',np.round(observed_error,2))
 
             # ===== RUN MARKOV CHAIN MONTE CARLO METHOD ====================
-            # NEW SETUP - 07/18/2019
             if icethickness_t0.max() > 0:
 
                 # Regional priors
@@ -696,22 +696,11 @@ def main(list_packed_vars):
                     else:
                         df_chains = np.dstack((df_chains, df.values))
 
-    #            # Record calibration data
-    #            prior_cns = ['pf_bndlow', 'pf_bndhigh', 'pf_mu', 'tc_bndlow', 'tc_bndhigh', 'tc_mu', 'tc_std',
-    #                         'ddfsnow_bndlow', 'ddfsnow_bndhigh', 'ddfsnow_mu', 'ddfsnow_std', 'mb_max_loss', 'mb_max_acc',
-    #                         'tc_max_loss', 'tc_max_acc','pf_opt_init', 'tc_opt_init']
-    #            prior_values = [precfactor_boundlow, precfactor_boundhigh, precfactor_mu, tempchange_boundlow,
-    #                            tempchange_boundhigh, tempchange_mu, tempchange_sigma, ddfsnow_boundlow, ddfsnow_boundhigh,
-    #                            ddfsnow_mu, ddfsnow_sigma, mb_max_loss, mb_max_acc, tempchange_max_loss, tempchange_max_acc,
-    #                            precfactor_opt_init, tempchange_opt_init]
-
                 ds = xr.Dataset({'mp_value': (('iter', 'mp', 'chain'), df_chains),
-    #                             'priors': (('prior_cns'), prior_values)
                                  },
                                 coords={'iter': df.index.values,
                                         'mp': df.columns.values,
                                         'chain': np.arange(0,n_chain+1),
-    #                                    'prior_cns': prior_cns
                                         })
 
                 if not os.path.exists(input.output_fp_cal):
@@ -2169,7 +2158,7 @@ def main(list_packed_vars):
             main_glac_modelparamsopt[glac] = modelparameters
 
             # EXPORT TO NETCDF
-            netcdf_output_fp = (input.output_fp_cal + 'reg' + str(rgi_regionsO1[0]) + '/')
+            netcdf_output_fp = (input.output_fp_cal + 'reg' + str(glacier_rgi_table.O1Region) + '/')
             if not os.path.exists(netcdf_output_fp):
                 os.makedirs(netcdf_output_fp)
             # Loop through glaciers calibrated from group and export to netcdf
@@ -2322,7 +2311,7 @@ def main(list_packed_vars):
                 main_glac_cal_compare.loc[cal_idx] = glacier_cal_compare_best
 
                 # EXPORT TO NETCDF
-                netcdf_output_fp = (input.output_fp_cal + 'reg' + str(rgi_regionsO1[0]) + '/')
+                netcdf_output_fp = (input.output_fp_cal + 'reg' + str(glacier_rgi_table.O1Region) + '/')
                 if not os.path.exists(netcdf_output_fp):
                     os.makedirs(netcdf_output_fp)
                 # Loop through glaciers calibrated from group (skipping those calibrated indepdently)
@@ -2350,11 +2339,14 @@ def main(list_packed_vars):
         # Export output
         if not os.path.exists(input.output_fp_cal + 'temp/'):
             os.makedirs(input.output_fp_cal + 'temp/')
+        regions_str = 'R'
+        for region in rgi_regionsO1:
+            regions_str += str(region)
         output_modelparams_fn = (
-                'R' + str(rgi_regionsO1[0]) + '_modelparams_opt' + str(input.option_calibration) + '_' + gcm_name
+                regions_str + '_modelparams_opt' + str(input.option_calibration) + '_' + gcm_name
                 + str(input.startyear) + str(input.endyear) + '--' + str(count) + '.csv')
         output_calcompare_fn = (
-                'R' + str(rgi_regionsO1[0]) + '_calcompare_opt' + str(input.option_calibration) + '_' + gcm_name
+                regions_str + '_calcompare_opt' + str(input.option_calibration) + '_' + gcm_name
                 + str(input.startyear) + str(input.endyear) + '--' + str(count) + '.csv')
         main_glac_output.to_csv(input.output_fp_cal + 'temp/' + output_modelparams_fn )
         main_glac_cal_compare.to_csv(input.output_fp_cal + 'temp/' + output_calcompare_fn)
@@ -2379,20 +2371,33 @@ if __name__ == '__main__':
     if input.option_calibration == 2:
         print('Chains:', input.n_chains, 'Iterations:', input.mcmc_sample_no)
 
-    # RGI region
-    if args.spc_region is not None:
-        rgi_regionsO1 = [int(args.spc_region)]
-    else:
-        rgi_regionsO1 = input.rgi_regionsO1
-
+#    # RGI region
+#    if args.spc_region is not None:
+#        rgi_regionsO1 = [int(args.spc_region)]
+#    else:
+#        rgi_regionsO1 = input.rgi_regionsO1
+#
+#    # RGI glacier number
+#    if args.rgi_glac_number_fn is not None:
+#        with open(args.rgi_glac_number_fn, 'rb') as f:
+#            rgi_glac_number = pickle.load(f)
+#    elif args.rgi_glac_number is not None:
+#        rgi_glac_number = [args.rgi_glac_number]
+#    else:
+#        rgi_glac_number = input.rgi_glac_number
+        
     # RGI glacier number
     if args.rgi_glac_number_fn is not None:
         with open(args.rgi_glac_number_fn, 'rb') as f:
-            rgi_glac_number = pickle.load(f)
-    elif args.rgi_glac_number is not None:
-        rgi_glac_number = [args.rgi_glac_number]
+            glac_no = pickle.load(f)
+        rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
+        regions_str = args.rgi_glac_number_fn.split('_')[0]
     else:
-        rgi_glac_number = input.rgi_glac_number
+        glac_no = input.glac_no
+        rgi_regionsO1 = input.rgi_regionsO1
+        regions_str = 'R'
+        for region in input.rgi_regionsO1:
+            regions_str += str(region)
 
     # Select all glaciers in a region
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all',
@@ -2414,61 +2419,6 @@ if __name__ == '__main__':
 #    for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
 #        n += 1
 #        list_packed_vars.append([n, chunk, chunk_size, main_glac_rgi_all, gcm_name])
-
-
-    #%% =================================================
-#    # Define chunk size for parallel processing
-#    if args.option_parallels != 0:
-#        num_cores = int(np.min([len(rgi_glac_number), args.num_simultaneous_processes]))
-#        chunk_size = int(np.ceil(len(rgi_glac_number) / num_cores))
-#    else:
-#        # if not running in parallel, chunk size is all glaciers
-#        num_cores = 1
-#        chunk_size = len(rgi_glac_number)
-#
-#    def split_list(lst, n=1):
-#        """
-#        Split list of glaciers into batches for the supercomputer.
-#
-#        Parameters
-#        ----------
-#        lst : list
-#            List that you want to split into separate batches
-#        n : int
-#            Number of batches to split glaciers into.
-#
-#        Returns
-#        -------
-#        lst_batches : list
-#            list of n lists that have sequential values in each list
-#        """
-#        # If batches is more than list, then there will be one glacier in each batch
-#        if n > len(lst):
-#            n = len(lst)
-#        n_perlist_low = int(len(lst)/n)
-#        n_perlist_high = int(np.ceil(len(lst)/n))
-#        lst_copy = lst.copy()
-#        count = 0
-#        lst_batches = []
-#        for x in np.arange(n):
-#            count += 1
-#            if count <= n_perlist_low:
-#                lst_subset = lst_copy[0:n_perlist_high]
-#                lst_batches.append(lst_subset)
-#                [lst_copy.remove(i) for i in lst_subset]
-#            else:
-#                lst_subset = lst_copy[0:n_perlist_low]
-#                lst_batches.append(lst_subset)
-#                [lst_copy.remove(i) for i in lst_subset]
-#        return lst_batches
-#
-#    rgi_glac_number_batches = split_list(rgi_glac_number, n=num_cores)
-#
-#    list_packed_vars = []
-#    n = 0
-#    for batch in rgi_glac_number_batches:
-#        n += 1
-#        list_packed_vars.append([batch, gcm_name, n])
 
 
     #%%===================================================
@@ -2504,7 +2454,7 @@ if __name__ == '__main__':
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()
     for dataset in input.cal_datasets:
-        cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
+        cal_subset = class_mbdata.MBData(name=dataset)
         cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_all, main_glac_hyps_all, dates_table_nospinup)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])
@@ -2573,7 +2523,6 @@ if __name__ == '__main__':
                 gcm_temp[glac,:] = gcm_temp_d01[glac,:]
                 gcm_elev[glac] = gcm_elev_d01[glac]
 
-
     # Pack variables for multiprocessing
     list_packed_vars = []
     n = 0
@@ -2623,8 +2572,11 @@ if __name__ == '__main__':
 #        # Count glaciers
 #        glac_count = 0
 #        output_temp = input.output_fp_cal + 'temp/'
+#        regions_str = 'R'
+#        for region in rgi_regionsO1:
+#            regions_str += str(region)
 #        for i in os.listdir(output_temp):
-#            if i.startswith(str(rgi_regionsO1[0])) and i.endswith('.nc'):
+#            if i.startswith(regions_str) and i.endswith('.nc'):
 #                glac_count += 1
 #
 #        # Model parameters - combine into single file
@@ -2632,7 +2584,7 @@ if __name__ == '__main__':
 #                'modelparams_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) +
 #                str(input.endyear))
 #        output_modelparams_all_fn = (
-#                'R' + str(rgi_regionsO1[0]) + '_' + str(glac_count) + check_modelparams_str + '.csv')
+#                regions_str + '_' + str(glac_count) + check_modelparams_str + '.csv')
 #        # Sorted list of files to merge
 #        output_list = []
 #        for i in os.listdir(output_temp):
@@ -2659,7 +2611,7 @@ if __name__ == '__main__':
 #                'calcompare_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) +
 #                str(input.endyear))
 #        output_calcompare_all_fn = (
-#                'R' + str(rgi_regionsO1[0]) + '_' + str(glac_count) + check_calcompare_str + '.csv')
+#                regions_str + '_' + str(glac_count) + check_calcompare_str + '.csv')
 #        # Sorted list of files to merge
 #        output_list = []
 #        for i in os.listdir(output_temp):

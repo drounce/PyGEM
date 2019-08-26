@@ -45,8 +45,6 @@ def getparser():
         number of cores to use in parallels
     option_parallels (optional) : int
         switch to use parallels or not
-    spc_region (optional) : str
-        RGI region number for supercomputer 
     rgi_glac_number_fn (optional) : str
         filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
     batch_number (optional): int
@@ -71,8 +69,6 @@ def getparser():
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
-    parser.add_argument('-spc_region', action='store', type=int, default=None,
-                        help='rgi region number for supercomputer')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-batch_number', action='store', type=int, default=None,
@@ -487,9 +483,6 @@ def main(list_packed_vars):
     main_glac_rgi_all = list_packed_vars[2]
     chunk_size = list_packed_vars[3]
     gcm_name = list_packed_vars[4]
-#    rgi_glac_number = list_packed_vars[0]
-#    gcm_name = list_packed_vars[1]
-#    count = list_packed_vars[2]
 
     parser = getparser()
     args = parser.parse_args()
@@ -498,12 +491,15 @@ def main(list_packed_vars):
         rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
     elif args.rcp is not None:
         rcp_scenario = args.rcp
-        
-    # RGI region
-    if args.spc_region is not None:
-        rgi_regionsO1 = [int(args.spc_region)]
+
+    # Region string to ensure filenames are consistent
+    if args.rgi_glac_number_fn is not None:
+        regions_str = args.rgi_glac_number_fn.split('_')[0]
     else:
-        rgi_regionsO1 = input.rgi_regionsO1
+        regions_str = 'R'
+        for region in input.rgi_regionsO1:
+            regions_str += str(region)
+    
     
     if debug:
         if 'rcp_scenario' in locals():
@@ -541,12 +537,11 @@ def main(list_packed_vars):
         # ===== LOAD CALIBRATION DATA =====
         cal_data = pd.DataFrame()
         for dataset in input.cal_datasets:
-            cal_subset = class_mbdata.MBData(name=dataset, rgi_regionO1=rgi_regionsO1[0])
+            cal_subset = class_mbdata.MBData(name=dataset)
             cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
             cal_data = cal_data.append(cal_subset_data, ignore_index=True)
         cal_data = cal_data.sort_values(['glacno', 't1_idx'])
         cal_data.reset_index(drop=True, inplace=True)
-    
     # =================
     
     
@@ -714,176 +709,169 @@ def main(list_packed_vars):
         icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
         
-        if input.hindcast == 1:
-            glacier_gcm_prec = glacier_gcm_prec[::-1]
-            glacier_gcm_temp = glacier_gcm_temp[::-1]
-            glacier_gcm_lrgcm = glacier_gcm_lrgcm[::-1]
-            glacier_gcm_lrglac = glacier_gcm_lrglac[::-1]
-
-        # get glacier number
-        if rgi_regionsO1[0] >= 10:
-            glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][6:]
-        else:
-            glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][7:]
-        
-        if debug:
-            print(glacier_RGIId)
+        if icethickness_t0.max() > 0:
             
-        if input.option_import_modelparams == 1:
-            if input.option_calibration == 1:
-                ds_mp = xr.open_dataset(input.modelparams_fp_dict[rgi_regionsO1[0]] + glacier_RGIId + '.nc')
-                cn_subset = input.modelparams_colnames
-                modelparameters_all = (pd.DataFrame(ds_mp.mp_value.sel(chain=0).values, 
-                                                    columns=ds_mp.mp.values)[cn_subset])
-            elif input.option_calibration == 2:
-                ds_mp = xr.open_dataset(input.modelparams_fp_dict[rgi_regionsO1[0]] + glacier_RGIId + '.nc')
+            if input.hindcast == 1:
+                glacier_gcm_prec = glacier_gcm_prec[::-1]
+                glacier_gcm_temp = glacier_gcm_temp[::-1]
+                glacier_gcm_lrgcm = glacier_gcm_lrgcm[::-1]
+                glacier_gcm_lrglac = glacier_gcm_lrglac[::-1]
+    
+            # get glacier number
+            if glacier_rgi_table.O1Region >= 10:
+                glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][6:]
+            else:
+                glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][7:]
+                
+            if input.option_import_modelparams == 1:
+                ds_mp = xr.open_dataset(input.modelparams_fp_dict[glacier_rgi_table.O1Region] + glacier_RGIId + '.nc')
                 cn_subset = input.modelparams_colnames
                 modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
                                                     columns=ds_mp.mp.values)[cn_subset])
-        else:
-            modelparameters_all = (
-                    pd.DataFrame(np.asarray([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, 
-                                             input.ddfice, input.tempsnow, input.tempchange]).reshape(1,-1), 
-                                             columns=input.modelparams_colnames))
-        
-        # Set the number of iterations and determine every kth iteration to use for the ensemble
-        if (input.option_calibration == 1) or (modelparameters_all.shape[0] == 1):
-            sim_iters = 1
-        elif input.option_calibration == 2:
-            sim_iters = input.sim_iters
-            # Select every kth iteration
-            mp_spacing = int((modelparameters_all.shape[0] - input.sim_burn) / sim_iters)
-            mp_idx_start = np.arange(input.sim_burn, input.sim_burn + mp_spacing)
-            np.random.shuffle(mp_idx_start)
-            mp_idx_start = mp_idx_start[0]
-            mp_idx_all = np.arange(mp_idx_start, modelparameters_all.shape[0], mp_spacing)
-            
-        # Loop through model parameters
-        for n_iter in range(sim_iters):
-
-            if sim_iters == 1:
-                modelparameters = modelparameters_all.mean()  
             else:
-                mp_idx = mp_idx_all[n_iter]
-                modelparameters = modelparameters_all.iloc[mp_idx,:]
-                
-            if debug:
-                print(glacier_RGIId, ':', [modelparameters[2], modelparameters[4], modelparameters[7]])
-                debug_mb = True
-            else:
-                debug_mb = False
-                       
-            # run mass balance calculation
-            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
-             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
-             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
-             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, 
-             offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
-                massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                           option_areaconstant=0,
-                                           debug=False
-#                                           debug=debug_mb
-                                           ))
+                modelparameters_all = (
+                        pd.DataFrame(np.asarray([input.lrgcm, input.lrglac, input.precfactor, input.precgrad, 
+                                                 input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange])
+                                                .reshape(1,-1), columns=input.modelparams_colnames))
             
-            if input.hindcast == 1:                
-                glac_bin_temp = glac_bin_temp[:,::-1]
-                glac_bin_prec = glac_bin_prec[:,::-1]
-                glac_bin_acc = glac_bin_acc[:,::-1]
-                glac_bin_refreeze = glac_bin_refreeze[:,::-1]
-                glac_bin_snowpack = glac_bin_snowpack[:,::-1]
-                glac_bin_melt = glac_bin_melt[:,::-1]
-                glac_bin_frontalablation = glac_bin_frontalablation[:,::-1]
-                glac_bin_massbalclim = glac_bin_massbalclim[:,::-1]
-                glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,::-1]
-                glac_bin_area_annual = glac_bin_area_annual[:,::-1]
-                glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,::-1]
-                glac_bin_width_annual = glac_bin_width_annual[:,::-1]
-                glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,::-1]
-                glac_wide_massbaltotal = glac_wide_massbaltotal[::-1]
-                glac_wide_runoff = glac_wide_runoff[::-1]
-                glac_wide_snowline = glac_wide_snowline[::-1]
-                glac_wide_snowpack = glac_wide_snowpack[::-1]
-                glac_wide_area_annual = glac_wide_area_annual[::-1]
-                glac_wide_volume_annual = glac_wide_volume_annual[::-1]
-                glac_wide_ELA_annual = glac_wide_ELA_annual[::-1]
-                offglac_wide_prec = offglac_wide_prec[::-1]
-                offglac_wide_refreeze = offglac_wide_refreeze[::-1]
-                offglac_wide_melt = offglac_wide_melt[::-1]
-                offglac_wide_snowpack = offglac_wide_snowpack[::-1]
-                offglac_wide_runoff = offglac_wide_runoff[::-1]
+            # Set the number of iterations and determine every kth iteration to use for the ensemble
+            if (input.option_calibration == 1) or (modelparameters_all.shape[0] == 1):
+                sim_iters = 1
+            elif input.option_calibration == 2:
+                sim_iters = input.sim_iters
+                # Select every kth iteration
+                mp_spacing = int((modelparameters_all.shape[0] - input.sim_burn) / sim_iters)
+                mp_idx_start = np.arange(input.sim_burn, input.sim_burn + mp_spacing)
+                np.random.shuffle(mp_idx_start)
+                mp_idx_start = mp_idx_start[0]
+                mp_idx_all = np.arange(mp_idx_start, modelparameters_all.shape[0], mp_spacing)
                 
+            # Loop through model parameters
+            for n_iter in range(sim_iters):
+    
+                if sim_iters == 1:
+                    modelparameters = modelparameters_all.mean()  
+                else:
+                    mp_idx = mp_idx_all[n_iter]
+                    modelparameters = modelparameters_all.iloc[mp_idx,:]
+                    
+                if debug:
+                    print(glacier_RGIId, (':[PF: ' + str(np.round(modelparameters[2],2)) + ' ddfsnow: ' + 
+                          str(np.round(modelparameters[4],4)) + ' tbias: ' + str(np.round(modelparameters[7],2))))
+                    debug_mb = True
+                else:
+                    debug_mb = False
+                           
+                # run mass balance calculation
+                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
+                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
+                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
+                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, 
+                 offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
+                    massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, 
+                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               option_areaconstant=0,
+                                               debug=False
+    #                                           debug=debug_mb
+                                               ))
+                
+                if input.hindcast == 1:                
+                    glac_bin_temp = glac_bin_temp[:,::-1]
+                    glac_bin_prec = glac_bin_prec[:,::-1]
+                    glac_bin_acc = glac_bin_acc[:,::-1]
+                    glac_bin_refreeze = glac_bin_refreeze[:,::-1]
+                    glac_bin_snowpack = glac_bin_snowpack[:,::-1]
+                    glac_bin_melt = glac_bin_melt[:,::-1]
+                    glac_bin_frontalablation = glac_bin_frontalablation[:,::-1]
+                    glac_bin_massbalclim = glac_bin_massbalclim[:,::-1]
+                    glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,::-1]
+                    glac_bin_area_annual = glac_bin_area_annual[:,::-1]
+                    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,::-1]
+                    glac_bin_width_annual = glac_bin_width_annual[:,::-1]
+                    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,::-1]
+                    glac_wide_massbaltotal = glac_wide_massbaltotal[::-1]
+                    glac_wide_runoff = glac_wide_runoff[::-1]
+                    glac_wide_snowline = glac_wide_snowline[::-1]
+                    glac_wide_snowpack = glac_wide_snowpack[::-1]
+                    glac_wide_area_annual = glac_wide_area_annual[::-1]
+                    glac_wide_volume_annual = glac_wide_volume_annual[::-1]
+                    glac_wide_ELA_annual = glac_wide_ELA_annual[::-1]
+                    offglac_wide_prec = offglac_wide_prec[::-1]
+                    offglac_wide_refreeze = offglac_wide_refreeze[::-1]
+                    offglac_wide_melt = offglac_wide_melt[::-1]
+                    offglac_wide_snowpack = offglac_wide_snowpack[::-1]
+                    offglac_wide_runoff = offglac_wide_runoff[::-1]
+                    
+                
+                if debug:
+                    # Compute glacier volume change for every time step and use this to compute mass balance
+                    #  this will work for any indexing
+                    glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+                    # Mass change [km3 mwe]
+                    #  mb [mwea] * (1 km / 1000 m) * area [km2]
+                    glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+                    # Mean annual mass balance [mwea]
+                    mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
+                               (glac_wide_masschange.shape[0] / 12))
+                    print('  mb_model [mwea]:', mb_mwea.round(3))
+                    
+                
+                # RECORD PARAMETERS TO DATASET            
+                if input.output_package == 2:
+                    (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt, 
+                     glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, 
+                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+                             convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc, 
+                                                      glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
+                                                      glac_bin_frontalablation, glac_bin_massbalclim_annual, 
+                                                      glac_bin_area_annual, glac_bin_icethickness_annual))
+    
+                    # Record output to xarray dataset
+                    output_ds_all.temp_glac_monthly[glac, :, n_iter] = glac_wide_temp
+                    output_ds_all.prec_glac_monthly[glac, :, n_iter] = glac_wide_prec
+                    output_ds_all.acc_glac_monthly[glac, :, n_iter] = glac_wide_acc
+                    output_ds_all.refreeze_glac_monthly[glac, :, n_iter] = glac_wide_refreeze
+                    output_ds_all.melt_glac_monthly[glac, :, n_iter] = glac_wide_melt
+                    output_ds_all.frontalablation_glac_monthly[glac, :, n_iter] = glac_wide_frontalablation
+                    output_ds_all.massbaltotal_glac_monthly[glac, :, n_iter] = glac_wide_massbaltotal
+                    output_ds_all.runoff_glac_monthly[glac, :, n_iter] = glac_wide_runoff
+                    output_ds_all.snowline_glac_monthly[glac, :, n_iter] = glac_wide_snowline
+                    output_ds_all.area_glac_annual[glac, :, n_iter] = glac_wide_area_annual
+                    output_ds_all.volume_glac_annual[glac, :, n_iter] = glac_wide_volume_annual
+                    output_ds_all.ELA_glac_annual[glac, :, n_iter] = glac_wide_ELA_annual
+                    output_ds_all.offglac_prec_monthly[glac, :, n_iter] = offglac_wide_prec
+                    output_ds_all.offglac_refreeze_monthly[glac, :, n_iter] = offglac_wide_refreeze
+                    output_ds_all.offglac_melt_monthly[glac, :, n_iter] = offglac_wide_melt
+                    output_ds_all.offglac_snowpack_monthly[glac, :, n_iter] = offglac_wide_snowpack
+                    output_ds_all.offglac_runoff_monthly[glac, :, n_iter] = offglac_wide_runoff
+                    
+    #            if debug:
+    #                print('glac runoff max:', np.round(glac_wide_runoff.max(),0), 
+    #                      'glac prec max:', np.round(glac_wide_prec.max(),2),
+    #                      'glac refr max:', np.round(glac_wide_refreeze.max(),2),
+    #                      'offglac ref max:', np.round(offglac_wide_refreeze.max(),2))
+                
+                    
+            # Calculate statistics of simulations
+            # List of variables
+            ds_vns = []
+            for vn in output_ds_all.variables:
+                ds_vns.append(vn)
+            for vn in ds_vns:
+                if vn in input.output_variables_package2:
+                    stats = calc_stats(vn, output_ds_all, glac=glac)
+                    output_ds_all_stats[vn].values[glac,:,:] = stats            
             
-            if debug:
-                # Compute glacier volume change for every time step and use this to compute mass balance
-                #  this will work for any indexing
-                glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-                # Mass change [km3 mwe]
-                #  mb [mwea] * (1 km / 1000 m) * area [km2]
-                glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
-                # Mean annual mass balance [mwea]
-                mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
-                           (glac_wide_masschange.shape[0] / 12))
-                print('mb_model [mwea]:', mb_mwea.round(6))
-                
-            
-
-            # RECORD PARAMETERS TO DATASET            
-            if input.output_package == 2:
-                (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt, 
-                 glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, 
-                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-                         convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc, 
-                                                  glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
-                                                  glac_bin_frontalablation, glac_bin_massbalclim_annual, 
-                                                  glac_bin_area_annual, glac_bin_icethickness_annual))
-
-                # Record output to xarray dataset
-                output_ds_all.temp_glac_monthly[glac, :, n_iter] = glac_wide_temp
-                output_ds_all.prec_glac_monthly[glac, :, n_iter] = glac_wide_prec
-                output_ds_all.acc_glac_monthly[glac, :, n_iter] = glac_wide_acc
-                output_ds_all.refreeze_glac_monthly[glac, :, n_iter] = glac_wide_refreeze
-                output_ds_all.melt_glac_monthly[glac, :, n_iter] = glac_wide_melt
-                output_ds_all.frontalablation_glac_monthly[glac, :, n_iter] = glac_wide_frontalablation
-                output_ds_all.massbaltotal_glac_monthly[glac, :, n_iter] = glac_wide_massbaltotal
-                output_ds_all.runoff_glac_monthly[glac, :, n_iter] = glac_wide_runoff
-                output_ds_all.snowline_glac_monthly[glac, :, n_iter] = glac_wide_snowline
-                output_ds_all.area_glac_annual[glac, :, n_iter] = glac_wide_area_annual
-                output_ds_all.volume_glac_annual[glac, :, n_iter] = glac_wide_volume_annual
-                output_ds_all.ELA_glac_annual[glac, :, n_iter] = glac_wide_ELA_annual
-                output_ds_all.offglac_prec_monthly[glac, :, n_iter] = offglac_wide_prec
-                output_ds_all.offglac_refreeze_monthly[glac, :, n_iter] = offglac_wide_refreeze
-                output_ds_all.offglac_melt_monthly[glac, :, n_iter] = offglac_wide_melt
-                output_ds_all.offglac_snowpack_monthly[glac, :, n_iter] = offglac_wide_snowpack
-                output_ds_all.offglac_runoff_monthly[glac, :, n_iter] = offglac_wide_runoff
-                
-#            if debug:
-#                print('glac runoff max:', np.round(glac_wide_runoff.max(),0), 
-#                      'glac prec max:', np.round(glac_wide_prec.max(),2),
-#                      'glac refr max:', np.round(glac_wide_refreeze.max(),2),
-#                      'offglac ref max:', np.round(offglac_wide_refreeze.max(),2))
-            
-                
-        # Calculate statistics of simulations
-        # List of variables
-        ds_vns = []
-        for vn in output_ds_all.variables:
-            ds_vns.append(vn)
-        for vn in ds_vns:
-            if vn in input.output_variables_package2:
-                stats = calc_stats(vn, output_ds_all, glac=glac)
-                output_ds_all_stats[vn].values[glac,:,:] = stats            
-        
-#        if debug:
-#            mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
-#                            (dates_table.shape[0] / 12))
-#            print('mb_model [mwea] mean:', round(mb_mwea_all,4))   
-#            # Calibration
-#            cal_idx = np.where(cal_data.glacno == main_glac_rgi.glacno)[0][0]
-#            mb_cal_mwea = cal_data.loc[cal_idx, 'mb_mwe'] / (cal_data.loc[cal_idx, 't2'] - cal_data.loc[cal_idx, 't1'])
-#            print('mb_cal [mwea]:', round(mb_cal_mwea,4))
+    #        if debug:
+    #            mb_mwea_all = ((output_ds_all_stats.massbaltotal_glac_monthly.values[glac,:,0]).sum(axis=0) / 
+    #                            (dates_table.shape[0] / 12))
+    #            print('mb_model [mwea] mean:', round(mb_mwea_all,4))   
+    #            # Calibration
+    #            cal_idx = np.where(cal_data.glacno == main_glac_rgi.glacno)[0][0]
+    #            mb_cal_mwea = cal_data.loc[cal_idx,'mb_mwe'] / (cal_data.loc[cal_idx,'t2'] - cal_data.loc[cal_idx,'t1'])
+    #            print('mb_cal [mwea]:', round(mb_cal_mwea,4))
                 
     # Export statistics to netcdf
     if input.output_package == 2:
@@ -894,12 +882,11 @@ def main(list_packed_vars):
         # Netcdf filename
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
             # Filename
-            netcdf_fn = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
-                         str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
-                         '--' + str(count) + '.nc')
+            netcdf_fn = (regions_str + '_' + gcm_name + '_c' + str(input.option_calibration) + '_ba' + 
+                         str(input.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' + 
+                         str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + '--' + str(count) + '.nc')
         else:
-            netcdf_fn = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
+            netcdf_fn = (regions_str + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
                          str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
                          str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + 
                          '--' + str(count) + '.nc')
@@ -932,22 +919,24 @@ if __name__ == '__main__':
     else:
         debug = False
 
-    # RGI region number
-    if args.spc_region is not None:
-        rgi_regionsO1 = [int(args.spc_region)]
-    else:
-        rgi_regionsO1 = input.rgi_regionsO1
-
     # RGI glacier number
     if args.rgi_glac_number_fn is not None:
         with open(args.rgi_glac_number_fn, 'rb') as f:
-            rgi_glac_number = pickle.load(f)
+            glac_no = pickle.load(f)
+        rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
+        regions_str = args.rgi_glac_number_fn.split('_')[0]
     else:
-        rgi_glac_number = input.rgi_glac_number
+        glac_no = input.glac_no
+        rgi_regionsO1 = input.rgi_regionsO1
+        regions_str = 'R'
+        for region in input.rgi_regionsO1:
+            regions_str += str(region)
+        
 
     # Select all glaciers in a region
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                          rgi_glac_number=rgi_glac_number)
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(
+            rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 =input.rgi_regionsO2, rgi_glac_number=input.rgi_glac_number,  
+            glac_no=glac_no)
     
     # Define chunk size for parallel processing
     if args.option_parallels != 0:
@@ -1003,16 +992,15 @@ if __name__ == '__main__':
             sim_iters = 1
         elif input.option_calibration == 2:
             sim_iters = input.sim_iters
+        
         if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
-            check_str = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_c' + 
-                         str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
-                         + '--')
+            check_str = (regions_str + '_' + gcm_name + '_c' + str(input.option_calibration) + '_ba' + 
+                         str(input.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' + 
+                         str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + '--')
         else:
-            check_str = ('R' + str(rgi_regionsO1[0]) + '_' + gcm_name + '_' + rcp_scenario + '_c' + 
-                         str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +  
-                         str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear) 
-                         + '--')
+            check_str = (regions_str + '_' + gcm_name + '_' + rcp_scenario + '_c' + str(input.option_calibration) + 
+                         '_ba' + str(input.option_bias_adjustment) + '_' + str(sim_iters) + 'sets' + '_' + 
+                         str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + '--')
         if input.option_synthetic_sim==1:
             check_str = (check_str.split('--')[0] + '_T' + str(input.synthetic_temp_adjust) + '_P' + 
                          str(input.synthetic_prec_factor) + '--')
