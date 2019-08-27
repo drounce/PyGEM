@@ -318,7 +318,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         melt_energy_available_old = bin_temp[:,step]*dayspermonth[step]
                         melt_energy_available_old[melt_energy_available_old < 0] = 0
                         
-                        if debug and step == 0:
+                        if debug and month == 0 and step < 24:
                             print('Month:', dates_table.loc[step,'month'], 'glac_idx:', glac_idx_t0[0])
                             print('temp @ step ' + str(step) + ':', bin_temp[glac_idx_t0[0],step])
                             print('tempstd @ step ' + str(step) + ':', glacier_gcm_tempstd[step])
@@ -441,7 +441,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     
                 
                 # FRONTAL ABLATION
-                if debug:
+                if debug and glacier_rgi_table['TermType'] != 0:
                     print('\nyear:', year)
                     print('sea level:', sea_level, 
                           'bed elev:', round(elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 

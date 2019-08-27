@@ -527,6 +527,7 @@ def main(list_packed_vars):
     dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear, 
                                            spinupyears=input.gcm_spinupyears, option_wateryear=input.gcm_wateryear)
     
+    
     # =================
     if debug:
         # Select dates including future projections
@@ -558,19 +559,41 @@ def main(list_packed_vars):
         if (input.gcm_endyear > int(time.strftime("%Y"))) and (input.option_synthetic_sim == 0):
             print('\n\nEND YEAR BEYOND AVAILABLE DATA FOR ERA-INTERIM. CHANGE END YEAR.\n\n')
     else:
+        # GCM object
         gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
+        # Reference GCM
+        ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
+        # Adjust reference dates in event that reference is longer than GCM data
+        if input.startyear >= input.gcm_startyear:
+            ref_startyear = input.startyear
+        else:
+            ref_startyear = input.gcm_startyear
+        if input.endyear <= input.gcm_endyear:
+            ref_endyear = input.endyear
+        else:
+            ref_endyear = input.gcm_endyear
+        dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
+                                                   spinupyears=input.spinupyears, 
+                                                   option_wateryear=input.option_wateryear)
+        if debug:
+            print(ref_startyear, ref_endyear)
     
+    # ===== Regular Climate Data (not synthetic simulation) =====
     if input.option_synthetic_sim == 0:        
         # Air temperature [degC]
         gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
                                                                      dates_table)
-        if gcm_name in ['ERA5'] and input.option_ablation == 2:
+        if input.option_ablation != 2:
+            gcm_tempstd = np.zeros(gcm_temp.shape)
+        elif gcm_name in ['ERA5']:
             gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
                                                                             main_glac_rgi, dates_table)
-        else:
-            gcm_tempstd = np.zeros(gcm_temp.shape)
-            if input.option_ablation == 2:
-                print('NEED TO ADD VARIABILITY TO FUTURE SIMULATIONS')
+        elif input.ref_gcm_name in ['ERA5']:
+            # Compute temp std based on reference climate data
+            ref_tempstd, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.tempstd_fn, ref_gcm.tempstd_vn, 
+                                                                                main_glac_rgi, dates_table_ref)
+            # Monthly average from reference climate data
+            gcm_tempstd = gcmbiasadj.monthly_avg_array_rolled(ref_tempstd, dates_table_ref, dates_table)
             
         # Precipitation [m]
         gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, 
@@ -582,28 +605,10 @@ def main(list_packed_vars):
             gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
         else:
             # Compute lapse rates based on reference climate data
-            # Adjust reference dates in event that reference is longer than GCM data
-            if input.startyear >= input.gcm_startyear:
-                ref_startyear = input.startyear
-            else:
-                ref_startyear = input.gcm_startyear
-            if input.endyear <= input.gcm_endyear:
-                ref_endyear = input.endyear
-            else:
-                ref_endyear = input.gcm_endyear
-            dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
-                                                       spinupyears=input.spinupyears, 
-                                                       option_wateryear=input.option_wateryear)
-            # Monthly average from reference climate data
-            ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
-            if debug:
-                print(ref_startyear, ref_endyear)
             ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi, 
                                                                            dates_table_ref)
-            ref_lr_monthly_avg = gcmbiasadj.monthly_avg_2darray(ref_lr)
-#            ref_lr_monthly_avg = np.roll(ref_lr_monthly_avg, -4)
-#            gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-            gcm_lr = gcmbiasadj.monthly_lr_rolled(ref_lr, dates_table_ref, dates_table)
+            # Monthly average from reference climate data
+            gcm_lr = gcmbiasadj.monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table)
                
         # COAWST data has two domains, so need to merge the two domains
         if gcm_name == 'COAWST':
@@ -622,7 +627,7 @@ def main(list_packed_vars):
                     gcm_temp[glac,:] = gcm_temp_d01[glac,:]
                     gcm_elev[glac] = gcm_elev_d01[glac]
   
-    # ===== SYNTHETIC SIMULATION =====
+    # ===== Synthetic Simulation =====
     elif input.option_synthetic_sim == 1:
         # Air temperature [degC]
         gcm_temp_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
@@ -648,6 +653,7 @@ def main(list_packed_vars):
         gcm_temp = gcm_temp + input.synthetic_temp_adjust
         gcm_prec = gcm_prec * input.synthetic_prec_factor
        
+        
     # ===== BIAS CORRECTIONS =====
     # No adjustments
     if input.option_bias_adjustment == 0 or gcm_name == input.ref_gcm_name:

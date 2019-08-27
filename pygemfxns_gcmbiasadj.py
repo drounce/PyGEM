@@ -293,12 +293,12 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     return gcm_prec_biasadj, gcm_elev_biasadj
 
     
-def monthly_lr_rolled(ref_lr, dates_table_ref, dates_table):
-    """ Monthly average lapse rate from reference data rolled to ensure proper months 
+def monthly_avg_array_rolled(ref_array, dates_table_ref, dates_table):
+    """ Monthly average array from reference data rolled to ensure proper months 
     
     Parameters
     ----------
-    ref_LR : np.array
+    ref_array : np.array
         time series of reference lapse rates
     dates_table_ref : pd.DataFrame
         dates table for reference time period
@@ -307,17 +307,17 @@ def monthly_lr_rolled(ref_lr, dates_table_ref, dates_table):
     
     Returns
     -------
-    gcm_lr : np.array
-        lapse rates based on monthly average of reference data
+    gcm_array : np.array
+        gcm climate data based on monthly average of reference data
     """
     # GCM subset to agree with reference time period to calculate bias corrections
     gcm_subset_idx_start = np.where(dates_table.date.values == dates_table_ref.date.values[0])[0][0]
     
     # Roll months so they are aligned with simulation months
     roll_amt = -1*(12 - gcm_subset_idx_start%12)
-    ref_lr_monthly_avg = np.roll(monthly_avg_2darray(ref_lr), roll_amt)
-    gcm_lr = np.tile(ref_lr_monthly_avg, int(dates_table.shape[0]/12))
-    return gcm_lr
+    ref_array_monthly_avg = np.roll(monthly_avg_2darray(ref_array), roll_amt)
+    gcm_array = np.tile(ref_array_monthly_avg, int(dates_table.shape[0]/12))
+    return gcm_array
         
     
 def plot_biasadj(ref_temp, gcm_temp_biasadj, ref_prec, gcm_prec, gcm_prec_biasadj, dates_table_ref, dates_table):
@@ -504,7 +504,7 @@ def main(list_packed_vars):
     if gcm_name == 'ERA-Interim':
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     else:
-        gcm_lr = monthly_lr_rolled(ref_lr, dates_table_ref, dates_table)
+        gcm_lr = monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table)
 
     # COAWST data has two domains, so need to merge the two domains
     if gcm_name == 'COAWST':

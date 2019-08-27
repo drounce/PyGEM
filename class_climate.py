@@ -297,15 +297,18 @@ class GCM():
                 
         # Perform corrections to the data if necessary
         # Surface air temperature corrections
-        if (vn == 'tas') or (vn == 't2m') or (vn == 'T2'):
+        if vn in ['tas', 't2m', 'T2']:
             if 'units' in data[vn].attrs and data[vn].attrs['units'] == 'K':
                 # Convert from K to deg C
                 glac_variable_series = glac_variable_series - 273.15
             else:
                 print('Check units of air temperature from GCM is degrees C.')
+        elif vn in ['t2m_std']:
+            if 'units' in data[vn].attrs and data[vn].attrs['units'] not in ['C', 'K']:
+                print('Check units of air temperature standard deviation from GCM is degrees C or K')
         # Precipitation corrections
         # If the variable is precipitation
-        elif (vn == 'pr') or (vn == 'tp') or (vn == 'TOTPRECIP'):
+        elif vn in ['pr', 'tp', 'TOTPRECIP']:
             # If the variable has units and those units are meters (ERA Interim)
             if 'units' in data[vn].attrs and data[vn].attrs['units'] == 'm':
                 pass
@@ -347,8 +350,8 @@ if __name__ == '__main__':
     if gcm.name == 'ERA-Interim' or gcm.name == 'ERA5':
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     if gcm.name == 'ERA5':
-        gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi, 
-                                                                     dates_table)
+        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi, 
+                                                                        dates_table)
 #    else:
 #        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 #    # COAWST data has two domains, so need to merge the two domains

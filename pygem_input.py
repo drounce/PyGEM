@@ -171,10 +171,10 @@ constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-gcm_startyear = 2000
-gcm_endyear = 2017
 #gcm_startyear = 2000
-#gcm_endyear = 2100
+#gcm_endyear = 2017
+gcm_startyear = 2000
+gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
@@ -852,7 +852,7 @@ option_preclimit = 1
 option_accumulation = 2
 #  Option 1 (default) - Single threshold (<= snow, > rain)
 #  Option 2 - single threshold +/- 1 deg uses linear interpolation
-option_ablation = 1
+option_ablation = 2
 #  Option 1 (default) - use monthly temperature
 #  Option 2 - use standard deviation of monthly temperature enabling melt during transition season (Huss and Hock 2015)
 
