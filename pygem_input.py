@@ -146,9 +146,8 @@ option_bias_adjustment = 1
 #  Option 2 - Huss and Hock [2015] methods
 
 # Reference climate dataset
-#ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
-ref_gcm_name = 'ERA5' # used as default for argument parsers
-print('\n\nCHANGE BACK REFERENCE GCM NAME\n\n')
+ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
+#ref_gcm_name = 'ERA5'
 
 # First and last year of model run
 #startyear = 1980
@@ -171,10 +170,10 @@ constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-#gcm_startyear = 2000
-#gcm_endyear = 2017
 gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_endyear = 2017
+#gcm_startyear = 2000
+#gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
@@ -226,8 +225,8 @@ extra_calrounds = 3
 
 # OPTION 2: MCMC
 # Chain options
-n_chains = 3 # (min 1, max 3)
-mcmc_sample_no = 25000
+n_chains = 1 # (min 1, max 3)
+mcmc_sample_no = 10000
 mcmc_burn_no = 0
 ensemble_no = mcmc_sample_no - mcmc_burn_no
 mcmc_step = None
@@ -852,18 +851,12 @@ option_preclimit = 1
 option_accumulation = 2
 #  Option 1 (default) - Single threshold (<= snow, > rain)
 #  Option 2 - single threshold +/- 1 deg uses linear interpolation
-option_ablation = 2
+option_ablation = 1
 #  Option 1 (default) - use monthly temperature
 #  Option 2 - use standard deviation of monthly temperature enabling melt during transition season (Huss and Hock 2015)
 
-# Surface type options
-option_surfacetype = 1
-#  How is surface type considered, annually?
-# Surface ablation options
-option_surfaceablation = 1
-#  Option 1 (default) - DDF for snow, ice, and debris
 # Refreezing model options
-option_refreezing = 2
+option_refreezing = 1
 #  Option 1 (default) - heat conduction approach (Huss and Hock, 2015)
 #  Option 2 - annual air temperature appraoch (Woodward et al., 1997)
 # Refreeze depth [m]
@@ -871,8 +864,16 @@ refreeze_depth = 10
 # Refreeze month
 refreeze_month = 10
 #  required for air temperature approach to set when the refreeze is included
+
+# Surface type options
+option_surfacetype = 1
+#  How is surface type considered, annually?
+# Surface ablation options
+option_surfaceablation = 1
+#  Option 1 (default) - DDF for snow, ice, and debris
+
 # Melt model options
-option_melt_model = 1
+#option_melt_model = 1
 #  Option 1 (default) DDF
 # Mass redistribution / Glacier geometry change options
 option_massredistribution = 1

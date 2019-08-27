@@ -62,8 +62,6 @@ def getparser():
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
-#    parser.add_argument('-spc_region', action='store', type=int, default=None,
-#                        help='rgi region number for supercomputer')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-progress_bar', action='store', type=int, default=0,
@@ -258,13 +256,6 @@ def main(list_packed_vars):
         debug = True
     else:
         debug = False
-
-    # RGI region
-    print('\n\nDELETE ME!\n\n')
-    if args.spc_region is not None:
-        rgi_regionsO1 = [int(args.spc_region)]
-    else:
-        rgi_regionsO1 = input.rgi_regionsO1
 
     # ===== CALIBRATION =====
     # Option 2: use MCMC method to determine posterior probability distributions of the three parameters tempchange,
@@ -584,7 +575,7 @@ def main(list_packed_vars):
             icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
             width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
             glacier_cal_data = ((cal_data.iloc[np.where(
-                    glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
+                    glacier_rgi_table['rgino_str'] == cal_data['glacno'])[0],:]).copy())
             glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
 
             # Select observed mass balance, error, and time data
@@ -642,9 +633,9 @@ def main(list_packed_vars):
 
                     tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                             retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
-                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                            t1_idx, t2_idx, t1, t2, debug=False))
+                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, 
+                                            glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
+                                            dates_table, t1_idx, t2_idx, t1, t2, debug=False))
 
                     if debug:
                         print('\nTC_low:', np.round(tempchange_boundlow,2),
@@ -950,7 +941,7 @@ def main(list_packed_vars):
             icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
             width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
             glacier_cal_data = ((cal_data.iloc[np.where(
-                    glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
+                    glacier_rgi_table['rgino_str'] == cal_data['glacno'])[0],:]).copy())
             glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
 
             # Select observed mass balance, error, and time data
@@ -1276,7 +1267,7 @@ def main(list_packed_vars):
             icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
             width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
             glacier_cal_data = ((cal_data.iloc[np.where(
-                    glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
+                    glacier_rgi_table['rgino_str'] == cal_data['glacno'])[0],:]).copy())
             glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
 
             # Select observed mass balance, error, and time data
@@ -1297,7 +1288,7 @@ def main(list_packed_vars):
                 # Temperature bias bounds and maximum mass loss
                 tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                         retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                         glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                         t1_idx, t2_idx, t1, t2))
                 if debug:
@@ -1995,7 +1986,7 @@ def main(list_packed_vars):
         # Loop through glaciers that have unique cal_data
         cal_individual_glacno = np.unique(cal_data.loc[cal_data['glacno'].notnull(), 'glacno'])
         for n in range(cal_individual_glacno.shape[0]):
-            glac = np.where(main_glac_rgi[input.rgi_O1Id_colname].isin([cal_individual_glacno[n]]) == True)[0][0]
+            glac = np.where(main_glac_rgi['rgino_str'].isin([cal_individual_glacno[n]]) == True)[0][0]
             if debug:
                 print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
             elif glac%100 == 0:
@@ -2015,7 +2006,7 @@ def main(list_packed_vars):
             icethickness_t0 = main_glac_icethickness.iloc[glac,:].values.astype(float)
             width_t0 = main_glac_width.iloc[glac,:].values.astype(float)
             glacier_cal_data = ((cal_data.iloc[np.where(
-                    glacier_rgi_table[input.rgi_O1Id_colname] == cal_data['glacno'])[0],:]).copy())
+                    glacier_rgi_table['rgino_str'] == cal_data['glacno'])[0],:]).copy())
             cal_idx = glacier_cal_data.index.values
             glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
             # Comparison dataframe
@@ -2351,7 +2342,7 @@ def main(list_packed_vars):
         if not os.path.exists(input.output_fp_cal + 'temp/'):
             os.makedirs(input.output_fp_cal + 'temp/')
         regions_str = 'R'
-        for region in rgi_regionsO1:
+        for region in input.rgi_regionsO1:
             regions_str += str(region)
         output_modelparams_fn = (
                 regions_str + '_modelparams_opt' + str(input.option_calibration) + '_' + gcm_name
@@ -2381,21 +2372,6 @@ if __name__ == '__main__':
 
     if input.option_calibration == 2:
         print('Chains:', input.n_chains, 'Iterations:', input.mcmc_sample_no)
-
-#    # RGI region
-#    if args.spc_region is not None:
-#        rgi_regionsO1 = [int(args.spc_region)]
-#    else:
-#        rgi_regionsO1 = input.rgi_regionsO1
-#
-#    # RGI glacier number
-#    if args.rgi_glac_number_fn is not None:
-#        with open(args.rgi_glac_number_fn, 'rb') as f:
-#            rgi_glac_number = pickle.load(f)
-#    elif args.rgi_glac_number is not None:
-#        rgi_glac_number = [args.rgi_glac_number]
-#    else:
-#        rgi_glac_number = input.rgi_glac_number
         
     # RGI glacier number
     if args.rgi_glac_number_fn is not None:
@@ -2411,8 +2387,9 @@ if __name__ == '__main__':
             regions_str += str(region)
 
     # Select all glaciers in a region
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all',
-                                                          rgi_glac_number=rgi_glac_number)
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(
+            rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 =input.rgi_regionsO2, rgi_glac_number=input.rgi_glac_number,  
+            glac_no=glac_no)
     # Add regions
     main_glac_rgi_all['region'] = main_glac_rgi_all.RGIId.map(input.reg_dict)
 
@@ -2492,7 +2469,7 @@ if __name__ == '__main__':
     # Drop glaciers that do not have any calibration data (individual or group)
     main_glac_rgi = ((main_glac_rgi_all.iloc[np.unique(
             np.append(main_glac_rgi_all[main_glac_rgi_all['group_name'].notnull() == True].index.values,
-                      np.where(main_glac_rgi_all[input.rgi_O1Id_colname].isin(cal_data['glacno']) == True)[0])), :])
+                      np.where(main_glac_rgi_all['rgino_str'].isin(cal_data['glacno']) == True)[0])), :])
             .copy())
     # select glacier data
     main_glac_hyps = main_glac_hyps_all.iloc[main_glac_rgi.index.values]
@@ -2517,7 +2494,7 @@ if __name__ == '__main__':
         gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
                                                                         main_glac_rgi, dates_table)
     # Lapse rate [K m-1]
-    if gcm_name == 'ERA-Interim':
+    if gcm_name in ['ERA-Interim', 'ERA5']:
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     else:
         # Mean monthly lapse rate

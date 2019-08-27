@@ -950,7 +950,6 @@ if __name__ == '__main__':
         for region in input.rgi_regionsO1:
             regions_str += str(region)
         
-
     # Select all glaciers in a region
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(
             rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 =input.rgi_regionsO2, rgi_glac_number=input.rgi_glac_number,  
