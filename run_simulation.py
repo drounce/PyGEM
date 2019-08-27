@@ -564,13 +564,21 @@ def main(list_packed_vars):
         # Air temperature [degC]
         gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, 
                                                                      dates_table)
+        if gcm_name in ['ERA5'] and input.option_ablation == 2:
+            gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
+                                                                            main_glac_rgi, dates_table)
+        else:
+            gcm_tempstd = np.zeros(gcm_temp.shape)
+            if input.option_ablation == 2:
+                print('NEED TO ADD VARIABILITY TO FUTURE SIMULATIONS')
+            
         # Precipitation [m]
         gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, 
                                                                      dates_table)
         # Elevation [m asl]
         gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)          
         # Lapse rate
-        if gcm_name == 'ERA-Interim':
+        if gcm_name in ['ERA-Interim', 'ERA5']:
             gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
         else:
             # Compute lapse rates based on reference climate data
@@ -703,6 +711,7 @@ def main(list_packed_vars):
         glacier_gcm_elev = gcm_elev_adj[glac]
         glacier_gcm_prec = gcm_prec_adj[glac,:]
         glacier_gcm_temp = gcm_temp_adj[glac,:]
+        glacier_gcm_tempstd = gcm_tempstd[glac,:]
         glacier_gcm_lrgcm = gcm_lr[glac,:]
         glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
         glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
@@ -770,11 +779,12 @@ def main(list_packed_vars):
                  glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, 
                  offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                     massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, 
-                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
+                                               glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                                               glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=0,
-                                               debug=False
-    #                                           debug=debug_mb
+#                                               debug=False
+                                               debug=debug_mb
                                                ))
                 
                 if input.hindcast == 1:                
@@ -880,7 +890,7 @@ def main(list_packed_vars):
         if os.path.exists(output_sim_fp) == False:
             os.makedirs(output_sim_fp)
         # Netcdf filename
-        if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
+        if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
             # Filename
             netcdf_fn = (regions_str + '_' + gcm_name + '_c' + str(input.option_calibration) + '_ba' + 
                          str(input.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' + 
@@ -993,7 +1003,7 @@ if __name__ == '__main__':
         elif input.option_calibration == 2:
             sim_iters = input.sim_iters
         
-        if (gcm_name == 'ERA-Interim') or (gcm_name == 'COAWST'):
+        if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
             check_str = (regions_str + '_' + gcm_name + '_c' + str(input.option_calibration) + '_ba' + 
                          str(input.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' + 
                          str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + '--')
@@ -1071,6 +1081,7 @@ if __name__ == '__main__':
             gcm_prec_tile = main_vars['gcm_prec_tile']
             gcm_lr_tile = main_vars['gcm_lr_tile']
         gcm_temp = main_vars['gcm_temp']
+        gcm_tempstd = main_vars['gcm_tempstd']
         gcm_prec = main_vars['gcm_prec']
         gcm_elev = main_vars['gcm_elev']
         gcm_lr = main_vars['gcm_lr']
@@ -1084,6 +1095,7 @@ if __name__ == '__main__':
         modelparameters = main_vars['modelparameters']
         glacier_rgi_table = main_vars['glacier_rgi_table']
         glacier_gcm_temp = main_vars['glacier_gcm_temp']
+        glacier_gcm_tempstd = main_vars['glacier_gcm_tempstd']
         glacier_gcm_prec = main_vars['glacier_gcm_prec']
         glacier_gcm_elev = main_vars['glacier_gcm_elev']
         glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']

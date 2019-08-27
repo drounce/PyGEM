@@ -119,37 +119,22 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13, 14, 15]
+rgi_regionsO1 = [15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
-rgi_glac_number = 'all'
-#rgi_glac_number = ['17591']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473']
 #rgi_glac_number = ['01264', '02591', '03331', '05825']
-#rgi_glac_number = ['12704', '15017', '16907', '22814', '23792', '26927']
-#rgi_glac_number = ['00185', '00301', '00395', '00674', '01715', '02581', '04061', '05225', '05857', '06022', '06636', 
-#                   '07532', '07652', '09554', '09882', '10284', '10332', '10497', '10829', '11053', '11971', '12228', 
-#                   '12239', '12559']
-#rgi_glac_number = ['00149', '00280', '00446', '00547', '00671', '00886', '00964', '01030', '01113', '01358', '01371', 
-#                   '01561', '01915', '01934', '01935', '02104', '02116', '02197', '02248', '02688', '02825', '02877', 
-#                   '02981', '03502', '03541', '03783', '03791', '03925', '03982', '04066', '04173', '04204', '04569', 
-#                   '04611', '04619', '04678', '04897', '04952', '05029', '05172', '05298', '05356', '05361', '05688', 
-#                   '05691', '05745', '06184', '06277', '06316', '06419', '06424', '06451', '06462', '06543', '06746', 
-#                   '06831', '07001', '07391', '07433', '07556', '07633', '07645', '07665', '07785', '07798', '07868', 
-#                   '07907', '07914', '08545', '08858', '08918', '09095', '09117', '09201', '09350', '09520', '09741', 
-#                   '09928', '10006', '10113', '10130', '10270', '10293', '10317', '10663', '10793', '10868', '11041', 
-#                   '11456', '11631', '11634', '11724', '11764', '11934', '12297', '12465', '12564', '12765', '12890', 
-#                   '13081']
 #rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
-#rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 54400, option_random=1)
 
 glac_no = None
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
-#glac_no = ['13.26960', '13.26243', '15.00002', '15.03735', '14.00001', '14.00002', '14.01243']
+#glac_no = ['13.26960', '15.00002', '14.01243']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
@@ -161,7 +146,9 @@ option_bias_adjustment = 1
 #  Option 2 - Huss and Hock [2015] methods
 
 # Reference climate dataset
-ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
+#ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
+ref_gcm_name = 'ERA5' # used as default for argument parsers
+print('\n\nCHANGE BACK REFERENCE GCM NAME\n\n')
 
 # First and last year of model run
 #startyear = 1980
@@ -184,10 +171,10 @@ constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-#gcm_startyear = 2000
-#gcm_endyear = 2017
 gcm_startyear = 2000
-gcm_endyear = 2100
+gcm_endyear = 2017
+#gcm_startyear = 2000
+#gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
@@ -325,7 +312,8 @@ ddfsnow_start=ddfsnow_mu
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-sim_iters = 100
+print('\n\nCHANGE BACK SIM ITERS\n\n')
+sim_iters = 1
 sim_burn = 200
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
@@ -864,6 +852,9 @@ option_preclimit = 1
 option_accumulation = 2
 #  Option 1 (default) - Single threshold (<= snow, > rain)
 #  Option 2 - single threshold +/- 1 deg uses linear interpolation
+option_ablation = 1
+#  Option 1 (default) - use monthly temperature
+#  Option 2 - use standard deviation of monthly temperature enabling melt during transition season (Huss and Hock 2015)
 
 # Surface type options
 option_surfacetype = 1

@@ -278,6 +278,7 @@ else:
     debug = False
 
 #%%
+# Load Larsen dataset
 larsen_summary = pd.read_csv(input.larsen_fp + input.larsen_fn)
 larsen_summary = larsen_summary.sort_values('RGIId')
 larsen_summary.reset_index(drop=True, inplace=True)
@@ -299,12 +300,47 @@ larsen_summary['endyear_str'] = [str(x)[:4] for x in larsen_summary.date1.values
 # Nizina is not there
 # Yanert is not available for the given time periods - others are
 
-
-#%%
-
+# Load RGI attributes
 rgi_regionsO1 = [1]
 main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all', 
                                                   rgi_glac_number=glacno)
+main_glac_hyps_10m = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
+                                                 input.hyps_filedict, input.hyps_colsdrop)
+binsize_rgi = int(main_glac_hyps_10m.columns[1]) - int(main_glac_hyps_10m.columns[0])
+
+#%%
+# Quick quality control check on Huss product
+huss_area_ones = main_glac_hyps_10m.copy().values
+huss_area_ones[huss_area_ones>0] = 1
+huss_area_ones_idxmax = np.argmax(huss_area_ones, axis=1)
+main_glac_rgi['huss_min_elev'] = [int(main_glac_hyps_10m.columns.values[x]) for x in list(huss_area_ones_idxmax)]
+main_glac_rgi['dif_min_elev'] = main_glac_rgi.Zmin - main_glac_rgi.huss_min_elev
+
+#rgi_bin_min = int(np.round(hyps_30m_cns[rgi_hyps_idx[0]]))
+#        rgi_bin_max = int(np.round(hyps_30m_cns[rgi_hyps_idx[-1]]))
+
+
+#%%
+
+# Load RGI attributes
+rgi_regionsO1 = [1]
+main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all', 
+                                                  rgi_glac_number='all')
+main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, input.hyps_filepath,
+                                                 input.hyps_filedict, input.hyps_colsdrop)
+# Quick quality control check on Huss product
+huss_area_ones_all = main_glac_hyps_all.values.copy()
+huss_area_ones_all[huss_area_ones_all>0] = 1
+huss_area_ones_all_idxmax = np.argmax(huss_area_ones_all, axis=1)
+main_glac_rgi_all['huss_min_elev'] = [int(main_glac_hyps_all.columns.values[x]) for x in list(huss_area_ones_all_idxmax)]
+main_glac_rgi_all['dif_min_elev'] = main_glac_rgi_all.Zmin - main_glac_rgi_all.huss_min_elev
+dif_min_elev = main_glac_rgi_all['dif_min_elev']
+#main_glac_rgi_all.loc[main_glac_rgi_all.dif_min_elev < -500, 'dif_min_elev'] = -500
+#main_glac_rgi_all.loc[main_glac_rgi_all.dif_min_elev > 200, 'dif_min_elev'] = 200
+main_glac_rgi_all.dif_min_elev.plot.hist(bins=50, ylim=(0,100))
+#%%
+
+
 
 binsize = 30 # elevation bin must be an integer greater than 1
 
@@ -312,11 +348,7 @@ binsize = 30 # elevation bin must be an integer greater than 1
 # NEED TO FIX BROKEN FUNCTION FOR PROCESSING FARINOTTI ET AL. (2019) DATA
 #main_glac_hyps, main_glac_thickness, main_glac_width, main_glac_width, main_glac_slope = (
 #        extract_hyps(main_glac_rgi, binsize))
-main_glac_hyps_10m = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
-                                                 input.hyps_filedict, input.hyps_colsdrop)
-binsize_rgi = int(main_glac_hyps_10m.columns[1]) - int(main_glac_hyps_10m.columns[0])
 
-#%%
 add_cols = 3 - (main_glac_hyps_10m.shape[1] % 3)
 for ncol in np.arange(0,add_cols):
     colname = str(int(main_glac_hyps_10m.columns[-1]) + binsize_rgi)
@@ -327,17 +359,18 @@ hyps_30m = hyps_10m.reshape(-1,3).sum(1).reshape(hyps_10m.shape[0], int(hyps_10m
 hyps_30m_cns = list(main_glac_hyps_10m.columns.values[1::3].astype(int))
 main_glac_hyps_30m = pd.DataFrame(hyps_30m, columns=hyps_30m_cns)
 
-#%%
 
+#%%
 data_header = ['E', 'DZ', 'DZ25', 'DZ75', 'AAD', 'MassChange', 'MassBal', 'NumData']
 larsen_summary['mb_mwea_v2'] = np.nan
 larsen_summary['mb_gta_v2'] = np.nan
 larsen_summary['area_rgi'] = np.nan
+larsen_summary['min_elev'] = np.nan
+larsen_summary['min_elev_huss'] = main_glac_rgi.huss_min_elev.values
 
 for nglac, glac_name in enumerate(list(larsen_summary.name.values)):
     
     print(nglac)
-    #%%
     larsen_glac_fp = input.main_directory + '/../DEMs/larsen/data/'
     larsen_glac_fn = (larsen_summary.loc[nglac,'name_nospace'] + '.' + larsen_summary.loc[nglac,'startyear_str'] + '.' +
                       larsen_summary.loc[nglac,'endyear_str'] + '.output.txt')
@@ -350,22 +383,23 @@ for nglac, glac_name in enumerate(list(larsen_summary.name.values)):
         # Shift bins by 15 so elevations based on center of bin and not bottom of bin
         df['E'] = df.E + 15
         
-#        if larsen_summary.loc[nglac,'term_type'] == 'Tidewater':
-#            print(nglac, larsen_summary.loc[nglac,'term_type'], df.loc[0,'E'])
+        if larsen_summary.loc[nglac,'term_type'] == 'Tidewater':
+            print(nglac, larsen_summary.loc[nglac,'term_type'], df.loc[0,'E'])
         
         # Check if all bins accounted for
         rgi_hyps_raw = np.array(main_glac_hyps_30m.loc[nglac,:].values)
         rgi_hyps_idx = np.where(rgi_hyps_raw > 0)[0]
         
-        rgi_bin_min = hyps_30m_cns[rgi_hyps_idx[0]]
-        rgi_bin_max = hyps_30m_cns[rgi_hyps_idx[-1]]
+        rgi_bin_min = int(np.round(hyps_30m_cns[rgi_hyps_idx[0]]))
+        rgi_bin_max = int(np.round(hyps_30m_cns[rgi_hyps_idx[-1]]))
         
 
         # ===== EXTEND TERMINUS (if needed) =====
-        larsen_bin_min = df.loc[0,'E']
+        larsen_bin_min = int(np.round(df.loc[0,'E']))
+        larsen_summary.loc[nglac,'min_elev'] = larsen_bin_min
         if rgi_bin_min > larsen_bin_min:
+            print(glac_name, 'Larsen terminus is lower by ' + str(int(rgi_bin_min - larsen_bin_min)) + ' m')
             rgi_bin_min = larsen_bin_min
-            print(glac_name, 'Larsen terminus is lower')
             
         elif rgi_bin_min < larsen_bin_min:
             n_bins2add = int((larsen_bin_min - rgi_bin_min) / binsize)
@@ -374,12 +408,14 @@ for nglac, glac_name in enumerate(list(larsen_summary.name.values)):
             df_2append['DZ'] = df.loc[0,'DZ']
             df = df_2append.append(df)
             df.reset_index(inplace=True, drop=True)
+            print('rgi bin is lower')
             
         # ===== EXPAND ACCUMULATION AREA (if needed) =====
-        larsen_bin_max = df.loc[df.shape[0]-1,'E']
+        larsen_bin_max = int(np.round(df.loc[df.shape[0]-1,'E']))
         if rgi_bin_max < larsen_bin_max:
-            rgi_bin_max = larsen_bin_max 
-            print(glac_name, 'Larsen terminus is higher')
+            print(glac_name, 'Larsen peak is higher by ' + str(int(larsen_bin_max - rgi_bin_max)) + ' m')
+            rgi_bin_max = larsen_bin_max
+            
             
         elif rgi_bin_max > larsen_bin_max:
             # Append more bins
@@ -408,7 +444,7 @@ for nglac, glac_name in enumerate(list(larsen_summary.name.values)):
         
         glac_mb_gta = df.mb_gta.sum()
         glac_mb_mwea = glac_mb_gta / df.hyps_km2.sum() * 1000
-        print('Mass loss [Gt yr-1]:', np.round(glac_mb_gta,3))
+#        print('Mass loss [Gt yr-1]:', np.round(glac_mb_gta,3))
         print('Mass loss [mwe yr-1]:', np.round(glac_mb_mwea,2))
         
         larsen_summary.loc[nglac, 'mb_mwea_v2'] = glac_mb_mwea
@@ -433,15 +469,17 @@ for nglac, glac_name in enumerate(list(larsen_summary.name.values)):
             os.makedirs(figure_fp)
         figure_fn = larsen_glac_fn.replace('output.txt','_elevchg.png')
         fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
-        fig.clf()
+        plt.close(fig)
         
     else:
         print(glac_name, 'filename not correct or not available')
 
-                
-                
-            
-        
+#%%
+larsen_summary['dif_min_elev'] = larsen_summary.min_elev - larsen_summary.min_elev_huss
+larsen_summary['dif_mwea'] = larsen_summary.mb_mwea - larsen_summary.mb_mwea_v2  
+
+A = larsen_summary.dif_min_elev.values
+B = np.where(np.array([0 if np.isnan(x) else x for x in A]) < -100)[0]
         
         
         

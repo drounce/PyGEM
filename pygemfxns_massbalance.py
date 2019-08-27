@@ -10,8 +10,8 @@ import pygem_input as input
 
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
-                   glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
-                   dates_table, option_areaconstant=0, frontalablation_k=None, 
+                   glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                   glacier_gcm_lrglac, dates_table, option_areaconstant=0, frontalablation_k=None,
                    debug=False):
     """
     Runs the mass balance and mass redistribution allowing the glacier to evolve.
@@ -293,8 +293,42 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     # Snowpack [m w.e.] = snow remaining + new snow
                     bin_snowpack[:,step] = snowpack_remaining + bin_acc[:,step]  
                     # Energy available for melt [degC day]    
-                    melt_energy_available = bin_temp[:,step]*dayspermonth[step]
-                    melt_energy_available[melt_energy_available < 0] = 0
+                    if input.option_ablation == 1:
+                        melt_energy_available = bin_temp[:,step]*dayspermonth[step]
+                        melt_energy_available[melt_energy_available < 0] = 0
+                    elif input.option_ablation == 2:
+                        # Select temp standard deviation, N(0, monthly_std) + bin_temp
+                        #  resulting array will have shape (bins, dayspermonth[step])
+                        #  sum allow the columns
+                        #  remove negative energy
+                        
+                        # daily temperature variation in each bin for the monthly timestep
+                        bin_tempstd_daily = np.repeat(
+                                np.random.normal(loc=0, scale=glacier_gcm_tempstd[step], size=dayspermonth[step])
+                                .reshape(1,dayspermonth[step]), nbins, axis=0)
+                        
+                        # daily temperature in each bin for the monthly timestep
+                        bin_temp_daily = bin_temp[:,step][:,np.newaxis] + bin_tempstd_daily
+                        
+                        # remove negative values
+                        bin_temp_daily[bin_temp_daily < 0] = 0
+                            
+                        # Energy available for melt [degC day] = sum of daily energy available
+                        melt_energy_available = bin_temp_daily.sum(axis=1)
+                        melt_energy_available_old = bin_temp[:,step]*dayspermonth[step]
+                        melt_energy_available_old[melt_energy_available_old < 0] = 0
+                        
+                        if debug and step == 0:
+                            print('Month:', dates_table.loc[step,'month'], 'glac_idx:', glac_idx_t0[0])
+                            print('temp @ step ' + str(step) + ':', bin_temp[glac_idx_t0[0],step])
+                            print('tempstd @ step ' + str(step) + ':', glacier_gcm_tempstd[step])
+                            
+                            print('temp std daily:', bin_tempstd_daily[glac_idx_t0[0],0:5])
+                            print('temp daily:', bin_temp_daily[glac_idx_t0[0],0:5])
+                            
+                            print('new melt energy:', np.round(melt_energy_available[glac_idx_t0[0]],2))
+                            print('old melt energy:', np.round(melt_energy_available_old[glac_idx_t0[0]],2),'\n')
+                    
                     # Snow melt [m w.e.]
                     bin_meltsnow[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
                     # snow melt cannot exceed the snow depth

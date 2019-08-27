@@ -332,8 +332,8 @@ class GCM():
 #%% Testing
 if __name__ == '__main__':
 #    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
-#    gcm = GCM(name='ERA5')
-    gcm = GCM(name='ERA-Interim')
+    gcm = GCM(name='ERA5')
+#    gcm = GCM(name='ERA-Interim')
     
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
                                                       rgi_glac_number=input.rgi_glac_number)
@@ -346,6 +346,9 @@ if __name__ == '__main__':
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     if gcm.name == 'ERA-Interim' or gcm.name == 'ERA5':
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    if gcm.name == 'ERA5':
+        gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi, 
+                                                                     dates_table)
 #    else:
 #        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 #    # COAWST data has two domains, so need to merge the two domains
