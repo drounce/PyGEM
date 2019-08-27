@@ -72,11 +72,17 @@ if option_gcm_downscale == 1:
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     # Elevation [m a.s.l] associated with air temperature  and precipitation data
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-    # Add GCM time series to the dates_table
-    dates_table['date_gcm'] = gcm_dates
+    # Air temperature standard deviation
+    if input.option_ablation != 2:
+        gcm_tempstd = np.zeros(gcm_temp.shape)
+    elif gcm_name in ['ERA5']:
+        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
+                                                                        main_glac_rgi, dates_table)
     # Lapse rates [degC m-1]
     if option_lapserate_fromgcm == 1:
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    # Add GCM time series to the dates_table
+    dates_table['date_gcm'] = gcm_dates
         
 elif option_gcm_downscale == 2:
     # 32 seconds for Region 15
@@ -208,6 +214,7 @@ for glac in range(main_glac_rgi.shape[0]):
             glacier_gcm_elev = gcm_elev[glac]
             glacier_gcm_prec = gcm_prec[glac,:]
             glacier_gcm_temp = gcm_temp[glac,:]
+            glacier_gcm_tempstd = gcm_tempstd[glac,:]
             glacier_gcm_lrgcm = gcm_lr[glac,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)   
@@ -229,8 +236,9 @@ for glac in range(main_glac_rgi.shape[0]):
                  glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, 
                  offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                     massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, 
+                                               glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                               glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=1))
                 # Glacier-wide climatic mass balance [m w.e.] based on initial area
                 mbclim_mwe = (

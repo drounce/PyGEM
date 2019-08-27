@@ -76,8 +76,8 @@ def getparser():
 
 
 def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins,
-                       glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm,
-                       glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=False):
+                    glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm,
+                    glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=False):
     """
     Calculate parameters for prior distributions for the MCMC analysis
 
@@ -131,7 +131,7 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
          glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
          offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
             massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                       width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                       width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                        glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                        option_areaconstant=option_areaconstant))
         # Option to return must melt condition
@@ -244,10 +244,11 @@ def main(list_packed_vars):
     main_glac_icethickness = list_packed_vars[4]
     main_glac_width = list_packed_vars[5]
     gcm_temp = list_packed_vars[6]
-    gcm_prec = list_packed_vars[7]
-    gcm_elev = list_packed_vars[8]
-    gcm_lr = list_packed_vars[9]
-    cal_data = list_packed_vars[10]
+    gcm_tempstd = list_packed_vars[7]
+    gcm_prec = list_packed_vars[8]
+    gcm_elev = list_packed_vars[9]
+    gcm_lr = list_packed_vars[10]
+    cal_data = list_packed_vars[11]
 
     time_start = time.time()
     parser = getparser()
@@ -450,8 +451,9 @@ def main(list_packed_vars):
                  glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
                  offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                     massbalance.runmassbalance(modelparameters_copy, glacier_rgi_table, glacier_area_t0,
-                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
+                                               glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                                               glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=0))
                 # Compute glacier volume change for every time step and use this to compute mass balance
                 glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
@@ -496,8 +498,9 @@ def main(list_packed_vars):
                  glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
                  offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                     massbalance.runmassbalance(modelparameters_copy, glacier_rgi_table, glacier_area_t0,
-                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
+                                               glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                                               glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                                option_areaconstant=0))
                 # Climatic mass balance of lowermost bin must be negative at some point
                 glac_idx = np.where(glac_bin_area_annual > 0)[0][0]
@@ -574,6 +577,7 @@ def main(list_packed_vars):
             glacier_gcm_elev = gcm_elev[glac]
             glacier_gcm_prec = gcm_prec[glac,:]
             glacier_gcm_temp = gcm_temp[glac,:]
+            glacier_gcm_tempstd = gcm_tempstd[glac,:]
             glacier_gcm_lrgcm = gcm_lr[glac,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
@@ -750,7 +754,7 @@ def main(list_packed_vars):
              glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
              offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=1))
             # Use a subset of model parameters to reduce number of constraints required
@@ -767,7 +771,7 @@ def main(list_packed_vars):
              glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
              offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=1))
             # Compute glacier volume change for every time step and use this to compute mass balance
@@ -847,7 +851,7 @@ def main(list_packed_vars):
              glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
              offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                 massbalance.runmassbalance(modelparams, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=1))
             # Compute glacier volume change for every time step and use this to compute mass balance
@@ -939,6 +943,7 @@ def main(list_packed_vars):
             glacier_gcm_elev = gcm_elev[glac]
             glacier_gcm_prec = gcm_prec[glac,:]
             glacier_gcm_temp = gcm_temp[glac,:]
+            glacier_gcm_tempstd = gcm_tempstd[glac,:]
             glacier_gcm_lrgcm = gcm_lr[glac,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
@@ -1083,7 +1088,7 @@ def main(list_packed_vars):
              glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
              offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=option_areaconstant))
             # Compute glacier volume change for every time step and use this to compute mass balance
@@ -1184,7 +1189,7 @@ def main(list_packed_vars):
              glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
              offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                 massbalance.runmassbalance(modelparams, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=0))
             # Compute glacier volume change for every time step and use this to compute mass balance
@@ -1264,6 +1269,7 @@ def main(list_packed_vars):
             glacier_gcm_elev = gcm_elev[glac]
             glacier_gcm_prec = gcm_prec[glac,:]
             glacier_gcm_temp = gcm_temp[glac,:]
+            glacier_gcm_tempstd = gcm_tempstd[glac,:]
             glacier_gcm_lrgcm = gcm_lr[glac,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
@@ -1508,7 +1514,7 @@ def main(list_packed_vars):
              glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
              offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=1,
                                            debug=False
@@ -1614,7 +1620,7 @@ def main(list_packed_vars):
              glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
              offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                 massbalance.runmassbalance(modelparams, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=1))
             # Loop through all measurements
@@ -1704,6 +1710,7 @@ def main(list_packed_vars):
                     glacier_gcm_elev = gcm_elev[glac]
                     glacier_gcm_prec = gcm_prec[glac,:]
                     glacier_gcm_temp = gcm_temp[glac,:]
+                    glacier_gcm_tempstd = gcm_tempstd[glac,:]
                     glacier_gcm_lrgcm = gcm_lr[glac,:]
                     glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
                     glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
@@ -1717,8 +1724,9 @@ def main(list_packed_vars):
                      glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
                      offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
-                                                   glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, 
+                                                   glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                                   glacier_gcm_lrglac, dates_table,
                                                    option_areaconstant=1))
                     # Mass balance comparisons
                     # Modeled mass balance [mwe]
@@ -1824,6 +1832,7 @@ def main(list_packed_vars):
                     glacier_gcm_elev = gcm_elev[glac]
                     glacier_gcm_prec = gcm_prec[glac,:]
                     glacier_gcm_temp = gcm_temp[glac,:]
+                    glacier_gcm_tempstd = gcm_tempstd[glac,:]
                     glacier_gcm_lrgcm = gcm_lr[glac,:]
                     glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
                     glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
@@ -1837,8 +1846,9 @@ def main(list_packed_vars):
                      glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
                      offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
-                                                   glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, 
+                                                   glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                                   glacier_gcm_lrglac, dates_table,
                                                    option_areaconstant=1))
                     # Mass balance comparisons
                     # Modeled mass balance [mwe]
@@ -1998,6 +2008,7 @@ def main(list_packed_vars):
             glacier_gcm_elev = gcm_elev[glac]
             glacier_gcm_prec = gcm_prec[glac,:]
             glacier_gcm_temp = gcm_temp[glac,:]
+            glacier_gcm_tempstd = gcm_tempstd[glac,:]
             glacier_gcm_lrgcm = gcm_lr[glac,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_area_t0 = main_glac_hyps.iloc[glac,:].values.astype(float)
@@ -2144,7 +2155,7 @@ def main(list_packed_vars):
              glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
              offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec,
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                            option_areaconstant=1, debug=False))
             # Calibration round
@@ -2495,10 +2506,16 @@ if __name__ == '__main__':
 
     # ===== LOAD CLIMATE DATA =====
     gcm = class_climate.GCM(name=gcm_name)
-    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+    # Air temperature [degC], Air temperature Std [K], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+    # Air temperature standard deviation [K]
+    if input.option_ablation != 2 or gcm_name not in ['ERA5']:
+        gcm_tempstd = np.zeros(gcm_temp.shape)
+    elif gcm_name in ['ERA5']:
+        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
+                                                                        main_glac_rgi, dates_table)
     # Lapse rate [K m-1]
     if gcm_name == 'ERA-Interim':
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
@@ -2533,6 +2550,7 @@ if __name__ == '__main__':
         main_glac_icethickness_chunk = main_glac_icethickness.loc[chunk:chunk+chunk_size-1].copy()
         main_glac_width_chunk = main_glac_width.loc[chunk:chunk+chunk_size-1].copy()
         gcm_temp_chunk = gcm_temp[chunk:chunk+chunk_size]
+        gcm_tempstd_chunk = gcm_tempstd[chunk:chunk+chunk_size]
         gcm_prec_chunk = gcm_prec[chunk:chunk+chunk_size]
         gcm_elev_chunk = gcm_elev[chunk:chunk+chunk_size]
         gcm_lr_chunk = gcm_lr[chunk:chunk+chunk_size]
@@ -2545,6 +2563,7 @@ if __name__ == '__main__':
                                  main_glac_icethickness_chunk,
                                  main_glac_width_chunk,
                                  gcm_temp_chunk,
+                                 gcm_tempstd_chunk,
                                  gcm_prec_chunk,
                                  gcm_elev_chunk,
                                  gcm_lr_chunk,

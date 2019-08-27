@@ -585,15 +585,17 @@ def main(list_packed_vars):
                                                                      dates_table)
         if input.option_ablation != 2:
             gcm_tempstd = np.zeros(gcm_temp.shape)
-        elif gcm_name in ['ERA5']:
+        elif input.option_ablation == 2 and gcm_name in ['ERA5']:
             gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
                                                                             main_glac_rgi, dates_table)
-        elif input.ref_gcm_name in ['ERA5']:
+        elif input.option_ablation == 2 and input.ref_gcm_name in ['ERA5']:
             # Compute temp std based on reference climate data
             ref_tempstd, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.tempstd_fn, ref_gcm.tempstd_vn, 
                                                                                 main_glac_rgi, dates_table_ref)
             # Monthly average from reference climate data
             gcm_tempstd = gcmbiasadj.monthly_avg_array_rolled(ref_tempstd, dates_table_ref, dates_table)
+        else:
+            gcm_tempstd = np.zeros(gcm_temp.shape)
             
         # Precipitation [m]
         gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, 

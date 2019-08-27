@@ -275,6 +275,11 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
             # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
             gcm_temp_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
                     gcm.temp_fn, gcm.temp_vn, main_glac_rgi_region, dates_table_nospinup)
+            if input.option_ablation != 2 or input.ref_gcm_name not in ['ERA5']:
+                gcm_tempstd_region = np.zeros(gcm_temp_region.shape)
+            elif input.ref_gcm_name in ['ERA5']:
+                gcm_tempstd_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
+                        gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi_region, dates_table_nospinup)
             gcm_prec_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
                     gcm.prec_fn, gcm.prec_vn, main_glac_rgi_region, dates_table_nospinup)
             gcm_elev_region = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_region)
@@ -294,6 +299,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
                 main_glac_icethickness = main_glac_icethickness_region
                 main_glac_width = main_glac_width_region
                 gcm_temp = gcm_temp_region
+                gcm_tempstd = gcm_tempstd_region
                 gcm_prec = gcm_prec_region
                 gcm_elev = gcm_elev_region
                 gcm_lr = gcm_lr_region
@@ -327,6 +333,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
                 main_glac_width = main_glac_width.append(main_glac_width_region)
             
                 gcm_temp = np.vstack([gcm_temp, gcm_temp_region])
+                gcm_tempstd = np.vstack([gcm_tempstd, gcm_tempstd_region])
                 gcm_prec = np.vstack([gcm_prec, gcm_prec_region])
                 gcm_elev = np.concatenate([gcm_elev, gcm_elev_region])
                 gcm_lr = np.vstack([gcm_lr, gcm_lr_region])
@@ -348,7 +355,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
         return main_glac_rgi, cal_data
     else:
         return (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-                gcm_temp, gcm_prec, gcm_elev, gcm_lr, 
+                gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, 
                 cal_data, dates_table)
         
         
@@ -686,9 +693,9 @@ def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=
     
     
 def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
-                          glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                          glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
-                          observed_error, tempchange_boundhigh, tempchange_boundlow, 
+                          glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd,
+                          glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                          observed_massbal, observed_error, tempchange_boundhigh, tempchange_boundlow, 
                           tempchange_opt_init=None, mb_max_acc=None, mb_max_loss=None, option_areaconstant=0, 
                           option_plotsteps=1, fig_fp=input.output_filepath):
     """
@@ -723,9 +730,10 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
                  glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
                  glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, 
                  offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
-                    massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                    massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, 
+                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
+                                               glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                                               glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=option_areaconstant))
                 
                 # Compute glacier volume change for every time step and use this to compute mass balance
@@ -1202,7 +1210,7 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
         glac_no = sorted(glac_no)
             
         (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-         gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+         gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
         
         posterior_cns = ['glacno', 'mb_mean', 'mb_std', 'pf_mean', 'pf_std', 'tc_mean', 'tc_std', 'ddfsnow_mean', 
                          'ddfsnow_std']
@@ -2351,7 +2359,7 @@ if __name__ == '__main__':
     #    glac_no = sorted(glac_no)
         
         (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-         gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+         gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
         
         # Elevation bins
         elev_bins = main_glac_hyps.columns.values.astype(int) 
@@ -2417,6 +2425,7 @@ if __name__ == '__main__':
             # Select subsets of data
             glacier_gcm_elev = gcm_elev[n]
             glacier_gcm_temp = gcm_temp[n,:]
+            glacier_gcm_tempstd = gcm_tempstd[n,:]
             glacier_gcm_lrgcm = gcm_lr[n,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_gcm_prec = gcm_prec[n,:]
@@ -2443,10 +2452,11 @@ if __name__ == '__main__':
                 os.makedirs(fig_fp)
             
             plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
-                                  glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                  glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
-                                  observed_error, tempchange_boundhigh, tempchange_boundlow, tempchange_opt_init, 
-                                  mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, option_areaconstant=0,
+                                  glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
+                                  glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                  glacier_gcm_lrglac, dates_table, observed_massbal, observed_error, 
+                                  tempchange_boundhigh, tempchange_boundlow, tempchange_opt_init, mb_max_acc, 
+                                  mb_max_loss, tempchange_max_acc, tempchange_max_loss, option_areaconstant=0,
                                   option_plotsteps=1, fig_fp=fig_fp)
     
     
@@ -3602,6 +3612,12 @@ if __name__ == '__main__':
         gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
         gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
         gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+        # Air temperature standard deviation [K]
+        if input.option_ablation != 2 or gcm.name not in ['ERA5']:
+            gcm_tempstd = np.zeros(gcm_temp.shape)
+        elif gcm.name in ['ERA5']:
+            gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
+                                                                            main_glac_rgi, dates_table)
         # Lapse rate [K m-1]
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     
@@ -3649,6 +3665,7 @@ if __name__ == '__main__':
             # Select subsets of data
             glacier_gcm_elev = gcm_elev[n]
             glacier_gcm_temp = gcm_temp[n,:]
+            glacier_gcm_tempstd = gcm_tempstd[n,:]
             glacier_gcm_lrgcm = gcm_lr[n,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_gcm_prec = gcm_prec[n,:]
@@ -3662,9 +3679,9 @@ if __name__ == '__main__':
             
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                     calibration.retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                                width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                                t1_idx, t2_idx, t1, t2))
+                                                width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, 
+                                                glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                                glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2))
             
             # Regional priors
             precfactor_gamma_alpha = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
@@ -4014,7 +4031,7 @@ if __name__ == '__main__':
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                     calibration.retrieve_priors(
                         modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=False))
             
             # Iterations to plot
@@ -4063,8 +4080,8 @@ if __name__ == '__main__':
                          offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                             massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, 
                                                        icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
-                                                       glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
-                                                       glacier_gcm_lrglac, dates_table, 
+                                                       glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                                                       glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                        option_areaconstant=option_areaconstant))
                         
                         # Compute glacier volume change for every time step and use this to compute mass balance
@@ -4146,7 +4163,7 @@ if __name__ == '__main__':
         fig_fp = netcdf_fp + 'figures/'
         
         (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-         gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+         gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
         
         main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
         
@@ -4182,6 +4199,7 @@ if __name__ == '__main__':
             # Select subsets of data
             glacier_gcm_elev = gcm_elev[n]
             glacier_gcm_temp = gcm_temp[n,:]
+            glacier_gcm_tempstd = gcm_tempstd[n,:]
             glacier_gcm_lrgcm = gcm_lr[n,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_gcm_prec = gcm_prec[n,:]
@@ -4197,7 +4215,7 @@ if __name__ == '__main__':
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                     calibration.retrieve_priors(
                         modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=True))
             
             # Iterations to plot
@@ -4221,9 +4239,10 @@ if __name__ == '__main__':
             
             # Plot
             plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
-                                  glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                  glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
-                                  observed_error, tempchange_boundhigh, tempchange_boundlow, 
+                                  glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
+                                  glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                  glacier_gcm_lrglac, dates_table, observed_massbal,  observed_error, 
+                                  tempchange_boundhigh, tempchange_boundlow, 
                                   mb_max_loss=mb_max_loss, option_areaconstant=0, option_plotsteps=0, fig_fp=fig_fp)
     
     
@@ -4263,7 +4282,7 @@ if __name__ == '__main__':
         glac_no = sorted(glac_no)
             
         (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-         gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+         gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
         
         df_export = main_glac_rgi[['RGIId', 'O1Region', 'glacno', 'Zmin', 'Zmax', 'Zmed']].copy()
         df_export['precfactor'] = df_all['precfactor'].values
