@@ -119,46 +119,37 @@ output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
 # Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [15]
+rgi_regionsO1 = [13, 14, 15]
 # 2nd order region numbers (RGI V6.0)
 rgi_regionsO2 = 'all'
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
-#rgi_glac_number = 'all'
-rgi_glac_number = ['03473']
-#rgi_glac_number = ['01264', '02591', '03331', '05825']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
-
 glac_no = None
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
 #glac_no = ['13.26960', '15.00002', '14.01243']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
-
-# ===== Bias adjustment option =====
-option_bias_adjustment = 1
-#  Option 0 - ignore bias adjustments
-#  Option 1 - new precipitation, temperature from Huss and Hock [2015]
-#  Option 2 - Huss and Hock [2015] methods
-
 # Reference climate dataset
-ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
-#ref_gcm_name = 'ERA5'
+#ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
+ref_gcm_name = 'ERA5'
 
 # First and last year of model run
-#startyear = 1980
-#endyear = 2017
-startyear = 2000
-endyear = 2018
+startyear = 1980
+endyear = 2017
+#startyear = 2000
+#endyear = 2018
 # Spin up time [years]
 spinupyears = 0
 # Water year option
-#option_wateryear = 1
-option_wateryear = 3
+option_wateryear = 1
+#option_wateryear = 3
 #  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 30 2000)
 #  Option 2 - calendar year
 #  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
@@ -170,10 +161,10 @@ constantarea_years = 0
 
 # Simulation runs
 #  simulation runs are separate such that calibration runs can be run at same time as simulations
-gcm_startyear = 2000
-gcm_endyear = 2017
 #gcm_startyear = 2000
-#gcm_endyear = 2100
+#gcm_endyear = 2017
+gcm_startyear = 2000
+gcm_endyear = 2100
 gcm_spinupyears = 0
 gcm_wateryear = 1
 
@@ -196,14 +187,11 @@ synthetic_prec_factor = 1.12
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 2
+option_calibration = 4
 # Calibration datasets
-cal_datasets = ['shean']
-#cal_datasets = ['mcnabb']
-#cal_datasets = ['larsen']
-#cal_datasets = ['mcnabb', 'larsen']
-#cal_datasets = ['wgms_d', 'group']
-#cal_datasets = ['shean', 'wgms_d', 'wgms_ee', 'group']
+#cal_datasets = ['shean']
+cal_datasets = ['larsen']
+#cal_datasets = ['shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group']
 # Calibration output filepath (currently only for option 1)
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
@@ -311,8 +299,7 @@ ddfsnow_start=ddfsnow_mu
 #%% SIMULATION OUTPUT
 # Number of model parameter sets for simulation
 #  if 1, the median is used
-print('\n\nCHANGE BACK SIM ITERS\n\n')
-sim_iters = 1
+sim_iters = 100
 sim_burn = 200
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
@@ -796,6 +783,10 @@ precgrad_lobf_property_cn = 'Zmed'
 precgrad_lobf_slope = 0
 
 #%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
+option_bias_adjustment = 1
+#  Option 0 - ignore bias adjustments
+#  Option 1 - new precipitation, temperature from Huss and Hock [2015]
+#  Option 2 - Huss and Hock [2015] methods
 biasadj_fp = output_filepath + 'biasadj/'
 #biasadj_fn =
 #biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
@@ -851,12 +842,12 @@ option_preclimit = 1
 option_accumulation = 2
 #  Option 1 (default) - Single threshold (<= snow, > rain)
 #  Option 2 - single threshold +/- 1 deg uses linear interpolation
-option_ablation = 1
+option_ablation = 2
 #  Option 1 (default) - use monthly temperature
 #  Option 2 - use standard deviation of monthly temperature enabling melt during transition season (Huss and Hock 2015)
 
 # Refreezing model options
-option_refreezing = 1
+option_refreezing = 2
 #  Option 1 (default) - heat conduction approach (Huss and Hock, 2015)
 #  Option 2 - annual air temperature appraoch (Woodward et al., 1997)
 # Refreeze depth [m]
