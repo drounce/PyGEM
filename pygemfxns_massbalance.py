@@ -281,7 +281,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     # Remove negative refreezing values
                     bin_refreezepotential_annual[bin_refreezepotential_annual < 0] = 0
                     # Place annual refreezing in user-defined month for accounting and melt purposes
-                    placeholder = (12 - dates_table.loc[0,'month'] + input.refreeze_month) % 12
+                    placeholder = (12 - dates_table.loc[0,'month'] + input.rf_month) % 12
                     bin_refreezepotential[:,12*year + placeholder] = bin_refreezepotential_annual  
                 
                 # ENTER MONTHLY LOOP (monthly loop required as )
@@ -292,16 +292,13 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     # SNOWPACK, REFREEZE, MELT, AND CLIMATIC MASS BALANCE
                     # Snowpack [m w.e.] = snow remaining + new snow
                     bin_snowpack[:,step] = snowpack_remaining + bin_acc[:,step]  
-                    # Energy available for melt [degC day]    
+                    # Energy available for melt [degC day]   
+                    # Option 1: monthly temperature
                     if input.option_ablation == 1:
                         melt_energy_available = bin_temp[:,step]*dayspermonth[step]
                         melt_energy_available[melt_energy_available < 0] = 0
+                    # Option 2: monthly temperature superimposed with daily temperature variability
                     elif input.option_ablation == 2:
-                        # Select temp standard deviation, N(0, monthly_std) + bin_temp
-                        #  resulting array will have shape (bins, dayspermonth[step])
-                        #  sum allow the columns
-                        #  remove negative energy
-                        
                         # daily temperature variation in each bin for the monthly timestep
                         bin_tempstd_daily = np.repeat(
                                 np.random.normal(loc=0, scale=glacier_gcm_tempstd[step], size=dayspermonth[step])
@@ -328,7 +325,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                             
                             print('new melt energy:', np.round(melt_energy_available[glac_idx_t0[0]],2))
                             print('old melt energy:', np.round(melt_energy_available_old[glac_idx_t0[0]],2),'\n')
-                    
+
                     # Snow melt [m w.e.]
                     bin_meltsnow[:,step] = surfacetype_ddf_dict[2] * melt_energy_available
                     # snow melt cannot exceed the snow depth
@@ -338,6 +335,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     melt_energy_available = melt_energy_available - bin_meltsnow[:,step] / surfacetype_ddf_dict[2]
                     # remove low values of energy available caused by rounding errors in the step above
                     melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
+                    
                     # Compute the refreeze, refreeze melt, and any changes to the snow depth
                     # Refreeze potential [m w.e.]
                     #  timing of refreeze potential will vary with the method (air temperature approach updates annual 
@@ -364,6 +362,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     snowpack_remaining = (bin_snowpack[:,step] + bin_refreeze[:,step] - 
                                           bin_meltsnow[:,step] - bin_meltrefreeze[:,step])
                     snowpack_remaining[abs(snowpack_remaining) < input.tolerance] = 0
+                    
                     # Compute melt from remaining energy, if any exits, and additional refreeze in the accumulation zone
                     # DDF based on surface type [m w.e. degC-1 day-1]
                     for surfacetype_idx in surfacetype_ddf_dict: 
@@ -1272,7 +1271,7 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
 
 def surfacetypeDDFdict(modelparameters, 
                        option_surfacetype_firn=input.option_surfacetype_firn,
-                       option_DDF_firn=input.option_DDF_firn):
+                       option_ddf_firn=input.option_ddf_firn):
     """
     Create a dictionary of surface type and its respective DDF.
     
@@ -1291,7 +1290,7 @@ def surfacetypeDDFdict(modelparameters,
         Order of model parameters should not be changed as the run mass balance script relies on this order
     option_surfacetype_firn : int
         Option to include or exclude firn (specified in pygem_input.py)
-    option_DDF_firn : int
+    option_ddf_firn : int
         Option for the degree day factor of firn to be the average of snow and ice or a different value
     Returns
     -------
@@ -1304,9 +1303,9 @@ def surfacetypeDDFdict(modelparameters,
             1: modelparameters[5],
             2: modelparameters[4]}
     if option_surfacetype_firn == 1:
-        if option_DDF_firn == 0:
+        if option_ddf_firn == 0:
             surfacetype_ddf_dict[3] = modelparameters[4]
-        elif option_DDF_firn == 1:
+        elif option_ddf_firn == 1:
             surfacetype_ddf_dict[3] = np.mean([modelparameters[4],modelparameters[5]])
     if input.option_surfacetype_debris == 1:
         surfacetype_ddf_dict[4] = input.DDF_debris

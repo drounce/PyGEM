@@ -118,15 +118,13 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-# Region number 1st order (RGI V6.0) - HMA is 13, 14, 15
-rgi_regionsO1 = [13, 14, 15]
-# 2nd order region numbers (RGI V6.0)
-rgi_regionsO2 = 'all'
+rgi_regionsO1 = [15]            # 1st order region number (RGI V6.0)
+rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
-rgi_glac_number = 'all'
-#rgi_glac_number = ['03473']
+#rgi_glac_number = 'all'
+rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
@@ -136,68 +134,67 @@ glac_no = None
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
-# Reference climate dataset
-#ref_gcm_name = 'ERA-Interim' # used as default for argument parsers
-ref_gcm_name = 'ERA5'
+# ===== CLIMATE DATA ===== 
+# Reference period runs
+#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
+ref_gcm_name = 'ERA5'           # reference climate dataset
 
-# First and last year of model run
-startyear = 1980
-endyear = 2017
-#startyear = 2000
-#endyear = 2018
-# Spin up time [years]
-spinupyears = 0
-# Water year option
-option_wateryear = 1
-#option_wateryear = 3
-#  Option 1 (default) - water year (ex. 2000: Oct 1 1999 - Sept 30 2000)
-#  Option 2 - calendar year
-#  Option 3 - define start/end months and days (BE CAREFUL WHEN CUSTOMIZING USING OPTION 3 - DOUBLE CHECK YOUR DATES)
-#  water year example: 2000 would start on October 1999, since October 1999 - September 2000 is the water year 2000
-#  calendar year example: 2000 would start on January 2000
-# Number of years to not let the area or volume change
-#constantarea_years = 37
-constantarea_years = 0
+#startyear = 1980                # first year of model run (reference dataset)
+#endyear = 2017                  # last year of model run (reference dataset)
+#option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
+startyear = 2000                # first year of model run (reference dataset)
+endyear = 2018                  # last year of model run (reference dataset)
+option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
 
-# Simulation runs
-#  simulation runs are separate such that calibration runs can be run at same time as simulations
-#gcm_startyear = 2000
-#gcm_endyear = 2017
-gcm_startyear = 2000
-gcm_endyear = 2100
-gcm_spinupyears = 0
-gcm_wateryear = 1
+spinupyears = 0                 # spin up years
+constantarea_years = 0          # number of years to not let the area or volume change
 
-# Hindcast flips the array such that 1960 - 2000 would go from 2000-1960 ensuring that the glacier area at 2000 is
-# what it's supposed to be.
-hindcast = 0
+# Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
+gcm_startyear = 2000            # first year of model run (simulation dataset)
+gcm_endyear = 2017              # last year of model run (simulation dataset)
+#gcm_startyear = 2000            # first year of model run (simulation dataset)
+#gcm_endyear = 2100              # last year of model run (simulation dataset)
+gcm_spinupyears = 0             # spin up years for simulation
+gcm_wateryear = 1               # water year for simmulation
+
+# Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
+hindcast = 0                    # 1: run hindcast simulation, 0: do not
 if hindcast == 1:
-    constantarea_years = 18 # constant years so glacier doesn't evolve until before 2000
-    gcm_startyear = 1960
-    gcm_endyear = 2017
+    constantarea_years = 18     # number of years to not let the area or volume change
+    gcm_startyear = 1960        # first year of model run (simulation dataset)
+    gcm_endyear = 2017          # last year of model run (simulation dataset)
 
-# Synthetic simulation options
-#  synthetic simulations refer to climate data that is created (ex. repeat 1990-2000 for the next 100 years)
-option_synthetic_sim = 0
-synthetic_startyear = 1995
-synthetic_endyear = 2015
-synthetic_spinupyears = 0
-synthetic_temp_adjust = 3
-synthetic_prec_factor = 1.12
+# Synthetic options (synthetic refers to created climate data, e.g., repeat 1995-2015 for the next 100 years)
+option_synthetic_sim = 0        # 1: run synthetic simulation, 0: do not
+if option_synthetic_sim == 1:
+    synthetic_startyear = 1995      # synthetic start year
+    synthetic_endyear = 2015        # synethetic end year
+    synthetic_spinupyears = 0       # synthetic spinup years
+    synthetic_temp_adjust = 3       # Temperature adjustment factor for synthetic runs
+    synthetic_prec_factor = 1.12    # Precipitation adjustment factor for synthetic runs
+
+#%% SIMULATION OPTIONS
+# MCMC options
+sim_iters = 1   # number of simulations (needed for cal_opt 2)
+sim_burn = 200  # number of burn-in (needed for cal_opt 2)
+
+# Simulation output filepath
+output_sim_fp = output_filepath + 'simulations/'
+# Simulation output statistics (can include 'mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%')
+sim_stat_cns = ['mean', 'std']
+# Bias adjustment options (0: no adjustment, 1: new prec scheme and temp from HH2015, 2: HH2015 methods)
+option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 4
-# Calibration datasets
-#cal_datasets = ['shean']
-cal_datasets = ['larsen']
-#cal_datasets = ['shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group']
-# Calibration output filepath (currently only for option 1)
+option_calibration = 2
+# Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
+cal_datasets = ['shean']
+# Calibration output filepath
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
 # OPTION 1: Minimization
-# Model parameter bounds for each calibration round
-#  first tuple will run as expected;
+# Model parameter bounds for each calibration roun
 #precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
 #precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 #ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
@@ -206,25 +203,24 @@ precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.2,5)]
 precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
 tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
-# Threshold to update the model parameters (based on the difference in zscores)
-zscore_update_threshold = 0.1
-# Additional calibration rounds in case optimization is getting stuck
-extra_calrounds = 3
+# Minimization details 
+method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
+ftol_opt = 1e-3                 # tolerance for SciPy optimization scheme
+massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
+zscore_tolerance_all = 1        # tolerance if multiple calibration points (shortcut that could be improved)
+zscore_tolerance_single = 0.1   # tolerance if only a single calibration point (want this to be more exact)
+zscore_update_threshold = 0.1   # threshold to update model params only if significantly better
+extra_calrounds = 3             # additional calibration rounds in case optimization is getting stuck
 
 # OPTION 2: MCMC
 # Chain options
-n_chains = 1 # (min 1, max 3)
-mcmc_sample_no = 10000
-mcmc_burn_no = 0
-ensemble_no = mcmc_sample_no - mcmc_burn_no
-mcmc_step = None
-#mcmc_step = 'am'
-thin_interval = 1
-
-# MCMC distribution parameters
-#precfactor_disttype = 'lognormal'
-#precfactor_disttype = 'uniform'
-precfactor_disttype = 'gamma'
+n_chains = 1                    # number of chains (min 1, max 3)
+mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
+mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
+mcmc_step = None                # step option (None or 'am')
+thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
+# Precipitation factor distribution options
+precfactor_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
 precfactor_gamma_region_dict = {'Altun Shan': [8.52, 2.54],
                                 'Central Himalaya': [2.52, 1.38],
                                 'Central Tien Shan': [1.81, 1.37],
@@ -256,9 +252,8 @@ precfactor_sigma = 1.5
 precfactor_boundlow = 0.5
 precfactor_boundhigh = 1.5
 precfactor_start = 1
-#tempchange_disttype = 'truncnormal'
-#tempchange_disttype = 'uniform'
-tempchange_disttype = 'normal'
+# Temperature bias distribution options
+tempchange_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
 tempchange_norm_region_dict = {'Altun Shan': [-0.60, 1.09],
                                'Central Himalaya': [0.13, 0.9],
                                'Central Tien Shan': [0.4, 0.85],
@@ -287,61 +282,27 @@ tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
 tempchange_step = 0.1
-
-ddfsnow_disttype = 'truncnormal'
-#ddfsnow_disttype = 'uniform'
+# Degree-day factor of snow distribution options
+ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
 ddfsnow_mu = 0.0041
 ddfsnow_sigma = 0.0015
 ddfsnow_boundlow = 0
 ddfsnow_boundhigh = np.inf
 ddfsnow_start=ddfsnow_mu
 
-#%% SIMULATION OUTPUT
-# Number of model parameter sets for simulation
-#  if 1, the median is used
-sim_iters = 100
-sim_burn = 200
-# Simulation output filepath
-output_sim_fp = output_filepath + 'simulations/'
-# Simulation output statistics
-#sim_stat_cns = ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%']
-sim_stat_cns = ['mean', 'std']
-
-
 #%% MODEL PARAMETERS
-# Option to import calibration parameters for each glacier
-option_import_modelparams = 1
-#print('\nSWITCH OPTION IMPORT MODEL PARAMS BACK!\n')
-#  Option 1 (default) - calibrated model parameters in netcdf files
-#  Option 0 - use the parameters set by the input
-precfactor = 1
-#  range 0.5 - 2
-# Precipitation gradient on glacier [m-1]
-precgrad = 0.0001
-#  range 0.0001 - 0.0010
-# Degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow = 0.0041
-#  range 2.6 - 5.1 * 10^-3
-# Temperature adjustment [deg C]
-tempchange = 0
-#  range -10 to 10
-# Lapse rate from gcm to glacier [K m-1]
-lrgcm = -0.0065
-# Lapse rate on glacier for bins [K m-1]
-lrglac = -0.0065
-#  k_p in Radic et al. (2013)
-#  c_prec in Huss and Hock (2015)
-# Degree-day factor of ice [m w.e. d-1 degC-1]
-ddfice = ddfsnow / 0.7
-#  note: '**' means to the power, so 10**-3 is 0.001
-# Ratio degree-day factor snow snow to ice
-ddfsnow_iceratio = 0.7
-# Temperature threshold for snow [deg C]
-tempsnow = 1.0
-#   Huss and Hock (2015) T_snow = 1.5 deg C with +/- 1 deg C for ratios
-#  facilitates calibration similar to Huss and Hock (2015)
-# Frontal ablation  dictating rate [yr-1]
-frontalablation_k = 2
+option_import_modelparams = 1       # 0: input values, 1: calibrated model parameters from netcdf files
+precfactor = 1                      # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
+precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
+ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
+ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
+ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
+tempchange = 0                      # temperature bias [deg C]
+lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
+lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
+tempsnow = 1.0                      # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
+frontalablation_k = 2               # frontal ablation rate [yr-1]
+af = 0.7                            # Bulk flow parameter for frontal ablation (m^-0.5)
 # Calving width dictionary to override RGI elevation bins, which can be highly inaccurate at the calving front
 width_calving_dict = {'RGI60-01.01390':5730,
                       'RGI60-01.03622':1860,
@@ -361,13 +322,11 @@ width_calving_dict = {'RGI60-01.01390':5730,
                       'RGI60-01.21001':1580,
                       'RGI60-01.23642':2820,
                       'RGI60-01.26736':3560}
-
 # Calving option
+#  option 1 - use values from HH2015
+#  option 2 - calibrate each glacier independently, use transfer functions for uncalibrated glaciers
 option_frontalablation_k = 1
-#  Option 1 (default) - use values as Huss and Hock (2015)
-#  Option 2 - calibrate each glacier independently, use transfer functions for uncalibrated glaciers
-# Calving parameter dictionary
-#  according to Supplementary Table 3 in Huss and Hock (2015)
+# Calving parameter dictionary (according to Supplementary Table 3 in HH2015)
 frontalablation_k0dict = {
             1:  3.4,
             2:  0,
@@ -389,7 +348,7 @@ frontalablation_k0dict = {
             18: 0,
             19: 1}
 
-# Model parameters column names and filepaths
+# Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
 if option_calibration == 1:
@@ -415,7 +374,6 @@ elif option_calibration == 2:
 # ERA-INTERIM (Reference data)
 # Variable names
 era_varnames = ['temperature', 'precipitation', 'geopotential', 'temperature_pressurelevels']
-#era_varnames = ['temperature']
 #  Note: do not change variable names as these are set to run with the download_erainterim_data.py script.
 #        If option 2 is being used to calculate the lapse rates, then the pressure level data is unnecessary.
 # Dates
@@ -427,12 +385,12 @@ grid_res = '0.5/0.5'
 #bounding_box = '90/0/-90/360'
 bounding_box = '50/70/25/105'
 # Lapse rate option
-option_lr_method = 1
-#  Option 0 - lapse rates are constant defined by input
-#  Option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
-#  Option 2 - lapse rates derived from surrounding pixels (varies spatially and temporally)
+#  option 0 - lapse rates are constant defined by input
+#  option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
+#  option 2 - lapse rates derived from surrounding pixels (varies spatially and temporally)
 #    Note: Be careful with option 2 as the ocean vs land/glacier temperatures can causeƒ unrealistic inversions
-#    This is the option used by Marzeion et al. (2012)
+#          This is the option used by Marzeion et al. (2012)
+option_lr_method = 1
 
 # ERA5
 era5_fp = main_directory + '/../Climate_data/ERA5/'
@@ -479,11 +437,6 @@ coawst_d02_lat_max = 38
 
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
 # ===== RGI DATA =====
-# Glacier selection option
-option_glacier_selection = 1
-#  Option 1 (default) - enter numbers associated with RGI V6.0
-#  Option 2 - glaciers/regions selected via shapefile
-#  Option 3 - glaciers/regions selected via new table (other inventory)
 # Filepath for RGI files
 rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
 # Column names
@@ -573,34 +526,18 @@ width_filedict = {
 width_colsdrop = ['RGI-ID','Cont_range']
 
 #%% MODEL TIME FRAME DATA
-# Note: models are required to have complete data for each year such that refreezing, scaling, etc. are consistent for
-#       all time periods.
+# Models require complete data for each year such that refreezing, scaling, etc. can be calculated
 # Leap year option
-option_leapyear = 1
-#  Option 1 (default) - leap year days are included, i.e., every 4th year Feb 29th is included in the model, so
-#                       days_in_month = 29 for these years.
-#  Option 0 - exclude leap years, i.e., February always has 28 days
+option_leapyear = 1         # 1: include leap year days, 0: exclude leap years so February always has 28 days
 # User specified start/end dates
 #  note: start and end dates must refer to whole years
 startmonthday = '06-01'
 endmonthday = '05-31'
-# Water year starting month
-wateryear_month_start = 10
-# First month of winter
-winter_month_start = 10
-#  for HMA, winter is considered  October 1 - April 30
-# First month of summer
-summer_month_start = 5
-#  for HMA, summer is considered May 1 - September 30
-# Option to use dates based on first of each month or those associated with the climate data
-option_dates = 1
-#  Option 1 (default) - use dates associated with the dates_table that user generates (first of each month)
-#  Option 2 - use dates associated with the climate data (problem here is that this may differ between products)
-# Model timestep
-timestep = 'monthly'
-#  enter 'monthly' or 'daily'
-#  water year example: 2000 would end on September 2000
-#  calendar year example: 2000 would end on December 2000
+wateryear_month_start = 10  # water year starting month
+winter_month_start = 10     # first month of winter (for HMA winter is October 1 - April 30)
+summer_month_start = 5      # first month of summer (for HMA summer is May 1 - Sept 30)
+option_dates = 1            # 1: use dates from date table (first of each month), 2: dates from climate data
+timestep = 'monthly'        # time step ('monthly' only option at present)
 
 # Seasonal dictionaries for WGMS data that is not provided
 lat_threshold = 75
@@ -609,7 +546,6 @@ monthdict = {'northernmost': [9, 5, 6, 8],
              'north': [10, 4, 5, 9],
              'south': [4, 9, 10, 3],
              'southernmost': [3, 10, 11, 2]}
-
 # Latitude threshold
 # 01 - Alaska - < 75
 # 02 - W Can - < 75
@@ -623,21 +559,16 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 # 10 - N Asia - 46 - 77
 
 
-#%% CALIBRATION DATA
+#%% CALIBRATION DATASETS
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2019_0213/'
-#shean_fn = 'hma_mb_20190215_0815_std+mean.csv'
-#shean_fn = 'hma_mb_20190215_0815_std+mean_all_filled_kaab.csv'
 shean_fn = 'hma_mb_20190215_0815_std+mean_all_filled_bolch.csv'
-
 shean_rgi_glacno_cn = 'RGIId'
 shean_mb_cn = 'mb_mwea'
 shean_mb_err_cn = 'mb_mwea_sigma'
 shean_time1_cn = 't1'
 shean_time2_cn = 't2'
 shean_area_cn = 'area_m2'
-#shean_vol_cn = 'mb_m3wea'
-#shean_vol_err_cn = 'mb_m3wea_sigma'
 
 # ===== BRUN GEODETIC =====
 brun_fp = main_directory + '/../DEMs/'
@@ -649,7 +580,6 @@ brun_mb_err_cn = 'err. on MB [m w.e a-1]'
 
 # ===== MAUER GEODETIC =====
 mauer_fp = main_directory + '/../DEMs/'
-#mauer_fn = 'RupperMauer_GeodeticMassBalance_Himalayas_2000_2016.csv'
 mauer_fn = 'Mauer_geoMB_HMA_1970s_2000_min80pctCov.csv'
 mauer_rgi_glacno_cn = 'RGIId'
 mauer_mb_cn = 'geoMassBal'
@@ -729,28 +659,6 @@ mb_group_data_fn = 'mb_group_data.csv'
 mb_group_t1_cn = 'begin_period'
 mb_group_t2_cn = 'end_period'
 
-
-# Minimization details
-method_opt = 'SLSQP'
-#method_opt = 'L-BFGS-B'
-ftol_opt = 1e-3
-#ftol_opt = 1e-6
-
-
-# Limit potential mass balance for future simulations option
-option_mb_envelope = 1
-
-# Mass change tolerance [%] - required for calibration
-masschange_tolerance = 0.1
-
-# Mass balance uncertainty [mwea]
-massbal_uncertainty_mwea = 0.1
-# Z-score tolerance
-#  all refers to tolerance if multiple calibration points
-#  single refers to tolerance if only a single calibration point since we want this to be more exact
-zscore_tolerance_all = 1
-zscore_tolerance_single = 0.1
-
 #%% REGIONS
 grouping = 'himap'
 if grouping == 'watershed':
@@ -769,134 +677,67 @@ elif grouping == 'himap':
     reg_csv = pd.read_csv(reg_dict_fn)
     reg_dict = dict(zip(reg_csv.RGIId, reg_csv[reg_vn]))
 
-#%% TRANSFER FUNCTIONS
-# Slope of line of best fit for parameter vs. median elevation
-#  These are derived from run_preprocessing.py option_parameter_relationships
-#  If the relationship is not significant, then set the slope to 0
-tempchange_lobf_property_cn = 'Zmed'
-tempchange_lobf_slope = 0.0028212
-precfactor_lobf_property_cn = 'Zmed'
-precfactor_lobf_slope = -0.004693
-ddfsnow_lobf_property_cn = 'Zmed'
-ddfsnow_lobf_slope = 1.112333e-06
-precgrad_lobf_property_cn = 'Zmed'
-precgrad_lobf_slope = 0
-
-#%% BIAS ADJUSTMENT OPTIONS (required for future simulations)
-option_bias_adjustment = 1
-#  Option 0 - ignore bias adjustments
-#  Option 1 - new precipitation, temperature from Huss and Hock [2015]
-#  Option 2 - Huss and Hock [2015] methods
-biasadj_fp = output_filepath + 'biasadj/'
-#biasadj_fn =
-#biasadj_params_filepath = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/'
-#biasadj_fn_lr = 'biasadj_mon_lravg_1995_2100.csv'
-#biasadj_fn_ending = '_biasadj_opt1_1995_2100.csv'
-
-#%% Mass balance model options
+#%% MASS BALANCE MODEL OPTIONS
 # Initial surface type options
 option_surfacetype_initial = 1
-#  Option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
+#  option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
 #   > Sakai et al. (2015) found that the decadal ELAs are consistent with the median elevation of nine glaciers in High
 #     Mountain Asia, and Nuimura et al. (2015) also found that the snow line altitude of glaciers in China corresponded
 #     well with the median elevation.  Therefore, the use of the median elevation for defining the initial surface type
 #     appears to be a fairly reasonable assumption in High Mountain Asia.
-#  Option 2 (Need to code) - use mean elevation instead
-#  Option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
-# Firn surface type option
-option_surfacetype_firn = 1
-#  Option 1 (default) - firn is included
-#  Option 0 - firn is not included
-# Debris surface type option
-option_surfacetype_debris = 0
-#  Option 0 (default) - debris cover is not included
-#  Option 1 - debris cover is included
-#   > Load in Batu's debris maps and specify for each glacier
-#   > Determine how DDF_debris will be included
+#  option 2 (Need to code) - use mean elevation instead
+#  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
+option_surfacetype_firn = 1         # 1: firn included; 0: no included (firn is snow)
+option_surfacetype_debris = 0       # 1: debris cover included; 0: not included
 
-# DDF firn
-option_DDF_firn = 1
-#  Option 1 (default) - DDF_firn is average of DDF_ice and DDF_snow (Huss and Hock, 2015)
-#  Option 0 - DDF_firn equal to DDF_snow (m w.e. d-1 degC-1)
-# DDF debris
-ddfdebris = ddfice
+# Downscaling model options
 # Reference elevation options for downscaling climate variables
-option_elev_ref_downscale = 'Zmed'
-#  Option 1 (default) - 'Zmed', median glacier elevation
-#  Option 2 - 'Zmax', maximum glacier elevation
-#  Option 3 - 'Zmin', minimum glacier elevation (terminus)
+option_elev_ref_downscale = 'Zmed'  # 'Zmed', 'Zmax', or 'Zmin' for median, maximum or minimum glacier elevations
 # Downscale temperature to bins options
-option_temp2bins = 1
-#  Option 1 (default) - lr_gcm and lr_glac to adjust temperature from gcm to the glacier bins
-# Adjust temperatures based on changes in surface elevation option
-option_adjusttemp_surfelev = 1
-#  Option 1 (default) - yes, adjust temperature
-#  Option 0 - do not adjust temperature
+option_temp2bins = 1                # 1: lr_gcm and lr_glac to adjust temp from gcm to the glacier bins
+option_adjusttemp_surfelev = 1      # 1: adjust temps based on surface elev changes; 0: no adjustment
 # Downscale precipitation to bins options
-option_prec2bins = 1
-#  Option 1 (default) - prec_factor and prec_grad to adjust precipitation from gcm to the glacier bins
-# Accumulation erosion
-option_preclimit = 1
-#  Option 1 (default) - limit the uppermost 25% using an expontial fxn
-# Accumulation options
+option_prec2bins = 1                # 1: prec_factor and prec_grad to adjust precip from gcm to the glacier bins
+option_preclimit = 1                # 1: limit the uppermost 25% using an expontial fxn
+
+# Accumulation model options
+#  option 1 - Single threshold (<= snow, > rain)
+#  option 2 - single threshold +/- 1 deg uses linear interpolation
 option_accumulation = 2
-#  Option 1 (default) - Single threshold (<= snow, > rain)
-#  Option 2 - single threshold +/- 1 deg uses linear interpolation
-option_ablation = 2
-#  Option 1 (default) - use monthly temperature
-#  Option 2 - use standard deviation of monthly temperature enabling melt during transition season (Huss and Hock 2015)
+
+# Ablation model options
+#  option 1 - use monthly temperature
+#  option 2 - use standard deviation of monthly temperature enabling melt during transition season (Huss and Hock 2015)
+option_ablation = 1
+option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
+ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model options
+#  option 1 - heat conduction approach (Huss and Hock, 2015)
+#  option 2 - annual air temperature appraoch (Woodward et al., 1997)
 option_refreezing = 2
-#  Option 1 (default) - heat conduction approach (Huss and Hock, 2015)
-#  Option 2 - annual air temperature appraoch (Woodward et al., 1997)
 # Refreeze depth [m]
-refreeze_depth = 10
-# Refreeze month
-refreeze_month = 10
-#  required for air temperature approach to set when the refreeze is included
+rf_month = 10                       # refreeze month (required for option 2)
 
-# Surface type options
-option_surfacetype = 1
-#  How is surface type considered, annually?
-# Surface ablation options
-option_surfaceablation = 1
-#  Option 1 (default) - DDF for snow, ice, and debris
-
-# Melt model options
-#option_melt_model = 1
-#  Option 1 (default) DDF
 # Mass redistribution / Glacier geometry change options
-option_massredistribution = 1
-#  Option 1 (default) - Mass redistribution based on Huss and Hock (2015), i.e., volume gain/loss redistributed over the
-#                       glacier using empirical normalized ice thickness change curves
-# Cross-sectional glacier shape options
-option_glaciershape = 1
-#  Option 1(default) - parabolic (used by Huss and Hock, 2015)
-#  Option 2 - rectangular, i.e., glacier lowering but area and width does not change
-#  Option 3 - triangular
-# Glacier width option
-option_glaciershape_width = 1
-#  Option 0 (default) - do not include
-#  Option 1 - include
-# Advancing glacier ice thickness change threshold
-icethickness_advancethreshold = 5
-#  Huss and Hock (2015) use a threshold of 5 m
-# Percentage of glacier considered to be terminus
-terminus_percentage = 20
-#  Huss and Hock (2015) use 20% to calculate new area and ice thickness
+option_massredistribution = 1       # 1: mass redistribution (Huss and Hock, 2015)
+option_glaciershape = 1             # 1: parabolic (Huss and Hock, 2015), 2: rectangular, 3: triangular
+option_glaciershape_width = 1       # 1: include width, 0: do not include
+icethickness_advancethreshold = 5   # advancing glacier ice thickness change threshold (5 m in Huss and Hock, 2015)
+terminus_percentage = 20            # glacier (%) considered terminus (20% in HH2015), used to size advancing new bins
 
 #%% OUTPUT OPTIONS
+# Output package
+#  option 0 - no netcdf package
+#  option 1 - "raw package" [preferred units: m w.e.]
+#              monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,
+#                                              massbal_clim)
+#              annual variables for each bin (area, icethickness, surfacetype)
+#  option 2 - "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
+#              monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff,
+#                                              snowline)
+#              annual glacier-wide variables (area, volume, ELA)
 output_package = 2
-    # Option 0 - no netcdf package
-    # Option 1 - "raw package" [preferred units: m w.e.]
-    #             monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,
-    #                                             massbal_clim)
-    #             annual variables for each bin (area, icethickness, surfacetype)
-    # Option 2 - "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
-    #             monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff,
-    #                                             snowline)
-    #             annual glacier-wide variables (area, volume, ELA)
 output_glacier_attr_vns = ['glacno', 'RGIId_float', 'CenLon', 'CenLat', 'O1Region', 'O2Region', 'Area', 'Zmin', 'Zmax',
                            'Zmed', 'Slope', 'Aspect', 'Lmax', 'Form', 'TermType', 'Surging']
 time_names = ['time', 'year', 'year_plus1']
@@ -908,39 +749,18 @@ output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac
                             'offglac_prec_monthly', 'offglac_refreeze_monthly', 'offglac_melt_monthly',
                             'offglac_snowpack_monthly', 'offglac_runoff_monthly']
 
-#%% WARNING MESSAGE OPTION
-option_warningmessages = 1
-#  Warning messages are a good check to make sure that the script is running properly, and small nuances due to
-#  differences in input data (e.g., units associated with GCM air temperature data are correct)
-#  Option 1 (default) - print warning messages within script that are meant to assist user
-#                       currently these messages are only included in a few scripts (e.g., climate data)
-#  Option 0 - do not print warning messages within script
-
 #%% MODEL PROPERTIES
-# Density of ice [kg m-3] (or Gt / 1000 km3)
-density_ice = 900
-# Density of water [kg m-3]
-density_water = 1000
-# Area of ocean [km2]
-area_ocean = 362.5 * 10**6
-# Heat capacity of ice [J K-1 kg-1]
-ch_ice = 1.89 * 10**6
-# Thermal conductivity of ice [W K-1 m-1]
-k_ice = 2.33
-# Model tolerance (used to remove low values caused by rounding errors)
-tolerance = 1e-12
-# Gravity [m s-2]
-gravity = 9.81
-# Standard pressure [Pa]
-pressure_std = 101325
-# Standard temperature [K]
-temp_std = 288.15
-# Universal gas constant [J mol-1 K-1]
-R_gas = 8.3144598
-# Molar mass of Earth's air [kg mol-1]
-molarmass_air = 0.0289644
-# Bulk flow parameter for frontal ablation (m^-0.5)
-af = 0.7
+density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
+density_water = 1000        # Density of water [kg m-3]
+area_ocean = 362.5 * 10**6  # Area of ocean [km2]
+ch_ice = 1.89 * 10**6       # Heat capacity of ice [J K-1 kg-1]
+k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
+tolerance = 1e-12           # Model tolerance (used to remove low values caused by rounding errors)
+gravity = 9.81              # Gravity [m s-2]
+pressure_std = 101325       # Standard pressure [Pa]
+temp_std = 288.15           # Standard temperature [K]
+R_gas = 8.3144598           # Universal gas constant [J mol-1 K-1]
+molarmass_air = 0.0289644   # Molar mass of Earth's air [kg mol-1]
 
 # Pass variable to shell script
 if __name__ == '__main__':

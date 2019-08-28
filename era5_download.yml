@@ -1,9 +1,0 @@
-name: era5_download
-dependencies:
-- python=3.6
-- pandas
-- numpy
-- xarray
-- pip
-- pip:
-  - cdsapi

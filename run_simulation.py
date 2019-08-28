@@ -699,13 +699,12 @@ def main(list_packed_vars):
     
     
     # ===== RUN MASS BALANCE =====
-    # Dataset to store model simulations and statistics
     # Number of simulations
-    if input.option_calibration == 1:
-        sim_iters = 1
-    elif input.option_calibration == 2:
+    if input.option_calibration == 2:
         sim_iters = input.sim_iters
-    # Create datasets
+    else:
+        sim_iters = 1
+    # Create datasets to store simulations
     output_ds_all, encoding = create_xrdataset(main_glac_rgi, dates_table, sim_iters=sim_iters, 
                                                option_wateryear=input.gcm_wateryear)
     output_ds_all_stats, encoding = create_xrdataset(main_glac_rgi, dates_table, record_stats=1, 
