@@ -196,6 +196,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
             # Functions currently set up for monthly timestep
             #  only compute mass balance while glacier exists
             if (input.timestep == 'monthly') and (glac_idx_t0.shape[0] != 0):      
+                
                 # AIR TEMPERATURE: Downscale the gcm temperature [deg C] to each bin
                 if input.option_temp2bins == 1:
                     # Downscale using gcm and glacier lapse rates
@@ -219,8 +220,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     bin_precsnow[:,12*year:12*(year+1)] = (glacier_gcm_prec[12*year:12*(year+1)] * 
                             modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
-                    
-                    
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
                 if input.option_preclimit == 1:
                     # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
@@ -265,29 +264,28 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                                          modelparameters[6] - 1])
                     bin_prec[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] <= modelparameters[6] - 1] = 0
                 
-                # POTENTIAL REFREEZE: compute potential refreeze [m w.e.] for each bin
-                if input.option_refreezing == 1:
-                    # Heat conduction approach based on Huss and Hock (2015)
-                    print('Heat conduction approach has not been coded yet.  Please choose an option that exists.'
-                          '\n\nExiting model run.\n\n')
-                    exit()
-                elif input.option_refreezing == 2:
-                    # Refreeze based on air temperature based on Woodward et al. (1997)
-                    bin_temp_annual = annualweightedmean_array(bin_temp[:,12*year:12*(year+1)], 
-                                                               dates_table.iloc[12*year:12*(year+1),:])
-                    bin_refreezepotential_annual = (-0.69 * bin_temp_annual + 0.0096) * 1/100
-                    #   R(m) = -0.69 * Tair + 0.0096 * (1 m / 100 cm)
-                    #   Note: conversion from cm to m is included
-                    # Remove negative refreezing values
-                    bin_refreezepotential_annual[bin_refreezepotential_annual < 0] = 0
-                    # Place annual refreezing in user-defined month for accounting and melt purposes
-                    placeholder = (12 - dates_table.loc[0,'month'] + input.rf_month) % 12
-                    bin_refreezepotential[:,12*year + placeholder] = bin_refreezepotential_annual  
                 
                 # ENTER MONTHLY LOOP (monthly loop required as )
                 for month in range(0,12):
                     # Step is the position as a function of year and month, which improves readability
                     step = 12*year + month
+                    
+                    # REFREEZE POTENTIAL
+                    if input.option_refreezing == 1:
+                        # Refreeze based on heat conduction approach (Huss and Hock 2015)
+                        print('\nCode heat conduction approach\n')
+                        
+                    elif input.option_refreezing == 2:
+                        # Refreeze based on annual air temperature (Woodward etal. 1997)
+                        #  R(m) = -0.69 * Tair + 0.0096 * (1 m / 100 cm)
+                        # calculate annually and place potential refreeze in user defined month
+                        if dates_table.loc[step,'month'] == input.rf_month:                        
+                            bin_temp_annual = annualweightedmean_array(bin_temp[:,12*year:12*(year+1)], 
+                                                                       dates_table.iloc[12*year:12*(year+1),:])
+                            bin_refreezepotential_annual = (-0.69 * bin_temp_annual + 0.0096) * 1/100
+                            # Remove negative refreezing values
+                            bin_refreezepotential_annual[bin_refreezepotential_annual < 0] = 0
+                            bin_refreezepotential[:,step] = bin_refreezepotential_annual
                     
                     # SNOWPACK, REFREEZE, MELT, AND CLIMATIC MASS BALANCE
                     # Snowpack [m w.e.] = snow remaining + new snow

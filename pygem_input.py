@@ -701,23 +701,24 @@ option_prec2bins = 1                # 1: prec_factor and prec_grad to adjust pre
 option_preclimit = 1                # 1: limit the uppermost 25% using an expontial fxn
 
 # Accumulation model options
-#  option 1 - Single threshold (<= snow, > rain)
-#  option 2 - single threshold +/- 1 deg uses linear interpolation
-option_accumulation = 2
+option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
 
 # Ablation model options
-#  option 1 - use monthly temperature
-#  option 2 - use standard deviation of monthly temperature enabling melt during transition season (Huss and Hock 2015)
-option_ablation = 1
+option_ablation = 1                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
 option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model options
-#  option 1 - heat conduction approach (Huss and Hock, 2015)
-#  option 2 - annual air temperature appraoch (Woodward et al., 1997)
-option_refreezing = 2
-# Refreeze depth [m]
-rf_month = 10                       # refreeze month (required for option 2)
+option_refreezing = 2               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
+if option_refreezing == 1:
+    rf_layers = 8                   # number of layers for refreezing model
+    rf_meltcrit = 0.002             # critical amount of melt [m w.e.] for initializing refreezing module
+    rf_dz = 1                       # layer thickness (m)
+    rf_dsc = 3                      # number of time steps for numerical stability (3 has been shown to work)
+    pp = 0.3                        # additional refreeze water to account for water refreezing at bare-ice surface
+    rf_layers_dens = np.array([300,300,400,450,500,550,600,650])  # approx. density of layers (kg m-3)
+elif option_refreezing == 2:
+    rf_month = 10                   # refreeze month
 
 # Mass redistribution / Glacier geometry change options
 option_massredistribution = 1       # 1: mass redistribution (Huss and Hock, 2015)
@@ -753,8 +754,11 @@ output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac
 density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
 density_water = 1000        # Density of water [kg m-3]
 area_ocean = 362.5 * 10**6  # Area of ocean [km2]
-ch_ice = 1.89 * 10**6       # Heat capacity of ice [J K-1 kg-1]
-k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
+ch_ice = 1890000            # Heat capacity of ice [J K-1 kg-1]
+ch_air = 1297               # Heat capacity of air [J K-1 kg-1]
+k_ice = 2.33                # Thermal conductivity of ice [J s-1 K-1 m-1] recall (W = J s-1)
+k_air = 0.001               # Thermal conductivity of air [J s-1 K-1 m-1]
+Lh_rf = 333550              # Latent heat of fusion [J kg-1]
 tolerance = 1e-12           # Model tolerance (used to remove low values caused by rounding errors)
 gravity = 9.81              # Gravity [m s-2]
 pressure_std = 101325       # Standard pressure [Pa]
