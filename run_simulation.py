@@ -26,6 +26,7 @@ import pygem_input as input
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
+import spc_split_glaciers as split_glaciers
 
 
 #%% FUNCTIONS
@@ -49,9 +50,12 @@ def getparser():
         filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
     batch_number (optional): int
         batch number used to differentiate output on supercomputer
+    option_ordered : int
+        option to keep glaciers ordered or to grab every n value for the batch
+        (the latter helps make sure run times on each core are similar as it removes any timing differences caused by 
+         regional variations)
     debug (optional) : int
         Switch for turning debug printing on or off (default = 0 (off))
-      
         
     Returns
     -------
@@ -73,6 +77,8 @@ def getparser():
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-batch_number', action='store', type=int, default=None,
                         help='Batch number used to differentiate output on supercomputer')
+    parser.add_argument('-option_ordered', action='store', type=int, default=1,
+                        help='switch to keep lists ordered or not')
     parser.add_argument('-debug', action='store', type=int, default=0,
                         help='Boolean for debugging to turn it on or off (default 0 is off')
     return parser
@@ -479,10 +485,9 @@ def main(list_packed_vars):
     """    
     # Unpack variables
     count = list_packed_vars[0]
-    chunk = list_packed_vars[1]
-    main_glac_rgi_all = list_packed_vars[2]
-    chunk_size = list_packed_vars[3]
-    gcm_name = list_packed_vars[4]
+    glac_no = list_packed_vars[1]
+    regions_str = list_packed_vars[2]
+    gcm_name = list_packed_vars[3]
 
     parser = getparser()
     args = parser.parse_args()
@@ -492,23 +497,13 @@ def main(list_packed_vars):
     elif args.rcp is not None:
         rcp_scenario = args.rcp
 
-    # Region string to ensure filenames are consistent
-    if args.rgi_glac_number_fn is not None:
-        regions_str = args.rgi_glac_number_fn.split('_')[0]
-    else:
-        regions_str = 'R'
-        for region in input.rgi_regionsO1:
-            regions_str += str(region)
-    
-    
     if debug:
         if 'rcp_scenario' in locals():
             print(rcp_scenario)
 
     # ===== LOAD GLACIER DATA =====
-    main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
-#    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all',
-#                                                      rgi_glac_number=rgi_glac_number)
+#    main_glac_rgi = main_glac_rgi_all.iloc[chunk:chunk + chunk_size, :].copy()
+    main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glac_no)
     # Glacier hypsometry [km**2], total area
     main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath, input.hyps_filedict, 
                                                  input.hyps_colsdrop)
@@ -790,8 +785,8 @@ def main(list_packed_vars):
                                                glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                                                glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=0,
-#                                               debug=False
-                                               debug=debug_mb
+                                               debug=False
+#                                               debug=debug_mb
                                                ))
                 
                 if input.hindcast == 1:                
@@ -940,28 +935,27 @@ if __name__ == '__main__':
     if args.rgi_glac_number_fn is not None:
         with open(args.rgi_glac_number_fn, 'rb') as f:
             glac_no = pickle.load(f)
-        rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
-        regions_str = args.rgi_glac_number_fn.split('_')[0]
-    else:
+    elif input.glac_no is not None:
         glac_no = input.glac_no
-        rgi_regionsO1 = input.rgi_regionsO1
-        regions_str = 'R'
-        for region in input.rgi_regionsO1:
-            regions_str += str(region)
-        
-    # Select all glaciers in a region
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(
-            rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 =input.rgi_regionsO2, rgi_glac_number=input.rgi_glac_number,  
-            glac_no=glac_no)
-    
-    # Define chunk size for parallel processing
-    if args.option_parallels != 0:
-        num_cores = int(np.min([main_glac_rgi_all.shape[0], args.num_simultaneous_processes]))
-        chunk_size = int(np.ceil(main_glac_rgi_all.shape[0] / num_cores))
     else:
-        # if not running in parallel, chunk size is all glaciers
+        main_glac_rgi_all = modelsetup.selectglaciersrgitable(
+                rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 =input.rgi_regionsO2, 
+                rgi_glac_number=input.rgi_glac_number)
+        glac_no = list(main_glac_rgi_all['rgino_str'].values)
+        
+    # Regions
+    regions_str = 'R'
+    for region in sorted(set([x.split('.')[0] for x in glac_no])):
+        regions_str += str(region)
+        
+    # Number of cores for parallel processing
+    if args.option_parallels != 0:
+        num_cores = int(np.min([len(glac_no), args.num_simultaneous_processes]))
+    else:
         num_cores = 1
-        chunk_size = main_glac_rgi_all.shape[0]
+        
+    # Glacier number lists to pass for parallel processing
+    glac_no_lsts = split_glaciers.split_list(glac_no, n=num_cores, option_ordered=args.option_ordered)
         
     # Read GCM names from argument parser
     gcm_name = args.gcm_list_fn
@@ -970,6 +964,7 @@ if __name__ == '__main__':
         rcp_scenario = args.rcp
     elif args.gcm_list_fn == input.ref_gcm_name:
         gcm_list = [input.ref_gcm_name]
+        rcp_scenario = args.rcp
     else:
         with open(args.gcm_list_fn, 'r') as gcm_fn:
             gcm_list = gcm_fn.read().splitlines()
@@ -984,14 +979,12 @@ if __name__ == '__main__':
             print('Processing:', gcm_name, rcp_scenario)
         # Pack variables for multiprocessing
         list_packed_vars = []
-        n = 0
-        for chunk in range(0, main_glac_rgi_all.shape[0], chunk_size):
-            list_packed_vars.append([n, chunk, main_glac_rgi_all, chunk_size, gcm_name])
-            n += 1
+        for count, glac_no_lst in enumerate(glac_no_lsts):
+            list_packed_vars.append([count, glac_no_lst, regions_str, gcm_name])
 
         # Parallel processing
         if args.option_parallels != 0:
-            print('Processing in parallel with ' + str(num_cores) + ' cores...')
+            print('Processing in parallel with ' + str(args.num_simultaneous_processes) + ' cores...')
             with multiprocessing.Pool(args.num_simultaneous_processes) as p:
                 p.map(main,list_packed_vars)
         # If not in parallel, then only should be one loop
@@ -999,7 +992,7 @@ if __name__ == '__main__':
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
-    
+
         # Merge netcdf files together into one
         # Filenames to merge
         output_list_sorted = []
@@ -1039,7 +1032,8 @@ if __name__ == '__main__':
             if count_ds == 1:
                 ds_all = ds
             else:
-                ds_all = xr.merge((ds_all, ds))
+#                ds_all = xr.merge((ds_all, ds))
+                ds_all = xr.concat([ds_all, ds], 'glac')
             # Close dataset (NOTE: closing dataset here causes error on supercomputer)
 #            ds.close()
                 

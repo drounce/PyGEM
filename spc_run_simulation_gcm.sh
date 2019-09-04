@@ -1,6 +1,6 @@
 #!/bin/sh
-#SBATCH --partition=debug
-#SBATCH --ntasks=48
+#SBATCH --partition=t1standard
+#SBATCH --ntasks=240
 #SBATCH --tasks-per-node=24
 
 echo partition: $SLURM_JOB_PARTITION
@@ -10,10 +10,11 @@ echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
 # region
 REGNO="131415"
 MERGE_SWITCH=1
+ORDERED_SWITCH=1
 
 # gcm list
 GCM_NAMES_FP="../Climate_data/cmip5/"
-GCM_NAMES_FN="gcm_rcp85_filenames_important.txt"
+GCM_NAMES_FN="gcm_rcp26_filenames_important.txt"
 # determine gcm names and rcp scenario
 GCM_NAMES_LST="$(< $GCM_NAMES_FP$GCM_NAMES_FN)"
 RCP="$(cut -d'_' -f2 <<<"$GCM_NAMES_FN")"
@@ -32,7 +33,7 @@ rgi_batch_str="R${REGNO}_rgi_glac_number_batch"
 find -name '${rgi_batch_str}_*' -exec rm {} \;
 
 # split glaciers into batches for different nodes
-python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES
+python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -option_ordered=$ORDERED_SWITCH
 
 # list rgi_glac_number batch filenames
 rgi_fns=$(find ${rgi_batch_str}*)
@@ -55,7 +56,7 @@ for GCM_NAME in $GCM_NAMES_LST; do
     BATCHNO="$(cut -d'.' -f1 <<<$(cut -d'_' -f6 <<<"$i"))"
     #echo $BATCHNO
     # run the file on a separate node (& tells the command to move to the next loop for any empty nodes)
-    srun -N 1 -n 1 python run_simulation.py -gcm_name="$GCM_NAME_NOSPACE" -rcp="$RCP" -num_simultaneous_processes=$SLURM_NTASKS_PER_NODE -rgi_glac_number_fn=$i -batch_number=$BATCHNO &
+    srun -N 1 -n 1 python run_simulation.py -gcm_name="$GCM_NAME_NOSPACE" -rcp="$RCP" -num_simultaneous_processes=$SLURM_NTASKS_PER_NODE -rgi_glac_number_fn=$i -batch_number=$BATCHNO -option_ordered=$ORDERED_SWITCH &
   done
   # wait tells the loop to not move on until all the srun commands are completed
   wait

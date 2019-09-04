@@ -5290,6 +5290,23 @@ if option_plot_cmip5_normalizedchange_proposal == 1:
     
     
 #%% EXTRA CODE
+list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--0.nc', 
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--3.nc']
+#list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--8.nc', 
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--10.nc']
+#list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--14.nc', 
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--16.nc']
+
+netcdf_fp = input.main_directory + '/../Output/simulations/spc/CCSM4/'
+for i in list_fns:
+    ds = xr.open_dataset(netcdf_fp + i)
+    df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
+    print(str(int(df.loc[0,'O1Region'])) + '.' + str(int(df.loc[0,'glacno'])))
+    print(str(int(df.loc[1,'O1Region'])) + '.' + str(int(df.loc[1,'glacno'])))
+    print(str(int(df.loc[df.shape[0]-1,'O1Region'])) + '.' + str(int(df.loc[df.shape[0]-1,'glacno'])))
+    
+
+#%%
     
 # Code for individual glacier changes mass balance vs. climate
 #        # Multimodel means

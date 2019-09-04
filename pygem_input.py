@@ -118,14 +118,15 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [15]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [13,14,15]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473']
-#rgi_glac_number = glac_num_fromrange(1,5)
+#rgi_glac_number = ['00002']
+#rgi_glac_number = glac_num_fromrange(4483,4980)
+rgi_glac_number = glac_num_fromrange(1,8)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 glac_no = None
@@ -136,8 +137,8 @@ if glac_no is not None:
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
-ref_gcm_name = 'ERA5'           # reference climate dataset
+ref_gcm_name = 'ERA-Interim'    # reference climate dataset
+#ref_gcm_name = 'ERA5'           # reference climate dataset
 
 #startyear = 1980                # first year of model run (reference dataset)
 #endyear = 2017                  # last year of model run (reference dataset)
@@ -150,10 +151,10 @@ spinupyears = 0                 # spin up years
 constantarea_years = 0          # number of years to not let the area or volume change
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
-gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2017              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2100              # last year of model run (simulation dataset)
+#gcm_endyear = 2017              # last year of model run (simulation dataset)
+gcm_startyear = 2000            # first year of model run (simulation dataset)
+gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation
 gcm_wateryear = 1               # water year for simmulation
 
@@ -175,7 +176,7 @@ if option_synthetic_sim == 1:
 
 #%% SIMULATION OPTIONS
 # MCMC options
-sim_iters = 1   # number of simulations (needed for cal_opt 2)
+sim_iters = 10   # number of simulations (needed for cal_opt 2)
 sim_burn = 200  # number of burn-in (needed for cal_opt 2)
 
 # Simulation output filepath
@@ -685,7 +686,7 @@ option_surfacetype_initial = 1
 #     Mountain Asia, and Nuimura et al. (2015) also found that the snow line altitude of glaciers in China corresponded
 #     well with the median elevation.  Therefore, the use of the median elevation for defining the initial surface type
 #     appears to be a fairly reasonable assumption in High Mountain Asia.
-#  option 2 (Need to code) - use mean elevation instead
+#  option 2 - use mean elevation
 #  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
 option_surfacetype_firn = 1         # 1: firn included; 0: no included (firn is snow)
 option_surfacetype_debris = 0       # 1: debris cover included; 0: not included
@@ -717,6 +718,7 @@ if option_refreezing == 1:
     rf_dsc = 3                      # number of time steps for numerical stability (3 has been shown to work)
     pp = 0.3                        # additional refreeze water to account for water refreezing at bare-ice surface
     rf_layers_dens = np.array([300,300,400,450,500,550,600,650])  # approx. density of layers (kg m-3)
+    
 elif option_refreezing == 2:
     rf_month = 10                   # refreeze month
 
