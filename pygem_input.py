@@ -118,15 +118,15 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [13,14,15]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [15]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 #rgi_glac_number = 'all'
-#rgi_glac_number = ['00002']
+rgi_glac_number = ['03473']
 #rgi_glac_number = glac_num_fromrange(4483,4980)
-rgi_glac_number = glac_num_fromrange(1,8)
+#rgi_glac_number = glac_num_fromrange(1,8)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 glac_no = None
@@ -151,10 +151,10 @@ spinupyears = 0                 # spin up years
 constantarea_years = 0          # number of years to not let the area or volume change
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
-#gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2017              # last year of model run (simulation dataset)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2100              # last year of model run (simulation dataset)
+gcm_endyear = 2017              # last year of model run (simulation dataset)
+#gcm_startyear = 2000            # first year of model run (simulation dataset)
+#gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation
 gcm_wateryear = 1               # water year for simmulation
 
@@ -176,7 +176,7 @@ if option_synthetic_sim == 1:
 
 #%% SIMULATION OPTIONS
 # MCMC options
-sim_iters = 10   # number of simulations (needed for cal_opt 2)
+sim_iters = 1   # number of simulations (needed for cal_opt 2)
 sim_burn = 200  # number of burn-in (needed for cal_opt 2)
 
 # Simulation output filepath
@@ -710,7 +710,7 @@ option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model options
-option_refreezing = 2               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
+option_refreezing = 1               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
 if option_refreezing == 1:
     rf_layers = 8                   # number of layers for refreezing model
     rf_meltcrit = 0.002             # critical amount of melt [m w.e.] for initializing refreezing module
@@ -756,10 +756,11 @@ output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac
 density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
 density_water = 1000        # Density of water [kg m-3]
 area_ocean = 362.5 * 10**6  # Area of ocean [km2]
-ch_ice = 1890000            # Heat capacity of ice [J K-1 kg-1]
-ch_air = 1297               # Heat capacity of air [J K-1 kg-1]
 k_ice = 2.33                # Thermal conductivity of ice [J s-1 K-1 m-1] recall (W = J s-1)
-k_air = 0.001               # Thermal conductivity of air [J s-1 K-1 m-1]
+k_air = 0.023               # Thermal conductivity of air [J s-1 K-1 m-1] (Mellor, 1997)
+#k_air = 0.001               # Thermal conductivity of air [J s-1 K-1 m-1]
+ch_ice = 1890000            # Volumetric heat capacity of ice [J K-1 m-3] (density=900, heat_capacity=2100 J K-1 kg-1)
+ch_air = 1297               # Volumetric Heat capacity of air [J K-1 m-3] (density=1.29, heat_capacity=1005 J K-1 kg-1)
 Lh_rf = 333550              # Latent heat of fusion [J kg-1]
 tolerance = 1e-12           # Model tolerance (used to remove low values caused by rounding errors)
 gravity = 9.81              # Gravity [m s-2]

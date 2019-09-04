@@ -2,10 +2,8 @@
 fxns_massbalance.py is a list of functions that are used to compute the mass
 associated with each glacier for PyGEM.
 """
-#========= LIST OF PACKAGES ==================================================
 import numpy as np
 #import pandas as pd
-#========= IMPORT COMMON VARIABLES FROM MODEL INPUT ==========================
 import pygem_input as input
 
 #========= FUNCTIONS (alphabetical order) ===================================
@@ -146,9 +144,9 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     glac_idx_initial = glacier_area_t0.nonzero()[0]
     glac_area_initial = glacier_area_t0.copy()
     if input.option_refreezing == 1:
-        # Refreezing layers heat capacity and thermal conductivity
-        rf_layers_cap = (1 - input.rf_layers_dens/1000) * input.ch_air + input.rf_layers_dens/1000 * input.ch_ice
-        rf_layers_cond = (1 - input.rf_layers_dens/1000) * input.k_air + input.rf_layers_dens/1000 * input.k_ice
+        # Refreezing layers volumetric heat capacity and thermal conductivity
+        rf_layers_ch = (1 - input.rf_layers_dens/1000) * input.ch_air + input.rf_layers_dens/1000 * input.ch_ice
+        rf_layers_k = (1 - input.rf_layers_dens/1000) * input.k_air + input.rf_layers_dens/1000 * input.k_ice
         te_rf = np.zeros((input.rf_layers,nbins))   # temp of each layer for each elev bin from present time step
         tl_rf = np.zeros((input.rf_layers,nbins))   # temp of each layer for each elev bin from previous time step
         refr = np.zeros(nbins)                      # refreeze in each bin
@@ -320,33 +318,27 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         
                         if step == 0:
                             print('THIS CODE NEEDS TO BE THOROUGHLY TESTED!!!\n\n')
-                            batman_count = 0
                         
                         # Refreeze based on heat conduction approach (Huss and Hock 2015)
-                        # refreeze time step
+                        # refreeze time step (s)
                         rf_dt = 3600 * 24 * dates_table.loc[step,'daysinmonth'] / input.rf_dsc
                         # refreeze indices
-#                        if step == 0:
-#                            print('can we delete this index?\n')
                         rf_ind = np.zeros(nbins)
-                                
                             
                         # Loop through each elevation bin of glacier
                         for nbin, gidx in enumerate(glac_idx_t0):
-#                        nbin=0
-#                        for gidx in [glac_idx_t0[nbin]]:
-#                        for gidx in glac_idx_t0[0:2]:
-                            
-                            if bin_melt[gidx,step] < input.rf_meltcrit:
-                                rf_ind[gidx] = 1
-                            else:
-                                rf_ind[gidx] = 0
-                                
-                                
-                            # ===== COMPUTE HEAT CONDUCTION - BUILD COLD RESERVOIR =====
+                                    
+                            # ===== COMPUTE HEAT CONDUCTION - BUILD COLD RESERVOIR =====                                
                             # If no melt, then build up cold reservoir (compute heat conduction)
-                            if rf_ind[gidx] == 1:
-                                # Loop through multiple iterations to converge on a solution(?)
+                            if bin_melt[gidx,step] < input.rf_meltcrit:
+                                
+
+                                if debug and nbin == 0 and step < 12:
+                                    print('\nMonth ' + str(dates_table.loc[step,'month']), 'Computing heat conduction')
+                                
+                                # Set refreeze equal to 0
+                                refr[gidx] = 0
+                                # Loop through multiple iterations to converge on a solution
                                 #  -> this will loop through 0, 1, 2
                                 for h in np.arange(0, input.rf_dsc):                                  
                                     # Compute heat conduction in layers (loop through rows)
@@ -361,13 +353,20 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                                         tl_rf[0, gidx] = bin_temp[gidx,step]
                                         # Temperature for each layer
                                         te_rf[j,gidx] = (tl_rf[j,gidx] +
-                                             ((rf_dt * rf_layers_cond[j] / rf_layers_cap[j] * (tl_rf[j-1,gidx] - tl_rf[j,gidx]) / input.rf_dz**2) -
-                                              (rf_dt * rf_layers_cond[j] / rf_layers_cap[j] * (tl_rf[j,gidx] - tl_rf[j+1,gidx]) / input.rf_dz**2)) / 2)
+                                             ((rf_dt * rf_layers_k[j] / rf_layers_ch[j] * (tl_rf[j-1,gidx] - tl_rf[j,gidx]) / input.rf_dz**2) -
+                                              (rf_dt * rf_layers_k[j] / rf_layers_ch[j] * (tl_rf[j,gidx] - tl_rf[j+1,gidx]) / input.rf_dz**2)) / 2)
                                         # Update previous time step
                                         tl_rf[:,gidx] = te_rf[:,gidx]
+                                   
+                                if nbin == 0 and step < 12:
+                                    print('tl_rf:', ["{:.2f}".format(x) for x in tl_rf[:,gidx]])
                                             
-                            # ===== COMPUTE REFREEZING - TAP INTO "COLD RESERVOIR" or potential refreezing ====
+                            # ===== COMPUTE REFREEZING - TAP INTO "COLD RESERVOIR" or potential refreezing ====    
                             else:
+                                
+                                if debug and nbin == 0 and step < 12:
+                                    print('\nMonth ' + str(dates_table.loc[step,'month']), 'Computing refreeze')
+                                
                                 # Refreezing over firn surface
                                 if (surfacetype[gidx] == 2) or (surfacetype[gidx] == 3):
                                     nlayers = input.rf_layers-1
@@ -385,66 +384,179 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                                     if smax > input.rf_layers - 1:
                                         smax = input.rf_layers - 1
                                     nlayers = int(smax)
+                        
+                                # Compute potential refreeze, "cold reservoir", from temperature in each layer 
+                                # only calculate potential refreezing first time it starts melting each year
+                                if rf_cold[gidx] == 0 and tl_rf[:,gidx].min() < 0:
                                     
-                                    if gidx == 470 and step < 12:
-                                        print('smax:', smax)
-                        
-                                # Compute the refreeze cold reservoir (potential refreezing)
-                                if step == 0:    
-                                    print('WHAT IS THIS LINE DOING? Only calculate cold reservoir first time switch over')
-                                if rf_cold[gidx] == 0:
-                                    if gidx == 470 and step < 12:
-                                        print('hello', gidx)
-                                        
-                                    # THIS LOOP HAS CHANGED DRAMATICALLY FROM HUSS AND HOCK (2015) - CHECK IT'S OKAY!
-                                    if batman_count == 0:
-                                        print('CHECK LOOP IS OKAY STILL')
+                                    if debug and nbin == 0 and step < 12:
+                                        print('calculating potential refreeze from ' + str(nlayers) + ' layers')
+                                    
                                     for j in np.arange(0,nlayers):
-                                        
                                         j += 1
-#                                        if batman_count < 20:
-#                                            print('here is j', j, gidx)
-                                        if gidx == 470 and step < 12:
-                                            print('hello2', gidx, j)
-                                        rf_cold[gidx] -= tl_rf[j,gidx] * rf_layers_cap[j] * input.rf_dz / input.Lh_rf
-                                        if gidx == 470 and step < 12:
-                                            print('here:', j, tl_rf[j,gidx], rf_layers_cap[j])
-                                        batman_count += 1
+                                        # units: (degC) * (J K-1 m-3) * (m) * (kg J-1) * (m3 kg-1)
+                                        rf_cold_layer = tl_rf[j,gidx] * rf_layers_ch[j] * input.rf_dz / input.Lh_rf / input.density_water
+                                        rf_cold[gidx] -= rf_cold_layer
+                                        if nbin == 0 and step < 12:
+                                            print('j:', j, 'tl_rf @ j:', np.round(tl_rf[j,gidx],2), 
+                                                           'ch @ j:', np.round(rf_layers_ch[j],2), 
+                                                           'rf_cold_layer @ j:', np.round(rf_cold_layer,2),
+                                                           'rf_cold @ j:', np.round(rf_cold[gidx],2))
+                                    
+                                    if debug and nbin == 0 and step < 12:
+                                        print('rf_cold:', np.round(rf_cold[gidx],2))
                         
-                                # HERE IS WHERE THE ACTUAL CALCULATION OF REFREEZE OCCURS
-                                # If melt and liquid precip < potential refreeze, then refreeze all of the melt and liquid precip
+                                # Compute refreezing
+                                # If melt and liquid prec < potential refreeze, then refreeze all melt and liquid prec
                                 if (bin_melt[gidx,step] + bin_prec[gidx,step]) < rf_cold[gidx]:
                                     refr[gidx] = bin_melt[gidx,step] + bin_prec[gidx,step]
                                 # otherwise, refreeze equals the potential refreeze
                                 elif rf_cold[gidx] > 0:
                                     refr[gidx] = rf_cold[gidx]
-                                    
-                            if debug and step < 12 and nbin==0:
-                                if rf_ind[gidx] == 1:
-                                    print('Month ' + str(dates_table.loc[step,'month']), 'Computing heat conduction')
-                                    print('te_rf:', ["{:.2f}".format(x) for x in te_rf[:-1,gidx]])
                                 else:
-                                    print('Month ' + str(dates_table.loc[step,'month']), 'Computing refreeze')
-#                                print('Month ' + str(dates_table.loc[step,'month']),
-#                                      'Rfrz cold:', np.round(rf_cold[gidx],2),
-##                                      'Snow depth:', np.round(bin_snowpack[glac_idx_t0[nbin],step],2),
-##                                      'Snow melt:', np.round(bin_meltsnow[glac_idx_t0[nbin],step],2),
-##                                      'Rain:', np.round(bin_prec[glac_idx_t0[nbin],step],2)
-#                                      )
-#                                print(te_rf[:,gidx])
-#                                print('ref[gidx]:', refr[gidx])
-                        
-                            # Track the remaining potential refreeze
-#                            if step == 0:
-#                                print('Should be able to delete parentheses here')
-                            rf_cold[gidx] -= (bin_melt[gidx,step] + bin_prec[gidx,step])
-                            # if potential refreeze consumed, then set to 0 and set temperature to 0 (temperate firn)
-                            if rf_cold[gidx] < 0:
-                                rf_cold[gidx] = 0
-                                tl_rf[:,gidx] = 0
-                            
+                                    refr[gidx] = 0
+                                    
+                                # Track the remaining potential refreeze                                    
+                                rf_cold[gidx] -= (bin_melt[gidx,step] + bin_prec[gidx,step])
+                                # if potential refreeze consumed, then set to 0 and set temperature to 0 (temperate firn)
+                                if rf_cold[gidx] < 0:
+                                    rf_cold[gidx] = 0
+                                    tl_rf[:,gidx] = 0
+                                    
+                            # Record refreeze
                             bin_refreeze[gidx,step] = refr[gidx]
                             
+                            if debug and step < 12 and nbin==0:
+                                print('Month ' + str(dates_table.loc[step,'month']),
+                                      'Rf_cold remaining:', np.round(rf_cold[gidx],2),
+                                      'Snow depth:', np.round(bin_snowpack[glac_idx_t0[nbin],step],2),
+                                      'Snow melt:', np.round(bin_meltsnow[glac_idx_t0[nbin],step],2),
+                                      'Rain:', np.round(bin_prec[glac_idx_t0[nbin],step],2),
+                                      'Rfrz:', np.round(bin_refreeze[gidx,step],2)
+                                      )             
+                        
+#                        # Refreeze based on heat conduction approach (Huss and Hock 2015)
+#                        # refreeze time step (s)
+#                        rf_dt = 3600 * 24 * dates_table.loc[step,'daysinmonth'] / input.rf_dsc
+#                        # refreeze indices
+#                        rf_ind = np.zeros(nbins)
+#                            
+#                        # Loop through each elevation bin of glacier
+#                        for nbin, gidx in enumerate(glac_idx_t0):
+#                            
+#                            if bin_melt[gidx,step] < input.rf_meltcrit:
+#                                rf_ind[gidx] = 1
+#                            else:
+#                                rf_ind[gidx] = 0
+#                                
+#                            if nbin == 0 and step < 12:
+#                                if rf_ind[gidx] == 1:
+#                                    print('\nMonth ' + str(dates_table.loc[step,'month']), 'Computing heat conduction')
+#                                    print('rf_ind:', rf_ind[gidx], 'snowpack:', np.round(bin_snowpack[gidx,step],2),
+#                                          'melt:', np.round(bin_melt[gidx,step],2))
+#                                else:
+#                                    print('\nMonth ' + str(dates_table.loc[step,'month']), 'Computing refreeze')
+#                                    print('rf_ind:', rf_ind[gidx], 'snowpack:', np.round(bin_snowpack[gidx,step],2),
+#                                          'melt:', np.round(bin_melt[gidx,step],2))
+#                                    
+#                            # ===== COMPUTE HEAT CONDUCTION - BUILD COLD RESERVOIR =====
+#                            # If no melt, then build up cold reservoir (compute heat conduction)
+#                            if rf_ind[gidx] == 1:
+#                                # Set refreeze equal to 0
+#                                refr[gidx] = 0
+#                                # Loop through multiple iterations to converge on a solution
+#                                #  -> this will loop through 0, 1, 2
+#                                for h in np.arange(0, input.rf_dsc):                                  
+#                                    # Compute heat conduction in layers (loop through rows)
+#                                    #  go from 1 to rf_layers-1 to avoid indexing errors with "j-1" and "j+1"
+#                                    #  "j+1" is set to zero, which is fine for temperate glaciers but inaccurate for cold/polythermal glaciers
+#                                    for j in np.arange(1, input.rf_layers-1):
+#                                        # Assume temperature of first layer equals air temperature
+#                                        #  assumption probably wrong, but might still work at annual average
+#                                        # Since next line uses tl_rf for all calculations, set tl_rf[0] to present mean 
+#                                        #  monthly air temperature to ensure the present calculations are done with the 
+#                                        #  present time step's air temperature
+#                                        tl_rf[0, gidx] = bin_temp[gidx,step]
+#                                        # Temperature for each layer
+#                                        te_rf[j,gidx] = (tl_rf[j,gidx] +
+#                                             ((rf_dt * rf_layers_k[j] / rf_layers_ch[j] * (tl_rf[j-1,gidx] - tl_rf[j,gidx]) / input.rf_dz**2) -
+#                                              (rf_dt * rf_layers_k[j] / rf_layers_ch[j] * (tl_rf[j,gidx] - tl_rf[j+1,gidx]) / input.rf_dz**2)) / 2)
+#                                        # Update previous time step
+#                                        tl_rf[:,gidx] = te_rf[:,gidx]
+#                                   
+#                                if nbin == 0 and step < 12:
+#                                    print('tl_rf:', ["{:.2f}".format(x) for x in tl_rf[:,gidx]])
+#                                            
+#                            # ===== COMPUTE REFREEZING - TAP INTO "COLD RESERVOIR" or potential refreezing ====
+#                            else:
+#                                # Refreezing over firn surface
+#                                if (surfacetype[gidx] == 2) or (surfacetype[gidx] == 3):
+#                                    nlayers = input.rf_layers-1
+#                                # Refreezing over ice surface
+#                                else:
+#                                    # Approximate number of layers of snow on top of ice
+#                                    smax = np.round((bin_snowpack[gidx,step] / (input.rf_layers_dens[0] / 1000) + input.pp) / input.rf_dz, 0)
+#                                    # if there is very little snow on the ground (SWE > 0.06 m for pp=0.3), then still set smax (layers) to 1
+#                                    if bin_snowpack[gidx,step] > 0 and smax == 0:
+#                                        smax=1
+#                                    # if no snow on the ground, then set to rf_cold to NoData value
+#                                    if smax == 0:
+#                                        rf_cold[gidx] = 0
+#                                    # if smax greater than the number of layers, set to max number of layers minus 1
+#                                    if smax > input.rf_layers - 1:
+#                                        smax = input.rf_layers - 1
+#                                    nlayers = int(smax)
+#                                    
+#                                    if nbin == 0 and step < 12:
+#                                        print('nlayers:', nlayers, )
+#                        
+#                                # Compute potential refreeze, "cold reservoir", from temperature in each layer 
+#                                # only calculate potential refreezing first time it starts melting each year
+#                                if rf_cold[gidx] == 0 and tl_rf[:,gidx].min() < 0:
+#                                    if debug and nbin == 0 and step < 12:
+#                                        print('calculating potential refreeze')
+#                                    for j in np.arange(0,nlayers):
+#                                        j += 1
+#                                        # units: (degC) * (J K-1 m-3) * (m) * (kg J-1) * (m3 kg-1)
+#                                        rf_cold_layer = tl_rf[j,gidx] * rf_layers_ch[j] * input.rf_dz / input.Lh_rf / input.density_water
+#                                        rf_cold[gidx] -= rf_cold_layer
+#                                        if nbin == 0 and step < 12:
+#                                            print('j:', j, 'tl_rf @ j:', np.round(tl_rf[j,gidx],2), 
+#                                                           'ch @ j:', np.round(rf_layers_ch[j],2), 
+#                                                           'rf_cold_layer @ j:', np.round(rf_cold_layer,2),
+#                                                           'rf_cold @ j:', np.round(rf_cold[gidx],2))
+#                                    
+#                                    if debug and nbin == 0 and step < 12:
+#                                        print('rf_cold:', np.round(rf_cold[gidx],2))
+#                        
+#                                # Compute refreezing
+#                                # If melt and liquid prec < potential refreeze, then refreeze all melt and liquid prec
+#                                if (bin_melt[gidx,step] + bin_prec[gidx,step]) < rf_cold[gidx]:
+#                                    refr[gidx] = bin_melt[gidx,step] + bin_prec[gidx,step]
+#                                # otherwise, refreeze equals the potential refreeze
+#                                elif rf_cold[gidx] > 0:
+#                                    refr[gidx] = rf_cold[gidx]
+#                                else:
+#                                    refr[gidx] = 0
+#                                    
+#                                # Track the remaining potential refreeze                                    
+#                                rf_cold[gidx] -= (bin_melt[gidx,step] + bin_prec[gidx,step])
+#                                # if potential refreeze consumed, then set to 0 and set temperature to 0 (temperate firn)
+#                                if rf_cold[gidx] < 0:
+#                                    rf_cold[gidx] = 0
+#                                    tl_rf[:,gidx] = 0
+#                                    
+#                            # Record refreeze
+#                            bin_refreeze[gidx,step] = refr[gidx]
+#                            
+#                            if debug and step < 12 and nbin==0:
+#                                print('Month ' + str(dates_table.loc[step,'month']),
+#                                      'Rf_cold remaining:', np.round(rf_cold[gidx],2),
+#                                      'Snow depth:', np.round(bin_snowpack[glac_idx_t0[nbin],step],2),
+#                                      'Snow melt:', np.round(bin_meltsnow[glac_idx_t0[nbin],step],2),
+#                                      'Rain:', np.round(bin_prec[glac_idx_t0[nbin],step],2),
+#                                      'Rfrz:', np.round(bin_refreeze[gidx,step],2)
+#                                      )                            
                                 
                     elif input.option_refreezing == 2:
                         # Refreeze based on annual air temperature (Woodward etal. 1997)
@@ -463,16 +575,20 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
 
                         
                         if debug and step < 12:
-                            nbin=30
+                            nbin=0
                             print('Month' + str(dates_table.loc[step,'month']),
-                                  'Refreeze potential:', np.round(refreeze_potential[glac_idx_t0[nbin]],2),
+                                  'Refreeze potential:', np.round(refreeze_potential[glac_idx_t0[nbin]],3),
                                   'Snow depth:', np.round(bin_snowpack[glac_idx_t0[nbin],step],2),
                                   'Snow melt:', np.round(bin_meltsnow[glac_idx_t0[nbin],step],2),
                                   'Rain:', np.round(bin_prec[glac_idx_t0[nbin],step],2))
                             
+                            
                         # Refreeze [m w.e.]
                         #  refreeze cannot exceed rain and melt (snow & glacier melt)
-                        bin_refreeze[:,step] = bin_melt[:,step] + bin_prec[:,step]
+                        bin_refreeze[:,step] = bin_meltsnow[:,step] + bin_prec[:,step]
+                        # refreeze cannot exceed snow depth
+                        bin_refreeze[bin_refreeze[:,step] > bin_snowpack[:,step], step] = (
+                                bin_snowpack[bin_refreeze[:,step] > bin_snowpack[:,step], step])
                         # refreeze cannot exceed refreeze potential
                         bin_refreeze[bin_refreeze[:,step] > refreeze_potential, step] = (
                                 refreeze_potential[bin_refreeze[:,step] > refreeze_potential])
@@ -484,7 +600,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                     #%%
                     
                     if step < 12 and debug:
-                        print('refreeze bin 470:', np.round(bin_refreeze[470,step],2))
+                        print('refreeze bin ' + str(int(glac_idx_t0[0]*10)) + ':', 
+                                np.round(bin_refreeze[glac_idx_t0[0],step],3))
                     
                     # SNOWPACK REMAINING [m w.e.]
                     snowpack_remaining = bin_snowpack[:,step] - bin_meltsnow[:,step]

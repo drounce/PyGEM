@@ -767,7 +767,7 @@ def main(list_packed_vars):
                     modelparameters = modelparameters_all.iloc[mp_idx,:]
                     
                 if debug:
-                    print(glacier_RGIId, (':[PF: ' + str(np.round(modelparameters[2],2)) + ' ddfsnow: ' + 
+                    print(glacier_RGIId, ('PF: ' + str(np.round(modelparameters[2],2)) + ' ddfsnow: ' + 
                           str(np.round(modelparameters[4],4)) + ' tbias: ' + str(np.round(modelparameters[7],2))))
                     debug_mb = True
                 else:
@@ -785,8 +785,8 @@ def main(list_packed_vars):
                                                glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                                                glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=0,
-                                               debug=False
-#                                               debug=debug_mb
+#                                               debug=False 
+                                               debug=debug_mb
                                                ))
                 
                 if input.hindcast == 1:                
