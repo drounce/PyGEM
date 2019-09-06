@@ -465,6 +465,27 @@ def convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_a
     glac_zmin = elev_bins[(glac_bin_area > 0).argmax(axis=0)] - input.binsize/2
     glac_wide_snowline[glac_wide_snowline < glac_zmin] = glac_zmin[glac_wide_snowline < glac_zmin]
     
+#    print('DELETE ME - TESTING')
+#    # Compute glacier volume change for every time step and use this to compute mass balance
+#    #  this will work for any indexing
+#    glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+#    
+##    print('glac_wide_area_annual:', glac_wide_area_annual)
+#    
+#    # Mass change [km3 mwe]
+#    #  mb [mwea] * (1 km / 1000 m) * area [km2]
+#    glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+#    
+#    print('glac_wide_melt:', glac_wide_melt)
+##    print('glac_wide_massbaltotal:', glac_wide_massbaltotal)
+##    print('glac_wide_masschange:', glac_wide_masschange)
+##    print('glac_wide_masschange.shape[0] / 12:', glac_wide_masschange.shape[0] / 12)
+#    
+#    # Mean annual mass balance [mwea]
+#    mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
+#               (glac_wide_masschange.shape[0] / 12))
+#    print('  mb_model [mwea]:', mb_mwea.round(3))
+    
     return (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt, 
             glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, 
             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual)
@@ -735,7 +756,7 @@ def main(list_packed_vars):
                 glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][7:]
                 
             if input.option_import_modelparams == 1:
-                ds_mp = xr.open_dataset(input.modelparams_fp_dict[glacier_rgi_table.O1Region] + glacier_RGIId + '.nc')
+                ds_mp = xr.open_dataset(input.modelparams_fp + glacier_RGIId + '.nc')
                 cn_subset = input.modelparams_colnames
                 modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
                                                     columns=ds_mp.mp.values)[cn_subset])
@@ -746,9 +767,7 @@ def main(list_packed_vars):
                                                 .reshape(1,-1), columns=input.modelparams_colnames))
             
             # Set the number of iterations and determine every kth iteration to use for the ensemble
-            if (input.option_calibration == 1) or (modelparameters_all.shape[0] == 1):
-                sim_iters = 1
-            elif input.option_calibration == 2:
+            if input.option_calibration == 2 and modelparameters_all.shape[0] > 1:
                 sim_iters = input.sim_iters
                 # Select every kth iteration
                 mp_spacing = int((modelparameters_all.shape[0] - input.sim_burn) / sim_iters)
@@ -756,6 +775,8 @@ def main(list_packed_vars):
                 np.random.shuffle(mp_idx_start)
                 mp_idx_start = mp_idx_start[0]
                 mp_idx_all = np.arange(mp_idx_start, modelparameters_all.shape[0], mp_spacing)
+            else:
+                sim_iters = 1
                 
             # Loop through model parameters
             for n_iter in range(sim_iters):
@@ -785,9 +806,7 @@ def main(list_packed_vars):
                                                glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                                                glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=0,
-#                                               debug=False 
-                                               debug=debug_mb
-                                               ))
+                                               debug=input.debug_mb, debug_refreeze=input.debug_refreeze))
                 
                 if input.hindcast == 1:                
                     glac_bin_temp = glac_bin_temp[:,::-1]
@@ -817,19 +836,6 @@ def main(list_packed_vars):
                     offglac_wide_runoff = offglac_wide_runoff[::-1]
                     
                 
-                if debug:
-                    # Compute glacier volume change for every time step and use this to compute mass balance
-                    #  this will work for any indexing
-                    glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-                    # Mass change [km3 mwe]
-                    #  mb [mwea] * (1 km / 1000 m) * area [km2]
-                    glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
-                    # Mean annual mass balance [mwea]
-                    mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
-                               (glac_wide_masschange.shape[0] / 12))
-                    print('  mb_model [mwea]:', mb_mwea.round(3))
-                    
-                
                 # RECORD PARAMETERS TO DATASET            
                 if input.output_package == 2:
                     (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt, 
@@ -839,6 +845,18 @@ def main(list_packed_vars):
                                                       glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, 
                                                       glac_bin_frontalablation, glac_bin_massbalclim_annual, 
                                                       glac_bin_area_annual, glac_bin_icethickness_annual))
+                    
+                    if debug:
+                        # Compute glacier volume change for every time step and use this to compute mass balance
+                        #  this will work for any indexing
+                        glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+                        # Mass change [km3 mwe]
+                        #  mb [mwea] * (1 km / 1000 m) * area [km2]
+                        glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+                        # Mean annual mass balance [mwea]
+                        mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
+                                   (glac_wide_masschange.shape[0] / 12))
+                        print('  mb_model [mwea]:', mb_mwea.round(3))
     
                     # Record output to xarray dataset
                     output_ds_all.temp_glac_monthly[glac, :, n_iter] = glac_wide_temp
@@ -997,10 +1015,10 @@ if __name__ == '__main__':
         # Filenames to merge
         output_list_sorted = []
         output_sim_fp = input.output_sim_fp + gcm_name + '/'
-        if input.option_calibration == 1:
-            sim_iters = 1
-        elif input.option_calibration == 2:
+        if input.option_calibration == 2:
             sim_iters = input.sim_iters
+        else:
+            sim_iters = 1
         
         if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
             check_str = (regions_str + '_' + gcm_name + '_c' + str(input.option_calibration) + '_ba' + 

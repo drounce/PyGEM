@@ -118,13 +118,13 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [15]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [1]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 #rgi_glac_number = 'all'
-rgi_glac_number = ['03473']
+rgi_glac_number = ['02190']
 #rgi_glac_number = glac_num_fromrange(4483,4980)
 #rgi_glac_number = glac_num_fromrange(1,8)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
@@ -137,15 +137,15 @@ if glac_no is not None:
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-ref_gcm_name = 'ERA-Interim'    # reference climate dataset
-#ref_gcm_name = 'ERA5'           # reference climate dataset
+#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
+ref_gcm_name = 'ERA5'           # reference climate dataset
 
-#startyear = 1980                # first year of model run (reference dataset)
-#endyear = 2017                  # last year of model run (reference dataset)
-#option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
-startyear = 2000                # first year of model run (reference dataset)
+startyear = 1980                # first year of model run (reference dataset)
 endyear = 2018                  # last year of model run (reference dataset)
-option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
+option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
+#startyear = 2000                # first year of model run (reference dataset)
+#endyear = 2018                  # last year of model run (reference dataset)
+#option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
 
 spinupyears = 0                 # spin up years
 constantarea_years = 0          # number of years to not let the area or volume change
@@ -176,7 +176,7 @@ if option_synthetic_sim == 1:
 
 #%% SIMULATION OPTIONS
 # MCMC options
-sim_iters = 1   # number of simulations (needed for cal_opt 2)
+sim_iters = 100   # number of simulations (needed for cal_opt 2)
 sim_burn = 200  # number of burn-in (needed for cal_opt 2)
 
 # Simulation output filepath
@@ -188,9 +188,9 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 2
+option_calibration = 4
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
-cal_datasets = ['shean']
+cal_datasets = ['mcnabb']
 # Calibration output filepath
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
@@ -292,13 +292,13 @@ ddfsnow_boundhigh = np.inf
 ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS
-option_import_modelparams = 1       # 0: input values, 1: calibrated model parameters from netcdf files
+option_import_modelparams = 0       # 0: input values, 1: calibrated model parameters from netcdf files
 precfactor = 1                      # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
 ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
-tempchange = 0                      # temperature bias [deg C]
+tempchange = 1000                      # temperature bias [deg C]
 lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
 lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
 tempsnow = 1.0                      # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
@@ -352,25 +352,13 @@ frontalablation_k0dict = {
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
-if option_calibration == 1:
-    modelparams_fp_dict = {
-            1:  output_filepath + 'cal_opt1/reg1/',
-            3:  output_filepath + 'cal_opt1/',
-            4:  output_filepath + 'cal_opt1/',
-            6:  output_filepath + 'cal_opt1/reg6/',
-            13: output_filepath + 'cal_opt1/reg13/',
-            14: output_filepath + 'cal_opt1/reg14/',
-            15: output_filepath + 'cal_opt1/reg15/'}
-elif option_calibration == 2:
-#    modelparams_fp_dict = {
-#            13: output_filepath + 'cal_opt2/',
-#            14: output_filepath + 'cal_opt2/',
-#            15: output_filepath + 'cal_opt2/'}
-    modelparams_fp_dict = {
-            13: output_filepath + 'cal_opt2_spc_20190806/',
-            14: output_filepath + 'cal_opt2_spc_20190806/',
-            15: output_filepath + 'cal_opt2_spc_20190806/'}
-
+modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
+#modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
+#modelparams_fp_dict = {
+#        13: output_filepath + 'cal_opt2_spc_20190806/',
+#        14: output_filepath + 'cal_opt2_spc_20190806/',
+#        15: output_filepath + 'cal_opt2_spc_20190806/'}
+    
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
 # Variable names
@@ -590,7 +578,7 @@ mauer_time2_cn = 't2'
 
 # ===== MCNABB GEODETIC =====
 mcnabb_fp = main_directory + '/../DEMs/McNabb_data/wgms_dv/'
-mcnabb_fn = 'Alaska_dV_17jun_preprocessed.csv'
+mcnabb_fn = 'McNabb_data_all_preprocessed.csv'
 mcnabb_rgiid_cn = 'RGIId'
 mcnabb_mb_cn = 'mb_mwea'
 mcnabb_mb_err_cn = 'mb_mwea_sigma'
@@ -710,14 +698,18 @@ option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model options
-option_refreezing = 1               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
+option_refreezing = 2               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
 if option_refreezing == 1:
-    rf_layers = 8                   # number of layers for refreezing model
+    rf_layers = 8                   # number of layers for refreezing model (8 is sufficient - Matthias)
+    rf_layers_max = 8               # number of layers to include for refreeze calculation
+    rf_dz = 10/rf_layers            # layer thickness (m)
+#    rf_dz = 1                       # layer thickness (m)
+    rf_dsc = 3                     # number of time steps for numerical stability (3 is sufficient - Matthias)
     rf_meltcrit = 0.002             # critical amount of melt [m w.e.] for initializing refreezing module
-    rf_dz = 1                       # layer thickness (m)
-    rf_dsc = 3                      # number of time steps for numerical stability (3 has been shown to work)
     pp = 0.3                        # additional refreeze water to account for water refreezing at bare-ice surface
-    rf_layers_dens = np.array([300,300,400,450,500,550,600,650])  # approx. density of layers (kg m-3)
+    rf_dens_top = 300               # snow density at surface (kg m-3)
+    rf_dens_bot = 650               # snow density at bottom refreezing layer (kg m-3)
+    option_rf_limit_meltsnow = 1
     
 elif option_refreezing == 2:
     rf_month = 10                   # refreeze month
@@ -768,6 +760,11 @@ pressure_std = 101325       # Standard pressure [Pa]
 temp_std = 288.15           # Standard temperature [K]
 R_gas = 8.3144598           # Universal gas constant [J mol-1 K-1]
 molarmass_air = 0.0289644   # Molar mass of Earth's air [kg mol-1]
+
+#%% DEBUGGING OPTIONS
+debug_refreeze = False
+debug_mb = False
+
 
 # Pass variable to shell script
 if __name__ == '__main__':

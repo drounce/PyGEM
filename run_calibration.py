@@ -149,7 +149,8 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
             #  mb [mwea] * (1 km / 1000 m) * area [km2]
             glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
             # Mean annual mass balance [mwea]
-            mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
+#            mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
+            mb_mwea = glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / glac_wide_area_annual.shape[0]
             return mb_mwea
 
 
@@ -181,7 +182,8 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
         mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
 
         if debug:
-            print('mb_mwea_1:', np.round(mb_mwea_1,2), 'TC:', np.round(modelparameters[7],2))
+            print('mb_mwea_1:', np.round(mb_mwea_1,2), 'TC:', np.round(modelparameters[7],2), 
+                  'mb_max_loss:', np.round(mb_max_loss,2))
 
     # Looping backward for tempchange at max loss
     while mb_mwea_1 - mb_max_loss < 0.01:
@@ -1290,7 +1292,9 @@ def main(list_packed_vars):
                         retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
                                         width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                         glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                        t1_idx, t2_idx, t1, t2))
+                                        t1_idx, t2_idx, t1, t2,
+                                        debug=True
+                                        ))
                 if debug:
                     print('\nTC_low:', np.round(tempchange_boundlow,2), 'TC_high:', np.round(tempchange_boundhigh,2),
                           'mb_max_loss:', np.round(mb_max_loss,2))
@@ -1462,7 +1466,7 @@ def main(list_packed_vars):
 
             if debug:
                 print('model parameters:', pf_opt, tc_opt)
-                ds = xr.open_dataset(input.output_fp_cal + '14.00006.nc')
+                ds = xr.open_dataset(input.output_fp_cal + glacier_str + '.nc')
                 df = pd.DataFrame(ds['mp_value'].sel(chain=0).values, columns=ds.mp.values)
                 print('ds TC:', df['tempchange'].values, 'ds PF:', df['precfactor'].values)
 
