@@ -806,7 +806,7 @@ def main(list_packed_vars):
                                                glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                                                glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=0,
-                                               debug=input.debug_mb, debug_refreeze=input.debug_refreeze))
+                                               debug=input.debug_mb, debug_refreeze=input.debug_refreeze))        
                 
                 if input.hindcast == 1:                
                     glac_bin_temp = glac_bin_temp[:,::-1]
@@ -854,8 +854,10 @@ def main(list_packed_vars):
                         #  mb [mwea] * (1 km / 1000 m) * area [km2]
                         glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
                         # Mean annual mass balance [mwea]
+                        #  note: used annual shape - 1 because area and volume have "n+1 years" t0 account for initial
+                        #        and final
                         mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / 
-                                   (glac_wide_masschange.shape[0] / 12))
+                                   (glac_wide_area_annual.shape[0]-1))
                         print('  mb_model [mwea]:', mb_mwea.round(3))
     
                     # Record output to xarray dataset

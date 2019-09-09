@@ -9,6 +9,7 @@ import resource
 import time
 import inspect
 # External libraries
+from datetime import datetime
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -107,7 +108,7 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
     tempchange_max_loss, tempchange_max_acc, mb_max_loss, mb_max_acc : floats
         temperature change and mass balance associated with maximum accumulation and maximum loss
     """
-    def mb_mwea_calc(modelparameters, option_areaconstant=1, return_tc_mustmelt=0):
+    def mb_mwea_calc(modelparameters, option_areaconstant=1, return_tc_mustmelt=0, return_volremaining=0):
         """
         Run the mass balance and calculate the mass balance [mwea]
 
@@ -121,6 +122,18 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
         mb_mwea : float
             mass balance [m w.e. a-1]
         """
+        # Number of constant years
+        startyear_doy = (pd.to_datetime(pd.DataFrame({'year':[dates_table.loc[0,'date'].year], 
+                                                     'month':[dates_table.loc[0,'date'].month], 
+                                                     'day':[dates_table.loc[0,'date'].day]}))
+                                       .dt.strftime("%j").astype(float).values[0])
+        startyear_daysinyear = (
+                (pd.to_datetime(pd.DataFrame({'year':[dates_table.loc[0,'date'].year], 'month':[12], 'day':[31]})) - 
+                 pd.to_datetime(pd.DataFrame({'year':[dates_table.loc[0,'date'].year], 'month':[1], 'day':[1]})))
+                .dt.days + 1).values[0]
+        startyear_decimal = dates_table.loc[0,'date'].year + startyear_doy / startyear_daysinyear        
+        constantarea_years = int(t1 - startyear_decimal)
+        
         # Mass balance calculations
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -131,7 +144,7 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
             massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
                                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                        glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                       option_areaconstant=option_areaconstant))
+                                       option_areaconstant=option_areaconstant, constantarea_years=constantarea_years)) 
         # Option to return must melt condition
         if return_tc_mustmelt == 1:
             # Climatic mass balance of lowermost bin must be negative at some point
@@ -140,7 +153,17 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
             # Number of years with negative climatic mass balance
             nyears_negmbclim = np.sum([1 if x < 0 else 0 for x in lower_massbalclim_annual])
             return nyears_negmbclim
-
+        elif return_volremaining == 1:
+            # Ensure volume by end of century is zero
+            # Compute glacier volume change for every time step and use this to compute mass balance
+            glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+            # Mass change [km3 mwe]
+            #  mb [mwea] * (1 km / 1000 m) * area [km2]
+            glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+            # Mean annual mass balance [mwea]
+            mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
+            t2_yearidx = int(np.ceil(t2 - startyear_decimal))
+            return mb_mwea, glac_wide_volume_annual[t2_yearidx]
         # Return mass balance
         else:
             # Compute glacier volume change for every time step and use this to compute mass balance
@@ -149,10 +172,8 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
             #  mb [mwea] * (1 km / 1000 m) * area [km2]
             glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
             # Mean annual mass balance [mwea]
-#            mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
-            mb_mwea = glac_wide_masschange.sum() / glac_wide_area[0] * 1000 / glac_wide_area_annual.shape[0]
+            mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
             return mb_mwea
-
 
     # ----- TEMPBIAS: max accumulation -----
     # Lower temperature bound based on max positive mass balance adjusted to avoid edge effects
@@ -167,6 +188,8 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
         
     # ----- TEMPBIAS: UPPER BOUND -----
     # MAXIMUM LOSS - AREA EVOLVING
+    #  note: the mb_mwea_calc functions ensures the area is constant until t1 such that the glacier is not completely
+    #        lost before t1; otherwise, this will fail at high TC values
     mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0).sum() / glacier_area_t0.sum() *
                    input.density_ice / input.density_water / (t2 - t1))
 
@@ -175,23 +198,23 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
 
     # Looping forward and backward to ensure optimization does not get stuck
     modelparameters[7] = tempchange_max_acc
-    mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
+    mb_mwea_1, vol_remaining = mb_mwea_calc(modelparameters, option_areaconstant=0, return_volremaining=1)
     # use absolute value because with area evolving the maximum value is a limit
-    while mb_mwea_1 - mb_max_loss > 0:
+    while vol_remaining > 0:
         modelparameters[7] = modelparameters[7] + 1
-        mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
+        mb_mwea_1, vol_remaining = mb_mwea_calc(modelparameters, option_areaconstant=0, return_volremaining=1)
 
         if debug:
             print('mb_mwea_1:', np.round(mb_mwea_1,2), 'TC:', np.round(modelparameters[7],2), 
-                  'mb_max_loss:', np.round(mb_max_loss,2))
-
+                  'mb_max_loss:', np.round(mb_max_loss,2), 'vol_left:', np.round(vol_remaining,4))
     # Looping backward for tempchange at max loss
-    while mb_mwea_1 - mb_max_loss < 0.01:
-        modelparameters[7] = modelparameters[7] - input.tempchange_step
-        mb_mwea_1 = mb_mwea_calc(modelparameters, option_areaconstant=0)
+    while vol_remaining == 0:
+        modelparameters[7] = modelparameters[7] - 0.05
+        mb_mwea_1, vol_remaining = mb_mwea_calc(modelparameters, option_areaconstant=0, return_volremaining=1)
 
         if debug:
-            print('mb_mwea_1:', np.round(mb_mwea_1,2), 'TC:', np.round(modelparameters[7],2))
+            print('vol_left:', np.round(vol_remaining,4), 'mb_mwea_1:', np.round(mb_mwea_1,2), 
+                  'TC:', np.round(modelparameters[7],2))
 
     tempchange_max_loss = modelparameters[7]
     tempchange_boundhigh = tempchange_max_loss
@@ -209,7 +232,6 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethic
     tc_negmbclim_list = [modelparameters[7]]
     while nyears_negmbclim < 10 and modelparameters[7] < tempchange_max_loss:
         modelparameters[7] += 0.05
-#        modelparameters[7] += input.tempchange_step
         nyears_negmbclim = mb_mwea_calc(modelparameters, option_areaconstant=0, return_tc_mustmelt=1)
         nyears_negmbclim_list.append(nyears_negmbclim)
         tc_negmbclim_list.append(modelparameters[7])
@@ -1073,6 +1095,18 @@ def main(list_packed_vars):
             mb_mwea : float
                 mass balance [m w.e. a-1]
             """
+            # Number of constant years
+            startyear_doy = (pd.to_datetime(pd.DataFrame({'year':[dates_table.loc[0,'date'].year], 
+                                                         'month':[dates_table.loc[0,'date'].month], 
+                                                         'day':[dates_table.loc[0,'date'].day]}))
+                                           .dt.strftime("%j").astype(float).values[0])
+            startyear_daysinyear = (
+                    (pd.to_datetime(pd.DataFrame({'year':[dates_table.loc[0,'date'].year], 'month':[12], 'day':[31]})) - 
+                     pd.to_datetime(pd.DataFrame({'year':[dates_table.loc[0,'date'].year], 'month':[1], 'day':[1]})))
+                    .dt.days + 1).values[0]
+            startyear_decimal = dates_table.loc[0,'date'].year + startyear_doy / startyear_daysinyear        
+            constantarea_years = int(t1 - startyear_decimal)
+            
             # Mass balance calculations
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
              glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -1083,7 +1117,8 @@ def main(list_packed_vars):
                 massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0,
                                            width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                            glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                           option_areaconstant=option_areaconstant))
+                                           option_areaconstant=option_areaconstant, 
+                                           constantarea_years=constantarea_years)) 
             # Compute glacier volume change for every time step and use this to compute mass balance
             glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
             # Mass change [km3 mwe]
@@ -1092,6 +1127,7 @@ def main(list_packed_vars):
             # Mean annual mass balance [mwea]
             mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
             return mb_mwea
+        
 
         def objective(modelparameters_subset):
             """
@@ -1175,25 +1211,9 @@ def main(list_packed_vars):
                      modelparameters_subset[3]])
             # Re-run the optimized parameters in order to see the mass balance
             # Mass balance calculations
-            (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-             glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
-             glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
-             glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
-             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
-             offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
-                massbalance.runmassbalance(modelparams, glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
-                                           glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                           option_areaconstant=0))
-            # Compute glacier volume change for every time step and use this to compute mass balance
-            glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-            # Mass change [km3 mwe]
-            #  mb [mwea] * (1 km / 1000 m) * area [km2]
-            glac_wide_masschange = glac_wide_massbaltotal[t1_idx:t2_idx+1] / 1000 * glac_wide_area[t1_idx:t2_idx+1]
-            # Mean annual mass balance [mwea]
-            mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 /
-                       (glac_wide_masschange.shape[0] / 12))
-
+            mb_mwea = mb_mwea_calc(modelparams, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0,
+                                   elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm,
+                                   glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, option_areaconstant=0)
             return modelparams, mb_mwea
 
 
@@ -1293,7 +1313,7 @@ def main(list_packed_vars):
                                         width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                         glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
                                         t1_idx, t2_idx, t1, t2,
-                                        debug=True
+#                                        debug=True
                                         ))
                 if debug:
                     print('\nTC_low:', np.round(tempchange_boundlow,2), 'TC_high:', np.round(tempchange_boundhigh,2),
@@ -1321,13 +1341,10 @@ def main(list_packed_vars):
                     tc_bndhigh_opt = tempchange_init
 
                     # Constrain bounds of precipitation factor and temperature bias
-                    mb_mwea = mb_mwea_calc(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0,
-                                           elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev,
+                    mb_mwea = mb_mwea_calc(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                           width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev,
                                            glacier_gcm_lrgcm,  glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2,
                                            option_areaconstant=0)
-
-                    if glacier_str == '14.00006':
-                        debug=True
 
                     if debug:
                         print('\nTC:', np.round(modelparameters[7],2), 'PF:', np.round(modelparameters[2],2),
@@ -1350,10 +1367,10 @@ def main(list_packed_vars):
 
                         while mb_mwea > observed_massbal and test_count < 50:
 
-                            mb_mwea = mb_mwea_calc(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0,
-                                               elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev,
-                                               glacier_gcm_lrgcm,  glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2,
-                                               option_areaconstant=0)
+                            mb_mwea = mb_mwea_calc(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                                   glacier_gcm_elev, glacier_gcm_lrgcm,  glacier_gcm_lrglac, 
+                                                   dates_table, t1_idx, t2_idx, t1, t2, option_areaconstant=0)
 
                             if debug:
                                 print('\nTC:', np.round(modelparameters[7],2), 'PF:', np.round(modelparameters[2],2),
@@ -1365,8 +1382,6 @@ def main(list_packed_vars):
 
                             modelparameters[7] += tc_step
                             test_count += 1
-
-#                            pf_init = 0.76
                             pf_init = np.mean([precfactor_boundlow, precfactor_boundhigh])
 
                     else:
@@ -1380,10 +1395,10 @@ def main(list_packed_vars):
 
                         while mb_mwea < observed_massbal and test_count < 20:
 
-                            mb_mwea = mb_mwea_calc(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0,
-                                               elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev,
-                                               glacier_gcm_lrgcm,  glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2,
-                                               option_areaconstant=0)
+                            mb_mwea = mb_mwea_calc(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
+                                                   width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
+                                                   glacier_gcm_elev, glacier_gcm_lrgcm,  glacier_gcm_lrglac, 
+                                                   dates_table, t1_idx, t2_idx, t1, t2, option_areaconstant=0)
 
                             if debug:
                                 print('\nTC:', np.round(modelparameters[7],2), 'PF:', np.round(modelparameters[2],2),
@@ -1457,7 +1472,6 @@ def main(list_packed_vars):
                 mb_mwea = 0
 
 
-
             # EXPORT TO NETCDF
             netcdf_output_fp = (input.output_fp_cal)
             if not os.path.exists(netcdf_output_fp):
@@ -1465,12 +1479,11 @@ def main(list_packed_vars):
             write_netcdf_modelparams(netcdf_output_fp + glacier_str + '.nc', modelparameters, mb_mwea, observed_massbal)
 
             if debug:
-                print('model parameters:', pf_opt, tc_opt)
+                print('model parameters:', tc_opt, pf_opt)
                 ds = xr.open_dataset(input.output_fp_cal + glacier_str + '.nc')
                 df = pd.DataFrame(ds['mp_value'].sel(chain=0).values, columns=ds.mp.values)
-                print('ds TC:', df['tempchange'].values, 'ds PF:', df['precfactor'].values)
-
-
+                print('ds TC:', np.round(df['tempchange'].values[0],2), 
+                      'ds PF:', np.round(df['precfactor'].values[0],2))
 
         # ==============================================================
 

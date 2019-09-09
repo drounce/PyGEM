@@ -118,13 +118,13 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [1]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [9]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 #rgi_glac_number = 'all'
-rgi_glac_number = ['02190']
+rgi_glac_number = ['00070']
 #rgi_glac_number = glac_num_fromrange(4483,4980)
 #rgi_glac_number = glac_num_fromrange(1,8)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
@@ -282,7 +282,6 @@ tempchange_sigma = 1.4
 tempchange_boundlow = -10
 tempchange_boundhigh = 10
 tempchange_start = tempchange_mu
-tempchange_step = 0.1
 # Degree-day factor of snow distribution options
 ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
 ddfsnow_mu = 0.0041
@@ -292,13 +291,13 @@ ddfsnow_boundhigh = np.inf
 ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS
-option_import_modelparams = 0       # 0: input values, 1: calibrated model parameters from netcdf files
+option_import_modelparams = 1       # 0: input values, 1: calibrated model parameters from netcdf files
 precfactor = 1                      # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
 ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
-tempchange = 1000                      # temperature bias [deg C]
+tempchange = 0                      # temperature bias [deg C]
 lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
 lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
 tempsnow = 1.0                      # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
@@ -698,13 +697,12 @@ option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model options
-option_refreezing = 2               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
+option_refreezing = 1               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
 if option_refreezing == 1:
-    rf_layers = 8                   # number of layers for refreezing model (8 is sufficient - Matthias)
-    rf_layers_max = 8               # number of layers to include for refreeze calculation
+    rf_layers = 5                   # number of layers for refreezing model (8 is sufficient - Matthias)
+#    rf_layers_max = 8               # number of layers to include for refreeze calculation
     rf_dz = 10/rf_layers            # layer thickness (m)
-#    rf_dz = 1                       # layer thickness (m)
-    rf_dsc = 3                     # number of time steps for numerical stability (3 is sufficient - Matthias)
+    rf_dsc = 3                      # number of time steps for numerical stability (3 is sufficient - Matthias)
     rf_meltcrit = 0.002             # critical amount of melt [m w.e.] for initializing refreezing module
     pp = 0.3                        # additional refreeze water to account for water refreezing at bare-ice surface
     rf_dens_top = 300               # snow density at surface (kg m-3)

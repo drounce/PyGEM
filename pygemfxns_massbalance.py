@@ -9,8 +9,8 @@ import pygem_input as input
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
                    glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
-                   glacier_gcm_lrglac, dates_table, option_areaconstant=0, frontalablation_k=None,
-                   debug=False, debug_refreeze=False):
+                   glacier_gcm_lrglac, dates_table, option_areaconstant=0, constantarea_years=input.constantarea_years,
+                   frontalablation_k=None, debug=False, debug_refreeze=False):
     """
     Runs the mass balance and mass redistribution allowing the glacier to evolve.
     Parameters
@@ -699,7 +699,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 
                 # MASS REDISTRIBUTION
                 # Mass redistribution ignored for calibration and spinup years (glacier properties constant) 
-                if (option_areaconstant == 1) or (year < input.spinupyears) or (year < input.constantarea_years):
+                if (option_areaconstant == 1) or (year < input.spinupyears) or (year < constantarea_years):
                     glacier_area_t1 = glacier_area_t0
                     icethickness_t1 = icethickness_t0
                     width_t1 = width_t0
@@ -888,19 +888,9 @@ def calc_glacwide(bin_var, area_bin, area_wide):
     """Calculate glacier wide sum of a variable"""
     var_wide = np.zeros(bin_var.shape[1])
     var_wide_mkm2 = (bin_var * area_bin).sum(axis=0)
-    var_wide[var_wide_mkm2 > 0] = var_wide_mkm2[var_wide_mkm2 > 0] / area_wide[var_wide_mkm2 > 0]
-    
-#    print('melt_wide_mkm2.sum() 2:', var_wide_mkm2.sum())
-    
-    
-#    glac_wide_melt = calc_glacwide(bin_melt, glac_bin_area, glac_wide_area)
-#    glac_wide_melt_mkm2 = (glac_bin_melt * glac_bin_area).sum(axis=0)
-#    glac_wide_melt2 = np.zeros(glac_wide_melt.shape)
-#    glac_wide_melt2[glac_wide_melt_mkm2 > 0] = (glac_wide_melt_mkm2[glac_wide_melt_mkm2 > 0] / 
-#                                                   glac_wide_area[glac_wide_melt_mkm2 > 0])
-    
-    
+    var_wide[var_wide_mkm2 > 0] = var_wide_mkm2[var_wide_mkm2 > 0] / area_wide[var_wide_mkm2 > 0]    
     return var_wide
+
 
 def calc_runoff(prec_wide, melt_wide, refreeze_wide, area_wide):
     """
