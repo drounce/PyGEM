@@ -5,217 +5,313 @@ pygemfxns_preprocessing.py is a list of the model functions that are used to pre
 
 # Built-in libraries
 import os
-import gdal
 import argparse
 # External libraries
-import pandas as pd
-import numpy as np
+from osgeo import gdal
+import geopandas as gpd
 import matplotlib.pyplot as plt
-# Local libraries
-import pygem_input as input
+import numpy as np
+import pandas as pd
+import shapely
+
+from pygeotools.lib import iolib, warplib, geolib, timelib, malib
+
 import pygemfxns_modelsetup as modelsetup
 
- 
 
-#%% TO-DO LIST:
-# - clean up create lapse rate input data (put it all in input.py)
+#Function to generate a 3-panel plot for input arrays
+def plot3panel(dem_list, clim=None, titles=None, cmap='inferno', label=None, overlay=None, fn=None):
+    fig, axa = plt.subplots(1,3, sharex=True, sharey=True, figsize=(10,5))
+    alpha = 1.0
+    for n, ax in enumerate(axa):
+        #Gray background
+        ax.set_facecolor('0.5')
+        #Force aspect ratio to match images
+        ax.set(aspect='equal')
+        #Turn off axes labels/ticks
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        if titles is not None:
+            ax.set_title(titles[n])
+        #Plot background shaded relief map
+        if overlay is not None:
+            alpha = 0.7
+            axa[n].imshow(overlay[n], cmap='gray', clim=(1,255))
+    #Plot each array
+    im_list = [axa[i].imshow(dem_list[i], clim=clim, cmap=cmap, alpha=alpha) for i in range(len(dem_list))]
+    fig.tight_layout()
+    fig.colorbar(im_list[0], ax=axa.ravel().tolist(), label=label, extend='both', shrink=0.5)
+    if fn is not None:
+        fig.savefig(fn, bbox_inches='tight', pad_inches=0, dpi=150)
 
-#%%
-def getparser():
-    """
-    Use argparse to add arguments from the command line
+#Input DEM filenames
+dem_ref_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/DEMs/Alaska_albers_V3_mac/Alaska_albers_V3.tif'
+thickness_fp_prefix = ('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/IceThickness_Farinotti/' +
+                       'composite_thickness_RGI60-all_regions/')
+dem_farinotti_fp = ('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/IceThickness_Farinotti/surface_DEMs_RGI60/' +
+                    'surface_DEMs_RGI60-01/')
+output_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/IceThickness_Farinotti/output/'
+fig_fp = output_fp + 'figures/'
+if os.path.exists(output_fp) == False:
+    os.makedirs(output_fp)
+if os.path.exists(fig_fp) == False:
+    os.makedirs(fig_fp)
 
-    Parameters
-    ----------
-    option_farinotti2019_input : int
-        Switch for processing lapse rates (default = 0 (no))
-    debug : int
-        Switch for turning debug printing on or off (default = 0 (off))
+rgi_regionsO1 = [1]                 # RGI Order 1 regions
+binsize = 10                        # elevation bin (must be an integer greater than 1)
+dem_poorquality_threshold = 200     # threshold used to identify problems with Farinotti DEM
+option_plot_DEMsraw = True          # Option to plot the raw DEMs
+option_plot_DEMs = False             # Option to plot the masked DEMs
+debug = True
 
-    Returns
-    -------
-    Object containing arguments and their respective values.
-    """
-    parser = argparse.ArgumentParser(description="select pre-processing options")
-    # add arguments
-    parser.add_argument('-option_farinotti2019_input', action='store', type=int, default=0,
-                        help='option to produce Farinotti 2019 input products (1=yes, 0=no)')
-    parser.add_argument('-debug', action='store', type=int, default=0,
-                        help='Boolean for debugging to turn it on or off (default 0 is off)')    
-    return parser
+# ===== LOAD GLACIERS ======
+glacno_wpoor_DEM = []
+for region in rgi_regionsO1:
 
+    thickness_fp = thickness_fp_prefix + 'RGI60-' + str(region).zfill(2) + '/'
 
-def import_raster(raster_fn):
-    """Open raster and obtain the values in its first band as an array
-    Output: array of raster values
-    """
-    # open raster dataset
-    raster_ds = gdal.Open(raster_fn)
-    # extract band information and get values
-    raster_band = raster_ds.GetRasterBand(1)
-    raster_values = raster_band.ReadAsArray()
-    # extra cell size
-    gt = raster_ds.GetGeoTransform()
-    pixel_x, pixel_y = gt[1], -gt[5]
-    return raster_values, pixel_x, pixel_y
+    glacno_list = []
+    for i in os.listdir(thickness_fp):
+        if i.endswith('_thickness.tif'):
+            glacno_list.append(i.split('-')[1].split('_')[0])
+    glacno_list = sorted(glacno_list)
 
+    print('\n\nDELETE ME - SWITCH TO COMPLETE LIST\n\n')
+    glacno_list = ['01.10006']
+    # glacno_list = glacno_list[10000:10010]
 
-parser = getparser()
-args = parser.parse_args()
+    # Load RGI glacier data
+    main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glacno_list)
+    # setup empty datasets
+    elev_bins_all = np.arange(binsize / 2, main_glac_rgi.Zmax.max() + binsize / 2, binsize).astype(int)
+    df_cns = ['RGIId']
+    for elev_bin in elev_bins_all:
+        df_cns.append(elev_bin)
+    main_glac_hyps = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
+    main_glac_thickness = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
+    main_glac_width = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
+    main_glac_length = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
+    main_glac_slope = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
+    main_glac_hyps['RGIId'] = main_glac_rgi.RGIId.values
+    main_glac_thickness['RGIId'] = main_glac_rgi.RGIId.values
+    main_glac_width['RGIId'] = main_glac_rgi.RGIId.values
+    main_glac_length['RGIId'] = main_glac_rgi.RGIId.values
+    main_glac_slope['RGIId'] = main_glac_rgi.RGIId.values
 
-if args.debug == 1:
-    debug = True
-else:
-    debug = False
+    # ===== PROCESS EACH GLACIER ======
+    for nglac, glacno in enumerate(glacno_list):
+        print(nglac, glacno)
+        thickness_fn = thickness_fp + 'RGI60-' + glacno + '_thickness.tif'
+        dem_farinotti_fn = dem_farinotti_fp + 'surface_DEM_RGI60-' + glacno + '.tif'
 
-#%%
-if args.option_farinotti2019_input == 1:
-    print("\nProcess the ice thickness and surface elevation data from Farinotti (2019) to produce area," +
-          "ice thickness, width, and length for each elevation bin\n")
-    
-    print('\n\n\nDELETE SCRIPT AND REPLACE WITH THE ONE IN LARSEN DATASET PROCESSING\n\n\n')
-    
-    rgi_regionsO1 = [1]
-    binsize = 10 # elevation bin must be an integer greater than 1
-    output_fp = input.main_directory + '/../IceThickness_Farinotti/'
-    
-    for region in rgi_regionsO1:
-        # Filepath 
-        dem_fp = (input.main_directory + '/../IceThickness_Farinotti/surface_DEMs_RGI60/surface_DEMs_RGI60-' + 
-                  "{:02d}".format(region) + '/')
-        thickness_fp = (input.main_directory + '/../IceThickness_Farinotti/composite_thickness_RGI60-all_regions/' + 
-                        'RGI60-' + "{:02d}".format(region) + '/')
-        
-        # Glaciers
-        main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=[region], rgi_regionsO2='all',
-                                                          rgi_glac_number='all')
-        
-        elev_bins_all = np.arange(binsize / 2, main_glac_rgi.Zmax.max() + binsize / 2, binsize).astype(int)
-        df_cns = ['RGIId']
-        for elev_bin in elev_bins_all:
-            df_cns.append(elev_bin)
-        main_glac_hyps = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
-        main_glac_thickness = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
-        main_glac_width = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
-        main_glac_length = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
-        main_glac_slope = pd.DataFrame(np.zeros((main_glac_rgi.shape[0], len(df_cns))), columns=df_cns)
-        
-        # Loop through glaciers to derive various attributes
-        rgiid_list = list(main_glac_rgi['RGIId'].values)
-        for n_rgiid, rgiid in enumerate(rgiid_list):
-            if n_rgiid % 500 == 0:
-                print(rgiid)
-            
-            # Load filenames
-            thickness_fn = rgiid + '_thickness.tif'
-            dem_fn = 'surface_DEM_' + rgiid + '.tif'
-            
-            # Import tifs
-            thickness, thickness_pixel_x, thickness_pixel_y = import_raster(thickness_fp + thickness_fn)
-            dem_raw, dem_pixel_x, dem_pixel_y = import_raster(dem_fp + dem_fn)
-            
-            if n_rgiid % 500 == 0:
-                glacier_area_total = len(np.where(thickness > 0)[0]) * dem_pixel_x * dem_pixel_y / 10**6
-                print('glacier area [km2]:', np.round(glacier_area_total,2), 
-                      'vs RGI [km2]:', np.round(main_glac_rgi.loc[n_rgiid,'Area'],2))
-                
-            # Loop through glacier indices
-            glac_idx = np.where(thickness > 0)
-            
-            # Glacier mask            
-            glac_mask = np.zeros(thickness.shape)
-            glac_mask[glac_idx[0],glac_idx[1]] = 1
-            
-            # DEM into bins
-            dem = np.zeros(thickness.shape)
-            dem_rounded = np.zeros(thickness.shape)
-            dem[glac_idx[0],glac_idx[1]] = dem_raw[glac_idx[0],glac_idx[1]]
-            dem_rounded[glac_idx[0],glac_idx[1]] = (binsize * (dem[glac_idx[0],glac_idx[1]] / binsize).astype(int) 
-                                                    + binsize / 2)
-            dem_rounded = dem_rounded.astype(int)
-            
-            # Unique bins exluding zero
-            elev_bins = list(np.unique(dem_rounded))
-            elev_bins.remove(0)
+        # Reproject, resample, warp rasters to common extent, grid size, etc.
+        #  note: use thickness for the reference to avoid unrealistic extrapolations, e.g., negative thicknesses
+        raster_fn_list = [dem_ref_fn, dem_farinotti_fn, thickness_fn]
+        ds_list = warplib.memwarp_multi_fn(raster_fn_list, extent='intersection', res='min', t_srs=thickness_fn)
+        # print('\n\nSWITCH BACK TO THICKNESS_FN AFTER OTHERS CORRECTED!\n\n')
+        # ds_list = warplib.memwarp_multi_fn(raster_fn_list, extent='intersection', res='min', t_srs=dem_ref_fn)
 
-            for elev_bin in elev_bins:
-                
-                if debug:
-                    print('\nElevation bin:', elev_bin)
-                    
-                bin_mask = np.where(dem_rounded == elev_bin)
-                
-                # Area [km2] - bin total
-                bin_hyps = len(bin_mask[0]) * dem_pixel_x * dem_pixel_y / 10**6
-                
-                # Thickness [m] - bin mean
-                bin_thickness = thickness[bin_mask[0], bin_mask[1]].mean()
+        # masked arrays using ice thickness estimates
+        dem_ref_raw, dem_far_raw, thickness = [iolib.ds_getma(i) for i in ds_list]
+        dem_ref = dem_ref_raw.copy()
+        dem_ref.mask = thickness.mask
+        dem_far = dem_far_raw.copy()
+        dem_far.mask = thickness.mask
 
-                # Slope [deg] - bin mean
-                grad_x, grad_y = np.gradient(dem_raw, dem_pixel_x, dem_pixel_y)
-                slope = np.arctan(np.sqrt(grad_x ** 2 + grad_y ** 2))
-                slope_deg = np.rad2deg(slope)
-                bin_slope = np.mean(slope_deg[bin_mask])
-                
-                # Length [km] - based on the mean slope and bin elevation
-                bin_length = binsize / np.tan(np.deg2rad(bin_slope)) / 1000
-                
-                # Width [km] - based on length (inherently slope) and bin area
-                bin_width = bin_hyps / bin_length
-                
-                # Record properties
-                main_glac_hyps.loc[n_rgiid, elev_bin] = bin_hyps
-                main_glac_thickness.loc[n_rgiid, elev_bin] = bin_thickness
-                main_glac_width.loc[n_rgiid, elev_bin] = bin_width
-                main_glac_length.loc[n_rgiid, elev_bin] = bin_length
-                main_glac_slope.loc[n_rgiid, elev_bin] = bin_slope
-                
-                if debug:
-                    print('Area [km2]:', bin_hyps, '(Pixels:', len(bin_mask[0]), ')',
-                          '\nThickness [m]:', np.round(bin_thickness,1),
-                          '\nLength [km]:', np.round(bin_length,3), 'Width [km]:', np.round(bin_width,3), 
-                          '\nSlope [deg]:', np.round(bin_slope,1))
-        
-        # Export results
-        main_glac_hyps.to_csv(output_fp + 'area_km2_' + "{:02d}".format(region) + '_Farinotti2019_' + 
-                              str(binsize) + 'm.csv', index=False)
-        main_glac_thickness.to_csv(output_fp + 'thickness_m_' + "{:02d}".format(region) + '_Farinotti2019_' + 
-                                   str(binsize) + 'm.csv', index=False)
-        main_glac_width.to_csv(output_fp + 'width_km_' + "{:02d}".format(region) + '_Farinotti2019_' + 
+        # DEM selection for binning computations
+        # if exceeds threshold, then use the reference
+        if (abs(main_glac_rgi.loc[nglac,'Zmin'] - dem_far.min()) > dem_poorquality_threshold or
+            abs(main_glac_rgi.loc[nglac,'Zmax'] - dem_far.max()) > dem_poorquality_threshold):
+            print('  Check Glacier ' + glacno + ': use Christian DEM instead of Farinotti')
+            print('\n     RGI Zmin/Zmax:', main_glac_rgi.loc[nglac,'Zmin'], '/', main_glac_rgi.loc[nglac,'Zmax'])
+            print('     Farinotti Zmin/Zmax:', np.round(dem_far.min(),0), '/', np.round(dem_far.max(),0))
+            print('     Christian Zmin/Zmax:', np.round(dem_ref.min(),0), '/', np.round(dem_ref.max(),0), '\n')
+            glacno_wpoor_DEM.append(glacno)
+            dem = dem_ref
+            dem_raw = dem_ref_raw
+
+            # ===== PLOT DEMS TO CHECK =====
+            if option_plot_DEMsraw:
+                dem_list_raw = [dem_ref_raw, dem_far_raw, thickness]
+                titles = ['DEM-Christian-raw', 'DEM-Farinotti-raw', 'Thickness']
+                clim = malib.calcperc(dem_list_raw[0], (2,98))
+                plot3panel(dem_list_raw, clim, titles, 'inferno', 'Elevation (m WGS84)', fn=fig_fp + glacno +
+                           '_dem_raw.png')
+
+            if option_plot_DEMs:
+                dem_list = [dem_ref, dem_far, thickness]
+                titles = ['DEM-Christian', 'DEM-Farinotti', 'Thickness']
+                clim = malib.calcperc(dem_list[0], (2,98))
+                plot3panel(dem_list, clim, titles, 'inferno', 'Elevation (m WGS84)', fn=fig_fp + glacno + '_dem.png')
+        # otherwise, use Farinotti
+        else:
+            dem = dem_far
+            dem_raw = dem_far_raw
+
+        #Extract x and y pixel resolution (m) from geotransform
+        gt = ds_list[0].GetGeoTransform()
+        px_res = (gt[1], -gt[5])
+        #Calculate pixel area in m^2
+        px_area = px_res[0]*px_res[1]
+
+        if debug:
+            print('\nx_res [m]:', np.round(px_res[0],1), 'y_res[m]:', np.round(px_res[1],1),'\n')
+
+        # ===== USE SHAPEFILE OR SINGLE POLYGON TO CLIP =====
+        # shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/01_rgi60_Alaska/01_rgi60_Alaska.shp'
+        # #Create binary mask from polygon shapefile to match our warped raster datasets
+        # shp_mask = geolib.shp2array(shp_fn, ds_list[0])
+        # #Now apply the mask to each array
+        # dem_list_shpclip = [np.ma.array(dem, mask=shp_mask) for dem in dem_list]
+        # plot3panel(dem_list_shpclip, clim, titles, 'inferno', 'Elevation (m WGS84)', fn=output_fp + 'dem_shpclp.png')
+        # rgi_alaska = gpd.read_file(shp_fn)
+        # print(rgi_alaska.head())
+        # rgi_alaska.plot();
+        # print(rgi_alaska.crs)
+        # # print('\nGeometry_type:\n',rgi_alaska[0:5].geom_type)
+        # # print('\nArea (NOTE THESE ARE IN DEGREES!):\n',rgi_alaska[0:5].geometry.area)
+        # # print('\nBounds:\n',rgi_alaska[0:5].geometry.bounds)
+        # rgi_alaska.plot(column='O2Region', categorical=True, legend=True, figsize=(14,6))
+        # rgiid = 'RGI60-' + glacno
+        # rgi_single = rgi_alaska[rgi_alaska['RGIId'] == rgiid]
+        # # export to
+        # rgi_single_fn = 'rgi_single.shp'
+        # rgi_single.to_file(rgi_single_fn)
+        # #Create binary mask from polygon shapefile to match our warped raster datasets
+        # rgi_single_mask = geolib.shp2array(rgi_single_fn, ds_list[0])
+        # #Now apply the mask to each array
+        # dem_list_shpclip = [np.ma.array(dem, mask=rgi_single_mask) for dem in dem_list]
+        # plot3panel(dem_list_shpclip, clim, titles, 'inferno', 'Elevation (m WGS84)', fn=output_fp + 'dem_single.png')
+        # =============================================================================================================
+
+        if debug:
+            glacier_area_total = thickness.count() * px_res[0] * px_res[1] / 10**6
+            print(glacno, 'glacier area [km2]:', np.round(glacier_area_total,2),
+                  'vs RGI [km2]:', np.round(main_glac_rgi.loc[nglac,'Area'],2))
+
+        elev_bin_min = binsize * (dem.min() / binsize).astype(int)
+        elev_bin_max = binsize * (dem.max() / binsize).astype(int) + binsize
+        elev_bin_edges = np.arange(elev_bin_min, elev_bin_max+binsize, binsize)
+        elev_bins = (elev_bin_edges[0:-1] + binsize/2).astype(int)
+
+        # Hypsometry [km2]
+        #  must used .compressed() in histogram to exclude masked values
+        hist, elev_bin_edges = np.histogram(dem.reshape(-1).compressed(), bins=elev_bin_edges)
+        bin_hyps = hist * px_res[0] * px_res[1] / 10**6
+        if debug:
+            print('Zmin/Zmax:', np.round(dem.min(),0), '/', np.round(dem.max(),0), '\n')
+            print('elev_bin_edges:', elev_bin_edges)
+            print('hist:', hist)
+            print('total area:', hist.sum() * px_res[0] * px_res[1] / 10**6)
+
+        # Mean thickness [m]
+        hist_thickness, elev_bin_edges = np.histogram(dem.reshape(-1).compressed(), bins=elev_bin_edges,
+                                                      weights=thickness.reshape(-1).compressed())
+        bin_thickness = hist_thickness / hist
+        # if debug:
+            # print('hist_thickness:', bin_thickness)
+
+        # Mean Slope [deg]
+        # --> MAY WANT TO RESAMPLE TO SMOOTH DEM PRIOR TO ESTIMATING SLOPE
+        grad_x, grad_y = np.gradient(dem_raw, px_res[0], px_res[1])
+        slope = np.arctan(np.sqrt(grad_x ** 2 + grad_y ** 2))
+        slope_deg = np.rad2deg(slope)
+        slope_deg.mask = dem.mask
+        hist_slope, elev_bin_edges = np.histogram(dem.reshape(-1).compressed(), bins=elev_bin_edges,
+                                                  weights=slope_deg.reshape(-1).compressed())
+        bin_slope = hist_slope / hist
+        # if debug:
+            # print('glacier mean slope:', bin_slope.mean(), 'vs RGI:', main_glac_rgi.loc[nglac,'Slope'])
+
+        # Length [km] - based on the mean slope and bin elevation
+        bin_length = binsize / np.tan(np.deg2rad(bin_slope)) / 1000
+        # if debug:
+            # print('bin length:', bin_length)
+
+        # Width [km] - based on length (inherently slope) and bin area
+        bin_width = bin_hyps / bin_length
+        # if debug:
+            # print('bin width:', bin_width)
+
+        # Record properties
+        # Check if need to expand columns
+        missing_cns = sorted(list(set(elev_bins) - set(df_cns)))
+        if len(missing_cns) > 0:
+            for missing_cn in missing_cns:
+                main_glac_hyps[missing_cn] = 0
+                main_glac_thickness[missing_cn] = 0
+                main_glac_width[missing_cn] = 0
+                main_glac_length[missing_cn] = 0
+                main_glac_slope[missing_cn] = 0
+        # Record data
+        main_glac_hyps.loc[nglac, elev_bins] = bin_hyps
+        main_glac_thickness.loc[nglac, elev_bins] = bin_thickness
+        main_glac_width.loc[nglac, elev_bins] = bin_width
+        main_glac_length.loc[nglac, elev_bins] = bin_length
+        main_glac_slope.loc[nglac, elev_bins] = bin_slope
+
+        # # DEM into bins
+        # dem_rounded = dem.copy()
+        # dem_rounded = binsize * (dem / binsize).astype(int) + binsize / 2
+        # dem_rounded = dem_rounded.astype(int)
+        # # Unique bins exluding mask
+        # elev_bins = list(np.unique(dem_rounded))
+        # elev_bins = [i for i in elev_bins if isinstance(i, np.integer)]
+        #
+        # # for elev_bin in elev_bins:
+        # for elev_bin in [elev_bins[0]]:
+        #     bin_mask = np.where(dem_rounded == elev_bin)
+        #
+        #     print(elev_bin, len(bin_mask[0]))
+        #
+        #     # Area [km2] - bin total
+        #     bin_hyps = len(bin_mask[0]) * px_res[0] * px_res[1] / 10**6
+        #
+        #     print(elev_bin, bin_hyps)
+        #     # Thickness [m] - bin mean
+        #     bin_thickness = thickness[bin_mask[0], bin_mask[1]].mean()
+        #
+        #     # Slope [deg] - bin mean
+        #     # --> MAY WANT TO RESAMPLE TO SMOOTH DEM PRIOR TO ESTIMATING SLOPE
+        #     grad_x, grad_y = np.gradient(dem_raw, px_res[0], px_res[1])
+        #     slope = np.arctan(np.sqrt(grad_x ** 2 + grad_y ** 2))
+        #     slope_deg = np.rad2deg(slope)
+        #     bin_slope = np.mean(slope_deg[bin_mask])
+        #
+        #     # Length [km] - based on the mean slope and bin elevation
+        #     bin_length = binsize / np.tan(np.deg2rad(bin_slope)) / 1000
+        #
+        #     # Width [km] - based on length (inherently slope) and bin area
+        #     bin_width = bin_hyps / bin_length
+        #
+        #     # Record properties
+        #     main_glac_hyps.loc[nglac, elev_bin] = bin_hyps
+        #     main_glac_thickness.loc[nglac, elev_bin] = bin_thickness
+        #     main_glac_width.loc[nglac, elev_bin] = bin_width
+        #     main_glac_length.loc[nglac, elev_bin] = bin_length
+        #     main_glac_slope.loc[nglac, elev_bin] = bin_slope
+        #
+        #     # if debug:
+        #     #    print('Elev bin [masl]:', elev_bin,
+        #     #          'Area [km2]:', bin_hyps, '(Pixels:' + str(len(bin_mask[0])) + ')',
+        #     #          'Thickness [m]:', np.round(bin_thickness,1),
+        #     #          'Length [km]:', np.round(bin_length,3), 'Width [km]:', np.round(bin_width,3),
+        #     #          'Slope [deg]:', np.round(bin_slope,1))
+
+    # Remove NaN values
+    main_glac_hyps = main_glac_hyps.fillna(0)
+    main_glac_thickness = main_glac_thickness.fillna(0)
+    main_glac_width = main_glac_width.fillna(0)
+    main_glac_length = main_glac_length.fillna(0)
+    main_glac_slope = main_glac_slope.fillna(0)
+    # Export results
+    main_glac_hyps.to_csv(output_fp + 'area_km2_' + "{:02d}".format(region) + '_Farinotti2019_' +
+                          str(binsize) + 'm.csv', index=False)
+    main_glac_thickness.to_csv(output_fp + 'thickness_m_' + "{:02d}".format(region) + '_Farinotti2019_' +
                                str(binsize) + 'm.csv', index=False)
-        main_glac_length.to_csv(output_fp + 'length_km_' + "{:02d}".format(region) + '_Farinotti2019_' + 
-                                str(binsize) + 'm.csv', index=False)
-        main_glac_slope.to_csv(output_fp + 'slope_deg_' + "{:02d}".format(region) + '_Farinotti2019_' + 
-                               str(binsize) + 'm.csv', index=False)
-                
-                
-                
-            
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+    main_glac_width.to_csv(output_fp + 'width_km_' + "{:02d}".format(region) + '_Farinotti2019_' +
+                           str(binsize) + 'm.csv', index=False)
+    main_glac_length.to_csv(output_fp + 'length_km_' + "{:02d}".format(region) + '_Farinotti2019_' +
+                            str(binsize) + 'm.csv', index=False)
+    main_glac_slope.to_csv(output_fp + 'slope_deg_' + "{:02d}".format(region) + '_Farinotti2019_' +
+                           str(binsize) + 'm.csv', index=False)
