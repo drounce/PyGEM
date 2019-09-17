@@ -62,7 +62,7 @@ binsize = 10                        # elevation bin (must be an integer greater 
 dem_poorquality_threshold = 200     # threshold used to identify problems with Farinotti DEM
 option_plot_DEMsraw = True          # Option to plot the raw DEMs
 option_plot_DEMs = False             # Option to plot the masked DEMs
-debug = True
+debug = False
 
 # ===== LOAD GLACIERS ======
 glacno_wpoor_DEM = []
@@ -76,8 +76,8 @@ for region in rgi_regionsO1:
             glacno_list.append(i.split('-')[1].split('_')[0])
     glacno_list = sorted(glacno_list)
 
-    print('\n\nDELETE ME - SWITCH TO COMPLETE LIST\n\n')
-    glacno_list = ['01.10006']
+    # print('\n\nDELETE ME - SWITCH TO COMPLETE LIST\n\n')
+    # glacno_list = ['01.03622']
     # glacno_list = glacno_list[10000:10010]
 
     # Load RGI glacier data
@@ -100,12 +100,13 @@ for region in rgi_regionsO1:
 
     # ===== PROCESS EACH GLACIER ======
     for nglac, glacno in enumerate(glacno_list):
-        print(nglac, glacno)
+        # print(nglac, glacno)
         thickness_fn = thickness_fp + 'RGI60-' + glacno + '_thickness.tif'
         dem_farinotti_fn = dem_farinotti_fp + 'surface_DEM_RGI60-' + glacno + '.tif'
 
         # Reproject, resample, warp rasters to common extent, grid size, etc.
         #  note: use thickness for the reference to avoid unrealistic extrapolations, e.g., negative thicknesses
+        #        also using equal area increases areas significantly compared to RGI
         raster_fn_list = [dem_ref_fn, dem_farinotti_fn, thickness_fn]
         ds_list = warplib.memwarp_multi_fn(raster_fn_list, extent='intersection', res='min', t_srs=thickness_fn)
         # print('\n\nSWITCH BACK TO THICKNESS_FN AFTER OTHERS CORRECTED!\n\n')
@@ -189,8 +190,26 @@ for region in rgi_regionsO1:
             print(glacno, 'glacier area [km2]:', np.round(glacier_area_total,2),
                   'vs RGI [km2]:', np.round(main_glac_rgi.loc[nglac,'Area'],2))
 
+        # Remove negative elevation values
+        dem[dem < 0] = 0
+        dem.mask = thickness.mask
+
         elev_bin_min = binsize * (dem.min() / binsize).astype(int)
         elev_bin_max = binsize * (dem.max() / binsize).astype(int) + binsize
+
+        print(nglac, glacno, elev_bin_min, elev_bin_max)
+
+        # if elev_bin_min < 0:
+        #     print(nglac, glacno, elev_bin_min, elev_bin_max)
+        #     debug_fp = input.output_sim_fp + 'debug/'
+        #     # Create filepath if it does not exist
+        #     if os.path.exists(debug_fp) == False:
+        #         os.makedirs(debug_fp)
+        #     debug_df = pd.DataFrame(np.zeros((1,1)), columns=['count'])
+        #     debug_df.iloc[0,0] = 1
+        #     debug_fn_loaded = str(glacno) + '_nglac' + str(nglac) + '_minlt0_.csv'
+        #     debug_df.to_csv(debug_fp + debug_fn_loaded)
+
         elev_bin_edges = np.arange(elev_bin_min, elev_bin_max+binsize, binsize)
         elev_bins = (elev_bin_edges[0:-1] + binsize/2).astype(int)
 
@@ -208,8 +227,6 @@ for region in rgi_regionsO1:
         hist_thickness, elev_bin_edges = np.histogram(dem.reshape(-1).compressed(), bins=elev_bin_edges,
                                                       weights=thickness.reshape(-1).compressed())
         bin_thickness = hist_thickness / hist
-        # if debug:
-            # print('hist_thickness:', bin_thickness)
 
         # Mean Slope [deg]
         # --> MAY WANT TO RESAMPLE TO SMOOTH DEM PRIOR TO ESTIMATING SLOPE
@@ -220,18 +237,12 @@ for region in rgi_regionsO1:
         hist_slope, elev_bin_edges = np.histogram(dem.reshape(-1).compressed(), bins=elev_bin_edges,
                                                   weights=slope_deg.reshape(-1).compressed())
         bin_slope = hist_slope / hist
-        # if debug:
-            # print('glacier mean slope:', bin_slope.mean(), 'vs RGI:', main_glac_rgi.loc[nglac,'Slope'])
 
         # Length [km] - based on the mean slope and bin elevation
         bin_length = binsize / np.tan(np.deg2rad(bin_slope)) / 1000
-        # if debug:
-            # print('bin length:', bin_length)
 
         # Width [km] - based on length (inherently slope) and bin area
         bin_width = bin_hyps / bin_length
-        # if debug:
-            # print('bin width:', bin_width)
 
         # Record properties
         # Check if need to expand columns
@@ -249,54 +260,6 @@ for region in rgi_regionsO1:
         main_glac_width.loc[nglac, elev_bins] = bin_width
         main_glac_length.loc[nglac, elev_bins] = bin_length
         main_glac_slope.loc[nglac, elev_bins] = bin_slope
-
-        # # DEM into bins
-        # dem_rounded = dem.copy()
-        # dem_rounded = binsize * (dem / binsize).astype(int) + binsize / 2
-        # dem_rounded = dem_rounded.astype(int)
-        # # Unique bins exluding mask
-        # elev_bins = list(np.unique(dem_rounded))
-        # elev_bins = [i for i in elev_bins if isinstance(i, np.integer)]
-        #
-        # # for elev_bin in elev_bins:
-        # for elev_bin in [elev_bins[0]]:
-        #     bin_mask = np.where(dem_rounded == elev_bin)
-        #
-        #     print(elev_bin, len(bin_mask[0]))
-        #
-        #     # Area [km2] - bin total
-        #     bin_hyps = len(bin_mask[0]) * px_res[0] * px_res[1] / 10**6
-        #
-        #     print(elev_bin, bin_hyps)
-        #     # Thickness [m] - bin mean
-        #     bin_thickness = thickness[bin_mask[0], bin_mask[1]].mean()
-        #
-        #     # Slope [deg] - bin mean
-        #     # --> MAY WANT TO RESAMPLE TO SMOOTH DEM PRIOR TO ESTIMATING SLOPE
-        #     grad_x, grad_y = np.gradient(dem_raw, px_res[0], px_res[1])
-        #     slope = np.arctan(np.sqrt(grad_x ** 2 + grad_y ** 2))
-        #     slope_deg = np.rad2deg(slope)
-        #     bin_slope = np.mean(slope_deg[bin_mask])
-        #
-        #     # Length [km] - based on the mean slope and bin elevation
-        #     bin_length = binsize / np.tan(np.deg2rad(bin_slope)) / 1000
-        #
-        #     # Width [km] - based on length (inherently slope) and bin area
-        #     bin_width = bin_hyps / bin_length
-        #
-        #     # Record properties
-        #     main_glac_hyps.loc[nglac, elev_bin] = bin_hyps
-        #     main_glac_thickness.loc[nglac, elev_bin] = bin_thickness
-        #     main_glac_width.loc[nglac, elev_bin] = bin_width
-        #     main_glac_length.loc[nglac, elev_bin] = bin_length
-        #     main_glac_slope.loc[nglac, elev_bin] = bin_slope
-        #
-        #     # if debug:
-        #     #    print('Elev bin [masl]:', elev_bin,
-        #     #          'Area [km2]:', bin_hyps, '(Pixels:' + str(len(bin_mask[0])) + ')',
-        #     #          'Thickness [m]:', np.round(bin_thickness,1),
-        #     #          'Length [km]:', np.round(bin_length,3), 'Width [km]:', np.round(bin_width,3),
-        #     #          'Slope [deg]:', np.round(bin_slope,1))
 
     # Remove NaN values
     main_glac_hyps = main_glac_hyps.fillna(0)

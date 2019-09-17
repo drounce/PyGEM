@@ -39,7 +39,7 @@ option_observation_vs_calibration = 0
 option_papermcmc_prior_vs_posterior = 0
 option_papermcmc_modelparameter_map_and_postvprior = 0
 option_metrics_histogram_all = 0
-option_metrics_vs_chainlength = 1
+option_metrics_vs_chainlength = 0
 option_correlation_scatter = 0
 option_regional_priors = 0
 option_glacier_mb_vs_params = 0
@@ -48,7 +48,7 @@ option_papermcmc_solutionspace = 0
 option_papermcmc_hh2015_map = 0
 
 # Others
-option_glacier_mcmc_plots = 0
+option_glacier_mcmc_plots = 1
 option_raw_plotchain = 0
 option_convertcal2table = 0
 
@@ -3572,7 +3572,7 @@ if __name__ == '__main__':
     #%% PLOT MCMC CHAINS
     if option_glacier_mcmc_plots == 1:
     #    glac_no = str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]
-        glac_no = '13.45048'
+        glac_no = '13.25313'
         netcdf_fp = input.main_directory + '/../Output/cal_opt2_spc_20190806/'
     #    glac_no = '15.03473'
     #    netcdf_fp = input.output_fp_cal
@@ -3592,6 +3592,8 @@ if __name__ == '__main__':
         # Add regions
         main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
         # Glacier hypsometry [km**2], total area
+        print(main_glac_rgi)
+        print(region)
         main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, region, input.hyps_filepath,
                                                      input.hyps_filedict, input.hyps_colsdrop)
         # Ice thickness [m], average

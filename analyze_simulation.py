@@ -5290,20 +5290,52 @@ if option_plot_cmip5_normalizedchange_proposal == 1:
     
     
 #%% EXTRA CODE
-list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--0.nc', 
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--3.nc']
-#list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--8.nc', 
-#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--10.nc']
-#list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--14.nc', 
-#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--16.nc']
+rgi_glac_number_fn = '../SPC_PYGEM/PyGEM/R131415_rgi_glac_number_batch_0.pkl'
+with open(rgi_glac_number_fn, 'rb') as f:
+    glac_no = pickle.load(f)
+    
+#rgi_glac_number_fn = '../SPC_PYGEM/PyGEM/R131415_rgi_glac_number_batch_0_check.pkl'
+#with open(rgi_glac_number_fn, 'rb') as f:
+#    glac_no_check = pickle.load(f)
 
-netcdf_fp = input.main_directory + '/../Output/simulations/spc/CCSM4/'
+import spc_split_glaciers
+glac_no_batches = spc_split_glaciers.split_list(glac_no, n=24, option_ordered=0)
+
+
+list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--1.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--2.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--3.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--4.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--5.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--6.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--7.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--8.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--9.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--10.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--12.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--13.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--14.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--15.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--16.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--18.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--19.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--20.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--21.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--22.nc',
+            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--23.nc']
+###list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--8.nc', 
+###            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--10.nc']
+###list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--14.nc', 
+###            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--16.nc']
+#
+netcdf_fp = input.main_directory + '/../SPC_PYGEM/'
 for i in list_fns:
     ds = xr.open_dataset(netcdf_fp + i)
     df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
-    print(str(int(df.loc[0,'O1Region'])) + '.' + str(int(df.loc[0,'glacno'])))
-    print(str(int(df.loc[1,'O1Region'])) + '.' + str(int(df.loc[1,'glacno'])))
-    print(str(int(df.loc[df.shape[0]-1,'O1Region'])) + '.' + str(int(df.loc[df.shape[0]-1,'glacno'])))
+    print(str(int(df.loc[0,'O1Region'])) + '.' + str(int(df.loc[0,'glacno'])).zfill(5),
+          str(int(df.loc[1,'O1Region'])) + '.' + str(int(df.loc[1,'glacno'])).zfill(5),
+          str(int(df.loc[2,'O1Region'])) + '.' + str(int(df.loc[2,'glacno'])).zfill(5))
+#    print(str(int(df.loc[df.shape[0]-1,'O1Region'])) + '.' + str(int(df.loc[df.shape[0]-1,'glacno'])))
     
 
 #%%

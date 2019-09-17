@@ -7,10 +7,11 @@ import numpy as np
 import pygem_input as input
 
 #========= FUNCTIONS (alphabetical order) ===================================
-def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, width_t0, elev_bins, 
-                   glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
-                   glacier_gcm_lrglac, dates_table, option_areaconstant=0, constantarea_years=input.constantarea_years,
-                   frontalablation_k=None, debug=False, debug_refreeze=False):
+def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
+                   elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                   glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0, 
+                   constantarea_years=input.constantarea_years, frontalablation_k=None, 
+                   debug=False, debug_refreeze=False):
     """
     Runs the mass balance and mass redistribution allowing the glacier to evolve.
     Parameters
@@ -141,8 +142,10 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     snowpack_remaining = np.zeros(nbins)
     dayspermonth = dates_table['daysinmonth'].values
     surfacetype_ddf = np.zeros(nbins)
-    glac_idx_initial = glacier_area_t0.nonzero()[0]
-    glac_area_initial = glacier_area_t0.copy()
+    glac_idx_initial = glacier_area_initial.nonzero()[0]
+    glacier_area_t0 = glacier_area_initial.copy()
+    icethickness_t0 = icethickness_initial.copy()
+    width_t0 = width_initial.copy()
     if input.option_refreezing == 1:
         # Refreezing layers density, volumetric heat capacity, and thermal conductivity
         rf_dens_expb = (input.rf_dens_bot / input.rf_dens_top)**(1/(input.rf_layers-1))
@@ -162,6 +165,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
     # Adjust sea level to account for disagreement between ice thickness estimates and glaciers classified by RGI as
     # marine-terminating. Modify the sea level, so sea level is consistent with lowest elevation bin that has ice.
     if glacier_rgi_table.loc['TermType'] == 1:
+#        print('glac_idx_initial:', glac_idx_initial)
         sea_level = elev_bins[glac_idx_initial[0]] - (elev_bins[1] - elev_bins[0]) / 2
     
     #  glac_idx_initial is used with advancing glaciers to ensure no bands are added in a discontinuous section
@@ -194,7 +198,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
             
             # Off-glacier area and indices
             if option_areaconstant == 0:
-                offglac_bin_area_annual[:,year] = glac_area_initial - glacier_area_t0
+                offglac_bin_area_annual[:,year] = glacier_area_initial - glacier_area_t0
                 offglac_idx = np.where(offglac_bin_area_annual[:,year] > 0)[0]
             
             
@@ -698,7 +702,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 surfacetype, firnline_idx = surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year)
                 
                 # MASS REDISTRIBUTION
-                # Mass redistribution ignored for calibration and spinup years (glacier properties constant) 
+                # Mass redistribution ignored for calibration and spinup years (glacier properties constant)
                 if (option_areaconstant == 1) or (year < input.spinupyears) or (year < constantarea_years):
                     glacier_area_t1 = glacier_area_t0
                     icethickness_t1 = icethickness_t0
@@ -744,7 +748,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                         glacier_area_t1, icethickness_t1, width_t1 = (
                                 massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
                                                        glac_bin_massbalclim_annual, year, glac_idx_initial, 
-                                                       glac_area_initial))
+                                                       glacier_area_initial))
                         # update surface type for bins that have retreated
                         surfacetype[glacier_area_t1 == 0] = 0
                         # update surface type for bins that have advanced 
@@ -759,9 +763,9 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_t0, icethick
                 # Record glacier properties (area [km**2], thickness [m], width [km])
                 # if first year, record initial glacier properties (area [km**2], ice thickness [m ice], width [km])
                 if year == 0:
-                    glac_bin_area_annual[:,year] = glacier_area_t0
-                    glac_bin_icethickness_annual[:,year] = icethickness_t0
-                    glac_bin_width_annual[:,year] = width_t0
+                    glac_bin_area_annual[:,year] = glacier_area_initial
+                    glac_bin_icethickness_annual[:,year] = icethickness_initial
+                    glac_bin_width_annual[:,year] = width_initial
                 # record the next year's properties as well
                 # 'year + 1' used so the glacier properties are consistent with mass balance computations
                 glac_bin_icethickness_annual[:,year + 1] = icethickness_t1
@@ -901,7 +905,7 @@ def calc_runoff(prec_wide, melt_wide, refreeze_wide, area_wide):
    
 
 def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
-                           glac_idx_initial, glac_area_initial, debug=False):
+                           glac_idx_initial, glacier_area_initial, debug=False):
     """
     Mass redistribution according to empirical equations from Huss and Hock (2015) accounting for retreat/advance.
     glac_idx_initial is required to ensure that the glacier does not advance to area where glacier did not exist before
@@ -921,7 +925,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
         Count of the year of model run (first year is 0)
     glac_idx_initial : np.ndarray
         Initial glacier indices
-    glac_area_initial : np.ndarray
+    glacier_area_initial : np.ndarray
         Initial glacier array used to determine average terminus area in event that glacier is only one bin
     debug : Boolean
         option to turn on print statements for development or debugging of code (default False)
@@ -1045,7 +1049,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
                 if glac_idx_terminus_initial.shape[0] <= 1:
                     glac_idx_terminus_initial = glac_idx_initial.copy()
                 terminus_area_avg = (
-                        glac_area_initial[glac_idx_terminus_initial[1]:
+                        glacier_area_initial[glac_idx_terminus_initial[1]:
                                           glac_idx_terminus_initial[glac_idx_terminus_initial.shape[0]-1]+1].mean())
             # Check if the last bin's area is below the terminus' average and fill it up if it is
             if (glacier_area_t1[glac_idx_terminus[0]] < terminus_area_avg) and (icethickness_t0[glac_idx_terminus[0]] <

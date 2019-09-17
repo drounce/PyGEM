@@ -7,11 +7,13 @@ import os
 import zipfile
 # External libraries
 import numpy as np
+import pandas as pd
 import xarray as xr
 # Local libraries
 import pygem_input as input
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_gcmbiasadj as gcmbiasadj
+import run_simulation as simulation
 
 
 #%run run_postprocessing.py -gcm_name='ERA-Interim' -merge_batches=1
@@ -60,6 +62,145 @@ def getparser():
                         help='Boolean for debugging to turn it on or off (default 0 is off)')
     return parser
 
+
+#%%
+gcm_names = ['CCSM4']
+rcps = ['rcp26']
+output_fp = '/Volumes/LaCie/HMA_PyGEM/simulations/'
+#zip_fp = '/Volumes/LaCie/PyGEM_simulations/2019_0317/spc_zipped/'
+#multimodel_fp = zip_fp + '../multimodel/'
+
+ds_vns = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 'refreeze_glac_monthly', 'melt_glac_monthly',
+          'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
+          'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual', 'offglac_prec_monthly', 
+          'offglac_refreeze_monthly', 'offglac_melt_monthly', 'offglac_snowpack_monthly', 'offglac_runoff_monthly']
+
+for gcm_name in gcm_names:
+    for rcp in rcps:
+        
+        ds_fp = output_fp + gcm_name + '/' + rcp + '/'
+        print(ds_fp)
+        
+        # Glacier numbers
+        glac_no = []
+        for i in os.listdir(ds_fp):
+            if i.endswith('.nc'):
+                glac_no.append(i.split('_')[0])
+                if len(glac_no) == 1:
+                    ds_ending = i.replace(i.split('_')[0],'')
+        
+        # Merge by region
+        regions = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
+        print('\n\nSWITCH BACK TO ALL REGIONS\n\n')
+#        for region in regions:
+        for region in [14]:
+            glac_no_region = []
+            for i in glac_no:
+                if i.split('.')[0] == str(region):
+                    glac_no_region.append(i)
+            
+            glac_no_region = sorted(glac_no_region)
+
+            # Merge datasets of stats into one output
+            for nglac, i in enumerate(glac_no_region):
+                if nglac%500 == 0:
+                    print(nglac, i)
+                ds_fn = i + ds_ending
+                ds = xr.open_dataset(ds_fp + ds_fn)
+                if nglac == 0:
+                    ds_all = ds
+                else:
+                    ds_all = xr.concat([ds_all, ds], 'glac')
+                    
+            # Filename
+            ds_all_fp = output_fp + gcm_name + '/'
+            ds_all_fn = ds_fn.replace(i,'R' + str(region))
+            # Encoding
+            # Add variables to empty dataset and merge together
+            encoding = {}
+            noencoding_vn = ['stats', 'glac_attrs']
+            for vn in input.output_variables_package2:
+                # Encoding (specify _FillValue, offsets, etc.)
+                if vn not in noencoding_vn:
+                    encoding[vn] = {'_FillValue': False}
+            # Export to netcdf
+            ds_all.to_netcdf(ds_all_fp + ds_all_fn, encoding=encoding)
+            # Close dataset
+            ds.close()
+            ds_all.close()
+            # Remove files in output_list
+#            for i in output_list:
+#                os.remove(output_sim_fp + i)
+
+                    #%%
+        
+            
+                
+#    for region in regions:
+#        for rcp in rcps:
+#            
+#            for gcm_name in gcm_names:
+#                gcm_fp = zip_fp + gcm_name + '/'
+#                for i in os.listdir(gcm_fp):
+#                    if str(region) in i and rcp in i:
+#                        with zipfile.ZipFile(gcm_fp + i, 'r') as zipObj:
+#                            # Extract all the contents of zip file in current directory
+#                            zipObj.extractall(multimodel_fp)
+#            
+#            #%%
+#            list_fns = []
+#            for i in os.listdir(multimodel_fp):
+#                if str(region) in i and rcp in i:
+#                    list_fns.append(i)
+#            
+#            # Use existing dataset to setup multimodel netcdf structure
+#            ds_multimodel = xr.open_dataset(multimodel_fp + list_fns[0])
+#            
+#            for vn in ds_vns:
+#                print(vn)
+#                
+#                ds_var_multimodel_sum = None
+#                ds_var_multimodel_stdsum = None
+#                count = 0
+#                
+#                # Multimodel mean
+#                # sum data from each array to reduce memory requirements
+#                for i in list_fns:
+#                    ds_var_multimodel_sum, count = sum_multimodel(i, vn, ds_var_multimodel_sum, count)
+#                # compute mean
+#                ds_var_multimodel_mean = ds_var_multimodel_sum / count
+#                
+#                print('Mean:', np.round(ds_var_multimodel_mean[1,1],3))
+#                
+#                # Multimodel standard deviation
+#                # sum squared difference
+#                for i in list_fns:
+#                    ds_var_multimodel_stdsum = sum_multimodel_variance(i, vn, ds_var_multimodel_stdsum, 
+#                                                                       ds_var_multimodel_mean)
+#                # compute standard deviation
+#                ds_var_multimodel_std = (ds_var_multimodel_stdsum / count)**0.5
+#                
+#                print('Std:', np.round(ds_var_multimodel_std[1,1],3))
+#
+#                ds_multimodel[vn][:,:,:] = (
+#                        np.concatenate((ds_var_multimodel_mean[:,:,np.newaxis], ds_var_multimodel_std[:,:,np.newaxis]), 
+#                                       axis=2))
+#                
+#            # Export merged dataset
+#            # Encoding
+#            # add variables to empty dataset and merge together
+#            encoding = {}
+#            noencoding_vn = ['stats', 'glac_attrs']
+#            if input.output_package == 2:
+#                for encoding_vn in input.output_variables_package2:
+#                    # Encoding (specify _FillValue, offsets, etc.)
+#                    if encoding_vn not in noencoding_vn:
+#                        encoding[encoding_vn] = {'_FillValue': False}
+#                
+#            ds_multimodel_fn = 'R' + str(region) + '_multimodel_' + rcp + '_c2_ba1_100sets_2000_2100.nc'
+#            ds_multimodel.to_netcdf(input.output_sim_fp + ds_multimodel_fn, encoding=encoding)       
+                    
+#%%
 
 #gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
 #             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 

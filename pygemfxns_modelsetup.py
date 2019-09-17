@@ -310,8 +310,7 @@ def selectglaciersrgitable(glac_no=None,
                            rgi_regionsO1=None,
                            rgi_regionsO2=None,
                            rgi_glac_number=None,
-                           rgi_filepath=input.rgi_filepath,
-                           rgi_dict=input.rgi_dict,
+                           rgi_fp=input.rgi_fp,
                            rgi_cols_drop=input.rgi_cols_drop,
                            rgi_O1Id_colname=input.rgi_O1Id_colname,
                            rgi_glacno_float_colname=input.rgi_glacno_float_colname,
@@ -354,10 +353,14 @@ def selectglaciersrgitable(glac_no=None,
         if glac_no is not None:
             rgi_glac_number = glac_no_byregion[region]
 
+        for i in os.listdir(rgi_fp):
+            if i.startswith(str(region).zfill(2)) and i.endswith('.csv'):
+                rgi_fn = i
         try:
-            csv_regionO1 = pd.read_csv(rgi_filepath + rgi_dict[region])
+            csv_regionO1 = pd.read_csv(rgi_fp + rgi_fn)
         except:
-            csv_regionO1 = pd.read_csv(rgi_filepath + rgi_dict[region], encoding='latin1')
+            csv_regionO1 = pd.read_csv(rgi_fp + rgi_fn, encoding='latin1')
+        
         # Populate glacer_table with the glaciers of interest
         if rgi_regionsO2 == 'all' and rgi_glac_number == 'all':
             print("All glaciers within region(s) %s are included in this model run." % (region))
