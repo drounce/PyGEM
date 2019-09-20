@@ -9,8 +9,8 @@ echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
 
 # region
 REGNO="131415"
-MERGE_SWITCH=1
-ORDERED_SWITCH=1
+MERGE_SWITCH=0
+ORDERED_SWITCH=0
 
 # gcm list
 GCM_NAMES_FP="../Climate_data/cmip5/"
@@ -65,7 +65,9 @@ for GCM_NAME in $GCM_NAMES_LST; do
   # Merge simulation files 
   for batman in batman_list; do
     # run the file on a separate node (& tells the command to move to the next loop for any empty nodes)
-    srun -N 1 -n 1 python run_postprocessing.py -gcm_name="$GCM_NAME_NOSPACE" -rcp="$RCP" -merge_batches=$MERGE_SWITCH
+    # run the file on a separate node (& tells the command to move to the next loop for any empty nodes)
+    srun -N 1 -n 1 python merge_ds_spc.py -gcm_name="$GCM_NAME_NOSPACE" -rcp="$RCP" -num_simultaneous_processes=$SLURM_NTASKS_PER_NODE &
+    #srun -N 1 -n 1 python run_postprocessing.py -gcm_name="$GCM_NAME_NOSPACE" -rcp="$RCP" -merge_batches=$MERGE_SWITCH
   done
   wait
   

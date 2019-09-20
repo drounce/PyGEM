@@ -137,21 +137,21 @@ if glac_no is not None:
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
-ref_gcm_name = 'ERA5'           # reference climate dataset
+ref_gcm_name = 'ERA-Interim'    # reference climate dataset
+#ref_gcm_name = 'ERA5'           # reference climate dataset
 
-startyear = 1980                # first year of model run (reference dataset)
-endyear = 2018                  # last year of model run (reference dataset)
-option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
-#startyear = 2000                # first year of model run (reference dataset)
+#startyear = 1980                # first year of model run (reference dataset)
 #endyear = 2018                  # last year of model run (reference dataset)
-#option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
+#option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
+startyear = 2000                # first year of model run (reference dataset)
+endyear = 2018                  # last year of model run (reference dataset)
+option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
 
 constantarea_years = 0          # number of years to not let the area or volume change
 spinupyears = 0                 # spin up years
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
-gcm_startyear = 1980            # first year of model run (simulation dataset)
+gcm_startyear = 2000            # first year of model run (simulation dataset)
 gcm_endyear = 2018              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
 #gcm_endyear = 2100              # last year of model run (simulation dataset)
@@ -367,7 +367,7 @@ rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Na
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
 # Filepath for the hypsometry files
 binsize = 10            # Elevation bin height [m]
-hyps_data = 'Farinotti' # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
+hyps_data = 'Huss' # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
 
 if hyps_data == 'Farinotti':
     option_shift_elevbins_20m = 0   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)

@@ -46,7 +46,7 @@ option_peakwater_map = 0
 option_watersheds_colored = 0
 option_runoff_components = 0
 option_runoff_monthlychange = 0
-runoff_erainterim_bywatershed = 0
+runoff_erainterim_bywatershed = 1                   # updated - better to export to table
 
 option_plot_cmip5_normalizedchange_proposal = 0
 option_runoff_components_proposal = 0
@@ -66,7 +66,7 @@ option_merge_multimodel_datasets = 0
 #%% ===== Input data =====
 #netcdf_fp_cmip5 = input.output_sim_fp + 'spc_subset/'
 netcdf_fp_cmip5 = input.output_sim_fp + 'spc_multimodel/'
-netcdf_fp_era = input.output_sim_fp + '/ERA-Interim/ERA-Interim_1980_2017_wy_areachg_pre2000/'
+netcdf_fp_era = input.output_filepath + 'simulations/spc_20190914/merged/ERA-Interim/'
 
 
 #%%
@@ -366,51 +366,24 @@ def select_groups(grouping, main_glac_rgi_all):
     return groups, group_cn
 
 
-def load_glacier_data(rgi_regions, 
+def load_glacier_data(glac_no=None, rgi_regions=None, 
                       load_caldata=0, startyear=2000, endyear=2018, option_wateryear=3):
+#def load_glacier_data(rgi_regions, 
+#                      load_caldata=0, startyear=2000, endyear=2018, option_wateryear=3):
     """
     Load glacier data (main_glac_rgi, hyps, and ice thickness)
     """
-    for rgi_region in rgi_regions:
-        # Data on all glaciers
-        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
-                                                                 rgi_glac_number='all')
-         # Glacier hypsometry [km**2]
-        main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, input.hyps_filepath,
-                                                            input.hyps_filedict, input.hyps_colsdrop)
-        # Ice thickness [m], average
-        main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, 
-                                                                 input.thickness_filepath, input.thickness_filedict, 
-                                                                 input.thickness_colsdrop)
-        if rgi_region == rgi_regions[0]:
-            main_glac_rgi_all = main_glac_rgi_region
-            main_glac_hyps_all = main_glac_hyps_region
-            main_glac_icethickness_all = main_glac_icethickness_region
-        else:
-            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region], sort=False)
-            main_glac_hyps_all = pd.concat([main_glac_hyps_all, main_glac_hyps_region], sort=False)
-            main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region], 
-                                                   sort=False)
-            
-        if load_caldata == 1:
-            cal_datasets = ['shean']
-            dates_table = modelsetup.datesmodelrun(startyear=startyear, endyear=endyear, spinupyears=0, 
-                                                   option_wateryear=option_wateryear)
-            # Calibration data
-            cal_data = pd.DataFrame()
-            for dataset in cal_datasets:
-                cal_subset = class_mbdata.MBData(name=dataset)
-                cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table)
-                cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-            cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-            cal_data.reset_index(drop=True, inplace=True)
-            
-            if rgi_region == rgi_regions[0]:
-                cal_data_all = cal_data
-            else:
-                cal_data_all = pd.concat([cal_data_all, cal_data], sort=False)
-        #%%
-        
+    # Load glaciers
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(glac_no=glac_no)
+    # Glacier hypsometry [km**2], total area
+    main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, input.hyps_filepath, input.hyps_filedict,
+                                                     input.hyps_colsdrop)
+    # Ice thickness [m], average
+    main_glac_icethickness_all = modelsetup.import_Husstable(main_glac_rgi_all, input.thickness_filepath,
+                                                             input.thickness_filedict, input.thickness_colsdrop)
+    
+    # Additional processing
+    main_glac_hyps_all[main_glac_icethickness_all == 0] = 0
     main_glac_hyps_all = main_glac_hyps_all.fillna(0)
     main_glac_icethickness_all = main_glac_icethickness_all.fillna(0)
     
@@ -446,10 +419,104 @@ def load_glacier_data(rgi_regions,
     # All
     main_glac_rgi_all['all_group'] = 'all'
     
+    if load_caldata == 1:
+        cal_datasets = ['shean']
+        startyear=2000
+        dates_table = modelsetup.datesmodelrun(startyear=startyear, endyear=endyear, spinupyears=0, 
+                                               option_wateryear=option_wateryear)
+        # Calibration data
+        cal_data_all = pd.DataFrame()
+        for dataset in cal_datasets:
+            cal_subset = class_mbdata.MBData(name=dataset)
+            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_all, main_glac_hyps_all, dates_table)
+            cal_data_all = cal_data_all.append(cal_subset_data, ignore_index=True)
+        cal_data_all = cal_data_all.sort_values(['glacno', 't1_idx'])
+        cal_data_all.reset_index(drop=True, inplace=True)
+    
     if load_caldata == 0:
         return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all
     else:
         return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all, cal_data_all
+
+#    for rgi_region in rgi_regions:
+#        # Data on all glaciers
+#        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
+#                                                                 rgi_glac_number='all')
+#         # Glacier hypsometry [km**2]
+#        main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, input.hyps_filepath,
+#                                                            input.hyps_filedict, input.hyps_colsdrop)
+#        # Ice thickness [m], average
+#        main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, 
+#                                                                 input.thickness_filepath, input.thickness_filedict, 
+#                                                                 input.thickness_colsdrop)
+#        if rgi_region == rgi_regions[0]:
+#            main_glac_rgi_all = main_glac_rgi_region
+#            main_glac_hyps_all = main_glac_hyps_region
+#            main_glac_icethickness_all = main_glac_icethickness_region
+#        else:
+#            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region], sort=False)
+#            main_glac_hyps_all = pd.concat([main_glac_hyps_all, main_glac_hyps_region], sort=False)
+#            main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region], 
+#                                                   sort=False)
+#            
+#        if load_caldata == 1:
+#            cal_datasets = ['shean']
+#            dates_table = modelsetup.datesmodelrun(startyear=startyear, endyear=endyear, spinupyears=0, 
+#                                                   option_wateryear=option_wateryear)
+#            # Calibration data
+#            cal_data = pd.DataFrame()
+#            for dataset in cal_datasets:
+#                cal_subset = class_mbdata.MBData(name=dataset)
+#                cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table)
+#                cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+#            cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+#            cal_data.reset_index(drop=True, inplace=True)
+#            
+#            if rgi_region == rgi_regions[0]:
+#                cal_data_all = cal_data
+#            else:
+#                cal_data_all = pd.concat([cal_data_all, cal_data], sort=False)
+#        #%%
+#        
+#    main_glac_hyps_all = main_glac_hyps_all.fillna(0)
+#    main_glac_icethickness_all = main_glac_icethickness_all.fillna(0)
+#    
+#    # Add watersheds, regions, degrees, mascons, and all groups to main_glac_rgi_all
+#    # Watersheds
+#    main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
+#    # Regions
+#    main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
+#    main_glac_rgi_all['himap'] = main_glac_rgi_all.RGIId.map(himap_dict)
+#    # Hexbins
+#    main_glac_rgi_all['hexid'] = main_glac_rgi_all.RGIId.map(hex_dict)
+#    # Degrees
+#    main_glac_rgi_all['CenLon_round'] = np.floor(main_glac_rgi_all.CenLon.values/degree_size) * degree_size
+#    main_glac_rgi_all['CenLat_round'] = np.floor(main_glac_rgi_all.CenLat.values/degree_size) * degree_size
+#    deg_groups = main_glac_rgi_all.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
+#    deg_dict = dict(zip(deg_groups, np.arange(0,len(deg_groups))))
+#    main_glac_rgi_all.reset_index(drop=True, inplace=True)
+#    cenlon_cenlat = [(main_glac_rgi_all.loc[x,'CenLon_round'], main_glac_rgi_all.loc[x,'CenLat_round']) 
+#                     for x in range(len(main_glac_rgi_all))]
+#    main_glac_rgi_all['CenLon_CenLat'] = cenlon_cenlat
+#    main_glac_rgi_all['deg_id'] = main_glac_rgi_all.CenLon_CenLat.map(deg_dict)
+##    # Mascons
+##    if grouping == 'mascon':
+##        main_glac_rgi_all['mascon_idx'] = np.nan
+##        for glac in range(main_glac_rgi_all.shape[0]):
+##            latlon_dist = (((mascon_df.CenLat.values - main_glac_rgi_all.CenLat.values[glac])**2 + 
+##                             (mascon_df.CenLon.values - main_glac_rgi_all.CenLon.values[glac])**2)**0.5)
+##            main_glac_rgi_all.loc[glac,'mascon_idx'] = [x[0] for x in np.where(latlon_dist == latlon_dist.min())][0]
+##        mascon_groups = main_glac_rgi_all.mascon_idx.unique().tolist()
+##        mascon_groups = [int(x) for x in mascon_groups]
+##        mascon_groups = sorted(mascon_groups)
+##        mascon_latlondict = dict(zip(mascon_groups, mascon_df[['CenLat', 'CenLon']].values[mascon_groups].tolist()))
+#    # All
+#    main_glac_rgi_all['all_group'] = 'all'
+#    
+#    if load_caldata == 0:
+#        return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all
+#    else:
+#        return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all, cal_data_all
 
 
 def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input.option_bias_adjustment):
@@ -4537,26 +4604,25 @@ if option_nick_snowline == 1:
 
 #%%
 if runoff_erainterim_bywatershed == 1:
-    startyear = 2000
-    endyear = 2017
+    startyear = 2001
+    endyear = 2018
     
     grouping = 'watershed'
     subgrouping = 'hexagon'
     
     netcdf_fp = netcdf_fp_era
     
-    # Load glaciers
-    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    regions = [13, 14, 15]
     
-    # Groups
-    groups, group_cn = select_groups(grouping, main_glac_rgi)
-    subgroups, subgroup_cn = select_groups(subgrouping, main_glac_rgi)
     
     # Merge all data, then select group data
     for region in regions:      
         # Load datasets
-        ds_fn = ('R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc')
+        ds_fn = ('R' + str(region) + '--all--ERA-Interim_c2_ba1_100sets_2000_2018.nc')
         ds = xr.open_dataset(netcdf_fp_era + ds_fn)
+        df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs.values)
+        glacno_region = [str(int(df.loc[x,'O1Region'])) + '.' + str(int(df.loc[x,'glacno'])).zfill(5) 
+                         for x in df.index.values]
         
         # Extract time variable
         time_values_annual = ds.coords['year_plus1'].values
@@ -4564,33 +4630,44 @@ if runoff_erainterim_bywatershed == 1:
         # Extract start/end indices for calendar year!
         time_values_df = pd.DatetimeIndex(time_values_monthly)
         time_values_yr = np.array([x.year for x in time_values_df])
-        if input.gcm_wateryear == 1:
+        if ds.time.year_type == 'water year':
             time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
+        elif ds.time.year_type == 'custom year':
+            startmonth = int(input.startmonthday.split('-')[0])
+            time_values_yr = np.array([x.year + 1 if x.month >= startmonth else x.year for x in time_values_df])
         time_idx_start = np.where(time_values_yr == startyear)[0][0]
         time_idx_end = np.where(time_values_yr == endyear)[0][0]
         time_values_monthly_subset = time_values_monthly[time_idx_start:time_idx_end + 12]
         year_idx_start = np.where(time_values_annual == startyear)[0][0]
         year_idx_end = np.where(time_values_annual == endyear)[0][0]
         time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
-        
 
         var_glac_region = ds['runoff_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
         var_glac_region_std = ds['runoff_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 1]
 
         # Merge datasets
         if region == regions[0]:
+            glacno = glacno_region
             var_glac_all = var_glac_region
             var_glac_all_std = var_glac_region_std
         else:
+            glacno.extend(glacno_region)
             var_glac_all = np.concatenate((var_glac_all, var_glac_region), axis=0)
             var_glac_all_std = np.concatenate((var_glac_all_std, var_glac_region_std), axis=0)
-
+        
         ds.close()
+    
+    
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(glac_no = glacno)
+        
+    # Groups
+    groups, group_cn = select_groups(grouping, main_glac_rgi)
+    subgroups, subgroup_cn = select_groups(subgrouping, main_glac_rgi)
 
-#%%
+
     ds_all = {}
     ds_all_std = {}
-    print('Mean annual runoff (+/-) 1 std [Gt/yr],', str(startyear), '-', str(endyear), '(water years) from ERA-Interim')
+    print('Mean annual runoff (+/-) 1 std [Gt/yr],', str(startyear), '-', str(endyear),'(water years) from ERA-Interim')
     for ngroup, group in enumerate(groups):
 #    for ngroup, group in enumerate(['Yellow']):
         # Sum volume change for group
@@ -4630,6 +4707,7 @@ if runoff_erainterim_bywatershed == 1:
               np.round(group_annual_runoff_Gta_std_rsos,3),'for uncorrelated)', 
               '\n  all perfectly correlated:', np.round(group_annual_runoff_Gta_pc,3),
               '\n  interannual std:', np.round(group_annual_runoff_Gta_interannual_std,3))
+
         
 if option_merge_multimodel_datasets == 1:
     ds1 = xr.open_dataset(netcdf_fp_cmip5 + 'R14_multimodel_rcp45_c2_ba1_100sets_2000_2100.nc')
@@ -5290,52 +5368,52 @@ if option_plot_cmip5_normalizedchange_proposal == 1:
     
     
 #%% EXTRA CODE
-rgi_glac_number_fn = '../SPC_PYGEM/PyGEM/R131415_rgi_glac_number_batch_0.pkl'
-with open(rgi_glac_number_fn, 'rb') as f:
-    glac_no = pickle.load(f)
-    
-#rgi_glac_number_fn = '../SPC_PYGEM/PyGEM/R131415_rgi_glac_number_batch_0_check.pkl'
+#rgi_glac_number_fn = '../SPC_PYGEM/PyGEM/R131415_rgi_glac_number_batch_0.pkl'
 #with open(rgi_glac_number_fn, 'rb') as f:
-#    glac_no_check = pickle.load(f)
-
-import spc_split_glaciers
-glac_no_batches = spc_split_glaciers.split_list(glac_no, n=24, option_ordered=0)
-
-
-list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--1.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--2.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--3.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--4.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--5.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--6.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--7.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--8.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--9.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--10.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--12.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--13.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--14.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--15.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--16.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--18.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--19.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--20.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--21.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--22.nc',
-            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--23.nc']
-###list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--8.nc', 
-###            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--10.nc']
-###list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--14.nc', 
-###            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--16.nc']
+#    glac_no = pickle.load(f)
+#    
+##rgi_glac_number_fn = '../SPC_PYGEM/PyGEM/R131415_rgi_glac_number_batch_0_check.pkl'
+##with open(rgi_glac_number_fn, 'rb') as f:
+##    glac_no_check = pickle.load(f)
 #
-netcdf_fp = input.main_directory + '/../SPC_PYGEM/'
-for i in list_fns:
-    ds = xr.open_dataset(netcdf_fp + i)
-    df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
-    print(str(int(df.loc[0,'O1Region'])) + '.' + str(int(df.loc[0,'glacno'])).zfill(5),
-          str(int(df.loc[1,'O1Region'])) + '.' + str(int(df.loc[1,'glacno'])).zfill(5),
-          str(int(df.loc[2,'O1Region'])) + '.' + str(int(df.loc[2,'glacno'])).zfill(5))
-#    print(str(int(df.loc[df.shape[0]-1,'O1Region'])) + '.' + str(int(df.loc[df.shape[0]-1,'glacno'])))
+#import spc_split_glaciers
+#glac_no_batches = spc_split_glaciers.split_list(glac_no, n=24, option_ordered=0)
+#
+#
+#list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--1.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--2.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--3.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--4.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--5.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--6.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--7.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--8.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--9.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--10.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--12.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--13.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--14.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--15.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--16.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--18.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--19.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--20.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--21.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--22.nc',
+#            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--23.nc']
+####list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--8.nc', 
+####            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch0--10.nc']
+####list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--14.nc', 
+####            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--16.nc']
+##
+#netcdf_fp = input.main_directory + '/../SPC_PYGEM/'
+#for i in list_fns:
+#    ds = xr.open_dataset(netcdf_fp + i)
+#    df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
+#    print(str(int(df.loc[0,'O1Region'])) + '.' + str(int(df.loc[0,'glacno'])).zfill(5),
+#          str(int(df.loc[1,'O1Region'])) + '.' + str(int(df.loc[1,'glacno'])).zfill(5),
+#          str(int(df.loc[2,'O1Region'])) + '.' + str(int(df.loc[2,'glacno'])).zfill(5))
+##    print(str(int(df.loc[df.shape[0]-1,'O1Region'])) + '.' + str(int(df.loc[df.shape[0]-1,'glacno'])))
     
 
 #%%

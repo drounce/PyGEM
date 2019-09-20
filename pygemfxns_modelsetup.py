@@ -353,6 +353,8 @@ def selectglaciersrgitable(glac_no=None,
         if glac_no is not None:
             rgi_glac_number = glac_no_byregion[region]
 
+#        if len(rgi_glac_number) < 50:
+
         for i in os.listdir(rgi_fp):
             if i.startswith(str(region).zfill(2)) and i.endswith('.csv'):
                 rgi_fn = i
@@ -384,13 +386,16 @@ def selectglaciersrgitable(glac_no=None,
             else:
                 print("%s glaciers in region %s are included in this model run: %s and more" %
                       (len(rgi_glac_number), region, rgi_glac_number[0:50]))
-            for x_glac in rgi_glac_number:
-                glac_id = 'RGI60-' + str(region).zfill(2) + '.' + x_glac
-                if glacier_table.empty:
-                    glacier_table = csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id]
-                else:
-                    glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[csv_regionO1['RGIId'] == glac_id]],
-                                               axis=0))
+                
+            rgiid_subset = ['RGI60-' + str(region).zfill(2) + '.' + x for x in rgi_glac_number] 
+            rgiid_all = list(csv_regionO1.RGIId.values)
+            rgi_idx = [rgiid_all.index(x) for x in rgiid_subset]
+            if glacier_table.empty:
+                glacier_table = csv_regionO1.loc[rgi_idx]
+            else:
+                glacier_table = (pd.concat([glacier_table, csv_regionO1.loc[rgi_idx]],
+                                           axis=0))
+                    
     glacier_table = glacier_table.copy()
     # reset the index so that it is in sequential order (0, 1, 2, etc.)
     glacier_table.reset_index(inplace=True)

@@ -874,3 +874,41 @@ if __name__ == '__main__':
         
     if args.vars_mon2annualseasonal == 1:
         vars_mon2annualseasonal(args.gcm_name)
+        
+##%% RE-ORDER OUTPUT BY GLACIER NUMBER
+#for region in regions:
+#    for rcp in rcps:
+#        
+#        output_fp = '../Output/simulations/spc_20190914/merged/'
+#        ds_fn = 'R' + str(region) + '--all--IPSL-CM5A-LR_' + rcp + '_c2_ba1_100sets_2000_2100.nc'
+#        #ds_fn = 'R15--all--IPSL-CM5A-LR_rcp60_c2_ba1_100sets_2000_2100.nc'
+#        ds = xr.open_dataset(output_fp + ds_fn)
+#        df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs.values)
+#        
+#        glacno = df.glacno.values.astype(int)
+#        ds.glac.values = glacno
+#        ds2 = ds.sortby('glac')
+#        df2 = pd.DataFrame(ds2.glacier_table.values, columns=ds2.glac_attrs.values)
+#        
+##        glacno_str = [str(region) + '.' + str(x).zfill(5) for x in glacno]
+##        main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no = glacno_str)
+#        
+##        A = ds2.area_glac_annual.values[:,:,0]
+##        B = A[:,0] - main_glac_rgi['Area'].values
+#        
+#        ds2_fn = ds_fn.replace('.nc', '-ordered.nc')
+#        # Encoding
+#        # Add variables to empty dataset and merge together
+#        encoding = {}
+#        noencoding_vn = ['stats', 'glac_attrs']
+#        for vn in input.output_variables_package2:
+#            # Encoding (specify _FillValue, offsets, etc.)
+#            if vn not in noencoding_vn:
+#                encoding[vn] = {'_FillValue': False}
+#        # Export to netcdf
+#        ds2.to_netcdf(output_fp + ds2_fn, encoding=encoding)
+#        # Close dataset
+#        ds.close()
+#        ds2.close()
+#        
+#        os.remove(output_fp + ds_fn)

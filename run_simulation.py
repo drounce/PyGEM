@@ -959,6 +959,8 @@ def main(list_packed_vars):
             # Export statistics to netcdf
             if input.output_package == 2:
                 output_sim_fp = input.output_sim_fp + gcm_name + '/'
+                if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
+                    output_sim_fp += rcp_scenario + '/'
                 # Create filepath if it does not exist
                 if os.path.exists(output_sim_fp) == False:
                     os.makedirs(output_sim_fp)
