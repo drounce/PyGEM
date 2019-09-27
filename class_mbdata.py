@@ -4,6 +4,7 @@
 import pandas as pd
 import numpy as np
 import calendar
+import collections
 import datetime
 # Local libraries
 import pygem_input as input
@@ -50,6 +51,16 @@ class MBData():
             self.t1_cn = input.berthier_time1_cn
             self.t2_cn = input.berthier_time2_cn
             self.area_cn = input.berthier_area_cn
+        
+        elif self.name == 'braun': 
+            self.ds_fp = input.braun_fp
+            self.ds_fn = input.braun_fn
+            self.rgi_glacno_cn = input.braun_rgi_glacno_cn
+            self.mb_mwea_cn = input.braun_mb_cn
+            self.mb_mwea_err_cn = input.braun_mb_err_cn
+            self.t1_cn = input.braun_time1_cn
+            self.t2_cn = input.braun_time2_cn
+            self.area_cn = input.braun_area_cn
             
         elif self.name == 'mcnabb':
             self.ds_fp = input.mcnabb_fp
@@ -167,7 +178,7 @@ class MBData():
         
         # DATASET SPECIFIC CALCULATIONS
         # ===== SHEAN GEODETIC DATA =====
-        if self.name in ['shean', 'berthier']:
+        if self.name in ['shean', 'berthier', 'braun']:
             ds['z1_idx'] = (
                     (main_glac_hyps.iloc[ds['glacno'].map(glacnodict)].values != 0).argmax(axis=1).astype(int))
             ds['z2_idx'] = (
@@ -182,13 +193,16 @@ class MBData():
                         main_glac_hyps.iloc[glacnodict[ds.loc[x,'glacno']], 
                                             ds.loc[x,'z1_idx']:ds.loc[x,'z2_idx']+1].sum())
             # Time indices
-            ds['t1'] = ds[self.t1_cn]
-            ds['t2'] = ds[self.t2_cn]
+            ds['t1'] = ds[self.t1_cn].astype(np.float64)
+            ds['t2'] = ds[self.t2_cn].astype(np.float64)
             ds['t1_year'] = ds['t1'].astype(int)
             ds['t1_month'] = round(ds['t1'] % ds['t1_year'] * 12 + 1)
+            ds.loc[ds['t1_month'] == 13, 't1_year'] = ds.loc[ds['t1_month'] == 13, 't1_year'] + 1
+            ds.loc[ds['t1_month'] == 13, 't1_month'] = 1
             #  add 1 to account for the fact that January starts with value of 1
             ds['t2_year'] = ds['t2'].astype(int)
             ds['t2_month'] = round(ds['t2'] % ds['t2_year'] * 12)
+            ds.loc[ds['t2_month'] == 0, 't2_month'] = 1
              #  do not need to add one for t2 because we want the last full time step
             # Remove data with dates outside of calibration period
             year_decimal_min = dates_table.loc[0,'year'] + dates_table.loc[0,'month'] / 12
@@ -202,6 +216,8 @@ class MBData():
             ds['t1_idx'] = np.nan
             ds['t2_idx'] = np.nan
             for x in range(ds.shape[0]):
+                if x == 10539:
+                    print(x, ds.loc[x,'RGIId'], ds.loc[x,'t1'], ds.loc[x,'t1_month'], ds.loc[x,'t2_month'])
                 ds.loc[x,'t1_idx'] = (dates_table[(ds.loc[x, 't1_year'] == dates_table['year']) & 
                                                   (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
                 ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
@@ -213,8 +229,9 @@ class MBData():
 #            # Total mass change [Gt]
 #            ds['mb_gt'] = ds[self.mb_vol_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * input.density_water / 1000
 #            ds['mb_gt_err'] = ds[self.mb_vol_err_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * input.density_water / 1000
-            # Observation type
-            ds['obs_type'] = 'mb_geo'
+            if 'obs_type' not in list(ds.columns.values):
+                # Observation type
+                ds['obs_type'] = 'mb_geo'
             # Add columns with nan for things not in list
             ds_addcols = [x for x in ds_output_cols if x not in ds.columns.values]
             for colname in ds_addcols:
@@ -833,7 +850,50 @@ class MBData():
         ds_output.reset_index(drop=True, inplace=True)
 
         return ds_output
+ 
 
+def select_best_mb(cal_data):
+    """
+    Retrieve 'best' mass balance (observed > extrapolated) and longest time period
+    
+    Returns
+    -------
+    cal_data_best : pandas dataframe
+        dataframe of 'best' mass balance observations and other relevant information for calibration 
+    """     
+    cal_data['dt'] = cal_data['t2'] - cal_data['t1']
+    rgiids = list(cal_data.RGIId.values)
+    rgiids_count = collections.Counter(rgiids)
+    rgiids_multiple = []
+    rgiids_single_idx = []
+    cal_data_rgiids_all = list(cal_data.RGIId.values)
+    for x in rgiids_count:
+        if rgiids_count[x] > 1:
+            rgiids_multiple.append(x)
+        else:
+            rgiids_single_idx.append(cal_data_rgiids_all.index(x))
+    rgiids_multiple = sorted(rgiids_multiple)
+    rgiids_single_idx = sorted(rgiids_single_idx)   
+    
+    # Select all data with single value   
+    cal_data_best = cal_data.loc[rgiids_single_idx,:]
+    
+    # Append 'best' value for those with multiple observations
+    for rgiid in rgiids_multiple:
+        cal_data_multiple = cal_data[cal_data['RGIId'] == rgiid]
+        # Select observations over extrapolated values
+        if 'mb_geo' in list(cal_data_multiple.obs_type.values):
+            cal_data_multiple = cal_data_multiple[cal_data_multiple.obs_type == 'mb_geo']
+        # Select longest time series
+        cal_data_append = cal_data_multiple[cal_data_multiple.dt == cal_data_multiple.dt.max()] 
+        
+        cal_data_best = pd.concat([cal_data_best, cal_data_append], axis=0)
+        
+    cal_data_best = cal_data_best.sort_values(by=['RGIId'])
+    cal_data_best.reset_index(inplace=True, drop=True)
+    
+    return cal_data_best
+    
 
 #%% Testing
 if __name__ == '__main__':
@@ -856,35 +916,44 @@ if __name__ == '__main__':
     elev_bins = main_glac_hyps.columns.values.astype(int)
     elev_bin_interval = elev_bins[1] - elev_bins[0]
     
-#    # Testing    
-#    mb1 = MBData(name='larsen')
-##    mb1 = MBData(name='mauer')
-##    mb1 = MBData(name='cogley')
-#    ds_output = mb1.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)
     
     #%%
 #    cal_datasets = ['shean'] 
-    cal_datasets = ['berthier']
+#    cal_datasets = ['braun', 'mcnabb', 'larsen', 'berthier']
+#    cal_datasets = ['braun', 'larsen', 'mcnabb']
+    cal_datasets = ['braun']
 #    cal_datasets = ['shean', 'mauer', 'wgms_d', 'wgms_ee', 'cogley', 'mcnabb', 'larsen']
 #    cal_datasets = ['group']
     
     cal_data = pd.DataFrame()
     for dataset in cal_datasets:
-        print(dataset)
         cal_subset = MBData(name=dataset)
         cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+        
+        # Count unique glaciers and fraction of total area
+        glacno_unique = list(cal_subset_data.glacno.unique())
+        main_glac_rgi_cal = modelsetup.selectglaciersrgitable(glac_no = glacno_unique)
+        print(dataset, '- glacier area covered: ', 
+              np.round(main_glac_rgi_cal.Area.sum() / main_glac_rgi.Area.sum() * 100,1),'%')
+        
     cal_data = cal_data.sort_values(['glacno', 't1_idx'])
     cal_data.reset_index(drop=True, inplace=True)
     
-#    #%%
-#    # Count unique glaciers and fraction of total area
-#    rgiid_unique = list(cal_data.RGIId.unique())
-#    rgiid_unique_idx = []
-#    for rgiid in rgiid_unique:
-#        rgiid_unique_idx.append(np.where(main_glac_rgi.RGIId.values == rgiid)[0][0])
-#    print('Glacier area covered: ', np.round(main_glac_rgi.loc[rgiid_unique_idx, 'Area'].sum() / 
-#                                             main_glac_rgi['Area'].sum() * 100,1),'%')
+    # Count unique glaciers and fraction of total area
+    if len(cal_datasets) > 1:
+        glacno_unique = list(cal_data.glacno.unique())
+        main_glac_rgi_cal = modelsetup.selectglaciersrgitable(glac_no = glacno_unique)
+        print('All datasets glacier area covered: ', 
+              np.round(main_glac_rgi_cal.Area.sum() / main_glac_rgi.Area.sum() * 100,1),'%')
+    
+#    # Export 'best' dataset
+#    cal_data_best = select_best_mb(cal_data)
+#    cal_data_best = cal_data_best.drop(['group_name', 'sla_m', 'WGMS_ID'], axis=1)
+#    cal_data_best['mb_mwea'] = cal_data_best.mb_mwe / cal_data_best.dt
+#    cal_data_best['mb_mwea_sigma'] = cal_data_best.mb_mwe_err / cal_data_best.dt
+#    cal_data_best.to_csv(input.braun_fp + 'braun_AK_all_20190924_wlarsen_mcnabb_best.csv', index=False)
+    
 
 #%% PRE-PROCESS MCNABB DATA
 #    # Remove glaciers that:

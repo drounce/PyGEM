@@ -14,7 +14,8 @@ import spc_split_glaciers as split_glaciers
 regions = [13, 14, 15]
 gcm_names = ['CCSM4']
 rcps = ['rcp45', 'rcp60', 'rcp85']
-output_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc_20190914/'
+#output_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/spc_20190914/'
+output_fp = '/Volumes/LaCie/HMA_PyGEM/2019_0914/merged/'
 nchunks = 10        
 
 

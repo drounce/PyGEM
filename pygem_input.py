@@ -118,20 +118,20 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [1]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
-#rgi_glac_number = 'all'
-rgi_glac_number = ['01390']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['01390']
 #rgi_glac_number = glac_num_fromrange(4483,4980)
-#rgi_glac_number = glac_num_fromrange(1,8)
+rgi_glac_number = glac_num_fromrange(1130,1153)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 glac_no = None
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
-#glac_no = ['13.26960', '15.00002', '14.01243']
+#glac_no = ['15.01152']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
@@ -151,10 +151,10 @@ constantarea_years = 0          # number of years to not let the area or volume 
 spinupyears = 0                 # spin up years
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
-gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2018              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2100              # last year of model run (simulation dataset)
+#gcm_endyear = 2018              # last year of model run (simulation dataset)
+gcm_startyear = 2000            # first year of model run (simulation dataset)
+gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation
 gcm_wateryear = 1               # water year for simmulation
 
@@ -176,8 +176,8 @@ if option_synthetic_sim == 1:
 
 #%% SIMULATION OPTIONS
 # MCMC options
-sim_iters = 100   # number of simulations (needed for cal_opt 2)
-sim_burn = 200  # number of burn-in (needed for cal_opt 2)
+sim_iters = 100     # number of simulations (needed for cal_opt 2)
+sim_burn = 200      # number of burn-in (needed for cal_opt 2)
 
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
@@ -188,10 +188,10 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 4
+option_calibration = 2
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
-#cal_datasets = ['shean']
-cal_datasets = ['berthier']
+cal_datasets = ['shean']
+#cal_datasets = ['berthier']
 # Calibration output filepath
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
@@ -282,8 +282,8 @@ frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalabl
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
-modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
-#modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
+#modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
+modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
     
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -483,13 +483,26 @@ shean_area_cn = 'area_m2'
 
 # ===== BERTHIER GEODETIC =====
 berthier_fp = main_directory + '/../DEMs/Berthier/output/'
-berthier_fn = 'AK_all_20190913_wextrapolations_1980cheat.csv'
+#berthier_fn = 'AK_all_20190913_wextrapolations_1980cheat.csv'
+berthier_fn = 'AK_all_20190913.csv'
 berthier_rgi_glacno_cn = 'RGIId'
 berthier_mb_cn = 'mb_mwea'
 berthier_mb_err_cn = 'mb_mwea_sigma'
 berthier_time1_cn = 't1'
 berthier_time2_cn = 't2'
 berthier_area_cn = 'area_km2'
+
+# ===== BRAUN GEODETIC =====
+braun_fp = main_directory + '/../DEMs/Braun/output/'
+braun_fn = 'braun_AK_all_20190924_wlarsen_mcnabb_best.csv'
+#braun_fn = 'braun_AK_all_20190924_wextrapolations.csv'
+#braun_fn = 'braun_AK_all_20190924.csv'
+braun_rgi_glacno_cn = 'RGIId'
+braun_mb_cn = 'mb_mwea'
+braun_mb_err_cn = 'mb_mwea_sigma'
+braun_time1_cn = 't1'
+braun_time2_cn = 't2'
+braun_area_cn = 'area_km2'
 
 # ===== BRUN GEODETIC =====
 brun_fp = main_directory + '/../DEMs/'
@@ -630,7 +643,7 @@ option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model options
-option_refreezing = 1               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
+option_refreezing = 2               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
 if option_refreezing == 1:
     rf_layers = 5                   # number of layers for refreezing model (8 is sufficient - Matthias)
 #    rf_layers_max = 8               # number of layers to include for refreeze calculation

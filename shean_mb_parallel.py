@@ -453,20 +453,33 @@ setup['site'] = site
 """
 
 topdir='/Users/davidrounce/Documents/Dave_Rounce/HiMAT/DEMs/'
-site='StElias'
-# site = 'Chugach'  # COMPLETED
-# site = 'AR
-# site = 'AR_C'     # COMPLETED
-# site = 'AR_E'     # COMPLETED
-# site = 'Coast'    # COMPLETED
-# site = 'Kenai'    # COMPLETED
-# site = 'AK_Pen'   # COMPLETED
+#site = 'Braun_PCR07N'  # COMPLETED
+#site = 'Braun_PCR08N'  # COMPLETED
+#site = 'Braun_PCR09N'  # COMPLETED
+#site = 'Braun_AwA-1'   # COMPLETED
+#site = 'Braun_AwA-2'   # COMPLETED
+#site = 'Braun_AwA-3'   # COMPLETED
+#site = 'Braun_AwA-4'   # COMPLETED
+site = 'Braun_AwA-5'   # COMPLETED
+#site='StElias'
+#site = 'Chugach'       # COMPLETED
+#site = 'AR_W'          # COMPLETED
+#site = 'AR_C'          # COMPLETED
+#site = 'AR_E'          # COMPLETED
+#site = 'Coast'         # COMPLETED
+#site = 'Kenai'         # COMPLETED
+#site = 'AK_Pen'        # COMPLETED
 # options: ['StElias', 'Chugach', 'AR_W', 'AR_C', 'AR_E', 'Coast', 'Kenai', 'AK_Pen', 'HMA']
+#Braun options: ['Braun_PCR07N', 'Braun_PCR08N', 'Braun_PCR09N', 'Braun_AwA-1', 'Braun_AwA-2', 'Braun_AwA-3', 
+#                'Braun_AwA-4', 'Braun_AwA-1']
+
+print(site)
+
 
 #Filter glacier poly - let's stick with big glaciers for no
-# min_glac_area = 0.0 #km^2
+min_glac_area = 0.0 #km^2
 #min_glac_area = 0.1 #km^2
-min_glac_area = 1. #km^2
+#min_glac_area = 1. #km^2
 # min_glac_area = 2. #km^2
 #Only write out for larger glaciers
 min_glac_area_writeout = 1.
@@ -521,7 +534,109 @@ z1_srtm_penetration_corr = False
 z2_srtm_penetration_corr = False
 
 
-if site in ['StElias', 'Chugach', 'AR_W', 'AR_C', 'AR_E', 'Coast', 'Kenai', 'AK_Pen']:
+if 'Braun' in site:
+    #Output directory
+    outdir = topdir + 'Braun/output/'
+    outdir_fig = topdir + 'Braun/output/figures/'
+    outdir_csv = topdir + 'Braun/output/csv/'
+
+    glac_shp_fn = topdir + '../RGI/rgi60/01_rgi60_Alaska/01_rgi60_Alaska.shp'
+    glacfeat_fn = outdir + site + '_glacfeat_list.p'
+
+    # Filenames
+    z1_fn_dict = {'Braun_PCR07N': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_03_PCRn/' + 
+                                           'srtm_filled_ice__03_PCRn-utm07N-strips_crp2reg_03_PCRn.tif',
+                  'Braun_PCR08N': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_03_PCRn/' + 
+                                           'srtm_filled_ice__03_PCRn-utm08N-strips_crp2reg_03_PCRn.tif',
+                  'Braun_PCR09N': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_03_PCRn/' + 
+                                           'srtm_filled_ice__03_PCRn-utm09N-strips_crp2reg_03_PCRn.tif',
+                  'Braun_AwA-1': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                          'srtm_filled_ice__04_AwA-1-strips_crp2reg_04_AwA.tif',
+                  'Braun_AwA-2': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                          'srtm_filled_ice__04_AwA-2-strips_crp2reg_04_AwA.tif',
+                  'Braun_AwA-3': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                          'srtm_filled_ice__04_AwA-3-strips_crp2reg_04_AwA.tif',
+                  'Braun_AwA-4': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                          'srtm_filled_ice__04_AwA-4-strips_crp2reg_04_AwA.tif',
+                  'Braun_AwA-5': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                          'srtm_filled_ice__04_AwA-5-strips_crp2reg_04_AwA.tif',
+                  }
+    z1_date_dict = 2000.128
+    z2_fn_dict = None
+    z2_date_dict = 2012.0
+    dhdt_fn_dict = {'Braun_PCR07N': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_03_PCRn/' + 
+                                             'dh_dt_on_ice__03_PCRn-utm07N-strips_crp2reg_03_PCRn.tif',
+                    'Braun_PCR08N': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_03_PCRn/' + 
+                                             'dh_dt_on_ice__03_PCRn-utm08N-strips_crp2reg_03_PCRn.tif',
+                    'Braun_PCR09N': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_03_PCRn/' + 
+                                             'dh_dt_on_ice__03_PCRn-utm09N-strips_crp2reg_03_PCRn.tif',
+                    'Braun_AwA-1': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                            'dh_dt_on_ice__04_AwA-1-strips_crp2reg_04_AwA.tif',
+                    'Braun_AwA-2': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                            'dh_dt_on_ice__04_AwA-2-strips_crp2reg_04_AwA.tif',
+                    'Braun_AwA-3': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                            'dh_dt_on_ice__04_AwA-3-strips_crp2reg_04_AwA.tif',
+                    'Braun_AwA-4': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                            'dh_dt_on_ice__04_AwA-4-strips_crp2reg_04_AwA.tif',
+                    'Braun_AwA-5': topdir + 'Braun/TDX-SRTM_prelim/NorthAmerica_dhdt/region_04_AwA/' + 
+                                            'dh_dt_on_ice__04_AwA-5-strips_crp2reg_04_AwA.tif',}
+    
+    
+    z1_fn = z1_fn_dict[site]
+    z1_date = z1_date_dict
+    z1_sigma = 10
+    z1_srtm_penetration_corr = False
+
+    if z2_fn_dict is None:
+        dhdt_fn = dhdt_fn_dict[site]
+
+        # Hack - use z1 and dhdt to produce z2, so Shean processing scripts can be used for MB and binning calcs with Braun data
+        #Output projection
+        #'+proj=aea +lat_1=25 +lat_2=47 +lat_0=36 +lon_0=85 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs '
+        ds = gdal.Open(z1_fn)
+        prj = ds.GetProjection()
+        srs = osr.SpatialReference(wkt=prj)
+        aea_srs = srs
+        
+        #Warp everything to common res/extent/proj
+        ds_list = warplib.memwarp_multi_fn([z1_fn, dhdt_fn], 
+                                           res='min', t_srs=aea_srs, verbose=verbose, r='cubic')
+        # DEM masks
+        ds_list_masked = [iolib.ds_getma(i) for i in ds_list]
+        z1 = np.ma.masked_less_equal(ds_list_masked[0], 0)
+        dhdt = ds_list_masked[1]
+        
+        # Create z2 from z1 and dhdt
+        z2 = z1 + dhdt * (z2_date_dict - z1_date_dict)
+        z2.mask = np.ma.mask_or(z1.mask, dhdt.mask)
+
+        # Write out file
+        z2_fn = z1_fn.replace('srtm_filled_ice', 'z2_fromSTRM&dhdt')
+        iolib.writeGTiff(z2, z2_fn, src_ds=ds_list[0]) 
+        
+    else:
+        z2_fn = z2_fn_dict[site]
+    z2_date = z2_date_dict
+    z2_sigma = 10
+    z2_srtm_penetration_corr = False
+    
+
+    #Output projection
+    #'+proj=aea +lat_1=25 +lat_2=47 +lat_0=36 +lon_0=85 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs '
+    # print('\n\nSHOULD CHANGE TO EQUAL AREA PROJECTION!\n\n')
+    # aea_srs = geolib.hma_aea_srs
+    ds = gdal.Open(z1_fn)
+    prj = ds.GetProjection()
+    srs = osr.SpatialReference(wkt=prj)
+    aea_srs = srs
+
+    #Surface velocity
+    # add surface velocities where possible?
+
+    print('\nStatic analysis does not work for quantifying uncertainty because clipped by RGI extents')
+    print('\nOpting to use UTM projections to avoid errors caused by projecting/resampling datasets\n')
+
+elif site in ['StElias', 'Chugach', 'AR_W', 'AR_C', 'AR_E', 'Coast', 'Kenai', 'AK_Pen']:
     #Output directory
     outdir = topdir + 'Berthier/output/'
     outdir_fig = topdir + 'Berthier/output/figures/'

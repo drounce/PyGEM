@@ -44,6 +44,8 @@ def getparser():
                         help='GCM name used for model run')
     parser.add_argument('-rcp', action='store', type=str, default=None,
                         help='rcp scenario used for model run (ex. rcp26)')
+    parser.add_argument('-region', action='store', type=int, default=None,
+                        help='RGI region number (order 1)')
     parser.add_argument('-output_sim_fp', action='store', type=str, default=input.output_sim_fp,
                         help='output simulation filepath where results are being stored by GCM')
     parser.add_argument('-option_remove_merged_files', action='store', type=int, default=0,
@@ -54,6 +56,8 @@ def getparser():
                         help='Switch to merge batches or not (1-merge)')
     parser.add_argument('-extract_subset', action='store', type=int, default=0,
                         help='Switch to extract a subset of variables or not (1-yes)')
+    parser.add_argument('-unzip_files', action='store', type=int, default=0,
+                        help='Switch to unzip files or not (1-yes)')
     parser.add_argument('-subset_byvar', action='store', type=int, default=0,
                         help='Switch to subset by each variables or not')
     parser.add_argument('-vars_mon2annualseasonal', action='store', type=int, default=0,
@@ -64,73 +68,73 @@ def getparser():
 
 
 #%%
-gcm_names = ['CCSM4']
-rcps = ['rcp26']
-output_fp = '/Volumes/LaCie/HMA_PyGEM/simulations/'
-#zip_fp = '/Volumes/LaCie/PyGEM_simulations/2019_0317/spc_zipped/'
-#multimodel_fp = zip_fp + '../multimodel/'
-
-ds_vns = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 'refreeze_glac_monthly', 'melt_glac_monthly',
-          'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
-          'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual', 'offglac_prec_monthly', 
-          'offglac_refreeze_monthly', 'offglac_melt_monthly', 'offglac_snowpack_monthly', 'offglac_runoff_monthly']
-
-for gcm_name in gcm_names:
-    for rcp in rcps:
-        
-        ds_fp = output_fp + gcm_name + '/' + rcp + '/'
-        print(ds_fp)
-        
-        # Glacier numbers
-        glac_no = []
-        for i in os.listdir(ds_fp):
-            if i.endswith('.nc'):
-                glac_no.append(i.split('_')[0])
-                if len(glac_no) == 1:
-                    ds_ending = i.replace(i.split('_')[0],'')
-        
-        # Merge by region
-        regions = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
-        print('\n\nSWITCH BACK TO ALL REGIONS\n\n')
-#        for region in regions:
-        for region in [14]:
-            glac_no_region = []
-            for i in glac_no:
-                if i.split('.')[0] == str(region):
-                    glac_no_region.append(i)
-            
-            glac_no_region = sorted(glac_no_region)
-
-            # Merge datasets of stats into one output
-            for nglac, i in enumerate(glac_no_region):
-                if nglac%500 == 0:
-                    print(nglac, i)
-                ds_fn = i + ds_ending
-                ds = xr.open_dataset(ds_fp + ds_fn)
-                if nglac == 0:
-                    ds_all = ds
-                else:
-                    ds_all = xr.concat([ds_all, ds], 'glac')
-                    
-            # Filename
-            ds_all_fp = output_fp + gcm_name + '/'
-            ds_all_fn = ds_fn.replace(i,'R' + str(region))
-            # Encoding
-            # Add variables to empty dataset and merge together
-            encoding = {}
-            noencoding_vn = ['stats', 'glac_attrs']
-            for vn in input.output_variables_package2:
-                # Encoding (specify _FillValue, offsets, etc.)
-                if vn not in noencoding_vn:
-                    encoding[vn] = {'_FillValue': False}
-            # Export to netcdf
-            ds_all.to_netcdf(ds_all_fp + ds_all_fn, encoding=encoding)
-            # Close dataset
-            ds.close()
-            ds_all.close()
-            # Remove files in output_list
-#            for i in output_list:
-#                os.remove(output_sim_fp + i)
+#gcm_names = ['CCSM4']
+#rcps = ['rcp26']
+#output_fp = '/Volumes/LaCie/HMA_PyGEM/simulations/'
+##zip_fp = '/Volumes/LaCie/PyGEM_simulations/2019_0317/spc_zipped/'
+##multimodel_fp = zip_fp + '../multimodel/'
+#
+#ds_vns = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly', 'refreeze_glac_monthly', 'melt_glac_monthly',
+#          'frontalablation_glac_monthly', 'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly', 
+#          'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual', 'offglac_prec_monthly', 
+#          'offglac_refreeze_monthly', 'offglac_melt_monthly', 'offglac_snowpack_monthly', 'offglac_runoff_monthly']
+#
+#for gcm_name in gcm_names:
+#    for rcp in rcps:
+#        
+#        ds_fp = output_fp + gcm_name + '/' + rcp + '/'
+#        print(ds_fp)
+#        
+#        # Glacier numbers
+#        glac_no = []
+#        for i in os.listdir(ds_fp):
+#            if i.endswith('.nc'):
+#                glac_no.append(i.split('_')[0])
+#                if len(glac_no) == 1:
+#                    ds_ending = i.replace(i.split('_')[0],'')
+#        
+#        # Merge by region
+#        regions = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
+#        print('\n\nSWITCH BACK TO ALL REGIONS\n\n')
+##        for region in regions:
+#        for region in [14]:
+#            glac_no_region = []
+#            for i in glac_no:
+#                if i.split('.')[0] == str(region):
+#                    glac_no_region.append(i)
+#            
+#            glac_no_region = sorted(glac_no_region)
+#
+#            # Merge datasets of stats into one output
+#            for nglac, i in enumerate(glac_no_region):
+#                if nglac%500 == 0:
+#                    print(nglac, i)
+#                ds_fn = i + ds_ending
+#                ds = xr.open_dataset(ds_fp + ds_fn)
+#                if nglac == 0:
+#                    ds_all = ds
+#                else:
+#                    ds_all = xr.concat([ds_all, ds], 'glac')
+#                    
+#            # Filename
+#            ds_all_fp = output_fp + gcm_name + '/'
+#            ds_all_fn = ds_fn.replace(i,'R' + str(region))
+#            # Encoding
+#            # Add variables to empty dataset and merge together
+#            encoding = {}
+#            noencoding_vn = ['stats', 'glac_attrs']
+#            for vn in input.output_variables_package2:
+#                # Encoding (specify _FillValue, offsets, etc.)
+#                if vn not in noencoding_vn:
+#                    encoding[vn] = {'_FillValue': False}
+#            # Export to netcdf
+#            ds_all.to_netcdf(ds_all_fp + ds_all_fn, encoding=encoding)
+#            # Close dataset
+#            ds.close()
+#            ds_all.close()
+#            # Remove files in output_list
+##            for i in output_list:
+##                os.remove(output_sim_fp + i)
 
                     #%%
         
@@ -444,7 +448,8 @@ def merge_batches(gcm_name, output_sim_fp=input.output_sim_fp, rcp=None,
                     os.remove(netcdf_fp + i)
   
 
-def extract_subset(gcm_name, netcdf_fp=input.output_sim_fp):
+#def extract_subset(gcm_name, netcdf_fp=input.output_sim_fp):
+def extract_subset(gcm_name, rcp_scenario=None, region_no=None, netcdf_fp=input.output_sim_fp, unzip_files=0):
 #gcm_names = ['NorESM1-ME']
 #netcdf_fp = multimodel_fp
 #netcdf_fp = input.output_sim_fp
@@ -458,57 +463,141 @@ def extract_subset(gcm_name, netcdf_fp=input.output_sim_fp):
     # List of variable names to drop from merged file            
     drop_vns = [item for item in vns_all if item not in vns_subset]
     
-    regions = []
-    rcps = []
-    for i in os.listdir(netcdf_fp):
-        if i.endswith('.nc') and gcm_name in i:
-            i_region = int(i.split('_')[0][1:])
-            i_rcp = i.split('_')[2]
-        
-            if i_region not in regions:
-                regions.append(i_region)
-            if i_rcp not in rcps:
-                rcps.append(i_rcp)
-    regions = sorted(regions)
-    rcps = sorted(rcps)
+    if rcp_scenario is None:
+        rcp_checkstr = 'rcp'
+    else:
+        rcp_checkstr = rcp_scenario
     
-    for reg in regions:
-        for rcp in rcps:
-            check_str = 'R' + str(reg) + '_' + gcm_name + '_' + rcp
-            output_list = []
+    if region_no is None:
+        region_checkstr = 'R'
+    else:
+        region_checkstr = 'R' + str(region_no)
+    
+    # Unzip files
+    if unzip_files == 1:
+        for i in os.listdir(netcdf_fp):
+            # Unzip file if it doesn't exist yet
+            if ((i.endswith('.nc.zip')) and (os.path.isfile((netcdf_fp + i).replace('.zip','')) == False)
+                and (rcp_checkstr in i) and (region_checkstr in i)):
+                with zipfile.ZipFile(netcdf_fp + i, 'r') as zip_ref:
+                    zip_ref.extractall(netcdf_fp)            
+    
+#    # Loop through files to extract filenames
+#    regions = []
+#    rcps = []
+#    for i in os.listdir(netcdf_fp):
+#        if i.endswith('.nc') and gcm_name in i:
+#            i_region = int(i.split('_')[0][1:])
+#            i_rcp = i.split('_')[2]
+#        
+#            if i_region not in regions:
+#                regions.append(i_region)
+#            if i_rcp not in rcps:
+#                rcps.append(i_rcp)
+#    regions = sorted(regions)
+#    rcps = sorted(rcps)
+    
+    # Determine RCPs
+    if rcp_scenario is not None:
+        rcps = [rcp_scenario]
+    else:
+        rcps = []
+        for i in os.listdir(netcdf_fp):
+            if i.endswith('.nc') and gcm_name in i:
+                i_rcp = i.split('_')[2]
+                if i_rcp not in rcps:
+                    rcps.append(i_rcp)
+        rcps = sorted(rcps)
+        
+    # Determine Regions
+    if region_no is not None:
+        regions = [region_no]
+    else:
+        regions = []
+        for i in os.listdir(netcdf_fp):
+            if i.endswith('.nc') and gcm_name in i:
+                i_region = int(i.split('_')[0][1:])            
+                if i_region not in regions:
+                    regions.append(i_region)
+        regions = sorted(regions)
+        
+    ds_fns = []
+    for i in os.listdir(netcdf_fp):
+        if (i.endswith('.nc')) and (rcp_checkstr in i) and (region_checkstr in i):
+            ds_fns.append(i)
+    
+    # Extract subsets
+    for ds_fn in ds_fns:
+        # Encoding
+        encoding = {}
+        noencoding_vn = ['stats', 'glac_attrs']
+        # Encoding (specify _FillValue, offsets, etc.)
+        for vn in vns_subset:
+            if vn not in noencoding_vn:
+                encoding[vn] = {'_FillValue': False}
             
-            for i in os.listdir(netcdf_fp):
-                if i.startswith(check_str):
-                    ds_fn = i
-                    output_list.append(i)
-                
-                    # Encoding
-                    encoding = {}
-                    noencoding_vn = ['stats', 'glac_attrs']
-                    # Encoding (specify _FillValue, offsets, etc.)
-                    for vn in vns_subset:
-                        if vn not in noencoding_vn:
-                            encoding[vn] = {'_FillValue': False}
-                        
-                    # Open datasets and combine
-                    ds = xr.open_dataset(netcdf_fp + ds_fn)
-                    # Drop variables
-                    ds = ds.drop(drop_vns)                
-                    ds_new_fn = ds_fn.split('.nc')[0] + '--subset.nc'
-                    # Export to netcdf
-                    subset_fp = netcdf_fp + '/spc_subset/'
-                    # Add filepath if it doesn't exist
-                    if not os.path.exists(subset_fp):
-                        os.makedirs(subset_fp)
-                    ds.to_netcdf(subset_fp + ds_new_fn, encoding=encoding)
-                    ds.close()
-                        
-                    vol_glac_all = ds.volume_glac_annual.values[:,:,0]
-                    vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
-                    print(gcm_name, 'Region', reg, rcp, 'Vol remain [%]:', np.round(vol_remain_perc,1))
-                    
-#                    # Remove file
-#                    os.remove(netcdf_fp + i)
+        # Open datasets and combine
+        ds = xr.open_dataset(netcdf_fp + ds_fn)
+        # Drop variables
+        ds = ds.drop(drop_vns)                
+        ds_new_fn = ds_fn.replace('.nc', '--subset.nc')
+        # Export to netcdf
+        subset_fp = netcdf_fp + '../spc_subset/'
+        # Add filepath if it doesn't exist
+        if not os.path.exists(subset_fp):
+            os.makedirs(subset_fp)
+        ds.to_netcdf(subset_fp + ds_new_fn, encoding=encoding)
+        ds.close()
+            
+        vol_glac_all = ds.volume_glac_annual.values[:,:,0]
+        vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
+        reg = ds_fn.split('--')[0]
+        rcp = ds_fn.split('_')[1]
+        print(gcm_name, 'Region', reg, rcp, 'Vol remain [%]:', np.round(vol_remain_perc,1))
+        
+#        # Remove file
+#        os.remove(netcdf_fp + i)
+            
+        
+#    # Extract subsets
+#    for reg in regions:
+#        for rcp in rcps:
+#            check_str = 'R' + str(reg) + '_' + gcm_name + '_' + rcp
+#            output_list = []
+#            
+#            for i in os.listdir(netcdf_fp):
+#                if i.startswith(check_str):
+#                    ds_fn = i
+#                    output_list.append(i)
+#                
+#                    # Encoding
+#                    encoding = {}
+#                    noencoding_vn = ['stats', 'glac_attrs']
+#                    # Encoding (specify _FillValue, offsets, etc.)
+#                    for vn in vns_subset:
+#                        if vn not in noencoding_vn:
+#                            encoding[vn] = {'_FillValue': False}
+#                        
+#                    # Open datasets and combine
+#                    ds = xr.open_dataset(netcdf_fp + ds_fn)
+#                    # Drop variables
+#                    ds = ds.drop(drop_vns)                
+#                    ds_new_fn = ds_fn.split('.nc')[0] + '--subset.nc'
+#                    # Export to netcdf
+#                    subset_fp = netcdf_fp + '../spc_subset/'
+#                    print(subset_fp)
+#                    # Add filepath if it doesn't exist
+#                    if not os.path.exists(subset_fp):
+#                        os.makedirs(subset_fp)
+#                    ds.to_netcdf(subset_fp + ds_new_fn, encoding=encoding)
+#                    ds.close()
+#                        
+#                    vol_glac_all = ds.volume_glac_annual.values[:,:,0]
+#                    vol_remain_perc = vol_glac_all[:,vol_glac_all.shape[1]-1].sum() / vol_glac_all[:,0].sum() * 100
+#                    print(gcm_name, 'Region', reg, rcp, 'Vol remain [%]:', np.round(vol_remain_perc,1))
+#                    
+##                    # Remove file
+##                    os.remove(netcdf_fp + i)
                 
               
 def subset_byvar(gcm_name):    
@@ -867,7 +956,8 @@ if __name__ == '__main__':
                       option_remove_batch_files=args.option_remove_batch_files)
         
     if args.extract_subset == 1:
-        extract_subset(args.gcm_name)
+        extract_subset(args.gcm_name, rcp_scenario=args.rcp, region_no=args.region, netcdf_fp=args.output_sim_fp,
+                       unzip_files=args.unzip_files)    
         
     if args.subset_byvar == 1:
         subset_byvar(args.gcm_name)

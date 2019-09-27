@@ -4644,16 +4644,36 @@ if runoff_erainterim_bywatershed == 1:
 
         var_glac_region = ds['runoff_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
         var_glac_region_std = ds['runoff_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 1]
+        
+        vol_glac_region = ds['volume_glac_annual'].values[:,year_idx_start:year_idx_end+1,0]
+        excess_meltwater_reg = excess_meltwater_m3(vol_glac_region)
+        
+        melt_glac_region_mwea = ds['melt_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
+        rfrz_glac_region_mwea = ds['refreeze_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
+        area_glac_region = ds['area_glac_annual'].values[:,year_idx_start:year_idx_end+1,0]
+        melt_glac_region_m3 = melt_glac_region_mwea * area_glac_region.repeat(12,axis=1) * 10**6
+        rfrz_glac_region_m3 = rfrz_glac_region_mwea * area_glac_region.repeat(12,axis=1) * 10**6
+        
+        option_include_offglac = 1
+        if option_include_offglac == 1:
+            var_glac_region += ds['offglac_runoff_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
+            var_glac_region_std += ds['offglac_runoff_monthly'].values[:,time_idx_start:time_idx_end + 12, 1]
 
         # Merge datasets
         if region == regions[0]:
             glacno = glacno_region
             var_glac_all = var_glac_region
             var_glac_all_std = var_glac_region_std
+            excess_meltwater_all = excess_meltwater_reg
+            melt_glac_all = melt_glac_region_m3
+            rfrz_glac_all = rfrz_glac_region_m3
         else:
             glacno.extend(glacno_region)
             var_glac_all = np.concatenate((var_glac_all, var_glac_region), axis=0)
             var_glac_all_std = np.concatenate((var_glac_all_std, var_glac_region_std), axis=0)
+            excess_meltwater_all = np.concatenate((excess_meltwater_all, excess_meltwater_reg), axis=0)
+            melt_glac_all = np.concatenate((melt_glac_all, melt_glac_region_m3), axis=0)
+            rfrz_glac_all = np.concatenate((rfrz_glac_all, rfrz_glac_region_m3), axis=0)
         
         ds.close()
     
@@ -4663,7 +4683,13 @@ if runoff_erainterim_bywatershed == 1:
     # Groups
     groups, group_cn = select_groups(grouping, main_glac_rgi)
     subgroups, subgroup_cn = select_groups(subgrouping, main_glac_rgi)
-
+    
+    output_cns = ['watershed', 'runoff_gta', 'runoff_interannual_std_gta', 'runoff_interannual_std_pc', 'std_corr_gta', 
+                  'std_uncorr_gta', 'std_corr_perfect_gta', 'std_corr_perfect_pc', 'melt_gta',
+                  'melt_interannual_std_gta', 'excess_meltwater_gta', 'excess_meltwater_interannual_std_gta', 
+                  'rfrz_gta', 'rfrz_interannual_std_gta']
+    output_df = pd.DataFrame(np.zeros((len(groups),len(output_cns))), columns=output_cns)
+    output_df['watershed'] = groups
 
     ds_all = {}
     ds_all_std = {}
@@ -4675,6 +4701,9 @@ if runoff_erainterim_bywatershed == 1:
         
         var_group = var_glac_all[group_glac_indices,:].sum(axis=0)
         var_group_std_pc = var_glac_all_std[group_glac_indices,:].sum(axis=0)
+        excess_meltwater_group = excess_meltwater_all[group_glac_indices,:].sum(axis=0)
+        melt_group = melt_glac_all[group_glac_indices,:].sum(axis=0)
+        rfrz_group = rfrz_glac_all[group_glac_indices,:].sum(axis=0)
         
         # Uncertainty associated with volume change based on subgroups
         #  sum standard deviations in each subgroup assuming that they are uncorrelated
@@ -4690,8 +4719,14 @@ if runoff_erainterim_bywatershed == 1:
             subgroup_std[nsubgroup,:] = var_glac_all_std[subgroup_indices,:].sum(axis=0)
         var_group_std = (subgroup_std**2).sum(axis=0)**0.5    
         
-        
         # Group's mean annual runoff
+        group_annual_excess_melt_Gta = excess_meltwater_group.sum() / excess_meltwater_group.shape[0] * (1/1000)**3
+        group_annual_excess_melt_Gta_interannual_std = excess_meltwater_group.std() * (1/1000)**3
+        group_annual_melt_Gta = melt_group.sum() / (melt_group.shape[0] / 12) * (1/1000)**3
+        group_annual_melt_Gta_interannual_std = melt_group.reshape(-1,12).sum(1).std() * (1/1000)**3
+        group_annual_rfrz_Gta = rfrz_group.sum() / (rfrz_group.shape[0] / 12) * (1/1000)**3
+        group_annual_rfrz_Gta_interannual_std = rfrz_group.reshape(-1,12).sum(1).std() * (1/1000)**3
+        
         group_annual_runoff_Gta = var_group.sum() / (var_group.shape[0] / 12) * (1/1000)**3
         group_annual_runoff_Gta_interannual_std = var_group.reshape(-1,12).sum(1).std() * (1/1000)**3
         group_annual_runoff_Gta_pc = var_group_std_pc.sum() / (var_group_std_pc.shape[0] / 12) * (1/1000)**3
@@ -4703,10 +4738,30 @@ if runoff_erainterim_bywatershed == 1:
         ds_all[group] = group_annual_runoff_Gta
         ds_all_std[group] = group_annual_runoff_Gta_std
         
+        output_df.loc[ngroup,'runoff_gta'] = group_annual_runoff_Gta
+        output_df.loc[ngroup,'runoff_interannual_std_gta'] = group_annual_runoff_Gta_interannual_std
+        output_df.loc[ngroup,'std_corr_gta'] = group_annual_runoff_Gta_std
+        output_df.loc[ngroup,'std_uncorr_gta'] = group_annual_runoff_Gta_std_rsos
+        output_df.loc[ngroup,'std_corr_perfect_gta'] = group_annual_runoff_Gta_pc
+        output_df.loc[ngroup,'melt_gta'] = group_annual_melt_Gta
+        output_df.loc[ngroup,'melt_interannual_std_gta'] = group_annual_melt_Gta_interannual_std
+        output_df.loc[ngroup,'excess_meltwater_gta'] = group_annual_excess_melt_Gta
+        output_df.loc[ngroup,'excess_meltwater_interannual_std_gta'] = group_annual_excess_melt_Gta_interannual_std
+        output_df.loc[ngroup,'rfrz_gta'] = group_annual_rfrz_Gta
+        output_df.loc[ngroup,'rfrz_interannual_std_gta'] = group_annual_rfrz_Gta_interannual_std
+        
         print(group, np.round(group_annual_runoff_Gta,3), '+/-', np.round(group_annual_runoff_Gta_std,3), '(',
               np.round(group_annual_runoff_Gta_std_rsos,3),'for uncorrelated)', 
               '\n  all perfectly correlated:', np.round(group_annual_runoff_Gta_pc,3),
               '\n  interannual std:', np.round(group_annual_runoff_Gta_interannual_std,3))
+    
+    output_df['runoff_interannual_std_pc'] = output_df['runoff_interannual_std_gta'] / output_df['runoff_gta'] * 100
+    output_df['std_corr_perfect_pc'] = output_df['std_corr_gta'] / output_df['runoff_gta'] * 100
+    
+    output_df.to_csv(input.output_sim_fp + 'watershed_eraint_' + str(time_values_annual[0]) + '-' + 
+                     str(time_values_annual[-1]) + '_runoff.csv', index=False)
+        
+#%%
 
         
 if option_merge_multimodel_datasets == 1:

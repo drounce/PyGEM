@@ -117,7 +117,6 @@ if __name__ == '__main__':
     nchunks = args.num_simultaneous_processes
 
     output_fp = '../Output/simulations/'
-#    output_fp = '../Output/simulations/spc_20190914/'
     ds_fp = output_fp + gcm_name + '/'
     ds_all_fp = output_fp + 'merged/' + gcm_name + '/'
     
@@ -132,15 +131,23 @@ if __name__ == '__main__':
 #    gcm_files = sorted(gcm_files)
     
     gcm_files = []
-    for i in os.listdir(ds_fp):
-        if i.endswith('.nc'):
-            full_fn = ds_fp + i
-            gcm_files.append(full_fn)
-        elif os.path.isdir(ds_fp + i):
-            for j in os.listdir(ds_fp + i):
-                if j.endswith('.nc'):
-                    full_fn = ds_fp + i + '/' + j
-                    gcm_files.append(full_fn) 
+    if args.rcp is not None:
+        rcps = [args.rcp]
+        ds_fp += args.rcp + '/'
+        for i in os.listdir(ds_fp):
+            if i.endswith('.nc'):
+                full_fn = ds_fp + i
+                gcm_files.append(full_fn)
+    else:
+        for i in os.listdir(ds_fp):
+            if i.endswith('.nc'):
+                full_fn = ds_fp + i
+                gcm_files.append(full_fn)
+            elif os.path.isdir(ds_fp + i):
+                for j in os.listdir(ds_fp + i):
+                    if j.endswith('.nc'):
+                        full_fn = ds_fp + i + '/' + j
+                        gcm_files.append(full_fn) 
     gcm_files = sorted(gcm_files)
     
     rcps = []
@@ -159,14 +166,14 @@ if __name__ == '__main__':
     regions = sorted(regions)
     rcps = sorted(rcps)
     
+    if args.rcp is not None:
+        rcps = [args.rcp]
+
     if len(rcps) == 0:
         rcps.append(gcm_name)
         
 #    regions = ['14', '15']
 #    rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
-        
-    if args.rcp is not None:
-        rcps = [args.rcp]
     
     for rcp in rcps:
         for region in regions:
@@ -178,6 +185,8 @@ if __name__ == '__main__':
                 if fn.startswith(region) and rcp in fn:
                     glac_fullfn_region.append(i)
             glac_fullfn_region = sorted(glac_fullfn_region)
+            
+            print(rcp, region, len(glac_fullfn_region), 'glaciers')
             
             # Split into lists for parallel processing
             glac_fullfn_lsts = split_glaciers.split_list(glac_fullfn_region, n=nchunks)
@@ -202,8 +211,8 @@ if __name__ == '__main__':
             # MERGE CHUNKS
             chunk_fns = []
             for i in os.listdir(ds_all_fp):
-                print(i)
-                if i.startswith('R' + region) and rcp in i and gcm_name in i:
+                if i.startswith('R' + region) and i.endswith('.nc') and rcp in i and gcm_name in i and 'chunk' in i:
+                    print(i)
                     chunk_fns.append(i)
             chunk_fns = sorted(chunk_fns)
             for nchunk, chunk_fn in enumerate(chunk_fns):

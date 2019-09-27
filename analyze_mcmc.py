@@ -3572,7 +3572,7 @@ if __name__ == '__main__':
     #%% PLOT MCMC CHAINS
     if option_glacier_mcmc_plots == 1:
     #    glac_no = str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]
-        glac_no = '13.25313'
+        glac_no = '15.03475'
         netcdf_fp = input.main_directory + '/../Output/cal_opt2_spc_20190806/'
     #    glac_no = '15.03473'
     #    netcdf_fp = input.output_fp_cal
@@ -3587,14 +3587,13 @@ if __name__ == '__main__':
         rgi_glac_number = [glac_no.split('.')[1]]
     
         # Glacier RGI data
-        main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=region, rgi_regionsO2 = 'all',
-                                                          rgi_glac_number=rgi_glac_number)
+        main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no = [glac_no])
         # Add regions
         main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
         # Glacier hypsometry [km**2], total area
         print(main_glac_rgi)
         print(region)
-        main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, region, input.hyps_filepath,
+        main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
                                                      input.hyps_filedict, input.hyps_colsdrop)
         # Ice thickness [m], average
         main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath, 
@@ -3606,7 +3605,8 @@ if __name__ == '__main__':
         # Elevation bins
         elev_bins = main_glac_hyps.columns.values.astype(int)   
         # Select dates including future projections
-        dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
+        dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0,
+                                               option_wateryear=input.option_wateryear)
         
         # ===== LOAD CLIMATE DATA =====
         gcm = class_climate.GCM(name=input.ref_gcm_name)
@@ -3645,7 +3645,7 @@ if __name__ == '__main__':
             # RGI information
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
             # Calibration data
-            cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+            cal_idx = np.where(cal_data['glacno'] == glacier_str)[0]
             glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
             # Select observed mass balance, error, and time data
             t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
