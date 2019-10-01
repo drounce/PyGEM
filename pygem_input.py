@@ -610,6 +610,8 @@ elif grouping == 'himap':
     reg_dict_fn = main_directory + '/../qgis_himat/rgi60_HMA_dict_bolch.csv'
     reg_csv = pd.read_csv(reg_dict_fn)
     reg_dict = dict(zip(reg_csv.RGIId, reg_csv[reg_vn]))
+else:
+    reg_dict = {}
 
 #%% MASS BALANCE MODEL OPTIONS
 # Initial surface type options

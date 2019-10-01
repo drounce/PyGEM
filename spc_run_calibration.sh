@@ -11,7 +11,7 @@ REGNO="15"
 ADD_CAL_SWITCH=1
 
 # split glaciers into batches for different nodes
-python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -spc_region=$REGNO -add_cal=$ADD_CAL_SWITCH
+python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -add_cal=$ADD_CAL_SWITCH
 
 # list rgi_glac_number batch filenames
 CHECK_STR="Cal_R${REGNO}_rgi_glac_number_batch"
@@ -25,7 +25,7 @@ echo partition: $SLURM_JOB_PARTITION
 echo num_nodes: $SLURM_JOB_NUM_NODES nodes: $SLURM_JOB_NODELIST
 echo num_tasks: $SLURM_NTASKS tasks_node: $SLURM_NTASKS_PER_NODE
 
-for i in $rgi_fns 
+for i in $rgi_fns
 do
   # print the filename
   echo $i
