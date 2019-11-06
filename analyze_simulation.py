@@ -37,16 +37,18 @@ import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
 
 # Script options
-option_plot_cmip5_normalizedchange = 0
+option_plot_cmip5_normalizedchange = 0              # updated - 11/6/2019
 option_cmip5_heatmap_w_volchange = 0
 option_cmip5_mb_vs_climate = 0
 option_map_gcm_changes = 0
 option_region_map_nodata = 0
-option_peakwater_map = 0
+option_peakwater_map = 1
 option_watersheds_colored = 0
 option_runoff_components = 0
 option_runoff_monthlychange = 0
-runoff_erainterim_bywatershed = 1                   # updated - better to export to table
+runoff_erainterim_bywatershed = 0                 # updated - better to export to table
+
+option_startdate = 0
 
 option_plot_cmip5_normalizedchange_proposal = 0
 option_runoff_components_proposal = 0
@@ -61,6 +63,8 @@ option_nick_snowline = 0
 
 analyze_multimodel = 0
 option_merge_multimodel_datasets = 0
+
+option_regional_hyps = 0
 
 
 #%% ===== Input data =====
@@ -87,9 +91,9 @@ rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
 # Grouping
 #grouping = 'all'
 #grouping = 'rgi_region'
-grouping = 'watershed'
+#grouping = 'watershed'
 #grouping = 'kaab'
-#grouping = 'himap'
+grouping = 'himap'
 #grouping = 'degree'
 
 subgrouping = 'hexagon'
@@ -269,6 +273,26 @@ def pickle_data(fn, data):
     """
     with open(fn, 'wb') as f:
         pickle.dump(data, f)
+
+
+def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=input.output_filepath):
+    """
+    Plot histogram for any bin size
+    """           
+    data = df[cn].values
+    hist, bin_edges = np.histogram(data,bins) # make the histogram
+    fig,ax = plt.subplots()    
+    # Plot the histogram heights against integers on the x axis
+    ax.bar(range(len(hist)),hist,width=1, edgecolor='k') 
+    # Set the ticks to the middle of the bars
+    ax.set_xticks([0.5+i for i,j in enumerate(hist)])
+    # Set the xticklabels to a string that tells us what the bin edges were
+    ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)], rotation=45, ha='right')
+    ax.set_xlabel(xlabel, fontsize=16)
+    ax.set_ylabel(ylabel, fontsize=16)
+    # Save figure
+    fig.set_size_inches(6,4)
+    fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
         
 
 def peakwater(runoff, time_values, nyears):
@@ -366,7 +390,7 @@ def select_groups(grouping, main_glac_rgi_all):
     return groups, group_cn
 
 
-def load_glacier_data(glac_no=None, rgi_regions=None, 
+def load_glacier_data(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all', rgi_glac_number='all',
                       load_caldata=0, startyear=2000, endyear=2018, option_wateryear=3):
 #def load_glacier_data(rgi_regions, 
 #                      load_caldata=0, startyear=2000, endyear=2018, option_wateryear=3):
@@ -374,7 +398,10 @@ def load_glacier_data(glac_no=None, rgi_regions=None,
     Load glacier data (main_glac_rgi, hyps, and ice thickness)
     """
     # Load glaciers
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(glac_no=glac_no)
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(
+            rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 =rgi_regionsO2, rgi_glac_number=rgi_glac_number,  
+            glac_no=glac_no)
+
     # Glacier hypsometry [km**2], total area
     main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, input.hyps_filepath, input.hyps_filedict,
                                                      input.hyps_colsdrop)
@@ -437,86 +464,6 @@ def load_glacier_data(glac_no=None, rgi_regions=None,
         return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all
     else:
         return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all, cal_data_all
-
-#    for rgi_region in rgi_regions:
-#        # Data on all glaciers
-#        main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
-#                                                                 rgi_glac_number='all')
-#         # Glacier hypsometry [km**2]
-#        main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, input.hyps_filepath,
-#                                                            input.hyps_filedict, input.hyps_colsdrop)
-#        # Ice thickness [m], average
-#        main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, 
-#                                                                 input.thickness_filepath, input.thickness_filedict, 
-#                                                                 input.thickness_colsdrop)
-#        if rgi_region == rgi_regions[0]:
-#            main_glac_rgi_all = main_glac_rgi_region
-#            main_glac_hyps_all = main_glac_hyps_region
-#            main_glac_icethickness_all = main_glac_icethickness_region
-#        else:
-#            main_glac_rgi_all = pd.concat([main_glac_rgi_all, main_glac_rgi_region], sort=False)
-#            main_glac_hyps_all = pd.concat([main_glac_hyps_all, main_glac_hyps_region], sort=False)
-#            main_glac_icethickness_all = pd.concat([main_glac_icethickness_all, main_glac_icethickness_region], 
-#                                                   sort=False)
-#            
-#        if load_caldata == 1:
-#            cal_datasets = ['shean']
-#            dates_table = modelsetup.datesmodelrun(startyear=startyear, endyear=endyear, spinupyears=0, 
-#                                                   option_wateryear=option_wateryear)
-#            # Calibration data
-#            cal_data = pd.DataFrame()
-#            for dataset in cal_datasets:
-#                cal_subset = class_mbdata.MBData(name=dataset)
-#                cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_region, main_glac_hyps_region, dates_table)
-#                cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-#            cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-#            cal_data.reset_index(drop=True, inplace=True)
-#            
-#            if rgi_region == rgi_regions[0]:
-#                cal_data_all = cal_data
-#            else:
-#                cal_data_all = pd.concat([cal_data_all, cal_data], sort=False)
-#        #%%
-#        
-#    main_glac_hyps_all = main_glac_hyps_all.fillna(0)
-#    main_glac_icethickness_all = main_glac_icethickness_all.fillna(0)
-#    
-#    # Add watersheds, regions, degrees, mascons, and all groups to main_glac_rgi_all
-#    # Watersheds
-#    main_glac_rgi_all['watershed'] = main_glac_rgi_all.RGIId.map(watershed_dict)
-#    # Regions
-#    main_glac_rgi_all['kaab'] = main_glac_rgi_all.RGIId.map(kaab_dict)
-#    main_glac_rgi_all['himap'] = main_glac_rgi_all.RGIId.map(himap_dict)
-#    # Hexbins
-#    main_glac_rgi_all['hexid'] = main_glac_rgi_all.RGIId.map(hex_dict)
-#    # Degrees
-#    main_glac_rgi_all['CenLon_round'] = np.floor(main_glac_rgi_all.CenLon.values/degree_size) * degree_size
-#    main_glac_rgi_all['CenLat_round'] = np.floor(main_glac_rgi_all.CenLat.values/degree_size) * degree_size
-#    deg_groups = main_glac_rgi_all.groupby(['CenLon_round', 'CenLat_round']).size().index.values.tolist()
-#    deg_dict = dict(zip(deg_groups, np.arange(0,len(deg_groups))))
-#    main_glac_rgi_all.reset_index(drop=True, inplace=True)
-#    cenlon_cenlat = [(main_glac_rgi_all.loc[x,'CenLon_round'], main_glac_rgi_all.loc[x,'CenLat_round']) 
-#                     for x in range(len(main_glac_rgi_all))]
-#    main_glac_rgi_all['CenLon_CenLat'] = cenlon_cenlat
-#    main_glac_rgi_all['deg_id'] = main_glac_rgi_all.CenLon_CenLat.map(deg_dict)
-##    # Mascons
-##    if grouping == 'mascon':
-##        main_glac_rgi_all['mascon_idx'] = np.nan
-##        for glac in range(main_glac_rgi_all.shape[0]):
-##            latlon_dist = (((mascon_df.CenLat.values - main_glac_rgi_all.CenLat.values[glac])**2 + 
-##                             (mascon_df.CenLon.values - main_glac_rgi_all.CenLon.values[glac])**2)**0.5)
-##            main_glac_rgi_all.loc[glac,'mascon_idx'] = [x[0] for x in np.where(latlon_dist == latlon_dist.min())][0]
-##        mascon_groups = main_glac_rgi_all.mascon_idx.unique().tolist()
-##        mascon_groups = [int(x) for x in mascon_groups]
-##        mascon_groups = sorted(mascon_groups)
-##        mascon_latlondict = dict(zip(mascon_groups, mascon_df[['CenLat', 'CenLon']].values[mascon_groups].tolist()))
-#    # All
-#    main_glac_rgi_all['all_group'] = 'all'
-#    
-#    if load_caldata == 0:
-#        return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all
-#    else:
-#        return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all, cal_data_all
 
 
 def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input.option_bias_adjustment):
@@ -1649,7 +1596,7 @@ if option_peakwater_map == 1:
     
     
     # Load glaciers
-    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(rgi_regionsO1=regions)
     
     # Groups
     groups, group_cn = select_groups(grouping, main_glac_rgi)
@@ -2967,10 +2914,10 @@ if option_map_gcm_changes == 1:
                 
 #%% TIME SERIES OF SUBPLOTS FOR EACH GROUP
 if option_plot_cmip5_normalizedchange == 1:
-    netcdf_fp_cmip5 = '/Volumes/LaCie/PyGEM_simulations/spc_subset/'
+    netcdf_fp_cmip5 = '/Volumes/LaCie/HMA_PyGEM/2019_0914/spc_subset/'  
     
-    vn = 'volume_glac_annual'
-#    vn = 'runoff_glac_monthly'
+#    vn = 'volume_glac_annual'
+    vn = 'runoff_glac_monthly'
     
     if 'runoff' in vn:
         grouping = 'watershed'
@@ -2982,21 +2929,38 @@ if option_plot_cmip5_normalizedchange == 1:
     startyear = 2015
     endyear = 2100
     
-    figure_fp = input.output_sim_fp + 'figures/'
+    figure_fp = netcdf_fp_cmip5 + 'figures/'
     runoff_fn_pkl = figure_fp + 'watershed_runoff_annual_22gcms_4rcps.pkl'
+    vol_fn_pkl = figure_fp + 'regional_vol_annual_22gcms_4rcps.pkl'
     option_plot_individual_gcms = 0
+    if os.path.exists(figure_fp) == False:
+        os.makedirs(figure_fp)
+    
     
     # Load glaciers
-    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(rgi_regionsO1=regions)
+    
     # Groups
     groups, group_cn = select_groups(grouping, main_glac_rgi)
 
+    #%%
     # Load data
     if vn == 'runoff_glac_monthly' and os.path.isfile(runoff_fn_pkl):
         with open(runoff_fn_pkl, 'rb') as f:
             ds_all = pickle.load(f)
         # Load single GCM to get time values needed for plot
-        ds_fn = 'R' + str(regions[0]) + '_' + gcm_names[0] + '_' + rcps[0] + '_c2_ba1_100sets_2000_2100--subset.nc'
+        ds_fn = ('R' + str(regions[0]) + '--all--' + gcm_names[0] + '_' + rcps[0] + 
+                 '_c2_ba1_100sets_2000_2100--subset.nc')
+        ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
+        # Extract time variable
+        time_values_annual = ds.coords['year_plus1'].values
+        time_values_monthly = ds.coords['time'].values
+    elif vn == 'volume_glac_annual' and os.path.isfile(vol_fn_pkl):
+        with open(vol_fn_pkl, 'rb') as f:
+            ds_all = pickle.load(f)
+        # Load single GCM to get time values needed for plot
+        ds_fn = ('R' + str(regions[0]) + '--all--' + gcm_names[0] + '_' + rcps[0] + 
+                 '_c2_ba1_100sets_2000_2100--subset.nc')
         ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
         # Extract time variable
         time_values_annual = ds.coords['year_plus1'].values
@@ -3016,14 +2980,19 @@ if option_plot_cmip5_normalizedchange == 1:
                 print(rcp, gcm_name)
             
                 # Merge all data, then select group data
-                for region in regions:        
+                for region in regions:  
+                    print(region)
     
                     # Load datasets
-                    ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba1_100sets_2000_2100--subset.nc')
+                    ds_fn = ('R' + str(region) + '--all--' + gcm_name + '_' + rcp + 
+                             '_c2_ba1_100sets_2000_2100--subset.nc')
       
                     # Bypass GCMs that are missing a rcp scenario
                     try:
                         ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
+                        df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
+                        df['RGIId'] = ['RGI60-' + str(int(df.O1Region.values[x])) + '.' +
+                                       str(int(df.glacno.values[x])).zfill(5) for x in df.index.values]
                         skip_gcm = 0
                     except:
                         skip_gcm = 1
@@ -3051,13 +3020,25 @@ if option_plot_cmip5_normalizedchange == 1:
                         # Merge datasets
                         if region == regions[0]:
                             vn_glac_all = vn_glac_region
-                            vn_glac_std_all = vn_glac_std_region                        
+                            vn_glac_std_all = vn_glac_std_region   
+                            df_all = df
                         else:
                             vn_glac_all = np.concatenate((vn_glac_all, vn_glac_region), axis=0)
                             vn_glac_std_all = np.concatenate((vn_glac_std_all, vn_glac_std_region), axis=0)
+                            df_all = pd.concat([df_all, df], axis=0)
                         
                         ds.close()
-                                      
+                    
+
+                # Remove RGIIds from main_glac_rgi that are not in the model runs
+                if ngcm == 0:
+                    rgiid_df = list(df_all.RGIId.values)
+                    rgiid_all = list(main_glac_rgi.RGIId.values)
+                    rgi_idx = [rgiid_all.index(x) for x in rgiid_df]
+                    main_glac_rgi = main_glac_rgi.loc[rgi_idx,:]
+                    main_glac_rgi.reset_index(inplace=True, drop=True)
+                    
+                    
                 if skip_gcm == 0:
                     for ngroup, group in enumerate(groups):
                         # Select subset of data
@@ -3092,6 +3073,8 @@ if option_plot_cmip5_normalizedchange == 1:
         
         if vn == 'runoff_glac_monthly':
             pickle_data(runoff_fn_pkl, ds_all)
+        elif vn == 'volume_glac_annual':
+            pickle_data(vol_fn_pkl, ds_all)
     
     #%%
     # Select multimodel data
@@ -3133,6 +3116,7 @@ if option_plot_cmip5_normalizedchange == 1:
         groups = [x for _,x in sorted(zip(group_order,groups))]
         
     #%%
+    # ===== PLOT THE NORMALIZED CHANGE AS SUBPLOTS =====
     multimodel_linewidth = 2
     alpha=0.2
 
@@ -3353,205 +3337,210 @@ if option_plot_cmip5_normalizedchange == 1:
     fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300, transparent=True)
     
     #%%
-    # External subplots
-    multimodel_linewidth = 2
-    alpha=0.2
-    
-    group_colordict = {'Amu_Darya': 'mediumblue',
-                       'Brahmaputra': 'salmon',
-                       'Ganges': 'lightskyblue',
-                       'Ili': 'royalblue',
-                       'Indus': 'darkred',
-                       'Inner_Tibetan_Plateau': 'gold',
-                       'Inner_Tibetan_Plateau_extended': 'navy',
-                       'Irrawaddy': 'white',
-                       'Mekong': 'white',
-                       'Salween': 'plum',
-                       'Syr_Darya':'darkolivegreen',
-                       'Tarim': 'olive',
-                       'Yangtze': 'orange',
-                       'Yellow':'white'}
-    group_rowcol_idx = {'Amu_Darya': [1,0],
-                       'Brahmaputra': [3,1],
-                       'Ganges': [3,0],
-                       'Ili': [0,2],
-                       'Indus': [2,0],
-                       'Inner_Tibetan_Plateau': [1,3],
-                       'Inner_Tibetan_Plateau_extended': [0,3],
-                       'Irrawaddy': [0,0],
-                       'Mekong': [0,0],
-                       'Salween': [3,2],
-                       'Syr_Darya':[0,0],
-                       'Tarim': [0,1],
-                       'Yangtze': [2,3],
-                       'Yellow':[0,0]}
-    
-    # Cycle through groups  
-    if 'Mekong' in groups:
-        groups.remove('Mekong')
-    
-    fig, ax = plt.subplots(4, 4, squeeze=False, sharex=False, sharey=False, 
-                               gridspec_kw = {'wspace':0.25, 'hspace':0.25})
-    
-    for ngroup, group in enumerate(groups):
-#    for ngroup, group in enumerate(['Amu_Darya']):
-        row_idx = group_rowcol_idx[group][0]
-        col_idx = group_rowcol_idx[group][1]
-
-        for rcp in rcps:  
-
-            # ===== Plot =====            
-            # Multi-model statistics
-            vn_multimodel = ds_multimodel[rcp][group]
-            vn_multimodel_mean = vn_multimodel.mean(axis=0)
-            vn_multimodel_std = vn_multimodel.std(axis=0)
-            vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
-            vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
-            
-            # Normalize volume by initial volume
-            if vn == 'volume_glac_annual':
-                vn_normalizer = vn_multimodel_mean[0]
-            # Normalize runoff by mean runoff from 2000-2015
-            elif vn == 'runoff_glac_monthly':
-                t1_idx = np.where(time_values_annual == 2000)[0][0]
-                t2_idx = np.where(time_values_annual == 2015)[0][0] + 1
-                vn_normalizer = vn_multimodel.mean(axis=0)[t1_idx:t2_idx].mean()
-            vn_multimodel_mean_norm = vn_multimodel_mean / vn_normalizer
-            vn_multimodel_std_norm = vn_multimodel_std / vn_normalizer
-            vn_multimodel_stdlow_norm = vn_multimodel_mean_norm - vn_multimodel_std_norm
-            vn_multimodel_stdhigh_norm = vn_multimodel_mean_norm + vn_multimodel_std_norm
-            
-            t1_idx = np.where(time_values_annual == startyear)[0][0]
-            t2_idx = np.where(time_values_annual == endyear)[0][0] + 1
-            
-            ax[row_idx, col_idx].plot(
-                    time_values_annual[t1_idx:t2_idx], vn_multimodel_mean_norm[t1_idx:t2_idx], color=rcp_colordict[rcp], 
-                    linewidth=multimodel_linewidth, label=rcp, zorder=4)
-            ax[row_idx, col_idx].plot(
-                    time_values_annual[t1_idx:t2_idx], vn_multimodel_stdlow_norm[t1_idx:t2_idx], 
-                    color=rcp_colordict[rcp], linewidth=0.25, linestyle='-', label=rcp, zorder=3)
-            ax[row_idx, col_idx].plot(
-                    time_values_annual[t1_idx:t2_idx], vn_multimodel_stdhigh_norm[t1_idx:t2_idx], 
-                    color=rcp_colordict[rcp], linewidth=0.25, linestyle='-', label=rcp, zorder=3)
-            ax[row_idx, col_idx].fill_between(
-                    time_values_annual[t1_idx:t2_idx], vn_multimodel_stdlow_norm[t1_idx:t2_idx], 
-                    vn_multimodel_stdhigh_norm[t1_idx:t2_idx], 
-                    facecolor=rcp_colordict[rcp], alpha=0.2, label=None, zorder=2)
-
-            # Peakwater stats on plots (lower left: peakwater and increase, lower right: change by end of century)
-            group_peakwater = peakwater(vn_multimodel_mean, time_values_annual[:-1], nyears)
-            
-            # Add value to subplot
-            plot_str = ''
-            if vn == 'volume_glac_annual' and rcp == rcps[-1]:
-                volume_str = str(int(np.round(vn_multimodel_mean[0] * input.density_ice / input.density_water, 0)))
-                plot_str = '(' + volume_str + ' Gt)'
-                plot_str_loc = 0.83
-            elif vn == 'runoff_glac_monthly' and rcp == rcps[-1]:
-                group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
-                group_volume_Gt = ((main_glac_hyps.values[group_glac_indices,:] * 
-                                    main_glac_icethickness.values[group_glac_indices,:] / 1000 * input.density_ice / 
-                                    input.density_water).sum())
-                group_runoff_Gta = ds_multimodel[rcp][group].mean(axis=0)[:15].mean() * (1/1000)**3
-                plot_str = str(int(np.round(group_runoff_Gta,0))) + ' Gt $\mathregular{yr^{-1}}$'
-                plot_str_loc = 0.90
-            
-#            print(rcp, group_peakwater[0])
-            ax[row_idx,col_idx].plot((group_peakwater[0], group_peakwater[0]), (0, 1+group_peakwater[1]/100), 
-                                        color=rcp_colordict[rcp], linewidth=1, linestyle='--', zorder=5)
-           
-        # Group labels
-        group_labelsize = 10
-        tick_labelsize = 9
-        title_dict['Salween'] = 'Salween (Sw)'
-        title_dict['Yangtze'] = 'Yangtze (Yz)'
-        ax[row_idx, col_idx].text(0.5, 0.99, title_dict[group], size=group_labelsize, color='black', 
-                                  horizontalalignment='center', verticalalignment='top', 
-                                  transform=ax[row_idx, col_idx].transAxes, zorder=10)
-
-        # X-label
-        ax[row_idx, col_idx].set_xlim(time_values_annual[t1_idx:t2_idx].min(), 
-                                      time_values_annual[t1_idx:t2_idx].max())
-        ax[row_idx, col_idx].xaxis.set_tick_params(pad=2, size=4, labelsize=tick_labelsize)
-        ax[row_idx, col_idx].xaxis.set_minor_locator(plt.MultipleLocator(10))
-        ax[row_idx, col_idx].set_xticks([2020,2050,2080])
-            
-        # Y-label
+    # ===== RUNOFF PLOT OF NORMALIZED CHANGE WITH SUBPLOTS AROUND A MAP =====
+    if vn == 'runoff_glac_monthly':
+        # External subplots
+        multimodel_linewidth = 2
+        alpha=0.2
+        year_start_peakwater = 2015
+        year_idx_start = np.where(time_values_annual == year_start_peakwater)[0][0]
         
+        group_colordict = {'Amu_Darya': 'mediumblue',
+                           'Brahmaputra': 'salmon',
+                           'Ganges': 'lightskyblue',
+                           'Ili': 'royalblue',
+                           'Indus': 'darkred',
+                           'Inner_Tibetan_Plateau': 'gold',
+                           'Inner_Tibetan_Plateau_extended': 'navy',
+                           'Irrawaddy': 'white',
+                           'Mekong': 'white',
+                           'Salween': 'plum',
+                           'Syr_Darya':'darkolivegreen',
+                           'Tarim': 'olive',
+                           'Yangtze': 'orange',
+                           'Yellow':'white'}
+        group_rowcol_idx = {'Amu_Darya': [1,0],
+                           'Brahmaputra': [3,1],
+                           'Ganges': [3,0],
+                           'Ili': [0,2],
+                           'Indus': [2,0],
+                           'Inner_Tibetan_Plateau': [1,3],
+                           'Inner_Tibetan_Plateau_extended': [0,3],
+                           'Irrawaddy': [0,0],
+                           'Mekong': [0,0],
+                           'Salween': [3,2],
+                           'Syr_Darya':[0,0],
+                           'Tarim': [0,1],
+                           'Yangtze': [2,3],
+                           'Yellow':[0,0]}
+        
+        # Cycle through groups  
+        if 'Mekong' in groups:
+            groups.remove('Mekong')
+        
+        fig, ax = plt.subplots(4, 4, squeeze=False, sharex=False, sharey=False, 
+                                   gridspec_kw = {'wspace':0.25, 'hspace':0.25})
+        
+        for ngroup, group in enumerate(groups):
+    #    for ngroup, group in enumerate(['Amu_Darya']):
+            row_idx = group_rowcol_idx[group][0]
+            col_idx = group_rowcol_idx[group][1]
+    
+            for rcp in rcps:  
+    
+                # ===== Plot =====            
+                # Multi-model statistics
+                vn_multimodel = ds_multimodel[rcp][group]
+                vn_multimodel_mean = vn_multimodel.mean(axis=0)
+                vn_multimodel_std = vn_multimodel.std(axis=0)
+                vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
+                vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
+                
+                # Normalize volume by initial volume
+                if vn == 'volume_glac_annual':
+                    vn_normalizer = vn_multimodel_mean[0]
+                # Normalize runoff by mean runoff from 2000-2015
+                elif vn == 'runoff_glac_monthly':
+                    t1_idx = np.where(time_values_annual == 2000)[0][0]
+                    t2_idx = np.where(time_values_annual == 2015)[0][0] + 1
+                    vn_normalizer = vn_multimodel.mean(axis=0)[t1_idx:t2_idx].mean()
+                vn_multimodel_mean_norm = vn_multimodel_mean / vn_normalizer
+                vn_multimodel_std_norm = vn_multimodel_std / vn_normalizer
+                vn_multimodel_stdlow_norm = vn_multimodel_mean_norm - vn_multimodel_std_norm
+                vn_multimodel_stdhigh_norm = vn_multimodel_mean_norm + vn_multimodel_std_norm
+                
+                t1_idx = np.where(time_values_annual == startyear)[0][0]
+                t2_idx = np.where(time_values_annual == endyear)[0][0] + 1
+                
+                ax[row_idx, col_idx].plot(
+                        time_values_annual[t1_idx:t2_idx], vn_multimodel_mean_norm[t1_idx:t2_idx], 
+                        color=rcp_colordict[rcp], linewidth=multimodel_linewidth, label=rcp, zorder=4)
+                ax[row_idx, col_idx].plot(
+                        time_values_annual[t1_idx:t2_idx], vn_multimodel_stdlow_norm[t1_idx:t2_idx], 
+                        color=rcp_colordict[rcp], linewidth=0.25, linestyle='-', label=rcp, zorder=3)
+                ax[row_idx, col_idx].plot(
+                        time_values_annual[t1_idx:t2_idx], vn_multimodel_stdhigh_norm[t1_idx:t2_idx], 
+                        color=rcp_colordict[rcp], linewidth=0.25, linestyle='-', label=rcp, zorder=3)
+                ax[row_idx, col_idx].fill_between(
+                        time_values_annual[t1_idx:t2_idx], vn_multimodel_stdlow_norm[t1_idx:t2_idx], 
+                        vn_multimodel_stdhigh_norm[t1_idx:t2_idx], 
+                        facecolor=rcp_colordict[rcp], alpha=0.2, label=None, zorder=2)
+    
+                # Peakwater stats on plots (lower left: peakwater and increase, lower right: change by end of century)
+                group_peakwater = peakwater(vn_multimodel_mean[year_idx_start:], 
+                                            time_values_annual[year_idx_start:-1], nyears)
+                
+                # Add value to subplot
+                plot_str = ''
+                if vn == 'volume_glac_annual' and rcp == rcps[-1]:
+                    volume_str = str(int(np.round(vn_multimodel_mean[0] * input.density_ice / input.density_water, 0)))
+                    plot_str = '(' + volume_str + ' Gt)'
+                    plot_str_loc = 0.83
+                elif vn == 'runoff_glac_monthly' and rcp == rcps[-1]:
+                    group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
+                    group_volume_Gt = ((main_glac_hyps.values[group_glac_indices,:] * 
+                                        main_glac_icethickness.values[group_glac_indices,:] / 1000 * input.density_ice / 
+                                        input.density_water).sum())
+                    group_runoff_Gta = ds_multimodel[rcp][group].mean(axis=0)[:15].mean() * (1/1000)**3
+                    plot_str = str(int(np.round(group_runoff_Gta,0))) + ' Gt $\mathregular{yr^{-1}}$'
+                    plot_str_loc = 0.90
+                
+                print(rcp, group, group_peakwater[0])
+                ax[row_idx,col_idx].plot((group_peakwater[0], group_peakwater[0]), (0, 1+group_peakwater[1]/100), 
+                                            color=rcp_colordict[rcp], linewidth=1, linestyle='--', zorder=5)
+               
+            # Group labels
+            group_labelsize = 10
+            tick_labelsize = 9
+            title_dict['Salween'] = 'Salween (Sw)'
+            title_dict['Yangtze'] = 'Yangtze (Yz)'
+            ax[row_idx, col_idx].text(0.5, 0.99, title_dict[group], size=group_labelsize, color='black', 
+                                      horizontalalignment='center', verticalalignment='top', 
+                                      transform=ax[row_idx, col_idx].transAxes, zorder=10)
+    
+            # X-label
+            ax[row_idx, col_idx].set_xlim(time_values_annual[t1_idx:t2_idx].min(), 
+                                          time_values_annual[t1_idx:t2_idx].max())
+            ax[row_idx, col_idx].xaxis.set_tick_params(pad=2, size=4, labelsize=tick_labelsize)
+            ax[row_idx, col_idx].xaxis.set_minor_locator(plt.MultipleLocator(10))
+            ax[row_idx, col_idx].set_xticks([2020,2050,2080])
+                
+            # Y-label
+            
+            if vn == 'runoff_glac_monthly':
+                ylabel_str = 'Runoff (-)'
+                ax[row_idx, col_idx].set_ylim(0,2.2)
+                ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+                ax[row_idx, col_idx].set_yticks([0.5,1,1.5,2])
+                ax[row_idx, col_idx].set_yticklabels(['0.5','1.0','1.5','2.0'])
+                ax[row_idx, col_idx].yaxis.set_tick_params(pad=0, size=4, labelsize=tick_labelsize)
+            elif vn == 'volume_glac_annual':
+                ylabel_str = 'Mass (-)'
+                ax[row_idx, col_idx].set_ylim(0, 1.15)
+                if option_plot_individual_gcms == 1:
+                    ax[row_idx, col_idx].set_ylim(0,1.35)
+                ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.5))
+                ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
+                ax[row_idx, col_idx].set_yticklabels(['','','0.5','1.0',])  
+            ax[row_idx, col_idx].yaxis.set_ticks_position('both')
+            ax[row_idx, col_idx].tick_params(axis='both', which='major', labelsize=tick_labelsize, direction='inout')
+            ax[row_idx, col_idx].tick_params(axis='both', which='minor', labelsize=tick_labelsize, direction='inout')  
+                
+            # Mean annual runoff
+            ax[row_idx, col_idx].text(0.99, 0.0, plot_str, size=9, horizontalalignment='right', 
+                                      verticalalignment='bottom', transform=ax[row_idx, col_idx].transAxes, 
+                                      color='k', zorder=6)
+                
+        # Label
         if vn == 'runoff_glac_monthly':
             ylabel_str = 'Runoff (-)'
-            ax[row_idx, col_idx].set_ylim(0,2.2)
-            ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
-            ax[row_idx, col_idx].set_yticks([0.5,1,1.5,2])
-            ax[row_idx, col_idx].set_yticklabels(['0.5','1.0','1.5','2.0'])
-            ax[row_idx, col_idx].yaxis.set_tick_params(pad=0, size=4, labelsize=tick_labelsize)
         elif vn == 'volume_glac_annual':
             ylabel_str = 'Mass (-)'
-            ax[row_idx, col_idx].set_ylim(0, 1.15)
-            if option_plot_individual_gcms == 1:
-                ax[row_idx, col_idx].set_ylim(0,1.35)
-            ax[row_idx, col_idx].yaxis.set_major_locator(plt.MultipleLocator(0.5))
-            ax[row_idx, col_idx].yaxis.set_minor_locator(plt.MultipleLocator(0.1))
-            ax[row_idx, col_idx].set_yticklabels(['','','0.5','1.0',])  
-        ax[row_idx, col_idx].yaxis.set_ticks_position('both')
-        ax[row_idx, col_idx].tick_params(axis='both', which='major', labelsize=tick_labelsize, direction='inout')
-        ax[row_idx, col_idx].tick_params(axis='both', which='minor', labelsize=tick_labelsize, direction='inout')  
+        # Y-Label
+        if len(groups) == 1:
+            fig.text(-0.01, 0.5, ylabel_str, va='center', rotation='vertical', size=12)
+        else:
+            fig.text(0.06, 0.5, ylabel_str, va='center', rotation='vertical', size=12)
             
-        # Mean annual runoff
-        ax[row_idx, col_idx].text(0.99, 0.0, plot_str, size=9, horizontalalignment='right', 
-                                  verticalalignment='bottom', transform=ax[row_idx, col_idx].transAxes, 
-                                  color='k', zorder=6)
+        fig.delaxes(ax[1][1])
+        fig.delaxes(ax[1][2])
+        fig.delaxes(ax[2][1])
+        fig.delaxes(ax[2][2])
+        fig.delaxes(ax[3][3])
+        
+        # RCP Legend
+        leg_size = 9
+        rcp_lines = []
+        for rcp in ['rcp26', 'rcp45']:
+            line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
+            rcp_lines.append(line)
+        rcp_labels = ['RCP ' + rcp_dict[rcp] for rcp in ['rcp26','rcp45']]
+        fig.legend(rcp_lines, rcp_labels, loc=(0.75,0.18), fontsize=leg_size, labelspacing=0, handlelength=0.5, 
+                   handletextpad=0.5, borderpad=0, frameon=False, ncol=1)
+        rcp_lines2 = []
+        for rcp in ['rcp60', 'rcp85']:
+            line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
+            rcp_lines2.append(line)
+        rcp_labels2 = ['RCP ' + rcp_dict[rcp] for rcp in ['rcp60', 'rcp85']]
+        fig.legend(rcp_lines2, rcp_labels2, loc=(0.855,0.18), fontsize=leg_size, labelspacing=0, handlelength=0.5, 
+                   handletextpad=0.5, borderpad=0, frameon=False, ncol=1)
+        rcp_lines3 = []
+        line = Line2D([0,1],[0,1], color='grey', linewidth=3*multimodel_linewidth, alpha=0.2)
+        rcp_lines3.append(line)
+        rcp_labels3 = ['multi-model\nstandard deviation']
+        fig.legend(rcp_lines3, rcp_labels3, loc=(0.75,0.12), fontsize=leg_size, labelspacing=0, handlelength=0.5, 
+                   handletextpad=0.5, borderpad=0, frameon=False, ncol=1)
+        rcp_lines4 = []
+        line = Line2D([0,1],[0,1], color='grey', linewidth=0.75, linestyle='--')
+        rcp_lines4.append(line)
+        rcp_labels4 = ['RCP\'s peak water']
+        fig.legend(rcp_lines4, rcp_labels4, loc=(0.745,0.09), fontsize=leg_size, labelspacing=0, handlelength=1, 
+                   handletextpad=0.25, borderpad=0, frameon=False, ncol=1)
             
-    # Label
-    if vn == 'runoff_glac_monthly':
-        ylabel_str = 'Runoff (-)'
-    elif vn == 'volume_glac_annual':
-        ylabel_str = 'Mass (-)'
-    # Y-Label
-    if len(groups) == 1:
-        fig.text(-0.01, 0.5, ylabel_str, va='center', rotation='vertical', size=12)
-    else:
-        fig.text(0.06, 0.5, ylabel_str, va='center', rotation='vertical', size=12)
-        
-    fig.delaxes(ax[1][1])
-    fig.delaxes(ax[1][2])
-    fig.delaxes(ax[2][1])
-    fig.delaxes(ax[2][2])
-    fig.delaxes(ax[3][3])
-    
-    # RCP Legend
-    leg_size = 9
-    rcp_lines = []
-    for rcp in ['rcp26', 'rcp45']:
-        line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
-        rcp_lines.append(line)
-    rcp_labels = ['RCP ' + rcp_dict[rcp] for rcp in ['rcp26','rcp45']]
-    fig.legend(rcp_lines, rcp_labels, loc=(0.75,0.18), fontsize=leg_size, labelspacing=0, handlelength=0.5, 
-               handletextpad=0.5, borderpad=0, frameon=False, ncol=1)
-    rcp_lines2 = []
-    for rcp in ['rcp60', 'rcp85']:
-        line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=multimodel_linewidth)
-        rcp_lines2.append(line)
-    rcp_labels2 = ['RCP ' + rcp_dict[rcp] for rcp in ['rcp60', 'rcp85']]
-    fig.legend(rcp_lines2, rcp_labels2, loc=(0.855,0.18), fontsize=leg_size, labelspacing=0, handlelength=0.5, 
-               handletextpad=0.5, borderpad=0, frameon=False, ncol=1)
-    rcp_lines3 = []
-    line = Line2D([0,1],[0,1], color='grey', linewidth=3*multimodel_linewidth, alpha=0.2)
-    rcp_lines3.append(line)
-    rcp_labels3 = ['multi-model\nstandard deviation']
-    fig.legend(rcp_lines3, rcp_labels3, loc=(0.75,0.12), fontsize=leg_size, labelspacing=0, handlelength=0.5, 
-               handletextpad=0.5, borderpad=0, frameon=False, ncol=1)
-    rcp_lines4 = []
-    line = Line2D([0,1],[0,1], color='grey', linewidth=0.75, linestyle='--')
-    rcp_lines4.append(line)
-    rcp_labels4 = ['RCP\'s peak water']
-    fig.legend(rcp_lines4, rcp_labels4, loc=(0.745,0.09), fontsize=leg_size, labelspacing=0, handlelength=1, 
-               handletextpad=0.25, borderpad=0, frameon=False, ncol=1)
-        
-    # Save figure
-    fig.set_size_inches(7.5, 5.25)
-    figure_fn = grouping + '-panels-' + vn + '_multimodel_' + str(len(rcps)) + 'rcps.png'
-    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300, transparent=True)
+        # Save figure
+        fig.set_size_inches(7.5, 5.25)
+        figure_fn = grouping + '-panels-' + vn + '_multimodel_' + str(len(rcps)) + 'rcps.png'
+        fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300, transparent=True)
         
 #%%
 # Regional maps
@@ -5420,6 +5409,123 @@ if option_plot_cmip5_normalizedchange_proposal == 1:
     
     figure_fn = 'runoff_multimodel_4rcps.png'
     fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300, transparent=True)
+
+#%%
+if option_regional_hyps == 1:
+    rgi_regionsO1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    rgi_regionsO2 = 'all'
+    rgi_glac_number = 'all'
+    
+    # Set up plot
+    ncols = 4
+    nrows = int(np.ceil(len(rgi_regionsO1)/ncols))
+    fig, ax = plt.subplots(nrows, ncols, squeeze=False, sharex=False, sharey=False, 
+                           gridspec_kw = {'wspace':0.4, 'hspace':0.4})
+    nrow, ncol = 0,0
+
+    for nregion, region in enumerate(rgi_regionsO1):
+        main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=[region], 
+                                                          rgi_regionsO2='all',rgi_glac_number='all')
+        main_glac_rgi.sort_values('Area', inplace=True, ascending=False)
+        main_glac_rgi.reset_index(inplace=True, drop=True)
+        main_glac_rgi['cum_area'] = main_glac_rgi.Area.cumsum()
+        main_glac_rgi['cum_area_%'] = main_glac_rgi.Area.cumsum()
+        main_glac_rgi['cum_area_%'] = main_glac_rgi.cum_area / main_glac_rgi.cum_area.values[-1] * 100
+
+        # Plot glacier number vs. cumulative area
+        ax[nrow,ncol].plot(main_glac_rgi.index.values, main_glac_rgi['cum_area_%'].values, 
+                     color='k', linewidth=1, zorder=2, label='plot1')
+        
+        ax[nrow,ncol].set_xscale('log')
+        if main_glac_rgi.shape[0] > 1000:
+            ax[nrow,ncol].set_xticks([10,100,1000,10000])   
+        else:
+            ax[nrow,ncol].set_xticks([10,100,1000])   
+        
+        ax[nrow,ncol].set_ylim(0,100)
+        ax[nrow,ncol].yaxis.set_major_locator(plt.MultipleLocator(20))
+        ax[nrow,ncol].yaxis.set_minor_locator(plt.MultipleLocator(5))
+        
+        # Tick parameters
+        ax[nrow,ncol].yaxis.set_ticks_position('both')
+        ax[nrow,ncol].tick_params(axis='both', which='major', labelsize=12, direction='inout')
+        ax[nrow,ncol].tick_params(axis='both', which='minor', labelsize=12, direction='inout')  
+        ax[nrow,ncol].text(0.5,0.95, str(region) + '\n(' + str(main_glac_rgi.shape[0]) + ' glaciers)' + 
+                          '\n(' + str(int(main_glac_rgi.cum_area.values[-1])) + 'km2)',
+                           horizontalalignment='center', verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+
+        # Adjust row and column
+        ncol += 1
+        if ncol == ncols:
+            nrow += 1
+            ncol = 0
+    
+#    # Remove extra plots    
+#    n_extras = len(regions)%ncols 
+#    if n_extras > 0:
+#        for nextra in np.arange(0,n_extras):
+#            ax[nrow,ncol].axis('off')
+#            ncol += 1         
+        
+        # Example Legend
+        # Option 1: automatic based on labels
+#        ax[0,0].legend(loc=(0.05, 0.05), fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, 
+#                       frameon=False)
+        # Option 2: manually define legend
+        #leg_lines = []
+        #labels = ['plot1', 'plot2']
+        #label_colors = ['k', 'b']
+        #for nlabel, label in enumerate(labels):
+        #    line = Line2D([0,1],[0,1], color=label_colors[nlabel], linewidth=1)
+        #    leg_lines.append(line)
+        #ax[0,0].legend(leg_lines, labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
+        #               handletextpad=0.25, borderpad=0, frameon=False)
+        
+    # X and Y labels
+    fig.text(0.5, 0.03, 'Glacier Number (by size)', size=12, horizontalalignment='center', verticalalignment='top')
+    fig.text(0.03, 0.5, 'Cumulative Area (%)', size=12, horizontalalignment='center', verticalalignment='top', 
+             rotation='vertical')
+    
+    # Save figure
+    #  figures can be saved in any format (.jpg, .png, .pdf, etc.)
+    fig.set_size_inches(8, 8)
+    figure_fp = os.getcwd() + '/../Output/'
+    if os.path.exists(figure_fp) == False:
+        os.makedirs(figure_fp)
+    figure_fn = 'rgi_regions_vs_cumarea.png'
+    fig.savefig(figure_fp + figure_fn, bbox_inches='tight', dpi=300)
+
+
+#%%
+# Plot histogram of start dates
+if option_startdate == 1:
+    regions = [13,14,15]
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=regions, rgi_regionsO2 = 'all', 
+                                                      rgi_glac_number='all')
+    main_glac_rgi['RefYear'] = [int(str(x)[0:4]) for x in main_glac_rgi.RefDate.values]
+    main_glac_rgi['RefMonth'] = [int(str(x)[4:6]) for x in main_glac_rgi.RefDate.values]
+    main_glac_rgi['RefDay'] = [int(str(x)[6:]) for x in main_glac_rgi.RefDate.values]
+    main_glac_rgi['RefMonth_dec'] = main_glac_rgi['RefMonth'] + main_glac_rgi['RefDay'] / 30 - 1
+    main_glac_rgi['RefYear_dec'] = main_glac_rgi['RefYear'] + main_glac_rgi['RefMonth_dec'] / 12
+    
+    print('Mean date:', main_glac_rgi.RefYear_dec.mean())
+    
+    refyear_bins = np.arange(1998,2015)
+    data = main_glac_rgi['RefYear_dec'].values
+    hist, bin_edges = np.histogram(data,refyear_bins) # make the histogram
+    hist = hist/main_glac_rgi.shape[0] * 100
+    fig,ax = plt.subplots()    
+    # Plot the histogram heights against integers on the x axis
+    ax.bar(range(len(hist)),hist,width=1, edgecolor='k') 
+    # Set the ticks to the middle of the bars
+    ax.set_xticks([0.5+i for i,j in enumerate(hist)])
+    # Set the xticklabels to a string that tells us what the bin edges were
+    ax.set_xticklabels(['{}'.format(refyear_bins[i]) for i,j in enumerate(hist)], rotation=45, ha='right')
+#    ax.set_xlabel(xlabel, fontsize=16)
+    ax.set_ylabel('Count (%)', fontsize=12)
+    # Save figure
+    fig.set_size_inches(4,3)
+    fig.savefig(input.output_filepath + 'refyear_hist_HMA.png', bbox_inches='tight', dpi=300)
     
     
 #%% EXTRA CODE

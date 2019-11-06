@@ -267,6 +267,12 @@ for region in rgi_regionsO1:
     main_glac_width = main_glac_width.fillna(0)
     main_glac_length = main_glac_length.fillna(0)
     main_glac_slope = main_glac_slope.fillna(0)
+    # Remove negative values
+    main_glac_hyps[main_glac_hyps < 0] = 0
+    main_glac_thickness[main_glac_thickness < 0] = 0
+    main_glac_width[main_glac_width < 0] = 0
+    main_glac_length[main_glac_length < 0] = 0
+    main_glac_slope[main_glac_slope < 0] = 0
     # Export results
     main_glac_hyps.to_csv(output_fp + 'area_km2_' + "{:02d}".format(region) + '_Farinotti2019_' +
                           str(binsize) + 'm.csv', index=False)
@@ -278,3 +284,12 @@ for region in rgi_regionsO1:
                             str(binsize) + 'm.csv', index=False)
     main_glac_slope.to_csv(output_fp + 'slope_deg_' + "{:02d}".format(region) + '_Farinotti2019_' +
                            str(binsize) + 'm.csv', index=False)
+
+##%%
+#import pandas as pd
+#import pygem_input as input
+#area = pd.read_csv(input.hyps_filepath + 'area_km2_01_Farinotti2019_10m_old.csv')
+#thickness = pd.read_csv(input.hyps_filepath + 'thickness_m_01_Farinotti2019_10m_old.csv')
+#length = pd.read_csv(input.hyps_filepath + 'length_km_01_Farinotti2019_10m_old.csv')
+#slope = pd.read_csv(input.hyps_filepath + 'slope_deg_01_Farinotti2019_10m_old.csv')
+#width = pd.read_csv(input.hyps_filepath + 'width_km_01_Farinotti2019_10m_old.csv')

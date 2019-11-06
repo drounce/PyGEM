@@ -118,15 +118,13 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [1]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 rgi_glac_number = 'all'
-#rgi_glac_number = ['01390']
-#rgi_glac_number = glac_num_fromrange(4483,4980)
-rgi_glac_number = glac_num_fromrange(1130,1153)
+#rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 glac_no = None
@@ -137,15 +135,15 @@ if glac_no is not None:
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-ref_gcm_name = 'ERA-Interim'    # reference climate dataset
-#ref_gcm_name = 'ERA5'           # reference climate dataset
+#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
+ref_gcm_name = 'ERA5'           # reference climate dataset
 
-#startyear = 1980                # first year of model run (reference dataset)
-#endyear = 2018                  # last year of model run (reference dataset)
-#option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
-startyear = 2000                # first year of model run (reference dataset)
+startyear = 1980                # first year of model run (reference dataset)
 endyear = 2018                  # last year of model run (reference dataset)
-option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
+option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
+#startyear = 2000                # first year of model run (reference dataset)
+#endyear = 2018                  # last year of model run (reference dataset)
+#option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
 
 constantarea_years = 0          # number of years to not let the area or volume change
 spinupyears = 0                 # spin up years
@@ -188,22 +186,24 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 2
+option_calibration = 4
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
-cal_datasets = ['shean']
-#cal_datasets = ['berthier']
+cal_datasets = ['braun']
+#cal_datasets = ['shean']
 # Calibration output filepath
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
 # OPTION 1: Minimization
-# Model parameter bounds for each calibration roun
+# Model parameter bounds for each calibration round
 precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.2,5)]
 precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
 tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
 # Minimization details 
 method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
+params2opt = ['tempbias', 'precfactor']
 ftol_opt = 1e-3                 # tolerance for SciPy optimization scheme
+eps_opt = 0.01                 # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
 massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
 zscore_tolerance_all = 1        # tolerance if multiple calibration points (shortcut that could be improved)
 zscore_tolerance_single = 0.1   # tolerance if only a single calibration point (want this to be more exact)
@@ -212,48 +212,49 @@ extra_calrounds = 3             # additional calibration rounds in case optimiza
 
 # OPTION 2: MCMC
 # Chain options
-n_chains = 1                    # number of chains (min 1, max 3)
-mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
-mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
-mcmc_step = None                # step option (None or 'am')
-thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
-# Precipitation factor distribution options
-precfactor_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
-precfactor_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
-precfactor_gamma_region_df = pd.read_csv(precfactor_gamma_region_dict_fullfn)
-precfactor_gamma_region_dict = dict(zip(
-        precfactor_gamma_region_df.Region.values, 
-        [[precfactor_gamma_region_df.loc[x,'alpha'], precfactor_gamma_region_df.loc[x,'beta']] 
-         for x in precfactor_gamma_region_df.index.values]))
-precfactor_gamma_alpha = 3.0
-precfactor_gamma_beta = 0.84
-precfactor_lognorm_mu = 0
-precfactor_lognorm_tau = 4
-precfactor_mu = 0
-precfactor_sigma = 1.5
-precfactor_boundlow = 0.5
-precfactor_boundhigh = 1.5
-precfactor_start = 1
-# Temperature bias distribution options
-tempchange_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
-tempchange_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
-tempchange_norm_region_df = pd.read_csv(tempchange_norm_region_dict_fullfn)
-tempchange_norm_region_dict = dict(zip(
-        tempchange_norm_region_df.Region.values, 
-        [[tempchange_norm_region_df.loc[x,'mu'], tempchange_norm_region_df.loc[x,'sigma']] 
-         for x in tempchange_norm_region_df.index.values]))
-tempchange_mu = 0.91
-tempchange_sigma = 1.4
-tempchange_boundlow = -10
-tempchange_boundhigh = 10
-tempchange_start = tempchange_mu
-# Degree-day factor of snow distribution options
-ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
-ddfsnow_mu = 0.0041
-ddfsnow_sigma = 0.0015
-ddfsnow_boundlow = 0
-ddfsnow_boundhigh = np.inf
-ddfsnow_start=ddfsnow_mu
+if option_calibration == 2:
+    n_chains = 1                    # number of chains (min 1, max 3)
+    mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
+    mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
+    mcmc_step = None                # step option (None or 'am')
+    thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
+    # Precipitation factor distribution options
+    precfactor_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
+    precfactor_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
+    precfactor_gamma_region_df = pd.read_csv(precfactor_gamma_region_dict_fullfn)
+    precfactor_gamma_region_dict = dict(zip(
+            precfactor_gamma_region_df.Region.values, 
+            [[precfactor_gamma_region_df.loc[x,'alpha'], precfactor_gamma_region_df.loc[x,'beta']] 
+             for x in precfactor_gamma_region_df.index.values]))
+    precfactor_gamma_alpha = 3.0
+    precfactor_gamma_beta = 0.84
+    precfactor_lognorm_mu = 0
+    precfactor_lognorm_tau = 4
+    precfactor_mu = 0
+    precfactor_sigma = 1.5
+    precfactor_boundlow = 0.5
+    precfactor_boundhigh = 1.5
+    precfactor_start = 1
+    # Temperature bias distribution options
+    tempchange_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
+    tempchange_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
+    tempchange_norm_region_df = pd.read_csv(tempchange_norm_region_dict_fullfn)
+    tempchange_norm_region_dict = dict(zip(
+            tempchange_norm_region_df.Region.values, 
+            [[tempchange_norm_region_df.loc[x,'mu'], tempchange_norm_region_df.loc[x,'sigma']] 
+             for x in tempchange_norm_region_df.index.values]))
+    tempchange_mu = 0.91
+    tempchange_sigma = 1.4
+    tempchange_boundlow = -10
+    tempchange_boundhigh = 10
+    tempchange_start = tempchange_mu
+    # Degree-day factor of snow distribution options
+    ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
+    ddfsnow_mu = 0.0041
+    ddfsnow_sigma = 0.0015
+    ddfsnow_boundlow = 0
+    ddfsnow_boundhigh = np.inf
+    ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS
 option_import_modelparams = 1       # 0: input values, 1: calibrated model parameters from netcdf files
@@ -367,7 +368,7 @@ rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Na
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
 # Filepath for the hypsometry files
 binsize = 10            # Elevation bin height [m]
-hyps_data = 'Huss' # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
+hyps_data = 'Farinotti' # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
 
 if hyps_data == 'Farinotti':
     option_shift_elevbins_20m = 0   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
@@ -640,12 +641,12 @@ option_preclimit = 1                # 1: limit the uppermost 25% using an expont
 option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
 
 # Ablation model options
-option_ablation = 1                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
+option_ablation = 2                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
 option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model options
-option_refreezing = 2               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
+option_refreezing = 1               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
 if option_refreezing == 1:
     rf_layers = 5                   # number of layers for refreezing model (8 is sufficient - Matthias)
 #    rf_layers_max = 8               # number of layers to include for refreeze calculation

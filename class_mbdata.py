@@ -904,7 +904,15 @@ if __name__ == '__main__':
     startyear = 1950
     endyear = 2018
     
-    # Select glaciers
+#    # Select glaciers
+#    for rgi_regionsO1 in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]:
+#        main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_regionsO1], rgi_regionsO2 = 'all', 
+#                                                          rgi_glac_number='all')
+#        marine = main_glac_rgi[main_glac_rgi['TermType'] == 1]
+#        lake = main_glac_rgi[main_glac_rgi['TermType'] == 2]
+#        print('Region ' + str(rgi_regionsO1) + ':')
+#        print('  marine:', np.round(marine.Area.sum() / main_glac_rgi.Area.sum() * 100,0))
+#        print('  lake:',  np.round(lake.Area.sum() / main_glac_rgi.Area.sum() * 100,0))
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
                                                       rgi_glac_number=rgi_glac_number, glac_no=input.glac_no)
     # Glacier hypsometry [km**2], total area

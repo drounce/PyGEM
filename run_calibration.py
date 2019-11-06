@@ -113,7 +113,8 @@ def mb_mwea_calc(modelparameters, glacier_rgi_table, glacier_area_initial, iceth
         massbalance.runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial,
                                    width_initial, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                                    glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                   option_areaconstant=option_areaconstant, constantarea_years=constantarea_years)) 
+                                   option_areaconstant=option_areaconstant, constantarea_years=constantarea_years,
+                                   debug=False)) 
     # Option to return must melt condition
     if return_tc_mustmelt == 1:
         # Climatic mass balance of lowermost bin must be negative at some point
@@ -1113,93 +1114,184 @@ def main(list_packed_vars):
     # - ranges different
     elif input.option_calibration == 4:
         
-        def objective(modelparameters_subset):
-            """
-            Objective function for mass balance data.
-
-            Parameters
-            ----------
-            modelparameters_subset : np.float64
-                List of model parameters to calibrate
-                [precipitation factor, precipitation gradient, degree-day factor of snow, temperature bias]
-
-            Returns
-            -------
-            mb_dif_mwea
-                Returns the difference in modeled vs observed mass balance [mwea]
-            """
-            # Use a subset of model parameters to reduce number of constraints required
-            modelparameters[2] = modelparameters_subset[0]
-            modelparameters[3] = modelparameters_subset[1]
-            modelparameters[4] = modelparameters_subset[2]
-            modelparameters[5] = modelparameters[4] / ddfsnow_iceratio
-            modelparameters[7] = modelparameters_subset[3]
-            # Mass balance calculation
-            mb_mwea = mb_mwea_calc(
-                    modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
-                    elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
-                    glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, option_areaconstant=0)
-            
-            # Difference [mwea]
-            mb_dif_mwea_abs = abs(observed_massbal - mb_mwea)
-            return mb_dif_mwea_abs
-
-        def run_objective(modelparameters_init, observed_massbal, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
-                          ddfsnow_bnds=(0.0026,0.0056), precgrad_bnds=(0.0001,0.0001), run_opt=True):
-            """
-            Run the optimization for the single glacier objective function.
-
-            Parameters
-            ----------
-            modelparams_init : list
-                List of model parameters to calibrate
-                [precipitation factor, precipitation gradient, degree day factor of snow, temperature change]
-            glacier_cal_data : pd.DataFrame
-                Table containing calibration data for a single glacier
-            precfactor_bnds : tuple
-                Lower and upper bounds for precipitation factor (default is (0.33, 3))
-            tempchange_bnds : tuple
-                Lower and upper bounds for temperature bias (default is (0.33, 3))
-            ddfsnow_bnds : tuple
-                Lower and upper bounds for degree day factor of snow (default is (0.0026, 0.0056))
-            precgrad_bnds : tuple
-                Lower and upper bounds for precipitation gradient (default is constant (0.0001,0.0001))
-            run_opt : boolean
-                Boolean statement allowing one to bypass the optimization and run through with initial parameters
-                (default is True - run the optimization)
-
-            Returns
-            -------
-            modelparameters_opt : optimize.optimize.OptimizeResult
-                Returns result of scipy optimization, which includes optimized parameters and other information
-            glacier_cal_compare : pd.DataFrame
-                Table recapping calibration results: observation, model, calibration round, etc.
-            """
-            # Bounds
-            modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds)
-            # Run the optimization
-            #  'L-BFGS-B' - much slower
-            #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
-            #    divide the sum_abs_zscore by 1000, which made it work in all cases.  However, methods were switched
-            #    to 'L-BFGS-B', which may be slower, but is still effective.
-            # note: switch enables running through with given parameters
-            if run_opt:
-                modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
-                                               bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
-                # Record the optimized parameters
-                modelparameters_subset = modelparameters_opt.x
-            else:
-                modelparameters_subset = modelparameters_init.copy()
-            modelparams = (
-                    [modelparameters[0], modelparameters[1], modelparameters_subset[0], modelparameters_subset[1],
-                     modelparameters_subset[2], modelparameters_subset[2] / ddfsnow_iceratio, modelparameters[6],
-                     modelparameters_subset[3]])
-            # Re-run the optimized parameters in order to see the mass balance
-            mb_mwea = mb_mwea_calc(
-                    modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
-                    elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
-                    glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, option_areaconstant=0)
-            return modelparams, mb_mwea
+        if input.params2opt.sort() == ['tempbias', 'precfactor'].sort():
+            def objective(modelparameters_subset):
+                """
+                Objective function for mass balance data.
+    
+                Parameters
+                ----------
+                modelparameters_subset : np.float64
+                    List of model parameters to calibrate
+                    [precipitation factor, precipitation gradient, degree-day factor of snow, temperature bias]
+    
+                Returns
+                -------
+                mb_dif_mwea
+                    Returns the difference in modeled vs observed mass balance [mwea]
+                """
+                # Use a subset of model parameters to reduce number of constraints required
+                modelparameters[2] = modelparameters_subset[0]
+                modelparameters[7] = modelparameters_subset[1]
+                # Mass balance calculation
+                mb_mwea = mb_mwea_calc(
+                        modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
+                        elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                        glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, option_areaconstant=0)
+                print('model params:', modelparameters[2], modelparameters[7], 
+                      '\n  mb_mwea:', mb_mwea)
+                # Difference [mwea]
+                mb_dif_mwea_abs = abs(observed_massbal - mb_mwea)
+                return mb_dif_mwea_abs
+    
+            def run_objective(modelparameters_init, observed_massbal, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
+                              run_opt=True, eps_opt=input.eps_opt, ftol_opt=input.ftol_opt):
+                """
+                Run the optimization for the single glacier objective function.
+    
+                Parameters
+                ----------
+                modelparams_init : list
+                    List of model parameters to calibrate
+                    [precipitation factor, precipitation gradient, degree day factor of snow, temperature change]
+                glacier_cal_data : pd.DataFrame
+                    Table containing calibration data for a single glacier
+                precfactor_bnds : tuple
+                    Lower and upper bounds for precipitation factor (default is (0.33, 3))
+                tempchange_bnds : tuple
+                    Lower and upper bounds for temperature bias (default is (0.33, 3))
+                ddfsnow_bnds : tuple
+                    Lower and upper bounds for degree day factor of snow (default is (0.0026, 0.0056))
+                precgrad_bnds : tuple
+                    Lower and upper bounds for precipitation gradient (default is constant (0.0001,0.0001))
+                run_opt : boolean
+                    Boolean statement allowing one to bypass the optimization and run through with initial parameters
+                    (default is True - run the optimization)
+    
+                Returns
+                -------
+                modelparameters_opt : optimize.optimize.OptimizeResult
+                    Returns result of scipy optimization, which includes optimized parameters and other information
+                glacier_cal_compare : pd.DataFrame
+                    Table recapping calibration results: observation, model, calibration round, etc.
+                """
+                # Bounds
+                modelparameters_bnds = (precfactor_bnds, tempchange_bnds)
+                # Run the optimization
+                #  'L-BFGS-B' - much slower
+                #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
+                #    divide the sum_abs_zscore by 1000, which made it work in all cases.  However, methods were switched
+                #    to 'L-BFGS-B', which may be slower, but is still effective.
+                # note: switch enables running through with given parameters
+                if run_opt:
+                    modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
+                                                   bounds=modelparameters_bnds, 
+                                                   options={'ftol':ftol_opt, 'eps':eps_opt})
+                    # Record the optimized parameters
+                    modelparameters_subset = modelparameters_opt.x
+                else:
+                    modelparameters_subset = modelparameters_init.copy()
+                modelparams = (
+                        [modelparameters[0], modelparameters[1], modelparameters_subset[0], modelparameters[3],
+                         modelparameters[4], modelparameters[4] / ddfsnow_iceratio, modelparameters[6],
+                         modelparameters_subset[1]])
+                # Re-run the optimized parameters in order to see the mass balance
+                mb_mwea = mb_mwea_calc(
+                        modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
+                        elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                        glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, option_areaconstant=0)
+                return modelparams, mb_mwea
+        else:
+            def objective(modelparameters_subset):
+                """
+                Objective function for mass balance data.
+    
+                Parameters
+                ----------
+                modelparameters_subset : np.float64
+                    List of model parameters to calibrate
+                    [precipitation factor, precipitation gradient, degree-day factor of snow, temperature bias]
+    
+                Returns
+                -------
+                mb_dif_mwea
+                    Returns the difference in modeled vs observed mass balance [mwea]
+                """
+                # Use a subset of model parameters to reduce number of constraints required
+                modelparameters[2] = modelparameters_subset[0]
+                modelparameters[3] = modelparameters_subset[1]
+                modelparameters[4] = modelparameters_subset[2]
+                modelparameters[5] = modelparameters[4] / ddfsnow_iceratio
+                modelparameters[7] = modelparameters_subset[3]
+                # Mass balance calculation
+                mb_mwea = mb_mwea_calc(
+                        modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
+                        elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                        glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, option_areaconstant=0)
+                print('model params:', modelparameters[2], modelparameters[7], 
+                      '\n  mb_mwea:', mb_mwea)
+                # Difference [mwea]
+                mb_dif_mwea_abs = abs(observed_massbal - mb_mwea)
+                return mb_dif_mwea_abs
+    
+            def run_objective(modelparameters_init, observed_massbal, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
+                              ddfsnow_bnds=(0.0026,0.0056), precgrad_bnds=(0.0001,0.0001), run_opt=True, 
+                              eps_opt=input.eps_opt):
+                """
+                Run the optimization for the single glacier objective function.
+    
+                Parameters
+                ----------
+                modelparams_init : list
+                    List of model parameters to calibrate
+                    [precipitation factor, precipitation gradient, degree day factor of snow, temperature change]
+                glacier_cal_data : pd.DataFrame
+                    Table containing calibration data for a single glacier
+                precfactor_bnds : tuple
+                    Lower and upper bounds for precipitation factor (default is (0.33, 3))
+                tempchange_bnds : tuple
+                    Lower and upper bounds for temperature bias (default is (0.33, 3))
+                ddfsnow_bnds : tuple
+                    Lower and upper bounds for degree day factor of snow (default is (0.0026, 0.0056))
+                precgrad_bnds : tuple
+                    Lower and upper bounds for precipitation gradient (default is constant (0.0001,0.0001))
+                run_opt : boolean
+                    Boolean statement allowing one to bypass the optimization and run through with initial parameters
+                    (default is True - run the optimization)
+    
+                Returns
+                -------
+                modelparameters_opt : optimize.optimize.OptimizeResult
+                    Returns result of scipy optimization, which includes optimized parameters and other information
+                glacier_cal_compare : pd.DataFrame
+                    Table recapping calibration results: observation, model, calibration round, etc.
+                """
+                # Bounds
+                modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds)
+                # Run the optimization
+                #  'L-BFGS-B' - much slower
+                #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
+                #    divide the sum_abs_zscore by 1000, which made it work in all cases.  However, methods were switched
+                #    to 'L-BFGS-B', which may be slower, but is still effective.
+                # note: switch enables running through with given parameters
+                if run_opt:
+                    modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
+                                                   bounds=modelparameters_bnds, 
+                                                   options={'ftol':input.ftol_opt, 'eps':eps_opt})
+                    # Record the optimized parameters
+                    modelparameters_subset = modelparameters_opt.x
+                else:
+                    modelparameters_subset = modelparameters_init.copy()
+                modelparams = (
+                        [modelparameters[0], modelparameters[1], modelparameters_subset[0], modelparameters_subset[1],
+                         modelparameters_subset[2], modelparameters_subset[2] / ddfsnow_iceratio, modelparameters[6],
+                         modelparameters_subset[3]])
+                # Re-run the optimized parameters in order to see the mass balance
+                mb_mwea = mb_mwea_calc(
+                        modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
+                        elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                        glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, option_areaconstant=0)
+                return modelparams, mb_mwea
 
         def write_netcdf_modelparams(output_fullfn, modelparameters, mb_mwea, observed_massbal):
             """
@@ -1285,6 +1377,7 @@ def main(list_packed_vars):
             t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
             # Observed mass balance [mwea]
             observed_massbal = glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)
+#            observed_massbal_err = glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)
 
             if debug:
                 print('obs_mwea:', np.round(observed_massbal,2))
@@ -1398,58 +1491,95 @@ def main(list_packed_vars):
                             pf_init = np.mean([precfactor_boundlow, precfactor_boundhigh])
 
                     # ===== RUN OPTIMIZATION WITH CONSTRAINED BOUNDS =====
-                    # Temperature change bounds
-                    tempchange_bnds = (tc_bndlow_opt, tc_bndhigh_opt)
-                    precfactor_bnds = (precfactor_boundlow, precfactor_boundhigh)
-                    ddfsnow_bnds = (ddfsnow_init, ddfsnow_init)
-                    tc_init = np.mean([tc_bndlow_opt, tc_bndhigh_opt])
-                    pf_init = pf_init
+                    if input.params2opt.sort() == ['tempbias', 'precfactor'].sort():
+                        # Temperature change bounds
+                        tempchange_bnds = (tc_bndlow_opt, tc_bndhigh_opt)
+                        precfactor_bnds = (precfactor_boundlow, precfactor_boundhigh)
+                        tc_init = np.mean([tc_bndlow_opt, tc_bndhigh_opt])
+                        pf_init = pf_init
+    
+                        modelparameters_subset = [pf_init, tc_init]
+                        modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
+                                                             precfactor_bnds=precfactor_bnds,
+                                                             tempchange_bnds=tempchange_bnds)
+                        pf_opt = modelparams[2]
+                        tc_opt = modelparams[7]
+                        if debug:
+                            print('\nmb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(observed_massbal,2),
+                                  '\nPF:', np.round(pf_opt,2), 'TC:', np.round(tc_opt,2))
+                        
+                        # Epsilon (the amount the variable change to calculate the jacobian) can be too small, which causes
+                        #  the minimization to believe it has reached a local minima and stop. Therefore, adjust epsilon
+                        #  to ensure this is not the case.
+                        eps_opt_new = input.eps_opt
+                        ftol_opt_new = input.ftol_opt
+                        nround = 0
+                        while np.absolute(mb_mwea - observed_massbal) > 0.1 and eps_opt_new <= 0.1:
+                            nround += 1
+                            if debug:
+                                print('DIDNT WORK SO TRYING NEW INITIAL CONDITIONS')
+                                print('  old eps_opt:', eps_opt_new)
+                                
+                            eps_opt_new = eps_opt_new * 10
+                            if debug:    
+                                print('  new eps_opt:', eps_opt_new)
+                            
+                            modelparameters_subset = [pf_init, tc_init]
+                            modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
+                                                                 precfactor_bnds=precfactor_bnds,
+                                                                 tempchange_bnds=tempchange_bnds,
+                                                                 eps_opt=eps_opt_new, ftol_opt=ftol_opt_new)
+                            pf_opt = modelparams[2]
+                            tc_opt = modelparams[7]
+                            if debug:
+                                print('\nmb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(observed_massbal,2),
+                                      '\nPF:', np.round(pf_opt,2), 'TC:', np.round(tc_opt,2))
+                    else:
+                        # Temperature change bounds
+                        tempchange_bnds = (tc_bndlow_opt, tc_bndhigh_opt)
+                        precfactor_bnds = (precfactor_boundlow, precfactor_boundhigh)
+                        ddfsnow_bnds = (ddfsnow_init, ddfsnow_init)
+                        tc_init = np.mean([tc_bndlow_opt, tc_bndhigh_opt])
+                        pf_init = pf_init
+    
+                        modelparameters_subset = [pf_init, modelparameters[3], modelparameters[4], tc_init]
+                        modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
+                                                             precfactor_bnds=precfactor_bnds,
+                                                             tempchange_bnds=tempchange_bnds,
+                                                             ddfsnow_bnds=ddfsnow_bnds)
+                        pf_opt = modelparams[2]
+                        tc_opt = modelparams[7]
+                        if debug:
+                            print('\nmb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(observed_massbal,2),
+                                  '\nPF:', np.round(pf_opt,2), 'TC:', np.round(tc_opt,2))
+                        
+                        # Epsilon (the amount the variable change to calculate the jacobian) can be too small, which causes
+                        #  the minimization to believe it has reached a local minima and stop. Therefore, adjust epsilon
+                        #  to ensure this is not the case.
+                        eps_opt_new = input.eps_opt
+                        nround = 0
+                        while np.absolute(mb_mwea - observed_massbal) > 0.3 and eps_opt_new <= 0.1:
+                            nround += 1
+                            if debug:
+                                print('DIDNT WORK SO TRYING NEW INITIAL CONDITIONS')
+                                print('  old eps_opt:', eps_opt_new)
+                                
+                            eps_opt_new = eps_opt_new * 10
+                            if debug:    
+                                print('  new eps_opt:', eps_opt_new)
+                            
+                            modelparameters_subset = [pf_init, modelparameters[3], modelparameters[4], tc_init]
+                            modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
+                                                                 precfactor_bnds=precfactor_bnds,
+                                                                 tempchange_bnds=tempchange_bnds,
+                                                                 ddfsnow_bnds=ddfsnow_bnds,
+                                                                 eps_opt = eps_opt_new)
+                            pf_opt = modelparams[2]
+                            tc_opt = modelparams[7]
+                            if debug:
+                                print('\nmb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(observed_massbal,2),
+                                      '\nPF:', np.round(pf_opt,2), 'TC:', np.round(tc_opt,2))
 
-                    modelparameters_subset = [pf_init, modelparameters[3], modelparameters[4], tc_init]
-
-                    modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
-                                                         precfactor_bnds=precfactor_bnds,
-                                                         tempchange_bnds=tempchange_bnds,
-                                                         ddfsnow_bnds=ddfsnow_bnds)
-
-                    pf_opt = modelparams[2]
-                    tc_opt = modelparams[7]
-
-                    if debug:
-                        print('\nmb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(observed_massbal,2),
-                              '\nPF:', np.round(pf_opt,2), 'TC:', np.round(tc_opt,2))
-
-#                    # ===== ITERATIVELY ADJUST PRECIPITATION FACTOR AND TEMPERATURE BIAS TOGETHER =====
-#                    cal_rounds = 10
-#                    tempchange_step = 0.5
-#                    round_count = 0
-#                    precfactor_bnds = (precfactor_boundlow, precfactor_boundhigh)
-#                    ddfsnow_bnds = (ddfsnow_init, ddfsnow_init)
-#                    tempchange_bndhigh_opt = tempchange_init
-#                    tempchange_bndlow_opt = tempchange_init
-#                    while (round_count < cal_rounds and abs(mb_mwea - observed_massbal) > 0.01 and
-#                           tempchange_bndhigh_opt <= tempchange_boundhigh and
-#                           tempchange_bndlow_opt >= tempchange_boundlow):
-#
-
-
-#                        # Update optimized parameters
-#                        precfactor_opt = modelparams[2]
-#                        tempchange_opt = modelparams[7]
-#                        modelparameters[2] = precfactor_opt
-#
-#                        # Update bounds and initial guess for temperature bias
-#                        if mb_mwea > observed_massbal:
-#                            tempchange_bndhigh_opt += tempchange_step
-#                            modelparameters[7] = tempchange_opt + tempchange_step / 2
-#                        else:
-#                            tempchange_bndlow_opt -= tempchange_step
-#                            modelparameters[7] = tempchange_opt - tempchange_step / 2
-#
-#                        # Increase round
-#                        round_count += 1
-
-                    #%%
                 modelparameters[2] = pf_opt
                 modelparameters[7] = tc_opt
 
@@ -1467,8 +1597,8 @@ def main(list_packed_vars):
                 print('model parameters:', tc_opt, pf_opt)
                 ds = xr.open_dataset(input.output_fp_cal + glacier_str + '.nc')
                 df = pd.DataFrame(ds['mp_value'].sel(chain=0).values, columns=ds.mp.values)
-                print('ds TC:', np.round(df['tempchange'].values[0],2), 
-                      'ds PF:', np.round(df['precfactor'].values[0],2))
+                print('ds PF:', np.round(df['precfactor'].values[0],2),
+                      'ds TC:', np.round(df['tempchange'].values[0],2))
 
         # ==============================================================
 
@@ -2426,6 +2556,7 @@ if __name__ == '__main__':
     # Ice thickness [m], average
     main_glac_icethickness_all = modelsetup.import_Husstable(main_glac_rgi_all, input.thickness_filepath, 
                                                              input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_icethickness_all[main_glac_icethickness_all < 0] = 0
     main_glac_hyps_all[main_glac_icethickness_all == 0] = 0
     # Width [km], average
     main_glac_width_all = modelsetup.import_Husstable(main_glac_rgi_all, input.width_filepath,

@@ -235,11 +235,10 @@ class GCM():
         glac_variable_series = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
         # Determine the correct time indices
         if self.timestep == 'monthly':
-            start_idx = (np.where(pd.Series(data[self.time_vn])
-                                  .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
-                                  .apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
-            end_idx = (np.where(pd.Series(data[self.time_vn])
-                                .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
+            start_idx = (np.where(pd.Series(data[self.time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
+                                  dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+            end_idx = (np.where(pd.Series(data[self.time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
+                                dates_table['date']
                                 .apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]              
             #  np.where finds the index position where to values are equal
             #  pd.Series(data.variables[gcm_time_varname]) creates a pandas series of the time variable associated with
