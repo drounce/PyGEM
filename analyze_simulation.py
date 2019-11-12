@@ -56,19 +56,18 @@ option_startdate = 0
 option_plot_cmip5_normalizedchange_proposal = 0
 option_runoff_components_proposal = 0
 
-option_glaciermip_table = 0
+option_glaciermip_table = 0                         # updated - 11/12/2019
 option_zemp_compare = 0                             # updated - 11/6/2019
 option_gardelle_compare = 0                         # updated - 11/6/2019
 option_wgms_compare = 0                             # updated - 11/6/2019
 option_dehecq_compare = 0
-option_uncertainty_fig = 1                          # updated - 11/12/2019
+option_uncertainty_fig = 0                          # updated - 11/12/2019
 option_nick_snowline = 0
 
 analyze_multimodel = 0
 option_merge_multimodel_datasets = 0
 
 option_regional_hyps = 0
-
 
 #%% ===== Input data =====
 #netcdf_fp_cmip5 = input.output_sim_fp + 'spc_subset/'
@@ -3953,25 +3952,33 @@ if option_glaciermip_table == 1:
     vn = 'volume_glac_annual'
 #    vn = 'area_glac_annual'
     
+    rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
+    
+    grouping = 'rgi_region'
+    netcdf_fp_cmip5= '/Volumes/LaCie/HMA_PyGEM/2019_0914/spc_subset/'
+    
+    gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR',
+                 'MPI-ESM-LR', 'NorESM1-M']
+    
     if vn == 'volume_glac_annual':
         output_prefix = 'Volume'
     elif vn == 'area_glac_annual':
         output_prefix = 'Area'
+        
     
     output_fp = input.output_sim_fp + 'GlacierMIP/'
     if os.path.exists(output_fp) == False:
         os.makedirs(output_fp)
     
     # Load glaciers
-    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(regions)
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(rgi_regionsO1=regions)
     # Groups
     groups, group_cn = select_groups(grouping, main_glac_rgi)
     
-
+#%%
     # Load mass balance data
     ds_all = {}
     for rcp in rcps:
-#    for rcp in ['rcp26']:
         ds_all[rcp] = {}
         for ngcm, gcm_name in enumerate(gcm_names):
 #        for ngcm, gcm_name in enumerate(['CanESM2']):
@@ -3982,48 +3989,69 @@ if option_glaciermip_table == 1:
             for region in regions:      
                 
                 # Load datasets
-                ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba' + str(input.option_bias_adjustment) +
-                         '_100sets_2000_2100--subset.nc')
-                ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
-  
-                # Bypass GCMs that are missing a rcp scenario
+                ds_fn = ('R' + str(region) + '--all--' + gcm_name + '_' + rcp + '_c2_ba' + 
+                         str(input.option_bias_adjustment) + '_100sets_2000_2100--subset.nc')
+            
                 try:
                     ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
+                    skip_gcm = 0
                 except:
-                    continue
-                
-                # Extract time variable
-                time_values_annual = ds.coords['year_plus1'].values
-                time_values_monthly = ds.coords['time'].values
-                # Extract start/end indices for calendar year!
-                time_values_df = pd.DatetimeIndex(time_values_monthly)
-                time_values = np.array([x.year for x in time_values_df])
-                time_idx_start = np.where(time_values == startyear)[0][0]
-                time_idx_end = np.where(time_values == endyear)[0][0]
-                year_idx_start = np.where(time_values_annual == startyear)[0][0]
-                year_idx_end = np.where(time_values_annual == endyear)[0][0]
-                
-                time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
-                var_glac_region = ds[vn].values[:,year_idx_start:year_idx_end+1,0]
+                    skip_gcm = 1
+                    print('Skip', gcm_name, rcp, region)
+                    
+                # Bypass GCMs that are missing a rcp scenario
+                if skip_gcm == 0:
+                    ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
+                    df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs.values)
+                    df['RGIId'] = ['RGI60-' + str(int(df.O1Region.values[x])) + '.' +
+                                   str(int(df.glacno.values[x])).zfill(5) for x in df.index.values]
+                    
+                    # Extract time variable
+                    time_values_annual = ds.coords['year_plus1'].values
+                    time_values_monthly = ds.coords['time'].values
+                    # Extract start/end indices for calendar year!
+                    time_values_df = pd.DatetimeIndex(time_values_monthly)
+                    time_values = np.array([x.year for x in time_values_df])
+                    time_idx_start = np.where(time_values == startyear)[0][0]
+                    time_idx_end = np.where(time_values == endyear)[0][0]
+                    year_idx_start = np.where(time_values_annual == startyear)[0][0]
+                    year_idx_end = np.where(time_values_annual == endyear)[0][0]
+                    
+                    time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
+                    var_glac_region = ds[vn].values[:,year_idx_start:year_idx_end+1,0]
+                    
+                    print(rcp, gcm_name, region, var_glac_region[:,-1].sum() / var_glac_region[:,0].sum() * 100)
+    
+                    # Merge datasets
+                    if region == regions[0]:
+                        var_glac_all = var_glac_region
+                        df_all = df
+                    else:
+                        var_glac_all = np.concatenate((var_glac_all, var_glac_region), axis=0)
+                        df_all = pd.concat([df_all, df], axis=0)
 
-                # Merge datasets
-                if region == regions[0]:
-                    var_glac_all = var_glac_region
-                else:
-                    var_glac_all = np.concatenate((var_glac_all, var_glac_region), axis=0)
-                try:
                     ds.close()
-                except:
-                    continue
-            
-            ds_all[rcp][gcm_name] = {}
-            for ngroup, group in enumerate(groups):
-                # Sum volume change for group
-                group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
-                varchg_group = var_glac_all[group_glac_indices,:].sum(axis=0)
 
-                ds_all[rcp][gcm_name][group] = varchg_group
-   
+
+            if skip_gcm == 0:
+                # RGIIds of only glaciers in simulations
+                if ngcm == 0:
+                    rgiid_df = list(df_all.RGIId.values)
+                    rgiid_all = list(main_glac_rgi.RGIId.values)
+                    rgi_idx = [rgiid_all.index(x) for x in rgiid_df]
+                    main_glac_rgi = main_glac_rgi.loc[rgi_idx,:]
+                    main_glac_rgi.reset_index(inplace=True, drop=True)
+                
+                ds_all[rcp][gcm_name] = {}
+                for ngroup, group in enumerate(groups):
+                    # Sum volume change for group
+                    group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
+                    varchg_group = var_glac_all[group_glac_indices,:].sum(axis=0)
+    
+                    ds_all[rcp][gcm_name][group] = varchg_group
+                
+                #%%
+
     # Export csv files
     output_cns = time_values_annual_subset.tolist()
     output_rns = ['Alaska','Western Canada and U.S.','Arctic Canada North','Arctic Canada South','Greenland','Iceland',
@@ -4033,38 +4061,46 @@ if option_glaciermip_table == 1:
     group_dict = {13:'Central Asia', 14:'South Asia West', 15:'South Asia East'}
     rcp_dict = {'rcp26':'RCP26', 'rcp45':'RCP45', 'rcp60':'RCP60', 'rcp85':'RCP85'}
 
-    for gcm in gcm_names: 
+    for gcm_name in gcm_names: 
         for rcp in rcps:
             
-            print(gcm, rcp)
-            
-            output = pd.DataFrame(np.zeros((len(output_rns), len(output_cns))) + -9999, 
+            # Load datasets
+            ds_fn = ('R' + str(region) + '--all--' + gcm_name + '_' + rcp + '_c2_ba' + 
+                     str(input.option_bias_adjustment) + '_100sets_2000_2100--subset.nc')
+            if os.path.exists(netcdf_fp_cmip5 + ds_fn):
+                print(gcm_name, rcp, 'exists')
+                
+                output = pd.DataFrame(np.zeros((len(output_rns), len(output_cns))) + -9999, 
                                       index=output_rns, columns=output_cns)
             
-            for group in groups:
+                for group in groups:   
+                    # Convert volume to water equivalent
+                    if vn == 'volume_glac_annual':
+                        output_gcm_rcp_group = ds_all[rcp][gcm_name][group] * input.density_ice / input.density_water
+                    elif vn == 'area_glac_annual':
+                        output_gcm_rcp_group = ds_all[rcp][gcm_name][group]
+                    
+                    
+                    output.loc[group_dict[group],:] = output_gcm_rcp_group
+                    
+                    # Export txt file
+                    output_fn = output_prefix + '_PyGEM_' + gcm_name + '_' + rcp_dict[rcp] + '_r1i1p1.txt'
+                    output.to_csv(output_fp + output_fn, sep=',')
+                    
+                    txt_header = 'David Rounce, drounce@alaska.edu'
+                    if vn == 'volume_glac_annual':
+                        txt_header += ', Volume [km3 we]'
+                    elif vn == 'area_glac_annual':
+                        txt_header += ', Area [km2]'
+                    with open(output_fp + output_fn, 'r+') as f:
+                        content = f.read()
+                        f.seek(0, 0)
+                        f.write(txt_header.rstrip('\r\n') + '\n' + content)
                 
-                # Convert volume to water equivalent
-                if vn == 'volume_glac_annual':
-                    output_gcm_rcp_group = ds_all[rcp][gcm_name][group] * input.density_ice / input.density_water
-                elif vn == 'area_glac_annual':
-                    output_gcm_rcp_group = ds_all[rcp][gcm_name][group]
-                
-                
-                output.loc[group_dict[group],:] = output_gcm_rcp_group
-                
-                # Export txt file
-                output_fn = output_prefix + '_PyGEM_' + gcm + '_' + rcp_dict[rcp] + '_r1i1p1.txt'
-                output.to_csv(output_fp + output_fn, sep=',')
-                
-                txt_header = 'David Rounce, drounce@alaska.edu'
-                if vn == 'volume_glac_annual':
-                    txt_header += ', Volume [km3 we]'
-                elif vn == 'area_glac_annual':
-                    txt_header += ', Area [km2]'
-                with open(output_fp + output_fn, 'r+') as f:
-                    content = f.read()
-                    f.seek(0, 0)
-                    f.write(txt_header.rstrip('\r\n') + '\n' + content)
+            else:
+                print('  ', gcm_name, rcp, 'does not exist')
+            
+            #%%
 
 #    # Export csv files
 #    output_cns = ['year'] + gcm_names
