@@ -118,12 +118,13 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [1]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [13]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
-rgi_glac_number = 'all'
+#rgi_glac_number = 'all'
+rgi_glac_number = ['00001']
 #rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
@@ -135,15 +136,15 @@ if glac_no is not None:
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
-ref_gcm_name = 'ERA5'           # reference climate dataset
+ref_gcm_name = 'ERA-Interim'    # reference climate dataset
+#ref_gcm_name = 'ERA5'           # reference climate dataset
 
-startyear = 1980                # first year of model run (reference dataset)
-endyear = 2018                  # last year of model run (reference dataset)
-option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
-#startyear = 2000                # first year of model run (reference dataset)
+#startyear = 1980                # first year of model run (reference dataset)
 #endyear = 2018                  # last year of model run (reference dataset)
-#option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
+#option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
+startyear = 2000                # first year of model run (reference dataset)
+endyear = 2018                  # last year of model run (reference dataset)
+option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
 
 constantarea_years = 0          # number of years to not let the area or volume change
 spinupyears = 0                 # spin up years
@@ -159,9 +160,9 @@ gcm_wateryear = 1               # water year for simmulation
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
 hindcast = 0                    # 1: run hindcast simulation, 0: do not
 if hindcast == 1:
-    constantarea_years = 18     # number of years to not let the area or volume change
-    gcm_startyear = 1960        # first year of model run (simulation dataset)
-    gcm_endyear = 2017          # last year of model run (simulation dataset)
+    constantarea_years = 0     # number of years to not let the area or volume change
+    gcm_startyear = 1980        # first year of model run (simulation dataset)
+    gcm_endyear = 2000          # last year of model run (simulation dataset)
 
 # Synthetic options (synthetic refers to created climate data, e.g., repeat 1995-2015 for the next 100 years)
 option_synthetic_sim = 0        # 1: run synthetic simulation, 0: do not
@@ -186,10 +187,10 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 4
+option_calibration = 2
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
-cal_datasets = ['braun']
-#cal_datasets = ['shean']
+#cal_datasets = ['braun']
+cal_datasets = ['shean']
 # Calibration output filepath
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
@@ -368,7 +369,8 @@ rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Na
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
 # Filepath for the hypsometry files
 binsize = 10            # Elevation bin height [m]
-hyps_data = 'Farinotti' # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
+hyps_data = 'Huss'      # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
+#hyps_data = 'Farinotti' # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
 
 if hyps_data == 'Farinotti':
     option_shift_elevbins_20m = 0   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
