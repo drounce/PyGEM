@@ -41,7 +41,7 @@ import run_calibration as calibration
 
 # Script options
 option_plot_cmip5_normalizedchange = 0              # updated - 11/6/2019 (includes the runoff figure 5)
-option_cmip5_heatmap_w_volchange = 0                # updated - 11/6/2019
+option_cmip5_heatmap_w_volchange = 1                # updated - 11/6/2019
 option_cmip5_mb_vs_climate = 0
 option_map_gcm_changes = 0
 option_region_map_nodata = 0
@@ -2625,7 +2625,7 @@ if option_cmip5_heatmap_w_volchange == 1:
     if os.path.exists(figure_fp) == False:
         os.makedirs(figure_fp)
     
-    rcps = ['rcp45']
+    rcps = ['rcp60']
     
     startyear=2000
     endyear=2100
