@@ -209,7 +209,7 @@ class MBData():
             year_decimal_max = (dates_table.loc[dates_table.shape[0]-1,'year'] + 
                                 (dates_table.loc[dates_table.shape[0]-1,'month'] + 1) / 12)
             ds = ds[ds['t1_year'] + ds['t1_month'] / 12 >= year_decimal_min]
-            ds = ds[ds['t2_year'] + ds['t2_month'] / 12 <= year_decimal_max]
+            ds = ds[ds['t2_year'] + ds['t2_month'] / 12 < year_decimal_max]
             ds.reset_index(drop=True, inplace=True)    
             
             # Determine time indices (exclude spinup years, since massbal fxn discards spinup years)
