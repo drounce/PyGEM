@@ -65,6 +65,7 @@ option_wgms_compare = 0                             # updated - 11/6/2019
 option_dehecq_compare = 0
 option_uncertainty_fig = 0                          # updated - 11/12/2019
 option_nick_snowline = 0
+option_caldata_compare = 0
 
 analyze_multimodel = 0
 option_merge_multimodel_datasets = 0
@@ -4554,7 +4555,9 @@ if option_plot_cmip5_normalizedchange == 1:
             
             # Normalize volume by initial volume
             if vn == 'volume_glac_annual':
-                vn_normalizer = vn_multimodel_mean[0]
+#                vn_normalizer = vn_multimodel_mean[0]
+                tnorm_idx = np.where(time_values_annual == 2006)[0][0]
+                vn_normalizer = vn_multimodel_mean[tnorm_idx]
             # Normalize runoff by mean runoff from 2000-2015
             elif vn == 'runoff_glac_monthly':
                 t1_idx = np.where(time_values_annual == 2000)[0][0]
@@ -4647,7 +4650,7 @@ if option_plot_cmip5_normalizedchange == 1:
                 plot_str_loc = 0.90
 
             if rcp == rcps[-1]:
-                if grouping in ['all', 'rgi_region']:
+                if grouping in ['all', 'rgi_region', 'kaab']:
                     ax[row_idx, col_idx].text(0.5, 0.9, plot_str, size=10, horizontalalignment='center', 
                                               verticalalignment='top', transform=ax[row_idx, col_idx].transAxes, 
                                               color='k', zorder=5)
@@ -4669,7 +4672,7 @@ if option_plot_cmip5_normalizedchange == 1:
                          vn_multimodel_mean[0] * input.density_ice / input.density_water,
                          vn_multimodel_mean_norm[-1]*100, 
                          vn_multimodel_std_norm[-1]*100,
-                        (1-vn_multimodel_mean_norm[-1]) * vn_multimodel_mean[0] * input.density_ice
+                        (1-vn_multimodel_mean_norm[-1]) * vn_multimodel_mean[tnorm_idx] * input.density_ice
                             / input.density_water,
                          vn_multimodel_std[-1]*input.density_ice/input.density_water])
                 ncount += 1
@@ -7202,42 +7205,102 @@ if option_startdate == 1:
 if option_excess_meltwater_diagram == 1:
     fig_fp = input.output_sim_fp + 'figures/'
     
-    vol = np.array([10,9,11,8,7,8,7,5,6,4,4,4]) 
-    vol_km3 = np.reshape(vol,(-1,len(vol))) / input.density_ice * input.density_water / 1000**3
-    time = np.array(np.arange(0,len(vol)))
+    glacier_mass = np.array([10, 10.5, 9, 8.5, 9, 8, 7.5, 6.5, 7.5, 7, 8, 6, 5, 4.5]) - 4
+    excess_meltwater_step_x = np.array([0,1,1,4,4,10,10,11,11,12,12,12]) + 1
+    excess_meltwater_step_y = np.array([0,0,1,1,2,2,4,4,5,5,5.5,5.5])
+    time = np.array(np.arange(0,len(glacier_mass)))
     
-    excess_meltwater = excess_meltwater_m3(vol_km3)
     
-    excess_meltwater_cumsum = np.cumsum(excess_meltwater)
+    annual_mb = glacier_mass[1:] - glacier_mass[0:-1]    
+    annual_mb_cumsum = np.zeros((len(glacier_mass)))
+    annual_mb_cumsum[1:] = np.cumsum(annual_mb)
+    excess_meltwater = np.array([0,1,0,0,1,0,0,0,0,0,2,1,0.5,0])
+#    vol_km3 = np.reshape(vol,(-1,len(vol))) / input.density_ice * input.density_water / 1000**3
+#    excess_meltwater = excess_meltwater_m3(vol_km3)
+    
+    # Create the projection
+    fig = plt.figure()
+    gs = mpl.gridspec.GridSpec(100, 1)
+    ax1 = plt.subplot(gs[0:56,0])
+    ax2 = plt.subplot(gs[60:100,0])
+#    gs = mpl.gridspec.GridSpec(100, 1)
+#    ax1 = plt.subplot(gs[0:60,0])
+#    ax2 = plt.subplot(gs[71:100,0])
 
-
-    fig, ax = plt.subplots(1, 1, squeeze=False)
-
-    # 
-    ax[0,0].plot(time, vol, color='k', linewidth=1, zorder=2, label='Volume')
-    ax[0,0].plot(time[:-1], excess_meltwater[0,:], color='b', linewidth=1, zorder=2, label='Excess meltwater')
-    ax[0,0].plot(time[:-1], excess_meltwater_cumsum, color='b', linewidth=1, linestyle='--', label='Excess meltwater Cumsum')
-        
-    ax[0,0].set_xlim(0,10)
-#    ax[nrow,ncol].set_xscale('log')
-#    if main_glac_rgi.shape[0] > 1000:
-#        ax[nrow,ncol].set_xticks([10,100,1000,10000])   
-#    else:
-#        ax[nrow,ncol].set_xticks([10,100,1000])   
+#    # First subplot (glacier mass and cumulative excess meltwater)
+#    ax1.plot(time, glacier_mass, color='k', linewidth=1, zorder=2, label='Glacier mass')
+##    ax1.plot(time, annual_mb_cumsum, color='k', linewidth=1, zorder=2, label='cumulative MB', linestyle='..')
+#    ax1.set_xlim(0,len(glacier_mass)-1)
+#    ax1.set_ylim(0,7)
+#    ax1.set_ylabel('Glacier mass\n(Gt)')
+#    ax1.yaxis.set_minor_locator(plt.MultipleLocator(1))
+#    ax1.yaxis.set_ticks_position('both')
+#    ax1.tick_params(axis='y', which='both', direction='inout')
 #    
-#    ax[nrow,ncol].set_ylim(0,100)
-#    ax[nrow,ncol].yaxis.set_major_locator(plt.MultipleLocator(20))
-#    ax[nrow,ncol].yaxis.set_minor_locator(plt.MultipleLocator(5))
-#    
-#    # Tick parameters
-#    ax[nrow,ncol].yaxis.set_ticks_position('both')
-#    ax[nrow,ncol].tick_params(axis='both', which='major', labelsize=12, direction='inout')
-#    ax[nrow,ncol].tick_params(axis='both', which='minor', labelsize=12, direction='inout')  
-#    ax[nrow,ncol].text(0.5,0.95, str(region) + '\n(' + str(main_glac_rgi.shape[0]) + ' glaciers)' + 
-#                      '\n(' + str(int(main_glac_rgi.cum_area.values[-1])) + 'km2)',
-#                       horizontalalignment='center', verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+#    ax1b = ax1.twinx()
+#    ax1b.plot(excess_meltwater_step_x, excess_meltwater_step_y, color='b', linewidth=1, linestyle='--', 
+#             label='Excess meltwater Cumsum')
+#    ax1b.set_ylim(-1,6)
+#    ax1b.invert_yaxis()
+#    ax1b.set_ylabel('Excess meltwater \n(cumulative, Gt)', color='b')
+#    ax1b.spines['right'].set_color('b')
+#    ax1b.tick_params(axis='y', colors='b')
+#    ax1b.yaxis.set_minor_locator(plt.MultipleLocator(1))
+#    ax1b.tick_params(axis='y', which='both', direction='inout', color='b')
+    
+    # First subplot (glacier mass and cumulative excess meltwater)
+#    ax1.plot(time, glacier_mass, color='k', linewidth=1, zorder=2, label='Glacier mass')
+    ax1.plot(time, annual_mb_cumsum, color='k', linewidth=1, zorder=2, label='cumulative MB', linestyle='-')
+    ax1.set_xlim(0,len(glacier_mass)-1)
+    ax1.set_ylim(-6,1)
+    ax1.set_ylabel('Cumulative \nmass balance\n(Gt)')
+    ax1.yaxis.set_minor_locator(plt.MultipleLocator(1))
+    ax1.yaxis.set_ticks_position('both')
+    ax1.tick_params(axis='y', which='both', direction='inout')
+    ax1.tick_params(labelbottom=False)
+    ax1.xaxis.set_minor_locator(plt.MultipleLocator(1))
+    ax1.tick_params(axis='x', which='both', direction='inout')
+    ax1.grid(which='major', axis='both', color='grey', linewidth=0.5, alpha=1)
+    ax1.grid(which='minor', axis='both', color='grey', linewidth=0.25, alpha=0.5)
+    
+    
+    ax1b = ax1.twinx()
+    ax1b.plot(excess_meltwater_step_x, excess_meltwater_step_y, color='b', linewidth=2, linestyle='--', 
+             label='Excess meltwater Cumsum')
+    ax1b.set_ylim(-1,6)
+    ax1b.invert_yaxis()
+    ax1b.set_ylabel('Cumulative \nexcess meltwater \n(Gt)', labelpad=12, color='b')
+    ax1b.spines['right'].set_color('b')
+    ax1b.tick_params(axis='y', colors='b')
+    ax1b.yaxis.set_minor_locator(plt.MultipleLocator(1))
+    ax1b.tick_params(axis='y', which='both', direction='inout', color='b')
+    
+    
+    # Second subplot (annual mass balance and annual excess meltwater)
+    ax2.plot(time[1:], annual_mb, color='k', linewidth=1, zorder=2, label='annual mb')
+    ax2.set_xlim(0,len(glacier_mass)-1)
+    ax2.set_ylim(-2.5,2.5)
+    ax2.yaxis.set_major_locator(plt.MultipleLocator(2))
+    ax2.yaxis.set_minor_locator(plt.MultipleLocator(1))
+    ax2.set_ylabel('Annual \nmass balance \n(Gt)')
+    ax2.xaxis.set_minor_locator(plt.MultipleLocator(1))
+    ax2.tick_params(axis='x', which='both', direction='inout')
+    ax2.grid(which='major', axis='both', color='grey', linewidth=0.5, alpha=1)
+    ax2.grid(which='minor', axis='both', color='grey', linewidth=0.25, alpha=0.5)
+    ax2.set_xlabel('Year')
+    
+    ax2b = ax2.twinx()
+    ax2b.plot(time[1:], excess_meltwater[:-1], color='b', linewidth=1, linestyle='--', label='Excess meltwater')
+    ax2b.set_ylim(-2.5,2.5)
+    ax2b.yaxis.set_major_locator(plt.MultipleLocator(2))
+    ax2b.yaxis.set_minor_locator(plt.MultipleLocator(1))
+    ax2b.set_ylabel('Annual \nexcess meltwater\n(Gt)', color='b')
+    ax2b.spines['right'].set_color('b')
+    ax2b.tick_params(axis='y', colors='b')
+    ax2b.tick_params(axis='y', which='both', direction='inout', color='b')
+    
     # Save figure
-    fig.set_size_inches(3, 3)
+    fig.set_size_inches(3, 4)
     if os.path.exists(fig_fp) == False:
         os.makedirs(fig_fp)
     figure_fn = 'excess_melwater_diagram.png'
@@ -7330,3 +7393,309 @@ if option_excess_meltwater_diagram == 1:
 #        #%%
 #        main_glac_rgi['vol_norm'] = vol_norm
 #        glac_idx = main_glac_rgi[(main_glac_rgi.Area > 1) & (main_glac_rgi.vol_norm < 2)].index.values
+
+#%%
+if option_caldata_compare == 1:
+    netcdf_fp_era = input.output_sim_fp + 'ERA5/'
+    
+    regions = [1]
+    cal_datasets = ['braun']
+    ds_fn = 'R1--all--ERA5_c4_ba1_1sets_1995_2017.nc'
+    
+    startyear=1995
+    endyear=2017
+    wateryear=1
+    
+    output_fp = netcdf_fp_era + 'figures/'
+    if os.path.exists(output_fp) == False:
+        os.makedirs(output_fp)
+    
+    dates_table  = modelsetup.datesmodelrun(startyear=startyear, endyear=endyear, spinupyears=0, 
+                                            option_wateryear=wateryear)
+    
+    # Load glaciers
+    main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(rgi_regionsO1=regions)
+    
+    # Modeled Mass Balance
+    # Load datasets
+    ds = xr.open_dataset(netcdf_fp_era + ds_fn)
+    df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
+    df['RGIId'] = ['RGI60-' + str(int(df.O1Region.values[x])).zfill(2) + '.' +
+                   str(int(df.glacno.values[x])).zfill(5) for x in df.index.values]
+    
+    # Extract time variable
+    time_values_annual = ds.coords['year_plus1'].values
+    time_values_monthly = ds.coords['time'].values
+    # Extract start/end indices for calendar year!
+    time_values_df = pd.DatetimeIndex(time_values_monthly)
+    time_values_yr = np.array([x.year for x in time_values_df])
+    if input.gcm_wateryear == 1:
+        time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
+    time_idx_start = np.where(time_values_yr == startyear)[0][0]
+    time_idx_end = np.where(time_values_yr == endyear)[0][0]
+    time_values_monthly_subset = time_values_monthly[time_idx_start:time_idx_end + 12]
+    year_idx_start = np.where(time_values_annual == startyear)[0][0]
+    year_idx_end = np.where(time_values_annual == endyear)[0][0]
+    time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
+    
+    var_glac_region_raw = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
+    var_glac_region_raw_std = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 1]
+    area_glac_region = np.repeat(ds['area_glac_annual'].values[:,year_idx_start:year_idx_end+1,0], 12, axis=1)
+    
+    # Area average
+    volchg_monthly_glac_region = var_glac_region_raw
+    volchg_monthly_glac_region_std = var_glac_region_raw_std
+
+    # Merge datasets
+    var_glac_all = volchg_monthly_glac_region
+    var_glac_all_std = volchg_monthly_glac_region_std
+    area_glac_all = area_glac_region
+    df_all = df
+    
+    # Remove RGIIds from main_glac_rgi that are not in the model runs
+    rgiid_df = list(df_all.RGIId.values)
+    rgiid_all = list(main_glac_rgi.RGIId.values)
+    rgi_idx = [rgiid_all.index(x) for x in rgiid_df]
+    main_glac_rgi = main_glac_rgi.loc[rgi_idx,:]
+    main_glac_rgi.reset_index(inplace=True, drop=True)
+    
+    #%%
+    # Calibration data
+    cal_data = pd.DataFrame()
+    for dataset in cal_datasets:
+        cal_subset = class_mbdata.MBData(name=dataset)
+        cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table)
+        cal_data = cal_data.append(cal_subset_data, ignore_index=True)
+    cal_data = cal_data.sort_values(['glacno', 't1_idx'])
+    cal_data.reset_index(drop=True, inplace=True)
+    
+    #%%
+    # Link glacier index number from main_glac_rgi to cal_data to facilitate grabbing the data
+    glacnodict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi.index.values))
+    cal_data['glac_idx'] = cal_data['RGIId'].map(glacnodict)
+    
+    # Update main_glac_rgi and simulation datasets to be consistent with cal_data
+    cal_data_idx = list(cal_data.glac_idx.values)
+    main_glac_rgi = main_glac_rgi.loc[cal_data_idx,:]
+    main_glac_rgi.reset_index(inplace=True, drop=True)
+    var_glac_all = volchg_monthly_glac_region[cal_data_idx,:]
+    var_glac_all_std = volchg_monthly_glac_region_std[cal_data_idx,:]
+    area_glac_all = area_glac_region[cal_data_idx,:]
+    df_all = df_all.loc[cal_data_idx,:]
+    cal_data.reset_index(inplace=True, drop=True)
+    
+    #%%
+    cal_data['mb_mwe_era'] = np.nan
+    cal_data['mb_mwea_era'] = np.nan
+    cal_data['mb_mwe_era_std'] = np.nan
+    for nglac in list(cal_data.index.values):
+        glac_idx = nglac
+        t1_idx = int(cal_data.loc[nglac,'t1_idx'])
+        t2_idx = int(cal_data.loc[nglac,'t2_idx'])
+        t1 = cal_data.loc[nglac,'t1']
+        t2 = cal_data.loc[nglac,'t2']
+        cal_data.loc[nglac,'mb_mwe_era'] = var_glac_all[glac_idx, t1_idx:t2_idx].sum()
+#        cal_data.loc[nglac,'mb_mwe_era_std'] = var_glac_all_std[glac_idx, t1_idx:t2_idx].sum() 
+#        cal_data.loc[nglac,'mb_mwe_era_std_rsos'] = ((var_glac_all_std[glac_idx, t1_idx:t2_idx]**2).sum())**0.5
+    
+    cal_data['time_difference'] = cal_data['t2'] - cal_data['t1']    
+    cal_data['mb_mwea_era'] = cal_data['mb_mwe_era'] / (cal_data['t2'] - cal_data['t1'])
+#    cal_data['mb_mwea_era_std'] = cal_data['mb_mwe_era_std'] / (cal_data['t2'] - cal_data['t1'])
+#    cal_data['mb_mwea_era_std_rsos'] = cal_data['mb_mwe_era_std_rsos'] / (cal_data['t2']-cal_data['t1'])
+    cal_data['mb_mwea'] = cal_data['mb_mwe'] / (cal_data['t2'] - cal_data['t1'])
+    cal_data['mb_mwea_std'] = cal_data['mb_mwe_err'] / (cal_data['t2'] - cal_data['t1'])
+    cal_data['mb_mwea_dif'] = cal_data['mb_mwea_era'] - cal_data['mb_mwea']
+    cal_data['zscore'] = (cal_data['mb_mwea_era'] - cal_data['mb_mwea']) / cal_data['mb_mwea_std']
+    
+    #%%
+    # Loop through conditions:
+    condition_dict = OrderedDict()
+    condition_dict['All']= cal_data.index.values
+    condition_dict['All w data'] = cal_data['obs_type'] == 'mb_geo'
+    condition_dict['All extrapolated'] = cal_data['obs_type'] == 'mb_geo_extrapolated'
+    
+    stats_cns = ['group', 'count', 'rmse', 'r', 'slope', 'intercept', 'p-value', 'mae']
+    group_stats = pd.DataFrame(np.zeros((len(condition_dict.keys()), len(stats_cns))), columns=stats_cns)
+    group_stats['group'] = condition_dict.keys()
+    
+    for ncondition, cal_condition in enumerate(condition_dict.keys()):
+#    for ncondition, cal_condition in enumerate(['Glaciological (annual)']):
+        # Statistics for comparison
+        cal_data_subset = cal_data.loc[condition_dict[cal_condition],:].copy()
+        print('\n',cal_condition, cal_data_subset.shape[0])
+        
+        # Root-mean-square-deviation
+        rmse = (np.sum((cal_data_subset.mb_mwea - cal_data_subset.mb_mwea_era)**2) / cal_data_subset.shape[0])**0.5
+        print('  RMSE:', np.round(rmse,2))
+        # Correlation
+        slope, intercept, r_value, p_value, std_err = linregress(cal_data_subset.mb_mwea, cal_data_subset.mb_mwea_era)
+        print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+              'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+        # Mean absolute error
+        mae = np.mean(np.absolute(cal_data_subset.mb_mwea - cal_data_subset.mb_mwea_era))
+        print('  mean absolute error:', np.round(mae,2))
+        # Record stats
+        group_stats.loc[ncondition, ['count', 'rmse', 'r', 'slope', 'intercept', 'p-value', 'mae']] = (
+                [cal_data_subset.shape[0], rmse, r_value, slope, intercept, p_value, mae])
+
+        
+        cal_data_subset['dif_mb_mwea'] = cal_data_subset['mb_mwea'] - cal_data_subset['mb_mwea_era']
+        print('  Difference stats: \n    Mean (+/-) std [mwea]:', 
+          np.round(cal_data_subset['dif_mb_mwea'].mean(),2), '+/-', np.round(cal_data_subset['dif_mb_mwea'].std(),2), 
+          'count:', cal_data_subset.shape[0],
+          '\n    Median (+/-) std [mwea]:', 
+          np.round(cal_data_subset['dif_mb_mwea'].median(),2), '+/- XXX', 
+#          np.round(cal_data_subset['dif_mb_mwea'].std(),2),
+#          '\n    Mean standard deviation (correlated):',np.round(cal_data_subset['mb_mwea_era_std'].mean(),2),
+#          '\n    Mean standard deviation (uncorrelated):',np.round(cal_data_subset['mb_mwea_era_std_rsos'].mean(),2)
+            )
+        
+    group_stats.to_csv(output_fp + 'cal_compare_stats.csv', index=False)
+
+    #%%
+    # ===== PLOT =====
+    fig, ax = plt.subplots(1, 2, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0.3, 'hspace':0})
+    
+    datatypes = ['mb_geo', 'mb_geo_extrapolated']
+    cmap = 'RdYlBu_r'
+    norm = plt.Normalize(startyear, endyear)
+    
+    for nplot, datatype in enumerate(datatypes):
+#    for nplot, datatype in enumerate(['mb_geo']):
+        cal_data_plot = cal_data[cal_data['obs_type'] == datatype].copy()
+        cal_data_plot.reset_index(drop=True, inplace=True)
+        sizes = [0.01,1,5,50]
+        sizes_str = [str(x) for x in sizes]
+        s_sizes = [1,4,10,20]
+        cal_data_plot['circ_size'] = s_sizes[0]
+        cal_data_plot.loc[cal_data_plot['area_km2'] > sizes[1], 'circ_size'] = s_sizes[1]
+        cal_data_plot.loc[cal_data_plot['area_km2'] > sizes[2], 'circ_size'] = s_sizes[2]
+        cal_data_plot.loc[cal_data_plot['area_km2'] > sizes[3], 'circ_size'] = s_sizes[3]
+        
+        if datatype in ['mb_geo', 'mb_geo_extrapolated']:
+            # All glaciers
+            a = ax[0,nplot].scatter(cal_data_plot.mb_mwea.values, cal_data_plot.mb_mwea_era.values, 
+                                    color='k', zorder=3, 
+#                                    s=15,
+                                    s=cal_data_plot.circ_size.values,
+                                    marker='o', linewidth=0.25)
+            a.set_facecolor('none')
+            ymin = -5
+            ymax = 3.5
+            xmin = -5
+            xmax = 3.5
+            ax[0,nplot].set_xlim(xmin,xmax)
+            ax[0,nplot].set_ylim(ymin,ymax)
+            ax[0,nplot].plot([np.min([xmin,ymin]),np.max([xmax,ymax])], [np.min([xmin,ymin]),np.max([xmax,ymax])], 
+                             color='k', linewidth=0.25, zorder=1)
+            
+            ax[0,nplot].set_ylabel('$\mathregular{B_{mod}}$ (m w.e. $\mathregular{yr^{-1}}$)', labelpad=0, size=12)
+            ax[0,nplot].set_xlabel('$\mathregular{B_{geo}}$ (m w.e. $\mathregular{yr^{-1}}$)', labelpad=0, size=12)
+            # Add text
+            ax[0,nplot].text(0.05, 0.95, 'E', va='center', size=12, fontweight='bold', transform=ax[0,nplot].transAxes)
+            ax[0,nplot].text(0.7, 0.1, 'n=' + str(cal_data_plot.shape[0]) + '\n' + 
+                             str(cal_data_plot.glacno.unique().shape[0]) + ' glaciers', va='center', ha='center', 
+                             size=12, transform=ax[0,nplot].transAxes)
+            slope, intercept, r_value, p_value, std_err = linregress(cal_data_plot.mb_mwea.values, 
+                                                                     cal_data_plot.mb_mwea_era.values)
+            print(datatype, 'r_value [mwea] =', r_value)
+    
+    # SIZE LEGEND      
+    marker_linecolor='k'
+    marker_linewidth = 0.25
+    circ1 = ax[0,nplot].scatter([0],[0], s=s_sizes[0], marker='o', color='grey', 
+                       edgecolor=marker_linecolor, linewidth=marker_linewidth)
+    circ1.set_facecolor('none')
+    circ2 = ax[0,nplot].scatter([0],[0], s=s_sizes[1], marker='o', color='grey',
+                       edgecolor=marker_linecolor, linewidth=marker_linewidth)
+    circ2.set_facecolor('none')
+    circ3 = ax[0,nplot].scatter([0],[0], s=s_sizes[2], marker='o', color='grey',
+                       edgecolor=marker_linecolor, linewidth=marker_linewidth)
+    circ3.set_facecolor('none')
+    circ4 = ax[0,nplot].scatter([0],[0], s=s_sizes[3], marker='o', color='grey',
+                       edgecolor=marker_linecolor, linewidth=marker_linewidth)
+    circ4.set_facecolor('none')
+    leg_fontsize = 10
+    legend=fig.legend([circ1,circ2,circ3,circ4], sizes_str, 
+              scatterpoints=1, ncol=1,
+              loc='upper left',  bbox_to_anchor=(0.865,0.63),
+              fontsize=leg_fontsize, labelspacing=0.3, columnspacing=0,handletextpad=0, handlelength=1,
+              borderpad=0.2, framealpha=0, borderaxespad=0.2,
+              )
+    fig.text(0.94, 0.62, 'Area\n(km$^{2}$)', ha='center', va='center', size=leg_fontsize)
+    
+    # Save figure
+    fig.set_size_inches(6.75,3)
+    fig_fn = 'cal_compare.png'
+    fig.savefig(output_fp + fig_fn, bbox_inches='tight', dpi=600)
+    
+    
+#thickness_fn = 'thickness_m_01_Farinotti2019_10m.csv'
+#hyps_fn = 'area_km2_01_Farinotti2019_10m.csv'
+#width_fn = 'width_km_01_Farinotti2019_10m.csv'
+#slope_fn = 'slope_deg_01_Farinotti2019_10m.csv'
+#length_fn = 'length_km_01_Farinotti2019_10m.csv'
+#
+#thickness = pd.read_csv(input.hyps_filepath + thickness_fn)
+#thickness_cns = list(thickness.columns)
+#thickness_cns.remove('RGIId')
+#thickness_values = thickness.loc[:,thickness_cns].values
+#print('thickness < 0', np.where(thickness_values < 0))
+#thickness_values[thickness_values < 0] = 0
+#
+#thickness_v2 = thickness.copy()
+#thickness_v2.loc[:,thickness_cns] = thickness_values
+#thickness_v2.to_csv(input.hyps_filepath + 'updated/' + thickness_fn, index=False)
+#
+#hyps = pd.read_csv(input.hyps_filepath + hyps_fn)
+#hyps_values = hyps.loc[:,thickness_cns].values
+#hyps_values[thickness_values == 0] = 0
+#print('hyps < 0', np.where(hyps_values < 0))
+#
+#hyps_v2 = hyps.copy()
+#hyps_v2.loc[:,thickness_cns] = hyps_values
+#hyps_v2.to_csv(input.hyps_filepath + 'updated/' + hyps_fn, index=False)
+#
+#
+#width = pd.read_csv(input.hyps_filepath + width_fn)
+#width_values = width.loc[:,thickness_cns].values
+#width_values[thickness_values == 0] = 0
+#print('width < 0', np.where(width_values < 0))
+#
+#width_v2 = width.copy()
+#width_v2.loc[:,thickness_cns] = width_values
+#width_v2.to_csv(input.hyps_filepath + 'updated/' + width_fn, index=False)
+#
+#slope = pd.read_csv(input.hyps_filepath + slope_fn)
+#slope_values = slope.loc[:,thickness_cns].values
+#slope_values[thickness_values == 0] = 0
+#print('slope < 0', np.where(slope_values < 0))
+#
+#slope_v2 = slope.copy()
+#slope_v2.loc[:,thickness_cns] = slope_values
+#slope_v2.to_csv(input.hyps_filepath + 'updated/' + slope_fn, index=False)
+#
+#length = pd.read_csv(input.hyps_filepath + length_fn)
+#length_values = length.loc[:,thickness_cns].values
+#length_values[thickness_values == 0] = 0
+#print('length < 0', np.where(length_values < 0))
+#
+#length_v2 = length.copy()
+#length_v2.loc[:,thickness_cns] = length_values
+#length_v2.to_csv(input.hyps_filepath + 'updated/' + length_fn, index=False)
+
+
+
+
+
+
+
+
+
+    
+    
+    
+    
+    
+    
+    

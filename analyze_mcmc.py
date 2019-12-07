@@ -37,9 +37,9 @@ import run_calibration as calibration
 # Paper figures
 option_observation_vs_calibration = 0
 option_papermcmc_prior_vs_posterior = 0
-option_papermcmc_modelparameter_map_and_postvprior = 0
+option_papermcmc_modelparameter_map_and_postvprior = 1
 option_metrics_histogram_all = 0
-option_metrics_vs_chainlength = 1
+option_metrics_vs_chainlength = 0
 option_correlation_scatter = 0
 option_regional_priors = 0
 option_glacier_mb_vs_params = 0
@@ -2207,18 +2207,10 @@ if __name__ == '__main__':
     if option_papermcmc_prior_vs_posterior == 1:
         print('Prior vs posterior showing two example glaciers side-by-side!')
         glac_no = ['13.26360', '14.08487']
-        netcdf_fp = mcmc_output_netcdf_fp_3chain
-        netcdf_fp = input.output_filepath + 'cal_opt2_3chain/'
+        netcdf_fp = input.output_filepath + 'cal_opt2_spc_20190815_3chain/cal_opt2_3chain_figure/'
         burn = 1000
         iters=[2000,10000]
         figure_fn = 'prior_v_posteriors_2glac.eps'
-        
-    #    glac_no = ['15.10755', '15.12457']
-    #    burn = 1000
-    #    iters=[10000]
-    #    netcdf_fp = mcmc_output_netcdf_fp_all
-    #    figure_fn = 'prior_v_posteriors_2glac_poorglaciers.eps'
-    #    # note: need to change position and lines of legend below 
         
         fig_fp = netcdf_fp + 'figures/'
         if os.path.exists(fig_fp) == False:
@@ -2230,6 +2222,7 @@ if __name__ == '__main__':
         # Add regions
         main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
     
+        #%%
         # PRIOR VS POSTERIOR PLOTS 
         fig, ax = plt.subplots(4, 2, squeeze=False, figsize=(6.5, 7), 
                                gridspec_kw={'wspace':0.2, 'hspace':0.47})
@@ -2243,7 +2236,7 @@ if __name__ == '__main__':
             # RGI information
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
             # Calibration data
-            cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+            cal_idx = np.where(cal_data['glacno'] == glacier_str)[0]
             glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
             # Select observed mass balance, error, and time data
             t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
@@ -2343,7 +2336,7 @@ if __name__ == '__main__':
     #    ax[0,1].legend(title='Steps', loc='upper right', handlelength=1, handletextpad=0.05, borderpad=0.2)
         leg_lines = []
         leg_labels = []
-        chain_labels = ['Prior', '1000', '10000']
+        chain_labels = ['Prior', '2,000', '10,000']
         chain_colors = ['black', '#387ea0', '#fcb200']
     #    chain_labels = ['Prior', '10000']
     #    chain_colors = ['black', '#387ea0']
@@ -2355,9 +2348,9 @@ if __name__ == '__main__':
             leg_lines.append(line)
             leg_labels.append(chain_labels[n_chain])
         fig.legend(leg_lines, leg_labels, loc='upper right', 
-                   bbox_to_anchor=(0.87,0.885), 
-    #               bbox_to_anchor=(0.87,0.815),
-                   handlelength=1.5, handletextpad=0.25, borderpad=0.2, frameon=True)
+#                   bbox_to_anchor=(0.87,0.885), 
+                   bbox_to_anchor=(0.88,0.82),
+                   handlelength=1, handletextpad=0.25, borderpad=0.2, labelspacing = 0.2, frameon=True)
         
     #    # Legend (Note: hard code the spacing between the two legends) 
     #    leg_lines = []

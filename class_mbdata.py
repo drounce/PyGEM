@@ -216,8 +216,8 @@ class MBData():
             ds['t1_idx'] = np.nan
             ds['t2_idx'] = np.nan
             for x in range(ds.shape[0]):
-                if x == 10539:
-                    print(x, ds.loc[x,'RGIId'], ds.loc[x,'t1'], ds.loc[x,'t1_month'], ds.loc[x,'t2_month'])
+#                if x == 10539:
+#                    print(x, ds.loc[x,'RGIId'], ds.loc[x,'t1'], ds.loc[x,'t1_month'], ds.loc[x,'t2_month'])
                 ds.loc[x,'t1_idx'] = (dates_table[(ds.loc[x, 't1_year'] == dates_table['year']) & 
                                                   (ds.loc[x, 't1_month'] == dates_table['month'])].index.values[0])
                 ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 

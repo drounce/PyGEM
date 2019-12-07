@@ -1,4 +1,4 @@
-"""Run a model simulation."""
+f"""Run a model simulation."""
 # Default climate data is ERA-Interim; specify CMIP5 by specifying a filename to the argument:
 #    (Command line) python run_simulation_list_multiprocess.py -gcm_list_fn=C:\...\gcm_rcpXX_filenames.txt
 #      - Default is running ERA-Interim in parallel with five processors.
@@ -538,6 +538,7 @@ def main(list_packed_vars):
     # Ice thickness [m], average
     main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath,
                                                          input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_icethickness[main_glac_icethickness < 0] = 0
     main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
     main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath, input.width_filedict,
@@ -928,6 +929,7 @@ def main(list_packed_vars):
                           np.round(glac_wide_volume_annual[-1],2))
                     print('  area start/end:', np.round(glac_wide_area_annual[0],2), '/', 
                           np.round(glac_wide_area_annual[-1],2))
+                    print('  volume:', glac_wide_volume_annual)
     #                print('glac runoff max:', np.round(glac_wide_runoff.max(),0),
     #                      'glac prec max:', np.round(glac_wide_prec.max(),2),
     #                      'glac refr max:', np.round(glac_wide_refreeze.max(),2),

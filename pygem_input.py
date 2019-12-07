@@ -118,13 +118,13 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [13]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
-#rgi_glac_number = 'all'
-rgi_glac_number = ['00001']
+rgi_glac_number = 'all'
+#rgi_glac_number = ['00013']
 #rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
@@ -147,13 +147,15 @@ endyear = 2018                  # last year of model run (reference dataset)
 option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
 
 constantarea_years = 0          # number of years to not let the area or volume change
+if constantarea_years > 0:
+    print('\nConstant area years > 0\n')
 spinupyears = 0                 # spin up years
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
+gcm_startyear = 1995            # first year of model run (simulation dataset)
+gcm_endyear = 2017              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2018              # last year of model run (simulation dataset)
-gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2100              # last year of model run (simulation dataset)
+#gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation
 gcm_wateryear = 1               # water year for simmulation
 
@@ -189,8 +191,8 @@ option_bias_adjustment = 1
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
 option_calibration = 2
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
-#cal_datasets = ['braun']
 cal_datasets = ['shean']
+#cal_datasets = ['shean']
 # Calibration output filepath
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
@@ -712,7 +714,7 @@ molarmass_air = 0.0289644   # Molar mass of Earth's air [kg mol-1]
 
 #%% DEBUGGING OPTIONS
 debug_refreeze = False
-debug_mb = False
+debug_mb = True
 
 
 # Pass variable to shell script
