@@ -2,17 +2,18 @@
 pygemfxns_preprocessing.py is a list of the model functions that are used to preprocess the data into the proper format.
 
 """
+print('PROCESS FILE USING RASTERENV ENVIRONMENT')
 
 # Built-in libraries
 import os
 import argparse
 # External libraries
 from osgeo import gdal
-import geopandas as gpd
+#import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import shapely
+#import shapely
 
 from pygeotools.lib import iolib, warplib, geolib, timelib, malib
 
@@ -45,11 +46,13 @@ def plot3panel(dem_list, clim=None, titles=None, cmap='inferno', label=None, ove
         fig.savefig(fn, bbox_inches='tight', pad_inches=0, dpi=150)
 
 #Input DEM filenames
-dem_ref_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/DEMs/Alaska_albers_V3_mac/Alaska_albers_V3.tif'
+dem_ref_fn = None
+# dem_ref_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/DEMs/Alaska_albers_V3_mac/Alaska_albers_V3.tif'
 thickness_fp_prefix = ('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/IceThickness_Farinotti/' +
                        'composite_thickness_RGI60-all_regions/')
-dem_farinotti_fp = ('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/IceThickness_Farinotti/surface_DEMs_RGI60/' +
-                    'surface_DEMs_RGI60-01/')
+# dem_farinotti_fp = ('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/IceThickness_Farinotti/surface_DEMs_RGI60/' +
+#                     'surface_DEMs_RGI60-01/')
+dem_farinotti_fp_prefix = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/IceThickness_Farinotti/surface_DEMs_RGI60/'
 output_fp = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/IceThickness_Farinotti/output/'
 fig_fp = output_fp + 'figures/'
 if os.path.exists(output_fp) == False:
@@ -57,18 +60,20 @@ if os.path.exists(output_fp) == False:
 if os.path.exists(fig_fp) == False:
     os.makedirs(fig_fp)
 
-rgi_regionsO1 = [1]                 # RGI Order 1 regions
+rgi_regionsO1 = [14]                 # RGI Order 1 regions
 binsize = 10                        # elevation bin (must be an integer greater than 1)
+dem_poorquality_switch = True       # Switch to filter poor quality DEMs if another DEM is available
 dem_poorquality_threshold = 200     # threshold used to identify problems with Farinotti DEM
 option_plot_DEMsraw = True          # Option to plot the raw DEMs
 option_plot_DEMs = False             # Option to plot the masked DEMs
 debug = False
 
-# ===== LOAD GLACIERS ======
+# ======
 glacno_wpoor_DEM = []
 for region in rgi_regionsO1:
 
     thickness_fp = thickness_fp_prefix + 'RGI60-' + str(region).zfill(2) + '/'
+    dem_farinotti_fp = dem_farinotti_fp_prefix + 'surface_DEMs_RGI60-' + str(region).zfill(2) + '/'
 
     glacno_list = []
     for i in os.listdir(thickness_fp):
@@ -76,8 +81,8 @@ for region in rgi_regionsO1:
             glacno_list.append(i.split('-')[1].split('_')[0])
     glacno_list = sorted(glacno_list)
 
-    # print('\n\nDELETE ME - SWITCH TO COMPLETE LIST\n\n')
-    # glacno_list = ['01.03622']
+#    print('\n\nDELETE ME - SWITCH TO COMPLETE LIST\n\n')
+#    glacno_list = ['15.02228']
     # glacno_list = glacno_list[10000:10010]
 
     # Load RGI glacier data
@@ -97,32 +102,39 @@ for region in rgi_regionsO1:
     main_glac_width['RGIId'] = main_glac_rgi.RGIId.values
     main_glac_length['RGIId'] = main_glac_rgi.RGIId.values
     main_glac_slope['RGIId'] = main_glac_rgi.RGIId.values
-
+        
     # ===== PROCESS EACH GLACIER ======
     for nglac, glacno in enumerate(glacno_list):
         # print(nglac, glacno)
         thickness_fn = thickness_fp + 'RGI60-' + glacno + '_thickness.tif'
         dem_farinotti_fn = dem_farinotti_fp + 'surface_DEM_RGI60-' + glacno + '.tif'
-
+        
         # Reproject, resample, warp rasters to common extent, grid size, etc.
         #  note: use thickness for the reference to avoid unrealistic extrapolations, e.g., negative thicknesses
         #        also using equal area increases areas significantly compared to RGI
-        raster_fn_list = [dem_ref_fn, dem_farinotti_fn, thickness_fn]
+        raster_fn_list = [dem_farinotti_fn, thickness_fn]
+        if dem_ref_fn is not None:
+            raster_fn_list.append(dem_ref_fn)
+        
+        print(raster_fn_list)
+        
         ds_list = warplib.memwarp_multi_fn(raster_fn_list, extent='intersection', res='min', t_srs=thickness_fn)
-        # print('\n\nSWITCH BACK TO THICKNESS_FN AFTER OTHERS CORRECTED!\n\n')
-        # ds_list = warplib.memwarp_multi_fn(raster_fn_list, extent='intersection', res='min', t_srs=dem_ref_fn)
 
         # masked arrays using ice thickness estimates
-        dem_ref_raw, dem_far_raw, thickness = [iolib.ds_getma(i) for i in ds_list]
-        dem_ref = dem_ref_raw.copy()
-        dem_ref.mask = thickness.mask
+        if dem_ref_fn is not None:
+            dem_ref_raw, dem_far_raw, thickness = [iolib.ds_getma(i) for i in ds_list]
+            dem_ref = dem_ref_raw.copy()
+            dem_ref.mask = thickness.mask
+        else:
+            dem_far_raw, thickness = [iolib.ds_getma(i) for i in ds_list]
         dem_far = dem_far_raw.copy()
         dem_far.mask = thickness.mask
-
+        
         # DEM selection for binning computations
         # if exceeds threshold, then use the reference
-        if (abs(main_glac_rgi.loc[nglac,'Zmin'] - dem_far.min()) > dem_poorquality_threshold or
-            abs(main_glac_rgi.loc[nglac,'Zmax'] - dem_far.max()) > dem_poorquality_threshold):
+        if ((abs(main_glac_rgi.loc[nglac,'Zmin'] - dem_far.min()) > dem_poorquality_threshold or
+             abs(main_glac_rgi.loc[nglac,'Zmax'] - dem_far.max()) > dem_poorquality_threshold) 
+             and dem_ref_fn is not None):
             print('  Check Glacier ' + glacno + ': use Christian DEM instead of Farinotti')
             print('\n     RGI Zmin/Zmax:', main_glac_rgi.loc[nglac,'Zmin'], '/', main_glac_rgi.loc[nglac,'Zmax'])
             print('     Farinotti Zmin/Zmax:', np.round(dem_far.min(),0), '/', np.round(dem_far.max(),0))
@@ -148,7 +160,7 @@ for region in rgi_regionsO1:
         else:
             dem = dem_far
             dem_raw = dem_far_raw
-
+            
         #Extract x and y pixel resolution (m) from geotransform
         gt = ds_list[0].GetGeoTransform()
         px_res = (gt[1], -gt[5])
@@ -212,7 +224,7 @@ for region in rgi_regionsO1:
 
         elev_bin_edges = np.arange(elev_bin_min, elev_bin_max+binsize, binsize)
         elev_bins = (elev_bin_edges[0:-1] + binsize/2).astype(int)
-
+        
         # Hypsometry [km2]
         #  must used .compressed() in histogram to exclude masked values
         hist, elev_bin_edges = np.histogram(dem.reshape(-1).compressed(), bins=elev_bin_edges)
@@ -243,6 +255,13 @@ for region in rgi_regionsO1:
 
         # Width [km] - based on length (inherently slope) and bin area
         bin_width = bin_hyps / bin_length
+        
+        # Remove negative values
+        bin_hyps[bin_hyps < 0] = 0
+        bin_thickness[bin_thickness < 0] = 0
+        bin_width[bin_width < 0] = 0
+        bin_length[bin_length < 0] = 0
+        bin_slope[bin_slope < 0] = 0
 
         # Record properties
         # Check if need to expand columns
@@ -267,12 +286,12 @@ for region in rgi_regionsO1:
     main_glac_width = main_glac_width.fillna(0)
     main_glac_length = main_glac_length.fillna(0)
     main_glac_slope = main_glac_slope.fillna(0)
-    # Remove negative values
-    main_glac_hyps[main_glac_hyps < 0] = 0
-    main_glac_thickness[main_glac_thickness < 0] = 0
-    main_glac_width[main_glac_width < 0] = 0
-    main_glac_length[main_glac_length < 0] = 0
-    main_glac_slope[main_glac_slope < 0] = 0
+#     # Remove negative values
+#     main_glac_hyps[main_glac_hyps < 0] = 0
+#     main_glac_thickness[main_glac_thickness < 0] = 0
+#     main_glac_width[main_glac_width < 0] = 0
+#     main_glac_length[main_glac_length < 0] = 0
+#     main_glac_slope[main_glac_slope < 0] = 0
     # Export results
     main_glac_hyps.to_csv(output_fp + 'area_km2_' + "{:02d}".format(region) + '_Farinotti2019_' +
                           str(binsize) + 'm.csv', index=False)
@@ -284,12 +303,3 @@ for region in rgi_regionsO1:
                             str(binsize) + 'm.csv', index=False)
     main_glac_slope.to_csv(output_fp + 'slope_deg_' + "{:02d}".format(region) + '_Farinotti2019_' +
                            str(binsize) + 'm.csv', index=False)
-
-##%%
-#import pandas as pd
-#import pygem_input as input
-#area = pd.read_csv(input.hyps_filepath + 'area_km2_01_Farinotti2019_10m_old.csv')
-#thickness = pd.read_csv(input.hyps_filepath + 'thickness_m_01_Farinotti2019_10m_old.csv')
-#length = pd.read_csv(input.hyps_filepath + 'length_km_01_Farinotti2019_10m_old.csv')
-#slope = pd.read_csv(input.hyps_filepath + 'slope_deg_01_Farinotti2019_10m_old.csv')
-#width = pd.read_csv(input.hyps_filepath + 'width_km_01_Farinotti2019_10m_old.csv')

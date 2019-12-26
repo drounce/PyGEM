@@ -333,24 +333,24 @@ class GCM():
 
 #%% Testing
 if __name__ == '__main__':
-#    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
-    gcm = GCM(name='ERA5')
-#    gcm = GCM(name='ERA-Interim')
-    
-    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                      rgi_glac_number=input.rgi_glac_number)
-    dates_table = modelsetup.datesmodelrun(startyear=1980, endyear=2017, spinupyears=0, 
-                                           option_wateryear=input.gcm_wateryear)
-
-    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-    if gcm.name == 'ERA-Interim' or gcm.name == 'ERA5':
-        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-    if gcm.name == 'ERA5':
-        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi, 
-                                                                        dates_table)
+##    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
+#    gcm = GCM(name='ERA5')
+##    gcm = GCM(name='ERA-Interim')
+#    
+#    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+#                                                      rgi_glac_number=input.rgi_glac_number)
+#    dates_table = modelsetup.datesmodelrun(startyear=1980, endyear=2017, spinupyears=0, 
+#                                           option_wateryear=input.gcm_wateryear)
+#
+#    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+#    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+#    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+#    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+#    if gcm.name == 'ERA-Interim' or gcm.name == 'ERA5':
+#        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+#    if gcm.name == 'ERA5':
+#        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi, 
+#                                                                        dates_table)
 #    else:
 #        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 #    # COAWST data has two domains, so need to merge the two domains
@@ -369,3 +369,17 @@ if __name__ == '__main__':
 #                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
 #                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
 #                gcm_elev[glac] = gcm_elev_d01[glac]
+        
+    #%%
+#    # Get range of dates
+#    rcp_scenario = 'rcp85'
+#    gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
+#             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
+#             'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
+#    for gcm_name in gcm_names:
+#        print(gcm_name)
+#        ds = xr.open_dataset(input.cmip5_fp_var_prefix + rcp_scenario + input.cmip5_fp_var_ending + 
+#                             'tas' + '_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc')
+#        
+#        print('  ', ds.time[0].values,
+#              '\n  ', ds.time[-1].values)

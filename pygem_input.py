@@ -128,16 +128,16 @@ rgi_glac_number = 'all'
 #rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
-glac_no = None
+#glac_no = None
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
-#glac_no = ['15.01152']
+glac_no = ['15.03473']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-ref_gcm_name = 'ERA-Interim'    # reference climate dataset
-#ref_gcm_name = 'ERA5'           # reference climate dataset
+#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
+ref_gcm_name = 'ERA5'           # reference climate dataset
 
 #startyear = 1980                # first year of model run (reference dataset)
 #endyear = 2018                  # last year of model run (reference dataset)
@@ -189,7 +189,7 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 2
+option_calibration = 4
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -286,8 +286,8 @@ frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalabl
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
-#modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
-modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
+modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
+#modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
     
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -378,15 +378,24 @@ if hyps_data == 'Farinotti':
     option_shift_elevbins_20m = 0   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
     # Dictionary of hypsometry filenames
     hyps_filepath = main_directory + '/../IceThickness_Farinotti/output/'
-    hyps_filedict = {1:  'area_km2_01_Farinotti2019_10m.csv',}
+    hyps_filedict = {1:  'area_km2_01_Farinotti2019_10m.csv',
+                     13: 'area_km2_13_Farinotti2019_10m.csv',
+                     14: 'area_km2_14_Farinotti2019_10m.csv',
+                     15: 'area_km2_15_Farinotti2019_10m.csv'}
     hyps_colsdrop = ['RGIId']
     # Thickness data
     thickness_filepath = main_directory + '/../IceThickness_Farinotti/output/'
-    thickness_filedict = {1:  'thickness_m_01_Farinotti2019_10m.csv'}
+    thickness_filedict = {1:  'thickness_m_01_Farinotti2019_10m.csv',
+                          13: 'thickness_m_13_Farinotti2019_10m.csv',
+                          14: 'thickness_m_14_Farinotti2019_10m.csv',
+                          15: 'thickness_m_15_Farinotti2019_10m.csv'}
     thickness_colsdrop = ['RGIId']
     # Width data
     width_filepath = main_directory + '/../IceThickness_Farinotti/output/'
-    width_filedict = {1:  'width_km_01_Farinotti2019_10m.csv'}
+    width_filedict = {1:  'width_km_01_Farinotti2019_10m.csv',
+                      13: 'width_km_13_Farinotti2019_10m.csv',
+                      14: 'width_km_14_Farinotti2019_10m.csv',
+                      15: 'width_km_15_Farinotti2019_10m.csv'}
     width_colsdrop = ['RGIId']
     
 elif hyps_data == 'Huss':
@@ -440,6 +449,12 @@ elif hyps_data == 'Huss':
                     16: 'width_16_Huss_LowLatitudes_10m.csv',
                     17: 'width_17_Huss_SouthernAndes_10m.csv'}
     width_colsdrop = ['RGI-ID','Cont_range']
+    
+# Debris datasets
+debris_fp = main_directory + '/../IceThickness_Farinotti/output/'
+debris_filedict = {15:  'meltfactor_15_10m.csv'}
+debris_colsdrop = ['RGIId']
+
 
 #%% MODEL TIME FRAME DATA
 # Models require complete data for each year such that refreezing, scaling, etc. can be calculated

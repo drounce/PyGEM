@@ -1,4 +1,4 @@
-f"""Run a model simulation."""
+"""Run a model simulation."""
 # Default climate data is ERA-Interim; specify CMIP5 by specifying a filename to the argument:
 #    (Command line) python run_simulation_list_multiprocess.py -gcm_list_fn=C:\...\gcm_rcpXX_filenames.txt
 #      - Default is running ERA-Interim in parallel with five processors.
@@ -546,6 +546,16 @@ def main(list_packed_vars):
     elev_bins = main_glac_hyps.columns.values.astype(int)
     # Volume [km**3] and mean elevation [m a.s.l.]
     main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
+    
+    if input.option_surfacetype_debris == 1:
+        main_glac_debrisfactor = modelsetup.import_Husstable(main_glac_rgi, input.debris_fp, input.debris_filedict,
+                                                             input.debris_colsdrop)
+    else:
+        print('\n\nDELETE ME - CHECK THAT THIS IS SAME FORMAT AS MAIN_GLAC_HYPS AND OTHERS\n\n')
+        main_glac_debrisfactor = np.zeros(main_glac_hyps.shape) + 1
+    main_glac_debrisfactor[main_glac_hyps == 0] = 0
+    
+#    print(main_glac_hyps.index.values)
 
     # Select dates including future projections
     dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear,
@@ -758,7 +768,10 @@ def main(list_packed_vars):
         glacier_area_initial = main_glac_hyps.iloc[glac,:].values.astype(float)
         icethickness_initial = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_initial = main_glac_width.iloc[glac,:].values.astype(float)
+        glacier_debrisfactor = main_glac_debrisfactor.iloc[glac,:].values.astype(float)
         glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
+        
+        print('DELETE ME!', glacier_debrisfactor[470:480])
 
         if debug_spc:
             debug_rgiid_fn = glacier_str + '_' + gcm_name + '_' + rcp_scenario + '.csv'

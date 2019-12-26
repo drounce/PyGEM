@@ -51,7 +51,7 @@ option_temp_and_prec_map = 0                        # updated - 11/18/2019
 option_watersheds_colored = 0                       # still good 11/6/2019
 option_runoff_monthlychange_and_components = 0      # updated - 11/20/2019
 runoff_erainterim_bywatershed = 0                   # updated - better to export to table
-option_excess_meltwater_diagram = 1
+option_excess_meltwater_diagram = 0
 
 option_startdate = 0
 
@@ -61,7 +61,7 @@ option_runoff_components_proposal = 0
 option_glaciermip_table = 0                         # updated - 11/12/2019
 option_zemp_compare = 0                             # updated - 11/6/2019
 option_gardelle_compare = 0                         # updated - 11/6/2019
-option_wgms_compare = 0                             # updated - 11/6/2019
+option_wgms_compare = 1                             # updated - 11/6/2019
 option_dehecq_compare = 0
 option_uncertainty_fig = 0                          # updated - 11/12/2019
 option_nick_snowline = 0
@@ -5776,8 +5776,8 @@ if option_wgms_compare == 1:
     # Loop through conditions:
     condition_dict = OrderedDict()
     condition_dict['All']= cal_data.index.values
-    condition_dict['All (> 1 yr)'] = (cal_data['t2'] - cal_data['t1']) >= 0.75
-    condition_dict['All (< 1 yr)'] = (cal_data['t2'] - cal_data['t1']) < 0.75
+    condition_dict['All (annual)'] = (cal_data['t2'] - cal_data['t1']) >= 0.75
+    condition_dict['All (seasonal)'] = (cal_data['t2'] - cal_data['t1']) < 0.75
     condition_dict['Geodetic'] = cal_data['obs_type'] == 'mb_geo'
     condition_dict['Glaciological'] = cal_data['obs_type'] == 'mb_glac'
     condition_dict['Glaciological (annual)'] = ((cal_data['seasonal/annual'] == 'annual') & 

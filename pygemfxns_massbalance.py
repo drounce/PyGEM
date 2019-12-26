@@ -314,6 +314,12 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     # DDF based on surface type [m w.e. degC-1 day-1]
                     for surfacetype_idx in surfacetype_ddf_dict: 
                         surfacetype_ddf[surfacetype == surfacetype_idx] = surfacetype_ddf_dict[surfacetype_idx]
+                    if input.option_surfacetype_debris == 1:
+                        print('\n\nLOAD THE MELTFACTOR DATASET over areas that are not firn\n\n')
+                        
+                        if year == 0 and month == 0:
+                            print('\nDELETE ME\n surfacetype_ddf[glac_idx]:', surfacetype_ddf[glac_idx_t0])
+                        
                     bin_meltglac[glac_idx_t0,step] = surfacetype_ddf[glac_idx_t0] * melt_energy_available[glac_idx_t0]
                     # TOTAL MELT (snow + glacier)
                     #  off-glacier need to include melt of refreeze because there are no glacier dynamics,
