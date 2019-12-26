@@ -1,0 +1,12 @@
+name: farinotti_preprocess
+channels:
+- conda-forge
+dependencies:
+- python
+- gdal
+- pandas
+- numpy
+- scipy
+- xarray
+- matplotlib
+- spyder

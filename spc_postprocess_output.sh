@@ -1,5 +1,5 @@
 #!/bin/sh
-#SBATCH --partition=debug
+#SBATCH --partition=t1small
 #SBATCH --ntasks=24
 #SBATCH --tasks-per-node=24
 
@@ -22,15 +22,7 @@ GCM_NAMES_LST="$(< $GCM_NAMES_FP$GCM_NAMES_FN)"
 module load lang/Anaconda3/2.5.0
 source activate pygem_hpc
 
-for GCM_NAME in $GCM_NAMES_LST; do
-  GCM_NAME_NOSPACE="$(echo -e "${GCM_NAME}" | tr -d '[:space:]')"
-  echo -e "\n$GCM_NAME"
-  # run the file on a separate node (& tells the command to move to the next loop for any empty nodes)
-  srun -N 1 -n 1 python run_postprocessing.py -gcm_name="$GCM_NAME_NOSPACE" -merge_batches=$MERGE_SWITCH
-done
-wait
 
-echo -e "\nMerge finished"
 
 for GCM_NAME in $GCM_NAMES_LST; do
   GCM_NAME_NOSPACE="$(echo -e "${GCM_NAME}" | tr -d '[:space:]')"

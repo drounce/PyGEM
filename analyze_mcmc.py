@@ -37,14 +37,13 @@ import run_calibration as calibration
 # Paper figures
 option_observation_vs_calibration = 0
 option_papermcmc_prior_vs_posterior = 0
-option_papermcmc_modelparameter_map_and_postvprior = 0
+option_papermcmc_modelparameter_map_and_postvprior = 1
 option_metrics_histogram_all = 0
-option_metrics_vs_chainlength = 1
+option_metrics_vs_chainlength = 0
 option_correlation_scatter = 0
 option_regional_priors = 0
 option_glacier_mb_vs_params = 0
 
-option_papermcmc_solutionspace = 0
 option_papermcmc_hh2015_map = 0
 
 # Others
@@ -275,6 +274,11 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
             # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
             gcm_temp_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
                     gcm.temp_fn, gcm.temp_vn, main_glac_rgi_region, dates_table_nospinup)
+            if input.option_ablation != 2 or input.ref_gcm_name not in ['ERA5']:
+                gcm_tempstd_region = np.zeros(gcm_temp_region.shape)
+            elif input.ref_gcm_name in ['ERA5']:
+                gcm_tempstd_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
+                        gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi_region, dates_table_nospinup)
             gcm_prec_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
                     gcm.prec_fn, gcm.prec_vn, main_glac_rgi_region, dates_table_nospinup)
             gcm_elev_region = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_region)
@@ -294,6 +298,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
                 main_glac_icethickness = main_glac_icethickness_region
                 main_glac_width = main_glac_width_region
                 gcm_temp = gcm_temp_region
+                gcm_tempstd = gcm_tempstd_region
                 gcm_prec = gcm_prec_region
                 gcm_elev = gcm_elev_region
                 gcm_lr = gcm_lr_region
@@ -327,6 +332,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
                 main_glac_width = main_glac_width.append(main_glac_width_region)
             
                 gcm_temp = np.vstack([gcm_temp, gcm_temp_region])
+                gcm_tempstd = np.vstack([gcm_tempstd, gcm_tempstd_region])
                 gcm_prec = np.vstack([gcm_prec, gcm_prec_region])
                 gcm_elev = np.concatenate([gcm_elev, gcm_elev_region])
                 gcm_lr = np.vstack([gcm_lr, gcm_lr_region])
@@ -348,7 +354,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
         return main_glac_rgi, cal_data
     else:
         return (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-                gcm_temp, gcm_prec, gcm_elev, gcm_lr, 
+                gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, 
                 cal_data, dates_table)
         
         
@@ -686,9 +692,9 @@ def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=
     
     
 def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
-                          glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                          glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
-                          observed_error, tempchange_boundhigh, tempchange_boundlow, 
+                          glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd,
+                          glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                          observed_massbal, observed_error, tempchange_boundhigh, tempchange_boundlow, 
                           tempchange_opt_init=None, mb_max_acc=None, mb_max_loss=None, option_areaconstant=0, 
                           option_plotsteps=1, fig_fp=input.output_filepath):
     """
@@ -723,9 +729,10 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
                  glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
                  glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec, 
                  offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
-                    massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, icethickness_t0,
-                                               width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                               glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                    massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, 
+                                               icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
+                                               glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                                               glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                option_areaconstant=option_areaconstant))
                 
                 # Compute glacier volume change for every time step and use this to compute mass balance
@@ -799,7 +806,8 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
     else:
         ylim_lower = np.floor(mb_max_loss)
     ax.set_ylim(int(ylim_lower),np.ceil(mb_vs_parameters['massbal'].max()))
-#    ax.set_ylim(-2,2)
+    print('\nMANUALLY SET YLIM\n')
+    ax.set_ylim(-2,2)
     
     # Labels
 #    ax.set_title('Mass balance versus Parameters ' + glacier_str)
@@ -807,22 +815,36 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
     ax.set_ylabel('Mass Balance (m w.e. $\mathregular{a^{-1}}$)', fontsize=12)
     
     # Add legend
-    leg_lines = []
-    leg_names = []
     x_min = mb_vs_parameters.loc[:,'tempbias'].min()
     y_min = mb_vs_parameters.loc[:,'massbal'].min()
-    for precfactor in reversed(precfactor_iters):
+    
+    leg_lines = []
+    leg_names = []
+    for precfactor in precfactor_iters:
         line = Line2D([x_min,y_min],[x_min,y_min], linestyle=prec_linedict[precfactor], color='gray')
         leg_lines.append(line)
-        leg_names.append('$\mathregular{k_{p}}$ ' + str(precfactor))
-        
+        leg_names.append(str(precfactor))
+    leg_pf = ax.legend(leg_lines, leg_names, loc='upper right', title='$\mathit{k_{p}}$', frameon=False, 
+                       labelspacing=0.25, bbox_to_anchor=(0.99, 0.99))
+    leg_lines = []
+    leg_names = []
     for ddfsnow in ddfsnow_iters:
         line = Line2D([x_min,y_min],[x_min,y_min], linestyle='-', color=ddfsnow_colordict[ddfsnow])
         leg_lines.append(line)
-        leg_names.append('$\mathregular{f_{snow}}$ ' + str(np.round(ddfsnow*10**3,1)))
+        leg_names.append(str(np.round(ddfsnow*10**3,1)))
+    leg_ddf = ax.legend(leg_lines, leg_names, loc='upper left', title='$\mathit{f_{snow}}$', frameon=False, 
+                        labelspacing=0.25, bbox_to_anchor=(0.63, 0.99))
+    ax.add_artist(leg_pf)
+    
+#    for precfactor in reversed(precfactor_iters):
+#        line = Line2D([x_min,y_min],[x_min,y_min], linestyle=prec_linedict[precfactor], color='gray')
+#        leg_lines.append(line)
+#        leg_names.append('$\mathregular{k_{p}}$ ' + str(precfactor))
+#    for ddfsnow in ddfsnow_iters:
+#        line = Line2D([x_min,y_min],[x_min,y_min], linestyle='-', color=ddfsnow_colordict[ddfsnow])
+#        leg_lines.append(line)
+#        leg_names.append('$\mathregular{f_{snow}}$ ' + str(np.round(ddfsnow*10**3,1)))
         
-        
-    ax.legend(leg_lines, leg_names, loc='upper right', frameon=False, labelspacing=0.25)
     fig.savefig(fig_fp + glacier_str + '_mb_vs_parameters_areachg.eps', 
                 bbox_inches='tight', dpi=300)    
     #%%
@@ -913,7 +935,7 @@ def plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure
     cbar_ax = fig.add_axes([0.92, 0.5, 0.02, 0.35])
     cbar = fig.colorbar(sm, cax=cbar_ax)
     cbar.set_ticks(list(np.arange(colorbar_dict['dif_masschange'][0], colorbar_dict['dif_masschange'][1] + 0.01, 0.1)))
-    fig.text(1.04, 0.67, '$\mathregular{B_{mod} - B_{obs}}$ (m w.e. $\mathregular{a^{-1}}$)', va='center',
+    fig.text(1.04, 0.67, '$\mathit{B_{mod}} - \mathit{B_{obs}}$ (m w.e. $\mathregular{a^{-1}}$)', va='center',
              rotation='vertical', size=12)
     # Add contour lines and/or rgi outlines
     if option_contour_lines == 1:
@@ -1008,7 +1030,8 @@ def plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure
     a.set_facecolor('none')
     ax2.set_xlim([0,200])
     ax2.set_ylim([-3.8,2.5])
-    ax2.set_ylabel('z-score ($\\frac{B_{mod} - B_{obs}}{B_{std}}$)', size=12)
+#    ax2.set_ylabel('z-score ($\\frac{B_{mod} - B_{obs}}{B_{std}}$)', size=12)
+    ax2.set_ylabel('z-score (-)', size=12)
     ax2.set_xlabel('Area ($\mathregular{km^{2}}$)', size=12)
     # Inset axis over main axis
     ax_inset = plt.axes([.37, 0.16, .51, .12])
@@ -1022,7 +1045,7 @@ def plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure
     cbar_ax = fig.add_axes([0.92, 0.13, 0.02, 0.29])
     cbar = fig.colorbar(sm, cax=cbar_ax)
     cbar.set_ticks(list(np.arange(colorbar_dict['massbal'][0], colorbar_dict['massbal'][1] + 0.01, 0.5)))
-    fig.text(1.04, 0.28, '$\mathregular{B_{obs}}$ $\mathregular{(m w.e. a^{-1})}$', va='center',
+    fig.text(1.04, 0.28, '$\mathit{B_{obs}}$ $\mathregular{(m w.e. a^{-1})}$', va='center',
              rotation='vertical', size=12)
     
 #    cbar = plt.colorbar(sm, ax=ax2, fraction=0.04, pad=0.01)
@@ -1202,7 +1225,7 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
         glac_no = sorted(glac_no)
             
         (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-         gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+         gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
         
         posterior_cns = ['glacno', 'mb_mean', 'mb_std', 'pf_mean', 'pf_std', 'tc_mean', 'tc_std', 'ddfsnow_mean', 
                          'ddfsnow_std']
@@ -1312,6 +1335,32 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
           '\nModeled MB [Gt/yr]:', np.round(mb_compare.mod_Gta.sum(),2),
           '(+/-', np.round(mb_compare.mod_Gta_std.sum(),2),')'
           )
+    
+    #%%
+    mb_compare['abs_zscore'] = np.absolute(mb_compare['dif_zscore'])
+    mb_compare_gt1zscore = mb_compare.loc[mb_compare.abs_zscore > 1]
+    mb_compare_gt5km2 = mb_compare.loc[mb_compare.Area_km2 > 5]
+    mb_compare_gt5km2_gt1zscore = mb_compare_gt5km2.loc[mb_compare_gt5km2.abs_zscore > 1]
+    print('Glaciers > 5km2', mb_compare_gt5km2.shape[0], 'w zscore > 1', mb_compare_gt5km2_gt1zscore.shape[0])
+    mb_compare_lt5km2 = mb_compare.loc[mb_compare.Area_km2 <= 5]
+    mb_compare_lt5km2_gt1zscore = mb_compare_lt5km2.loc[mb_compare_lt5km2.abs_zscore > 1]
+    print('Glaciers > 5km2', mb_compare_lt5km2.shape[0], 'w zscore > 1', mb_compare_lt5km2_gt1zscore.shape[0],
+          '(' + str(np.round(mb_compare_lt5km2_gt1zscore.shape[0] / mb_compare_lt5km2.shape[0] *100, 0)) + '%)',)
+    print('Number of glaciers with zscore > 1:', mb_compare_gt1zscore.shape[0], '(' + 
+          str(np.round(mb_compare_gt1zscore.shape[0] / mb_compare.shape[0] *100, 0)) + '%)', '(' + 
+          str(np.round(mb_compare_gt1zscore['Area_km2'].sum() / mb_compare['Area_km2'].sum() *100, 2)) + '% of area)')
+#    #%%
+#    # Calculate number of glaciers where observed mass balance < maximum mass loss
+#    glac_no = [x.split('-')[1] for x in mb_compare['RGIId'].values]
+#    (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
+#         gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+#    #%%
+#    mb_max_loss = -1 * (main_glac_hyps * main_glac_icethickness).sum(1) / main_glac_hyps.sum(1) / 18
+#    mb_compare['mb_max_loss'] = mb_max_loss
+#    mb_compare['cal_mwea'] = cal_data['mb_mwe'] / 18
+#    mb_compare['mb_obs_vs_maxloss'] = mb_compare['cal_mwea'] - mb_compare['mb_max_loss']
+#    mb_compare_lt_maxloss = mb_compare.loc[mb_compare['mb_obs_vs_maxloss'] < 0] 
+#    #%%
 
     # ===== HISTOGRAM: mass balance difference ======
     dif_bins = [-1.5, -1, -0.5, -0.2, -0.1, -0.05,-0.02, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 1.5]
@@ -1460,7 +1509,8 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
     a.set_facecolor('none')
     ax.set_xlim([0,200])
     ax.set_ylim([-3.99,2.5])
-    ax.set_ylabel('z-score ($\\frac{B_{mod} - B_{obs}}{B_{std}}$)', size=12)
+#    ax.set_ylabel('z-score ($\\frac{B_{mod} - B_{obs}}{B_{std}}$)', size=12)
+    ax.set_ylabel('z-score (-)', size=12)
     ax.set_xlabel('Area ($\mathregular{km^{2}}$)', size=12)
     # Inset axis over main axis
     ax_inset = plt.axes([.35, .19, .48, .35])
@@ -1473,12 +1523,14 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
     sm._A = []
     cbar = plt.colorbar(sm, ax=ax, fraction=0.04, pad=0.01)
     cbar.set_ticks(list(np.arange(colorbar_dict['massbal'][0], colorbar_dict['massbal'][1] + 0.01, 0.25)))
-    fig.text(1.01, 0.5, '$\mathregular{B_{obs}}$ $\mathregular{(m w.e. a^{-1})}$', va='center',
+    fig.text(1.01, 0.5, '$\mathit{B_{obs}}$ $\mathregular{(m w.e. a^{-1})}$', va='center',
              rotation='vertical', size=12)
     # Save figure
     fig.set_size_inches(6,4)
     fig_fn = 'dif_vs_area_wMB_scatterplot_zscore.png'
     fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+    
+    return mb_compare
     
 
 #%%
@@ -1740,7 +1792,7 @@ if __name__ == '__main__':
         figwidth=6.5
         figheight=8
         fig, ax = plt.subplots(len(variables), len(metrics), squeeze=False, sharex=False, sharey=False,
-                               figsize=(figwidth,figheight), gridspec_kw = {'wspace':0.4, 'hspace':0.25})        
+                               figsize=(figwidth,figheight), gridspec_kw = {'wspace':0.6, 'hspace':0.2})        
         
         # Metric statistics
         df_cns = ['iters', 'mean', 'std', 'median', 'lowbnd', 'highbnd']
@@ -1800,19 +1852,38 @@ if __name__ == '__main__':
                 # niceties
                 ax[nvar,nmetric].xaxis.set_major_locator(MultipleLocator(10))
                 ax[nvar,nmetric].xaxis.set_minor_locator(MultipleLocator(2))
-                if nvar == 0:
-                    ax[nvar,nmetric].set_title(metric_title_dict[metric], fontsize=10)
-                elif nvar == len(variables) - 1:
+                ax[nvar,nmetric].set_xlim(0,iterations[-1]/10**3)
+#                if nvar == 0:
+#                    ax[nvar,nmetric].set_title(metric_title_dict[metric], fontsize=10)
+#                elif nvar == len(variables) - 1:
+#                    ax[nvar,nmetric].set_xlabel('Steps ($10^3$)', fontsize=12)
+                if nvar == len(variables) - 1:
                     ax[nvar,nmetric].set_xlabel('Steps ($10^3$)', fontsize=12)
                 
                     
                 if metric == 'Gelman-Rubin':
-                    ax[nvar,nmetric].set_ylabel(vn_title_dict[vn], fontsize=12, labelpad=10)
+#                    ax[nvar,nmetric].set_ylabel(vn_title_dict[vn], fontsize=12, labelpad=10)
+                    if vn == 'massbal':
+                        ax[nvar,nmetric].set_ylabel('$\hat{R}_{\mathit{B}}$', fontsize=12)
+                    elif vn == 'precfactor':
+                        ax[nvar,nmetric].set_ylabel('$\hat{R}_{k_{p}}$', fontsize=12)
+                    elif vn == 'tempchange':
+                        ax[nvar,nmetric].set_ylabel('$\hat{R}_{T_{bias}}$', fontsize=12)
+                    elif vn == 'ddfsnow':
+                        ax[nvar,nmetric].set_ylabel('$\hat{R}_{f_{snow}}$', fontsize=12)
                     ax[nvar,nmetric].set_ylim(1,1.12)
                     ax[nvar,nmetric].axhline(y=1.1, color='k', linestyle='--', linewidth=2)
                     ax[nvar,nmetric].yaxis.set_major_locator(MultipleLocator(0.05))
                     ax[nvar,nmetric].yaxis.set_minor_locator(MultipleLocator(0.01))
                 elif metric == 'MC Error':
+                    if vn == 'massbal':
+                        ax[nvar,nmetric].set_ylabel('MCE$_{\mathit{B}}$', fontsize=12, labelpad=2)
+                    elif vn == 'precfactor':
+                        ax[nvar,nmetric].set_ylabel('MCE$_{k_{p}}$', fontsize=12, labelpad=2)
+                    elif vn == 'tempchange':
+                        ax[nvar,nmetric].set_ylabel('MCE$_{T_{bias}}$', fontsize=12, labelpad=2)
+                    elif vn == 'ddfsnow':
+                        ax[nvar,nmetric].set_ylabel('MCE$_{f_{snow}}$', fontsize=12, labelpad=2)
                     if option_mcerror_normalize == 1:
                         ax[nvar,nmetric].axhline(y=0.1, color='k', linestyle='--', linewidth=2)
                         ax[nvar,nmetric].set_ylim(0,0.12)
@@ -1840,30 +1911,38 @@ if __name__ == '__main__':
                             ax[nvar,nmetric].yaxis.set_major_locator(MultipleLocator(0.05))
                             ax[nvar,nmetric].yaxis.set_minor_locator(MultipleLocator(0.01))
                 elif metric == 'Effective N':
+                    if vn == 'massbal':
+                        ax[nvar,nmetric].set_ylabel('n$_{\mathit{B}}$', fontsize=12, labelpad=0)
+                    elif vn == 'precfactor':
+                        ax[nvar,nmetric].set_ylabel('n$_{k_{p}}$', fontsize=12, labelpad=0)
+                    elif vn == 'tempchange':
+                        ax[nvar,nmetric].set_ylabel('n$_{T_{bias}}$', fontsize=12, labelpad=0)
+                    elif vn == 'ddfsnow':
+                        ax[nvar,nmetric].set_ylabel('n$_{f_{snow}}$', fontsize=12, labelpad=0)
                     ax[nvar,nmetric].set_ylim(0,1200)
                     ax[nvar,nmetric].axhline(y=100, color='k', linestyle='--', linewidth=2)
                     ax[nvar,nmetric].yaxis.set_major_locator(MultipleLocator(500))
                     ax[nvar,nmetric].yaxis.set_minor_locator(MultipleLocator(100))
         
         if option_subplot_labels == 1:
-            fig.text(0.130, 0.86, 'A', size=12)
-            fig.text(0.415, 0.86, 'B', size=12)
-            fig.text(0.700, 0.86, 'C', size=12)
-            fig.text(0.130, 0.66, 'D', size=12)
-            fig.text(0.415, 0.66, 'E', size=12)
-            fig.text(0.700, 0.66, 'F', size=12)
-            fig.text(0.130, 0.4625, 'G', size=12)
-            fig.text(0.415, 0.4625, 'H', size=12)
-            fig.text(0.700, 0.4625, 'I', size=12)
-            fig.text(0.130, 0.265, 'J', size=12)
-            fig.text(0.415, 0.265, 'K', size=12)
-            fig.text(0.700, 0.265, 'L', size=12)
+            fig.text(0.135, 0.86, 'A', size=12)
+            fig.text(0.435, 0.86, 'B', size=12)
+            fig.text(0.725, 0.86, 'C', size=12)
+            fig.text(0.131, 0.66, 'D', size=12)
+            fig.text(0.435, 0.66, 'E', size=12)
+            fig.text(0.725, 0.66, 'F', size=12)
+            fig.text(0.135, 0.4625, 'G', size=12)
+            fig.text(0.435, 0.4625, 'H', size=12)
+            fig.text(0.725, 0.4625, 'I', size=12)
+            fig.text(0.135, 0.270, 'J', size=12)
+            fig.text(0.435, 0.270, 'K', size=12)
+            fig.text(0.725, 0.270, 'L', size=12)
                     
         # Save figure
         fig.set_size_inches(figwidth,figheight)
         if os.path.exists(fig_fp) == False:
             os.makedirs(fig_fp)
-        figure_fn = 'chainlength_vs_metrics' + iter_ending.replace('.pkl','') + '.png'
+        figure_fn = 'chainlength_vs_metrics' + iter_ending.replace('.pkl','') + '.eps'
         fig.savefig(fig_fp + figure_fn, bbox_inches='tight', dpi=300)
 
 
@@ -2120,25 +2199,18 @@ if __name__ == '__main__':
         netcdf_fp = mcmc_output_netcdf_fp_all
         burn = 1000
         mb_compare_fn = 'main_glac_rgi_20190806_wcal_wposteriors_all_' + str(burn) + 'burn.csv'
-        observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn=burn, netcdf_fn=mb_compare_fn)
+        mb_compare = observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn=burn, 
+                                                netcdf_fn=mb_compare_fn)
             
             
     #%%
     if option_papermcmc_prior_vs_posterior == 1:
         print('Prior vs posterior showing two example glaciers side-by-side!')
         glac_no = ['13.26360', '14.08487']
-        netcdf_fp = mcmc_output_netcdf_fp_3chain
-        netcdf_fp = input.output_filepath + 'cal_opt2_3chain/'
+        netcdf_fp = input.output_filepath + 'cal_opt2_spc_20190815_3chain/cal_opt2_3chain_figure/'
         burn = 1000
         iters=[2000,10000]
         figure_fn = 'prior_v_posteriors_2glac.eps'
-        
-    #    glac_no = ['15.10755', '15.12457']
-    #    burn = 1000
-    #    iters=[10000]
-    #    netcdf_fp = mcmc_output_netcdf_fp_all
-    #    figure_fn = 'prior_v_posteriors_2glac_poorglaciers.eps'
-    #    # note: need to change position and lines of legend below 
         
         fig_fp = netcdf_fp + 'figures/'
         if os.path.exists(fig_fp) == False:
@@ -2150,6 +2222,7 @@ if __name__ == '__main__':
         # Add regions
         main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
     
+        #%%
         # PRIOR VS POSTERIOR PLOTS 
         fig, ax = plt.subplots(4, 2, squeeze=False, figsize=(6.5, 7), 
                                gridspec_kw={'wspace':0.2, 'hspace':0.47})
@@ -2163,7 +2236,7 @@ if __name__ == '__main__':
             # RGI information
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
             # Calibration data
-            cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+            cal_idx = np.where(cal_data['glacno'] == glacier_str)[0]
             glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
             # Select observed mass balance, error, and time data
             t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
@@ -2263,7 +2336,7 @@ if __name__ == '__main__':
     #    ax[0,1].legend(title='Steps', loc='upper right', handlelength=1, handletextpad=0.05, borderpad=0.2)
         leg_lines = []
         leg_labels = []
-        chain_labels = ['Prior', '1000', '10000']
+        chain_labels = ['Prior', '2,000', '10,000']
         chain_colors = ['black', '#387ea0', '#fcb200']
     #    chain_labels = ['Prior', '10000']
     #    chain_colors = ['black', '#387ea0']
@@ -2275,9 +2348,9 @@ if __name__ == '__main__':
             leg_lines.append(line)
             leg_labels.append(chain_labels[n_chain])
         fig.legend(leg_lines, leg_labels, loc='upper right', 
-                   bbox_to_anchor=(0.87,0.885), 
-    #               bbox_to_anchor=(0.87,0.815),
-                   handlelength=1.5, handletextpad=0.25, borderpad=0.2, frameon=True)
+#                   bbox_to_anchor=(0.87,0.885), 
+                   bbox_to_anchor=(0.88,0.82),
+                   handlelength=1, handletextpad=0.25, borderpad=0.2, labelspacing = 0.2, frameon=True)
         
     #    # Legend (Note: hard code the spacing between the two legends) 
     #    leg_lines = []
@@ -2329,125 +2402,6 @@ if __name__ == '__main__':
             
         # Save figure
         fig.savefig(fig_fp + figure_fn, bbox_inches='tight', pad_inches=0.02, dpi=300)
-        
-        
-        #%%
-    if option_papermcmc_solutionspace == 1:
-        
-        glac_no = ['13.05086']
-        netcdf_fp = input.output_fp_cal
-    #    netcdf_fp = mcmc_output_netcdf_fp_3chain
-        
-    #    filelist = []
-    #    for region in regions:
-    #        filelist.extend(glob.glob(netcdf_fp + str(region) + '*.nc'))
-    #    
-    #    glac_no = []
-    #    reg_no = []
-    #    for netcdf in filelist:
-    #        glac_str = netcdf.split('/')[-1].split('.nc')[0]
-    #        glac_no.append(glac_str)
-    #        reg_no.append(glac_str.split('.')[0])
-    #    glac_no = sorted(glac_no)
-        
-        (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-         gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
-        
-        # Elevation bins
-        elev_bins = main_glac_hyps.columns.values.astype(int) 
-        
-        for n, glac_str_wRGI in enumerate(main_glac_rgi['RGIId'].values):
-            # Glacier string
-            glacier_str = glac_str_wRGI.split('-')[1]
-            # Glacier number
-            glacno = int(glacier_str.split('.')[1])
-            # RGI information
-            glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
-            # Calibration data
-            cal_idx = np.where(cal_data['glacno'] == glacno)[0]
-            glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
-            # Select observed mass balance, error, and time data
-            t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
-            t2 = glacier_cal_data.loc[cal_idx, 't2'].values[0]
-            t1_idx = int(glacier_cal_data.loc[cal_idx,'t1_idx'])
-            t2_idx = int(glacier_cal_data.loc[cal_idx,'t2_idx'])
-            observed_massbal = (glacier_cal_data.loc[cal_idx,'mb_mwe'] / (t2 - t1)).values[0]
-            observed_error = (glacier_cal_data.loc[cal_idx,'mb_mwe_err'] / (t2 - t1)).values[0]
-            mb_obs_max = observed_massbal + 3 * observed_error
-            mb_obs_min = observed_massbal - 3 * observed_error
-            
-            # MCMC Analysis
-            ds = xr.open_dataset(netcdf_fp + glacier_str + '.nc')
-            df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
-            print('MB (obs - mean_model):', np.round(observed_massbal - df.massbal.mean(),3))
-            
-            # Priors
-            try:
-                priors = pd.Series(ds.priors, index=ds['dim_0'])
-            except:
-                priors = pd.Series(ds.priors, index=ds.prior_cns)
-            
-            precfactor_boundlow = priors['pf_bndlow']
-            precfactor_boundhigh = priors['pf_bndhigh']
-            precfactor_boundmu = priors['pf_mu']
-            tempchange_boundlow = priors['tc_bndlow']
-            tempchange_boundhigh = priors['tc_bndhigh']
-            tempchange_mu = priors['tc_mu']
-            tempchange_sigma = priors['tc_std']
-            ddfsnow_boundhigh = priors['ddfsnow_bndhigh']
-            ddfsnow_boundlow = priors['ddfsnow_bndlow']
-            ddfsnow_mu = priors['ddfsnow_mu']
-            ddfsnow_sigma = priors['ddfsnow_std']
-            mb_max_loss = priors['mb_max_loss']
-            mb_max_acc = priors['mb_max_acc']
-            try:
-                tempchange_max_loss = priors['tc_max_loss']
-            except: # typo in initial code - issue fixed 03/08/2019
-                tempchange_max_loss = priors['tc_maxloss']
-            tempchange_max_acc = priors['tc_max_acc']
-            precfactor_opt_init = priors['pf_opt_init']
-            tempchange_opt_init = priors['tc_opt_init']
-            
-            print('\nParameters:\nPF_low:', np.round(precfactor_boundlow,2), 'PF_high:', 
-                  np.round(precfactor_boundhigh,2), '\nTC_low:', np.round(tempchange_boundlow,2), 
-                  'TC_high:', np.round(tempchange_boundhigh,2),
-                  '\nTC_mu:', np.round(tempchange_mu,2), 'TC_sigma:', np.round(tempchange_sigma,2))
-            
-            
-            # Select subsets of data
-            glacier_gcm_elev = gcm_elev[n]
-            glacier_gcm_temp = gcm_temp[n,:]
-            glacier_gcm_lrgcm = gcm_lr[n,:]
-            glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
-            glacier_gcm_prec = gcm_prec[n,:]
-            glacier_area_t0 = main_glac_hyps.iloc[n,:].values.astype(float)
-            icethickness_t0 = main_glac_icethickness.iloc[n,:].values.astype(float)
-            width_t0 = main_glac_width.iloc[n,:].values.astype(float)
-            glac_idx_t0 = glacier_area_t0.nonzero()[0]
-            # Set model parameters
-            modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
-                               input.tempsnow, input.tempchange]
-            
-            tc_iter_step = 0.1
-            tc_iter_high = np.max([tempchange_max_loss, tempchange_boundhigh])
-            tempchange_iters = np.arange(int(tempchange_max_acc), np.ceil(tc_iter_high)+tc_iter_step, tc_iter_step).tolist()
-            ddfsnow_iters = [0.0026, 0.0041, 0.0056]
-            precfactor_iters = [int(precfactor_boundlow*10)/10, int((precfactor_boundlow + precfactor_boundhigh)/2*10)/10, 
-                                int(precfactor_boundhigh*10)/10]
-            if 1 not in precfactor_iters:
-                precfactor_iters.append(int(1))
-                precfactor_iters = sorted(precfactor_iters)
-                
-            fig_fp = netcdf_fp + 'figures/'
-            if os.path.exists(fig_fp) == False:
-                os.makedirs(fig_fp)
-            
-            plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
-                                  glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                  glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
-                                  observed_error, tempchange_boundhigh, tempchange_boundlow, tempchange_opt_init, 
-                                  mb_max_acc, mb_max_loss, tempchange_max_acc, tempchange_max_loss, option_areaconstant=0,
-                                  option_plotsteps=1, fig_fp=fig_fp)
     
     
     #%%
@@ -2796,12 +2750,15 @@ if __name__ == '__main__':
                 ax[nvar,nest].set_xlabel(vn_label_dict[vn], fontsize=10, labelpad=1)
                 if nvar == 0:
                     ax[nvar,nest].set_title('$\Delta$ ' + estimator, fontsize=12)
+                if nest == 0:
+                    ax[nvar,nest].set_ylabel('Count (%)', fontsize=12)
                 if nest == 1:
-                    ax[nvar,nest].set_yticks([])
+#                    ax[nvar,nest].set_yticks([])
+                    ax[nvar,nest].set_yticklabels([])
                     
                 print('  ', estimator, '% near 0:', np.round(hist[np.where(bins > 0)[0][0] - 1]))
         
-        fig.text(0.04, 0.5, 'Count (%)', va='center', rotation='vertical', size=12)
+#        fig.text(0.04, 0.5, 'Count (%)', va='center', rotation='vertical', size=12)
         fig.text(0.135, 0.86, 'A', size=12)
         fig.text(0.540, 0.86, 'B', size=12)
         fig.text(0.135, 0.655, 'C', size=12)
@@ -2891,6 +2848,8 @@ if __name__ == '__main__':
                 glac_no.append(glac_str)
                 reg_no.append(glac_str.split('.')[0])
             glac_no = sorted(glac_no)
+            
+            print(glac_no)
             
             main_glac_rgi, cal_data = load_glacierdata_byglacno(glac_no, option_loadhyps_climate=0)
             
@@ -3002,6 +2961,7 @@ if __name__ == '__main__':
     
         #%%    
         # Map & Scatterplot of mass balance difference
+        print(figure_fp)
         plot_spatialmap_mbdif(vns, grouping, modelparams_all, xlabel, ylabel, figure_fp=figure_fp, 
                               fig_fn_prefix='HH2015_', option_group_regions=1)
         
@@ -3562,7 +3522,7 @@ if __name__ == '__main__':
     #%% PLOT MCMC CHAINS
     if option_glacier_mcmc_plots == 1:
     #    glac_no = str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]
-        glac_no = '13.45048'
+        glac_no = '15.03475'
         netcdf_fp = input.main_directory + '/../Output/cal_opt2_spc_20190806/'
     #    glac_no = '15.03473'
     #    netcdf_fp = input.output_fp_cal
@@ -3577,12 +3537,13 @@ if __name__ == '__main__':
         rgi_glac_number = [glac_no.split('.')[1]]
     
         # Glacier RGI data
-        main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=region, rgi_regionsO2 = 'all',
-                                                          rgi_glac_number=rgi_glac_number)
+        main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no = [glac_no])
         # Add regions
         main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
         # Glacier hypsometry [km**2], total area
-        main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, region, input.hyps_filepath,
+        print(main_glac_rgi)
+        print(region)
+        main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
                                                      input.hyps_filedict, input.hyps_colsdrop)
         # Ice thickness [m], average
         main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath, 
@@ -3594,7 +3555,8 @@ if __name__ == '__main__':
         # Elevation bins
         elev_bins = main_glac_hyps.columns.values.astype(int)   
         # Select dates including future projections
-        dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
+        dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0,
+                                               option_wateryear=input.option_wateryear)
         
         # ===== LOAD CLIMATE DATA =====
         gcm = class_climate.GCM(name=input.ref_gcm_name)
@@ -3602,6 +3564,12 @@ if __name__ == '__main__':
         gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
         gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
         gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+        # Air temperature standard deviation [K]
+        if input.option_ablation != 2 or gcm.name not in ['ERA5']:
+            gcm_tempstd = np.zeros(gcm_temp.shape)
+        elif gcm.name in ['ERA5']:
+            gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
+                                                                            main_glac_rgi, dates_table)
         # Lapse rate [K m-1]
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     
@@ -3627,7 +3595,7 @@ if __name__ == '__main__':
             # RGI information
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
             # Calibration data
-            cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+            cal_idx = np.where(cal_data['glacno'] == glacier_str)[0]
             glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
             # Select observed mass balance, error, and time data
             t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
@@ -3649,6 +3617,7 @@ if __name__ == '__main__':
             # Select subsets of data
             glacier_gcm_elev = gcm_elev[n]
             glacier_gcm_temp = gcm_temp[n,:]
+            glacier_gcm_tempstd = gcm_tempstd[n,:]
             glacier_gcm_lrgcm = gcm_lr[n,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_gcm_prec = gcm_prec[n,:]
@@ -3662,9 +3631,9 @@ if __name__ == '__main__':
             
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                     calibration.retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                                                width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                                glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
-                                                t1_idx, t2_idx, t1, t2))
+                                                width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, 
+                                                glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                                glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2))
             
             # Regional priors
             precfactor_gamma_alpha = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
@@ -4014,7 +3983,7 @@ if __name__ == '__main__':
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                     calibration.retrieve_priors(
                         modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=False))
             
             # Iterations to plot
@@ -4063,8 +4032,8 @@ if __name__ == '__main__':
                          offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
                             massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_t0, 
                                                        icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
-                                                       glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
-                                                       glacier_gcm_lrglac, dates_table, 
+                                                       glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                                                       glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                                                        option_areaconstant=option_areaconstant))
                         
                         # Compute glacier volume change for every time step and use this to compute mass balance
@@ -4139,14 +4108,14 @@ if __name__ == '__main__':
         
     #%% PLOT MASS BALANCE VS MODEL PARAMETERS
     if option_glacier_mb_vs_params == 1:
-        glac_no = ['15.10755']
+        glac_no = ['13.26360']
     #    glac_no = [str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]]
     #    netcdf_fp = input.output_fp_cal
         netcdf_fp = mcmc_output_netcdf_fp_all
         fig_fp = netcdf_fp + 'figures/'
         
         (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-         gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+         gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
         
         main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
         
@@ -4162,7 +4131,7 @@ if __name__ == '__main__':
             # RGI information
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[n], :]
             # Calibration data
-            cal_idx = np.where(cal_data['glacno'] == glacno)[0]
+            cal_idx = np.where(cal_data['glacno'] == glacier_str)[0]
             glacier_cal_data = (cal_data.iloc[cal_idx,:]).copy()
             # Select observed mass balance, error, and time data
             t1 = glacier_cal_data.loc[cal_idx, 't1'].values[0]
@@ -4182,6 +4151,7 @@ if __name__ == '__main__':
             # Select subsets of data
             glacier_gcm_elev = gcm_elev[n]
             glacier_gcm_temp = gcm_temp[n,:]
+            glacier_gcm_tempstd = gcm_tempstd[n,:]
             glacier_gcm_lrgcm = gcm_lr[n,:]
             glacier_gcm_lrglac = glacier_gcm_lrgcm.copy()
             glacier_gcm_prec = gcm_prec[n,:]
@@ -4197,7 +4167,7 @@ if __name__ == '__main__':
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                     calibration.retrieve_priors(
                         modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
-                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, glacier_gcm_elev, 
+                        width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=True))
             
             # Iterations to plot
@@ -4211,8 +4181,8 @@ if __name__ == '__main__':
                                          tc_iter_step).tolist()
             
             # Set manually
-    #        print('\n\nTempchange iters set manually for figure generation\n\n')        
-    #        tempchange_iters = np.arange(-6, 6+tc_iter_step, tc_iter_step).tolist()
+            print('\n\nTempchange iters set manually for figure generation\n\n')        
+            tempchange_iters = np.arange(-6, 6+tc_iter_step, tc_iter_step).tolist()
             
             ddfsnow_iters = [0.0026, 0.0041, 0.0056]
             
@@ -4221,9 +4191,10 @@ if __name__ == '__main__':
             
             # Plot
             plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
-                                  glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, glacier_gcm_prec, 
-                                  glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, observed_massbal, 
-                                  observed_error, tempchange_boundhigh, tempchange_boundlow, 
+                                  glacier_area_t0, icethickness_t0, width_t0, elev_bins, glacier_gcm_temp, 
+                                  glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
+                                  glacier_gcm_lrglac, dates_table, observed_massbal,  observed_error, 
+                                  tempchange_boundhigh, tempchange_boundlow, 
                                   mb_max_loss=mb_max_loss, option_areaconstant=0, option_plotsteps=0, fig_fp=fig_fp)
     
     
@@ -4263,7 +4234,7 @@ if __name__ == '__main__':
         glac_no = sorted(glac_no)
             
         (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
-         gcm_temp, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
+         gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
         
         df_export = main_glac_rgi[['RGIId', 'O1Region', 'glacno', 'Zmin', 'Zmax', 'Zmed']].copy()
         df_export['precfactor'] = df_all['precfactor'].values
@@ -4360,12 +4331,18 @@ if __name__ == '__main__':
         #%%
         # Plot combinations
         combinations = ['mb/pf', 'mb/tc', 'mb/ddf', 'pf/tc', 'pf/ddf', 'tc/ddf']
-        combination_dict = {'mb/pf':'$\mathregular{B}$ / $\mathregular{k_{p}}$',
-                            'mb/tc':'$\mathregular{B}$ / $\mathregular{T_{bias}}$',
-                            'mb/ddf':'$\mathregular{B}$ / $\mathregular{f_{snow}}$',
-                            'pf/tc':'$\mathregular{k_{p}}$ / $\mathregular{T_{bias}}$',
-                            'pf/ddf':'$\mathregular{k_{p}}$ / $\mathregular{f_{snow}}$',
-                            'tc/ddf':'$\mathregular{T_{bias}}$ / $\mathregular{f_{snow}}$'}
+#        combination_dict = {'mb/pf':'$\mathregular{B}$ / $\mathregular{k_{p}}$',
+#                            'mb/tc':'$\mathregular{B}$ / $\mathregular{T_{bias}}$',
+#                            'mb/ddf':'$\mathregular{B}$ / $\mathregular{f_{snow}}$',
+#                            'pf/tc':'$\mathregular{k_{p}}$ / $\mathregular{T_{bias}}$',
+#                            'pf/ddf':'$\mathregular{k_{p}}$ / $\mathregular{f_{snow}}$',
+#                            'tc/ddf':'$\mathregular{T_{bias}}$ / $\mathregular{f_{snow}}$'}
+        combination_dict = {'mb/pf':'R($\mathit{B}$,$\mathit{k_{p}}$)',
+                            'mb/tc':'R($\mathit{B}$,$\mathit{T_{bias}}$)',
+                            'mb/ddf':'R($\mathit{B}$,$\mathit{f_{snow}}$)',
+                            'pf/tc':'R($\mathit{k_{p}}$,$\mathit{T_{bias}}$)',
+                            'pf/ddf':'R($\mathit{k_{p}}$,$\mathit{f_{snow}}$)',
+                            'tc/ddf':'R($\mathit{T_{bias}}$,$\mathit{f_{snow}}$)'}
         
         bdict = {}
         bdict['mb/pf'] = np.arange(-0.2, 1.05, 0.05) - 0.025
@@ -4385,7 +4362,7 @@ if __name__ == '__main__':
            
         nrows = 2
         ncols = 3 
-        fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.5, 'hspace':0.4})
+        fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.3, 'hspace':0.45})
         nrow = 0
         ncol = 0
         for nvar, combination in enumerate(combinations):
@@ -4397,12 +4374,14 @@ if __name__ == '__main__':
             ax[nrow,ncol].bar(x=bins_centered, height=hist, width=(bins[1]-bins[0]), align='center',
                               edgecolor='black', color='lightgrey', linewidth=0.2)    
             ax[nrow,ncol].set_ylim(0,18)  
-            ax[nrow,ncol].set_xticks(tdict[combination])          
-            ax[nrow,ncol].text(0.5, 1.01, combination_dict[combination], size=12, horizontalalignment='center', 
+            ax[nrow,ncol].set_xticks(tdict[combination])   
+#            ax[nrow,ncol].set_xlabel(combination_dict[combination], size=12)
+            ax[nrow,ncol].text(0.5, -0.35, combination_dict[combination], size=12, horizontalalignment='center', 
                                verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
             r_mean = df_all[combination].mean()
-            ax[nrow,ncol].text(0.98, 0.98, np.round(r_mean,2), size=12, horizontalalignment='right', 
-                               verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+            ax[nrow,ncol].axvline(r_mean, color='grey', linestyle='--')
+#            ax[nrow,ncol].text(0.98, 0.98, np.round(r_mean,2), size=12, horizontalalignment='right', 
+#                               verticalalignment='top', transform=ax[nrow,ncol].transAxes)
             
             # Adjust row and column
             ncol += 1
@@ -4410,8 +4389,10 @@ if __name__ == '__main__':
                 nrow += 1
                 ncol = 0
         
-        fig.text(0.04, 0.5, 'Count (%)', va='center', rotation='vertical', size=12)
-        fig.text(0.5,0, 'Correlation Coefficient (R)', size=12, horizontalalignment='center')
+        ax[0,0].set_ylabel('Count (%)', va='center', rotation='vertical', size=12)
+        ax[1,0].set_ylabel('Count (%)', va='center', rotation='vertical', size=12)
+#        fig.text(0.04, 0.5, 'Count (%)', va='center', rotation='vertical', size=12)
+#        fig.text(0.5,0, 'Correlation Coefficient (R)', size=12, horizontalalignment='center')
                     
         if os.path.exists(fig_fp) == False:
             os.makedirs(fig_fp)    

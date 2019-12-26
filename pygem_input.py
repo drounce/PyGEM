@@ -118,26 +118,26 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [13,14,15]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 rgi_glac_number = 'all'
-#rgi_glac_number = glac_num_fromrange(1,48)
-#rgi_glac_number = glac_num_fromrange(1100,1200)
+#rgi_glac_number = ['00013']
+#rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
-glac_no = None
+#glac_no = None
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
-#glac_no = ['13.26960', '15.00002', '14.01243']
+glac_no = ['15.03473']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-ref_gcm_name = 'ERA-Interim'    # reference climate dataset
-#ref_gcm_name = 'ERA5'           # reference climate dataset
+#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
+ref_gcm_name = 'ERA5'           # reference climate dataset
 
 #startyear = 1980                # first year of model run (reference dataset)
 #endyear = 2018                  # last year of model run (reference dataset)
@@ -146,23 +146,25 @@ startyear = 2000                # first year of model run (reference dataset)
 endyear = 2018                  # last year of model run (reference dataset)
 option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
 
-spinupyears = 0                 # spin up years
 constantarea_years = 0          # number of years to not let the area or volume change
+if constantarea_years > 0:
+    print('\nConstant area years > 0\n')
+spinupyears = 0                 # spin up years
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
+gcm_startyear = 1995            # first year of model run (simulation dataset)
+gcm_endyear = 2017              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2018              # last year of model run (simulation dataset)
-gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2100              # last year of model run (simulation dataset)
+#gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation
 gcm_wateryear = 1               # water year for simmulation
 
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
 hindcast = 0                    # 1: run hindcast simulation, 0: do not
 if hindcast == 1:
-    constantarea_years = 18     # number of years to not let the area or volume change
-    gcm_startyear = 1960        # first year of model run (simulation dataset)
-    gcm_endyear = 2017          # last year of model run (simulation dataset)
+    constantarea_years = 0     # number of years to not let the area or volume change
+    gcm_startyear = 1980        # first year of model run (simulation dataset)
+    gcm_endyear = 2000          # last year of model run (simulation dataset)
 
 # Synthetic options (synthetic refers to created climate data, e.g., repeat 1995-2015 for the next 100 years)
 option_synthetic_sim = 0        # 1: run synthetic simulation, 0: do not
@@ -175,8 +177,8 @@ if option_synthetic_sim == 1:
 
 #%% SIMULATION OPTIONS
 # MCMC options
-sim_iters = 100   # number of simulations (needed for cal_opt 2)
-sim_burn = 200  # number of burn-in (needed for cal_opt 2)
+sim_iters = 100     # number of simulations (needed for cal_opt 2)
+sim_burn = 200      # number of burn-in (needed for cal_opt 2)
 
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
@@ -187,25 +189,24 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 2
+option_calibration = 4
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
+#cal_datasets = ['shean']
 # Calibration output filepath
 output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
 
 # OPTION 1: Minimization
-# Model parameter bounds for each calibration roun
-#precfactor_bnds_list_init = [(0.9, 1.125), (0.8,1.25), (0.5,2), (0.33,3)]
-#precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
-#ddfsnow_bnds_list_init = [(0.0036, 0.0046), (0.0036, 0.0046), (0.0026, 0.0056), (0.00185, 0.00635)]
-#tempchange_bnds_list_init = [(-1,1), (-2,2), (-5,5), (-10,10)]
+# Model parameter bounds for each calibration round
 precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.2,5)]
 precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
 ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
 tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
 # Minimization details 
 method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
+params2opt = ['tempbias', 'precfactor']
 ftol_opt = 1e-3                 # tolerance for SciPy optimization scheme
+eps_opt = 0.01                 # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
 massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
 zscore_tolerance_all = 1        # tolerance if multiple calibration points (shortcut that could be improved)
 zscore_tolerance_single = 0.1   # tolerance if only a single calibration point (want this to be more exact)
@@ -214,81 +215,49 @@ extra_calrounds = 3             # additional calibration rounds in case optimiza
 
 # OPTION 2: MCMC
 # Chain options
-n_chains = 1                    # number of chains (min 1, max 3)
-mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
-mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
-mcmc_step = None                # step option (None or 'am')
-thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
-# Precipitation factor distribution options
-precfactor_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
-precfactor_gamma_region_dict = {'Altun Shan': [8.52, 2.54],
-                                'Central Himalaya': [2.52, 1.38],
-                                'Central Tien Shan': [1.81, 1.37],
-                                'Dzhungarsky Alatau': [2.85, 1.49],
-                                'Eastern Himalaya': [3.03, 1.65],
-                                'Eastern Hindu Kush': [2.86, 1.87],
-                                'Eastern Kunlun Shan': [2.55, 1.45],
-                                'Eastern Pamir': [1.21, 1.48],
-                                'Eastern Tibetan Mountains': [3.92, 2.14],
-                                'Eastern Tien Shan': [1.86, 1.24],
-                                'Gangdise Mountains': [3.66, 1.73],
-                                'Hengduan Shan': [4.88, 1.95],
-                                'Karakoram': [1.29, 1.47],
-                                'Northern/Western Tien Shan': [2.61, 1.48],
-                                'Nyainqentanglha': [6.48, 2.33],
-                                'Pamir Alay': [3.3, 1.88],
-                                'Qilian Shan': [2.74, 1.36],
-                                'Tanggula Shan': [9.03, 2.92],
-                                'Tibetan Interior Mountains': [2.41, 1.35],
-                                'Western Himalaya': [2.15, 1.53],
-                                'Western Kunlun Shan': [1.21, 1.64],
-                                'Western Pamir': [1.85, 1.44]}
-precfactor_gamma_alpha = 3.0
-precfactor_gamma_beta = 0.84
-precfactor_lognorm_mu = 0
-precfactor_lognorm_tau = 4
-precfactor_mu = 0
-precfactor_sigma = 1.5
-precfactor_boundlow = 0.5
-precfactor_boundhigh = 1.5
-precfactor_start = 1
-# Temperature bias distribution options
-tempchange_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
-tempchange_norm_region_dict = {'Altun Shan': [-0.60, 1.09],
-                               'Central Himalaya': [0.13, 0.9],
-                               'Central Tien Shan': [0.4, 0.85],
-                               'Dzhungarsky Alatau': [0.1, 0.51],
-                               'Eastern Himalaya': [-0.01, 0.87],
-                               'Eastern Hindu Kush': [0.08, 1.19],
-                               'Eastern Kunlun Shan': [0.13, 0.58],
-                               'Eastern Pamir': [0.93, 1.06],
-                               'Eastern Tibetan Mountains': [0.06, 0.45],
-                               'Eastern Tien Shan': [0.45, 1.58],
-                               'Gangdise Mountains': [-0.06, 0.41],
-                               'Hengduan Shan': [-0.28, 0.68],
-                               'Karakoram': [1.39, 1.54],
-                               'Northern/Western Tien Shan': [0.09, 0.66],
-                               'Nyainqentanglha': [-0.41, 0.83],
-                               'Pamir Alay': [-0.03, 0.72],
-                               'Qilian Shan': [0.22, 0.83],
-                               'Tanggula Shan': [-0.13, 0.33],
-                               'Tibetan Interior Mountains': [0.15, 0.75],
-                               'Western Himalaya': [0.11, 0.79],
-                               'Western Kunlun Shan': [2.27, 1.79],
-                               'Western Pamir': [0.54, 1.2]}
-tempchange_mu = 0.91
-tempchange_sigma = 1.4
-tempchange_boundlow = -10
-tempchange_boundhigh = 10
-tempchange_start = tempchange_mu
-tempchange_step = 0.1
-# Degree-day factor of snow distribution options
-ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
-ddfsnow_mu = 0.0041
-ddfsnow_sigma = 0.0015
-ddfsnow_boundlow = 0
-ddfsnow_boundhigh = np.inf
-ddfsnow_start=ddfsnow_mu
+if option_calibration == 2:
+    n_chains = 1                    # number of chains (min 1, max 3)
+    mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
+    mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
+    mcmc_step = None                # step option (None or 'am')
+    thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
+    # Precipitation factor distribution options
+    precfactor_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
+    precfactor_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
+    precfactor_gamma_region_df = pd.read_csv(precfactor_gamma_region_dict_fullfn)
+    precfactor_gamma_region_dict = dict(zip(
+            precfactor_gamma_region_df.Region.values, 
+            [[precfactor_gamma_region_df.loc[x,'alpha'], precfactor_gamma_region_df.loc[x,'beta']] 
+             for x in precfactor_gamma_region_df.index.values]))
+    precfactor_gamma_alpha = 3.0
+    precfactor_gamma_beta = 0.84
+    precfactor_lognorm_mu = 0
+    precfactor_lognorm_tau = 4
+    precfactor_mu = 0
+    precfactor_sigma = 1.5
+    precfactor_boundlow = 0.5
+    precfactor_boundhigh = 1.5
+    precfactor_start = 1
+    # Temperature bias distribution options
+    tempchange_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
+    tempchange_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
+    tempchange_norm_region_df = pd.read_csv(tempchange_norm_region_dict_fullfn)
+    tempchange_norm_region_dict = dict(zip(
+            tempchange_norm_region_df.Region.values, 
+            [[tempchange_norm_region_df.loc[x,'mu'], tempchange_norm_region_df.loc[x,'sigma']] 
+             for x in tempchange_norm_region_df.index.values]))
+    tempchange_mu = 0.91
+    tempchange_sigma = 1.4
+    tempchange_boundlow = -10
+    tempchange_boundhigh = 10
+    tempchange_start = tempchange_mu
+    # Degree-day factor of snow distribution options
+    ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
+    ddfsnow_mu = 0.0041
+    ddfsnow_sigma = 0.0015
+    ddfsnow_boundlow = 0
+    ddfsnow_boundhigh = np.inf
+    ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS
 option_import_modelparams = 1       # 0: input values, 1: calibrated model parameters from netcdf files
@@ -297,79 +266,29 @@ precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
 ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
-tempchange = 1000                      # temperature bias [deg C]
+tempchange = 0                      # temperature bias [deg C]
 lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
 lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
 tempsnow = 1.0                      # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
 frontalablation_k = 2               # frontal ablation rate [yr-1]
 af = 0.7                            # Bulk flow parameter for frontal ablation (m^-0.5)
 # Calving width dictionary to override RGI elevation bins, which can be highly inaccurate at the calving front
-width_calving_dict = {'RGI60-01.01390':5730,
-                      'RGI60-01.03622':1860,
-                      'RGI60-01.10689':4690,
-                      'RGI60-01.13638':940,
-                      'RGI60-01.14443':6010,
-                      'RGI60-01.14683':2240,
-                      'RGI60-01.14878':1570,
-                      'RGI60-01.17807':2130,
-                      'RGI60-01.17840':980,
-                      'RGI60-01.17843':1030,
-                      'RGI60-01.17876':1390,
-                      'RGI60-01.20470':1200,
-                      'RGI60-01.20783':760,
-                      'RGI60-01.20841':420,
-                      'RGI60-01.20891':2050,
-                      'RGI60-01.21001':1580,
-                      'RGI60-01.23642':2820,
-                      'RGI60-01.26736':3560}
-# Calving option
-#  option 1 - use values from HH2015
-#  option 2 - calibrate each glacier independently, use transfer functions for uncalibrated glaciers
+width_calving_dict_fullfn = main_directory + '/../Calving_data/calvingfront_widths.csv'
+width_calving_df = pd.read_csv(width_calving_dict_fullfn)
+width_calving_dict = dict(zip(width_calving_df.RGIId, width_calving_df.front_width_m))
+# Calving option (1=values from HH2015, 2=calibrate glaciers independently and use transfer fxns for others)
 option_frontalablation_k = 1
 # Calving parameter dictionary (according to Supplementary Table 3 in HH2015)
-frontalablation_k0dict = {
-            1:  3.4,
-            2:  0,
-            3:  0.2,
-            4:  0.2,
-            5:  0.5,
-            6:  0.3,
-            7:  0.5,
-            8:  0,
-            9:  0.2,
-            10: 0,
-            11: 0,
-            12: 0,
-            13: 0,
-            14: 0,
-            15: 0,
-            16: 0,
-            17: 6,
-            18: 0,
-            19: 1}
+frontalablation_k0dict_fullfn = main_directory + '/../Calving_data/frontalablation_k0_dict.csv'
+frontalablation_k0dict_df = pd.read_csv(frontalablation_k0dict_fullfn)
+frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalablation_k0dict_df.k0))
 
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
-#modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
-modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
-#if option_calibration == 1:
-#    modelparams_fp_dict = {
-#            1:  output_filepath + 'cal_opt1/reg1/',
-#            3:  output_filepath + 'cal_opt1/',
-#            4:  output_filepath + 'cal_opt1/',
-#            6:  output_filepath + 'cal_opt1/reg6/',
-#            13: output_filepath + 'cal_opt1/reg13/',
-#            14: output_filepath + 'cal_opt1/reg14/',
-#            15: output_filepath + 'cal_opt1/reg15/'}
-#elif option_calibration == 2:
-#    modelparams_fp_dict = {
-#            13: output_filepath + 'cal_opt2_spc_20190806/',
-#            14: output_filepath + 'cal_opt2_spc_20190806/',
-#            15: output_filepath + 'cal_opt2_spc_20190806/'}
+modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
+#modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
     
-
-
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
 # Variable names
@@ -438,7 +357,7 @@ coawst_d02_lat_max = 38
 #%% GLACIER DATA (RGI, ICE THICKNESS, ETC.)
 # ===== RGI DATA =====
 # Filepath for RGI files
-rgi_filepath = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
+rgi_fp = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
 # Column names
 rgi_lat_colname = 'CenLat'
 rgi_lon_colname = 'CenLon'
@@ -448,82 +367,94 @@ rgi_O1Id_colname = 'glacno'
 rgi_glacno_float_colname = 'RGIId_float'
 # Column names from table to drop
 rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Name']
-# Dictionary of hypsometry filenames
-rgi_dict = {
-            1:  '01_rgi60_Alaska.csv',
-            3:  '03_rgi60_ArcticCanadaNorth.csv',
-            4:  '04_rgi60_ArcticCanadaSouth.csv',
-            6:  '06_rgi60_Iceland.csv',
-            7:  '07_rgi60_Svalbard.csv',
-            8:  '08_rgi60_Scandinavia.csv',
-            9:  '09_rgi60_RussianArctic.csv',
-            13: '13_rgi60_CentralAsia.csv',
-            14: '14_rgi60_SouthAsiaWest.csv',
-            15: '15_rgi60_SouthAsiaEast.csv',
-            16: '16_rgi60_LowLatitudes.csv',
-            17: '17_rgi60_SouthernAndes.csv'}
 
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
-# Option to shift all elevation bins by 20 m
-#  (required for Matthias' ice thickness and area since they are 20 m off, see email from May 24 2018)
-option_shift_elevbins_20m = 1
-# Elevation band height [m]
-binsize = 10
 # Filepath for the hypsometry files
-hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
-# Dictionary of hypsometry filenames
-# (Files from Matthias Huss should be manually pre-processed to be 'RGI-ID', 'Cont_range', and bins starting at 5)
-hyps_filedict = {
-                1:  'area_01_Huss_Alaska_10m.csv',
-                3:  'area_RGI03_10.csv',
-                4:  'area_RGI04_10.csv',
-                6:  'area_RGI06_10.csv',
-                7:  'area_RGI07_10.csv',
-                8:  'area_RGI08_10.csv',
-                9:  'area_RGI09_10.csv',
-                13: 'area_13_Huss_CentralAsia_10m.csv',
-                14: 'area_14_Huss_SouthAsiaWest_10m.csv',
-                15: 'area_15_Huss_SouthAsiaEast_10m.csv',
-                16: 'area_16_Huss_LowLatitudes_10m.csv',
-                17: 'area_17_Huss_SouthernAndes_10m.csv'}
-# Extra columns in hypsometry data that will be dropped
-hyps_colsdrop = ['RGI-ID','Cont_range']
-# Filepath for the ice thickness files
-thickness_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
-# Dictionary of thickness filenames
-thickness_filedict = {
-                1:  'thickness_01_Huss_Alaska_10m.csv',
-                3:  'thickness_RGI03_10.csv',
-                4:  'thickness_RGI04_10.csv',
-                6:  'thickness_RGI06_10.csv',
-                7:  'thickness_RGI07_10.csv',
-                8:  'thickness_RGI08_10.csv',
-                9:  'thickness_RGI09_10.csv',
-                13: 'thickness_13_Huss_CentralAsia_10m.csv',
-                14: 'thickness_14_Huss_SouthAsiaWest_10m.csv',
-                15: 'thickness_15_Huss_SouthAsiaEast_10m.csv',
-                16: 'thickness_16_Huss_LowLatitudes_10m.csv',
-                17: 'thickness_17_Huss_SouthernAndes_10m.csv'}
-# Extra columns in ice thickness data that will be dropped
-thickness_colsdrop = ['RGI-ID','Cont_range']
-# Filepath for the width files
-width_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
-# Dictionary of thickness filenames
-width_filedict = {
-                1:  'width_01_Huss_Alaska_10m.csv',
-                3:  'width_RGI03_10.csv',
-                4:  'width_RGI04_10.csv',
-                6:  'width_RGI06_10.csv',
-                7:  'width_RGI07_10.csv',
-                8:  'width_RGI08_10.csv',
-                9:  'width_RGI09_10.csv',
-                13: 'width_13_Huss_CentralAsia_10m.csv',
-                14: 'width_14_Huss_SouthAsiaWest_10m.csv',
-                15: 'width_15_Huss_SouthAsiaEast_10m.csv',
-                16: 'width_16_Huss_LowLatitudes_10m.csv',
-                17: 'width_17_Huss_SouthernAndes_10m.csv'}
-# Extra columns in ice thickness data that will be dropped
-width_colsdrop = ['RGI-ID','Cont_range']
+binsize = 10            # Elevation bin height [m]
+hyps_data = 'Huss'      # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
+#hyps_data = 'Farinotti' # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
+
+if hyps_data == 'Farinotti':
+    option_shift_elevbins_20m = 0   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
+    # Dictionary of hypsometry filenames
+    hyps_filepath = main_directory + '/../IceThickness_Farinotti/output/'
+    hyps_filedict = {1:  'area_km2_01_Farinotti2019_10m.csv',
+                     13: 'area_km2_13_Farinotti2019_10m.csv',
+                     14: 'area_km2_14_Farinotti2019_10m.csv',
+                     15: 'area_km2_15_Farinotti2019_10m.csv'}
+    hyps_colsdrop = ['RGIId']
+    # Thickness data
+    thickness_filepath = main_directory + '/../IceThickness_Farinotti/output/'
+    thickness_filedict = {1:  'thickness_m_01_Farinotti2019_10m.csv',
+                          13: 'thickness_m_13_Farinotti2019_10m.csv',
+                          14: 'thickness_m_14_Farinotti2019_10m.csv',
+                          15: 'thickness_m_15_Farinotti2019_10m.csv'}
+    thickness_colsdrop = ['RGIId']
+    # Width data
+    width_filepath = main_directory + '/../IceThickness_Farinotti/output/'
+    width_filedict = {1:  'width_km_01_Farinotti2019_10m.csv',
+                      13: 'width_km_13_Farinotti2019_10m.csv',
+                      14: 'width_km_14_Farinotti2019_10m.csv',
+                      15: 'width_km_15_Farinotti2019_10m.csv'}
+    width_colsdrop = ['RGIId']
+    
+elif hyps_data == 'Huss':
+    option_shift_elevbins_20m = 1   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
+    # Dictionary of hypsometry filenames
+    # (Files from Matthias Huss should be manually pre-processed to be 'RGI-ID', 'Cont_range', and bins starting at 5)
+    hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
+    hyps_filedict = {
+                    1:  'area_01_Huss_Alaska_10m.csv',
+                    3:  'area_RGI03_10.csv',
+                    4:  'area_RGI04_10.csv',
+                    6:  'area_RGI06_10.csv',
+                    7:  'area_RGI07_10.csv',
+                    8:  'area_RGI08_10.csv',
+                    9:  'area_RGI09_10.csv',
+                    13: 'area_13_Huss_CentralAsia_10m.csv',
+                    14: 'area_14_Huss_SouthAsiaWest_10m.csv',
+                    15: 'area_15_Huss_SouthAsiaEast_10m.csv',
+                    16: 'area_16_Huss_LowLatitudes_10m.csv',
+                    17: 'area_17_Huss_SouthernAndes_10m.csv'}
+    hyps_colsdrop = ['RGI-ID','Cont_range']
+    # Thickness data
+    thickness_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
+    thickness_filedict = {
+                    1:  'thickness_01_Huss_Alaska_10m.csv',
+                    3:  'thickness_RGI03_10.csv',
+                    4:  'thickness_RGI04_10.csv',
+                    6:  'thickness_RGI06_10.csv',
+                    7:  'thickness_RGI07_10.csv',
+                    8:  'thickness_RGI08_10.csv',
+                    9:  'thickness_RGI09_10.csv',
+                    13: 'thickness_13_Huss_CentralAsia_10m.csv',
+                    14: 'thickness_14_Huss_SouthAsiaWest_10m.csv',
+                    15: 'thickness_15_Huss_SouthAsiaEast_10m.csv',
+                    16: 'thickness_16_Huss_LowLatitudes_10m.csv',
+                    17: 'thickness_17_Huss_SouthernAndes_10m.csv'}
+    thickness_colsdrop = ['RGI-ID','Cont_range']
+    # Width data
+    width_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
+    width_filedict = {
+                    1:  'width_01_Huss_Alaska_10m.csv',
+                    3:  'width_RGI03_10.csv',
+                    4:  'width_RGI04_10.csv',
+                    6:  'width_RGI06_10.csv',
+                    7:  'width_RGI07_10.csv',
+                    8:  'width_RGI08_10.csv',
+                    9:  'width_RGI09_10.csv',
+                    13: 'width_13_Huss_CentralAsia_10m.csv',
+                    14: 'width_14_Huss_SouthAsiaWest_10m.csv',
+                    15: 'width_15_Huss_SouthAsiaEast_10m.csv',
+                    16: 'width_16_Huss_LowLatitudes_10m.csv',
+                    17: 'width_17_Huss_SouthernAndes_10m.csv'}
+    width_colsdrop = ['RGI-ID','Cont_range']
+    
+# Debris datasets
+debris_fp = main_directory + '/../IceThickness_Farinotti/output/'
+debris_filedict = {15:  'meltfactor_15_10m.csv'}
+debris_colsdrop = ['RGIId']
+
 
 #%% MODEL TIME FRAME DATA
 # Models require complete data for each year such that refreezing, scaling, etc. can be calculated
@@ -569,6 +500,29 @@ shean_mb_err_cn = 'mb_mwea_sigma'
 shean_time1_cn = 't1'
 shean_time2_cn = 't2'
 shean_area_cn = 'area_m2'
+
+# ===== BERTHIER GEODETIC =====
+berthier_fp = main_directory + '/../DEMs/Berthier/output/'
+#berthier_fn = 'AK_all_20190913_wextrapolations_1980cheat.csv'
+berthier_fn = 'AK_all_20190913.csv'
+berthier_rgi_glacno_cn = 'RGIId'
+berthier_mb_cn = 'mb_mwea'
+berthier_mb_err_cn = 'mb_mwea_sigma'
+berthier_time1_cn = 't1'
+berthier_time2_cn = 't2'
+berthier_area_cn = 'area_km2'
+
+# ===== BRAUN GEODETIC =====
+braun_fp = main_directory + '/../DEMs/Braun/output/'
+braun_fn = 'braun_AK_all_20190924_wlarsen_mcnabb_best.csv'
+#braun_fn = 'braun_AK_all_20190924_wextrapolations.csv'
+#braun_fn = 'braun_AK_all_20190924.csv'
+braun_rgi_glacno_cn = 'RGIId'
+braun_mb_cn = 'mb_mwea'
+braun_mb_err_cn = 'mb_mwea_sigma'
+braun_time1_cn = 't1'
+braun_time2_cn = 't2'
+braun_area_cn = 'area_km2'
 
 # ===== BRUN GEODETIC =====
 brun_fp = main_directory + '/../DEMs/'
@@ -676,6 +630,8 @@ elif grouping == 'himap':
     reg_dict_fn = main_directory + '/../qgis_himat/rgi60_HMA_dict_bolch.csv'
     reg_csv = pd.read_csv(reg_dict_fn)
     reg_dict = dict(zip(reg_csv.RGIId, reg_csv[reg_vn]))
+else:
+    reg_dict = {}
 
 #%% MASS BALANCE MODEL OPTIONS
 # Initial surface type options
@@ -704,18 +660,17 @@ option_preclimit = 1                # 1: limit the uppermost 25% using an expont
 option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
 
 # Ablation model options
-option_ablation = 1                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
+option_ablation = 2                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
 option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model options
-option_refreezing = 2               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
+option_refreezing = 1               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
 if option_refreezing == 1:
-    rf_layers = 8                   # number of layers for refreezing model (8 is sufficient - Matthias)
-    rf_layers_max = 8               # number of layers to include for refreeze calculation
+    rf_layers = 5                   # number of layers for refreezing model (8 is sufficient - Matthias)
+#    rf_layers_max = 8               # number of layers to include for refreeze calculation
     rf_dz = 10/rf_layers            # layer thickness (m)
-#    rf_dz = 1                       # layer thickness (m)
-    rf_dsc = 3                     # number of time steps for numerical stability (3 is sufficient - Matthias)
+    rf_dsc = 3                      # number of time steps for numerical stability (3 is sufficient - Matthias)
     rf_meltcrit = 0.002             # critical amount of melt [m w.e.] for initializing refreezing module
     pp = 0.3                        # additional refreeze water to account for water refreezing at bare-ice surface
     rf_dens_top = 300               # snow density at surface (kg m-3)
@@ -774,7 +729,7 @@ molarmass_air = 0.0289644   # Molar mass of Earth's air [kg mol-1]
 
 #%% DEBUGGING OPTIONS
 debug_refreeze = False
-debug_mb = False
+debug_mb = True
 
 
 # Pass variable to shell script

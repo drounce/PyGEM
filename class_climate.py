@@ -235,11 +235,10 @@ class GCM():
         glac_variable_series = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
         # Determine the correct time indices
         if self.timestep == 'monthly':
-            start_idx = (np.where(pd.Series(data[self.time_vn])
-                                  .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
-                                  .apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
-            end_idx = (np.where(pd.Series(data[self.time_vn])
-                                .apply(lambda x: x.strftime('%Y-%m')) == dates_table['date']
+            start_idx = (np.where(pd.Series(data[self.time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
+                                  dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+            end_idx = (np.where(pd.Series(data[self.time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
+                                dates_table['date']
                                 .apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]              
             #  np.where finds the index position where to values are equal
             #  pd.Series(data.variables[gcm_time_varname]) creates a pandas series of the time variable associated with
@@ -297,15 +296,18 @@ class GCM():
                 
         # Perform corrections to the data if necessary
         # Surface air temperature corrections
-        if (vn == 'tas') or (vn == 't2m') or (vn == 'T2'):
+        if vn in ['tas', 't2m', 'T2']:
             if 'units' in data[vn].attrs and data[vn].attrs['units'] == 'K':
                 # Convert from K to deg C
                 glac_variable_series = glac_variable_series - 273.15
             else:
                 print('Check units of air temperature from GCM is degrees C.')
+        elif vn in ['t2m_std']:
+            if 'units' in data[vn].attrs and data[vn].attrs['units'] not in ['C', 'K']:
+                print('Check units of air temperature standard deviation from GCM is degrees C or K')
         # Precipitation corrections
         # If the variable is precipitation
-        elif (vn == 'pr') or (vn == 'tp') or (vn == 'TOTPRECIP'):
+        elif vn in ['pr', 'tp', 'TOTPRECIP']:
             # If the variable has units and those units are meters (ERA Interim)
             if 'units' in data[vn].attrs and data[vn].attrs['units'] == 'm':
                 pass
@@ -331,21 +333,24 @@ class GCM():
 
 #%% Testing
 if __name__ == '__main__':
-#    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
+##    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
 #    gcm = GCM(name='ERA5')
-    gcm = GCM(name='ERA-Interim')
-    
-    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
-                                                      rgi_glac_number=input.rgi_glac_number)
-    dates_table = modelsetup.datesmodelrun(startyear=1980, endyear=2017, spinupyears=0, 
-                                           option_wateryear=input.gcm_wateryear)
-
-    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-    if gcm.name == 'ERA-Interim' or gcm.name == 'ERA5':
-        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+##    gcm = GCM(name='ERA-Interim')
+#    
+#    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
+#                                                      rgi_glac_number=input.rgi_glac_number)
+#    dates_table = modelsetup.datesmodelrun(startyear=1980, endyear=2017, spinupyears=0, 
+#                                           option_wateryear=input.gcm_wateryear)
+#
+#    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
+#    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
+#    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
+#    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+#    if gcm.name == 'ERA-Interim' or gcm.name == 'ERA5':
+#        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+#    if gcm.name == 'ERA5':
+#        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi, 
+#                                                                        dates_table)
 #    else:
 #        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
 #    # COAWST data has two domains, so need to merge the two domains
@@ -364,3 +369,17 @@ if __name__ == '__main__':
 #                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
 #                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
 #                gcm_elev[glac] = gcm_elev_d01[glac]
+        
+    #%%
+#    # Get range of dates
+#    rcp_scenario = 'rcp85'
+#    gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
+#             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
+#             'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
+#    for gcm_name in gcm_names:
+#        print(gcm_name)
+#        ds = xr.open_dataset(input.cmip5_fp_var_prefix + rcp_scenario + input.cmip5_fp_var_ending + 
+#                             'tas' + '_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc')
+#        
+#        print('  ', ds.time[0].values,
+#              '\n  ', ds.time[-1].values)
