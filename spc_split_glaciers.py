@@ -135,7 +135,6 @@ if __name__ == '__main__':
             glac_no=input.glac_no)
     glacno_str = [x.split('-')[1] for x in main_glac_rgi_all.RGIId.values]
     
-    #%%    
     # Check if need to update old batch files or not
     #  (different number of glaciers or batches)
     if count_glac != len(glacno_str) or args.n_batches != len(batch_list):
