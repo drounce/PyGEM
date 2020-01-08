@@ -18,8 +18,8 @@ import run_simulation as simulation
 
 #%run run_postprocessing.py -gcm_name='ERA-Interim' -merge_batches=1
 
-option_multimodel = 1
-option_merge_era = 0
+option_multimodel = 0
+option_merge_era = 1
 
 #%% Functions
 def getparser():

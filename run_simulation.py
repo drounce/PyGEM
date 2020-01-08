@@ -89,36 +89,36 @@ def getparser():
 
 
 def calc_stats_array(data, stats_cns=input.sim_stat_cns):
-                """
-                Calculate stats for a given variable
+    """
+    Calculate stats for a given variable
 
-                Parameters
-                ----------
-                vn : str
-                    variable name
-                ds : xarray dataset
-                    dataset of output with all ensemble simulations
+    Parameters
+    ----------
+    vn : str
+        variable name
+    ds : xarray dataset
+        dataset of output with all ensemble simulations
 
-                Returns
-                -------
-                stats : np.array
-                    Statistics related to a given variable
-                """
-                if 'mean' in stats_cns:
-                    stats = data.mean(axis=1)[:,np.newaxis]
-                if 'std' in stats_cns:
-                    stats = np.append(stats, data.std(axis=1)[:,np.newaxis], axis=1)
-                if '2.5%' in stats_cns:
-                    stats = np.append(stats, np.percentile(data, 2.5, axis=1)[:,np.newaxis], axis=1)
-                if '25%' in stats_cns:
-                    stats = np.append(stats, np.percentile(data, 25, axis=1)[:,np.newaxis], axis=1)
-                if 'median' in stats_cns:
-                    stats = np.append(stats, np.median(data, axis=1)[:,np.newaxis], axis=1)
-                if '75%' in stats_cns:
-                    stats = np.append(stats, np.percentile(data, 75, axis=1)[:,np.newaxis], axis=1)
-                if '97.5%' in stats_cns:
-                    stats = np.append(stats, np.percentile(data, 97.5, axis=1)[:,np.newaxis], axis=1)
-                return stats
+    Returns
+    -------
+    stats : np.array
+        Statistics related to a given variable
+    """
+    if 'mean' in stats_cns:
+        stats = data.mean(axis=1)[:,np.newaxis]
+    if 'std' in stats_cns:
+        stats = np.append(stats, data.std(axis=1)[:,np.newaxis], axis=1)
+    if '2.5%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 2.5, axis=1)[:,np.newaxis], axis=1)
+    if '25%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 25, axis=1)[:,np.newaxis], axis=1)
+    if 'median' in stats_cns:
+        stats = np.append(stats, np.median(data, axis=1)[:,np.newaxis], axis=1)
+    if '75%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 75, axis=1)[:,np.newaxis], axis=1)
+    if '97.5%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 97.5, axis=1)[:,np.newaxis], axis=1)
+    return stats
 
 
 def create_xrdataset(main_glac_rgi, dates_table, sim_iters=input.sim_iters, stat_cns=input.sim_stat_cns,
@@ -768,10 +768,13 @@ def main(list_packed_vars):
         glacier_area_initial = main_glac_hyps.iloc[glac,:].values.astype(float)
         icethickness_initial = main_glac_icethickness.iloc[glac,:].values.astype(float)
         width_initial = main_glac_width.iloc[glac,:].values.astype(float)
-        glacier_debrisfactor = main_glac_debrisfactor.iloc[glac,:].values.astype(float)
+        
+#        if 
+#            glacier_debrisfactor = main_glac_debrisfactor.iloc[glac,:].values.astype(float)
+        
         glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
         
-        print('DELETE ME!', glacier_debrisfactor[470:480])
+#        print('DELETE ME!', glacier_debrisfactor[470:480])
 
         if debug_spc:
             debug_rgiid_fn = glacier_str + '_' + gcm_name + '_' + rcp_scenario + '.csv'
@@ -862,7 +865,7 @@ def main(list_packed_vars):
                                                icethickness_initial, width_initial, elev_bins, glacier_gcm_temp,
                                                glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
                                                glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                               option_areaconstant=0,
+                                               option_areaconstant=0, hindcast=input.hindcast,
                                                debug=input.debug_mb, debug_refreeze=input.debug_refreeze))
 
                 if input.hindcast == 1:

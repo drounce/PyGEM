@@ -11,7 +11,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                    elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                    glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0, 
                    constantarea_years=input.constantarea_years, frontalablation_k=None, 
-                   debug=False, debug_refreeze=False):
+                   debug=False, debug_refreeze=False, hindcast=0):
     """
     Runs the mass balance and mass redistribution allowing the glacier to evolve.
     Parameters
@@ -759,7 +759,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                 massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
                                                        glac_bin_massbalclim_annual, year, glac_idx_initial, 
                                                        glacier_area_initial,
-                                                       debug=False))
+                                                       debug=False, hindcast=hindcast))
                         # update surface type for bins that have retreated
                         surfacetype[glacier_area_t1 == 0] = 0
                         # update surface type for bins that have advanced 
@@ -916,7 +916,7 @@ def calc_runoff(prec_wide, melt_wide, refreeze_wide, area_wide):
    
 
 def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
-                           glac_idx_initial, glacier_area_initial, debug=False):
+                           glac_idx_initial, glacier_area_initial, debug=False, hindcast=0):
     """
     Mass redistribution according to empirical equations from Huss and Hock (2015) accounting for retreat/advance.
     glac_idx_initial is required to ensure that the glacier does not advance to area where glacier did not exist before
@@ -956,6 +956,11 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
     # Annual glacier-wide volume change [km**3]
     glacier_volumechange = ((glac_bin_massbalclim_annual[:, year] / 1000 * input.density_water / 
                              input.density_ice * glacier_area_t0).sum())
+    
+    # For hindcast simulations, volume change is the opposite
+    if hindcast == 1:
+        glacier_volumechange = -1 * glacier_volumechange
+        
     if debug:
         print('\nDebugging Mass Redistribution Huss function\n')
         print('glacier volume change:', glacier_volumechange)

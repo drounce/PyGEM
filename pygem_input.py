@@ -160,7 +160,7 @@ gcm_spinupyears = 0             # spin up years for simulation
 gcm_wateryear = 1               # water year for simmulation
 
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
-hindcast = 0                    # 1: run hindcast simulation, 0: do not
+hindcast = 1                    # 1: run hindcast simulation, 0: do not
 if hindcast == 1:
     constantarea_years = 0     # number of years to not let the area or volume change
     gcm_startyear = 1980        # first year of model run (simulation dataset)
@@ -660,7 +660,7 @@ option_preclimit = 1                # 1: limit the uppermost 25% using an expont
 option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
 
 # Ablation model options
-option_ablation = 2                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
+option_ablation = 1                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
 option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
@@ -729,7 +729,7 @@ molarmass_air = 0.0289644   # Molar mass of Earth's air [kg mol-1]
 
 #%% DEBUGGING OPTIONS
 debug_refreeze = False
-debug_mb = True
+debug_mb = False
 
 
 # Pass variable to shell script
