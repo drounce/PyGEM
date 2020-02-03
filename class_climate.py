@@ -334,7 +334,7 @@ class GCM():
 #%% Testing
 if __name__ == '__main__':
 ##    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
-#    gcm = GCM(name='ERA5')
+    gcm = GCM(name='ERA5')
 ##    gcm = GCM(name='ERA-Interim')
 #    
 #    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',

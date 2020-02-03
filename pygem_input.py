@@ -118,7 +118,8 @@ main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
+#rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [1]            # 1st order region number (RGI V6.0)
 rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
@@ -130,6 +131,7 @@ rgi_glac_number = 'all'
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 #glac_no = None
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
+#glac_no = ['15.03473', '15.03733']
 glac_no = ['15.03473']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
@@ -142,9 +144,9 @@ ref_gcm_name = 'ERA5'           # reference climate dataset
 #startyear = 1980                # first year of model run (reference dataset)
 #endyear = 2018                  # last year of model run (reference dataset)
 #option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
-startyear = 2000                # first year of model run (reference dataset)
-endyear = 2018                  # last year of model run (reference dataset)
-option_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
+ref_startyear = 2000                # first year of model run (reference dataset)
+ref_endyear = 2018                  # last year of model run (reference dataset)
+ref_wateryear = 3            # 1: water year, 2: calendar year, 3: custom defined 
 
 constantarea_years = 0          # number of years to not let the area or volume change
 if constantarea_years > 0:
@@ -177,7 +179,9 @@ if option_synthetic_sim == 1:
 
 #%% SIMULATION OPTIONS
 # MCMC options
-sim_iters = 100     # number of simulations (needed for cal_opt 2)
+#sim_iters = 100     # number of simulations (needed for cal_opt 2)
+sim_iters = 1     # number of simulations (needed for cal_opt 2)
+print('\n\nDELETE ME! - SWITCH SIM_ITERS BACK TO 100\n\n')
 sim_burn = 200      # number of burn-in (needed for cal_opt 2)
 
 # Simulation output filepath
@@ -189,7 +193,7 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 4
+option_calibration = 2
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -286,8 +290,8 @@ frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalabl
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
-modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
-#modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
+#modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
+modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
     
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -371,10 +375,14 @@ rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Na
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
 # Filepath for the hypsometry files
 binsize = 10            # Elevation bin height [m]
-hyps_data = 'Huss'      # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
-#hyps_data = 'Farinotti' # Hypsometry dataset (options: 'Huss' from GlacierMIP or 'Farinotti' from Farinotti etal 2019)
+#hyps_data = 'oggm'       # Hypsometry dataset (OGGM; Maussion etal 2019)
+hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
+#hyps_data = 'Farinotti' # Hypsometry dataset (Farinotti etal 2019)
 
-if hyps_data == 'Farinotti':
+if hyps_data == 'oggm':
+    oggm_glacierdata_fp = main_directory + '/../oggm_data/'
+    
+elif hyps_data == 'Farinotti':
     option_shift_elevbins_20m = 0   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
     # Dictionary of hypsometry filenames
     hyps_filepath = main_directory + '/../IceThickness_Farinotti/output/'
@@ -660,7 +668,7 @@ option_preclimit = 1                # 1: limit the uppermost 25% using an expont
 option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
 
 # Ablation model options
-option_ablation = 2                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
+option_ablation = 1                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
 option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
@@ -729,7 +737,7 @@ molarmass_air = 0.0289644   # Molar mass of Earth's air [kg mol-1]
 
 #%% DEBUGGING OPTIONS
 debug_refreeze = False
-debug_mb = True
+debug_mb = False
 
 
 # Pass variable to shell script

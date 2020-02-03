@@ -8,10 +8,10 @@ import pygem_input as input
 
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
-                   elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
+                   heights, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                    glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0, 
                    constantarea_years=input.constantarea_years, frontalablation_k=None, 
-                   debug=False, debug_refreeze=False):
+                   debug=False, debug_refreeze=False, hindcast=0):
     """
     Runs the mass balance and mass redistribution allowing the glacier to evolve.
     Parameters
@@ -27,8 +27,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
         Initial ice thickness [m] for each elevation bin
     width_t0 : np.ndarray
         Initial glacier width [km] for each elevation bin
-    elev_bins : np.ndarray
-        Elevation bins [masl]
+    heights : np.ndarray
+        height of elevation bins [masl]
     glacier_gcm_temp : np.ndarray
         GCM temperature [degC] at each time step based on nearest neighbor to the glacier
     glacier_gcm_prec : np.ndarray
@@ -101,13 +101,13 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     """       
     if debug:
         print('\n\nDEBUGGING MASS BALANCE FUNCTION\n\n')
-    #%%
+        
     # Select annual divisor and columns
     if input.timestep == 'monthly':
         annual_divisor = 12
     annual_columns = np.arange(0, int(dates_table.shape[0] / 12))
     # Variables to export
-    nbins = elev_bins.shape[0]
+    nbins = heights.shape[0]
     nmonths = glacier_gcm_temp.shape[0]
     nyears = annual_columns.shape[0]
     bin_temp = np.zeros((nbins,nmonths))
@@ -162,11 +162,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     rgi_region = int(glacier_rgi_table.RGIId.split('-')[1].split('.')[0])
     if frontalablation_k == None:
          frontalablation_k0 = input.frontalablation_k0dict[rgi_region]
-    # Adjust sea level to account for disagreement between ice thickness estimates and glaciers classified by RGI as
-    # marine-terminating. Modify the sea level, so sea level is consistent with lowest elevation bin that has ice.
-    if glacier_rgi_table.loc['TermType'] == 1:
-#        print('glac_idx_initial:', glac_idx_initial)
-        sea_level = elev_bins[glac_idx_initial[0]] - (elev_bins[1] - elev_bins[0]) / 2
     
     #  glac_idx_initial is used with advancing glaciers to ensure no bands are added in a discontinuous section
     # Run mass balance only on pixels that have an ice thickness (some glaciers do not have an ice thickness)
@@ -181,7 +176,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
             #  ice thickness - 0, which is wrong  Since advancing bins take the thickness of the previous bin, set the
             #  initial ice thickness of all bins below the terminus to the ice thickness at the terminus.
         # Compute the initial surface type [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
-        surfacetype, firnline_idx = surfacetypebinsinitial(glacier_area_t0, glacier_rgi_table, elev_bins)
+        surfacetype, firnline_idx = surfacetypebinsinitial(glacier_area_t0, glacier_rgi_table, heights)
+        print('surface type:', surfacetype)
         # Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
         surfacetype_ddf_dict = surfacetypeDDFdict(modelparameters)
         
@@ -213,10 +209,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     bin_temp[:,12*year:12*(year+1)] = (glacier_gcm_temp[12*year:12*(year+1)] + 
                          glacier_gcm_lrgcm[12*year:12*(year+1)] * 
                          (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
-                         glacier_gcm_lrglac[12*year:12*(year+1)] * (elev_bins - 
+                         glacier_gcm_lrglac[12*year:12*(year+1)] * (heights - 
                          glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis] + modelparameters[7])
                 # Option to adjust air temperature based on changes in surface elevation
-                if input.option_adjusttemp_surfelev == 1:
+                #  note: OGGM automatically updates the bin elevation, so this step is not needed
+                if input.option_adjusttemp_surfelev == 1 and input.hyps_data in ['Huss', 'Farinotti']:
                     # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)
                     bin_temp[:,12*year:12*(year+1)] = (bin_temp[:,12*year:12*(year+1)] + 
                                                        glacier_gcm_lrglac[12*year:12*(year+1)] * 
@@ -227,21 +224,28 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     # Precipitation using precipitation factor and precipitation gradient
                     #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
                     bin_precsnow[:,12*year:12*(year+1)] = (glacier_gcm_prec[12*year:12*(year+1)] * 
-                            modelparameters[2] * (1 + modelparameters[3] * (elev_bins - 
+                            modelparameters[2] * (1 + modelparameters[3] * (heights - 
                             glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
                 if input.option_preclimit == 1:
                     # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
-                    if elev_bins[glac_idx_t0[-1]] - elev_bins[glac_idx_t0[0]] > 1000:
+                    if np.abs(heights[glac_idx_t0[-1]] - heights[glac_idx_t0[0]]) > 1000:
                         # Indices of upper 25%
-                        glac_idx_upper25 = glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / glac_idx_t0.shape[0] * 100 
-                                                       > 75]   
+                        glac_idx_upper25 = (
+                                glac_idx_t0[(heights[glac_idx_t0] - heights[glac_idx_t0].min()) / 
+                                            (heights[glac_idx_t0].max() - heights[glac_idx_t0].min()) * 100 >= 75])                        
                         # Exponential decay according to elevation difference from the 75% elevation
                         #  prec_upper25 = prec * exp(-(elev_i - elev_75%)/(elev_max- - elev_75%))
+                        # height at 75% of the elevation
+                        height_75 = heights[glac_idx_upper25].min()
+                        glac_idx_75 = np.where(heights == height_75)[0][0]
+                        # exponential decay
                         bin_precsnow[glac_idx_upper25,12*year:12*(year+1)] = (
-                                bin_precsnow[glac_idx_upper25[0],12*year:12*(year+1)] * 
-                                np.exp(-1*(elev_bins[glac_idx_upper25] - elev_bins[glac_idx_upper25[0]]) / 
-                                   (elev_bins[glac_idx_upper25[-1]] - elev_bins[glac_idx_upper25[0]]))[:,np.newaxis])
+                                bin_precsnow[glac_idx_75,12*year:12*(year+1)] * 
+                                np.exp(-1*(heights[glac_idx_upper25] - height_75) / 
+                                       (heights[glac_idx_upper25].max() - heights[glac_idx_upper25].min()))
+                                [:,np.newaxis])
+                        
                         # Precipitation cannot be less than 87.5% of the maximum accumulation elsewhere on the glacier
                         for month in range(0,12):
                             bin_precsnow[glac_idx_upper25[(bin_precsnow[glac_idx_upper25,month] < 0.875 * 
@@ -325,7 +329,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     #  off-glacier need to include melt of refreeze because there are no glacier dynamics,
                     #  but on-glacier do not need to account for this (simply assume refreeze has same surface type)
                     bin_melt[:,step] = bin_meltglac[:,step] + bin_meltsnow[:,step]  
-                    #%%
                     
                     # REFREEZING
                     if input.option_refreezing == 1:
@@ -486,8 +489,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                         refreeze_potential = refreeze_potential - bin_refreeze[:,step]
                         refreeze_potential[abs(refreeze_potential) < input.tolerance] = 0
                     
-                    #%%
-                    
                     if step < 12 and debug_refreeze:
                         print('refreeze bin ' + str(int(glac_idx_t0[0]*10)) + ':', 
                                 np.round(bin_refreeze[glac_idx_t0[0],step],3))
@@ -521,12 +522,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                         # off-glacier melt = snow melt + refreezing melt
                         offglac_bin_melt[offglac_idx,step] = (bin_meltsnow[offglac_idx,step] + 
                                                               offglac_meltrefreeze[offglac_idx])
-
-#                    if debug:
-#                        print('\nyear:', year, step)
-#                        print('accumulation:', glac_bin_acc[:,step].sum())
-#                        print('accumulation:', bin_acc[:,step].sum())
-#                        print('melt:', glac_bin_melt[:,step].sum())
                 
                 # ===== RETURN TO ANNUAL LOOP =====
                 # Mass loss cannot exceed glacier volume
@@ -562,59 +557,42 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     if debug:
                         print('mb_check after adjustment (should equal mass loss):', np.round(mb_mwea,3))
                     
-                    
-                    # ==== OLD SCRIPT ====
-                    # reduces all components equally, which does not make physical sense
-#                    bin_acc[:,12*year:12*(year+1)] = bin_acc[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea
-#                    glac_bin_refreeze[:,12*year:12*(year+1)] = (
-#                            glac_bin_refreeze[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea)
-#                    glac_bin_melt[:,12*year:12*(year+1)] = glac_bin_melt[:,12*year:12*(year+1)] * mb_max_loss / mb_mwea
-#                    
-#                    glac_bin_massbalclim[:,12*year:12*(year+1)] = (
-#                            bin_acc[:,12*year:12*(year+1)] + glac_bin_refreeze[:,12*year:12*(year+1)] - 
-#                            glac_bin_melt[:,12*year:12*(year+1)])                    
                 
                 # FRONTAL ABLATION
-                if debug and glacier_rgi_table['TermType'] != 0:
-                    print('\nyear:', year)
-                    print('sea level:', sea_level, 
-                          'bed elev:', round(elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
-                                             icethickness_initial[glac_idx_t0[0]], 2))
                 # Glacier bed altitude [masl]
-                glacier_bedelev = (elev_bins[glac_idx_t0[0]] + (elev_bins[1] - elev_bins[0]) / 2 - 
-                                   icethickness_initial[glac_idx_t0[0]])
+                glac_idx_minelev = np.where(heights == heights[glac_idx_t0].min())[0][0]
+                glacier_bedelev = (heights[glac_idx_minelev] - icethickness_initial[glac_idx_minelev])
+                
+                
+                print('\n\nDELETE ME - SWITCH OFF DEBUG\n\n')
+                debug=True
+                
+                if debug and glacier_rgi_table['TermType'] != 0:
+                    print('\nyear:', year, '\n sea level:', sea_level, 'bed elev:', np.round(glacier_bedelev, 2))
+                                
                 # If glacier bed below sea level, compute frontal ablation
                 if glacier_bedelev < sea_level:
                     # Volume [m3] and bed elevation [masl] of each bin
                     glac_bin_volume = glacier_area_t0 * 10**6 * icethickness_t0
                     glac_bin_bedelev = np.zeros((glacier_area_t0.shape))
-                    glac_bin_bedelev[glac_idx_t0] = (
-                            elev_bins[glac_idx_t0] + (elev_bins[1] - elev_bins[0]) / 2 - 
-                            icethickness_initial[glac_idx_t0])
+                    glac_bin_bedelev[glac_idx_t0] = heights[glac_idx_t0] - icethickness_initial[glac_idx_t0]
                     
                     # Option 1: Use Huss and Hock (2015) frontal ablation parameterizations
                     #  Frontal ablation using width of lowest bin can severely overestimate the actual width of the
                     #  calving front. Therefore, use estimated calving width from satellite imagery as appropriate.
                     if input.option_frontalablation_k == 1 and frontalablation_k == None:
                         # Calculate frontal ablation parameter based on slope of lowest 100 m of glacier
-                        # Glacier indices used for slope calculation
-                        elev_bin_interval = elev_bins[1] - elev_bins[0]
-                        if glac_idx_t0.shape[0] > int(100 / elev_bin_interval):
-                            glac_idx_slope = glac_idx_t0[0 : 0 + int(100 / elev_bin_interval)]
-                        # if glacier too small, then calculate slope over the entire glacier
-                        else:
-                            glac_idx_slope = glac_idx_t0.copy()
-                        elev_change = (elev_bins[glac_idx_slope[-1]] - elev_bins[glac_idx_slope[0]] + 
-                                       elev_bin_interval)
-                        #  add elevation bin interval to be inclusive, i.e., elevation bins 5 - 95 include all
-                        #  glacier area between 0 - 100 masl
-                        # Length of lowest 100 m of glacier
-                        length_lowest100m = (glacier_area_t0[glac_idx_slope] / width_t0[glac_idx_slope] * 1000).sum()
-                        # Slope of lowest 100 m of glacier
+                        glac_idx_slope = np.where((heights <= sea_level + 100) & 
+                                                  (heights >= heights[glac_idx_t0].min()))[0]
+                        elev_change = np.abs(heights[glac_idx_slope[0]] - heights[glac_idx_slope[-1]])
+                        # length of lowest 100 m of glacier
+                        length_lowest100m = (glacier_area_t0[glac_idx_slope] / 
+                                             width_t0[glac_idx_slope] * 1000).sum()
+                        # slope of lowest 100 m of glacier
                         slope_lowest100m = np.rad2deg(np.arctan(elev_change/length_lowest100m))
                         # Frontal ablation parameter
                         frontalablation_k = frontalablation_k0 * slope_lowest100m
-                    
+
                     # Calculate frontal ablation
                     # Bed elevation with respect to sea level
                     #  negative when bed is below sea level (Oerlemans and Nick, 2005)
@@ -622,14 +600,16 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     # Glacier length [m]
                     length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
                     # Height of calving front [m]
-                    height_calving_1 = input.af*length**0.5
-                    height_calving_2 = input.density_water / input.density_ice * waterdepth
-                    height_calving = np.max([height_calving_1, height_calving_2])
+                    height_calving = np.max([input.af*length**0.5, 
+                                             input.density_water / input.density_ice * waterdepth])
                     # Width of calving front [m]
-                    if glacier_rgi_table.RGIId in input.width_calving_dict:
-                        width_calving = np.float64(input.width_calving_dict[glacier_rgi_table.RGIId])
-                    else:
-                        width_calving = width_t0[glac_idx_t0[0]] * 1000                    
+                    if input.hyps_data in ['oggm']:
+                        width_calving = width_t0[np.where(heights == heights[glac_idx_t0].min())[0][0]] * 1000
+                    elif input.hyps_data in ['Huss', 'Farinotti']:
+                        if glacier_rgi_table.RGIId in input.width_calving_dict:
+                            width_calving = np.float64(input.width_calving_dict[glacier_rgi_table.RGIId])
+                        else:
+                            width_calving = width_t0[glac_idx_t0[0]] * 1000                    
                     # Volume loss [m3] due to frontal ablation
                     frontalablation_volumeloss = (
                             np.max([0, (frontalablation_k * waterdepth * height_calving)]) * width_calving)
@@ -638,7 +618,9 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     frontalablation_volumeloss_max = glac_bin_volume[glac_idx_fa].sum()
                     if frontalablation_volumeloss > frontalablation_volumeloss_max:
                         frontalablation_volumeloss = frontalablation_volumeloss_max
+                        
                     
+
                     if debug:
                         print('frontalablation_k:', frontalablation_k)
                         print('width calving:', width_calving)
@@ -657,43 +639,40 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     # Frontal ablation [mwe] in each bin
                     bin_count = 0
                     while (frontalablation_volumeloss > input.tolerance) and (bin_count < len(glac_idx_fa)):
-                        if frontalablation_volumeloss >= glac_bin_volume[glac_idx_fa[bin_count]]:
-                            glac_bin_frontalablation[glac_idx_fa[bin_count], step] = (
-                                    glac_bin_volume[glac_idx_fa[bin_count]] / 
-                                    (glacier_area_t0[glac_idx_fa[bin_count]] * 10**6) 
-                                    * input.density_ice / input.density_water)              
+                        # Sort heights to ensure it's universal (works with OGGM and Huss)
+                        heights_calving_sorted = np.argsort(heights[glac_idx_fa])
+                        calving_bin_idx = heights_calving_sorted[bin_count]
+                        # Check if entire bin removed or not
+                        if frontalablation_volumeloss >= glac_bin_volume[glac_idx_fa[calving_bin_idx]]:
+                            glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] = (
+                                    glac_bin_volume[glac_idx_fa[calving_bin_idx]] / 
+                                    (glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6) 
+                                    * input.density_ice / input.density_water)   
                         else:
-                            glac_bin_frontalablation[glac_idx_fa[bin_count], step] = (
-                                    frontalablation_volumeloss / (glacier_area_t0[glac_idx_fa[bin_count]] * 10**6)
+                            glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] = (
+                                    frontalablation_volumeloss / (glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6)
                                     * input.density_ice / input.density_water)
-                        
-                        
                         frontalablation_volumeloss += (
-                                -1 * glac_bin_frontalablation[glac_idx_fa[bin_count], step] * input.density_water / 
-                                input.density_ice * glacier_area_t0[glac_idx_fa[bin_count]] * 10**6)
-                        
-#                        frontalablation_volumeloss = round(frontalablation_volumeloss - (
-#                                glac_bin_frontalablation[glac_idx_fa[bin_count], step] * 
-#                                input.density_water / input.density_ice *
-#                                glacier_area_t0[glac_idx_fa[bin_count]] * 10**6),6)
+                                -1 * glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] * input.density_water 
+                                / input.density_ice * glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6)                        
+                                                
+                        if debug:
+                            print('glacier idx:', glac_idx_fa[calving_bin_idx], 
+                                  'volume loss:', (glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] * 
+                                  glacier_area_t0[glac_idx_fa[calving_bin_idx]] * input.density_water / 
+                                  input.density_ice * 10**6).round(0))
+                            print('remaining volume loss:', frontalablation_volumeloss, 'tolerance:', input.tolerance)
                         
                         bin_count += 1         
-                        
-                        
-                        if debug:
-                            print('glacier idx:', glac_idx_fa[bin_count-1], 
-                                  'volume loss:', (glac_bin_frontalablation[glac_idx_fa[bin_count-1], step] * 
-                                  glacier_area_t0[glac_idx_fa[bin_count-1]] * input.density_water / input.density_ice * 
-                                  10**6).round(0))
-                            print('remaining volume loss:', frontalablation_volumeloss, 'tolerance:', input.tolerance)
                             
                     if debug:
                         print('frontalablation_volumeloss remaining [m3]:', frontalablation_volumeloss)
                         print('ice thickness:', icethickness_t0[glac_idx_fa[0]].round(0), 
                               'waterdepth:', waterdepth.round(0), 
                               'height calving front:', height_calving.round(0), 
-                              'width [m]:', (width_calving).round(0))                    
+                              'width [m]:', (width_calving).round(0))   
                         
+
                 # SURFACE TYPE
                 # Annual surface type [-]
                 # Annual climatic mass balance [m w.e.], which is used to determine the surface type
@@ -705,8 +684,12 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
 #                    print('Climatic mass balance:', glac_bin_massbalclim_annual[:,year].sum())
                 
                 # Compute the surface type for each bin
+                print('surface type2:', surfacetype[glac_idx_t0])
                 surfacetype, firnline_idx = surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year)
-                
+                print('surface type3:', surfacetype[glac_idx_t0])
+                print('WHATS GOING ON WITH THIS??\n')
+                print(elev_bins)
+
                 # MASS REDISTRIBUTION
                 # Mass redistribution ignored for calibration and spinup years (glacier properties constant)
                 if (option_areaconstant == 1) or (year < input.spinupyears) or (year < constantarea_years):
@@ -747,7 +730,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                  glacier_area_t0[np.where(fa_change != 0)[0]] * 
                                  glac_bin_frontalablation[np.where(fa_change != 0)[0], step] * input.density_water 
                                  / input.density_ice) / icethickness_t0[np.where(fa_change != 0)[0]])
-    
+                        
                         if debug:
                             print('glacier area t1:', glacier_area_t0[bins_wfa].round(3))
                             print('ice thickness t1:', icethickness_t0[bins_wfa].round(1))
@@ -758,10 +741,20 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                         glacier_area_t1, icethickness_t1, width_t1 = (
                                 massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
                                                        glac_bin_massbalclim_annual, year, glac_idx_initial, 
-                                                       glacier_area_initial,
-                                                       debug=False))
+                                                       glacier_area_initial, heights,
+                                                       debug=False, 
+                                                       hindcast=hindcast))
                         # update surface type for bins that have retreated
                         surfacetype[glacier_area_t1 == 0] = 0
+                        
+                        print('\n-----')
+                        print(len(np.where(glacier_area_t0 > 0)[0]))
+                        print(len(np.where(glacier_area_t1 > 0)[0]))
+                        print(surfacetype)
+#                        print(glacier_area_t1)
+                        print('-----\n')
+                        print(elev_bins)
+                        
                         # update surface type for bins that have advanced 
                         surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = (
                                 surfacetype[glacier_area_t0.nonzero()[0][0]])
@@ -788,6 +781,10 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                 width_t0 = width_t1.copy()   
                 glac_bin_surfacetype_annual[:,year] = surfacetype
                 #%%
+                
+    
+    print('\n\nDELETE ME - SET SEA LEVEL BACK TO 0\n\n')            
+    
     # Remove the spinup years of the variables that are being exported
     if input.timestep == 'monthly':
         colstart = input.spinupyears * annual_divisor
@@ -916,7 +913,7 @@ def calc_runoff(prec_wide, melt_wide, refreeze_wide, area_wide):
    
 
 def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, year, 
-                           glac_idx_initial, glacier_area_initial, debug=False):
+                           glac_idx_initial, glacier_area_initial, heights, debug=False, hindcast=0):
     """
     Mass redistribution according to empirical equations from Huss and Hock (2015) accounting for retreat/advance.
     glac_idx_initial is required to ensure that the glacier does not advance to area where glacier did not exist before
@@ -956,6 +953,10 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
     # Annual glacier-wide volume change [km**3]
     glacier_volumechange = ((glac_bin_massbalclim_annual[:, year] / 1000 * input.density_water / 
                              input.density_ice * glacier_area_t0).sum())
+    # For hindcast simulations, volume change is the opposite
+    if hindcast == 1:
+        glacier_volumechange = -1 * glacier_volumechange
+        
     if debug:
         print('\nDebugging Mass Redistribution Huss function\n')
         print('glacier volume change:', glacier_volumechange)
@@ -980,10 +981,10 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining = (
                     massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0,
                                                 glacier_volumechange, glac_bin_massbalclim_annual[:, year],
-                                                debug=False))
+                                                heights, debug=False))
             if debug:
                 print(icethickness_t0.max(), icethickness_t1.max(), glacier_area_t0.max(), glacier_area_t1.max())
-            
+
         # Glacier retreat
         #  if glacier retreats (ice thickness < 0), then ice thickness is set to zero, and some volume change will need 
         #   to be redistributed across the rest of the glacier
@@ -1004,9 +1005,17 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
                 icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining = (
                         massredistributioncurveHuss(icethickness_t0_retreated, glacier_area_t0_retreated, 
                                                     width_t0_retreated, glac_idx_t0_retreated, 
-                                                    glacier_volumechange_remaining_retreated, massbal_clim_retreat))                   
-        # Glacier advances
-        #  if glacier advances (ice thickness change exceeds threshold), then redistribute mass gain in new bins
+                                                    glacier_volumechange_remaining_retreated, massbal_clim_retreat,
+                                                    heights)) 
+
+        # Glacier advances 
+        #  based on ice thickness change exceeding threshold
+        #  Overview:
+        #    1. If last bin is not full, i.e., area >= area of average terminus bin, then fill it up
+        #    2. Add new bin and fill it up
+        #    3. If additional volume after adding new bin, then redistribute mass gain across all bins again,
+        #       i.e., increase the ice thickness and width
+        #    4. Repeat adding a new bin and redistributing the mass until no addiitonal volume is left
         while (icethickness_change > input.icethickness_advancethreshold).any() == True: 
             if debug:
                 print('advancing glacier')
@@ -1045,74 +1054,89 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
                               icethickness_t1_raw[glac_idx_advance] / 1000).sum() - 
                               (glacier_area_t1[glac_idx_advance] * icethickness_t1[glac_idx_advance] / 
                                1000).sum())
+
             # Advance characteristics
             # Indices that define the glacier terminus
-            glac_idx_terminus = (glac_idx_t0[(glac_idx_t0 - glac_idx_t0[0] + 1) / 
-                                             glac_idx_t0.shape[0] * 100 < input.terminus_percentage])
-            if debug:
-                print('glacier index terminus:',glac_idx_terminus)
-                print('glacier index:',glac_idx_t0)
-                print('glacier indx initial:', glac_idx_initial)
+            glac_idx_terminus = (
+                    glac_idx_t0[(heights[glac_idx_t0] - heights[glac_idx_t0].min()) / 
+                                (heights[glac_idx_t0].max() - heights[glac_idx_t0].min()) * 100 
+                                < input.terminus_percentage])
             # For glaciers with so few bands that the terminus is not identified (ex. <= 4 bands for 20% threshold),
             #  then use the information from all the bands
             if glac_idx_terminus.shape[0] <= 1:
                 glac_idx_terminus = glac_idx_t0.copy()
+            
+            if debug:
+                print('glacier index terminus:',glac_idx_terminus)
+                
             # Average area of glacier terminus [km**2]
             #  exclude the bin at the terminus, since this bin may need to be filled first
             try:
-                terminus_area_avg = (
-                        glacier_area_t0[glac_idx_terminus[1]:glac_idx_terminus[glac_idx_terminus.shape[0]-1]+1].mean())
+                minelev_idx = np.where(heights == heights[glac_idx_terminus].min())[0][0]
+                glac_idx_terminus_removemin = list(glac_idx_terminus)
+                glac_idx_terminus_removemin.remove(minelev_idx)
+                terminus_area_avg = np.mean(glacier_area_t0[glac_idx_terminus_removemin])
             except:  
                 glac_idx_terminus_initial = (
-                        glac_idx_initial[(glac_idx_initial - glac_idx_initial[0] + 1) / glac_idx_initial.shape[0] * 100 
-                                          < input.terminus_percentage])
+                    glac_idx_initial[(heights[glac_idx_initial] - heights[glac_idx_initial].min()) / 
+                                (heights[glac_idx_initial].max() - heights[glac_idx_initial].min()) * 100 
+                                < input.terminus_percentage])
                 if glac_idx_terminus_initial.shape[0] <= 1:
                     glac_idx_terminus_initial = glac_idx_initial.copy()
-                terminus_area_avg = (
-                        glacier_area_initial[glac_idx_terminus_initial[1]:
-                                          glac_idx_terminus_initial[glac_idx_terminus_initial.shape[0]-1]+1].mean())
+                    
+                minelev_idx = np.where(heights == heights[glac_idx_terminus_initial].min())[0][0]
+                glac_idx_terminus_removemin = list(glac_idx_terminus_initial)
+                glac_idx_terminus_removemin.remove(minelev_idx)
+                terminus_area_avg = np.mean(glacier_area_t0[glac_idx_terminus_removemin])
+
             # Check if the last bin's area is below the terminus' average and fill it up if it is
-            if (glacier_area_t1[glac_idx_terminus[0]] < terminus_area_avg) and (icethickness_t0[glac_idx_terminus[0]] <
-               icethickness_t0[glac_idx_t0].mean()):
-#            if glacier_area_t1[glac_idx_terminus[0]] < terminus_area_avg:
+            if (glacier_area_t1[minelev_idx] < terminus_area_avg) and (icethickness_t0[minelev_idx] <
+               icethickness_t0[glac_idx_terminus].mean()):
                 # Volume required to fill the bin at the terminus
-                advance_volume_fillbin = (icethickness_t1[glac_idx_terminus[0]] / 1000 * (terminus_area_avg - 
-                                          glacier_area_t1[glac_idx_terminus[0]]))
+                advance_volume_fillbin = (icethickness_t1[minelev_idx] / 1000 * 
+                                          (terminus_area_avg - glacier_area_t1[minelev_idx]))
                 # If the advance volume is less than that required to fill the bin, then fill the bin as much as
                 #  possible by adding area (thickness remains the same - glacier front is only thing advancing)
                 if advance_volume < advance_volume_fillbin:
                     # add advance volume to the bin (area increases, thickness and width constant)
-                    glacier_area_t1[glac_idx_terminus[0]] = (glacier_area_t1[glac_idx_terminus[0]] + 
-                                   advance_volume / (icethickness_t1[glac_idx_terminus[0]] / 1000))
+                    glacier_area_t1[minelev_idx] = (glacier_area_t1[minelev_idx] + 
+                                                    advance_volume / (icethickness_t1[minelev_idx] / 1000))
                     # set advance volume equal to zero
                     advance_volume = 0
                 else:
                     # fill the bin (area increases, thickness and width constant)
-                    glacier_area_t1[glac_idx_terminus[0]] = (glacier_area_t1[glac_idx_terminus[0]] + 
-                                   advance_volume_fillbin / (icethickness_t1[glac_idx_terminus[0]] / 1000))
-                    advance_volume = advance_volume - advance_volume_fillbin
-            # With remaining advance volume, add a bin
+                    glacier_area_t1[minelev_idx] = (glacier_area_t1[minelev_idx] + 
+                                                    advance_volume_fillbin / (icethickness_t1[minelev_idx] / 1000))
+                    advance_volume = advance_volume - advance_volume_fillbin                    
+
+            # With remaining advance volume, add a bin or redistribute over existing bins if no bins left
             if advance_volume > 0:
-                # Index for additional bin below the terminus
-                glac_idx_bin2add = np.array([glac_idx_terminus[0] - 1])
-                # Check if bin2add is in a discontinuous section of the initial glacier
-                while ((glac_idx_bin2add > glac_idx_initial.min()) & 
-                       ((glac_idx_bin2add == glac_idx_initial).any() == False)):
-                    # Advance should not occur in a discontinuous section of the glacier (e.g., vertical drop),
-                    #  so change the bin2add to the next bin down valley
-                    glac_idx_bin2add = glac_idx_bin2add - 1
-                # if the added bin would be below sea-level, then volume is distributed over the glacier without
-                #  any adjustments
-                if glac_idx_bin2add < 0:
+                # Indices for additional bins below the terminus
+                below_glac_idx = np.where(heights < heights[glacier_area_t1 > 0].min())[0]
+                # if no more bins below, then distribute volume over the glacier without further adjustments
+                if len(below_glac_idx) == 0:
                     glacier_area_t1 = glacier_area_t1_raw
                     icethickness_t1 = icethickness_t1_raw
                     width_t1 = width_t1_raw
                     advance_volume = 0
+                    
                 # otherwise, add a bin with thickness and width equal to the previous bin and fill it up
                 else:
+                    # Sort heights below terminus to ensure it's universal (works with OGGM and Huss)
+                    elev_bin2add_sorted = heights[below_glac_idx][np.argsort(heights[below_glac_idx])[::-1]]
+                    bin2add_count = 0
+                    glac_idx_bin2add = np.where(heights == elev_bin2add_sorted[bin2add_count])[0][0] 
+                    # Check if bin2add is in a discontinuous section of the initial glacier
+                    while (heights[glac_idx_bin2add] > heights[glac_idx_initial].min() and 
+                           glac_idx_bin2add in list(glac_idx_initial)):
+                        # Advance should not occur in a discontinuous section of the glacier (e.g., vertical drop),
+                        #  so change the bin2add to the next bin down valley
+                        bin2add_count += 1
+                        glac_idx_bin2add = np.where(heights == elev_bin2add_sorted[bin2add_count])[0][0]
+                        
                     # ice thickness of new bin equals ice thickness of bin at the terminus
-                    icethickness_t1[glac_idx_bin2add] = icethickness_t1[glac_idx_terminus[0]]
-                    width_t1[glac_idx_bin2add] = width_t1[glac_idx_terminus[0]]
+                    icethickness_t1[glac_idx_bin2add] = icethickness_t1[minelev_idx]
+                    width_t1[glac_idx_bin2add] = width_t1[minelev_idx]
                     # volume required to fill the bin at the terminus
                     advance_volume_fillbin = icethickness_t1[glac_idx_bin2add] / 1000 * terminus_area_avg 
                     # If the advance volume is unable to fill entire bin, then fill it as much as possible
@@ -1125,6 +1149,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
                         # fill the bin (area increases, thickness and width constant)
                         glacier_area_t1[glac_idx_bin2add] = terminus_area_avg
                         advance_volume = advance_volume - advance_volume_fillbin
+                        
             # update the glacier indices
             glac_idx_t0 = glacier_area_t1.nonzero()[0]
             massbal_clim_advance = np.zeros(glacier_area_t1.shape)
@@ -1141,14 +1166,15 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
                     # Option 1: apply mass redistribution using Huss' empirical geometry change equations
                     icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining = (
                             massredistributioncurveHuss(icethickness_t1, glacier_area_t1, width_t1, glac_idx_t0, 
-                                                        advance_volume, massbal_clim_advance))
+                                                        advance_volume, massbal_clim_advance, heights))
             # update ice thickness change
             icethickness_change = icethickness_t1 - icethickness_t1_raw
+
     return glacier_area_t1, icethickness_t1, width_t1
 
 
 def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0, glacier_volumechange, 
-                                massbalclim_annual, debug=False):
+                                massbalclim_annual, heights, debug=False):
     """
     Apply the mass redistribution curves from Huss and Hock (2015).
     This is paired with massredistributionHuss, which takes into consideration retreat and advance.
@@ -1206,7 +1232,9 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
         icethicknesschange_norm = np.zeros(glacier_area_t0.shape)
         # Normalized elevation range [-]
         #  (max elevation - bin elevation) / (max_elevation - min_elevation)
-        elevrange_norm[glacier_area_t0 > 0] = (glac_idx_t0[-1] - glac_idx_t0) / (glac_idx_t0[-1] - glac_idx_t0[0])
+        elevrange_norm[glacier_area_t0 > 0] = ((heights[glac_idx_t0].max() - heights[glac_idx_t0]) / 
+                                               (heights[glac_idx_t0].max() - heights[glac_idx_t0].min()))
+        
         #  using indices as opposed to elevations automatically skips bins on the glacier that have no area
         #  such that the normalization is done only on bins where the glacier lies
         # Normalized ice thickness change [-]
@@ -1218,12 +1246,13 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
         icethicknesschange_norm[icethicknesschange_norm > 1] = 1
         icethicknesschange_norm[icethicknesschange_norm < 0] = 0
         # Huss' ice thickness scaling factor, fs_huss [m ice]         
+        #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
         fs_huss = glacier_volumechange / (glacier_area_t0 * icethicknesschange_norm).sum() * 1000
         if debug:
             print('fs_huss:', fs_huss)
-        #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
         # Volume change [km**3 ice]
         bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
+
     # Otherwise, compute volume change in each bin based on the climatic mass balance
     else:
         bin_volumechange = massbalclim_annual / 1000 * glacier_area_t0        
@@ -1234,23 +1263,8 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
         icethickness_t1[glac_idx_t0] = ((icethickness_t0[glac_idx_t0] / 1000)**1.5 + 
                        (icethickness_t0[glac_idx_t0] / 1000)**0.5 * bin_volumechange[glac_idx_t0] / 
                        glacier_area_t0[glac_idx_t0])
-        
-#        print('ice thickness:', icethickness_t0[81], 
-#              'bin_volumechange:', bin_volumechange[81], 
-#              'glacier_area:', glacier_area_t0[81],
-#              'thickness_change:', bin_volumechange[81] / glacier_area_t0[81])
-#        print('test:', (icethickness_t0[81] / 1000)**3/2)
-#        print(((icethickness_t0[81] / 1000)**1.5 + 
-#                       (icethickness_t0[81] / 1000)**0.5 * bin_volumechange[81] / 
-#                       glacier_area_t0[81]))
-#        
-#        print(np.where(np.isnan(icethickness_t1)))
-#        print(bin_volumechange[glac_idx_t0].max())
-        if debug:
-            print('icethickness_max:', icethickness_t1.max())
-            
         icethickness_t1[icethickness_t1 < 0] = 0
-        icethickness_t1[glac_idx_t0] = icethickness_t1[glac_idx_t0]**(2/3) * 1000
+        icethickness_t1[glac_idx_t0] = icethickness_t1[glac_idx_t0]**(2/3) * 1000        
         # Glacier area for parabola [km**2]
         #  A_1 = A_0 * (H_1 / H_0)**0.5
         glacier_area_t1[glac_idx_t0] = (glacier_area_t0[glac_idx_t0] * (icethickness_t1[glac_idx_t0] / 
@@ -1292,8 +1306,7 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
     # remove values below tolerance to avoid rounding errors
     bin_volumechange_remaining[abs(bin_volumechange_remaining) < input.tolerance] = 0
     # Glacier volume change remaining - if less than zero, then needed for retreat
-    glacier_volumechange_remaining = bin_volumechange_remaining.sum()
-    # return desired output
+    glacier_volumechange_remaining = bin_volumechange_remaining.sum()    
     return icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining
     
 

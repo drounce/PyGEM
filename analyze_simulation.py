@@ -41,7 +41,7 @@ import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
 
 # Script options
-option_plot_cmip5_normalizedchange = 0              # updated - 11/6/2019 (includes the runoff figure 5)
+option_plot_cmip5_normalizedchange = 1              # updated - 11/6/2019 (includes the runoff figure 5)
 option_cmip5_heatmap_w_volchange = 0                # updated - 11/6/2019
 option_cmip5_mb_vs_climate = 0
 option_map_gcm_changes = 0
@@ -61,7 +61,7 @@ option_runoff_components_proposal = 0
 option_glaciermip_table = 0                         # updated - 11/12/2019
 option_zemp_compare = 0                             # updated - 11/6/2019
 option_gardelle_compare = 0                         # updated - 11/6/2019
-option_wgms_compare = 1                             # updated - 11/6/2019
+option_wgms_compare = 0                             # updated - 11/6/2019
 option_dehecq_compare = 0
 option_uncertainty_fig = 0                          # updated - 11/12/2019
 option_nick_snowline = 0
@@ -76,6 +76,7 @@ option_regional_hyps = 0
 #netcdf_fp_cmip5 = input.output_sim_fp + 'spc_subset/'
 #netcdf_fp_cmip5 = input.output_sim_fp + 'spc_multimodel/'
 netcdf_fp_cmip5 = input.output_filepath + 'simulations/spc_20190914/merged/multimodel/'
+#netcdf_fp_cmip5 = input.output_filepath + 'simulations/CCSM4/'
 netcdf_fp_era = input.output_filepath + 'simulations/spc_20190914/merged/ERA-Interim/'
 
 
@@ -86,10 +87,12 @@ regions = [13, 14, 15]
 gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
              'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
              'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
+#gcm_names = ['CCSM4']
 #gcm_names = ['bcc-csm1-1', 'CESM1-CAM5', 'CCSM4', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
 #             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
 #             'MIROC-ESM-CHEM', 'MIROC5', 'MRI-CGCM3', 'NorESM1-ME']
 rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
+#rcps = ['rcp85']
 
 # Grouping
 #grouping = 'all'
@@ -101,7 +104,7 @@ grouping = 'rgi_region'
 
 
 #subgrouping = 'hexagon'
-subgrouping = 'hexagon42'
+subgrouping = 'hexagon55'
 
 degree_size = 0.5
 
@@ -238,6 +241,9 @@ hex_dict = dict(zip(hex_csv.RGIId, hex_csv.hexid))
 hex42_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_hexbins_42km.csv'
 hex42_csv = pd.read_csv(hex42_dict_fn)
 hex42_dict = dict(zip(hex42_csv.RGIId, hex42_csv.hexid42))
+hex55_dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_hexbins_55km.csv'
+hex55_csv = pd.read_csv(hex55_dict_fn)
+hex55_dict = dict(zip(hex55_csv.RGIId, hex55_csv.hexid55))
 
 # Shapefiles
 rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
@@ -391,6 +397,9 @@ def select_groups(grouping, main_glac_rgi_all):
     elif grouping == 'hexagon42':
         groups = main_glac_rgi_all.hexid42.unique().tolist()
         group_cn = 'hexid42'
+    elif grouping == 'hexagon55':
+        groups = main_glac_rgi_all.hexid55.unique().tolist()
+        group_cn = 'hexid55'
     else:
         groups = ['all']
         group_cn = 'all_group'
@@ -434,6 +443,7 @@ def load_glacier_data(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all', rgi
     # Hexbins
     main_glac_rgi_all['hexid'] = main_glac_rgi_all.RGIId.map(hex_dict)
     main_glac_rgi_all['hexid42'] = main_glac_rgi_all.RGIId.map(hex42_dict)
+    main_glac_rgi_all['hexid55'] = main_glac_rgi_all.RGIId.map(hex55_dict)
     # Degrees
     main_glac_rgi_all['CenLon_round'] = np.floor(main_glac_rgi_all.CenLon.values/degree_size) * degree_size
     main_glac_rgi_all['CenLat_round'] = np.floor(main_glac_rgi_all.CenLat.values/degree_size) * degree_size
@@ -4315,6 +4325,9 @@ if option_plot_cmip5_normalizedchange == 1:
     startyear = 2015
     endyear = 2100
     
+#    startyear = 1961
+#    endyear = 2260
+    
     figure_fp = netcdf_fp_cmip5 + 'figures/'
     runoff_fn_pkl = figure_fp + 'watershed_runoff_annual_22gcms_4rcps-' + grouping + '.pkl'
     vol_fn_pkl = figure_fp + 'regional_vol_annual_22gcms_4rcps-' + grouping + '.pkl'
@@ -4375,9 +4388,13 @@ if option_plot_cmip5_normalizedchange == 1:
                     # Load datasets
                     ds_fn = ('R' + str(region) + '--all--' + gcm_name + '_' + rcp + 
                              '_c2_ba1_100sets_2000_2100--subset.nc')
+#                    ds_fn = ('R' + str(region) + '--all--' + gcm_name + '_' + rcp + 
+#                             '_c2_ba1_100sets_1961_2260.nc')
       
                     # Bypass GCMs that are missing a rcp scenario
                     try:
+                        print(netcdf_fp_cmip5)
+                        print(ds_fn)
                         ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
                         df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
                         df['RGIId'] = ['RGI60-' + str(int(df.O1Region.values[x])) + '.' +
@@ -4548,8 +4565,10 @@ if option_plot_cmip5_normalizedchange == 1:
             # ===== Plot =====            
             # Multi-model statistics
             vn_multimodel = ds_multimodel[rcp][group]
+#            vn_multimodel_mean = vn_multimodel
             vn_multimodel_mean = vn_multimodel.mean(axis=0)
             vn_multimodel_std = vn_multimodel.std(axis=0)
+#            vn_multimodel_std = np.zeros(vn_multimodel_mean.shape)
             vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
             vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
             
@@ -4562,7 +4581,8 @@ if option_plot_cmip5_normalizedchange == 1:
             elif vn == 'runoff_glac_monthly':
                 t1_idx = np.where(time_values_annual == 2000)[0][0]
                 t2_idx = np.where(time_values_annual == 2015)[0][0] + 1
-                vn_normalizer = vn_multimodel.mean(axis=0)[t1_idx:t2_idx].mean()
+#                vn_normalizer = vn_multimodel.mean(axis=0)[t1_idx:t2_idx].mean()
+                vn_normalizer = vn_multimodel[t1_idx:t2_idx].mean()
             vn_multimodel_mean_norm = vn_multimodel_mean / vn_normalizer
             vn_multimodel_std_norm = vn_multimodel_std / vn_normalizer
             vn_multimodel_stdlow_norm = vn_multimodel_mean_norm - vn_multimodel_std_norm
@@ -5275,7 +5295,7 @@ if option_zemp_compare == 1:
     vn = 'massbaltotal_glac_monthly'
     
     grouping = 'rgi_region'
-    subgrouping = 'hexagon42'
+    subgrouping = 'hexagon55'
 #    subgrouping = 'degree'
 #    degree_size = 1
     
@@ -5300,9 +5320,9 @@ if option_zemp_compare == 1:
     subgroups, subgroup_cn = select_groups(subgrouping, main_glac_rgi)
     
     # Load mass balance data
-    ds_all = {}  
     # Merge all data, then select group data
-    for region in regions:      
+    for nregion, region in enumerate(regions):  
+#    for nregion, region in enumerate([13]):    
         
         # Load datasets
         ds_fn = ('R' + str(region) + '--all--ERA-Interim_c2_ba1_100sets_1980_2017.nc')
@@ -5326,27 +5346,28 @@ if option_zemp_compare == 1:
         year_idx_end = np.where(time_values_annual == endyear)[0][0]
         time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
         
-        if 'annual' in vn:
-            var_glac_region = ds[vn].values[:,year_idx_start:year_idx_end+1,0]
-        else:
-            var_glac_region_raw = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
-            var_glac_region_raw_std = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 1]
-            area_glac_region = np.repeat(ds['area_glac_annual'].values[:,year_idx_start:year_idx_end+1,0], 12, axis=1)
-            
-            # Area average
-            volchg_monthly_glac_region = var_glac_region_raw * area_glac_region
-            volchg_monthly_glac_region_std = var_glac_region_raw_std * area_glac_region
-
+        # Annual glacier volume [km3]
+        vol_annual_glac_region = ds['volume_glac_annual'].values[:,year_idx_start:year_idx_end+2,0]
+        volchg_annual_glac_region = vol_annual_glac_region[:,1:] - vol_annual_glac_region[:,:-1]
+        # Annual glacier area [km2]
+        area_annual_glac_region = ds['area_glac_annual'].values[:,year_idx_start:year_idx_end+1,0]
+        # Annual elevation change [m]
+        elevchg_annual_glac_region = volchg_annual_glac_region / area_annual_glac_region * 1000
+        mb_monthly_glac_region = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
+        mb_monthly_std_glac_region = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 1]
+        
         # Merge datasets
-        if region == regions[0]:
-            var_glac_all = volchg_monthly_glac_region
-            var_glac_all_std = volchg_monthly_glac_region_std
-            area_glac_all = area_glac_region
+        if nregion == 0:
+            elevchg_annual_glac_all = elevchg_annual_glac_region
+            area_annual_glac_all = area_annual_glac_region
+            mb_monthly_glac_all = mb_monthly_glac_region
+            mb_monthly_std_glac_all = mb_monthly_std_glac_region
             df_all = df
         else:
-            var_glac_all = np.concatenate((var_glac_all, volchg_monthly_glac_region), axis=0)
-            var_glac_all_std = np.concatenate((var_glac_all_std, volchg_monthly_glac_region_std), axis=0)
-            area_glac_all = np.concatenate((area_glac_all, area_glac_region), axis=0)
+            elevchg_annual_glac_all = np.concatenate((elevchg_annual_glac_all, elevchg_annual_glac_region), axis=0)
+            area_annual_glac_all = np.concatenate((area_annual_glac_all, area_annual_glac_region), axis=0)
+            mb_monthly_glac_all = np.concatenate((mb_monthly_glac_all, mb_monthly_glac_region), axis=0)
+            mb_monthly_std_glac_all = np.concatenate((mb_monthly_std_glac_all, mb_monthly_std_glac_region), axis=0)
             df_all = pd.concat([df_all, df], axis=0)
         try:
             ds.close()
@@ -5360,37 +5381,118 @@ if option_zemp_compare == 1:
     main_glac_rgi = main_glac_rgi.loc[rgi_idx,:]
     main_glac_rgi.reset_index(inplace=True, drop=True)
     
+    #%%
+    # Convert monthly mass balance and standard deviation into annual values
+    mb_annual_glac_all = gcmbiasadj.annual_sum_2darray(mb_monthly_glac_all)
+    def annual_rsos(x):
+        """ Compute annual root sum of squares for uncertainty """
+        return ((x.reshape(-1,12)**2).sum(1)**0.5).reshape(x.shape[0],int(x.shape[1]/12))
+    mb_annual_std_glac_all = annual_rsos(mb_monthly_std_glac_all)
+    
+    elevchg_annual_glac_all_fromVol = elevchg_annual_glac_all.copy()
+    elevchg_annual_glac_all = mb_annual_glac_all * input.density_water / input.density_ice
+    # Isolate the elevation change uncertainty from the area and density
+    elevchg_annual_std_glac_all = (np.absolute(mb_annual_glac_all * input.density_water / input.density_ice) *
+                                   ((mb_annual_std_glac_all / mb_annual_glac_all)**2 - 0.1**2 - 0.071**2)**0.5)
+    elevchg_annual_std_glac_all = np.nan_to_num(elevchg_annual_std_glac_all, 0)
+    
     ds_all = {}
     ds_all_std = {}
     for ngroup, group in enumerate(groups):
-        # Sum volume change for group
-        group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
-        varchg_group = var_glac_all[group_glac_indices,:].sum(axis=0)
-        area_group = area_glac_all[group_glac_indices,:].sum(axis=0)
-        varchg_group_std_sos1 = (var_glac_all_std[group_glac_indices,:]**2).sum(axis=0)**0.5
+#    for ngroup, group in enumerate([groups[0]]):
+#        print(group)
         
+        # Group indices
+        group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
+        
+        # Regional Mass Balance [m w.e. / yr]
+        mb_mwea_annual_group = ((mb_annual_glac_all[group_glac_indices,:] * 
+                                 area_annual_glac_all[group_glac_indices,:]).sum(axis=0) /
+                                area_annual_glac_all[group_glac_indices,:].sum(axis=0))
+        
+        # Regional elevation change [m/yr]
+        elevchg_annual_group = ((elevchg_annual_glac_all[group_glac_indices,:] * 
+                                 area_annual_glac_all[group_glac_indices,:]).sum(axis=0) /
+                                area_annual_glac_all[group_glac_indices,:].sum(axis=0))
+        
+        # Elevation change for each cell [m/yr]
         # Uncertainty associated with volume change based on subgroups
         #  sum standard deviations in each subgroup assuming that they are uncorrelated
         #  then use the root sum of squares using the uncertainty of each subgroup to get the uncertainty of the group
         main_glac_rgi_subset = main_glac_rgi.loc[main_glac_rgi[group_cn] == group]
         subgroups_subset = main_glac_rgi_subset[subgroup_cn].unique()
-        
-        subgroup_std = np.zeros((len(subgroups_subset), varchg_group.shape[0]))
+
+        # Elevation change uncertainty for each hexagonal grid cell 
+        #  (assume glaciers in cell are perfectly correlated - sum)
+        elevchg_annual_std_subgroup = np.zeros((len(subgroups_subset), elevchg_annual_group.shape[0]))
+        area_annual_subgroup = np.zeros((len(subgroups_subset), elevchg_annual_group.shape[0]))
         for nsubgroup, subgroup in enumerate(subgroups_subset):
-            main_glac_rgi_subgroup = main_glac_rgi.loc[main_glac_rgi[subgroup_cn] == subgroup]
             subgroup_indices = main_glac_rgi.loc[main_glac_rgi[subgroup_cn] == subgroup].index.values.tolist()
-            # subgroup uncertainty is sum of each glacier since assumed to be perfectly correlated
-            subgroup_std[nsubgroup,:] = var_glac_all_std[subgroup_indices,:].sum(axis=0)
-        varchg_group_std = (subgroup_std**2).sum(axis=0)**0.5        
+            # subgroup uncertainty is the area-weighted sum of each glacier since assumed to be perfectly correlated
+            elevchg_annual_std_subgroup[nsubgroup,:] = ((elevchg_annual_std_glac_all[subgroup_indices,:] * 
+                                                         area_annual_glac_all[subgroup_indices,:]).sum(axis=0) /
+                                                        area_annual_glac_all[subgroup_indices,:].sum(axis=0))
+            area_annual_subgroup[nsubgroup,:] = area_annual_glac_all[subgroup_indices,:].sum(axis=0)
         
-        # Group's monthly mass balance [mwea]
-        mb_mwea_group = (varchg_group / area_group).reshape(-1,12).sum(1)
-        # annual uncertainty is the sum of monthly stdev since assumed to be perfectly correlated
-        mb_mwea_group_std = (varchg_group_std / area_group).reshape(-1,12).sum(1)
-#        mb_mwea_group_std_rsos = ((varchg_group_std / area_group)**2).reshape(-1,12).sum(1)**0.5
+        # Elevation change uncertainty for each region 
+        #  (assume individual cells within a region are uncorrelated - root sum of squares)
+        elevchg_annual_std_group = ((((elevchg_annual_std_subgroup * area_annual_subgroup)**2).sum(axis=0))**0.5
+                                     / area_annual_subgroup.sum(axis=0))  
+        # Mass balance uncertainty
+        #  (combine elevation change uncertainty with density and area uncertainty in quadrature)
+        mb_mwea_annual_std_group = (np.absolute(mb_mwea_annual_group) * 
+                                    ((elevchg_annual_std_group / elevchg_annual_group)**2 + 0.1**2 + 0.071**2)**0.5)
         
-        ds_all[group] = mb_mwea_group
-        ds_all_std[group] = mb_mwea_group_std
+        ds_all[group] = mb_mwea_annual_group
+        ds_all_std[group] = mb_mwea_annual_std_group
+        
+    #%%
+    # ===== CODE THAT DOESN'T ISOLATE ELEVATION CHANGE ======
+#    # Convert monthly mass balance and standard deviation into annual values
+#    mb_annual_glac_all = gcmbiasadj.annual_sum_2darray(mb_monthly_glac_all)
+#    def annual_rsos(x):
+#        """ Compute annual root sum of squares for uncertainty """
+#        return ((x.reshape(-1,12)**2).sum(1)**0.5).reshape(x.shape[0],int(x.shape[1]/12))
+#    mb_annual_std_glac_all = annual_rsos(mb_monthly_std_glac_all)
+#    
+#    ds_all = {}
+#    ds_all_std = {}
+#    for ngroup, group in enumerate(groups):
+#        
+#        # Group indices
+#        group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
+#        
+#        # Regional Mass Balance [m w.e. / yr]
+#        mb_mwea_annual_group = ((mb_annual_glac_all[group_glac_indices,:] * 
+#                                 area_annual_glac_all[group_glac_indices,:]).sum(axis=0) /
+#                                area_annual_glac_all[group_glac_indices,:].sum(axis=0))
+#        
+#        # Elevation change for each cell [m/yr]
+#        # Uncertainty associated with volume change based on subgroups
+#        #  sum standard deviations in each subgroup assuming that they are uncorrelated
+#        #  then use the root sum of squares using the uncertainty of each subgroup to get the uncertainty of the group
+#        main_glac_rgi_subset = main_glac_rgi.loc[main_glac_rgi[group_cn] == group]
+#        subgroups_subset = main_glac_rgi_subset[subgroup_cn].unique()
+#
+#        # Elevation change uncertainty for each hexagonal grid cell 
+#        #  (assume glaciers in cell are perfectly correlated - sum)
+#        mb_mwea_annual_std_subgroup = np.zeros((len(subgroups_subset), mb_mwea_annual_group.shape[0]))
+#        area_annual_subgroup = np.zeros((len(subgroups_subset), mb_mwea_annual_group.shape[0]))
+#        for nsubgroup, subgroup in enumerate(subgroups_subset):
+#            subgroup_indices = main_glac_rgi.loc[main_glac_rgi[subgroup_cn] == subgroup].index.values.tolist()
+#            # subgroup uncertainty is the area-weighted sum of each glacier since assumed to be perfectly correlated
+#            mb_mwea_annual_std_subgroup[nsubgroup,:] = ((mb_annual_std_glac_all[subgroup_indices,:] * 
+#                                                         area_annual_glac_all[subgroup_indices,:]).sum(axis=0) /
+#                                                        area_annual_glac_all[subgroup_indices,:].sum(axis=0))
+#            area_annual_subgroup[nsubgroup,:] = area_annual_glac_all[subgroup_indices,:].sum(axis=0)
+#        
+#        # Elevation change uncertainty for each region 
+#        #  (assume individual cells within a region are uncorrelated - root sum of squares)
+#        mb_mwea_annual_std_group = ((((mb_mwea_annual_std_subgroup * area_annual_subgroup)**2).sum(axis=0))**0.5
+#                                     / area_annual_subgroup.sum(axis=0))  
+#        
+#        ds_all[group] = mb_mwea_annual_group
+#        ds_all_std[group] = mb_mwea_annual_std_group
 
     #%%
     stats_cns = ['group', 'rmse', 'r', 'slope', 'intercept', 'p-value', 'mae', 'nse']
@@ -5462,6 +5564,172 @@ if option_zemp_compare == 1:
                 bbox_inches='tight', dpi=300)    
     # Export stats
     group_stats.to_csv(output_fp + 'Zemp2019_vs_ERA-Interim_stats.csv', index=False)
+    #%%
+#    
+##    # ============================ OLD CODE ===========================================================================
+##    # Load mass balance data
+##    # Merge all data, then select group data
+##    for region in regions:      
+##        
+##        # Load datasets
+##        ds_fn = ('R' + str(region) + '--all--ERA-Interim_c2_ba1_100sets_1980_2017.nc')
+##        ds = xr.open_dataset(netcdf_fp_era + ds_fn)
+##        df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs.values)
+##        df['RGIId'] = ['RGI60-' + str(int(df.O1Region.values[x])) + '.' +
+##                       str(int(df.glacno.values[x])).zfill(5) for x in df.index.values]
+##        
+##        # Extract time variable
+##        time_values_annual = ds.coords['year_plus1'].values
+##        time_values_monthly = ds.coords['time'].values
+##        # Extract start/end indices for calendar year!
+##        time_values_df = pd.DatetimeIndex(time_values_monthly)
+##        time_values_yr = np.array([x.year for x in time_values_df])
+##        if input.gcm_wateryear == 1:
+##            time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
+##        time_idx_start = np.where(time_values_yr == startyear)[0][0]
+##        time_idx_end = np.where(time_values_yr == endyear)[0][0]
+##        time_values_monthly_subset = time_values_monthly[time_idx_start:time_idx_end + 12]
+##        year_idx_start = np.where(time_values_annual == startyear)[0][0]
+##        year_idx_end = np.where(time_values_annual == endyear)[0][0]
+##        time_values_annual_subset = time_values_annual[year_idx_start:year_idx_end+1]
+##        
+##        if 'annual' in vn:
+##            var_glac_region = ds[vn].values[:,year_idx_start:year_idx_end+1,0]
+##        else:
+##            var_glac_region_raw = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 0]
+##            var_glac_region_raw_std = ds['massbaltotal_glac_monthly'].values[:,time_idx_start:time_idx_end + 12, 1]
+##            area_glac_region = np.repeat(ds['area_glac_annual'].values[:,year_idx_start:year_idx_end+1,0], 12, axis=1)
+##            
+##            # Area average
+##            volchg_monthly_glac_region = var_glac_region_raw * area_glac_region
+##            volchg_monthly_glac_region_std = var_glac_region_raw_std * area_glac_region
+##
+##        # Merge datasets
+##        if region == regions[0]:
+##            var_glac_all = volchg_monthly_glac_region
+##            var_glac_all_std = volchg_monthly_glac_region_std
+##            area_glac_all = area_glac_region
+##            df_all = df
+##        else:
+##            var_glac_all = np.concatenate((var_glac_all, volchg_monthly_glac_region), axis=0)
+##            var_glac_all_std = np.concatenate((var_glac_all_std, volchg_monthly_glac_region_std), axis=0)
+##            area_glac_all = np.concatenate((area_glac_all, area_glac_region), axis=0)
+##            df_all = pd.concat([df_all, df], axis=0)
+##        try:
+##            ds.close()
+##        except:
+##            continue
+##        
+##    # RGIIds of only glaciers in simulations
+##    rgiid_df = list(df_all.RGIId.values)
+##    rgiid_all = list(main_glac_rgi.RGIId.values)
+##    rgi_idx = [rgiid_all.index(x) for x in rgiid_df]
+##    main_glac_rgi = main_glac_rgi.loc[rgi_idx,:]
+##    main_glac_rgi.reset_index(inplace=True, drop=True)
+##
+##    ds_all = {}
+##    ds_all_std = {}
+##    for ngroup, group in enumerate(groups):
+##        print(group)
+##        # Sum volume change for group
+##        group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
+##        varchg_group = var_glac_all[group_glac_indices,:].sum(axis=0)
+##        area_group = area_glac_all[group_glac_indices,:].sum(axis=0)
+##        varchg_group_std_sos1 = (var_glac_all_std[group_glac_indices,:]**2).sum(axis=0)**0.5
+##        
+##        # Uncertainty associated with volume change based on subgroups
+##        #  sum standard deviations in each subgroup assuming that they are uncorrelated
+##        #  then use the root sum of squares using the uncertainty of each subgroup to get the uncertainty of the group
+##        main_glac_rgi_subset = main_glac_rgi.loc[main_glac_rgi[group_cn] == group]
+##        subgroups_subset = main_glac_rgi_subset[subgroup_cn].unique()
+##        
+##        subgroup_std = np.zeros((len(subgroups_subset), varchg_group.shape[0]))
+##        for nsubgroup, subgroup in enumerate(subgroups_subset):
+##            main_glac_rgi_subgroup = main_glac_rgi.loc[main_glac_rgi[subgroup_cn] == subgroup]
+##            subgroup_indices = main_glac_rgi.loc[main_glac_rgi[subgroup_cn] == subgroup].index.values.tolist()
+##            # subgroup uncertainty is sum of each glacier since assumed to be perfectly correlated
+##            subgroup_std[nsubgroup,:] = var_glac_all_std[subgroup_indices,:].sum(axis=0)
+##        varchg_group_std = (subgroup_std**2).sum(axis=0)**0.5        
+##        
+##        # Group's monthly mass balance [mwea]
+##        mb_mwea_group = (varchg_group / area_group).reshape(-1,12).sum(1)
+##        # annual uncertainty is the sum of monthly stdev since assumed to be perfectly correlated
+##        mb_mwea_group_std = (varchg_group_std / area_group).reshape(-1,12).sum(1)
+###        mb_mwea_group_std_rsos = ((varchg_group_std / area_group)**2).reshape(-1,12).sum(1)**0.5
+##        
+##        ds_all[group] = mb_mwea_group
+##        ds_all_std[group] = mb_mwea_group_std
+##
+##    #%%
+##    stats_cns = ['group', 'rmse', 'r', 'slope', 'intercept', 'p-value', 'mae', 'nse']
+##    group_stats = pd.DataFrame(np.zeros((len(groups), len(stats_cns))), columns=stats_cns)
+##    group_stats['group'] = groups
+##    fig, ax = plt.subplots(len(groups), 1, squeeze=False, figsize=(10,8), gridspec_kw = {'wspace':0, 'hspace':0})
+##    for ngroup, group in enumerate(groups):
+##        
+##        zemp_group = zemp_subset[str(group)].values
+##        zemp_group_std = zemp_subset[str(group) + '_sig'].values
+##        mb_mwea_group = ds_all[group]
+##        mb_mwea_group_std = ds_all_std[group]
+##        years = zemp_subset['year'].values
+##        dif_group = zemp_group - mb_mwea_group
+##            
+##        # All glaciers
+##        ax[ngroup,0].plot(years, zemp_group, color='k', label='Zemp et al. (2019)', zorder=2)
+##        ax[ngroup,0].fill_between(years, zemp_group + zemp_group_std, zemp_group - zemp_group_std, 
+##                                  facecolor='lightgrey', label=None, zorder=1)
+##    
+##        ax[ngroup,0].plot(years, mb_mwea_group, color='b', label='Modeled', zorder=2)
+##        ax[ngroup,0].fill_between(years, mb_mwea_group + mb_mwea_group_std, mb_mwea_group - mb_mwea_group_std, 
+##                                  facecolor='dodgerblue', label=None, zorder=1)
+##        ax[ngroup,0].set_ylim(-1.1,0.75)
+##        ax[ngroup,0].set_xlim(1980,2016)
+##        ax[ngroup,0].xaxis.set_minor_locator(MultipleLocator(5))
+##        ax[ngroup,0].tick_params(axis='x', direction='inout', which='both')
+##        if ngroup == 0:
+##            ax[ngroup,0].legend(loc=(0.02,0.02), ncol=1, fontsize=10, frameon=False, handlelength=1.5, 
+##                                handletextpad=0.25, columnspacing=1, borderpad=0, labelspacing=0)
+##        if ngroup+1 < len(groups):
+##            ax[ngroup,0].xaxis.set_ticklabels([])
+###        if ngroup + 1 == len(groups):
+###            ax[ngroup,0].set_xlabel('Year', size=12)
+###        else:
+###            ax[ngroup,0].xaxis.set_ticklabels([])
+##        ax[ngroup,0].yaxis.set_ticks(np.arange(-1, 0.55, 0.5))
+##        
+##        # Statistics for comparison
+##        # Root-mean-square-deviation
+##        rmse = (np.sum((mb_mwea_group - zemp_group)**2) / zemp_group.shape[0])**0.5
+##        print(group, 'RMSE:', np.round(rmse,2))
+##        # Correlation
+##        slope, intercept, r_value, p_value, std_err = linregress(zemp_group, mb_mwea_group)
+##        print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+##              'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,4))
+##        # Mean absolute error
+##        mae = np.mean(np.absolute(zemp_group - mb_mwea_group))
+##        print('  mean absolute error:', np.round(mae,2))
+##        # Nash-Sutcliffe model efficiency coefficient
+##        nse = 1 - (np.sum((mb_mwea_group - zemp_group)**2) / np.sum((zemp_group - zemp_group.mean())**2))
+##        print('  NSE:', np.round(nse,2))
+##        # Record stats
+##        group_stats.loc[ngroup, ['rmse', 'r', 'slope', 'intercept', 'p-value', 'mae', 'nse']] = (
+##                [rmse, r_value, slope, intercept, p_value, mae, nse])
+##    
+##    # Add text
+##    fig.text(-0.08, 0.5, 'Mass Balance (m w.e. $\mathregular{yr^{-1}}$)', va='center', rotation='vertical', size=12)
+##    fig.text(0.5, 0.845, 'Central Asia', horizontalalignment='center', zorder=4, color='black', fontsize=10)
+##    fig.text(0.5, 0.59, 'South Asia West', horizontalalignment='center', zorder=4, color='black', fontsize=10)
+##    fig.text(0.5, 0.34, 'South Asia East', horizontalalignment='center', zorder=4, color='black', fontsize=10)
+##    fig.text(0.135, 0.84, 'A', zorder=4, color='black', fontsize=12, fontweight='bold')
+##    fig.text(0.135, 0.59, 'B', zorder=4, color='black', fontsize=12, fontweight='bold')
+##    fig.text(0.135, 0.335, 'C', zorder=4, color='black', fontsize=12, fontweight='bold')
+##    
+##    # Save figure
+##    fig.set_size_inches(3.25,3.75)
+##    fig.savefig(output_fp + 'Zemp2019_vs_ERA-Interim_' + str(startyear) + '-' + str(endyear) + '_squeezed.eps', 
+##                bbox_inches='tight', dpi=300)    
+##    # Export stats
+##    group_stats.to_csv(output_fp + 'Zemp2019_vs_ERA-Interim_stats.csv', index=False)
     #%%
 
 

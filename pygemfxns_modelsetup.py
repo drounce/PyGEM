@@ -10,8 +10,8 @@ from datetime import datetime
 import pygem_input as input
 
 
-def datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=input.spinupyears,
-                  option_wateryear=input.option_wateryear):
+def datesmodelrun(startyear=input.ref_startyear, endyear=input.ref_endyear, spinupyears=input.spinupyears,
+                  option_wateryear=input.ref_wateryear):
     """
     Create table of year, month, day, water year, season and number of days in the month.
 
@@ -189,21 +189,8 @@ def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=in
         ds = pd.read_csv(filepath + filedict[region])
 
         # Select glaciers based on 01Index value from main_glac_rgi table
-        #  as long as Huss tables have all rows associated with rgi attribute table,
-        #  then this shortcut works and saves time
+        #  as long as Huss tables have all rows associated with rgi attribute table, then this shortcut works
         glac_table = ds.iloc[rgi_table_region['O1Index'].values]
-    #    glac_table = pd.DataFrame()
-    #    if input.rgi_regionsO2 == 'all' and input.rgi_glac_number == 'all':
-    #        glac_table = ds
-    #    elif input.rgi_regionsO2 != 'all' and input.rgi_glac_number == 'all':
-    #        glac_table = ds.iloc[rgi_table['O1Index'].values]
-    #    elif input.rgi_regionsO2 == 'all' and input.rgi_glac_number != 'all':
-    #        for glacier in range(len(rgi_table)):
-    #            if glac_table.empty:
-    #                glac_table = ds.loc[rgi_table.loc[glacier,'O1Index']]
-    #            else:
-    #                glac_table = pd.concat([glac_table, ds.loc[rgi_table.loc[glacier,'O1Index']]], axis=1)
-    #        glac_table = glac_table.transpose()
         # Merge multiple regions
         if count == 0:
             glac_table_all = glac_table
@@ -237,41 +224,6 @@ def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=in
         glac_table_copy = glac_table_copy.iloc[:,2:]
         glac_table_copy.columns = colnames
     return glac_table_copy
-
-    #%%
-
-#    ds = pd.read_csv(filepath + filedict[rgi_regionsO1[0]])
-#    # Select glaciers based on 01Index value from main_glac_rgi table
-#    #  as long as Huss tables have all rows associated with rgi attribute table, then this shortcut works and saves time
-#    glac_table = ds.iloc[rgi_table['O1Index'].values]
-##    glac_table = pd.DataFrame()
-##    if input.rgi_regionsO2 == 'all' and input.rgi_glac_number == 'all':
-##        glac_table = ds
-##    elif input.rgi_regionsO2 != 'all' and input.rgi_glac_number == 'all':
-##        glac_table = ds.iloc[rgi_table['O1Index'].values]
-##    elif input.rgi_regionsO2 == 'all' and input.rgi_glac_number != 'all':
-##        for glacier in range(len(rgi_table)):
-##            if glac_table.empty:
-##                glac_table = ds.loc[rgi_table.loc[glacier,'O1Index']]
-##            else:
-##                glac_table = pd.concat([glac_table, ds.loc[rgi_table.loc[glacier,'O1Index']]], axis=1)
-##        glac_table = glac_table.transpose()
-#    # must make copy; otherwise, drop will cause SettingWithCopyWarning
-#    glac_table_copy = glac_table.copy()
-#    # Clean up table and re-index
-#    # Reset index to be GlacNo
-#    glac_table_copy.reset_index(drop=True, inplace=True)
-#    glac_table_copy.index.name = indexname
-#    # Drop columns that are not elevation bins
-#    glac_table_copy.drop(drop_col_names, axis=1, inplace=True)
-#    # Change NAN from -99 to 0
-#    glac_table_copy[glac_table_copy==-99] = 0.
-#    # Shift Huss bins by 20 m since the elevation bins appear to be 20 m higher than they should be
-#    if input.option_shift_elevbins_20m == 1:
-#        colnames = glac_table_copy.columns.tolist()[:-2]
-#        glac_table_copy = glac_table_copy.iloc[:,2:]
-#        glac_table_copy.columns = colnames
-#    return glac_table_copy
 
 
 def selectcalibrationdata(main_glac_rgi):

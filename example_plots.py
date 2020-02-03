@@ -153,3 +153,9 @@ if os.path.exists(figure_fp) == False:
     os.makedirs(figure_fp)
 fig_fn = 'example_plot_map.png'
 fig.savefig(figure_fp + fig_fn, bbox_inches='tight', dpi=300)
+
+
+#%%
+import xarray as xr
+
+ds1 = 
