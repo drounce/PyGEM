@@ -41,7 +41,7 @@ import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
 
 # Script options
-option_plot_cmip5_normalizedchange = 0              # updated - 11/6/2019 (includes the runoff figure 5)
+option_plot_cmip5_normalizedchange = 1              # updated - 11/6/2019 (includes the runoff figure 5)
 option_cmip5_heatmap_w_volchange = 0                # updated - 11/6/2019
 option_cmip5_mb_vs_climate = 0
 option_map_gcm_changes = 0
@@ -59,7 +59,7 @@ option_plot_cmip5_normalizedchange_proposal = 0
 option_runoff_components_proposal = 0
 
 option_glaciermip_table = 0                         # updated - 11/12/2019
-option_zemp_compare = 1                             # updated - 11/6/2019
+option_zemp_compare = 0                             # updated - 11/6/2019
 option_gardelle_compare = 0                         # updated - 11/6/2019
 option_wgms_compare = 0                             # updated - 11/6/2019
 option_dehecq_compare = 0
@@ -76,6 +76,7 @@ option_regional_hyps = 0
 #netcdf_fp_cmip5 = input.output_sim_fp + 'spc_subset/'
 #netcdf_fp_cmip5 = input.output_sim_fp + 'spc_multimodel/'
 netcdf_fp_cmip5 = input.output_filepath + 'simulations/spc_20190914/merged/multimodel/'
+#netcdf_fp_cmip5 = input.output_filepath + 'simulations/CCSM4/'
 netcdf_fp_era = input.output_filepath + 'simulations/spc_20190914/merged/ERA-Interim/'
 
 
@@ -86,10 +87,12 @@ regions = [13, 14, 15]
 gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
              'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
              'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
+#gcm_names = ['CCSM4']
 #gcm_names = ['bcc-csm1-1', 'CESM1-CAM5', 'CCSM4', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
 #             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
 #             'MIROC-ESM-CHEM', 'MIROC5', 'MRI-CGCM3', 'NorESM1-ME']
 rcps = ['rcp26', 'rcp45', 'rcp60', 'rcp85']
+#rcps = ['rcp85']
 
 # Grouping
 #grouping = 'all'
@@ -4322,6 +4325,9 @@ if option_plot_cmip5_normalizedchange == 1:
     startyear = 2015
     endyear = 2100
     
+#    startyear = 1961
+#    endyear = 2260
+    
     figure_fp = netcdf_fp_cmip5 + 'figures/'
     runoff_fn_pkl = figure_fp + 'watershed_runoff_annual_22gcms_4rcps-' + grouping + '.pkl'
     vol_fn_pkl = figure_fp + 'regional_vol_annual_22gcms_4rcps-' + grouping + '.pkl'
@@ -4382,9 +4388,13 @@ if option_plot_cmip5_normalizedchange == 1:
                     # Load datasets
                     ds_fn = ('R' + str(region) + '--all--' + gcm_name + '_' + rcp + 
                              '_c2_ba1_100sets_2000_2100--subset.nc')
+#                    ds_fn = ('R' + str(region) + '--all--' + gcm_name + '_' + rcp + 
+#                             '_c2_ba1_100sets_1961_2260.nc')
       
                     # Bypass GCMs that are missing a rcp scenario
                     try:
+                        print(netcdf_fp_cmip5)
+                        print(ds_fn)
                         ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
                         df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
                         df['RGIId'] = ['RGI60-' + str(int(df.O1Region.values[x])) + '.' +
@@ -4555,8 +4565,10 @@ if option_plot_cmip5_normalizedchange == 1:
             # ===== Plot =====            
             # Multi-model statistics
             vn_multimodel = ds_multimodel[rcp][group]
+#            vn_multimodel_mean = vn_multimodel
             vn_multimodel_mean = vn_multimodel.mean(axis=0)
             vn_multimodel_std = vn_multimodel.std(axis=0)
+#            vn_multimodel_std = np.zeros(vn_multimodel_mean.shape)
             vn_multimodel_stdlow = vn_multimodel_mean - vn_multimodel_std
             vn_multimodel_stdhigh = vn_multimodel_mean + vn_multimodel_std
             
@@ -4569,7 +4581,8 @@ if option_plot_cmip5_normalizedchange == 1:
             elif vn == 'runoff_glac_monthly':
                 t1_idx = np.where(time_values_annual == 2000)[0][0]
                 t2_idx = np.where(time_values_annual == 2015)[0][0] + 1
-                vn_normalizer = vn_multimodel.mean(axis=0)[t1_idx:t2_idx].mean()
+#                vn_normalizer = vn_multimodel.mean(axis=0)[t1_idx:t2_idx].mean()
+                vn_normalizer = vn_multimodel[t1_idx:t2_idx].mean()
             vn_multimodel_mean_norm = vn_multimodel_mean / vn_normalizer
             vn_multimodel_std_norm = vn_multimodel_std / vn_normalizer
             vn_multimodel_stdlow_norm = vn_multimodel_mean_norm - vn_multimodel_std_norm

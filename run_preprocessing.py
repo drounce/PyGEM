@@ -62,6 +62,10 @@ def getparser():
                         help='option to produce Farinotti 2019 input products (1=yes, 0=no)')
     parser.add_argument('-option_mbdata_regional', action='store', type=int, default=0,
                         help='option to analzye mass balance data from various sources (1=yes, 0=no)')
+    parser.add_argument('-option_unh_climatedata', action='store', type=int, default=0,
+                        help='option to pre-process UNH climate data into standard form (1=yes, 0=no)')
+    parser.add_argument('-option_regional_meltfactors', action='store', type=int, default=0,
+                        help='option to produce regional meltfactors consistent with hypsometry data (1=yes, 0=no)')
     return parser
 
 parser = getparser()
@@ -889,6 +893,291 @@ if args.option_farinotti2019_input == 1:
     print("\nProcess the ice thickness and surface elevation data from Farinotti (2019) to produce area," + 
           "ice thickness, width, and length for each elevation bin\n")
     
+    
+#%%
+if args.option_unh_climatedata == 1:
+    climate_fp_hist = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Climate_data/UNH_cmip5/CCSM4_RCP_85/'
+    climate_fp_fut = climate_fp_hist + 'r1i1p1/'
+    climate_fp_export = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Climate_data/UNH_cmip5/'
+    
+    # Historical climate
+    hist_fn_pr = []
+    for i in os.listdir(climate_fp_hist):
+        if i.startswith('pr') and i.endswith('.nc'):
+            hist_fn_pr.append(climate_fp_hist + i)
+    hist_fn_pr = sorted(hist_fn_pr)
+    
+    hist_fn_tas = []
+    for i in os.listdir(climate_fp_hist):
+        if i.startswith('tas') and i.endswith('.nc'):
+            hist_fn_tas.append(climate_fp_hist + i)
+    hist_fn_tas = sorted(hist_fn_tas)
+    
+    # Future climate
+    fut_fn_pr = []
+    for i in os.listdir(climate_fp_fut + 'pr/'):
+        if (i.startswith('pr') and i.endswith('.nc') and 
+            not i.endswith('_y.nc') and not i.endswith('_mc.nc') and not i.endswith('_yc.nc')):
+            fut_fn_pr.append(climate_fp_fut + 'pr/' + i)
+    fut_fn_pr = sorted(fut_fn_pr)
+    
+    fut_fn_tas = []
+    for i in os.listdir(climate_fp_fut + 'tas/'):
+        if (i.startswith('tas') and i.endswith('.nc') and 
+            not i.endswith('_y.nc') and not i.endswith('_mc.nc') and not i.endswith('_yc.nc')):
+            fut_fn_tas.append(climate_fp_fut + 'tas/' + i)
+    fut_fn_tas = sorted(fut_fn_tas)
+    
+    # Merge lists
+    tas_fn = hist_fn_tas.copy()
+    tas_fn.extend(fut_fn_tas)
+    pr_fn = hist_fn_pr.copy()
+    pr_fn.extend(fut_fn_pr)
+    
+    # Example dataset
+    ds_example = xr.open_dataset('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Climate_data/cmip5/' + 
+                                 'rcp85_r1i1p1_monNG/tas_mon_CanESM2_rcp85_r1i1p1_native.nc')
+    ds_example_pr = xr.open_dataset('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Climate_data/cmip5/' + 
+                                 'rcp85_r1i1p1_monNG/pr_mon_CanESM2_rcp85_r1i1p1_native.nc')
+    
+    #%%
+    # Merge datasets together
+    ds_tas_all_fullfn = climate_fp_export + 'tas_mon_CCSM4_rcp85_r1i1p1_native.nc'
+    
+    data_tas = None
+    if os.path.exists(ds_tas_all_fullfn) == False:
+        ds_tas_all = None
+        for fn in tas_fn[:301]:
+#        for fn in tas_fn[:5]:
+            print(fn)
+            ds_tas = xr.open_dataset(fn)
+
+            if data_tas is None:
+                data_tas = ds_tas['tas'].values
+            else:
+                data_tas = np.concatenate((data_tas, ds_tas['tas'].values), axis=0)
+
+    #%%
+#    import collections
+#    
+#    lat_values = ds_tas.lat.values
+#    lon_values = ds_tas.lon.values
+#    time_values = pd.date_range('1960-01-01', '2260-12-15',freq='MS')
+#    
+#    # Create new dataset with correct format
+#    output_coords_dict = collections.OrderedDict()
+#    output_coords_dict['tas'] = collections.OrderedDict([('time', time_values), ('lat', lat_values), 
+#                                                         ('lon', lon_values)])
+#    output_attrs_dict = {
+#            'time': {'standard_name': 'time'},
+#            'lat': {'long_name': 'latitude',
+#                    'units': 'degrees N'}, 
+#            'lon': {'long_name': 'longitude',
+#                    'units': 'degrees E'},
+#            'tas': {'long_name': 'air_temperature',
+#                     'units': 'K'}}
+#    
+#    output_ds_all = None
+#    encoding = {}
+#    for vn in output_coords_dict.keys():
+#        empty_holder = np.zeros([len(output_coords_dict[vn][i]) for i in list(output_coords_dict[vn].keys())])
+#        output_ds = xr.Dataset({vn: (list(output_coords_dict[vn].keys()), empty_holder)},
+#                               coords=output_coords_dict[vn])
+#        # Merge datasets of stats into one output
+#        if output_ds_all is None:
+#            output_ds_all = output_ds
+#        else:
+#            output_ds_all = xr.merge((output_ds_all, output_ds))
+#            
+#    # Add attributes
+#    for vn in output_attrs_dict.keys():
+#        try:
+#            output_ds_all[vn].attrs = output_attrs_dict[vn]
+#        except:
+#            pass
+#        # Encoding (specify _FillValue, offsets, etc.)
+#        encoding[vn] = {'_FillValue': False,
+##                        'zlib':True,
+##                        'complevel':9
+#                        }
+#    
+#    output_ds_all['lon'].values = lon_values
+#    output_ds_all['lat'].values = lat_values
+#    output_ds_all['time'].values = time_values
+#    output_ds_all['tas'].values = data_tas
+#    
+#    output_ds_all.attrs = {
+#                        'source': 'University of New Hampshire - Alex Prusevich',
+#                        'history': 'revised by David Rounce (drounce@alaska.edu) for PyGEM format'}
+#    
+#    # Export
+#    output_ds_all.to_netcdf(ds_tas_all_fullfn)
+    
+    
+    #%%
+    # Merge datasets together
+    ds_pr_all_fullfn = climate_fp_export + 'pr_mon_CCSM4_rcp85_r1i1p1_native.nc'
+    
+    data_pr = None
+    if os.path.exists(ds_pr_all_fullfn) == False:
+        ds_pr_all = None
+        for fn in pr_fn[:301]:
+            print(fn)
+            ds_pr = xr.open_dataset(fn)
+
+            if data_pr is None:
+                data_pr = ds_pr['pr'].values
+            else:
+                data_pr = np.concatenate((data_pr, ds_pr['pr'].values), axis=0)
+                
+    #%%
+    print(ds_pr['pr'].units)
+         
+    #%%
+    import collections
+    
+    lat_values = ds_pr.lat.values
+    lon_values = ds_pr.lon.values
+    time_values = pd.date_range('1960-01-01', '2260-12-15',freq='MS')
+    
+    # Create new dataset with correct format
+    output_coords_dict = collections.OrderedDict()
+    output_coords_dict['pr'] = collections.OrderedDict([('time', time_values), ('lat', lat_values), 
+                                                         ('lon', lon_values)])
+    output_attrs_dict = {
+            'time': {'standard_name': 'time'},
+            'lat': {'long_name': 'latitude',
+                    'units': 'degrees N'}, 
+            'lon': {'long_name': 'longitude',
+                    'units': 'degrees E'},
+            'pr': {'long_name': 'precipitation',
+                     'units': ds_pr['pr'].units}}
+    
+    output_ds_all = None
+    encoding = {}
+    for vn in output_coords_dict.keys():
+        empty_holder = np.zeros([len(output_coords_dict[vn][i]) for i in list(output_coords_dict[vn].keys())])
+        output_ds = xr.Dataset({vn: (list(output_coords_dict[vn].keys()), empty_holder)},
+                               coords=output_coords_dict[vn])
+        # Merge datasets of stats into one output
+        if output_ds_all is None:
+            output_ds_all = output_ds
+        else:
+            output_ds_all = xr.merge((output_ds_all, output_ds))
+    
+    # Add attributes
+    for vn in output_attrs_dict.keys():
+        try:
+            output_ds_all[vn].attrs = output_attrs_dict[vn]
+        except:
+            pass
+        # Encoding (specify _FillValue, offsets, etc.)
+        encoding[vn] = {'_FillValue': False,
+#                        'zlib':True,
+#                        'complevel':9
+                        }
+    
+    output_ds_all['lon'].values = lon_values
+    output_ds_all['lat'].values = lat_values
+    output_ds_all['time'].values = time_values
+    output_ds_all['pr'].values = data_pr
+    
+    output_ds_all.attrs = {
+                        'source': 'University of New Hampshire - Alex Prusevich',
+                        'history': 'revised by David Rounce (drounce@alaska.edu) for PyGEM format'}
+    
+    
+    # Export
+    output_ds_all.to_netcdf(ds_pr_all_fullfn)
+    
+    
+#%%
+if args.option_regional_meltfactors == 1:
+    hd_fp = ('/Users/davidrounce/Documents/Dave_Rounce/DebrisGlaciers_WG/Melt_Intercomparison/output/mb_bins/csv/' + 
+             '_wdebris_hdts/')
+    hd_extrap_fp = ('/Users/davidrounce/Documents/Dave_Rounce/DebrisGlaciers_WG/Melt_Intercomparison/output/mb_bins/' + 
+                    'csv/_wdebris_hdts_extrap/')
+    
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, 
+                                                      rgi_regionsO2=input.rgi_regionsO2,
+                                                      rgi_glac_number=input.rgi_glac_number)
+    # Glacier hypsometry [km**2], total area
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath, input.hyps_filedict,
+                                                 input.hyps_colsdrop)
+    # Ice thickness [m], average
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath,
+                                                         input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_icethickness[main_glac_icethickness < 0] = 0
+    main_glac_hyps[main_glac_icethickness == 0] = 0
+    # Width [km], average
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath, input.width_filedict,
+                                                  input.width_colsdrop)
+    elev_bins = main_glac_hyps.columns.values.astype(int)
+    
+    # Load debris thickness filenames
+    # Glaciers optimized
+    glac_hd_fullfns = []
+    for i in os.listdir(hd_fp):
+        if i.endswith('hd_hdts.csv'):
+            region = int(i.split('.')[0])
+            if region in input.rgi_regionsO1:           
+                glac_hd_fullfns.append(hd_fp + i)
+        
+    # Glaciers extrapolated
+    for i in os.listdir(hd_extrap_fp):
+        if i.endswith('hdts_extrap.csv'):
+            region = int(i.split('.')[0])
+            if region in input.rgi_regionsO1:          
+                glac_hd_fullfns.append(hd_extrap_fp + i)
+    glac_hd_fullfns = sorted(glac_hd_fullfns)
+    
+    print('for each glacier, check for any z_offse due to the datasets?')
+    
+    
+    
+    #%%
+    
+
+#            if ds_tas_all is None:
+#                ds_tas_all = ds_tas
+#            else:
+#                ds_tas_all = xr.concat((ds_tas_all, ds_tas), dim='time', coords='all')
+#        ds_tas_all.to_netcdf(ds_tas_all_fullfn)
+#
+#    ds_pr_all_fullfn = climate_fp_export + 'pr_mon_CCSM4_rcp85_r1i1p1_native.nc'
+#    if os.path.exists(ds_pr_all_fullfn) == False:
+#        ds_pr_all = None
+#        for fn in pr_fn[:301]:
+#            print(fn)
+#            ds_pr = xr.open_dataset(fn)
+#            
+#            if ds_pr_all is None:
+#                ds_pr_all = ds_pr
+#            else:
+#                ds_pr_all = xr.concat((ds_pr_all, ds_pr), dim='time', coords='all')
+#        ds_pr_all.to_netcdf(ds_pr_all_fullfn)
+#    
+#    startyear = 1960
+#    endyear = 2260
+#    subtractyear = 100
+#    time_values = pd.date_range(str(int(startyear-subtractyear)) + '-01-01',
+#                                str(int(endyear-subtractyear)) + '-12-15',freq='MS')
+##    print(time_values)
+##    ds_tas_all = xr.open_dataset('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Climate_data/UNH_cmip5/' + 
+##                                 'rcp85_r1i1p1_monNG/tas_mon_CCSM4_rcp85_r1i1p1_native.nc')
+##    ds_tas_all.time.values = time_values
+##    ds_tas_all.to_netcdf('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Climate_data/UNH_cmip5/' + 
+##                                 'rcp85_r1i1p1_monNG/tas_mon_CCSM4_rcp85_r1i1p1_native-v3.nc')
+#    print(ds_tas_all.time)
+#    print(ds_tas_all['tas'][9:3608,254,82])
+#    
+##    ds_pr_all = xr.open_dataset('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Climate_data/UNH_cmip5/' + 
+##                                 'rcp85_r1i1p1_monNG/pr_mon_CCSM4_rcp85_r1i1p1_native.nc')
+##    ds_pr_all.time.values = time_values
+##    ds_pr_all.to_netcdf('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Climate_data/UNH_cmip5/' + 
+##                                 'rcp85_r1i1p1_monNG/pr_mon_CCSM4_rcp85_r1i1p1_native-v3.nc')
+##    print(ds_pr_all.time)
+
 
 #%% Write csv file from model results
 # Create csv such that not importing the air temperature each time (takes 90 seconds for 13,119 glaciers)
