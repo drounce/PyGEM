@@ -847,6 +847,11 @@ def main(list_packed_vars):
                 
                 mb_annual = mbmod.get_annual_mb(elev_bins, year=0, debug=True)
                 
+                if debug:
+                    # Convert m ice s-1 to m w.e. a-1
+                    mb_mwea = mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice / pygem_prms.density_water
+                    print(mb_mwea)
+                
                 #%%
 #                # ====== KEEP THIS TO MAKE SURE FINISH THE SURFACE TYPE SHENANIGANS IN MASS REDISTRIBUTION =====
 #                # run mass balance calculation
