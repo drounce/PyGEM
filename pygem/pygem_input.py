@@ -154,7 +154,7 @@ if constantarea_years > 0:
 spinupyears = 0                 # spin up years
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
-gcm_startyear = 1995            # first year of model run (simulation dataset)
+gcm_startyear = 2000            # first year of model run (simulation dataset)
 gcm_endyear = 2017              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
 #gcm_endyear = 2100              # last year of model run (simulation dataset)
@@ -375,8 +375,8 @@ rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Na
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
 # Filepath for the hypsometry files
 binsize = 10            # Elevation bin height [m]
-#hyps_data = 'oggm'       # Hypsometry dataset (OGGM; Maussion etal 2019)
-hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
+hyps_data = 'oggm'       # Hypsometry dataset (OGGM; Maussion etal 2019)
+#hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
 #hyps_data = 'Farinotti' # Hypsometry dataset (Farinotti etal 2019)
 
 if hyps_data == 'oggm':

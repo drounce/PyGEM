@@ -20,7 +20,7 @@ import scipy
 import cartopy
 import xarray as xr
 # Local Libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 
 
 netcdf_fn = ('/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/simulations/ERA-Interim/' + 
@@ -55,11 +55,11 @@ df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
 #    encoding : dictionary
 #        encoding used with exporting xarray dataset to netcdf
 #    """    
-#    if input.output_package == 2:
+#    if pygem_prms.output_package == 2:
         
 # Create empty datasets for each variable and merge them
 # Coordinate values
-output_variables = input.output_variables_package2
+output_variables = pygem_prms.output_variables_package2
 glac_values = ds.glac.values
 time_values = ds.time.values
 year_values = ds.year.values
@@ -72,7 +72,7 @@ year_type = ds.time.year_type
 #    record_name_values = np.arange(0,sim_iters)
 #elif record_stats == 1:
 #    record_name = 'stats'
-#    record_name_values = input.sim_stat_cns
+#    record_name_values = pygem_prms.sim_stat_cns
 
 # Variable coordinates dictionary
 output_coords_dict = collections.OrderedDict()
@@ -350,7 +350,7 @@ for vn in output_coords_dict.keys():
     else:
         output_ds_all = xr.merge((output_ds_all, output_ds))
 # Add a glacier table so that the glaciers attributes accompany the netcdf file
-#main_glac_rgi_float = main_glac_rgi[input.output_glacier_attr_vns].copy()
+#main_glac_rgi_float = main_glac_rgi[pygem_prms.output_glacier_attr_vns].copy()
 #main_glac_rgi_xr = xr.Dataset({'glacier_table': (('glac', 'glac_attrs'), main_glac_rgi_float.values)},
 #                               coords={'glac': glac_values,
 #                                       'glac_attrs': main_glac_rgi_float.columns.values})

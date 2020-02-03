@@ -21,7 +21,7 @@ import scipy
 import cartopy
 import xarray as xr
 # Local Libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
 import class_mbdata
@@ -42,7 +42,7 @@ option_var_mon2annual = 0
 
 #%% SUBSET RESULTS INTO EACH VARIABLE NAME SO EASIER TO TRANSFER
 if option_var_mon2annual == 1:
-    netcdf_fp_prefix = input.output_filepath + 'simulations/spc/20181108_vars/'
+    netcdf_fp_prefix = pygem_prms.output_filepath + 'simulations/spc/20181108_vars/'
     vns = ['acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 'frontalablation_glac_monthly', 
            'massbaltotal_glac_monthly', 'temp_glac_monthly', 'prec_glac_monthly', 'runoff_glac_monthly']
 #    vns = ['runoff_glac_monthly']
@@ -312,7 +312,7 @@ def plot_latlonvar(lons, lats, variable, rangelow, rangehigh, title, xlabel, yla
                    marker_size=2,
                    option_savefig=0, 
                    fig_fn='Samplefig_fn.png',
-                   output_filepath = input.main_directory + '/../Output/'):
+                   output_filepath = pygem_prms.main_directory + '/../Output/'):
     """
     Plot a variable according to its latitude and longitude
     """
@@ -388,7 +388,7 @@ def plot_caloutput(data):
 #%% ===== PARAMETER RELATIONSHIPS ======
 if option_parameter_relationships == 1:
     # Load csv
-    ds = pd.read_csv(input.main_directory + '/../Output/20180710_cal_modelparams_opt1_R15_ERA-Interim_1995_2015.csv', 
+    ds = pd.read_csv(pygem_prms.main_directory + '/../Output/20180710_cal_modelparams_opt1_R15_ERA-Interim_1995_2015.csv', 
                      index_col=0)
     property_cn = 'Zmed'
     
@@ -452,13 +452,13 @@ if option_parameter_relationships == 1:
     print(equation, ' , R2 =', round(r_value**2,2))  
     # Plot and save figure
     if option_savefigs == 1:
-        plt.savefig(input.output_filepath + 'figures/' + 'modelparameters_vs_' + property_cn + '.png', 
+        plt.savefig(pygem_prms.output_filepath + 'figures/' + 'modelparameters_vs_' + property_cn + '.png', 
                     bbox_inches='tight')
     plt.show()
 
 #%% ===== PLOTTING: Future simulations =====
 if option_plot_futuresim == 1:
-    output_fp = input.output_filepath + 'R15_sims_20180530/'
+    output_fp = pygem_prms.output_filepath + 'R15_sims_20180530/'
     gcm_list = ['MPI-ESM-LR', 'GFDL-CM3', 'CanESM2', 'GISS-E2-R']
 #    gcm_list = ['NorESM1-M']
 #    gcm_list = ['MPI-ESM-LR']
@@ -489,8 +489,8 @@ if option_plot_futuresim == 1:
         volchange_glac_perc_15yrs[np.isnan(volchange_glac_perc_15yrs)==True] = 0
         volume_reg_annual = output['volume_glac_annual'][:].sum(axis=0)
         volume_reg_annualnorm = volume_reg_annual / volume_reg_annual[0] * 100
-        slr_reg_annual_mm = ((volume_reg_annual[0] - volume_reg_annual) * input.density_ice / input.density_water / 
-                             input.area_ocean * 10**6)
+        slr_reg_annual_mm = ((volume_reg_annual[0] - volume_reg_annual) * pygem_prms.density_ice / pygem_prms.density_water / 
+                             pygem_prms.area_ocean * 10**6)
         runoff_glac_monthly = output['runoff_glac_monthly'][:]
         runoff_reg_monthly = runoff_glac_monthly.mean(axis=0)
         acc_glac_monthly = output['acc_glac_monthly'][:]
@@ -560,7 +560,7 @@ if option_mb_shean_analysis == 1:
     option_nearestneighbor_export = 0
     
     # Load csv
-    ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
+    ds = pd.read_csv(pygem_prms.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
                      index_col='GlacNo')
     # Select data of interest
     data_all = ds[['RGIId', 'Area', 'CenLon', 'CenLat', 'mb_mwea', 'mb_mwea_sigma', 'lrgcm', 'lrglac', 'precfactor', 
@@ -744,7 +744,7 @@ if option_geodeticMB_loadcompare == 1:
     
     if rgi_regionsO1[0] == '13, 14, 15':
         # Note: this file was created by manually copying the main_glac_rgi for regions 13, 14, 15 into a csv
-        main_glac_rgi = pd.read_csv(input.main_directory + 
+        main_glac_rgi = pd.read_csv(pygem_prms.main_directory + 
                                     '/../DEMs/geodetic_glacwide_Shean_Maurer_Brun_HMA_20180807.csv')
     else:
         # Mass balance column name
@@ -763,9 +763,9 @@ if option_geodeticMB_loadcompare == 1:
                                                           rgi_glac_number=rgi_glac_number)
         # SHEAN DATA
         # Load all data
-        ds_all_shean = pd.read_csv(input.main_directory + '/../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv')
-        ds_all_shean['RegO1'] = ds_all_shean[input.shean_rgi_glacno_cn].values.astype(int)
-        ds_all_shean['glacno'] = ((ds_all_shean[input.shean_rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
+        ds_all_shean = pd.read_csv(pygem_prms.main_directory + '/../DEMs/Shean_2018_0806/hma_mb_20180803_1229.csv')
+        ds_all_shean['RegO1'] = ds_all_shean[pygem_prms.shean_rgi_glacno_cn].values.astype(int)
+        ds_all_shean['glacno'] = ((ds_all_shean[pygem_prms.shean_rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
         ds_all_shean['RGIId'] = ('RGI60-' + ds_all_shean['RegO1'].astype(str) + '.' +
                                  (ds_all_shean['glacno'] / 10**5).apply(lambda x: '%.5f' % x).str.split('.').str[1])
         # Select glaciers included in main_glac_rgi
@@ -775,9 +775,9 @@ if option_geodeticMB_loadcompare == 1:
         ds_shean['O1Index'] = np.where(main_glac_rgi['RGIId'].isin(ds_shean['RGIId']))[0]
         # Select data for main_glac_rgi
         main_glac_calmassbal_shean = np.zeros((main_glac_rgi.shape[0],4))
-        ds_subset_shean = ds_shean[[input.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, massbal_t1, 
+        ds_subset_shean = ds_shean[[pygem_prms.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, massbal_t1, 
                                     massbal_t2]].values
-        rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
+        rgi_O1Id = main_glac_rgi[pygem_prms.rgi_O1Id_colname].values
         for glac in range(rgi_O1Id.shape[0]):
             try:
                 # Grab the mass balance based on the RGIId Order 1 glacier number
@@ -796,23 +796,23 @@ if option_geodeticMB_loadcompare == 1:
         main_glac_calmassbal_shean = pd.DataFrame(main_glac_calmassbal_shean, 
                                                   columns=[massbal_colname, massbal_uncertainty_colname, massbal_t1, 
                                                            massbal_t2])
-        main_glac_rgi['Shean_MB_mwea'] = main_glac_calmassbal_shean[input.massbal_colname]
-        main_glac_rgi['Shean_MB_mwea_sigma'] = main_glac_calmassbal_shean[input.massbal_uncertainty_colname]
+        main_glac_rgi['Shean_MB_mwea'] = main_glac_calmassbal_shean[pygem_prms.massbal_colname]
+        main_glac_rgi['Shean_MB_mwea_sigma'] = main_glac_calmassbal_shean[pygem_prms.massbal_uncertainty_colname]
         main_glac_rgi['Shean_MB_year1'] = main_glac_calmassbal_shean[massbal_t1]
         main_glac_rgi['Shean_MB_year2'] = main_glac_calmassbal_shean[massbal_t2]
             
         # ===== BRUN DATA =====
         # Load all data
         cal_rgi_colname = 'GLA_ID'
-        ds_all_raw_brun = pd.read_csv(input.brun_fp + input.brun_fn)
+        ds_all_raw_brun = pd.read_csv(pygem_prms.brun_fp + pygem_prms.brun_fn)
         ds_all_brun = ds_all_raw_brun[ds_all_raw_brun['Measured GLA area [percent]'] >= 60].copy()
         ds_all_brun[massbal_t1] = 2000
         ds_all_brun[massbal_t2] = 2016
-        ds_all_brun.rename(columns={input.brun_mb_cn:massbal_colname}, inplace=True)
-        ds_all_brun.rename(columns={input.brun_mb_err_cn:massbal_uncertainty_colname}, inplace=True)
+        ds_all_brun.rename(columns={pygem_prms.brun_mb_cn:massbal_colname}, inplace=True)
+        ds_all_brun.rename(columns={pygem_prms.brun_mb_err_cn:massbal_uncertainty_colname}, inplace=True)
         # Subset glaciers based on region
-        ds_all_brun['RegO1'] = ds_all_brun[input.brun_rgi_glacno_cn].values.astype(int)
-        ds_all_brun['glacno'] = ((ds_all_brun[input.brun_rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
+        ds_all_brun['RegO1'] = ds_all_brun[pygem_prms.brun_rgi_glacno_cn].values.astype(int)
+        ds_all_brun['glacno'] = ((ds_all_brun[pygem_prms.brun_rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
         ds_all_brun['RGIId'] = ('RGI60-' + ds_all_brun['RegO1'].astype(str) + '.' +
                                (ds_all_brun['glacno'] / 10**5).apply(lambda x: '%.5f' % x).str.split('.').str[1])
         # Select glaciers included in main_glac_rgi
@@ -822,7 +822,7 @@ if option_geodeticMB_loadcompare == 1:
         ds_brun['O1Index'] = np.where(main_glac_rgi['RGIId'].isin(ds_brun['RGIId']))[0]
         # Select data for main_glac_rgi
         main_glac_calmassbal_brun = np.zeros((main_glac_rgi.shape[0], 6))
-        ds_subset_brun = ds_brun[[input.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, massbal_t1, 
+        ds_subset_brun = ds_brun[[pygem_prms.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, massbal_t1, 
                                   massbal_t2, 'Tot_GLA_area [km2]', 'Measured GLA area [percent]']].values
         for glac in range(rgi_O1Id.shape[0]):
             try:
@@ -847,15 +847,15 @@ if option_geodeticMB_loadcompare == 1:
         # ===== MAUER DATA =====
         # Load all data
         cal_rgi_colname = 'id'
-        ds_all_raw_mauer = pd.read_csv(input.mauer_fp + input.mauer_fn)
+        ds_all_raw_mauer = pd.read_csv(pygem_prms.mauer_fp + pygem_prms.mauer_fn)
         ds_all_mauer = ds_all_raw_mauer[ds_all_raw_mauer['percentCov'] >= 60].copy()
-        ds_all_mauer.rename(columns={input.mauer_mb_cn:massbal_colname}, inplace=True)
-        ds_all_mauer.rename(columns={input.mauer_mb_err_cn:massbal_uncertainty_colname}, inplace=True)
-        ds_all_mauer.rename(columns={input.mauer_time1_cn:massbal_t1}, inplace=True)
-        ds_all_mauer.rename(columns={input.mauer_time2_cn:massbal_t2}, inplace=True)
+        ds_all_mauer.rename(columns={pygem_prms.mauer_mb_cn:massbal_colname}, inplace=True)
+        ds_all_mauer.rename(columns={pygem_prms.mauer_mb_err_cn:massbal_uncertainty_colname}, inplace=True)
+        ds_all_mauer.rename(columns={pygem_prms.mauer_time1_cn:massbal_t1}, inplace=True)
+        ds_all_mauer.rename(columns={pygem_prms.mauer_time2_cn:massbal_t2}, inplace=True)
         # Subset glaciers based on region
-        ds_all_mauer['RegO1'] = ds_all_mauer[input.mauer_rgi_glacno_cn].values.astype(int)
-        ds_all_mauer['glacno'] = ((ds_all_mauer[input.mauer_rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
+        ds_all_mauer['RegO1'] = ds_all_mauer[pygem_prms.mauer_rgi_glacno_cn].values.astype(int)
+        ds_all_mauer['glacno'] = ((ds_all_mauer[pygem_prms.mauer_rgi_glacno_cn] % 1) * 10**5).round(0).astype(int)
         ds_all_mauer['RGIId'] = ('RGI60-' + ds_all_mauer['RegO1'].astype(str) + '.' +
                                 (ds_all_mauer['glacno'] / 10**5).apply(lambda x: '%.5f' % x).str.split('.').str[1])
         # Select glaciers included in main_glac_rgi
@@ -865,7 +865,7 @@ if option_geodeticMB_loadcompare == 1:
         ds_mauer['O1Index'] = np.where(main_glac_rgi['RGIId'].isin(ds_mauer['RGIId']))[0]
         
         main_glac_calmassbal_mauer = np.zeros((main_glac_rgi.shape[0], 5))
-        ds_subset_mauer = ds_mauer[[input.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, massbal_t1, 
+        ds_subset_mauer = ds_mauer[[pygem_prms.rgi_O1Id_colname, massbal_colname, massbal_uncertainty_colname, massbal_t1, 
                                     massbal_t2, 'percentCov']].values
         
         for glac in range(rgi_O1Id.shape[0]):
@@ -1028,13 +1028,13 @@ if option_calcompare_w_geomb == 1:
     rgi_regionsO1 = [15]
     csv_path = '../DEMs/Shean_2018_0806/hma_mb_20180803_1229_all_filled.csv'
     modelparams_fp_dict = {
-                13: input.output_filepath + 'cal_opt2_20181018/reg13/',
-                14: input.output_filepath + 'cal_opt2_20181018/reg14/',
-                15: input.output_filepath + 'cal_opt2_20181018/reg15/'}
+                13: pygem_prms.output_filepath + 'cal_opt2_20181018/reg13/',
+                14: pygem_prms.output_filepath + 'cal_opt2_20181018/reg14/',
+                15: pygem_prms.output_filepath + 'cal_opt2_20181018/reg15/'}
     sims_fp_dict = {
-                13: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg13/stats/',
-                14: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg14/stats/',
-                15: input.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg15/stats/'}
+                13: pygem_prms.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg13/stats/',
+                14: pygem_prms.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg14/stats/',
+                15: pygem_prms.output_filepath + 'simulations/ERA-Interim_2000_2018_nobiasadj/reg15/stats/'}
     
     cal_data_all = pd.read_csv(csv_path)
     

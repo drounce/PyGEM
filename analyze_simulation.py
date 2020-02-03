@@ -34,7 +34,7 @@ import xarray as xr
 # Local libraries
 import class_climate
 import class_mbdata
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
@@ -73,11 +73,11 @@ option_merge_multimodel_datasets = 0
 option_regional_hyps = 0
 
 #%% ===== Input data =====
-#netcdf_fp_cmip5 = input.output_sim_fp + 'spc_subset/'
-#netcdf_fp_cmip5 = input.output_sim_fp + 'spc_multimodel/'
-netcdf_fp_cmip5 = input.output_filepath + 'simulations/spc_20190914/merged/multimodel/'
-#netcdf_fp_cmip5 = input.output_filepath + 'simulations/CCSM4/'
-netcdf_fp_era = input.output_filepath + 'simulations/spc_20190914/merged/ERA-Interim/'
+#netcdf_fp_cmip5 = pygem_prms.output_sim_fp + 'spc_subset/'
+#netcdf_fp_cmip5 = pygem_prms.output_sim_fp + 'spc_multimodel/'
+netcdf_fp_cmip5 = pygem_prms.output_filepath + 'simulations/spc_20190914/merged/multimodel/'
+#netcdf_fp_cmip5 = pygem_prms.output_filepath + 'simulations/CCSM4/'
+netcdf_fp_era = pygem_prms.output_filepath + 'simulations/spc_20190914/merged/ERA-Interim/'
 
 
 #%%
@@ -254,7 +254,7 @@ srtm_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA.ti
 srtm_contour_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/SRTM_HMA_countours_2km_gt3000m_smooth.shp'
 
 # GRACE mascons
-mascon_fp = input.main_directory + '/../GRACE/GSFC.glb.200301_201607_v02.4/'
+mascon_fp = pygem_prms.main_directory + '/../GRACE/GSFC.glb.200301_201607_v02.4/'
 mascon_fn = 'mascon.txt'
 mascon_cns = ['CenLat', 'CenLon', 'LatWidth', 'LonWidth', 'Area_arcdeg', 'Area_km2', 'location', 'basin', 
               'elevation_flag']
@@ -289,7 +289,7 @@ def pickle_data(fn, data):
         pickle.dump(data, f)
 
 
-def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=input.output_filepath):
+def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=pygem_prms.output_filepath):
     """
     Plot histogram for any bin size
     """           
@@ -352,7 +352,7 @@ def excess_meltwater_m3(glac_vol, option_lastloss=1):
     option_lastloss = 0 calculates excess meltwater from the first time the glacier volume is lost, but does
       not recognize when the glacier volume returns
     """
-    glac_vol_m3 = glac_vol * input.density_ice / input.density_water * 1000**3
+    glac_vol_m3 = glac_vol * pygem_prms.density_ice / pygem_prms.density_water * 1000**3
     if option_lastloss == 1:
         glac_vol_runningmin = np.maximum.accumulate(glac_vol_m3[:,::-1],axis=1)[:,::-1]
         # initial volume sets limit of loss (gaining and then losing ice does not contribute to excess melt)
@@ -423,11 +423,11 @@ def load_glacier_data(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all', rgi
             glac_no=glac_no)
 
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, input.hyps_filepath, input.hyps_filedict,
-                                                     input.hyps_colsdrop)
+    main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, pygem_prms.hyps_filepath, pygem_prms.hyps_filedict,
+                                                     pygem_prms.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness_all = modelsetup.import_Husstable(main_glac_rgi_all, input.thickness_filepath,
-                                                             input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_icethickness_all = modelsetup.import_Husstable(main_glac_rgi_all, pygem_prms.thickness_filepath,
+                                                             pygem_prms.thickness_filedict, pygem_prms.thickness_colsdrop)
     
     # Additional processing
     main_glac_hyps_all[main_glac_icethickness_all == 0] = 0
@@ -488,7 +488,7 @@ def load_glacier_data(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all', rgi
         return main_glac_rgi_all, main_glac_hyps_all, main_glac_icethickness_all, cal_data_all
 
 
-def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input.option_bias_adjustment):
+def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=pygem_prms.option_bias_adjustment):
     """ Load temperature, precipitation, and elevation data associated with GCM/RCP
     """
     regions = list(set(main_glac_rgi.O1Region.tolist()))
@@ -508,19 +508,19 @@ def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input
         gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_region)          
 
         # Adjust reference dates in event that reference is longer than GCM data
-        if input.startyear >= input.gcm_startyear:
-            ref_startyear = input.startyear
+        if pygem_prms.startyear >= pygem_prms.gcm_startyear:
+            ref_startyear = pygem_prms.startyear
         else:
-            ref_startyear = input.gcm_startyear
-        if input.endyear <= input.gcm_endyear:
-            ref_endyear = input.endyear
+            ref_startyear = pygem_prms.gcm_startyear
+        if pygem_prms.endyear <= pygem_prms.gcm_endyear:
+            ref_endyear = pygem_prms.endyear
         else:
-            ref_endyear = input.gcm_endyear
+            ref_endyear = pygem_prms.gcm_endyear
         dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
-                                                   spinupyears=input.spinupyears, 
-                                                   option_wateryear=input.option_wateryear)
+                                                   spinupyears=pygem_prms.spinupyears, 
+                                                   option_wateryear=pygem_prms.option_wateryear)
         # Monthly average from reference climate data
-        ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
+        ref_gcm = class_climate.GCM(name=pygem_prms.ref_gcm_name)
            
         # ===== BIAS CORRECTIONS =====
         # No adjustments
@@ -539,7 +539,7 @@ def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input
                                                                  main_glac_rgi_region)
             
             # OPTION 1: Adjust temp using Huss and Hock (2015), prec similar but addresses for variance and outliers
-            if input.option_bias_adjustment == 1:
+            if pygem_prms.option_bias_adjustment == 1:
                 # Temperature bias correction
                 gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, 
                                                                             dates_table_ref, dates_table)
@@ -548,7 +548,7 @@ def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input
                                                                           dates_table_ref, dates_table)
             
             # OPTION 2: Adjust temp and prec using Huss and Hock (2015)
-            elif input.option_bias_adjustment == 2:
+            elif pygem_prms.option_bias_adjustment == 2:
                 # Temperature bias correction
                 gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, 
                                                                             dates_table_ref, dates_table)
@@ -571,8 +571,8 @@ def retrieve_gcm_data(gcm_name, rcp, main_glac_rgi, option_bias_adjustment=input
 if option_uncertainty_fig == 1:
     #%%
     netcdf_fp_cmip5 = '/Volumes/LaCie/HMA_PyGEM/2019_0914/spc_subset/'
-    netcdf_fp_multi = input.output_filepath + 'simulations/spc_20190914/merged/multimodel/'
-    figure_fp = input.output_sim_fp + 'figures/'
+    netcdf_fp_multi = pygem_prms.output_filepath + 'simulations/spc_20190914/merged/multimodel/'
+    figure_fp = pygem_prms.output_sim_fp + 'figures/'
 #    gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
 #                 'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
 #                 'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
@@ -591,13 +591,13 @@ if option_uncertainty_fig == 1:
 
     # Load glaciers    
     main_glac_rgi, main_glac_hyps, main_glac_icethickness = load_glacier_data(rgi_regionsO1=regions)
-    cal_data = pd.read_csv(input.shean_fp + input.shean_fn)
+    cal_data = pd.read_csv(pygem_prms.shean_fp + pygem_prms.shean_fn)
     print('Check glacier indices are correct')
     
     main_glac_rgi['cal_mwea'] = cal_data['mb_mwea']
     main_glac_rgi['cal_mwea_sigma'] = cal_data['mb_mwea_sigma']
     main_glac_rgi['mass_Gt'] = ((main_glac_hyps.values * main_glac_icethickness.values / 1000).sum(axis=1) 
-                                * input.density_ice / input.density_water)
+                                * pygem_prms.density_ice / pygem_prms.density_water)
     
     #%%
     # SINGLE GCM DATA
@@ -904,13 +904,13 @@ if analyze_multimodel == 1:
 #                    print_max(netcdf_fp_cmip5, i, ds_vns)
             
             # Check multimodel files
-            netcdf_fp = input.output_sim_fp + 'spc_multimodel/'
+            netcdf_fp = pygem_prms.output_sim_fp + 'spc_multimodel/'
             ds_fn = 'R' + str(region) + '_multimodel_' + rcp + '_c2_ba1_100sets_2000_2100.nc'
 
             print_max(netcdf_fp, ds_fn, ds_vns)
     
 ##            # Check specific file
-#            netcdf_fp = input.output_sim_fp + '/spc_zipped/'
+#            netcdf_fp = pygem_prms.output_sim_fp + '/spc_zipped/'
 ###            ds_fn = 'R13_GISS-E2-R_rcp45_c2_ba1_100sets_2000_2100.nc'
 ##            ds_fn = 'R13_CanESM2_rcp45_c2_ba1_100sets_2000_2100.nc'
 #            ds_fn = 'R14_MPI-ESM-LR_rcp45_c2_ba1_100sets_2000_2100.nc'
@@ -926,7 +926,7 @@ if option_runoff_monthlychange_and_components == 1:
     # Note: RECOMPUTE RUNOFF FROM RUNOFF / NOT COMPONENTS TO AVOID AGGREGATING UNCERTAINTIES
     rcps = ['rcp45']
     
-    figure_fp = input.output_sim_fp + 'figures/'
+    figure_fp = pygem_prms.output_sim_fp + 'figures/'
     
     grouping = 'watershed'    
 
@@ -3236,7 +3236,7 @@ if option_watersheds_colored == 1:
     groups = ['Amu_Darya','Brahmaputra','Ganges','Ili','Indus','Inner_Tibetan_Plateau','Inner_Tibetan_Plateau_extended',
               'Irrawaddy','Mekong','Salween','Syr_Darya','Tarim','Yangtze']
     
-    figure_fp = input.output_sim_fp + 'figures/'
+    figure_fp = pygem_prms.output_sim_fp + 'figures/'
     
 #    east = 60
 #    west = 110
@@ -3485,7 +3485,7 @@ if option_watersheds_colored == 1:
         #%%
 if option_cmip5_mb_vs_climate == 1:
     vns_heatmap = ['massbaltotal_glac_monthly', 'temp_glac_monthly', 'prec_glac_monthly']
-    figure_fp = input.output_sim_fp + 'figures/'
+    figure_fp = pygem_prms.output_sim_fp + 'figures/'
     
     startyear=2000
     endyear=2100
@@ -3750,7 +3750,7 @@ if option_cmip5_heatmap_w_volchange == 1:
     grouping = 'himap'
     
     vns_heatmap = ['massbaltotal_glac_monthly', 'temp_glac_monthly', 'prec_glac_monthly']
-    figure_fp = input.output_sim_fp + 'figures/'
+    figure_fp = pygem_prms.output_sim_fp + 'figures/'
     if os.path.exists(figure_fp) == False:
         os.makedirs(figure_fp)
     
@@ -4174,7 +4174,7 @@ if option_cmip5_heatmap_w_volchange == 1:
 
 #%%
 if option_map_gcm_changes == 1:
-    figure_fp = input.output_sim_fp + 'figures/gcm_changes/'
+    figure_fp = pygem_prms.output_sim_fp + 'figures/gcm_changes/'
     if os.path.exists(figure_fp) == False:
         os.makedirs(figure_fp)
             
@@ -4194,9 +4194,9 @@ if option_map_gcm_changes == 1:
     labelsize = 12
     
 #    # Extra information
-#    self.timestep = input.timestep
-#    self.rgi_lat_colname=input.rgi_lat_colname
-#    self.rgi_lon_colname=input.rgi_lon_colname
+#    self.timestep = pygem_prms.timestep
+#    self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+#    self.rgi_lon_colname=pygem_prms.rgi_lon_colname
 #    self.rcp_scenario = rcp_scenario
     
     # Select dates including future projections
@@ -4206,8 +4206,8 @@ if option_map_gcm_changes == 1:
         for ngcm, gcm_name in enumerate(gcm_names):
             
             # Variable filepaths
-            var_fp = input.cmip5_fp_var_prefix + rcp + input.cmip5_fp_var_ending
-            fx_fp = input.cmip5_fp_fx_prefix + rcp + input.cmip5_fp_fx_ending
+            var_fp = pygem_prms.cmip5_fp_var_prefix + rcp + pygem_prms.cmip5_fp_var_ending
+            fx_fp = pygem_prms.cmip5_fp_fx_prefix + rcp + pygem_prms.cmip5_fp_fx_ending
             # Variable filenames
             temp_fn = temp_vn + '_mon_' + gcm_name + '_' + rcp + '_r1i1p1_native.nc'
             prec_fn = prec_vn + '_mon_' + gcm_name + '_' + rcp + '_r1i1p1_native.nc'
@@ -4653,7 +4653,7 @@ if option_plot_cmip5_normalizedchange == 1:
             # Add value to subplot
             plot_str = ''
             if vn == 'volume_glac_annual' and rcp == rcps[-1]:
-                volume_str = str(int(np.round(vn_multimodel_mean[0] * input.density_ice / input.density_water, 0)))
+                volume_str = str(int(np.round(vn_multimodel_mean[0] * pygem_prms.density_ice / pygem_prms.density_water, 0)))
                 plot_str = volume_str
                 if grouping == 'himap':
                     plot_str_loc = 0.05
@@ -4663,8 +4663,8 @@ if option_plot_cmip5_normalizedchange == 1:
             elif vn == 'runoff_glac_monthly' and rcp == rcps[-1]:
                 group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
                 group_volume_Gt = ((main_glac_hyps.values[group_glac_indices,:] * 
-                                    main_glac_icethickness.values[group_glac_indices,:] / 1000 * input.density_ice / 
-                                    input.density_water).sum())
+                                    main_glac_icethickness.values[group_glac_indices,:] / 1000 * pygem_prms.density_ice / 
+                                    pygem_prms.density_water).sum())
                 group_runoff_Gta = ds_multimodel[rcp][group].mean(axis=0)[:15].mean() * (1/1000)**3
                 plot_str = '(' + str(int(np.round(group_runoff_Gta,0))) + ' Gt $\mathregular{yr^{-1}}$)'
                 plot_str_loc = 0.90
@@ -4682,19 +4682,19 @@ if option_plot_cmip5_normalizedchange == 1:
             # Print relevant information
             print(group, rcp, int(np.round(vn_multimodel_mean_norm[-1],2)*100), 
                   '+/-', int(np.round(vn_multimodel_std_norm[-1],2)*100),'% remaining', 
-                  np.round((1-vn_multimodel_mean_norm[-1]) * np.round(vn_multimodel_mean[0] * input.density_ice
-                            / input.density_water,0),0), 
-                  '+/-', np.round(vn_multimodel_std[-1]*input.density_ice/input.density_water,0), 'Gt total loss')
+                  np.round((1-vn_multimodel_mean_norm[-1]) * np.round(vn_multimodel_mean[0] * pygem_prms.density_ice
+                            / pygem_prms.density_water,0),0), 
+                  '+/-', np.round(vn_multimodel_std[-1]*pygem_prms.density_ice/pygem_prms.density_water,0), 'Gt total loss')
                  
             if vn == 'volume_glac_annual':
                 output_df.loc[ncount,:] = (
                         [group, rcp, 
-                         vn_multimodel_mean[0] * input.density_ice / input.density_water,
+                         vn_multimodel_mean[0] * pygem_prms.density_ice / pygem_prms.density_water,
                          vn_multimodel_mean_norm[-1]*100, 
                          vn_multimodel_std_norm[-1]*100,
-                        (1-vn_multimodel_mean_norm[-1]) * vn_multimodel_mean[tnorm_idx] * input.density_ice
-                            / input.density_water,
-                         vn_multimodel_std[-1]*input.density_ice/input.density_water])
+                        (1-vn_multimodel_mean_norm[-1]) * vn_multimodel_mean[tnorm_idx] * pygem_prms.density_ice
+                            / pygem_prms.density_water,
+                         vn_multimodel_std[-1]*pygem_prms.density_ice/pygem_prms.density_water])
                 ncount += 1
             
             if grouping == 'rgi_region':
@@ -4882,14 +4882,14 @@ if option_plot_cmip5_normalizedchange == 1:
                 # Add value to subplot
                 plot_str = ''
                 if vn == 'volume_glac_annual' and rcp == rcps[-1]:
-                    volume_str = str(int(np.round(vn_multimodel_mean[0] * input.density_ice / input.density_water, 0)))
+                    volume_str = str(int(np.round(vn_multimodel_mean[0] * pygem_prms.density_ice / pygem_prms.density_water, 0)))
                     plot_str = '(' + volume_str + ' Gt)'
                     plot_str_loc = 0.83
                 elif vn == 'runoff_glac_monthly' and rcp == rcps[-1]:
                     group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
                     group_volume_Gt = ((main_glac_hyps.values[group_glac_indices,:] * 
-                                        main_glac_icethickness.values[group_glac_indices,:] / 1000 * input.density_ice / 
-                                        input.density_water).sum())
+                                        main_glac_icethickness.values[group_glac_indices,:] / 1000 * pygem_prms.density_ice / 
+                                        pygem_prms.density_water).sum())
                     group_runoff_Gta = ds_multimodel[rcp][group].mean(axis=0)[:15].mean() * (1/1000)**3
 #                    plot_str = str(int(np.round(group_runoff_Gta,0))) + ' Gt $\mathregular{yr^{-1}}$'
                     plot_str = str(np.round(group_runoff_Gta,1)) + ' Gt $\mathregular{yr^{-1}}$'
@@ -5102,7 +5102,7 @@ if option_glaciermip_table == 1:
         output_prefix = 'Area'
         
     
-    output_fp = input.output_sim_fp + 'GlacierMIP/'
+    output_fp = pygem_prms.output_sim_fp + 'GlacierMIP/'
     if os.path.exists(output_fp) == False:
         os.makedirs(output_fp)
     
@@ -5126,7 +5126,7 @@ if option_glaciermip_table == 1:
                 
                 # Load datasets
                 ds_fn = ('R' + str(region) + '--all--' + gcm_name + '_' + rcp + '_c2_ba' + 
-                         str(input.option_bias_adjustment) + '_100sets_2000_2100--subset.nc')
+                         str(pygem_prms.option_bias_adjustment) + '_100sets_2000_2100--subset.nc')
             
                 try:
                     ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
@@ -5202,7 +5202,7 @@ if option_glaciermip_table == 1:
             
             # Load datasets
             ds_fn = ('R' + str(region) + '--all--' + gcm_name + '_' + rcp + '_c2_ba' + 
-                     str(input.option_bias_adjustment) + '_100sets_2000_2100--subset.nc')
+                     str(pygem_prms.option_bias_adjustment) + '_100sets_2000_2100--subset.nc')
             if os.path.exists(netcdf_fp_cmip5 + ds_fn):
                 print(gcm_name, rcp, 'exists')
                 
@@ -5212,7 +5212,7 @@ if option_glaciermip_table == 1:
                 for group in groups:   
                     # Convert volume to water equivalent
                     if vn == 'volume_glac_annual':
-                        output_gcm_rcp_group = ds_all[rcp][gcm_name][group] * input.density_ice / input.density_water
+                        output_gcm_rcp_group = ds_all[rcp][gcm_name][group] * pygem_prms.density_ice / pygem_prms.density_water
                     elif vn == 'area_glac_annual':
                         output_gcm_rcp_group = ds_all[rcp][gcm_name][group]
                     
@@ -5337,7 +5337,7 @@ if option_zemp_compare == 1:
         # Extract start/end indices for calendar year!
         time_values_df = pd.DatetimeIndex(time_values_monthly)
         time_values_yr = np.array([x.year for x in time_values_df])
-        if input.gcm_wateryear == 1:
+        if pygem_prms.gcm_wateryear == 1:
             time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
         time_idx_start = np.where(time_values_yr == startyear)[0][0]
         time_idx_end = np.where(time_values_yr == endyear)[0][0]
@@ -5390,9 +5390,9 @@ if option_zemp_compare == 1:
     mb_annual_std_glac_all = annual_rsos(mb_monthly_std_glac_all)
     
     elevchg_annual_glac_all_fromVol = elevchg_annual_glac_all.copy()
-    elevchg_annual_glac_all = mb_annual_glac_all * input.density_water / input.density_ice
+    elevchg_annual_glac_all = mb_annual_glac_all * pygem_prms.density_water / pygem_prms.density_ice
     # Isolate the elevation change uncertainty from the area and density
-    elevchg_annual_std_glac_all = (np.absolute(mb_annual_glac_all * input.density_water / input.density_ice) *
+    elevchg_annual_std_glac_all = (np.absolute(mb_annual_glac_all * pygem_prms.density_water / pygem_prms.density_ice) *
                                    ((mb_annual_std_glac_all / mb_annual_glac_all)**2 - 0.1**2 - 0.071**2)**0.5)
     elevchg_annual_std_glac_all = np.nan_to_num(elevchg_annual_std_glac_all, 0)
     
@@ -5584,7 +5584,7 @@ if option_zemp_compare == 1:
 ##        # Extract start/end indices for calendar year!
 ##        time_values_df = pd.DatetimeIndex(time_values_monthly)
 ##        time_values_yr = np.array([x.year for x in time_values_df])
-##        if input.gcm_wateryear == 1:
+##        if pygem_prms.gcm_wateryear == 1:
 ##            time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
 ##        time_idx_start = np.where(time_values_yr == startyear)[0][0]
 ##        time_idx_end = np.where(time_values_yr == endyear)[0][0]
@@ -5743,15 +5743,15 @@ if option_gardelle_compare == 1:
 #              'WestNepal_wRGIIds.csv', 'Yigong_19990923_wRGIIds.csv']
 #    gardelle_ELAs_dict = {}
 #    for n, group in enumerate(groups):
-#        ds = pd.read_csv(input.main_directory + '/../qgis_himat/Gardelle_etal2013/' + csv_fn[n])
+#        ds = pd.read_csv(pygem_prms.main_directory + '/../qgis_himat/Gardelle_etal2013/' + csv_fn[n])
 #        A = list(ds.RGIId.unique())
 #        print(group, len(A), '\n', A)
 #        gardelle_ELAs_dict[group] = A
 #    
-#    with open(input.main_directory + '/../qgis_himat/Gardelle_etal2013/gardelle_ELAs_dict.pkl', 'wb') as f:
+#    with open(pygem_prms.main_directory + '/../qgis_himat/Gardelle_etal2013/gardelle_ELAs_dict.pkl', 'wb') as f:
 #        pickle.dump(gardelle_ELAs_dict, f)
 
-    gardelle_dict_fn = input.main_directory + '/../qgis_himat/Gardelle_etal2013/gardelle_ELAs_dict.pkl'
+    gardelle_dict_fn = pygem_prms.main_directory + '/../qgis_himat/Gardelle_etal2013/gardelle_ELAs_dict.pkl'
     with open(gardelle_dict_fn, 'rb') as f:
         gardelle_group_RGIIds = pickle.load(f)
         
@@ -5793,7 +5793,7 @@ if option_gardelle_compare == 1:
         # Extract start/end indices for calendar year!
         time_values_df = pd.DatetimeIndex(time_values_monthly)
         time_values_yr = np.array([x.year for x in time_values_df])
-        if input.gcm_wateryear == 1:
+        if pygem_prms.gcm_wateryear == 1:
             time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
         time_idx_start = np.where(time_values_yr == startyear)[0][0]
         time_idx_end = np.where(time_values_yr == endyear)[0][0]
@@ -5946,7 +5946,7 @@ if option_wgms_compare == 1:
         # Extract start/end indices for calendar year!
         time_values_df = pd.DatetimeIndex(time_values_monthly)
         time_values_yr = np.array([x.year for x in time_values_df])
-        if input.gcm_wateryear == 1:
+        if pygem_prms.gcm_wateryear == 1:
             time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
         time_idx_start = np.where(time_values_yr == startyear)[0][0]
         time_idx_end = np.where(time_values_yr == endyear)[0][0]
@@ -6294,7 +6294,7 @@ if option_dehecq_compare == 1:
     endyear=2017
     wateryear=1
     
-    dehecq_fp = input.main_directory + '/../dehecq_velocity_anomaly/'
+    dehecq_fp = pygem_prms.main_directory + '/../dehecq_velocity_anomaly/'
     dehecq_dict = {'Bhutan': 'vel_ts_bhutan_2000_2017_f0_c0.25.txt',
                    'Everest': 'vel_ts_everest_2000_2017_f0_c0.25.txt',
                    'Hindu Kush': 'vel_ts_hindu_kush_2000_2017_f0_c0.25.txt',
@@ -6336,7 +6336,7 @@ if option_dehecq_compare == 1:
         # Extract start/end indices for calendar year!
         time_values_df = pd.DatetimeIndex(time_values_monthly)
         time_values_yr = np.array([x.year for x in time_values_df])
-        if input.gcm_wateryear == 1:
+        if pygem_prms.gcm_wateryear == 1:
             time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
         time_idx_start = np.where(time_values_yr == startyear)[0][0]
         time_idx_end = np.where(time_values_yr == endyear)[0][0]
@@ -6529,8 +6529,8 @@ if option_nick_snowline == 1:
     B = [pd.to_datetime(str(x)).strftime('%Y-%m-%d') for x in list(time_values_df.values)]
     C = pd.DataFrame(trishuli_data, index=A, columns=B)
     C_std = pd.DataFrame(trishuli_data_std, index=A, columns=B)
-    C.to_csv(input.output_filepath + 'trishuli_snowline_1979_2017.csv')
-    C_std.to_csv(input.output_filepath + 'trishuli_snowline_1979_2017_std.csv')
+    C.to_csv(pygem_prms.output_filepath + 'trishuli_snowline_1979_2017.csv')
+    C_std.to_csv(pygem_prms.output_filepath + 'trishuli_snowline_1979_2017_std.csv')
     
 
 #%%
@@ -6564,7 +6564,7 @@ if runoff_erainterim_bywatershed == 1:
         if ds.time.year_type == 'water year':
             time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
         elif ds.time.year_type == 'custom year':
-            startmonth = int(input.startmonthday.split('-')[0])
+            startmonth = int(pygem_prms.startmonthday.split('-')[0])
             time_values_yr = np.array([x.year + 1 if x.month >= startmonth else x.year for x in time_values_df])
         time_idx_start = np.where(time_values_yr == startyear)[0][0]
         time_idx_end = np.where(time_values_yr == endyear)[0][0]
@@ -6689,7 +6689,7 @@ if runoff_erainterim_bywatershed == 1:
     output_df['runoff_interannual_std_pc'] = output_df['runoff_interannual_std_gta'] / output_df['runoff_gta'] * 100
     output_df['std_corr_perfect_pc'] = output_df['std_corr_gta'] / output_df['runoff_gta'] * 100
     
-    output_df.to_csv(input.output_sim_fp + 'watershed_eraint_' + str(time_values_annual[0]) + '-' + 
+    output_df.to_csv(pygem_prms.output_sim_fp + 'watershed_eraint_' + str(time_values_annual[0]) + '-' + 
                      str(time_values_annual[-1]) + '_runoff.csv', index=False)
         
 #%%
@@ -6717,8 +6717,8 @@ if option_merge_multimodel_datasets == 1:
     # add variables to empty dataset and merge together
     encoding = {}
     noencoding_vn = ['stats', 'glac_attrs']
-    if input.output_package == 2:
-        for encoding_vn in input.output_variables_package2:
+    if pygem_prms.output_package == 2:
+        for encoding_vn in pygem_prms.output_variables_package2:
             # Encoding (specify _FillValue, offsets, etc.)
             if encoding_vn not in noencoding_vn:
                 encoding[encoding_vn] = {'_FillValue': False}
@@ -6728,7 +6728,7 @@ if option_merge_multimodel_datasets == 1:
 
 #%% PROPOSAL FIGURES
 if option_runoff_components_proposal == 1:
-    figure_fp = input.main_directory + '/../HiMAT_2/figures/'
+    figure_fp = pygem_prms.main_directory + '/../HiMAT_2/figures/'
     
     startyear = 2015
     endyear = 2100
@@ -7048,8 +7048,8 @@ if option_plot_cmip5_normalizedchange_proposal == 1:
     endyear = 2100
     
 
-    figure_fp = input.main_directory + '/../HiMAT_2/figures/'
-    runoff_fn_pkl = input.output_sim_fp + 'figures/' + 'watershed_runoff_annual_22gcms_4rcps.pkl'
+    figure_fp = pygem_prms.main_directory + '/../HiMAT_2/figures/'
+    runoff_fn_pkl = pygem_prms.output_sim_fp + 'figures/' + 'watershed_runoff_annual_22gcms_4rcps.pkl'
     option_plot_individual_gcms = 0
     
     # Load glaciers
@@ -7302,8 +7302,8 @@ if option_plot_cmip5_normalizedchange_proposal == 1:
             if vn == 'runoff_glac_monthly' and rcp == rcps[-1]:
                 group_glac_indices = main_glac_rgi.loc[main_glac_rgi[group_cn] == group].index.values.tolist()
                 group_volume_Gt = ((main_glac_hyps.values[group_glac_indices,:] * 
-                                    main_glac_icethickness.values[group_glac_indices,:] / 1000 * input.density_ice / 
-                                    input.density_water).sum())
+                                    main_glac_icethickness.values[group_glac_indices,:] / 1000 * pygem_prms.density_ice / 
+                                    pygem_prms.density_water).sum())
                 group_runoff_Gta = ds_multimodel[rcp][group].mean(axis=0)[:15].mean() * (1/1000)**3
                 plot_str = '(' + str(int(np.round(group_runoff_Gta,0))) + ' Gt $\mathregular{yr^{-1}}$)'
                 plot_str_loc = 0.90
@@ -7467,11 +7467,11 @@ if option_startdate == 1:
     ax.set_ylabel('Count (%)', fontsize=12)
     # Save figure
     fig.set_size_inches(4,3)
-    fig.savefig(input.output_filepath + 'refyear_hist_HMA.png', bbox_inches='tight', dpi=300)
+    fig.savefig(pygem_prms.output_filepath + 'refyear_hist_HMA.png', bbox_inches='tight', dpi=300)
     
 #%%
 if option_excess_meltwater_diagram == 1:
-    fig_fp = input.output_sim_fp + 'figures/'
+    fig_fp = pygem_prms.output_sim_fp + 'figures/'
     
     glacier_mass = np.array([10, 10.5, 9, 8.5, 9, 8, 7.5, 6.5, 7.5, 7, 8, 6, 5, 4.5]) - 4
     excess_meltwater_step_x = np.array([0,1,1,4,4,10,10,11,11,12,12,12]) + 1
@@ -7483,7 +7483,7 @@ if option_excess_meltwater_diagram == 1:
     annual_mb_cumsum = np.zeros((len(glacier_mass)))
     annual_mb_cumsum[1:] = np.cumsum(annual_mb)
     excess_meltwater = np.array([0,1,0,0,1,0,0,0,0,0,2,1,0.5,0])
-#    vol_km3 = np.reshape(vol,(-1,len(vol))) / input.density_ice * input.density_water / 1000**3
+#    vol_km3 = np.reshape(vol,(-1,len(vol))) / pygem_prms.density_ice * pygem_prms.density_water / 1000**3
 #    excess_meltwater = excess_meltwater_m3(vol_km3)
     
     # Create the projection
@@ -7614,7 +7614,7 @@ if option_excess_meltwater_diagram == 1:
 ####list_fns = ['R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--14.nc', 
 ####            'R131415_CCSM4_rcp26_c2_ba1_100sets_2000_2100_batch7--16.nc']
 ##
-#netcdf_fp = input.main_directory + '/../SPC_PYGEM/'
+#netcdf_fp = pygem_prms.main_directory + '/../SPC_PYGEM/'
 #for i in list_fns:
 #    ds = xr.open_dataset(netcdf_fp + i)
 #    df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
@@ -7664,7 +7664,7 @@ if option_excess_meltwater_diagram == 1:
 
 #%%
 if option_caldata_compare == 1:
-    netcdf_fp_era = input.output_sim_fp + 'ERA5/'
+    netcdf_fp_era = pygem_prms.output_sim_fp + 'ERA5/'
     
     regions = [1]
     cal_datasets = ['braun']
@@ -7697,7 +7697,7 @@ if option_caldata_compare == 1:
     # Extract start/end indices for calendar year!
     time_values_df = pd.DatetimeIndex(time_values_monthly)
     time_values_yr = np.array([x.year for x in time_values_df])
-    if input.gcm_wateryear == 1:
+    if pygem_prms.gcm_wateryear == 1:
         time_values_yr = np.array([x.year + 1 if x.month >= 10 else x.year for x in time_values_df])
     time_idx_start = np.where(time_values_yr == startyear)[0][0]
     time_idx_end = np.where(time_values_yr == endyear)[0][0]
@@ -7904,7 +7904,7 @@ if option_caldata_compare == 1:
 #slope_fn = 'slope_deg_01_Farinotti2019_10m.csv'
 #length_fn = 'length_km_01_Farinotti2019_10m.csv'
 #
-#thickness = pd.read_csv(input.hyps_filepath + thickness_fn)
+#thickness = pd.read_csv(pygem_prms.hyps_filepath + thickness_fn)
 #thickness_cns = list(thickness.columns)
 #thickness_cns.remove('RGIId')
 #thickness_values = thickness.loc[:,thickness_cns].values
@@ -7913,44 +7913,44 @@ if option_caldata_compare == 1:
 #
 #thickness_v2 = thickness.copy()
 #thickness_v2.loc[:,thickness_cns] = thickness_values
-#thickness_v2.to_csv(input.hyps_filepath + 'updated/' + thickness_fn, index=False)
+#thickness_v2.to_csv(pygem_prms.hyps_filepath + 'updated/' + thickness_fn, index=False)
 #
-#hyps = pd.read_csv(input.hyps_filepath + hyps_fn)
+#hyps = pd.read_csv(pygem_prms.hyps_filepath + hyps_fn)
 #hyps_values = hyps.loc[:,thickness_cns].values
 #hyps_values[thickness_values == 0] = 0
 #print('hyps < 0', np.where(hyps_values < 0))
 #
 #hyps_v2 = hyps.copy()
 #hyps_v2.loc[:,thickness_cns] = hyps_values
-#hyps_v2.to_csv(input.hyps_filepath + 'updated/' + hyps_fn, index=False)
+#hyps_v2.to_csv(pygem_prms.hyps_filepath + 'updated/' + hyps_fn, index=False)
 #
 #
-#width = pd.read_csv(input.hyps_filepath + width_fn)
+#width = pd.read_csv(pygem_prms.hyps_filepath + width_fn)
 #width_values = width.loc[:,thickness_cns].values
 #width_values[thickness_values == 0] = 0
 #print('width < 0', np.where(width_values < 0))
 #
 #width_v2 = width.copy()
 #width_v2.loc[:,thickness_cns] = width_values
-#width_v2.to_csv(input.hyps_filepath + 'updated/' + width_fn, index=False)
+#width_v2.to_csv(pygem_prms.hyps_filepath + 'updated/' + width_fn, index=False)
 #
-#slope = pd.read_csv(input.hyps_filepath + slope_fn)
+#slope = pd.read_csv(pygem_prms.hyps_filepath + slope_fn)
 #slope_values = slope.loc[:,thickness_cns].values
 #slope_values[thickness_values == 0] = 0
 #print('slope < 0', np.where(slope_values < 0))
 #
 #slope_v2 = slope.copy()
 #slope_v2.loc[:,thickness_cns] = slope_values
-#slope_v2.to_csv(input.hyps_filepath + 'updated/' + slope_fn, index=False)
+#slope_v2.to_csv(pygem_prms.hyps_filepath + 'updated/' + slope_fn, index=False)
 #
-#length = pd.read_csv(input.hyps_filepath + length_fn)
+#length = pd.read_csv(pygem_prms.hyps_filepath + length_fn)
 #length_values = length.loc[:,thickness_cns].values
 #length_values[thickness_values == 0] = 0
 #print('length < 0', np.where(length_values < 0))
 #
 #length_v2 = length.copy()
 #length_v2.loc[:,thickness_cns] = length_values
-#length_v2.to_csv(input.hyps_filepath + 'updated/' + length_fn, index=False)
+#length_v2.to_csv(pygem_prms.hyps_filepath + 'updated/' + length_fn, index=False)
 
 
 

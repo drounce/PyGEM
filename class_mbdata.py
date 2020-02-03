@@ -7,7 +7,7 @@ import calendar
 import collections
 import datetime
 # Local libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 
 
@@ -33,108 +33,108 @@ class MBData():
         self.name = name
         # Set parameters for ERA-Interim and CMIP5 netcdf files
         if self.name == 'shean': 
-            self.ds_fp = input.shean_fp
-            self.ds_fn = input.shean_fn
-            self.rgi_glacno_cn = input.shean_rgi_glacno_cn
-            self.mb_mwea_cn = input.shean_mb_cn
-            self.mb_mwea_err_cn = input.shean_mb_err_cn
-            self.t1_cn = input.shean_time1_cn
-            self.t2_cn = input.shean_time2_cn
-            self.area_cn = input.shean_area_cn
+            self.ds_fp = pygem_prms.shean_fp
+            self.ds_fn = pygem_prms.shean_fn
+            self.rgi_glacno_cn = pygem_prms.shean_rgi_glacno_cn
+            self.mb_mwea_cn = pygem_prms.shean_mb_cn
+            self.mb_mwea_err_cn = pygem_prms.shean_mb_err_cn
+            self.t1_cn = pygem_prms.shean_time1_cn
+            self.t2_cn = pygem_prms.shean_time2_cn
+            self.area_cn = pygem_prms.shean_area_cn
             
         elif self.name == 'berthier': 
-            self.ds_fp = input.berthier_fp
-            self.ds_fn = input.berthier_fn
-            self.rgi_glacno_cn = input.berthier_rgi_glacno_cn
-            self.mb_mwea_cn = input.berthier_mb_cn
-            self.mb_mwea_err_cn = input.berthier_mb_err_cn
-            self.t1_cn = input.berthier_time1_cn
-            self.t2_cn = input.berthier_time2_cn
-            self.area_cn = input.berthier_area_cn
+            self.ds_fp = pygem_prms.berthier_fp
+            self.ds_fn = pygem_prms.berthier_fn
+            self.rgi_glacno_cn = pygem_prms.berthier_rgi_glacno_cn
+            self.mb_mwea_cn = pygem_prms.berthier_mb_cn
+            self.mb_mwea_err_cn = pygem_prms.berthier_mb_err_cn
+            self.t1_cn = pygem_prms.berthier_time1_cn
+            self.t2_cn = pygem_prms.berthier_time2_cn
+            self.area_cn = pygem_prms.berthier_area_cn
         
         elif self.name == 'braun': 
-            self.ds_fp = input.braun_fp
-            self.ds_fn = input.braun_fn
-            self.rgi_glacno_cn = input.braun_rgi_glacno_cn
-            self.mb_mwea_cn = input.braun_mb_cn
-            self.mb_mwea_err_cn = input.braun_mb_err_cn
-            self.t1_cn = input.braun_time1_cn
-            self.t2_cn = input.braun_time2_cn
-            self.area_cn = input.braun_area_cn
+            self.ds_fp = pygem_prms.braun_fp
+            self.ds_fn = pygem_prms.braun_fn
+            self.rgi_glacno_cn = pygem_prms.braun_rgi_glacno_cn
+            self.mb_mwea_cn = pygem_prms.braun_mb_cn
+            self.mb_mwea_err_cn = pygem_prms.braun_mb_err_cn
+            self.t1_cn = pygem_prms.braun_time1_cn
+            self.t2_cn = pygem_prms.braun_time2_cn
+            self.area_cn = pygem_prms.braun_area_cn
             
         elif self.name == 'mcnabb':
-            self.ds_fp = input.mcnabb_fp
-            self.ds_fn = input.mcnabb_fn
-            self.rgi_glacno_cn = input.mcnabb_rgiid_cn
-            self.mb_mwea_cn = input.mcnabb_mb_cn
-            self.mb_mwea_err_cn = input.mcnabb_mb_err_cn
-            self.t1_cn = input.mcnabb_time1_cn
-            self.t2_cn = input.mcnabb_time2_cn
-            self.area_cn = input.mcnabb_area_cn
+            self.ds_fp = pygem_prms.mcnabb_fp
+            self.ds_fn = pygem_prms.mcnabb_fn
+            self.rgi_glacno_cn = pygem_prms.mcnabb_rgiid_cn
+            self.mb_mwea_cn = pygem_prms.mcnabb_mb_cn
+            self.mb_mwea_err_cn = pygem_prms.mcnabb_mb_err_cn
+            self.t1_cn = pygem_prms.mcnabb_time1_cn
+            self.t2_cn = pygem_prms.mcnabb_time2_cn
+            self.area_cn = pygem_prms.mcnabb_area_cn
         
         elif self.name == 'larsen':
-            self.ds_fp = input.larsen_fp
-            self.ds_fn = input.larsen_fn
-            self.rgi_glacno_cn = input.larsen_rgiid_cn
-            self.mb_mwea_cn = input.larsen_mb_cn
-            self.mb_mwea_err_cn = input.larsen_mb_err_cn
-            self.t1_cn = input.larsen_time1_cn
-            self.t2_cn = input.larsen_time2_cn
-            self.area_cn = input.larsen_area_cn
+            self.ds_fp = pygem_prms.larsen_fp
+            self.ds_fn = pygem_prms.larsen_fn
+            self.rgi_glacno_cn = pygem_prms.larsen_rgiid_cn
+            self.mb_mwea_cn = pygem_prms.larsen_mb_cn
+            self.mb_mwea_err_cn = pygem_prms.larsen_mb_err_cn
+            self.t1_cn = pygem_prms.larsen_time1_cn
+            self.t2_cn = pygem_prms.larsen_time2_cn
+            self.area_cn = pygem_prms.larsen_area_cn
         
         elif self.name == 'brun':
-            self.data_fp = input.brun_fp
+            self.data_fp = pygem_prms.brun_fp
             
         elif self.name == 'mauer':
-            self.ds_fp = input.mauer_fp
-            self.ds_fn = input.mauer_fn
-            self.rgi_glacno_cn = input.mauer_rgi_glacno_cn
-            self.mb_mwea_cn = input.mauer_mb_cn
-            self.mb_mwea_err_cn = input.mauer_mb_err_cn
-            self.t1_cn = input.mauer_time1_cn
-            self.t2_cn = input.mauer_time2_cn
+            self.ds_fp = pygem_prms.mauer_fp
+            self.ds_fn = pygem_prms.mauer_fn
+            self.rgi_glacno_cn = pygem_prms.mauer_rgi_glacno_cn
+            self.mb_mwea_cn = pygem_prms.mauer_mb_cn
+            self.mb_mwea_err_cn = pygem_prms.mauer_mb_err_cn
+            self.t1_cn = pygem_prms.mauer_time1_cn
+            self.t2_cn = pygem_prms.mauer_time2_cn
             
         elif self.name == 'wgms_d':
-            self.ds_fp = input.wgms_fp
-            self.ds_fn = input.wgms_d_fn_preprocessed
-            self.rgi_glacno_cn = input.wgms_rgi_glacno_cn
-            self.thickness_chg_cn = input.wgms_d_thickness_chg_cn
-            self.thickness_chg_err_cn = input.wgms_d_thickness_chg_err_cn
-            self.volume_chg_cn = input.wgms_d_volume_chg_cn
-            self.volume_chg_err_cn = input.wgms_d_volume_chg_err_cn
-            self.z1_cn = input.wgms_d_z1_cn
-            self.z2_cn = input.wgms_d_z2_cn
-            self.obs_type_cn = input.wgms_obs_type_cn
+            self.ds_fp = pygem_prms.wgms_fp
+            self.ds_fn = pygem_prms.wgms_d_fn_preprocessed
+            self.rgi_glacno_cn = pygem_prms.wgms_rgi_glacno_cn
+            self.thickness_chg_cn = pygem_prms.wgms_d_thickness_chg_cn
+            self.thickness_chg_err_cn = pygem_prms.wgms_d_thickness_chg_err_cn
+            self.volume_chg_cn = pygem_prms.wgms_d_volume_chg_cn
+            self.volume_chg_err_cn = pygem_prms.wgms_d_volume_chg_err_cn
+            self.z1_cn = pygem_prms.wgms_d_z1_cn
+            self.z2_cn = pygem_prms.wgms_d_z2_cn
+            self.obs_type_cn = pygem_prms.wgms_obs_type_cn
         
         elif self.name == 'wgms_ee':
-            self.ds_fp = input.wgms_fp
-            self.ds_fn = input.wgms_ee_fn_preprocessed
-            self.rgi_glacno_cn = input.wgms_rgi_glacno_cn
-            self.mb_mwe_cn = input.wgms_ee_mb_cn
-            self.mb_mwe_err_cn = input.wgms_ee_mb_err_cn
-            self.t1_cn = input.wgms_ee_t1_cn
-            self.period_cn = input.wgms_ee_period_cn
-            self.z1_cn = input.wgms_ee_z1_cn
-            self.z2_cn = input.wgms_ee_z2_cn
-            self.obs_type_cn = input.wgms_obs_type_cn
+            self.ds_fp = pygem_prms.wgms_fp
+            self.ds_fn = pygem_prms.wgms_ee_fn_preprocessed
+            self.rgi_glacno_cn = pygem_prms.wgms_rgi_glacno_cn
+            self.mb_mwe_cn = pygem_prms.wgms_ee_mb_cn
+            self.mb_mwe_err_cn = pygem_prms.wgms_ee_mb_err_cn
+            self.t1_cn = pygem_prms.wgms_ee_t1_cn
+            self.period_cn = pygem_prms.wgms_ee_period_cn
+            self.z1_cn = pygem_prms.wgms_ee_z1_cn
+            self.z2_cn = pygem_prms.wgms_ee_z2_cn
+            self.obs_type_cn = pygem_prms.wgms_obs_type_cn
             
         elif self.name == 'cogley':
-            self.ds_fp = input.cogley_fp
-            self.ds_fn = input.cogley_fn_preprocessed
-            self.rgi_glacno_cn = input.cogley_rgi_glacno_cn
-            self.mass_chg_cn = input.cogley_mass_chg_cn
-            self.mass_chg_err_cn = input.cogley_mass_chg_err_cn
-            self.z1_cn = input.cogley_z1_cn
-            self.z2_cn = input.cogley_z2_cn
-            self.obs_type_cn = input.cogley_obs_type_cn
+            self.ds_fp = pygem_prms.cogley_fp
+            self.ds_fn = pygem_prms.cogley_fn_preprocessed
+            self.rgi_glacno_cn = pygem_prms.cogley_rgi_glacno_cn
+            self.mass_chg_cn = pygem_prms.cogley_mass_chg_cn
+            self.mass_chg_err_cn = pygem_prms.cogley_mass_chg_err_cn
+            self.z1_cn = pygem_prms.cogley_z1_cn
+            self.z2_cn = pygem_prms.cogley_z2_cn
+            self.obs_type_cn = pygem_prms.cogley_obs_type_cn
             
         elif self.name == 'group':
-            self.ds_fp = input.mb_group_fp
-            self.ds_fn = input.mb_group_data_fn
-            self.ds_dict_fn = input.mb_group_dict_fn
+            self.ds_fp = pygem_prms.mb_group_fp
+            self.ds_fn = pygem_prms.mb_group_data_fn
+            self.ds_dict_fn = pygem_prms.mb_group_dict_fn
             self.rgi_regionO1_cn = 'rgi_regionO1'
-            self.t1_cn = input.mb_group_t1_cn
-            self.t2_cn = input.mb_group_t2_cn
+            self.t1_cn = pygem_prms.mb_group_t1_cn
+            self.t2_cn = pygem_prms.mb_group_t2_cn
     
             
     def retrieve_mb(self, main_glac_rgi, main_glac_hyps, dates_table):
@@ -227,8 +227,8 @@ class MBData():
             ds['mb_mwe'] = ds[self.mb_mwea_cn] * (ds['t2'] - ds['t1'])
             ds['mb_mwe_err'] = ds[self.mb_mwea_err_cn] * (ds['t2'] - ds['t1']) 
 #            # Total mass change [Gt]
-#            ds['mb_gt'] = ds[self.mb_vol_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * input.density_water / 1000
-#            ds['mb_gt_err'] = ds[self.mb_vol_err_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * input.density_water / 1000
+#            ds['mb_gt'] = ds[self.mb_vol_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * pygem_prms.density_water / 1000
+#            ds['mb_gt_err'] = ds[self.mb_vol_err_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * pygem_prms.density_water / 1000
             if 'obs_type' not in list(ds.columns.values):
                 # Observation type
                 ds['obs_type'] = 'mb_geo'
@@ -388,11 +388,11 @@ class MBData():
             latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
             ds['CenLat'] = ds['RGIId'].map(latdict)
             ds['lat_category'] = np.nan
-            ds.loc[ds['CenLat'] >= input.lat_threshold, 'lat_category'] = 'northernmost'
-            ds.loc[(ds['CenLat'] < input.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
-            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*input.lat_threshold), 'lat_category'] = 'south'
-            ds.loc[ds['CenLat'] <= -1*input.lat_threshold, 'lat_category'] = 'southernmost'
-            ds['months_wintersummer'] = ds['lat_category'].map(input.monthdict)
+            ds.loc[ds['CenLat'] >= pygem_prms.lat_threshold, 'lat_category'] = 'northernmost'
+            ds.loc[(ds['CenLat'] < pygem_prms.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
+            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*pygem_prms.lat_threshold), 'lat_category'] = 'south'
+            ds.loc[ds['CenLat'] <= -1*pygem_prms.lat_threshold, 'lat_category'] = 'southernmost'
+            ds['months_wintersummer'] = ds['lat_category'].map(pygem_prms.monthdict)
             ds['winter_begin'] = ds['months_wintersummer'].apply(lambda x: x[0])
             ds['winter_end'] = ds['months_wintersummer'].apply(lambda x: x[1])
             ds['summer_begin'] = ds['months_wintersummer'].apply(lambda x: x[2])
@@ -454,15 +454,15 @@ class MBData():
             #  if thickness change is available, then compute the specific mass balance with the thickness change
             #  otherwise, use the volume change and area to estimate the specific mass balance
             # using thickness change
-            ds['mb_mwe'] = ds[self.thickness_chg_cn] / 1000 * input.density_ice / input.density_water
-            ds['mb_mwe_err'] = ds[self.thickness_chg_err_cn] / 1000 * input.density_ice / input.density_water
+            ds['mb_mwe'] = ds[self.thickness_chg_cn] / 1000 * pygem_prms.density_ice / pygem_prms.density_water
+            ds['mb_mwe_err'] = ds[self.thickness_chg_err_cn] / 1000 * pygem_prms.density_ice / pygem_prms.density_water
             # using volume change (note: units volume change [1000 m3] and area [km2])
             ds.loc[ds.mb_mwe.isnull(), 'mb_mwe'] = (
                     ds.loc[ds.mb_mwe.isnull(), self.volume_chg_cn] * 1000 / ds.loc[ds.mb_mwe.isnull(), 'area_km2'] * 
-                    (1/1000)**2 * input.density_ice / input.density_water)
+                    (1/1000)**2 * pygem_prms.density_ice / pygem_prms.density_water)
             ds.loc[ds.mb_mwe.isnull(), 'mb_mwe'] = (
                     ds.loc[ds.mb_mwe.isnull(), self.volume_chg_err_cn] * 1000 / ds.loc[ds.mb_mwe.isnull(), 'area_km2'] * 
-                    (1/1000)**2 * input.density_ice / input.density_water)
+                    (1/1000)**2 * pygem_prms.density_ice / pygem_prms.density_water)
             # Observation type
             ds['obs_type'] = 'mb_geo'
         
@@ -513,11 +513,11 @@ class MBData():
             latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
             ds['CenLat'] = ds['RGIId'].map(latdict)
             ds['lat_category'] = np.nan
-            ds.loc[ds['CenLat'] >= input.lat_threshold, 'lat_category'] = 'northernmost'
-            ds.loc[(ds['CenLat'] < input.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
-            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*input.lat_threshold), 'lat_category'] = 'south'
-            ds.loc[ds['CenLat'] <= -1*input.lat_threshold, 'lat_category'] = 'southernmost'
-            ds['months_wintersummer'] = ds['lat_category'].map(input.monthdict)
+            ds.loc[ds['CenLat'] >= pygem_prms.lat_threshold, 'lat_category'] = 'northernmost'
+            ds.loc[(ds['CenLat'] < pygem_prms.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
+            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*pygem_prms.lat_threshold), 'lat_category'] = 'south'
+            ds.loc[ds['CenLat'] <= -1*pygem_prms.lat_threshold, 'lat_category'] = 'southernmost'
+            ds['months_wintersummer'] = ds['lat_category'].map(pygem_prms.monthdict)
             ds['winter_begin'] = ds['months_wintersummer'].apply(lambda x: x[0])
             ds['winter_end'] = ds['months_wintersummer'].apply(lambda x: x[1])
             ds['summer_begin'] = ds['months_wintersummer'].apply(lambda x: x[2])
@@ -593,8 +593,8 @@ class MBData():
             ds['mb_mwe'] = ds[self.mb_mwe_cn] / 1000
             ds['mb_mwe_err'] = ds[self.mb_mwe_err_cn] / 1000
 #            # Total mass change [Gt]
-#            ds['mb_gt'] = ds[self.mb_mwe_cn] / 1000 * ds['area_km2'] * 1000**2 * input.density_water / 1000 / 10**9
-#            ds['mb_gt_err'] = (ds[self.mb_mwe_err_cn] / 1000 * ds['area_km2'] * 1000**2 * input.density_water / 1000 
+#            ds['mb_gt'] = ds[self.mb_mwe_cn] / 1000 * ds['area_km2'] * 1000**2 * pygem_prms.density_water / 1000 / 10**9
+#            ds['mb_gt_err'] = (ds[self.mb_mwe_err_cn] / 1000 * ds['area_km2'] * 1000**2 * pygem_prms.density_water / 1000 
 #                               / 10**9)
             # Observation type
             ds['obs_type'] = 'mb_glac'
@@ -639,11 +639,11 @@ class MBData():
             latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
             ds['CenLat'] = ds['RGIId'].map(latdict)
             ds['lat_category'] = np.nan
-            ds.loc[ds['CenLat'] >= input.lat_threshold, 'lat_category'] = 'northernmost'
-            ds.loc[(ds['CenLat'] < input.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
-            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*input.lat_threshold), 'lat_category'] = 'south'
-            ds.loc[ds['CenLat'] <= -1*input.lat_threshold, 'lat_category'] = 'southernmost'
-            ds['months_wintersummer'] = ds['lat_category'].map(input.monthdict)
+            ds.loc[ds['CenLat'] >= pygem_prms.lat_threshold, 'lat_category'] = 'northernmost'
+            ds.loc[(ds['CenLat'] < pygem_prms.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
+            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*pygem_prms.lat_threshold), 'lat_category'] = 'south'
+            ds.loc[ds['CenLat'] <= -1*pygem_prms.lat_threshold, 'lat_category'] = 'southernmost'
+            ds['months_wintersummer'] = ds['lat_category'].map(pygem_prms.monthdict)
             ds['winter_begin'] = ds['months_wintersummer'].apply(lambda x: x[0])
             ds['winter_end'] = ds['months_wintersummer'].apply(lambda x: x[1])
             ds['summer_begin'] = ds['months_wintersummer'].apply(lambda x: x[2])
@@ -690,8 +690,8 @@ class MBData():
                 ds.loc[x,'t2_idx'] = (dates_table[(ds.loc[x, 't2_year'] == dates_table['year']) & 
                                                   (ds.loc[x, 't2_month'] == dates_table['month'])].index.values[0])
             # Specific mass balance [mwe]
-            ds['mb_mwe'] = ds[self.mass_chg_cn] / input.density_water * (ds['t2'] - ds['t1'])
-            ds['mb_mwe_err'] = ds[self.mass_chg_err_cn] / input.density_water * (ds['t2'] - ds['t1'])
+            ds['mb_mwe'] = ds[self.mass_chg_cn] / pygem_prms.density_water * (ds['t2'] - ds['t1'])
+            ds['mb_mwe_err'] = ds[self.mass_chg_err_cn] / pygem_prms.density_water * (ds['t2'] - ds['t1'])
             # Observation type
             ds['obs_type'] = 'mb_geo'
             
@@ -745,8 +745,8 @@ class MBData():
             ds['mb_mwe'] = ds[self.mb_mwea_cn] * (ds['t2'] - ds['t1'])
             ds['mb_mwe_err'] = ds[self.mb_mwea_err_cn] * (ds['t2'] - ds['t1']) 
             # Total mass change [Gt]
-#            ds['mb_gt'] = ds[self.mb_vol_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * input.density_water / 1000
-#            ds['mb_gt_err'] = ds[self.mb_vol_err_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * input.density_water / 1000
+#            ds['mb_gt'] = ds[self.mb_vol_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * pygem_prms.density_water / 1000
+#            ds['mb_gt_err'] = ds[self.mb_vol_err_cn] * (ds['t2'] - ds['t1']) * (1/1000)**3 * pygem_prms.density_water / 1000
             # Observation type
             ds['obs_type'] = 'mb_geo'
         
@@ -780,11 +780,11 @@ class MBData():
             latdict = dict(zip(main_glac_rgi['RGIId'], main_glac_rgi['CenLat']))
             ds['CenLat'] = ds['first_RGIId'].map(latdict)
             ds['lat_category'] = np.nan
-            ds.loc[ds['CenLat'] >= input.lat_threshold, 'lat_category'] = 'northernmost'
-            ds.loc[(ds['CenLat'] < input.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
-            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*input.lat_threshold), 'lat_category'] = 'south'
-            ds.loc[ds['CenLat'] <= -1*input.lat_threshold, 'lat_category'] = 'southernmost'
-            ds['months_wintersummer'] = ds['lat_category'].map(input.monthdict)
+            ds.loc[ds['CenLat'] >= pygem_prms.lat_threshold, 'lat_category'] = 'northernmost'
+            ds.loc[(ds['CenLat'] < pygem_prms.lat_threshold) & (ds['CenLat'] > 0), 'lat_category'] = 'north'
+            ds.loc[(ds['CenLat'] <= 0) & (ds['CenLat'] > -1*pygem_prms.lat_threshold), 'lat_category'] = 'south'
+            ds.loc[ds['CenLat'] <= -1*pygem_prms.lat_threshold, 'lat_category'] = 'southernmost'
+            ds['months_wintersummer'] = ds['lat_category'].map(pygem_prms.monthdict)
             ds['winter_begin'] = ds['months_wintersummer'].apply(lambda x: x[0])
             ds['winter_end'] = ds['months_wintersummer'].apply(lambda x: x[1])
             ds['summer_begin'] = ds['months_wintersummer'].apply(lambda x: x[2])
@@ -834,10 +834,10 @@ class MBData():
             ds['mb_mwe'] = np.nan
             ds['mb_mwe_err'] = np.nan
             ds.loc[ds['dhdt_ma'].notnull(), 'mb_mwe'] = (
-                    ds.loc[ds['dhdt_ma'].notnull(), 'dhdt_ma'] * input.density_ice / input.density_water * 
+                    ds.loc[ds['dhdt_ma'].notnull(), 'dhdt_ma'] * pygem_prms.density_ice / pygem_prms.density_water * 
                     (ds['t2'] - ds['t1']))
             ds.loc[ds['dhdt_ma'].notnull(), 'mb_mwe_err'] = (
-                    ds.loc[ds['dhdt_ma'].notnull(), 'dhdt_unc_ma'] * input.density_ice / input.density_water * 
+                    ds.loc[ds['dhdt_ma'].notnull(), 'dhdt_unc_ma'] * pygem_prms.density_ice / pygem_prms.density_water * 
                     (ds['t2'] - ds['t1']))
         
         
@@ -900,7 +900,7 @@ if __name__ == '__main__':
     # Glacier selection
     rgi_regionsO1 = [1]
     rgi_glac_number = 'all'
-    glac_no = input.glac_no
+    glac_no = pygem_prms.glac_no
     startyear = 1950
     endyear = 2018
     
@@ -914,10 +914,10 @@ if __name__ == '__main__':
 #        print('  marine:', np.round(marine.Area.sum() / main_glac_rgi.Area.sum() * 100,0))
 #        print('  lake:',  np.round(lake.Area.sum() / main_glac_rgi.Area.sum() * 100,0))
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 = 'all', 
-                                                      rgi_glac_number=rgi_glac_number, glac_no=input.glac_no)
+                                                      rgi_glac_number=rgi_glac_number, glac_no=pygem_prms.glac_no)
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath, input.hyps_filedict, 
-                                                 input.hyps_colsdrop)
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.hyps_filepath, pygem_prms.hyps_filedict, 
+                                                 pygem_prms.hyps_colsdrop)
     # Determine dates_table_idx that coincides with data
     dates_table = modelsetup.datesmodelrun(startyear, endyear, spinupyears=0, option_wateryear=3)
     
@@ -960,7 +960,7 @@ if __name__ == '__main__':
 #    cal_data_best = cal_data_best.drop(['group_name', 'sla_m', 'WGMS_ID'], axis=1)
 #    cal_data_best['mb_mwea'] = cal_data_best.mb_mwe / cal_data_best.dt
 #    cal_data_best['mb_mwea_sigma'] = cal_data_best.mb_mwe_err / cal_data_best.dt
-#    cal_data_best.to_csv(input.braun_fp + 'braun_AK_all_20190924_wlarsen_mcnabb_best.csv', index=False)
+#    cal_data_best.to_csv(pygem_prms.braun_fp + 'braun_AK_all_20190924_wlarsen_mcnabb_best.csv', index=False)
     
 
 #%% PRE-PROCESS MCNABB DATA
@@ -974,10 +974,10 @@ if __name__ == '__main__':
 #    output_fn = 'McNabb_data_all_preprocessed.csv'
 #    
 #    # Load data
-#    ds_raw = pd.read_csv(input.mcnabb_fp + mcnabb_fn)
+#    ds_raw = pd.read_csv(pygem_prms.mcnabb_fp + mcnabb_fn)
 #    ds_raw['glacno_str'] = [x.split('-')[1] for x in ds_raw.RGIId.values]
-#    ds_raw['mb_mwea'] = ds_raw['smb'] * density_ice_brun / input.density_water
-#    ds_raw['mb_mwea_sigma'] = ds_raw['e_dh'] * density_ice_brun / input.density_water
+#    ds_raw['mb_mwea'] = ds_raw['smb'] * density_ice_brun / pygem_prms.density_water
+#    ds_raw['mb_mwea_sigma'] = ds_raw['e_dh'] * density_ice_brun / pygem_prms.density_water
 #    nraw = ds_raw.shape[0]
 #    
 #    # remove data with poor coverage
@@ -1038,7 +1038,7 @@ if __name__ == '__main__':
 #    ds_output['date1'] = ds_output['y1'] + ds_output['m1'] + ds_output['d1']
 #    ds_output.drop(['y0', 'm0', 'd0', 'y1', 'm1', 'd1'], axis=1, inplace=True)
 #    
-#    ds_output.to_csv(input.mcnabb_fp + output_fn)
+#    ds_output.to_csv(pygem_prms.mcnabb_fp + output_fn)
     
 
 #%%
@@ -1046,7 +1046,7 @@ if __name__ == '__main__':
 #    mauer_fn = 'Mauer_geoMB_HMA_1970s_2000.csv'
 #    min_pctCov = 80
 #    
-#    ds = pd.read_csv(input.mauer_fp + mauer_fn)
+#    ds = pd.read_csv(pygem_prms.mauer_fp + mauer_fn)
 #    ds.dropna(axis=0, how='any', inplace=True)
 #    ds.sort_values('RGIId')
 #    ds.reset_index(drop=True, inplace=True)
@@ -1071,7 +1071,7 @@ if __name__ == '__main__':
 #    ds2['RGIId'] = ds2['RegO1'] + ds2['glacno'] / 10**5
 #    ds2.reset_index(drop=True, inplace=True)
 #    ds2.drop(['RegO1', 'glacno'], axis=1, inplace=True)
-#    ds2.to_csv(input.mauer_fp + input.mauer_fn.split('.csv')[0] + '_min' + str(min_pctCov) + 'pctCov.csv', index=False)
+#    ds2.to_csv(pygem_prms.mauer_fp + pygem_prms.mauer_fn.split('.csv')[0] + '_min' + str(min_pctCov) + 'pctCov.csv', index=False)
 #    
 #    # Pickle lists of glacier numbers for each region
 #    import pickle
@@ -1098,8 +1098,8 @@ if __name__ == '__main__':
 #    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=[region], rgi_regionsO2 = 'all', 
 #                                                      rgi_glac_number=rgi_glac_number)
 #    # Glacier hypsometry [km**2], total area
-#    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath, 
-#                                                 input.hyps_filedict, input.hyps_colsdrop)
+#    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.hyps_filepath, 
+#                                                 pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
 #    # Determine dates_table_idx that coincides with data
 #    dates_table = modelsetup.datesmodelrun(1970, 2017, spinupyears=0)
 #    

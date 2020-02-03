@@ -4,13 +4,13 @@ associated with each glacier for PyGEM.
 """
 import numpy as np
 #import pandas as pd
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 
 #========= FUNCTIONS (alphabetical order) ===================================
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
                    heights, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                    glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0, 
-                   constantarea_years=input.constantarea_years, frontalablation_k=None, 
+                   constantarea_years=pygem_prms.constantarea_years, frontalablation_k=None, 
                    debug=False, debug_refreeze=False, hindcast=0):
     """
     Runs the mass balance and mass redistribution allowing the glacier to evolve.
@@ -103,7 +103,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
         print('\n\nDEBUGGING MASS BALANCE FUNCTION\n\n')
         
     # Select annual divisor and columns
-    if input.timestep == 'monthly':
+    if pygem_prms.timestep == 'monthly':
         annual_divisor = 12
     annual_columns = np.arange(0, int(dates_table.shape[0] / 12))
     # Variables to export
@@ -146,14 +146,14 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     glacier_area_t0 = glacier_area_initial.copy()
     icethickness_t0 = icethickness_initial.copy()
     width_t0 = width_initial.copy()
-    if input.option_refreezing == 1:
+    if pygem_prms.option_refreezing == 1:
         # Refreezing layers density, volumetric heat capacity, and thermal conductivity
-        rf_dens_expb = (input.rf_dens_bot / input.rf_dens_top)**(1/(input.rf_layers-1))
-        rf_layers_dens = np.array([input.rf_dens_top * rf_dens_expb**x for x in np.arange(0,input.rf_layers)])
-        rf_layers_ch = (1 - rf_layers_dens/1000) * input.ch_air + rf_layers_dens/1000 * input.ch_ice
-        rf_layers_k = (1 - rf_layers_dens/1000) * input.k_air + rf_layers_dens/1000 * input.k_ice
-        te_rf = np.zeros((input.rf_layers,nbins))   # temp of each layer for each elev bin from present time step
-        tl_rf = np.zeros((input.rf_layers,nbins))   # temp of each layer for each elev bin from previous time step
+        rf_dens_expb = (pygem_prms.rf_dens_bot / pygem_prms.rf_dens_top)**(1/(pygem_prms.rf_layers-1))
+        rf_layers_dens = np.array([pygem_prms.rf_dens_top * rf_dens_expb**x for x in np.arange(0,pygem_prms.rf_layers)])
+        rf_layers_ch = (1 - rf_layers_dens/1000) * pygem_prms.ch_air + rf_layers_dens/1000 * pygem_prms.ch_ice
+        rf_layers_k = (1 - rf_layers_dens/1000) * pygem_prms.k_air + rf_layers_dens/1000 * pygem_prms.k_ice
+        te_rf = np.zeros((pygem_prms.rf_layers,nbins))   # temp of each layer for each elev bin from present time step
+        tl_rf = np.zeros((pygem_prms.rf_layers,nbins))   # temp of each layer for each elev bin from previous time step
         refr = np.zeros(nbins)                      # refreeze in each bin
         rf_cold = np.zeros(nbins)                   # refrezee cold content or "potential" refreeze
     
@@ -161,13 +161,13 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     sea_level = 0
     rgi_region = int(glacier_rgi_table.RGIId.split('-')[1].split('.')[0])
     if frontalablation_k == None:
-         frontalablation_k0 = input.frontalablation_k0dict[rgi_region]
+         frontalablation_k0 = pygem_prms.frontalablation_k0dict[rgi_region]
     
     #  glac_idx_initial is used with advancing glaciers to ensure no bands are added in a discontinuous section
     # Run mass balance only on pixels that have an ice thickness (some glaciers do not have an ice thickness)
     #  otherwise causes indexing errors causing the model to fail
     if icethickness_t0.max() > 0:    
-        if input.option_adjusttemp_surfelev == 1:
+        if pygem_prms.option_adjusttemp_surfelev == 1:
             # ice thickness initial is used to adjust temps to changes in surface elevation
             icethickness_initial = icethickness_t0.copy()
             icethickness_initial[0:icethickness_initial.nonzero()[0][0]] = (
@@ -177,7 +177,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
             #  initial ice thickness of all bins below the terminus to the ice thickness at the terminus.
         # Compute the initial surface type [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
         surfacetype, firnline_idx = surfacetypebinsinitial(glacier_area_t0, glacier_rgi_table, heights)
-        print('surface type:', surfacetype)
         # Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
         surfacetype_ddf_dict = surfacetypeDDFdict(modelparameters)
         
@@ -200,34 +199,34 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
             
             # Functions currently set up for monthly timestep
             #  only compute mass balance while glacier exists
-            if (input.timestep == 'monthly') and (glac_idx_t0.shape[0] != 0):      
+            if (pygem_prms.timestep == 'monthly') and (glac_idx_t0.shape[0] != 0):      
                 
                 # AIR TEMPERATURE: Downscale the gcm temperature [deg C] to each bin
-                if input.option_temp2bins == 1:
+                if pygem_prms.option_temp2bins == 1:
                     # Downscale using gcm and glacier lapse rates
                     #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
                     bin_temp[:,12*year:12*(year+1)] = (glacier_gcm_temp[12*year:12*(year+1)] + 
                          glacier_gcm_lrgcm[12*year:12*(year+1)] * 
-                         (glacier_rgi_table.loc[input.option_elev_ref_downscale] - glacier_gcm_elev) + 
+                         (glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale] - glacier_gcm_elev) + 
                          glacier_gcm_lrglac[12*year:12*(year+1)] * (heights - 
-                         glacier_rgi_table.loc[input.option_elev_ref_downscale])[:,np.newaxis] + modelparameters[7])
+                         glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale])[:,np.newaxis] + modelparameters[7])
                 # Option to adjust air temperature based on changes in surface elevation
                 #  note: OGGM automatically updates the bin elevation, so this step is not needed
-                if input.option_adjusttemp_surfelev == 1 and input.hyps_data in ['Huss', 'Farinotti']:
+                if pygem_prms.option_adjusttemp_surfelev == 1 and pygem_prms.hyps_data in ['Huss', 'Farinotti']:
                     # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)
                     bin_temp[:,12*year:12*(year+1)] = (bin_temp[:,12*year:12*(year+1)] + 
                                                        glacier_gcm_lrglac[12*year:12*(year+1)] * 
                                                        (icethickness_t0 - icethickness_initial)[:,np.newaxis])
                 
                 # PRECIPITATION/ACCUMULATION: Downscale the precipitation (liquid and solid) to each bin
-                if input.option_prec2bins == 1:
+                if pygem_prms.option_prec2bins == 1:
                     # Precipitation using precipitation factor and precipitation gradient
                     #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
                     bin_precsnow[:,12*year:12*(year+1)] = (glacier_gcm_prec[12*year:12*(year+1)] * 
                             modelparameters[2] * (1 + modelparameters[3] * (heights - 
-                            glacier_rgi_table.loc[input.option_elev_ref_downscale]))[:,np.newaxis])
+                            glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale]))[:,np.newaxis])
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
-                if input.option_preclimit == 1:
+                if pygem_prms.option_preclimit == 1:
                     # If elevation range > 1000 m, apply corrections to uppermost 25% of glacier (Huss and Hock, 2015)
                     if np.abs(heights[glac_idx_t0[-1]] - heights[glac_idx_t0[0]]) > 1000:
                         # Indices of upper 25%
@@ -253,14 +252,14 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                 (bin_precsnow[glac_idx_upper25,month] != 0)], month] = (
                                                                 0.875 * bin_precsnow[glac_idx_t0,month].max())
                 # Separate total precipitation into liquid (bin_prec) and solid (bin_acc)
-                if input.option_accumulation == 1:
+                if pygem_prms.option_accumulation == 1:
                     # if temperature above threshold, then rain
                     bin_prec[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] > modelparameters[6]] = (
                         bin_precsnow[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] > modelparameters[6]])
                     # if temperature below threshold, then snow
                     bin_acc[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] <= modelparameters[6]] = (
                         bin_precsnow[:,12*year:12*(year+1)][bin_temp[:,12*year:12*(year+1)] <= modelparameters[6]])
-                elif input.option_accumulation == 2:
+                elif pygem_prms.option_accumulation == 2:
                     # If temperature between min/max, then mix of snow/rain using linear relationship between min/max
                     bin_prec[:,12*year:12*(year+1)] = ((1/2 + (bin_temp[:,12*year:12*(year+1)] - 
                             modelparameters[6]) / 2) * bin_precsnow[:,12*year:12*(year+1)])
@@ -289,11 +288,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     
                     # MELT [m w.e.]
                     # energy available for melt [degC day]   
-                    if input.option_ablation == 1:
+                    if pygem_prms.option_ablation == 1:
                         # option 1: energy based on monthly temperature
                         melt_energy_available = bin_temp[:,step]*dayspermonth[step]
                         melt_energy_available[melt_energy_available < 0] = 0
-                    elif input.option_ablation == 2:
+                    elif pygem_prms.option_ablation == 2:
                         # option 2: monthly temperature superimposed with daily temperature variability 
                         # daily temperature variation in each bin for the monthly timestep
                         bin_tempstd_daily = np.repeat(
@@ -314,11 +313,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     # energy remaining after snow melt [degC day]
                     melt_energy_available = melt_energy_available - bin_meltsnow[:,step] / surfacetype_ddf_dict[2]
                     # remove low values of energy available caused by rounding errors in the step above
-                    melt_energy_available[abs(melt_energy_available) < input.tolerance] = 0
+                    melt_energy_available[abs(melt_energy_available) < pygem_prms.tolerance] = 0
                     # DDF based on surface type [m w.e. degC-1 day-1]
                     for surfacetype_idx in surfacetype_ddf_dict: 
                         surfacetype_ddf[surfacetype == surfacetype_idx] = surfacetype_ddf_dict[surfacetype_idx]
-                    if input.option_surfacetype_debris == 1:
+                    if pygem_prms.option_surfacetype_debris == 1:
                         print('\n\nLOAD THE MELTFACTOR DATASET over areas that are not firn\n\n')
                         
                         if year == 0 and month == 0:
@@ -331,12 +330,12 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     bin_melt[:,step] = bin_meltglac[:,step] + bin_meltsnow[:,step]  
                     
                     # REFREEZING
-                    if input.option_refreezing == 1:
+                    if pygem_prms.option_refreezing == 1:
                         # Refreeze based on heat conduction approach (Huss and Hock 2015)    
                         # refreeze time step (s)
-                        rf_dt = 3600 * 24 * dates_table.loc[step,'daysinmonth'] / input.rf_dsc
+                        rf_dt = 3600 * 24 * dates_table.loc[step,'daysinmonth'] / pygem_prms.rf_dsc
                         
-                        if input.option_rf_limit_meltsnow == 1:
+                        if pygem_prms.option_rf_limit_meltsnow == 1:
                             bin_meltlimit = bin_meltsnow.copy()
                         else:
                             bin_meltlimit = bin_melt.copy()
@@ -346,7 +345,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                     
                             # COMPUTE HEAT CONDUCTION - BUILD COLD RESERVOIR                            
                             # If no melt, then build up cold reservoir (compute heat conduction)
-                            if bin_melt[gidx,step] < input.rf_meltcrit:
+                            if bin_melt[gidx,step] < pygem_prms.rf_meltcrit:
                                 
                                 if debug_refreeze and nbin == 0 and step < 12:
                                     print('\nMonth ' + str(dates_table.loc[step,'month']), 'Computing heat conduction')
@@ -355,11 +354,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                 refr[gidx] = 0
                                 # Loop through multiple iterations to converge on a solution
                                 #  -> this will loop through 0, 1, 2
-                                for h in np.arange(0, input.rf_dsc):                                  
+                                for h in np.arange(0, pygem_prms.rf_dsc):                                  
                                     # Compute heat conduction in layers (loop through rows)
                                     #  go from 1 to rf_layers-1 to avoid indexing errors with "j-1" and "j+1"
                                     #  "j+1" is set to zero, which is fine for temperate glaciers but inaccurate for cold/polythermal glaciers
-                                    for j in np.arange(1, input.rf_layers-1):
+                                    for j in np.arange(1, pygem_prms.rf_layers-1):
                                         # Assume temperature of first layer equals air temperature
                                         #  assumption probably wrong, but might still work at annual average
                                         # Since next line uses tl_rf for all calculations, set tl_rf[0] to present mean 
@@ -368,7 +367,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                         tl_rf[0, gidx] = bin_temp[gidx,step]
                                         # Temperature for each layer
                                         te_rf[j,gidx] = (tl_rf[j,gidx] + 
-                                             rf_dt * rf_layers_k[j] / rf_layers_ch[j] / input.rf_dz**2 * 0.5 * 
+                                             rf_dt * rf_layers_k[j] / rf_layers_ch[j] / pygem_prms.rf_dz**2 * 0.5 * 
                                              ((tl_rf[j-1,gidx] - tl_rf[j,gidx]) - (tl_rf[j,gidx] - tl_rf[j+1,gidx]))) 
                                         # Update previous time step
                                         tl_rf[:,gidx] = te_rf[:,gidx]
@@ -384,11 +383,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                 
                                 # Refreezing over firn surface
                                 if (surfacetype[gidx] == 2) or (surfacetype[gidx] == 3):
-                                    nlayers = input.rf_layers-1
+                                    nlayers = pygem_prms.rf_layers-1
                                 # Refreezing over ice surface
                                 else:
                                     # Approximate number of layers of snow on top of ice
-                                    smax = np.round((bin_snowpack[gidx,step] / (rf_layers_dens[0] / 1000) + input.pp) / input.rf_dz, 0)
+                                    smax = np.round((bin_snowpack[gidx,step] / (rf_layers_dens[0] / 1000) + pygem_prms.pp) / pygem_prms.rf_dz, 0)
                                     # if there is very little snow on the ground (SWE > 0.06 m for pp=0.3), then still set smax (layers) to 1
                                     if bin_snowpack[gidx,step] > 0 and smax == 0:
                                         smax=1
@@ -396,8 +395,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                     if smax == 0:
                                         rf_cold[gidx] = 0
                                     # if smax greater than the number of layers, set to max number of layers minus 1
-                                    if smax > input.rf_layers - 1:
-                                        smax = input.rf_layers - 1
+                                    if smax > pygem_prms.rf_layers - 1:
+                                        smax = pygem_prms.rf_layers - 1
                                     nlayers = int(smax)
                         
                                 # Compute potential refreeze, "cold reservoir", from temperature in each layer 
@@ -410,7 +409,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                     for j in np.arange(0,nlayers):
                                         j += 1
                                         # units: (degC) * (J K-1 m-3) * (m) * (kg J-1) * (m3 kg-1)
-                                        rf_cold_layer = tl_rf[j,gidx] * rf_layers_ch[j] * input.rf_dz / input.Lh_rf / input.density_water
+                                        rf_cold_layer = tl_rf[j,gidx] * rf_layers_ch[j] * pygem_prms.rf_dz / pygem_prms.Lh_rf / pygem_prms.density_water
                                         rf_cold[gidx] -= rf_cold_layer
                                         
                                         if debug_refreeze and nbin == 0 and step < 12:
@@ -451,11 +450,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                       'Rfrz:', np.round(bin_refreeze[gidx,step],2)
                                       )             
                                 
-                    elif input.option_refreezing == 2:
+                    elif pygem_prms.option_refreezing == 2:
                         # Refreeze based on annual air temperature (Woodward etal. 1997)
                         #  R(m) = (-0.69 * Tair + 0.0096) * 1 m / 100 cm
                         # calculate annually and place potential refreeze in user defined month
-                        if dates_table.loc[step,'month'] == input.rf_month:                        
+                        if dates_table.loc[step,'month'] == pygem_prms.rf_month:                        
                             bin_temp_annual = annualweightedmean_array(bin_temp[:,12*year:12*(year+1)], 
                                                                        dates_table.iloc[12*year:12*(year+1),:])
                             bin_refreezepotential_annual = (-0.69 * bin_temp_annual + 0.0096) * 1/100
@@ -484,10 +483,10 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                         # refreeze cannot exceed refreeze potential
                         bin_refreeze[bin_refreeze[:,step] > refreeze_potential, step] = (
                                 refreeze_potential[bin_refreeze[:,step] > refreeze_potential])
-                        bin_refreeze[abs(bin_refreeze[:,step]) < input.tolerance, step] = 0
+                        bin_refreeze[abs(bin_refreeze[:,step]) < pygem_prms.tolerance, step] = 0
                         # update refreeze potential
                         refreeze_potential = refreeze_potential - bin_refreeze[:,step]
-                        refreeze_potential[abs(refreeze_potential) < input.tolerance] = 0
+                        refreeze_potential[abs(refreeze_potential) < pygem_prms.tolerance] = 0
                     
                     if step < 12 and debug_refreeze:
                         print('refreeze bin ' + str(int(glac_idx_t0[0]*10)) + ':', 
@@ -495,7 +494,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     
                     # SNOWPACK REMAINING [m w.e.]
                     snowpack_remaining = bin_snowpack[:,step] - bin_meltsnow[:,step]
-                    snowpack_remaining[abs(snowpack_remaining) < input.tolerance] = 0
+                    snowpack_remaining[abs(snowpack_remaining) < pygem_prms.tolerance] = 0
                     
                     # Record values                  
                     glac_bin_melt[glac_idx_t0,step] = bin_melt[glac_idx_t0,step]
@@ -526,7 +525,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                 # ===== RETURN TO ANNUAL LOOP =====
                 # Mass loss cannot exceed glacier volume
                 #  mb [mwea] = -1 * sum{area [km2] * ice thickness [m]} / total area [km2] * density_ice / density_water
-                mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * input.density_ice / input.density_water).sum() 
+                mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * pygem_prms.density_ice / pygem_prms.density_water).sum() 
                                / glacier_area_t0.sum())
                 # Check annual climatic mass balance
                 mb_mwea = ((glacier_area_t0 * glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
@@ -546,7 +545,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                        glacier_area_t0.sum())
                     # adjust using tolerance to avoid any rounding errors that would leave a little glacier volume left
                     glac_bin_melt[:,12*year:12*(year+1)] = (glac_bin_melt[:,12*year:12*(year+1)] * 
-                                                            (1 + input.tolerance - mb_dif / glac_wide_melt))
+                                                            (1 + pygem_prms.tolerance - mb_dif / glac_wide_melt))
                     glac_bin_massbalclim[:,12*year:12*(year+1)] = (
                             bin_acc[:,12*year:12*(year+1)] + glac_bin_refreeze[:,12*year:12*(year+1)] - 
                             glac_bin_melt[:,12*year:12*(year+1)])    
@@ -563,10 +562,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                 glac_idx_minelev = np.where(heights == heights[glac_idx_t0].min())[0][0]
                 glacier_bedelev = (heights[glac_idx_minelev] - icethickness_initial[glac_idx_minelev])
                 
-                
-                print('\n\nDELETE ME - SWITCH OFF DEBUG\n\n')
-                debug=True
-                
                 if debug and glacier_rgi_table['TermType'] != 0:
                     print('\nyear:', year, '\n sea level:', sea_level, 'bed elev:', np.round(glacier_bedelev, 2))
                                 
@@ -580,7 +575,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     # Option 1: Use Huss and Hock (2015) frontal ablation parameterizations
                     #  Frontal ablation using width of lowest bin can severely overestimate the actual width of the
                     #  calving front. Therefore, use estimated calving width from satellite imagery as appropriate.
-                    if input.option_frontalablation_k == 1 and frontalablation_k == None:
+                    if pygem_prms.option_frontalablation_k == 1 and frontalablation_k == None:
                         # Calculate frontal ablation parameter based on slope of lowest 100 m of glacier
                         glac_idx_slope = np.where((heights <= sea_level + 100) & 
                                                   (heights >= heights[glac_idx_t0].min()))[0]
@@ -600,14 +595,14 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     # Glacier length [m]
                     length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum() * 1000
                     # Height of calving front [m]
-                    height_calving = np.max([input.af*length**0.5, 
-                                             input.density_water / input.density_ice * waterdepth])
+                    height_calving = np.max([pygem_prms.af*length**0.5, 
+                                             pygem_prms.density_water / pygem_prms.density_ice * waterdepth])
                     # Width of calving front [m]
-                    if input.hyps_data in ['oggm']:
+                    if pygem_prms.hyps_data in ['oggm']:
                         width_calving = width_t0[np.where(heights == heights[glac_idx_t0].min())[0][0]] * 1000
-                    elif input.hyps_data in ['Huss', 'Farinotti']:
-                        if glacier_rgi_table.RGIId in input.width_calving_dict:
-                            width_calving = np.float64(input.width_calving_dict[glacier_rgi_table.RGIId])
+                    elif pygem_prms.hyps_data in ['Huss', 'Farinotti']:
+                        if glacier_rgi_table.RGIId in pygem_prms.width_calving_dict:
+                            width_calving = np.float64(pygem_prms.width_calving_dict[glacier_rgi_table.RGIId])
                         else:
                             width_calving = width_t0[glac_idx_t0[0]] * 1000                    
                     # Volume loss [m3] due to frontal ablation
@@ -625,10 +620,10 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                         print('frontalablation_k:', frontalablation_k)
                         print('width calving:', width_calving)
                         print('frontalablation_volumeloss [m3]:', frontalablation_volumeloss)
-                        print('frontalablation_massloss [Gt]:', frontalablation_volumeloss * input.density_water / 
-                              input.density_ice / 10**9)
-                        print('frontalalabion_volumeloss_max [Gt]:', frontalablation_volumeloss_max * input.density_water / 
-                              input.density_ice / 10**9)
+                        print('frontalablation_massloss [Gt]:', frontalablation_volumeloss * pygem_prms.density_water / 
+                              pygem_prms.density_ice / 10**9)
+                        print('frontalalabion_volumeloss_max [Gt]:', frontalablation_volumeloss_max * pygem_prms.density_water / 
+                              pygem_prms.density_ice / 10**9)
 #                        print('glac_idx_fa:', glac_idx_fa)
 #                        print('glac_bin_volume:', glac_bin_volume[0])
 #                        print('glac_idx_fa[bin_count]:', glac_idx_fa[0])
@@ -638,7 +633,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     
                     # Frontal ablation [mwe] in each bin
                     bin_count = 0
-                    while (frontalablation_volumeloss > input.tolerance) and (bin_count < len(glac_idx_fa)):
+                    while (frontalablation_volumeloss > pygem_prms.tolerance) and (bin_count < len(glac_idx_fa)):
                         # Sort heights to ensure it's universal (works with OGGM and Huss)
                         heights_calving_sorted = np.argsort(heights[glac_idx_fa])
                         calving_bin_idx = heights_calving_sorted[bin_count]
@@ -647,21 +642,21 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                             glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] = (
                                     glac_bin_volume[glac_idx_fa[calving_bin_idx]] / 
                                     (glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6) 
-                                    * input.density_ice / input.density_water)   
+                                    * pygem_prms.density_ice / pygem_prms.density_water)   
                         else:
                             glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] = (
                                     frontalablation_volumeloss / (glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6)
-                                    * input.density_ice / input.density_water)
+                                    * pygem_prms.density_ice / pygem_prms.density_water)
                         frontalablation_volumeloss += (
-                                -1 * glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] * input.density_water 
-                                / input.density_ice * glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6)                        
+                                -1 * glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] * pygem_prms.density_water 
+                                / pygem_prms.density_ice * glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6)                        
                                                 
                         if debug:
                             print('glacier idx:', glac_idx_fa[calving_bin_idx], 
                                   'volume loss:', (glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] * 
-                                  glacier_area_t0[glac_idx_fa[calving_bin_idx]] * input.density_water / 
-                                  input.density_ice * 10**6).round(0))
-                            print('remaining volume loss:', frontalablation_volumeloss, 'tolerance:', input.tolerance)
+                                  glacier_area_t0[glac_idx_fa[calving_bin_idx]] * pygem_prms.density_water / 
+                                  pygem_prms.density_ice * 10**6).round(0))
+                            print('remaining volume loss:', frontalablation_volumeloss, 'tolerance:', pygem_prms.tolerance)
                         
                         bin_count += 1         
                             
@@ -678,21 +673,23 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                 # Annual climatic mass balance [m w.e.], which is used to determine the surface type
                 glac_bin_massbalclim_annual[:,year] = glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)
                 
-#                if debug:
-#                    print('glacier indices:', glac_idx_t0)
-#                    print('glac_bin_massbalclim:', glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1))
+                if debug:
+                    print('glacier indices:', glac_idx_t0)
+                    print('glac_bin_massbalclim:', glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1))
+                    print('glacier-wide climatic mass balance:', 
+                          (glac_bin_massbalclim_annual[:,year] * glacier_area_t0).sum() / glacier_area_t0.sum())
 #                    print('Climatic mass balance:', glac_bin_massbalclim_annual[:,year].sum())
                 
-                # Compute the surface type for each bin
-                print('surface type2:', surfacetype[glac_idx_t0])
-                surfacetype, firnline_idx = surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year)
-                print('surface type3:', surfacetype[glac_idx_t0])
-                print('WHATS GOING ON WITH THIS??\n')
-                print(elev_bins)
+#                # Compute the surface type for each bin
+#                print('surface type2:', surfacetype[glac_idx_t0])
+#                surfacetype, firnline_idx = surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year)
+#                print('surface type3:', surfacetype[glac_idx_t0])
+#                print('WHATS GOING ON WITH THIS??\n')
+###                print(elev_bins)
 
                 # MASS REDISTRIBUTION
                 # Mass redistribution ignored for calibration and spinup years (glacier properties constant)
-                if (option_areaconstant == 1) or (year < input.spinupyears) or (year < constantarea_years):
+                if (option_areaconstant == 1) or (year < pygem_prms.spinupyears) or (year < constantarea_years):
                     glacier_area_t1 = glacier_area_t0
                     icethickness_t1 = icethickness_t0
                     width_t1 = width_t0                    
@@ -706,16 +703,16 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     if glac_bin_frontalablation[:,step].max() > 0:
                         # Frontal ablation loss [mwe]
                         #  fa_change tracks whether entire bin is lost or not
-                        fa_change = abs(glac_bin_frontalablation[:, step] * input.density_water / input.density_ice
+                        fa_change = abs(glac_bin_frontalablation[:, step] * pygem_prms.density_water / pygem_prms.density_ice
                                         - icethickness_t0)
-                        fa_change[fa_change <= input.tolerance] = 0
+                        fa_change[fa_change <= pygem_prms.tolerance] = 0
                         
                         if debug:
                             bins_wfa = np.where(glac_bin_frontalablation[:,step] > 0)[0]
                             print('glacier area t0:', glacier_area_t0[bins_wfa].round(3))
                             print('ice thickness t0:', icethickness_t0[bins_wfa].round(1))
                             print('frontalablation [m ice]:', (glac_bin_frontalablation[bins_wfa, step] * 
-                                  input.density_water / input.density_ice).round(1))
+                                  pygem_prms.density_water / pygem_prms.density_ice).round(1))
                             print('frontal ablation [mice] vs icethickness:', fa_change[bins_wfa].round(1))
                         
                         # Check if entire bin is removed
@@ -728,8 +725,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                 (glacier_area_t0[np.where(fa_change != 0)[0]] * 
                                  icethickness_t0[np.where(fa_change != 0)[0]] - 
                                  glacier_area_t0[np.where(fa_change != 0)[0]] * 
-                                 glac_bin_frontalablation[np.where(fa_change != 0)[0], step] * input.density_water 
-                                 / input.density_ice) / icethickness_t0[np.where(fa_change != 0)[0]])
+                                 glac_bin_frontalablation[np.where(fa_change != 0)[0], step] * pygem_prms.density_water 
+                                 / pygem_prms.density_ice) / icethickness_t0[np.where(fa_change != 0)[0]])
                         
                         if debug:
                             print('glacier area t1:', glacier_area_t0[bins_wfa].round(3))
@@ -747,13 +744,16 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                         # update surface type for bins that have retreated
                         surfacetype[glacier_area_t1 == 0] = 0
                         
-                        print('\n-----')
-                        print(len(np.where(glacier_area_t0 > 0)[0]))
-                        print(len(np.where(glacier_area_t1 > 0)[0]))
-                        print(surfacetype)
-#                        print(glacier_area_t1)
-                        print('-----\n')
-                        print(elev_bins)
+#                        print('\n-----')
+#                        print(len(np.where(glacier_area_t0 > 0)[0]))
+#                        print(len(np.where(glacier_area_t1 > 0)[0]))
+#                        print(surfacetype)
+##                        print(glacier_area_t1)
+#                        print('-----\n')
+#                        print('delete me')
+#                        print(elev_bins)
+                        if year == 0:
+                            print('\n\nHERE IS WHERE I LEFT OFF CHECKING!\n\n')
                         
                         # update surface type for bins that have advanced 
                         surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = (
@@ -780,14 +780,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                 glacier_area_t0 = glacier_area_t1.copy()
                 width_t0 = width_t1.copy()   
                 glac_bin_surfacetype_annual[:,year] = surfacetype
-                #%%
-                
-    
-    print('\n\nDELETE ME - SET SEA LEVEL BACK TO 0\n\n')            
+                #%%         
     
     # Remove the spinup years of the variables that are being exported
-    if input.timestep == 'monthly':
-        colstart = input.spinupyears * annual_divisor
+    if pygem_prms.timestep == 'monthly':
+        colstart = pygem_prms.spinupyears * annual_divisor
         colend = glacier_gcm_temp.shape[0] + 1
     bin_temp = bin_temp[:,colstart:colend]
     bin_prec = bin_prec[:,colstart:colend]
@@ -800,11 +797,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     glac_bin_melt = glac_bin_melt[:,colstart:colend]
     glac_bin_frontalablation = glac_bin_frontalablation[:,colstart:colend]
     glac_bin_massbalclim = glac_bin_massbalclim[:,colstart:colend]
-    glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,input.spinupyears:nyears+1]
-    glac_bin_area_annual = glac_bin_area_annual[:,input.spinupyears:nyears+1]
-    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,input.spinupyears:nyears+1]
-    glac_bin_width_annual = glac_bin_width_annual[:,input.spinupyears:nyears+1]
-    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,input.spinupyears:nyears+1]
+    glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,pygem_prms.spinupyears:nyears+1]
+    glac_bin_area_annual = glac_bin_area_annual[:,pygem_prms.spinupyears:nyears+1]
+    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,pygem_prms.spinupyears:nyears+1]
+    glac_bin_width_annual = glac_bin_width_annual[:,pygem_prms.spinupyears:nyears+1]
+    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,pygem_prms.spinupyears:nyears+1]
     
     # Additional output:
     glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
@@ -818,18 +815,19 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     glac_wide_massbaltotal = glac_wide_massbalclim - glac_wide_frontalablation
     glac_wide_runoff = calc_runoff(glac_wide_prec, glac_wide_melt, glac_wide_refreeze, glac_wide_area)
     glac_wide_snowpack = calc_glacwide(glac_bin_snowpack, glac_bin_area, glac_wide_area)
+    print('\n\ncheck indexing of snowlines and ELAs - that they are good for both oggm and huss\n\n')
     glac_wide_snowline = (glac_bin_snowpack > 0).argmax(axis=0)
-    glac_wide_snowline[glac_wide_snowline > 0] = (elev_bins[glac_wide_snowline[glac_wide_snowline > 0]] - 
-                                                  input.binsize/2)
+    glac_wide_snowline[glac_wide_snowline > 0] = (heights[glac_wide_snowline[glac_wide_snowline > 0]] - 
+                                                  pygem_prms.binsize/2)
     glac_wide_area_annual = glac_bin_area_annual.sum(axis=0)
     glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
     glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
-    glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
-                                                      input.binsize/2)  
+    glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (heights[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
+                                                      pygem_prms.binsize/2)  
 
     # OFF-GLACIER Output
     if option_areaconstant == 0:
-        offglac_bin_area_annual = offglac_bin_area_annual[:,input.spinupyears:nyears+1]   
+        offglac_bin_area_annual = offglac_bin_area_annual[:,pygem_prms.spinupyears:nyears+1]   
         offglac_bin_area = offglac_bin_area_annual[:,0:offglac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
         offglac_wide_area = offglac_bin_area.sum(axis=0)
         offglac_wide_prec = calc_glacwide(offglac_bin_prec, offglac_bin_area, offglac_wide_area)
@@ -873,7 +871,7 @@ def annualweightedmean_array(var, dates_table):
     var_annual : np.ndarray
         Annual weighted mean of variable
     """        
-    if input.timestep == 'monthly':
+    if pygem_prms.timestep == 'monthly':
         dayspermonth = dates_table['daysinmonth'].values.reshape(-1,12)
         #  creates matrix (rows-years, columns-months) of the number of days per month
         daysperyear = dayspermonth.sum(axis=1)
@@ -890,7 +888,7 @@ def annualweightedmean_array(var, dates_table):
         # If averaging a single year, then reshape so it returns a 1d array
         if var_annual.shape[1] == 1:
             var_annual = var_annual.reshape(var_annual.shape[0])
-    elif input.timestep == 'daily':
+    elif pygem_prms.timestep == 'daily':
         print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
               'Exiting the model run.\n')
         exit()
@@ -951,8 +949,8 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
     icethickness_t1 = np.zeros(glacier_area_t0.shape)
     width_t1 = np.zeros(glacier_area_t0.shape)
     # Annual glacier-wide volume change [km**3]
-    glacier_volumechange = ((glac_bin_massbalclim_annual[:, year] / 1000 * input.density_water / 
-                             input.density_ice * glacier_area_t0).sum())
+    glacier_volumechange = ((glac_bin_massbalclim_annual[:, year] / 1000 * pygem_prms.density_water / 
+                             pygem_prms.density_ice * glacier_area_t0).sum())
     # For hindcast simulations, volume change is the opposite
     if hindcast == 1:
         glacier_volumechange = -1 * glacier_volumechange
@@ -976,7 +974,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
         glac_idx_t0 = glacier_area_t0.nonzero()[0]
         # Compute ice thickness [m ice], glacier area [km**2] and ice thickness change [m ice] after 
         #  redistribution of gains/losses
-        if input.option_massredistribution == 1:
+        if pygem_prms.option_massredistribution == 1:
             # Option 1: apply mass redistribution using Huss' empirical geometry change equations
             icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining = (
                     massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac_idx_t0,
@@ -1000,7 +998,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             massbal_clim_retreat[glac_idx_t0_retreated] = (glacier_volumechange_remaining / 
                                                            glacier_area_t0_retreated.sum() * 1000)
             # Mass redistribution 
-            if input.option_massredistribution == 1:
+            if pygem_prms.option_massredistribution == 1:
                 # Option 1: apply mass redistribution using Huss' empirical geometry change equations
                 icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining = (
                         massredistributioncurveHuss(icethickness_t0_retreated, glacier_area_t0_retreated, 
@@ -1016,7 +1014,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
         #    3. If additional volume after adding new bin, then redistribute mass gain across all bins again,
         #       i.e., increase the ice thickness and width
         #    4. Repeat adding a new bin and redistributing the mass until no addiitonal volume is left
-        while (icethickness_change > input.icethickness_advancethreshold).any() == True: 
+        while (icethickness_change > pygem_prms.icethickness_advancethreshold).any() == True: 
             if debug:
                 print('advancing glacier')
             # Record glacier area and ice thickness before advance corrections applied
@@ -1024,25 +1022,25 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             icethickness_t1_raw = icethickness_t1.copy()
             width_t1_raw = width_t1.copy()
             # Index bins that are advancing
-            icethickness_change[icethickness_change <= input.icethickness_advancethreshold] = 0
+            icethickness_change[icethickness_change <= pygem_prms.icethickness_advancethreshold] = 0
             glac_idx_advance = icethickness_change.nonzero()[0]
             # Update ice thickness based on maximum advance threshold [m ice]
             icethickness_t1[glac_idx_advance] = (icethickness_t1[glac_idx_advance] - 
-                           (icethickness_change[glac_idx_advance] - input.icethickness_advancethreshold))
+                           (icethickness_change[glac_idx_advance] - pygem_prms.icethickness_advancethreshold))
             # Update glacier area based on reduced ice thicknesses [km**2]
-            if input.option_glaciershape == 1:
+            if pygem_prms.option_glaciershape == 1:
                 # Glacier area for parabola [km**2] (A_1 = A_0 * (H_1 / H_0)**0.5)
                 glacier_area_t1[glac_idx_advance] = (glacier_area_t1_raw[glac_idx_advance] * 
                                (icethickness_t1[glac_idx_advance] / icethickness_t1_raw[glac_idx_advance])**0.5)
                 # Glacier width for parabola [km] (w_1 = w_0 * A_1 / A_0)
                 width_t1[glac_idx_advance] = (width_t1_raw[glac_idx_advance] * glacier_area_t1[glac_idx_advance] 
                                               / glacier_area_t1_raw[glac_idx_advance])
-            elif input.option_glaciershape == 2:
+            elif pygem_prms.option_glaciershape == 2:
                 # Glacier area constant for rectangle [km**2] (A_1 = A_0)
                 glacier_area_t1[glac_idx_advance] = glacier_area_t1_raw[glac_idx_advance]
                 # Glacier with constant for rectangle [km] (w_1 = w_0)
                 width_t1[glac_idx_advance] = width_t1_raw[glac_idx_advance]
-            elif input.option_glaciershape == 3:
+            elif pygem_prms.option_glaciershape == 3:
                 # Glacier area for triangle [km**2] (A_1 = A_0 * H_1 / H_0)
                 glacier_area_t1[glac_idx_t0] = (glacier_area_t1_raw[glac_idx_t0] * 
                                icethickness_t1[glac_idx_t0] / icethickness_t1_raw[glac_idx_t0])
@@ -1060,7 +1058,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             glac_idx_terminus = (
                     glac_idx_t0[(heights[glac_idx_t0] - heights[glac_idx_t0].min()) / 
                                 (heights[glac_idx_t0].max() - heights[glac_idx_t0].min()) * 100 
-                                < input.terminus_percentage])
+                                < pygem_prms.terminus_percentage])
             # For glaciers with so few bands that the terminus is not identified (ex. <= 4 bands for 20% threshold),
             #  then use the information from all the bands
             if glac_idx_terminus.shape[0] <= 1:
@@ -1080,7 +1078,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
                 glac_idx_terminus_initial = (
                     glac_idx_initial[(heights[glac_idx_initial] - heights[glac_idx_initial].min()) / 
                                 (heights[glac_idx_initial].max() - heights[glac_idx_initial].min()) * 100 
-                                < input.terminus_percentage])
+                                < pygem_prms.terminus_percentage])
                 if glac_idx_terminus_initial.shape[0] <= 1:
                     glac_idx_terminus_initial = glac_idx_initial.copy()
                     
@@ -1162,7 +1160,7 @@ def massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, glac_bin_
             #  This is important for glaciers that have very thin ice at the terminus as this prevents the 
             #  glacier from having a thin layer of ice advance tremendously far down valley without thickening.
             if advance_volume > 0:
-                if input.option_massredistribution == 1:
+                if pygem_prms.option_massredistribution == 1:
                     # Option 1: apply mass redistribution using Huss' empirical geometry change equations
                     icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining = (
                             massredistributioncurveHuss(icethickness_t1, glacier_area_t1, width_t1, glac_idx_t0, 
@@ -1256,7 +1254,7 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
     # Otherwise, compute volume change in each bin based on the climatic mass balance
     else:
         bin_volumechange = massbalclim_annual / 1000 * glacier_area_t0        
-    if input.option_glaciershape == 1:
+    if pygem_prms.option_glaciershape == 1:
         # Ice thickness at end of timestep for parabola [m ice]
         #  run in two steps to avoid errors with negative numbers and fractional exponents
         #  H_1 = (H_0**1.5 + delta_Vol * H_0**0.5 / A_0)**(2/3)
@@ -1272,7 +1270,7 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
         # Glacier width for parabola [km]
         #  w_1 = w_0 * (A_1 / A_0)
         width_t1[glac_idx_t0] = width_t0[glac_idx_t0] * glacier_area_t1[glac_idx_t0] / glacier_area_t0[glac_idx_t0]
-    elif input.option_glaciershape == 2:
+    elif pygem_prms.option_glaciershape == 2:
         # Ice thickness at end of timestep for rectangle [m ice]
         #  H_1 = H_0 + delta_Vol / A_0
         icethickness_t1[glac_idx_t0] = (((icethickness_t0[glac_idx_t0] / 1000) + 
@@ -1283,7 +1281,7 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
         # Glacier width constant for rectangle [km]
         #  w_1 = w_0
         width_t1[glac_idx_t0] = width_t0[glac_idx_t0]
-    elif input.option_glaciershape == 3:
+    elif pygem_prms.option_glaciershape == 3:
         # Ice thickness at end of timestep for triangle [m ice]
         #  run in two steps to avoid errors with negative numbers and fractional exponents
         icethickness_t1[glac_idx_t0] = ((icethickness_t0[glac_idx_t0] / 1000)**2 + 
@@ -1304,7 +1302,7 @@ def massredistributioncurveHuss(icethickness_t0, glacier_area_t0, width_t0, glac
     bin_volumechange_remaining = bin_volumechange - ((glacier_area_t1 * icethickness_t1 - glacier_area_t0 * 
                                                       icethickness_t0) / 1000)
     # remove values below tolerance to avoid rounding errors
-    bin_volumechange_remaining[abs(bin_volumechange_remaining) < input.tolerance] = 0
+    bin_volumechange_remaining[abs(bin_volumechange_remaining) < pygem_prms.tolerance] = 0
     # Glacier volume change remaining - if less than zero, then needed for retreat
     glacier_volumechange_remaining = bin_volumechange_remaining.sum()    
     return icethickness_t1, glacier_area_t1, width_t1, icethickness_change, glacier_volumechange_remaining
@@ -1370,9 +1368,9 @@ def surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year_index):
         firnline_idx = np.where(surfacetype!=0)[0][-1]
     # Apply surface type model options
     # If firn surface type option is included, then snow is changed to firn
-    if input.option_surfacetype_firn == 1:
+    if pygem_prms.option_surfacetype_firn == 1:
         surfacetype[surfacetype == 2] = 3
-    if input.option_surfacetype_debris == 1:
+    if pygem_prms.option_surfacetype_debris == 1:
         print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
               'Exiting the model run.')
         exit()
@@ -1386,7 +1384,7 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
     Convention: (0 = off-glacier, 1 = ice, 2 = snow, 3 = firn, 4 = debris).
     Function options: 1 =
     
-    Function options specified in pygem_input.py:
+    Function options specified in pygem_pygem_prms.py:
     - option_surfacetype_initial
         > 1 (default) - use median elevation to classify snow/firn above the median and ice below
         > 2 - use mean elevation instead
@@ -1418,11 +1416,11 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
     """        
     surfacetype = np.zeros(glacier_area.shape)
     # Option 1 - initial surface type based on the median elevation
-    if input.option_surfacetype_initial == 1:
+    if pygem_prms.option_surfacetype_initial == 1:
         surfacetype[(elev_bins < glacier_table.loc['Zmed']) & (glacier_area > 0)] = 1
         surfacetype[(elev_bins >= glacier_table.loc['Zmed']) & (glacier_area > 0)] = 2
     # Option 2 - initial surface type based on the mean elevation
-    elif input.option_surfacetype_initial ==2:
+    elif pygem_prms.option_surfacetype_initial ==2:
         surfacetype[(elev_bins < glacier_table['Zmean']) & (glacier_area > 0)] = 1
         surfacetype[(elev_bins >= glacier_table['Zmean']) & (glacier_area > 0)] = 2
     else:
@@ -1437,11 +1435,11 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
         # avoid errors if there is no firn, i.e., the entire glacier is melting
         firnline_idx = np.where(surfacetype!=0)[0][-1]
     # If firn is included, then specify initial firn conditions
-    if input.option_surfacetype_firn == 1:
+    if pygem_prms.option_surfacetype_firn == 1:
         surfacetype[surfacetype == 2] = 3
         #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
         #  on the surface anywhere.
-    if input.option_surfacetype_debris == 1:
+    if pygem_prms.option_surfacetype_debris == 1:
         print("Need to code the model to include debris. This option does not currently exist.  Please choose an option"
               + " that exists.\nExiting the model run.")
         exit()
@@ -1453,8 +1451,8 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
 
 
 def surfacetypeDDFdict(modelparameters, 
-                       option_surfacetype_firn=input.option_surfacetype_firn,
-                       option_ddf_firn=input.option_ddf_firn):
+                       option_surfacetype_firn=pygem_prms.option_surfacetype_firn,
+                       option_ddf_firn=pygem_prms.option_ddf_firn):
     """
     Create a dictionary of surface type and its respective DDF.
     
@@ -1472,7 +1470,7 @@ def surfacetypeDDFdict(modelparameters,
         Model parameters (lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow, tempchange)
         Order of model parameters should not be changed as the run mass balance script relies on this order
     option_surfacetype_firn : int
-        Option to include or exclude firn (specified in pygem_input.py)
+        Option to include or exclude firn (specified in pygem_pygem_prms.py)
     option_ddf_firn : int
         Option for the degree day factor of firn to be the average of snow and ice or a different value
     Returns
@@ -1490,6 +1488,6 @@ def surfacetypeDDFdict(modelparameters,
             surfacetype_ddf_dict[3] = modelparameters[4]
         elif option_ddf_firn == 1:
             surfacetype_ddf_dict[3] = np.mean([modelparameters[4],modelparameters[5]])
-    if input.option_surfacetype_debris == 1:
-        surfacetype_ddf_dict[4] = input.DDF_debris
+    if pygem_prms.option_surfacetype_debris == 1:
+        surfacetype_ddf_dict[4] = pygem_prms.DDF_debris
     return surfacetype_ddf_dict

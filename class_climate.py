@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 # Local libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 
 
@@ -41,18 +41,18 @@ class GCM():
             self.time_vn = 'time'
             self.lr_vn = 'lapserate'
             # Variable filenames
-            self.temp_fn = input.era5_temp_fn
-            self.tempstd_fn = input.era5_tempstd_fn
-            self.prec_fn = input.era5_prec_fn
-            self.elev_fn = input.era5_elev_fn
-            self.lr_fn = input.era5_lr_fn
+            self.temp_fn = pygem_prms.era5_temp_fn
+            self.tempstd_fn = pygem_prms.era5_tempstd_fn
+            self.prec_fn = pygem_prms.era5_prec_fn
+            self.elev_fn = pygem_prms.era5_elev_fn
+            self.lr_fn = pygem_prms.era5_lr_fn
             # Variable filepaths
-            self.var_fp = input.era5_fp
-            self.fx_fp = input.era5_fp
+            self.var_fp = pygem_prms.era5_fp
+            self.fx_fp = pygem_prms.era5_fp
             # Extra information
-            self.timestep = input.timestep
-            self.rgi_lat_colname=input.rgi_lat_colname
-            self.rgi_lon_colname=input.rgi_lon_colname
+            self.timestep = pygem_prms.timestep
+            self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+            self.rgi_lon_colname=pygem_prms.rgi_lon_colname
             
         elif self.name == 'ERA-Interim':
             # Variable names
@@ -64,17 +64,17 @@ class GCM():
             self.time_vn = 'time'
             self.lr_vn = 'lapserate'
             # Variable filenames
-            self.temp_fn = input.eraint_temp_fn
-            self.prec_fn = input.eraint_prec_fn
-            self.elev_fn = input.eraint_elev_fn
-            self.lr_fn = input.eraint_lr_fn
+            self.temp_fn = pygem_prms.eraint_temp_fn
+            self.prec_fn = pygem_prms.eraint_prec_fn
+            self.elev_fn = pygem_prms.eraint_elev_fn
+            self.lr_fn = pygem_prms.eraint_lr_fn
             # Variable filepaths
-            self.var_fp = input.eraint_fp
-            self.fx_fp = input.eraint_fp
+            self.var_fp = pygem_prms.eraint_fp
+            self.fx_fp = pygem_prms.eraint_fp
             # Extra information
-            self.timestep = input.timestep
-            self.rgi_lat_colname=input.rgi_lat_colname
-            self.rgi_lon_colname=input.rgi_lon_colname
+            self.timestep = pygem_prms.timestep
+            self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+            self.rgi_lon_colname=pygem_prms.rgi_lon_colname
         
         elif self.name == 'COAWST':
             # Variable names
@@ -85,20 +85,20 @@ class GCM():
             self.lon_vn = 'LON'
             self.time_vn = 'time'
             # Variable filenames
-            self.temp_fn = input.coawst_temp_fn_d02
-            self.prec_fn = input.coawst_prec_fn_d02
-            self.elev_fn = input.coawst_elev_fn_d02
-            self.temp_fn_d01 = input.coawst_temp_fn_d01
-            self.prec_fn_d01 = input.coawst_prec_fn_d01
-            self.elev_fn_d01 = input.coawst_elev_fn_d01
-#            self.lr_fn = input.coawst_lr_fn
+            self.temp_fn = pygem_prms.coawst_temp_fn_d02
+            self.prec_fn = pygem_prms.coawst_prec_fn_d02
+            self.elev_fn = pygem_prms.coawst_elev_fn_d02
+            self.temp_fn_d01 = pygem_prms.coawst_temp_fn_d01
+            self.prec_fn_d01 = pygem_prms.coawst_prec_fn_d01
+            self.elev_fn_d01 = pygem_prms.coawst_elev_fn_d01
+#            self.lr_fn = pygem_prms.coawst_lr_fn
             # Variable filepaths
-            self.var_fp = input.coawst_fp
-            self.fx_fp = input.coawst_fp
+            self.var_fp = pygem_prms.coawst_fp
+            self.fx_fp = pygem_prms.coawst_fp
             # Extra information
-            self.timestep = input.timestep
-            self.rgi_lat_colname=input.rgi_lat_colname
-            self.rgi_lon_colname=input.rgi_lon_colname
+            self.timestep = pygem_prms.timestep
+            self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+            self.rgi_lon_colname=pygem_prms.rgi_lon_colname
             
         # Other options are currently all from standardized CMIP5 format
         else:
@@ -113,15 +113,15 @@ class GCM():
             self.temp_fn = self.temp_vn + '_mon_' + name + '_' + rcp_scenario + '_r1i1p1_native.nc'
             self.prec_fn = self.prec_vn + '_mon_' + name + '_' + rcp_scenario + '_r1i1p1_native.nc'
             self.elev_fn = self.elev_vn + '_fx_' + name + '_' + rcp_scenario + '_r0i0p0.nc'
-#            self.lr_fn = input.cmip5_lr_fn
+#            self.lr_fn = pygem_prms.cmip5_lr_fn
             # Variable filepaths
-            self.var_fp = input.cmip5_fp_var_prefix + rcp_scenario + input.cmip5_fp_var_ending
-            self.fx_fp = input.cmip5_fp_fx_prefix + rcp_scenario + input.cmip5_fp_fx_ending
-#            self.lr_fp = input.cmip5_fp_lr
+            self.var_fp = pygem_prms.cmip5_fp_var_prefix + rcp_scenario + pygem_prms.cmip5_fp_var_ending
+            self.fx_fp = pygem_prms.cmip5_fp_fx_prefix + rcp_scenario + pygem_prms.cmip5_fp_fx_ending
+#            self.lr_fp = pygem_prms.cmip5_fp_lr
             # Extra information
-            self.timestep = input.timestep
-            self.rgi_lat_colname=input.rgi_lat_colname
-            self.rgi_lon_colname=input.rgi_lon_colname
+            self.timestep = pygem_prms.timestep
+            self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+            self.rgi_lon_colname=pygem_prms.rgi_lon_colname
             self.rcp_scenario = rcp_scenario
             
             
@@ -337,10 +337,10 @@ if __name__ == '__main__':
     gcm = GCM(name='ERA5')
 ##    gcm = GCM(name='ERA-Interim')
 #    
-#    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 = 'all',
-#                                                      rgi_glac_number=input.rgi_glac_number)
+#    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 = 'all',
+#                                                      rgi_glac_number=pygem_prms.rgi_glac_number)
 #    dates_table = modelsetup.datesmodelrun(startyear=1980, endyear=2017, spinupyears=0, 
-#                                           option_wateryear=input.gcm_wateryear)
+#                                           option_wateryear=pygem_prms.gcm_wateryear)
 #
 #    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
 #    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
@@ -362,10 +362,10 @@ if __name__ == '__main__':
 #        gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
 #        # Check if glacier outside of high-res (d02) domain
 #        for glac in range(main_glac_rgi.shape[0]):
-#            glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
-#            glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
-#            if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or 
-#                ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
+#            glac_lat = main_glac_rgi.loc[glac,pygem_prms.rgi_lat_colname]
+#            glac_lon = main_glac_rgi.loc[glac,pygem_prms.rgi_lon_colname]
+#            if (~(pygem_prms.coawst_d02_lat_min <= glac_lat <= pygem_prms.coawst_d02_lat_max) or 
+#                ~(pygem_prms.coawst_d02_lon_min <= glac_lon <= pygem_prms.coawst_d02_lon_max)):
 #                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
 #                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
 #                gcm_elev[glac] = gcm_elev_d01[glac]
@@ -378,7 +378,7 @@ if __name__ == '__main__':
 #             'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
 #    for gcm_name in gcm_names:
 #        print(gcm_name)
-#        ds = xr.open_dataset(input.cmip5_fp_var_prefix + rcp_scenario + input.cmip5_fp_var_ending + 
+#        ds = xr.open_dataset(pygem_prms.cmip5_fp_var_prefix + rcp_scenario + pygem_prms.cmip5_fp_var_ending + 
 #                             'tas' + '_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc')
 #        
 #        print('  ', ds.time[0].values,

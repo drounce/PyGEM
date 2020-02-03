@@ -7,7 +7,7 @@ import os
 import numpy as np
 import pickle
 # Local libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 
 
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     batch_str = 'rgi_glac_number_batch_'
     # region string
     regions_str = 'R'
-    for region in input.rgi_regionsO1:
+    for region in pygem_prms.rgi_regionsO1:
         regions_str += str(region)
     # check files
     for i in os.listdir():
@@ -131,8 +131,8 @@ if __name__ == '__main__':
     
     # Select all glaciers
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(
-            rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 =input.rgi_regionsO2, rgi_glac_number=input.rgi_glac_number, 
-            glac_no=input.glac_no)
+            rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2, rgi_glac_number=pygem_prms.rgi_glac_number, 
+            glac_no=pygem_prms.glac_no)
     glacno_str = [x.split('-')[1] for x in main_glac_rgi_all.RGIId.values]
     
     #%%    

@@ -7,7 +7,7 @@ import argparse
 import numpy as np
 import xarray as xr
 # Local Libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 
 #%%
 def getparser():
@@ -29,7 +29,7 @@ def getparser():
                         help='GCM name used for model run')
     parser.add_argument('-splitter', action='store', type=str, default='_batch',
                         help='string used to split batches')
-    parser.add_argument('-netcdf_fp_prefix', action='store', type=str, default=input.output_sim_fp,
+    parser.add_argument('-netcdf_fp_prefix', action='store', type=str, default=pygem_prms.output_sim_fp,
                         help='string used to split batches')
     return parser
 
@@ -64,8 +64,8 @@ rcps = sorted(rcps)
 # Add variables to empty dataset and merge together
 encoding = {}
 noencoding_vn = ['stats', 'glac_attrs']
-if input.output_package == 2:
-    for vn in input.output_variables_package2:
+if pygem_prms.output_package == 2:
+    for vn in pygem_prms.output_variables_package2:
         # Encoding (specify _FillValue, offsets, etc.)
         if vn not in noencoding_vn:
             encoding[vn] = {'_FillValue': False}

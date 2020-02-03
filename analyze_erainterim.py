@@ -26,7 +26,8 @@ import xarray as xr
 # Local libraries
 import class_climate
 import class_mbdata
-import pygem_input as input
+import pygem.pygem_input as pygem_params
+import pygem.pygem_input as pygem_prms
 import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_gcmbiasadj as gcmbiasadj
@@ -53,9 +54,9 @@ vn_label_units_dict = {'massbal':'[mwea]',
                        'ddfsnow':'[mwe d$^{-1}$ $^\circ$C$^{-1}$]'}
 
 # Export option
-sim_netcdf_fp = input.output_filepath + 'simulations/spc_20190914/merged/ERA-Interim/'
-#sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim/ERA-Interim_1980_2017_nochg/'
-#sim_netcdf_fp = input.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/'
+sim_netcdf_fp = pygem_prms.output_filepath + 'simulations/spc_20190914/merged/ERA-Interim/'
+#sim_netcdf_fp = pygem_prms.output_filepath + 'simulations/ERA-Interim/ERA-Interim_1980_2017_nochg/'
+#sim_netcdf_fp = pygem_prms.output_filepath + 'simulations/ERA-Interim_2000_2017wy_nobiasadj/'
 
 figure_fp = sim_netcdf_fp + 'figures/'
 
@@ -157,7 +158,7 @@ def load_masschange_monthly(regions, ds_ending, netcdf_fp=sim_netcdf_fp, option_
             print('Region', str(region),': number of glaciers match')
         # Glacier hypsometry
         main_glac_hyps_region = modelsetup.import_Husstable(
-                main_glac_rgi_region, input.hyps_filepath,input.hyps_filedict, input.hyps_colsdrop)     
+                main_glac_rgi_region, pygem_prms.hyps_filepath,pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)     
         # Ice thickness [m], average
         main_glac_icethickness_region = modelsetup.import_Husstable(
                 main_glac_rgi_region, input.thickness_filepath, input.thickness_filedict, input.thickness_colsdrop)

@@ -18,7 +18,7 @@ from scipy.spatial.distance import cdist
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 # Local libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
 import class_climate
@@ -26,7 +26,7 @@ from analyze_mcmc import load_glacierdata_byglacno
 
 
 #%% TO-DO LIST:
-# - clean up create lapse rate input data (put it all in input.py)
+# - clean up create lapse rate input data (put it all in pygem_prms.py)
 
 #%%
 def getparser():
@@ -91,7 +91,7 @@ if args.option_mbdata_regional == 1:
     option_wgms = 1
     
     if option_wgms == 1:
-        ds_wgms = pd.read_csv(input.wgms_fp + input.wgms_d_fn_preprocessed)
+        ds_wgms = pd.read_csv(pygem_prms.wgms_fp + pygem_prms.wgms_d_fn_preprocessed)
         ds_wgms = ds_wgms.sort_values('RGIId', ascending=True)
         ds_wgms.reset_index(drop=True, inplace=True)
         ds_wgms['RegO1'] = [int(x.split('-')[1].split('.')[0]) for x in ds_wgms.RGIId.values]
@@ -111,7 +111,7 @@ if args.option_mbdata_regional == 1:
                   
     
     if option_alaska == 1:
-        ds_fp = input.main_directory + '/../DEMs/McNabb_data/wgms_dv/'
+        ds_fp = pygem_prms.main_directory + '/../DEMs/McNabb_data/wgms_dv/'
         ds_fn1 = 'Alaska_dV_17jun.csv'
         ds_fn2 = 'BrooksRange_dV_17jun.csv'
         
@@ -127,7 +127,7 @@ if args.option_mbdata_regional == 1:
         glacno_list1 = sorted(list(ds.glacno.unique()))
         
         # Add Larsen
-        ds3 = pd.read_csv(input.larsen_fp + input.larsen_fn)
+        ds3 = pd.read_csv(pygem_prms.larsen_fp + pygem_prms.larsen_fn)
         ds3 = (ds3.drop(np.where(np.isnan(ds3['mb_mwea'].values) == True)[0].tolist(), axis=0))   
         ds3.reset_index(drop=True, inplace=True)
         ds3['RegO1'] = [int(x.split('-')[1].split('.')[0]) for x in ds3.RGIId.values]
@@ -145,7 +145,7 @@ if args.option_mbdata_regional == 1:
                str(np.round(main_glac_rgi.Area.sum() / 86725.053 * 100,1)) + '%)')
     
     if option_iceland == 1:
-        ds_fp = input.main_directory + '/../DEMs/McNabb_data/wgms_dv/'
+        ds_fp = pygem_prms.main_directory + '/../DEMs/McNabb_data/wgms_dv/'
         ds_fn = 'Iceland_dV_29jun.csv'
         
         ds = pd.read_csv(ds_fp + ds_fn)
@@ -165,7 +165,7 @@ if args.option_mbdata_regional == 1:
                str(np.round(main_glac_rgi.Area.sum() / 11059.7 * 100,1)) + '%)')
         
     if option_svalbard == 1:
-        ds_fp = input.main_directory + '/../DEMs/McNabb_data/wgms_dv/'
+        ds_fp = pygem_prms.main_directory + '/../DEMs/McNabb_data/wgms_dv/'
         ds_fn1 = 'Svalbard_dV_29jun.csv'
         ds_fn2 = 'JanMayen_dV_29jun.csv'
         
@@ -188,7 +188,7 @@ if args.option_mbdata_regional == 1:
                str(np.round(main_glac_rgi.Area.sum() / 33958.934 * 100,1)) + '%)')
         
     if option_russianarctic == 1:
-        ds_fp = input.main_directory + '/../DEMs/McNabb_data/wgms_dv/'
+        ds_fp = pygem_prms.main_directory + '/../DEMs/McNabb_data/wgms_dv/'
         ds_fn1 = 'FranzJosefLand_17jun.csv'
         ds_fn2 = 'NovayaZemlya_dV_17jun.csv'
         ds_fn3 = 'SevernayaZemlya_dV_17jun.csv'
@@ -214,7 +214,7 @@ if args.option_mbdata_regional == 1:
                str(np.round(main_glac_rgi.Area.sum() / 51591.6 * 100,1)) + '%)')
     
     if option_andes == 1:
-        ds_fp = input.main_directory + '/../DEMs/Berthier/'
+        ds_fp = pygem_prms.main_directory + '/../DEMs/Berthier/'
         ds_fn = 'MB_all_glaciers_Andes_rgi60_2000.0-2018.3.csv'
         
         ds = pd.read_csv(ds_fp + ds_fn)
@@ -249,7 +249,7 @@ if args.option_mbdata_regional == 1:
 if args.option_mbdata_fillwregional == 1:
     print('Filling in missing data with regional estimates...')
     # Input data
-    ds_fp = input.shean_fp
+    ds_fp = pygem_prms.shean_fp
     ds_fn = 'hma_mb_20190215_0815_std+mean.csv'
     
 #    dict_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA_dict_kaab.csv'
@@ -492,9 +492,9 @@ if args.option_coawstmerge == 1:
     # Load climate data
     gcm = class_climate.GCM(name='COAWST')
     # Process each variable
-    for vn in input.coawst_vns:
-        coawst_merge_netcdf(vn, input.coawst_fp_unmerged, input.coawst_fn_prefix_d02)
-#        coawst_merge_netcdf(vn, input.coawst_fp_unmerged, input.coawst_fn_prefix_d01)
+    for vn in pygem_prms.coawst_vns:
+        coawst_merge_netcdf(vn, pygem_prms.coawst_fp_unmerged, pygem_prms.coawst_fn_prefix_d02)
+#        coawst_merge_netcdf(vn, pygem_prms.coawst_fp_unmerged, pygem_prms.coawst_fn_prefix_d01)
         
 
 #%% WGMS PRE-PROCESSING
@@ -509,16 +509,16 @@ if args.option_wgms == 1:
     # ===== Dictionaries (WGMS --> RGIID V6) =====
     # Load RGI version 5 & 6 and create dictionary linking the two
     #  -required to avoid errors associated with changes in RGIId between the two versions in some regions
-    rgiv6_fn_all = glob.glob(input.rgiv6_fn_prefix)
-    rgiv5_fn_all = glob.glob(input.rgiv5_fn_prefix)
+    rgiv6_fn_all = glob.glob(pygem_prms.rgiv6_fn_prefix)
+    rgiv5_fn_all = glob.glob(pygem_prms.rgiv5_fn_prefix)
     # Create dictionary of all regions
     #  - regions that didn't change between versions (ex. 13, 14, 15) will all the be same.  Others that have changed
     #    may vary greatly.
     for n in range(len(rgiv6_fn_all)):
         print('Region', n+1)
-        rgiv6_fn = glob.glob(input.rgiv6_fn_prefix)[n]
+        rgiv6_fn = glob.glob(pygem_prms.rgiv6_fn_prefix)[n]
         rgiv6 = pd.read_csv(rgiv6_fn, encoding='latin1')
-        rgiv5_fn = glob.glob(input.rgiv5_fn_prefix)[n]
+        rgiv5_fn = glob.glob(pygem_prms.rgiv5_fn_prefix)[n]
         rgiv5 = pd.read_csv(rgiv5_fn, encoding='latin1')
         # Dictionary to link versions 5 & 6
         rgi_version_compare = rgiv5[['RGIId', 'GLIMSId']].copy()
@@ -545,10 +545,10 @@ if args.option_wgms == 1:
         latdict.update(latdict_reg)
         londict.update(londict_reg)
     # RGI Lookup table
-    rgilookup = pd.read_csv(input.rgilookup_fullfn, skiprows=2)
+    rgilookup = pd.read_csv(pygem_prms.rgilookup_fullfn, skiprows=2)
     rgidict = dict(zip(rgilookup['FoGId'], rgilookup['RGIId']))
     # WGMS Lookup table
-    wgmslookup = pd.read_csv(input.wgms_fp + input.wgms_lookup_fn, encoding='latin1')
+    wgmslookup = pd.read_csv(pygem_prms.wgms_fp + pygem_prms.wgms_lookup_fn, encoding='latin1')
     wgmsdict = dict(zip(wgmslookup['WGMS_ID'], wgmslookup['RGI_ID']))
     # Manual lookup table
     mandict = {10402: 'RGI60-13.10093',
@@ -556,9 +556,9 @@ if args.option_wgms == 1:
                6846: 'RGI60-15.12707'}
     #%%
     # ===== WGMS (D) Geodetic mass balance data =====
-    if 'wgms_d' in input.wgms_datasets:
+    if 'wgms_d' in pygem_prms.wgms_datasets:
         print('Processing geodetic thickness change data')
-        wgms_mb_geo_all = pd.read_csv(input.wgms_fp + input.wgms_d_fn, encoding='latin1')
+        wgms_mb_geo_all = pd.read_csv(pygem_prms.wgms_fp + pygem_prms.wgms_d_fn, encoding='latin1')
         wgms_mb_geo_all['RGIId_rgidict'] = wgms_mb_geo_all['WGMS_ID'].map(rgidict)
         wgms_mb_geo_all['RGIId_mandict'] = wgms_mb_geo_all['WGMS_ID'].map(mandict)
         wgms_mb_geo_all['RGIId_wgmsdict'] = wgms_mb_geo_all['WGMS_ID'].map(wgmsdict)
@@ -587,15 +587,15 @@ if args.option_wgms == 1:
         wgms_mb_geo_export = wgms_mb_geo.loc[(np.isfinite(wgms_mb_geo['THICKNESS_CHG']) | 
                                              (np.isfinite(wgms_mb_geo['VOLUME_CHANGE']))), export_cols_geo]
         # Add observation type for comparison (massbalance, snowline, etc.)
-        wgms_mb_geo_export[input.wgms_obs_type_cn] = 'mb_geo'
+        wgms_mb_geo_export[pygem_prms.wgms_obs_type_cn] = 'mb_geo'
         wgms_mb_geo_export.reset_index(drop=True, inplace=True)
-        wgms_mb_geo_export_fn = input.wgms_fp + input.wgms_d_fn_preprocessed
+        wgms_mb_geo_export_fn = pygem_prms.wgms_fp + pygem_prms.wgms_d_fn_preprocessed
         wgms_mb_geo_export.to_csv(wgms_mb_geo_export_fn)
     
     # ===== WGMS (EE) Glaciological mass balance data =====
-    if 'wgms_ee' in input.wgms_datasets:
+    if 'wgms_ee' in pygem_prms.wgms_datasets:
         print('Processing glaciological mass balance data')
-        wgms_mb_glac_all = pd.read_csv(input.wgms_fp + input.wgms_ee_fn, encoding='latin1')
+        wgms_mb_glac_all = pd.read_csv(pygem_prms.wgms_fp + pygem_prms.wgms_ee_fn, encoding='latin1')
         wgms_mb_glac_all['RGIId_rgidict'] = wgms_mb_glac_all['WGMS_ID'].map(rgidict)
         wgms_mb_glac_all['RGIId_mandict'] = wgms_mb_glac_all['WGMS_ID'].map(mandict)
         wgms_mb_glac_all['RGIId_wgmsdict'] = wgms_mb_glac_all['WGMS_ID'].map(wgmsdict)
@@ -615,7 +615,7 @@ if args.option_wgms == 1:
         wgms_mb_glac['CenLat'] = wgms_mb_glac['RGIId'].map(latdict)
         wgms_mb_glac['CenLon'] = wgms_mb_glac['RGIId'].map(londict)
         # Import MB overview data to extract survey dates
-        wgms_mb_overview = pd.read_csv(input.wgms_fp + input.wgms_e_fn, encoding='latin1')
+        wgms_mb_overview = pd.read_csv(pygem_prms.wgms_fp + pygem_prms.wgms_e_fn, encoding='latin1')
         wgms_mb_glac['BEGIN_PERIOD'] = np.nan 
         wgms_mb_glac['END_PERIOD'] = np.nan 
         wgms_mb_glac['TIME_SYSTEM'] = np.nan
@@ -663,17 +663,17 @@ if args.option_wgms == 1:
         wgms_mb_glac_export = (pd.concat([wgms_mb_glac_annual, wgms_mb_glac_summer, wgms_mb_glac_winter])
                                          .sort_values(['glacno', 'YEAR']))
         # Add observation type for comparison (massbalance, snowline, etc.)
-        wgms_mb_glac_export[input.wgms_obs_type_cn] = 'mb_glac'
+        wgms_mb_glac_export[pygem_prms.wgms_obs_type_cn] = 'mb_glac'
         wgms_mb_glac_export.reset_index(drop=True, inplace=True)
-        wgms_mb_glac_export_fn = input.wgms_fp + input.wgms_ee_fn_preprocessed
+        wgms_mb_glac_export_fn = pygem_prms.wgms_fp + pygem_prms.wgms_ee_fn_preprocessed
         wgms_mb_glac_export.to_csv(wgms_mb_glac_export_fn)
 
 
 #%% Create netcdf file of lapse rates from temperature pressure level data
 if args.option_createlapserates == 1:
     # Input data
-    gcm_fp = input.era5_fp
-    gcm_fn = input.era5_pressureleveltemp_fn
+    gcm_fp = pygem_prms.era5_fp
+    gcm_fn = pygem_prms.era5_pressureleveltemp_fn
         
     tempname = 't'
     levelname = 'level'
@@ -688,7 +688,7 @@ if args.option_createlapserates == 1:
         # convert pressure levels from millibars to Pa
         levels = ds[levelname].values * 100
     # Compute the elevation [m a.s.l] of the pressure levels using the barometric pressure formula (pressure in Pa)
-    elev = -input.R_gas*input.temp_std/(input.gravity*input.molarmass_air)*np.log(levels/input.pressure_std)
+    elev = -pygem_prms.R_gas*pygem_prms.temp_std/(pygem_prms.gravity*pygem_prms.molarmass_air)*np.log(levels/pygem_prms.pressure_std)
 
     # Calculate lapse rates by year
     lr = np.zeros((ds.time.shape[0], ds.latitude.shape[0], ds.longitude.shape[0]))
@@ -803,7 +803,7 @@ if args.option_createtempstd == 1:
 #%%
 if args.option_frontalablation_cal == 1:
     region = [1]
-    calving_data = pd.read_csv(input.mcnabb_fp + '../alaska_gate_widths_flux.csv')
+    calving_data = pd.read_csv(pygem_prms.mcnabb_fp + '../alaska_gate_widths_flux.csv')
     
     glac_no = [x.split('-')[1] for x in list(calving_data.RGIId.values)]
     
@@ -819,30 +819,30 @@ if args.option_frontalablation_cal == 1:
     main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=region, rgi_regionsO2 = 'all',
                                                       rgi_glac_number=rgi_glac_number)
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
-                                                 input.hyps_filedict, input.hyps_colsdrop)
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.hyps_filepath,
+                                                 pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath, 
-                                                         input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.thickness_filepath, 
+                                                         pygem_prms.thickness_filedict, pygem_prms.thickness_colsdrop)
     main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath,
-                                                  input.width_filedict, input.width_colsdrop)
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.width_filepath,
+                                                  pygem_prms.width_filedict, pygem_prms.width_colsdrop)
     # Elevation bins
     elev_bins = main_glac_hyps.columns.values.astype(int)   
     # Select dates including future projections
     dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2005, spinupyears=0)
     
     # ===== LOAD CLIMATE DATA =====
-    gcm = class_climate.GCM(name=input.ref_gcm_name)
+    gcm = class_climate.GCM(name=pygem_prms.ref_gcm_name)
     # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Air temperature standard deviation
-    if input.option_ablation != 2:
+    if pygem_prms.option_ablation != 2:
         gcm_tempstd = np.zeros(gcm_temp.shape)
-    elif input.ref_gcm_name in ['ERA5']:
+    elif pygem_prms.ref_gcm_name in ['ERA5']:
         gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
                                                                         main_glac_rgi, dates_table)
     # Lapse rate [K m-1]
@@ -871,9 +871,9 @@ if args.option_frontalablation_cal == 1:
         width_t0 = main_glac_width.iloc[n,:].values.astype(float)
         glac_idx_t0 = glacier_area_t0.nonzero()[0]
         # Set model parameters
-        modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
-                           input.tempsnow, input.tempchange]
-        frontalablation_k0 = input.frontalablation_k0dict[int(glacier_str.split('.')[0])]
+        modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.ddfice,
+                           pygem_prms.tempsnow, pygem_prms.tempchange]
+        frontalablation_k0 = pygem_prms.frontalablation_k0dict[int(glacier_str.split('.')[0])]
         
         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -1098,20 +1098,20 @@ if args.option_regional_meltfactors == 1:
     hd_extrap_fp = ('/Users/davidrounce/Documents/Dave_Rounce/DebrisGlaciers_WG/Melt_Intercomparison/output/mb_bins/' + 
                     'csv/_wdebris_hdts_extrap/')
     
-    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=input.rgi_regionsO1, 
-                                                      rgi_regionsO2=input.rgi_regionsO2,
-                                                      rgi_glac_number=input.rgi_glac_number)
+    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=pygem_prms.rgi_regionsO1, 
+                                                      rgi_regionsO2=pygem_prms.rgi_regionsO2,
+                                                      rgi_glac_number=pygem_prms.rgi_glac_number)
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath, input.hyps_filedict,
-                                                 input.hyps_colsdrop)
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.hyps_filepath, pygem_prms.hyps_filedict,
+                                                 pygem_prms.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath,
-                                                         input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.thickness_filepath,
+                                                         pygem_prms.thickness_filedict, pygem_prms.thickness_colsdrop)
     main_glac_icethickness[main_glac_icethickness < 0] = 0
     main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath, input.width_filedict,
-                                                  input.width_colsdrop)
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.width_filepath, pygem_prms.width_filedict,
+                                                  pygem_prms.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
     
     # Load debris thickness filenames
@@ -1120,14 +1120,14 @@ if args.option_regional_meltfactors == 1:
     for i in os.listdir(hd_fp):
         if i.endswith('hd_hdts.csv'):
             region = int(i.split('.')[0])
-            if region in input.rgi_regionsO1:           
+            if region in pygem_prms.rgi_regionsO1:           
                 glac_hd_fullfns.append(hd_fp + i)
         
     # Glaciers extrapolated
     for i in os.listdir(hd_extrap_fp):
         if i.endswith('hdts_extrap.csv'):
             region = int(i.split('.')[0])
-            if region in input.rgi_regionsO1:          
+            if region in pygem_prms.rgi_regionsO1:          
                 glac_hd_fullfns.append(hd_extrap_fp + i)
     glac_hd_fullfns = sorted(glac_hd_fullfns)
     
@@ -1181,15 +1181,15 @@ if args.option_regional_meltfactors == 1:
 
 #%% Write csv file from model results
 # Create csv such that not importing the air temperature each time (takes 90 seconds for 13,119 glaciers)
-#output_csvfullfilename = input.main_directory + '/../Output/ERAInterim_elev_15_SouthAsiaEast.csv'
-#climate.createcsv_GCMvarnearestneighbor(input.gcm_prec_filename, input.gcm_prec_varname, dates_table, main_glac_rgi, 
+#output_csvfullfilename = pygem_prms.main_directory + '/../Output/ERAInterim_elev_15_SouthAsiaEast.csv'
+#climate.createcsv_GCMvarnearestneighbor(pygem_prms.gcm_prec_filename, pygem_prms.gcm_prec_varname, dates_table, main_glac_rgi, 
 #                                        output_csvfullfilename)
 #np.savetxt(output_csvfullfilename, main_glac_gcmelev, delimiter=",") 
     
 
 #%% NEAREST NEIGHBOR CALIBRATION PARAMETERS
 ## Load csv
-#ds = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
+#ds = pd.read_csv(pygem_prms.main_directory + '/../Output/calibration_R15_20180403_Opt02solutionspaceexpanding.csv', 
 #                 index_col='GlacNo')
 ## Select data of interest
 #data = ds[['CenLon', 'CenLat', 'lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 
@@ -1217,5 +1217,5 @@ if args.option_regional_meltfactors == 1:
 ## Remove latitude and longitude to create csv file
 #parameters_export = data.iloc[:,2:]
 ## Export csv file
-#parameters_export.to_csv(input.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nearest.csv', 
+#parameters_export.to_csv(pygem_prms.main_directory + '/../Calibration_datasets/calparams_R15_20180403_nearest.csv', 
 #                         index=False)    

@@ -43,9 +43,18 @@ def test_random_mb_run():
 
     rid = 'RGI60-15.03473'
     gdir = oggm_compat.single_flowline_glacier_directory(rid, prepro_border=80)
+    
+    # This initializes the mass balance model, but does not run it
     mbmod = oggm_compat.RandomLinearMassBalance(gdir, seed=1, sigma_ela=300,
                                                 h_perc=55)
+    # HERE CAN BE THE LOOP SUCH THAT EVERYTHING IS ALREADY LOADED
+    for i in [1,2,3,4]:
+        # Change the model parameter
+        mbmod.param1 = i
+        # Run the mass balance model with fixed geometry
+        ts_mb = mbmod.get_specific_mb(years=[2000,2001,2002]) 
 
+    # Run the glacier flowline model with a mass balance model
     from oggm.core.flowline import robust_model_run
     flmodel = robust_model_run(gdir, mb_model=mbmod, ys=0, ye=700)
 

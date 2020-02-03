@@ -19,7 +19,7 @@ from scipy.optimize import minimize
 import pickle
 from scipy import stats
 # Local libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
 import class_climate
@@ -57,7 +57,7 @@ def getparser():
     """
     parser = argparse.ArgumentParser(description="run calibration in parallel")
     # add arguments
-    parser.add_argument('-ref_gcm_name', action='store', type=str, default=input.ref_gcm_name,
+    parser.add_argument('-ref_gcm_name', action='store', type=str, default=pygem_prms.ref_gcm_name,
                         help='reference gcm name')
     parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=4,
                         help='number of simultaneous processes (cores) to use')
@@ -199,7 +199,7 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, ic
     #  note: the mb_mwea_calc function ensures the area is constant until t1 such that the glacier is not completely
     #        lost before t1; otherwise, this will fail at high TC values
     mb_max_loss = (-1 * (glacier_area_initial * icethickness_initial).sum() / glacier_area_initial.sum() *
-                   input.density_ice / input.density_water / (t2 - t1))
+                   pygem_prms.density_ice / pygem_prms.density_water / (t2 - t1))
 
     if debug:
         print('mb_max_loss:', np.round(mb_max_loss,2), 'precfactor:', np.round(modelparameters[2],2))
@@ -333,26 +333,26 @@ def main(list_packed_vars):
     #           ddfsnow and precfactor. Then create an ensemble of parameter sets evenly sampled from these
     #           distributions, and output these sets of parameters and their corresponding mass balances to be used in
     #           the simulations.
-    if input.option_calibration == 2:
+    if pygem_prms.option_calibration == 2:
 
         # ===== Define functions needed for MCMC method =====
-        def run_MCMC(precfactor_disttype=input.precfactor_disttype,
-                     precfactor_gamma_alpha=input.precfactor_gamma_alpha,
-                     precfactor_gamma_beta=input.precfactor_gamma_beta,
-                     precfactor_lognorm_mu=input.precfactor_lognorm_mu,
-                     precfactor_lognorm_tau=input.precfactor_lognorm_tau,
-                     precfactor_mu=input.precfactor_mu, precfactor_sigma=input.precfactor_sigma,
-                     precfactor_boundlow=input.precfactor_boundlow, precfactor_boundhigh=input.precfactor_boundhigh,
-                     precfactor_start=input.precfactor_start,
-                     tempchange_disttype=input.tempchange_disttype,
-                     tempchange_mu=input.tempchange_mu, tempchange_sigma=input.tempchange_sigma,
-                     tempchange_boundlow=input.tempchange_boundlow, tempchange_boundhigh=input.tempchange_boundhigh,
-                     tempchange_start=input.tempchange_start,
-                     ddfsnow_disttype=input.ddfsnow_disttype,
-                     ddfsnow_mu=input.ddfsnow_mu, ddfsnow_sigma=input.ddfsnow_sigma,
-                     ddfsnow_boundlow=input.ddfsnow_boundlow, ddfsnow_boundhigh=input.ddfsnow_boundhigh,
-                     ddfsnow_start=input.ddfsnow_start,
-                     iterations=10, burn=0, thin=input.thin_interval, tune_interval=1000, step=None,
+        def run_MCMC(precfactor_disttype=pygem_prms.precfactor_disttype,
+                     precfactor_gamma_alpha=pygem_prms.precfactor_gamma_alpha,
+                     precfactor_gamma_beta=pygem_prms.precfactor_gamma_beta,
+                     precfactor_lognorm_mu=pygem_prms.precfactor_lognorm_mu,
+                     precfactor_lognorm_tau=pygem_prms.precfactor_lognorm_tau,
+                     precfactor_mu=pygem_prms.precfactor_mu, precfactor_sigma=pygem_prms.precfactor_sigma,
+                     precfactor_boundlow=pygem_prms.precfactor_boundlow, precfactor_boundhigh=pygem_prms.precfactor_boundhigh,
+                     precfactor_start=pygem_prms.precfactor_start,
+                     tempchange_disttype=pygem_prms.tempchange_disttype,
+                     tempchange_mu=pygem_prms.tempchange_mu, tempchange_sigma=pygem_prms.tempchange_sigma,
+                     tempchange_boundlow=pygem_prms.tempchange_boundlow, tempchange_boundhigh=pygem_prms.tempchange_boundhigh,
+                     tempchange_start=pygem_prms.tempchange_start,
+                     ddfsnow_disttype=pygem_prms.ddfsnow_disttype,
+                     ddfsnow_mu=pygem_prms.ddfsnow_mu, ddfsnow_sigma=pygem_prms.ddfsnow_sigma,
+                     ddfsnow_boundlow=pygem_prms.ddfsnow_boundlow, ddfsnow_boundhigh=pygem_prms.ddfsnow_boundhigh,
+                     ddfsnow_start=pygem_prms.ddfsnow_start,
+                     iterations=10, burn=0, thin=pygem_prms.thin_interval, tune_interval=1000, step=None,
                      tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0,
                      progress_bar=args.progress_bar, dbname=None,
                      use_potentials=1, mb_max_loss=None
@@ -504,7 +504,7 @@ def main(list_packed_vars):
                 if ddfsnow is not None:
                     modelparameters_copy[4] = float(ddfsnow)
                     # Degree day factor of ice is proportional to ddfsnow
-                    modelparameters_copy[5] = modelparameters_copy[4] / input.ddfsnow_iceratio
+                    modelparameters_copy[5] = modelparameters_copy[4] / pygem_prms.ddfsnow_iceratio
                 # Mass balance calculations
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -551,7 +551,7 @@ def main(list_packed_vars):
                 if ddfsnow is not None:
                     modelparameters_copy[4] = float(ddfsnow)
                     # Degree day factor of ice is proportional to ddfsnow
-                    modelparameters_copy[5] = modelparameters_copy[4] / input.ddfsnow_iceratio
+                    modelparameters_copy[5] = modelparameters_copy[4] / pygem_prms.ddfsnow_iceratio
                 # Mass balance calculations
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -619,8 +619,8 @@ def main(list_packed_vars):
             print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
 
             # Set model parameters
-            modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
-                               input.tempsnow, input.tempchange]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.ddfice,
+                               pygem_prms.tempsnow, pygem_prms.tempchange]
 
             # Select subsets of data
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
@@ -655,13 +655,13 @@ def main(list_packed_vars):
             if icethickness_initial.max() > 0:
 
                 # Regional priors
-                precfactor_gamma_alpha = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
-                precfactor_gamma_beta = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][1]
-                tempchange_mu = input.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][0]
-                tempchange_sigma = input.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][1]
+                precfactor_gamma_alpha = pygem_prms.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
+                precfactor_gamma_beta = pygem_prms.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][1]
+                tempchange_mu = pygem_prms.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][0]
+                tempchange_sigma = pygem_prms.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][1]
 
                 # fit the MCMC model
-                for n_chain in range(0,input.n_chains):
+                for n_chain in range(0,pygem_prms.n_chains):
 
                     if debug:
                         print('\n', glacier_str, ' chain' + str(n_chain))
@@ -670,25 +670,25 @@ def main(list_packed_vars):
                         # Starting values: middle
                         tempchange_start = tempchange_mu
                         precfactor_start = precfactor_gamma_alpha / precfactor_gamma_beta
-                        ddfsnow_start = input.ddfsnow_mu
+                        ddfsnow_start = pygem_prms.ddfsnow_mu
 
                     elif n_chain == 1:
                         # Starting values: lowest
                         tempchange_start = tempchange_mu - 1.96 * tempchange_sigma
-                        ddfsnow_start = input.ddfsnow_mu - 1.96 * input.ddfsnow_sigma
+                        ddfsnow_start = pygem_prms.ddfsnow_mu - 1.96 * pygem_prms.ddfsnow_sigma
                         precfactor_start = stats.gamma.ppf(0.05,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta)
 
                     elif n_chain == 2:
                         # Starting values: high
                         tempchange_start = tempchange_mu + 1.96 * tempchange_sigma
-                        ddfsnow_start = input.ddfsnow_mu + 1.96 * input.ddfsnow_sigma
+                        ddfsnow_start = pygem_prms.ddfsnow_mu + 1.96 * pygem_prms.ddfsnow_sigma
                         precfactor_start = stats.gamma.ppf(0.95,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta)
 
 
                     # Determine bounds to check TC starting values and estimate maximum mass loss
                     modelparameters[2] = precfactor_start
                     modelparameters[4] = ddfsnow_start
-                    modelparameters[5] = ddfsnow_start / input.ddfsnow_iceratio
+                    modelparameters[5] = ddfsnow_start / pygem_prms.ddfsnow_iceratio
 
                     tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                             retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial,
@@ -718,7 +718,7 @@ def main(list_packed_vars):
                               '\npf_start:', np.round(precfactor_start,3),
                               '\nddf_start:', np.round(ddfsnow_start,4))
 
-                    model = run_MCMC(iterations=input.mcmc_sample_no, burn=input.mcmc_burn_no, step=input.mcmc_step,
+                    model = run_MCMC(iterations=pygem_prms.mcmc_sample_no, burn=pygem_prms.mcmc_burn_no, step=pygem_prms.mcmc_step,
                                      precfactor_gamma_alpha=precfactor_gamma_alpha,
                                      precfactor_gamma_beta=precfactor_gamma_beta,
                                      precfactor_start=precfactor_start,
@@ -736,11 +736,11 @@ def main(list_packed_vars):
                                        'ddfsnow': model.trace('ddfsnow')[:],
                                        'massbal': model.trace('massbal')[:]})
                     # set columns for other variables
-                    df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
-                    df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
-                    df['lrglac'] = np.full(df.shape[0], input.lrglac)
-                    df['precgrad'] = np.full(df.shape[0], input.precgrad)
-                    df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
+                    df['ddfice'] = df['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                    df['lrgcm'] = np.full(df.shape[0], pygem_prms.lrgcm)
+                    df['lrglac'] = np.full(df.shape[0], pygem_prms.lrglac)
+                    df['precgrad'] = np.full(df.shape[0], pygem_prms.precgrad)
+                    df['tempsnow'] = np.full(df.shape[0], pygem_prms.tempsnow)
 
                     if debug:
                         print('mb_mwea:', np.round(df.massbal.mean(),2), 'mb_mwea_std:', np.round(df.massbal.std(),2))
@@ -757,14 +757,14 @@ def main(list_packed_vars):
                                         'chain': np.arange(0,n_chain+1),
                                         })
 
-                if not os.path.exists(input.output_fp_cal):
-                    os.makedirs(input.output_fp_cal)
-                ds.to_netcdf(input.output_fp_cal + glacier_str + '.nc')
+                if not os.path.exists(pygem_prms.output_fp_cal):
+                    os.makedirs(pygem_prms.output_fp_cal)
+                ds.to_netcdf(pygem_prms.output_fp_cal + glacier_str + '.nc')
                 ds.close()
 
     #            #%%
     #            # Example of accessing netcdf file and putting it back into pandas dataframe
-    #            ds = xr.open_dataset(input.output_fp_cal + '13.00014.nc')
+    #            ds = xr.open_dataset(pygem_prms.output_fp_cal + '13.00014.nc')
     #            df = pd.DataFrame(ds['mp_value'].sel(chain=0).values, columns=ds.mp.values)
     #            priors = pd.Series(ds.priors, index=ds.prior_cns)
     #            #%%
@@ -773,7 +773,7 @@ def main(list_packed_vars):
 
     #%%
     # Huss and Hock (2015) model calibration steps
-    elif input.option_calibration == 3:
+    elif pygem_prms.option_calibration == 3:
 
         def objective(modelparameters_subset):
             """
@@ -882,8 +882,8 @@ def main(list_packed_vars):
             #    to 'L-BFGS-B', which may be slower, but is still effective.
             # note: switch enables running through with given parameters
             if run_opt:
-                modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
-                                               bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
+                modelparameters_opt = minimize(objective, modelparameters_init, method=pygem_prms.method_opt,
+                                               bounds=modelparameters_bnds, options={'ftol':pygem_prms.ftol_opt})
                 # Record the optimized parameters
                 modelparameters_subset = modelparameters_opt.x
             else:
@@ -942,13 +942,13 @@ def main(list_packed_vars):
             """
             # Select data from model to be stored in netcdf
             df = pd.DataFrame(index=[0])
-            df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
-            df['lrglac'] = np.full(df.shape[0], input.lrglac)
+            df['lrgcm'] = np.full(df.shape[0], pygem_prms.lrgcm)
+            df['lrglac'] = np.full(df.shape[0], pygem_prms.lrglac)
             df['precfactor'] = modelparameters[2]
-            df['precgrad'] = np.full(df.shape[0], input.precgrad)
+            df['precgrad'] = np.full(df.shape[0], pygem_prms.precgrad)
             df['ddfsnow'] = modelparameters[4]
             df['ddfice'] = df['ddfsnow'] / ddfsnow_iceratio
-            df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
+            df['tempsnow'] = np.full(df.shape[0], pygem_prms.tempsnow)
             df['tempchange'] = modelparameters[7]
             df['mb_mwea'] = mb_mwea
             df['obs_mwea'] = observed_massbal
@@ -984,8 +984,8 @@ def main(list_packed_vars):
                 print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
 
             # Set model parameters
-            modelparameters = [input.lrgcm, input.lrglac, precfactor_init, input.precgrad, ddfsnow_init, input.ddfice,
-                               input.tempsnow, tempchange_init]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, precfactor_init, pygem_prms.precgrad, ddfsnow_init, pygem_prms.ddfice,
+                               pygem_prms.tempsnow, tempchange_init]
             modelparameters[5] = modelparameters[4] / ddfsnow_iceratio
 
             # Select subsets of data
@@ -1102,7 +1102,7 @@ def main(list_packed_vars):
 
 
             # EXPORT TO NETCDF
-            netcdf_output_fp = (input.output_fp_cal)
+            netcdf_output_fp = (pygem_prms.output_fp_cal)
             if not os.path.exists(netcdf_output_fp):
                 os.makedirs(netcdf_output_fp)
             write_netcdf_modelparams(netcdf_output_fp + glacier_str + '.nc', modelparameters, mb_mwea, observed_massbal)
@@ -1112,9 +1112,9 @@ def main(list_packed_vars):
     # - glacier able to evolve
     # - precipitaiton factor, then temperature bias (no ddfsnow)
     # - ranges different
-    elif input.option_calibration == 4:
+    elif pygem_prms.option_calibration == 4:
         
-        if input.params2opt.sort() == ['tempbias', 'precfactor'].sort():
+        if pygem_prms.params2opt.sort() == ['tempbias', 'precfactor'].sort():
             def objective(modelparameters_subset):
                 """
                 Objective function for mass balance data.
@@ -1145,7 +1145,7 @@ def main(list_packed_vars):
                 return mb_dif_mwea_abs
     
             def run_objective(modelparameters_init, observed_massbal, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
-                              run_opt=True, eps_opt=input.eps_opt, ftol_opt=input.ftol_opt):
+                              run_opt=True, eps_opt=pygem_prms.eps_opt, ftol_opt=pygem_prms.ftol_opt):
                 """
                 Run the optimization for the single glacier objective function.
     
@@ -1184,7 +1184,7 @@ def main(list_packed_vars):
                 #    to 'L-BFGS-B', which may be slower, but is still effective.
                 # note: switch enables running through with given parameters
                 if run_opt:
-                    modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
+                    modelparameters_opt = minimize(objective, modelparameters_init, method=pygem_prms.method_opt,
                                                    bounds=modelparameters_bnds, 
                                                    options={'ftol':ftol_opt, 'eps':eps_opt})
                     # Record the optimized parameters
@@ -1236,7 +1236,7 @@ def main(list_packed_vars):
     
             def run_objective(modelparameters_init, observed_massbal, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
                               ddfsnow_bnds=(0.0026,0.0056), precgrad_bnds=(0.0001,0.0001), run_opt=True, 
-                              eps_opt=input.eps_opt):
+                              eps_opt=pygem_prms.eps_opt):
                 """
                 Run the optimization for the single glacier objective function.
     
@@ -1275,9 +1275,9 @@ def main(list_packed_vars):
                 #    to 'L-BFGS-B', which may be slower, but is still effective.
                 # note: switch enables running through with given parameters
                 if run_opt:
-                    modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
+                    modelparameters_opt = minimize(objective, modelparameters_init, method=pygem_prms.method_opt,
                                                    bounds=modelparameters_bnds, 
-                                                   options={'ftol':input.ftol_opt, 'eps':eps_opt})
+                                                   options={'ftol':pygem_prms.ftol_opt, 'eps':eps_opt})
                     # Record the optimized parameters
                     modelparameters_subset = modelparameters_opt.x
                 else:
@@ -1313,13 +1313,13 @@ def main(list_packed_vars):
             """
             # Select data from model to be stored in netcdf
             df = pd.DataFrame(index=[0])
-            df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
-            df['lrglac'] = np.full(df.shape[0], input.lrglac)
+            df['lrgcm'] = np.full(df.shape[0], pygem_prms.lrgcm)
+            df['lrglac'] = np.full(df.shape[0], pygem_prms.lrglac)
             df['precfactor'] = modelparameters[2]
-            df['precgrad'] = np.full(df.shape[0], input.precgrad)
+            df['precgrad'] = np.full(df.shape[0], pygem_prms.precgrad)
             df['ddfsnow'] = modelparameters[4]
             df['ddfice'] = df['ddfsnow'] / ddfsnow_iceratio
-            df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
+            df['tempsnow'] = np.full(df.shape[0], pygem_prms.tempsnow)
             df['tempchange'] = modelparameters[7]
             df['mb_mwea'] = mb_mwea
             df['obs_mwea'] = observed_massbal
@@ -1349,8 +1349,8 @@ def main(list_packed_vars):
                 print(main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
 
             # Set model parameters
-            modelparameters = [input.lrgcm, input.lrglac, precfactor_init, input.precgrad, ddfsnow_init, input.ddfice,
-                               input.tempsnow, tempchange_init]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, precfactor_init, pygem_prms.precgrad, ddfsnow_init, pygem_prms.ddfice,
+                               pygem_prms.tempsnow, tempchange_init]
             modelparameters[5] = modelparameters[4] / ddfsnow_iceratio
 
             # Select subsets of data
@@ -1491,7 +1491,7 @@ def main(list_packed_vars):
                             pf_init = np.mean([precfactor_boundlow, precfactor_boundhigh])
 
                     # ===== RUN OPTIMIZATION WITH CONSTRAINED BOUNDS =====
-                    if input.params2opt.sort() == ['tempbias', 'precfactor'].sort():
+                    if pygem_prms.params2opt.sort() == ['tempbias', 'precfactor'].sort():
                         # Temperature change bounds
                         tempchange_bnds = (tc_bndlow_opt, tc_bndhigh_opt)
                         precfactor_bnds = (precfactor_boundlow, precfactor_boundhigh)
@@ -1511,8 +1511,8 @@ def main(list_packed_vars):
                         # Epsilon (the amount the variable change to calculate the jacobian) can be too small, which causes
                         #  the minimization to believe it has reached a local minima and stop. Therefore, adjust epsilon
                         #  to ensure this is not the case.
-                        eps_opt_new = input.eps_opt
-                        ftol_opt_new = input.ftol_opt
+                        eps_opt_new = pygem_prms.eps_opt
+                        ftol_opt_new = pygem_prms.ftol_opt
                         nround = 0
                         while np.absolute(mb_mwea - observed_massbal) > 0.1 and eps_opt_new <= 0.1:
                             nround += 1
@@ -1556,7 +1556,7 @@ def main(list_packed_vars):
                         # Epsilon (the amount the variable change to calculate the jacobian) can be too small, which causes
                         #  the minimization to believe it has reached a local minima and stop. Therefore, adjust epsilon
                         #  to ensure this is not the case.
-                        eps_opt_new = input.eps_opt
+                        eps_opt_new = pygem_prms.eps_opt
                         nround = 0
                         while np.absolute(mb_mwea - observed_massbal) > 0.3 and eps_opt_new <= 0.1:
                             nround += 1
@@ -1588,14 +1588,14 @@ def main(list_packed_vars):
 
 
             # EXPORT TO NETCDF
-            netcdf_output_fp = (input.output_fp_cal)
+            netcdf_output_fp = (pygem_prms.output_fp_cal)
             if not os.path.exists(netcdf_output_fp):
                 os.makedirs(netcdf_output_fp)
             write_netcdf_modelparams(netcdf_output_fp + glacier_str + '.nc', modelparameters, mb_mwea, observed_massbal)
 
             if debug:
                 print('model parameters:', tc_opt, pf_opt)
-                ds = xr.open_dataset(input.output_fp_cal + glacier_str + '.nc')
+                ds = xr.open_dataset(pygem_prms.output_fp_cal + glacier_str + '.nc')
                 df = pd.DataFrame(ds['mp_value'].sel(chain=0).values, columns=ds.mp.values)
                 print('ds PF:', np.round(df['precfactor'].values[0],2),
                       'ds TC:', np.round(df['tempchange'].values[0],2))
@@ -1604,7 +1604,7 @@ def main(list_packed_vars):
 
     #%%
     # Option 1: mimize mass balance difference using multi-step approach to expand solution space
-    elif input.option_calibration == 1:
+    elif pygem_prms.option_calibration == 1:
 
         def objective(modelparameters_subset):
             """
@@ -1627,7 +1627,7 @@ def main(list_packed_vars):
             modelparameters[2] = modelparameters_subset[0]
             modelparameters[3] = modelparameters_subset[1]
             modelparameters[4] = modelparameters_subset[2]
-            modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
+            modelparameters[5] = modelparameters[4] / pygem_prms.ddfsnow_iceratio
             modelparameters[7] = modelparameters_subset[3]
             # Mass balance calculations
             (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
@@ -1668,7 +1668,7 @@ def main(list_packed_vars):
                     glacier_cal_compare.loc[cal_idx, 'area_frac'] = bin_area_subset.sum() / glacier_area_total
                     # Z-score for modeled mass balance based on observed mass balance and uncertainty
                     #  z-score = (model - measured) / uncertainty
-                    glacier_cal_compare.loc[cal_idx, 'uncertainty'] = (input.massbal_uncertainty_mwea *
+                    glacier_cal_compare.loc[cal_idx, 'uncertainty'] = (pygem_prms.massbal_uncertainty_mwea *
                             (glacier_cal_data.loc[cal_idx, 't2'] - glacier_cal_data.loc[cal_idx, 't1']))
                     glacier_cal_compare.loc[cal_idx, 'zscore'] = (
                             (glacier_cal_compare.loc[cal_idx, 'model'] - glacier_cal_compare.loc[cal_idx, 'obs']) /
@@ -1724,15 +1724,15 @@ def main(list_packed_vars):
             #    to 'L-BFGS-B', which may be slower, but is still effective.
             # note: switch enables running through with given parameters
             if run_opt:
-                modelparameters_opt = minimize(objective, modelparameters_init, method=input.method_opt,
-                                               bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
+                modelparameters_opt = minimize(objective, modelparameters_init, method=pygem_prms.method_opt,
+                                               bounds=modelparameters_bnds, options={'ftol':pygem_prms.ftol_opt})
                 # Record the optimized parameters
                 modelparameters_subset = modelparameters_opt.x
             else:
                 modelparameters_subset = modelparameters_init.copy()
             modelparams = (
                     [modelparameters[0], modelparameters[1], modelparameters_subset[0], modelparameters_subset[1],
-                     modelparameters_subset[2], modelparameters_subset[2] / input.ddfsnow_iceratio, modelparameters[6],
+                     modelparameters_subset[2], modelparameters_subset[2] / pygem_prms.ddfsnow_iceratio, modelparameters[6],
                      modelparameters_subset[3]])
             # Re-run the optimized parameters in order to see the mass balance
             # Mass balance calculations
@@ -1778,7 +1778,7 @@ def main(list_packed_vars):
 #                             bin_area_subset[:,np.newaxis]).sum() / bin_area_subset.sum())
                     # Z-score for modeled mass balance based on observed mass balance and uncertainty
                     #  z-score = (model - measured) / uncertainty
-                    glacier_cal_compare.loc[cal_idx, 'uncertainty'] = (input.massbal_uncertainty_mwea *
+                    glacier_cal_compare.loc[cal_idx, 'uncertainty'] = (pygem_prms.massbal_uncertainty_mwea *
                             (glacier_cal_data.loc[cal_idx, 't2'] - glacier_cal_data.loc[cal_idx, 't1']))
                     glacier_cal_compare.loc[cal_idx, 'zscore'] = (
                             (glacier_cal_compare.loc[cal_idx, 'model'] - glacier_cal_compare.loc[cal_idx, 'obs']) /
@@ -1817,8 +1817,8 @@ def main(list_packed_vars):
                 if main_glac_rgi.loc[glac, 'group_name'] == group_name:
                     # Set model parameters
                     # if model parameters already exist for the glacier, then use those instead of group parameters
-                    modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow,
-                                       input.ddfice, input.tempsnow, input.tempchange]
+                    modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow,
+                                       pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange]
                     if np.all(main_glac_modelparamsopt[glac] == 0) == False:
                         modelparameters = main_glac_modelparamsopt[glac]
                     else:
@@ -1826,7 +1826,7 @@ def main(list_packed_vars):
                         modelparameters[2] = modelparameters_subset[0]
                         modelparameters[3] = modelparameters_subset[1]
                         modelparameters[4] = modelparameters_subset[2]
-                        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
+                        modelparameters[5] = modelparameters[4] / pygem_prms.ddfsnow_iceratio
                         modelparameters[7] = modelparameters_subset[3]
                     # Select subsets of data
                     glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
@@ -1921,15 +1921,15 @@ def main(list_packed_vars):
             #    to 'L-BFGS-B', which may be slower, but is still effective.
             # note: switch enables running through with given parameters
             if run_opt:
-                modelparameters_opt = minimize(objective_group, modelparameters_init, method=input.method_opt,
-                                               bounds=modelparameters_bnds, options={'ftol':input.ftol_opt})
+                modelparameters_opt = minimize(objective_group, modelparameters_init, method=pygem_prms.method_opt,
+                                               bounds=modelparameters_bnds, options={'ftol':pygem_prms.ftol_opt})
                 # Record the optimized parameters
                 modelparameters_subset = modelparameters_opt.x
             else:
                 modelparameters_subset = modelparameters_init.copy()
             modelparameters_group = (
-                    [input.lrgcm, input.lrglac, modelparameters_subset[0], modelparameters_subset[1],
-                     modelparameters_subset[2], modelparameters_subset[2] / input.ddfsnow_iceratio, input.tempsnow,
+                    [pygem_prms.lrgcm, pygem_prms.lrglac, modelparameters_subset[0], modelparameters_subset[1],
+                     modelparameters_subset[2], modelparameters_subset[2] / pygem_prms.ddfsnow_iceratio, pygem_prms.tempsnow,
                      modelparameters_subset[3]])
             # Re-run the optimized parameters in order to see the mass balance
             # Record group's cumulative area and mass balance for comparison
@@ -2022,16 +2022,16 @@ def main(list_packed_vars):
             # if only one calibration point, then zscore should be small
             if glacier_cal_compare.shape[0] == 1:
                 zscore4comparison = glacier_cal_compare.loc[cal_idx[0], 'zscore']
-                zscore_tolerance = input.zscore_tolerance_single
+                zscore_tolerance = pygem_prms.zscore_tolerance_single
             # else if multiple calibration points and one is a geodetic MB, check that geodetic MB is within 1
             elif (glacier_cal_compare.obs_type.isin(['mb_geo']).any() == True) and (glacier_cal_compare.shape[0] > 1):
                 zscore4comparison = glacier_cal_compare.loc[glacier_cal_compare.index.values[np.where(
                         glacier_cal_compare['obs_type'] == 'mb_geo')[0][0]], 'zscore']
-                zscore_tolerance = input.zscore_tolerance_all
+                zscore_tolerance = pygem_prms.zscore_tolerance_all
             # otherwise, check mean zscore
             else:
                 zscore4comparison = abs(glacier_cal_compare['zscore']).sum() / glacier_cal_compare.shape[0]
-                zscore_tolerance = input.zscore_tolerance_all
+                zscore_tolerance = pygem_prms.zscore_tolerance_all
             return abs(zscore4comparison) <= zscore_tolerance
 
 
@@ -2081,13 +2081,13 @@ def main(list_packed_vars):
                 """
                 # Select data from model to be stored in netcdf
                 df = pd.DataFrame(index=[0])
-                df['lrgcm'] = np.full(df.shape[0], input.lrgcm)
-                df['lrglac'] = np.full(df.shape[0], input.lrglac)
+                df['lrgcm'] = np.full(df.shape[0], pygem_prms.lrgcm)
+                df['lrglac'] = np.full(df.shape[0], pygem_prms.lrglac)
                 df['precfactor'] = modelparameters[2]
-                df['precgrad'] = np.full(df.shape[0], input.precgrad)
+                df['precgrad'] = np.full(df.shape[0], pygem_prms.precgrad)
                 df['ddfsnow'] = modelparameters[4]
-                df['ddfice'] = df['ddfsnow'] / input.ddfsnow_iceratio
-                df['tempsnow'] = np.full(df.shape[0], input.tempsnow)
+                df['ddfice'] = df['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                df['tempsnow'] = np.full(df.shape[0], pygem_prms.tempsnow)
                 df['tempchange'] = modelparameters[7]
                 # Loop through observations to help create dataframe
                 for x in range(glacier_cal_compare.shape[0]):
@@ -2111,7 +2111,7 @@ def main(list_packed_vars):
                                              columns=output_cols)
         main_glac_cal_compare.index = cal_data.index.values
         # Model parameters
-        main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], len(input.modelparams_colnames)))
+        main_glac_modelparamsopt = np.zeros((main_glac_rgi.shape[0], len(pygem_prms.modelparams_colnames)))
         # Glacier-wide climatic mass balance (required for transfer fucntions)
         main_glacwide_mbclim_mwe = np.zeros((main_glac_rgi.shape[0], 1))
 
@@ -2124,8 +2124,8 @@ def main(list_packed_vars):
             elif glac%100 == 0:
                 print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
             # Set model parameters
-            modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
-                               input.tempsnow, input.tempchange]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.ddfice,
+                               pygem_prms.tempsnow, pygem_prms.tempchange]
             # Select subsets of data
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
             glacier_gcm_elev = gcm_elev[glac]
@@ -2149,19 +2149,19 @@ def main(list_packed_vars):
                     glacier_cal_data[['glacno', 'obs_type', 't1', 't2']])
             calround = 0
             # Initial bounds and switch to manipulate bounds
-            precfactor_bnds_list = input.precfactor_bnds_list_init.copy()
-            tempchange_bnds_list = input.tempchange_bnds_list_init.copy()
-            ddfsnow_bnds_list = input.ddfsnow_bnds_list_init.copy()
-            precgrad_bnds_list = input.precgrad_bnds_list_init.copy()
+            precfactor_bnds_list = pygem_prms.precfactor_bnds_list_init.copy()
+            tempchange_bnds_list = pygem_prms.tempchange_bnds_list_init.copy()
+            ddfsnow_bnds_list = pygem_prms.ddfsnow_bnds_list_init.copy()
+            precgrad_bnds_list = pygem_prms.precgrad_bnds_list_init.copy()
             manipulate_bnds = False
 
-            modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
+            modelparameters_init = [pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tempchange]
             modelparameters, glacier_cal_compare = (
                     run_objective(modelparameters_init, glacier_cal_data, run_opt=False))
             zscore_sum = glacier_cal_compare.zscore_weighted.sum()
-            precfactor_bnds_list = [input.precfactor_bnds_list_init[0]]
-            tempchange_bnds_list = [input.tempchange_bnds_list_init[0]]
-            ddfsnow_bnds_list = [input.ddfsnow_bnds_list_init[0]]
+            precfactor_bnds_list = [pygem_prms.precfactor_bnds_list_init[0]]
+            tempchange_bnds_list = [pygem_prms.tempchange_bnds_list_init[0]]
+            ddfsnow_bnds_list = [pygem_prms.ddfsnow_bnds_list_init[0]]
 
             if debug:
                 print('precfactor_bnds_list:', precfactor_bnds_list)
@@ -2174,9 +2174,9 @@ def main(list_packed_vars):
                 ddfsnow_init_idx = 0
                 # First tuple will not be changed in case calibrated parameters are near the center,
                 # subsequent bounds will be modified
-                precfactor_bnds_list_modified = [(1,i[1]) for i in input.precfactor_bnds_list_init[1:]]
-                tempchange_bnds_list_modified = [(i[0],0) for i in input.tempchange_bnds_list_init[1:]]
-                ddfsnow_bnds_list_modified = [(i[0],0.0041) for i in input.ddfsnow_bnds_list_init[1:]]
+                precfactor_bnds_list_modified = [(1,i[1]) for i in pygem_prms.precfactor_bnds_list_init[1:]]
+                tempchange_bnds_list_modified = [(i[0],0) for i in pygem_prms.tempchange_bnds_list_init[1:]]
+                ddfsnow_bnds_list_modified = [(i[0],0.0041) for i in pygem_prms.ddfsnow_bnds_list_init[1:]]
                 precfactor_bnds_list.extend(precfactor_bnds_list_modified)
                 tempchange_bnds_list.extend(tempchange_bnds_list_modified)
                 ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
@@ -2187,9 +2187,9 @@ def main(list_packed_vars):
                 ddfsnow_init_idx = 1
                 # First tuple will not be changed in case calibrated parameters are near the center,
                 # subsequent bounds will be modified
-                precfactor_bnds_list_modified = [(i[0],1) for i in input.precfactor_bnds_list_init[1:]]
-                tempchange_bnds_list_modified = [(0,i[1]) for i in input.tempchange_bnds_list_init[1:]]
-                ddfsnow_bnds_list_modified = [(0.0041,i[1]) for i in input.ddfsnow_bnds_list_init[1:]]
+                precfactor_bnds_list_modified = [(i[0],1) for i in pygem_prms.precfactor_bnds_list_init[1:]]
+                tempchange_bnds_list_modified = [(0,i[1]) for i in pygem_prms.tempchange_bnds_list_init[1:]]
+                ddfsnow_bnds_list_modified = [(0.0041,i[1]) for i in pygem_prms.ddfsnow_bnds_list_init[1:]]
                 precfactor_bnds_list.extend(precfactor_bnds_list_modified)
                 tempchange_bnds_list.extend(tempchange_bnds_list_modified)
                 ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
@@ -2199,7 +2199,7 @@ def main(list_packed_vars):
 
 
             zscore_weighted_total = None
-            init_calrounds = len(input.precfactor_bnds_list_init)
+            init_calrounds = len(pygem_prms.precfactor_bnds_list_init)
             continue_loop = True
             while continue_loop:
                 # Bounds
@@ -2210,7 +2210,7 @@ def main(list_packed_vars):
                     tempchange_bnds = tempchange_bnds_list[calround]
                 # Initial guess
                 if calround == 0:
-                    modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
+                    modelparameters_init = [pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tempchange]
                 elif manipulate_bnds:
                     modelparameters_init = (
                                 [init_guess_frombounds(precfactor_bnds_list, calround, precfactor_init_idx),
@@ -2243,13 +2243,13 @@ def main(list_packed_vars):
                     modelparameters_best = modelparameters
                     glacier_cal_compare_best = glacier_cal_compare
                     cal_round_best = calround
-                elif (mean_zscore_best - mean_zscore) > input.zscore_update_threshold:
+                elif (mean_zscore_best - mean_zscore) > pygem_prms.zscore_update_threshold:
                     mean_zscore_best = mean_zscore
                     modelparameters_best = modelparameters
                     glacier_cal_compare_best = glacier_cal_compare
                     cal_round_best = calround
 
-                total_calrounds = init_calrounds + input.extra_calrounds
+                total_calrounds = init_calrounds + pygem_prms.extra_calrounds
                 # Break loop if gone through all iterations
                 if (calround == total_calrounds) or zscore_compare(glacier_cal_compare, cal_idx):
                     continue_loop = False
@@ -2292,7 +2292,7 @@ def main(list_packed_vars):
             main_glac_modelparamsopt[glac] = modelparameters
 
             # EXPORT TO NETCDF
-            netcdf_output_fp = (input.output_fp_cal + 'reg' + str(glacier_rgi_table.O1Region) + '/')
+            netcdf_output_fp = (pygem_prms.output_fp_cal + 'reg' + str(glacier_rgi_table.O1Region) + '/')
             if not os.path.exists(netcdf_output_fp):
                 os.makedirs(netcdf_output_fp)
             # Loop through glaciers calibrated from group and export to netcdf
@@ -2301,7 +2301,7 @@ def main(list_packed_vars):
 
         # ==============================================================
         # ===== GROUP CALIBRATION =====
-        if set(['group']).issubset(input.cal_datasets) == True:
+        if set(['group']).issubset(pygem_prms.cal_datasets) == True:
             # Indices of group calibration data
             cal_data_idx_groups = cal_data.loc[cal_data['group_name'].notnull()].index.values.tolist()
             # Indices of glaciers that have already been calibrated
@@ -2333,20 +2333,20 @@ def main(list_packed_vars):
                 # Calibration round
                 calround = 0
                 # Initial bounds and switch to manipulate bounds
-                precfactor_bnds_list = input.precfactor_bnds_list_init.copy()
-                tempchange_bnds_list = input.tempchange_bnds_list_init.copy()
-                ddfsnow_bnds_list = input.ddfsnow_bnds_list_init.copy()
-                precgrad_bnds_list = input.precgrad_bnds_list_init.copy()
+                precfactor_bnds_list = pygem_prms.precfactor_bnds_list_init.copy()
+                tempchange_bnds_list = pygem_prms.tempchange_bnds_list_init.copy()
+                ddfsnow_bnds_list = pygem_prms.ddfsnow_bnds_list_init.copy()
+                precgrad_bnds_list = pygem_prms.precgrad_bnds_list_init.copy()
                 manipulate_bnds = False
 
-                modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
+                modelparameters_init = [pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tempchange]
                 modelparameters_group, glacier_cal_compare, glacwide_mbclim_mwe = (
                         run_objective_group(modelparameters_init, run_opt=False))
                 zscore_sum = glacier_cal_compare.zscore.sum()
 
-                precfactor_bnds_list = [input.precfactor_bnds_list_init[0]]
-                tempchange_bnds_list = [input.tempchange_bnds_list_init[0]]
-                ddfsnow_bnds_list = [input.ddfsnow_bnds_list_init[0]]
+                precfactor_bnds_list = [pygem_prms.precfactor_bnds_list_init[0]]
+                tempchange_bnds_list = [pygem_prms.tempchange_bnds_list_init[0]]
+                ddfsnow_bnds_list = [pygem_prms.ddfsnow_bnds_list_init[0]]
 
                 if debug:
                     print('precfactor_bnds_list:', precfactor_bnds_list)
@@ -2359,9 +2359,9 @@ def main(list_packed_vars):
                     ddfsnow_init_idx = 0
                     # First tuple will not be changed in case calibrated parameters are near the center,
                     # subsequent bounds will be modified
-                    precfactor_bnds_list_modified = [(1,i[1]) for i in input.precfactor_bnds_list_init[1:]]
-                    tempchange_bnds_list_modified = [(i[0],0) for i in input.tempchange_bnds_list_init[1:]]
-                    ddfsnow_bnds_list_modified = [(i[0],0.0041) for i in input.ddfsnow_bnds_list_init[1:]]
+                    precfactor_bnds_list_modified = [(1,i[1]) for i in pygem_prms.precfactor_bnds_list_init[1:]]
+                    tempchange_bnds_list_modified = [(i[0],0) for i in pygem_prms.tempchange_bnds_list_init[1:]]
+                    ddfsnow_bnds_list_modified = [(i[0],0.0041) for i in pygem_prms.ddfsnow_bnds_list_init[1:]]
                     precfactor_bnds_list.extend(precfactor_bnds_list_modified)
                     tempchange_bnds_list.extend(tempchange_bnds_list_modified)
                     ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
@@ -2372,9 +2372,9 @@ def main(list_packed_vars):
                     ddfsnow_init_idx = 1
                     # First tuple will not be changed in case calibrated parameters are near the center,
                     # subsequent bounds will be modified
-                    precfactor_bnds_list_modified = [(i[0],1) for i in input.precfactor_bnds_list_init[1:]]
-                    tempchange_bnds_list_modified = [(0,i[1]) for i in input.tempchange_bnds_list_init[1:]]
-                    ddfsnow_bnds_list_modified = [(0.0041,i[1]) for i in input.ddfsnow_bnds_list_init[1:]]
+                    precfactor_bnds_list_modified = [(i[0],1) for i in pygem_prms.precfactor_bnds_list_init[1:]]
+                    tempchange_bnds_list_modified = [(0,i[1]) for i in pygem_prms.tempchange_bnds_list_init[1:]]
+                    ddfsnow_bnds_list_modified = [(0.0041,i[1]) for i in pygem_prms.ddfsnow_bnds_list_init[1:]]
                     precfactor_bnds_list.extend(precfactor_bnds_list_modified)
                     tempchange_bnds_list.extend(tempchange_bnds_list_modified)
                     ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
@@ -2391,7 +2391,7 @@ def main(list_packed_vars):
                     tempchange_bnds = tempchange_bnds_list[calround]
                     # Initial guess
                     if calround == 0:
-                        modelparameters_init = [input.precfactor, input.precgrad, input.ddfsnow, input.tempchange]
+                        modelparameters_init = [pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tempchange]
                     elif manipulate_bnds:
                         modelparameters_init = (
                                     [init_guess_frombounds(precfactor_bnds_list, calround, precfactor_init_idx),
@@ -2415,15 +2415,15 @@ def main(list_packed_vars):
                         modelparameters_group_best = modelparameters_group
                         glacier_cal_compare_best = glacier_cal_compare
                         cal_round_best = calround
-                    elif (zscore_abs_best - zscore_abs) > input.zscore_update_threshold:
+                    elif (zscore_abs_best - zscore_abs) > pygem_prms.zscore_update_threshold:
                         zscore_abs_best = zscore_abs
                         modelparameters_group_best = modelparameters_group
                         glacier_cal_compare_best = glacier_cal_compare
                         cal_round_best = calround
 
                     # Break loop if gone through all iterations
-                    if ((calround == len(input.precfactor_bnds_list_init)) or
-                        (abs(glacier_cal_compare.zscore) < input.zscore_tolerance_single)):
+                    if ((calround == len(pygem_prms.precfactor_bnds_list_init)) or
+                        (abs(glacier_cal_compare.zscore) < pygem_prms.zscore_tolerance_single)):
                         continue_loop = False
 
                     if debug:
@@ -2445,7 +2445,7 @@ def main(list_packed_vars):
                 main_glac_cal_compare.loc[cal_idx] = glacier_cal_compare_best
 
                 # EXPORT TO NETCDF
-                netcdf_output_fp = (input.output_fp_cal + 'reg' + str(glacier_rgi_table.O1Region) + '/')
+                netcdf_output_fp = (pygem_prms.output_fp_cal + 'reg' + str(glacier_rgi_table.O1Region) + '/')
                 if not os.path.exists(netcdf_output_fp):
                     os.makedirs(netcdf_output_fp)
                 # Loop through glaciers calibrated from group (skipping those calibrated indepdently)
@@ -2465,25 +2465,25 @@ def main(list_packed_vars):
         #        (ii) comparison of model vs. observations
         # Concatenate main_glac_rgi, optimized model parameters, glacier-wide climatic mass balance
         main_glac_output = main_glac_rgi.copy()
-        main_glac_modelparamsopt_pd = pd.DataFrame(main_glac_modelparamsopt, columns=input.modelparams_colnames)
+        main_glac_modelparamsopt_pd = pd.DataFrame(main_glac_modelparamsopt, columns=pygem_prms.modelparams_colnames)
         main_glac_modelparamsopt_pd.index = main_glac_rgi.index.values
         main_glacwide_mbclim_pd = pd.DataFrame(main_glacwide_mbclim_mwe, columns=['mbclim_mwe'])
         main_glac_output = pd.concat([main_glac_output, main_glac_modelparamsopt_pd, main_glacwide_mbclim_pd], axis=1)
 
         # Export output
-        if not os.path.exists(input.output_fp_cal + 'temp/'):
-            os.makedirs(input.output_fp_cal + 'temp/')
+        if not os.path.exists(pygem_prms.output_fp_cal + 'temp/'):
+            os.makedirs(pygem_prms.output_fp_cal + 'temp/')
         regions_str = 'R'
-        for region in input.rgi_regionsO1:
+        for region in pygem_prms.rgi_regionsO1:
             regions_str += str(region)
         output_modelparams_fn = (
-                regions_str + '_modelparams_opt' + str(input.option_calibration) + '_' + gcm_name
-                + str(input.startyear) + str(input.endyear) + '--' + str(count) + '.csv')
+                regions_str + '_modelparams_opt' + str(pygem_prms.option_calibration) + '_' + gcm_name
+                + str(pygem_prms.startyear) + str(pygem_prms.endyear) + '--' + str(count) + '.csv')
         output_calcompare_fn = (
-                regions_str + '_calcompare_opt' + str(input.option_calibration) + '_' + gcm_name
-                + str(input.startyear) + str(input.endyear) + '--' + str(count) + '.csv')
-        main_glac_output.to_csv(input.output_fp_cal + 'temp/' + output_modelparams_fn )
-        main_glac_cal_compare.to_csv(input.output_fp_cal + 'temp/' + output_calcompare_fn)
+                regions_str + '_calcompare_opt' + str(pygem_prms.option_calibration) + '_' + gcm_name
+                + str(pygem_prms.startyear) + str(pygem_prms.endyear) + '--' + str(count) + '.csv')
+        main_glac_output.to_csv(pygem_prms.output_fp_cal + 'temp/' + output_modelparams_fn )
+        main_glac_cal_compare.to_csv(pygem_prms.output_fp_cal + 'temp/' + output_calcompare_fn)
 
     # Export variables as global to view in variable explorer
     if args.option_parallels == 0:
@@ -2502,8 +2502,8 @@ if __name__ == '__main__':
     gcm_name = args.ref_gcm_name
     print('Reference climate data is:', gcm_name)
 
-    if input.option_calibration == 2:
-        print('Chains:', input.n_chains, 'Iterations:', input.mcmc_sample_no)
+    if pygem_prms.option_calibration == 2:
+        print('Chains:', pygem_prms.n_chains, 'Iterations:', pygem_prms.mcmc_sample_no)
         
     # RGI glacier number
     if args.rgi_glac_number_fn is not None:
@@ -2512,18 +2512,18 @@ if __name__ == '__main__':
         rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
         regions_str = args.rgi_glac_number_fn.split('_')[0]
     else:
-        glac_no = input.glac_no
-        rgi_regionsO1 = input.rgi_regionsO1
+        glac_no = pygem_prms.glac_no
+        rgi_regionsO1 = pygem_prms.rgi_regionsO1
         regions_str = 'R'
-        for region in input.rgi_regionsO1:
+        for region in pygem_prms.rgi_regionsO1:
             regions_str += str(region)
 
     # Select all glaciers in a region
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(
-            rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 =input.rgi_regionsO2, rgi_glac_number=input.rgi_glac_number,  
+            rgi_regionsO1=rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2, rgi_glac_number=pygem_prms.rgi_glac_number,  
             glac_no=glac_no)
     # Add regions
-    main_glac_rgi_all['region'] = main_glac_rgi_all.RGIId.map(input.reg_dict)
+    main_glac_rgi_all['region'] = main_glac_rgi_all.RGIId.map(pygem_prms.reg_dict)
 
     # Define chunk size for parallel processing
     if args.option_parallels != 0:
@@ -2550,31 +2550,31 @@ if __name__ == '__main__':
 
     # ===== LOAD GLACIER DATA =====
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, input.hyps_filepath,
-                                                     input.hyps_filedict, input.hyps_colsdrop)
+    main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, pygem_prms.hyps_filepath,
+                                                     pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
 
     # Ice thickness [m], average
-    main_glac_icethickness_all = modelsetup.import_Husstable(main_glac_rgi_all, input.thickness_filepath, 
-                                                             input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_icethickness_all = modelsetup.import_Husstable(main_glac_rgi_all, pygem_prms.thickness_filepath, 
+                                                             pygem_prms.thickness_filedict, pygem_prms.thickness_colsdrop)
     main_glac_icethickness_all[main_glac_icethickness_all < 0] = 0
     main_glac_hyps_all[main_glac_icethickness_all == 0] = 0
     # Width [km], average
-    main_glac_width_all = modelsetup.import_Husstable(main_glac_rgi_all, input.width_filepath,
-                                                      input.width_filedict, input.width_colsdrop)
+    main_glac_width_all = modelsetup.import_Husstable(main_glac_rgi_all, pygem_prms.width_filepath,
+                                                      pygem_prms.width_filedict, pygem_prms.width_colsdrop)
     elev_bins = main_glac_hyps_all.columns.values.astype(int)
     # Add volume [km**3] and mean elevation [m a.s.l.]
     main_glac_rgi_all['Volume'], main_glac_rgi_all['Zmean'] = (
             modelsetup.hypsometrystats(main_glac_hyps_all, main_glac_icethickness_all))
     # Select dates including future projections
     #  - nospinup dates_table needed to get the proper time indices
-    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear,
+    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=pygem_prms.startyear, endyear=pygem_prms.endyear,
                                                      spinupyears=0)
-    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear,
-                                           spinupyears=input.spinupyears)
+    dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.startyear, endyear=pygem_prms.endyear,
+                                           spinupyears=pygem_prms.spinupyears)
 
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()
-    for dataset in input.cal_datasets:
+    for dataset in pygem_prms.cal_datasets:
         cal_subset = class_mbdata.MBData(name=dataset)
         cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_all, main_glac_hyps_all, dates_table_nospinup)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
@@ -2582,9 +2582,9 @@ if __name__ == '__main__':
     cal_data.reset_index(drop=True, inplace=True)
 
     # If group data is included, then add group dictionary and add group name to main_glac_rgi
-    if set(['group']).issubset(input.cal_datasets) == True:
+    if set(['group']).issubset(pygem_prms.cal_datasets) == True:
         # Group dictionary
-        group_dict_raw = pd.read_csv(input.mb_group_fp + input.mb_group_dict_fn)
+        group_dict_raw = pd.read_csv(pygem_prms.mb_group_fp + pygem_prms.mb_group_dict_fn)
         # Remove groups that have no data
         group_names_wdata = np.unique(cal_data[np.isnan(cal_data.glacno)].group_name.values).tolist()
         group_dict_raw_wdata = group_dict_raw.loc[group_dict_raw.group_name.isin(group_names_wdata)]
@@ -2621,7 +2621,7 @@ if __name__ == '__main__':
     gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Air temperature standard deviation [K]
-    if input.option_ablation != 2 or gcm_name not in ['ERA5']:
+    if pygem_prms.option_ablation != 2 or gcm_name not in ['ERA5']:
         gcm_tempstd = np.zeros(gcm_temp.shape)
     elif gcm_name in ['ERA5']:
         gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
@@ -2642,10 +2642,10 @@ if __name__ == '__main__':
         gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
         # Check if glacier outside of high-res (d02) domain
         for glac in range(main_glac_rgi.shape[0]):
-            glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
-            glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
-            if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or
-                ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
+            glac_lat = main_glac_rgi.loc[glac,pygem_prms.rgi_lat_colname]
+            glac_lon = main_glac_rgi.loc[glac,pygem_prms.rgi_lon_colname]
+            if (~(pygem_prms.coawst_d02_lat_min <= glac_lat <= pygem_prms.coawst_d02_lat_max) or
+                ~(pygem_prms.coawst_d02_lon_min <= glac_lon <= pygem_prms.coawst_d02_lon_max)):
                 gcm_prec[glac,:] = gcm_prec_d01[glac,:]
                 gcm_temp[glac,:] = gcm_temp_d01[glac,:]
                 gcm_elev[glac] = gcm_elev_d01[glac]
@@ -2696,11 +2696,11 @@ if __name__ == '__main__':
     #%%
 
 #    # Combine output (if desired)
-#    if input.option_calibration == 1:
+#    if pygem_prms.option_calibration == 1:
 #        # Merge csv summary files into single file
 #        # Count glaciers
 #        glac_count = 0
-#        output_temp = input.output_fp_cal + 'temp/'
+#        output_temp = pygem_prms.output_fp_cal + 'temp/'
 #        regions_str = 'R'
 #        for region in rgi_regionsO1:
 #            regions_str += str(region)
@@ -2710,8 +2710,8 @@ if __name__ == '__main__':
 #
 #        # Model parameters - combine into single file
 #        check_modelparams_str = (
-#                'modelparams_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) +
-#                str(input.endyear))
+#                'modelparams_opt' + str(pygem_prms.option_calibration) + '_' + gcm_name + str(pygem_prms.startyear) +
+#                str(pygem_prms.endyear))
 #        output_modelparams_all_fn = (
 #                regions_str + '_' + str(glac_count) + check_modelparams_str + '.csv')
 #        # Sorted list of files to merge
@@ -2726,19 +2726,19 @@ if __name__ == '__main__':
 #            list_count += 1
 #            # Append results
 #            if list_count == 1:
-#                output_all = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
+#                output_all = pd.read_csv(pygem_prms.output_fp_cal + 'temp/' + i, index_col=0)
 #            else:
-#                output_2join = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
+#                output_2join = pd.read_csv(pygem_prms.output_fp_cal + 'temp/' + i, index_col=0)
 #                output_all = output_all.append(output_2join, ignore_index=True)
 #            # Remove file after its been merged
-#            os.remove(input.output_fp_cal + 'temp/' + i)
+#            os.remove(pygem_prms.output_fp_cal + 'temp/' + i)
 #        # Export joined files
-#        output_all.to_csv(input.output_fp_cal + output_modelparams_all_fn)
+#        output_all.to_csv(pygem_prms.output_fp_cal + output_modelparams_all_fn)
 #
 #        # Calibration comparison - combine into single file
 #        check_calcompare_str = (
-#                'calcompare_opt' + str(input.option_calibration) + '_' + gcm_name + str(input.startyear) +
-#                str(input.endyear))
+#                'calcompare_opt' + str(pygem_prms.option_calibration) + '_' + gcm_name + str(pygem_prms.startyear) +
+#                str(pygem_prms.endyear))
 #        output_calcompare_all_fn = (
 #                regions_str + '_' + str(glac_count) + check_calcompare_str + '.csv')
 #        # Sorted list of files to merge
@@ -2753,14 +2753,14 @@ if __name__ == '__main__':
 #            list_count += 1
 #            # Append results
 #            if list_count == 1:
-#                output_all = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
+#                output_all = pd.read_csv(pygem_prms.output_fp_cal + 'temp/' + i, index_col=0)
 #            else:
-#                output_2join = pd.read_csv(input.output_fp_cal + 'temp/' + i, index_col=0)
+#                output_2join = pd.read_csv(pygem_prms.output_fp_cal + 'temp/' + i, index_col=0)
 #                output_all = output_all.append(output_2join, ignore_index=True)
 #            # Remove file after its been merged
-#            os.remove(input.output_fp_cal + 'temp/' + i)
+#            os.remove(pygem_prms.output_fp_cal + 'temp/' + i)
 #        # Export joined files
-#        output_all.to_csv(input.output_fp_cal + output_calcompare_all_fn)
+#        output_all.to_csv(pygem_prms.output_fp_cal + output_calcompare_all_fn)
 #
 #    print('Total processing time:', time.time()-time_start, 's')
 
@@ -2788,7 +2788,7 @@ if __name__ == '__main__':
 #        icethickness_initial = main_vars['icethickness_initial']
 #        width_initial = main_vars['width_initial']
 #
-#        if input.option_calibration == 2 and input.new_setup == 1:
+#        if pygem_prms.option_calibration == 2 and pygem_prms.new_setup == 1:
 #            observed_massbal=main_vars['observed_massbal']
 #            observed_error=main_vars['observed_error']
 #            mb_max_loss = main_vars['mb_max_loss']
@@ -2801,9 +2801,9 @@ if __name__ == '__main__':
 #            t2_idx = main_vars['t2_idx']
 #            t1 = main_vars['t1']
 #            t2 = main_vars['t2']
-#            iterations=input.mcmc_sample_no
-#            burn=input.mcmc_burn_no
-#            step=input.mcmc_step
+#            iterations=pygem_prms.mcmc_sample_no
+#            burn=pygem_prms.mcmc_burn_no
+#            step=pygem_prms.mcmc_step
 #            precfactor_boundlow = main_vars['precfactor_boundlow']
 #            precfactor_boundhigh = main_vars['precfactor_boundhigh']
 #            glacier_gcm_prec = main_vars['glacier_gcm_prec']
@@ -2813,14 +2813,14 @@ if __name__ == '__main__':
 #            glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
 #            glacier_gcm_lrglac = main_vars['glacier_gcm_lrglac']
 #
-#        if input.option_calibration == 1:
+#        if pygem_prms.option_calibration == 1:
 #            glacier_cal_compare = main_vars['glacier_cal_compare']
 #            main_glac_cal_compare = main_vars['main_glac_cal_compare']
 #            main_glac_modelparamsopt = main_vars['main_glac_modelparamsopt']
 #            main_glac_output = main_vars['main_glac_output']
 #            main_glac_modelparamsopt_pd = main_vars['main_glac_modelparamsopt_pd']
 #            main_glacwide_mbclim_mwe = main_vars['main_glacwide_mbclim_mwe']
-#            if set(['group']).issubset(input.cal_datasets):
+#            if set(['group']).issubset(pygem_prms.cal_datasets):
 #                group_dict_keyslist = main_vars['group_dict_keyslist']
 #                group_dict_keyslist_names = main_vars['group_dict_keyslist_names']
 #                cal_data_idx_groups = main_vars['cal_data_idx_groups']

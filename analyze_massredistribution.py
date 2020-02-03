@@ -17,7 +17,7 @@ import glob
 import matplotlib.pyplot as plt
 import copy
 
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 
 # Tips, comments, and old portions of code no longer used have been moved to bottom of file
@@ -26,12 +26,12 @@ import pygemfxns_modelsetup as modelsetup
 # User defines regions of interest
 rgi_regionO1 = [13, 14, 15]
 #rgi_regionO1 = [15]
-search_binnedcsv_fn = (input.main_directory + '/../DEMs/Shean_2018_1109/aster_2000-2018_20181109_bins/*_mb_bins.csv') 
+search_binnedcsv_fn = (pygem_prms.main_directory + '/../DEMs/Shean_2018_1109/aster_2000-2018_20181109_bins/*_mb_bins.csv') 
 
 #%% ===== PLOT OPTIONS =====
 # Option to save figures
 option_savefigs = 1
-fig_fp = input.main_directory + '/../Output/figures/massredistribution/'
+fig_fp = pygem_prms.main_directory + '/../Output/figures/massredistribution/'
 
 # Plot histogram options
 option_plot_histogram = 0
@@ -983,7 +983,7 @@ if option_plot_multipleglaciers_multiplethresholds == 1:
 #    plt.suptitle(plot_fn + '\n '+  str(count_current) + ' glaciers')
 #    # Save and show figure
 #    if option_savefigs == 1:
-#        plt.savefig(input.output_filepath + 'figures/Multi_Glac_Plots_Binned_Parameter/' + plot_fn + '_dhdt_elev_curves.png', bbox_inches='tight')
+#        plt.savefig(pygem_prms.output_filepath + 'figures/Multi_Glac_Plots_Binned_Parameter/' + plot_fn + '_dhdt_elev_curves.png', bbox_inches='tight')
 #    plt.show()
 #    return norm_thresholdbin_stats
 #
@@ -1082,7 +1082,7 @@ if option_plot_multipleglaciers_multiplethresholds == 1:
 #    plt.suptitle(plot_fn + '\n '+  str(count_current) + ' glaciers')
 #    # Save and show figure
 #    if option_savefigs == 1:
-#        plt.savefig(input.output_filepath + 'figures/Multi_Glac_Plots_Binned_Parameter/' + plot_fn + '_dhdt_elev_curves.png', bbox_inches='tight')
+#        plt.savefig(pygem_prms.output_filepath + 'figures/Multi_Glac_Plots_Binned_Parameter/' + plot_fn + '_dhdt_elev_curves.png', bbox_inches='tight')
 #    plt.show()
 #    return norm_thresholdbin_stats
 
@@ -1181,7 +1181,7 @@ if option_plot_multipleglaciers_multiplethresholds == 1:
 #        plot_fn = 'discard_eval_'  + glac_name
 #		
 #        if option_savefigs == 1:		
-#            plt.savefig(input.output_filepath + 'figures/discard_threshold_plots/' + plot_fn + '.png', bbox_inches='tight')			        
+#            plt.savefig(pygem_prms.output_filepath + 'figures/discard_threshold_plots/' + plot_fn + '.png', bbox_inches='tight')			        
 #    
 #    plt.show()
 
