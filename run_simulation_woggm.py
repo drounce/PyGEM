@@ -863,29 +863,32 @@ def main(list_packed_vars):
                                              debug_refreeze=pygem_prms.debug_refreeze,
                                              fls=fls)
                     
-                    print('constant years for model development')
-                    years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
-                    for fl_id, fl in enumerate(fls):
-                        for year in years - years[0]:
-                            mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year, 
-                                                            debug=False)
-#                            print('year:', year, 'mbclim_annual_sum:', mb_annual.sum())
-#                            if debug:
-#                                # Convert m ice s-1 to m w.e. a-1
-#                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice / 
-#                                           pygem_prms.density_water)
-#                                print(mb_mwea,3)
+#                    print('constant years for model development')
+#                    years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
+#                    for fl_id, fl in enumerate(fls):
+#                        for year in years - years[0]:
+#                            mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year, 
+#                                                            debug=False)
+##                            print('year:', year, 'mbclim_annual_sum:', mb_annual.sum())
+##                            if debug:
+##                                # Convert m ice s-1 to m w.e. a-1
+##                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice / 
+##                                           pygem_prms.density_water)
+##                                print(mb_mwea,3)
 
                     print('\nrunning mass redistribution model...')
                     model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
                     model.run_until(pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
-
+#                    model.run_until(5)
 
                     print('\nTO-DO LIST:')
                     print(' - add frontal ablation and remove in glacierdynamics')
                     print(' - update shapes using OGGMs structure')
                     print(' - setup flowlines for Huss and Farinotti datasets to work seemlessly')
                     print(' - save model output')
+                    print(' - add debris melt factors')
+                    print(' - update supercomputer environment to ensure code still runs on spc')
+                    print(' - setup code to run ice thickness inversion with PyGEM MB to avoid spinup issues')
 #                    mb_frontalablation = mbmod.get_annual_frontalablation(elev_bins, year=0, debug=True)
                     
                     # Specific mass balance (mm yr-1) for every year
@@ -917,18 +920,7 @@ def main(list_packed_vars):
 #                                         glac_bin_area_annual, glac_bin_icethickness_annual))
 #                        print('\n\nRE-WRITE convert_glacwide_results to store on mbmod' + 
 #                              '\nThink about how it should handle the changing area?\n\n')
-                        
-                    
-                    
-#                    with np.warnings.catch_warnings():
-#                        # For operational runs we ignore the warnings
-#                        np.warnings.filterwarnings('ignore', category=RuntimeWarning)
-#                        model.run_until_and_store(ye, run_path=run_path,
-#                                                  diag_path=diag_path,
-#                                                  store_monthly_step=store_monthly_step)
-                        
-                        
-    
+
     #                    if debug:
     #                        # Compute glacier volume change for every time step and use this to compute mass balance
     #                        #  this will work for any indexing
@@ -1245,6 +1237,7 @@ if __name__ == '__main__':
             width_initial = fls[0].widths_m / 1000
             glacier_area_initial = width_initial * fls[0].dx / 1000       
             mbmod = main_vars['mbmod']
+            model = main_vars['model']
         glacier_gcm_temp = main_vars['glacier_gcm_temp']
         glacier_gcm_tempstd = main_vars['glacier_gcm_tempstd']
         glacier_gcm_prec = main_vars['glacier_gcm_prec']

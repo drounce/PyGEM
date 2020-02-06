@@ -7,6 +7,87 @@ import numpy as np
 import pandas as pd
 import netCDF4
 
+# Troubleshooting:
+#  - EXCEPT: PASS is the key to the issues that is being experienced when running code Fabien provides on mac
+#  - also have changed temporary working directories (wd), but the true problem may be the except:pass 
+
+
+def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_border=10, k_calving=2):
+    """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
+    
+    k_calving is free variable!
+    
+    Parameters
+    ----------
+    rgi_id : str
+        the rgi id of the glacier
+    reset : bool
+        set to true to delete any pre-existing files. If false (the default),
+        the directory won't be re-downloaded if already available locally in
+        order to spare time.
+    prepro_border : int
+        the size of the glacier map: 10, 80, 160, 250
+    Returns
+    -------
+    a GlacierDirectory object
+    """
+    if type(rgi_id) != str:
+        raise ValueError('We expect rgi_id to be a string')
+    if 'RGI60-' not in rgi_id:
+        raise ValueError('OGGM currently expects IDs to start with RGI60-')
+    cfg.initialize()
+    
+    wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/oggm-pygem-{}-b{}-k{}'.format(rgi_id, prepro_border, 
+                                                                                              k_calving)
+    cfg.PATHS['working_dir'] = wd
+    cfg.PARAMS['use_multiple_flowlines'] = False
+    # Check if folder is already processed
+    try:
+        gdir = utils.GlacierDirectory(rgi_id)
+        gdir.read_pickle('model_flowlines')
+        # If the above works the directory is already processed, return
+        return gdir
+    except:
+        pass
+    # If not ready, we download the preprocessed data for this glacier
+    gdirs = workflow.init_glacier_regions([rgi_id],
+                                          from_prepro_level=2,
+                                          prepro_border=prepro_border)
+    if not gdirs[0].is_tidewater:
+        raise ValueError('This glacier is not tidewater!')
+    # Compute all the stuff
+    list_talks = [
+        tasks.glacier_masks,
+        tasks.compute_centerlines,
+        tasks.initialize_flowlines,
+        tasks.compute_downstream_line,
+        tasks.catchment_area,
+        tasks.catchment_width_geom,
+        tasks.catchment_width_correction,
+        tasks.compute_downstream_bedshape,
+    ]
+    for task in list_talks:
+        # The order matters!
+        workflow.execute_entity_task(task, gdirs)
+    
+    # Calving according to Recinos et al. 2019
+    #  solves equality between ice derformation and Oerleman's calving law
+    #  reduces temperature sensitivity 
+    from oggm.core.inversion import find_inversion_calving
+    cfg.PARAMS['k_calving'] = k_calving
+    df = find_inversion_calving(gdirs[0])
+    print('Calving results:')
+    print('k calving:', k_calving)
+    for k, v in df.items():
+        print(k + ':', v)
+    list_talks = [
+        tasks.init_present_time_glacier,
+    ]
+    for task in list_talks:
+        # The order matters!
+        workflow.execute_entity_task(task, gdirs)
+    return gdirs[0]
+
 
 def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)

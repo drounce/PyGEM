@@ -199,6 +199,9 @@ class PyGEMMassBalance(MassBalanceModel):
         self.dayspermonth = self.dates_table['daysinmonth'].values
         self.surfacetype_ddf = np.zeros((nbins))
         
+        # sSrface type DDF dictionary (manipulate this function for calibration or for each glacier)
+        self.surfacetype_ddf_dict = self._surfacetypeDDFdict(self.modelparameters)   
+        
         # Refreezing specific layers
         if pygem_prms.option_refreezing == 1:
             # Refreezing layers density, volumetric heat capacity, and thermal conductivity
@@ -250,7 +253,6 @@ class PyGEMMassBalance(MassBalanceModel):
             year starting with 0 to the number of years in the study
         
         """
-
         fl = fls[fl_id]
         heights = fl.surface_h
         icethickness_t0 = fl.thick
@@ -266,11 +268,7 @@ class PyGEMMassBalance(MassBalanceModel):
         bin_precsnow = np.zeros((nbins,nmonths))
         
         # Refreezing specific layers
-        if (pygem_prms.option_refreezing == 1 and 
-            (year == 0 or year == pygem_prms.gcm_startyear or year == pygem_prms.ref_startyear)):
-#            self.te_rf = np.zeros((pygem_prms.rf_layers,nbins))     # layer temp of each elev bin for present time step
-#            self.tl_rf = np.zeros((pygem_prms.rf_layers,nbins))     # layer temp of each elev bin for previous time step
-            
+        if pygem_prms.option_refreezing == 1 and year == 0:
             self.te_rf[:,:,0] = 0     # layer temp of each elev bin for present time step
             self.tl_rf[:,:,0] = 0     # layer temp of each elev bin for previous time step
         
@@ -282,10 +280,10 @@ class PyGEMMassBalance(MassBalanceModel):
             # Glacier indices
             glac_idx_t0 = icethickness_t0.nonzero()[0]
             
-            # Compute the initial surface type [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
-            self.surfacetype, self.firnline_idx = self._surfacetypebinsinitial(self.heights)
-            # Create surface type DDF dictionary (manipulate this function for calibration or for each glacier)
-            self.surfacetype_ddf_dict = self._surfacetypeDDFdict(self.modelparameters)   
+            # Surface type [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
+            if year == 0:
+                self.surfacetype, self.firnline_idx = self._surfacetypebinsinitial(self.heights)
+            self.glac_bin_surfacetype_annual[:,year] = self.surfacetype
             
             # Off-glacier area and indices
             if option_areaconstant == 0:
@@ -693,7 +691,21 @@ class PyGEMMassBalance(MassBalanceModel):
 #                print(year, 'vol_chg:', (glacier_area_t0 * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1) / 1000 / 0.9).sum())
 #                print('area_sum:', glacier_area_t0.sum())
 #                print('mbclim_sum:', self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1).sum())
-                        
+                
+
+                # SURFACE TYPE (-)
+                # Annual climatic mass balance [m w.e.] used to determine the surface type
+                self.glac_bin_massbalclim_annual[:,year] = self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)
+                # Update surface type for each bin
+                self.surfacetype, firnline_idx = self._surfacetypebinsannual(self.surfacetype,
+                                                                        self.glac_bin_massbalclim_annual, year)
+                
+                if debug:
+                    print('glac_bin_massbalclim:', self.glac_bin_massbalclim[12:20,12*year:12*(year+1)].sum(1))
+                    print('surface type present:', self.glac_bin_surfacetype_annual[12:20,year])
+                    print('surface type updated:', self.surfacetype[12:20])
+                    
+    
         # Example of modularity
 #        if self.use_refreeze:
 #            mb += self._refreeze_term(heights, year)
@@ -962,25 +974,8 @@ class PyGEMMassBalance(MassBalanceModel):
         return 0
             
             #%%
-#                # SURFACE TYPE
-#                # Annual surface type [-]
-#                # Annual climatic mass balance [m w.e.], which is used to determine the surface type
-#                glac_bin_massbalclim_annual[:,year] = glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)
-#                
-#                if debug:
-#                    print('glacier indices:', glac_idx_t0)
-#                    print('glac_bin_massbalclim:', glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1))
-#                    print('glacier-wide climatic mass balance:', 
-#                          (glac_bin_massbalclim_annual[:,year] * glacier_area_t0).sum() / glacier_area_t0.sum())
-##                    print('Climatic mass balance:', glac_bin_massbalclim_annual[:,year].sum())
-#                
-##                # Compute the surface type for each bin
-##                print('surface type2:', surfacetype[glac_idx_t0])
-##                surfacetype, firnline_idx = surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year)
-##                print('surface type3:', surfacetype[glac_idx_t0])
-##                print('WHATS GOING ON WITH THIS??\n')
-####                print(elev_bins)
-#
+                
+
 #                # MASS REDISTRIBUTION
 #                # Mass redistribution ignored for calibration and spinup years (glacier properties constant)
 #                if (option_areaconstant == 1) or (year < pygem_prms.spinupyears) or (year < constantarea_years):
@@ -1087,7 +1082,7 @@ class PyGEMMassBalance(MassBalanceModel):
 #        
 #        return 0
     
-    
+    # ===== SURFACE TYPE FUNCTIONS =====
     def _surfacetypebinsinitial(self, elev_bins):
         """
         Define initial surface type according to median elevation such that the melt can be calculated over snow or ice.
@@ -1155,6 +1150,75 @@ class PyGEMMassBalance(MassBalanceModel):
         return surfacetype, firnline_idx
     
     
+    def _surfacetypebinsannual(self, surfacetype, glac_bin_massbalclim_annual, year_index):
+        """
+        Update surface type according to climatic mass balance over the last five years.  
+        
+        If 5-year climatic balance is positive, then snow/firn.  If negative, then ice/debris.
+        Convention: 0 = off-glacier, 1 = ice, 2 = snow, 3 = firn, 4 = debris
+        
+        Function Options:
+          > 1 (default) - update surface type according to Huss and Hock (2015)
+          > 2 - Radic and Hock (2011)
+        Huss and Hock (2015): Initially, above median glacier elevation is firn, below is ice. Surface type updated for
+          each elevation band and month depending on specific mass balance.  If the cumulative balance since the start 
+          of mass balance year is positive, then snow is assigned. If the cumulative mass balance is negative (i.e., 
+          all snow of current mass balance year has melted), then bare ice or firn exposed. Surface type is assumed to 
+          be firn if the elevation band's average annual balance over the preceding 5 years (B_t-5_avg) is positive. If
+          B_t-5_avg is negative, surface type is ice.
+              > climatic mass balance calculated at each bin and used with the mass balance over the last 5 years to 
+                determine whether the surface is firn or ice.  Snow is separate based on each month.
+        Radic and Hock (2011): "DDF_snow is used above the ELA regardless of snow cover.  Below the ELA, use DDF_ice is 
+          used only when snow cover is 0.  ELA is calculated from observed annual mass balance profiles averaged over 
+          the observational period and is kept constant in time for the calibration period.  For the future projections, 
+          ELA is set to the mean glacier height and is time dependent since glacier volume, area, and length are time 
+          dependent (volume-area-length scaling).
+          Bliss et al. (2014) uses the same as Valentina's model
+        
+        Parameters
+        ----------
+        surfacetype : np.ndarray
+            Surface type for each elevation bin
+        glac_bin_massbalclim_annual : np.ndarray
+            Annual climatic mass balance for each year and each elevation bin
+        year_index : int
+            Count of the year of model run (first year is 0)
+        Returns
+        -------
+        surfacetype : np.ndarray
+            Updated surface type for each elevation bin
+        firnline_idx : int
+            Firn line index
+        """        
+        # Next year's surface type is based on the bin's average annual climatic mass balance over the last 5 years.  If 
+        #  less than 5 years, then use the average of the existing years.
+        if year_index < 5:
+            # Calculate average annual climatic mass balance since run began
+            massbal_clim_mwe_runningavg = glac_bin_massbalclim_annual[:,0:year_index+1].mean(1)
+        else:
+            massbal_clim_mwe_runningavg = glac_bin_massbalclim_annual[:,year_index-4:year_index+1].mean(1)
+        # If the average annual specific climatic mass balance is negative, then the surface type is ice (or debris)
+        surfacetype[(surfacetype !=0 ) & (massbal_clim_mwe_runningavg <= 0)] = 1
+        # If the average annual specific climatic mass balance is positive, then the surface type is snow (or firn)
+        surfacetype[(surfacetype != 0) & (massbal_clim_mwe_runningavg > 0)] = 2
+        # Compute the firnline index
+        try:
+            # firn in bins >= firnline_idx
+            firnline_idx = np.where(surfacetype==2)[0][0]
+        except:
+            # avoid errors if there is no firn, i.e., the entire glacier is melting
+            firnline_idx = np.where(surfacetype!=0)[0][-1]
+        # Apply surface type model options
+        # If firn surface type option is included, then snow is changed to firn
+        if pygem_prms.option_surfacetype_firn == 1:
+            surfacetype[surfacetype == 2] = 3
+        if pygem_prms.option_surfacetype_debris == 1:
+            print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
+                  'Exiting the model run.')
+            exit()
+        return surfacetype, firnline_idx
+    
+    
     def _surfacetypeDDFdict(self, modelparameters, 
                             option_surfacetype_firn=pygem_prms.option_surfacetype_firn,
                             option_ddf_firn=pygem_prms.option_ddf_firn):
@@ -1184,7 +1248,6 @@ class PyGEMMassBalance(MassBalanceModel):
             Dictionary relating the surface types with their respective degree day factors
         """        
         surfacetype_ddf_dict = {
-    #            0: 0,
                 0: modelparameters[4],
                 1: modelparameters[5],
                 2: modelparameters[4]}
@@ -1196,4 +1259,3 @@ class PyGEMMassBalance(MassBalanceModel):
         if pygem_prms.option_surfacetype_debris == 1:
             surfacetype_ddf_dict[4] = pygem_prms.DDF_debris
         return surfacetype_ddf_dict
-    

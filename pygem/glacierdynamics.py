@@ -570,6 +570,9 @@ class MassRedistributionCurveModel(FlowlineModel):
                 print('fs_huss:', fs_huss)
             # Volume change [km**3 ice]
             bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
+            
+            print('here you need to update the section')
+            print('update thickness using this: icethicknesschange_norm * fs_huss', )
     
         # Otherwise, compute volume change in each bin based on the climatic mass balance
         else:
