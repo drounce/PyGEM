@@ -98,6 +98,11 @@ class MassRedistributionCurveModel(FlowlineModel):
     def updategeometry(self, year):
         """Update geometry for a given year"""
         
+        if year == 0:
+            print('\nrecord annual data to the "diagnostic_dataset" - diag_ds - like OGGM\n')
+            
+        
+        
         # Loop over flowlines
         for fl_id, fl in enumerate(self.fls):
 
@@ -116,9 +121,16 @@ class MassRedistributionCurveModel(FlowlineModel):
             # MASS REDISTRIBUTION
             # Mass redistribution ignored for calibration and spinup years (glacier properties constant)
             if (self.option_areaconstant == 1) or (year < self.spinupyears) or (year < self.constantarea_years):
+                # run mass balance
+                glac_bin_massbalclim_annual = self.mb_model.get_annual_mb(heights, fls=self.fls, fl_id=fl_id, 
+                                                                              year=year, debug=False
+                                                                              )
+                # glacier stays the same
                 icethickness_t1 = icethickness_t0.copy()
-                width_t1 = width_t0.copy()            
+                width_t1 = width_t0.copy()
 #                glacier_area_t1 = glacier_area_t0.copy()
+                
+                
             # Redistribute mass according to curves
             else:
 #                if year == 0:
@@ -160,21 +172,15 @@ class MassRedistributionCurveModel(FlowlineModel):
                 # Redistribute mass if glacier was not fully removed by frontal ablation
                 if len(glac_idx_t0) > 0:
                     # Mass redistribution according to Huss empirical curves
-#                    print(' - Do I need to change the function to work on a single flowline to be consistent here?')
-#                    print(' - How do I pass the year to the get_annual_mb function within the model?')
                     glac_bin_massbalclim_annual = self.mb_model.get_annual_mb(heights, fls=self.fls, fl_id=fl_id, 
                                                                               year=year, debug=False
-#                                                                              fls=fl, year=int(self.yr)
-                                                                              )
-                    print('year:', year, 'mbclim_annual_sum:', glac_bin_massbalclim_annual.sum())
-#                    print(icethickness_t0[glac_idx_t0])
-                    
+                                                                              )                    
+                    sec_in_year = (self.mb_model.dates_table.loc[12*year:12*(year+1)-1,'daysinmonth'].values.sum() 
+                                   * 24 * 3600)
                     glacier_area_t1, icethickness_t1, width_t1 = (
                             self._massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
                                                          glac_bin_massbalclim_annual, self.glac_idx_initial[fl_id], 
-                                                         heights))
-                    
-#                    print(icethickness_t1[glac_idx_t0])
+                                                         heights, sec_in_year=sec_in_year))
                     
                 else:
 #                    glacier_area_t1 = np.zeros(heights.shape)
@@ -182,8 +188,6 @@ class MassRedistributionCurveModel(FlowlineModel):
 #                    width_t1 = np.zeros(heights.shape)
                     
                     
-            if year == 0:
-                print('\nrecord annual data to the "diagnostic_dataset" - diag_ds - like OGGM\n')
 #            # Record glacier properties (area [km**2], thickness [m], width [km])
 #            # if first year, record initial glacier properties (area [km**2], ice thickness [m ice], width [km])
 #            if year == 0:
@@ -225,7 +229,7 @@ class MassRedistributionCurveModel(FlowlineModel):
             
             #%%%% ====== START OF MASS REDISTRIBUTION CURVE  
     def _massredistributionHuss(self, glacier_area_t0, icethickness_t0, width_t0, glac_bin_massbalclim_annual, 
-                                glac_idx_initial, heights, debug=False, hindcast=0):
+                                glac_idx_initial, heights, debug=False, hindcast=0, sec_in_year=365*24*3600):
         """
         Mass redistribution according to empirical equations from Huss and Hock (2015) accounting for retreat/advance.
         glac_idx_initial is required to ensure that the glacier does not advance to area where glacier did not exist before
@@ -259,15 +263,7 @@ class MassRedistributionCurveModel(FlowlineModel):
         icethickness_t1 = np.zeros(glacier_area_t0.shape)
         width_t1 = np.zeros(glacier_area_t0.shape)
         # Annual glacier-wide volume change [km**3]
-#        print('NEED TO CONVERT FROM UNITS OF M ICE PER SECOND - still thinks its m w.e.')
-#        glacier_volumechange = ((glac_bin_massbalclim_annual / 1000 * pygem_prms.density_water / 
-#                                 pygem_prms.density_ice * glacier_area_t0).sum())
-        seconds_in_year = 365 * 24 * 3600
-        glacier_volumechange = ((glac_bin_massbalclim_annual / 1000 * pygem_prms.density_ice / 
-                                 pygem_prms.density_water * seconds_in_year * glacier_area_t0).sum())
-        
-#        print(glac_bin_massbalclim_annual.sum())
-#        print('volume change:', glacier_volumechange)
+        glacier_volumechange = (glac_bin_massbalclim_annual / 1000 * sec_in_year * glacier_area_t0).sum()
         
         # For hindcast simulations, volume change is the opposite
         if hindcast == 1:
@@ -489,7 +485,8 @@ class MassRedistributionCurveModel(FlowlineModel):
                 # update ice thickness change
                 icethickness_change = icethickness_t1 - icethickness_t1_raw
     
-#        print('ice thickness change:', icethickness_change[glac_idx_t0])
+#        np.set_printoptions(suppress=True)
+#        print('ice thickness change:', np.round(icethickness_change[glac_idx_t0],3))
     
         return glacier_area_t1, icethickness_t1, width_t1
     

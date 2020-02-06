@@ -662,7 +662,6 @@ class PyGEMMassBalance(MassBalanceModel):
                 # Check annual climatic mass balance
                 mb_mwea = ((glacier_area_t0 * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
                             glacier_area_t0.sum()) 
-                
                 if debug:
                     print('mb_mwea:', np.round(mb_mwea,3))
 
@@ -681,15 +680,16 @@ class PyGEMMassBalance(MassBalanceModel):
                                                                  (1 + pygem_prms.tolerance - mb_dif / glac_wide_melt))
                     self.glac_bin_massbalclim[:,12*year:12*(year+1)] = (
                             self.bin_acc[:,12*year:12*(year+1)] + self.glac_bin_refreeze[:,12*year:12*(year+1)] - 
-                            self.glac_bin_melt[:,12*year:12*(year+1)])    
+                            self.glac_bin_melt[:,12*year:12*(year+1)])
                     # Check annual climatic mass balance
                     mb_mwea = ((glacier_area_t0 * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
                                 glacier_area_t0.sum()) 
                     
+                    
                     if debug:
                         print('mb_check after adjustment (should equal mass loss):', np.round(mb_mwea,3))
                         
-#                print(year, 'mb_mwea:', np.round(mb_mwea,3))
+                print(year, 'mb_mwea:', np.round(mb_mwea,3))
 #                print(year, 'vol_chg:', (glacier_area_t0 * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1) / 1000 / 0.9).sum())
 #                print('area_sum:', glacier_area_t0.sum())
 #                print('mbclim_sum:', self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1).sum())

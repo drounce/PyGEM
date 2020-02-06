@@ -861,47 +861,31 @@ def main(list_packed_vars):
                                              option_areaconstant=0, hindcast=pygem_prms.hindcast,
                                              debug=pygem_prms.debug_mb, 
                                              debug_refreeze=pygem_prms.debug_refreeze,
-#                                             debug_refreeze=True,
                                              fls=fls)
+                    
+                    print('constant years for model development')
                     years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
                     for fl_id, fl in enumerate(fls):
-#                        for year in [0]:
                         for year in years - years[0]:
                             mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year, 
                                                             debug=False)
-                            print('year:', year, 'mbclim_annual_sum:', mb_annual.sum())
-                            if debug:
-                                # Convert m ice s-1 to m w.e. a-1
-                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice / 
-                                           pygem_prms.density_water)
-#                                print(mb_mwea,3)
-                                
-                    for fl_id, fl in enumerate(fls):
-#                        for year in [0]:
-                        for year in years - years[0]:
-                            mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year, 
-                                                            debug=False)
-                            print('year:', year, 'mbclim_annual_sum:', mb_annual.sum())
-                            if debug:
-                                # Convert m ice s-1 to m w.e. a-1
-                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice / 
-                                           pygem_prms.density_water)
+#                            print('year:', year, 'mbclim_annual_sum:', mb_annual.sum())
+#                            if debug:
+#                                # Convert m ice s-1 to m w.e. a-1
+#                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice / 
+#                                           pygem_prms.density_water)
 #                                print(mb_mwea,3)
 
-#                    fl_id = 0
-#                    mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=0, 
-#                                                            debug=False)
-#                    print('mbclim_annual_sum:', mb_annual.sum())
-#                    mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=0, 
-#                                                            debug=False)
-#                    print('mbclim_annual_sum:', mb_annual.sum())
-                    
-                    
-#                    model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
-#                    model.run_until(17)
+                    print('\nrunning mass redistribution model...')
+                    model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
+                    model.run_until(pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
 
 
-#                    print('ADD FRONTAL ABLATION TO OGGM FORMAT')
+                    print('\nTO-DO LIST:')
+                    print(' - add frontal ablation and remove in glacierdynamics')
+                    print(' - update shapes using OGGMs structure')
+                    print(' - setup flowlines for Huss and Farinotti datasets to work seemlessly')
+                    print(' - save model output')
 #                    mb_frontalablation = mbmod.get_annual_frontalablation(elev_bins, year=0, debug=True)
                     
                     # Specific mass balance (mm yr-1) for every year
