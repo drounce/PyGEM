@@ -878,8 +878,8 @@ def main(list_packed_vars):
 
                     print('\nrunning mass redistribution model...')
                     model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
-                    model.run_until(pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
-#                    model.run_until(5)
+#                    model.run_until(pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
+                    model.run_until(0)
 
                     print('\nTO-DO LIST:')
                     print(' - add frontal ablation and remove in glacierdynamics')

@@ -687,7 +687,7 @@ class PyGEMMassBalance(MassBalanceModel):
                     if debug:
                         print('mb_check after adjustment (should equal mass loss):', np.round(mb_mwea,3))
                         
-                print(year, 'mb_mwea:', np.round(mb_mwea,3))
+#                print(year, 'mb_mwea:', np.round(mb_mwea,3))
 #                print(year, 'vol_chg:', (glacier_area_t0 * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1) / 1000 / 0.9).sum())
 #                print('area_sum:', glacier_area_t0.sum())
 #                print('mbclim_sum:', self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1).sum())
