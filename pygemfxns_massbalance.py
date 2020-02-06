@@ -564,7 +564,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                 
                 if debug and glacier_rgi_table['TermType'] != 0:
                     print('\nyear:', year, '\n sea level:', sea_level, 'bed elev:', np.round(glacier_bedelev, 2))
-                                
+
                 # If glacier bed below sea level, compute frontal ablation
                 if glacier_bedelev < sea_level:
                     # Volume [m3] and bed elevation [masl] of each bin
@@ -674,8 +674,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                 glac_bin_massbalclim_annual[:,year] = glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)
                 
                 if debug:
-                    print('glacier indices:', glac_idx_t0)
-                    print('glac_bin_massbalclim:', glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1))
+                    print('glacier data:', heights[glac_idx_t0[0:5]], icethickness_t0[glac_idx_t0[0:5]])
+#                    print('glac_bin_massbalclim:', glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1))
                     print('glacier-wide climatic mass balance:', 
                           (glac_bin_massbalclim_annual[:,year] * glacier_area_t0).sum() / glacier_area_t0.sum())
 #                    print('Climatic mass balance:', glac_bin_massbalclim_annual[:,year].sum())

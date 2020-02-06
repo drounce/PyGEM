@@ -14,7 +14,7 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
     Parameters
     ----------
     rgi_id : str
-        the rgi id of the glacier
+        the rgi id of the glacier (RGIv60-)
     reset : bool
         set to true to delete any pre-existing files. If false (the default),
         the directory won't be re-downloaded if already available locally in
@@ -30,14 +30,20 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
 
     if type(rgi_id) != str:
         raise ValueError('We expect rgi_id to be a string')
-    if 'RGI60-' not in rgi_id:
-        raise ValueError('OGGM currently expects IDs to start with RGI60-')
+    if rgi_id.startswith('RGI60-') == False:
+        rgi_id = 'RGI60-' + rgi_id.split('.')[0].zfill(2) + '.' + rgi_id.split('.')[1]
+    else:
+        raise ValueError('Check RGIId is correct')
+#    if 'RGI60-' not in rgi_id:
+#        raise ValueError('OGGM currently expects IDs to start with RGI60-')
+        
 
     cfg.initialize()
-    wd = utils.gettempdir(dirname='pygem-{}-b{}'.format(rgi_id, prepro_border),
-                          reset=reset)
+    wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/oggm-pygem-{}-b{}'.format(rgi_id, prepro_border)
+    utils.mkdir(wd, reset=reset)
     cfg.PATHS['working_dir'] = wd
     cfg.PARAMS['use_multiple_flowlines'] = False
+    cfg.PARAMS['use_multiprocessing'] = False
 
     # Check if folder is already processed
     try:
@@ -45,7 +51,7 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         gdir.read_pickle('model_flowlines')
         # If the above works the directory is already processed, return
         return gdir
-    except OSError:
+    except:
         pass
 
     # If not ready, we download the preprocessed data for this glacier
@@ -185,3 +191,5 @@ class RandomLinearMassBalance(MassBalanceModel):
 
         # Convert to units of [m s-1] (meters of ice per second)
         return mb / SEC_IN_YEAR / cfg.PARAMS['ice_density']
+    
+

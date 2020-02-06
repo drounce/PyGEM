@@ -27,6 +27,8 @@ import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
 import spc_split_glaciers as split_glaciers
 from pygem.massbalance import PyGEMMassBalance
+from pygem.glacierdynamics import MassRedistributionCurveModel
+from pygem.oggm_compat import single_flowline_glacier_directory
 
 
 #%% FUNCTIONS
@@ -536,35 +538,38 @@ def main(list_packed_vars):
     # Load glacier data for Huss and Farinotti to avoid repetitively reading the csv file (not needed for OGGM)
     if pygem_prms.hyps_data in ['Huss', 'Farinotti']:
         # Glacier hypsometry [km**2], total area
-        main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.hyps_filepath, pygem_prms.hyps_filedict,
-                                                     pygem_prms.hyps_colsdrop)
+        main_glac_hyps = modelsetup.import_Husstable(
+                main_glac_rgi, pygem_prms.hyps_filepath, pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
         # Ice thickness [m], average
-        main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.thickness_filepath,
-                                                             pygem_prms.thickness_filedict, pygem_prms.thickness_colsdrop)
+        main_glac_icethickness = modelsetup.import_Husstable(
+                main_glac_rgi, pygem_prms.thickness_filepath, pygem_prms.thickness_filedict, 
+                pygem_prms.thickness_colsdrop)
         main_glac_icethickness[main_glac_icethickness < 0] = 0
         main_glac_hyps[main_glac_icethickness == 0] = 0
         # Width [km], average
-        main_glac_width = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.width_filepath, pygem_prms.width_filedict,
-                                                      pygem_prms.width_colsdrop)
+        main_glac_width = modelsetup.import_Husstable(
+                main_glac_rgi, pygem_prms.width_filepath, pygem_prms.width_filedict, pygem_prms.width_colsdrop)
         
 #        if pygem_prms.option_surfacetype_debris == 1:
-#            main_glac_debrisfactor = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.debris_fp, pygem_prms.debris_filedict,
-#                                                                 pygem_prms.debris_colsdrop)
+#            main_glac_debrisfactor = modelsetup.import_Husstable(
+#                    main_glac_rgi, pygem_prms.debris_fp, pygem_prms.debris_filedict, pygem_prms.debris_colsdrop)
 #        else:
 #            print('\n\nDELETE ME - CHECK THAT THIS IS SAME FORMAT AS MAIN_GLAC_HYPS AND OTHERS\n\n')
 #            main_glac_debrisfactor = np.zeros(main_glac_hyps.shape) + 1
 #        main_glac_debrisfactor[main_glac_hyps == 0] = 0
     
     # ===== TIME PERIOD =====
-    dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear,
-                                           spinupyears=pygem_prms.gcm_spinupyears, option_wateryear=pygem_prms.gcm_wateryear)
+    dates_table = modelsetup.datesmodelrun(
+            startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear, spinupyears=pygem_prms.gcm_spinupyears, 
+            option_wateryear=pygem_prms.gcm_wateryear)
 
 #    # =================
 #    if debug:
 #        # Select dates including future projections
 #        #  - nospinup dates_table needed to get the proper time indices
-#        dates_table_nospinup  = modelsetup.datesmodelrun(startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear,
-#                                                         spinupyears=0, option_wateryear=pygem_prms.gcm_wateryear)
+#        dates_table_nospinup  = modelsetup.datesmodelrun(
+#                startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear, spinupyears=0, 
+#                option_wateryear=pygem_prms.gcm_wateryear)
 #
 #        # ===== LOAD CALIBRATION DATA =====
 #        cal_data = pd.DataFrame()
@@ -676,8 +681,8 @@ def main(list_packed_vars):
                              np.tile(gcm_temp_tile,(1,n_tiles))[:,:datelength], axis=1)
         gcm_prec = np.append(gcm_prec_tile[:,:pygem_prms.gcm_spinupyears*12],
                              np.tile(gcm_prec_tile,(1,n_tiles))[:,:datelength], axis=1)
-        gcm_lr = np.append(gcm_lr_tile[:,:pygem_prms.gcm_spinupyears*12], np.tile(gcm_lr_tile,(1,n_tiles))[:,:datelength],
-                           axis=1)
+        gcm_lr = np.append(gcm_lr_tile[:,:pygem_prms.gcm_spinupyears*12], 
+                           np.tile(gcm_lr_tile,(1,n_tiles))[:,:datelength], axis=1)
         # Temperature and precipitation sensitivity adjustments
         gcm_temp = gcm_temp + pygem_prms.synthetic_temp_adjust
         gcm_prec = gcm_prec * pygem_prms.synthetic_prec_factor
@@ -743,45 +748,56 @@ def main(list_packed_vars):
         
         # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====
         if pygem_prms.hyps_data in ['oggm']:
-            glac_oggm_df = pd.read_csv(pygem_prms.oggm_glacierdata_fp + 'RGI60-' + glacier_str + '.csv', index_col=0)
-            glacier_area_initial = glac_oggm_df['w'].values * glac_oggm_df['dx'].values / 1e6
-            icethickness_initial = glac_oggm_df['h'].values
-            width_initial = glac_oggm_df['w'].values / 1e3
-            elev_bins = glac_oggm_df['z'].values
+            gd = single_flowline_glacier_directory(glacier_str)
+            fls = gd.read_pickle('model_flowlines')
+#            icethickness_initial = fls[0].thick
+#            width_initial = fls[0].widths_m / 1000
+#            print(fls[0].__dict__.keys())
+#            glacier_area_initial = width_initial * fls[0].dx / 1000
+#            elev_bins = fls[0].surface_h
+#            glacier_str_wleadingzero = glacier_str.split('.')[0].zfill(2) + '.' + glacier_str.split('.')[1]
+#            glac_oggm_df = pd.read_csv(pygem_prms.oggm_glacierdata_fp + 'RGI60-' + glacier_str_wleadingzero + '.csv', 
+#                                       index_col=0)
+#            glacier_area_initial = glac_oggm_df['w'].values * glac_oggm_df['dx'].values / 1e6
+#            icethickness_initial = glac_oggm_df['h'].values
+#            width_initial = glac_oggm_df['w'].values / 1e3
+#            elev_bins = glac_oggm_df['z'].values
         elif pygem_prms.hyps_data in ['Huss', 'Farinotti']:
             glacier_area_initial = main_glac_hyps.iloc[glac,:].values.astype(float)
             icethickness_initial = main_glac_icethickness.iloc[glac,:].values.astype(float)
             width_initial = main_glac_width.iloc[glac,:].values.astype(float)
             elev_bins = main_glac_hyps.columns.values.astype(int)
+            print('CONVERT AREA, THHICKNESS, WIDTH, AND ELEV BINS INTO FLOWLINES STRUCTURE')
             
 #            if pygem_prms.option_surfacetype_debris == 1:
 #                glacier_debrisfactor = main_glac_debrisfactor.iloc[glac,:].values.astype(float)
 
 
-#        # Empty datasets to record output
-#        annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
-#        year_values = annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]]
-#        year_plus1_values = np.concatenate((annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]],
-#                                            np.array([annual_columns[annual_columns.shape[0]-1]+1])))
-#        output_temp_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_prec_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_acc_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_refreeze_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_melt_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_frontalablation_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_massbaltotal_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_runoff_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_snowline_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_area_glac_annual = np.zeros((year_plus1_values.shape[0], sim_iters))
-#        output_volume_glac_annual = np.zeros((year_plus1_values.shape[0], sim_iters))
-#        output_ELA_glac_annual = np.zeros((year_values.shape[0], sim_iters))
-#        output_offglac_prec_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_offglac_refreeze_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_offglac_melt_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_offglac_snowpack_monthly = np.zeros((dates_table.shape[0], sim_iters))
-#        output_offglac_runoff_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        # Empty datasets to record output
+        annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
+        year_values = annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]]
+        year_plus1_values = np.concatenate((annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]],
+                                            np.array([annual_columns[annual_columns.shape[0]-1]+1])))
+        output_temp_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_prec_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_acc_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_refreeze_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_melt_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_frontalablation_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_massbaltotal_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_runoff_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_snowline_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_area_glac_annual = np.zeros((year_plus1_values.shape[0], sim_iters))
+        output_volume_glac_annual = np.zeros((year_plus1_values.shape[0], sim_iters))
+        output_ELA_glac_annual = np.zeros((year_values.shape[0], sim_iters))
+        output_offglac_prec_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_offglac_refreeze_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_offglac_melt_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_offglac_snowpack_monthly = np.zeros((dates_table.shape[0], sim_iters))
+        output_offglac_runoff_monthly = np.zeros((dates_table.shape[0], sim_iters))
 
-        if icethickness_initial.max() > 0:
+#        if icethickness_initial.max() > 0:
+        if fls[0].thick.max() > 0:
 
             if pygem_prms.hindcast == 1:
                 glacier_gcm_prec = glacier_gcm_prec[::-1]
@@ -802,9 +818,10 @@ def main(list_packed_vars):
                                                     columns=ds_mp.mp.values)[cn_subset])
             else:
                 modelparameters_all = (
-                        pd.DataFrame(np.asarray([pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad,
-                                                 pygem_prms.ddfsnow, pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange])
-                                                .reshape(1,-1), columns=pygem_prms.modelparams_colnames))
+                        pd.DataFrame(np.asarray([
+                                pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad,
+                                pygem_prms.ddfsnow, pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange])
+                                .reshape(1,-1), columns=pygem_prms.modelparams_colnames))
 
             # Set the number of iterations and determine every kth iteration to use for the ensemble
             if pygem_prms.option_calibration == 2 and modelparameters_all.shape[0] > 1:
@@ -831,43 +848,157 @@ def main(list_packed_vars):
                     print(glacier_str, ('PF: ' + str(np.round(modelparameters[2],2)) + ' ddfsnow: ' +
                           str(np.round(modelparameters[4],4)) + ' tbias: ' + str(np.round(modelparameters[7],2))))
 
-
 #                print('\n\nDELETE ME! Switch back model parameters\n\n')
-#                modelparameters[2] = 5
-#                modelparameters[7] = -5
+#                modelparameters[2] = 1
+#                modelparameters[7] = 10
 #                print('model params:', modelparameters)
+                    
+                if pygem_prms.hyps_data in ['oggm']:
+                    # OGGM WANTS THIS FUNCITON TO SIMPLY RETURN THE MASS BALANCE AS A FUNCTION OF HEIGHT AND THAT'S IT
+                    mbmod = PyGEMMassBalance(modelparameters[0:8], glacier_rgi_table, glacier_gcm_temp,
+                                             glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
+                                             glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+                                             option_areaconstant=0, hindcast=pygem_prms.hindcast,
+                                             debug=pygem_prms.debug_mb, 
+                                             debug_refreeze=pygem_prms.debug_refreeze,
+#                                             debug_refreeze=True,
+                                             fls=fls)
+                    years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
+                    for fl_id, fl in enumerate(fls):
+#                        for year in [0]:
+                        for year in years - years[0]:
+                            mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year, 
+                                                            debug=False)
+                            print('year:', year, 'mbclim_annual_sum:', mb_annual.sum())
+                            if debug:
+                                # Convert m ice s-1 to m w.e. a-1
+                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice / 
+                                           pygem_prms.density_water)
+#                                print(mb_mwea,3)
+                                
+                    for fl_id, fl in enumerate(fls):
+#                        for year in [0]:
+                        for year in years - years[0]:
+                            mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year, 
+                                                            debug=False)
+                            print('year:', year, 'mbclim_annual_sum:', mb_annual.sum())
+                            if debug:
+                                # Convert m ice s-1 to m w.e. a-1
+                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice / 
+                                           pygem_prms.density_water)
+#                                print(mb_mwea,3)
 
-                # OGGM WANTS THIS FUNCITON TO SIMPLY RETURN THE MASS BALANCE AS A FUNCTION OF HEIGHT AND THAT'S IT
-                mbmod = PyGEMMassBalance(modelparameters[0:8], glacier_rgi_table, glacier_area_initial,
-                                         icethickness_initial, width_initial, elev_bins, glacier_gcm_temp,
-                                         glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
-                                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                         option_areaconstant=0, hindcast=pygem_prms.hindcast,
-                                         debug=pygem_prms.debug_mb, debug_refreeze=pygem_prms.debug_refreeze)
+#                    fl_id = 0
+#                    mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=0, 
+#                                                            debug=False)
+#                    print('mbclim_annual_sum:', mb_annual.sum())
+#                    mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=0, 
+#                                                            debug=False)
+#                    print('mbclim_annual_sum:', mb_annual.sum())
+                    
+                    
+#                    model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
+#                    model.run_until(17)
+
+
+#                    print('ADD FRONTAL ABLATION TO OGGM FORMAT')
+#                    mb_frontalablation = mbmod.get_annual_frontalablation(elev_bins, year=0, debug=True)
+                    
+                    # Specific mass balance (mm yr-1) for every year
+#                    mb_ts = mbmod.get_specific_mb(mbmod.heights, mbmod.width_initial, 
+#                                                  year=years-pygem_prms.gcm_startyear)
+#                    print(mb_ts)
+#                    print(mbmod.glac_wide_massbalclim)
+                    
+#                    df = pd.DataFrame(index=years, data=mb_ts)
+#                    print(df)
+#
+##                    df.to_csv(pygem_prms.output_filepath + 'for_oggm.csv')
+    
+#                    # Print class keys
+#                    if debug:
+#                        print('\nmdmod keys:\n', mbmod.__dict__.keys(),'\n')
+                    
+                    # RECORD PARAMETERS TO DATASET
+#                    if pygem_prms.output_package == 2:
+#                        mbmod.convert_glacwide_results()
+##                        print(mbmod.glac_wide_prec)
+#    #                    (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt,
+#    #                     glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline,
+#    #                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+#                                 convert_glacwide_results(
+#                                         elev_bins, mbmod.bin_temp, mbmod.bin_prec, mbmod.bin_acc,
+#                                         mbmod.glac_bin_refreeze, mbmod.bin_snowpack, mbmod.bin_melt,
+#                                         mbmod.glac_bin_frontalablation, mbmod.glac_bin_massbalclim_annual,
+#                                         glac_bin_area_annual, glac_bin_icethickness_annual))
+#                        print('\n\nRE-WRITE convert_glacwide_results to store on mbmod' + 
+#                              '\nThink about how it should handle the changing area?\n\n')
+                        
+                    
+                    
+#                    with np.warnings.catch_warnings():
+#                        # For operational runs we ignore the warnings
+#                        np.warnings.filterwarnings('ignore', category=RuntimeWarning)
+#                        model.run_until_and_store(ye, run_path=run_path,
+#                                                  diag_path=diag_path,
+#                                                  store_monthly_step=store_monthly_step)
+                        
+                        
+    
+    #                    if debug:
+    #                        # Compute glacier volume change for every time step and use this to compute mass balance
+    #                        #  this will work for any indexing
+    #                        glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+    #                        # Mass change [km3 mwe]
+    #                        #  mb [mwea] * (1 km / 1000 m) * area [km2]
+    #                        glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+    #                        # Mean annual mass balance [mwea]
+    #                        #  note: used annual shape - 1 because area and volume have "n+1 years" t0 account for
+    #                        #        initial and final
+    #                        mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 /
+    #                                   (glac_wide_area_annual.shape[0]-1))
+    #                        print('  mb_model [mwea]:', mb_mwea.round(3))
+    #
+    #                    # Record output to xarray dataset
+    #                    output_temp_glac_monthly[:, n_iter] = glac_wide_temp
+    #                    output_prec_glac_monthly[:, n_iter] = glac_wide_prec
+    #                    output_acc_glac_monthly[:, n_iter] = glac_wide_acc
+    #                    output_refreeze_glac_monthly[:, n_iter] = glac_wide_refreeze
+    #                    output_melt_glac_monthly[:, n_iter] = glac_wide_melt
+    #                    output_frontalablation_glac_monthly[:, n_iter] = glac_wide_frontalablation
+    #                    output_massbaltotal_glac_monthly[:, n_iter] = glac_wide_massbaltotal
+    #                    output_runoff_glac_monthly[:, n_iter] = glac_wide_runoff
+    #                    output_snowline_glac_monthly[:, n_iter] = glac_wide_snowline
+    #                    output_area_glac_annual[:, n_iter] = glac_wide_area_annual
+    #                    output_volume_glac_annual[:, n_iter] = glac_wide_volume_annual
+    #                    output_ELA_glac_annual[:, n_iter] = glac_wide_ELA_annual
+    #                    output_offglac_prec_monthly[:, n_iter] = offglac_wide_prec
+    #                    output_offglac_refreeze_monthly[:, n_iter] = offglac_wide_refreeze
+    #                    output_offglac_melt_monthly[:, n_iter] = offglac_wide_melt
+    #                    output_offglac_snowpack_monthly[:, n_iter] = offglac_wide_snowpack
+    #                    output_offglac_runoff_monthly[:, n_iter] = offglac_wide_runoff
                 
-                mb_annual = mbmod.get_annual_mb(elev_bins, year=0, debug=True)
                 
-                if debug:
-                    # Convert m ice s-1 to m w.e. a-1
-                    mb_mwea = mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice / pygem_prms.density_water
-                    print(mb_mwea)
                 
                 #%%
-#                # ====== KEEP THIS TO MAKE SURE FINISH THE SURFACE TYPE SHENANIGANS IN MASS REDISTRIBUTION =====
-#                # run mass balance calculation
-#                (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-#                 glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
-#                 glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
-#                 glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
-#                 glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
-#                 offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
-#                    massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_initial,
-#                                               icethickness_initial, width_initial, elev_bins, glacier_gcm_temp,
-#                                               glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
-#                                               glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                               option_areaconstant=0, 
-#                                               hindcast=pygem_prms.hindcast,
-#                                               debug=pygem_prms.debug_mb, debug_refreeze=pygem_prms.debug_refreeze))
+                else:
+                    # ====== KEEP THIS TO MAKE SURE FINISH THE SURFACE TYPE SHENANIGANS IN MASS REDISTRIBUTION =====
+                    # run mass balance calculation
+                    (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+                     glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
+                     glac_bin_icethickness_annual, glac_bin_width_annual, glac_bin_surfacetype_annual,
+                     glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline, glac_wide_snowpack,
+                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual, offglac_wide_prec,
+                     offglac_wide_refreeze, offglac_wide_melt, offglac_wide_snowpack, offglac_wide_runoff) = (
+                        massbalance.runmassbalance(modelparameters[0:8], glacier_rgi_table, glacier_area_initial,
+                                                   icethickness_initial, width_initial, elev_bins, glacier_gcm_temp,
+                                                   glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
+                                                   glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+                                                   option_areaconstant=0, 
+                                                   hindcast=pygem_prms.hindcast,
+#                                                   debug=pygem_prms.debug_mb, 
+                                                   debug=True, 
+                                                   debug_refreeze=pygem_prms.debug_refreeze))
                 
 #                if pygem_prms.hindcast == 1:
 #                    glac_bin_temp = glac_bin_temp[:,::-1]
@@ -896,48 +1027,48 @@ def main(list_packed_vars):
 #                    offglac_wide_snowpack = offglac_wide_snowpack[::-1]
 #                    offglac_wide_runoff = offglac_wide_runoff[::-1]
 #
-##                # RECORD PARAMETERS TO DATASET
-##                if pygem_prms.output_package == 2:
-##                    (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt,
-##                     glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline,
-##                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
-##                             convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc,
-##                                                      glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
-##                                                      glac_bin_frontalablation, glac_bin_massbalclim_annual,
-##                                                      glac_bin_area_annual, glac_bin_icethickness_annual))
-##
-##                    if debug:
-##                        # Compute glacier volume change for every time step and use this to compute mass balance
-##                        #  this will work for any indexing
-##                        glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-##                        # Mass change [km3 mwe]
-##                        #  mb [mwea] * (1 km / 1000 m) * area [km2]
-##                        glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
-##                        # Mean annual mass balance [mwea]
-##                        #  note: used annual shape - 1 because area and volume have "n+1 years" t0 account for initial
-##                        #        and final
-##                        mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 /
-##                                   (glac_wide_area_annual.shape[0]-1))
-##                        print('  mb_model [mwea]:', mb_mwea.round(3))
-##
-##                    # Record output to xarray dataset
-##                    output_temp_glac_monthly[:, n_iter] = glac_wide_temp
-##                    output_prec_glac_monthly[:, n_iter] = glac_wide_prec
-##                    output_acc_glac_monthly[:, n_iter] = glac_wide_acc
-##                    output_refreeze_glac_monthly[:, n_iter] = glac_wide_refreeze
-##                    output_melt_glac_monthly[:, n_iter] = glac_wide_melt
-##                    output_frontalablation_glac_monthly[:, n_iter] = glac_wide_frontalablation
-##                    output_massbaltotal_glac_monthly[:, n_iter] = glac_wide_massbaltotal
-##                    output_runoff_glac_monthly[:, n_iter] = glac_wide_runoff
-##                    output_snowline_glac_monthly[:, n_iter] = glac_wide_snowline
-##                    output_area_glac_annual[:, n_iter] = glac_wide_area_annual
-##                    output_volume_glac_annual[:, n_iter] = glac_wide_volume_annual
-##                    output_ELA_glac_annual[:, n_iter] = glac_wide_ELA_annual
-##                    output_offglac_prec_monthly[:, n_iter] = offglac_wide_prec
-##                    output_offglac_refreeze_monthly[:, n_iter] = offglac_wide_refreeze
-##                    output_offglac_melt_monthly[:, n_iter] = offglac_wide_melt
-##                    output_offglac_snowpack_monthly[:, n_iter] = offglac_wide_snowpack
-##                    output_offglac_runoff_monthly[:, n_iter] = offglac_wide_runoff
+#                # RECORD PARAMETERS TO DATASET
+#                if pygem_prms.output_package == 2:
+#                    (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt,
+#                     glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline,
+#                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+#                             convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc,
+#                                                      glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
+#                                                      glac_bin_frontalablation, glac_bin_massbalclim_annual,
+#                                                      glac_bin_area_annual, glac_bin_icethickness_annual))
+#
+#                    if debug:
+#                        # Compute glacier volume change for every time step and use this to compute mass balance
+#                        #  this will work for any indexing
+#                        glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
+#                        # Mass change [km3 mwe]
+#                        #  mb [mwea] * (1 km / 1000 m) * area [km2]
+#                        glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
+#                        # Mean annual mass balance [mwea]
+#                        #  note: used annual shape - 1 because area and volume have "n+1 years" t0 account for initial
+#                        #        and final
+#                        mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 /
+#                                   (glac_wide_area_annual.shape[0]-1))
+#                        print('  mb_model [mwea]:', mb_mwea.round(3))
+#
+#                    # Record output to xarray dataset
+#                    output_temp_glac_monthly[:, n_iter] = glac_wide_temp
+#                    output_prec_glac_monthly[:, n_iter] = glac_wide_prec
+#                    output_acc_glac_monthly[:, n_iter] = glac_wide_acc
+#                    output_refreeze_glac_monthly[:, n_iter] = glac_wide_refreeze
+#                    output_melt_glac_monthly[:, n_iter] = glac_wide_melt
+#                    output_frontalablation_glac_monthly[:, n_iter] = glac_wide_frontalablation
+#                    output_massbaltotal_glac_monthly[:, n_iter] = glac_wide_massbaltotal
+#                    output_runoff_glac_monthly[:, n_iter] = glac_wide_runoff
+#                    output_snowline_glac_monthly[:, n_iter] = glac_wide_snowline
+#                    output_area_glac_annual[:, n_iter] = glac_wide_area_annual
+#                    output_volume_glac_annual[:, n_iter] = glac_wide_volume_annual
+#                    output_ELA_glac_annual[:, n_iter] = glac_wide_ELA_annual
+#                    output_offglac_prec_monthly[:, n_iter] = offglac_wide_prec
+#                    output_offglac_refreeze_monthly[:, n_iter] = offglac_wide_refreeze
+#                    output_offglac_melt_monthly[:, n_iter] = offglac_wide_melt
+#                    output_offglac_snowpack_monthly[:, n_iter] = offglac_wide_snowpack
+#                    output_offglac_runoff_monthly[:, n_iter] = offglac_wide_runoff
 ##
 ##                if debug:
 ##                    print('  years:', glac_wide_volume_annual.shape[0]-1)
@@ -995,9 +1126,9 @@ def main(list_packed_vars):
 ##                                 str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '.nc')
 ##                else:
 ##                    netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_c' +
-##                                 str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + '_' +
-##                                 str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear)
-##                                 + '.nc')
+##                                 str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + 
+##                                 '_' +  str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + 
+##                                 str(pygem_prms.gcm_endyear) + '.nc')
 ##                if pygem_prms.option_synthetic_sim==1:
 ##                    netcdf_fn = (netcdf_fn.split('--')[0] + '_T' + str(pygem_prms.synthetic_temp_adjust) + '_P' +
 ##                                 str(pygem_prms.synthetic_prec_factor) + '--' + netcdf_fn.split('--')[1])
@@ -1100,9 +1231,10 @@ if __name__ == '__main__':
         main_vars_list = list(main_vars.keys())
         gcm_name = main_vars['gcm_name']
         main_glac_rgi = main_vars['main_glac_rgi']
-#        main_glac_hyps = main_vars['main_glac_hyps']
-#        main_glac_icethickness = main_vars['main_glac_icethickness']
-#        main_glac_width = main_vars['main_glac_width']
+        if pygem_prms.hyps_data in ['Huss', 'Farinotti']:
+            main_glac_hyps = main_vars['main_glac_hyps']
+            main_glac_icethickness = main_vars['main_glac_icethickness']
+            main_glac_width = main_vars['main_glac_width']
         dates_table = main_vars['dates_table']
         if pygem_prms.option_synthetic_sim == 1:
             dates_table_synthetic = main_vars['dates_table_synthetic']
@@ -1122,18 +1254,20 @@ if __name__ == '__main__':
 #        modelparameters = main_vars['modelparameters']
         glacier_rgi_table = main_vars['glacier_rgi_table']
         glacier_str = main_vars['glacier_str']
-        glac_oggm_df = main_vars['glac_oggm_df']
+        if pygem_prms.hyps_data in ['oggm']:
+            fls = main_vars['fls']
+            elev_bins = fls[0].surface_h
+            icethickness_initial = fls[0].thick
+            width_initial = fls[0].widths_m / 1000
+            glacier_area_initial = width_initial * fls[0].dx / 1000       
+            mbmod = main_vars['mbmod']
         glacier_gcm_temp = main_vars['glacier_gcm_temp']
         glacier_gcm_tempstd = main_vars['glacier_gcm_tempstd']
         glacier_gcm_prec = main_vars['glacier_gcm_prec']
         glacier_gcm_elev = main_vars['glacier_gcm_elev']
         glacier_gcm_lrgcm = main_vars['glacier_gcm_lrgcm']
         glacier_gcm_lrglac = glacier_gcm_lrgcm
-        glacier_area_initial = main_vars['glacier_area_initial']
-        icethickness_initial = main_vars['icethickness_initial']
-        width_initial = main_vars['width_initial']
-#        elev_bins = main_vars['elev_bins']
-##        glac_bin_frontalablation = main_vars['glac_bin_frontalablation']
+#        glac_bin_frontalablation = main_vars['glac_bin_frontalablation']
 #        glac_bin_area_annual = main_vars['glac_bin_area_annual']
 #        glac_bin_massbalclim_annual = main_vars['glac_bin_massbalclim_annual']
 #        glac_bin_melt = main_vars['glac_bin_melt']

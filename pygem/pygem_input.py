@@ -131,8 +131,8 @@ rgi_glac_number = 'all'
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 #glac_no = None
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
-#glac_no = ['15.03473', '15.03733']
 glac_no = ['15.03473']
+#glac_no = ['1.10689']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
@@ -164,7 +164,7 @@ gcm_wateryear = 1               # water year for simmulation
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
 hindcast = 0                    # 1: run hindcast simulation, 0: do not
 if hindcast == 1:
-    constantarea_years = 0     # number of years to not let the area or volume change
+    constantarea_years = 20     # number of years to not let the area or volume change
     gcm_startyear = 1980        # first year of model run (simulation dataset)
     gcm_endyear = 2000          # last year of model run (simulation dataset)
 
