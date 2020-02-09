@@ -750,6 +750,7 @@ def main(list_packed_vars):
         if pygem_prms.hyps_data in ['oggm']:
             gd = single_flowline_glacier_directory(glacier_str)
             fls = gd.read_pickle('model_flowlines')
+            print(fls[0].widths_m)
 #            icethickness_initial = fls[0].thick
 #            width_initial = fls[0].widths_m / 1000
 #            print(fls[0].__dict__.keys())
@@ -848,10 +849,10 @@ def main(list_packed_vars):
                     print(glacier_str, ('PF: ' + str(np.round(modelparameters[2],2)) + ' ddfsnow: ' +
                           str(np.round(modelparameters[4],4)) + ' tbias: ' + str(np.round(modelparameters[7],2))))
 
-#                print('\n\nDELETE ME! Switch back model parameters\n\n')
-#                modelparameters[2] = 1
-#                modelparameters[7] = 10
-#                print('model params:', modelparameters)
+                print('\n\nDELETE ME! Switch back model parameters\n\n')
+                modelparameters[2] = 1
+                modelparameters[7] = 0
+                print('model params:', modelparameters)
                     
                 if pygem_prms.hyps_data in ['oggm']:
                     # OGGM WANTS THIS FUNCITON TO SIMPLY RETURN THE MASS BALANCE AS A FUNCTION OF HEIGHT AND THAT'S IT
@@ -883,8 +884,9 @@ def main(list_packed_vars):
 
                     print('\nTO-DO LIST:')
                     print(' - add frontal ablation and remove in glacierdynamics')
-                    print(' - update shapes using OGGMs structure')
+                    print(' - make two refreeze (potential?) options stand-alone functions like frontal ablation')
                     print(' - setup flowlines for Huss and Farinotti datasets to work seemlessly')
+                    print('     (may want to restrict or warn user if not using redistribution curves)')
                     print(' - save model output')
                     print(' - add debris melt factors')
                     print(' - update supercomputer environment to ensure code still runs on spc')

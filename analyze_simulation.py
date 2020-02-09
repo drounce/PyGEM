@@ -1051,7 +1051,7 @@ if option_runoff_monthlychange_and_components == 1:
         ds_prec_off_annual = gcmbiasadj.annual_sum_2darray(ds_prec_off)
         ds_melt_off_annual = gcmbiasadj.annual_sum_2darray(ds_melt_off)
         ds_refr_off_annual = gcmbiasadj.annual_sum_2darray(ds_refr_off)               
-        # excess glacier meltwater based on volume change
+        # excess glacier meltwater based on volume changen
         ds_melt_excess_annual = excess_meltwater_m3(ds_vol) / 1e9
    
         # Remove RGIIds from main_glac_rgi that are not in the model runs
