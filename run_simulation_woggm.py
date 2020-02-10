@@ -750,7 +750,7 @@ def main(list_packed_vars):
         if pygem_prms.hyps_data in ['oggm']:
             gd = single_flowline_glacier_directory(glacier_str)
             fls = gd.read_pickle('model_flowlines')
-            print(fls[0].widths_m)
+#            print(fls[0].widths_m)
 #            icethickness_initial = fls[0].thick
 #            width_initial = fls[0].widths_m / 1000
 #            print(fls[0].__dict__.keys())
@@ -772,7 +772,6 @@ def main(list_packed_vars):
             
 #            if pygem_prms.option_surfacetype_debris == 1:
 #                glacier_debrisfactor = main_glac_debrisfactor.iloc[glac,:].values.astype(float)
-
 
         # Empty datasets to record output
         annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
@@ -849,10 +848,10 @@ def main(list_packed_vars):
                     print(glacier_str, ('PF: ' + str(np.round(modelparameters[2],2)) + ' ddfsnow: ' +
                           str(np.round(modelparameters[4],4)) + ' tbias: ' + str(np.round(modelparameters[7],2))))
 
-                print('\n\nDELETE ME! Switch back model parameters\n\n')
-                modelparameters[2] = 1
-                modelparameters[7] = 0
-                print('model params:', modelparameters)
+#                print('\n\nDELETE ME! Switch back model parameters\n\n')
+#                modelparameters[2] = 1
+#                modelparameters[7] = 0
+#                print('model params:', modelparameters)
                     
                 if pygem_prms.hyps_data in ['oggm']:
                     # OGGM WANTS THIS FUNCITON TO SIMPLY RETURN THE MASS BALANCE AS A FUNCTION OF HEIGHT AND THAT'S IT
@@ -879,18 +878,23 @@ def main(list_packed_vars):
 
                     print('\nrunning mass redistribution model...')
                     model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
-#                    model.run_until(pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
-                    model.run_until(0)
+                    model.run_until(pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
+#                    model.run_until(0)
+                    
+#                    print('\n-----')
+#                    print(np.round(mbmod.glac_bin_area_annual[84:88,0:3],5))
+#                    print('-----\n')
 
                     print('\nTO-DO LIST:')
                     print(' - add frontal ablation and remove in glacierdynamics')
-                    print(' - make two refreeze (potential?) options stand-alone functions like frontal ablation')
                     print(' - setup flowlines for Huss and Farinotti datasets to work seemlessly')
                     print('     (may want to restrict or warn user if not using redistribution curves)')
                     print(' - save model output')
                     print(' - add debris melt factors')
                     print(' - update supercomputer environment to ensure code still runs on spc')
                     print(' - setup code to run ice thickness inversion with PyGEM MB to avoid spinup issues')
+                    print(' - make two refreeze (potential?) options stand-alone functions like frontal ablation')
+                    print(' - update getting started docs with the oggm installation')
 #                    mb_frontalablation = mbmod.get_annual_frontalablation(elev_bins, year=0, debug=True)
                     
                     # Specific mass balance (mm yr-1) for every year

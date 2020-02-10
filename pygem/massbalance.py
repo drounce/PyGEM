@@ -64,14 +64,6 @@ class PyGEMMassBalance(MassBalanceModel):
 
     This class implements the MassBalanceModel interface so that the dynamical model can use it.
     """
-
-#    def __init__(self, modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, 
-#                       width_initial, heights, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, 
-#                       glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0, 
-#                       constantarea_years=pygem_prms.constantarea_years, frontalablation_k=None, 
-#                       debug=False, debug_refreeze=False, hindcast=0, 
-##                       use_refreeze=True
-#                       ):
     def __init__(self, modelparameters, glacier_rgi_table, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
                        glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0,
                        constantarea_years=pygem_prms.constantarea_years, frontalablation_k=None, 
@@ -131,21 +123,14 @@ class PyGEMMassBalance(MassBalanceModel):
         # Example of what could be done!
 #        self.use_refreeze = use_refreeze
         
-#        current_flowline = fls[fl_id]
-#        icethickness_t0 = current_flowline.thick
-        
-        # Can pass all of them here
-        
-        
         # Glacier data
         self.modelparameters = modelparameters
         self.glacier_rgi_table = glacier_rgi_table
-        # glac_idx_initial is used with advancing glaciers to ensure no bands are added in a discontinuous section
-        self.glac_idx_initial = fls[fl_id].thick.nonzero()
         self.icethickness_initial = fls[fl_id].thick
         self.width_initial = fls[fl_id].widths_m / 1000
         self.glacier_area_initial = fls[fl_id].widths_m / 1000 * fls[fl_id].dx_meter / 1000
-        print('initial glacier area:', self.glacier_area_initial.sum())
+        self.glac_idx_initial = fls[fl_id].thick.nonzero()
+#        print('initial glacier area:', self.glacier_area_initial.sum())
         
         self.heights = fls[fl_id].surface_h
         
@@ -187,8 +172,8 @@ class PyGEMMassBalance(MassBalanceModel):
         self.glac_bin_massbalclim_annual = np.zeros((nbins,nyears))
         self.glac_bin_surfacetype_annual = np.zeros((nbins,nyears))
         self.glac_bin_icethickness_annual = np.zeros((nbins,nyears+1))
-#        self.glac_bin_area_annual = np.zeros((nbins, nyears + 1))
-#        self.glac_bin_width_annual = np.zeros((nbins, nyears + 1))
+        self.glac_bin_area_annual = np.zeros((nbins, nyears + 1))
+        self.glac_bin_width_annual = np.zeros((nbins, nyears + 1))
         
         self.offglac_bin_prec = np.zeros((nbins,nmonths))
         self.offglac_bin_melt = np.zeros((nbins,nmonths))
@@ -199,7 +184,21 @@ class PyGEMMassBalance(MassBalanceModel):
         self.dayspermonth = self.dates_table['daysinmonth'].values
         self.surfacetype_ddf = np.zeros((nbins))
         
-        # sSrface type DDF dictionary (manipulate this function for calibration or for each glacier)
+        # Glacier wide results to store
+        self.glac_wide_temp = np.zeros(nmonths)
+        self.glac_wide_prec = np.zeros(nmonths)
+        self.glac_wide_acc = np.zeros(nmonths)
+        self.glac_wide_refreeze = np.zeros(nmonths)
+        self.glac_wide_melt = np.zeros(nmonths)
+        self.glac_wide_frontalablation = np.zeros(nmonths)
+        self.glac_wide_massbaltotal = np.zeros(nmonths)
+        self.glac_wide_runoff = np.zeros(nmonths)
+        self.glac_wide_snowline = np.zeros(nmonths)
+        self.glac_wide_area_annual = np.zeros(nyears+1)
+        self.glac_wide_volume_annual = np.zeros(nyears+1)
+        self.glac_wide_ELA_annual = np.zeros(nyears)
+        
+        # Surface type DDF dictionary (manipulate this function for calibration or for each glacier)
         self.surfacetype_ddf_dict = self._surfacetypeDDFdict(self.modelparameters)   
         
         # Refreezing specific layers
@@ -705,6 +704,10 @@ class PyGEMMassBalance(MassBalanceModel):
                     print('surface type present:', self.glac_bin_surfacetype_annual[12:20,year])
                     print('surface type updated:', self.surfacetype[12:20])
                     
+                
+                # Store glacier-wide results
+                self._convert_glacwide_results(year, glacier_area_t0, heights, fls=fls, fl_id=fl_id)
+                    
     
         # Example of modularity
 #        if self.use_refreeze:
@@ -722,7 +725,7 @@ class PyGEMMassBalance(MassBalanceModel):
 
     
     #%%
-    def _convert_glacwide_results(self, year, flowline
+    def _convert_glacwide_results(self, year, glacier_area, heights, fls=None, fl_id=None,
 #                                 elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze,
 #                             glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, glac_bin_massbalclim_annual,
 #                             glac_bin_area_annual, glac_bin_icethickness_annual
@@ -736,98 +739,81 @@ class PyGEMMassBalance(MassBalanceModel):
             the year of the model run starting from zero
         """
         
-        # Compute desired output
-        print('\n\nNEED GLACIER AREA FOR THE GLACIER-WIDE RESULTS\n\n')
-#        glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
-#        glac_wide_area = glac_bin_area.sum(axis=0)
+#    #                    (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt,
+#    #                     glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline,
+#    #                     glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
+#                                 convert_glacwide_results(
+#                                         elev_bins, mbmod.bin_temp, mbmod.bin_prec, mbmod.bin_acc,
+#                                         mbmod.glac_bin_refreeze, mbmod.bin_snowpack, mbmod.bin_melt,
+#                                         mbmod.glac_bin_frontalablation, mbmod.glac_bin_massbalclim_annual,
+#                                         glac_bin_area_annual, glac_bin_icethickness_annual))
         
-
-#        self.glac_wide_prec = np.zeros(bin_temp.shape[1])
-#        self.glac_wide_acc = np.zeros(bin_temp.shape[1])
-#        self.glac_wide_refreeze = np.zeros(bin_temp.shape[1])
-#        self.glac_wide_melt = np.zeros(bin_temp.shape[1])
-#        self.glac_wide_frontalablation = np.zeros(bin_temp.shape[1])
+        # Glacier area
+        glac_idx = glacier_area.nonzero()[0]
+        glacier_area_monthly = glacier_area[:,np.newaxis].repeat(12,axis=1)
         
-        # Preset desired output (needed to avoid dividing by zero)
-        if 'bin_temp' in self.__dict__.keys():
-            print('SHOULD AREA-WEIGHT THIS')
+        if len(glac_idx) > 0:
+            # Glacier-wide temperature (degC
+            self.glac_wide_temp[12*year:12*(year+1)] = (
+                    (self.bin_temp[:,12*year:12*(year+1)][glac_idx] * glacier_area_monthly[glac_idx]).sum(0) / 
+                    glacier_area.sum())
+            # Glacier-wide precipitation (m3)
+            self.glac_wide_prec[12*year:12*(year+1)] = (
+                    (self.bin_prec[:,12*year:12*(year+1)][glac_idx] * glacier_area_monthly[glac_idx] * 1e6).sum(0))
+            # Glacier-wide accumulation (m3 w.e.)
+            self.glac_wide_acc[12*year:12*(year+1)] = (
+                    (self.bin_acc[:,12*year:12*(year+1)][glac_idx] * glacier_area_monthly[glac_idx] * 1e6).sum(0))
+            # Glacier-wide refreeze (m3 w.e.)
+            self.glac_wide_refreeze[12*year:12*(year+1)] = (
+                    (self.glac_bin_refreeze[:,12*year:12*(year+1)][glac_idx] * glacier_area_monthly[glac_idx] * 1e6)
+                    .sum(0))
+            # Glacier-wide melt (m3 w.e.)
+            self.glac_wide_melt[12*year:12*(year+1)] = (
+                    (self.glac_bin_melt[:,12*year:12*(year+1)][glac_idx] * glacier_area_monthly[glac_idx] * 1e6)
+                    .sum(0))
+            # Glacier-wide frontal ablation (m3 w.e.)
+            self.glac_wide_frontalablation[12*year:12*(year+1)] = (
+                    (self.glac_bin_frontalablation[:,12*year:12*(year+1)][glac_idx] * glacier_area_monthly[glac_idx] 
+                     * 1e6).sum(0))
             
-            self.glac_wide_temp = np.zeros(bin_temp.shape[1])
-            glac_wide_temp_sum = bin_temp[:,year].sum(axis=0)
-            print('glac_wide_temp_sum:', glac_wide_temp_sum)
-            if glac_wide_temp_sum > 0:
-                flowline.area_km2
+            # Glacier-wide total mass balance (m3 w.e.)
+            if np.abs(self.glac_wide_frontalablation.sum()) > 0:
+                print('\n\nCHECK IF FRONTAL ABLATION IS POSITIVE OR NEGATIVE - WHETHER ADD OR SUBTRACT BELOW HERE')
+            self.glac_wide_massbaltotal[12*year:12*(year+1)] = (
+                    (self.glac_bin_massbalclim[:,12*year:12*(year+1)][glac_idx] * glacier_area_monthly[glac_idx] 
+                     * 1e6).sum(0) + self.glac_wide_frontalablation[12*year:12*(year+1)])
                 
-#            glac_bin_temp_nonzero = np.zeros(bin_temp.shape)
-#            glac_bin_temp_nonzero[bin_temp != 0] = 1
-#            glac_wide_temp_bincount = glac_bin_temp_nonzero.sum(axis=0)
-#            self.glac_wide_temp[glac_wide_temp_bincount > 0] = (glac_wide_temp_sum[glac_wide_temp_bincount > 0] /
-#                                                                glac_wide_temp_bincount[glac_wide_temp_bincount > 0])
-        if 'bin_prec' in self.__dict__.keys():
-            print('add prec')
-#            glac_wide_prec_mkm2 = (glac_bin_prec * glac_bin_area).sum(axis=0)
-#            glac_wide_prec[glac_wide_prec_mkm2 > 0] = (glac_wide_prec_mkm2[glac_wide_prec_mkm2 > 0] /
-#                                                       glac_wide_area[glac_wide_prec_mkm2 > 0])
+            # Glacier-wide runoff (m3)
+            self.glac_wide_runoff[12*year:12*(year+1)] = (
+                        self.glac_wide_prec[12*year:12*(year+1)] + self.glac_wide_melt[12*year:12*(year+1)] - 
+                        self.glac_wide_refreeze[12*year:12*(year+1)])
+            # Glacier-wide snowline (m a.s.l.)
+            heights_monthly = heights[:,np.newaxis].repeat(12, axis=1)
+            snow_mask = np.zeros(heights_monthly.shape)
+            snow_mask[self.glac_bin_snowpack[:,12*year:12*(year+1)] > 0] = 1
+            heights_monthly_wsnow = heights_monthly * snow_mask
+            heights_monthly_wsnow[heights_monthly_wsnow == 0] = np.nan
+            heights_change = heights[0:-1] - heights[1:]
+            snowline_idx = np.nanargmin(heights_monthly_wsnow, axis=0)
+            self.glac_wide_snowline[12*year:12*(year+1)] = heights[snowline_idx] - heights_change[snowline_idx] / 2
             
+            # Glacier-wide snowline (m a.s.l.)
+            ela_mask = np.zeros(heights.shape)
+            ela_mask[self.glac_bin_massbalclim_annual[:,year] > 0] = 1
+            ela_onlypos = heights * ela_mask
+            ela_onlypos[ela_onlypos == 0] = np.nan
+            ela_idx = np.nanargmin(ela_onlypos)
+            self.glac_wide_ELA_annual[year] = heights[ela_idx] - heights_change[ela_idx] / 2
         
-
-#        glac_wide_acc_mkm2 = (glac_bin_acc * glac_bin_area).sum(axis=0)
-#        glac_wide_acc[glac_wide_acc_mkm2 > 0] = (glac_wide_acc_mkm2[glac_wide_acc_mkm2 > 0] /
-#                                                 glac_wide_area[glac_wide_acc_mkm2 > 0])
-#        glac_wide_refreeze_mkm2 = (glac_bin_refreeze * glac_bin_area).sum(axis=0)
-#        glac_wide_refreeze[glac_wide_refreeze_mkm2 > 0] = (glac_wide_refreeze_mkm2[glac_wide_refreeze_mkm2 > 0] /
-#                                                           glac_wide_area[glac_wide_refreeze_mkm2 > 0])
-#        glac_wide_melt_mkm2 = (glac_bin_melt * glac_bin_area).sum(axis=0)
-#        glac_wide_melt[glac_wide_melt_mkm2 > 0] = (glac_wide_melt_mkm2[glac_wide_melt_mkm2 > 0] /
-#                                                   glac_wide_area[glac_wide_melt_mkm2 > 0])
-#        glac_wide_frontalablation_mkm2 = (glac_bin_frontalablation * glac_bin_area).sum(axis=0)
-#        glac_wide_frontalablation[glac_wide_frontalablation_mkm2 > 0] = (
-#                glac_wide_frontalablation_mkm2[glac_wide_frontalablation_mkm2 > 0] /
-#                glac_wide_area[glac_wide_frontalablation_mkm2 > 0])
-#        glac_wide_massbalclim = glac_wide_acc + glac_wide_refreeze - glac_wide_melt
-#        glac_wide_massbaltotal = glac_wide_massbalclim - glac_wide_frontalablation
-#        glac_wide_runoff = (glac_wide_prec + glac_wide_melt - glac_wide_refreeze) * glac_wide_area * (1000)**2
-#        #  units: (m + m w.e. - m w.e.) * km**2 * (1000 m / 1 km)**2 = m**3
-#        glac_wide_snowline = (glac_bin_snowpack > 0).argmax(axis=0)
-#        glac_wide_snowline[glac_wide_snowline > 0] = (elev_bins[glac_wide_snowline[glac_wide_snowline > 0]] -
-#                                                      pygem_prms.binsize/2)
-#        glac_wide_area_annual = glac_bin_area_annual.sum(axis=0)
-#        glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
-#        glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
-#        glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] -
-#                                                          pygem_prms.binsize/2)
-#        # ELA and snowline can't be below minimum elevation
-#        glac_zmin_annual = elev_bins[(glac_bin_area_annual > 0).argmax(axis=0)][:-1] - pygem_prms.binsize/2
-#        glac_wide_ELA_annual[glac_wide_ELA_annual < glac_zmin_annual] = (
-#                glac_zmin_annual[glac_wide_ELA_annual < glac_zmin_annual])
-#        glac_zmin = elev_bins[(glac_bin_area > 0).argmax(axis=0)] - pygem_prms.binsize/2
-#        glac_wide_snowline[glac_wide_snowline < glac_zmin] = glac_zmin[glac_wide_snowline < glac_zmin]
-#    
-#    #    print('DELETE ME - TESTING')
-#    #    # Compute glacier volume change for every time step and use this to compute mass balance
-#    #    #  this will work for any indexing
-#    #    glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-#    #
-#    ##    print('glac_wide_area_annual:', glac_wide_area_annual)
-#    #
-#    #    # Mass change [km3 mwe]
-#    #    #  mb [mwea] * (1 km / 1000 m) * area [km2]
-#    #    glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
-#    #
-#    #    print('glac_wide_melt:', glac_wide_melt)
-#    ##    print('glac_wide_massbaltotal:', glac_wide_massbaltotal)
-#    ##    print('glac_wide_masschange:', glac_wide_masschange)
-#    ##    print('glac_wide_masschange.shape[0] / 12:', glac_wide_masschange.shape[0] / 12)
-#    #
-#    #    # Mean annual mass balance [mwea]
-#    #    mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 /
-#    #               (glac_wide_masschange.shape[0] / 12))
-#    #    print('  mb_model [mwea]:', mb_mwea.round(3))
+    #        print('\n-----') 
+    #        print(self.glac_wide_ELA_annual[year])
+    #        print(self.glac_wide_snowline[12*year:12*(year+1)])    
+    #        print(self.glac_wide_runoff[12*year:12*(year+1)] / 1e9)
+    #        print((self.glac_wide_massbaltotal[12*year:12*(year+1)] / (glacier_area * 1e6).sum()).sum())
+    #        print((self.glac_wide_massbaltotal[12*year:12*(year+1)] / (glacier_area * 1e6).sum()))
+    #        print(self.__dict__.keys())
+    #        print('-----\n')
     
-#        return (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt,
-#                glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline,
-#                glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual)
-            
                  
     #%%
     def get_annual_frontalablation(self, heights, year=None, flowline=None, fl_id=None, 
@@ -975,84 +961,6 @@ class PyGEMMassBalance(MassBalanceModel):
             
             #%%
                 
-
-#                # MASS REDISTRIBUTION
-#                # Mass redistribution ignored for calibration and spinup years (glacier properties constant)
-#                if (option_areaconstant == 1) or (year < pygem_prms.spinupyears) or (year < constantarea_years):
-#                    glacier_area_t1 = glacier_area_t0
-#                    icethickness_t1 = icethickness_t0
-#                    width_t1 = width_t0                    
-#                else:
-#                    
-#                    if debug:
-#                        print('area is changing')
-#                        
-#                    # First, remove volume lost to frontal ablation
-#                    #  changes to _t0 not _t1, since t1 will be done in the mass redistribution
-#                    if glac_bin_frontalablation[:,step].max() > 0:
-#                        # Frontal ablation loss [mwe]
-#                        #  fa_change tracks whether entire bin is lost or not
-#                        fa_change = abs(glac_bin_frontalablation[:, step] * pygem_prms.density_water / 
-#                                        pygem_prms.density_ice - icethickness_t0)
-#                        fa_change[fa_change <= pygem_prms.tolerance] = 0
-#                        
-#                        if debug:
-#                            bins_wfa = np.where(glac_bin_frontalablation[:,step] > 0)[0]
-#                            print('glacier area t0:', glacier_area_t0[bins_wfa].round(3))
-#                            print('ice thickness t0:', icethickness_t0[bins_wfa].round(1))
-#                            print('frontalablation [m ice]:', (glac_bin_frontalablation[bins_wfa, step] * 
-#                                  pygem_prms.density_water / pygem_prms.density_ice).round(1))
-#                            print('frontal ablation [mice] vs icethickness:', fa_change[bins_wfa].round(1))
-#                        
-#                        # Check if entire bin is removed
-#                        glacier_area_t0[np.where(fa_change == 0)[0]] = 0
-#                        icethickness_t0[np.where(fa_change == 0)[0]] = 0
-#                        width_t0[np.where(fa_change == 0)[0]] = 0
-#                        # Otherwise, reduce glacier area such that glacier retreats and ice thickness remains the same
-#                        #  A_1 = (V_0 - V_loss) / h_1,  units: A_1 = (m ice * km2) / (m ice) = km2
-#                        glacier_area_t0[np.where(fa_change != 0)[0]] = (
-#                                (glacier_area_t0[np.where(fa_change != 0)[0]] * 
-#                                 icethickness_t0[np.where(fa_change != 0)[0]] - 
-#                                 glacier_area_t0[np.where(fa_change != 0)[0]] * 
-#                                 glac_bin_frontalablation[np.where(fa_change != 0)[0], step] * pygem_prms.density_water 
-#                                 / pygem_prms.density_ice) / icethickness_t0[np.where(fa_change != 0)[0]])
-#                        
-#                        if debug:
-#                            print('glacier area t1:', glacier_area_t0[bins_wfa].round(3))
-#                            print('ice thickness t1:', icethickness_t0[bins_wfa].round(1))
-#                    
-#                    # Redistribute mass if glacier was not fully removed by frontal ablation
-#                    if glacier_area_t0.max() > 0:
-#                        # Mass redistribution according to Huss empirical curves
-#                        glacier_area_t1, icethickness_t1, width_t1 = (
-#                                massredistributionHuss(glacier_area_t0, icethickness_t0, width_t0, 
-#                                                       glac_bin_massbalclim_annual, year, glac_idx_initial, 
-#                                                       glacier_area_initial, heights,
-#                                                       debug=False, 
-#                                                       hindcast=hindcast))
-#                        # update surface type for bins that have retreated
-#                        surfacetype[glacier_area_t1 == 0] = 0
-#                        
-##                        print('\n-----')
-##                        print(len(np.where(glacier_area_t0 > 0)[0]))
-##                        print(len(np.where(glacier_area_t1 > 0)[0]))
-##                        print(surfacetype)
-###                        print(glacier_area_t1)
-##                        print('-----\n')
-##                        print('delete me')
-##                        print(elev_bins)
-#                        if year == 0:
-#                            print('\n\nHERE IS WHERE I LEFT OFF CHECKING!\n\n')
-#                        
-#                        # update surface type for bins that have advanced 
-#                        surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = (
-#                                surfacetype[glacier_area_t0.nonzero()[0][0]])
-#                    else:
-#                        glacier_area_t1 = np.zeros(glacier_area_t0.shape)
-#                        icethickness_t1 = np.zeros(glacier_area_t0.shape)
-#                        width_t1 = np.zeros(glacier_area_t0.shape)
-#                        surfacetype = np.zeros(glacier_area_t0.shape)
-#                        
 #                # Record glacier properties (area [km**2], thickness [m], width [km])
 #                # if first year, record initial glacier properties (area [km**2], ice thickness [m ice], width [km])
 #                if year == 0:

@@ -97,9 +97,7 @@ class MassRedistributionCurveModel(FlowlineModel):
     
     def updategeometry(self, year):
         """Update geometry for a given year"""
-        
-        if year == 0:
-            print('\nrecord annual data to the "diagnostic_dataset" - diag_ds - like OGGM\n')
+            
             
         # Loop over flowlines
         for fl_id, fl in enumerate(self.fls):
@@ -109,6 +107,15 @@ class MassRedistributionCurveModel(FlowlineModel):
             section_t0 = fl.section.copy()
             thick_t0 = fl.thick.copy()
             width_t0 = fl.widths_m.copy()
+            
+            if year == 0:
+                print('\nrecord annual data to the "diagnostic_dataset" - diag_ds - like OGGM\n')
+                self.mb_model.glac_bin_area_annual[:,year] = fl.widths_m / 1000 * fl.dx_meter / 1000
+                self.mb_model.glac_bin_icethickness_annual[:,year] = fl.thick
+                self.mb_model.glac_bin_width_annual[:,year] = fl.widths_m / 1000
+                self.mb_model.glac_wide_area_annual[year] = (fl.widths_m / 1000 * fl.dx_meter / 1000).sum()
+                self.mb_model.glac_wide_volume_annual[year] = (
+                        (fl.widths_m / 1000 * fl.dx_meter / 1000 * fl.thick / 1000).sum())
             
             # CONSTANT AREAS
             #  Mass redistribution ignored for calibration and spinup years (glacier properties constant)
@@ -164,17 +171,15 @@ class MassRedistributionCurveModel(FlowlineModel):
                     self._massredistributionHuss(section_t0, thick_t0, width_t0, glac_bin_massbalclim_annual, 
                                                  self.glac_idx_initial[fl_id], heights, sec_in_year=sec_in_year)                
                     
-#            # Record glacier properties (area [km**2], thickness [m], width [km])
-#            # if first year, record initial glacier properties (area [km**2], ice thickness [m ice], width [km])
-#            if year == 0:
-#                glac_bin_area_annual[:,year] = glacier_area_initial
-#                glac_bin_icethickness_annual[:,year] = icethickness_initial
-#                glac_bin_width_annual[:,year] = width_initial
-#            # record the next year's properties as well
-#            # 'year + 1' used so the glacier properties are consistent with mass balance computations
-#            glac_bin_icethickness_annual[:,year + 1] = icethickness_t1
-#            glac_bin_area_annual[:,year + 1] = glacier_area_t1
-#            glac_bin_width_annual[:,year + 1] = width_t1              
+            # Record glacier properties (area [km**2], thickness [m], width [km])
+            #  record the next year's properties as well
+            #  'year + 1' used so the glacier properties are consistent with mass balance computations
+            self.mb_model.glac_bin_area_annual[:,year+1] = fl.widths_m / 1000 * fl.dx_meter / 1000
+            self.mb_model.glac_bin_icethickness_annual[:,year+1] = fl.thick
+            self.mb_model.glac_bin_width_annual[:,year+1] = fl.widths_m / 1000          
+            self.mb_model.glac_wide_area_annual[year+1] = (fl.widths_m / 1000 * fl.dx_meter / 1000).sum()
+            self.mb_model.glac_wide_volume_annual[year+1] = (
+                        (fl.widths_m / 1000 * fl.dx_meter / 1000 * fl.thick / 1000).sum())
 
             
     #%%%% ====== START OF MASS REDISTRIBUTION CURVE  
