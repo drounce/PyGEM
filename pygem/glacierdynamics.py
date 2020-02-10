@@ -109,7 +109,6 @@ class MassRedistributionCurveModel(FlowlineModel):
             width_t0 = fl.widths_m.copy()
             
             if year == 0:
-                print('\nrecord annual data to the "diagnostic_dataset" - diag_ds - like OGGM\n')
                 self.mb_model.glac_bin_area_annual[:,year] = fl.widths_m / 1000 * fl.dx_meter / 1000
                 self.mb_model.glac_bin_icethickness_annual[:,year] = fl.thick
                 self.mb_model.glac_bin_width_annual[:,year] = fl.widths_m / 1000

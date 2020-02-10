@@ -116,6 +116,7 @@ def glac_fromcsv(csv_fullfn, cn='RGIId'):
 main_directory = os.getcwd()
 # Output directory
 output_filepath = main_directory + '/../Output/'
+model_run_date = 'February 10, 2020'
 
 # ===== GLACIER SELECTION =====
 #rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
@@ -132,14 +133,15 @@ rgi_glac_number = 'all'
 #glac_no = None
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
 glac_no = ['15.03473']
+#glac_no = ['15.03733']
 #glac_no = ['1.10689']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
-ref_gcm_name = 'ERA5'           # reference climate dataset
+ref_gcm_name = 'ERA-Interim'    # reference climate dataset
+#ref_gcm_name = 'ERA5'           # reference climate dataset
 
 #startyear = 1980                # first year of model run (reference dataset)
 #endyear = 2018                  # last year of model run (reference dataset)
