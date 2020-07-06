@@ -16,6 +16,7 @@ cfg.initialize()
 
 #%%
 print('\n\nMOVE ANNUALWEIGHTEDMEAN_ARRAY function elsewhere - utilities?\n\n')
+print('\n\nCHECK MASS BALANCE CONSISTENT WITH UPDATES MASS BALANCE FUNCTION - TRANSFER AGAIN\n\n')
 def annualweightedmean_array(var, dates_table):
     """
     Calculate annual mean of variable according to the timestep.
@@ -64,12 +65,14 @@ class PyGEMMassBalance(MassBalanceModel):
 
     This class implements the MassBalanceModel interface so that the dynamical model can use it.
     """
-    def __init__(self, modelparameters, glacier_rgi_table, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
-                       glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0,
+    def __init__(self, gdir, modelparameters, glacier_rgi_table, 
+#                 glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec,
+#                       glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
+                       option_areaconstant=0,
                        constantarea_years=pygem_prms.constantarea_years, frontalablation_k=None, 
                        debug=False, debug_refreeze=False, hindcast=0, 
                        fls=None, fl_id=0, glacier_area_initial=None, icethickness_initial=None, width_initial=None,
-                       heights=None, repeat_period=False, mb_residual=0, option_inversion=False
+                       heights=None, repeat_period=False, modelprms={}
 #                       use_refreeze=True
                        ):
         """ Initialize.
@@ -116,44 +119,43 @@ class PyGEMMassBalance(MassBalanceModel):
         hindcast : int
             switch to run the model in reverse or not (may be irrelevant after converting to OGGM's setup)
         """
+        if debug:
+            print('\n\nDEBUGGING MASS BALANCE FUNCTION\n\n')
+        self.debug_refreeze = debug_refreeze
+        
         super(PyGEMMassBalance, self).__init__()
         self.valid_bounds = [-1e4, 2e4]  # in m
         self.hemisphere = 'nh'
-        
-        # Example of what could be done!
 #        self.use_refreeze = use_refreeze
-        self.option_inversion = option_inversion
         
         # Glacier data
         self.modelparameters = modelparameters
         self.glacier_rgi_table = glacier_rgi_table
-        self.icethickness_initial = fls[fl_id].thick
+        self.icethickness_initial = getattr(fls[fl_id], 'thick', None)
         self.width_initial = fls[fl_id].widths_m / 1000
         self.glacier_area_initial = fls[fl_id].widths_m / 1000 * fls[fl_id].dx_meter / 1000
-        self.glac_idx_initial = fls[fl_id].thick.nonzero()
-#        print('initial glacier area:', self.glacier_area_initial.sum())
-        
+        self.glac_idx_initial = self.glacier_area_initial.nonzero()
         self.heights = fls[fl_id].surface_h
-
         
         # Climate data
-        self.dates_table = dates_table
-        self.glacier_gcm_temp = glacier_gcm_temp
-        self.glacier_gcm_tempstd = glacier_gcm_tempstd
-        self.glacier_gcm_prec = glacier_gcm_prec 
-        self.glacier_gcm_elev = glacier_gcm_elev
-        self.glacier_gcm_lrgcm = glacier_gcm_lrgcm
-        self.glacier_gcm_lrglac = glacier_gcm_lrglac
-        self.repeat_period = repeat_period
+        self.dates_table = gdir.dates_table
+        self.glacier_gcm_temp = gdir.historical_climate['temp']
+        self.glacier_gcm_tempstd = gdir.historical_climate['tempstd']
+        self.glacier_gcm_prec = gdir.historical_climate['prec']
+        self.glacier_gcm_elev = gdir.historical_climate['elev']
+        self.glacier_gcm_lrgcm = gdir.historical_climate['lr']
+        self.glacier_gcm_lrglac = gdir.historical_climate['lr']
+        
+        if pygem_prms.hindcast == 1:
+            self.glacier_gcm_prec = self.glacier_gcm_prec[::-1]
+            self.glacier_gcm_temp = self.glacier_gcm_temp[::-1]
+            self.glacier_gcm_lrgcm = self.glacier_gcm_lrgcm[::-1]
+            self.glacier_gcm_lrglac = self.glacier_gcm_lrglac[::-1]
+        
+        self.repeat_period = repeat_period        
 
-        self.debug_refreeze = debug_refreeze
-
-        if debug:
-            print('\n\nDEBUGGING MASS BALANCE FUNCTION\n\n')
-            
-            
         # Variables to store (consider storing in xarray)
-        nbins = self.icethickness_initial.shape[0]
+        nbins = self.glacier_area_initial.shape[0]
         nmonths = self.glacier_gcm_temp.shape[0]
         nyears = len(self.dates_table.wateryear.unique())
             
@@ -177,17 +179,11 @@ class PyGEMMassBalance(MassBalanceModel):
         self.glac_bin_icethickness_annual = np.zeros((nbins,nyears+1))
         self.glac_bin_area_annual = np.zeros((nbins, nyears + 1))
         self.glac_bin_width_annual = np.zeros((nbins, nyears + 1))
-        
         self.offglac_bin_prec = np.zeros((nbins,nmonths))
         self.offglac_bin_melt = np.zeros((nbins,nmonths))
         self.offglac_bin_refreeze = np.zeros((nbins,nmonths))
         self.offglac_bin_snowpack = np.zeros((nbins,nmonths))
         self.offglac_bin_area_annual = np.zeros((nbins,nyears+1))
-        
-        self.dayspermonth = self.dates_table['daysinmonth'].values
-        self.surfacetype_ddf = np.zeros((nbins))
-        
-        # Glacier wide results to store
         self.glac_wide_temp = np.zeros(nmonths)
         self.glac_wide_prec = np.zeros(nmonths)
         self.glac_wide_acc = np.zeros(nmonths)
@@ -200,12 +196,14 @@ class PyGEMMassBalance(MassBalanceModel):
         self.glac_wide_area_annual = np.zeros(nyears+1)
         self.glac_wide_volume_annual = np.zeros(nyears+1)
         self.glac_wide_ELA_annual = np.zeros(nyears)
-        
         self.offglac_wide_prec = np.zeros(nmonths)
         self.offglac_wide_refreeze = np.zeros(nmonths)
         self.offglac_wide_melt = np.zeros(nmonths)
         self.offglac_wide_snowpack = np.zeros(nmonths)
         self.offglac_wide_runoff = np.zeros(nmonths)
+        
+        self.dayspermonth = self.dates_table['daysinmonth'].values
+        self.surfacetype_ddf = np.zeros((nbins))
         
         # Surface type DDF dictionary (manipulate this function for calibration or for each glacier)
         self.surfacetype_ddf_dict = self._surfacetypeDDFdict(self.modelparameters)   
@@ -222,28 +220,14 @@ class PyGEMMassBalance(MassBalanceModel):
                                 pygem_prms.k_ice)
             self.refr = np.zeros(nbins)                             # refreeze in each bin
             self.rf_cold = np.zeros(nbins)                          # refrezee cold content or "potential" refreeze
-            
-            self.te_rf = np.zeros((pygem_prms.rf_layers,nbins,nmonths))     # layer temp of each elev bin for present time step
-            self.tl_rf = np.zeros((pygem_prms.rf_layers,nbins,nmonths))     # layer temp of each elev bin for previous time step
+            self.te_rf = np.zeros((pygem_prms.rf_layers,nbins,nmonths)) # layer temp of each elev bin for present time step
+            self.tl_rf = np.zeros((pygem_prms.rf_layers,nbins,nmonths)) # layer temp of each elev bin for previous time step
         
         # Sea level for marine-terminating glaciers
         self.sea_level = 0
         rgi_region = int(glacier_rgi_table.RGIId.split('-')[1].split('.')[0])
         if frontalablation_k == None:
              self.frontalablation_k0 = pygem_prms.frontalablation_k0dict[rgi_region]
-
-        # Run mass balance only on pixels that have an ice thickness (some glaciers do not have an ice thickness)
-        #  otherwise causes indexing errors causing the model to fail
-#        if self.icethickness_t0.max() > 0:    
-#            if pygem_prms.option_adjusttemp_surfelev == 1:
-#                # ice thickness initial is used to adjust temps to changes in surface elevation
-#                self.icethickness_initial = self.icethickness_t0.copy()
-#                self.icethickness_initial[0:self.icethickness_initial.nonzero()[0][0]] = (
-#                        self.icethickness_initial[self.icethickness_initial.nonzero()[0][0]])
-#                print('this indexing is wrong!  Need to find min_elevbin')
-#                #  bins that advance need to have an initial ice thickness; otherwise, the temp adjustment will be by
-#                #  ice thickness - 0, which is wrong; since advancing bins take thickness of the previous bin, set the
-#                #  initial ice thickness of all bins below the terminus to the ice thickness at the terminus.
             
             
             
@@ -266,26 +250,13 @@ class PyGEMMassBalance(MassBalanceModel):
             year = year % (pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
 
         fl = fls[fl_id]
-#        heights = fl.surface_h
         np.testing.assert_allclose(heights, fl.surface_h)
-        try:
-            glacier_area_t0 = fl.widths_m / 1000 * fl.dx_meter / 1000
-        except AttributeError:
-            glacier_area_t0 = self.glacier_area_initial.copy()
-        if not self.option_inversion:
-            icethickness_t0 = fl.thick
-            glacier_area_t0[icethickness_t0 == 0] = 0
-        icethickness_initial = self.icethickness_initial
+        glacier_area_t0 = fl.widths_m / 1000 * fl.dx_meter / 1000
         glacier_area_initial = self.glacier_area_initial
+        icethickness_t0 = getattr(fls[fl_id], 'thick', None)  
         
         # Glacier indices
-        try:
-            # If the flowline is a model flowline, it has a thickness
-            glac_idx_t0 = fl.thick.nonzero()[0]
-        except AttributeError:
-            # This is probably an inversion flowline
-            glac_idx_t0 = fl.widths.nonzero()[0]
-
+        glac_idx_t0 = fl.widths.nonzero()[0]
 
         nbins = heights.shape[0]
         nmonths = self.glacier_gcm_temp.shape[0]
@@ -298,10 +269,7 @@ class PyGEMMassBalance(MassBalanceModel):
             self.te_rf[:,:,0] = 0     # layer temp of each elev bin for present time step
             self.tl_rf[:,:,0] = 0     # layer temp of each elev bin for previous time step
         
-        
-        if len(glac_idx_t0) > 0:    
-#            if debug:
-#                print(year, 'max ice thickness [m]:', icethickness_t0.max()) 
+        if len(glac_idx_t0) > 0:
             
             # Surface type [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
             if year == 0:
@@ -326,31 +294,22 @@ class PyGEMMassBalance(MassBalanceModel):
                          (self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale] - self.glacier_gcm_elev) + 
                          self.glacier_gcm_lrglac[12*year:12*(year+1)] * (heights - 
                          self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale])[:, np.newaxis] +
-                                                self.modelparameters[7])
-                # Option to adjust air temperature based on changes in surface elevation
-                #  note: OGGM automatically updates the bin elevation, so this step is not needed
-                if (pygem_prms.option_adjusttemp_surfelev == 1 and pygem_prms.hyps_data in ['Huss', 'Farinotti'] 
-                    and not self.option_inversion):
-                    # T_air = T_air + lr_glac * (icethickness_present - icethickness_initial)
-                    self.bin_temp[:,12*year:12*(year+1)] = (self.bin_temp[:,12*year:12*(year+1)] + 
-                                                       self.glacier_gcm_lrglac[12*year:12*(year+1)] * 
-                                                       (icethickness_t0 - icethickness_initial)[:,np.newaxis])
+                                                self.modelparameters['tbias'])
                 # PRECIPITATION/ACCUMULATION: Downscale the precipitation (liquid and solid) to each bin
                 if pygem_prms.option_prec2bins == 1:                    
                     # Precipitation using precipitation factor and precipitation gradient
                     #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
                     bin_precsnow[:,12*year:12*(year+1)] = (self.glacier_gcm_prec[12*year:12*(year+1)] * 
-                            self.modelparameters[2] * (1 + self.modelparameters[3] * (heights - 
+                            self.modelparameters['kp'] * (1 + self.modelparameters['precgrad'] * (heights - 
                             self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale]))[:,np.newaxis])
                 # Option to adjust prec of uppermost 25% of glacier for wind erosion and reduced moisture content
                 if pygem_prms.option_preclimit == 1:
                     # Elevation range based on all flowlines
                     raw_min_elev = []
                     raw_max_elev = []
-                    for raw_fl in fls:
-                        if len(raw_fl.surface_h[raw_fl.thick > 0]):
-                            raw_min_elev.append(raw_fl.surface_h[raw_fl.thick > 0].min())
-                            raw_max_elev.append(raw_fl.surface_h[raw_fl.thick > 0].max())
+                    if len(fl.surface_h[fl.widths_m > 0]):
+                        raw_min_elev.append(fl.surface_h[fl.widths_m > 0].min())
+                        raw_max_elev.append(fl.surface_h[fl.widths_m > 0].max())
                     elev_range = np.max(raw_max_elev) - np.min(raw_min_elev)
                     elev_75 = np.min(raw_min_elev) + 0.75 * (elev_range)
                     
@@ -381,35 +340,35 @@ class PyGEMMassBalance(MassBalanceModel):
                 if pygem_prms.option_accumulation == 1:
                     # if temperature above threshold, then rain
                     (self.bin_prec[:,12*year:12*(year+1)]
-                                  [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters[6]]) = (
+                                  [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters['tsnow_threshold']]) = (
                         bin_precsnow[:,12*year:12*(year+1)]
-                                         [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters[6]])
+                            [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters['tsnow_threshold']])
                     # if temperature below threshold, then snow
                     (self.bin_acc[:,12*year:12*(year+1)]
-                                 [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters[6]]) = (
+                                 [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters['tsnow_threshold']]) = (
                         bin_precsnow[:,12*year:12*(year+1)]
-                                         [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters[6]])
+                            [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters['tsnow_threshold']])
                 elif pygem_prms.option_accumulation == 2:
                     # If temperature between min/max, then mix of snow/rain using linear relationship between min/max
                     self.bin_prec[:,12*year:12*(year+1)] = (
                             (1/2 + (self.bin_temp[:,12*year:12*(year+1)] - 
-                             self.modelparameters[6]) / 2) * bin_precsnow[:,12*year:12*(year+1)])
+                             self.modelparameters['tsnow_threshold']) / 2) * bin_precsnow[:,12*year:12*(year+1)])
                     self.bin_acc[:,12*year:12*(year+1)] = (
                             bin_precsnow[:,12*year:12*(year+1)] - self.bin_prec[:,12*year:12*(year+1)])
                     # If temperature above maximum threshold, then all rain
                     (self.bin_prec[:,12*year:12*(year+1)]
-                                  [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters[6] + 1]) = (
-                            bin_precsnow[:,12*year:12*(year+1)]
-                                             [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters[6] + 1])
+                            [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters['tsnow_threshold'] + 1]) = (
+                        bin_precsnow[:,12*year:12*(year+1)]
+                            [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters['tsnow_threshold'] + 1])
                     (self.bin_acc[:,12*year:12*(year+1)]
-                                 [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters[6] + 1]) = 0
+                        [self.bin_temp[:,12*year:12*(year+1)] > self.modelparameters['tsnow_threshold'] + 1]) = 0
                     # If temperature below minimum threshold, then all snow
                     (self.bin_acc[:,12*year:12*(year+1)]
-                                 [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters[6] - 1]) = (
-                            bin_precsnow[:,12*year:12*(year+1)]
-                                             [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters[6] - 1])
+                            [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters['tsnow_threshold'] - 1]) = (
+                        bin_precsnow[:,12*year:12*(year+1)]
+                            [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters['tsnow_threshold'] - 1])
                     (self.bin_prec[:,12*year:12*(year+1)]
-                                  [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters[6] - 1]) = 0
+                        [self.bin_temp[:,12*year:12*(year+1)] <= self.modelparameters['tsnow_threshold'] - 1]) = 0
                 
                 # ENTER MONTHLY LOOP (monthly loop required since surface type changes)
                 for month in range(0,12):
@@ -676,19 +635,17 @@ class PyGEMMassBalance(MassBalanceModel):
                                                                    self.offglac_meltrefreeze[offglac_idx])
 
                 # ===== RETURN TO ANNUAL LOOP =====
-                if not self.option_inversion:
+                if icethickness_t0 is not None:
                     # Mass loss cannot exceed glacier volume
-                    #  mb [mwea] = -1 * sum{area [km2] * ice thickness [m]} / total area [km2] * density_ice / density_water
-                    mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * pygem_prms.density_ice / 
-                                         pygem_prms.density_water).sum() 
-                                   / glacier_area_t0.sum())
+                    mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0).sum() / glacier_area_t0.sum() * 
+                                   pygem_prms.density_ice / pygem_prms.density_water)
                     # Check annual climatic mass balance
                     mb_mwea = ((glacier_area_t0 * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
                                 glacier_area_t0.sum()) 
                     if debug:
                         print('mb_mwea:', np.round(mb_mwea,3))
-
-                    # If mass loss exceeds glacier mass, reduce melt to ensure the glacier completely melts without excess
+    
+                    # If mass loss more negative than glacier mass, reduce melt so glacier completely melts without excess
                     if mb_mwea < mb_max_loss:  
                         
                         if debug:
@@ -707,23 +664,13 @@ class PyGEMMassBalance(MassBalanceModel):
                         # Check annual climatic mass balance
                         mb_mwea = ((glacier_area_t0 * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
                                     glacier_area_t0.sum()) 
-                        
-                        
-                        if debug:
-                            print('mb_check after adjustment (should equal mass loss):', np.round(mb_mwea,3))
-                            
-    #                print(year, 'mb_mwea:', np.round(mb_mwea,3))
-    #                print(year, 'vol_chg:', (glacier_area_t0 * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1) / 1000 / 0.9).sum())
-    #                print('area_sum:', glacier_area_t0.sum())
-    #                print('mbclim_sum:', self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1).sum())
-                
 
                 # SURFACE TYPE (-)
                 # Annual climatic mass balance [m w.e.] used to determine the surface type
                 self.glac_bin_massbalclim_annual[:,year] = self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)
                 # Update surface type for each bin
                 self.surfacetype, firnline_idx = self._surfacetypebinsannual(self.surfacetype,
-                                                                        self.glac_bin_massbalclim_annual, year)
+                                                                             self.glac_bin_massbalclim_annual, year)
                 
                 if debug:
                     print('glac_bin_massbalclim:', self.glac_bin_massbalclim[12:20,12*year:12*(year+1)].sum(1))
@@ -732,17 +679,13 @@ class PyGEMMassBalance(MassBalanceModel):
                     
                 
                 # Store glacier-wide results
-                if not self.option_inversion:
-                    self._convert_glacwide_results(year, glacier_area_t0, heights, fls=fls, fl_id=fl_id,
-                                                   option_areaconstant=option_areaconstant)
+                self._convert_glacwide_results(year, glacier_area_t0, heights, fls=fls, fl_id=fl_id,
+                                               option_areaconstant=option_areaconstant)
                     
     
         # Example of modularity
 #        if self.use_refreeze:
 #            mb += self._refreeze_term(heights, year)
-            
-#        # Example of how to store variables from within the other functions (ex. mass balance components)
-#        self.diag_df.loc[year, 'mb'] = np.average(mb)
         
         # Mass balance for each bin [m ice per second]
         seconds_in_year = self.dates_table.loc[12*year:12*(year+1)-1,'daysinmonth'].values.sum() * 24 * 3600
@@ -809,17 +752,18 @@ class PyGEMMassBalance(MassBalanceModel):
             self.glac_wide_runoff[12*year:12*(year+1)] = (
                         self.glac_wide_prec[12*year:12*(year+1)] + self.glac_wide_melt[12*year:12*(year+1)] - 
                         self.glac_wide_refreeze[12*year:12*(year+1)])
-            # Glacier-wide snowline (m a.s.l.)
+            # Snow line altitude (m a.s.l.)
             heights_monthly = heights[:,np.newaxis].repeat(12, axis=1)
             snow_mask = np.zeros(heights_monthly.shape)
             snow_mask[self.glac_bin_snowpack[:,12*year:12*(year+1)] > 0] = 1
             heights_monthly_wsnow = heights_monthly * snow_mask
             heights_monthly_wsnow[heights_monthly_wsnow == 0] = np.nan
-            heights_change = heights[0:-1] - heights[1:]
+            heights_change = np.zeros(heights.shape)
+            heights_change[0:-1] = heights[0:-1] - heights[1:]
             snowline_idx = np.nanargmin(heights_monthly_wsnow, axis=0)
             self.glac_wide_snowline[12*year:12*(year+1)] = heights[snowline_idx] - heights_change[snowline_idx] / 2
             
-            # Glacier-wide snowline (m a.s.l.)
+            # Equilibrium line altitude (m a.s.l.)
             ela_mask = np.zeros(heights.shape)
             ela_mask[self.glac_bin_massbalclim_annual[:,year] > 0] = 1
             ela_onlypos = heights * ela_mask
@@ -1014,25 +958,6 @@ class PyGEMMassBalance(MassBalanceModel):
             
         return 0
             
-            #%%
-                
-#                # Record glacier properties (area [km**2], thickness [m], width [km])
-#                # if first year, record initial glacier properties (area [km**2], ice thickness [m ice], width [km])
-#                if year == 0:
-#                    glac_bin_area_annual[:,year] = glacier_area_initial
-#                    glac_bin_icethickness_annual[:,year] = icethickness_initial
-#                    glac_bin_width_annual[:,year] = width_initial
-#                # record the next year's properties as well
-#                # 'year + 1' used so the glacier properties are consistent with mass balance computations
-#                glac_bin_icethickness_annual[:,year + 1] = icethickness_t1
-#                glac_bin_area_annual[:,year + 1] = glacier_area_t1
-#                glac_bin_width_annual[:,year + 1] = width_t1
-#                # Update glacier properties for the mass balance computations
-#                icethickness_t0 = icethickness_t1.copy()
-#                glacier_area_t0 = glacier_area_t1.copy()
-#                width_t0 = width_t1.copy()   
-#                glac_bin_surfacetype_annual[:,year] = surfacetype
-                
         
         
         #%%
@@ -1079,15 +1004,15 @@ class PyGEMMassBalance(MassBalanceModel):
         firnline_idx : int
             Firn line index
         """        
-        surfacetype = np.zeros(self.icethickness_initial.shape)
+        surfacetype = np.zeros(self.glacier_area_initial.shape)
         # Option 1 - initial surface type based on the median elevation
         if pygem_prms.option_surfacetype_initial == 1:
-            surfacetype[(elev_bins < self.glacier_rgi_table.loc['Zmed']) & (self.icethickness_initial > 0)] = 1
-            surfacetype[(elev_bins >= self.glacier_rgi_table.loc['Zmed']) & (self.icethickness_initial > 0)] = 2
+            surfacetype[(elev_bins < self.glacier_rgi_table.loc['Zmed']) & (self.glacier_area_initial > 0)] = 1
+            surfacetype[(elev_bins >= self.glacier_rgi_table.loc['Zmed']) & (self.glacier_area_initial > 0)] = 2
         # Option 2 - initial surface type based on the mean elevation
         elif pygem_prms.option_surfacetype_initial ==2:
-            surfacetype[(elev_bins < self.glacier_rgi_table['Zmean']) & (self.icethickness_initial > 0)] = 1
-            surfacetype[(elev_bins >= self.glacier_rgi_table['Zmean']) & (self.icethickness_initial > 0)] = 2
+            surfacetype[(elev_bins < self.glacier_rgi_table['Zmean']) & (self.glacier_area_initial > 0)] = 1
+            surfacetype[(elev_bins >= self.glacier_rgi_table['Zmean']) & (self.glacier_area_initial > 0)] = 2
         else:
             print("This option for 'option_surfacetype' does not exist. Please choose an option that exists. "
                   + "Exiting model run.\n")
@@ -1198,9 +1123,9 @@ class PyGEMMassBalance(MassBalanceModel):
         
         Parameters
         ----------
-        modelparameters : pd.Series
-            Model parameters (lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow, tempchange)
-            Order of model parameters should not be changed as the run mass balance script relies on this order
+        modelparameters : dictionary
+            Model parameters may include kp (precipitation factor), precgrad (precipitation gradient), ddfsnow, ddfice, 
+            tsnow_threshold (temperature threshold for snow/rain), tbias (temperature bias)
         option_surfacetype_firn : int
             Option to include or exclude firn (specified in pygem_pygem_prms.py)
         option_ddf_firn : int
@@ -1211,14 +1136,14 @@ class PyGEMMassBalance(MassBalanceModel):
             Dictionary relating the surface types with their respective degree day factors
         """        
         surfacetype_ddf_dict = {
-                0: modelparameters[4],
-                1: modelparameters[5],
-                2: modelparameters[4]}
+                0: modelparameters['ddfsnow'],
+                1: modelparameters['ddfice'],
+                2: modelparameters['ddfsnow']}
         if option_surfacetype_firn == 1:
             if option_ddf_firn == 0:
-                surfacetype_ddf_dict[3] = modelparameters[4]
+                surfacetype_ddf_dict[3] = modelparameters['ddfsnow']
             elif option_ddf_firn == 1:
-                surfacetype_ddf_dict[3] = np.mean([modelparameters[4],modelparameters[5]])
+                surfacetype_ddf_dict[3] = np.mean([modelparameters['ddfsnow'],modelparameters['ddfice']])
         if pygem_prms.option_surfacetype_debris == 1:
             surfacetype_ddf_dict[4] = pygem_prms.DDF_debris
         return surfacetype_ddf_dict

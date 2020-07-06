@@ -41,7 +41,7 @@ import pygemfxns_modelsetup as modelsetup
 import run_calibration as calibration
 
 # Script options
-option_plot_cmip5_normalizedchange = 1              # updated - 11/6/2019 (includes the runoff figure 5)
+option_plot_cmip5_normalizedchange = 0              # updated - 11/6/2019 (includes the runoff figure 5)
 option_cmip5_heatmap_w_volchange = 0                # updated - 11/6/2019
 option_cmip5_mb_vs_climate = 0
 option_map_gcm_changes = 0
@@ -7951,12 +7951,6 @@ if option_caldata_compare == 1:
 #length_v2 = length.copy()
 #length_v2.loc[:,thickness_cns] = length_values
 #length_v2.to_csv(pygem_prms.hyps_filepath + 'updated/' + length_fn, index=False)
-
-
-
-
-
-
 
 
 

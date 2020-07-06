@@ -672,23 +672,23 @@ def pickle_data(fn, data):
         
         
 def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=pygem_prms.output_filepath):
-        """
-        Plot histogram for any bin size
-        """           
-        data = df[cn].values
-        hist, bin_edges = np.histogram(data,bins) # make the histogram
-        fig,ax = plt.subplots()    
-        # Plot the histogram heights against integers on the x axis
-        ax.bar(range(len(hist)),hist,width=1, edgecolor='k') 
-        # Set the ticks to the middle of the bars
-        ax.set_xticks([0.5+i for i,j in enumerate(hist)])
-        # Set the xticklabels to a string that tells us what the bin edges were
-        ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)], rotation=45, ha='right')
-        ax.set_xlabel(xlabel, fontsize=16)
-        ax.set_ylabel(ylabel, fontsize=16)
-        # Save figure
-        fig.set_size_inches(6,4)
-        fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+    """
+    Plot histogram for any bin size
+    """           
+    data = df[cn].values
+    hist, bin_edges = np.histogram(data,bins) # make the histogram
+    fig,ax = plt.subplots()    
+    # Plot the histogram heights against integers on the x axis
+    ax.bar(range(len(hist)),hist,width=1, edgecolor='k') 
+    # Set the ticks to the middle of the bars
+    ax.set_xticks([0.5+i for i,j in enumerate(hist)])
+    # Set the xticklabels to a string that tells us what the bin edges were
+    ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)], rotation=45, ha='right')
+    ax.set_xlabel(xlabel, fontsize=16)
+    ax.set_ylabel(ylabel, fontsize=16)
+    # Save figure
+    fig.set_size_inches(6,4)
+    fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
     
     
 def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 

@@ -1,11 +1,16 @@
+""" PYGEM-OGGGM COMPATIBILITY FUNCTIONS """
+# External libraries
+import numpy as np
+import pandas as pd
+import netCDF4
+# Local libraries
+import pygem.pygem_input as pygem_prms
 from oggm import cfg, utils
 from oggm import workflow
 from oggm import tasks
 from oggm.cfg import SEC_IN_YEAR
 from oggm.core.massbalance import MassBalanceModel
-import numpy as np
-import pandas as pd
-import netCDF4
+from oggm.shop import rgitopo
 
 # Troubleshooting:
 #  - EXCEPT: PASS is the key to the issues that is being experienced when running code Fabien provides on mac
@@ -41,6 +46,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
                                                                                               k_calving)
     cfg.PATHS['working_dir'] = wd
     cfg.PARAMS['use_multiple_flowlines'] = False
+    cfg.PARAMS['use_multiprocessing'] = False
     # Check if folder is already processed
     try:
         gdir = utils.GlacierDirectory(rgi_id)
@@ -118,29 +124,51 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
 #    if 'RGI60-' not in rgi_id:
 #        raise ValueError('OGGM currently expects IDs to start with RGI60-')
         
-
-    cfg.initialize()
-    wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/oggm-pygem-{}-b{}'.format(rgi_id, prepro_border)
-    utils.mkdir(wd, reset=reset)
-    cfg.PATHS['working_dir'] = wd
+#   # ----- Old initialization from February 2020-----
+#    cfg.initialize()
+##    wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/oggm-pygem-{}-b{}'.format(rgi_id, prepro_border)
+##    utils.mkdir(wd, reset=reset)
+##    cfg.PATHS['working_dir'] = wd
+#    cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
+#    cfg.PARAMS['use_multiple_flowlines'] = False
+#    cfg.PARAMS['use_multiprocessing'] = False
+        
+        
+    # Initialize OGGM and set up the default run parameters
+    cfg.initialize(logging_level='WORKFLOW')
+    cfg.PARAMS['border'] = 10
+    # Usually we recommend to set dl_verify to True - here it is quite slow
+    # because of the huge files so we just turn it off.
+    # Switch it on for real cases!
+    cfg.PARAMS['dl_verify'] = True
     cfg.PARAMS['use_multiple_flowlines'] = False
-    cfg.PARAMS['use_multiprocessing'] = False
+    # temporary directory for testing (deleted on computer restart)
+    #cfg.PATHS['working_dir'] = utils.get_temp_dir('PyGEM_ex') 
+    cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
 
     # Check if folder is already processed
     try:
         gdir = utils.GlacierDirectory(rgi_id)
-        gdir.read_pickle('model_flowlines')
+        gdir.read_pickle('inversion_flowlines')
         # If the above works the directory is already processed, return
         return gdir
     except:
         pass
 
-    # If not ready, we download the preprocessed data for this glacier
-    gdirs = workflow.init_glacier_regions([rgi_id],
-                                          from_prepro_level=2,
-                                          prepro_border=prepro_border)
+    #%%
+    
+    # ===== SELECT BEST DEM =====
+    # Get the pre-processed topography data
+    gdirs = rgitopo.init_glacier_directories_from_rgitopo([rgi_id])
+    
+    gdirs = workflow.init_glacier_directories([rgi_id])
+#    # If not ready, we download the preprocessed data for this glacier
+#    gdirs = workflow.init_glacier_regions([rgi_id],
+#                                          from_prepro_level=2,
+#                                          prepro_border=prepro_border)
+
     # Compute all the stuff
-    list_talks = [
+    list_tasks = [
         tasks.glacier_masks,
         tasks.compute_centerlines,
         tasks.initialize_flowlines,
@@ -148,16 +176,16 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         tasks.catchment_area,
         tasks.catchment_width_geom,
         tasks.catchment_width_correction,
-        tasks.compute_downstream_bedshape,
-        tasks.local_t_star,
-        tasks.mu_star_calibration,
-        tasks.prepare_for_inversion,
-        tasks.mass_conservation_inversion,
-        tasks.filter_inversion_output,
-        tasks.init_present_time_glacier,
+    #    tasks.compute_downstream_bedshape,
+    #    tasks.local_t_star,
+    #    tasks.mu_star_calibration,
+    #    tasks.prepare_for_inversion,
+    #    tasks.mass_conservation_inversion,
+    #    tasks.filter_inversion_output,
+    #    tasks.init_present_time_glacier,
     ]
-    for task in list_talks:
-        # The order matters!
+    
+    for task in list_tasks:
         workflow.execute_entity_task(task, gdirs)
 
     return gdirs[0]

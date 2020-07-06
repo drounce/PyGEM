@@ -371,6 +371,10 @@ def selectglaciersrgitable(glac_no=None,
                                                     for x in range(glacier_table.shape[0])]).astype(float))
     # set index name
     glacier_table.index.name = indexname
+    # Longitude between 0-360deg (no negative)
+    glacier_table['CenLon_360'] = glacier_table['CenLon']
+    glacier_table.loc[glacier_table['CenLon'] < 0, 'CenLon_360'] = (
+            360 + glacier_table.loc[glacier_table['CenLon'] < 0, 'CenLon_360'])
 
     print("This study is focusing on %s glaciers in region %s" % (glacier_table.shape[0], rgi_regionsO1))
 

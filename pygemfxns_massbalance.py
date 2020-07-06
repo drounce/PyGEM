@@ -10,8 +10,8 @@ import pygem.pygem_input as pygem_prms
 def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
                    heights, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, 
                    glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, option_areaconstant=0, 
-                   constantarea_years=pygem_prms.constantarea_years, frontalablation_k=None, 
-                   debug=False, debug_refreeze=False, hindcast=0):
+                   constantarea_years=pygem_prms.constantarea_years, frontalablation_k=None,
+                   glacier_debrismf=None, debug=False, debug_refreeze=False, hindcast=0):
     """
     Runs the mass balance and mass redistribution allowing the glacier to evolve.
     Parameters
@@ -317,11 +317,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     # DDF based on surface type [m w.e. degC-1 day-1]
                     for surfacetype_idx in surfacetype_ddf_dict: 
                         surfacetype_ddf[surfacetype == surfacetype_idx] = surfacetype_ddf_dict[surfacetype_idx]
-                    if pygem_prms.option_surfacetype_debris == 1:
-                        print('\n\nLOAD THE MELTFACTOR DATASET over areas that are not firn\n\n')
-                        
-                        if year == 0 and month == 0:
-                            print('\nDELETE ME\n surfacetype_ddf[glac_idx]:', surfacetype_ddf[glac_idx_t0])
+                    if pygem_prms.option_surfacetype_debris == 1 and glacier_debrismf is not None:
+                        surfacetype_ddf = surfacetype_ddf * glacier_debrismf
                         
                     bin_meltglac[glac_idx_t0,step] = surfacetype_ddf[glac_idx_t0] * melt_energy_available[glac_idx_t0]
                     # TOTAL MELT (snow + glacier)
@@ -566,7 +563,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     print('\nyear:', year, '\n sea level:', sea_level, 'bed elev:', np.round(glacier_bedelev, 2))
 
                 # If glacier bed below sea level, compute frontal ablation
-                if glacier_bedelev < sea_level:
+                if glacier_bedelev < sea_level and glacier_rgi_table['TermType'] != 0:
                     # Volume [m3] and bed elevation [masl] of each bin
                     glac_bin_volume = glacier_area_t0 * 10**6 * icethickness_t0
                     glac_bin_bedelev = np.zeros((glacier_area_t0.shape))
@@ -577,7 +574,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     #  calving front. Therefore, use estimated calving width from satellite imagery as appropriate.
                     if pygem_prms.option_frontalablation_k == 1 and frontalablation_k == None:
                         # Calculate frontal ablation parameter based on slope of lowest 100 m of glacier
-                        glac_idx_slope = np.where((heights <= sea_level + 100) & 
+                        glac_idx_slope = np.where((heights <= heights[glac_idx_t0].min() + 100) & 
                                                   (heights >= heights[glac_idx_t0].min()))[0]
                         elev_change = np.abs(heights[glac_idx_slope[0]] - heights[glac_idx_slope[-1]])
                         # length of lowest 100 m of glacier
@@ -815,7 +812,6 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     glac_wide_massbaltotal = glac_wide_massbalclim - glac_wide_frontalablation
     glac_wide_runoff = calc_runoff(glac_wide_prec, glac_wide_melt, glac_wide_refreeze, glac_wide_area)
     glac_wide_snowpack = calc_glacwide(glac_bin_snowpack, glac_bin_area, glac_wide_area)
-    print('\n\ncheck indexing of snowlines and ELAs - that they are good for both oggm and huss\n\n')
     glac_wide_snowline = (glac_bin_snowpack > 0).argmax(axis=0)
     glac_wide_snowline[glac_wide_snowline > 0] = (heights[glac_wide_snowline[glac_wide_snowline > 0]] - 
                                                   pygem_prms.binsize/2)
@@ -1370,10 +1366,10 @@ def surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year_index):
     # If firn surface type option is included, then snow is changed to firn
     if pygem_prms.option_surfacetype_firn == 1:
         surfacetype[surfacetype == 2] = 3
-    if pygem_prms.option_surfacetype_debris == 1:
-        print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
-              'Exiting the model run.')
-        exit()
+#    if pygem_prms.option_surfacetype_debris == 1:
+#        print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
+#              'Exiting the model run.')
+#        exit()
     return surfacetype, firnline_idx
 
 
@@ -1439,14 +1435,14 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
         surfacetype[surfacetype == 2] = 3
         #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
         #  on the surface anywhere.
-    if pygem_prms.option_surfacetype_debris == 1:
-        print("Need to code the model to include debris. This option does not currently exist.  Please choose an option"
-              + " that exists.\nExiting the model run.")
-        exit()
-        # One way to include debris would be to simply have debris cover maps and state that the debris retards melting 
-        # as a fraction of melt.  It could also be DDF_debris as an additional calibration tool. Lastly, if debris 
-        # thickness maps are generated, could be an exponential function with the DDF_ice as a term that way DDF_debris 
-        # could capture the spatial variations in debris thickness that the maps supply.
+#    if pygem_prms.option_surfacetype_debris == 1:
+#        print("Need to code the model to include debris. This option does not currently exist.  Please choose an option"
+#              + " that exists.\nExiting the model run.")
+#        exit()
+#        # One way to include debris would be to simply have debris cover maps and state that the debris retards melting 
+#        # as a fraction of melt.  It could also be DDF_debris as an additional calibration tool. Lastly, if debris 
+#        # thickness maps are generated, could be an exponential function with the DDF_ice as a term that way DDF_debris 
+#        # could capture the spatial variations in debris thickness that the maps supply.
     return surfacetype, firnline_idx
 
 
@@ -1488,6 +1484,6 @@ def surfacetypeDDFdict(modelparameters,
             surfacetype_ddf_dict[3] = modelparameters[4]
         elif option_ddf_firn == 1:
             surfacetype_ddf_dict[3] = np.mean([modelparameters[4],modelparameters[5]])
-    if pygem_prms.option_surfacetype_debris == 1:
-        surfacetype_ddf_dict[4] = pygem_prms.DDF_debris
+#    if pygem_prms.option_surfacetype_debris == 1:
+#        surfacetype_ddf_dict[4] = pygem_prms.DDF_debris
     return surfacetype_ddf_dict

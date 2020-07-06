@@ -27,6 +27,9 @@ class GCM():
         Add variable name and specific properties associated with each gcm.
         """
         
+        if pygem_prms.rgi_lon_colname not in ['CenLon_360']:
+            print('\n\nCHECK HOW NEGATIVE LONGITUDES ARE HANDLED!!!!\n\n')
+        
         # Source of climate data
         self.name = name
         # Set parameters for ERA5, ERA-Interim, and CMIP5 netcdf files
@@ -171,7 +174,7 @@ class GCM():
             
             latlon_nearidx = list(zip(lat_nearidx, lon_nearidx))
             latlon_nearidx_unique = list(set(latlon_nearidx))
-            
+        
             glac_variable_dict = {}
             for latlon in latlon_nearidx_unique:
                 try:
@@ -199,6 +202,7 @@ class GCM():
             # Otherwise, provide warning
             else:
                 print('Check units of elevation from GCM is m.')
+                
         return glac_variable
 
     
