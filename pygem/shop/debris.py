@@ -10,6 +10,7 @@ from oggm import cfg
 from oggm.utils import entity_task
 from oggm.core.gis import rasterio_to_gdir
 from oggm.utils import ncDataset
+import pygem.pygem_input as pygem_prms
 
 
 
@@ -21,7 +22,7 @@ cfg.BASENAMES['debris_hd'] = ('debris_hd.tif', 'Raster of debris thickness data'
 cfg.BASENAMES['debris_ed'] = ('debris_ed.tif', 'Raster of debris enhancement factor data')
 
 @entity_task(log, writes=['debris_hd', 'debris_ed'])
-def debris_to_gdir(gdir, debris_dir=None, add_to_gridded=True, hd_max=5, hd_min=0, ed_max=10, ed_min=0):
+def debris_to_gdir(gdir, debris_dir=pygem_prms.debris_fp, add_to_gridded=True, hd_max=5, hd_min=0, ed_max=10, ed_min=0):
     """Reproject the debris thickness and enhancement factor files to the given glacier directory
     
     Variables are exported as new files in the glacier directory.
@@ -34,7 +35,7 @@ def debris_to_gdir(gdir, debris_dir=None, add_to_gridded=True, hd_max=5, hd_min=
         where to write the data
     """
     
-    assert debris_dir is not None, "Error: Directory for debris data is not specified."
+    assert os.path.exists(debris_dir), "Error: debris directory does not exist."
 
     hd_dir = debris_dir + 'hd_tifs/' + gdir.rgi_region + '/'
     ed_dir = debris_dir + 'ed_tifs/' + gdir.rgi_region + '/'

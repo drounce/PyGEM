@@ -76,6 +76,8 @@ list_tasks = [
     tasks.catchment_width_geom,
     tasks.catchment_width_correction,
 #    tasks.compute_downstream_bedshape,
+    debris.debris_to_gdir,
+    debris.debris_binned
 ]
 
 for task in list_tasks:
@@ -86,9 +88,9 @@ for task in list_tasks:
     #    tasks.compute_centerlines(gdir)
     #    ...
 
-for gdir in gdirs:
-    debris.debris_to_gdir(gdir, debris_dir=pygem_prms.debris_fp, add_to_gridded=True)
-    debris.debris_binned(gdir)
+# Task format with arguments (unable to use list_tasks if require function arguments)
+#workflow.execute_entity_task(debris.debris_to_gdir, gdirs, debris_dir=pygem_prms.debris_fp, add_to_gridded=True)
+#workflow.execute_entity_task(debris.debris_binned, gdirs)
 
 # Perform inversion based on PyGEM MB
 ## Add thickness, width_m, and dx_meter to inversion flowlines so they are compatible with PyGEM's
