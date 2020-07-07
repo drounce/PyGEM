@@ -652,7 +652,8 @@ option_surfacetype_initial = 1
 #  option 2 - use mean elevation
 #  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
 option_surfacetype_firn = 1         # 1: firn included; 0: no included (firn is snow)
-option_surfacetype_debris = 0       # 1: debris cover included; 0: not included
+option_include_debris = True
+option_surfacetype_debris = 1       # 1: debris cover included; 0: not included
 
 # Downscaling model options
 # Reference elevation options for downscaling climate variables

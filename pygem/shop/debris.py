@@ -3,7 +3,6 @@ import logging
 
 import numpy as np
 import rasterio
-import salem
 import xarray as xr
 
 from oggm import cfg
@@ -12,7 +11,11 @@ from oggm.core.gis import rasterio_to_gdir
 from oggm.utils import ncDataset
 import pygem.pygem_input as pygem_prms
 
-
+"""
+To-do list:
+  - Add binned debris-covered area to flowlines
+  - Fabien may have better way of processing debris rasters to gridded data without exporting .tif
+"""
 
 # Module logger
 log = logging.getLogger(__name__)

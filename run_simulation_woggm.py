@@ -514,35 +514,12 @@ def main(list_packed_vars):
     # ===== LOAD GLACIERS =====
     main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glac_no)
     
-#    # Load glacier data for Huss and Farinotti to avoid repetitively reading the csv file (not needed for OGGM)
-#    if pygem_prms.hyps_data in ['Huss', 'Farinotti']:
-#        # Glacier hypsometry [km**2], total area
-#        main_glac_hyps = modelsetup.import_Husstable(
-#                main_glac_rgi, pygem_prms.hyps_filepath, pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
-#        # Ice thickness [m], average
-#        main_glac_icethickness = modelsetup.import_Husstable(
-#                main_glac_rgi, pygem_prms.thickness_filepath, pygem_prms.thickness_filedict, 
-#                pygem_prms.thickness_colsdrop)
-#        main_glac_icethickness[main_glac_icethickness < 0] = 0
-#        main_glac_hyps[main_glac_icethickness == 0] = 0
-#        # Width [km], average
-#        main_glac_width = modelsetup.import_Husstable(
-#                main_glac_rgi, pygem_prms.width_filepath, pygem_prms.width_filedict, pygem_prms.width_colsdrop)
-#        
-#        if pygem_prms.option_surfacetype_debris == 1:
-#            main_glac_debrisfactor = modelsetup.import_Husstable(
-#                    main_glac_rgi, pygem_prms.debris_fp, pygem_prms.debris_filedict, pygem_prms.debris_colsdrop)
-#        else:
-#            print('\n\nDELETE ME - CHECK THAT THIS IS SAME FORMAT AS MAIN_GLAC_HYPS AND OTHERS\n\n')
-#            main_glac_debrisfactor = np.zeros(main_glac_hyps.shape) + 1
-#        main_glac_debrisfactor[main_glac_hyps == 0] = 0
-    
     # ===== TIME PERIOD =====
     dates_table = modelsetup.datesmodelrun(
             startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear, spinupyears=pygem_prms.gcm_spinupyears, 
             option_wateryear=pygem_prms.gcm_wateryear)
 
-#    # =================
+#    # ===== LOAD CALIBRATION DATA =====
 #    if debug:
 #        # Select dates including future projections
 #        #  - nospinup dates_table needed to get the proper time indices
@@ -550,7 +527,6 @@ def main(list_packed_vars):
 #                startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear, spinupyears=0, 
 #                option_wateryear=pygem_prms.gcm_wateryear)
 #
-#        # ===== LOAD CALIBRATION DATA =====
 #        cal_data = pd.DataFrame()
 #        for dataset in pygem_prms.cal_datasets:
 #            cal_subset = class_mbdata.MBData(name=dataset)
@@ -558,12 +534,11 @@ def main(list_packed_vars):
 #            cal_data = cal_data.append(cal_subset_data, ignore_index=True)
 #        cal_data = cal_data.sort_values(['glacno', 't1_idx'])
 #        cal_data.reset_index(drop=True, inplace=True)
-#    # =================
 
     # ===== LOAD CLIMATE DATA =====
     print('\n\n     MOVE GEODETIC MASS BALANCE PROCESSING OVER TO THE SHOP \n\n')
     print('\n\n CHECK UNITS OF PRECIPITATION FOR PYGEM: MM/DAY?  or MM/MONTH like OGGM?\n\n')
-    # Set up climate class
+    # Climate class
     if gcm_name in ['ERA5', 'ERA-Interim', 'COAWST']:
         gcm = class_climate.GCM(name=gcm_name)
         if pygem_prms.option_synthetic_sim == 0:
@@ -585,8 +560,7 @@ def main(list_packed_vars):
         dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear,
                                                    spinupyears=pygem_prms.spinupyears,
                                                    option_wateryear=pygem_prms.ref_wateryear)
-
-    # Load climate data
+    # Select climate data
     if pygem_prms.option_synthetic_sim == 0:
         # Air temperature [degC]
         gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi,
@@ -716,33 +690,19 @@ def main(list_packed_vars):
         glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
         
         # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====
-        if pygem_prms.hyps_data in ['oggm']:
-            gdir = single_flowline_glacier_directory(glacier_str)
-            # reset glacier directory to overwrite 
-#            gd = single_flowline_glacier_directory(glacier_str, reset=True)
-#            fls = gdir.read_pickle('model_flowlines')
-            fls = gdir.read_pickle('inversion_flowlines')
-            # Hack to run
-            glacier_area_km2 = fls[0].widths_m * fls[0].dx_meter / 1e6
-#            icethickness_initial = np.array([1])
-            
-            # Add climate data to glacier directory
-            gdir.historical_climate = {'elev': gcm_elev[glac],
-                                       'temp': gcm_temp[glac,:],
-                                       'tempstd': gcm_tempstd[glac,:],
-                                       'prec': gcm_prec[glac,:],
-                                       'lr': gcm_lr[glac,:]}
-            gdir.dates_table = dates_table
-            
-#        elif pygem_prms.hyps_data in ['Huss', 'Farinotti']:
-#            glacier_area_initial = main_glac_hyps.iloc[glac,:].values.astype(float)
-#            icethickness_initial = main_glac_icethickness.iloc[glac,:].values.astype(float)
-#            width_initial = main_glac_width.iloc[glac,:].values.astype(float)
-#            elev_bins = main_glac_hyps.columns.values.astype(int)
-#            print('CONVERT AREA, THICKNESS, WIDTH, AND ELEV BINS INTO FLOWLINES STRUCTURE')
-#            
-#            if pygem_prms.option_surfacetype_debris == 1:
-#                glacier_debrisfactor = main_glac_debrisfactor.iloc[glac,:].values.astype(float)
+        gdir = single_flowline_glacier_directory(glacier_str)
+        # reset glacier directory to overwrite 
+#        gd = single_flowline_glacier_directory(glacier_str, reset=True)
+#        fls = gdir.read_pickle('model_flowlines')
+        fls = gdir.read_pickle('inversion_flowlines')
+        
+        # Add climate data to glacier directory
+        gdir.historical_climate = {'elev': gcm_elev[glac],
+                                   'temp': gcm_temp[glac,:],
+                                   'tempstd': gcm_tempstd[glac,:],
+                                   'prec': gcm_prec[glac,:],
+                                   'lr': gcm_lr[glac,:]}
+        gdir.dates_table = dates_table
 
 #        # Empty datasets to record output
 #        annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
@@ -767,8 +727,7 @@ def main(list_packed_vars):
 #        output_offglac_snowpack_monthly = np.zeros((dates_table.shape[0], sim_iters))
 #        output_offglac_runoff_monthly = np.zeros((dates_table.shape[0], sim_iters))
 
-#        if icethickness_initial.max() > 0:
-#        if fls[0].thick.max() > 0:
+        glacier_area_km2 = fls[0].widths_m * fls[0].dx_meter / 1e6
         if glacier_area_km2.sum() > 0:
 #            if pygem_prms.hindcast == 1:
 #                glacier_gcm_prec = glacier_gcm_prec[::-1]
@@ -782,19 +741,19 @@ def main(list_packed_vars):
                                                             modelparams_fullfn + '"')
                 ds_mp = xr.open_dataset(modelparams_fullfn)
                 cn_subset = pygem_prms.modelparams_colnames
-                modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values,
-                                                    columns=ds_mp.mp.values)[cn_subset])
+                modelprms_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
+                                              columns=ds_mp.mp.values)[cn_subset])
                 assert True==False, 'CHANGE MODEL PARAMETERS TO DICTIONARY FORMAT'
-                modelparameters = None
+                modelprms = None
             else:
-                modelparameters = {'kp': pygem_prms.precfactor, 
-                                   'tbias': pygem_prms.tempchange,
-                                   'ddfsnow': pygem_prms.ddfsnow,
-                                   'ddfice': pygem_prms.ddfice,
-                                   'tsnow_threshold': pygem_prms.tempsnow,
-                                   'precgrad': pygem_prms.precgrad}
+                modelprms = {'kp': pygem_prms.precfactor, 
+                             'tbias': pygem_prms.tempchange,
+                             'ddfsnow': pygem_prms.ddfsnow,
+                             'ddfice': pygem_prms.ddfice,
+                             'tsnow_threshold': pygem_prms.tempsnow,
+                             'precgrad': pygem_prms.precgrad}
                 
-#                modelparameters_all = (
+#                modelprms_all = (
 #                        pd.DataFrame(np.asarray([
 #                                pygem_prms.lrgcm, pygem_prmss.lrglac, pygem_prms.precfactor, pygem_prms.precgrad,
 #                                pygem_prms.ddfsnow, pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange])
@@ -802,78 +761,77 @@ def main(list_packed_vars):
                 print('\nManually specifying model parameters\n')
 
             # Set the number of iterations and determine every kth iteration to use for the ensemble
-            if pygem_prms.option_calibration == 2 and modelparameters_all.shape[0] > 1:
+            if pygem_prms.option_calibration == 2 and modelprms_all.shape[0] > 1:
                 sim_iters = pygem_prms.sim_iters
                 # Select every kth iteration
-                mp_spacing = int((modelparameters_all.shape[0] - pygem_prms.sim_burn) / sim_iters)
+                mp_spacing = int((modelprms_all.shape[0] - pygem_prms.sim_burn) / sim_iters)
                 mp_idx_start = np.arange(pygem_prms.sim_burn, pygem_prms.sim_burn + mp_spacing)
                 np.random.shuffle(mp_idx_start)
                 mp_idx_start = mp_idx_start[0]
-                mp_idx_all = np.arange(mp_idx_start, modelparameters_all.shape[0], mp_spacing)
+                mp_idx_all = np.arange(mp_idx_start, modelprms_all.shape[0], mp_spacing)
             else:
                 sim_iters = 1
 
             # Loop through model parameters
             for n_iter in range(sim_iters):
                 
-                if modelparameters is None:
+                if modelprms is None:
                     assert True==False, 'CHANGE MODEL PARAMETERS TO DICTIONARY FORMAT'
                     if sim_iters == 1:
-                        modelparameters = modelparameters_all.mean()
+                        modelprms = modelprms_all.mean()
                     else:
                         mp_idx = mp_idx_all[n_iter]
-                        modelparameters = modelparameters_all.iloc[mp_idx,:]
+                        modelprms = modelprms_all.iloc[mp_idx,:]
 
                 if debug:
-                    print(glacier_str + '  PF: ' + str(np.round(modelparameters['kp'],2)) + 
-                          ' ddfsnow: ' + str(np.round(modelparameters['ddfsnow'],4)) + 
-                          ' tbias: ' + str(np.round(modelparameters['tbias'],2)))
+                    print(glacier_str + '  PF: ' + str(np.round(modelprms['kp'],2)) + 
+                          ' ddfsnow: ' + str(np.round(modelprms['ddfsnow'],4)) + 
+                          ' tbias: ' + str(np.round(modelprms['tbias'],2)))
                     
-                if pygem_prms.hyps_data in ['oggm']:
-                    # OGGM WANTS THIS FUNCTION TO SIMPLY RETURN THE MASS BALANCE AS A FUNCTION OF HEIGHT AND THAT'S IT
-                    mbmod = PyGEMMassBalance(gdir, modelparameters, glacier_rgi_table, 
-                                             hindcast=pygem_prms.hindcast,
-                                             debug=pygem_prms.debug_mb,
-                                             debug_refreeze=pygem_prms.debug_refreeze,
-                                             fls=fls, option_areaconstant=1)
-                    years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
-                    mb_all = []
-                    for fl_id, fl in enumerate(fls):
-                        for year in years - years[0]:
-                            mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year,
-                                                            debug=False)
-                            mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice /
-                                           pygem_prms.density_water)
-                            glac_wide_mb_mwea = ((mb_mwea * mbmod.glacier_area_initial).sum() /
-                                                  mbmod.glacier_area_initial.sum())
-                            print('year:', year, np.round(glac_wide_mb_mwea,3))
+#                if pygem_prms.hyps_data in ['oggm']:
+                # OGGM WANTS THIS FUNCTION TO SIMPLY RETURN THE MASS BALANCE AS A FUNCTION OF HEIGHT AND THAT'S IT
+                mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table, 
+                                         hindcast=pygem_prms.hindcast,
+                                         debug=pygem_prms.debug_mb,
+                                         debug_refreeze=pygem_prms.debug_refreeze,
+                                         fls=fls, option_areaconstant=True)
+                years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
+                mb_all = []
+                for fl_id, fl in enumerate(fls):
+                    for year in years - years[0]:
+                        mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year,
+                                                        debug=False)
+                        mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice /
+                                       pygem_prms.density_water)
+                        glac_wide_mb_mwea = ((mb_mwea * mbmod.glacier_area_initial).sum() /
+                                              mbmod.glacier_area_initial.sum())
+                        print('year:', year, np.round(glac_wide_mb_mwea,3))
 
-                            mb_all.append(glac_wide_mb_mwea)
-                    print('iter:', n_iter, 'massbal (mean, std):',
-                           np.round(np.mean(mb_all),3), np.round(np.std(mb_all),3))
-#                            if debug:
-#                                # Convert m ice s-1 to m w.e. a-1
-#                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice /
-#                                           pygem_prms.density_water)
-#                                print(np.round(mb_mwea,3))
+                        mb_all.append(glac_wide_mb_mwea)
+                print('iter:', n_iter, 'massbal (mean, std):', np.round(np.mean(mb_all),3), np.round(np.std(mb_all),3))
+#                if debug:
+#                    # Convert m ice s-1 to m w.e. a-1
+#                    mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice /
+#                               pygem_prms.density_water)
+#                    print(np.round(mb_mwea,3))
                     
                     
-#                    #%% ===== MODEL RUN WITH CONSTANT GLACIER AREA =====
-#                    # Make a working copy of the glacier directory
-#                    tmp_dir = os.path.join(cfg.PATHS['working_dir'], 'tmp_dir')
-#                    utils.mkdir(tmp_dir, reset=True)
-#                    # new glacier directory is copy of old directory (copy everything)
-#                    ngd = utils.copy_to_basedir(gdir, base_dir=tmp_dir, setup='all')
+#                #%% ===== MODEL RUN WITH CONSTANT GLACIER AREA =====
+#                # Make a working copy of the glacier directory
+#                tmp_dir = os.path.join(cfg.PATHS['working_dir'], 'tmp_dir')
+#                utils.mkdir(tmp_dir, reset=True)
+#                # new glacier directory is copy of old directory (copy everything)
+#                ngd = utils.copy_to_basedir(gdir, base_dir=tmp_dir, setup='all')
 #
-#                    mbmod = PyGEMMassBalance(modelparameters[0:8], glacier_rgi_table, glacier_gcm_temp,
-#                                             glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
-#                                             glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                             option_areaconstant=0, hindcast=pygem_prms.hindcast,
-#                                             debug=pygem_prms.debug_mb,
-#                                             debug_refreeze=pygem_prms.debug_refreeze,
-#                                             fls=fls, repeat_period=False)
-#                    
-#                    #                    years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
+#                mbmod = PyGEMMassBalance(modelprms[0:8], glacier_rgi_table, glacier_gcm_temp,
+#                                         glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
+#                                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+#                                         option_areaconstant=False, hindcast=pygem_prms.hindcast,
+#                                         debug=pygem_prms.debug_mb,
+#                                         debug_refreeze=pygem_prms.debug_refreeze,
+#                                         fls=fls, repeat_period=False)
+#                
+#                #                    years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
 ##                    mb_all = []
 ##                    for fl_id, fl in enumerate(fls):
 ##                        for year in years - years[0]:
@@ -894,126 +852,126 @@ def main(list_packed_vars):
 ###                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice /
 ###                                           pygem_prms.density_water)
 ###                                print(np.round(mb_mwea,3))
-#                    mbmod.get_annual_mb(fls[0].surface_h, year=0, fls=fls, fl_id=0, 
-#                                        debug=True, option_areaconstant=1)
-
-
-                    #%% ===== INVERSION AND MODEL RUN WITH OGGM DYNAMICS =====
-#                    # Make a working copy of the glacier directory
-#                    tmp_dir = os.path.join(cfg.PATHS['working_dir'], 'tmp_dir')
-#                    utils.mkdir(tmp_dir, reset=True)
-#                    # new glacier directory is copy of old directory (copy everything)
-#                    ngd = utils.copy_to_basedir(gdir, base_dir=tmp_dir, setup='all')
+#                mbmod.get_annual_mb(fls[0].surface_h, year=0, fls=fls, fl_id=0, 
+#                                    debug=True, option_areaconstant=True)
 #
-#                    # Perform inversion based on PyGEM MB
-#                    # Add thickness, width_m, and dx_meter to inversion flowlines so they are compatible with PyGEM's
-#                    #  mass balance model (necessary because OGGM's inversion flowlines use pixel distances; however, 
-#                    #  this will likely be rectified in the future)
+#
+#                %% ===== INVERSION AND MODEL RUN WITH OGGM DYNAMICS =====
+#                # Make a working copy of the glacier directory
+#                tmp_dir = os.path.join(cfg.PATHS['working_dir'], 'tmp_dir')
+#                utils.mkdir(tmp_dir, reset=True)
+#                # new glacier directory is copy of old directory (copy everything)
+#                ngd = utils.copy_to_basedir(gdir, base_dir=tmp_dir, setup='all')
+#
+#                # Perform inversion based on PyGEM MB
+#                # Add thickness, width_m, and dx_meter to inversion flowlines so they are compatible with PyGEM's
+#                #  mass balance model (necessary because OGGM's inversion flowlines use pixel distances; however, 
+#                #  this will likely be rectified in the future)
 ##                    def apply_on_fls(fls):
 ##                        for fl in fls:
 ##                            fl.widths_m = fl.widths * gd.grid.dx
 ##                            fl.dx_meter = fl.dx * gd.grid.dx
 ##                        return fls
 ##                    fls_inv = apply_on_fls(ngd.read_pickle('inversion_flowlines'))
-#                    fls_inv = ngd.read_pickle('inversion_flowlines')
-#                    
-#                    mbmod_inv = PyGEMMassBalance(modelparameters[0:8], glacier_rgi_table, glacier_gcm_temp,
-#                                                 glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
-#                                                 glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                                 option_areaconstant=0, hindcast=pygem_prms.hindcast,
-#                                                 debug=pygem_prms.debug_mb,
-#                                                 debug_refreeze=pygem_prms.debug_refreeze,
-#                                                 fls=fls_inv, repeat_period=False,
-#                                                 )
-#                    # Inversion with OGGM model showing the diffences in the mass balance vs. altitude relationships, 
-#                    #  which is going to drive different ice thickness estimates
-#                    from oggm.core.massbalance import PastMassBalance
-#                    oggm_mod = PastMassBalance(gdir)
-#                    h, w = gdir.get_inversion_flowline_hw()
-#                    oggm = oggm_mod.get_annual_mb(h, year=2000) * cfg.SEC_IN_YEAR * 900
-#                    pyg  = mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls_inv) * cfg.SEC_IN_YEAR * 900
-#                    plt.plot(oggm, h, '.')
-#                    plt.plot(pyg, h, '.')
-#                    plt.show()
-#
-#
-#                    # Want to reset model parameters
-#                    climate.apparent_mb_from_any_mb(ngd, mb_model=mbmod_inv, mb_years=np.arange(18),
-##                                                    apply_on_fls=apply_on_fls
-#                                                    )
-#                    tasks.prepare_for_inversion(ngd)
-#                    print('setting model parameters here')
-##                    fs = 5.7e-20
-#                    fs = 0
-#                    glen_a_multiplier = 1
-#                    tasks.mass_conservation_inversion(ngd, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
-#                    tasks.filter_inversion_output(ngd)
-#                    tasks.init_present_time_glacier(ngd)
-#
-#                    nfls = ngd.read_pickle('model_flowlines')
-#                    mbmod = PyGEMMassBalance(modelparameters[0:8], glacier_rgi_table, glacier_gcm_temp,
+#                fls_inv = ngd.read_pickle('inversion_flowlines')
+#                
+#                mbmod_inv = PyGEMMassBalance(modelprms[0:8], glacier_rgi_table, glacier_gcm_temp,
 #                                             glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
 #                                             glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                             option_areaconstant=0, hindcast=pygem_prms.hindcast,
+#                                             option_areaconstant=False, hindcast=pygem_prms.hindcast,
 #                                             debug=pygem_prms.debug_mb,
 #                                             debug_refreeze=pygem_prms.debug_refreeze,
-#                                             fls=nfls, repeat_period=True)
-#                    # Model parameters
-#                    #  fs=5.7e-20
-#                    #  glen_a=cfg.PARAMS['glen_a'], OGGM * 1.3 for Farinotti2019: glen_a=cfg.PARAMS['glen_a']*1.3
-#                    old_model = FluxBasedModel(fls, y0=0, mb_model=mbmod)
-#                    ev_model = FluxBasedModel(nfls, y0=0, mb_model=mbmod, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, 
-#                                              fs=fs)
+#                                             fls=fls_inv, repeat_period=False,
+#                                             )
+#                # Inversion with OGGM model showing the diffences in the mass balance vs. altitude relationships, 
+#                #  which is going to drive different ice thickness estimates
+#                from oggm.core.massbalance import PastMassBalance
+#                oggm_mod = PastMassBalance(gdir)
+#                h, w = gdir.get_inversion_flowline_hw()
+#                oggm = oggm_mod.get_annual_mb(h, year=2000) * cfg.SEC_IN_YEAR * 900
+#                pyg  = mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls_inv) * cfg.SEC_IN_YEAR * 900
+#                plt.plot(oggm, h, '.')
+#                plt.plot(pyg, h, '.')
+#                plt.show()
 #
-#                    print('Old glacier vol', old_model.volume_km3)
-#                    print('New glacier vol', ev_model.volume_km3)
 #
-#                    graphics.plot_modeloutput_section(ev_model)
-#                    _, diag = ev_model.run_until_and_store(400)
-#                    graphics.plot_modeloutput_section(ev_model)
-#                    plt.figure()
-#                    diag.volume_m3.plot()
-#                    # plt.figure()
-#                    # diag.area_m2.plot()
-#                    plt.show()
+#                # Want to reset model parameters
+#                climate.apparent_mb_from_any_mb(ngd, mb_model=mbmod_inv, mb_years=np.arange(18),
+##                                                    apply_on_fls=apply_on_fls
+#                                                )
+#                tasks.prepare_for_inversion(ngd)
+#                print('setting model parameters here')
+##                    fs = 5.7e-20
+#                fs = 0
+#                glen_a_multiplier = 1
+#                tasks.mass_conservation_inversion(ngd, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
+#                tasks.filter_inversion_output(ngd)
+#                tasks.init_present_time_glacier(ngd)
+#
+#                nfls = ngd.read_pickle('model_flowlines')
+#                mbmod = PyGEMMassBalance(modelprms[0:8], glacier_rgi_table, glacier_gcm_temp,
+#                                         glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
+#                                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
+#                                         option_areaconstant=False, hindcast=pygem_prms.hindcast,
+#                                         debug=pygem_prms.debug_mb,
+#                                         debug_refreeze=pygem_prms.debug_refreeze,
+#                                         fls=nfls, repeat_period=True)
+#                # Model parameters
+#                #  fs=5.7e-20
+#                #  glen_a=cfg.PARAMS['glen_a'], OGGM * 1.3 for Farinotti2019: glen_a=cfg.PARAMS['glen_a']*1.3
+#                old_model = FluxBasedModel(fls, y0=0, mb_model=mbmod)
+#                ev_model = FluxBasedModel(nfls, y0=0, mb_model=mbmod, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, 
+#                                          fs=fs)
+#
+#                print('Old glacier vol', old_model.volume_km3)
+#                print('New glacier vol', ev_model.volume_km3)
+#
+#                graphics.plot_modeloutput_section(ev_model)
+#                _, diag = ev_model.run_until_and_store(400)
+#                graphics.plot_modeloutput_section(ev_model)
+#                plt.figure()
+#                diag.volume_m3.plot()
+#                # plt.figure()
+#                # diag.area_m2.plot()
+#                plt.show()
                     
-                    # ===== END INVERSION AND MODEL RUN WITH OGGM DYNAMICS =====
-                    #%% 
+                # ===== END INVERSION AND MODEL RUN WITH OGGM DYNAMICS =====
+                #%% 
 
-#                    print('\nrunning mass redistribution model...')
-#                    model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
-#                    model.run_until(pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
-#                    model.run_until(1)
+#                print('\nrunning mass redistribution model...')
+#                model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
+#                model.run_until(pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
+#                model.run_until(1)
                     
-                    if args.option_parallels == 0:
-                        print('\nTO-DO LIST:')
-                        print(' - pass model parameters as dictionary')
-                        print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
-                        print(' - setup flowlines for Huss and Farinotti datasets to work seemlessly')
-                        print('     (may want to restrict or warn user if not using redistribution curves)')
-                        print(' - add debris melt factors')
-                        print(' - update supercomputer environment to ensure code still runs on spc')
-                        print(' - make two refreeze (potential?) options stand-alone functions like frontal ablation')
+                if args.option_parallels == 0:
+                    print('\nTO-DO LIST:')
+                    print(' - pass model parameters from calibration as dictionary')
+                    print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
+                    print(' - setup flowlines for Huss and Farinotti datasets to work seemlessly')
+                    print('     (may want to restrict or warn user if not using redistribution curves)')
+                    print(' - update supercomputer environment to ensure code still runs on spc')
+                    print('    --> get set up with Pittsburgh Supercomputing Center')
+                    print(' - make two refreeze (potential?) options stand-alone functions like frontal ablation')
                     
-                    # # RECORD PARAMETERS TO DATASET
-                    # if pygem_prms.output_package == 2:
-                    #     output_temp_glac_monthly[:, n_iter] = mbmod.glac_wide_temp
-                    #     output_prec_glac_monthly[:, n_iter] = mbmod.glac_wide_prec
-                    #     output_acc_glac_monthly[:, n_iter] = mbmod.glac_wide_acc
-                    #     output_refreeze_glac_monthly[:, n_iter] = mbmod.glac_wide_refreeze
-                    #     output_melt_glac_monthly[:, n_iter] = mbmod.glac_wide_melt
-                    #     output_frontalablation_glac_monthly[:, n_iter] = mbmod.glac_wide_frontalablation
-                    #     output_massbaltotal_glac_monthly[:, n_iter] = mbmod.glac_wide_massbaltotal
-                    #     output_runoff_glac_monthly[:, n_iter] = mbmod.glac_wide_runoff
-                    #     output_snowline_glac_monthly[:, n_iter] = mbmod.glac_wide_snowline
-                    #     output_area_glac_annual[:, n_iter] = mbmod.glac_wide_area_annual
-                    #     output_volume_glac_annual[:, n_iter] = mbmod.glac_wide_volume_annual
-                    #     output_ELA_glac_annual[:, n_iter] = mbmod.glac_wide_ELA_annual
-                    #     output_offglac_prec_monthly[:, n_iter] = mbmod.offglac_wide_prec
-                    #     output_offglac_refreeze_monthly[:, n_iter] = mbmod.offglac_wide_refreeze
-                    #     output_offglac_melt_monthly[:, n_iter] = mbmod.offglac_wide_melt
-                    #     output_offglac_snowpack_monthly[:, n_iter] = mbmod.offglac_wide_snowpack
-                    #     output_offglac_runoff_monthly[:, n_iter] = mbmod.offglac_wide_runoff
+                # # RECORD PARAMETERS TO DATASET
+                # if pygem_prms.output_package == 2:
+                #     output_temp_glac_monthly[:, n_iter] = mbmod.glac_wide_temp
+                #     output_prec_glac_monthly[:, n_iter] = mbmod.glac_wide_prec
+                #     output_acc_glac_monthly[:, n_iter] = mbmod.glac_wide_acc
+                #     output_refreeze_glac_monthly[:, n_iter] = mbmod.glac_wide_refreeze
+                #     output_melt_glac_monthly[:, n_iter] = mbmod.glac_wide_melt
+                #     output_frontalablation_glac_monthly[:, n_iter] = mbmod.glac_wide_frontalablation
+                #     output_massbaltotal_glac_monthly[:, n_iter] = mbmod.glac_wide_massbaltotal
+                #     output_runoff_glac_monthly[:, n_iter] = mbmod.glac_wide_runoff
+                #     output_snowline_glac_monthly[:, n_iter] = mbmod.glac_wide_snowline
+                #     output_area_glac_annual[:, n_iter] = mbmod.glac_wide_area_annual
+                #     output_volume_glac_annual[:, n_iter] = mbmod.glac_wide_volume_annual
+                #     output_ELA_glac_annual[:, n_iter] = mbmod.glac_wide_ELA_annual
+                #     output_offglac_prec_monthly[:, n_iter] = mbmod.offglac_wide_prec
+                #     output_offglac_refreeze_monthly[:, n_iter] = mbmod.offglac_wide_refreeze
+                #     output_offglac_melt_monthly[:, n_iter] = mbmod.offglac_wide_melt
+                #     output_offglac_snowpack_monthly[:, n_iter] = mbmod.offglac_wide_snowpack
+                #     output_offglac_runoff_monthly[:, n_iter] = mbmod.offglac_wide_runoff
 
 #            # ===== Export Results =====                    
 #            output_ds, encoding = create_xrdataset(glacier_rgi_table, dates_table, record_stats=1,
@@ -1193,7 +1151,7 @@ if __name__ == '__main__':
         gcm_elev_adj = main_vars['gcm_elev_adj']
         gcm_temp_lrglac = main_vars['gcm_lr']
 #        output_ds_all_stats = main_vars['output_ds_all_stats']
-#        modelparameters = main_vars['modelparameters']
+#        modelprms = main_vars['modelprms']
         glacier_rgi_table = main_vars['glacier_rgi_table']
         glacier_str = main_vars['glacier_str']
         if pygem_prms.hyps_data in ['oggm']:
@@ -1227,5 +1185,5 @@ if __name__ == '__main__':
 #        glac_wide_runoff = main_vars['glac_wide_runoff']
 ###        glac_wide_prec = main_vars['glac_wide_prec']
 ###        glac_wide_refreeze = main_vars['glac_wide_refreeze']
-##        modelparameters_all = main_vars['modelparameters_all']
+##        modelprms_all = main_vars['modelprms_all']
 ##        sim_iters = main_vars['sim_iters']
