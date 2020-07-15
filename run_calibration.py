@@ -175,24 +175,24 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, ic
 
     Returns
     -------
-    precfactor_boundlow, precfactor_boundhigh, precfactor_mu, precfactor_start : floats
+    kp_bndlow, kp_bndhigh, kp_mu, kp_start : floats
         data for precipitation factor's prior distribution
-    tempchange_boundlow, tempchange_boundhigh, tempchange_mu, tempchange_sigma, tempchange_start : floats
+    tbias_bndlow, tbias_bndhigh, tbias_mu, tbias_sigma, tbias_start : floats
         data for temperature bias' prior distribution
-    tempchange_max_loss, tempchange_max_acc, mb_max_loss, mb_max_acc : floats
+    tbias_max_loss, tbias_max_acc, mb_max_loss, mb_max_acc : floats
         temperature change and mass balance associated with maximum accumulation and maximum loss
     """
 
     # ----- TEMPBIAS: max accumulation -----
     # Lower temperature bound based on max positive mass balance adjusted to avoid edge effects
     # Temperature at the lowest bin
-    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tbias
     lowest_bin = np.where(glacier_area_initial > 0)[0][0]
-    tempchange_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm *
+    tbias_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm *
                                 (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
 
     if debug:
-        print('tc_max_acc:', np.round(tempchange_max_acc,2))
+        print('tc_max_acc:', np.round(tbias_max_acc,2))
         
     # ----- TEMPBIAS: UPPER BOUND -----
     # MAXIMUM LOSS - AREA EVOLVING
@@ -202,10 +202,10 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, ic
                    pygem_prms.density_ice / pygem_prms.density_water / (t2 - t1))
 
     if debug:
-        print('mb_max_loss:', np.round(mb_max_loss,2), 'precfactor:', np.round(modelparameters[2],2))
+        print('mb_max_loss:', np.round(mb_max_loss,2), 'kp:', np.round(modelparameters[2],2))
 
     # Looping forward and backward to ensure optimization does not get stuck
-    modelparameters[7] = tempchange_max_acc    
+    modelparameters[7] = tbias_max_acc    
     mb_mwea_1, vol_remaining = mb_mwea_calc(
             modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, elev_bins, 
             glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
@@ -224,7 +224,7 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, ic
         if debug:
             print('mb_mwea_1:', np.round(mb_mwea_1,2), 'TC:', np.round(modelparameters[7],2), 
                   'mb_max_loss:', np.round(mb_max_loss,2), 'vol_left:', np.round(vol_remaining,4))
-    # Looping backward for tempchange at max loss
+    # Looping backward for tbias at max loss
     while vol_remaining == 0:
         modelparameters[7] = modelparameters[7] - 0.05
         mb_mwea_1, vol_remaining = mb_mwea_calc(
@@ -237,17 +237,17 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, ic
             print('vol_left:', np.round(vol_remaining,4), 'mb_mwea_1:', np.round(mb_mwea_1,2), 
                   'TC:', np.round(modelparameters[7],2))
 
-    tempchange_max_loss = modelparameters[7]
-    tempchange_boundhigh = tempchange_max_loss
+    tbias_max_loss = modelparameters[7]
+    tbias_bndhigh = tbias_max_loss
 
     if debug:
-        print('tc_max_loss:', np.round(tempchange_max_loss,2), 'mb_max_loss:', np.round(mb_max_loss,2))
+        print('tc_max_loss:', np.round(tbias_max_loss,2), 'mb_max_loss:', np.round(mb_max_loss,2))
 
     # Lower bound based on must melt condition
     #  note: since the mass balance ablation is conditional on the glacier evolution, there can be cases where higher
     #  temperature biases still have 0 for nyears_negmbclim. Hence, the need to loop beyond the first instance, and
     #  then go back and check that you're using the good cases from there onward. This ensures starting point is good
-    modelparameters[7] = tempchange_max_acc
+    modelparameters[7] = tbias_max_acc
     nyears_negmbclim = mb_mwea_calc(
                 modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial, width_initial, 
                 elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, 
@@ -257,7 +257,7 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, ic
     nyears_negmbclim_list = [nyears_negmbclim]
     tc_negmbclim_list = [modelparameters[7]]
     tc_smallstep_switch = False
-    while nyears_negmbclim < 10 and modelparameters[7] < tempchange_max_loss:
+    while nyears_negmbclim < 10 and modelparameters[7] < tbias_max_loss:
         # Switch from large to small step sizes to speed up calculations
         if tc_smallstep_switch == False:
             tc_stepsize = 1
@@ -277,7 +277,7 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, ic
             nyears_negmbclim_list.append(nyears_negmbclim)
             tc_negmbclim_list.append(modelparameters[7])
         
-        # First time nyears_negmbclim is > 0, flip the switch to use smalll step and restart with last tempchange
+        # First time nyears_negmbclim is > 0, flip the switch to use smalll step and restart with last tbias
         if nyears_negmbclim > 0 and tc_smallstep_switch == False:
             tc_smallstep_switch = True
             modelparameters[7] = modelparameters_old
@@ -286,9 +286,9 @@ def retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, ic
         if debug:
             print('TC:', np.round(modelparameters[7],2), 'nyears_negmbclim:', nyears_negmbclim)
 
-    tempchange_boundlow = tc_negmbclim_list[np.where(np.array(nyears_negmbclim_list) == 0)[0][-1] + 1]
+    tbias_bndlow = tc_negmbclim_list[np.where(np.array(nyears_negmbclim_list) == 0)[0][-1] + 1]
 
-    return tempchange_boundlow, tempchange_boundhigh, mb_max_loss
+    return tbias_bndlow, tbias_bndhigh, mb_max_loss
 
 
 def main(list_packed_vars):
@@ -329,28 +329,28 @@ def main(list_packed_vars):
         debug = False
 
     # ===== CALIBRATION =====
-    # Option 2: use MCMC method to determine posterior probability distributions of the three parameters tempchange,
-    #           ddfsnow and precfactor. Then create an ensemble of parameter sets evenly sampled from these
+    # Option 2: use MCMC method to determine posterior probability distributions of the three parameters tbias,
+    #           ddfsnow and kp. Then create an ensemble of parameter sets evenly sampled from these
     #           distributions, and output these sets of parameters and their corresponding mass balances to be used in
     #           the simulations.
-    if pygem_prms.option_calibration == 2:
+    if pygem_prms.option_calibration == 'MCMC':
 
         # ===== Define functions needed for MCMC method =====
-        def run_MCMC(precfactor_disttype=pygem_prms.precfactor_disttype,
-                     precfactor_gamma_alpha=pygem_prms.precfactor_gamma_alpha,
-                     precfactor_gamma_beta=pygem_prms.precfactor_gamma_beta,
-                     precfactor_lognorm_mu=pygem_prms.precfactor_lognorm_mu,
-                     precfactor_lognorm_tau=pygem_prms.precfactor_lognorm_tau,
-                     precfactor_mu=pygem_prms.precfactor_mu, precfactor_sigma=pygem_prms.precfactor_sigma,
-                     precfactor_boundlow=pygem_prms.precfactor_boundlow, precfactor_boundhigh=pygem_prms.precfactor_boundhigh,
-                     precfactor_start=pygem_prms.precfactor_start,
-                     tempchange_disttype=pygem_prms.tempchange_disttype,
-                     tempchange_mu=pygem_prms.tempchange_mu, tempchange_sigma=pygem_prms.tempchange_sigma,
-                     tempchange_boundlow=pygem_prms.tempchange_boundlow, tempchange_boundhigh=pygem_prms.tempchange_boundhigh,
-                     tempchange_start=pygem_prms.tempchange_start,
+        def run_MCMC(kp_disttype=pygem_prms.kp_disttype,
+                     kp_gamma_alpha=pygem_prms.kp_gamma_alpha,
+                     kp_gamma_beta=pygem_prms.kp_gamma_beta,
+                     kp_lognorm_mu=pygem_prms.kp_lognorm_mu,
+                     kp_lognorm_tau=pygem_prms.kp_lognorm_tau,
+                     kp_mu=pygem_prms.kp_mu, kp_sigma=pygem_prms.kp_sigma,
+                     kp_bndlow=pygem_prms.kp_bndlow, kp_bndhigh=pygem_prms.kp_bndhigh,
+                     kp_start=pygem_prms.kp_start,
+                     tbias_disttype=pygem_prms.tbias_disttype,
+                     tbias_mu=pygem_prms.tbias_mu, tbias_sigma=pygem_prms.tbias_sigma,
+                     tbias_bndlow=pygem_prms.tbias_bndlow, tbias_bndhigh=pygem_prms.tbias_bndhigh,
+                     tbias_start=pygem_prms.tbias_start,
                      ddfsnow_disttype=pygem_prms.ddfsnow_disttype,
                      ddfsnow_mu=pygem_prms.ddfsnow_mu, ddfsnow_sigma=pygem_prms.ddfsnow_sigma,
-                     ddfsnow_boundlow=pygem_prms.ddfsnow_boundlow, ddfsnow_boundhigh=pygem_prms.ddfsnow_boundhigh,
+                     ddfsnow_bndlow=pygem_prms.ddfsnow_bndlow, ddfsnow_bndhigh=pygem_prms.ddfsnow_bndhigh,
                      ddfsnow_start=pygem_prms.ddfsnow_start,
                      iterations=10, burn=0, thin=pygem_prms.thin_interval, tune_interval=1000, step=None,
                      tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5, verbose=0,
@@ -365,33 +365,33 @@ def main(list_packed_vars):
 
             Parameters
             ----------
-            precfactor_disttype : str
+            kp_disttype : str
                 Distribution type of precipitation factor (either 'lognormal', 'uniform', or 'custom')
-            precfactor_lognorm_mu : float
+            kp_lognorm_mu : float
                 Lognormal mean of precipitation factor (default assigned from input)
-            precfactor_lognorm_tau : float
+            kp_lognorm_tau : float
                 Lognormal tau (1/variance) of precipitation factor (default assigned from input)
-            precfactor_mu : float
+            kp_mu : float
                 Mean of precipitation factor (default assigned from input)
-            precfactor_sigma : float
+            kp_sigma : float
                 Standard deviation of precipitation factor (default assigned from input)
-            precfactor_boundlow : float
+            kp_bndlow : float
                 Lower boundary of precipitation factor (default assigned from input)
-            precfactor_boundhigh : float
+            kp_bndhigh : float
                 Upper boundary of precipitation factor (default assigned from input)
-            precfactor_start : float
+            kp_start : float
                 Starting value of precipitation factor for sampling iterations (default assigned from input)
-            tempchange_disttype : str
-                Distribution type of tempchange (either 'truncnormal' or 'uniform')
-            tempchange_mu : float
+            tbias_disttype : str
+                Distribution type of tbias (either 'truncnormal' or 'uniform')
+            tbias_mu : float
                 Mean of temperature change (default assigned from input)
-            tempchange_sigma : float
+            tbias_sigma : float
                 Standard deviation of temperature change (default assigned from input)
-            tempchange_boundlow : float
+            tbias_bndlow : float
                 Lower boundary of temperature change (default assigned from input)
-            tempchange_boundhigh: float
+            tbias_bndhigh: float
                 Upper boundary of temperature change (default assigned from input)
-            tempchange_start : float
+            tbias_start : float
                 Starting value of temperature change for sampling iterations (default assigned from input)
             ddfsnow_disttype : str
                 Distribution type of degree day factor of snow (either 'truncnormal' or 'uniform')
@@ -399,9 +399,9 @@ def main(list_packed_vars):
                 Mean of degree day factor of snow (default assigned from input)
             ddfsnow_sigma : float
                 Standard deviation of degree day factor of snow (default assigned from input)
-            ddfsnow_boundlow : float
+            ddfsnow_bndlow : float
                 Lower boundary of degree day factor of snow (default assigned from input)
-            ddfsnow_boundhigh : float
+            ddfsnow_bndhigh : float
                 Upper boundary of degree day factor of snow (default assigned from input)
             ddfsnow_start : float
                 Starting value of degree day factor of snow for sampling iterations (default assigned from input)
@@ -445,7 +445,7 @@ def main(list_packed_vars):
             Returns
             -------
             pymc.MCMC.MCMC
-                Returns a model that contains sample traces of tempchange, ddfsnow, precfactor and massbalance. These
+                Returns a model that contains sample traces of tbias, ddfsnow, kp and massbalance. These
                 samples can be accessed by calling the trace attribute. For example:
 
                     model.trace('ddfsnow')[:]
@@ -457,50 +457,50 @@ def main(list_packed_vars):
             """
             # ===== PRIOR DISTRIBUTIONS =====
             # Precipitation factor [-]
-            if precfactor_disttype == 'gamma':
-                precfactor = pymc.Gamma('precfactor', alpha=precfactor_gamma_alpha, beta=precfactor_gamma_beta,
-                                        value=precfactor_start)
-            elif precfactor_disttype =='lognormal':
+            if kp_disttype == 'gamma':
+                kp = pymc.Gamma('kp', alpha=kp_gamma_alpha, beta=kp_gamma_beta,
+                                        value=kp_start)
+            elif kp_disttype =='lognormal':
                 #  lognormal distribution (roughly 0.3 to 3)
-                precfactor_start = np.exp(precfactor_start)
-                precfactor = pymc.Lognormal('precfactor', mu=precfactor_lognorm_mu, tau=precfactor_lognorm_tau,
-                                            value=precfactor_start)
-            elif precfactor_disttype == 'uniform':
-                precfactor = pymc.Uniform('precfactor', lower=precfactor_boundlow, upper=precfactor_boundhigh,
-                                          value=precfactor_start)
+                kp_start = np.exp(kp_start)
+                kp = pymc.Lognormal('kp', mu=kp_lognorm_mu, tau=kp_lognorm_tau,
+                                            value=kp_start)
+            elif kp_disttype == 'uniform':
+                kp = pymc.Uniform('kp', lower=kp_bndlow, upper=kp_bndhigh,
+                                          value=kp_start)
             # Temperature change [degC]
-            if tempchange_disttype == 'normal':
-                tempchange = pymc.Normal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2),
-                                         value=tempchange_start)
-            elif tempchange_disttype =='truncnormal':
-                tempchange = pymc.TruncatedNormal('tempchange', mu=tempchange_mu, tau=1/(tempchange_sigma**2),
-                                                  a=tempchange_boundlow, b=tempchange_boundhigh, value=tempchange_start)
-            elif tempchange_disttype =='uniform':
-                tempchange = pymc.Uniform('tempchange', lower=tempchange_boundlow, upper=tempchange_boundhigh,
-                                          value=tempchange_start)
+            if tbias_disttype == 'normal':
+                tbias = pymc.Normal('tbias', mu=tbias_mu, tau=1/(tbias_sigma**2),
+                                         value=tbias_start)
+            elif tbias_disttype =='truncnormal':
+                tbias = pymc.TruncatedNormal('tbias', mu=tbias_mu, tau=1/(tbias_sigma**2),
+                                                  a=tbias_bndlow, b=tbias_bndhigh, value=tbias_start)
+            elif tbias_disttype =='uniform':
+                tbias = pymc.Uniform('tbias', lower=tbias_bndlow, upper=tbias_bndhigh,
+                                          value=tbias_start)
 
             # Degree day factor of snow [mwe degC-1 d-1]
             #  always truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of 0.0015
             #  (Braithwaite, 2008), since it's based on data; uniform should only be used for testing
             if ddfsnow_disttype == 'truncnormal':
-                ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_boundlow,
-                                               b=ddfsnow_boundhigh, value=ddfsnow_start)
+                ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2), a=ddfsnow_bndlow,
+                                               b=ddfsnow_bndhigh, value=ddfsnow_start)
             if ddfsnow_disttype == 'uniform':
-                ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_boundlow, upper=ddfsnow_boundhigh,
+                ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_bndlow, upper=ddfsnow_bndhigh,
                                        value=ddfsnow_start)
 
             # ===== DETERMINISTIC FUNCTION ====
             # Define deterministic function for MCMC model based on our a priori probobaility distributions.
             @deterministic(plot=False)
-            def massbal(tempchange=tempchange, precfactor=precfactor, ddfsnow=ddfsnow):
+            def massbal(tbias=tbias, kp=kp, ddfsnow=ddfsnow):
                 """
                 Likelihood function for mass balance [mwea] based on model parameters
                 """
                 modelparameters_copy = modelparameters.copy()
-                if tempchange is not None:
-                    modelparameters_copy[7] = float(tempchange)
-                if precfactor is not None:
-                    modelparameters_copy[2] = float(precfactor)
+                if tbias is not None:
+                    modelparameters_copy[7] = float(tbias)
+                if kp is not None:
+                    modelparameters_copy[2] = float(kp)
                 if ddfsnow is not None:
                     modelparameters_copy[4] = float(ddfsnow)
                     # Degree day factor of ice is proportional to ddfsnow
@@ -539,15 +539,15 @@ def main(list_packed_vars):
                     return 0
 
             @pymc.potential
-            def must_melt(tempchange=tempchange, precfactor=precfactor, ddfsnow=ddfsnow):
+            def must_melt(tbias=tbias, kp=kp, ddfsnow=ddfsnow):
                 """
                 Likelihood function for mass balance [mwea] based on model parameters
                 """
                 modelparameters_copy = modelparameters.copy()
-                if tempchange is not None:
-                    modelparameters_copy[7] = float(tempchange)
-                if precfactor is not None:
-                    modelparameters_copy[2] = float(precfactor)
+                if tbias is not None:
+                    modelparameters_copy[7] = float(tbias)
+                if kp is not None:
+                    modelparameters_copy[2] = float(kp)
                 if ddfsnow is not None:
                     modelparameters_copy[4] = float(ddfsnow)
                     # Degree day factor of ice is proportional to ddfsnow
@@ -581,20 +581,20 @@ def main(list_packed_vars):
 
             # Set model
             if use_potentials == 1:
-                model = pymc.MCMC([{'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow,
+                model = pymc.MCMC([{'kp':kp, 'tbias':tbias, 'ddfsnow':ddfsnow,
                                    'massbal':massbal, 'obs_massbal':obs_massbal}, mb_max, must_melt])
             else:
-                model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow,
+                model = pymc.MCMC({'kp':kp, 'tbias':tbias, 'ddfsnow':ddfsnow,
                                    'massbal':massbal, 'obs_massbal':obs_massbal})
 #            if dbname is not None:
-#                model = pymc.MCMC({'precfactor':precfactor, 'tempchange':tempchange, 'ddfsnow':ddfsnow,
+#                model = pymc.MCMC({'kp':kp, 'tbias':tbias, 'ddfsnow':ddfsnow,
 #                                   'massbal':massbal, 'obs_massbal':obs_massbal}, db='pickle', dbname=dbname)
 
             # Step method (if changed from default)
             #  Adaptive metropolis is supposed to perform block update, i.e., update all model parameters together based
             #  on their covariance, which would reduce autocorrelation; however, tests show doesn't make a difference.
             if step == 'am':
-                model.use_step_method(pymc.AdaptiveMetropolis, [precfactor, tempchange, ddfsnow], delay = 1000)
+                model.use_step_method(pymc.AdaptiveMetropolis, [kp, tbias, ddfsnow], delay = 1000)
 
             # Sample
             if args.progress_bar == 1:
@@ -619,8 +619,8 @@ def main(list_packed_vars):
             print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
 
             # Set model parameters
-            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.ddfice,
-                               pygem_prms.tempsnow, pygem_prms.tempchange]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.kp, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.ddfice,
+                               pygem_prms.tsnow_threshold, pygem_prms.tbias]
 
             # Select subsets of data
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
@@ -655,10 +655,10 @@ def main(list_packed_vars):
             if icethickness_initial.max() > 0:
 
                 # Regional priors
-                precfactor_gamma_alpha = pygem_prms.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
-                precfactor_gamma_beta = pygem_prms.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][1]
-                tempchange_mu = pygem_prms.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][0]
-                tempchange_sigma = pygem_prms.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][1]
+                kp_gamma_alpha = pygem_prms.kp_gamma_region_dict[glacier_rgi_table.loc['region']][0]
+                kp_gamma_beta = pygem_prms.kp_gamma_region_dict[glacier_rgi_table.loc['region']][1]
+                tbias_mu = pygem_prms.tbias_norm_region_dict[glacier_rgi_table.loc['region']][0]
+                tbias_sigma = pygem_prms.tbias_norm_region_dict[glacier_rgi_table.loc['region']][1]
 
                 # fit the MCMC model
                 for n_chain in range(0,pygem_prms.n_chains):
@@ -668,62 +668,62 @@ def main(list_packed_vars):
 
                     if n_chain == 0:
                         # Starting values: middle
-                        tempchange_start = tempchange_mu
-                        precfactor_start = precfactor_gamma_alpha / precfactor_gamma_beta
+                        tbias_start = tbias_mu
+                        kp_start = kp_gamma_alpha / kp_gamma_beta
                         ddfsnow_start = pygem_prms.ddfsnow_mu
 
                     elif n_chain == 1:
                         # Starting values: lowest
-                        tempchange_start = tempchange_mu - 1.96 * tempchange_sigma
+                        tbias_start = tbias_mu - 1.96 * tbias_sigma
                         ddfsnow_start = pygem_prms.ddfsnow_mu - 1.96 * pygem_prms.ddfsnow_sigma
-                        precfactor_start = stats.gamma.ppf(0.05,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta)
+                        kp_start = stats.gamma.ppf(0.05,kp_gamma_alpha, scale=1/kp_gamma_beta)
 
                     elif n_chain == 2:
                         # Starting values: high
-                        tempchange_start = tempchange_mu + 1.96 * tempchange_sigma
+                        tbias_start = tbias_mu + 1.96 * tbias_sigma
                         ddfsnow_start = pygem_prms.ddfsnow_mu + 1.96 * pygem_prms.ddfsnow_sigma
-                        precfactor_start = stats.gamma.ppf(0.95,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta)
+                        kp_start = stats.gamma.ppf(0.95,kp_gamma_alpha, scale=1/kp_gamma_beta)
 
 
                     # Determine bounds to check TC starting values and estimate maximum mass loss
-                    modelparameters[2] = precfactor_start
+                    modelparameters[2] = kp_start
                     modelparameters[4] = ddfsnow_start
                     modelparameters[5] = ddfsnow_start / pygem_prms.ddfsnow_iceratio
 
-                    tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
+                    tbias_bndlow, tbias_bndhigh, mb_max_loss = (
                             retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial,
                                             width_initial, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, 
                                             glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
                                             dates_table, t1_idx, t2_idx, t1, t2, debug=False))
 
                     if debug:
-                        print('\nTC_low:', np.round(tempchange_boundlow,2),
-                              'TC_high:', np.round(tempchange_boundhigh,2),
+                        print('\nTC_low:', np.round(tbias_bndlow,2),
+                              'TC_high:', np.round(tbias_bndhigh,2),
                               'mb_max_loss:', np.round(mb_max_loss,2))
 
-                    # Check that tempchange mu and sigma is somewhat within bndhigh and bndlow
-                    if tempchange_start > tempchange_boundhigh:
-                        tempchange_start = tempchange_boundhigh
-                    elif tempchange_start < tempchange_boundlow:
-                        tempchange_start = tempchange_boundlow
+                    # Check that tbias mu and sigma is somewhat within bndhigh and bndlow
+                    if tbias_start > tbias_bndhigh:
+                        tbias_start = tbias_bndhigh
+                    elif tbias_start < tbias_bndlow:
+                        tbias_start = tbias_bndlow
 
-#                    # Check that tempchange mu and sigma is somewhat within bndhigh and bndlow
-#                    if ((tempchange_boundhigh < tempchange_mu - 3 * tempchange_sigma) or
-#                        (tempchange_boundlow > tempchange_mu + 3 * tempchange_sigma)):
-#                        tempchange_mu = np.mean([tempchange_boundlow, tempchange_boundhigh])
-#                        tempchange_sigma = (tempchange_boundhigh - tempchange_boundlow) / 6
+#                    # Check that tbias mu and sigma is somewhat within bndhigh and bndlow
+#                    if ((tbias_bndhigh < tbias_mu - 3 * tbias_sigma) or
+#                        (tbias_bndlow > tbias_mu + 3 * tbias_sigma)):
+#                        tbias_mu = np.mean([tbias_bndlow, tbias_bndhigh])
+#                        tbias_sigma = (tbias_bndhigh - tbias_bndlow) / 6
 
                     if debug:
-                        print('\ntc_start:', np.round(tempchange_start,3),
-                              '\npf_start:', np.round(precfactor_start,3),
+                        print('\ntc_start:', np.round(tbias_start,3),
+                              '\npf_start:', np.round(kp_start,3),
                               '\nddf_start:', np.round(ddfsnow_start,4))
 
                     model = run_MCMC(iterations=pygem_prms.mcmc_sample_no, burn=pygem_prms.mcmc_burn_no, step=pygem_prms.mcmc_step,
-                                     precfactor_gamma_alpha=precfactor_gamma_alpha,
-                                     precfactor_gamma_beta=precfactor_gamma_beta,
-                                     precfactor_start=precfactor_start,
-                                     tempchange_mu=tempchange_mu, tempchange_sigma=tempchange_sigma,
-                                     tempchange_start=tempchange_start,
+                                     kp_gamma_alpha=kp_gamma_alpha,
+                                     kp_gamma_beta=kp_gamma_beta,
+                                     kp_start=kp_start,
+                                     tbias_mu=tbias_mu, tbias_sigma=tbias_sigma,
+                                     tbias_start=tbias_start,
                                      ddfsnow_start=ddfsnow_start,
                                      mb_max_loss=mb_max_loss)
 
@@ -731,8 +731,8 @@ def main(list_packed_vars):
                         print('\nacceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
 
                     # Select data from model to be stored in netcdf
-                    df = pd.DataFrame({'tempchange': model.trace('tempchange')[:],
-                                       'precfactor': model.trace('precfactor')[:],
+                    df = pd.DataFrame({'tbias': model.trace('tbias')[:],
+                                       'kp': model.trace('kp')[:],
                                        'ddfsnow': model.trace('ddfsnow')[:],
                                        'massbal': model.trace('massbal')[:]})
                     # set columns for other variables
@@ -740,7 +740,7 @@ def main(list_packed_vars):
                     df['lrgcm'] = np.full(df.shape[0], pygem_prms.lrgcm)
                     df['lrglac'] = np.full(df.shape[0], pygem_prms.lrglac)
                     df['precgrad'] = np.full(df.shape[0], pygem_prms.precgrad)
-                    df['tempsnow'] = np.full(df.shape[0], pygem_prms.tempsnow)
+                    df['tsnow_threshold'] = np.full(df.shape[0], pygem_prms.tsnow_threshold)
 
                     if debug:
                         print('mb_mwea:', np.round(df.massbal.mean(),2), 'mb_mwea_std:', np.round(df.massbal.std(),2))
@@ -773,7 +773,7 @@ def main(list_packed_vars):
 
     #%%
     # Huss and Hock (2015) model calibration steps
-    elif pygem_prms.option_calibration == 3:
+    elif pygem_prms.option_calibration == 'HH2015':
 
         def objective(modelparameters_subset):
             """
@@ -842,7 +842,7 @@ def main(list_packed_vars):
             return mb_dif_mwea_abs
 
 
-        def run_objective(modelparameters_init, observed_massbal, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
+        def run_objective(modelparameters_init, observed_massbal, kp_bnds=(0.33,3), tbias_bnds=(-10,10),
                           ddfsnow_bnds=(0.0026,0.0056), precgrad_bnds=(0.0001,0.0001), run_opt=True):
             """
             Run the optimization for the single glacier objective function.
@@ -854,9 +854,9 @@ def main(list_packed_vars):
                 [precipitation factor, precipitation gradient, degree day factor of snow, temperature change]
             glacier_cal_data : pd.DataFrame
                 Table containing calibration data for a single glacier
-            precfactor_bnds : tuple
+            kp_bnds : tuple
                 Lower and upper bounds for precipitation factor (default is (0.33, 3))
-            tempchange_bnds : tuple
+            tbias_bnds : tuple
                 Lower and upper bounds for temperature bias (default is (0.33, 3))
             ddfsnow_bnds : tuple
                 Lower and upper bounds for degree day factor of snow (default is (0.0026, 0.0056))
@@ -874,7 +874,7 @@ def main(list_packed_vars):
                 Table recapping calibration results: observation, model, calibration round, etc.
             """
             # Bounds
-            modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds)
+            modelparameters_bnds = (kp_bnds, precgrad_bnds, ddfsnow_bnds, tbias_bnds)
             # Run the optimization
             #  'L-BFGS-B' - much slower
             #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
@@ -944,12 +944,12 @@ def main(list_packed_vars):
             df = pd.DataFrame(index=[0])
             df['lrgcm'] = np.full(df.shape[0], pygem_prms.lrgcm)
             df['lrglac'] = np.full(df.shape[0], pygem_prms.lrglac)
-            df['precfactor'] = modelparameters[2]
+            df['kp'] = modelparameters[2]
             df['precgrad'] = np.full(df.shape[0], pygem_prms.precgrad)
             df['ddfsnow'] = modelparameters[4]
             df['ddfice'] = df['ddfsnow'] / ddfsnow_iceratio
-            df['tempsnow'] = np.full(df.shape[0], pygem_prms.tempsnow)
-            df['tempchange'] = modelparameters[7]
+            df['tsnow_threshold'] = np.full(df.shape[0], pygem_prms.tsnow_threshold)
+            df['tbias'] = modelparameters[7]
             df['mb_mwea'] = mb_mwea
             df['obs_mwea'] = observed_massbal
             df['dif_mwea'] = mb_mwea - observed_massbal
@@ -963,12 +963,12 @@ def main(list_packed_vars):
             ds.close()
 
         # Huss and Hock (2015) parameters and bounds
-        tempchange_init = 0
-        tempchange_bndlow = -10
-        tempchange_bndhigh = 10
-        precfactor_init = 1.5
-        precfactor_bndlow = 0.8
-        precfactor_bndhigh = 2
+        tbias_init = 0
+        tbias_bndlow = -10
+        tbias_bndhigh = 10
+        kp_init = 1.5
+        kp_bndlow = 0.8
+        kp_bndhigh = 2
         ddfsnow_init = 0.003
         ddfsnow_bndlow = 0.00175
         ddfsnow_bndhigh = 0.0045
@@ -984,8 +984,8 @@ def main(list_packed_vars):
                 print(count, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
 
             # Set model parameters
-            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, precfactor_init, pygem_prms.precgrad, ddfsnow_init, pygem_prms.ddfice,
-                               pygem_prms.tempsnow, tempchange_init]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, kp_init, pygem_prms.precgrad, ddfsnow_init, pygem_prms.ddfice,
+                               pygem_prms.tsnow_threshold, tbias_init]
             modelparameters[5] = modelparameters[4] / ddfsnow_iceratio
 
             # Select subsets of data
@@ -1020,30 +1020,30 @@ def main(list_packed_vars):
             if debug:
                 print('Round 1:')
             modelparameters_subset = [modelparameters[2], modelparameters[3], modelparameters[4], modelparameters[7]]
-            precfactor_bnds = (precfactor_bndlow, precfactor_bndhigh)
+            kp_bnds = (kp_bndlow, kp_bndhigh)
             ddfsnow_bnds = (ddfsnow_init, ddfsnow_init)
-            tempchange_bnds = (tempchange_init, tempchange_init)
+            tbias_bnds = (tbias_init, tbias_init)
             modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
-                                                 precfactor_bnds=precfactor_bnds, tempchange_bnds=tempchange_bnds,
+                                                 kp_bnds=kp_bnds, tbias_bnds=tbias_bnds,
                                                  ddfsnow_bnds=ddfsnow_bnds)
-            precfactor_opt = modelparams[2]
+            kp_opt = modelparams[2]
             if debug:
-                print('mb_mwea:', np.round(mb_mwea,2), 'precfactor:', np.round(precfactor_opt,2))
+                print('mb_mwea:', np.round(mb_mwea,2), 'kp:', np.round(kp_opt,2))
 
             # Round 2: optimize DDFsnow
             if debug:
                 print('Round 2:')
-            modelparameters_subset = [precfactor_opt, modelparameters[3], modelparameters[4], modelparameters[7]]
-            precfactor_bnds = (precfactor_opt, precfactor_opt)
+            modelparameters_subset = [kp_opt, modelparameters[3], modelparameters[4], modelparameters[7]]
+            kp_bnds = (kp_opt, kp_opt)
             ddfsnow_bnds = (ddfsnow_bndlow, ddfsnow_bndhigh)
-            tempchange_bnds = (tempchange_init, tempchange_init)
+            tbias_bnds = (tbias_init, tbias_init)
             modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
-                                                 precfactor_bnds=precfactor_bnds, tempchange_bnds=tempchange_bnds,
+                                                 kp_bnds=kp_bnds, tbias_bnds=tbias_bnds,
                                                  ddfsnow_bnds=ddfsnow_bnds)
 
             ddfsnow_opt = modelparams[4]
             if debug:
-                print('mb_mwea:', np.round(mb_mwea,2), 'precfactor:', np.round(precfactor_opt,2),
+                print('mb_mwea:', np.round(mb_mwea,2), 'kp:', np.round(kp_opt,2),
                       'ddfsnow:', np.round(ddfsnow_opt,5))
 
             # Round 3: optimize tempbias
@@ -1053,14 +1053,14 @@ def main(list_packed_vars):
             # ----- TEMPBIAS: max accumulation -----
             # Lower temperature bound based on no positive temperatures
             # Temperature at the lowest bin
-            #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+            #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tbias
             lowest_bin = np.where(glacier_area_initial > 0)[0][0]
-            tempchange_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm *
+            tbias_max_acc = (-1 * (glacier_gcm_temp + glacier_gcm_lrgcm *
                                         (elev_bins[lowest_bin] - glacier_gcm_elev)).max())
-            tempchange_bndlow = tempchange_max_acc
+            tbias_bndlow = tbias_max_acc
 
             if debug:
-                print('tempchange_bndlow:', np.round(tempchange_bndlow,2))
+                print('tbias_bndlow:', np.round(tbias_bndlow,2))
 
             dif_mb_mwea = abs(observed_massbal - mb_mwea)
             if debug:
@@ -1073,15 +1073,15 @@ def main(list_packed_vars):
                     else:
                         modelparameters[7] -= 1
                     # Temperature cannot exceed lower bound
-                    if modelparameters[7] < tempchange_bndlow:
-                        modelparameters[7] = tempchange_bndlow
+                    if modelparameters[7] < tbias_bndlow:
+                        modelparameters[7] = tbias_bndlow
 
-                modelparameters_subset = [precfactor_opt, modelparameters[3], ddfsnow_opt, modelparameters[7]]
-                precfactor_bnds = (precfactor_opt, precfactor_opt)
+                modelparameters_subset = [kp_opt, modelparameters[3], ddfsnow_opt, modelparameters[7]]
+                kp_bnds = (kp_opt, kp_opt)
                 ddfsnow_bnds = (ddfsnow_opt, ddfsnow_opt)
-                tempchange_bnds = (tempchange_bndlow, tempchange_bndhigh)
+                tbias_bnds = (tbias_bndlow, tbias_bndhigh)
                 modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
-                                                     precfactor_bnds=precfactor_bnds, tempchange_bnds=tempchange_bnds,
+                                                     kp_bnds=kp_bnds, tbias_bnds=tbias_bnds,
                                                      ddfsnow_bnds=ddfsnow_bnds)
                 dif_mb_mwea = abs(observed_massbal - mb_mwea)
 
@@ -1090,15 +1090,15 @@ def main(list_packed_vars):
                     print('dif:', np.round(dif_mb_mwea,2), 'count:', count, 'tc:', np.round(modelparameters[7],2))
 
                 # Break loop if at lower bound
-                if abs(tempchange_bndlow - modelparams[7]) < 0.1:
+                if abs(tbias_bndlow - modelparams[7]) < 0.1:
                     count=20
 
             # Record optimal temperature bias
-            tempchange_opt = modelparams[7]
+            tbias_opt = modelparams[7]
 
             if debug:
-                print('mb_mwea:', np.round(mb_mwea,2), 'precfactor:', np.round(precfactor_opt,2),
-                      'ddfsnow:', np.round(ddfsnow_opt,5), 'tempchange:', np.round(tempchange_opt,2))
+                print('mb_mwea:', np.round(mb_mwea,2), 'kp:', np.round(kp_opt,2),
+                      'ddfsnow:', np.round(ddfsnow_opt,5), 'tbias:', np.round(tbias_opt,2))
 
 
             # EXPORT TO NETCDF
@@ -1112,9 +1112,9 @@ def main(list_packed_vars):
     # - glacier able to evolve
     # - precipitaiton factor, then temperature bias (no ddfsnow)
     # - ranges different
-    elif pygem_prms.option_calibration == 4:
+    elif pygem_prms.option_calibration == 'HH2015_modified':
         
-        if pygem_prms.params2opt.sort() == ['tempbias', 'precfactor'].sort():
+        if pygem_prms.params2opt.sort() == ['tempbias', 'kp'].sort():
             def objective(modelparameters_subset):
                 """
                 Objective function for mass balance data.
@@ -1144,7 +1144,7 @@ def main(list_packed_vars):
                 mb_dif_mwea_abs = abs(observed_massbal - mb_mwea)
                 return mb_dif_mwea_abs
     
-            def run_objective(modelparameters_init, observed_massbal, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
+            def run_objective(modelparameters_init, observed_massbal, kp_bnds=(0.33,3), tbias_bnds=(-10,10),
                               run_opt=True, eps_opt=pygem_prms.eps_opt, ftol_opt=pygem_prms.ftol_opt):
                 """
                 Run the optimization for the single glacier objective function.
@@ -1156,9 +1156,9 @@ def main(list_packed_vars):
                     [precipitation factor, precipitation gradient, degree day factor of snow, temperature change]
                 glacier_cal_data : pd.DataFrame
                     Table containing calibration data for a single glacier
-                precfactor_bnds : tuple
+                kp_bnds : tuple
                     Lower and upper bounds for precipitation factor (default is (0.33, 3))
-                tempchange_bnds : tuple
+                tbias_bnds : tuple
                     Lower and upper bounds for temperature bias (default is (0.33, 3))
                 ddfsnow_bnds : tuple
                     Lower and upper bounds for degree day factor of snow (default is (0.0026, 0.0056))
@@ -1176,7 +1176,7 @@ def main(list_packed_vars):
                     Table recapping calibration results: observation, model, calibration round, etc.
                 """
                 # Bounds
-                modelparameters_bnds = (precfactor_bnds, tempchange_bnds)
+                modelparameters_bnds = (kp_bnds, tbias_bnds)
                 # Run the optimization
                 #  'L-BFGS-B' - much slower
                 #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
@@ -1234,7 +1234,7 @@ def main(list_packed_vars):
                 mb_dif_mwea_abs = abs(observed_massbal - mb_mwea)
                 return mb_dif_mwea_abs
     
-            def run_objective(modelparameters_init, observed_massbal, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
+            def run_objective(modelparameters_init, observed_massbal, kp_bnds=(0.33,3), tbias_bnds=(-10,10),
                               ddfsnow_bnds=(0.0026,0.0056), precgrad_bnds=(0.0001,0.0001), run_opt=True, 
                               eps_opt=pygem_prms.eps_opt):
                 """
@@ -1247,9 +1247,9 @@ def main(list_packed_vars):
                     [precipitation factor, precipitation gradient, degree day factor of snow, temperature change]
                 glacier_cal_data : pd.DataFrame
                     Table containing calibration data for a single glacier
-                precfactor_bnds : tuple
+                kp_bnds : tuple
                     Lower and upper bounds for precipitation factor (default is (0.33, 3))
-                tempchange_bnds : tuple
+                tbias_bnds : tuple
                     Lower and upper bounds for temperature bias (default is (0.33, 3))
                 ddfsnow_bnds : tuple
                     Lower and upper bounds for degree day factor of snow (default is (0.0026, 0.0056))
@@ -1267,7 +1267,7 @@ def main(list_packed_vars):
                     Table recapping calibration results: observation, model, calibration round, etc.
                 """
                 # Bounds
-                modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds)
+                modelparameters_bnds = (kp_bnds, precgrad_bnds, ddfsnow_bnds, tbias_bnds)
                 # Run the optimization
                 #  'L-BFGS-B' - much slower
                 #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
@@ -1315,12 +1315,12 @@ def main(list_packed_vars):
             df = pd.DataFrame(index=[0])
             df['lrgcm'] = np.full(df.shape[0], pygem_prms.lrgcm)
             df['lrglac'] = np.full(df.shape[0], pygem_prms.lrglac)
-            df['precfactor'] = modelparameters[2]
+            df['kp'] = modelparameters[2]
             df['precgrad'] = np.full(df.shape[0], pygem_prms.precgrad)
             df['ddfsnow'] = modelparameters[4]
             df['ddfice'] = df['ddfsnow'] / ddfsnow_iceratio
-            df['tempsnow'] = np.full(df.shape[0], pygem_prms.tempsnow)
-            df['tempchange'] = modelparameters[7]
+            df['tsnow_threshold'] = np.full(df.shape[0], pygem_prms.tsnow_threshold)
+            df['tbias'] = modelparameters[7]
             df['mb_mwea'] = mb_mwea
             df['obs_mwea'] = observed_massbal
             df['dif_mwea'] = mb_mwea - observed_massbal
@@ -1338,10 +1338,10 @@ def main(list_packed_vars):
         for glac in range(main_glac_rgi.shape[0]):
 
             # ===== BOUNDS ======
-            tempchange_init = 0
-            precfactor_init = 1
-            precfactor_boundlow = 0.5
-            precfactor_boundhigh = 5
+            tbias_init = 0
+            kp_init = 1
+            kp_bndlow = 0.5
+            kp_bndhigh = 5
             ddfsnow_init = 0.0041
             ddfsnow_iceratio = 0.7
 
@@ -1349,8 +1349,8 @@ def main(list_packed_vars):
                 print(main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId_float'])
 
             # Set model parameters
-            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, precfactor_init, pygem_prms.precgrad, ddfsnow_init, pygem_prms.ddfice,
-                               pygem_prms.tempsnow, tempchange_init]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, kp_init, pygem_prms.precgrad, ddfsnow_init, pygem_prms.ddfice,
+                               pygem_prms.tsnow_threshold, tbias_init]
             modelparameters[5] = modelparameters[4] / ddfsnow_iceratio
 
             # Select subsets of data
@@ -1385,7 +1385,7 @@ def main(list_packed_vars):
             if icethickness_initial.max() > 0:
 
                 # Temperature bias bounds and maximum mass loss
-                tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
+                tbias_bndlow, tbias_bndhigh, mb_max_loss = (
                         retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_initial, icethickness_initial,
                                         width_initial, elev_bins, glacier_gcm_temp, glacier_gcm_tempstd, 
                                         glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, 
@@ -1393,29 +1393,29 @@ def main(list_packed_vars):
                                         debug=True
                                         ))
                 if debug:
-                    print('\nTC_low:', np.round(tempchange_boundlow,2), 'TC_high:', np.round(tempchange_boundhigh,2),
+                    print('\nTC_low:', np.round(tbias_bndlow,2), 'TC_high:', np.round(tbias_bndhigh,2),
                           'mb_max_loss:', np.round(mb_max_loss,2))
 
                 # If observed mass balance < max loss, then skip calibration and set to upper bound
                 if observed_massbal < mb_max_loss:
-                    modelparameters[7] = tempchange_boundhigh
+                    modelparameters[7] = tbias_bndhigh
                     mb_mwea = mb_max_loss
-                    pf_opt = precfactor_init
-                    tc_opt = tempchange_init
+                    pf_opt = kp_init
+                    tc_opt = tbias_init
 
                 # Otherwise, run the calibration
                 else:
 
                     # ROUND 1: PRECIPITATION FACTOR
                     # Adjust bounds based on range of temperature bias
-                    if tempchange_init > tempchange_boundhigh:
-                        tempchange_init = tempchange_boundhigh
-                    elif tempchange_init < tempchange_boundlow:
-                        tempchange_init = tempchange_boundlow
-                    modelparameters[7] = tempchange_init
+                    if tbias_init > tbias_bndhigh:
+                        tbias_init = tbias_bndhigh
+                    elif tbias_init < tbias_bndlow:
+                        tbias_init = tbias_bndlow
+                    modelparameters[7] = tbias_init
 
-                    tc_bndlow_opt = tempchange_init
-                    tc_bndhigh_opt = tempchange_init
+                    tc_bndlow_opt = tbias_init
+                    tc_bndhigh_opt = tbias_init
 
                     # Constrain bounds of precipitation factor and temperature bias
                     mb_mwea = mb_mwea_calc(
@@ -1435,13 +1435,13 @@ def main(list_packed_vars):
                         if debug:
                             print('increase TC, decrease PF')
 
-                        precfactor_boundhigh = 1
+                        kp_bndhigh = 1
 
                         # Check if lowest bound causes good agreement
-                        modelparameters[2] = precfactor_boundlow
+                        modelparameters[2] = kp_bndlow
 
                         if debug:
-                            print(modelparameters[2], precfactor_boundlow, precfactor_boundhigh)
+                            print(modelparameters[2], kp_bndlow, kp_bndhigh)
 
                         while mb_mwea > observed_massbal and test_count < 50:
                             mb_mwea = mb_mwea_calc(
@@ -1460,16 +1460,16 @@ def main(list_packed_vars):
 
                             modelparameters[7] += tc_step
                             test_count += 1
-                            pf_init = np.mean([precfactor_boundlow, precfactor_boundhigh])
+                            pf_init = np.mean([kp_bndlow, kp_bndhigh])
 
                     else:
                         if debug:
                             print('decrease TC, increase PF')
 
-                        precfactor_boundlow = 1
+                        kp_bndlow = 1
 
                         # Check if upper bound causes good agreement
-                        modelparameters[2] = precfactor_boundhigh
+                        modelparameters[2] = kp_bndhigh
 
                         while mb_mwea < observed_massbal and test_count < 20:
                             mb_mwea = mb_mwea_calc(
@@ -1488,20 +1488,20 @@ def main(list_packed_vars):
 
                             modelparameters[7] -= tc_step
                             test_count += 1
-                            pf_init = np.mean([precfactor_boundlow, precfactor_boundhigh])
+                            pf_init = np.mean([kp_bndlow, kp_bndhigh])
 
                     # ===== RUN OPTIMIZATION WITH CONSTRAINED BOUNDS =====
-                    if pygem_prms.params2opt.sort() == ['tempbias', 'precfactor'].sort():
+                    if pygem_prms.params2opt.sort() == ['tempbias', 'kp'].sort():
                         # Temperature change bounds
-                        tempchange_bnds = (tc_bndlow_opt, tc_bndhigh_opt)
-                        precfactor_bnds = (precfactor_boundlow, precfactor_boundhigh)
+                        tbias_bnds = (tc_bndlow_opt, tc_bndhigh_opt)
+                        kp_bnds = (kp_bndlow, kp_bndhigh)
                         tc_init = np.mean([tc_bndlow_opt, tc_bndhigh_opt])
                         pf_init = pf_init
     
                         modelparameters_subset = [pf_init, tc_init]
                         modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
-                                                             precfactor_bnds=precfactor_bnds,
-                                                             tempchange_bnds=tempchange_bnds)
+                                                             kp_bnds=kp_bnds,
+                                                             tbias_bnds=tbias_bnds)
                         pf_opt = modelparams[2]
                         tc_opt = modelparams[7]
                         if debug:
@@ -1526,8 +1526,8 @@ def main(list_packed_vars):
                             
                             modelparameters_subset = [pf_init, tc_init]
                             modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
-                                                                 precfactor_bnds=precfactor_bnds,
-                                                                 tempchange_bnds=tempchange_bnds,
+                                                                 kp_bnds=kp_bnds,
+                                                                 tbias_bnds=tbias_bnds,
                                                                  eps_opt=eps_opt_new, ftol_opt=ftol_opt_new)
                             pf_opt = modelparams[2]
                             tc_opt = modelparams[7]
@@ -1536,16 +1536,16 @@ def main(list_packed_vars):
                                       '\nPF:', np.round(pf_opt,2), 'TC:', np.round(tc_opt,2))
                     else:
                         # Temperature change bounds
-                        tempchange_bnds = (tc_bndlow_opt, tc_bndhigh_opt)
-                        precfactor_bnds = (precfactor_boundlow, precfactor_boundhigh)
+                        tbias_bnds = (tc_bndlow_opt, tc_bndhigh_opt)
+                        kp_bnds = (kp_bndlow, kp_bndhigh)
                         ddfsnow_bnds = (ddfsnow_init, ddfsnow_init)
                         tc_init = np.mean([tc_bndlow_opt, tc_bndhigh_opt])
                         pf_init = pf_init
     
                         modelparameters_subset = [pf_init, modelparameters[3], modelparameters[4], tc_init]
                         modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
-                                                             precfactor_bnds=precfactor_bnds,
-                                                             tempchange_bnds=tempchange_bnds,
+                                                             kp_bnds=kp_bnds,
+                                                             tbias_bnds=tbias_bnds,
                                                              ddfsnow_bnds=ddfsnow_bnds)
                         pf_opt = modelparams[2]
                         tc_opt = modelparams[7]
@@ -1570,8 +1570,8 @@ def main(list_packed_vars):
                             
                             modelparameters_subset = [pf_init, modelparameters[3], modelparameters[4], tc_init]
                             modelparams, mb_mwea = run_objective(modelparameters_subset, observed_massbal,
-                                                                 precfactor_bnds=precfactor_bnds,
-                                                                 tempchange_bnds=tempchange_bnds,
+                                                                 kp_bnds=kp_bnds,
+                                                                 tbias_bnds=tbias_bnds,
                                                                  ddfsnow_bnds=ddfsnow_bnds,
                                                                  eps_opt = eps_opt_new)
                             pf_opt = modelparams[2]
@@ -1597,14 +1597,14 @@ def main(list_packed_vars):
                 print('model parameters:', tc_opt, pf_opt)
                 ds = xr.open_dataset(pygem_prms.output_fp_cal + glacier_str + '.nc')
                 df = pd.DataFrame(ds['mp_value'].sel(chain=0).values, columns=ds.mp.values)
-                print('ds PF:', np.round(df['precfactor'].values[0],2),
-                      'ds TC:', np.round(df['tempchange'].values[0],2))
+                print('ds PF:', np.round(df['kp'].values[0],2),
+                      'ds TC:', np.round(df['tbias'].values[0],2))
 
         # ==============================================================
 
     #%%
     # Option 1: mimize mass balance difference using multi-step approach to expand solution space
-    elif pygem_prms.option_calibration == 1:
+    elif pygem_prms.option_calibration == 'minimization':
 
         def objective(modelparameters_subset):
             """
@@ -1682,7 +1682,7 @@ def main(list_packed_vars):
             return mean_abs_zscore
 
 
-        def run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
+        def run_objective(modelparameters_init, glacier_cal_data, kp_bnds=(0.33,3), tbias_bnds=(-10,10),
                           ddfsnow_bnds=(0.0026,0.0056), precgrad_bnds=(0.0001,0.0001), run_opt=True):
             """
             Run the optimization for the single glacier objective function.
@@ -1696,9 +1696,9 @@ def main(list_packed_vars):
                 [precipitation factor, precipitation gradient, degree day factor of snow, temperature change]
             glacier_cal_data : pd.DataFrame
                 Table containing calibration data for a single glacier
-            precfactor_bnds : tuple
+            kp_bnds : tuple
                 Lower and upper bounds for precipitation factor (default is (0.33, 3))
-            tempchange_bnds : tuple
+            tbias_bnds : tuple
                 Lower and upper bounds for temperature bias (default is (0.33, 3))
             ddfsnow_bnds : tuple
                 Lower and upper bounds for degree day factor of snow (default is (0.0026, 0.0056))
@@ -1716,7 +1716,7 @@ def main(list_packed_vars):
                 Table recapping calibration results: observation, model, calibration round, etc.
             """
             # Bounds
-            modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds)
+            modelparameters_bnds = (kp_bnds, precgrad_bnds, ddfsnow_bnds, tbias_bnds)
             # Run the optimization
             #  'L-BFGS-B' - much slower
             #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
@@ -1817,8 +1817,8 @@ def main(list_packed_vars):
                 if main_glac_rgi.loc[glac, 'group_name'] == group_name:
                     # Set model parameters
                     # if model parameters already exist for the glacier, then use those instead of group parameters
-                    modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow,
-                                       pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange]
+                    modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.kp, pygem_prms.precgrad, pygem_prms.ddfsnow,
+                                       pygem_prms.ddfice, pygem_prms.tsnow_threshold, pygem_prms.tbias]
                     if np.all(main_glac_modelparamsopt[glac] == 0) == False:
                         modelparameters = main_glac_modelparamsopt[glac]
                     else:
@@ -1877,7 +1877,7 @@ def main(list_packed_vars):
             return abs_zscore
 
 
-        def run_objective_group(modelparameters_init, precfactor_bnds=(0.33,3), tempchange_bnds=(-10,10),
+        def run_objective_group(modelparameters_init, kp_bnds=(0.33,3), tbias_bnds=(-10,10),
                                 ddfsnow_bnds=(0.0026,0.0056), precgrad_bnds=(0.0001,0.0001), run_opt=True):
             """
             Run the optimization for the group of glacier objective function.
@@ -1890,9 +1890,9 @@ def main(list_packed_vars):
             modelparams_init : list
                 List of model parameters to calibrate
                 [precipitation factor, precipitation gradient, degree day factor of snow, temperature change]
-            precfactor_bnds : tuple
+            kp_bnds : tuple
                 Lower and upper bounds for precipitation factor (default is (0.33, 3))
-            tempchange_bnds : tuple
+            tbias_bnds : tuple
                 Lower and upper bounds for temperature bias (default is (0.33, 3))
             ddfsnow_bnds : tuple
                 Lower and upper bounds for degree day factor of snow (default is (0.0026, 0.0056))
@@ -1913,7 +1913,7 @@ def main(list_packed_vars):
                 This information is used for transfer functions
             """
             # Bounds
-            modelparameters_bnds = (precfactor_bnds, precgrad_bnds, ddfsnow_bnds, tempchange_bnds)
+            modelparameters_bnds = (kp_bnds, precgrad_bnds, ddfsnow_bnds, tbias_bnds)
             # Run the optimization
             #  'L-BFGS-B' - much slower
             #  'SLSQP' did not work for some geodetic measurements using the sum_abs_zscore.  One work around was to
@@ -1929,7 +1929,7 @@ def main(list_packed_vars):
                 modelparameters_subset = modelparameters_init.copy()
             modelparameters_group = (
                     [pygem_prms.lrgcm, pygem_prms.lrglac, modelparameters_subset[0], modelparameters_subset[1],
-                     modelparameters_subset[2], modelparameters_subset[2] / pygem_prms.ddfsnow_iceratio, pygem_prms.tempsnow,
+                     modelparameters_subset[2], modelparameters_subset[2] / pygem_prms.ddfsnow_iceratio, pygem_prms.tsnow_threshold,
                      modelparameters_subset[3]])
             # Re-run the optimized parameters in order to see the mass balance
             # Record group's cumulative area and mass balance for comparison
@@ -2083,12 +2083,12 @@ def main(list_packed_vars):
                 df = pd.DataFrame(index=[0])
                 df['lrgcm'] = np.full(df.shape[0], pygem_prms.lrgcm)
                 df['lrglac'] = np.full(df.shape[0], pygem_prms.lrglac)
-                df['precfactor'] = modelparameters[2]
+                df['kp'] = modelparameters[2]
                 df['precgrad'] = np.full(df.shape[0], pygem_prms.precgrad)
                 df['ddfsnow'] = modelparameters[4]
                 df['ddfice'] = df['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-                df['tempsnow'] = np.full(df.shape[0], pygem_prms.tempsnow)
-                df['tempchange'] = modelparameters[7]
+                df['tsnow_threshold'] = np.full(df.shape[0], pygem_prms.tsnow_threshold)
+                df['tbias'] = modelparameters[7]
                 # Loop through observations to help create dataframe
                 for x in range(glacier_cal_compare.shape[0]):
                     obs_cn = 'obs_' + str(x)
@@ -2124,8 +2124,8 @@ def main(list_packed_vars):
             elif glac%100 == 0:
                 print(count, ':', main_glac_rgi.loc[main_glac_rgi.index.values[glac], 'RGIId'])
             # Set model parameters
-            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.ddfice,
-                               pygem_prms.tempsnow, pygem_prms.tempchange]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.kp, pygem_prms.precgrad, 
+                               pygem_prms.ddfsnow, pygem_prms.ddfice, pygem_prms.tsnow_threshold, pygem_prms.tbias]
             # Select subsets of data
             glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
             glacier_gcm_elev = gcm_elev[glac]
@@ -2149,74 +2149,74 @@ def main(list_packed_vars):
                     glacier_cal_data[['glacno', 'obs_type', 't1', 't2']])
             calround = 0
             # Initial bounds and switch to manipulate bounds
-            precfactor_bnds_list = pygem_prms.precfactor_bnds_list_init.copy()
-            tempchange_bnds_list = pygem_prms.tempchange_bnds_list_init.copy()
+            kp_bnds_list = pygem_prms.kp_bnds_list_init.copy()
+            tbias_bnds_list = pygem_prms.tbias_bnds_list_init.copy()
             ddfsnow_bnds_list = pygem_prms.ddfsnow_bnds_list_init.copy()
             precgrad_bnds_list = pygem_prms.precgrad_bnds_list_init.copy()
             manipulate_bnds = False
 
-            modelparameters_init = [pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tempchange]
+            modelparameters_init = [pygem_prms.kp, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tbias]
             modelparameters, glacier_cal_compare = (
                     run_objective(modelparameters_init, glacier_cal_data, run_opt=False))
             zscore_sum = glacier_cal_compare.zscore_weighted.sum()
-            precfactor_bnds_list = [pygem_prms.precfactor_bnds_list_init[0]]
-            tempchange_bnds_list = [pygem_prms.tempchange_bnds_list_init[0]]
+            kp_bnds_list = [pygem_prms.kp_bnds_list_init[0]]
+            tbias_bnds_list = [pygem_prms.tbias_bnds_list_init[0]]
             ddfsnow_bnds_list = [pygem_prms.ddfsnow_bnds_list_init[0]]
 
             if debug:
-                print('precfactor_bnds_list:', precfactor_bnds_list)
+                print('kp_bnds_list:', kp_bnds_list)
 
             precgrad_init_idx = 0
             if zscore_sum < 0:
                 # Index used for calculating initial guess each round
-                precfactor_init_idx = 1
-                tempchange_init_idx = 0
+                kp_init_idx = 1
+                tbias_init_idx = 0
                 ddfsnow_init_idx = 0
                 # First tuple will not be changed in case calibrated parameters are near the center,
                 # subsequent bounds will be modified
-                precfactor_bnds_list_modified = [(1,i[1]) for i in pygem_prms.precfactor_bnds_list_init[1:]]
-                tempchange_bnds_list_modified = [(i[0],0) for i in pygem_prms.tempchange_bnds_list_init[1:]]
+                kp_bnds_list_modified = [(1,i[1]) for i in pygem_prms.kp_bnds_list_init[1:]]
+                tbias_bnds_list_modified = [(i[0],0) for i in pygem_prms.tbias_bnds_list_init[1:]]
                 ddfsnow_bnds_list_modified = [(i[0],0.0041) for i in pygem_prms.ddfsnow_bnds_list_init[1:]]
-                precfactor_bnds_list.extend(precfactor_bnds_list_modified)
-                tempchange_bnds_list.extend(tempchange_bnds_list_modified)
+                kp_bnds_list.extend(kp_bnds_list_modified)
+                tbias_bnds_list.extend(tbias_bnds_list_modified)
                 ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
             else:
                 # Index used for calculating initial guess each round
-                precfactor_init_idx = 0
-                tempchange_init_idx = 1
+                kp_init_idx = 0
+                tbias_init_idx = 1
                 ddfsnow_init_idx = 1
                 # First tuple will not be changed in case calibrated parameters are near the center,
                 # subsequent bounds will be modified
-                precfactor_bnds_list_modified = [(i[0],1) for i in pygem_prms.precfactor_bnds_list_init[1:]]
-                tempchange_bnds_list_modified = [(0,i[1]) for i in pygem_prms.tempchange_bnds_list_init[1:]]
+                kp_bnds_list_modified = [(i[0],1) for i in pygem_prms.kp_bnds_list_init[1:]]
+                tbias_bnds_list_modified = [(0,i[1]) for i in pygem_prms.tbias_bnds_list_init[1:]]
                 ddfsnow_bnds_list_modified = [(0.0041,i[1]) for i in pygem_prms.ddfsnow_bnds_list_init[1:]]
-                precfactor_bnds_list.extend(precfactor_bnds_list_modified)
-                tempchange_bnds_list.extend(tempchange_bnds_list_modified)
+                kp_bnds_list.extend(kp_bnds_list_modified)
+                tbias_bnds_list.extend(tbias_bnds_list_modified)
                 ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
 
             if debug:
-                print('modified precfactor_bnds_list:', precfactor_bnds_list)
+                print('modified kp_bnds_list:', kp_bnds_list)
 
 
             zscore_weighted_total = None
-            init_calrounds = len(pygem_prms.precfactor_bnds_list_init)
+            init_calrounds = len(pygem_prms.kp_bnds_list_init)
             continue_loop = True
             while continue_loop:
                 # Bounds
                 if calround < init_calrounds:
-                    precfactor_bnds = precfactor_bnds_list[calround]
+                    kp_bnds = kp_bnds_list[calround]
                     precgrad_bnds = precgrad_bnds_list[calround]
                     ddfsnow_bnds = ddfsnow_bnds_list[calround]
-                    tempchange_bnds = tempchange_bnds_list[calround]
+                    tbias_bnds = tbias_bnds_list[calround]
                 # Initial guess
                 if calround == 0:
-                    modelparameters_init = [pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tempchange]
+                    modelparameters_init = [pygem_prms.kp, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tbias]
                 elif manipulate_bnds:
                     modelparameters_init = (
-                                [init_guess_frombounds(precfactor_bnds_list, calround, precfactor_init_idx),
+                                [init_guess_frombounds(kp_bnds_list, calround, kp_init_idx),
                                  init_guess_frombounds(precgrad_bnds_list, calround, precgrad_init_idx),
                                  init_guess_frombounds(ddfsnow_bnds_list, calround, ddfsnow_init_idx),
-                                 init_guess_frombounds(tempchange_bnds_list, calround, tempchange_init_idx)])
+                                 init_guess_frombounds(tbias_bnds_list, calround, tbias_init_idx)])
                 else:
                     modelparameters_init = (
                             [modelparameters[2], modelparameters[3], modelparameters[4], modelparameters[7]])
@@ -2231,7 +2231,7 @@ def main(list_packed_vars):
 
                 # Run optimization
                 modelparameters, glacier_cal_compare = (
-                        run_objective(modelparameters_init, glacier_cal_data, precfactor_bnds, tempchange_bnds,
+                        run_objective(modelparameters_init, glacier_cal_data, kp_bnds, tbias_bnds,
                                       ddfsnow_bnds, precgrad_bnds))
                 calround += 1
 
@@ -2333,78 +2333,78 @@ def main(list_packed_vars):
                 # Calibration round
                 calround = 0
                 # Initial bounds and switch to manipulate bounds
-                precfactor_bnds_list = pygem_prms.precfactor_bnds_list_init.copy()
-                tempchange_bnds_list = pygem_prms.tempchange_bnds_list_init.copy()
+                kp_bnds_list = pygem_prms.kp_bnds_list_init.copy()
+                tbias_bnds_list = pygem_prms.tbias_bnds_list_init.copy()
                 ddfsnow_bnds_list = pygem_prms.ddfsnow_bnds_list_init.copy()
                 precgrad_bnds_list = pygem_prms.precgrad_bnds_list_init.copy()
                 manipulate_bnds = False
 
-                modelparameters_init = [pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tempchange]
+                modelparameters_init = [pygem_prms.kp, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tbias]
                 modelparameters_group, glacier_cal_compare, glacwide_mbclim_mwe = (
                         run_objective_group(modelparameters_init, run_opt=False))
                 zscore_sum = glacier_cal_compare.zscore.sum()
 
-                precfactor_bnds_list = [pygem_prms.precfactor_bnds_list_init[0]]
-                tempchange_bnds_list = [pygem_prms.tempchange_bnds_list_init[0]]
+                kp_bnds_list = [pygem_prms.kp_bnds_list_init[0]]
+                tbias_bnds_list = [pygem_prms.tbias_bnds_list_init[0]]
                 ddfsnow_bnds_list = [pygem_prms.ddfsnow_bnds_list_init[0]]
 
                 if debug:
-                    print('precfactor_bnds_list:', precfactor_bnds_list)
+                    print('kp_bnds_list:', kp_bnds_list)
 
                 precgrad_init_idx = 0
                 if zscore_sum < 0:
                     # Index used for calculating initial guess each round
-                    precfactor_init_idx = 1
-                    tempchange_init_idx = 0
+                    kp_init_idx = 1
+                    tbias_init_idx = 0
                     ddfsnow_init_idx = 0
                     # First tuple will not be changed in case calibrated parameters are near the center,
                     # subsequent bounds will be modified
-                    precfactor_bnds_list_modified = [(1,i[1]) for i in pygem_prms.precfactor_bnds_list_init[1:]]
-                    tempchange_bnds_list_modified = [(i[0],0) for i in pygem_prms.tempchange_bnds_list_init[1:]]
+                    kp_bnds_list_modified = [(1,i[1]) for i in pygem_prms.kp_bnds_list_init[1:]]
+                    tbias_bnds_list_modified = [(i[0],0) for i in pygem_prms.tbias_bnds_list_init[1:]]
                     ddfsnow_bnds_list_modified = [(i[0],0.0041) for i in pygem_prms.ddfsnow_bnds_list_init[1:]]
-                    precfactor_bnds_list.extend(precfactor_bnds_list_modified)
-                    tempchange_bnds_list.extend(tempchange_bnds_list_modified)
+                    kp_bnds_list.extend(kp_bnds_list_modified)
+                    tbias_bnds_list.extend(tbias_bnds_list_modified)
                     ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
                 else:
                     # Index used for calculating initial guess each round
-                    precfactor_init_idx = 0
-                    tempchange_init_idx = 1
+                    kp_init_idx = 0
+                    tbias_init_idx = 1
                     ddfsnow_init_idx = 1
                     # First tuple will not be changed in case calibrated parameters are near the center,
                     # subsequent bounds will be modified
-                    precfactor_bnds_list_modified = [(i[0],1) for i in pygem_prms.precfactor_bnds_list_init[1:]]
-                    tempchange_bnds_list_modified = [(0,i[1]) for i in pygem_prms.tempchange_bnds_list_init[1:]]
+                    kp_bnds_list_modified = [(i[0],1) for i in pygem_prms.kp_bnds_list_init[1:]]
+                    tbias_bnds_list_modified = [(0,i[1]) for i in pygem_prms.tbias_bnds_list_init[1:]]
                     ddfsnow_bnds_list_modified = [(0.0041,i[1]) for i in pygem_prms.ddfsnow_bnds_list_init[1:]]
-                    precfactor_bnds_list.extend(precfactor_bnds_list_modified)
-                    tempchange_bnds_list.extend(tempchange_bnds_list_modified)
+                    kp_bnds_list.extend(kp_bnds_list_modified)
+                    tbias_bnds_list.extend(tbias_bnds_list_modified)
                     ddfsnow_bnds_list.extend(ddfsnow_bnds_list_modified)
 
                 if debug:
-                    print('modified precfactor_bnds_list:', precfactor_bnds_list)
+                    print('modified kp_bnds_list:', kp_bnds_list)
 
                 continue_loop = True
                 while continue_loop:
                     # Bounds
-                    precfactor_bnds = precfactor_bnds_list[calround]
+                    kp_bnds = kp_bnds_list[calround]
                     precgrad_bnds = precgrad_bnds_list[calround]
                     ddfsnow_bnds = ddfsnow_bnds_list[calround]
-                    tempchange_bnds = tempchange_bnds_list[calround]
+                    tbias_bnds = tbias_bnds_list[calround]
                     # Initial guess
                     if calround == 0:
-                        modelparameters_init = [pygem_prms.precfactor, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tempchange]
+                        modelparameters_init = [pygem_prms.kp, pygem_prms.precgrad, pygem_prms.ddfsnow, pygem_prms.tbias]
                     elif manipulate_bnds:
                         modelparameters_init = (
-                                    [init_guess_frombounds(precfactor_bnds_list, calround, precfactor_init_idx),
+                                    [init_guess_frombounds(kp_bnds_list, calround, kp_init_idx),
                                      init_guess_frombounds(precgrad_bnds_list, calround, precgrad_init_idx),
                                      init_guess_frombounds(ddfsnow_bnds_list, calround, ddfsnow_init_idx),
-                                     init_guess_frombounds(tempchange_bnds_list, calround, tempchange_init_idx)])
+                                     init_guess_frombounds(tbias_bnds_list, calround, tbias_init_idx)])
                     else:
                         modelparameters_init = (
                                 [modelparameters_group[2], modelparameters_group[3], modelparameters_group[4],
                                  modelparameters_group[7]])
                     # Run optimization
                     modelparameters_group, glacier_cal_compare, glacwide_mbclim_mwe = (
-                        run_objective_group(modelparameters_init, precfactor_bnds, tempchange_bnds, ddfsnow_bnds,
+                        run_objective_group(modelparameters_init, kp_bnds, tbias_bnds, ddfsnow_bnds,
                                             precgrad_bnds))
                     calround += 1
 
@@ -2422,7 +2422,7 @@ def main(list_packed_vars):
                         cal_round_best = calround
 
                     # Break loop if gone through all iterations
-                    if ((calround == len(pygem_prms.precfactor_bnds_list_init)) or
+                    if ((calround == len(pygem_prms.kp_bnds_list_init)) or
                         (abs(glacier_cal_compare.zscore) < pygem_prms.zscore_tolerance_single)):
                         continue_loop = False
 
@@ -2454,11 +2454,11 @@ def main(list_packed_vars):
                     write_netcdf_modelparams(netcdf_output_fp + glacier_str + '.nc', modelparameters_group)
 
                 print(group_name,'(zscore):', abs(glacier_cal_compare.zscore))
-                print('precfactor:', modelparameters_group[2])
+                print('kp:', modelparameters_group[2])
                 print('precgrad:', modelparameters_group[3])
                 print('ddfsnow:', modelparameters_group[4])
                 print('ddfice:', modelparameters_group[5])
-                print('tempchange:', modelparameters_group[7])
+                print('tbias:', modelparameters_group[7])
                 print('calround:', calround, '\n')
 
         # Export (i) main_glac_rgi w optimized model parameters and glacier-wide climatic mass balance,
@@ -2478,10 +2478,10 @@ def main(list_packed_vars):
             regions_str += str(region)
         output_modelparams_fn = (
                 regions_str + '_modelparams_opt' + str(pygem_prms.option_calibration) + '_' + gcm_name
-                + str(pygem_prms.startyear) + str(pygem_prms.endyear) + '--' + str(count) + '.csv')
+                + str(pygem_prms.ref_startyear) + str(pygem_prms.ref_endyear) + '--' + str(count) + '.csv')
         output_calcompare_fn = (
                 regions_str + '_calcompare_opt' + str(pygem_prms.option_calibration) + '_' + gcm_name
-                + str(pygem_prms.startyear) + str(pygem_prms.endyear) + '--' + str(count) + '.csv')
+                + str(pygem_prms.ref_startyear) + str(pygem_prms.ref_endyear) + '--' + str(count) + '.csv')
         main_glac_output.to_csv(pygem_prms.output_fp_cal + 'temp/' + output_modelparams_fn )
         main_glac_cal_compare.to_csv(pygem_prms.output_fp_cal + 'temp/' + output_calcompare_fn)
 
@@ -2502,7 +2502,7 @@ if __name__ == '__main__':
     gcm_name = args.ref_gcm_name
     print('Reference climate data is:', gcm_name)
 
-    if pygem_prms.option_calibration == 2:
+    if pygem_prms.option_calibration == 'MCMC':
         print('Chains:', pygem_prms.n_chains, 'Iterations:', pygem_prms.mcmc_sample_no)
         
     # RGI glacier number
@@ -2567,10 +2567,10 @@ if __name__ == '__main__':
             modelsetup.hypsometrystats(main_glac_hyps_all, main_glac_icethickness_all))
     # Select dates including future projections
     #  - nospinup dates_table needed to get the proper time indices
-    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=pygem_prms.startyear, endyear=pygem_prms.endyear,
+    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear,
                                                      spinupyears=0)
-    dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.startyear, endyear=pygem_prms.endyear,
-                                           spinupyears=pygem_prms.spinupyears)
+    dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear,
+                                           spinupyears=pygem_prms.ref_spinupyears)
 
     # ===== LOAD CALIBRATION DATA =====
     cal_data = pd.DataFrame()
@@ -2792,11 +2792,11 @@ if __name__ == '__main__':
 #            observed_massbal=main_vars['observed_massbal']
 #            observed_error=main_vars['observed_error']
 #            mb_max_loss = main_vars['mb_max_loss']
-#            tempchange_boundlow = main_vars['tempchange_boundlow']
-#            tempchange_boundhigh = main_vars['tempchange_boundhigh']
-#            tempchange_mu = main_vars['tempchange_mu']
-#            tempchange_sigma = main_vars['tempchange_sigma']
-#            tempchange_start = main_vars['tempchange_start']
+#            tbias_bndlow = main_vars['tbias_bndlow']
+#            tbias_bndhigh = main_vars['tbias_bndhigh']
+#            tbias_mu = main_vars['tbias_mu']
+#            tbias_sigma = main_vars['tbias_sigma']
+#            tbias_start = main_vars['tbias_start']
 #            t1_idx = main_vars['t1_idx']
 #            t2_idx = main_vars['t2_idx']
 #            t1 = main_vars['t1']
@@ -2804,8 +2804,8 @@ if __name__ == '__main__':
 #            iterations=pygem_prms.mcmc_sample_no
 #            burn=pygem_prms.mcmc_burn_no
 #            step=pygem_prms.mcmc_step
-#            precfactor_boundlow = main_vars['precfactor_boundlow']
-#            precfactor_boundhigh = main_vars['precfactor_boundhigh']
+#            kp_bndlow = main_vars['kp_bndlow']
+#            kp_bndhigh = main_vars['kp_bndhigh']
 #            glacier_gcm_prec = main_vars['glacier_gcm_prec']
 #            glacier_gcm_temp = main_vars['glacier_gcm_temp']
 #            glacier_gcm_elev = main_vars['glacier_gcm_elev']

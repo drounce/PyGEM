@@ -116,7 +116,7 @@ def glac_fromcsv(csv_fullfn, cn='RGIId'):
 main_directory = os.getcwd()
 # Output directory
 output_filepath = main_directory + '/../Output/'
-model_run_date = 'February 10, 2020'
+model_run_date = 'June 14, 2020'
 
 # ===== GLACIER SELECTION =====
 #rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
@@ -140,20 +140,16 @@ if glac_no is not None:
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-#ref_gcm_name = 'ERA-Interim'    # reference climate dataset
-ref_gcm_name = 'ERA5'           # reference climate dataset
-
-#startyear = 1980                # first year of model run (reference dataset)
-#endyear = 2018                  # last year of model run (reference dataset)
-#option_wateryear = 1            # 1: water year, 2: calendar year, 3: custom defined 
+#ref_gcm_name = 'ERA-Interim'        # reference climate dataset
+ref_gcm_name = 'ERA5'               # reference climate dataset
 ref_startyear = 2000                # first year of model run (reference dataset)
 ref_endyear = 2018                  # last year of model run (reference dataset)
-ref_wateryear = 1                # 1: water year, 2: calendar year, 3: custom defined 
+ref_wateryear = 2                   # 1: water year, 2: calendar year, 3: custom defined 
+ref_spinupyears = 0                 # spin up years
 
 constantarea_years = 0          # number of years to not let the area or volume change
 if constantarea_years > 0:
     print('\nConstant area years > 0\n')
-spinupyears = 0                 # spin up years
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
@@ -194,13 +190,13 @@ sim_stat_cns = ['mean', 'std']
 option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
-# Calibration option (1 = minimization, 2 = MCMC, 3=HH2015, 4=modified HH2015)
-option_calibration = 3
+# Calibration option ('minimization' (no longer exists), 'MCMC', 'HH2015', 'HH2015_modified')
+option_calibration = 'MCMC'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
 # Calibration output filepath
-output_fp_cal = output_filepath + 'cal_opt' + str(option_calibration) + '/'
+output_fp_cal = output_filepath + 'cal_' + option_calibration + '/'
 
 # OPTION 1: Minimization
 # Model parameter bounds for each calibration round
@@ -210,7 +206,7 @@ ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), 
 tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
 # Minimization details 
 method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
-params2opt = ['tempbias', 'precfactor']
+#params2opt = ['tempbias', 'precfactor']
 ftol_opt = 1e-5                 # tolerance for SciPy optimization scheme
 eps_opt = 0.01                 # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
 massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
@@ -221,61 +217,59 @@ extra_calrounds = 3             # additional calibration rounds in case optimiza
 
 # OPTION 2: MCMC
 # Chain options
-if option_calibration == 2:
+if option_calibration == 'MCMC':
     n_chains = 1                    # number of chains (min 1, max 3)
-    mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
+    mcmc_sample_no = 10           # number of steps (10000 was found to be sufficient in HMA)
     mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
     mcmc_step = None                # step option (None or 'am')
     thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
     # Precipitation factor distribution options
-    precfactor_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
-    precfactor_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
-    precfactor_gamma_region_df = pd.read_csv(precfactor_gamma_region_dict_fullfn)
-    precfactor_gamma_region_dict = dict(zip(
-            precfactor_gamma_region_df.Region.values, 
-            [[precfactor_gamma_region_df.loc[x,'alpha'], precfactor_gamma_region_df.loc[x,'beta']] 
-             for x in precfactor_gamma_region_df.index.values]))
-    precfactor_gamma_alpha = 3.0
-    precfactor_gamma_beta = 0.84
-    precfactor_lognorm_mu = 0
-    precfactor_lognorm_tau = 4
-    precfactor_mu = 0
-    precfactor_sigma = 1.5
-    precfactor_boundlow = 0.5
-    precfactor_boundhigh = 1.5
-    precfactor_start = 1
+    kp_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
+    kp_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
+    kp_gamma_region_df = pd.read_csv(kp_gamma_region_dict_fullfn)
+    kp_gamma_region_dict = dict(zip(kp_gamma_region_df.Region.values, 
+                                    [[kp_gamma_region_df.loc[x,'alpha'], kp_gamma_region_df.loc[x,'beta']] 
+                                    for x in kp_gamma_region_df.index.values]))
+    kp_gamma_alpha = 9
+    kp_gamma_beta = 4
+    kp_lognorm_mu = 0
+    kp_lognorm_tau = 4
+    kp_mu = 0
+    kp_sigma = 1.5
+    kp_bndlow = 0.5
+    kp_bndhigh = 1.5
+    kp_start = 1
     # Temperature bias distribution options
-    tempchange_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
-    tempchange_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
-    tempchange_norm_region_df = pd.read_csv(tempchange_norm_region_dict_fullfn)
-    tempchange_norm_region_dict = dict(zip(
-            tempchange_norm_region_df.Region.values, 
-            [[tempchange_norm_region_df.loc[x,'mu'], tempchange_norm_region_df.loc[x,'sigma']] 
-             for x in tempchange_norm_region_df.index.values]))
-    tempchange_mu = 0.91
-    tempchange_sigma = 1.4
-    tempchange_boundlow = -10
-    tempchange_boundhigh = 10
-    tempchange_start = tempchange_mu
+    tbias_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
+    tbias_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
+    tbias_norm_region_df = pd.read_csv(tbias_norm_region_dict_fullfn)
+    tbias_norm_region_dict = dict(zip(tbias_norm_region_df.Region.values, 
+                                      [[tbias_norm_region_df.loc[x,'mu'], tbias_norm_region_df.loc[x,'sigma']] 
+                                      for x in tbias_norm_region_df.index.values]))
+    tbias_mu = 0
+    tbias_sigma = 1
+    tbias_bndlow = -10
+    tbias_bndhigh = 10
+    tbias_start = tbias_mu
     # Degree-day factor of snow distribution options
     ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
     ddfsnow_mu = 0.0041
     ddfsnow_sigma = 0.0015
-    ddfsnow_boundlow = 0
-    ddfsnow_boundhigh = np.inf
+    ddfsnow_bndlow = 0
+    ddfsnow_bndhigh = np.inf
     ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS
-option_import_modelparams = 0       # 0: input values, 1: calibrated model parameters from netcdf files
-precfactor = 1                      # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
+option_import_modelparams = 1       # 0: input values, 1: calibrated model parameters from netcdf files
+kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
 ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
-tempchange = 0                      # temperature bias [deg C]
+tbias = 0                           # temperature bias [deg C]
 lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
 lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
-tempsnow = 1.0                      # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
+tsnow_threshold = 1.0               # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
 frontalablation_k = 2               # frontal ablation rate [yr-1]
 af = 0.7                            # Bulk flow parameter for frontal ablation (m^-0.5)
 # Calving width dictionary to override RGI elevation bins, which can be highly inaccurate at the calving front
@@ -292,8 +286,8 @@ frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalabl
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
 # Model parameter filepath
-#modelparams_fp = output_filepath + 'cal_opt' + str(option_calibration) + '/'
-modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
+modelparams_fp = output_filepath + 'cal_' + option_calibration + '/'
+#modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
     
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -375,11 +369,12 @@ rgi_glacno_float_colname = 'RGIId_float'
 rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Name']
 
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
+h_consensus_fp = main_directory + '/../IceThickness_Farinotti/composite_thickness_RGI60-all_regions/'
 # Filepath for the hypsometry files
 binsize = 10            # Elevation bin height [m]
 hyps_data = 'oggm'       # Hypsometry dataset (OGGM; Maussion etal 2019)
 #hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
-#hyps_data = 'Farinotti' # Hypsometry dataset (Farinotti etal 2019)
+#hyps_data = 'Farinotti' # Hyspsometry dataset (Farinotti etal 2019)
 
 if hyps_data == 'oggm':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
@@ -499,6 +494,8 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 
 #%% CALIBRATION DATASETS
+mb_binned_fp = main_directory + '/../DEMs/mb_bins_all-20200430/'
+
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2019_0213/'
 shean_fn = 'hma_mb_20190215_0815_std+mean_all_filled_bolch.csv'
@@ -669,6 +666,7 @@ option_preclimit = 1                # 1: limit the uppermost 25% using an expont
 option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
 
 # Ablation model options
+print('SWITCH TO USE SUPERIMPOSED DAILY MELTS')
 option_ablation = 1                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
 option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers

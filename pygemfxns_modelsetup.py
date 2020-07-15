@@ -11,8 +11,8 @@ import pygem.pygem_input as pygem_prms
 
 
 
-def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, spinupyears=pygem_prms.spinupyears,
-                  option_wateryear=pygem_prms.ref_wateryear):
+def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, 
+                  spinupyears=pygem_prms.ref_spinupyears, option_wateryear=pygem_prms.ref_wateryear):
     """
     Create table of year, month, day, water year, season and number of days in the month.
 

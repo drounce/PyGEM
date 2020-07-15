@@ -25,7 +25,7 @@ class MassRedistributionCurveModel(FlowlineModel):
     def __init__(self, flowlines, mb_model=None, y0=0., 
                  inplace=False,
                  debug=True,
-                 option_areaconstant=False, spinupyears=pygem_prms.spinupyears, 
+                 option_areaconstant=False, spinupyears=pygem_prms.ref_spinupyears, 
                  constantarea_years=pygem_prms.constantarea_years,
                  **kwargs):
         """ Instanciate the model.

@@ -30,7 +30,7 @@ from oggm.shop import rgitopo
 from pygem.massbalance import PyGEMMassBalance
 from pygem.glacierdynamics import MassRedistributionCurveModel
 from pygem.oggm_compat import single_flowline_glacier_directory
-from pygem.shop import debris
+from pygem.shop import debris, mbdata, icethickness
 
 #%%
 # ===== OGGM CONFIG FILE =====
@@ -51,7 +51,7 @@ if pygem_prms.glac_no is not None:
     glac_no = pygem_prms.glac_no
 else:
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(
-            rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2,
+            rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2=pygem_prms.rgi_regionsO2,
             rgi_glac_number=pygem_prms.rgi_glac_number)
     glac_no = list(main_glac_rgi_all['rgino_str'].values)
     
@@ -63,7 +63,7 @@ rgi_ids = ['RGI60-' + x.split('.')[0].zfill(2) + '.' + x.split('.')[1] for x in 
 gdirs = rgitopo.init_glacier_directories_from_rgitopo(rgi_ids)
 
 
-# ===== FLOWLINES ===== 
+# ===== FLOWLINES (w debris) ===== 
 gdirs = workflow.init_glacier_directories(rgi_ids)
 
 # Compute all the stuff
@@ -92,11 +92,19 @@ for task in list_tasks:
 #workflow.execute_entity_task(debris.debris_to_gdir, gdirs, debris_dir=pygem_prms.debris_fp, add_to_gridded=True)
 #workflow.execute_entity_task(debris.debris_binned, gdirs)
 
-# Perform inversion based on PyGEM MB
-## Add thickness, width_m, and dx_meter to inversion flowlines so they are compatible with PyGEM's
-##  mass balance model (necessary because OGGM's inversion flowlines use pixel distances; however, 
-##  this will likely be rectified in the future)
-fls_inv = gdirs[0].read_pickle('inversion_flowlines')
+# ===== Consensus ice thickness =====
+workflow.execute_entity_task(icethickness.consensus_mass_estimate, gdirs)
+
+# ===== Mass balance data =====
+#mbdata.mb_bins_to_reg_glacierwide(mb_binned_fp=pygem_prms.mb_binned_fp, O1Regions=['01'])
+workflow.execute_entity_task(mbdata.mb_bins_to_glacierwide, gdirs)
+
+
+## Perform inversion based on PyGEM MB
+### Add thickness, width_m, and dx_meter to inversion flowlines so they are compatible with PyGEM's
+###  mass balance model (necessary because OGGM's inversion flowlines use pixel distances; however, 
+###  this will likely be rectified in the future)
+#fls_inv = gdirs[0].read_pickle('inversion_flowlines')
 
 #%%
 

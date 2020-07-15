@@ -686,7 +686,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
 
                 # MASS REDISTRIBUTION
                 # Mass redistribution ignored for calibration and spinup years (glacier properties constant)
-                if (option_areaconstant == 1) or (year < pygem_prms.spinupyears) or (year < constantarea_years):
+                if (option_areaconstant == 1) or (year < pygem_prms.ref_spinupyears) or (year < constantarea_years):
                     glacier_area_t1 = glacier_area_t0
                     icethickness_t1 = icethickness_t0
                     width_t1 = width_t0                    
@@ -749,8 +749,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
 #                        print('-----\n')
 #                        print('delete me')
 #                        print(elev_bins)
-                        if year == 0:
-                            print('\n\nHERE IS WHERE I LEFT OFF CHECKING!\n\n')
+#                        if year == 0:
+#                            print('\n\nHERE IS WHERE I LEFT OFF CHECKING!\n\n')
                         
                         # update surface type for bins that have advanced 
                         surfacetype[(surfacetype == 0) & (glacier_area_t1 != 0)] = (
@@ -781,7 +781,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     
     # Remove the spinup years of the variables that are being exported
     if pygem_prms.timestep == 'monthly':
-        colstart = pygem_prms.spinupyears * annual_divisor
+        colstart = pygem_prms.ref_spinupyears * annual_divisor
         colend = glacier_gcm_temp.shape[0] + 1
     bin_temp = bin_temp[:,colstart:colend]
     bin_prec = bin_prec[:,colstart:colend]
@@ -794,11 +794,11 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     glac_bin_melt = glac_bin_melt[:,colstart:colend]
     glac_bin_frontalablation = glac_bin_frontalablation[:,colstart:colend]
     glac_bin_massbalclim = glac_bin_massbalclim[:,colstart:colend]
-    glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,pygem_prms.spinupyears:nyears+1]
-    glac_bin_area_annual = glac_bin_area_annual[:,pygem_prms.spinupyears:nyears+1]
-    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,pygem_prms.spinupyears:nyears+1]
-    glac_bin_width_annual = glac_bin_width_annual[:,pygem_prms.spinupyears:nyears+1]
-    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,pygem_prms.spinupyears:nyears+1]
+    glac_bin_massbalclim_annual = glac_bin_massbalclim_annual[:,pygem_prms.ref_spinupyears:nyears+1]
+    glac_bin_area_annual = glac_bin_area_annual[:,pygem_prms.ref_spinupyears:nyears+1]
+    glac_bin_icethickness_annual = glac_bin_icethickness_annual[:,pygem_prms.ref_spinupyears:nyears+1]
+    glac_bin_width_annual = glac_bin_width_annual[:,pygem_prms.ref_spinupyears:nyears+1]
+    glac_bin_surfacetype_annual = glac_bin_surfacetype_annual[:,pygem_prms.ref_spinupyears:nyears+1]
     
     # Additional output:
     glac_bin_area = glac_bin_area_annual[:,0:glac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
@@ -823,7 +823,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
 
     # OFF-GLACIER Output
     if option_areaconstant == 0:
-        offglac_bin_area_annual = offglac_bin_area_annual[:,pygem_prms.spinupyears:nyears+1]   
+        offglac_bin_area_annual = offglac_bin_area_annual[:,pygem_prms.ref_spinupyears:nyears+1]   
         offglac_bin_area = offglac_bin_area_annual[:,0:offglac_bin_area_annual.shape[1]-1].repeat(12,axis=1)
         offglac_wide_area = offglac_bin_area.sum(axis=0)
         offglac_wide_prec = calc_glacwide(offglac_bin_prec, offglac_bin_area, offglac_wide_area)

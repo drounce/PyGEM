@@ -491,8 +491,7 @@ def main(list_packed_vars):
     # Unpack variables
     count = list_packed_vars[0]
     glac_no = list_packed_vars[1]
-    regions_str = list_packed_vars[2]
-    gcm_name = list_packed_vars[3]
+    gcm_name = list_packed_vars[2]
 
     parser = getparser()
     args = parser.parse_args()
@@ -736,33 +735,27 @@ def main(list_packed_vars):
 #                glacier_gcm_lrglac = glacier_gcm_lrglac[::-1]
 
             if pygem_prms.option_import_modelparams == 1:
-                modelparams_fullfn = pygem_prms.modelparams_fp + glacier_str + '.nc'
-                assert os.path.exists(modelparams_fullfn), ('Error: calibrated model parameters does file not exist "' + 
-                                                            modelparams_fullfn + '"')
-                ds_mp = xr.open_dataset(modelparams_fullfn)
-                cn_subset = pygem_prms.modelparams_colnames
-                modelprms_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values, 
-                                              columns=ds_mp.mp.values)[cn_subset])
-                assert True==False, 'CHANGE MODEL PARAMETERS TO DICTIONARY FORMAT'
-                modelprms = None
+                if pygem_prms.option_calibration == 3:
+                    with open(gdir.get_filepath('pygem_modelprms'), 'rb') as f:
+                        modelprms_dict = pickle.load(f)
+                    modelprms = modelprms_dict['HH2015']
+                elif pygem_prms.option_calibration == 4:
+                    with open(gdir.get_filepath('pygem_modelprms'), 'rb') as f:
+                        modelprms_dict = pickle.load(f)
+                    modelprms = modelprms_dict['opt4']
+                else:
+                    assert True==False, 'Error: need to add importing option for this calibration option'
             else:
-                modelprms = {'kp': pygem_prms.precfactor, 
-                             'tbias': pygem_prms.tempchange,
+                modelprms = {'kp': pygem_prms.kp, 
+                             'tbias': pygem_prms.tbias,
                              'ddfsnow': pygem_prms.ddfsnow,
                              'ddfice': pygem_prms.ddfice,
-                             'tsnow_threshold': pygem_prms.tempsnow,
+                             'tsnow_threshold': pygem_prms.tsnow_threshold,
                              'precgrad': pygem_prms.precgrad}
-                
-#                modelprms_all = (
-#                        pd.DataFrame(np.asarray([
-#                                pygem_prms.lrgcm, pygem_prmss.lrglac, pygem_prms.precfactor, pygem_prms.precgrad,
-#                                pygem_prms.ddfsnow, pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange])
-#                                .reshape(1,-1), columns=pygem_prms.modelparams_colnames))
-                print('\nManually specifying model parameters\n')
 
             # Set the number of iterations and determine every kth iteration to use for the ensemble
             if pygem_prms.option_calibration == 2 and modelprms_all.shape[0] > 1:
-                sim_iters = pygem_prms.sim_iters
+                sim_iters = pygem_prms.sim_iterss
                 # Select every kth iteration
                 mp_spacing = int((modelprms_all.shape[0] - pygem_prms.sim_burn) / sim_iters)
                 mp_idx_start = np.arange(pygem_prms.sim_burn, pygem_prms.sim_burn + mp_spacing)
@@ -935,8 +928,7 @@ def main(list_packed_vars):
 #                # diag.area_m2.plot()
 #                plt.show()
                     
-                # ===== END INVERSION AND MODEL RUN WITH OGGM DYNAMICS =====
-                #%% 
+                # ===== END INVERSION AND MODEL RUN WITH OGGM DYNAMICS =====                #%% 
 
 #                print('\nrunning mass redistribution model...')
 #                model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
@@ -947,11 +939,10 @@ def main(list_packed_vars):
                     print('\nTO-DO LIST:')
                     print(' - pass model parameters from calibration as dictionary')
                     print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
-                    print(' - setup flowlines for Huss and Farinotti datasets to work seemlessly')
-                    print('     (may want to restrict or warn user if not using redistribution curves)')
                     print(' - update supercomputer environment to ensure code still runs on spc')
                     print('    --> get set up with Pittsburgh Supercomputing Center')
                     print(' - make two refreeze (potential?) options stand-alone functions like frontal ablation')
+                    print(' - climate data likely mismatch with OGGM, e.g., prec in m for the month')
                     
                 # # RECORD PARAMETERS TO DATASET
                 # if pygem_prms.output_package == 2:
@@ -1057,6 +1048,9 @@ if __name__ == '__main__':
         debug = True
     else:
         debug = False
+        
+    if not 'pygem_modelprms' in cfg.BASENAMES:
+        cfg.BASENAMES['pygem_modelprms'] = ('pygem_modelprms.pkl', 'PyGEM model parameters')
 
     # RGI glacier number
     if args.rgi_glac_number_fn is not None:
@@ -1069,11 +1063,6 @@ if __name__ == '__main__':
                 rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2,
                 rgi_glac_number=pygem_prms.rgi_glac_number)
         glac_no = list(main_glac_rgi_all['rgino_str'].values)
-
-    # Regions
-    regions_str = 'R'
-    for region in sorted(set([x.split('.')[0] for x in glac_no])):
-        regions_str += str(region)
 
     # Number of cores for parallel processing
     if args.option_parallels != 0:
@@ -1107,7 +1096,7 @@ if __name__ == '__main__':
         # Pack variables for multiprocessing
         list_packed_vars = []
         for count, glac_no_lst in enumerate(glac_no_lsts):
-            list_packed_vars.append([count, glac_no_lst, regions_str, gcm_name])
+            list_packed_vars.append([count, glac_no_lst, gcm_name])
 
         # Parallel processing
         if args.option_parallels != 0:
