@@ -134,7 +134,8 @@ rgi_glac_number = 'all'
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
 #glac_no = ['15.03473']
 #glac_no = ['15.03733']
-glac_no = ['1.15645']
+glac_no = ['1.10689']
+#glac_no = ['1.15645']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
@@ -191,7 +192,9 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('minimization' (no longer exists), 'MCMC', 'HH2015', 'HH2015_modified')
-option_calibration = 'MCMC'
+#option_calibration = 'MCMC'
+#option_calibration = 'HH2015'
+option_calibration = 'HH2015_modified'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -208,7 +211,7 @@ tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
 method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
 #params2opt = ['tempbias', 'precfactor']
 ftol_opt = 1e-5                 # tolerance for SciPy optimization scheme
-eps_opt = 0.01                 # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
+eps_opt = 0.01                  # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
 massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
 zscore_tolerance_all = 1        # tolerance if multiple calibration points (shortcut that could be improved)
 zscore_tolerance_single = 0.1   # tolerance if only a single calibration point (want this to be more exact)
@@ -219,7 +222,7 @@ extra_calrounds = 3             # additional calibration rounds in case optimiza
 # Chain options
 if option_calibration == 'MCMC':
     n_chains = 1                    # number of chains (min 1, max 3)
-    mcmc_sample_no = 10           # number of steps (10000 was found to be sufficient in HMA)
+    mcmc_sample_no = 10000           # number of steps (10000 was found to be sufficient in HMA)
     mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
     mcmc_step = None                # step option (None or 'am')
     thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
@@ -260,7 +263,8 @@ if option_calibration == 'MCMC':
     ddfsnow_start=ddfsnow_mu
 
 #%% MODEL PARAMETERS
-option_import_modelparams = 1       # 0: input values, 1: calibrated model parameters from netcdf files
+option_import_modelparams = 0       # 0: input values, 1: calibrated model parameters from netcdf files
+#print('\nDELETE ME! Switch back option_import_modelparams\n')
 kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
@@ -666,8 +670,7 @@ option_preclimit = 1                # 1: limit the uppermost 25% using an expont
 option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
 
 # Ablation model options
-print('SWITCH TO USE SUPERIMPOSED DAILY MELTS')
-option_ablation = 1                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
+option_ablation = 2                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
 option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
@@ -741,5 +744,8 @@ debug_mb = False
 
 # Pass variable to shell script
 if __name__ == '__main__':
-    print(rgi_regionsO1[0])
-    print(rgi_glac_number[0:10])
+    reg_str = ''
+    for region in rgi_regionsO1:
+        reg_str += str(region)
+    print(reg_str)
+#    print(rgi_glac_number[0:10])

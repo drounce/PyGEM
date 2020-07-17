@@ -26,14 +26,44 @@ import pygem.pygem_input as pygem_prms
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import pygemfxns_modelsetup as modelsetup
 import spc_split_glaciers as split_glaciers
+
 from oggm import cfg
-from oggm import graphics
-from oggm import tasks, utils
-from oggm.core import climate
+#from oggm import graphics
+from oggm import tasks
+#from oggm import utils
+#from oggm.core import climate
 from oggm.core.flowline import FluxBasedModel
 from pygem.massbalance import PyGEMMassBalance
-from pygem.glacierdynamics import MassRedistributionCurveModel
-from pygem.oggm_compat import single_flowline_glacier_directory
+#from pygem.glacierdynamics import MassRedistributionCurveModel
+from pygem.oggm_compat import single_flowline_glacier_directory, single_flowline_glacier_directory_with_calving
+
+#%%
+#from pkg_resources import get_distribution, DistributionNotFound
+#try:
+#__version__ = get_distribution(__name__).version
+#except DistributionNotFound:
+#     package is not installed
+#    pass
+#finally:
+#    del get_distribution, DistributionNotFound
+#
+#
+#try:
+#    from oggm.mpi import _init_oggm_mpi
+#    _init_oggm_mpi()
+#except ImportError:
+#    pass
+#
+## API
+## TO-DO: why are some funcs here? maybe reconsider what API actually is
+#from oggm.utils import entity_task, global_task, GlacierDirectory
+#from oggm.core.centerlines import Centerline
+#from oggm.core.flowline import Flowline
+#%%
+
+
+
+
 
 
 #%% FUNCTIONS
@@ -689,10 +719,13 @@ def main(list_packed_vars):
         glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
         
         # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====
-        gdir = single_flowline_glacier_directory(glacier_str)
-        # reset glacier directory to overwrite 
-#        gd = single_flowline_glacier_directory(glacier_str, reset=True)
-#        fls = gdir.read_pickle('model_flowlines')
+        if glacier_rgi_table['TermType'] == 1:
+            gdir = single_flowline_glacier_directory_with_calving(glacier_str)
+        else:
+            gdir = single_flowline_glacier_directory(glacier_str)
+            # reset glacier directory to overwrite 
+    #        gd = single_flowline_glacier_directory(glacier_str, reset=True)
+    #        fls = gdir.read_pickle('model_flowlines')
         fls = gdir.read_pickle('inversion_flowlines')
         
         # Add climate data to glacier directory
@@ -734,54 +767,64 @@ def main(list_packed_vars):
 #                glacier_gcm_lrgcm = glacier_gcm_lrgcm[::-1]
 #                glacier_gcm_lrglac = glacier_gcm_lrglac[::-1]
 
+            # Load model parameters
             if pygem_prms.option_import_modelparams == 1:
-                if pygem_prms.option_calibration == 3:
-                    with open(gdir.get_filepath('pygem_modelprms'), 'rb') as f:
-                        modelprms_dict = pickle.load(f)
-                    modelprms = modelprms_dict['HH2015']
-                elif pygem_prms.option_calibration == 4:
-                    with open(gdir.get_filepath('pygem_modelprms'), 'rb') as f:
-                        modelprms_dict = pickle.load(f)
-                    modelprms = modelprms_dict['opt4']
+                with open(gdir.get_filepath('pygem_modelprms'), 'rb') as f:
+                    modelprms_dict = pickle.load(f)
+                
+                assert pygem_prms.option_calibration in modelprms_dict, ('Error: ' + pygem_prms.option_calibration + 
+                                                                         ' not in modelprms_dict')
+                modelprms_all = modelprms_dict[pygem_prms.option_calibration]
+                # MCMC needs model parameters to be selected
+                if pygem_prms.option_calibration == 'MCMC':
+                    sim_iters = pygem_prms.sim_iters
+                    if sim_iters == 1:
+                        modelprms_all = {'kp': [np.median(modelprms_all['kp']['chain_0'])], 
+                                         'tbias': [np.median(modelprms_all['tbias']['chain_0'])],
+                                         'ddfsnow': [np.median(modelprms_all['ddfsnow']['chain_0'])],
+                                         'ddfice': [np.median(modelprms_all['ddfice']['chain_0'])],
+                                         'tsnow_threshold': modelprms_all['tsnow_threshold'],
+                                         'precgrad': modelprms_all['precgrad']}
+                    else:
+                        # Select every kth iteration to use for the ensemble
+                        mcmc_sample_no = len(modelprms_all['kp']['chain_0'])
+                        mp_spacing = int((mcmc_sample_no - pygem_prms.sim_burn) / sim_iters)
+                        mp_idx_start = np.arange(pygem_prms.sim_burn, pygem_prms.sim_burn + mp_spacing)
+                        np.random.shuffle(mp_idx_start)
+                        mp_idx_start = mp_idx_start[0]
+                        mp_idx_all = np.arange(mp_idx_start, mcmc_sample_no, mp_spacing)
+                        modelprms_all = {
+                                'kp': [modelprms_all['kp']['chain_0'][mp_idx] for mp_idx in mp_idx_all], 
+                                'tbias': [modelprms_all['tbias']['chain_0'][mp_idx] for mp_idx in mp_idx_all],
+                                'ddfsnow': [modelprms_all['ddfsnow']['chain_0'][mp_idx] for mp_idx in mp_idx_all],
+                                'ddfice': [modelprms_all['ddfice']['chain_0'][mp_idx] for mp_idx in mp_idx_all],
+                                'tsnow_threshold': modelprms_all['tsnow_threshold'] * sim_iters,
+                                'precgrad': modelprms_all['precgrad'] * sim_iters}
                 else:
-                    assert True==False, 'Error: need to add importing option for this calibration option'
+                    sim_iters = 1
             else:
-                modelprms = {'kp': pygem_prms.kp, 
-                             'tbias': pygem_prms.tbias,
-                             'ddfsnow': pygem_prms.ddfsnow,
-                             'ddfice': pygem_prms.ddfice,
-                             'tsnow_threshold': pygem_prms.tsnow_threshold,
-                             'precgrad': pygem_prms.precgrad}
-
-            # Set the number of iterations and determine every kth iteration to use for the ensemble
-            if pygem_prms.option_calibration == 2 and modelprms_all.shape[0] > 1:
-                sim_iters = pygem_prms.sim_iterss
-                # Select every kth iteration
-                mp_spacing = int((modelprms_all.shape[0] - pygem_prms.sim_burn) / sim_iters)
-                mp_idx_start = np.arange(pygem_prms.sim_burn, pygem_prms.sim_burn + mp_spacing)
-                np.random.shuffle(mp_idx_start)
-                mp_idx_start = mp_idx_start[0]
-                mp_idx_all = np.arange(mp_idx_start, modelprms_all.shape[0], mp_spacing)
-            else:
-                sim_iters = 1
+                modelprms_all = {'kp': [pygem_prms.kp], 
+                                 'tbias': [pygem_prms.tbias],
+                                 'ddfsnow': [pygem_prms.ddfsnow],
+                                 'ddfice': [pygem_prms.ddfice],
+                                 'tsnow_threshold': [pygem_prms.tsnow_threshold],
+                                 'precgrad': [pygem_prms.precgrad]}
 
             # Loop through model parameters
             for n_iter in range(sim_iters):
                 
-                if modelprms is None:
-                    assert True==False, 'CHANGE MODEL PARAMETERS TO DICTIONARY FORMAT'
-                    if sim_iters == 1:
-                        modelprms = modelprms_all.mean()
-                    else:
-                        mp_idx = mp_idx_all[n_iter]
-                        modelprms = modelprms_all.iloc[mp_idx,:]
+                modelprms = {'kp': modelprms_all['kp'][n_iter], 
+                             'tbias': modelprms_all['tbias'][n_iter],
+                             'ddfsnow': modelprms_all['ddfsnow'][n_iter],
+                             'ddfice': modelprms_all['ddfice'][n_iter],
+                             'tsnow_threshold': modelprms_all['tsnow_threshold'][n_iter],
+                             'precgrad': modelprms_all['precgrad'][n_iter]}
 
                 if debug:
-                    print(glacier_str + '  PF: ' + str(np.round(modelprms['kp'],2)) + 
+                    print(glacier_str + '  kp: ' + str(np.round(modelprms['kp'],2)) + 
                           ' ddfsnow: ' + str(np.round(modelprms['ddfsnow'],4)) + 
                           ' tbias: ' + str(np.round(modelprms['tbias'],2)))
                     
-#                if pygem_prms.hyps_data in ['oggm']:
                 # OGGM WANTS THIS FUNCTION TO SIMPLY RETURN THE MASS BALANCE AS A FUNCTION OF HEIGHT AND THAT'S IT
                 mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table, 
                                          hindcast=pygem_prms.hindcast,
@@ -801,14 +844,26 @@ def main(list_packed_vars):
                         print('year:', year, np.round(glac_wide_mb_mwea,3))
 
                         mb_all.append(glac_wide_mb_mwea)
+                        
                 print('iter:', n_iter, 'massbal (mean, std):', np.round(np.mean(mb_all),3), np.round(np.std(mb_all),3))
-#                if debug:
-#                    # Convert m ice s-1 to m w.e. a-1
-#                    mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice /
-#                               pygem_prms.density_water)
-#                    print(np.round(mb_mwea,3))
                     
-                    
+                
+                #%% ===== Adding functionality for calving =====
+                if glacier_rgi_table['TermType'] == 1:
+                    # Calving params - default is 2.4, which is quite high
+                    cfg.PARAMS['inversion_calving_k'] = 1
+                    cfg.PARAMS['calving_k'] = 1
+    
+                    # Find out the calving values
+                    out_calving = tasks.find_inversion_calving(gdir)
+                    # Get ready
+                    tasks.init_present_time_glacier(gdir)
+                    # print output
+                    print('\ncalving output:', out_calving)
+                
+#                old_model = FluxBasedModel(fls, y0=0, mb_model=mbmod)
+                
+                #%%
 #                #%% ===== MODEL RUN WITH CONSTANT GLACIER AREA =====
 #                # Make a working copy of the glacier directory
 #                tmp_dir = os.path.join(cfg.PATHS['working_dir'], 'tmp_dir')
@@ -937,8 +992,9 @@ def main(list_packed_vars):
                     
                 if args.option_parallels == 0:
                     print('\nTO-DO LIST:')
-                    print(' - pass model parameters from calibration as dictionary')
                     print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
+                    print(' - switch daily_std ablation to a gaussian to ensure repeatability without seeding')
+                    print(' - export netcdf files')
                     print(' - update supercomputer environment to ensure code still runs on spc')
                     print('    --> get set up with Pittsburgh Supercomputing Center')
                     print(' - make two refreeze (potential?) options stand-alone functions like frontal ablation')
@@ -1037,6 +1093,7 @@ def main(list_packed_vars):
     if args.option_parallels == 0:
         global main_vars
         main_vars = inspect.currentframe().f_locals
+
 
 #%% PARALLEL PROCESSING
 if __name__ == '__main__':
@@ -1151,6 +1208,7 @@ if __name__ == '__main__':
             width_initial = fls[0].widths_m / 1000
             glacier_area_initial = width_initial * fls[0].dx / 1000       
             mbmod = main_vars['mbmod']
+            modelprms_dict = main_vars['modelprms_dict']
 #            model = main_vars['model']
 #        glacier_gcm_temp = main_vars['glacier_gcm_temp']
 #        glacier_gcm_tempstd = main_vars['glacier_gcm_tempstd']

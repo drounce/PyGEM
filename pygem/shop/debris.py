@@ -55,7 +55,7 @@ def debris_to_gdir(gdir, debris_dir=pygem_prms.debris_fp, add_to_gridded=True, h
         
     if hd_fn is not None:
         rasterio_to_gdir(gdir, hd_fn, 'debris_hd', resampling='bilinear')
-    if add_to_gridded:
+    if add_to_gridded and hd_fn is not None:
         output_fn = gdir.get_filepath('debris_hd')
         
         # append the debris data to the gridded dataset
@@ -88,7 +88,7 @@ def debris_to_gdir(gdir, debris_dir=pygem_prms.debris_fp, add_to_gridded=True, h
         
     if ed_fn is not None:
         rasterio_to_gdir(gdir, ed_fn, 'debris_ed', resampling='bilinear')
-    if add_to_gridded:
+    if add_to_gridded and ed_fn is not None:
         output_fn = gdir.get_filepath('debris_ed')
         # append the debris data to the gridded dataset
         with rasterio.open(output_fn) as src:
@@ -123,18 +123,16 @@ def debris_binned(gdir, ignore_debris=False):
         where to write the data
     """
     flowlines = gdir.read_pickle('inversion_flowlines')
+    fl = flowlines[0]
+    
+    assert len(flowlines) == 1, 'Error: binning debris data set up only for single flowlines at present'
     
     # Add binned debris thickness and enhancement factors to flowlines
-    if ignore_debris or not os.path.exists(gdir.get_filepath('debris_hd')):
-        for fl in flowlines:
-            nbins = len(fl.dis_on_line)
-            fl.debris_hd = np.zeros(nbins)
-            fl.debris_ed = np.ones(nbins)
+    if ignore_debris or not os.path.exists(gdir.get_filepath('debris_hd')):        
+        nbins = len(fl.dis_on_line)
+        fl.debris_hd = np.zeros(nbins)
+        fl.debris_ed = np.ones(nbins)
     else:
-
-        assert len(flowlines) == 1, 'Error: binning debris data set up only for single flowlines at present'
-        fl = flowlines[0]
-        
         ds = xr.open_dataset(gdir.get_filepath('gridded_data'))
         glacier_mask = ds['glacier_mask'].values
         topo = ds['topo_smoothed'].values

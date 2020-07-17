@@ -11,6 +11,7 @@ from oggm import tasks
 from oggm.cfg import SEC_IN_YEAR
 from oggm.core.massbalance import MassBalanceModel
 from oggm.shop import rgitopo
+from pygem.shop import debris, mbdata, icethickness
 
 # Troubleshooting:
 #  - EXCEPT: PASS is the key to the issues that is being experienced when running code Fabien provides on mac
@@ -38,8 +39,10 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
     """
     if type(rgi_id) != str:
         raise ValueError('We expect rgi_id to be a string')
-    if 'RGI60-' not in rgi_id:
-        raise ValueError('OGGM currently expects IDs to start with RGI60-')
+    if rgi_id.startswith('RGI60-') == False:
+        rgi_id = 'RGI60-' + rgi_id.split('.')[0].zfill(2) + '.' + rgi_id.split('.')[1]
+    else:
+        raise ValueError('Check RGIId is correct')
     cfg.initialize()
     
     wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/oggm-pygem-{}-b{}-k{}'.format(rgi_id, prepro_border, 
@@ -62,7 +65,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
     if not gdirs[0].is_tidewater:
         raise ValueError('This glacier is not tidewater!')
     # Compute all the stuff
-    list_talks = [
+    list_tasks = [
         tasks.glacier_masks,
         tasks.compute_centerlines,
         tasks.initialize_flowlines,
@@ -71,8 +74,15 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
         tasks.catchment_width_geom,
         tasks.catchment_width_correction,
         tasks.compute_downstream_bedshape,
+        # Debris tasks
+        debris.debris_to_gdir,
+        debris.debris_binned,
+        # Consensus ice thickness
+        icethickness.consensus_mass_estimate,
+        # Mass balance data
+        mbdata.mb_bins_to_glacierwide
     ]
-    for task in list_talks:
+    for task in list_tasks:
         # The order matters!
         workflow.execute_entity_task(task, gdirs)
     
@@ -86,10 +96,10 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
     print('k calving:', k_calving)
     for k, v in df.items():
         print(k + ':', v)
-    list_talks = [
+    list_tasks = [
         tasks.init_present_time_glacier,
     ]
-    for task in list_talks:
+    for task in list_tasks:
         # The order matters!
         workflow.execute_entity_task(task, gdirs)
     return gdirs[0]
@@ -177,6 +187,13 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         tasks.catchment_width_geom,
         tasks.catchment_width_correction,
     #    tasks.compute_downstream_bedshape,
+        # Debris tasks
+        debris.debris_to_gdir,
+        debris.debris_binned,
+        # Consensus ice thickness
+        icethickness.consensus_mass_estimate,
+        # Mass balance data
+        mbdata.mb_bins_to_glacierwide
     #    tasks.local_t_star,
     #    tasks.mu_star_calibration,
     #    tasks.prepare_for_inversion,

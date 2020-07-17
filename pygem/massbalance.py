@@ -363,6 +363,9 @@ class PyGEMMassBalance(MassBalanceModel):
                         melt_energy_available = self.bin_temp[:,step]*self.dayspermonth[step]
                         melt_energy_available[melt_energy_available < 0] = 0
                     elif pygem_prms.option_ablation == 2:
+                        # Seed randomness for repeatability, but base it on step to ensure the daily variability is not
+                        #  the same for every single time step  
+                        np.random.seed(step)
                         # option 2: monthly temperature superimposed with daily temperature variability 
                         # daily temperature variation in each bin for the monthly timestep
                         bin_tempstd_daily = np.repeat(

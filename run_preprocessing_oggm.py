@@ -76,8 +76,13 @@ list_tasks = [
     tasks.catchment_width_geom,
     tasks.catchment_width_correction,
 #    tasks.compute_downstream_bedshape,
+    # Debris tasks
     debris.debris_to_gdir,
-    debris.debris_binned
+    debris.debris_binned,
+    # Consensus ice thickness
+    icethickness.consensus_mass_estimate,
+    # Mass balance data
+    mbdata.mb_bins_to_glacierwide
 ]
 
 for task in list_tasks:
@@ -92,12 +97,12 @@ for task in list_tasks:
 #workflow.execute_entity_task(debris.debris_to_gdir, gdirs, debris_dir=pygem_prms.debris_fp, add_to_gridded=True)
 #workflow.execute_entity_task(debris.debris_binned, gdirs)
 
-# ===== Consensus ice thickness =====
-workflow.execute_entity_task(icethickness.consensus_mass_estimate, gdirs)
-
-# ===== Mass balance data =====
-#mbdata.mb_bins_to_reg_glacierwide(mb_binned_fp=pygem_prms.mb_binned_fp, O1Regions=['01'])
-workflow.execute_entity_task(mbdata.mb_bins_to_glacierwide, gdirs)
+## ===== Consensus ice thickness =====
+#workflow.execute_entity_task(icethickness.consensus_mass_estimate, gdirs)
+#
+## ===== Mass balance data =====
+##mbdata.mb_bins_to_reg_glacierwide(mb_binned_fp=pygem_prms.mb_binned_fp, O1Regions=['01'])
+#workflow.execute_entity_task(mbdata.mb_bins_to_glacierwide, gdirs)
 
 
 ## Perform inversion based on PyGEM MB

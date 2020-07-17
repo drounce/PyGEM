@@ -678,7 +678,7 @@ def main(list_packed_vars):
                     modelprms_export['mb_mwea'] = {chain_str : list(model.trace('massbal')[:])}
 
                 # Export model parameters
-                modelprms_export['precgad'] = [pygem_prms.precgrad]
+                modelprms_export['precgrad'] = [pygem_prms.precgrad]
                 modelprms_export['tsnow_threshold'] = [pygem_prms.tsnow_threshold]
                 modelprms_export['mb_obs_mwea'] = [mb_obs_mwea]
                 modelprms_export['mb_obs_mwea_err'] = [mb_obs_mwea_err]
