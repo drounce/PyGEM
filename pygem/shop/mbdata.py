@@ -1,12 +1,15 @@
+# Built-in libaries
+import argparse
 import os
 import logging
-
+# External libraries
+from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
 import pickle
-import rasterio
-import xarray as xr
-
+#import rasterio
+#import xarray as xr
+# Local libraries
 from oggm import cfg
 from oggm.utils import entity_task
 #from oggm.core.gis import rasterio_to_gdir
@@ -17,7 +20,6 @@ import pygemfxns_modelsetup as modelsetup
 """
 TO-DO LIST:
   - modify class_mbdata to work with shop
-  - add proper error to data
 """
 
 # Module logger
@@ -26,6 +28,78 @@ log = logging.getLogger(__name__)
 # Add the new name "mb_obs" to the list of things that the GlacierDirectory understands
 if not 'mb_obs' in cfg.BASENAMES:
     cfg.BASENAMES['mb_obs'] = ('mb_data.pkl', 'Mass balance observations')
+    
+    
+def getparser():
+    """
+    Use argparse to add arguments from the command line
+    
+    Parameters
+    ----------
+    hugonnnet2020_subset : int
+        Switch for processing hugonnet2020 data set into easier csv format (default = 0 (no))
+    """
+    parser = argparse.ArgumentParser(description="select pre-processing options")
+    parser.add_argument('-hugonnet2020_subset', action='store', type=int, default=0,
+                        help='option to process hugonnet2020 data or not (1=yes, 0=no)')
+    return parser
+        
+    
+@entity_task(log, writes=['mb_obs'])
+def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
+    """Select specific mass balance and add observations to the given glacier directory
+    
+    Parameters
+    ----------
+    gdir : :py:class:`oggm.GlacierDirectory`
+        where to write the data
+    """
+    if mb_dataset in ['Hugonnet2020']:
+        mbdata_fp = pygem_prms.hugonnet_fp
+        mbdata_fn = pygem_prms.hugonnet_fn
+        rgiid_cn = pygem_prms.hugonnet_rgi_glacno_cn
+        mb_cn = pygem_prms.hugonnet_mb_cn
+        mberr_cn = pygem_prms.hugonnet_mb_err_cn
+        t1_cn = pygem_prms.hugonnet_time1_cn
+        t2_cn = pygem_prms.hugonnet_time2_cn
+    
+    assert os.path.exists(mbdata_fp + mbdata_fn), "Error: mb dataset does not exist."
+    
+    mb_df = pd.read_csv(mbdata_fp + mbdata_fn)
+    mb_df_rgiids = set(list(mb_df[rgiid_cn]))
+    
+    if gdir.rgi_id in mb_df_rgiids:
+        rgiid_idx = np.where(gdir.rgi_id == mb_df[rgiid_cn])[0][0]
+        
+        # Glacier-wide mass balance
+        mb_mwea = mb_df.loc[rgiid_idx, mb_cn]
+        mb_mwea_err = mb_df.loc[rgiid_idx, mberr_cn]
+        t1_str = mb_df.loc[rgiid_idx, t1_cn]
+        t2_str = mb_df.loc[rgiid_idx, t2_cn]  
+        t1_datetime = pd.to_datetime(pd.DataFrame({'year':[t1_str.split('-')[0]], 
+                                                   'month':[t1_str.split('-')[1]], 
+                                                   'day':[t1_str.split('-')[2]]}))[0]
+        t2_datetime = pd.to_datetime(pd.DataFrame({'year':[t2_str.split('-')[0]], 
+                                                   'month':[t2_str.split('-')[1]], 
+                                                   'day':[t2_str.split('-')[2]]}))[0]
+        # remove one day from t2 datetime for proper indexing (ex. 2001-01-01 want to run through 2000-12-31)
+        t2_datetime = t2_datetime - timedelta(days=1)
+        # Number of years
+        nyears = (t2_datetime + timedelta(days=1) - t1_datetime).days / 365.25
+        
+        # Record data
+        mbdata = {'mb_mwea': mb_mwea,
+                  'mb_mwea_err': mb_mwea_err,
+                  't1_str': t1_str,
+                  't2_str': t2_str,
+                  't1_datetime': t1_datetime,
+                  't2_datetime': t2_datetime,
+                  'nyears': nyears}
+        
+        pkl_fn = gdir.get_filepath('mb_obs')
+        with open(pkl_fn, 'wb') as f:
+            pickle.dump(mbdata, f)
+
 
 @entity_task(log, writes=['mb_obs'])
 def mb_bins_to_glacierwide(gdir, mb_binned_fp=pygem_prms.mb_binned_fp):
@@ -182,3 +256,24 @@ def mb_bins_to_reg_glacierwide(mb_binned_fp=pygem_prms.mb_binned_fp, O1Regions=[
         print('TO-DO LIST:')
         print(' - quality control based on 3-sigma filter like Shean')
         print(' - extrapolate for missing or outlier glaciers by region')
+        
+        
+        
+#%%
+if __name__ == '__main__':
+    parser = getparser()
+    args = parser.parse_args()
+    
+    if args.hugonnet2020_subset == 1:
+        mbdata_fullfn = pygem_prms.hugonnet_fp + 'df_pergla_global_10yr_20yr.csv'
+        mb_df = pd.read_csv(mbdata_fullfn)
+        # Pre-process Hugonnet2020 data to easier format of data we want
+        df_20yr = mb_df[mb_df['period'] == '2000-01-01_2020-01-01'].copy()
+        df_20yr['t1'] = np.nan
+        df_20yr['t2'] = np.nan
+        df_20yr['t1'] = [x.split('_')[0] for x in df_20yr['period'].values]
+        df_20yr['t2'] = [x.split('_')[1] for x in df_20yr['period'].values]
+        
+        # Export results
+        df_20yr_fn = 'df_pergla_global_20yr.csv'
+        df_20yr.to_csv(pygem_prms.hugonnet_fp + df_20yr_fn, index=False)

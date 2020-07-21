@@ -134,8 +134,8 @@ rgi_glac_number = 'all'
 #glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
 #glac_no = ['15.03473']
 #glac_no = ['15.03733']
-glac_no = ['1.10689']
-#glac_no = ['1.15645']
+#glac_no = ['1.10689']
+glac_no = ['1.15645']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
@@ -147,7 +147,6 @@ ref_startyear = 2000                # first year of model run (reference dataset
 ref_endyear = 2019                  # last year of model run (reference dataset)
 ref_wateryear = 2                   # 1: water year, 2: calendar year, 3: custom defined 
 ref_spinupyears = 0                 # spin up years
-
 constantarea_years = 0          # number of years to not let the area or volume change
 if constantarea_years > 0:
     print('\nConstant area years > 0\n')
@@ -192,9 +191,9 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('minimization' (no longer exists), 'MCMC', 'HH2015', 'HH2015_modified')
-#option_calibration = 'MCMC'
+option_calibration = 'MCMC'
 #option_calibration = 'HH2015'
-option_calibration = 'HH2015_modified'
+#option_calibration = 'HH2015_modified'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -222,7 +221,7 @@ extra_calrounds = 3             # additional calibration rounds in case optimiza
 # Chain options
 if option_calibration == 'MCMC':
     n_chains = 1                    # number of chains (min 1, max 3)
-    mcmc_sample_no = 10000           # number of steps (10000 was found to be sufficient in HMA)
+    mcmc_sample_no = 100           # number of steps (10000 was found to be sufficient in HMA)
     mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
     mcmc_step = None                # step option (None or 'am')
     thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
@@ -316,8 +315,7 @@ bounding_box = '50/70/25/105'
 option_lr_method = 1
 
 # ERA5
-era5_fp = main_directory + '/../Climate_data/ERA5/ERA5-1979_2020/'
-#era5_fp = main_directory + '/../Climate_data/ERA5/'
+era5_fp = main_directory + '/../Climate_data/ERA5/'
 era5_temp_fn = 'ERA5_temp_monthly.nc'
 era5_tempstd_fn = 'ERA5_tempstd_monthly.nc'
 era5_prec_fn = 'ERA5_totalprecip_monthly.nc'
@@ -500,6 +498,16 @@ monthdict = {'northernmost': [9, 5, 6, 8],
 
 #%% CALIBRATION DATASETS
 mb_binned_fp = main_directory + '/../DEMs/mb_bins_all-20200430/'
+
+# ===== HUGONNET GEODETIC =====
+hugonnet_fp = main_directory + '/../DEMs/Hugonnet2020/'
+hugonnet_fn = 'df_pergla_global_20yr.csv'
+hugonnet_rgi_glacno_cn = 'rgiid'
+hugonnet_mb_cn = 'dmdtda'
+hugonnet_mb_err_cn = 'err_dmdtda'
+hugonnet_time1_cn = 't1'
+hugonnet_time2_cn = 't2'
+hugonnet_area_cn = 'area_km2'
 
 # ===== SHEAN GEODETIC =====
 shean_fp = main_directory + '/../DEMs/Shean_2019_0213/'

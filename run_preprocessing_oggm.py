@@ -85,8 +85,8 @@ list_tasks = [
     mbdata.mb_bins_to_glacierwide
 ]
 
-for task in list_tasks:
-    workflow.execute_entity_task(task, gdirs)
+#for task in list_tasks:
+#    workflow.execute_entity_task(task, gdirs)
     # equivalent to:
     #for gdir in gdirs:
     #    tasks.glacier_masks(gdir)
@@ -103,6 +103,7 @@ for task in list_tasks:
 ## ===== Mass balance data =====
 ##mbdata.mb_bins_to_reg_glacierwide(mb_binned_fp=pygem_prms.mb_binned_fp, O1Regions=['01'])
 #workflow.execute_entity_task(mbdata.mb_bins_to_glacierwide, gdirs)
+workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdirs)
 
 
 ## Perform inversion based on PyGEM MB

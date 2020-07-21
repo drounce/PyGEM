@@ -9,7 +9,7 @@ import resource
 import time
 import inspect
 # External libraries
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -156,7 +156,6 @@ def retrieve_priors(gdir, glacier_rgi_table, modelprms, fls, debug=False):
 
 
 #%%
-print('NEED TO ADD INDICES HERE consistent with mbdata!!!!')
 def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
                  option_areaconstant=1, return_tbias_mustmelt=False, 
 #                 return_volremaining=False
@@ -186,21 +185,13 @@ def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
         # Number of years and bins with negative climatic mass balance
         nbinyears_negmbclim =  len(np.where(mbmod.glac_bin_massbalclim_annual < 0)[0])
         return nbinyears_negmbclim
-#    elif return_volremaining:
-#        assert True==False, 'Error: need to code return_volremaining option'
-#        # Ensure volume by end of century is zero
-#        # Compute glacier volume change for every time step and use this to compute mass balance
-#        glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-#        # Mass change [km3 mwe]
-#        #  mb [mwea] * (1 km / 1000 m) * area [km2]
-#        glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
-#        # Mean annual mass balance [mwea]
-#        mb_mwea = glac_wide_masschange[t1_idx:t2_idx+1].sum() / glac_wide_area[0] * 1000 / (t2 - t1)
-#        t2_yearidx = int(np.ceil(t2 - startyear_decimal))
-#        return mb_mwea, glac_wide_volume_annual[t2_yearidx]
+    # Otherwise return specific mass balance
     else:        
-        # Specific mass balance
-        mb_mwea = mbmod.glac_wide_massbaltotal.sum() / mbmod.glacier_area_initial.sum() / (mbmod.nmonths / 12)        
+        # Specific mass balance [mwea]
+        t1_idx = gdir.mbdata['t1_idx']
+        t2_idx = gdir.mbdata['t2_idx']
+        nyears = gdir.mbdata['nyears']
+        mb_mwea = mbmod.glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / mbmod.glac_wide_area_annual[0] / nyears        
         return mb_mwea
 
 
@@ -279,20 +270,32 @@ def main(list_packed_vars):
                                    'lr': gcm_lr[glac,:]}
         gdir.dates_table = dates_table
         
-        # Calibration data
+        # ----- Calibration data -----
         try:
             mbdata_fn = gdir.get_filepath('mb_obs')
             with open(mbdata_fn, 'rb') as f:
-                mbdata = pickle.load(f)
+                gdir.mbdata = pickle.load(f)
+            # Load data
+            mb_obs_mwea = gdir.mbdata['mb_mwea']
+            mb_obs_mwea_err = gdir.mbdata['mb_mwea_err']
+            # Add time indices consistent with dates_table for mb calculations
+            t1_year = gdir.mbdata['t1_datetime'].year
+            t1_month = gdir.mbdata['t1_datetime'].month
+            t2_year = gdir.mbdata['t2_datetime'].year
+            t2_month = gdir.mbdata['t2_datetime'].month
+            t1_idx = dates_table[(t1_year == dates_table['year']) & (t1_month == dates_table['month'])].index.values[0]
+            t2_idx = dates_table[(t2_year == dates_table['year']) & (t2_month == dates_table['month'])].index.values[0]
+            # Record indices
+            gdir.mbdata['t1_idx'] = t1_idx
+            gdir.mbdata['t2_idx'] = t2_idx
+                
         except:
-            mbdata = None
+            gdir.mbdata = None
         
-        mb_obs_mwea = mbdata['mb_mwea']
-        mb_obs_mwea_err = mbdata['mb_mwea_err']
         
-        # Mass balance model
+        # ----- Mass balance model ------
         glacier_area = fls[0].widths_m * fls[0].dx_meter
-        if glacier_area.sum() > 0 and mbdata is not None:
+        if glacier_area.sum() > 0 and gdir.mbdata is not None:
 
             modelprms = {'kp': pygem_prms.kp, 
                          'tbias': pygem_prms.tbias,
@@ -306,9 +309,6 @@ def main(list_packed_vars):
                       ' ddfsnow: ' + str(np.round(modelprms['ddfsnow'],4)) + 
                       ' tbias: ' + str(np.round(modelprms['tbias'],2)))
                                                         
-            print('- Do all comparisons based on total mass loss (kg), not mwea?')
-            
-            
             # ===== OBJECTIVE FUNCTIONS (used for HH2015 and modified HH2015) ======
             if pygem_prms.option_calibration in ['HH2015', 'HH2015_modified']:
                 def objective(modelprms_subset):
@@ -362,16 +362,17 @@ def main(list_packed_vars):
                     # Re-run the optimized parameters in order to see the mass balance
                     mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
                     return modelprms, mb_mwea
-            
-            ##    # ===== OLD CALIBRATION OPTIONS =====
-            # Option 2: use MCMC method to determine posterior probability distributions of the three parameters tbias,
-            #           ddfsnow and kp. Then create an ensemble of parameter sets evenly sampled from these
-            #           distributions, and output these sets of parameters and their corresponding mass balances to be used in
-            #           the simulations.
+        
+            # ===== CALIBRATION OPTIONS =====
+            # 'MCMC' : use MCMC method to determine posterior probability distributions of the three parameters tbias,
+            #          ddfsnow and kp. Then create an ensemble of parameter sets evenly sampled from these
+            #          distributions, and output these sets of parameters and their corresponding mass balances to be 
+            #          used in the simulations.
             if pygem_prms.option_calibration == 'MCMC':
 
                 # ===== Define functions needed for MCMC method =====
-                def run_MCMC(kp_disttype=pygem_prms.kp_disttype, 
+                def run_MCMC(gdir, 
+                             kp_disttype=pygem_prms.kp_disttype, 
                              kp_gamma_alpha=pygem_prms.kp_gamma_alpha, kp_gamma_beta=pygem_prms.kp_gamma_beta, 
                              kp_lognorm_mu=pygem_prms.kp_lognorm_mu, kp_lognorm_tau=pygem_prms.kp_lognorm_tau, 
                              kp_mu=pygem_prms.kp_mu, kp_sigma=pygem_prms.kp_sigma,
@@ -657,6 +658,7 @@ def main(list_packed_vars):
                               'ddf_start:', np.round(ddfsnow_start,4))
 
                     model, priors_dict = run_MCMC(
+                            gdir,
                             iterations=pygem_prms.mcmc_sample_no, burn=pygem_prms.mcmc_burn_no, 
                             step=pygem_prms.mcmc_step,
                             kp_gamma_alpha=kp_gamma_alpha, kp_gamma_beta=kp_gamma_beta, kp_start=kp_start,
@@ -666,6 +668,9 @@ def main(list_packed_vars):
 
                     if debug:
                         print('\nacceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
+                        print('mb_mwea_mean:', np.round(np.mean(model.trace('massbal')[:]),2), 
+                              'mb_mwea_std:', np.round(np.std(model.trace('massbal')[:]),2), 
+                              '\nmb_obs_mean:', np.round(mb_obs_mwea,2), 'mb_obs_std:', np.round(mb_obs_mwea_err,2))
 
 
                     # Store data from model to be exported
@@ -1074,6 +1079,5 @@ if __name__ == '__main__':
         fl = fls[0]
 #        mbmod = main_vars['mbmod']
 #        dates_table = main_vars['dates_table']
-        mbdata = main_vars['mbdata']
         modelprms = main_vars['modelprms']
         modelprms_dict = main_vars['modelprms_dict']
