@@ -677,8 +677,9 @@ if args.option_createlapserates == 1:
         
     tempname = 't'
     levelname = 'level'
-    elev_idx_max = 1
-    elev_idx_min = 19
+    elev_idx_max = 0
+    elev_idx_min = 20
+    expver_idx = 0
     output_fn= 'ERA5_lapserates.nc'
     
     # Open dataset
@@ -688,14 +689,18 @@ if args.option_createlapserates == 1:
         # convert pressure levels from millibars to Pa
         levels = ds[levelname].values * 100
     # Compute the elevation [m a.s.l] of the pressure levels using the barometric pressure formula (pressure in Pa)
-    elev = -pygem_prms.R_gas*pygem_prms.temp_std/(pygem_prms.gravity*pygem_prms.molarmass_air)*np.log(levels/pygem_prms.pressure_std)
+    elev = (-pygem_prms.R_gas * pygem_prms.temp_std / (pygem_prms.gravity * pygem_prms.molarmass_air) * 
+            np.log(levels/pygem_prms.pressure_std))
 
     # Calculate lapse rates by year
     lr = np.zeros((ds.time.shape[0], ds.latitude.shape[0], ds.longitude.shape[0]))
     for ntime, t in enumerate(ds.time.values):        
         print('time:', ntime, t)
         
-        ds_subset = ds[tempname][ntime, elev_idx_max:elev_idx_min+1, :, :].values
+        if 'expver' in ds.keys():
+            ds_subset = ds[tempname][ntime, expver_idx, elev_idx_max:elev_idx_min+1, :, :].values
+        else:
+            ds_subset = ds[tempname][ntime, elev_idx_max:elev_idx_min+1, :, :].values
         ds_subset_reshape = ds_subset.reshape(ds_subset.shape[0],-1)
         lr[ntime,:,:] = (np.polyfit(elev[elev_idx_max:elev_idx_min+1], ds_subset_reshape, deg=1)[0]
                          .reshape(ds_subset.shape[1:]))
@@ -703,12 +708,19 @@ if args.option_createlapserates == 1:
     # Export lapse rates with attibutes
     output_ds = ds.copy()
     output_ds = output_ds.drop('t')
-    levels_str = (str(ds['level'][elev_idx_max].values) + ' to ' + str(ds['level'][elev_idx_min].values))
+    str_max = str(ds['level'][elev_idx_max].values)
+    try:
+        str_min = str(ds['level'][elev_idx_min].values)
+    except:
+        str_min = str(ds['level'][elev_idx_min-1].values)
+    levels_str = str_max + ' to ' + str_min
     output_ds['lapserate'] = (('time', 'latitude', 'longitude'), lr, 
                               {'long_name': 'lapse rate', 
                                'units': 'degC m-1',
                                'levels': levels_str})
-    encoding = {'lapserate':{'_FillValue': False}}
+    encoding = {'lapserate':{'_FillValue': False,
+                             'zlib':True,
+                             'complevel':9}}
     
     output_ds.to_netcdf(gcm_fp + output_fn, encoding=encoding)
    

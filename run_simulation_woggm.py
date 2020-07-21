@@ -23,6 +23,9 @@ import xarray as xr
 import class_climate
 #import class_mbdata
 import pygem.pygem_input as pygem_prms
+from pygem.massbalance import PyGEMMassBalance
+#from pygem.glacierdynamics import MassRedistributionCurveModel
+from pygem.oggm_compat import single_flowline_glacier_directory, single_flowline_glacier_directory_with_calving
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import pygemfxns_modelsetup as modelsetup
 import spc_split_glaciers as split_glaciers
@@ -30,12 +33,11 @@ import spc_split_glaciers as split_glaciers
 from oggm import cfg
 #from oggm import graphics
 from oggm import tasks
-#from oggm import utils
+from oggm import utils
 #from oggm.core import climate
 from oggm.core.flowline import FluxBasedModel
-from pygem.massbalance import PyGEMMassBalance
-#from pygem.glacierdynamics import MassRedistributionCurveModel
-from pygem.oggm_compat import single_flowline_glacier_directory, single_flowline_glacier_directory_with_calving
+from oggm.core.inversion import calving_flux_from_depth
+
 
 #%%
 #from pkg_resources import get_distribution, DistributionNotFound
@@ -849,17 +851,33 @@ def main(list_packed_vars):
                     
                 
                 #%% ===== Adding functionality for calving =====
+                water_level = None
                 if glacier_rgi_table['TermType'] == 1:
-                    # Calving params - default is 2.4, which is quite high
-                    cfg.PARAMS['inversion_calving_k'] = 1
-                    cfg.PARAMS['calving_k'] = 1
-    
-                    # Find out the calving values
-                    out_calving = tasks.find_inversion_calving(gdir)
-                    # Get ready
-                    tasks.init_present_time_glacier(gdir)
-                    # print output
-                    print('\ncalving output:', out_calving)
+#                    # Calving params - default is 2.4, which is quite high
+#                    cfg.PARAMS['inversion_calving_k'] = 1
+#                    # Find out the calving values
+#                    calving_output = tasks.find_inversion_calving(gdir)
+#                    # Get ready
+#                    tasks.init_present_time_glacier(gdir)
+                    
+                    # Calving flux (km3 yr-1; positive value refers to amount of calving, need to subtract from mb)
+                    for calving_k in [1, 1.7, 2.4]:
+                        # Calving parameter
+                        cfg.PARAMS['calving_k'] = calving_k
+                        cfg.PARAMS['inversion_calving_k'] = cfg.PARAMS['calving_k']
+                        # Water level (max based on 50 m freeboard)
+                        if water_level is None:
+                            th = fls[-1].surface_h[-1]
+                            vmin, vmax = cfg.PARAMS['free_board_marine_terminating']
+                            water_level = utils.clip_scalar(0, th - vmax, th - vmin)
+                        
+                        calving_output = calving_flux_from_depth(gdir, water_level=water_level)
+                        calving_flux = calving_output['flux']
+                            
+                        print('\n calving_k:', calving_k)
+                        print('  calving flux (km3 yr-1):', calving_flux)
+                        print('  freeboard:', calving_output['free_board'])
+                        print('  water_level:', calving_output['water_level'])
                 
 #                old_model = FluxBasedModel(fls, y0=0, mb_model=mbmod)
                 
@@ -1208,7 +1226,8 @@ if __name__ == '__main__':
             width_initial = fls[0].widths_m / 1000
             glacier_area_initial = width_initial * fls[0].dx / 1000       
             mbmod = main_vars['mbmod']
-            modelprms_dict = main_vars['modelprms_dict']
+            if pygem_prms.option_import_modelparams == 1:
+                modelprms_dict = main_vars['modelprms_dict']
 #            model = main_vars['model']
 #        glacier_gcm_temp = main_vars['glacier_gcm_temp']
 #        glacier_gcm_tempstd = main_vars['glacier_gcm_tempstd']

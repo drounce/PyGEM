@@ -144,7 +144,7 @@ if glac_no is not None:
 #ref_gcm_name = 'ERA-Interim'        # reference climate dataset
 ref_gcm_name = 'ERA5'               # reference climate dataset
 ref_startyear = 2000                # first year of model run (reference dataset)
-ref_endyear = 2018                  # last year of model run (reference dataset)
+ref_endyear = 2019                  # last year of model run (reference dataset)
 ref_wateryear = 2                   # 1: water year, 2: calendar year, 3: custom defined 
 ref_spinupyears = 0                 # spin up years
 
@@ -154,11 +154,11 @@ if constantarea_years > 0:
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2017              # last year of model run (simulation dataset)
+gcm_endyear = 2019              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
 #gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation
-gcm_wateryear = 1               # water year for simmulation
+gcm_wateryear = 2               # water year for simmulation
 
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
 hindcast = 0                    # 1: run hindcast simulation, 0: do not
@@ -316,11 +316,12 @@ bounding_box = '50/70/25/105'
 option_lr_method = 1
 
 # ERA5
-era5_fp = main_directory + '/../Climate_data/ERA5/'
+era5_fp = main_directory + '/../Climate_data/ERA5/ERA5-1979_2020/'
+#era5_fp = main_directory + '/../Climate_data/ERA5/'
 era5_temp_fn = 'ERA5_temp_monthly.nc'
 era5_tempstd_fn = 'ERA5_tempstd_monthly.nc'
 era5_prec_fn = 'ERA5_totalprecip_monthly.nc'
-era5_elev_fn = 'ERA5_geopotential_monthly.nc'
+era5_elev_fn = 'ERA5_geopotential.nc'
 era5_pressureleveltemp_fn = 'ERA5_pressureleveltemp_monthly.nc'
 era5_lr_fn = 'ERA5_lapserates_monthly.nc'
 

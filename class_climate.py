@@ -288,8 +288,13 @@ class GCM():
             latlon_nearidx_unique = list(set(latlon_nearidx))
             # Create dictionary of time series for each unique latitude/longitude
             glac_variable_dict = {}
-            for latlon in latlon_nearidx_unique:
-                glac_variable_dict[latlon] = data[vn][start_idx:end_idx+1, latlon[0], latlon[1]].values
+            for latlon in latlon_nearidx_unique:                
+                if 'expver' in data.keys():
+                    expver_idx = 0
+                    glac_variable_dict[latlon] = data[vn][start_idx:end_idx+1, expver_idx, latlon[0], latlon[1]].values
+                else:
+                    glac_variable_dict[latlon] = data[vn][start_idx:end_idx+1, latlon[0], latlon[1]].values
+                
             # Convert to series
             glac_variable_series = np.array([glac_variable_dict[x] for x in latlon_nearidx])    
 
