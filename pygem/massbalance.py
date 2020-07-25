@@ -179,6 +179,7 @@ class PyGEMMassBalance(MassBalanceModel):
         year : int
             year starting with 0 to the number of years in the study
         """
+        
         year = int(year)
         if self.repeat_period:
             year = year % (pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
@@ -188,6 +189,9 @@ class PyGEMMassBalance(MassBalanceModel):
         glacier_area_t0 = fl.widths_m * fl.dx_meter
         glacier_area_initial = self.glacier_area_initial
         icethickness_t0 = getattr(fls[fl_id], 'thick', None)  
+        
+#        print(glacier_area_initial.shape)
+#        print(glacier_area_t0.shape)
         
         # Glacier indices
         glac_idx_t0 = fl.widths.nonzero()[0]

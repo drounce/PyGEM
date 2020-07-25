@@ -85,9 +85,9 @@ def retrieve_priors(gdir, glacier_rgi_table, modelprms, fls, debug=False):
     Calculate parameters for prior distributions for the MCMC analysis
     """
     # Maximum mass loss [mwea] (based on consensus ice thickness estimate)
-    with open(gdir.get_filepath('mass_consensus'), 'rb') as f:
-        mass_consensus = pickle.load(f)    
-    mb_max_loss = -1 * mass_consensus / pygem_prms.density_water / gdir.rgi_area_m2 / (gdir.dates_table.shape[0] / 12)
+    with open(gdir.get_filepath('consensus_mass'), 'rb') as f:
+        consensus_mass = pickle.load(f)    
+    mb_max_loss = -1 * consensus_mass / pygem_prms.density_water / gdir.rgi_area_m2 / (gdir.dates_table.shape[0] / 12)
     
     # ----- TEMPERATURE BIAS UPPER BOUND -----
     # Temperature where no melt
@@ -668,9 +668,9 @@ def main(list_packed_vars):
 
                     if debug:
                         print('\nacceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
-                        print('mb_mwea_mean:', np.round(np.mean(model.trace('massbal')[:]),2), 
-                              'mb_mwea_std:', np.round(np.std(model.trace('massbal')[:]),2), 
-                              '\nmb_obs_mean:', np.round(mb_obs_mwea,2), 'mb_obs_std:', np.round(mb_obs_mwea_err,2))
+                        print('mb_mwea_mean:', np.round(np.mean(model.trace('massbal')[:]),3), 
+                              'mb_mwea_std:', np.round(np.std(model.trace('massbal')[:]),3), 
+                              '\nmb_obs_mean:', np.round(mb_obs_mwea,3), 'mb_obs_std:', np.round(mb_obs_mwea_err,3))
 
 
                     # Store data from model to be exported
@@ -1019,8 +1019,8 @@ if __name__ == '__main__':
         cfg.BASENAMES['mb_obs'] = ('mb_data.pkl', 'Mass balance observations')
     if not 'pygem_modelprms' in cfg.BASENAMES:
         cfg.BASENAMES['pygem_modelprms'] = ('pygem_modelprms.pkl', 'PyGEM model parameters')
-    if not 'mass_consensus' in cfg.BASENAMES:
-        cfg.BASENAMES['mass_consensus'] = ('mass_consensus.pkl', 'Glacier mass from consensus ice thickness estimate')
+    if not 'consensus_mass' in cfg.BASENAMES:
+        cfg.BASENAMES['consensus_mass'] = ('consensus_mass.pkl', 'Glacier mass from consensus ice thickness estimate')
 
     # RGI glacier number
     if args.rgi_glac_number_fn is not None:

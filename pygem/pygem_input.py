@@ -135,7 +135,22 @@ rgi_glac_number = 'all'
 #glac_no = ['15.03473']
 #glac_no = ['15.03733']
 #glac_no = ['1.10689']
-glac_no = ['1.15645']
+#glac_no = ['1.15645']
+#glac_no = ['7.00228']
+#glac_no = ['1.17876'] # issue with task.catch_width_correction
+#glac_no = ['1.09810']
+glac_no = ['1.03377','1.03622','1.03890','1.04375','1.09426','1.09519','1.09639','1.09810','1.10325','1.10575',
+           '1.10607','1.10612','1.10689','1.13638','1.14443','1.14683','1.14878','1.17807','1.17840',
+           '1.17843','1.20734','1.20891','1.20968','1.26732']
+
+#glac_no = ['RGI60-01.03377','RGI60-01.03622','RGI60-01.03890','RGI60-01.04375','RGI60-01.09426','RGI60-01.09519','RGI60-01.09639','RGI60-01.09810','RGI60-01.10325','RGI60-01.10575',
+#           'RGI60-01.10607','RGI60-01.10612','RGI60-01.10689','RGI60-01.13638','RGI60-01.14443','RGI60-01.14683','RGI60-01.14878','RGI60-01.17807','RGI60-01.17840',
+#           'RGI60-01.17843','RGI60-01.20734','RGI60-01.20891','RGI60-01.20968','RGI60-01.26732']
+
+#glac_no = ['3.00108','3.00123','3.00191','3.00283','3.02467','3.02904','3.03274']
+#glac_no = ['7.00228', '7.00235','7.00240','7.00244','7.00250','7.00293','7.00319','7.00321','7.00422','7.00439',
+#           '7.00463','7.00464','7.00468','7.00470','7.00471','7.00476','7.00501','7.00511','7.00893','7.01463',
+#           '7.01500','7.01506','7.01511']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
@@ -285,6 +300,8 @@ option_frontalablation_k = 1
 frontalablation_k0dict_fullfn = main_directory + '/../Calving_data/frontalablation_k0_dict.csv'
 frontalablation_k0dict_df = pd.read_csv(frontalablation_k0dict_fullfn)
 frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalablation_k0dict_df.k0))
+# Calving glacier data
+calving_data_fullfn = main_directory + '/../Calving_data/calving_glacier_data.csv'
 
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']

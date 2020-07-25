@@ -31,10 +31,10 @@ import pygemfxns_modelsetup as modelsetup
 import spc_split_glaciers as split_glaciers
 
 from oggm import cfg
-#from oggm import graphics
+from oggm import graphics
 from oggm import tasks
 from oggm import utils
-#from oggm.core import climate
+from oggm.core import climate
 from oggm.core.flowline import FluxBasedModel
 from oggm.core.inversion import calving_flux_from_depth
 
@@ -550,25 +550,7 @@ def main(list_packed_vars):
             startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear, spinupyears=pygem_prms.gcm_spinupyears, 
             option_wateryear=pygem_prms.gcm_wateryear)
 
-#    # ===== LOAD CALIBRATION DATA =====
-#    if debug:
-#        # Select dates including future projections
-#        #  - nospinup dates_table needed to get the proper time indices
-#        dates_table_nospinup  = modelsetup.datesmodelrun(
-#                startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear, spinupyears=0, 
-#                option_wateryear=pygem_prms.gcm_wateryear)
-#
-#        cal_data = pd.DataFrame()
-#        for dataset in pygem_prms.cal_datasets:
-#            cal_subset = class_mbdata.MBData(name=dataset)
-#            cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
-#            cal_data = cal_data.append(cal_subset_data, ignore_index=True)
-#        cal_data = cal_data.sort_values(['glacno', 't1_idx'])
-#        cal_data.reset_index(drop=True, inplace=True)
-
     # ===== LOAD CLIMATE DATA =====
-    print('\n\n     MOVE GEODETIC MASS BALANCE PROCESSING OVER TO THE SHOP \n\n')
-    print('\n\n CHECK UNITS OF PRECIPITATION FOR PYGEM: MM/DAY?  or MM/MONTH like OGGM?\n\n')
     # Climate class
     if gcm_name in ['ERA5', 'ERA-Interim', 'COAWST']:
         gcm = class_climate.GCM(name=gcm_name)
@@ -833,6 +815,8 @@ def main(list_packed_vars):
                                          debug=pygem_prms.debug_mb,
                                          debug_refreeze=pygem_prms.debug_refreeze,
                                          fls=fls, option_areaconstant=True)
+
+                # ----- MODEL RUN WITH CONSTANT GLACIER AREA -----
                 years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
                 mb_all = []
                 for fl_id, fl in enumerate(fls):
@@ -848,86 +832,15 @@ def main(list_packed_vars):
                         mb_all.append(glac_wide_mb_mwea)
                         
                 print('iter:', n_iter, 'massbal (mean, std):', np.round(np.mean(mb_all),3), np.round(np.std(mb_all),3))
-                    
                 
-                #%% ===== Adding functionality for calving =====
-                water_level = None
-                if glacier_rgi_table['TermType'] == 1:
-#                    # Calving params - default is 2.4, which is quite high
-#                    cfg.PARAMS['inversion_calving_k'] = 1
-#                    # Find out the calving values
-#                    calving_output = tasks.find_inversion_calving(gdir)
-#                    # Get ready
-#                    tasks.init_present_time_glacier(gdir)
-                    
-                    # Calving flux (km3 yr-1; positive value refers to amount of calving, need to subtract from mb)
-                    for calving_k in [1, 1.7, 2.4]:
-                        # Calving parameter
-                        cfg.PARAMS['calving_k'] = calving_k
-                        cfg.PARAMS['inversion_calving_k'] = cfg.PARAMS['calving_k']
-                        # Water level (max based on 50 m freeboard)
-                        if water_level is None:
-                            th = fls[-1].surface_h[-1]
-                            vmin, vmax = cfg.PARAMS['free_board_marine_terminating']
-                            water_level = utils.clip_scalar(0, th - vmax, th - vmin)
-                        
-                        calving_output = calving_flux_from_depth(gdir, water_level=water_level)
-                        calving_flux = calving_output['flux']
-                            
-                        print('\n calving_k:', calving_k)
-                        print('  calving flux (km3 yr-1):', calving_flux)
-                        print('  freeboard:', calving_output['free_board'])
-                        print('  water_level:', calving_output['water_level'])
                 
-#                old_model = FluxBasedModel(fls, y0=0, mb_model=mbmod)
-                
-                #%%
-#                #%% ===== MODEL RUN WITH CONSTANT GLACIER AREA =====
-#                # Make a working copy of the glacier directory
-#                tmp_dir = os.path.join(cfg.PATHS['working_dir'], 'tmp_dir')
-#                utils.mkdir(tmp_dir, reset=True)
-#                # new glacier directory is copy of old directory (copy everything)
-#                ngd = utils.copy_to_basedir(gdir, base_dir=tmp_dir, setup='all')
-#
-#                mbmod = PyGEMMassBalance(modelprms[0:8], glacier_rgi_table, glacier_gcm_temp,
-#                                         glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
-#                                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                         option_areaconstant=False, hindcast=pygem_prms.hindcast,
-#                                         debug=pygem_prms.debug_mb,
-#                                         debug_refreeze=pygem_prms.debug_refreeze,
-#                                         fls=fls, repeat_period=False)
-#                
-#                #                    years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
-##                    mb_all = []
-##                    for fl_id, fl in enumerate(fls):
-##                        for year in years - years[0]:
-##                            mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year,
-##                                                            debug=False)
-###                            print('year:', year, 'mbclim_annual_sum:', mb_annual.sum())
-##                            mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice /
-##                                           pygem_prms.density_water)
-##                            glac_wide_mb_mwea = ((mb_mwea * mbmod.glacier_area_initial).sum() /
-##                                                  mbmod.glacier_area_initial.sum())
-##                            print('year:', year, np.round(glac_wide_mb_mwea,3))
-##
-##                            mb_all.append(glac_wide_mb_mwea)
-##                    print('iter:', n_iter, 'massbal (mean, std):',
-##                           np.round(np.mean(mb_all),3), np.round(np.std(mb_all),3))
-###                            if debug:
-###                                # Convert m ice s-1 to m w.e. a-1
-###                                mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice /
-###                                           pygem_prms.density_water)
-###                                print(np.round(mb_mwea,3))
-#                mbmod.get_annual_mb(fls[0].surface_h, year=0, fls=fls, fl_id=0, 
-#                                    debug=True, option_areaconstant=True)
-#
-#
-#                %% ===== INVERSION AND MODEL RUN WITH OGGM DYNAMICS =====
-#                # Make a working copy of the glacier directory
-#                tmp_dir = os.path.join(cfg.PATHS['working_dir'], 'tmp_dir')
-#                utils.mkdir(tmp_dir, reset=True)
-#                # new glacier directory is copy of old directory (copy everything)
-#                ngd = utils.copy_to_basedir(gdir, base_dir=tmp_dir, setup='all')
+                #%% 
+                # ----- MODEL THAT IS NOT CONSTANT AREA (INVERSION AND OGGM DYNAMICS) -----
+##                # Make a working copy of the glacier directory
+##                tmp_dir = os.path.join(cfg.PATHS['working_dir'], 'tmp_dir')
+##                utils.mkdir(tmp_dir, reset=True)
+##                # new glacier directory is copy of old directory (copy everything)
+##                ngd = utils.copy_to_basedir(gdir, base_dir=tmp_dir, setup='all')
 #
 #                # Perform inversion based on PyGEM MB
 #                # Add thickness, width_m, and dx_meter to inversion flowlines so they are compatible with PyGEM's
@@ -939,49 +852,42 @@ def main(list_packed_vars):
 ##                            fl.dx_meter = fl.dx * gd.grid.dx
 ##                        return fls
 ##                    fls_inv = apply_on_fls(ngd.read_pickle('inversion_flowlines'))
-#                fls_inv = ngd.read_pickle('inversion_flowlines')
-#                
-#                mbmod_inv = PyGEMMassBalance(modelprms[0:8], glacier_rgi_table, glacier_gcm_temp,
-#                                             glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
-#                                             glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                             option_areaconstant=False, hindcast=pygem_prms.hindcast,
+#
+#                fls_inv = gdir.read_pickle('inversion_flowlines')
+#                mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table, 
+#                                             hindcast=pygem_prms.hindcast,
 #                                             debug=pygem_prms.debug_mb,
 #                                             debug_refreeze=pygem_prms.debug_refreeze,
-#                                             fls=fls_inv, repeat_period=False,
-#                                             )
-#                # Inversion with OGGM model showing the diffences in the mass balance vs. altitude relationships, 
-#                #  which is going to drive different ice thickness estimates
-#                from oggm.core.massbalance import PastMassBalance
-#                oggm_mod = PastMassBalance(gdir)
-#                h, w = gdir.get_inversion_flowline_hw()
-#                oggm = oggm_mod.get_annual_mb(h, year=2000) * cfg.SEC_IN_YEAR * 900
-#                pyg  = mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls_inv) * cfg.SEC_IN_YEAR * 900
-#                plt.plot(oggm, h, '.')
-#                plt.plot(pyg, h, '.')
-#                plt.show()
-#
-#
+#                                             fls=fls, option_areaconstant=True)
+##                # Inversion with OGGM model showing the diffences in the mass balance vs. altitude relationships, 
+##                #  which is going to drive different ice thickness estimates
+##                from oggm.core.massbalance import PastMassBalance
+##                oggm_mod = PastMassBalance(gdir)
+##                h, w = gdir.get_inversion_flowline_hw()
+##                oggm = oggm_mod.get_annual_mb(h, year=2000) * cfg.SEC_IN_YEAR * 900
+##                pyg  = mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls_inv) * cfg.SEC_IN_YEAR * 900
+##                plt.plot(oggm, h, '.')
+##                plt.plot(pyg, h, '.')
+##                plt.show()
 #                # Want to reset model parameters
-#                climate.apparent_mb_from_any_mb(ngd, mb_model=mbmod_inv, mb_years=np.arange(18),
+#                climate.apparent_mb_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(18),
 ##                                                    apply_on_fls=apply_on_fls
 #                                                )
-#                tasks.prepare_for_inversion(ngd)
+#                tasks.prepare_for_inversion(gdir)
 #                print('setting model parameters here')
 ##                    fs = 5.7e-20
 #                fs = 0
 #                glen_a_multiplier = 1
-#                tasks.mass_conservation_inversion(ngd, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
-#                tasks.filter_inversion_output(ngd)
-#                tasks.init_present_time_glacier(ngd)
+#                tasks.mass_conservation_inversion(gdir, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
+#                tasks.filter_inversion_output(gdir)
+#                tasks.init_present_time_glacier(gdir) # adds bins below (can use thhe 136 on-glacier for offglac calcs)
 #
-#                nfls = ngd.read_pickle('model_flowlines')
-#                mbmod = PyGEMMassBalance(modelprms[0:8], glacier_rgi_table, glacier_gcm_temp,
-#                                         glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
-#                                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                         option_areaconstant=False, hindcast=pygem_prms.hindcast,
+#                nfls = gdir.read_pickle('model_flowlines')
+#                mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table, 
+#                                         hindcast=pygem_prms.hindcast,
 #                                         debug=pygem_prms.debug_mb,
 #                                         debug_refreeze=pygem_prms.debug_refreeze,
-#                                         fls=nfls, repeat_period=True)
+#                                         fls=fls, option_areaconstant=True)
 #                # Model parameters
 #                #  fs=5.7e-20
 #                #  glen_a=cfg.PARAMS['glen_a'], OGGM * 1.3 for Farinotti2019: glen_a=cfg.PARAMS['glen_a']*1.3
@@ -1000,6 +906,141 @@ def main(list_packed_vars):
 #                # plt.figure()
 #                # diag.area_m2.plot()
 #                plt.show()
+                
+                    
+                
+                #%% ===== Adding functionality for calving =====
+                water_level = None
+                if glacier_rgi_table['TermType'] == 1:
+#                    # Calving params - default is 2.4, which is quite high
+#                    cfg.PARAMS['inversion_calving_k'] = 1
+#                    # Find out the calving values
+#                    calving_output = tasks.find_inversion_calving(gdir)
+#                    # Get ready
+#                    tasks.init_present_time_glacier(gdir)
+                    
+                    #%%
+                    # FluxBasedMODEL
+#                    for flux_gate in [0.06, 0.10, 0.16]:
+#                        model = FluxBasedModel(bu_tidewater_bed(), mb_model=mbmod,
+#                                               is_tidewater=True, 
+#                                               flux_gate=flux_gate,  # default is 0
+#                                               calving_k=0.2,  # default is 2.4
+#                                              )
+                        
+                        
+#                    old_model = FluxBasedModel(fls, y0=0, mb_model=mbmod)
+#                    ev_model = FluxBasedModel(nfls, y0=0, mb_model=mbmod, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, 
+#                                              fs=fs)
+                        
+                    # ----- MY VERSION OF FLUXBASEDMODEL W FRONTAL ABLATION -----
+                    # THIS REQUIRES ICE THICKNESS ESTIMATE!
+#                    assert True == False, 'Need ice thickness inversion for this code'
+#                    to_plot = None
+#                    keys = []
+#                    for flux_gate in [0, 0.1]:
+#                        model = FluxBasedModel(fls, mb_model=mbmod, is_tidewater=True, 
+#                                               flux_gate=flux_gate,  # default is 0
+#                                               calving_k=0.2,  # default is 2.4
+#                                              )
+#
+#                        # long enough to reach approx. equilibrium 
+#                        _, ds = model.run_until_and_store(6000)
+#                        df_diag = model.get_diagnostics()
+#                            
+#                        if to_plot is None:
+#                            to_plot = df_diag
+#                            
+#                        key = 'Flux gate={:.02f}. Calving rate: {:.0f} m yr-1'.format(flux_gate, model.calving_rate_myr)
+#                        to_plot[key] = df_diag['surface_h']
+#                        keys.append(key)
+#                            
+#                        # Plot of volume
+#                        (ds.volume_m3 * 1e-9).plot(label=key);
+#                    plt.legend(); plt.ylabel('Volume [km$^{3}$]');
+##                    to_plot.index = xc
+                        
+                        
+                    
+                    #%%
+                    
+                    # Calving flux (km3 yr-1; positive value refers to amount of calving, need to subtract from mb)
+                    for calving_k in [1]:
+                        # Calving parameter
+                        cfg.PARAMS['calving_k'] = calving_k
+                        cfg.PARAMS['inversion_calving_k'] = cfg.PARAMS['calving_k']
+                        
+                        
+                        # INVERSION TO RUN
+                        # Find out the calving values
+                        out_calving = tasks.find_inversion_calving(gdir)
+                        # Get ready
+                        tasks.init_present_time_glacier(gdir)
+                        # print output
+                        print(out_calving)
+                        
+                        if debug:
+                            fl = gdir.read_pickle('model_flowlines')[-1]
+                            xc = fl.dis_on_line * fl.dx_meter / 1000
+                            plt.plot(xc, fl.surface_h, '-', color='C1', label='Surface')
+                            plt.plot(xc, gdir.read_pickle('model_flowlines')[-1].bed_h, '--', color='k', 
+                                     label='Glacier bed (with calving)')
+                            plt.hlines(0, 0, xc[-1], color='C0', linestyle=':'), plt.legend()
+                            plt.show()
+
+                        print(cfg.PARAMS['calving_front_slope'])
+                        
+                        
+                        
+#                        assert True == False, 'Need ice thickness inversion for this code'
+                        to_plot = None
+                        keys = []
+                        fls = gdir.read_pickle('model_flowlines')
+                        for flux_gate in [0, 0.1]:
+                            model = FluxBasedModel(fls, mb_model=mbmod, is_tidewater=True, 
+                                                   flux_gate=flux_gate,  # default is 0
+                                                   calving_k=0.2,  # default is 2.4
+                                                  )
+    
+                            # long enough to reach approx. equilibrium 
+                            _, ds = model.run_until_and_store(6000)
+                            df_diag = model.get_diagnostics()
+                                
+                            if to_plot is None:
+                                to_plot = df_diag
+                                
+                            key = 'Flux gate={:.02f}. Calving rate: {:.0f} m yr-1'.format(flux_gate, model.calving_rate_myr)
+                            to_plot[key] = df_diag['surface_h']
+                            keys.append(key)
+                                
+                            # Plot of volume
+                            (ds.volume_m3 * 1e-9).plot(label=key);
+                        plt.legend(); plt.ylabel('Volume [km$^{3}$]');
+                        plt.show()
+                        
+#                        model_wc = tasks.run_constant_climate(gdir, y0=2000, nyears=100)
+                        # switch to tasks.run_from_climate_data
+                        
+                        
+#                        # Water level (max based on 50 m freeboard)
+#                        if water_level is None:
+#                            th = fls[-1].surface_h[-1]
+#                            vmin, vmax = cfg.PARAMS['free_board_marine_terminating']
+#                            water_level = utils.clip_scalar(0, th - vmax, th - vmin)
+#                            
+#                        
+#                        
+#                        calving_output = calving_flux_from_depth(gdir, water_level=water_level)
+#                        calving_flux = calving_output['flux']
+#                            
+#                        print('\n calving_k:', calving_k)
+#                        print('  calving flux (km3 yr-1):', calving_flux)
+#                        print('  freeboard:', calving_output['free_board'])
+#                        print('  water_level:', calving_output['water_level'])
+
+                
+                #%%
+#                
                     
                 # ===== END INVERSION AND MODEL RUN WITH OGGM DYNAMICS =====                #%% 
 

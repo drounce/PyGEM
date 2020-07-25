@@ -30,12 +30,14 @@ from oggm.shop import rgitopo
 from pygem.massbalance import PyGEMMassBalance
 from pygem.glacierdynamics import MassRedistributionCurveModel
 from pygem.oggm_compat import single_flowline_glacier_directory
-from pygem.shop import debris, mbdata, icethickness
+from pygem.shop import calving, debris, mbdata, icethickness
 
 #%%
 # ===== OGGM CONFIG FILE =====
 # Initialize OGGM and set up the default run parameters
 cfg.initialize(logging_level='WORKFLOW')
+cfg.PARAMS['use_multiprocessing'] = False
+#cfg.PARAMS['mp_processes'] = 1
 cfg.PARAMS['border'] = 10
 # Usually we recommend to set dl_verify to True - here it is quite slow
 # because of the huge files so we just turn it off.
@@ -57,17 +59,23 @@ else:
     
 rgi_ids = ['RGI60-' + x.split('.')[0].zfill(2) + '.' + x.split('.')[1] for x in glac_no]
 
-
 #%% ===== SELECT BEST DEM =====
 # Get the pre-processed topography data
+# - creates directories from scratch
 gdirs = rgitopo.init_glacier_directories_from_rgitopo(rgi_ids)
 
 
 # ===== FLOWLINES (w debris) ===== 
-gdirs = workflow.init_glacier_directories(rgi_ids)
+# - checks if directories are created (only use if you're on an already prepared directory)
+#gdirs = workflow.init_glacier_directories(rgi_ids)
+
+print('\nTO-DO LIST:')
+print(' - reinstall from git\n\n')
 
 # Compute all the stuff
 list_tasks = [
+        
+    # Tasks for OGGM
     tasks.glacier_masks,
     tasks.compute_centerlines,
     tasks.initialize_flowlines,
@@ -75,35 +83,41 @@ list_tasks = [
     tasks.catchment_area,
     tasks.catchment_width_geom,
     tasks.catchment_width_correction,
+#    tasks.compute_downstream_line, # check??
 #    tasks.compute_downstream_bedshape,
+    # OGGM needs this to advance the glacier - it will be the exact same simply with additional bins below
+    # - init_present_time_glacier does this!
+
+#    # New workflow following Huss and Farinotti (2012) - squeezed flowline
+#    # - squeezed flowline averages slow of all branches over a bin
+#    # - OGGM does it based on the main flowline where most of the mass is; also we have more control with frontal ablation width
+    
+    
     # Debris tasks
     debris.debris_to_gdir,
     debris.debris_binned,
     # Consensus ice thickness
-    icethickness.consensus_mass_estimate,
+    icethickness.consensus_gridded,
+    icethickness.consensus_binned,
     # Mass balance data
-    mbdata.mb_bins_to_glacierwide
+    mbdata.mb_df_to_gdir,
 ]
 
-#for task in list_tasks:
-#    workflow.execute_entity_task(task, gdirs)
-    # equivalent to:
-    #for gdir in gdirs:
-    #    tasks.glacier_masks(gdir)
-    #    tasks.compute_centerlines(gdir)
-    #    ...
+for task in list_tasks:
+    workflow.execute_entity_task(task, gdirs)     
 
-# Task format with arguments (unable to use list_tasks if require function arguments)
-#workflow.execute_entity_task(debris.debris_to_gdir, gdirs, debris_dir=pygem_prms.debris_fp, add_to_gridded=True)
-#workflow.execute_entity_task(debris.debris_binned, gdirs)
 
-## ===== Consensus ice thickness =====
-#workflow.execute_entity_task(icethickness.consensus_mass_estimate, gdirs)
-#
+
 ## ===== Mass balance data =====
 ##mbdata.mb_bins_to_reg_glacierwide(mb_binned_fp=pygem_prms.mb_binned_fp, O1Regions=['01'])
-#workflow.execute_entity_task(mbdata.mb_bins_to_glacierwide, gdirs)
-workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdirs)
+##workflow.execute_entity_task(mbdata.mb_bins_to_glacierwide, gdirs)
+#workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdirs)
+
+# ===== CALVING CALIBRATION =====
+# Individual glaciers
+#for gdir in gdirs:
+#    if gdir.is_tidewater:
+#        calving.calibrate_calving_k_single_wconsensus(gdir)
 
 
 ## Perform inversion based on PyGEM MB
@@ -113,66 +127,31 @@ workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdirs)
 #fls_inv = gdirs[0].read_pickle('inversion_flowlines')
 
 #%%
-
-
+# ----- Alternative to use squeezed flowlines from Huss and Farinotti (2012) -----
+#tasks.simple_glacier_masks, # much more robust mask than the one used for flowlines
+#tasks.elevation_band_flowline, # same as Huss and Farinotti; produces the binned elevation (30m), length, and width
+#tasks.fixed_dx_elevation_band_flowline, # converts the binned elevation, length, width to the fixed dx grid in OGGM
+#                                        # output is the same flowline object
     
-#%%
-#                    # Perform inversion based on PyGEM MB
-#                    # Add thickness, width_m, and dx_meter to inversion flowlines so they are compatible with PyGEM's
-#                    #  mass balance model (necessary because OGGM's inversion flowlines use pixel distances; however, 
-#                    #  this will likely be rectified in the future)
-#                    fls_inv = ngd.read_pickle('inversion_flowlines')
-#                    
-#                    mbmod_inv = PyGEMMassBalance(modelparameters[0:8], glacier_rgi_table, glacier_gcm_temp,
-#                                                 glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
-#                                                 glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                                 option_areaconstant=0, hindcast=pygem_prms.hindcast,
-#                                                 debug=pygem_prms.debug_mb,
-#                                                 debug_refreeze=pygem_prms.debug_refreeze,
-#                                                 fls=fls_inv, repeat_period=False,
-#                                                 )
-#                    
-#                    
-#                    # Inversion with OGGM model showing the diffences in the mass balance vs. altitude relationships, 
-#                    #  which is going to drive different ice thickness estimates
-#                    from oggm.core.massbalance import PastMassBalance
-#                    oggm_mod = PastMassBalance(gd)
-#                    h, w = gd.get_inversion_flowline_hw()
-#                    oggm = oggm_mod.get_annual_mb(h, year=2000) * cfg.SEC_IN_YEAR * 900
-#                    pyg  = mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls_inv) * cfg.SEC_IN_YEAR * 900
-#                    plt.plot(oggm, h, '.')
-#                    plt.plot(pyg, h, '.')
-#                    plt.show()
-#
-#
-#                    # Want to reset model parameters
-#                    climate.apparent_mb_from_any_mb(ngd, mb_model=mbmod_inv, mb_years=np.arange(18))
-#                    tasks.prepare_for_inversion(ngd)
-#                    print('setting model parameters here')
-##                    fs = 5.7e-20
-#                    fs = 0
-#                    glen_a_multiplier = 1
-#                    tasks.mass_conservation_inversion(ngd, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
-#                    tasks.filter_inversion_output(ngd)
-#                    tasks.init_present_time_glacier(ngd)
-#
-#                    nfls = ngd.read_pickle('model_flowlines')
-#                    mbmod = PyGEMMassBalance(modelparameters[0:8], glacier_rgi_table, glacier_gcm_temp,
-#                                             glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
-#                                             glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-#                                             option_areaconstant=0, hindcast=pygem_prms.hindcast,
-#                                             debug=pygem_prms.debug_mb,
-#                                             debug_refreeze=pygem_prms.debug_refreeze,
-#                                             fls=nfls, repeat_period=True)
-
-    
-
-#%%    
-## ===== CLIMATE DATA: HISTORICAL (FROM OGGM) ======
-## Process the ECMWF climate data from David
-#from oggm.shop import ecmwf
-#workflow.execute_entity_task(ecmwf.process_ecmwf_data, gdirs, dataset='ERA5dr')
-#
-## This creates a "climate_historical.nc" file in each glacier directory with the data in it:
-#fpath = gdirs[0].get_filepath('climate_historical')
-#print(fpath)
+# ----- Alternative way of running tasks -----
+#for rgi_id in rgi_ids:
+#    gdirs = rgitopo.init_glacier_directories_from_rgitopo([rgi_id])
+#    gdir = gdirs[0]
+#    tasks.glacier_masks(gdir)
+#    tasks.compute_centerlines(gdir)
+#    tasks.glacier_masks(gdir)
+#    tasks.compute_centerlines(gdir)
+#    tasks.initialize_flowlines(gdir)
+#    tasks.compute_downstream_line(gdir)
+#    tasks.catchment_area(gdir)
+#    tasks.catchment_width_geom(gdir)
+#    tasks.catchment_width_correction(gdir)    
+#    # Debris tasks
+#    debris.debris_to_gdir(gdir)
+#    debris.debris_binned(gdir)
+#    # Consensus ice thickness
+#    icethickness.consensus_gridded(gdir)
+#    icethickness.consensus_binned(gdir)
+#    # Tidewater
+#    if gdir.is_tidewater:
+#        calving.calibrate_calving_k_single_wconsensus(gdir)

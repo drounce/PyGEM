@@ -21,8 +21,10 @@ To-do list:
 log = logging.getLogger(__name__)
 
 # Add the new name "hd" to the list of things that the GlacierDirectory understands
-cfg.BASENAMES['debris_hd'] = ('debris_hd.tif', 'Raster of debris thickness data')
-cfg.BASENAMES['debris_ed'] = ('debris_ed.tif', 'Raster of debris enhancement factor data')
+if not 'debris_hd' in cfg.BASENAMES:
+    cfg.BASENAMES['debris_hd'] = ('debris_hd.tif', 'Raster of debris thickness data')
+if not 'debris_ed' in cfg.BASENAMES:
+    cfg.BASENAMES['debris_ed'] = ('debris_ed.tif', 'Raster of debris enhancement factor data')
 
 @entity_task(log, writes=['debris_hd', 'debris_ed'])
 def debris_to_gdir(gdir, debris_dir=pygem_prms.debris_fp, add_to_gridded=True, hd_max=5, hd_min=0, ed_max=10, ed_min=0):
@@ -81,7 +83,7 @@ def debris_to_gdir(gdir, debris_dir=pygem_prms.debris_fp, add_to_gridded=True, h
     # If debris enhancement factor data exists, then write to glacier directory
     if os.path.exists(ed_dir + glac_str_nolead + '_meltfactor.tif'):
         ed_fn = ed_dir + glac_str_nolead + '_meltfactor.tif'
-    elif os.path.exists(hd_dir + glac_str_nolead + '_meltfactor_extrap.tif'):
+    elif os.path.exists(ed_dir + glac_str_nolead + '_meltfactor_extrap.tif'):
         ed_fn = ed_dir + glac_str_nolead + '_meltfactor_extrap.tif'
     else: 
         ed_fn = None
@@ -128,11 +130,7 @@ def debris_binned(gdir, ignore_debris=False):
     assert len(flowlines) == 1, 'Error: binning debris data set up only for single flowlines at present'
     
     # Add binned debris thickness and enhancement factors to flowlines
-    if ignore_debris or not os.path.exists(gdir.get_filepath('debris_hd')):        
-        nbins = len(fl.dis_on_line)
-        fl.debris_hd = np.zeros(nbins)
-        fl.debris_ed = np.ones(nbins)
-    else:
+    if os.path.exists(gdir.get_filepath('debris_hd')) and ignore_debris==False:
         ds = xr.open_dataset(gdir.get_filepath('gridded_data'))
         glacier_mask = ds['glacier_mask'].values
         topo = ds['topo_smoothed'].values
@@ -167,6 +165,11 @@ def debris_binned(gdir, ignore_debris=False):
                 
         fl.debris_hd = hd_binned
         fl.debris_ed = ed_binned
+        
+    else:
+        nbins = len(fl.dis_on_line)
+        fl.debris_hd = np.zeros(nbins)
+        fl.debris_ed = np.ones(nbins)
     
     # Overwrite pickle
     gdir.write_pickle(flowlines, 'inversion_flowlines')
