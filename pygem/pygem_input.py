@@ -138,13 +138,13 @@ if glac_no is not None:
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
-#ref_gcm_name = 'ERA-Interim'        # reference climate dataset
+#ref_gcm_name = 'ERA-Interim'       # reference climate dataset
 ref_gcm_name = 'ERA5'               # reference climate dataset
 ref_startyear = 2000                # first year of model run (reference dataset)
 ref_endyear = 2019                  # last year of model run (reference dataset)
 ref_wateryear = 2                   # 1: water year, 2: calendar year, 3: custom defined 
 ref_spinupyears = 0                 # spin up years
-constantarea_years = 0          # number of years to not let the area or volume change
+constantarea_years = 0              # number of years to not let the area or volume change
 if ref_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
 if constantarea_years > 0:
@@ -193,8 +193,8 @@ option_bias_adjustment = 1
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('minimization' (no longer exists), 'MCMC', 'HH2015', 'HH2015_modified')
 #option_calibration = 'MCMC'
-option_calibration = 'HH2015'
-#option_calibration = 'HH2015_modified'
+#option_calibration = 'HH2015'
+option_calibration = 'HH2015_modified'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -248,9 +248,27 @@ if option_calibration == 'MCMC':
     ddfsnow_bndlow = 0
     ddfsnow_bndhigh = np.inf
     ddfsnow_start=ddfsnow_mu
+    
+elif option_calibration in ['HH2015', 'HH2015_modified']:
+#    # OPTION 1: Minimization
+#    # Model parameter bounds for each calibration round
+#    precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.2,5)]
+#    precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
+#    ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
+#    tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
+    # Minimization details 
+    method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
+    params2opt = ['tbias', 'kp']
+    ftol_opt = 1e-3                 # tolerance for SciPy optimization scheme
+    eps_opt = 0.01                 # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
+#    massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
+#    zscore_tolerance_all = 1        # tolerance if multiple calibration points (shortcut that could be improved)
+#    zscore_tolerance_single = 0.1   # tolerance if only a single calibration point (want this to be more exact)
+#    zscore_update_threshold = 0.1   # threshold to update model params only if significantly better
+#    extra_calrounds = 3             # additional calibration rounds in case optimization is getting stuck
 
 #%% ===== MODEL PARAMETERS =====
-use_calibrated_modelparams = False   # False: use input values, True: use calibrated model parameters
+use_calibrated_modelparams = False  # False: use input values, True: use calibrated model parameters
 kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]

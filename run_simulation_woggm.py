@@ -11,7 +11,7 @@ import argparse
 import collections
 import inspect
 import multiprocessing
-import os
+import os-
 import time
 # External libraries
 import pandas as pd
@@ -688,7 +688,7 @@ def main(list_packed_vars):
 
     # ===== RUN MASS BALANCE =====
     # Number of simulations
-    if pygem_prms.option_calibration == 2:
+    if pygem_prms.option_calibration == 'MCMC':
         sim_iters = pygem_prms.sim_iters
     else:
         sim_iters = 1

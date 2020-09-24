@@ -15,14 +15,18 @@ from pygem.shop import debris, mbdata, icethickness
 
 # Troubleshooting:
 #  - EXCEPT: PASS is the key to the issues that is being experienced when running code Fabien provides on mac
-#  - also have changed temporary working directories (wd), but the true problem may be the except:pass 
+#  - also have changed temporary working directories (wd), but the true problem may be the except:pass
+
+class CompatGlacDir:
+    def __init__(self, rgiid):
+        self.rgiid = rgiid
 
 
 def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_border=10, k_calving=2):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
-    
+
     k_calving is free variable!
-    
+
     Parameters
     ----------
     rgi_id : str
@@ -44,8 +48,8 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
     else:
         raise ValueError('Check RGIId is correct')
     cfg.initialize()
-    
-    wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/oggm-pygem-{}-b{}-k{}'.format(rgi_id, prepro_border, 
+
+    wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/oggm-pygem-{}-b{}-k{}'.format(rgi_id, prepro_border,
                                                                                               k_calving)
     cfg.PATHS['working_dir'] = wd
     cfg.PARAMS['use_multiple_flowlines'] = False
@@ -85,10 +89,10 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
     for task in list_tasks:
         # The order matters!
         workflow.execute_entity_task(task, gdirs)
-    
+
     # Calving according to Recinos et al. 2019
     #  solves equality between ice derformation and Oerleman's calving law
-    #  reduces temperature sensitivity 
+    #  reduces temperature sensitivity
     from oggm.core.inversion import find_inversion_calving
     cfg.PARAMS['k_calving'] = k_calving
     df = find_inversion_calving(gdirs[0])
@@ -133,7 +137,7 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         raise ValueError('Check RGIId is correct')
 #    if 'RGI60-' not in rgi_id:
 #        raise ValueError('OGGM currently expects IDs to start with RGI60-')
-        
+
 #   # ----- Old initialization from February 2020-----
 #    cfg.initialize()
 ##    wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/oggm-pygem-{}-b{}'.format(rgi_id, prepro_border)
@@ -142,8 +146,8 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
 #    cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
 #    cfg.PARAMS['use_multiple_flowlines'] = False
 #    cfg.PARAMS['use_multiprocessing'] = False
-        
-        
+
+
     # Initialize OGGM and set up the default run parameters
     cfg.initialize(logging_level='WORKFLOW')
     cfg.PARAMS['border'] = 10
@@ -153,7 +157,7 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
     cfg.PARAMS['dl_verify'] = True
     cfg.PARAMS['use_multiple_flowlines'] = False
     # temporary directory for testing (deleted on computer restart)
-    #cfg.PATHS['working_dir'] = utils.get_temp_dir('PyGEM_ex') 
+    #cfg.PATHS['working_dir'] = utils.get_temp_dir('PyGEM_ex')
     cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
 
     # Check if folder is already processed
@@ -166,11 +170,11 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         pass
 
     #%%
-    
+
     # ===== SELECT BEST DEM =====
     # Get the pre-processed topography data
     gdirs = rgitopo.init_glacier_directories_from_rgitopo([rgi_id])
-    
+
     gdirs = workflow.init_glacier_directories([rgi_id])
 #    # If not ready, we download the preprocessed data for this glacier
 #    gdirs = workflow.init_glacier_regions([rgi_id],
@@ -201,11 +205,34 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
     #    tasks.filter_inversion_output,
     #    tasks.init_present_time_glacier,
     ]
-    
+
     for task in list_tasks:
         workflow.execute_entity_task(task, gdirs)
 
     return gdirs[0]
+
+
+def create_empty_glacier_directory(rgi_id):
+    """Create empty GlacierDirectory for PyGEM's alternative ice thickness products
+
+    Parameters
+    ----------
+    rgi_id : str
+        the rgi id of the glacier (RGIv60-)
+
+    Returns
+    -------
+    a GlacierDirectory object
+    """
+    # RGIId check
+    if type(rgi_id) != str:
+        raise ValueError('We expect rgi_id to be a string')
+    assert rgi_id.startswith('RGI60-'), 'Check RGIId starts with RGI60-'
+
+    # Create empty directory
+    gdir = CompatGlacDir(rgi_id)
+
+    return gdir
 
 
 def get_glacier_zwh(gdir):
@@ -317,5 +344,3 @@ class RandomLinearMassBalance(MassBalanceModel):
 
         # Convert to units of [m s-1] (meters of ice per second)
         return mb / SEC_IN_YEAR / cfg.PARAMS['ice_density']
-    
-

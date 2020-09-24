@@ -603,27 +603,6 @@ def convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_a
     glac_zmin = elev_bins[(glac_bin_area > 0).argmax(axis=0)] - pygem_prms.binsize/2
     glac_wide_snowline[glac_wide_snowline < glac_zmin] = glac_zmin[glac_wide_snowline < glac_zmin]
 
-#    print('DELETE ME - TESTING')
-#    # Compute glacier volume change for every time step and use this to compute mass balance
-#    #  this will work for any indexing
-#    glac_wide_area = glac_wide_area_annual[:-1].repeat(12)
-#
-##    print('glac_wide_area_annual:', glac_wide_area_annual)
-#
-#    # Mass change [km3 mwe]
-#    #  mb [mwea] * (1 km / 1000 m) * area [km2]
-#    glac_wide_masschange = glac_wide_massbaltotal / 1000 * glac_wide_area
-#
-#    print('glac_wide_melt:', glac_wide_melt)
-##    print('glac_wide_massbaltotal:', glac_wide_massbaltotal)
-##    print('glac_wide_masschange:', glac_wide_masschange)
-##    print('glac_wide_masschange.shape[0] / 12:', glac_wide_masschange.shape[0] / 12)
-#
-#    # Mean annual mass balance [mwea]
-#    mb_mwea = (glac_wide_masschange.sum() / glac_wide_area[0] * 1000 /
-#               (glac_wide_masschange.shape[0] / 12))
-#    print('  mb_model [mwea]:', mb_mwea.round(3))
-
     return (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt,
             glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline,
             glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual)
@@ -645,8 +624,7 @@ def main(list_packed_vars):
     # Unpack variables
     count = list_packed_vars[0]
     glac_no = list_packed_vars[1]
-    regions_str = list_packed_vars[2]
-    gcm_name = list_packed_vars[3]
+    gcm_name = list_packed_vars[2]
 
     parser = getparser()
     args = parser.parse_args()
@@ -743,8 +721,6 @@ def main(list_packed_vars):
         dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear,
                                                    spinupyears=pygem_prms.ref_spinupyears,
                                                    option_wateryear=pygem_prms.ref_wateryear)
-#        if debug:
-#            print(ref_startyear, ref_endyear)
 
     # ===== Regular Climate Data (not synthetic simulation) =====
     if pygem_prms.option_synthetic_sim == 0:
@@ -858,12 +834,8 @@ def main(list_packed_vars):
                                                                         dates_table_ref, dates_table)
 
     # Checks on precipitation data
-    if gcm_prec_adj.max() > 10:
-        print('precipitation bias too high, needs to be modified')
-        print(np.where(gcm_prec_adj > 10))
-    elif gcm_prec_adj.min() < 0:
-        print('Negative precipitation value')
-        print(np.where(gcm_prec_adj < 0))
+    assert gcm_prec_adj.max() <= 10, 'gcm_prec_adj (precipitation bias adjustment) too high, needs to be modified'
+    assert gcm_prec_adj.min() >= 0, 'gcm_prec_adj is producing a negative precipitation value'
 
     if debug_spc:
         debug_fp = pygem_prms.output_sim_fp + 'debug/'
@@ -878,7 +850,7 @@ def main(list_packed_vars):
 
     # ===== RUN MASS BALANCE =====
     # Number of simulations
-    if pygem_prms.option_calibration == 2:
+    if pygem_prms.option_calibration == 'MCMC':
         sim_iters = pygem_prms.sim_iters
     else:
         sim_iters = 1
@@ -886,6 +858,7 @@ def main(list_packed_vars):
     for glac in range(main_glac_rgi.shape[0]):
         if glac == 0 or glac == main_glac_rgi.shape[0]:
             print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+            
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_gcm_elev = gcm_elev_adj[glac]
@@ -1202,10 +1175,10 @@ if __name__ == '__main__':
                 rgi_glac_number=pygem_prms.rgi_glac_number)
         glac_no = list(main_glac_rgi_all['rgino_str'].values)
 
-    # Regions
-    regions_str = 'R'
-    for region in sorted(set([x.split('.')[0] for x in glac_no])):
-        regions_str += str(region)
+#    # Regions
+#    regions_str = 'R'
+#    for region in sorted(set([x.split('.')[0] for x in glac_no])):
+#        regions_str += str(region)
 
     # Number of cores for parallel processing
     if args.option_parallels != 0:
@@ -1239,7 +1212,7 @@ if __name__ == '__main__':
         # Pack variables for multiprocessing
         list_packed_vars = []
         for count, glac_no_lst in enumerate(glac_no_lsts):
-            list_packed_vars.append([count, glac_no_lst, regions_str, gcm_name])
+            list_packed_vars.append([count, glac_no_lst, gcm_name])
 
         # Parallel processing
         if args.option_parallels != 0:
@@ -1251,73 +1224,6 @@ if __name__ == '__main__':
             # Loop through the chunks and export bias adjustments
             for n in range(len(list_packed_vars)):
                 main(list_packed_vars[n])
-
-#        # Merge netcdf files together into one
-#        # Filenames to merge
-#        output_list_sorted = []
-#        output_sim_fp = pygem_prms.output_sim_fp + gcm_name + '/'
-#        if pygem_prms.option_calibration == 2:
-#            sim_iters = pygem_prms.sim_iters
-#        else:
-#            sim_iters = 1
-#
-#        if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
-#            check_str = (regions_str + '_' + gcm_name + '_c' + str(pygem_prms.option_calibration) + '_ba' +
-#                         str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
-#                         str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '--')
-#        else:
-#            check_str = (regions_str + '_' + gcm_name + '_' + rcp_scenario + '_c' + str(pygem_prms.option_calibration) 
-#                         + '_ba' + str(pygem_prms.option_bias_adjustment) + '_' + str(sim_iters) + 'sets' + '_' +
-#                         str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '--')
-#        if pygem_prms.option_synthetic_sim==1:
-#            check_str = (check_str.split('--')[0] + '_T' + str(pygem_prms.synthetic_temp_adjust) + '_P' +
-#                         str(pygem_prms.synthetic_prec_factor) + '--')
-#        if args.batch_number is not None:
-#            check_str = check_str.split('--')[0] + '_batch' + str(args.batch_number) + '--'
-#        for i in os.listdir(output_sim_fp):
-#            if i.startswith(check_str):
-#                output_list_sorted.append([int(i.split('--')[1].split('.')[0]), i])
-#        output_list_sorted = sorted(output_list_sorted)
-#        output_list = [i[1] for i in output_list_sorted]
-#        # Open datasets and combine
-#        count_ds = 0
-#        for i in output_list:
-#            count_ds += 1
-#
-#            print(count_ds, 'output_list file:', i)
-#
-#            ds = xr.open_dataset(output_sim_fp + i)
-#            # Merge datasets of stats into one output
-#            if count_ds == 1:
-#                ds_all = ds
-#            else:
-##                ds_all = xr.merge((ds_all, ds))
-#                ds_all = xr.concat([ds_all, ds], 'glac')
-#            # Close dataset (NOTE: closing dataset here causes error on supercomputer)
-##            ds.close()
-#
-#        # Filename
-#        ds_all_fn = i.split('--')[0] + '.nc'
-#        # Encoding
-#        # Add variables to empty dataset and merge together
-#        encoding = {}
-#        noencoding_vn = ['stats', 'glac_attrs']
-#        if pygem_prms.output_package == 2:
-#            for vn in pygem_prms.output_variables_package2:
-#                # Encoding (specify _FillValue, offsets, etc.)
-#                if vn not in noencoding_vn:
-#                    encoding[vn] = {'_FillValue': False}
-#        # Export to netcdf
-#        if pygem_prms.output_package == 2:
-#            ds_all.to_netcdf(output_sim_fp + ds_all_fn, encoding=encoding)
-#        else:
-#            ds_all.to_netcdf(output_sim_fp + ds_all_fn)
-#        # Close dataset
-#        ds.close()
-#        ds_all.close()
-#        # Remove files in output_list
-#        for i in output_list:
-#            os.remove(output_sim_fp + i)
 
     print('Total processing time:', time.time()-time_start, 's')
 
