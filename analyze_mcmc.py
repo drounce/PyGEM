@@ -228,9 +228,10 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
         # EXCEPTION COULD BE ADDED HERE INSTEAD
         
     # Load data for glaciers
-    dates_table_nospinup = modelsetup.datesmodelrun(startyear=pygem_prms.startyear, endyear=pygem_prms.endyear, spinupyears=0)
-    dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.startyear, endyear=pygem_prms.endyear, 
-                                           spinupyears=pygem_prms.spinupyears)
+    dates_table_nospinup = modelsetup.datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, 
+                                                    spinupyears=0)
+    dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, 
+                                           spinupyears=pygem_prms.ref_spinupyears)
     
     count = 0
     for region in regions:

@@ -91,6 +91,7 @@ if args.option_mbdata_regional == 1:
     option_wgms = 1
     
     if option_wgms == 1:
+        print('HERE!')
         ds_wgms = pd.read_csv(pygem_prms.wgms_fp + pygem_prms.wgms_d_fn_preprocessed)
         ds_wgms = ds_wgms.sort_values('RGIId', ascending=True)
         ds_wgms.reset_index(drop=True, inplace=True)
@@ -98,10 +99,13 @@ if args.option_mbdata_regional == 1:
         ds_wgms['glacno'] = [x.split('-')[1] for x in ds_wgms.RGIId.values]
         region_list = sorted(list(ds_wgms.RegO1.unique()))
         
+        print('here2')
+        
         for region in region_list:
             print(region)
             ds_region = ds_wgms.loc[np.where(ds_wgms.RegO1 == region)[0]]
             glacno_list_wgms = sorted(list(ds_region.glacno.unique()))
+            print('here 3')
             main_glac_rgi_wgms = load_glacierdata_byglacno(glacno_list_wgms, option_loadhyps_climate=0, 
                                                            option_loadcal_data=0)
             

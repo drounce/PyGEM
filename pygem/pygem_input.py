@@ -130,27 +130,9 @@ rgi_glac_number = 'all'
 #rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
-#glac_no = None
-#glac_no = glac_fromcsv(main_directory + '/../qgis_himat/trishuli_and_naltar_RGIIds.csv')
 #glac_no = ['15.03473']
-#glac_no = ['15.03733']
-#glac_no = ['1.10689']
-#glac_no = ['1.15645']
-#glac_no = ['7.00228']
-#glac_no = ['1.17876'] # issue with task.catch_width_correction
-#glac_no = ['1.09810']
-glac_no = ['1.03377','1.03622','1.03890','1.04375','1.09426','1.09519','1.09639','1.09810','1.10325','1.10575',
-           '1.10607','1.10612','1.10689','1.13638','1.14443','1.14683','1.14878','1.17807','1.17840',
-           '1.17843','1.20734','1.20891','1.20968','1.26732']
-
-#glac_no = ['RGI60-01.03377','RGI60-01.03622','RGI60-01.03890','RGI60-01.04375','RGI60-01.09426','RGI60-01.09519','RGI60-01.09639','RGI60-01.09810','RGI60-01.10325','RGI60-01.10575',
-#           'RGI60-01.10607','RGI60-01.10612','RGI60-01.10689','RGI60-01.13638','RGI60-01.14443','RGI60-01.14683','RGI60-01.14878','RGI60-01.17807','RGI60-01.17840',
-#           'RGI60-01.17843','RGI60-01.20734','RGI60-01.20891','RGI60-01.20968','RGI60-01.26732']
-
-#glac_no = ['3.00108','3.00123','3.00191','3.00283','3.02467','3.02904','3.03274']
-#glac_no = ['7.00228', '7.00235','7.00240','7.00244','7.00250','7.00293','7.00319','7.00321','7.00422','7.00439',
-#           '7.00463','7.00464','7.00468','7.00470','7.00471','7.00476','7.00501','7.00511','7.00893','7.01463',
-#           '7.01500','7.01506','7.01511']
+glac_no = ['15.03733']
+#glac_no = None
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
@@ -215,26 +197,26 @@ cal_datasets = ['shean']
 # Calibration output filepath
 output_fp_cal = output_filepath + 'cal_' + option_calibration + '/'
 
-# OPTION 1: Minimization
-# Model parameter bounds for each calibration round
-precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.2,5)]
-precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
-ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
-tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
-# Minimization details 
-method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
-#params2opt = ['tempbias', 'precfactor']
-ftol_opt = 1e-5                 # tolerance for SciPy optimization scheme
-eps_opt = 0.01                  # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
-massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
-zscore_tolerance_all = 1        # tolerance if multiple calibration points (shortcut that could be improved)
-zscore_tolerance_single = 0.1   # tolerance if only a single calibration point (want this to be more exact)
-zscore_update_threshold = 0.1   # threshold to update model params only if significantly better
-extra_calrounds = 3             # additional calibration rounds in case optimization is getting stuck
+## OPTION 1: Minimization
+## Model parameter bounds for each calibration round
+#precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.2,5)]
+#precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
+#ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
+#tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
+## Minimization details 
+#method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
+##params2opt = ['tempbias', 'precfactor']
+#ftol_opt = 1e-5                 # tolerance for SciPy optimization scheme
+#eps_opt = 0.01                  # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
+#massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
+#zscore_tolerance_all = 1        # tolerance if multiple calibration points (shortcut that could be improved)
+#zscore_tolerance_single = 0.1   # tolerance if only a single calibration point (want this to be more exact)
+#zscore_update_threshold = 0.1   # threshold to update model params only if significantly better
+#extra_calrounds = 3             # additional calibration rounds in case optimization is getting stuck
 
 # OPTION 2: MCMC
-# Chain options
 if option_calibration == 'MCMC':
+    # Chain options
     n_chains = 1                    # number of chains (min 1, max 3)
     mcmc_sample_no = 100           # number of steps (10000 was found to be sufficient in HMA)
     mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
@@ -243,6 +225,7 @@ if option_calibration == 'MCMC':
     # Precipitation factor distribution options
     kp_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
     kp_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
+    assert os.path.exists(kp_gamma_region_dict_fullfn), 'Need to specify the precfactor regional dictionary for priors'
     kp_gamma_region_df = pd.read_csv(kp_gamma_region_dict_fullfn)
     kp_gamma_region_dict = dict(zip(kp_gamma_region_df.Region.values, 
                                     [[kp_gamma_region_df.loc[x,'alpha'], kp_gamma_region_df.loc[x,'beta']] 
@@ -259,6 +242,7 @@ if option_calibration == 'MCMC':
     # Temperature bias distribution options
     tbias_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
     tbias_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
+    assert os.path.exists(tbias_norm_region_dict_fullfn), 'Need to specify the tbias regional dictionary for priors'
     tbias_norm_region_df = pd.read_csv(tbias_norm_region_dict_fullfn)
     tbias_norm_region_dict = dict(zip(tbias_norm_region_df.Region.values, 
                                       [[tbias_norm_region_df.loc[x,'mu'], tbias_norm_region_df.loc[x,'sigma']] 
@@ -276,9 +260,8 @@ if option_calibration == 'MCMC':
     ddfsnow_bndhigh = np.inf
     ddfsnow_start=ddfsnow_mu
 
-#%% MODEL PARAMETERS
-option_import_modelparams = 0       # 0: input values, 1: calibrated model parameters from netcdf files
-#print('\nDELETE ME! Switch back option_import_modelparams\n')
+#%% ===== MODEL PARAMETERS =====
+option_import_modelparams = True       # False: use input values, True: use calibrated model parameters
 kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
@@ -290,16 +273,25 @@ lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
 tsnow_threshold = 1.0               # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
 frontalablation_k = 2               # frontal ablation rate [yr-1]
 af = 0.7                            # Bulk flow parameter for frontal ablation (m^-0.5)
+option_frontalablation_k = 1        # Calving option (1: values from HH2015, 
+                                    #                 2: calibrate glaciers independently, use transfer fxns for others)
+
 # Calving width dictionary to override RGI elevation bins, which can be highly inaccurate at the calving front
 width_calving_dict_fullfn = main_directory + '/../Calving_data/calvingfront_widths.csv'
-width_calving_df = pd.read_csv(width_calving_dict_fullfn)
-width_calving_dict = dict(zip(width_calving_df.RGIId, width_calving_df.front_width_m))
-# Calving option (1=values from HH2015, 2=calibrate glaciers independently and use transfer fxns for others)
-option_frontalablation_k = 1
+if os.path.exists(width_calving_dict_fullfn):
+    width_calving_df = pd.read_csv(width_calving_dict_fullfn)
+    width_calving_dict = dict(zip(width_calving_df.RGIId, width_calving_df.front_width_m))
+else:
+    width_calving_dict = {}
+
 # Calving parameter dictionary (according to Supplementary Table 3 in HH2015)
 frontalablation_k0dict_fullfn = main_directory + '/../Calving_data/frontalablation_k0_dict.csv'
-frontalablation_k0dict_df = pd.read_csv(frontalablation_k0dict_fullfn)
-frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalablation_k0dict_df.k0))
+if os.path.exists(frontalablation_k0dict_fullfn):
+    frontalablation_k0dict_df = pd.read_csv(frontalablation_k0dict_fullfn)
+    frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalablation_k0dict_df.k0))
+else:
+    frontalablation_k0dict = None
+    
 # Calving glacier data
 calving_data_fullfn = main_directory + '/../Calving_data/calving_glacier_data.csv'
 
@@ -308,6 +300,61 @@ modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 
 # Model parameter filepath
 modelparams_fp = output_filepath + 'cal_' + option_calibration + '/'
 #modelparams_fp = output_filepath + 'cal_opt2_spc_20190806/'
+
+#%% ===== MASS BALANCE MODEL OPTIONS =====
+# Initial surface type options
+option_surfacetype_initial = 1
+#  option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
+#   > Sakai et al. (2015) found that the decadal ELAs are consistent with the median elevation of nine glaciers in High
+#     Mountain Asia, and Nuimura et al. (2015) also found that the snow line altitude of glaciers in China corresponded
+#     well with the median elevation.  Therefore, the use of the median elevation for defining the initial surface type
+#     appears to be a fairly reasonable assumption in High Mountain Asia.
+#  option 2 - use mean elevation
+#  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
+option_surfacetype_firn = 1         # 1: firn included; 0: no included (firn is snow)
+option_include_debris = True
+option_surfacetype_debris = 1       # 1: debris cover included; 0: not included
+
+# Downscaling model options
+# Reference elevation options for downscaling climate variables
+option_elev_ref_downscale = 'Zmed'  # 'Zmed', 'Zmax', or 'Zmin' for median, maximum or minimum glacier elevations
+# Downscale temperature to bins options
+option_temp2bins = 1                # 1: lr_gcm and lr_glac to adjust temp from gcm to the glacier bins
+option_adjusttemp_surfelev = 1      # 1: adjust temps based on surface elev changes; 0: no adjustment
+# Downscale precipitation to bins options
+option_prec2bins = 1                # 1: prec_factor and prec_grad to adjust precip from gcm to the glacier bins
+option_preclimit = 1                # 1: limit the uppermost 25% using an expontial fxn
+
+# Accumulation model options
+option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
+
+# Ablation model options
+option_ablation = 2                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
+option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
+ddfdebris = ddfice                  # add options for handling debris-covered glaciers
+
+# Refreezing model options
+option_refreezing = 1               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
+if option_refreezing == 1:
+    rf_layers = 5                   # number of layers for refreezing model (8 is sufficient - Matthias)
+#    rf_layers_max = 8               # number of layers to include for refreeze calculation
+    rf_dz = 10/rf_layers            # layer thickness (m)
+    rf_dsc = 3                      # number of time steps for numerical stability (3 is sufficient - Matthias)
+    rf_meltcrit = 0.002             # critical amount of melt [m w.e.] for initializing refreezing module
+    pp = 0.3                        # additional refreeze water to account for water refreezing at bare-ice surface
+    rf_dens_top = 300               # snow density at surface (kg m-3)
+    rf_dens_bot = 650               # snow density at bottom refreezing layer (kg m-3)
+    option_rf_limit_meltsnow = 1
+    
+elif option_refreezing == 2:
+    rf_month = 10                   # refreeze month
+
+# Mass redistribution / Glacier geometry change options
+option_massredistribution = 1       # 1: mass redistribution (Huss and Hock, 2015)
+option_glaciershape = 1             # 1: parabolic (Huss and Hock, 2015), 2: rectangular, 3: triangular
+option_glaciershape_width = 1       # 1: include width, 0: do not include
+icethickness_advancethreshold = 5   # advancing glacier ice thickness change threshold (5 m in Huss and Hock, 2015)
+terminus_percentage = 20            # glacier (%) considered terminus (20% in HH2015), used to size advancing new bins
     
 #%% CLIMATE DATA
 # ERA-INTERIM (Reference data)
@@ -327,27 +374,43 @@ bounding_box = '50/70/25/105'
 #  option 0 - lapse rates are constant defined by input
 #  option 1 (default) - lapse rates derived from gcm pressure level temperature data (varies spatially and temporally)
 #  option 2 - lapse rates derived from surrounding pixels (varies spatially and temporally)
-#    Note: Be careful with option 2 as the ocean vs land/glacier temperatures can causeƒ unrealistic inversions
+#    Note: Be careful with option 2 as the ocean vs land/glacier temperatures can cause unrealistic inversions
 #          This is the option used by Marzeion et al. (2012)
 option_lr_method = 1
 
 # ERA5
-era5_fp = main_directory + '/../Climate_data/ERA5/'
-era5_temp_fn = 'ERA5_temp_monthly.nc'
-era5_tempstd_fn = 'ERA5_tempstd_monthly.nc'
-era5_prec_fn = 'ERA5_totalprecip_monthly.nc'
-era5_elev_fn = 'ERA5_geopotential.nc'
-era5_pressureleveltemp_fn = 'ERA5_pressureleveltemp_monthly.nc'
-era5_lr_fn = 'ERA5_lapserates_monthly.nc'
+if ref_gcm_name == 'ERA5':
+    era5_fp = main_directory + '/../Climate_data/ERA5/'
+    era5_temp_fn = 'ERA5_temp_monthly.nc'
+    era5_tempstd_fn = 'ERA5_tempstd_monthly.nc'
+    era5_prec_fn = 'ERA5_totalprecip_monthly.nc'
+    era5_elev_fn = 'ERA5_geopotential.nc'
+    era5_pressureleveltemp_fn = 'ERA5_pressureleveltemp_monthly.nc'
+    era5_lr_fn = 'ERA5_lapserates_monthly.nc'
+    assert os.path.exists(era5_fp), 'ERA5 filepath does not exist'
+    assert os.path.exists(era5_temp_fn), 'ERA5 temperature filepath does not exist'
+    assert os.path.exists(era5_prec_fn), 'ERA5 precipitation filepath does not exist'
+    assert os.path.exists(era5_elev_fn), 'ERA5 elevation data does not exist'
+    assert os.path.exists(era5_lr_fn), 'ERA5 lapse rate data does not exist'
+    if option_ablation == 2:
+        assert os.path.exists(era5_tempstd_fn), 'ERA5 temperature std filepath does not exist'
 
 # ERA-Interim
-eraint_fp = main_directory + '/../Climate_data/ERA_Interim/download/'
-eraint_temp_fn = 'ERAInterim_Temp2m_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
-eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
-eraint_elev_fn = 'ERAInterim_geopotential.nc'
-eraint_pressureleveltemp_fn = 'ERAInterim_pressureleveltemp_' + eraint_start_date + '_' + eraint_end_date + '.nc'
-eraint_lr_fn = ('ERAInterim_lapserates_' + eraint_start_date + '_' + eraint_end_date + '_opt' + str(option_lr_method) +
-                '_world.nc')
+elif ref_gcm_name == 'ERA-Interim':
+    eraint_fp = main_directory + '/../Climate_data/ERA_Interim/download/'
+    eraint_temp_fn = 'ERAInterim_Temp2m_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
+    eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
+    eraint_elev_fn = 'ERAInterim_geopotential.nc'
+    eraint_pressureleveltemp_fn = 'ERAInterim_pressureleveltemp_' + eraint_start_date + '_' + eraint_end_date + '.nc'
+    eraint_lr_fn = ('ERAInterim_lapserates_' + eraint_start_date + '_' + eraint_end_date + '_opt' + 
+                    str(option_lr_method) + '_world.nc')
+    assert os.path.exists(eraint_fp), 'ERA-Interim filepath does not exist'
+    assert os.path.exists(eraint_temp_fn), 'ERA-Interim temperature filepath does not exist'
+    assert os.path.exists(eraint_prec_fn), 'ERA-Interim precipitation filepath does not exist'
+    assert os.path.exists(eraint_elev_fn), 'ERA-Interim elevation data does not exist'
+    assert os.path.exists(eraint_lr_fn), 'ERA-Interim lapse rate data does not exist'
+    if option_ablation == 2:
+        assert 0==1, 'ERA-Interim not set up to use option_ablation 2 (temperature std data not downloaded)'
 
 # CMIP5 (GCM data)
 cmip5_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
@@ -649,7 +712,8 @@ mb_group_t1_cn = 'begin_period'
 mb_group_t2_cn = 'end_period'
 
 #%% REGIONS
-grouping = 'himap'
+grouping = None
+#grouping = 'himap'
 if grouping == 'watershed':
     reg_vn = 'watershed'
     reg_dict_fn = main_directory + '/../qgis_himat/rgi60_HMA_dict_watershed.csv'
@@ -668,60 +732,6 @@ elif grouping == 'himap':
 else:
     reg_dict = {}
 
-#%% MASS BALANCE MODEL OPTIONS
-# Initial surface type options
-option_surfacetype_initial = 1
-#  option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
-#   > Sakai et al. (2015) found that the decadal ELAs are consistent with the median elevation of nine glaciers in High
-#     Mountain Asia, and Nuimura et al. (2015) also found that the snow line altitude of glaciers in China corresponded
-#     well with the median elevation.  Therefore, the use of the median elevation for defining the initial surface type
-#     appears to be a fairly reasonable assumption in High Mountain Asia.
-#  option 2 - use mean elevation
-#  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
-option_surfacetype_firn = 1         # 1: firn included; 0: no included (firn is snow)
-option_include_debris = True
-option_surfacetype_debris = 1       # 1: debris cover included; 0: not included
-
-# Downscaling model options
-# Reference elevation options for downscaling climate variables
-option_elev_ref_downscale = 'Zmed'  # 'Zmed', 'Zmax', or 'Zmin' for median, maximum or minimum glacier elevations
-# Downscale temperature to bins options
-option_temp2bins = 1                # 1: lr_gcm and lr_glac to adjust temp from gcm to the glacier bins
-option_adjusttemp_surfelev = 1      # 1: adjust temps based on surface elev changes; 0: no adjustment
-# Downscale precipitation to bins options
-option_prec2bins = 1                # 1: prec_factor and prec_grad to adjust precip from gcm to the glacier bins
-option_preclimit = 1                # 1: limit the uppermost 25% using an expontial fxn
-
-# Accumulation model options
-option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
-
-# Ablation model options
-option_ablation = 2                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
-option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
-ddfdebris = ddfice                  # add options for handling debris-covered glaciers
-
-# Refreezing model options
-option_refreezing = 1               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
-if option_refreezing == 1:
-    rf_layers = 5                   # number of layers for refreezing model (8 is sufficient - Matthias)
-#    rf_layers_max = 8               # number of layers to include for refreeze calculation
-    rf_dz = 10/rf_layers            # layer thickness (m)
-    rf_dsc = 3                      # number of time steps for numerical stability (3 is sufficient - Matthias)
-    rf_meltcrit = 0.002             # critical amount of melt [m w.e.] for initializing refreezing module
-    pp = 0.3                        # additional refreeze water to account for water refreezing at bare-ice surface
-    rf_dens_top = 300               # snow density at surface (kg m-3)
-    rf_dens_bot = 650               # snow density at bottom refreezing layer (kg m-3)
-    option_rf_limit_meltsnow = 1
-    
-elif option_refreezing == 2:
-    rf_month = 10                   # refreeze month
-
-# Mass redistribution / Glacier geometry change options
-option_massredistribution = 1       # 1: mass redistribution (Huss and Hock, 2015)
-option_glaciershape = 1             # 1: parabolic (Huss and Hock, 2015), 2: rectangular, 3: triangular
-option_glaciershape_width = 1       # 1: include width, 0: do not include
-icethickness_advancethreshold = 5   # advancing glacier ice thickness change threshold (5 m in Huss and Hock, 2015)
-terminus_percentage = 20            # glacier (%) considered terminus (20% in HH2015), used to size advancing new bins
 
 #%% OUTPUT OPTIONS
 # Output package

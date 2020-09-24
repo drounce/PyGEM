@@ -752,7 +752,7 @@ def main(list_packed_vars):
 #                glacier_gcm_lrglac = glacier_gcm_lrglac[::-1]
 
             # Load model parameters
-            if pygem_prms.option_import_modelparams == 1:
+            if pygem_prms.option_import_modelparams:
                 with open(gdir.get_filepath('pygem_modelprms'), 'rb') as f:
                     modelprms_dict = pickle.load(f)
                 
@@ -1267,7 +1267,7 @@ if __name__ == '__main__':
             width_initial = fls[0].widths_m / 1000
             glacier_area_initial = width_initial * fls[0].dx / 1000       
             mbmod = main_vars['mbmod']
-            if pygem_prms.option_import_modelparams == 1:
+            if pygem_prms.option_import_modelparams:
                 modelprms_dict = main_vars['modelprms_dict']
 #            model = main_vars['model']
 #        glacier_gcm_temp = main_vars['glacier_gcm_temp']

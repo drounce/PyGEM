@@ -818,7 +818,7 @@ def main(list_packed_vars):
             else:
                 glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][7:]
 
-            if pygem_prms.option_import_modelparams == 1:
+            if pygem_prms.option_import_modelparams:
                 ds_mp = xr.open_dataset(pygem_prms.modelparams_fp + glacier_RGIId + '.nc')
                 cn_subset = pygem_prms.modelparams_colnames
                 modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values,
