@@ -6,10 +6,10 @@ import netCDF4 as nc
 from time import strftime
 import matplotlib.pyplot as plt
 # Local Libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 
 
-def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_filepath=input.output_filepath, nsims=1):
+def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_filepath=pygem_prms.output_filepath, nsims=1):
     """
     Create a netcdf file to store the desired output
     
@@ -44,10 +44,10 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
     netcdf_output.source = 'Python Glacier Evolution Model'
     # ===== Dimensions =====
     glac_idx = netcdf_output.createDimension('glac_idx', None)
-    if input.timestep == 'monthly':
-        time = netcdf_output.createDimension('time', dates_table.shape[0] - input.spinupyears * 12)
-    year = netcdf_output.createDimension('year', annual_columns.shape[0] - input.spinupyears)
-    year_plus1 = netcdf_output.createDimension('year_plus1', annual_columns.shape[0] - input.spinupyears + 1)
+    if pygem_prms.timestep == 'monthly':
+        time = netcdf_output.createDimension('time', dates_table.shape[0] - pygem_prms.spinupyears * 12)
+    year = netcdf_output.createDimension('year', annual_columns.shape[0] - pygem_prms.spinupyears)
+    year_plus1 = netcdf_output.createDimension('year_plus1', annual_columns.shape[0] - pygem_prms.spinupyears + 1)
     glac_table = netcdf_output.createDimension('glac_table', main_glac_rgi.shape[1])
     elevbin = netcdf_output.createDimension('elevbin', main_glac_hyps.shape[1])
     sim = netcdf_output.createDimension('sim', nsims)
@@ -57,35 +57,35 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
     sims[:] = range(0, nsims)
     glaciers = netcdf_output.createVariable('glac_idx', np.int32, ('glac_idx',))
     glaciers.long_name = "glacier index"
-    glaciers.standard_name = input.indexname
+    glaciers.standard_name = pygem_prms.indexname
     glaciers.comment = "Glacier index value that refers to the glacier table"
     glaciers[:] = main_glac_rgi.index.values
     times = netcdf_output.createVariable('time', np.float64, ('time',))
     times.long_name = "date"
     times.units = "days since 1900-01-01 00:00:00"
     times.calendar = "gregorian"
-    if input.timestep == 'monthly':
-        times[:] = (nc.date2num(dates_table.loc[input.spinupyears*12:dates_table.shape[0]+1,'date'].tolist(), 
+    if pygem_prms.timestep == 'monthly':
+        times[:] = (nc.date2num(dates_table.loc[pygem_prms.spinupyears*12:dates_table.shape[0]+1,'date'].tolist(), 
                                units = times.units, calendar = times.calendar))
     years = netcdf_output.createVariable('year', np.int32, ('year',))
     years.long_name = "year"
-    if input.option_wateryear == 1:
+    if pygem_prms.option_wateryear == 1:
         years.units = 'water year'
-    elif input.option_wateryear == 2:
+    elif pygem_prms.option_wateryear == 2:
         years.units = 'calendar year'
-    elif input.option_wateryear == 3:
+    elif pygem_prms.option_wateryear == 3:
         years.units = 'custom year'
-    years[:] = annual_columns[input.spinupyears:annual_columns.shape[0]]
+    years[:] = annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]]
     # years_plus1 adds an additional year such that the change in glacier dimensions (area, etc.) is recorded
     years_plus1 = netcdf_output.createVariable('year_plus1', np.int32, ('year_plus1',))
     years_plus1.long_name = "year with additional year to record glacier dimension changes"
-    if input.option_wateryear == 1:
+    if pygem_prms.option_wateryear == 1:
         years_plus1.units = 'water year'
-    elif input.option_wateryear == 2:
+    elif pygem_prms.option_wateryear == 2:
         years_plus1.units = 'calendar year'
-    elif input.option_wateryear == 3:
+    elif pygem_prms.option_wateryear == 3:
         years_plus1.units = 'custom year'
-    years_plus1[:] = np.concatenate((annual_columns[input.spinupyears:annual_columns.shape[0]], 
+    years_plus1[:] = np.concatenate((annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]], 
                                      np.array([annual_columns[annual_columns.shape[0]-1]+1])))
     glacier_table_header = netcdf_output.createVariable('glacier_table_header',str,('glac_table',))
     glacier_table_header.long_name = "glacier table header"
@@ -101,7 +101,7 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
     elevbins[:] = main_glac_hyps.columns.values
      
     # ===== Output Variables =====
-    if input.output_package == 1:
+    if pygem_prms.output_package == 1:
         # Package 1 "Raw Package" output [units: m w.e. unless otherwise specified]:
         #  monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, massbal_clim)
         #  annual variables for each bin (area, icethickness, width, surfacetype)
@@ -159,7 +159,7 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
                                                               ('glac_idx', 'elevbin', 'year'))
         surfacetype_bin_annual.long_name = "surface type"
         surfacetype_bin_annual.comment = "surface types: 0 = off-glacier, 1 = ice, 2 = snow, 3 = firn, 4 = debris"
-    elif input.output_package == 2:
+    elif pygem_prms.output_package == 2:
         # Package 2 "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
         #  monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, snowline)
         #  annual glacier-wide variables (area, volume, ELA)
@@ -205,11 +205,11 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
         snowline_glac_monthly.comment = "transient snowline is the line separating the snow from ice/firn"
         area_glac_annual = netcdf_output.createVariable('area_glac_annual', np.float64, 
                                                         ('glac_idx', 'year_plus1', 'sim'))
-        if input.option_wateryear == 1:
+        if pygem_prms.option_wateryear == 1:
             area_glac_annual.long_name = "glacier area by hydrological year"
-        elif input.option_wateryear == 2:
+        elif pygem_prms.option_wateryear == 2:
             area_glac_annual.long_name = "glacier area by calendar year"
-        elif input.option_wateryear == 3:
+        elif pygem_prms.option_wateryear == 3:
             area_glac_annual.long_name = "glacier area by custom year"
         else:
             area_glac_annual.long_name = "glacier area"
@@ -217,11 +217,11 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
         area_glac_annual.comment = "the area that was used for the duration of the defined start/end of year"
         volume_glac_annual = netcdf_output.createVariable('volume_glac_annual', np.float64, 
                                                           ('glac_idx', 'year_plus1', 'sim'))
-        if input.option_wateryear == 1:
+        if pygem_prms.option_wateryear == 1:
             volume_glac_annual.long_name = "glacier volume by hydrological year"
-        elif input.option_wateryear == 2:
+        elif pygem_prms.option_wateryear == 2:
             volume_glac_annual.long_name = "glacier volume by calendar year"
-        elif input.option_wateryear == 3:
+        elif pygem_prms.option_wateryear == 3:
             volume_glac_annual.long_name = "glacier volume by custom year"
         else:
             volume_glac_annual.long_name = "glacier volume"
@@ -237,7 +237,7 @@ def netcdfcreate(filename, main_glac_rgi, main_glac_hyps, dates_table, output_fi
 def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, glac_bin_temp, glac_bin_prec, 
                 glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt, glac_bin_frontalablation, 
                 glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual, glac_bin_icethickness_annual, 
-                glac_bin_width_annual, glac_bin_surfacetype_annual, output_filepath=input.output_filepath, sim=0):
+                glac_bin_width_annual, glac_bin_surfacetype_annual, output_filepath=pygem_prms.output_filepath, sim=0):
     """
     Write to the netcdf file that has already been generated to store the desired output
     
@@ -290,7 +290,7 @@ def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, 
     # Open netcdf file to write to existing file ('r+')
     netcdf_output = nc.Dataset(output_filepath + netcdf_fn, 'r+')
     # Record the variables for each glacier (remove data associated with spinup years)
-    if input.output_package == 1:
+    if pygem_prms.output_package == 1:
         # Package 1 "Raw Package" output [units: m w.e. unless otherwise specified]:
         #  monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation, massbal_clim)
         #  annual variables for each bin (area, icethickness, surfacetype)
@@ -307,7 +307,7 @@ def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, 
         netcdf_output.variables['icethickness_bin_annual'][glac,:,:] = glac_bin_icethickness_annual
         netcdf_output.variables['width_bin_annual'][glac,:,:] = glac_bin_width_annual
         netcdf_output.variables['surfacetype_bin_annual'][glac,:,:] = glac_bin_surfacetype_annual
-    elif input.output_package == 2:
+    elif pygem_prms.output_package == 2:
         # Package 2 "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
         #  monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff, snowline)
         #  annual glacier-wide variables (area, volume, ELA)
@@ -349,12 +349,12 @@ def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, 
         #  units: (m + m w.e. - m w.e.) * km**2 * (1000 m / 1 km)**2 = m**3
         glac_wide_snowline = (glac_bin_snowpack > 0).argmax(axis=0)
         glac_wide_snowline[glac_wide_snowline > 0] = (elev_bins[glac_wide_snowline[glac_wide_snowline > 0]] - 
-                                                      input.binsize/2)
+                                                      pygem_prms.binsize/2)
         glac_wide_area_annual = glac_bin_area_annual.sum(axis=0)
         glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
         glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
         glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] - 
-                                                          input.binsize/2)
+                                                          pygem_prms.binsize/2)
         # Write variables to netcdf
         netcdf_output.variables['temp_glac_monthly'][glac,:,sim] = glac_wide_temp
         netcdf_output.variables['prec_glac_monthly'][glac,:,sim] = glac_wide_prec
@@ -376,8 +376,8 @@ def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, 
 #    # Annual columns
 #    annual_columns = np.unique(dates_table['wateryear'].values)
 #    # Netcdf file path and name
-#    filename = input.calibrationnetcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
-#    fullfilename = input.output_filepath + filename
+#    filename = pygem_prms.calibrationnetcdf_filenameprefix + str(regionO1_number) + '_' + str(strftime("%Y%m%d")) + '.nc'
+#    fullfilename = pygem_prms.output_filepath + filename
 #    # Create netcdf file ('w' will overwrite existing files, 'r+' will open existing file to write)
 #    netcdf_output = nc.Dataset(fullfilename, 'w', format='NETCDF4')
 #    # Global attributes
@@ -387,10 +387,10 @@ def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, 
 #    # Dimensions
 #    glac_idx = netcdf_output.createDimension('glac_idx', None)
 #    elevbin = netcdf_output.createDimension('elevbin', main_glac_hyps.shape[1])
-#    if input.timestep == 'monthly':
-#        time = netcdf_output.createDimension('time', dates_table.shape[0] - input.spinupyears * 12)
-#    year = netcdf_output.createDimension('year', annual_columns.shape[0] - input.spinupyears)
-#    year_plus1 = netcdf_output.createDimension('year_plus1', annual_columns.shape[0] - input.spinupyears + 1)
+#    if pygem_prms.timestep == 'monthly':
+#        time = netcdf_output.createDimension('time', dates_table.shape[0] - pygem_prms.spinupyears * 12)
+#    year = netcdf_output.createDimension('year', annual_columns.shape[0] - pygem_prms.spinupyears)
+#    year_plus1 = netcdf_output.createDimension('year_plus1', annual_columns.shape[0] - pygem_prms.spinupyears + 1)
 #    gridround = netcdf_output.createDimension('gridround', modelparameters.shape[0])
 #    gridparam = netcdf_output.createDimension('gridparam', modelparameters.shape[1])
 #    glacierinfo = netcdf_output.createDimension('glacierinfo', 3)
@@ -408,24 +408,24 @@ def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, 
 #    times.standard_name = "date"
 #    times.units = "days since 1900-01-01 00:00:00"
 #    times.calendar = "gregorian"
-#    if input.timestep == 'monthly':
-#        times[:] = (nc.date2num(dates_table.loc[input.spinupyears*12:dates_table.shape[0]+1,'date'].astype(datetime), 
+#    if pygem_prms.timestep == 'monthly':
+#        times[:] = (nc.date2num(dates_table.loc[pygem_prms.spinupyears*12:dates_table.shape[0]+1,'date'].astype(datetime), 
 #                                units = times.units, calendar = times.calendar))
 #    years = netcdf_output.createVariable('year', np.int32, ('year',))
 #    years.standard_name = "year"
-#    if input.option_wateryear == 1:
+#    if pygem_prms.option_wateryear == 1:
 #        years.units = 'water year'
-#    elif input.option_wateryear == 0:
+#    elif pygem_prms.option_wateryear == 0:
 #        years.units = 'calendar year'
-#    years[:] = annual_columns[input.spinupyears:annual_columns.shape[0]]
+#    years[:] = annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]]
 #    # years_plus1 adds an additional year such that the change in glacier dimensions (area, etc.) is recorded
 #    years_plus1 = netcdf_output.createVariable('year_plus1', np.int32, ('year_plus1',))
 #    years_plus1.standard_name = "year with additional year to record glacier dimension changes"
-#    if input.option_wateryear == 1:
+#    if pygem_prms.option_wateryear == 1:
 #        years_plus1.units = 'water year'
-#    elif input.option_wateryear == 0:
+#    elif pygem_prms.option_wateryear == 0:
 #        years_plus1.units = 'calendar year'
-#    years_plus1[:] = np.concatenate((annual_columns[input.spinupyears:annual_columns.shape[0]], 
+#    years_plus1[:] = np.concatenate((annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]], 
 #                                    np.array([annual_columns[annual_columns.shape[0]-1]+1])))
 #    gridrounds = netcdf_output.createVariable('gridround', np.int32, ('gridround',))
 #    gridrounds.long_name = "number associated with the calibration grid search"
@@ -487,7 +487,7 @@ def netcdfwrite(netcdf_fn, glac, modelparameters, glacier_rgi_table, elev_bins, 
 #    netcdf_output = nc.Dataset(fullfilename, 'r+')
 #    # Write variables to netcdf
 #    netcdf_output.variables['glacierinfo'][glac,:] = np.array([glacier_rgi_table.loc['RGIId'],
-#            glacier_rgi_table.loc[input.lat_colname], glacier_rgi_table.loc[input.lon_colname]])
+#            glacier_rgi_table.loc[pygem_prms.lat_colname], glacier_rgi_table.loc[pygem_prms.lon_colname]])
 #    netcdf_output.variables['massbaltotal_glac_monthly'][glac,:,:] = output_glac_wide_massbaltotal
 #    netcdf_output.variables['runoff_glac_monthly'][glac,:,:] = output_glac_wide_runoff
 #    netcdf_output.variables['snowline_glac_monthly'][glac,:,:] = output_glac_wide_snowline
@@ -574,9 +574,9 @@ def plot_caloutput(data):
 
 #%% 
 if __name__ == '__main__':
-    gcm_list_fn = input.main_directory + '/../Climate_data/cmip5/gcm_rcp26_filenames.txt'
+    gcm_list_fn = pygem_prms.main_directory + '/../Climate_data/cmip5/gcm_rcp26_filenames.txt'
     rcp_scenario = 'rcp26'
-    output_filepath = input.main_directory + '/../Output/'
+    output_filepath = pygem_prms.main_directory + '/../Output/'
     output_prefix = 'PyGEM_R15_'
     with open(gcm_list_fn, 'r') as gcm_fn:
         gcm_list = gcm_fn.read().splitlines()
@@ -614,13 +614,13 @@ if __name__ == '__main__':
 #        plt.show()
 
 #%%===== PLOTTING ===========================================================================================
-#netcdf_output15 = nc.Dataset(input.main_directory + 
+#netcdf_output15 = nc.Dataset(pygem_prms.main_directory + 
 #                             '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_nearest_20180306.nc', 'r+')
-#netcdf_output15 = nc.Dataset(input.main_directory + 
+#netcdf_output15 = nc.Dataset(pygem_prms.main_directory + 
 #                             '/../Output/PyGEM_output_rgiregion15_ERAInterim_calSheanMB_transferAvg_20180306.nc', 'r+')
-#netcdf_output14 = nc.Dataset(input.main_directory + 
+#netcdf_output14 = nc.Dataset(pygem_prms.main_directory + 
 #                             '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_nearest_20180313.nc', 'r+')
-#netcdf_output14 = nc.Dataset(input.main_directory + 
+#netcdf_output14 = nc.Dataset(pygem_prms.main_directory + 
 #                             '/../Output/PyGEM_output_rgiregion14_ERAInterim_calSheanMB_transferAvg_20180313.nc', 'r+')
 #
 ## Select relevant data
@@ -713,11 +713,11 @@ if __name__ == '__main__':
     
 #%% ====== PLOTTING FOR CALIBRATION FUNCTION ======================================================================
 ### Plot histograms and regional variations
-#data13 = pd.read_csv(input.main_directory + '/../Output/calibration_R13_20180318_Opt01solutionspaceexpanding.csv')
+#data13 = pd.read_csv(pygem_prms.main_directory + '/../Output/calibration_R13_20180318_Opt01solutionspaceexpanding.csv')
 #data13 = data13.dropna()
-##data14 = pd.read_csv(input.main_directory + '/../Output/calibration_R14_20180313_Opt01solutionspaceexpanding.csv')
+##data14 = pd.read_csv(pygem_prms.main_directory + '/../Output/calibration_R14_20180313_Opt01solutionspaceexpanding.csv')
 ##data14 = data14.dropna()
-##data15 = pd.read_csv(input.main_directory + '/../Output/calibration_R15_20180306_Opt01solutionspaceexpanding.csv')
+##data15 = pd.read_csv(pygem_prms.main_directory + '/../Output/calibration_R15_20180306_Opt01solutionspaceexpanding.csv')
 ##data15 = data15.dropna()
 #data = data13
 #

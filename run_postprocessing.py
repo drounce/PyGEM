@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 # Local libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import run_simulation as simulation
@@ -49,7 +49,7 @@ def getparser():
                         help='rcp scenario used for model run (ex. rcp26)')
     parser.add_argument('-region', action='store', type=int, default=None,
                         help='RGI region number (order 1)')
-    parser.add_argument('-output_sim_fp', action='store', type=str, default=input.output_sim_fp,
+    parser.add_argument('-output_sim_fp', action='store', type=str, default=pygem_prms.output_sim_fp,
                         help='output simulation filepath where results are being stored by GCM')
     parser.add_argument('-option_remove_merged_files', action='store', type=int, default=0,
                         help='Switch to delete merged files or not (1-delete)')
@@ -121,8 +121,8 @@ if option_merge_era == 1:
         # add variables to empty dataset and merge together
         encoding = {}
         noencoding_vn = ['stats', 'glac_attrs']
-        if input.output_package == 2:
-            for encoding_vn in input.output_variables_package2:
+        if pygem_prms.output_package == 2:
+            for encoding_vn in pygem_prms.output_variables_package2:
                 # Encoding (specify _FillValue, offsets, etc.)
                 if encoding_vn not in noencoding_vn:
                     encoding[encoding_vn] = {'_FillValue': False}
@@ -248,8 +248,8 @@ if option_multimodel == 1:
                 # add variables to empty dataset and merge together
                 encoding = {}
                 noencoding_vn = ['stats', 'glac_attrs']
-                if input.output_package == 2:
-                    for encoding_vn in input.output_variables_package2:
+                if pygem_prms.output_package == 2:
+                    for encoding_vn in pygem_prms.output_variables_package2:
                         # Encoding (specify _FillValue, offsets, etc.)
                         if encoding_vn not in noencoding_vn:
                             encoding[encoding_vn] = {'_FillValue': False}
@@ -259,13 +259,13 @@ if option_multimodel == 1:
                 
                     #%%
 
-def merge_batches(gcm_name, output_sim_fp=input.output_sim_fp, rcp=None,
+def merge_batches(gcm_name, output_sim_fp=pygem_prms.output_sim_fp, rcp=None,
                   option_remove_merged_files=0, option_remove_batch_files=0, debug=False):   
     """ MERGE BATCHES """
     
 #for gcm_name in ['CCSM4', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MIROC5', 'MRI-CGCM3', 'NorESM1-M']:
 #    debug=True
-#    netcdf_fp = input.output_sim_fp + gcm_name + '/'    
+#    netcdf_fp = pygem_prms.output_sim_fp + gcm_name + '/'    
     
     splitter = '_batch'
     zipped_fp = output_sim_fp + 'spc_zipped/'
@@ -310,8 +310,8 @@ def merge_batches(gcm_name, output_sim_fp=input.output_sim_fp, rcp=None,
     # Add variables to empty dataset and merge together
     encoding = {}
     noencoding_vn = ['stats', 'glac_attrs']
-    if input.output_package == 2:
-        for vn in input.output_variables_package2:
+    if pygem_prms.output_package == 2:
+        for vn in pygem_prms.output_variables_package2:
             # Encoding (specify _FillValue, offsets, etc.)
             if vn not in noencoding_vn:
                 encoding[vn] = {'_FillValue': False}
@@ -377,14 +377,14 @@ def merge_batches(gcm_name, output_sim_fp=input.output_sim_fp, rcp=None,
                     os.remove(netcdf_fp + i)
   
 
-#def extract_subset(gcm_name, netcdf_fp=input.output_sim_fp):
-def extract_subset(gcm_name, rcp_scenario=None, region_no=None, netcdf_fp=input.output_sim_fp, unzip_files=0):
+#def extract_subset(gcm_name, netcdf_fp=pygem_prms.output_sim_fp):
+def extract_subset(gcm_name, rcp_scenario=None, region_no=None, netcdf_fp=pygem_prms.output_sim_fp, unzip_files=0):
 ##gcm_names = ['CanESM2', 'CESM1-CAM5', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 
 ##             'GFDL-ESM2G', 'HadGEM2-ES', 'IPSL-CM5A-MR', 'MIROC-ESM', 
 ##             'MIROC-ESM-CHEM', 'MPI-ESM-LR', 'MPI-ESM-MR', 'NorESM1-ME']
 #gcm_names = ['CanESM2']
 #zip_fp = '/Volumes/LaCie/HMA_PyGEM/2019_0914/spc_zipped/'
-##netcdf_fp = input.output_sim_fp
+##netcdf_fp = pygem_prms.output_sim_fp
 #rcp_scenario= None
 #region_no=None
 #unzip_files = 1
@@ -393,7 +393,7 @@ def extract_subset(gcm_name, rcp_scenario=None, region_no=None, netcdf_fp=input.
 #    netcdf_fp = zip_fp + gcm_name + '/'
 #    print(netcdf_fp)
     
-    vns_all = input.output_variables_package2
+    vns_all = pygem_prms.output_variables_package2
     
     vns_subset = ['massbaltotal_glac_monthly', 'runoff_glac_monthly', 'offglac_runoff_monthly', 'area_glac_annual', 
                   'volume_glac_annual', 'glacier_table']
@@ -542,13 +542,13 @@ def extract_subset(gcm_name, rcp_scenario=None, region_no=None, netcdf_fp=input.
                 
               
 def subset_byvar(gcm_name):    
-    vns_all = input.output_variables_package2
-    vns_subset = input.output_variables_package2
+    vns_all = pygem_prms.output_variables_package2
+    vns_subset = pygem_prms.output_variables_package2
     
-    if input.output_package == 2:
-        vns_all = input.output_variables_package2
+    if pygem_prms.output_package == 2:
+        vns_all = pygem_prms.output_variables_package2
     
-    netcdf_fp = input.output_sim_fp
+    netcdf_fp = pygem_prms.output_sim_fp
     
     regions = []
     rcps = []
@@ -592,7 +592,7 @@ def subset_byvar(gcm_name):
                 ds = ds.drop(drop_vns)                
                 ds_new_fn = ds_fn.split('.nc')[0] + '--' + vn + '.nc'
                 # Export to netcdf
-                subset_fp = input.output_sim_fp + '/spc_vars/' + vn + '/'
+                subset_fp = pygem_prms.output_sim_fp + '/spc_vars/' + vn + '/'
                 # Add filepath if it doesn't exist
                 if not os.path.exists(subset_fp):
                     os.makedirs(subset_fp)
@@ -780,7 +780,7 @@ def coords_attrs_dict(ds, vn):
     
 
 def vars_mon2annualseasonal(gcm_name):
-    netcdf_fp_prefix = input.output_sim_fp + 'spc_vars/'
+    netcdf_fp_prefix = pygem_prms.output_sim_fp + 'spc_vars/'
     vns = ['acc_glac_monthly', 'melt_glac_monthly', 'refreeze_glac_monthly', 'frontalablation_glac_monthly', 
            'massbaltotal_glac_monthly', 'temp_glac_monthly', 'prec_glac_monthly', 'runoff_glac_monthly']
 
@@ -831,7 +831,7 @@ def vars_mon2annualseasonal(gcm_name):
                         option_wateryear = 3
                     
                     print('CHANGE BACK OPTION WATER YEAR HERE - DUE TO MANUAL ERROR')
-                    option_wateryear=input.gcm_wateryear
+                    option_wateryear=pygem_prms.gcm_wateryear
                     
                     dates_table = modelsetup.datesmodelrun(startyear=ds.year.values[0], endyear=ds.year.values[-1], 
                                                            spinupyears=0, option_wateryear=option_wateryear)
@@ -932,7 +932,7 @@ if __name__ == '__main__':
 #        # Add variables to empty dataset and merge together
 #        encoding = {}
 #        noencoding_vn = ['stats', 'glac_attrs']
-#        for vn in input.output_variables_package2:
+#        for vn in pygem_prms.output_variables_package2:
 #            # Encoding (specify _FillValue, offsets, etc.)
 #            if vn not in noencoding_vn:
 #                encoding[vn] = {'_FillValue': False}

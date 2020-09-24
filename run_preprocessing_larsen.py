@@ -14,13 +14,13 @@ import matplotlib.pyplot as plt
 #from scipy import interpolate
 from scipy import ndimage
 # Local libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 
  
 
 #%% TO-DO LIST:
-# - clean up create lapse rate input data (put it all in input.py)
+# - clean up create lapse rate input data (put it all in pygem_prms.py)
 
 #%%
 def getparser():
@@ -128,9 +128,9 @@ def extract_hyps(main_glac_rgi, binsize):
     rgi_regionsO1 = [main_glac_rgi.loc[0,'O1Region']]
     
     # Filepath 
-    dem_fp = (input.main_directory + '/../IceThickness_Farinotti/surface_DEMs_RGI60/surface_DEMs_RGI60-' + 
+    dem_fp = (pygem_prms.main_directory + '/../IceThickness_Farinotti/surface_DEMs_RGI60/surface_DEMs_RGI60-' + 
               "{:02d}".format(rgi_regionsO1[0]) + '/')
-    thickness_fp = (input.main_directory + '/../IceThickness_Farinotti/composite_thickness_RGI60-all_regions/' + 
+    thickness_fp = (pygem_prms.main_directory + '/../IceThickness_Farinotti/composite_thickness_RGI60-all_regions/' + 
                     'RGI60-' + "{:02d}".format(rgi_regionsO1[0]) + '/')
     
     elev_bins_all = np.arange(binsize / 2, main_glac_rgi.Zmax.max() + binsize / 2, binsize).astype(int)
@@ -279,7 +279,7 @@ else:
 
 #%%
 # Load Larsen dataset
-larsen_summary = pd.read_csv(input.larsen_fp + input.larsen_fn)
+larsen_summary = pd.read_csv(pygem_prms.larsen_fp + pygem_prms.larsen_fn)
 larsen_summary = larsen_summary.sort_values('RGIId')
 larsen_summary.reset_index(drop=True, inplace=True)
 glacno = sorted([x.split('-')[1].split('.')[1] for x in larsen_summary.RGIId.values])
@@ -304,8 +304,8 @@ larsen_summary['endyear_str'] = [str(x)[:4] for x in larsen_summary.date1.values
 rgi_regionsO1 = [1]
 main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all', 
                                                   rgi_glac_number=glacno)
-main_glac_hyps_10m = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
-                                                 input.hyps_filedict, input.hyps_colsdrop)
+main_glac_hyps_10m = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.hyps_filepath,
+                                                 pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
 binsize_rgi = int(main_glac_hyps_10m.columns[1]) - int(main_glac_hyps_10m.columns[0])
 
 #%%
@@ -326,8 +326,8 @@ main_glac_rgi['dif_min_elev'] = main_glac_rgi.Zmin - main_glac_rgi.huss_min_elev
 rgi_regionsO1 = [1]
 main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1, rgi_regionsO2='all', 
                                                   rgi_glac_number='all')
-main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, input.hyps_filepath,
-                                                 input.hyps_filedict, input.hyps_colsdrop)
+main_glac_hyps_all = modelsetup.import_Husstable(main_glac_rgi_all, pygem_prms.hyps_filepath,
+                                                 pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
 # Quick quality control check on Huss product
 huss_area_ones_all = main_glac_hyps_all.values.copy()
 huss_area_ones_all[huss_area_ones_all>0] = 1
@@ -371,7 +371,7 @@ larsen_summary['min_elev_huss'] = main_glac_rgi.huss_min_elev.values
 for nglac, glac_name in enumerate(list(larsen_summary.name.values)):
     
     print(nglac)
-    larsen_glac_fp = input.main_directory + '/../DEMs/larsen/data/'
+    larsen_glac_fp = pygem_prms.main_directory + '/../DEMs/larsen/data/'
     larsen_glac_fn = (larsen_summary.loc[nglac,'name_nospace'] + '.' + larsen_summary.loc[nglac,'startyear_str'] + '.' +
                       larsen_summary.loc[nglac,'endyear_str'] + '.output.txt')
     

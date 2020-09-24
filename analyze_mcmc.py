@@ -27,7 +27,7 @@ import xarray as xr
 # Local libraries
 import class_climate
 import class_mbdata
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
@@ -56,10 +56,10 @@ option_plot_era_normalizedchange = 0
 
 
 # Export option
-mcmc_output_netcdf_fp_3chain = input.output_filepath + 'cal_opt2_spc_20190815_3chain/'
-mcmc_output_netcdf_fp_all = input.output_filepath + 'cal_opt2_spc_20190806/'
-hh2015_output_netcdf_fp_all = input.output_filepath + 'cal_opt3/cal_opt3/'
-mcmc_output_figures_fp = input.output_filepath + 'figures/'
+mcmc_output_netcdf_fp_3chain = pygem_prms.output_filepath + 'cal_opt2_spc_20190815_3chain/'
+mcmc_output_netcdf_fp_all = pygem_prms.output_filepath + 'cal_opt2_spc_20190806/'
+hh2015_output_netcdf_fp_all = pygem_prms.output_filepath + 'cal_opt3/cal_opt3/'
+mcmc_output_figures_fp = pygem_prms.output_filepath + 'figures/'
 
 regions = [13,14,15]
 #regions = [13]
@@ -228,9 +228,10 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
         # EXCEPTION COULD BE ADDED HERE INSTEAD
         
     # Load data for glaciers
-    dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
-    dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
-                                           spinupyears=input.spinupyears)
+    dates_table_nospinup = modelsetup.datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, 
+                                                    spinupyears=0)
+    dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, 
+                                           spinupyears=pygem_prms.ref_spinupyears)
     
     count = 0
     for region in regions:
@@ -246,7 +247,7 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
                 rgi_regionsO1=[region], rgi_regionsO2 = 'all', rgi_glac_number=glac_no_byregion[region])
         # Glacier hypsometry
         main_glac_hyps_region = modelsetup.import_Husstable(
-                main_glac_rgi_region, input.hyps_filepath,input.hyps_filedict, input.hyps_colsdrop)
+                main_glac_rgi_region, pygem_prms.hyps_filepath,pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
         
         if option_loadcal_data == 1:
             # ===== CALIBRATION DATA =====
@@ -263,20 +264,20 @@ def load_glacierdata_byglacno(glac_no, option_loadhyps_climate=1, option_loadcal
         if option_loadhyps_climate == 1:
             # Ice thickness [m], average
             main_glac_icethickness_region = modelsetup.import_Husstable(
-                    main_glac_rgi_region, input.thickness_filepath, input.thickness_filedict, 
-                    input.thickness_colsdrop)
+                    main_glac_rgi_region, pygem_prms.thickness_filepath, pygem_prms.thickness_filedict, 
+                    pygem_prms.thickness_colsdrop)
             main_glac_hyps_region[main_glac_icethickness_region == 0] = 0
             # Width [km], average
             main_glac_width_region = modelsetup.import_Husstable(
-                    main_glac_rgi_region, input.width_filepath, input.width_filedict, input.width_colsdrop)
+                    main_glac_rgi_region, pygem_prms.width_filepath, pygem_prms.width_filedict, pygem_prms.width_colsdrop)
             # ===== CLIMATE DATA =====
-            gcm = class_climate.GCM(name=input.ref_gcm_name)
+            gcm = class_climate.GCM(name=pygem_prms.ref_gcm_name)
             # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
             gcm_temp_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
                     gcm.temp_fn, gcm.temp_vn, main_glac_rgi_region, dates_table_nospinup)
-            if input.option_ablation != 2 or input.ref_gcm_name not in ['ERA5']:
+            if pygem_prms.option_ablation != 2 or pygem_prms.ref_gcm_name not in ['ERA5']:
                 gcm_tempstd_region = np.zeros(gcm_temp_region.shape)
-            elif input.ref_gcm_name in ['ERA5']:
+            elif pygem_prms.ref_gcm_name in ['ERA5']:
                 gcm_tempstd_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
                         gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi_region, dates_table_nospinup)
             gcm_prec_region, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(
@@ -671,24 +672,24 @@ def pickle_data(fn, data):
         pickle.dump(data, f)
         
         
-def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=input.output_filepath):
-        """
-        Plot histogram for any bin size
-        """           
-        data = df[cn].values
-        hist, bin_edges = np.histogram(data,bins) # make the histogram
-        fig,ax = plt.subplots()    
-        # Plot the histogram heights against integers on the x axis
-        ax.bar(range(len(hist)),hist,width=1, edgecolor='k') 
-        # Set the ticks to the middle of the bars
-        ax.set_xticks([0.5+i for i,j in enumerate(hist)])
-        # Set the xticklabels to a string that tells us what the bin edges were
-        ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)], rotation=45, ha='right')
-        ax.set_xlabel(xlabel, fontsize=16)
-        ax.set_ylabel(ylabel, fontsize=16)
-        # Save figure
-        fig.set_size_inches(6,4)
-        fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+def plot_hist(df, cn, bins, xlabel=None, ylabel=None, fig_fn='hist.png', fig_fp=pygem_prms.output_filepath):
+    """
+    Plot histogram for any bin size
+    """           
+    data = df[cn].values
+    hist, bin_edges = np.histogram(data,bins) # make the histogram
+    fig,ax = plt.subplots()    
+    # Plot the histogram heights against integers on the x axis
+    ax.bar(range(len(hist)),hist,width=1, edgecolor='k') 
+    # Set the ticks to the middle of the bars
+    ax.set_xticks([0.5+i for i,j in enumerate(hist)])
+    # Set the xticklabels to a string that tells us what the bin edges were
+    ax.set_xticklabels(['{} - {}'.format(bins[i],bins[i+1]) for i,j in enumerate(hist)], rotation=45, ha='right')
+    ax.set_xlabel(xlabel, fontsize=16)
+    ax.set_ylabel(ylabel, fontsize=16)
+    # Save figure
+    fig.set_size_inches(6,4)
+    fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
     
     
 def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, modelparameters, glacier_rgi_table, 
@@ -696,7 +697,7 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
                           glacier_gcm_prec, glacier_gcm_elev, glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, 
                           observed_massbal, observed_error, tempchange_boundhigh, tempchange_boundlow, 
                           tempchange_opt_init=None, mb_max_acc=None, mb_max_loss=None, option_areaconstant=0, 
-                          option_plotsteps=1, fig_fp=input.output_filepath):
+                          option_plotsteps=1, fig_fp=pygem_prms.output_filepath):
     """
     Plot the mass balance [mwea] versus all model parameters to see how parameters effect mass balance
     """
@@ -721,7 +722,7 @@ def plot_mb_vs_parameters(tempchange_iters, precfactor_iters, ddfsnow_iters, mod
             for c, ddfsnow in enumerate(ddfsnow_iters):
                 
                 modelparameters[4] = ddfsnow
-                modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
+                modelparameters[5] = modelparameters[4] / pygem_prms.ddfsnow_iceratio
                 
                 (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                  glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -1261,27 +1262,27 @@ def observation_vs_calibration(regions, netcdf_fp, chainlength=chainlength, burn
         modelparams_all = pd.concat([modelparams_all, posterior_all], axis=1)
         
         # Add region and priors
-        modelparams_all['Region'] = modelparams_all.RGIId.map(input.reg_dict)
+        modelparams_all['Region'] = modelparams_all.RGIId.map(pygem_prms.reg_dict)
         # Priors
         # precipitation factor
-        precfactor_alpha_dict = {region: input.precfactor_gamma_region_dict[region][0] 
-                                 for region in list(input.precfactor_gamma_region_dict.keys())}
-        precfactor_beta_dict = {region: input.precfactor_gamma_region_dict[region][1] 
-                                 for region in list(input.precfactor_gamma_region_dict.keys())}
+        precfactor_alpha_dict = {region: pygem_prms.precfactor_gamma_region_dict[region][0] 
+                                 for region in list(pygem_prms.precfactor_gamma_region_dict.keys())}
+        precfactor_beta_dict = {region: pygem_prms.precfactor_gamma_region_dict[region][1] 
+                                 for region in list(pygem_prms.precfactor_gamma_region_dict.keys())}
         modelparams_all['prior_pf_alpha'] = modelparams_all.Region.map(precfactor_alpha_dict) 
         modelparams_all['prior_pf_beta'] = modelparams_all.Region.map(precfactor_beta_dict)
         modelparams_all['prior_pf_mu'] = modelparams_all['prior_pf_alpha'] / modelparams_all['prior_pf_beta'] 
         modelparams_all['prior_pf_std'] = (modelparams_all['prior_pf_alpha'] / modelparams_all['prior_pf_beta']**2)**0.5
         # temperature change
-        tempchange_mu_dict = {region: input.tempchange_norm_region_dict[region][0] 
-                              for region in list(input.tempchange_norm_region_dict.keys())}
-        tempchange_std_dict = {region: input.tempchange_norm_region_dict[region][1] 
-                               for region in list(input.tempchange_norm_region_dict.keys())}
+        tempchange_mu_dict = {region: pygem_prms.tempchange_norm_region_dict[region][0] 
+                              for region in list(pygem_prms.tempchange_norm_region_dict.keys())}
+        tempchange_std_dict = {region: pygem_prms.tempchange_norm_region_dict[region][1] 
+                               for region in list(pygem_prms.tempchange_norm_region_dict.keys())}
         modelparams_all['prior_tc_mu'] = modelparams_all.Region.map(tempchange_mu_dict) 
         modelparams_all['prior_tc_std'] = modelparams_all.Region.map(tempchange_std_dict)
         # degree-day factor of snow
-        modelparams_all['prior_ddfsnow_mu'] = input.ddfsnow_mu * 1000
-        modelparams_all['prior_ddfsnow_std'] = input.ddfsnow_sigma * 1000
+        modelparams_all['prior_ddfsnow_mu'] = pygem_prms.ddfsnow_mu * 1000
+        modelparams_all['prior_ddfsnow_std'] = pygem_prms.ddfsnow_sigma * 1000
         
         if os.path.exists(csv_fp) == False:
             os.makedirs(csv_fp)
@@ -2207,7 +2208,7 @@ if __name__ == '__main__':
     if option_papermcmc_prior_vs_posterior == 1:
         print('Prior vs posterior showing two example glaciers side-by-side!')
         glac_no = ['13.26360', '14.08487']
-        netcdf_fp = input.output_filepath + 'cal_opt2_spc_20190815_3chain/cal_opt2_3chain_figure/'
+        netcdf_fp = pygem_prms.output_filepath + 'cal_opt2_spc_20190815_3chain/cal_opt2_3chain_figure/'
         burn = 1000
         iters=[2000,10000]
         figure_fn = 'prior_v_posteriors_2glac.eps'
@@ -2220,7 +2221,7 @@ if __name__ == '__main__':
         
         main_glac_rgi, cal_data = load_glacierdata_byglacno(glac_no, option_loadhyps_climate=0)
         # Add regions
-        main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
+        main_glac_rgi['region'] = main_glac_rgi.RGIId.map(pygem_prms.reg_dict)
     
         #%%
         # PRIOR VS POSTERIOR PLOTS 
@@ -2254,19 +2255,19 @@ if __name__ == '__main__':
             print('MB (mod - obs):', np.round(df.massbal.mean() - observed_massbal,3))
             
             # Set model parameters
-            modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
-                               input.tempsnow, input.tempchange]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, 
+                               pygem_prms.ddfsnow, pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange]
             
             # Regional priors
-            precfactor_gamma_alpha = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
-            precfactor_gamma_beta = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][1]                      
-            tempchange_mu = input.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][0]
-            tempchange_sigma = input.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][1]
+            precfactor_gamma_alpha = pygem_prms.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
+            precfactor_gamma_beta = pygem_prms.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][1]                      
+            tempchange_mu = pygem_prms.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][0]
+            tempchange_sigma = pygem_prms.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][1]
             
-            ddfsnow_mu = input.ddfsnow_mu * 1000
-            ddfsnow_sigma = input.ddfsnow_sigma * 1000
-            ddfsnow_boundlow = input.ddfsnow_boundlow * 1000
-            ddfsnow_boundhigh = input.ddfsnow_boundhigh * 1000
+            ddfsnow_mu = pygem_prms.ddfsnow_mu * 1000
+            ddfsnow_sigma = pygem_prms.ddfsnow_sigma * 1000
+            ddfsnow_boundlow = pygem_prms.ddfsnow_boundlow * 1000
+            ddfsnow_boundhigh = pygem_prms.ddfsnow_boundhigh * 1000
            
             param_idx_dict = {'massbal':[0,n],
                               'precfactor':[1,n],
@@ -2282,19 +2283,19 @@ if __name__ == '__main__':
                     x_values = observed_massbal + observed_error * z_score
                     y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
                 elif vn == 'precfactor': 
-                    if input.precfactor_disttype == 'gamma':
+                    if pygem_prms.precfactor_disttype == 'gamma':
                         x_values = np.linspace(
                                 stats.gamma.ppf(0,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta), 
                                 stats.gamma.ppf(0.999,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta), 
                                 100)                                
                         y_values = stats.gamma.pdf(x_values, a=precfactor_gamma_alpha, scale=1/precfactor_gamma_beta)    
                 elif vn == 'tempchange':
-                    if input.tempchange_disttype == 'normal':
+                    if pygem_prms.tempchange_disttype == 'normal':
                         z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
                         x_values = tempchange_mu + tempchange_sigma * z_score
                         y_values = norm.pdf(x_values, loc=tempchange_mu, scale=tempchange_sigma)
                 elif vn == 'ddfsnow':            
-                    if input.ddfsnow_disttype == 'truncnormal':
+                    if pygem_prms.ddfsnow_disttype == 'truncnormal':
                         ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
                         ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
                         z_score = np.linspace(truncnorm.ppf(0.001, ddfsnow_a, ddfsnow_b),
@@ -2510,27 +2511,27 @@ if __name__ == '__main__':
         # Add priors
         if 'region' not in modelparams_all.columns.tolist():
             # Add region and priors
-            modelparams_all['Region'] = modelparams_all.RGIId.map(input.reg_dict)
+            modelparams_all['Region'] = modelparams_all.RGIId.map(pygem_prms.reg_dict)
             # Priors
             # precipitation factor
-            precfactor_alpha_dict = {region: input.precfactor_gamma_region_dict[region][0] 
-                                     for region in list(input.precfactor_gamma_region_dict.keys())}
-            precfactor_beta_dict = {region: input.precfactor_gamma_region_dict[region][1] 
-                                     for region in list(input.precfactor_gamma_region_dict.keys())}
+            precfactor_alpha_dict = {region: pygem_prms.precfactor_gamma_region_dict[region][0] 
+                                     for region in list(pygem_prms.precfactor_gamma_region_dict.keys())}
+            precfactor_beta_dict = {region: pygem_prms.precfactor_gamma_region_dict[region][1] 
+                                     for region in list(pygem_prms.precfactor_gamma_region_dict.keys())}
             modelparams_all['prior_pf_alpha'] = modelparams_all.Region.map(precfactor_alpha_dict) 
             modelparams_all['prior_pf_beta'] = modelparams_all.Region.map(precfactor_beta_dict)
             modelparams_all['prior_pf_mu'] = modelparams_all['prior_pf_alpha'] / modelparams_all['prior_pf_beta'] 
             modelparams_all['prior_pf_std'] = (modelparams_all['prior_pf_alpha'] / modelparams_all['prior_pf_beta']**2)**0.5
             # temperature change
-            tempchange_mu_dict = {region: input.tempchange_norm_region_dict[region][0] 
-                                  for region in list(input.tempchange_norm_region_dict.keys())}
-            tempchange_std_dict = {region: input.tempchange_norm_region_dict[region][1] 
-                                   for region in list(input.tempchange_norm_region_dict.keys())}
+            tempchange_mu_dict = {region: pygem_prms.tempchange_norm_region_dict[region][0] 
+                                  for region in list(pygem_prms.tempchange_norm_region_dict.keys())}
+            tempchange_std_dict = {region: pygem_prms.tempchange_norm_region_dict[region][1] 
+                                   for region in list(pygem_prms.tempchange_norm_region_dict.keys())}
             modelparams_all['prior_tc_mu'] = modelparams_all.Region.map(tempchange_mu_dict) 
             modelparams_all['prior_tc_std'] = modelparams_all.Region.map(tempchange_std_dict)
             # degree-day factor of snow
-            modelparams_all['prior_ddfsnow_mu'] = input.ddfsnow_mu * 1000
-            modelparams_all['prior_ddfsnow_std'] = input.ddfsnow_sigma * 1000
+            modelparams_all['prior_ddfsnow_mu'] = pygem_prms.ddfsnow_mu * 1000
+            modelparams_all['prior_ddfsnow_std'] = pygem_prms.ddfsnow_sigma * 1000
             
             if os.path.exists(csv_fp) == False:
                 os.makedirs(csv_fp)
@@ -2995,7 +2996,7 @@ if __name__ == '__main__':
         glac_str = '13.26360'
         labelsize = 13
         
-        netcdf_fp_era = input.output_sim_fp + '/ERA-Interim/ERA-Interim_2000_2018_nochg/'
+        netcdf_fp_era = pygem_prms.output_sim_fp + '/ERA-Interim/ERA-Interim_2000_2018_nochg/'
         figure_fp = netcdf_fp_era + 'figures/'
         
         rgi_regions = [13,14,15]
@@ -3006,12 +3007,12 @@ if __name__ == '__main__':
             main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
                                                                      rgi_glac_number='all')
              # Glacier hypsometry [km**2]
-            main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, input.hyps_filepath,
-                                                                input.hyps_filedict, input.hyps_colsdrop)
+            main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, pygem_prms.hyps_filepath,
+                                                                pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
             # Ice thickness [m], average
             main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, 
-                                                                     input.thickness_filepath, input.thickness_filedict, 
-                                                                     input.thickness_colsdrop)
+                                                                     pygem_prms.thickness_filepath, pygem_prms.thickness_filedict, 
+                                                                     pygem_prms.thickness_colsdrop)
             
             if rgi_region == rgi_regions[0]:
                 main_glac_rgi_all = main_glac_rgi_region
@@ -3148,7 +3149,7 @@ if __name__ == '__main__':
         #  Area [km2] * ice thickness [m ice] * density_ice [kg/m3] / density_water [kg/m3] * (1 km / 1000 m) 
         #  * (1 Gt/ 1km3 water)
         mass_glac_init_Gt = ((main_glac_hyps_all.values * main_glac_icethickness_all.values).sum(axis=1) * 
-                     input.density_ice / input.density_water / 1000)
+                     pygem_prms.density_ice / pygem_prms.density_water / 1000)
         mass_all_init_Gt = mass_glac_init_Gt.sum()
         # Normalized mass time series
         mass_all_timeseries_cumsum = np.cumsum(masschange_all)
@@ -3243,7 +3244,7 @@ if __name__ == '__main__':
     if option_raw_plotchain == 1:
         print('plot chain')
         iter_length = 20
-        output_filepath = input.output_filepath + 'cal_opt2/'
+        output_filepath = pygem_prms.output_filepath + 'cal_opt2/'
         ds = xr.open_dataset(output_filepath + '13.03473.nc')
         df = pd.DataFrame(ds['mp_value'].values[:,:,0], columns=ds.mp.values)  
         ds.close()
@@ -3280,10 +3281,10 @@ if __name__ == '__main__':
     #%% Regional prior distributions
     if option_regional_priors == 1:
         grouping = 'himap'
-        fig_fp = input.output_filepath + 'cal_opt4_20190803/figures/'
+        fig_fp = pygem_prms.output_filepath + 'cal_opt4_20190803/figures/'
         
-    #    ds = pd.read_csv(input.output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/prior_compare_all.csv')
-        ds = pd.read_csv(input.output_filepath + 'cal_opt4_20190803/csv/df_all_95536_glac.csv')
+    #    ds = pd.read_csv(pygem_prms.output_filepath + 'cal_opt2_spc_20190308_adjp12_wpriors/prior_compare_all.csv')
+        ds = pd.read_csv(pygem_prms.output_filepath + 'cal_opt4_20190803/csv/df_all_95536_glac.csv')
         ds['glacno'] = [x.split('-')[1] for x in ds['RGIId'].values]
         # add himap regions
         ds['himap'] = ds.RGIId.map(himap_dict)
@@ -3512,7 +3513,7 @@ if __name__ == '__main__':
     #    fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
     #        
     #    # Save figure
-    #    fig_fp = input.output_fp_cal + 'figures/'
+    #    fig_fp = pygem_prms.output_fp_cal + 'figures/'
     #    if os.path.exists(fig_fp) == False:
     #        os.makedirs(fig_fp)    
     #    fig.set_size_inches(7, 9)
@@ -3521,11 +3522,11 @@ if __name__ == '__main__':
      
     #%% PLOT MCMC CHAINS
     if option_glacier_mcmc_plots == 1:
-    #    glac_no = str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]
+    #    glac_no = str(pygem_prms.rgi_regionsO1[0]) + '.' + pygem_prms.rgi_glac_number[0]
         glac_no = '15.03475'
-        netcdf_fp = input.main_directory + '/../Output/cal_opt2_spc_20190806/'
+        netcdf_fp = pygem_prms.main_directory + '/../Output/cal_opt2_spc_20190806/'
     #    glac_no = '15.03473'
-    #    netcdf_fp = input.output_fp_cal
+    #    netcdf_fp = pygem_prms.output_fp_cal
         variables = ['massbal', 'tempchange', 'precfactor', 'ddfsnow']
         burn = 0
         iters = [10000]
@@ -3539,33 +3540,33 @@ if __name__ == '__main__':
         # Glacier RGI data
         main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no = [glac_no])
         # Add regions
-        main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
+        main_glac_rgi['region'] = main_glac_rgi.RGIId.map(pygem_prms.reg_dict)
         # Glacier hypsometry [km**2], total area
         print(main_glac_rgi)
         print(region)
-        main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath,
-                                                     input.hyps_filedict, input.hyps_colsdrop)
+        main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.hyps_filepath,
+                                                     pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
         # Ice thickness [m], average
-        main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath, 
-                                                             input.thickness_filedict, input.thickness_colsdrop)
+        main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.thickness_filepath, 
+                                                             pygem_prms.thickness_filedict, pygem_prms.thickness_colsdrop)
         main_glac_hyps[main_glac_icethickness == 0] = 0
         # Width [km], average
-        main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath,
-                                                      input.width_filedict, input.width_colsdrop)
+        main_glac_width = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.width_filepath,
+                                                      pygem_prms.width_filedict, pygem_prms.width_colsdrop)
         # Elevation bins
         elev_bins = main_glac_hyps.columns.values.astype(int)   
         # Select dates including future projections
-        dates_table = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0,
-                                               option_wateryear=input.option_wateryear)
+        dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.startyear, endyear=pygem_prms.endyear, spinupyears=0,
+                                               option_wateryear=pygem_prms.option_wateryear)
         
         # ===== LOAD CLIMATE DATA =====
-        gcm = class_climate.GCM(name=input.ref_gcm_name)
+        gcm = class_climate.GCM(name=pygem_prms.ref_gcm_name)
         # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
         gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
         gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
         gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
         # Air temperature standard deviation [K]
-        if input.option_ablation != 2 or gcm.name not in ['ERA5']:
+        if pygem_prms.option_ablation != 2 or gcm.name not in ['ERA5']:
             gcm_tempstd = np.zeros(gcm_temp.shape)
         elif gcm.name in ['ERA5']:
             gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
@@ -3574,7 +3575,7 @@ if __name__ == '__main__':
         gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     
         # Select dates including future projections
-        #dates_table_nospinup = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, spinupyears=0)
+        #dates_table_nospinup = modelsetup.datesmodelrun(startyear=pygem_prms.startyear, endyear=pygem_prms.endyear, spinupyears=0)
         dates_table_nospinup = modelsetup.datesmodelrun(startyear=2000, endyear=2018, spinupyears=0)
         
         # Calibration data
@@ -3626,8 +3627,8 @@ if __name__ == '__main__':
             width_t0 = main_glac_width.iloc[n,:].values.astype(float)
             glac_idx_t0 = glacier_area_t0.nonzero()[0]
             # Set model parameters
-            modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
-                               input.tempsnow, input.tempchange]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, 
+                               pygem_prms.ddfsnow, pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange]
             
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
                     calibration.retrieve_priors(modelparameters, glacier_rgi_table, glacier_area_t0, icethickness_t0, 
@@ -3636,15 +3637,15 @@ if __name__ == '__main__':
                                                 glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2))
             
             # Regional priors
-            precfactor_gamma_alpha = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
-            precfactor_gamma_beta = input.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][1]                      
-            tempchange_mu = input.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][0]
-            tempchange_sigma = input.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][1]
+            precfactor_gamma_alpha = pygem_prms.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][0]
+            precfactor_gamma_beta = pygem_prms.precfactor_gamma_region_dict[glacier_rgi_table.loc['region']][1]                      
+            tempchange_mu = pygem_prms.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][0]
+            tempchange_sigma = pygem_prms.tempchange_norm_region_dict[glacier_rgi_table.loc['region']][1]
             
-            ddfsnow_mu = input.ddfsnow_mu * 1000
-            ddfsnow_sigma = input.ddfsnow_sigma * 1000
-            ddfsnow_boundlow = input.ddfsnow_boundlow * 1000
-            ddfsnow_boundhigh = input.ddfsnow_boundhigh * 1000
+            ddfsnow_mu = pygem_prms.ddfsnow_mu * 1000
+            ddfsnow_sigma = pygem_prms.ddfsnow_sigma * 1000
+            ddfsnow_boundlow = pygem_prms.ddfsnow_boundlow * 1000
+            ddfsnow_boundhigh = pygem_prms.ddfsnow_boundhigh * 1000
            
         # PRIOR VS POSTERIOR PLOTS 
         fig, ax = plt.subplots(4, 4, squeeze=False, gridspec_kw={'wspace':0.45, 'hspace':0.5})
@@ -3663,33 +3664,33 @@ if __name__ == '__main__':
                 x_values = observed_massbal + observed_error * z_score
                 y_values = norm.pdf(x_values, loc=observed_massbal, scale=observed_error)
             elif vn == 'precfactor': 
-                if input.precfactor_disttype == 'gamma':
+                if pygem_prms.precfactor_disttype == 'gamma':
                     x_values = np.linspace(
                             stats.gamma.ppf(0,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta), 
                             stats.gamma.ppf(0.999,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta), 
                             100)                                
                     y_values = stats.gamma.pdf(x_values, a=precfactor_gamma_alpha, scale=1/precfactor_gamma_beta)    
-                elif input.precfactor_disttype == 'uniform':
+                elif pygem_prms.precfactor_disttype == 'uniform':
                     z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                     x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
                     y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
                                            scale=(precfactor_boundhigh - precfactor_boundlow))
-                elif input.precfactor_disttype == 'lognormal':
-                    precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
+                elif pygem_prms.precfactor_disttype == 'lognormal':
+                    precfactor_lognorm_sigma = (1/pygem_prms.precfactor_lognorm_tau)**0.5
                     x_values = np.linspace(lognorm.ppf(1e-6, precfactor_lognorm_sigma), 
                                            lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
                     y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
             elif vn == 'tempchange':
-                if input.tempchange_disttype == 'uniform':
+                if pygem_prms.tempchange_disttype == 'uniform':
                     z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                     x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
                     y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
                                            scale=(tempchange_boundhigh - tempchange_boundlow))
-                elif input.tempchange_disttype == 'normal':
+                elif pygem_prms.tempchange_disttype == 'normal':
                     z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
                     x_values = tempchange_mu + tempchange_sigma * z_score
                     y_values = norm.pdf(x_values, loc=tempchange_mu, scale=tempchange_sigma)
-                elif input.tempchange_disttype == 'truncnormal':
+                elif pygem_prms.tempchange_disttype == 'truncnormal':
                     tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
                     tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
                     z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
@@ -3698,14 +3699,14 @@ if __name__ == '__main__':
                     y_values = truncnorm.pdf(x_values, tempchange_a, tempchange_b, loc=tempchange_mu, 
                                              scale=tempchange_sigma)
             elif vn == 'ddfsnow':            
-                if input.ddfsnow_disttype == 'truncnormal':
+                if pygem_prms.ddfsnow_disttype == 'truncnormal':
                     ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
                     ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
                     z_score = np.linspace(truncnorm.ppf(0.001, ddfsnow_a, ddfsnow_b),
                                           truncnorm.ppf(0.999, ddfsnow_a, ddfsnow_b), 100)
                     x_values = ddfsnow_mu + ddfsnow_sigma * z_score
                     y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
-                elif input.ddfsnow_disttype == 'uniform':
+                elif pygem_prms.ddfsnow_disttype == 'uniform':
                     z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                     x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
                     y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
@@ -3764,19 +3765,19 @@ if __name__ == '__main__':
         # Save figure
         str_ending = ''
         if 'tempchange' in variables:    
-            if input.tempchange_disttype == 'truncnormal': 
+            if pygem_prms.tempchange_disttype == 'truncnormal': 
                 str_ending += '_TCtn'
-            elif input.tempchange_disttype == 'uniform':
+            elif pygem_prms.tempchange_disttype == 'uniform':
                 str_ending += '_TCu'
         if 'precfactor' in variables:                
-            if input.precfactor_disttype == 'lognormal': 
+            if pygem_prms.precfactor_disttype == 'lognormal': 
                 str_ending += '_PFln'
-            elif input.precfactor_disttype == 'uniform':
+            elif pygem_prms.precfactor_disttype == 'uniform':
                 str_ending += '_PFu'
         if 'ddfsnow' in variables:     
-            if input.ddfsnow_disttype == 'truncnormal': 
+            if pygem_prms.ddfsnow_disttype == 'truncnormal': 
                 str_ending += '_DDFtn'
-            elif input.ddfsnow_disttype == 'uniform':
+            elif pygem_prms.ddfsnow_disttype == 'uniform':
                 str_ending += '_DDFu'        
             
         fig_fp = netcdf_fp + 'figures/'
@@ -3878,19 +3879,19 @@ if __name__ == '__main__':
                     # fitted distribution
                     ax1.plot(x_values_kde, y_values_kde, color=colors_iters[count_iter], linestyle=linestyles[n_chain])
                 elif vn == 'precfactor': 
-                    if input.precfactor_disttype == 'gamma':
+                    if pygem_prms.precfactor_disttype == 'gamma':
                         x_values = np.linspace(
                                 stats.gamma.ppf(0,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta), 
                                 stats.gamma.ppf(0.999,precfactor_gamma_alpha, scale=1/precfactor_gamma_beta), 
                                 100)                                
                         y_values = stats.gamma.pdf(x_values, a=precfactor_gamma_alpha, scale=1/precfactor_gamma_beta)    
-                    elif input.precfactor_disttype == 'uniform':
+                    elif pygem_prms.precfactor_disttype == 'uniform':
                         z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                         x_values = precfactor_boundlow + z_score * (precfactor_boundhigh - precfactor_boundlow)
                         y_values = uniform.pdf(x_values, loc=precfactor_boundlow, 
                                                scale=(precfactor_boundhigh - precfactor_boundlow))
-                    elif input.precfactor_disttype == 'lognormal':
-                        precfactor_lognorm_sigma = (1/input.precfactor_lognorm_tau)**0.5
+                    elif pygem_prms.precfactor_disttype == 'lognormal':
+                        precfactor_lognorm_sigma = (1/pygem_prms.precfactor_lognorm_tau)**0.5
                         x_values = np.linspace(lognorm.ppf(1e-6, precfactor_lognorm_sigma), 
                                                lognorm.ppf(0.99, precfactor_lognorm_sigma), 100)
                         y_values = lognorm.pdf(x_values, precfactor_lognorm_sigma)
@@ -3920,16 +3921,16 @@ if __name__ == '__main__':
     #                           bbox_to_anchor=(0.87,0.885), 
                                handlelength=1.5, handletextpad=0.25, borderpad=0.2, frameon=True)
                 elif vn == 'tempchange':
-                    if input.tempchange_disttype == 'uniform':
+                    if pygem_prms.tempchange_disttype == 'uniform':
                         z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                         x_values = tempchange_boundlow + z_score * (tempchange_boundhigh - tempchange_boundlow)
                         y_values = uniform.pdf(x_values, loc=tempchange_boundlow,
                                                scale=(tempchange_boundhigh - tempchange_boundlow))
-                    elif input.tempchange_disttype == 'normal':
+                    elif pygem_prms.tempchange_disttype == 'normal':
                         z_score = np.linspace(norm.ppf(0.01), norm.ppf(0.99), 100)
                         x_values = tempchange_mu + tempchange_sigma * z_score
                         y_values = norm.pdf(x_values, loc=tempchange_mu, scale=tempchange_sigma)
-                    elif input.tempchange_disttype == 'truncnormal':
+                    elif pygem_prms.tempchange_disttype == 'truncnormal':
                         tempchange_a = (tempchange_boundlow - tempchange_mu) / tempchange_sigma
                         tempchange_b = (tempchange_boundhigh - tempchange_mu) / tempchange_sigma
                         z_score = np.linspace(truncnorm.ppf(0.01, tempchange_a, tempchange_b),
@@ -3951,14 +3952,14 @@ if __name__ == '__main__':
                     # fitted distribution
                     ax3.plot(x_values_kde, y_values_kde, color=colors_iters[count_iter], linestyle=linestyles[n_chain])
                 elif vn == 'ddfsnow':            
-                    if input.ddfsnow_disttype == 'truncnormal':
+                    if pygem_prms.ddfsnow_disttype == 'truncnormal':
                         ddfsnow_a = (ddfsnow_boundlow - ddfsnow_mu) / ddfsnow_sigma
                         ddfsnow_b = (ddfsnow_boundhigh - ddfsnow_mu) / ddfsnow_sigma
                         z_score = np.linspace(truncnorm.ppf(0.001, ddfsnow_a, ddfsnow_b),
                                               truncnorm.ppf(0.999, ddfsnow_a, ddfsnow_b), 100)
                         x_values = ddfsnow_mu + ddfsnow_sigma * z_score
                         y_values = truncnorm.pdf(x_values, ddfsnow_a, ddfsnow_b, loc=ddfsnow_mu, scale=ddfsnow_sigma)
-                    elif input.ddfsnow_disttype == 'uniform':
+                    elif pygem_prms.ddfsnow_disttype == 'uniform':
                         z_score = np.linspace(uniform.ppf(0.01), uniform.ppf(0.99), 100)
                         x_values = ddfsnow_boundlow + z_score * (ddfsnow_boundhigh - ddfsnow_boundlow)
                         y_values = uniform.pdf(x_values, loc=ddfsnow_boundlow,
@@ -3987,10 +3988,10 @@ if __name__ == '__main__':
                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=False))
             
             # Iterations to plot
-            if input.precfactor_disttype == 'gamma':
-                precfactor_expected = stats.gamma.ppf(0.5,input.precfactor_gamma_alpha, scale=1/input.precfactor_gamma_beta)
-                precfactor_bndhigh = stats.gamma.ppf(0.95,input.precfactor_gamma_alpha, 
-                                                       scale=1/input.precfactor_gamma_beta)
+            if pygem_prms.precfactor_disttype == 'gamma':
+                precfactor_expected = stats.gamma.ppf(0.5,pygem_prms.precfactor_gamma_alpha, scale=1/pygem_prms.precfactor_gamma_beta)
+                precfactor_bndhigh = stats.gamma.ppf(0.95,pygem_prms.precfactor_gamma_alpha, 
+                                                       scale=1/pygem_prms.precfactor_gamma_beta)
                 precfactor_iters = [1, int(precfactor_expected*10)/10, int(precfactor_bndhigh*10)/10]
             tc_iter_step = 0.5
             tempchange_iters = np.arange(int(tempchange_boundlow), np.ceil(tempchange_boundhigh)+tc_iter_step, 
@@ -4022,7 +4023,7 @@ if __name__ == '__main__':
                     for c, ddfsnow in enumerate(ddfsnow_iters):
                         
                         modelparameters[4] = ddfsnow
-                        modelparameters[5] = modelparameters[4] / input.ddfsnow_iceratio
+                        modelparameters[5] = modelparameters[4] / pygem_prms.ddfsnow_iceratio
                         
                         (glac_bin_temp, glac_bin_prec, glac_bin_acc, glac_bin_refreeze, glac_bin_snowpack, glac_bin_melt,
                          glac_bin_frontalablation, glac_bin_massbalclim, glac_bin_massbalclim_annual, glac_bin_area_annual,
@@ -4109,15 +4110,15 @@ if __name__ == '__main__':
     #%% PLOT MASS BALANCE VS MODEL PARAMETERS
     if option_glacier_mb_vs_params == 1:
         glac_no = ['13.26360']
-    #    glac_no = [str(input.rgi_regionsO1[0]) + '.' + input.rgi_glac_number[0]]
-    #    netcdf_fp = input.output_fp_cal
+    #    glac_no = [str(pygem_prms.rgi_regionsO1[0]) + '.' + pygem_prms.rgi_glac_number[0]]
+    #    netcdf_fp = pygem_prms.output_fp_cal
         netcdf_fp = mcmc_output_netcdf_fp_all
         fig_fp = netcdf_fp + 'figures/'
         
         (main_glac_rgi, main_glac_hyps, main_glac_icethickness, main_glac_width, 
          gcm_temp, gcm_tempstd, gcm_prec, gcm_elev, gcm_lr, cal_data, dates_table) = load_glacierdata_byglacno(glac_no)
         
-        main_glac_rgi['region'] = main_glac_rgi.RGIId.map(input.reg_dict)
+        main_glac_rgi['region'] = main_glac_rgi.RGIId.map(pygem_prms.reg_dict)
         
         # Elevation bins
         elev_bins = main_glac_hyps.columns.values.astype(int) 
@@ -4160,8 +4161,8 @@ if __name__ == '__main__':
             width_t0 = main_glac_width.iloc[n,:].values.astype(float)
             glac_idx_t0 = glacier_area_t0.nonzero()[0]
             # Set model parameters
-            modelparameters = [input.lrgcm, input.lrglac, input.precfactor, input.precgrad, input.ddfsnow, input.ddfice,
-                               input.tempsnow, input.tempchange]
+            modelparameters = [pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad, 
+                               pygem_prms.ddfsnow, pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange]
         
             
             tempchange_boundlow, tempchange_boundhigh, mb_max_loss = (
@@ -4171,10 +4172,10 @@ if __name__ == '__main__':
                         glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table, t1_idx, t2_idx, t1, t2, debug=True))
             
             # Iterations to plot
-            if input.precfactor_disttype == 'gamma':
-                precfactor_expected = stats.gamma.ppf(0.5,input.precfactor_gamma_alpha, scale=1/input.precfactor_gamma_beta)
-                precfactor_bndhigh = stats.gamma.ppf(0.95,input.precfactor_gamma_alpha, 
-                                                       scale=1/input.precfactor_gamma_beta)
+            if pygem_prms.precfactor_disttype == 'gamma':
+                precfactor_expected = stats.gamma.ppf(0.5,pygem_prms.precfactor_gamma_alpha, scale=1/pygem_prms.precfactor_gamma_beta)
+                precfactor_bndhigh = stats.gamma.ppf(0.95,pygem_prms.precfactor_gamma_alpha, 
+                                                       scale=1/pygem_prms.precfactor_gamma_beta)
                 precfactor_iters = [1, int(precfactor_expected*10)/10, int(precfactor_bndhigh*10)/10]
             tc_iter_step = 0.1
             tempchange_iters = np.arange(int(tempchange_boundlow), np.ceil(tempchange_boundhigh)+tc_iter_step, 
@@ -4199,7 +4200,7 @@ if __name__ == '__main__':
     
     
     if option_convertcal2table == 1:
-        netcdf_fp = input.output_filepath + 'cal_opt4_20190803/'
+        netcdf_fp = pygem_prms.output_filepath + 'cal_opt4_20190803/'
         chain_no = 0
         
         csv_fp = netcdf_fp + 'csv/'
@@ -4253,7 +4254,7 @@ if __name__ == '__main__':
     
     #%%
     if option_correlation_scatter == 1:
-        netcdf_fp = input.output_filepath + 'cal_opt2_spc_20190806/'
+        netcdf_fp = pygem_prms.output_filepath + 'cal_opt2_spc_20190806/'
         csv_fp = netcdf_fp + 'csv/'
         fig_fp = netcdf_fp + 'figures/'
         chain_no = 0
@@ -4402,7 +4403,7 @@ if __name__ == '__main__':
             
             
     #%%
-    #cal_fp = input.main_directory + '/../Output/cal_opt2_spc_20190806/'
+    #cal_fp = pygem_prms.main_directory + '/../Output/cal_opt2_spc_20190806/'
     #
     #x_list = []
     #for i in os.listdir(cal_fp):

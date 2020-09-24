@@ -7,11 +7,12 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 # Local libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 
 
-def datesmodelrun(startyear=input.ref_startyear, endyear=input.ref_endyear, spinupyears=input.spinupyears,
-                  option_wateryear=input.ref_wateryear):
+
+def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, 
+                  spinupyears=pygem_prms.ref_spinupyears, option_wateryear=pygem_prms.ref_wateryear):
     """
     Create table of year, month, day, water year, season and number of days in the month.
 
@@ -39,22 +40,22 @@ def datesmodelrun(startyear=input.ref_startyear, endyear=input.ref_endyear, spin
         startdate = str(startyear_wspinup) + '-01-01'
         enddate = str(endyear) + '-12-31'
     elif option_wateryear == 3:
-        startdate = str(startyear_wspinup) + '-' + input.startmonthday
-        enddate = str(endyear) + '-' + input.endmonthday
+        startdate = str(startyear_wspinup) + '-' + pygem_prms.startmonthday
+        enddate = str(endyear) + '-' + pygem_prms.endmonthday
     else:
         print("\n\nError: Please select an option_wateryear that exists. Exiting model run now.\n")
         exit()
     # Convert input format into proper datetime format
     startdate = datetime(*[int(item) for item in startdate.split('-')])
     enddate = datetime(*[int(item) for item in enddate.split('-')])
-    if input.timestep == 'monthly':
+    if pygem_prms.timestep == 'monthly':
         startdate = startdate.strftime('%Y-%m')
         enddate = enddate.strftime('%Y-%m')
-    elif input.timestep == 'daily':
+    elif pygem_prms.timestep == 'daily':
         startdate = startdate.strftime('%Y-%m-%d')
         enddate = enddate.strftime('%Y-%m-%d')
     # Generate dates_table using date_range function
-    if input.timestep == 'monthly':
+    if pygem_prms.timestep == 'monthly':
         # Automatically generate dates from start date to end data using a monthly frequency (MS), which generates
         # monthly data using the 1st of each month
         dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS')})
@@ -66,10 +67,10 @@ def datesmodelrun(startyear=input.ref_startyear, endyear=input.ref_endyear, spin
         # Set date as index
         dates_table.set_index('timestep', inplace=True)
         # Remove leap year days if user selected this with option_leapyear
-        if input.option_leapyear == 0:
+        if pygem_prms.option_leapyear == 0:
             mask1 = (dates_table['daysinmonth'] == 29)
             dates_table.loc[mask1,'daysinmonth'] = 28
-    elif input.timestep == 'daily':
+    elif pygem_prms.timestep == 'daily':
         # Automatically generate daily (freq = 'D') dates
         dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='D')})
         # Extract attributes for dates_table
@@ -80,7 +81,7 @@ def datesmodelrun(startyear=input.ref_startyear, endyear=input.ref_endyear, spin
         # Set date as index
         dates_table.set_index('date', inplace=True)
         # Remove leap year days if user selected this with option_leapyear
-        if input.option_leapyear == 0:
+        if pygem_prms.option_leapyear == 0:
             # First, change 'daysinmonth' number
             mask1 = dates_table['daysinmonth'] == 29
             dates_table.loc[mask1,'daysinmonth'] = 28
@@ -103,7 +104,7 @@ def datesmodelrun(startyear=input.ref_startyear, endyear=input.ref_endyear, spin
     month_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     season_list = []
     for i in range(len(month_list)):
-        if (month_list[i] >= input.summer_month_start and month_list[i] < input.winter_month_start):
+        if (month_list[i] >= pygem_prms.summer_month_start and month_list[i] < pygem_prms.winter_month_start):
             season_list.append('summer')
             seasondict[month_list[i]] = season_list[i]
         else:
@@ -159,7 +160,7 @@ def hypsometrystats(hyps_table, thickness_table):
     return glac_volume, glac_hyps_mean
 
 
-def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=input.indexname):
+def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=pygem_prms.indexname):
     """Use the dictionary specified by the user to extract the desired variable.
     The files must be in the proper units (ice thickness [m], area [km2], width [km]) and should be pre-processed.
 
@@ -219,7 +220,7 @@ def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=in
     # change NAN from -99 to 0
     glac_table_copy[glac_table_copy==-99] = 0.
     # Shift Huss bins by 20 m since the elevation bins appear to be 20 m higher than they should be
-    if input.option_shift_elevbins_20m == 1:
+    if pygem_prms.option_shift_elevbins_20m == 1:
         colnames = glac_table_copy.columns.tolist()[:-2]
         glac_table_copy = glac_table_copy.iloc[:,2:]
         glac_table_copy.columns = colnames
@@ -233,12 +234,12 @@ def selectcalibrationdata(main_glac_rgi):
     """
     # Import .csv file
     rgi_region = int(main_glac_rgi.loc[main_glac_rgi.index.values[0],'RGIId'].split('-')[1].split('.')[0])
-    ds = pd.read_csv(input.cal_mb_filepath + input.cal_mb_filedict[rgi_region])
+    ds = pd.read_csv(pygem_prms.cal_mb_filepath + pygem_prms.cal_mb_filedict[rgi_region])
     main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],4))
-    ds[input.rgi_O1Id_colname] = ((ds[input.cal_rgi_colname] % 1) * 10**5).round(0).astype(int)
-    ds_subset = ds[[input.rgi_O1Id_colname, input.massbal_colname, input.massbal_uncertainty_colname,
-                    input.massbal_time1, input.massbal_time2]].values
-    rgi_O1Id = main_glac_rgi[input.rgi_O1Id_colname].values
+    ds[pygem_prms.rgi_O1Id_colname] = ((ds[pygem_prms.cal_rgi_colname] % 1) * 10**5).round(0).astype(int)
+    ds_subset = ds[[pygem_prms.rgi_O1Id_colname, pygem_prms.massbal_colname, pygem_prms.massbal_uncertainty_colname,
+                    pygem_prms.massbal_time1, pygem_prms.massbal_time2]].values
+    rgi_O1Id = main_glac_rgi[pygem_prms.rgi_O1Id_colname].values
     for glac in range(rgi_O1Id.shape[0]):
         try:
             # Grab the mass balance based on the RGIId Order 1 glacier number
@@ -253,8 +254,8 @@ def selectcalibrationdata(main_glac_rgi):
             main_glac_calmassbal[glac,:] = np.empty(4)
             main_glac_calmassbal[glac,:] = np.nan
     main_glac_calmassbal = pd.DataFrame(main_glac_calmassbal,
-                                        columns=[input.massbal_colname, input.massbal_uncertainty_colname,
-                                                 input.massbal_time1, input.massbal_time2])
+                                        columns=[pygem_prms.massbal_colname, pygem_prms.massbal_uncertainty_colname,
+                                                 pygem_prms.massbal_time1, pygem_prms.massbal_time2])
     return main_glac_calmassbal
 
 
@@ -262,11 +263,11 @@ def selectglaciersrgitable(glac_no=None,
                            rgi_regionsO1=None,
                            rgi_regionsO2=None,
                            rgi_glac_number=None,
-                           rgi_fp=input.rgi_fp,
-                           rgi_cols_drop=input.rgi_cols_drop,
-                           rgi_O1Id_colname=input.rgi_O1Id_colname,
-                           rgi_glacno_float_colname=input.rgi_glacno_float_colname,
-                           indexname=input.indexname):
+                           rgi_fp=pygem_prms.rgi_fp,
+                           rgi_cols_drop=pygem_prms.rgi_cols_drop,
+                           rgi_O1Id_colname=pygem_prms.rgi_O1Id_colname,
+                           rgi_glacno_float_colname=pygem_prms.rgi_glacno_float_colname,
+                           indexname=pygem_prms.indexname):
     """
     Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI
     glacier inventory. This function returns the rgi table associated with all of these glaciers.
@@ -370,6 +371,10 @@ def selectglaciersrgitable(glac_no=None,
                                                     for x in range(glacier_table.shape[0])]).astype(float))
     # set index name
     glacier_table.index.name = indexname
+    # Longitude between 0-360deg (no negative)
+    glacier_table['CenLon_360'] = glacier_table['CenLon']
+    glacier_table.loc[glacier_table['CenLon'] < 0, 'CenLon_360'] = (
+            360 + glacier_table.loc[glacier_table['CenLon'] < 0, 'CenLon_360'])
 
     print("This study is focusing on %s glaciers in region %s" % (glacier_table.shape[0], rgi_regionsO1))
 

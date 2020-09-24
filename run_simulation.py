@@ -22,7 +22,7 @@ import xarray as xr
 # Local libraries
 import class_climate
 import class_mbdata
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import pygemfxns_massbalance as massbalance
 import pygemfxns_modelsetup as modelsetup
@@ -65,7 +65,7 @@ def getparser():
     """
     parser = argparse.ArgumentParser(description="run simulations from gcm list in parallel")
     # add arguments
-    parser.add_argument('-gcm_list_fn', action='store', type=str, default=input.ref_gcm_name,
+    parser.add_argument('-gcm_list_fn', action='store', type=str, default=pygem_prms.ref_gcm_name,
                         help='text file full of commands to run')
     parser.add_argument('-gcm_name', action='store', type=str, default=None,
                         help='GCM name used for model run')
@@ -88,7 +88,7 @@ def getparser():
     return parser
 
 
-def calc_stats_array(data, stats_cns=input.sim_stat_cns):
+def calc_stats_array(data, stats_cns=pygem_prms.sim_stat_cns):
     """
     Calculate stats for a given variable
 
@@ -121,8 +121,8 @@ def calc_stats_array(data, stats_cns=input.sim_stat_cns):
     return stats
 
 
-def create_xrdataset(main_glac_rgi, dates_table, sim_iters=input.sim_iters, stat_cns=input.sim_stat_cns,
-                     record_stats=0, option_wateryear=input.gcm_wateryear):
+def create_xrdataset(main_glac_rgi, dates_table, sim_iters=pygem_prms.sim_iters, stat_cns=pygem_prms.sim_stat_cns,
+                     record_stats=0, option_wateryear=pygem_prms.gcm_wateryear):
     """
     Create empty xarray dataset that will be used to record simulation runs.
 
@@ -146,15 +146,15 @@ def create_xrdataset(main_glac_rgi, dates_table, sim_iters=input.sim_iters, stat
     encoding : dictionary
         encoding used with exporting xarray dataset to netcdf
     """
-    if input.output_package == 2:
+    if pygem_prms.output_package == 2:
         # Create empty datasets for each variable and merge them
         # Coordinate values
-        output_variables = input.output_variables_package2
+        output_variables = pygem_prms.output_variables_package2
         glac_values = main_glac_rgi.index.values
         annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
-        time_values = dates_table.loc[input.spinupyears*12:dates_table.shape[0]+1,'date'].tolist()
-        year_values = annual_columns[input.spinupyears:annual_columns.shape[0]]
-        year_plus1_values = np.concatenate((annual_columns[input.spinupyears:annual_columns.shape[0]],
+        time_values = dates_table.loc[pygem_prms.spinupyears*12:dates_table.shape[0]+1,'date'].tolist()
+        year_values = annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]]
+        year_plus1_values = np.concatenate((annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]],
                                             np.array([annual_columns[annual_columns.shape[0]-1]+1])))
         # Year type for attributes
         if option_wateryear == 1:
@@ -170,7 +170,7 @@ def create_xrdataset(main_glac_rgi, dates_table, sim_iters=input.sim_iters, stat
             record_name_values = np.arange(0,sim_iters)
         elif record_stats == 1:
             record_name = 'stats'
-            record_name_values = input.sim_stat_cns
+            record_name_values = pygem_prms.sim_stat_cns
 
         # Variable coordinates dictionary
         output_coords_dict = {
@@ -339,7 +339,7 @@ def create_xrdataset(main_glac_rgi, dates_table, sim_iters=input.sim_iters, stat
             else:
                 output_ds_all = xr.merge((output_ds_all, output_ds))
         # Add a glacier table so that the glaciers attributes accompany the netcdf file
-        main_glac_rgi_float = main_glac_rgi[input.output_glacier_attr_vns].copy()
+        main_glac_rgi_float = main_glac_rgi[pygem_prms.output_glacier_attr_vns].copy()
         main_glac_rgi_xr = xr.Dataset({'glacier_table': (('glac', 'glac_attrs'), main_glac_rgi_float.values)},
                                        coords={'glac': glac_values,
                                                'glac_attrs': main_glac_rgi_float.columns.values})
@@ -455,17 +455,17 @@ def convert_glacwide_results(elev_bins, glac_bin_temp, glac_bin_prec, glac_bin_a
     #  units: (m + m w.e. - m w.e.) * km**2 * (1000 m / 1 km)**2 = m**3
     glac_wide_snowline = (glac_bin_snowpack > 0).argmax(axis=0)
     glac_wide_snowline[glac_wide_snowline > 0] = (elev_bins[glac_wide_snowline[glac_wide_snowline > 0]] -
-                                                  input.binsize/2)
+                                                  pygem_prms.binsize/2)
     glac_wide_area_annual = glac_bin_area_annual.sum(axis=0)
     glac_wide_volume_annual = (glac_bin_area_annual * glac_bin_icethickness_annual / 1000).sum(axis=0)
     glac_wide_ELA_annual = (glac_bin_massbalclim_annual > 0).argmax(axis=0)
     glac_wide_ELA_annual[glac_wide_ELA_annual > 0] = (elev_bins[glac_wide_ELA_annual[glac_wide_ELA_annual > 0]] -
-                                                      input.binsize/2)
+                                                      pygem_prms.binsize/2)
     # ELA and snowline can't be below minimum elevation
-    glac_zmin_annual = elev_bins[(glac_bin_area_annual > 0).argmax(axis=0)][:-1] - input.binsize/2
+    glac_zmin_annual = elev_bins[(glac_bin_area_annual > 0).argmax(axis=0)][:-1] - pygem_prms.binsize/2
     glac_wide_ELA_annual[glac_wide_ELA_annual < glac_zmin_annual] = (
             glac_zmin_annual[glac_wide_ELA_annual < glac_zmin_annual])
-    glac_zmin = elev_bins[(glac_bin_area > 0).argmax(axis=0)] - input.binsize/2
+    glac_zmin = elev_bins[(glac_bin_area > 0).argmax(axis=0)] - pygem_prms.binsize/2
     glac_wide_snowline[glac_wide_snowline < glac_zmin] = glac_zmin[glac_wide_snowline < glac_zmin]
 
 #    print('DELETE ME - TESTING')
@@ -516,7 +516,7 @@ def main(list_packed_vars):
     parser = getparser()
     args = parser.parse_args()
 
-    if (gcm_name != input.ref_gcm_name) and (args.rcp is None):
+    if (gcm_name != pygem_prms.ref_gcm_name) and (args.rcp is None):
         rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
     elif args.rcp is not None:
         rcp_scenario = args.rcp
@@ -533,23 +533,23 @@ def main(list_packed_vars):
     # ===== LOAD GLACIER DATA =====
     main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glac_no)
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath, input.hyps_filedict,
-                                                 input.hyps_colsdrop)
+    main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.hyps_filepath, pygem_prms.hyps_filedict,
+                                                 pygem_prms.hyps_colsdrop)
     # Ice thickness [m], average
-    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath,
-                                                         input.thickness_filedict, input.thickness_colsdrop)
+    main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.thickness_filepath,
+                                                         pygem_prms.thickness_filedict, pygem_prms.thickness_colsdrop)
     main_glac_icethickness[main_glac_icethickness < 0] = 0
     main_glac_hyps[main_glac_icethickness == 0] = 0
     # Width [km], average
-    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath, input.width_filedict,
-                                                  input.width_colsdrop)
+    main_glac_width = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.width_filepath, pygem_prms.width_filedict,
+                                                  pygem_prms.width_colsdrop)
     elev_bins = main_glac_hyps.columns.values.astype(int)
     # Volume [km**3] and mean elevation [m a.s.l.]
     main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
     
-    if input.option_surfacetype_debris == 1:
-        main_glac_debrisfactor = modelsetup.import_Husstable(main_glac_rgi, input.debris_fp, input.debris_filedict,
-                                                             input.debris_colsdrop)
+    if pygem_prms.option_surfacetype_debris == 1:
+        main_glac_debrisfactor = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.debris_fp, pygem_prms.debris_filedict,
+                                                             pygem_prms.debris_colsdrop)
     else:
         print('\n\nDELETE ME - CHECK THAT THIS IS SAME FORMAT AS MAIN_GLAC_HYPS AND OTHERS\n\n')
         main_glac_debrisfactor = np.zeros(main_glac_hyps.shape) + 1
@@ -558,20 +558,20 @@ def main(list_packed_vars):
 #    print(main_glac_hyps.index.values)
 
     # Select dates including future projections
-    dates_table = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear,
-                                           spinupyears=input.gcm_spinupyears, option_wateryear=input.gcm_wateryear)
+    dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear,
+                                           spinupyears=pygem_prms.gcm_spinupyears, option_wateryear=pygem_prms.gcm_wateryear)
 
 
     # =================
     if debug:
         # Select dates including future projections
         #  - nospinup dates_table needed to get the proper time indices
-        dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.gcm_startyear, endyear=input.gcm_endyear,
-                                                         spinupyears=0, option_wateryear=input.gcm_wateryear)
+        dates_table_nospinup  = modelsetup.datesmodelrun(startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear,
+                                                         spinupyears=0, option_wateryear=pygem_prms.gcm_wateryear)
 
         # ===== LOAD CALIBRATION DATA =====
         cal_data = pd.DataFrame()
-        for dataset in input.cal_datasets:
+        for dataset in pygem_prms.cal_datasets:
             cal_subset = class_mbdata.MBData(name=dataset)
             cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi, main_glac_hyps, dates_table_nospinup)
             cal_data = cal_data.append(cal_subset_data, ignore_index=True)
@@ -581,48 +581,48 @@ def main(list_packed_vars):
 
 
     # Synthetic simulation dates
-    if input.option_synthetic_sim == 1:
+    if pygem_prms.option_synthetic_sim == 1:
         dates_table_synthetic = modelsetup.datesmodelrun(
-                startyear=input.synthetic_startyear, endyear=input.synthetic_endyear,
-                option_wateryear=input.gcm_wateryear, spinupyears=0)
+                startyear=pygem_prms.synthetic_startyear, endyear=pygem_prms.synthetic_endyear,
+                option_wateryear=pygem_prms.gcm_wateryear, spinupyears=0)
 
     # ===== LOAD CLIMATE DATA =====
     if gcm_name in ['ERA5', 'ERA-Interim', 'COAWST']:
         gcm = class_climate.GCM(name=gcm_name)
         # Check that end year is reasonable
-        if (input.gcm_endyear > int(time.strftime("%Y"))) and (input.option_synthetic_sim == 0):
+        if (pygem_prms.gcm_endyear > int(time.strftime("%Y"))) and (pygem_prms.option_synthetic_sim == 0):
             print('\n\nEND YEAR BEYOND AVAILABLE DATA FOR ERA-INTERIM. CHANGE END YEAR.\n\n')
     else:
         # GCM object
         gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
         # Reference GCM
-        ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
+        ref_gcm = class_climate.GCM(name=pygem_prms.ref_gcm_name)
         # Adjust reference dates in event that reference is longer than GCM data
-        if input.startyear >= input.gcm_startyear:
-            ref_startyear = input.startyear
+        if pygem_prms.startyear >= pygem_prms.gcm_startyear:
+            ref_startyear = pygem_prms.startyear
         else:
-            ref_startyear = input.gcm_startyear
-        if input.endyear <= input.gcm_endyear:
-            ref_endyear = input.endyear
+            ref_startyear = pygem_prms.gcm_startyear
+        if pygem_prms.endyear <= pygem_prms.gcm_endyear:
+            ref_endyear = pygem_prms.endyear
         else:
-            ref_endyear = input.gcm_endyear
+            ref_endyear = pygem_prms.gcm_endyear
         dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear,
-                                                   spinupyears=input.spinupyears,
-                                                   option_wateryear=input.option_wateryear)
+                                                   spinupyears=pygem_prms.spinupyears,
+                                                   option_wateryear=pygem_prms.option_wateryear)
 #        if debug:
 #            print(ref_startyear, ref_endyear)
 
     # ===== Regular Climate Data (not synthetic simulation) =====
-    if input.option_synthetic_sim == 0:
+    if pygem_prms.option_synthetic_sim == 0:
         # Air temperature [degC]
         gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi,
                                                                      dates_table)
-        if input.option_ablation != 2:
+        if pygem_prms.option_ablation != 2:
             gcm_tempstd = np.zeros(gcm_temp.shape)
-        elif input.option_ablation == 2 and gcm_name in ['ERA5']:
+        elif pygem_prms.option_ablation == 2 and gcm_name in ['ERA5']:
             gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn,
                                                                             main_glac_rgi, dates_table)
-        elif input.option_ablation == 2 and input.ref_gcm_name in ['ERA5']:
+        elif pygem_prms.option_ablation == 2 and pygem_prms.ref_gcm_name in ['ERA5']:
             # Compute temp std based on reference climate data
             ref_tempstd, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.tempstd_fn, ref_gcm.tempstd_vn,
                                                                                 main_glac_rgi, dates_table_ref)
@@ -655,16 +655,16 @@ def main(list_packed_vars):
             gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
             # Check if glacier outside of high-res (d02) domain
             for glac in range(main_glac_rgi.shape[0]):
-                glac_lat = main_glac_rgi.loc[glac,input.rgi_lat_colname]
-                glac_lon = main_glac_rgi.loc[glac,input.rgi_lon_colname]
-                if (~(input.coawst_d02_lat_min <= glac_lat <= input.coawst_d02_lat_max) or
-                    ~(input.coawst_d02_lon_min <= glac_lon <= input.coawst_d02_lon_max)):
+                glac_lat = main_glac_rgi.loc[glac,pygem_prms.rgi_lat_colname]
+                glac_lon = main_glac_rgi.loc[glac,pygem_prms.rgi_lon_colname]
+                if (~(pygem_prms.coawst_d02_lat_min <= glac_lat <= pygem_prms.coawst_d02_lat_max) or
+                    ~(pygem_prms.coawst_d02_lon_min <= glac_lon <= pygem_prms.coawst_d02_lon_max)):
                     gcm_prec[glac,:] = gcm_prec_d01[glac,:]
                     gcm_temp[glac,:] = gcm_temp_d01[glac,:]
                     gcm_elev[glac] = gcm_elev_d01[glac]
 
     # ===== Synthetic Simulation =====
-    elif input.option_synthetic_sim == 1:
+    elif pygem_prms.option_synthetic_sim == 1:
         # Air temperature [degC]
         gcm_temp_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi,
                                                                           dates_table_synthetic)
@@ -677,22 +677,22 @@ def main(list_packed_vars):
         gcm_lr_tile, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi,
                                                                         dates_table_synthetic)
         # Future simulation based on synthetic (replicated) data; add spinup years; dataset restarts after spinupyears
-        datelength = dates_table.shape[0] - input.gcm_spinupyears * 12
+        datelength = dates_table.shape[0] - pygem_prms.gcm_spinupyears * 12
         n_tiles = int(np.ceil(datelength / dates_table_synthetic.shape[0]))
-        gcm_temp = np.append(gcm_temp_tile[:,:input.gcm_spinupyears*12],
+        gcm_temp = np.append(gcm_temp_tile[:,:pygem_prms.gcm_spinupyears*12],
                              np.tile(gcm_temp_tile,(1,n_tiles))[:,:datelength], axis=1)
-        gcm_prec = np.append(gcm_prec_tile[:,:input.gcm_spinupyears*12],
+        gcm_prec = np.append(gcm_prec_tile[:,:pygem_prms.gcm_spinupyears*12],
                              np.tile(gcm_prec_tile,(1,n_tiles))[:,:datelength], axis=1)
-        gcm_lr = np.append(gcm_lr_tile[:,:input.gcm_spinupyears*12], np.tile(gcm_lr_tile,(1,n_tiles))[:,:datelength],
+        gcm_lr = np.append(gcm_lr_tile[:,:pygem_prms.gcm_spinupyears*12], np.tile(gcm_lr_tile,(1,n_tiles))[:,:datelength],
                            axis=1)
         # Temperature and precipitation sensitivity adjustments
-        gcm_temp = gcm_temp + input.synthetic_temp_adjust
-        gcm_prec = gcm_prec * input.synthetic_prec_factor
+        gcm_temp = gcm_temp + pygem_prms.synthetic_temp_adjust
+        gcm_prec = gcm_prec * pygem_prms.synthetic_prec_factor
 
 
     # ===== BIAS CORRECTIONS =====
     # No adjustments
-    if input.option_bias_adjustment == 0 or gcm_name == input.ref_gcm_name:
+    if pygem_prms.option_bias_adjustment == 0 or gcm_name == pygem_prms.ref_gcm_name:
         gcm_temp_adj = gcm_temp
         gcm_prec_adj = gcm_prec
         gcm_elev_adj = gcm_elev
@@ -706,7 +706,7 @@ def main(list_packed_vars):
         ref_elev = ref_gcm.importGCMfxnearestneighbor_xarray(ref_gcm.elev_fn, ref_gcm.elev_vn, main_glac_rgi)
 
         # OPTION 1: Adjust temp using Huss and Hock (2015), prec similar but addresses for variance and outliers
-        if input.option_bias_adjustment == 1:
+        if pygem_prms.option_bias_adjustment == 1:
             # Temperature bias correction
             gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp,
                                                                         dates_table_ref, dates_table)
@@ -715,7 +715,7 @@ def main(list_packed_vars):
                                                                       dates_table_ref, dates_table)
 
         # OPTION 2: Adjust temp and prec using Huss and Hock (2015)
-        elif input.option_bias_adjustment == 2:
+        elif pygem_prms.option_bias_adjustment == 2:
             # Temperature bias correction
             gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp,
                                                                         dates_table_ref, dates_table)
@@ -732,7 +732,7 @@ def main(list_packed_vars):
         print(np.where(gcm_prec_adj < 0))
 
     if debug_spc:
-        debug_fp = input.output_sim_fp + 'debug/'
+        debug_fp = pygem_prms.output_sim_fp + 'debug/'
         # Create filepath if it does not exist
         if os.path.exists(debug_fp) == False:
             os.makedirs(debug_fp)
@@ -744,15 +744,15 @@ def main(list_packed_vars):
 
     # ===== RUN MASS BALANCE =====
     # Number of simulations
-    if input.option_calibration == 2:
-        sim_iters = input.sim_iters
+    if pygem_prms.option_calibration == 2:
+        sim_iters = pygem_prms.sim_iters
     else:
         sim_iters = 1
 #    # Create datasets to store simulations
 #    output_ds_all, encoding = create_xrdataset(main_glac_rgi, dates_table, sim_iters=sim_iters,
-#                                               option_wateryear=input.gcm_wateryear)
+#                                               option_wateryear=pygem_prms.gcm_wateryear)
 #    output_ds_all_stats, encoding = create_xrdataset(main_glac_rgi, dates_table, record_stats=1,
-#                                                     option_wateryear=input.gcm_wateryear)
+#                                                     option_wateryear=pygem_prms.gcm_wateryear)
 
     for glac in range(main_glac_rgi.shape[0]):
         if glac == 0 or glac == main_glac_rgi.shape[0]:
@@ -782,8 +782,8 @@ def main(list_packed_vars):
 
         # Empty datasets to record output
         annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
-        year_values = annual_columns[input.spinupyears:annual_columns.shape[0]]
-        year_plus1_values = np.concatenate((annual_columns[input.spinupyears:annual_columns.shape[0]],
+        year_values = annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]]
+        year_plus1_values = np.concatenate((annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]],
                                             np.array([annual_columns[annual_columns.shape[0]-1]+1])))
         output_temp_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
         output_prec_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
@@ -806,7 +806,7 @@ def main(list_packed_vars):
 
         if icethickness_initial.max() > 0:
 
-            if input.hindcast == 1:
+            if pygem_prms.hindcast == 1:
                 glacier_gcm_prec = glacier_gcm_prec[::-1]
                 glacier_gcm_temp = glacier_gcm_temp[::-1]
                 glacier_gcm_lrgcm = glacier_gcm_lrgcm[::-1]
@@ -818,23 +818,23 @@ def main(list_packed_vars):
             else:
                 glacier_RGIId = main_glac_rgi.iloc[glac]['RGIId'][7:]
 
-            if input.option_import_modelparams == 1:
-                ds_mp = xr.open_dataset(input.modelparams_fp + glacier_RGIId + '.nc')
-                cn_subset = input.modelparams_colnames
+            if pygem_prms.option_import_modelparams:
+                ds_mp = xr.open_dataset(pygem_prms.modelparams_fp + glacier_RGIId + '.nc')
+                cn_subset = pygem_prms.modelparams_colnames
                 modelparameters_all = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values,
                                                     columns=ds_mp.mp.values)[cn_subset])
             else:
                 modelparameters_all = (
-                        pd.DataFrame(np.asarray([input.lrgcm, input.lrglac, input.precfactor, input.precgrad,
-                                                 input.ddfsnow, input.ddfice, input.tempsnow, input.tempchange])
-                                                .reshape(1,-1), columns=input.modelparams_colnames))
+                        pd.DataFrame(np.asarray([pygem_prms.lrgcm, pygem_prms.lrglac, pygem_prms.precfactor, pygem_prms.precgrad,
+                                                 pygem_prms.ddfsnow, pygem_prms.ddfice, pygem_prms.tempsnow, pygem_prms.tempchange])
+                                                .reshape(1,-1), columns=pygem_prms.modelparams_colnames))
 
             # Set the number of iterations and determine every kth iteration to use for the ensemble
-            if input.option_calibration == 2 and modelparameters_all.shape[0] > 1:
-                sim_iters = input.sim_iters
+            if pygem_prms.option_calibration == 2 and modelparameters_all.shape[0] > 1:
+                sim_iters = pygem_prms.sim_iters
                 # Select every kth iteration
-                mp_spacing = int((modelparameters_all.shape[0] - input.sim_burn) / sim_iters)
-                mp_idx_start = np.arange(input.sim_burn, input.sim_burn + mp_spacing)
+                mp_spacing = int((modelparameters_all.shape[0] - pygem_prms.sim_burn) / sim_iters)
+                mp_idx_start = np.arange(pygem_prms.sim_burn, pygem_prms.sim_burn + mp_spacing)
                 np.random.shuffle(mp_idx_start)
                 mp_idx_start = mp_idx_start[0]
                 mp_idx_all = np.arange(mp_idx_start, modelparameters_all.shape[0], mp_spacing)
@@ -865,10 +865,10 @@ def main(list_packed_vars):
                                                icethickness_initial, width_initial, elev_bins, glacier_gcm_temp,
                                                glacier_gcm_tempstd, glacier_gcm_prec, glacier_gcm_elev,
                                                glacier_gcm_lrgcm, glacier_gcm_lrglac, dates_table,
-                                               option_areaconstant=0, hindcast=input.hindcast,
-                                               debug=input.debug_mb, debug_refreeze=input.debug_refreeze))
+                                               option_areaconstant=0, hindcast=pygem_prms.hindcast,
+                                               debug=pygem_prms.debug_mb, debug_refreeze=pygem_prms.debug_refreeze))
 
-                if input.hindcast == 1:
+                if pygem_prms.hindcast == 1:
                     glac_bin_temp = glac_bin_temp[:,::-1]
                     glac_bin_prec = glac_bin_prec[:,::-1]
                     glac_bin_acc = glac_bin_acc[:,::-1]
@@ -897,7 +897,7 @@ def main(list_packed_vars):
 
 
                 # RECORD PARAMETERS TO DATASET
-                if input.output_package == 2:
+                if pygem_prms.output_package == 2:
                     (glac_wide_temp, glac_wide_prec, glac_wide_acc, glac_wide_refreeze, glac_wide_melt,
                      glac_wide_frontalablation, glac_wide_massbaltotal, glac_wide_runoff, glac_wide_snowline,
                      glac_wide_area_annual, glac_wide_volume_annual, glac_wide_ELA_annual) = (
@@ -955,7 +955,7 @@ def main(list_packed_vars):
             rgi_table_ds = pd.DataFrame(np.zeros((1,glacier_rgi_table.shape[0])), columns=glacier_rgi_table.index)
             rgi_table_ds.iloc[0,:] = glacier_rgi_table.values
             output_ds_all_stats, encoding = create_xrdataset(rgi_table_ds, dates_table, record_stats=1,
-                                                             option_wateryear=input.gcm_wateryear)
+                                                             option_wateryear=pygem_prms.gcm_wateryear)
             output_ds_all_stats['temp_glac_monthly'].values[0,:,:] = calc_stats_array(output_temp_glac_monthly)
             output_ds_all_stats['prec_glac_monthly'].values[0,:,:] = calc_stats_array(output_prec_glac_monthly)
             output_ds_all_stats['acc_glac_monthly'].values[0,:,:] = calc_stats_array(output_acc_glac_monthly)
@@ -980,8 +980,8 @@ def main(list_packed_vars):
                     calc_stats_array(output_offglac_runoff_monthly))
 
             # Export statistics to netcdf
-            if input.output_package == 2:
-                output_sim_fp = input.output_sim_fp + gcm_name + '/'
+            if pygem_prms.output_package == 2:
+                output_sim_fp = pygem_prms.output_sim_fp + gcm_name + '/'
                 if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
                     output_sim_fp += rcp_scenario + '/'
                 # Create filepath if it does not exist
@@ -990,17 +990,17 @@ def main(list_packed_vars):
                 # Netcdf filename
                 if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
                     # Filename
-                    netcdf_fn = (glacier_str + '_' + gcm_name + '_c' + str(input.option_calibration) + '_ba' +
-                                 str(input.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
-                                 str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + '.nc')
+                    netcdf_fn = (glacier_str + '_' + gcm_name + '_c' + str(pygem_prms.option_calibration) + '_ba' +
+                                 str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
+                                 str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '.nc')
                 else:
                     netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_c' +
-                                 str(input.option_calibration) + '_ba' + str(input.option_bias_adjustment) + '_' +
-                                 str(sim_iters) + 'sets' + '_' + str(input.gcm_startyear) + '_' + str(input.gcm_endyear)
+                                 str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + '_' +
+                                 str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear)
                                  + '.nc')
-                if input.option_synthetic_sim==1:
-                    netcdf_fn = (netcdf_fn.split('--')[0] + '_T' + str(input.synthetic_temp_adjust) + '_P' +
-                                 str(input.synthetic_prec_factor) + '--' + netcdf_fn.split('--')[1])
+                if pygem_prms.option_synthetic_sim==1:
+                    netcdf_fn = (netcdf_fn.split('--')[0] + '_T' + str(pygem_prms.synthetic_temp_adjust) + '_P' +
+                                 str(pygem_prms.synthetic_prec_factor) + '--' + netcdf_fn.split('--')[1])
                 # Export netcdf
                 output_ds_all_stats.to_netcdf(output_sim_fp + netcdf_fn, encoding=encoding)
 
@@ -1031,12 +1031,12 @@ if __name__ == '__main__':
     if args.rgi_glac_number_fn is not None:
         with open(args.rgi_glac_number_fn, 'rb') as f:
             glac_no = pickle.load(f)
-    elif input.glac_no is not None:
-        glac_no = input.glac_no
+    elif pygem_prms.glac_no is not None:
+        glac_no = pygem_prms.glac_no
     else:
         main_glac_rgi_all = modelsetup.selectglaciersrgitable(
-                rgi_regionsO1=input.rgi_regionsO1, rgi_regionsO2 =input.rgi_regionsO2,
-                rgi_glac_number=input.rgi_glac_number)
+                rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2,
+                rgi_glac_number=pygem_prms.rgi_glac_number)
         glac_no = list(main_glac_rgi_all['rgino_str'].values)
 
     # Regions
@@ -1058,8 +1058,8 @@ if __name__ == '__main__':
     if args.gcm_name is not None:
         gcm_list = [args.gcm_name]
         rcp_scenario = args.rcp
-    elif args.gcm_list_fn == input.ref_gcm_name:
-        gcm_list = [input.ref_gcm_name]
+    elif args.gcm_list_fn == pygem_prms.ref_gcm_name:
+        gcm_list = [pygem_prms.ref_gcm_name]
         rcp_scenario = args.rcp
     else:
         with open(args.gcm_list_fn, 'r') as gcm_fn:
@@ -1092,23 +1092,23 @@ if __name__ == '__main__':
 #        # Merge netcdf files together into one
 #        # Filenames to merge
 #        output_list_sorted = []
-#        output_sim_fp = input.output_sim_fp + gcm_name + '/'
-#        if input.option_calibration == 2:
-#            sim_iters = input.sim_iters
+#        output_sim_fp = pygem_prms.output_sim_fp + gcm_name + '/'
+#        if pygem_prms.option_calibration == 2:
+#            sim_iters = pygem_prms.sim_iters
 #        else:
 #            sim_iters = 1
 #
 #        if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
-#            check_str = (regions_str + '_' + gcm_name + '_c' + str(input.option_calibration) + '_ba' +
-#                         str(input.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
-#                         str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + '--')
+#            check_str = (regions_str + '_' + gcm_name + '_c' + str(pygem_prms.option_calibration) + '_ba' +
+#                         str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
+#                         str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '--')
 #        else:
-#            check_str = (regions_str + '_' + gcm_name + '_' + rcp_scenario + '_c' + str(input.option_calibration) +
-#                         '_ba' + str(input.option_bias_adjustment) + '_' + str(sim_iters) + 'sets' + '_' +
-#                         str(input.gcm_startyear) + '_' + str(input.gcm_endyear) + '--')
-#        if input.option_synthetic_sim==1:
-#            check_str = (check_str.split('--')[0] + '_T' + str(input.synthetic_temp_adjust) + '_P' +
-#                         str(input.synthetic_prec_factor) + '--')
+#            check_str = (regions_str + '_' + gcm_name + '_' + rcp_scenario + '_c' + str(pygem_prms.option_calibration) +
+#                         '_ba' + str(pygem_prms.option_bias_adjustment) + '_' + str(sim_iters) + 'sets' + '_' +
+#                         str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '--')
+#        if pygem_prms.option_synthetic_sim==1:
+#            check_str = (check_str.split('--')[0] + '_T' + str(pygem_prms.synthetic_temp_adjust) + '_P' +
+#                         str(pygem_prms.synthetic_prec_factor) + '--')
 #        if args.batch_number is not None:
 #            check_str = check_str.split('--')[0] + '_batch' + str(args.batch_number) + '--'
 #        for i in os.listdir(output_sim_fp):
@@ -1139,13 +1139,13 @@ if __name__ == '__main__':
 #        # Add variables to empty dataset and merge together
 #        encoding = {}
 #        noencoding_vn = ['stats', 'glac_attrs']
-#        if input.output_package == 2:
-#            for vn in input.output_variables_package2:
+#        if pygem_prms.output_package == 2:
+#            for vn in pygem_prms.output_variables_package2:
 #                # Encoding (specify _FillValue, offsets, etc.)
 #                if vn not in noencoding_vn:
 #                    encoding[vn] = {'_FillValue': False}
 #        # Export to netcdf
-#        if input.output_package == 2:
+#        if pygem_prms.output_package == 2:
 #            ds_all.to_netcdf(output_sim_fp + ds_all_fn, encoding=encoding)
 #        else:
 #            ds_all.to_netcdf(output_sim_fp + ds_all_fn)
@@ -1170,7 +1170,7 @@ if __name__ == '__main__':
         main_glac_icethickness = main_vars['main_glac_icethickness']
         main_glac_width = main_vars['main_glac_width']
         dates_table = main_vars['dates_table']
-        if input.option_synthetic_sim == 1:
+        if pygem_prms.option_synthetic_sim == 1:
             dates_table_synthetic = main_vars['dates_table_synthetic']
             gcm_temp_tile = main_vars['gcm_temp_tile']
             gcm_prec_tile = main_vars['gcm_prec_tile']

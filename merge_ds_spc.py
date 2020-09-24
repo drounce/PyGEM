@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 # Local libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import spc_split_glaciers as split_glaciers
 
 
@@ -44,7 +44,7 @@ def getparser():
                         help='GCM name used for model run')
     parser.add_argument('-rcp', action='store', type=str, default=None,
                         help='rcp scenario used for model run (ex. rcp26)')
-    parser.add_argument('-output_sim_fp', action='store', type=str, default=input.output_sim_fp,
+    parser.add_argument('-output_sim_fp', action='store', type=str, default=pygem_prms.output_sim_fp,
                         help='output simulation filepath where results are being stored by GCM')
     parser.add_argument('-region', action='store', type=str, default=None,
                         help='region for merging')
@@ -95,7 +95,7 @@ def main(list_packed_vars):
     # Add variables to empty dataset and merge together
     encoding = {}
     noencoding_vn = ['stats', 'glac_attrs']
-    for vn in input.output_variables_package2:
+    for vn in pygem_prms.output_variables_package2:
         # Encoding (specify _FillValue, offsets, etc.)
         if vn not in noencoding_vn:
             encoding[vn] = {'_FillValue': False}
@@ -228,7 +228,7 @@ if __name__ == '__main__':
             # Add variables to empty dataset and merge together
             encoding = {}
             noencoding_vn = ['stats', 'glac_attrs']
-            for vn in input.output_variables_package2:
+            for vn in pygem_prms.output_variables_package2:
                 # Encoding (specify _FillValue, offsets, etc.)
                 if vn not in noencoding_vn:
                     encoding[vn] = {'_FillValue': False}

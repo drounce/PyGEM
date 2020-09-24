@@ -28,7 +28,7 @@ import xarray as xr
 from osgeo import gdal, ogr, osr
 import pickle
 # Local Libraries
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 import pygemfxns_massbalance as massbalance
 import pygemfxns_gcmbiasadj as gcmbiasadj
@@ -108,7 +108,7 @@ kaab_csv = pd.read_csv(kaab_dict_fn)
 kaab_dict = dict(zip(kaab_csv.RGIId, kaab_csv.kaab_name))
 
 # GRACE mascons
-mascon_fp = input.main_directory + '/../GRACE/GSFC.glb.200301_201607_v02.4/'
+mascon_fp = pygem_prms.main_directory + '/../GRACE/GSFC.glb.200301_201607_v02.4/'
 mascon_fn = 'mascon.txt'
 mascon_cns = ['CenLat', 'CenLon', 'LatWidth', 'LonWidth', 'Area_arcdeg', 'Area_km2', 'location', 'basin', 
               'elevation_flag']
@@ -291,7 +291,7 @@ def partition_multimodel_groups(gcm_names, grouping, vn, main_glac_rgi_all, rcp=
                 ds_fn = 'R' + str(region) + '_ERA-Interim_c2_ba1_100sets_1980_2017.nc'
             else:
                 netcdf_fp = netcdf_fp_cmip5 + vn_adj + '/'
-                ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba' + str(input.option_bias_adjustment) +
+                ds_fn = ('R' + str(region) + '_' + gcm_name + '_' + rcp + '_c2_ba' + str(pygem_prms.option_bias_adjustment) +
                          '_100sets_2000_2100--' + vn_adj + '.nc')
             
             # Bypass GCMs that are missing a rcp scenario
@@ -603,7 +603,7 @@ def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
     latlon_reg.CenLon.replace(gcm_lon_dict, inplace=True)
     # ===== LOAD CLIMATE DATA =====
     # Reference climate data
-    ref_gcm = class_climate.GCM(name=input.ref_gcm_name)
+    ref_gcm = class_climate.GCM(name=pygem_prms.ref_gcm_name)
     # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
     ref_temp, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.temp_fn, ref_gcm.temp_vn, latlon_reg, 
                                                                      dates_table_ref)
@@ -622,7 +622,7 @@ def select_region_climatedata(gcm_name, rcp, main_glac_rgi):
     
     ## ===== BIAS ADJUSTMENTS =====
     # OPTION 2: Adjust temp and prec according to Huss and Hock (2015) accounts for means and interannual variability
-    if input.option_bias_adjustment == 2:        
+    if pygem_prms.option_bias_adjustment == 2:        
         # TEMPERATURE BIAS CORRECTIONS
         # Mean monthly temperature
         ref_temp_monthly_avg = (ref_temp.reshape(-1,12).transpose()
@@ -668,12 +668,12 @@ for rgi_region in rgi_regions:
     main_glac_rgi_region = modelsetup.selectglaciersrgitable(rgi_regionsO1=[rgi_region], rgi_regionsO2 = 'all', 
                                                              rgi_glac_number='all')
      # Glacier hypsometry [km**2]
-    main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, input.hyps_filepath,
-                                                        input.hyps_filedict, input.hyps_colsdrop)
+    main_glac_hyps_region = modelsetup.import_Husstable(main_glac_rgi_region, pygem_prms.hyps_filepath,
+                                                        pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
     # Ice thickness [m], average
     main_glac_icethickness_region= modelsetup.import_Husstable(main_glac_rgi_region, 
-                                                             input.thickness_filepath, input.thickness_filedict, 
-                                                             input.thickness_colsdrop)
+                                                             pygem_prms.thickness_filepath, pygem_prms.thickness_filedict, 
+                                                             pygem_prms.thickness_colsdrop)
     
     if rgi_region == rgi_regions[0]:
         main_glac_rgi_all = main_glac_rgi_region
@@ -857,7 +857,7 @@ if option_plot_cmip5_normalizedchange == 1:
                         # Mass change for text on plot
                         #  Gt = km3 ice * density_ice / 1000
                         #  divide by 1000 because density of ice is 900 kg/m3 or 0.900 Gt/km3
-                        vn_reg_masschange = (vn_reg[-1] - vn_reg[0]) * input.density_ice / 1000
+                        vn_reg_masschange = (vn_reg[-1] - vn_reg[0]) * pygem_prms.density_ice / 1000
                         
                     elif ('prec' in vn) or ('temp' in vn):       
                         # Regional mean function (monthly data)
@@ -1520,8 +1520,8 @@ if option_output_tables == 1:
                         # Mass change [Gt]
                         #  Gt = km3 ice * density_ice / 1000
                         #  divide by 1000 because density of ice is 900 kg/m3 or 0.900 Gt/km3
-                        vn_reg_masschange = (ds_vn_multimodel - ds_vn_multimodel[0]) * input.density_ice / 1000
-                        vn_reg_masschange_std = ds_vn_multimodel_std * input.density_ice / 1000
+                        vn_reg_masschange = (ds_vn_multimodel - ds_vn_multimodel[0]) * pygem_prms.density_ice / 1000
+                        vn_reg_masschange_std = ds_vn_multimodel_std * pygem_prms.density_ice / 1000
                         output_table.loc[group, rcp + '_MassChg_Gt'] = np.round(vn_reg_masschange[-1],1)
                         output_table.loc[group, rcp + '_MassChg_std_Gt'] = np.round(vn_reg_masschange_std[-1],1)
                         
@@ -1537,7 +1537,7 @@ if option_output_tables == 1:
                         
                         # Mass change rate [Gt/yr]
                         runningmean_years = 10
-                        vn_reg_mass = ds_vn_multimodel * input.density_ice / 1000
+                        vn_reg_mass = ds_vn_multimodel * pygem_prms.density_ice / 1000
                         vn_reg_masschgrate = vn_reg_mass[1:] - vn_reg_mass[0:-1]
                         vn_reg_masschgrate_runningmean = uniform_filter(vn_reg_masschgrate, (runningmean_years))
 #                        print('Mass change rate [Gt/yr] 2015:', np.round(vn_reg_masschgrate_runningmean[idx_2015],1), 
@@ -1628,9 +1628,9 @@ if option_subset_GRACE == 1:
     ds_area_glac_monthly = np.repeat(ds_area_glac[:,:,:-1], 12, axis=2)
     # Monthly glacier mass change
     #  Area [km2] * mb [mwe] * (1 km / 1000 m) * density_water [kg/m3] * (1 Gt/km3  /  1000 kg/m3)
-    ds_masschange_glac_monthly = ds_area_glac_monthly * ds_mb_glac / 1000 * input.density_water / 1000
+    ds_masschange_glac_monthly = ds_area_glac_monthly * ds_mb_glac / 1000 * pygem_prms.density_water / 1000
     # Monthly glacier mass
-    ds_mass_glac_initial = ds_vol_glac[:,:,0][:,:,np.newaxis] * input.density_ice / 1000
+    ds_mass_glac_initial = ds_vol_glac[:,:,0][:,:,np.newaxis] * pygem_prms.density_ice / 1000
     ds_masschange_glac_monthly_cumsum = np.cumsum(ds_masschange_glac_monthly, axis=2)
     ds_mass_glac_monthly = np.repeat(ds_mass_glac_initial, len(time_values_monthly), axis=2)
     ds_mass_glac_monthly[:,:,1:] = ds_mass_glac_monthly[:,:,1:] + ds_masschange_glac_monthly_cumsum[:,:,:-1]
@@ -1641,7 +1641,7 @@ if option_subset_GRACE == 1:
     # of volume in the first year.  This suggests that it has something to do with differences in the means and how
     # outliers might propagate through.
     ds_mass_glac_annual_fromMB = ds_mass_glac_monthly[:,:,::12]
-    ds_mass_glac_annual_fromVol = ds_vol_glac * input.density_ice / 1000
+    ds_mass_glac_annual_fromVol = ds_vol_glac * pygem_prms.density_ice / 1000
         
     # Group monthly mass
     ds_mass_mascon_monthly = [[] for group in groups]
@@ -1772,8 +1772,8 @@ if option_plot_modelparam == 1:
     
     # Load mean of all model parameters
     if os.path.isfile(cal_fp + modelparams_fn) == False:
-        modelparams_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(input.modelparams_colnames))), 
-                                           columns=input.modelparams_colnames)
+        modelparams_all = pd.DataFrame(np.zeros((main_glac_rgi_all.shape[0], len(pygem_prms.modelparams_colnames))), 
+                                           columns=pygem_prms.modelparams_colnames)
         for glac in range(main_glac_rgi_all.shape[0]):
             
             glac_rgiid_full = main_glac_rgi_all.loc[main_glac_rgi_all.index.values[glac],'RGIId']
@@ -1784,9 +1784,9 @@ if option_plot_modelparam == 1:
             regionO1 = int(glacno.split('.')[0])
             
             ds_mp = xr.open_dataset(cal_fp + 'reg' + str(regionO1) + '/' + glacno + '.nc')
-            cn_subset = input.modelparams_colnames
+            cn_subset = pygem_prms.modelparams_colnames
             modelparams_all.iloc[glac,:] = (pd.DataFrame(ds_mp['mp_value'].sel(chain=0).values,columns=ds_mp.mp.values)
-                                            [input.modelparams_colnames].mean().values)
+                                            [pygem_prms.modelparams_colnames].mean().values)
             modelparams_all.to_csv(cal_fp + modelparams_fn, index=False)
             ds_mp.close()
     else:
@@ -1797,7 +1797,7 @@ if option_plot_modelparam == 1:
     modelparams_all['ddfice'] = modelparams_all['ddfice'] * 1000
         
     # Add model parameters to main_glac_rgi_all
-    main_glac_rgi_all[input.modelparams_colnames] = modelparams_all
+    main_glac_rgi_all[pygem_prms.modelparams_colnames] = modelparams_all
 
     for vn in vns:
     
@@ -2018,12 +2018,12 @@ if option_compare_GCMwCal == 1:
     netcdf_fp = netcdf_fp_cmip5
     
     # Glacier hypsometry [km**2], total area
-    main_glac_hyps_raw = modelsetup.import_Husstable(main_glac_rgi_all, input.hyps_filepath,
-                                                     input.hyps_filedict, input.hyps_colsdrop)
-    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=input.startyear, endyear=input.endyear, 
+    main_glac_hyps_raw = modelsetup.import_Husstable(main_glac_rgi_all, pygem_prms.hyps_filepath,
+                                                     pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
+    dates_table_nospinup  = modelsetup.datesmodelrun(startyear=pygem_prms.startyear, endyear=pygem_prms.endyear, 
                                                      spinupyears=0)
     cal_data = pd.DataFrame()
-    for dataset in input.cal_datasets:
+    for dataset in pygem_prms.cal_datasets:
         cal_subset = class_mbdata.MBData(name=dataset)
         cal_subset_data = cal_subset.retrieve_mb(main_glac_rgi_all, main_glac_hyps_raw, dates_table_nospinup)
         cal_data = cal_data.append(cal_subset_data, ignore_index=True)
@@ -2121,7 +2121,7 @@ if option_plot_mcmc_errors == 1:
     
 
     # Load cal data
-    ds_cal = pd.read_csv(input.shean_fp + input.shean_fn)
+    ds_cal = pd.read_csv(pygem_prms.shean_fp + pygem_prms.shean_fn)
     # Glacier number and index for comparison
     ds_cal['O1region'] = ds_cal['RGIId'].astype(int)
     ds_cal['glacno'] = ((ds_cal['RGIId'] % 1) * 10**5).round(0).astype(int)
@@ -2187,8 +2187,8 @@ if option_plot_mcmc_errors == 1:
     
     #%%
     # Maximum loss if entire glacier melted between 2000 and 2018
-    mb_max_loss = (-1 * (main_glac_hyps_all * main_glac_icethickness_all * input.density_ice / 
-                   input.density_water).sum(axis=1).values / main_glac_hyps_all.sum(axis=1).values / (2018 - 2000))
+    mb_max_loss = (-1 * (main_glac_hyps_all * main_glac_icethickness_all * pygem_prms.density_ice / 
+                   pygem_prms.density_water).sum(axis=1).values / main_glac_hyps_all.sum(axis=1).values / (2018 - 2000))
     main_glac_rgi_all['mb_max_loss'] = mb_max_loss
 
 #    # Truncated normal - updated means to remove portions of observations that are below max mass loss!
@@ -2395,21 +2395,21 @@ if option_plot_mcmc_errors == 1:
     fig.set_size_inches(6,4)
     fig.savefig(figure_fp + '../cal/' + fig_fn, bbox_inches='tight', dpi=300)
     
-    main_glac_rgi_all.to_csv(input.output_filepath + 'main_glac_rgi_HMA_20190308_adjp12_100iters.csv')
+    main_glac_rgi_all.to_csv(pygem_prms.output_filepath + 'main_glac_rgi_HMA_20190308_adjp12_100iters.csv')
     
 
 #%%
 if option_plot_maxloss_issues == 1:
 
 #    # Load cal data
-#    shean_fp = input.main_directory + '/../DEMs/Shean_2018_1109/'
+#    shean_fp = pygem_prms.main_directory + '/../DEMs/Shean_2018_1109/'
 #    shean_fn = 'hma_mb_20181108_0454_all_filled.csv'
     #%%
-#    shean_fp = input.main_directory + '/../DEMs/Shean_2019_0213/'
+#    shean_fp = pygem_prms.main_directory + '/../DEMs/Shean_2019_0213/'
     #shean_fn = 'hma_mb_20190215_0815_std+mean.csv'
 #    shean_fn = 'hma_mb_20190215_0815_std+mean_all_filled.csv'
 
-    ds_cal = pd.read_csv(input.shean_fp + input.shean_fn)
+    ds_cal = pd.read_csv(pygem_prms.shean_fp + pygem_prms.shean_fn)
     # Glacier number and index for comparison
     ds_cal['O1region'] = ds_cal['RGIId'].astype(int)
     ds_cal['glacno'] = ((ds_cal['RGIId'] % 1) * 10**5).round(0).astype(int)
@@ -2430,8 +2430,8 @@ if option_plot_maxloss_issues == 1:
 
 
     # Maximum loss if entire glacier melted between 2000 and 2018
-    mb_max_loss = (-1 * (main_glac_hyps_all * main_glac_icethickness_all * input.density_ice / 
-                   input.density_water).sum(axis=1).values / main_glac_hyps_all.sum(axis=1).values / (2018 - 2000))
+    mb_max_loss = (-1 * (main_glac_hyps_all * main_glac_icethickness_all * pygem_prms.density_ice / 
+                   pygem_prms.density_water).sum(axis=1).values / main_glac_hyps_all.sum(axis=1).values / (2018 - 2000))
     main_glac_rgi_all['mb_max_loss'] = mb_max_loss
 
     # Z-score of where max loss falls on mb_cal
@@ -2642,6 +2642,6 @@ if option_plot_maxloss_issues == 1:
 ## Mass change for text on plot
 ##  Gt = km3 ice * density_ice / 1000
 ##  divide by 1000 because density of ice is 900 kg/m3 or 0.900 Gt/km3
-#vn_reg_masschange = (vn_reg[-1] - vn_reg[0]) * input.density_ice / 1000
+#vn_reg_masschange = (vn_reg[-1] - vn_reg[0]) * pygem_prms.density_ice / 1000
 #
-#A = (vn_glac_all[:,20].sum() - vn_glac_all[:,-1].sum()) * input.density_ice / 1000 / 18
+#A = (vn_glac_all[:,20].sum() - vn_glac_all[:,-1].sum()) * pygem_prms.density_ice / 1000 / 18

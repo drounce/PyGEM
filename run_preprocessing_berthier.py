@@ -15,7 +15,7 @@ import pandas as pd
 from scipy.optimize import curve_fit
 
 import pygemfxns_modelsetup as modelsetup
-#import pygem_input as input
+#import pygem.pygem_input as pygem_prms
 
 print('\ndhdt analysis performed separately using shean_mb_parallel.py\n')
 

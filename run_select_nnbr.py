@@ -10,7 +10,7 @@ import time
 from time import strftime
 from sklearn.neighbors import NearestNeighbors
 
-import pygem_input as input
+import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 #import pygemfxns_climate as climate
 import pygemfxns_massbalance as massbalance
@@ -25,7 +25,7 @@ startyear = 2000
 endyear = 2015
 spinupyears = 5
 # Calibrated model parameters full filename (needs to include 'all' glaciers in a region)
-cal_modelparams_fullfn = input.main_directory + '/../Output/20180710_cal_modelparams_opt1_R15_ERA-Interim_1995_2015.csv'
+cal_modelparams_fullfn = pygem_prms.main_directory + '/../Output/20180710_cal_modelparams_opt1_R15_ERA-Interim_1995_2015.csv'
 # Number of nearest neighbors
 n_nbrs = 20
 # Option to remove marine-terminating glaciers
@@ -46,16 +46,16 @@ main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=rgi_regionsO1,
                                                   rgi_regionsO2='all', 
                                                   rgi_glac_number='all')
 # Glacier hypsometry [km**2], total area
-main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, input.hyps_filepath, 
-                                             input.hyps_filedict, input.hyps_colsdrop)
+main_glac_hyps = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.hyps_filepath, 
+                                             pygem_prms.hyps_filedict, pygem_prms.hyps_colsdrop)
 elev_bins = main_glac_hyps.columns.values.astype(int)
 # Ice thickness [m], average
-main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, input.thickness_filepath, 
-                                                     input.thickness_filedict, input.thickness_colsdrop)
+main_glac_icethickness = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.thickness_filepath, 
+                                                     pygem_prms.thickness_filedict, pygem_prms.thickness_colsdrop)
 main_glac_hyps[main_glac_icethickness == 0] = 0
 # Width [km], average
-main_glac_width = modelsetup.import_Husstable(main_glac_rgi, input.width_filepath, 
-                                              input.width_filedict, input.width_colsdrop)
+main_glac_width = modelsetup.import_Husstable(main_glac_rgi, pygem_prms.width_filepath, 
+                                              pygem_prms.width_filedict, pygem_prms.width_colsdrop)
 # Add volume [km**3] and mean elevation [m a.s.l.] to the main glaciers table
 main_glac_rgi['Volume'], main_glac_rgi['Zmean'] = modelsetup.hypsometrystats(main_glac_hyps, main_glac_icethickness)
 # Model time frame
@@ -73,7 +73,7 @@ if option_gcm_downscale == 1:
     # Elevation [m a.s.l] associated with air temperature  and precipitation data
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Air temperature standard deviation
-    if input.option_ablation != 2:
+    if pygem_prms.option_ablation != 2:
         gcm_tempstd = np.zeros(gcm_temp.shape)
     elif gcm_name in ['ERA5']:
         gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, 
@@ -88,11 +88,11 @@ elif option_gcm_downscale == 2:
     # 32 seconds for Region 15
     # Import air temperature, precipitation, and elevation from pre-processed csv files for a given region
     #  this simply saves time from re-running the fxns above
-    gcm_temp_all = np.genfromtxt(gcm.var_fp + input.gcmtemp_filedict[input.rgi_regionsO1[0]], delimiter=',')
-    gcm_prec_all = np.genfromtxt(gcm.var_fp + input.gcmprec_filedict[input.rgi_regionsO1[0]], delimiter=',')
-    gcm_elev_all = np.genfromtxt(gcm.fx_fp + input.gcmelev_filedict[input.rgi_regionsO1[0]], delimiter=',')
+    gcm_temp_all = np.genfromtxt(gcm.var_fp + pygem_prms.gcmtemp_filedict[pygem_prms.rgi_regionsO1[0]], delimiter=',')
+    gcm_prec_all = np.genfromtxt(gcm.var_fp + pygem_prms.gcmprec_filedict[pygem_prms.rgi_regionsO1[0]], delimiter=',')
+    gcm_elev_all = np.genfromtxt(gcm.fx_fp + pygem_prms.gcmelev_filedict[pygem_prms.rgi_regionsO1[0]], delimiter=',')
     # Lapse rates [degC m-1]  
-    gcm_lr_all = np.genfromtxt(gcm.var_fp + input.gcmlapserate_filedict[input.rgi_regionsO1[0]], 
+    gcm_lr_all = np.genfromtxt(gcm.var_fp + pygem_prms.gcmlapserate_filedict[pygem_prms.rgi_regionsO1[0]], 
                                                delimiter=',')
     # Select the climate data for the glaciers included in the study
     gcm_temp = gcm_temp_all[main_glac_rgi['O1Index'].values]
@@ -113,8 +113,8 @@ ds_cal.set_index('newidx', inplace=True, drop=True)
 # Dictionary cal index and 'GlacNo'
 cal_dict = dict(zip(np.arange(0,ds_cal.shape[0]), ds_cal.index.values))
 # Dataframe of all glaciers with model parameters from nearest neighbors
-main_glac_modelparamsopt_pd = pd.DataFrame(np.full([main_glac_rgi.shape[0], len(input.modelparams_colnames)], np.nan), 
-                                           columns=input.modelparams_colnames)
+main_glac_modelparamsopt_pd = pd.DataFrame(np.full([main_glac_rgi.shape[0], len(pygem_prms.modelparams_colnames)], np.nan), 
+                                           columns=pygem_prms.modelparams_colnames)
 main_glac_modelparamsopt_pd.index = main_glac_rgi.index.values
 ds_cal_all = pd.concat([main_glac_rgi.copy(), main_glac_modelparamsopt_pd], axis=1)
 ds_cal_all['mbclim_mwe'] = np.nan
@@ -140,7 +140,7 @@ if option_cal_remove_marine_glaciers == 1:
 # Loop through each glacier and select the n_nbrs closest glaciers    
 for glac in range(main_glac_rgi.shape[0]):
     # Select nnbrs only for uncalibrated glaciers
-    if ds_cal_all.loc[glac, input.modelparams_colnames].isnull().values.any() == True:
+    if ds_cal_all.loc[glac, pygem_prms.modelparams_colnames].isnull().values.any() == True:
         # Print every 100th glacier
 #        if glac%500 == 0:
 #            print(main_glac_rgi.loc[glac,'RGIId'])
@@ -167,7 +167,7 @@ for glac in range(main_glac_rgi.shape[0]):
         #  Col 3 - MB modeled using neighbor's parameter
         nbrs_data[:,0] = np.arange(1,len(nbr_idx_cols)+1) 
         nbrs_data[:,1] = ds_cal_all.loc[glac, nbr_idx_cols].values.astype(int)
-        nbrs_data[:,2] = ds_cal_all.loc[nbrs_data[:,1], input.mbclim_cn]
+        nbrs_data[:,2] = ds_cal_all.loc[nbrs_data[:,1], pygem_prms.mbclim_cn]
         mb_nbrs_mean = nbrs_data[:,2].mean()
         mb_nbrs_std = nbrs_data[:,2].std()
         mb_envelope_lower = mb_nbrs_mean - mb_nbrs_std
@@ -191,24 +191,24 @@ for glac in range(main_glac_rgi.shape[0]):
             # Nearest neighbor index value
             nbr_idx = nbrs_data[nbr_idx_count,1]
             # Model parameters - apply transfer function adjustments
-            modelparameters = ds_cal_all.loc[nbr_idx, input.modelparams_colnames]
+            modelparameters = ds_cal_all.loc[nbr_idx, pygem_prms.modelparams_colnames]
             modelparameters['tempchange'] = (
-                    modelparameters['tempchange'] + input.tempchange_lobf_slope * 
-                    (main_glac_rgi.loc[glac, input.tempchange_lobf_property_cn] - 
-                     ds_cal_all.loc[nbr_idx, input.tempchange_lobf_property_cn]))
+                    modelparameters['tempchange'] + pygem_prms.tempchange_lobf_slope * 
+                    (main_glac_rgi.loc[glac, pygem_prms.tempchange_lobf_property_cn] - 
+                     ds_cal_all.loc[nbr_idx, pygem_prms.tempchange_lobf_property_cn]))
             modelparameters['precfactor'] = (
-                    modelparameters['precfactor'] + input.precfactor_lobf_slope * 
-                    (main_glac_rgi.loc[glac, input.precfactor_lobf_property_cn] - 
-                     ds_cal_all.loc[nbr_idx, input.precfactor_lobf_property_cn]))
+                    modelparameters['precfactor'] + pygem_prms.precfactor_lobf_slope * 
+                    (main_glac_rgi.loc[glac, pygem_prms.precfactor_lobf_property_cn] - 
+                     ds_cal_all.loc[nbr_idx, pygem_prms.precfactor_lobf_property_cn]))
             modelparameters['ddfsnow'] = (
-                    modelparameters['ddfsnow'] + input.ddfsnow_lobf_slope * 
-                    (main_glac_rgi.loc[glac, input.ddfsnow_lobf_property_cn] - 
-                     ds_cal_all.loc[nbr_idx, input.ddfsnow_lobf_property_cn]))
-            modelparameters['ddfice'] = modelparameters['ddfsnow'] / input.ddfsnow_iceratio
+                    modelparameters['ddfsnow'] + pygem_prms.ddfsnow_lobf_slope * 
+                    (main_glac_rgi.loc[glac, pygem_prms.ddfsnow_lobf_property_cn] - 
+                     ds_cal_all.loc[nbr_idx, pygem_prms.ddfsnow_lobf_property_cn]))
+            modelparameters['ddfice'] = modelparameters['ddfsnow'] / pygem_prms.ddfsnow_iceratio
             modelparameters['precgrad'] = (
-                    modelparameters['precgrad'] + input.precgrad_lobf_slope * 
-                    (main_glac_rgi.loc[glac, input.precgrad_lobf_property_cn] - 
-                     ds_cal_all.loc[nbr_idx, input.precgrad_lobf_property_cn]))
+                    modelparameters['precgrad'] + pygem_prms.precgrad_lobf_slope * 
+                    (main_glac_rgi.loc[glac, pygem_prms.precgrad_lobf_property_cn] - 
+                     ds_cal_all.loc[nbr_idx, pygem_prms.precgrad_lobf_property_cn]))
             # Select subsets of data
             glacier_rgi_table = main_glac_rgi.loc[glac, :]
             glacier_gcm_elev = gcm_elev[glac]
@@ -260,7 +260,7 @@ for glac in range(main_glac_rgi.shape[0]):
             # Record results
             if break_while_loop == True:
                 z_score = (mbclim_mwe - mb_nbrs_mean) / mb_nbrs_std
-                ds_cal_all.loc[glac, input.mbclim_cn] = mbclim_mwe
+                ds_cal_all.loc[glac, pygem_prms.mbclim_cn] = mbclim_mwe
                 ds_cal_all.loc[glac, 'nbr_idx'] = nbr_idx
                 ds_cal_all.loc[glac, 'nbr_idx_count'] = nbr_idx_count + 1
                 ds_cal_all.loc[glac, 'nbr_mb_mean'] = mb_nbrs_mean
