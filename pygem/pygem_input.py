@@ -145,6 +145,8 @@ ref_endyear = 2019                  # last year of model run (reference dataset)
 ref_wateryear = 2                   # 1: water year, 2: calendar year, 3: custom defined 
 ref_spinupyears = 0                 # spin up years
 constantarea_years = 0          # number of years to not let the area or volume change
+if ref_spinupyears > 0:
+    assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
 if constantarea_years > 0:
     print('\nConstant area years > 0\n')
 
@@ -153,7 +155,9 @@ gcm_startyear = 2000            # first year of model run (simulation dataset)
 gcm_endyear = 2019              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
 #gcm_endyear = 2100              # last year of model run (simulation dataset)
-gcm_spinupyears = 0             # spin up years for simulation
+gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
+if gcm_spinupyears > 0:
+    assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
 gcm_wateryear = 2               # water year for simmulation
 
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
@@ -188,31 +192,14 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('minimization' (no longer exists), 'MCMC', 'HH2015', 'HH2015_modified')
-option_calibration = 'MCMC'
-#option_calibration = 'HH2015'
+#option_calibration = 'MCMC'
+option_calibration = 'HH2015'
 #option_calibration = 'HH2015_modified'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
 # Calibration output filepath
 output_fp_cal = output_filepath + 'cal_' + option_calibration + '/'
-
-## OPTION 1: Minimization
-## Model parameter bounds for each calibration round
-#precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.2,5)]
-#precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
-#ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
-#tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
-## Minimization details 
-#method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
-##params2opt = ['tempbias', 'precfactor']
-#ftol_opt = 1e-5                 # tolerance for SciPy optimization scheme
-#eps_opt = 0.01                  # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
-#massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
-#zscore_tolerance_all = 1        # tolerance if multiple calibration points (shortcut that could be improved)
-#zscore_tolerance_single = 0.1   # tolerance if only a single calibration point (want this to be more exact)
-#zscore_update_threshold = 0.1   # threshold to update model params only if significantly better
-#extra_calrounds = 3             # additional calibration rounds in case optimization is getting stuck
 
 # OPTION 2: MCMC
 if option_calibration == 'MCMC':
@@ -225,7 +212,8 @@ if option_calibration == 'MCMC':
     # Precipitation factor distribution options
     kp_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
     kp_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
-    assert os.path.exists(kp_gamma_region_dict_fullfn), 'Need to specify the precfactor regional dictionary for priors'
+    assert os.path.exists(kp_gamma_region_dict_fullfn), ('Using option_calibration: ' + option_calibration +
+                         '.  Need to specify the precfactor regional dictionary for priors or choose other option.')
     kp_gamma_region_df = pd.read_csv(kp_gamma_region_dict_fullfn)
     kp_gamma_region_dict = dict(zip(kp_gamma_region_df.Region.values, 
                                     [[kp_gamma_region_df.loc[x,'alpha'], kp_gamma_region_df.loc[x,'beta']] 
@@ -242,7 +230,8 @@ if option_calibration == 'MCMC':
     # Temperature bias distribution options
     tbias_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
     tbias_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
-    assert os.path.exists(tbias_norm_region_dict_fullfn), 'Need to specify the tbias regional dictionary for priors'
+    assert os.path.exists(tbias_norm_region_dict_fullfn), ('Using option_calibration: ' + option_calibration +
+                         '.  Need to specify the tbias regional dictionary for priors or choose other option.')
     tbias_norm_region_df = pd.read_csv(tbias_norm_region_dict_fullfn)
     tbias_norm_region_dict = dict(zip(tbias_norm_region_df.Region.values, 
                                       [[tbias_norm_region_df.loc[x,'mu'], tbias_norm_region_df.loc[x,'sigma']] 
@@ -261,7 +250,7 @@ if option_calibration == 'MCMC':
     ddfsnow_start=ddfsnow_mu
 
 #%% ===== MODEL PARAMETERS =====
-option_import_modelparams = True       # False: use input values, True: use calibrated model parameters
+use_calibrated_modelparams = False   # False: use input values, True: use calibrated model parameters
 kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
@@ -275,6 +264,9 @@ frontalablation_k = 2               # frontal ablation rate [yr-1]
 af = 0.7                            # Bulk flow parameter for frontal ablation (m^-0.5)
 option_frontalablation_k = 1        # Calving option (1: values from HH2015, 
                                     #                 2: calibrate glaciers independently, use transfer fxns for others)
+frontalablation_k0dict = {1:3.4,    # Calving dictionary with values from HH2015
+                          2:0, 3:0.2, 4:0.2, 5:0.5, 6:0.3, 7:0.5, 8:0, 9:0.2, 10:0, 11:0, 12:0, 13:0, 14:0, 15:0, 16:0,
+                          17:6, 18:0, 19:1}
 
 # Calving width dictionary to override RGI elevation bins, which can be highly inaccurate at the calving front
 width_calving_dict_fullfn = main_directory + '/../Calving_data/calvingfront_widths.csv'
@@ -284,13 +276,13 @@ if os.path.exists(width_calving_dict_fullfn):
 else:
     width_calving_dict = {}
 
-# Calving parameter dictionary (according to Supplementary Table 3 in HH2015)
-frontalablation_k0dict_fullfn = main_directory + '/../Calving_data/frontalablation_k0_dict.csv'
-if os.path.exists(frontalablation_k0dict_fullfn):
-    frontalablation_k0dict_df = pd.read_csv(frontalablation_k0dict_fullfn)
-    frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalablation_k0dict_df.k0))
-else:
-    frontalablation_k0dict = None
+## Calving parameter dictionary (according to Supplementary Table 3 in HH2015)
+#frontalablation_k0dict_fullfn = main_directory + '/../Calving_data/frontalablation_k0_dict.csv'
+#if os.path.exists(frontalablation_k0dict_fullfn):
+#    frontalablation_k0dict_df = pd.read_csv(frontalablation_k0dict_fullfn)
+#    frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalablation_k0dict_df.k0))
+#else:
+#    frontalablation_k0dict = None
     
 # Calving glacier data
 calving_data_fullfn = main_directory + '/../Calving_data/calving_glacier_data.csv'
@@ -311,9 +303,8 @@ option_surfacetype_initial = 1
 #     appears to be a fairly reasonable assumption in High Mountain Asia.
 #  option 2 - use mean elevation
 #  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
-option_surfacetype_firn = 1         # 1: firn included; 0: no included (firn is snow)
-option_include_debris = True
-option_surfacetype_debris = 1       # 1: debris cover included; 0: not included
+include_firn = True                 # True: firn included, False: firn is modeled as snow
+include_debris = False               # True: account for debris with melt factors, False: do not account for debris
 
 # Downscaling model options
 # Reference elevation options for downscaling climate variables
@@ -388,12 +379,12 @@ if ref_gcm_name == 'ERA5':
     era5_pressureleveltemp_fn = 'ERA5_pressureleveltemp_monthly.nc'
     era5_lr_fn = 'ERA5_lapserates_monthly.nc'
     assert os.path.exists(era5_fp), 'ERA5 filepath does not exist'
-    assert os.path.exists(era5_temp_fn), 'ERA5 temperature filepath does not exist'
-    assert os.path.exists(era5_prec_fn), 'ERA5 precipitation filepath does not exist'
-    assert os.path.exists(era5_elev_fn), 'ERA5 elevation data does not exist'
-    assert os.path.exists(era5_lr_fn), 'ERA5 lapse rate data does not exist'
+    assert os.path.exists(era5_fp + era5_temp_fn), 'ERA5 temperature filepath does not exist'
+    assert os.path.exists(era5_fp + era5_prec_fn), 'ERA5 precipitation filepath does not exist'
+    assert os.path.exists(era5_fp + era5_elev_fn), 'ERA5 elevation data does not exist'
+    assert os.path.exists(era5_fp + era5_lr_fn), 'ERA5 lapse rate data does not exist'
     if option_ablation == 2:
-        assert os.path.exists(era5_tempstd_fn), 'ERA5 temperature std filepath does not exist'
+        assert os.path.exists(era5_fp + era5_tempstd_fn), 'ERA5 temperature std filepath does not exist'
 
 # ERA-Interim
 elif ref_gcm_name == 'ERA-Interim':
@@ -441,6 +432,7 @@ coawst_d02_lat_max = 38
 # ===== RGI DATA =====
 # Filepath for RGI files
 rgi_fp = main_directory + '/../RGI/rgi60/00_rgi60_attribs/'
+assert os.path.exists(rgi_fp), 'RGI filepath does not exist. PyGEM requires RGI data to run.'
 # Column names
 rgi_lat_colname = 'CenLat'
 rgi_lon_colname = 'CenLon_360' # REQUIRED OTHERWISE GLACIERS IN WESTERN HEMISPHERE USE 0 deg
@@ -450,19 +442,18 @@ rgi_O1Id_colname = 'glacno'
 rgi_glacno_float_colname = 'RGIId_float'
 # Column names from table to drop
 rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Name']
+#rgi_cols_drop = []
 
 # ===== ADDITIONAL DATA (hypsometry, ice thickness, width) =====
 h_consensus_fp = main_directory + '/../IceThickness_Farinotti/composite_thickness_RGI60-all_regions/'
 # Filepath for the hypsometry files
 binsize = 10            # Elevation bin height [m]
-hyps_data = 'oggm'       # Hypsometry dataset (OGGM; Maussion etal 2019)
-#hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
+hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
 #hyps_data = 'Farinotti' # Hyspsometry dataset (Farinotti etal 2019)
+#hyps_data = 'oggm'       # Hypsometry dataset (OGGM; Maussion etal 2019)
 
-if hyps_data == 'oggm':
-    oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
-    
-elif hyps_data == 'Farinotti':
+# Data from Farinotti et al. (2019): Consensus ice thickness estimates
+if hyps_data == 'Farinotti':
     option_shift_elevbins_20m = 0   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
     # Dictionary of hypsometry filenames
     hyps_filepath = main_directory + '/../IceThickness_Farinotti/output/'
@@ -485,7 +476,7 @@ elif hyps_data == 'Farinotti':
                       14: 'width_km_14_Farinotti2019_10m.csv',
                       15: 'width_km_15_Farinotti2019_10m.csv'}
     width_colsdrop = ['RGIId']
-    
+# Data from GlacierMIP
 elif hyps_data == 'Huss':
     option_shift_elevbins_20m = 1   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
     # Dictionary of hypsometry filenames
@@ -537,6 +528,8 @@ elif hyps_data == 'Huss':
                     16: 'width_16_Huss_LowLatitudes_10m.csv',
                     17: 'width_17_Huss_SouthernAndes_10m.csv'}
     width_colsdrop = ['RGI-ID','Cont_range']
+elif hyps_data == 'oggm':
+    oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
     
 # Debris datasets
 debris_fp = main_directory + '/../debris_data/'

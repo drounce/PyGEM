@@ -317,7 +317,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     # DDF based on surface type [m w.e. degC-1 day-1]
                     for surfacetype_idx in surfacetype_ddf_dict: 
                         surfacetype_ddf[surfacetype == surfacetype_idx] = surfacetype_ddf_dict[surfacetype_idx]
-                    if pygem_prms.option_surfacetype_debris == 1 and glacier_debrismf is not None:
+                    if pygem_prms.include_debris and glacier_debrismf is not None:
                         surfacetype_ddf = surfacetype_ddf * glacier_debrismf
                         
                     bin_meltglac[glac_idx_t0,step] = surfacetype_ddf[glac_idx_t0] * melt_energy_available[glac_idx_t0]
@@ -1364,12 +1364,8 @@ def surfacetypebinsannual(surfacetype, glac_bin_massbalclim_annual, year_index):
         firnline_idx = np.where(surfacetype!=0)[0][-1]
     # Apply surface type model options
     # If firn surface type option is included, then snow is changed to firn
-    if pygem_prms.option_surfacetype_firn == 1:
+    if pygem_prms.include_firn:
         surfacetype[surfacetype == 2] = 3
-#    if pygem_prms.option_surfacetype_debris == 1:
-#        print('Need to code the model to include debris.  Please choose an option that currently exists.\n'
-#              'Exiting the model run.')
-#        exit()
     return surfacetype, firnline_idx
 
 
@@ -1384,12 +1380,6 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
     - option_surfacetype_initial
         > 1 (default) - use median elevation to classify snow/firn above the median and ice below
         > 2 - use mean elevation instead
-    - option_surfacetype_firn = 1
-        > 1 (default) - firn is included
-        > 0 - firn is not included
-    - option_surfacetype_debris = 0
-        > 0 (default) - debris cover is not included
-        > 1 - debris cover is included
     
     To-do list
     ----------
@@ -1420,9 +1410,7 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
         surfacetype[(elev_bins < glacier_table['Zmean']) & (glacier_area > 0)] = 1
         surfacetype[(elev_bins >= glacier_table['Zmean']) & (glacier_area > 0)] = 2
     else:
-        print("This option for 'option_surfacetype' does not exist. Please choose an option that exists. "
-              + "Exiting model run.\n")
-        exit()
+        assert 0==1, "This option for 'option_surfacetype' does not exist. Please choose an option that exists."
     # Compute firnline index
     try:
         # firn in bins >= firnline_idx
@@ -1431,26 +1419,17 @@ def surfacetypebinsinitial(glacier_area, glacier_table, elev_bins):
         # avoid errors if there is no firn, i.e., the entire glacier is melting
         firnline_idx = np.where(surfacetype!=0)[0][-1]
     # If firn is included, then specify initial firn conditions
-    if pygem_prms.option_surfacetype_firn == 1:
+    if pygem_prms.include_firn:
         surfacetype[surfacetype == 2] = 3
         #  everything initially considered snow is considered firn, i.e., the model initially assumes there is no snow 
         #  on the surface anywhere.
-#    if pygem_prms.option_surfacetype_debris == 1:
-#        print("Need to code the model to include debris. This option does not currently exist.  Please choose an option"
-#              + " that exists.\nExiting the model run.")
-#        exit()
-#        # One way to include debris would be to simply have debris cover maps and state that the debris retards melting 
-#        # as a fraction of melt.  It could also be DDF_debris as an additional calibration tool. Lastly, if debris 
-#        # thickness maps are generated, could be an exponential function with the DDF_ice as a term that way DDF_debris 
-#        # could capture the spatial variations in debris thickness that the maps supply.
     return surfacetype, firnline_idx
 
 
-def surfacetypeDDFdict(modelparameters, 
-                       option_surfacetype_firn=pygem_prms.option_surfacetype_firn,
+def surfacetypeDDFdict(modelparameters, include_firn=pygem_prms.include_firn,
                        option_ddf_firn=pygem_prms.option_ddf_firn):
     """
-    Create a dictionary of surface type and its respective DDF.
+    Create a dictionary of surface type and its respective degree-day factor.
     
     Convention: [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
     
@@ -1465,7 +1444,7 @@ def surfacetypeDDFdict(modelparameters,
     modelparameters : pd.Series
         Model parameters (lrgcm, lrglac, precfactor, precgrad, ddfsnow, ddfice, tempsnow, tempchange)
         Order of model parameters should not be changed as the run mass balance script relies on this order
-    option_surfacetype_firn : int
+    include_firn : Boolean
         Option to include or exclude firn (specified in pygem_pygem_prms.py)
     option_ddf_firn : int
         Option for the degree day factor of firn to be the average of snow and ice or a different value
@@ -1475,15 +1454,12 @@ def surfacetypeDDFdict(modelparameters,
         Dictionary relating the surface types with their respective degree day factors
     """        
     surfacetype_ddf_dict = {
-#            0: 0,
             0: modelparameters[4],
             1: modelparameters[5],
             2: modelparameters[4]}
-    if option_surfacetype_firn == 1:
+    if include_firn == 1:
         if option_ddf_firn == 0:
             surfacetype_ddf_dict[3] = modelparameters[4]
         elif option_ddf_firn == 1:
             surfacetype_ddf_dict[3] = np.mean([modelparameters[4],modelparameters[5]])
-#    if pygem_prms.option_surfacetype_debris == 1:
-#        surfacetype_ddf_dict[4] = pygem_prms.DDF_debris
     return surfacetype_ddf_dict
