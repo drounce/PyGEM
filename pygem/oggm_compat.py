@@ -78,14 +78,19 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
         tasks.catchment_width_geom,
         tasks.catchment_width_correction,
         tasks.compute_downstream_bedshape,
-        # Debris tasks
-        debris.debris_to_gdir,
-        debris.debris_binned,
         # Consensus ice thickness
-        icethickness.consensus_mass_estimate,
+        icethickness.consensus_gridded,
+        icethickness.consensus_binned,
         # Mass balance data
-        mbdata.mb_bins_to_glacierwide
+#        mbdata.mb_bins_to_glacierwide
+        mbdata.mb_df_to_gdir
     ]
+    
+    # Debris tasks
+    if pygem_prms.include_debris:
+        list_tasks.append(debris.debris_to_gdir)
+        list_tasks.append(debris.debris_binned)
+    
     for task in list_tasks:
         # The order matters!
         workflow.execute_entity_task(task, gdirs)
@@ -169,8 +174,6 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
     except:
         pass
 
-    #%%
-
     # ===== SELECT BEST DEM =====
     # Get the pre-processed topography data
     gdirs = rgitopo.init_glacier_directories_from_rgitopo([rgi_id])
@@ -191,13 +194,12 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         tasks.catchment_width_geom,
         tasks.catchment_width_correction,
     #    tasks.compute_downstream_bedshape,
-        # Debris tasks
-        debris.debris_to_gdir,
-        debris.debris_binned,
         # Consensus ice thickness
-        icethickness.consensus_mass_estimate,
+        icethickness.consensus_gridded,
+        icethickness.consensus_binned,
         # Mass balance data
-        mbdata.mb_bins_to_glacierwide
+#        mbdata.mb_bins_to_glacierwide
+        mbdata.mb_df_to_gdir
     #    tasks.local_t_star,
     #    tasks.mu_star_calibration,
     #    tasks.prepare_for_inversion,
@@ -205,6 +207,12 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
     #    tasks.filter_inversion_output,
     #    tasks.init_present_time_glacier,
     ]
+    
+    # Debris tasks
+    if pygem_prms.include_debris:
+        list_tasks.append(debris.debris_to_gdir)
+        list_tasks.append(debris.debris_binned)
+        
 
     for task in list_tasks:
         workflow.execute_entity_task(task, gdirs)

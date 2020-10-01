@@ -83,7 +83,7 @@ def consensus_gridded(gdir, h_consensus_fp=pygem_prms.h_consensus_fp, add_mass=T
 
 @entity_task(log, writes=['inversion_flowlines'])
 def consensus_binned(gdir):
-    """Bin debris thickness and enhancement factors.
+    """Bin consensus ice thickness ice estimates.
     
     Updates the 'inversion_flowlines' save file.
     

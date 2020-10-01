@@ -191,71 +191,34 @@ sim_stat_cns = ['mean', 'std']
 option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
-# Calibration option ('minimization' (no longer exists), 'MCMC', 'HH2015', 'HH2015_modified')
-#option_calibration = 'MCMC'
+# Calibration option ('minimization' (no longer exists), 'MCMC', 'HH2015', 'HH2015mod')
+option_calibration = 'MCMC'
 #option_calibration = 'HH2015'
-option_calibration = 'HH2015_modified'
+#option_calibration = 'HH2015mod'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
 # Calibration output filepath
 output_fp_cal = output_filepath + 'cal_' + option_calibration + '/'
 
-# OPTION 2: MCMC
-if option_calibration == 'MCMC':
-    # Chain options
-    n_chains = 1                    # number of chains (min 1, max 3)
-    mcmc_sample_no = 100           # number of steps (10000 was found to be sufficient in HMA)
-    mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
-    mcmc_step = None                # step option (None or 'am')
-    thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
-    # Precipitation factor distribution options
-    kp_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
-    kp_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
-    assert os.path.exists(kp_gamma_region_dict_fullfn), ('Using option_calibration: ' + option_calibration +
-                         '.  Need to specify the precfactor regional dictionary for priors or choose other option.')
-    kp_gamma_region_df = pd.read_csv(kp_gamma_region_dict_fullfn)
-    kp_gamma_region_dict = dict(zip(kp_gamma_region_df.Region.values, 
-                                    [[kp_gamma_region_df.loc[x,'alpha'], kp_gamma_region_df.loc[x,'beta']] 
-                                    for x in kp_gamma_region_df.index.values]))
-    kp_gamma_alpha = 9
-    kp_gamma_beta = 4
-    kp_lognorm_mu = 0
-    kp_lognorm_tau = 4
-    kp_mu = 0
-    kp_sigma = 1.5
-    kp_bndlow = 0.5
-    kp_bndhigh = 1.5
-    kp_start = 1
-    # Temperature bias distribution options
-    tbias_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
-    tbias_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
-    assert os.path.exists(tbias_norm_region_dict_fullfn), ('Using option_calibration: ' + option_calibration +
-                         '.  Need to specify the tbias regional dictionary for priors or choose other option.')
-    tbias_norm_region_df = pd.read_csv(tbias_norm_region_dict_fullfn)
-    tbias_norm_region_dict = dict(zip(tbias_norm_region_df.Region.values, 
-                                      [[tbias_norm_region_df.loc[x,'mu'], tbias_norm_region_df.loc[x,'sigma']] 
-                                      for x in tbias_norm_region_df.index.values]))
-    tbias_mu = 0
-    tbias_sigma = 1
-    tbias_bndlow = -10
-    tbias_bndhigh = 10
-    tbias_start = tbias_mu
-    # Degree-day factor of snow distribution options
-    ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
-    ddfsnow_mu = 0.0041
-    ddfsnow_sigma = 0.0015
-    ddfsnow_bndlow = 0
-    ddfsnow_bndhigh = np.inf
-    ddfsnow_start=ddfsnow_mu
+if option_calibration == 'HH2015':
+    tbias_init = 0
+    tbias_step = 1
+    kp_init = 1.5
+    kp_bndlow = 0.8
+    kp_bndhigh = 2
+    ddfsnow_init = 0.003
+    ddfsnow_bndlow = 0.00175
+    ddfsnow_bndhigh = 0.0045
     
-elif option_calibration in ['HH2015', 'HH2015_modified']:
-#    # OPTION 1: Minimization
-#    # Model parameter bounds for each calibration round
-#    precfactor_bnds_list_init = [(0.8, 2.0), (0.8,2), (0.8,2), (0.2,5)]
-#    precgrad_bnds_list_init = [(0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001), (0.0001,0.0001)]
-#    ddfsnow_bnds_list_init = [(0.003, 0.003), (0.00175, 0.0045), (0.00175, 0.0045), (0.00175, 0.0045)]
-#    tempchange_bnds_list_init = [(0,0), (0,0), (-2.5,2.5), (-10,10)]
+elif option_calibration == 'HH2015mod':
+    # Initial parameters
+    tbias_init = 0
+    tbias_step = 1
+    kp_init = 1
+    kp_bndlow = 0.5
+    kp_bndhigh = 5
+    ddfsnow_init = 0.0041
     # Minimization details 
     method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
     params2opt = ['tbias', 'kp']
@@ -267,12 +230,71 @@ elif option_calibration in ['HH2015', 'HH2015_modified']:
 #    zscore_update_threshold = 0.1   # threshold to update model params only if significantly better
 #    extra_calrounds = 3             # additional calibration rounds in case optimization is getting stuck
 
+elif option_calibration == 'MCMC':
+    # Chain options
+    n_chains = 1                    # number of chains (min 1, max 3)
+    mcmc_sample_no = 10           # number of steps (10000 was found to be sufficient in HMA)
+    mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
+    mcmc_step = None                # step option (None or 'am')
+    thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
+    
+    # Degree-day factor of snow distribution options
+    ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
+    ddfsnow_mu = 0.0041
+    ddfsnow_sigma = 0.0015
+    ddfsnow_bndlow = 0
+    ddfsnow_bndhigh = np.inf
+    ddfsnow_start=ddfsnow_mu
+    
+    # Precipitation factor distribution options
+    kp_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
+    kp_gamma_region_dict_fullfn = None
+#    kp_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
+    if kp_gamma_region_dict_fullfn is not None:
+        assert os.path.exists(kp_gamma_region_dict_fullfn), ('Using option_calibration: ' + option_calibration +
+                             '.  Precfactor regional dictionary does not exist.')
+        kp_gamma_region_df = pd.read_csv(kp_gamma_region_dict_fullfn)
+        kp_gamma_region_dict = dict(zip(kp_gamma_region_df.Region.values, 
+                                        [[kp_gamma_region_df.loc[x,'alpha'], kp_gamma_region_df.loc[x,'beta']] 
+                                        for x in kp_gamma_region_df.index.values]))
+    else:
+        kp_gamma_alpha = 9
+        kp_gamma_beta = 4
+        kp_lognorm_mu = 0
+        kp_lognorm_tau = 4
+        kp_mu = 0
+        kp_sigma = 1.5
+        kp_bndlow = 0.5
+        kp_bndhigh = 1.5
+        kp_start = 1
+        
+    # Temperature bias distribution options
+    tbias_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
+    tbias_norm_region_dict_fullfn = None
+#    tbias_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
+    if tbias_norm_region_dict_fullfn is not None:
+        assert os.path.exists(tbias_norm_region_dict_fullfn), ('Using option_calibration: ' + option_calibration +
+                             '.  Tempbias regional dictionary does not exist.')
+        tbias_norm_region_df = pd.read_csv(tbias_norm_region_dict_fullfn)
+        tbias_norm_region_dict = dict(zip(tbias_norm_region_df.Region.values, 
+                                          [[tbias_norm_region_df.loc[x,'mu'], tbias_norm_region_df.loc[x,'sigma']] 
+                                          for x in tbias_norm_region_df.index.values]))
+    else:
+        tbias_mu = 0
+        tbias_sigma = 1
+        tbias_bndlow = -10
+        tbias_bndhigh = 10
+        tbias_start = tbias_mu
+
+
 #%% ===== MODEL PARAMETERS =====
 use_calibrated_modelparams = False  # False: use input values, True: use calibrated model parameters
 kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
 ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
+if ddfsnow_iceratio != 0.7:
+    print('\n\n  Warning: ddfsnow_iceratio is', ddfsnow_iceratio, '\n\n')
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
 tbias = 0                           # temperature bias [deg C]
 lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
@@ -322,7 +344,7 @@ option_surfacetype_initial = 1
 #  option 2 - use mean elevation
 #  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
 include_firn = True                 # True: firn included, False: firn is modeled as snow
-include_debris = False               # True: account for debris with melt factors, False: do not account for debris
+include_debris = True               # True: account for debris with melt factors, False: do not account for debris
 
 # Downscaling model options
 # Reference elevation options for downscaling climate variables
@@ -466,9 +488,9 @@ rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Connect','Linkages','Na
 h_consensus_fp = main_directory + '/../IceThickness_Farinotti/composite_thickness_RGI60-all_regions/'
 # Filepath for the hypsometry files
 binsize = 10            # Elevation bin height [m]
-hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
+#hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
 #hyps_data = 'Farinotti' # Hyspsometry dataset (Farinotti etal 2019)
-#hyps_data = 'oggm'       # Hypsometry dataset (OGGM; Maussion etal 2019)
+hyps_data = 'oggm'       # Hypsometry dataset (OGGM; Maussion etal 2019)
 
 # Data from Farinotti et al. (2019): Consensus ice thickness estimates
 if hyps_data == 'Farinotti':
@@ -550,7 +572,9 @@ elif hyps_data == 'oggm':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
     
 # Debris datasets
-debris_fp = main_directory + '/../debris_data/'
+if include_debris:
+    debris_fp = main_directory + '/../debris_data/'
+    assert os.path.exists(debris_fp), 'Debris filepath does not exist. Turn off include_debris or add filepath.'
 
 
 #%% MODEL TIME FRAME DATA

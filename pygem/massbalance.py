@@ -14,8 +14,7 @@ from oggm.core.massbalance import MassBalanceModel
 import pygem.pygem_input as pygem_prms
 from pygem.utils._funcs import annualweightedmean_array
 
-if pygem_prms.hyps_data == 'oggm':
-    cfg.initialize()
+cfg.initialize()
 
 #%%
 class PyGEMMassBalance(MassBalanceModel):
