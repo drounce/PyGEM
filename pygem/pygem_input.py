@@ -191,10 +191,10 @@ sim_stat_cns = ['mean', 'std']
 option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
-# Calibration option ('minimization' (no longer exists), 'MCMC', 'HH2015', 'HH2015mod')
-option_calibration = 'MCMC'
+# Calibration option ('MCMC', 'HH2015', 'HH2015mod')
+#option_calibration = 'MCMC'
 #option_calibration = 'HH2015'
-#option_calibration = 'HH2015mod'
+option_calibration = 'HH2015mod'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -344,7 +344,7 @@ option_surfacetype_initial = 1
 #  option 2 - use mean elevation
 #  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
 include_firn = True                 # True: firn included, False: firn is modeled as snow
-include_debris = True               # True: account for debris with melt factors, False: do not account for debris
+include_debris = False               # True: account for debris with melt factors, False: do not account for debris
 
 # Downscaling model options
 # Reference elevation options for downscaling climate variables
@@ -575,6 +575,8 @@ elif hyps_data == 'oggm':
 if include_debris:
     debris_fp = main_directory + '/../debris_data/'
     assert os.path.exists(debris_fp), 'Debris filepath does not exist. Turn off include_debris or add filepath.'
+else:
+    debris_fp = None
 
 
 #%% MODEL TIME FRAME DATA
