@@ -127,8 +127,40 @@ def getparser():
     return parser
 
 
-def create_xrdataset(glacier_rgi_table, dates_table, sim_iters=pygem_prms.sim_iters,
-                     record_stats=0, option_wateryear=pygem_prms.gcm_wateryear):
+def calc_stats_array(data, stats_cns=pygem_prms.sim_stat_cns):
+    """
+    Calculate stats for a given variable
+
+    Parameters
+    ----------
+    vn : str
+        variable name
+    ds : xarray dataset
+        dataset of output with all ensemble simulations
+
+    Returns
+    -------
+    stats : np.array
+        Statistics related to a given variable
+    """
+    if 'mean' in stats_cns:
+        stats = data.mean(axis=1)[:,np.newaxis]
+    if 'std' in stats_cns:
+        stats = np.append(stats, data.std(axis=1)[:,np.newaxis], axis=1)
+    if '2.5%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 2.5, axis=1)[:,np.newaxis], axis=1)
+    if '25%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 25, axis=1)[:,np.newaxis], axis=1)
+    if 'median' in stats_cns:
+        stats = np.append(stats, np.median(data, axis=1)[:,np.newaxis], axis=1)
+    if '75%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 75, axis=1)[:,np.newaxis], axis=1)
+    if '97.5%' in stats_cns:
+        stats = np.append(stats, np.percentile(data, 97.5, axis=1)[:,np.newaxis], axis=1)
+    return stats
+
+
+def create_xrdataset(glacier_rgi_table, dates_table, option_wateryear=pygem_prms.gcm_wateryear):
     """
     Create empty xarray dataset that will be used to record simulation runs.
 
@@ -138,10 +170,6 @@ def create_xrdataset(glacier_rgi_table, dates_table, sim_iters=pygem_prms.sim_it
         dataframe containing relevant rgi glacier information
     dates_table : pandas dataframe
         table of the dates, months, days in month, etc.
-    sim_iters : int
-        number of simulation runs included
-    record_stats : int
-        Switch to change from recording simulations to statistics
 
     Returns
     -------
@@ -155,10 +183,9 @@ def create_xrdataset(glacier_rgi_table, dates_table, sim_iters=pygem_prms.sim_it
         # Coordinate values
         glac_values = np.array([glacier_rgi_table.name])
         annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
-        time_values = dates_table.loc[pygem_prms.spinupyears*12:dates_table.shape[0]+1,'date'].tolist()
-        year_values = annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]]
-        year_plus1_values = np.concatenate((annual_columns[pygem_prms.spinupyears:annual_columns.shape[0]],
-                                            np.array([annual_columns[annual_columns.shape[0]-1]+1])))
+        time_values = dates_table.loc[pygem_prms.gcm_spinupyears*12:dates_table.shape[0]+1,'date'].tolist()
+        year_values = annual_columns[pygem_prms.gcm_spinupyears:annual_columns.shape[0]]
+
         # Year type for attributes
         if option_wateryear == 1:
             year_type = 'water year'
@@ -175,75 +202,74 @@ def create_xrdataset(glacier_rgi_table, dates_table, sim_iters=pygem_prms.sim_it
         output_coords_dict['O1Region'] = collections.OrderedDict([('glac', glac_values)])
         output_coords_dict['O2Region'] = collections.OrderedDict([('glac', glac_values)])
         output_coords_dict['Area'] = collections.OrderedDict([('glac', glac_values)])
-        output_coords_dict['glac_prec_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_prec_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                            ('time', time_values)])
-        output_coords_dict['glac_temp_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_temp_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                            ('time', time_values)])
-        output_coords_dict['glac_acc_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_acc_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                           ('time', time_values)])
-        output_coords_dict['glac_refreeze_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_refreeze_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                                ('time', time_values)])
-        output_coords_dict['glac_melt_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_melt_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                            ('time', time_values)])
-        output_coords_dict['glac_frontalablation_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_frontalablation_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                                       ('time', time_values)])
-        output_coords_dict['glac_massbaltotal_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_massbaltotal_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                                    ('time', time_values)])
-        output_coords_dict['glac_runoff_monthly'] = collections.OrderedDict([('glac', glac_values),
-                                                                             ('time', time_values)])
-        output_coords_dict['glac_snowline_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_runoff_monthly'] = collections.OrderedDict([('glac', glac_values), 
+                                                                             ('time', time_values)]) 
+        output_coords_dict['glac_snowline_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                                ('time', time_values)])
-        output_coords_dict['glac_area_annual'] = collections.OrderedDict([('glac', glac_values),
-                                                                          ('year_plus1', year_plus1_values)])
-        output_coords_dict['glac_volume_annual'] = collections.OrderedDict([('glac', glac_values),
-                                                                            ('year_plus1', year_plus1_values)])
+        output_coords_dict['glac_area_annual'] = collections.OrderedDict([('glac', glac_values), ('year', year_values)])
+        output_coords_dict['glac_volume_annual'] = collections.OrderedDict([('glac', glac_values), 
+                                                                            ('year', year_values)])
         output_coords_dict['glac_ELA_annual'] = collections.OrderedDict([('glac', glac_values),
                                                                          ('year', year_values)])
-        output_coords_dict['offglac_prec_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_prec_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                               ('time', time_values)])
-        output_coords_dict['offglac_refreeze_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_refreeze_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                                   ('time', time_values)])
-        output_coords_dict['offglac_melt_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_melt_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                               ('time', time_values)])
-        output_coords_dict['offglac_snowpack_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_snowpack_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                                   ('time', time_values)])
-        output_coords_dict['offglac_runoff_monthly'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_runoff_monthly'] = collections.OrderedDict([('glac', glac_values), 
                                                                                 ('time', time_values)])
-        output_coords_dict['glac_prec_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_prec_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                ('time', time_values)])
-        output_coords_dict['glac_temp_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_temp_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                ('time', time_values)])
-        output_coords_dict['glac_acc_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_acc_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                               ('time', time_values)])
-        output_coords_dict['glac_refreeze_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_refreeze_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                    ('time', time_values)])
-        output_coords_dict['glac_melt_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_melt_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                ('time', time_values)])
-        output_coords_dict['glac_frontalablation_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_frontalablation_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                           ('time', time_values)])
-        output_coords_dict['glac_massbaltotal_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_massbaltotal_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                        ('time', time_values)])
-        output_coords_dict['glac_runoff_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_runoff_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                  ('time', time_values)])
-        output_coords_dict['glac_snowline_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_snowline_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                    ('time', time_values)])
-        output_coords_dict['glac_area_annual_std'] = collections.OrderedDict([('glac', glac_values),
-                                                                              ('year_plus1', year_plus1_values)])
-        output_coords_dict['glac_volume_annual_std'] = collections.OrderedDict([('glac', glac_values),
-                                                                                ('year_plus1', year_plus1_values)])
-        output_coords_dict['glac_ELA_annual_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['glac_area_annual_std'] = collections.OrderedDict([('glac', glac_values), 
+                                                                              ('year', year_values)])
+        output_coords_dict['glac_volume_annual_std'] = collections.OrderedDict([('glac', glac_values), 
+                                                                                ('year', year_values)])
+        output_coords_dict['glac_ELA_annual_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                              ('year', year_values)])
-        output_coords_dict['offglac_prec_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_prec_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                   ('time', time_values)])
-        output_coords_dict['offglac_refreeze_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_refreeze_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                       ('time', time_values)])
-        output_coords_dict['offglac_melt_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_melt_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                   ('time', time_values)])
-        output_coords_dict['offglac_snowpack_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_snowpack_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                       ('time', time_values)])
-        output_coords_dict['offglac_runoff_monthly_std'] = collections.OrderedDict([('glac', glac_values),
+        output_coords_dict['offglac_runoff_monthly_std'] = collections.OrderedDict([('glac', glac_values), 
                                                                                     ('time', time_values)])
-    # Attributes dictionary
+        # Attributes dictionary
         output_attrs_dict = {
             'time': {
                     'long_name': 'time',
@@ -256,10 +282,6 @@ def create_xrdataset(glacier_rgi_table, dates_table, sim_iters=pygem_prms.sim_it
                     'long_name': 'years',
                      'year_type': year_type,
                      'comment': 'years referring to the start of each year'},
-            'year_plus1': {
-                    'long_name': 'years plus one additional year',
-                    'year_type': year_type,
-                    'comment': 'additional year allows one to record glacier dimension changes at end of model run'},
             'RGIId': {
                     'long_name': 'Randolph Glacier Inventory ID',
                     'comment': 'RGIv6.0'},
@@ -332,19 +354,19 @@ def create_xrdataset(glacier_rgi_table, dates_table, sim_iters=pygem_prms.sim_it
                     'long_name': 'glacier area',
                     'units': 'km2',
                     'temporal_resolution': 'annual',
-                    'comment': 'area at start of the year'},
+                    'comment': 'area at end of the year'},
             'glac_volume_annual': {
                     'long_name': 'glacier volume',
                     'units': 'km3',
                     'temporal_resolution': 'annual',
-                    'comment': 'volume of ice based on area and ice thickness at start of the year'},
+                    'comment': 'volume of ice based on area and ice thickness at end of the year'}, 
             'glac_ELA_annual': {
                     'long_name': 'annual equilibrium line altitude above mean sea level',
                     'units': 'm',
                     'temporal_resolution': 'annual',
                     'comment': (
                             'equilibrium line altitude is the elevation where the climatic mass balance is '
-                            'zero')},
+                            'zero')}, 
             'offglac_prec_monthly': {
                     'long_name': 'off-glacier-wide precipitation (liquid)',
                     'units': 'm3',
@@ -423,19 +445,19 @@ def create_xrdataset(glacier_rgi_table, dates_table, sim_iters=pygem_prms.sim_it
                     'long_name': 'glacier area standard deviation',
                     'units': 'km2',
                     'temporal_resolution': 'annual',
-                    'comment': 'area at start of the year'},
+                    'comment': 'area at end of the year'},
             'glac_volume_annual_std': {
                     'long_name': 'glacier volume standard deviation',
                     'units': 'km3',
                     'temporal_resolution': 'annual',
-                    'comment': 'volume of ice based on area and ice thickness at start of the year'},
+                    'comment': 'volume of ice based on area and ice thickness at end of the year'}, 
             'glac_ELA_annual_std': {
                     'long_name': 'annual equilibrium line altitude above mean sea level standard deviation',
                     'units': 'm',
                     'temporal_resolution': 'annual',
                     'comment': (
                             'equilibrium line altitude is the elevation where the climatic mass balance is '
-                            'zero')},
+                            'zero')}, 
             'offglac_prec_monthly_std': {
                     'long_name': 'off-glacier-wide precipitation (liquid) standard deviation',
                     'units': 'm3',
@@ -461,7 +483,7 @@ def create_xrdataset(glacier_rgi_table, dates_table, sim_iters=pygem_prms.sim_it
                     'temporal_resolution': 'monthly',
                     'comment': 'snow remaining accounting for new accumulation, melt, and refreeze'},
             }
-
+            
         # Add variables to empty dataset and merge together
         count_vn = 0
         encoding = {}
@@ -483,25 +505,25 @@ def create_xrdataset(glacier_rgi_table, dates_table, sim_iters=pygem_prms.sim_it
             except:
                 pass
             # Encoding (specify _FillValue, offsets, etc.)
-
+            
             if vn not in noencoding_vn:
                 encoding[vn] = {'_FillValue': False,
                                 'zlib':True,
                                 'complevel':9
                                 }
-        output_ds_all['RGIId'].values = np.array(['RGI60-' + str(int(glacier_rgi_table.loc['O1Region'])).zfill(2) +
+        output_ds_all['RGIId'].values = np.array(['RGI60-' + str(int(glacier_rgi_table.loc['O1Region'])).zfill(2) + 
                                          '.' + str(int(glacier_rgi_table.loc['glacno'])).zfill(5)])
         output_ds_all['CenLon'].values = np.array([glacier_rgi_table.CenLon])
         output_ds_all['CenLat'].values = np.array([glacier_rgi_table.CenLat])
         output_ds_all['O1Region'].values = np.array([glacier_rgi_table.O1Region])
         output_ds_all['O2Region'].values = np.array([glacier_rgi_table.O2Region])
         output_ds_all['Area'].values = np.array([glacier_rgi_table.Area])
-
+        
         output_ds.attrs = {'source': 'PyGEMv0.1.0',
                            'institution': 'University of Alaska Fairbanks, Fairbanks, AK',
                            'history': 'Created by David Rounce (drounce@alaska.edu) on ' + pygem_prms.model_run_date,
                            'references': 'doi:10.3389/feart.2019.00331 and doi:10.1017/jog.2019.91' }
-
+        
     return output_ds_all, encoding
 
 
@@ -722,6 +744,27 @@ def main(list_packed_vars):
                                  'ddfice': [pygem_prms.ddfice],
                                  'tsnow_threshold': [pygem_prms.tsnow_threshold],
                                  'precgrad': [pygem_prms.precgrad]}
+            
+            # Empty datasets to record output
+            annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
+            year_values = annual_columns[pygem_prms.gcm_spinupyears:annual_columns.shape[0]]
+            output_temp_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_prec_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_acc_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_refreeze_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_melt_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_frontalablation_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_massbaltotal_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_runoff_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_snowline_glac_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_area_glac_annual = np.zeros((year_values.shape[0], sim_iters))
+            output_volume_glac_annual = np.zeros((year_values.shape[0], sim_iters))
+            output_ELA_glac_annual = np.zeros((year_values.shape[0], sim_iters))
+            output_offglac_prec_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_offglac_refreeze_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_offglac_melt_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_offglac_snowpack_monthly = np.zeros((dates_table.shape[0], sim_iters))
+            output_offglac_runoff_monthly = np.zeros((dates_table.shape[0], sim_iters))
 
             # Loop through model parameters
             for n_iter in range(sim_iters):
@@ -980,6 +1023,8 @@ def main(list_packed_vars):
 
                 if args.option_parallels == 0:
                     print('\nTO-DO LIST:')
+                    print(' - Record initial glacier area separately')
+                    print(' - Record area and volume at end of mass balance year, so no more year_plus1 crap')
                     print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
                     print(' - switch daily_std ablation to a gaussian to ensure repeatability without seeding')
                     print(' - export netcdf files')
@@ -988,93 +1033,119 @@ def main(list_packed_vars):
                     print(' - make two refreeze (potential?) options stand-alone functions like frontal ablation')
                     print(' - climate data likely mismatch with OGGM, e.g., prec in m for the month')
 
-                # # RECORD PARAMETERS TO DATASET
-                # if pygem_prms.output_package == 2:
-                #     output_temp_glac_monthly[:, n_iter] = mbmod.glac_wide_temp
-                #     output_prec_glac_monthly[:, n_iter] = mbmod.glac_wide_prec
-                #     output_acc_glac_monthly[:, n_iter] = mbmod.glac_wide_acc
-                #     output_refreeze_glac_monthly[:, n_iter] = mbmod.glac_wide_refreeze
-                #     output_melt_glac_monthly[:, n_iter] = mbmod.glac_wide_melt
-                #     output_frontalablation_glac_monthly[:, n_iter] = mbmod.glac_wide_frontalablation
-                #     output_massbaltotal_glac_monthly[:, n_iter] = mbmod.glac_wide_massbaltotal
-                #     output_runoff_glac_monthly[:, n_iter] = mbmod.glac_wide_runoff
-                #     output_snowline_glac_monthly[:, n_iter] = mbmod.glac_wide_snowline
-                #     output_area_glac_annual[:, n_iter] = mbmod.glac_wide_area_annual
-                #     output_volume_glac_annual[:, n_iter] = mbmod.glac_wide_volume_annual
-                #     output_ELA_glac_annual[:, n_iter] = mbmod.glac_wide_ELA_annual
-                #     output_offglac_prec_monthly[:, n_iter] = mbmod.offglac_wide_prec
-                #     output_offglac_refreeze_monthly[:, n_iter] = mbmod.offglac_wide_refreeze
-                #     output_offglac_melt_monthly[:, n_iter] = mbmod.offglac_wide_melt
-                #     output_offglac_snowpack_monthly[:, n_iter] = mbmod.offglac_wide_snowpack
-                #     output_offglac_runoff_monthly[:, n_iter] = mbmod.offglac_wide_runoff
+                # RECORD PARAMETERS TO DATASET
+                output_temp_glac_monthly[:, n_iter] = mbmod.glac_wide_temp
+                output_prec_glac_monthly[:, n_iter] = mbmod.glac_wide_prec
+                output_acc_glac_monthly[:, n_iter] = mbmod.glac_wide_acc
+                output_refreeze_glac_monthly[:, n_iter] = mbmod.glac_wide_refreeze
+                output_melt_glac_monthly[:, n_iter] = mbmod.glac_wide_melt
+                output_frontalablation_glac_monthly[:, n_iter] = mbmod.glac_wide_frontalablation
+                output_massbaltotal_glac_monthly[:, n_iter] = mbmod.glac_wide_massbaltotal
+                output_runoff_glac_monthly[:, n_iter] = mbmod.glac_wide_runoff
+                output_snowline_glac_monthly[:, n_iter] = mbmod.glac_wide_snowline
+                output_area_glac_annual[:, n_iter] = mbmod.glac_wide_area_annual
+                output_volume_glac_annual[:, n_iter] = mbmod.glac_wide_volume_annual
+                output_ELA_glac_annual[:, n_iter] = mbmod.glac_wide_ELA_annual
+                output_offglac_prec_monthly[:, n_iter] = mbmod.offglac_wide_prec
+                output_offglac_refreeze_monthly[:, n_iter] = mbmod.offglac_wide_refreeze
+                output_offglac_melt_monthly[:, n_iter] = mbmod.offglac_wide_melt
+                output_offglac_snowpack_monthly[:, n_iter] = mbmod.offglac_wide_snowpack
+                output_offglac_runoff_monthly[:, n_iter] = mbmod.offglac_wide_runoff
 
-#            # ===== Export Results =====
-#            output_ds, encoding = create_xrdataset(glacier_rgi_table, dates_table, record_stats=1,
-#                                                       option_wateryear=pygem_prms.gcm_wateryear)
-#            output_ds['glac_temp_monthly'].values = output_temp_glac_monthly.mean(1)[np.newaxis,:] + 273.15
-#            output_ds['glac_temp_monthly_std'].values = output_temp_glac_monthly.std(1)[np.newaxis,:]
-#            output_ds['glac_prec_monthly'].values = output_prec_glac_monthly.mean(1)[np.newaxis,:]
-#            output_ds['glac_prec_monthly_std'].values = output_prec_glac_monthly.std(1)[np.newaxis,:]
-#            output_ds['glac_acc_monthly'].values = output_acc_glac_monthly.mean(1)[np.newaxis,:]
-#            output_ds['glac_acc_monthly_std'].values = output_acc_glac_monthly.std(1)[np.newaxis,:]
-#            output_ds['glac_refreeze_monthly'].values = output_refreeze_glac_monthly.mean(1)[np.newaxis,:]
-#            output_ds['glac_refreeze_monthly_std'].values = output_refreeze_glac_monthly.std(1)[np.newaxis,:]
-#            output_ds['glac_melt_monthly'].values = output_melt_glac_monthly.mean(1)[np.newaxis,:]
-#            output_ds['glac_melt_monthly_std'].values = output_melt_glac_monthly.std(1)[np.newaxis,:]
-#            output_ds['glac_frontalablation_monthly'].values = output_frontalablation_glac_monthly.mean(1)[np.newaxis,:]
-#            output_ds['glac_frontalablation_monthly_std'].values = (
-#                    output_frontalablation_glac_monthly.std(1)[np.newaxis,:])
-#            output_ds['glac_massbaltotal_monthly'].values = output_massbaltotal_glac_monthly.mean(1)[np.newaxis,:]
-#            output_ds['glac_massbaltotal_monthly_std'].values = output_massbaltotal_glac_monthly.std(1)[np.newaxis,:]
-#            output_ds['glac_runoff_monthly'].values = output_runoff_glac_monthly.mean(1)[np.newaxis,:]
-#            output_ds['glac_runoff_monthly_std'].values = output_runoff_glac_monthly.std(1)[np.newaxis,:]
-#            output_ds['glac_snowline_monthly'].values = output_snowline_glac_monthly.mean(1)[np.newaxis,:]
-#            output_ds['glac_snowline_monthly_std'].values = output_snowline_glac_monthly.std(1)[np.newaxis,:]
-#            output_ds['glac_area_annual'].values = output_area_glac_annual.mean(1)[np.newaxis,:]
-#            output_ds['glac_area_annual_std'].values = output_area_glac_annual.std(1)[np.newaxis,:]
-#            output_ds['glac_volume_annual'].values = output_volume_glac_annual.mean(1)[np.newaxis,:]
-#            output_ds['glac_volume_annual_std'].values = output_volume_glac_annual.std(1)[np.newaxis,:]
-#            output_ds['glac_ELA_annual'].values = output_ELA_glac_annual.mean(1)[np.newaxis,:]
-#            output_ds['glac_ELA_annual_std'].values = output_ELA_glac_annual.std(1)[np.newaxis,:]
-#            output_ds['offglac_prec_monthly'].values = output_offglac_prec_monthly.mean(1)[np.newaxis,:]
-#            output_ds['offglac_prec_monthly_std'].values = output_offglac_prec_monthly.std(1)[np.newaxis,:]
-#            output_ds['offglac_refreeze_monthly'].values = output_offglac_refreeze_monthly.mean(1)[np.newaxis,:]
-#            output_ds['offglac_refreeze_monthly_std'].values = output_offglac_refreeze_monthly.std(1)[np.newaxis,:]
-#            output_ds['offglac_melt_monthly'].values = output_offglac_melt_monthly.mean(1)[np.newaxis,:]
-#            output_ds['offglac_melt_monthly_std'].values = output_offglac_melt_monthly.std(1)[np.newaxis,:]
-#            output_ds['offglac_snowpack_monthly'].values =  output_offglac_snowpack_monthly.mean(1)[np.newaxis,:]
-#            output_ds['offglac_snowpack_monthly_std'].values =  output_offglac_snowpack_monthly.std(1)[np.newaxis,:]
-#            output_ds['offglac_runoff_monthly'].values = output_offglac_runoff_monthly.mean(1)[np.newaxis,:]
-#            output_ds['offglac_runoff_monthly_std'].values = output_offglac_runoff_monthly.std(1)[np.newaxis,:]
-#
-#            # Export statistics to netcdf
-#            if pygem_prms.output_package == 2:
-#                output_sim_fp = pygem_prms.output_sim_fp + gcm_name + '/'
-#                if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
-#                    output_sim_fp += rcp_scenario + '/'
-#                # Create filepath if it does not exist
-#                if os.path.exists(output_sim_fp) == False:
-#                    os.makedirs(output_sim_fp)
-#                # Netcdf filename
-#                if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
-#                    # Filename
-#                    netcdf_fn = (glacier_str + '_' + gcm_name + '_c' + str(pygem_prms.option_calibration) + '_ba' +
-#                                 str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
-#                                 str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '.nc')
-#                else:
-#                    netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_c' +
-#                                 str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) +
-#                                 '_' +  str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' +
-#                                 str(pygem_prms.gcm_endyear) + '.nc')
-#                if pygem_prms.option_synthetic_sim==1:
-#                    netcdf_fn = (netcdf_fn.split('--')[0] + '_T' + str(pygem_prms.synthetic_temp_adjust) + '_P' +
-#                                 str(pygem_prms.synthetic_prec_factor) + '--' + netcdf_fn.split('--')[1])
-#
-#                # Export netcdf
-#                output_ds.to_netcdf(output_sim_fp + netcdf_fn, encoding=encoding)
-#
-#            # Close datasets
-#            output_ds.close()
+                    
+            # ===== Export Results =====
+            # Create empty dataset
+            output_ds_all_stats, encoding = create_xrdataset(glacier_rgi_table, dates_table)
+            
+            # Output statistics
+            output_temp_glac_monthly_stats = calc_stats_array(output_temp_glac_monthly)
+            output_prec_glac_monthly_stats = calc_stats_array(output_prec_glac_monthly)
+            output_acc_glac_monthly_stats = calc_stats_array(output_acc_glac_monthly)
+            output_refreeze_glac_monthly_stats = calc_stats_array(output_refreeze_glac_monthly)
+            output_melt_glac_monthly_stats = calc_stats_array(output_melt_glac_monthly)
+            output_frontalablation_glac_monthly_stats = calc_stats_array(output_frontalablation_glac_monthly)
+            output_massbaltotal_glac_monthly_stats = calc_stats_array(output_massbaltotal_glac_monthly)
+            output_runoff_glac_monthly_stats = calc_stats_array(output_runoff_glac_monthly)
+            output_snowline_glac_monthly_stats = calc_stats_array(output_snowline_glac_monthly)
+            output_area_glac_annual_stats = calc_stats_array(output_area_glac_annual)
+            output_volume_glac_annual_stats = calc_stats_array(output_volume_glac_annual)
+            output_ELA_glac_annual_stats = calc_stats_array(output_ELA_glac_annual)
+            output_offglac_prec_monthly_stats = calc_stats_array(output_offglac_prec_monthly)
+            output_offglac_melt_monthly_stats = calc_stats_array(output_offglac_melt_monthly)
+            output_offglac_refreeze_monthly_stats = calc_stats_array(output_offglac_refreeze_monthly)
+            output_offglac_snowpack_monthly_stats = calc_stats_array(output_offglac_snowpack_monthly)
+            output_offglac_runoff_monthly_stats = calc_stats_array(output_offglac_runoff_monthly)
+            
+            # Output Mean
+            output_ds_all_stats['glac_temp_monthly'].values[0,:] = output_temp_glac_monthly_stats[:,0]
+            output_ds_all_stats['glac_prec_monthly'].values[0,:] = output_prec_glac_monthly_stats[:,0]
+            output_ds_all_stats['glac_acc_monthly'].values[0,:] = output_acc_glac_monthly_stats[:,0]
+            output_ds_all_stats['glac_refreeze_monthly'].values[0,:] = output_refreeze_glac_monthly_stats[:,0]
+            output_ds_all_stats['glac_melt_monthly'].values[0,:] = output_melt_glac_monthly_stats[:,0]
+            output_ds_all_stats['glac_frontalablation_monthly'].values[0,:] = (
+                    output_frontalablation_glac_monthly_stats[:,0])
+            output_ds_all_stats['glac_massbaltotal_monthly'].values[0,:] = (
+                    output_massbaltotal_glac_monthly_stats[:,0])
+            output_ds_all_stats['glac_runoff_monthly'].values[0,:] = output_runoff_glac_monthly_stats[:,0]
+            output_ds_all_stats['glac_snowline_monthly'].values[0,:] = output_snowline_glac_monthly_stats[:,0]
+            output_ds_all_stats['glac_area_annual'].values[0,:] = output_area_glac_annual_stats[:,0]
+            output_ds_all_stats['glac_volume_annual'].values[0,:] = output_volume_glac_annual_stats[:,0]
+            output_ds_all_stats['glac_ELA_annual'].values[0,:] = output_ELA_glac_annual_stats[:,0]
+            output_ds_all_stats['offglac_prec_monthly'].values[0,:] = output_offglac_prec_monthly_stats[:,0]
+            output_ds_all_stats['offglac_melt_monthly'].values[0,:] = output_offglac_melt_monthly_stats[:,0]
+            output_ds_all_stats['offglac_refreeze_monthly'].values[0,:] = output_offglac_refreeze_monthly_stats[:,0]
+            output_ds_all_stats['offglac_snowpack_monthly'].values[0,:] = output_offglac_snowpack_monthly_stats[:,0]
+            output_ds_all_stats['offglac_runoff_monthly'].values[0,:] = output_offglac_runoff_monthly_stats[:,0]
+            
+            # Output Standard Deviation
+            output_ds_all_stats['glac_temp_monthly_std'].values[0,:] = output_temp_glac_monthly_stats[:,1]
+            output_ds_all_stats['glac_prec_monthly_std'].values[0,:] = output_prec_glac_monthly_stats[:,1]
+            output_ds_all_stats['glac_acc_monthly_std'].values[0,:] = output_acc_glac_monthly_stats[:,1]
+            output_ds_all_stats['glac_refreeze_monthly_std'].values[0,:] = output_refreeze_glac_monthly_stats[:,1]
+            output_ds_all_stats['glac_melt_monthly_std'].values[0,:] = output_melt_glac_monthly_stats[:,1]
+            output_ds_all_stats['glac_frontalablation_monthly_std'].values[0,:] = (
+                    output_frontalablation_glac_monthly_stats[:,1])
+            output_ds_all_stats['glac_massbaltotal_monthly_std'].values[0,:] = (
+                    output_massbaltotal_glac_monthly_stats[:,1])
+            output_ds_all_stats['glac_runoff_monthly_std'].values[0,:] = output_runoff_glac_monthly_stats[:,1]
+            output_ds_all_stats['glac_snowline_monthly_std'].values[0,:] = output_snowline_glac_monthly_stats[:,1]
+            output_ds_all_stats['glac_area_annual_std'].values[0,:] = output_area_glac_annual_stats[:,1]
+            output_ds_all_stats['glac_volume_annual_std'].values[0,:] = output_volume_glac_annual_stats[:,1]
+            output_ds_all_stats['glac_ELA_annual_std'].values[0,:] = output_ELA_glac_annual_stats[:,1]
+            output_ds_all_stats['offglac_prec_monthly_std'].values[0,:] = output_offglac_prec_monthly_stats[:,1]
+            output_ds_all_stats['offglac_melt_monthly_std'].values[0,:] = output_offglac_melt_monthly_stats[:,1]
+            output_ds_all_stats['offglac_refreeze_monthly_std'].values[0,:] = output_offglac_refreeze_monthly_stats[:,1]
+            output_ds_all_stats['offglac_snowpack_monthly_std'].values[0,:] = output_offglac_snowpack_monthly_stats[:,1]
+            output_ds_all_stats['offglac_runoff_monthly_std'].values[0,:] = output_offglac_runoff_monthly_stats[:,1]
+            
+
+            # Export statistics to netcdf
+            if pygem_prms.output_package == 2:
+                output_sim_fp = pygem_prms.output_sim_fp + gcm_name + '/'
+                if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
+                    output_sim_fp += rcp_scenario + '/'
+                # Create filepath if it does not exist
+                if os.path.exists(output_sim_fp) == False:
+                    os.makedirs(output_sim_fp)
+                # Netcdf filename
+                if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
+                    # Filename
+                    netcdf_fn = (glacier_str + '_' + gcm_name + '_' + str(pygem_prms.option_calibration) + '_ba' +
+                                 str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
+                                 str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '.nc')
+                else:
+                    netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_' +
+                                 str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + 
+                                 '_' + str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + 
+                                 str(pygem_prms.gcm_endyear) + '.nc')
+                if pygem_prms.option_synthetic_sim==1:
+                    netcdf_fn = (netcdf_fn.split('--')[0] + '_T' + str(pygem_prms.synthetic_temp_adjust) + '_P' +
+                                 str(pygem_prms.synthetic_prec_factor) + '--' + netcdf_fn.split('--')[1])
+                # Export netcdf
+                output_ds_all_stats.to_netcdf(output_sim_fp + netcdf_fn, encoding=encoding)
+
+            # Close datasets
+            output_ds_all_stats.close()
 
 
     # Global variables for Spyder development

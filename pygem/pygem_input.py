@@ -192,9 +192,9 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('MCMC', 'HH2015', 'HH2015mod')
-option_calibration = 'MCMC'
+#option_calibration = 'MCMC'
 #option_calibration = 'HH2015'
-#option_calibration = 'HH2015mod'
+option_calibration = 'HH2015mod'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -288,7 +288,7 @@ elif option_calibration == 'MCMC':
 
 
 #%% ===== MODEL PARAMETERS =====
-use_calibrated_modelparams = False  # False: use input values, True: use calibrated model parameters
+use_calibrated_modelparams = True   # False: use input values, True: use calibrated model parameters
 kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]

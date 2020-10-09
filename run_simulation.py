@@ -1126,11 +1126,11 @@ def main(list_packed_vars):
                 # Netcdf filename
                 if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
                     # Filename
-                    netcdf_fn = (glacier_str + '_' + gcm_name + '_c' + str(pygem_prms.option_calibration) + '_ba' +
+                    netcdf_fn = (glacier_str + '_' + gcm_name + '_' + str(pygem_prms.option_calibration) + '_ba' +
                                  str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
                                  str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '.nc')
                 else:
-                    netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_c' +
+                    netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_' +
                                  str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + 
                                  '_' + str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + 
                                  str(pygem_prms.gcm_endyear) + '.nc')

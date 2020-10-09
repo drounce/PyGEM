@@ -622,10 +622,10 @@ class PyGEMMassBalance(MassBalanceModel):
                 self._convert_glacwide_results(year, glacier_area_t0, heights, fls=fls, fl_id=fl_id,
                                                option_areaconstant=option_areaconstant)
 
-                if debug:
-                    print('glac_bin_massbalclim:', self.glac_bin_massbalclim[12:20,12*year:12*(year+1)].sum(1))
-                    print('surface type present:', self.glac_bin_surfacetype_annual[12:20,year])
-                    print('surface type updated:', self.surfacetype[12:20])
+#                if debug:
+#                    print('glac_bin_massbalclim:', self.glac_bin_massbalclim[12:20,12*year:12*(year+1)].sum(1))
+#                    print('surface type present:', self.glac_bin_surfacetype_annual[12:20,year])
+#                    print('surface type updated:', self.surfacetype[12:20])
 
         # Example of modularity
 #        if self.use_refreeze:
