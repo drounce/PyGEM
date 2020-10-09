@@ -634,38 +634,37 @@ def main(list_packed_vars):
                             ddfsnow_start=ddfsnow_start, mb_max_loss=mb_max_loss,
                             use_potentials=True)
 
-#                    if debug:
-#                        print('\nacceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
-#                        print('mb_mwea_mean:', np.round(np.mean(model.trace('massbal')[:]),3),
-#                              'mb_mwea_std:', np.round(np.std(model.trace('massbal')[:]),3),
-#                              '\nmb_obs_mean:', np.round(mb_obs_mwea,3), 'mb_obs_std:', np.round(mb_obs_mwea_err,3))
-#
-#
-#                    # Store data from model to be exported
-#                    chain_str = 'chain_' + str(n_chain)
-#                    modelprms_export['tbias'] = {chain_str : list(model.trace('tbias')[:])}
-#                    modelprms_export['kp'] = {chain_str  : list(model.trace('kp')[:])}
-#                    modelprms_export['ddfsnow'] = {chain_str : list(model.trace('ddfsnow')[:])}
-#                    modelprms_export['ddfice'] = {chain_str : list(model.trace('ddfsnow')[:] /
-#                                                               pygem_prms.ddfsnow_iceratio)}
-#                    modelprms_export['mb_mwea'] = {chain_str : list(model.trace('massbal')[:])}
-#
-#                # Export model parameters
-#                modelprms_export['precgrad'] = [pygem_prms.precgrad]
-#                modelprms_export['tsnow_threshold'] = [pygem_prms.tsnow_threshold]
-#                modelprms_export['mb_obs_mwea'] = [mb_obs_mwea]
-#                modelprms_export['mb_obs_mwea_err'] = [mb_obs_mwea_err]
-#                modelprms_export['priors'] = priors_dict
-#                modelprms_fullfn = gdir.get_filepath('pygem_modelprms')
-#                if os.path.exists(modelprms_fullfn):
-#                    with open(modelprms_fullfn, 'rb') as f:
-#                        modelprms_dict = pickle.load(f)
-#                    modelprms_dict[pygem_prms.option_calibration] = modelprms_export
-#                else:
-#                    modelprms_dict = {pygem_prms.option_calibration: modelprms_export}
-#                with open(modelprms_fullfn, 'wb') as f:
-#                    pickle.dump(modelprms_dict, f)
-            
+                    if debug:
+                        print('\nacceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
+                        print('mb_mwea_mean:', np.round(np.mean(model.trace('massbal')[:]),3),
+                              'mb_mwea_std:', np.round(np.std(model.trace('massbal')[:]),3),
+                              '\nmb_obs_mean:', np.round(mb_obs_mwea,3), 'mb_obs_std:', np.round(mb_obs_mwea_err,3))
+
+
+                    # Store data from model to be exported
+                    chain_str = 'chain_' + str(n_chain)
+                    modelprms_export['tbias'] = {chain_str : list(model.trace('tbias')[:])}
+                    modelprms_export['kp'] = {chain_str  : list(model.trace('kp')[:])}
+                    modelprms_export['ddfsnow'] = {chain_str : list(model.trace('ddfsnow')[:])}
+                    modelprms_export['ddfice'] = {chain_str : list(model.trace('ddfsnow')[:] /
+                                                               pygem_prms.ddfsnow_iceratio)}
+                    modelprms_export['mb_mwea'] = {chain_str : list(model.trace('massbal')[:])}
+
+                # Export model parameters
+                modelprms_export['precgrad'] = [pygem_prms.precgrad]
+                modelprms_export['tsnow_threshold'] = [pygem_prms.tsnow_threshold]
+                modelprms_export['mb_obs_mwea'] = [mb_obs_mwea]
+                modelprms_export['mb_obs_mwea_err'] = [mb_obs_mwea_err]
+                modelprms_export['priors'] = priors_dict
+                modelprms_fullfn = gdir.get_filepath('pygem_modelprms')
+                if os.path.exists(modelprms_fullfn):
+                    with open(modelprms_fullfn, 'rb') as f:
+                        modelprms_dict = pickle.load(f)
+                    modelprms_dict[pygem_prms.option_calibration] = modelprms_export
+                else:
+                    modelprms_dict = {pygem_prms.option_calibration: modelprms_export}
+                with open(modelprms_fullfn, 'wb') as f:
+                    pickle.dump(modelprms_dict, f)            
             
 
             #%% ===== HUSS AND HOCK (2015) CALIBRATION =====

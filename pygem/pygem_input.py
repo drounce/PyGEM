@@ -192,9 +192,9 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('MCMC', 'HH2015', 'HH2015mod')
-#option_calibration = 'MCMC'
+option_calibration = 'MCMC'
 #option_calibration = 'HH2015'
-option_calibration = 'HH2015mod'
+#option_calibration = 'HH2015mod'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
