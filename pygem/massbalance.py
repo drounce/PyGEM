@@ -139,7 +139,9 @@ class PyGEMMassBalance(MassBalanceModel):
         self.glac_wide_runoff = np.zeros(self.nmonths)
         self.glac_wide_snowline = np.zeros(self.nmonths)
         self.glac_wide_area_annual = np.zeros(self.nyears)
+        self.glac_wide_area_initial = np.zeros(1)
         self.glac_wide_volume_annual = np.zeros(self.nyears)
+        self.glac_wide_volume_initial = np.zeros(1)
         self.glac_wide_ELA_annual = np.zeros(self.nyears)
         self.offglac_wide_prec = np.zeros(self.nmonths)
         self.offglac_wide_refreeze = np.zeros(self.nmonths)
@@ -154,7 +156,7 @@ class PyGEMMassBalance(MassBalanceModel):
         self.surfacetype_ddf_dict = self._surfacetypeDDFdict(self.modelprms)
 
         # Refreezing specific layers
-        if pygem_prms.option_refreezing == 1:
+        if pygem_prms.option_refreezing == 'HH2015':
             # Refreezing layers density, volumetric heat capacity, and thermal conductivity
             self.rf_dens_expb = (pygem_prms.rf_dens_bot / pygem_prms.rf_dens_top)**(1/(pygem_prms.rf_layers-1))
             self.rf_layers_dens = np.array([pygem_prms.rf_dens_top * self.rf_dens_expb**x
@@ -199,9 +201,6 @@ class PyGEMMassBalance(MassBalanceModel):
         glacier_area_initial = self.glacier_area_initial
         icethickness_t0 = getattr(fls[fl_id], 'thick', None)
 
-#        print(glacier_area_initial.shape)
-#        print(glacier_area_t0.shape)
-
         # Glacier indices
         glac_idx_t0 = fl.widths.nonzero()[0]
 
@@ -212,9 +211,11 @@ class PyGEMMassBalance(MassBalanceModel):
         bin_precsnow = np.zeros((nbins,nmonths))
 
         # Refreezing specific layers
-        if pygem_prms.option_refreezing == 1 and year == 0:
+        if pygem_prms.option_refreezing == 'HH2015' and year == 0:
             self.te_rf[:,:,0] = 0     # layer temp of each elev bin for present time step
             self.tl_rf[:,:,0] = 0     # layer temp of each elev bin for previous time step
+        elif pygem_prms.option_refreezing == 'Woodward':
+            refreeze_potential = np.zeros(nbins)
 
         if len(glac_idx_t0) > 0:
 
@@ -378,7 +379,7 @@ class PyGEMMassBalance(MassBalanceModel):
                     self.bin_melt[:,step] = self.bin_meltglac[:,step] + self.bin_meltsnow[:,step]
 
                     # REFREEZING
-                    if pygem_prms.option_refreezing == 1:
+                    if pygem_prms.option_refreezing == 'HH2015':
                         if step > 0:
                             self.tl_rf[:,:,step] = self.tl_rf[:,:,step-1]
                             self.te_rf[:,:,step] = self.te_rf[:,:,step-1]
@@ -509,7 +510,7 @@ class PyGEMMassBalance(MassBalanceModel):
                                       'Rain:', np.round(self.bin_prec[glac_idx_t0[nbin],step],2),
                                       'Rfrz:', np.round(self.bin_refreeze[gidx,step],2))
 
-                    elif pygem_prms.option_refreezing == 2:
+                    elif pygem_prms.option_refreezing == 'Woodward':
                         # Refreeze based on annual air temperature (Woodward etal. 1997)
                         #  R(m) = (-0.69 * Tair + 0.0096) * 1 m / 100 cm
                         # calculate annually and place potential refreeze in user defined month
@@ -522,11 +523,11 @@ class PyGEMMassBalance(MassBalanceModel):
                             self.bin_refreezepotential[:,step] = bin_refreezepotential_annual
                             # Reset refreeze potential every year
                             if self.bin_refreezepotential[:,step].max() > 0:
-                                self.refreeze_potential = self.bin_refreezepotential[:,step]
+                                refreeze_potential = self.bin_refreezepotential[:,step]
 
                         if self.debug_refreeze and step < 12:
                             print('Month' + str(self.dates_table.loc[step,'month']),
-                                  'Refreeze potential:', np.round(self.refreeze_potential[glac_idx_t0[0]],3),
+                                  'Refreeze potential:', np.round(refreeze_potential[glac_idx_t0[0]],3),
                                   'Snow depth:', np.round(self.bin_snowpack[glac_idx_t0[0],step],2),
                                   'Snow melt:', np.round(self.bin_meltsnow[glac_idx_t0[0],step],2),
                                   'Rain:', np.round(self.bin_prec[glac_idx_t0[0],step],2))
@@ -538,12 +539,12 @@ class PyGEMMassBalance(MassBalanceModel):
                         self.bin_refreeze[self.bin_refreeze[:,step] > self.bin_snowpack[:,step], step] = (
                                 self.bin_snowpack[self.bin_refreeze[:,step] > self.bin_snowpack[:,step], step])
                         # refreeze cannot exceed refreeze potential
-                        self.bin_refreeze[self.bin_refreeze[:,step] > self.refreeze_potential, step] = (
-                                self.refreeze_potential[self.bin_refreeze[:,step] > self.refreeze_potential])
+                        self.bin_refreeze[self.bin_refreeze[:,step] > refreeze_potential, step] = (
+                                refreeze_potential[self.bin_refreeze[:,step] > refreeze_potential])
                         self.bin_refreeze[abs(self.bin_refreeze[:,step]) < pygem_prms.tolerance, step] = 0
                         # update refreeze potential
-                        self.refreeze_potential -= self.bin_refreeze[:,step]
-                        self.refreeze_potential[abs(self.refreeze_potential) < pygem_prms.tolerance] = 0
+                        refreeze_potential -= self.bin_refreeze[:,step]
+                        refreeze_potential[abs(refreeze_potential) < pygem_prms.tolerance] = 0
 
                     if step < 12 and self.debug_refreeze:
                         print('refreeze bin ' + str(int(glac_idx_t0[0]*10)) + ':',
@@ -665,8 +666,7 @@ class PyGEMMassBalance(MassBalanceModel):
             # Glacier-wide area (m2)
             self.glac_wide_area_annual[year] = glacier_area.sum()
             # Glacier-wide volume (m3)
-            if self.icethickness_initial is not None:
-                assert True==False, 'Error: record annual glacier volume based on ice thickness'
+#            if self.icethickness_initial is not None:
 #                self.glac_wide_volume_annual[year] = (glacier_area * icethickness).sum()
             # Glacier-wide temperature (degC)
             self.glac_wide_temp[12*year:12*(year+1)] = (
@@ -707,16 +707,31 @@ class PyGEMMassBalance(MassBalanceModel):
             heights_monthly_wsnow[heights_monthly_wsnow == 0] = np.nan
             heights_change = np.zeros(heights.shape)
             heights_change[0:-1] = heights[0:-1] - heights[1:]
-            snowline_idx = np.nanargmin(heights_monthly_wsnow, axis=0)
-            self.glac_wide_snowline[12*year:12*(year+1)] = heights[snowline_idx] - heights_change[snowline_idx] / 2
+            try:
+                snowline_idx = np.nanargmin(heights_monthly_wsnow, axis=0)
+                self.glac_wide_snowline[12*year:12*(year+1)] = heights[snowline_idx] - heights_change[snowline_idx] / 2
+            except:
+                snowline_idx = np.zeros((heights_monthly_wsnow.shape[1])).astype(int)
+                snowline_idx_nan = []
+                for ncol in range(heights_monthly_wsnow.shape[1]):
+                    if ~np.isnan(heights_monthly_wsnow[:,ncol]).all():
+                        snowline_idx[ncol] = np.nanargmin(heights_monthly_wsnow[:,ncol])
+                    else:
+                        snowline_idx_nan.append(ncol)
+                heights_manual = heights[snowline_idx] - heights_change[snowline_idx] / 2
+                heights_manual[snowline_idx_nan] = np.nan
+                self.glac_wide_snowline[12*year:12*(year+1)] = heights_manual
 
             # Equilibrium line altitude (m a.s.l.)
             ela_mask = np.zeros(heights.shape)
             ela_mask[self.glac_bin_massbalclim_annual[:,year] > 0] = 1
             ela_onlypos = heights * ela_mask
-            ela_onlypos[ela_onlypos == 0] = np.nan
-            ela_idx = np.nanargmin(ela_onlypos)
-            self.glac_wide_ELA_annual[year] = heights[ela_idx] - heights_change[ela_idx] / 2
+            ela_onlypos[ela_onlypos == 0] = np.nan        
+            if np.isnan(ela_onlypos).all():
+                self.glac_wide_ELA_annual[year] = np.nan
+            else:
+                ela_idx = np.nanargmin(ela_onlypos)
+                self.glac_wide_ELA_annual[year] = heights[ela_idx] - heights_change[ela_idx] / 2
 
             # ===== Off-glacier ====
             offglac_idx = self.offglac_bin_area_annual[:,year].nonzero()[0]

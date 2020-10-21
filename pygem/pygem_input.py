@@ -130,8 +130,9 @@ rgi_glac_number = 'all'
 #rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
-#glac_no = ['15.03473']
 glac_no = ['15.03733']
+#glac_no = ['13.42413']
+#glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
 #glac_no = None
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
@@ -151,10 +152,10 @@ if constantarea_years > 0:
     print('\nConstant area years > 0\n')
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
-gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2019              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2100              # last year of model run (simulation dataset)
+#gcm_endyear = 2019              # last year of model run (simulation dataset)
+gcm_startyear = 2000            # first year of model run (simulation dataset)
+gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
@@ -193,8 +194,9 @@ option_bias_adjustment = 1
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('MCMC', 'HH2015', 'HH2015mod')
 #option_calibration = 'MCMC'
-#option_calibration = 'HH2015'
-option_calibration = 'HH2015mod'
+option_calibration = 'HH2015'
+#option_calibration = 'HH2015mod'
+#option_calibration = 'emulator'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -223,12 +225,24 @@ elif option_calibration == 'HH2015mod':
     method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
     params2opt = ['tbias', 'kp']
     ftol_opt = 1e-3                 # tolerance for SciPy optimization scheme
-    eps_opt = 0.01                 # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
-#    massbal_uncertainty_mwea = 0.1  # mass balance uncertainty [mwea] for glaciers lacking uncertainty data
-#    zscore_tolerance_all = 1        # tolerance if multiple calibration points (shortcut that could be improved)
-#    zscore_tolerance_single = 0.1   # tolerance if only a single calibration point (want this to be more exact)
-#    zscore_update_threshold = 0.1   # threshold to update model params only if significantly better
-#    extra_calrounds = 3             # additional calibration rounds in case optimization is getting stuck
+    eps_opt = 0.01                  # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
+    
+elif option_calibration == 'emulator':
+    emulator_sims = 10000            # Number of simulations to develop the emulator
+    tbias_step = 1                   # tbias step size
+    tbias_init = 0                   # tbias initial value
+    kp_init = 1                      # kp initial value
+    ddfsnow_init = 0.0041            # ddfsnow initial value
+    # Distributions
+    tbias_disttype = 'truncnormal'   # Temperature bias distribution ('truncnormal', 'uniform')
+    tbias_sigma = 3                  # tbias standard deviation for truncnormal distribution
+    kp_gamma_alpha = 2               # Precipitation factor gamma distribution alpha
+    kp_gamma_beta = 1                # Precipitation factor gamma distribution beta
+    ddfsnow_disttype = 'truncnormal' # Degree-day factor of snow distribution ('truncnormal')
+    ddfsnow_mu = 0.0041              # ddfsnow mean
+    ddfsnow_sigma = 0.0015           # ddfsnow standard deviation
+    ddfsnow_bndlow = 0               # ddfsnow lower bound
+    ddfsnow_bndhigh = np.inf         # ddfsnow upper bound
 
 elif option_calibration == 'MCMC':
     # Chain options
@@ -289,10 +303,11 @@ elif option_calibration == 'MCMC':
 
 #%% ===== MODEL PARAMETERS =====
 use_calibrated_modelparams = True   # False: use input values, True: use calibrated model parameters
+#print('\nWARNING: using non-calibrated model parameters\n')
 kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
+ddfsnow_iceratio = 0.5              # Ratio degree-day factor snow snow to ice
 if ddfsnow_iceratio != 0.7:
     print('\n\n  Warning: ddfsnow_iceratio is', ddfsnow_iceratio, '\n\n')
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
@@ -344,7 +359,7 @@ option_surfacetype_initial = 1
 #  option 2 - use mean elevation
 #  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
 include_firn = True                 # True: firn included, False: firn is modeled as snow
-include_debris = False               # True: account for debris with melt factors, False: do not account for debris
+include_debris = True               # True: account for debris with melt factors, False: do not account for debris
 
 # Downscaling model options
 # Reference elevation options for downscaling climate variables
@@ -354,7 +369,7 @@ option_temp2bins = 1                # 1: lr_gcm and lr_glac to adjust temp from 
 option_adjusttemp_surfelev = 1      # 1: adjust temps based on surface elev changes; 0: no adjustment
 # Downscale precipitation to bins options
 option_prec2bins = 1                # 1: prec_factor and prec_grad to adjust precip from gcm to the glacier bins
-option_preclimit = 1                # 1: limit the uppermost 25% using an expontial fxn
+option_preclimit = 0                # 1: limit the uppermost 25% using an expontial fxn
 
 # Accumulation model options
 option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
@@ -365,8 +380,9 @@ option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model options
-option_refreezing = 1               # 1: heat conduction (HH2015), 2: annual air temp (Woodward etal 1997)
-if option_refreezing == 1:
+#option_refreezing = 'HH2015'        # HH2015: heat conduction (Huss and Hock, 2015)
+option_refreezing = 'Woodward'      # Woodward: annual air temp (Woodward etal 1997)
+if option_refreezing == 'HH2015':
     rf_layers = 5                   # number of layers for refreezing model (8 is sufficient - Matthias)
 #    rf_layers_max = 8               # number of layers to include for refreeze calculation
     rf_dz = 10/rf_layers            # layer thickness (m)
@@ -377,7 +393,7 @@ if option_refreezing == 1:
     rf_dens_bot = 650               # snow density at bottom refreezing layer (kg m-3)
     option_rf_limit_meltsnow = 1
     
-elif option_refreezing == 2:
+elif option_refreezing == 'Woodward':
     rf_month = 10                   # refreeze month
 
 # Mass redistribution / Glacier geometry change options
@@ -570,6 +586,7 @@ elif hyps_data == 'Huss':
     width_colsdrop = ['RGI-ID','Cont_range']
 elif hyps_data == 'oggm':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
+    overwrite_gdirs = True
     
 # Debris datasets
 if include_debris:

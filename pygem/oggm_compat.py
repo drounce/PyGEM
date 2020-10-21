@@ -10,7 +10,7 @@ from oggm import workflow
 from oggm import tasks
 from oggm.cfg import SEC_IN_YEAR
 from oggm.core.massbalance import MassBalanceModel
-from oggm.shop import rgitopo
+#from oggm.shop import rgitopo
 from pygem.shop import debris, mbdata, icethickness
 
 # Troubleshooting:
@@ -20,6 +20,93 @@ from pygem.shop import debris, mbdata, icethickness
 class CompatGlacDir:
     def __init__(self, rgiid):
         self.rgiid = rgiid
+        
+        
+        
+def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
+    """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
+
+    Parameters
+    ----------
+    rgi_id : str
+        the rgi id of the glacier (RGIv60-)
+    reset : bool
+        set to true to delete any pre-existing files. If false (the default),
+        the directory won't be re-downloaded if already available locally in
+        order to spare time.
+    prepro_border : int
+        the size of the glacier map: 10, 80, 160, 250
+
+    Returns
+    -------
+    a GlacierDirectory object
+    """
+
+    if type(rgi_id) != str:
+        raise ValueError('We expect rgi_id to be a string')
+    if rgi_id.startswith('RGI60-') == False:
+        rgi_id = 'RGI60-' + rgi_id.split('.')[0].zfill(2) + '.' + rgi_id.split('.')[1]
+    else:
+        raise ValueError('Check RGIId is correct')
+
+    # Initialize OGGM and set up the default run parameters
+    cfg.initialize(logging_level='WORKFLOW')
+    cfg.PARAMS['border'] = 10
+    # Usually we recommend to set dl_verify to True - here it is quite slow
+    # because of the huge files so we just turn it off.
+    # Switch it on for real cases!
+    cfg.PARAMS['dl_verify'] = True
+    cfg.PARAMS['use_multiple_flowlines'] = False
+    # temporary directory for testing (deleted on computer restart)
+    cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
+
+    # Check if folder is already processed
+    if not pygem_prms.overwrite_gdirs:
+        try:
+            gdir = utils.GlacierDirectory(rgi_id)
+            gdir.read_pickle('inversion_flowlines')
+            # If the above works the directory is already processed, return
+            return gdir
+        except:
+            pass
+    else:
+
+        # ===== SELECT BEST DEM =====
+#        gdirs = rgitopo.init_glacier_directories_from_rgitopo([rgi_id])  # removed 10/20/2020
+#        gdirs = workflow.init_glacier_directories([rgi_id])
+        
+        # Download preprocessed data
+        gdirs = workflow.init_glacier_regions([rgi_id], from_prepro_level=1, prepro_border=prepro_border)        
+        
+        # Compute all the stuff
+        list_tasks = [
+            tasks.glacier_masks,
+            tasks.compute_centerlines,
+            tasks.initialize_flowlines,
+            tasks.compute_downstream_line,
+            tasks.compute_downstream_bedshape,
+            tasks.catchment_area,
+            tasks.catchment_intersections,      
+            tasks.catchment_width_geom,
+            tasks.catchment_width_correction,            
+            # Consensus ice thickness
+            icethickness.consensus_gridded,
+            icethickness.consensus_binned,
+            # Mass balance data
+            mbdata.mb_df_to_gdir
+        ]
+        
+        # Debris tasks
+        if pygem_prms.include_debris:
+            list_tasks.append(debris.debris_to_gdir)
+            list_tasks.append(debris.debris_binned)
+            
+    
+        for task in list_tasks:
+            workflow.execute_entity_task(task, gdirs)
+    
+        return gdirs[0]
+
 
 
 def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_border=10, k_calving=2):
@@ -41,6 +128,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
     -------
     a GlacierDirectory object
     """
+    assert 1==0, 'UPDATE LATEST GLACIER DIRECTORY OPTIONS FROM NON-CALVING'
     if type(rgi_id) != str:
         raise ValueError('We expect rgi_id to be a string')
     if rgi_id.startswith('RGI60-') == False:
@@ -74,10 +162,11 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
         tasks.compute_centerlines,
         tasks.initialize_flowlines,
         tasks.compute_downstream_line,
+        tasks.compute_downstream_bedshape,
         tasks.catchment_area,
+        tasks.catchment_intersections, # added 10/20/2020
         tasks.catchment_width_geom,
         tasks.catchment_width_correction,
-        tasks.compute_downstream_bedshape,
         # Consensus ice thickness
         icethickness.consensus_gridded,
         icethickness.consensus_binned,
@@ -111,112 +200,6 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
     for task in list_tasks:
         # The order matters!
         workflow.execute_entity_task(task, gdirs)
-    return gdirs[0]
-
-
-def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
-    """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
-
-    Parameters
-    ----------
-    rgi_id : str
-        the rgi id of the glacier (RGIv60-)
-    reset : bool
-        set to true to delete any pre-existing files. If false (the default),
-        the directory won't be re-downloaded if already available locally in
-        order to spare time.
-    prepro_border : int
-        the size of the glacier map: 10, 80, 160, 250
-
-    Returns
-    -------
-    a GlacierDirectory object
-    """
-
-
-    if type(rgi_id) != str:
-        raise ValueError('We expect rgi_id to be a string')
-    if rgi_id.startswith('RGI60-') == False:
-        rgi_id = 'RGI60-' + rgi_id.split('.')[0].zfill(2) + '.' + rgi_id.split('.')[1]
-    else:
-        raise ValueError('Check RGIId is correct')
-#    if 'RGI60-' not in rgi_id:
-#        raise ValueError('OGGM currently expects IDs to start with RGI60-')
-
-#   # ----- Old initialization from February 2020-----
-#    cfg.initialize()
-##    wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/oggm-pygem-{}-b{}'.format(rgi_id, prepro_border)
-##    utils.mkdir(wd, reset=reset)
-##    cfg.PATHS['working_dir'] = wd
-#    cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
-#    cfg.PARAMS['use_multiple_flowlines'] = False
-#    cfg.PARAMS['use_multiprocessing'] = False
-
-
-    # Initialize OGGM and set up the default run parameters
-    cfg.initialize(logging_level='WORKFLOW')
-    cfg.PARAMS['border'] = 10
-    # Usually we recommend to set dl_verify to True - here it is quite slow
-    # because of the huge files so we just turn it off.
-    # Switch it on for real cases!
-    cfg.PARAMS['dl_verify'] = True
-    cfg.PARAMS['use_multiple_flowlines'] = False
-    # temporary directory for testing (deleted on computer restart)
-    #cfg.PATHS['working_dir'] = utils.get_temp_dir('PyGEM_ex')
-    cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
-
-    # Check if folder is already processed
-    try:
-        gdir = utils.GlacierDirectory(rgi_id)
-        gdir.read_pickle('inversion_flowlines')
-        # If the above works the directory is already processed, return
-        return gdir
-    except:
-        pass
-
-    # ===== SELECT BEST DEM =====
-    # Get the pre-processed topography data
-    gdirs = rgitopo.init_glacier_directories_from_rgitopo([rgi_id])
-
-    gdirs = workflow.init_glacier_directories([rgi_id])
-#    # If not ready, we download the preprocessed data for this glacier
-#    gdirs = workflow.init_glacier_regions([rgi_id],
-#                                          from_prepro_level=2,
-#                                          prepro_border=prepro_border)
-
-    # Compute all the stuff
-    list_tasks = [
-        tasks.glacier_masks,
-        tasks.compute_centerlines,
-        tasks.initialize_flowlines,
-        tasks.compute_downstream_line,
-        tasks.catchment_area,
-        tasks.catchment_width_geom,
-        tasks.catchment_width_correction,
-    #    tasks.compute_downstream_bedshape,
-        # Consensus ice thickness
-        icethickness.consensus_gridded,
-        icethickness.consensus_binned,
-        # Mass balance data
-#        mbdata.mb_bins_to_glacierwide
-        mbdata.mb_df_to_gdir
-    #    tasks.local_t_star,
-    #    tasks.mu_star_calibration,
-    #    tasks.prepare_for_inversion,
-    #    tasks.mass_conservation_inversion,
-    #    tasks.filter_inversion_output,
-    #    tasks.init_present_time_glacier,
-    ]
-    
-    # Debris tasks
-    if pygem_prms.include_debris:
-        list_tasks.append(debris.debris_to_gdir)
-        list_tasks.append(debris.debris_binned)
-        
-
-    for task in list_tasks:
-        workflow.execute_entity_task(task, gdirs)
-
     return gdirs[0]
 
 

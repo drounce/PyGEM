@@ -126,8 +126,8 @@ def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_tab
     gcm_temp_subset = gcm_temp[:,gcm_subset_idx_start:gcm_subset_idx_end+1]
     
     # Remove spinup years, so adjustment performed over calibration period
-    ref_temp_nospinup = ref_temp[:,pygem_prms.spinupyears*12:]
-    gcm_temp_nospinup = gcm_temp_subset[:,pygem_prms.spinupyears*12:]
+    ref_temp_nospinup = ref_temp[:,pygem_prms.ref_spinupyears*12:]
+    gcm_temp_nospinup = gcm_temp_subset[:,pygem_prms.gcm_spinupyears*12:]
     
     # Roll months so they are aligned with simulation months
     roll_amt = -1*(12 - gcm_subset_idx_start%12)
@@ -193,8 +193,8 @@ def prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_tab
     gcm_prec_subset = gcm_prec[:,gcm_subset_idx_start:gcm_subset_idx_end+1]
     
     # Remove spinup years, so adjustment performed over calibration period
-    ref_prec_nospinup = ref_prec[:,pygem_prms.spinupyears*12:]
-    gcm_prec_nospinup = gcm_prec_subset[:,pygem_prms.spinupyears*12:]
+    ref_prec_nospinup = ref_prec[:,pygem_prms.ref_spinupyears*12:]
+    gcm_prec_nospinup = gcm_prec_subset[:,pygem_prms.gcm_spinupyears*12:]
     
     # Roll months so they are aligned with simulation months
     roll_amt = -1*(12 - gcm_subset_idx_start%12)
@@ -241,8 +241,8 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     gcm_prec_subset = gcm_prec[:,gcm_subset_idx_start:gcm_subset_idx_end+1]
     
     # Remove spinup years, so adjustment performed over calibration period
-    ref_prec_nospinup = ref_prec[:,pygem_prms.spinupyears*12:]
-    gcm_prec_nospinup = gcm_prec_subset[:,pygem_prms.spinupyears*12:]
+    ref_prec_nospinup = ref_prec[:,pygem_prms.ref_spinupyears*12:]
+    gcm_prec_nospinup = gcm_prec_subset[:,pygem_prms.gcm_spinupyears*12:]
     
     # Roll months so they are aligned with simulation months
     roll_amt = -1*(12 - gcm_subset_idx_start%12)
@@ -343,8 +343,8 @@ def plot_biasadj(ref_temp, gcm_temp_biasadj, ref_prec, gcm_prec, gcm_prec_biasad
     gcm_prec_subset = gcm_prec[:,gcm_subset_idx_start:gcm_subset_idx_end+1]
     
     # Remove spinup years, so adjustment performed over calibration period
-    ref_prec_nospinup = ref_prec[:,pygem_prms.spinupyears*12:]
-    gcm_prec_nospinup = gcm_prec_subset[:,pygem_prms.spinupyears*12:]
+    ref_prec_nospinup = ref_prec[:,pygem_prms.ref_spinupyears*12:]
+    gcm_prec_nospinup = gcm_prec_subset[:,pygem_prms.gcm_spinupyears*12:]
     
     # PRECIPITATION BIAS CORRECTIONS
     # Monthly mean precipitation
@@ -469,14 +469,12 @@ def main(list_packed_vars):
         ref_endyear = pygem_prms.endyear
     else:
         ref_endyear = pygem_prms.gcm_endyear
-#    dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
-#                                               spinupyears=pygem_prms.spinupyears)
-#    dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear,
-#                                           spinupyears=pygem_prms.spinupyears)
     dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear, 
-                                               spinupyears=pygem_prms.spinupyears, option_wateryear=pygem_prms.option_wateryear)
+                                               spinupyears=pygem_prms.ref_spinupyears, 
+                                               option_wateryear=pygem_prms.ref_wateryear)
     dates_table = modelsetup.datesmodelrun(startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear, 
-                                           spinupyears=pygem_prms.gcm_spinupyears, option_wateryear=pygem_prms.gcm_wateryear)
+                                           spinupyears=pygem_prms.gcm_spinupyears, 
+                                           option_wateryear=pygem_prms.gcm_wateryear)
 
     # ===== LOAD CLIMATE DATA =====
     # Reference climate data

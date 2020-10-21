@@ -146,7 +146,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
     glacier_area_t0 = glacier_area_initial.copy()
     icethickness_t0 = icethickness_initial.copy()
     width_t0 = width_initial.copy()
-    if pygem_prms.option_refreezing == 1:
+    if pygem_prms.option_refreezing == 'HH2015':
         # Refreezing layers density, volumetric heat capacity, and thermal conductivity
         rf_dens_expb = (pygem_prms.rf_dens_bot / pygem_prms.rf_dens_top)**(1/(pygem_prms.rf_layers-1))
         rf_layers_dens = np.array([pygem_prms.rf_dens_top * rf_dens_expb**x for x in np.arange(0,pygem_prms.rf_layers)])
@@ -327,7 +327,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     bin_melt[:,step] = bin_meltglac[:,step] + bin_meltsnow[:,step]  
                     
                     # REFREEZING
-                    if pygem_prms.option_refreezing == 1:
+                    if pygem_prms.option_refreezing == 'HH2015':
                         # Refreeze based on heat conduction approach (Huss and Hock 2015)    
                         # refreeze time step (s)
                         rf_dt = 3600 * 24 * dates_table.loc[step,'daysinmonth'] / pygem_prms.rf_dsc
@@ -447,7 +447,7 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                       'Rfrz:', np.round(bin_refreeze[gidx,step],2)
                                       )             
                                 
-                    elif pygem_prms.option_refreezing == 2:
+                    elif pygem_prms.option_refreezing == 'Woodward':
                         # Refreeze based on annual air temperature (Woodward etal. 1997)
                         #  R(m) = (-0.69 * Tair + 0.0096) * 1 m / 100 cm
                         # calculate annually and place potential refreeze in user defined month

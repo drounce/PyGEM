@@ -114,7 +114,7 @@ def debris_to_gdir(gdir, debris_dir=pygem_prms.debris_fp, add_to_gridded=True, h
 
 
 @entity_task(log, writes=['inversion_flowlines'])
-def debris_binned(gdir, ignore_debris=False):
+def debris_binned(gdir, ignore_debris=False, fl_str='inversion_flowlines'):
     """Bin debris thickness and enhancement factors.
     
     Updates the 'inversion_flowlines' save file.
@@ -124,7 +124,7 @@ def debris_binned(gdir, ignore_debris=False):
     gdir : :py:class:`oggm.GlacierDirectory`
         where to write the data
     """
-    flowlines = gdir.read_pickle('inversion_flowlines')
+    flowlines = gdir.read_pickle(fl_str)
     fl = flowlines[0]
     
     assert len(flowlines) == 1, 'Error: binning debris data set up only for single flowlines at present'
@@ -155,13 +155,21 @@ def debris_binned(gdir, ignore_debris=False):
         for nbin in np.arange(0,len(z_bin_edges)-1):
             bin_max = z_bin_edges[nbin]
             bin_min = z_bin_edges[nbin+1]
-            bin_idx = np.where((topo_onglac < bin_max) & (topo_onglac >= bin_min))
-            try:
-                hd_binned[nbin] = hd_onglac[bin_idx].mean()
-                ed_binned[nbin] = ed_onglac[bin_idx].mean()
-            except:
+            bin_idx = np.where((topo_onglac < bin_max) & (topo_onglac >= bin_min))[0]
+            # Debris thickness and enhancement factors for on-glacier bins
+            if len(bin_idx) > 0:
+                hd_binned[nbin] = np.nanmean(hd_onglac[bin_idx])
+                ed_binned[nbin] = np.nanmean(ed_onglac[bin_idx])
+                hd_terminus = hd_binned[nbin]
+                ed_terminus = ed_binned[nbin]
+            # Debris thickness and enhancement factors for bins below the present-day glacier
+            #  assume an advancing glacier will have debris thickness equal to the terminus
+            elif np.mean([bin_min, bin_max]) < topo[idx_glac].min():
+                hd_binned[nbin] = hd_terminus
+                ed_binned[nbin] = ed_terminus
+            else:
                 hd_binned[nbin] = 0
-                ed_binned[nbin] = 1
+                ed_binned[nbin] = 1        
                 
         fl.debris_hd = hd_binned
         fl.debris_ed = ed_binned
@@ -172,5 +180,5 @@ def debris_binned(gdir, ignore_debris=False):
         fl.debris_ed = np.ones(nbins)
     
     # Overwrite pickle
-    gdir.write_pickle(flowlines, 'inversion_flowlines')
+    gdir.write_pickle(flowlines, fl_str)
         
