@@ -80,7 +80,7 @@ class MassRedistributionCurveModel(FlowlineModel):
         # Consider running backwards within here
         
         # We force timesteps to yearly timesteps
-        years = np.arange(0, y1 + 1)
+        years = np.arange(0, y1)
         for year in years:
             self.updategeometry(year)
 
@@ -108,13 +108,14 @@ class MassRedistributionCurveModel(FlowlineModel):
             thick_t0 = fl.thick.copy()
             width_t0 = fl.widths_m.copy()
             
-            if year == 0:
-                self.mb_model.glac_bin_area_annual[:,year] = fl.widths_m / 1000 * fl.dx_meter / 1000
-                self.mb_model.glac_bin_icethickness_annual[:,year] = fl.thick
-                self.mb_model.glac_bin_width_annual[:,year] = fl.widths_m / 1000
-                self.mb_model.glac_wide_area_annual[year] = (fl.widths_m / 1000 * fl.dx_meter / 1000).sum()
-                self.mb_model.glac_wide_volume_annual[year] = (
-                        (fl.widths_m / 1000 * fl.dx_meter / 1000 * fl.thick / 1000).sum())
+            # Recording time zero separately now
+#            if year == 0:
+#                self.mb_model.glac_bin_area_annual[:,year] = fl.widths_m / 1000 * fl.dx_meter / 1000
+#                self.mb_model.glac_bin_icethickness_annual[:,year] = fl.thick
+#                self.mb_model.glac_bin_width_annual[:,year] = fl.widths_m / 1000
+#                self.mb_model.glac_wide_area_annual[year] = (fl.widths_m / 1000 * fl.dx_meter / 1000).sum()
+#                self.mb_model.glac_wide_volume_annual[year] = (
+#                        (fl.widths_m / 1000 * fl.dx_meter / 1000 * fl.thick / 1000).sum())
             
             # CONSTANT AREAS
             #  Mass redistribution ignored for calibration and spinup years (glacier properties constant)
@@ -124,6 +125,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                                                                               year=year, debug=False)                                
             # MASS REDISTRIBUTION
             else:
+                # ----- FRONTAL ABLATION!!! -----
 #                if year == 0:
 #                    print('\nHERE WE NEED THE GET FRONTAL ABLATION!\n')
 #                # First, remove volume lost to frontal ablation
@@ -170,15 +172,14 @@ class MassRedistributionCurveModel(FlowlineModel):
                     self._massredistributionHuss(section_t0, thick_t0, width_t0, glac_bin_massbalclim_annual, 
                                                  self.glac_idx_initial[fl_id], heights, sec_in_year=sec_in_year)                
                     
-            # Record glacier properties (area [km**2], thickness [m], width [km])
+            # Record glacier properties (volume [m3], area [m2], thickness [m], width [km])
             #  record the next year's properties as well
             #  'year + 1' used so the glacier properties are consistent with mass balance computations
-            self.mb_model.glac_bin_area_annual[:,year+1] = fl.widths_m / 1000 * fl.dx_meter / 1000
-            self.mb_model.glac_bin_icethickness_annual[:,year+1] = fl.thick
-            self.mb_model.glac_bin_width_annual[:,year+1] = fl.widths_m / 1000          
-            self.mb_model.glac_wide_area_annual[year+1] = (fl.widths_m / 1000 * fl.dx_meter / 1000).sum()
-            self.mb_model.glac_wide_volume_annual[year+1] = (
-                        (fl.widths_m / 1000 * fl.dx_meter / 1000 * fl.thick / 1000).sum())
+            self.mb_model.glac_bin_area_annual[:,year] = fl.widths_m * fl.dx_meter
+            self.mb_model.glac_bin_icethickness_annual[:,year] = fl.thick
+            self.mb_model.glac_bin_width_annual[:,year] = fl.widths_m
+            self.mb_model.glac_wide_area_annual[year] = (fl.widths_m * fl.dx_meter).sum()
+            self.mb_model.glac_wide_volume_annual[year] = (fl.widths_m * fl.dx_meter * fl.thick).sum()
 
             
     #%%%% ====== START OF MASS REDISTRIBUTION CURVE  
@@ -213,13 +214,12 @@ class MassRedistributionCurveModel(FlowlineModel):
             Updated glacier width [km] for each elevation bin
         """        
         # Reset the annual glacier area and ice thickness
-        glacier_area_t0 = width_t0 * self.fls[0].dx_meter / 1e6
+        glacier_area_t0 = width_t0 * self.fls[0].dx_meter
         glacier_area_t0[thick_t0 == 0] = 0
         
-        # Annual glacier-wide volume change [km**3]
-        #  units: [m w.e.] * (1 km / 1000 m) * (1000 kg / (1 m water * m**2) * (1 m ice * m**2 / 900 kg) * [km**2] 
-        #         = km**3 ice    
-        glacier_volumechange = (glac_bin_massbalclim_annual / 1000 * sec_in_year * glacier_area_t0).sum()
+        # Annual glacier-wide volume change [m3]
+        #  units: [m ice / s] * [s] * [m2] = m3 ice    
+        glacier_volumechange = (glac_bin_massbalclim_annual * sec_in_year * glacier_area_t0).sum()
         
         # For hindcast simulations, volume change is the opposite
         if hindcast == 1:
@@ -231,13 +231,12 @@ class MassRedistributionCurveModel(FlowlineModel):
               
         # If volume loss is less than the glacier volume, then redistribute mass loss/gains across the glacier;
         #  otherwise, the glacier disappears (area and thickness were already set to zero above)
-        glacier_volume_total = (self.fls[0].section * self.fls[0].dx_meter / 1e9).sum()
+        glacier_volume_total = (self.fls[0].section * self.fls[0].dx_meter).sum()
         if -1 * glacier_volumechange < glacier_volume_total:
              # Determine where glacier exists            
             glac_idx_t0 = self.fls[0].thick.nonzero()[0]
             
-            # Compute ice thickness [m ice], glacier area [km**2] and ice thickness change [m ice] after 
-            #  redistribution of gains/losses
+            # Compute ice thickness [m ice], glacier area [m2], ice thickness change [m ice] after redistribution
             if pygem_prms.option_massredistribution == 1:
                 icethickness_change, glacier_volumechange_remaining = (
                         self._massredistributioncurveHuss(section_t0, thick_t0, width_t0, glac_idx_t0,
@@ -256,13 +255,13 @@ class MassRedistributionCurveModel(FlowlineModel):
                 width_t0_retreated = self.fls[0].widths_m.copy()
                 glacier_volumechange_remaining_retreated = glacier_volumechange_remaining.copy()
                 glac_idx_t0_retreated = thick_t0_retreated.nonzero()[0]  
-                glacier_area_t0_retreated = width_t0_retreated * self.fls[0].dx_meter / 1e6
+                glacier_area_t0_retreated = width_t0_retreated * self.fls[0].dx_meter
                 glacier_area_t0_retreated[thick_t0 == 0] = 0
                 # Set climatic mass balance for the case when there are less than 3 bins  
                 #  distribute the remaining glacier volume change over the entire glacier (remaining bins)
                 massbalclim_retreat = np.zeros(thick_t0_retreated.shape)
                 massbalclim_retreat[glac_idx_t0_retreated] = (glacier_volumechange_remaining / 
-                                                               glacier_area_t0_retreated.sum() * 1000)
+                                                               glacier_area_t0_retreated.sum())
                 # Mass redistribution 
                 if pygem_prms.option_massredistribution == 1:
                     # Option 1: apply mass redistribution using Huss' empirical geometry change equations
@@ -286,24 +285,22 @@ class MassRedistributionCurveModel(FlowlineModel):
                 section_t0_raw = self.fls[0].section.copy()
                 thick_t0_raw = self.fls[0].thick.copy()
                 width_t0_raw = self.fls[0].widths_m.copy()
-                glacier_area_t0_raw = width_t0_raw * self.fls[0].dx_meter / 1e6
+                glacier_area_t0_raw = width_t0_raw * self.fls[0].dx_meter
                 
                 # Index bins that are advancing
                 icethickness_change[icethickness_change <= pygem_prms.icethickness_advancethreshold] = 0
                 glac_idx_advance = icethickness_change.nonzero()[0]
                 
                 # Update ice thickness based on maximum advance threshold [m ice]
-#                print('before:', np.round(self.fls[0].thick[85:92],1))
                 self.fls[0].thick[glac_idx_advance] = (self.fls[0].thick[glac_idx_advance] - 
                                (icethickness_change[glac_idx_advance] - pygem_prms.icethickness_advancethreshold))
-                glacier_area_t1 = self.fls[0].widths_m.copy() * self.fls[0].dx_meter / 1e6
+                glacier_area_t1 = self.fls[0].widths_m.copy() * self.fls[0].dx_meter
                 
-                # Advance volume [km**3]
-                advance_volume = ((glacier_area_t0_raw[glac_idx_advance] * thick_t0_raw[glac_idx_advance] / 1000).sum() 
-                                  - (glacier_area_t1[glac_idx_advance] * self.fls[0].thick[glac_idx_advance] 
-                                      / 1000).sum())
+                # Advance volume [m3]
+                advance_volume = ((glacier_area_t0_raw[glac_idx_advance] * thick_t0_raw[glac_idx_advance]).sum() 
+                                  - (glacier_area_t1[glac_idx_advance] * self.fls[0].thick[glac_idx_advance]).sum())
                 # Set the cross sectional area of the next bin
-                advance_section = advance_volume * 1e9 / self.fls[0].dx_meter
+                advance_section = advance_volume / self.fls[0].dx_meter
                 
                 # Index of bin to add
                 glac_idx_t0 = self.fls[0].thick.nonzero()[0]
@@ -313,8 +310,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                                  self.fls[0].surface_h[np.where(self.fls[0].surface_h < min_elev)[0]].max())[0][0])
                 section_2add = self.fls[0].section.copy()
                 section_2add[glac_idx_bin2add] = advance_section
-                self.fls[0].section = section_2add
-#                print('after:', np.round(self.fls[0].thick[85:92],1))                
+                self.fls[0].section = section_2add              
 
                 # Advance characteristics
                 # Indices that define the glacier terminus
@@ -330,7 +326,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                 if debug:
                     print('glacier index terminus:',glac_idx_terminus)
 
-                # Average area of glacier terminus [km**2]
+                # Average area of glacier terminus [m2]
                 #  exclude the bin at the terminus, since this bin may need to be filled first
                 try:
                     minelev_idx = np.where(heights == heights[glac_idx_terminus].min())[0][0]
@@ -354,7 +350,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                 if self.fls[0].thick[glac_idx_bin2add] > terminus_thickness_avg:
                     self.fls[0].thick[glac_idx_bin2add] = terminus_thickness_avg
                     # Redistribute remaining mass
-                    volume_added2bin = self.fls[0].section[glac_idx_bin2add] * self.fls[0].dx_meter / 1e9
+                    volume_added2bin = self.fls[0].section[glac_idx_bin2add] * self.fls[0].dx_meter
                     advance_volume -= volume_added2bin
     
                 # With remaining advance volume, add a bin or redistribute over existing bins if no bins left
@@ -369,10 +365,10 @@ class MassRedistributionCurveModel(FlowlineModel):
                     # otherwise, redistribute mass
                     else:
                         glac_idx_t0 = self.fls[0].thick.nonzero()[0]
-                        glacier_area_t0 = self.fls[0].widths_m.copy() * self.fls[0].dx_meter / 1e6
+                        glacier_area_t0 = self.fls[0].widths_m.copy() * self.fls[0].dx_meter
                         glac_bin_massbalclim_annual = np.zeros(self.fls[0].thick.shape)
                         glac_bin_massbalclim_annual[glac_idx_t0] = (glacier_volumechange_remaining / 
-                                                                    glacier_area_t0.sum() * 1000)
+                                                                    glacier_area_t0.sum())
                         icethickness_change, glacier_volumechange_remaining = (
                             self._massredistributioncurveHuss(
                                     self.fls[0].section.copy(), self.fls[0].thick.copy(), self.fls[0].widths_m.copy(), 
@@ -408,11 +404,11 @@ class MassRedistributionCurveModel(FlowlineModel):
         Returns
         -------
         glacier_area_t1 : np.ndarray
-            Updated glacier area [km2] for each elevation bin
+            Updated glacier area [m2] for each elevation bin
         icethickness_t1 : np.ndarray
             Updated ice thickness [m] for each elevation bin
         width_t1 : np.ndarray
-            Updated glacier width [km] for each elevation bin
+            Updated glacier width [m] for each elevation bin
         icethickness_change : np.ndarray
             Ice thickness change [m] for each elevation bin
         glacier_volumechange_remaining : float
@@ -424,7 +420,7 @@ class MassRedistributionCurveModel(FlowlineModel):
             
         # Apply Huss redistribution if there are at least 3 elevation bands; otherwise, use the mass balance        
         # Glacier area used to select parameters
-        glacier_area_t0 = width_t0 * self.fls[0].dx_meter / 1e6
+        glacier_area_t0 = width_t0 * self.fls[0].dx_meter
         glacier_area_t0[thick_t0 == 0] = 0
         # Apply mass redistribution curve
         if glac_idx_t0.shape[0] > 3:
@@ -454,32 +450,25 @@ class MassRedistributionCurveModel(FlowlineModel):
             icethicknesschange_norm[icethicknesschange_norm > 1] = 1
             icethicknesschange_norm[icethicknesschange_norm < 0] = 0
             # Huss' ice thickness scaling factor, fs_huss [m ice]         
-            #  units: km**3 / (km**2 * [-]) * (1000 m / 1 km) = m ice
-            fs_huss = glacier_volumechange / (glacier_area_t0 * icethicknesschange_norm).sum() * 1000
+            #  units: m3 / (m2 * [-]) * (1000 m / 1 km) = m ice
+            fs_huss = glacier_volumechange / (glacier_area_t0 * icethicknesschange_norm).sum()
             if debug:
                 print('fs_huss:', fs_huss)
-            # Volume change [km**3 ice]
-            bin_volumechange = icethicknesschange_norm * fs_huss / 1000 * glacier_area_t0
+            # Volume change [m3 ice]
+            bin_volumechange = icethicknesschange_norm * fs_huss * glacier_area_t0
             
         # Otherwise, compute volume change in each bin based on the climatic mass balance
         else:
-            bin_volumechange = massbalclim_annual / 1000 * glacier_area_t0
-            
-#        # Testing heavy retreat
-#        print('\n\ndelete me!')
-#        bin_volumechange[88] = -500 * self.fls[0].section[88] * self.fls[0].dx_meter / 1e9
-#        print('to here')
+            bin_volumechange = massbalclim_annual * glacier_area_t0
             
         if debug:
             print('-----\n')
             vol_before = section_t0 * self.fls[0].dx_meter
             np.set_printoptions(suppress=True)
-            
-#        print('before:', np.round(self.fls[0].thick[85:92],1))
 
         # Update cross sectional area (updating thickness does not conserve mass in OGGM!) 
         #  volume change divided by length (dx); units m2
-        section_change = bin_volumechange * 1e9 / self.fls[0].dx_meter
+        section_change = bin_volumechange / self.fls[0].dx_meter
         self.fls[0].section = utils.clip_min(self.fls[0].section + section_change, 0)
         # Ice thickness change [m ice]
         icethickness_change = self.fls[0].thick - thick_t0
@@ -488,14 +477,12 @@ class MassRedistributionCurveModel(FlowlineModel):
         
         if debug:
             print('vol_chg_wanted:', bin_volumechange.sum())
-            print('vol_chg:', (vol_after - vol_before)/1e9)
+            print('vol_chg:', (vol_after - vol_before))
             print('\n-----')
-        
-#        print('after:', np.round(self.fls[0].thick[85:92],1))
         
         # Compute the remaining volume change
         bin_volumechange_remaining = (bin_volumechange - (self.fls[0].section * self.fls[0].dx_meter - 
-                                                          section_t0 * self.fls[0].dx_meter) * 1e-9)
+                                                          section_t0 * self.fls[0].dx_meter))
         # remove values below tolerance to avoid rounding errors
         bin_volumechange_remaining[abs(bin_volumechange_remaining) < pygem_prms.tolerance] = 0
         # Glacier volume change remaining - if less than zero, then needed for retreat

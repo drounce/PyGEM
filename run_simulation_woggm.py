@@ -24,7 +24,7 @@ import class_climate
 #import class_mbdata
 import pygem.pygem_input as pygem_prms
 from pygem.massbalance import PyGEMMassBalance
-#from pygem.glacierdynamics import MassRedistributionCurveModel
+from pygem.glacierdynamics import MassRedistributionCurveModel
 from pygem.oggm_compat import single_flowline_glacier_directory, single_flowline_glacier_directory_with_calving
 from pygem.shop import debris
 import pygemfxns_gcmbiasadj as gcmbiasadj
@@ -789,7 +789,7 @@ def main(list_packed_vars):
 
 
                 #%%
-                # ----- MODEL WITH EVOLVING AREA (INVERSION AND OGGM DYNAMICS) -----
+                # ----- ICE THICKNESS INVERSION using OGGM -----
                 # Perform inversion based on PyGEM MB
                 fls_inv = gdir.read_pickle('inversion_flowlines')
                 mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
@@ -798,9 +798,11 @@ def main(list_packed_vars):
                                              debug_refreeze=pygem_prms.debug_refreeze,
                                              fls=fls, option_areaconstant=True)
                 h, w = gdir.get_inversion_flowline_hw()
-                pyg  = mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls_inv) * cfg.SEC_IN_YEAR * 900
-                plt.plot(pyg, h, '.')
-                plt.show()
+                
+                if debug:
+                    pyg  = mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls_inv) * cfg.SEC_IN_YEAR * 900
+                    plt.plot(pyg, h, '.')
+                    plt.show()
                 
                 
                 # Arbitrariliy shift the MB profile up (or down) until mass balance is zero (equilibrium for inversion)
@@ -817,30 +819,59 @@ def main(list_packed_vars):
                 debris.debris_binned(gdir, fl_str='model_flowlines')  # add debris enhancement factors to flowlines
                 nfls = gdir.read_pickle('model_flowlines')
                 
+                
+                
+                #%%
+                # ------ MODEL WITH EVOLVING AREA ------
+                # Mass balance model
                 mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
                                          hindcast=pygem_prms.hindcast,
                                          debug=pygem_prms.debug_mb,
                                          debug_refreeze=pygem_prms.debug_refreeze,
                                          fls=nfls, option_areaconstant=True)
-                ev_model = FluxBasedModel(nfls, y0=0, mb_model=mbmod, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier,
-                                          fs=fs)
-
-                print('New glacier vol', ev_model.volume_km3)
-
-                graphics.plot_modeloutput_section(ev_model)
-                _, diag = ev_model.run_until_and_store(nyears)
-                graphics.plot_modeloutput_section(ev_model)
-                plt.figure()
-                diag.volume_m3.plot()
-                plt.figure()
-                diag.area_m2.plot()
-                plt.show()
                 
-                if debug:
-                    mb_check = (diag.volume_m3.values[-1] - diag.volume_m3.values[0]) / diag.area_m2.values[0] / nyears
-                    print('mb_check [mwea]:', np.round(mb_check,2))
+                # Glacier dynamics model
+                if pygem_prms.option_dynamics == 'OGGM':
+                    ev_model = FluxBasedModel(nfls, y0=0, mb_model=mbmod, 
+                                              glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
 
-#                #%% ===== Adding functionality for calving =====
+                    if debug:
+                        print('New glacier vol', ev_model.volume_km3)
+        
+                    _, diag = ev_model.run_until_and_store(nyears)
+                        
+                    if debug:
+                        graphics.plot_modeloutput_section(ev_model)
+                        plt.figure()
+                        diag.volume_m3.plot()
+                        plt.figure()
+                        diag.area_m2.plot()
+                        plt.show()
+                        
+                        if debug:
+                            mb_check = ((diag.volume_m3.values[-1] - diag.volume_m3.values[0]) 
+                                        / diag.area_m2.values[0] / nyears)
+                            print('mb_check [mwea]:', np.round(mb_check,2))
+                            
+                    
+                    
+                elif pygem_prms.option_dynamics == 'MassRedistributionCurves':
+                    print('\nrunning mass redistribution model...')
+                    ev_model = MassRedistributionCurveModel(nfls, mb_model=mbmod, y0=0)
+#                    ev_model.run_until_and_store(nyears)
+                    ev_model.run_until(nyears)
+                    
+                    print('See if we can get run_until_and_store working similarly to oggm')
+                    
+                    print(ev_model.mb_model.glac_wide_area_annual)
+            
+            
+#                    plt.figure()
+#                    
+#                    plt.show()
+    
+
+                #%% ===== Adding functionality for calving =====
 #                water_level = None
 #                if glacier_rgi_table['TermType'] == 1:
 ##                    # Calving params - default is 2.4, which is quite high
@@ -975,13 +1006,12 @@ def main(list_packed_vars):
 
                 # ===== END INVERSION AND MODEL RUN WITH OGGM DYNAMICS =====                #%%
 
-#                print('\nrunning mass redistribution model...')
-#                model = MassRedistributionCurveModel(fls, mb_model=mbmod, y0=0)
-#                model.run_until(pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
-#                model.run_until(1)
+
 
                 if args.option_parallels == 0:
                     print('\nTO-DO LIST:')
+                    print(' - remove diag.area_m2 recording and diag.volume_m3 and record within model for consistency')
+                    print(' - automate ice thickness inversion for volume to agree with consensus estimate')
                     print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
                     print(' - update supercomputer environment to ensure code still runs on spc')
                     print('    --> get set up with Pittsburgh Supercomputing Center')
@@ -997,8 +1027,8 @@ def main(list_packed_vars):
                 output_massbaltotal_glac_monthly[:, n_iter] = mbmod.glac_wide_massbaltotal
                 output_runoff_glac_monthly[:, n_iter] = mbmod.glac_wide_runoff
                 output_snowline_glac_monthly[:, n_iter] = mbmod.glac_wide_snowline
-                output_area_glac_annual[:, n_iter] = diag.area_m2.values[1:]
-                output_volume_glac_annual[:, n_iter] = diag.volume_m3.values[1:]
+#                output_area_glac_annual[:, n_iter] = diag.area_m2.values[1:]
+#                output_volume_glac_annual[:, n_iter] = diag.volume_m3.values[1:]
                 output_ELA_glac_annual[:, n_iter] = mbmod.glac_wide_ELA_annual
                 output_offglac_prec_monthly[:, n_iter] = mbmod.offglac_wide_prec
                 output_offglac_refreeze_monthly[:, n_iter] = mbmod.offglac_wide_refreeze
@@ -1010,8 +1040,8 @@ def main(list_packed_vars):
             # ===== Export Results =====
             # Create empty dataset
             output_ds_all_stats, encoding = create_xrdataset(glacier_rgi_table, dates_table)
-            output_ds_all_stats['glac_area_initial'].values[0] = diag.area_m2.values[0]
-            output_ds_all_stats['glac_volume_initial'].values[0] = diag.volume_m3.values[0]
+#            output_ds_all_stats['glac_area_initial'].values[0] = diag.area_m2.values[0]
+#            output_ds_all_stats['glac_volume_initial'].values[0] = diag.volume_m3.values[0]
             
             # Output statistics
             output_temp_glac_monthly_stats = calc_stats_array(output_temp_glac_monthly)
@@ -1215,7 +1245,7 @@ if __name__ == '__main__':
 #        modelprms = main_vars['modelprms']
         glacier_rgi_table = main_vars['glacier_rgi_table']
         glacier_str = main_vars['glacier_str']
-        if pygem_prms.hyps_data in ['oggm']:
+        if pygem_prms.hyps_data in ['OGGM']:
             gdir = main_vars['gdir']
             fls = main_vars['fls']
             elev_bins = fls[0].surface_h

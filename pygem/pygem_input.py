@@ -152,10 +152,10 @@ if constantarea_years > 0:
     print('\nConstant area years > 0\n')
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
-#gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2019              # last year of model run (simulation dataset)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2100              # last year of model run (simulation dataset)
+gcm_endyear = 2019              # last year of model run (simulation dataset)
+#gcm_startyear = 2000            # first year of model run (simulation dataset)
+#gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
@@ -307,7 +307,7 @@ use_calibrated_modelparams = True   # False: use input values, True: use calibra
 kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
-ddfsnow_iceratio = 0.5              # Ratio degree-day factor snow snow to ice
+ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 if ddfsnow_iceratio != 0.7:
     print('\n\n  Warning: ddfsnow_iceratio is', ddfsnow_iceratio, '\n\n')
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
@@ -506,7 +506,7 @@ h_consensus_fp = main_directory + '/../IceThickness_Farinotti/composite_thicknes
 binsize = 10            # Elevation bin height [m]
 #hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
 #hyps_data = 'Farinotti' # Hyspsometry dataset (Farinotti etal 2019)
-hyps_data = 'oggm'       # Hypsometry dataset (OGGM; Maussion etal 2019)
+hyps_data = 'OGGM'       # Hypsometry dataset (OGGM; Maussion etal 2019)
 
 # Data from Farinotti et al. (2019): Consensus ice thickness estimates
 if hyps_data == 'Farinotti':
@@ -584,9 +584,13 @@ elif hyps_data == 'Huss':
                     16: 'width_16_Huss_LowLatitudes_10m.csv',
                     17: 'width_17_Huss_SouthernAndes_10m.csv'}
     width_colsdrop = ['RGI-ID','Cont_range']
-elif hyps_data == 'oggm':
+elif hyps_data == 'OGGM':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
-    overwrite_gdirs = True
+    overwrite_gdirs = False
+    
+# Glacier dynamics options ('OGGM', 'MassRedistributionCurves', None??)
+option_dynamics = 'OGGM'
+#option_dynamics = 'MassRedistributionCurves'
     
 # Debris datasets
 if include_debris:

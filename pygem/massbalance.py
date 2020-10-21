@@ -121,9 +121,9 @@ class PyGEMMassBalance(MassBalanceModel):
         self.glac_bin_massbalclim = np.zeros((nbins,self.nmonths))
         self.glac_bin_massbalclim_annual = np.zeros((nbins,self.nyears))
         self.glac_bin_surfacetype_annual = np.zeros((nbins,self.nyears))
-#        self.glac_bin_icethickness_annual = np.zeros((nbins,self.nyears))
         self.glac_bin_area_annual = np.zeros((nbins,self.nyears))
-#        self.glac_bin_width_annual = np.zeros((nbins,self.nyears))
+        self.glac_bin_icethickness_annual = np.zeros((nbins,self.nyears)) # Needed for MassRedistributionCurves
+        self.glac_bin_width_annual = np.zeros((nbins,self.nyears))        # Needed for MassRedistributionCurves
         self.offglac_bin_prec = np.zeros((nbins,self.nmonths))
         self.offglac_bin_melt = np.zeros((nbins,self.nmonths))
         self.offglac_bin_refreeze = np.zeros((nbins,self.nmonths))
@@ -591,7 +591,7 @@ class PyGEMMassBalance(MassBalanceModel):
                     if debug:
                         print('mb_mwea:', np.round(mb_mwea,3))
 
-                    # If mass loss more negative than glacier mass, reduce melt so glacier completely melts without excess
+                    # If mass loss more negative than glacier mass, reduce melt so glacier completely melts (no excess)
                     if mb_mwea < mb_max_loss:
 
                         if debug:
@@ -601,9 +601,10 @@ class PyGEMMassBalance(MassBalanceModel):
 
                         glac_wide_melt = ((self.glac_bin_melt[:,12*year:12*(year+1)] *
                                            glacier_area_t0[:,np.newaxis]).sum() / glacier_area_t0.sum())
-                        # adjust using tolerance to avoid any rounding errors that would leave a little glacier volume left
-                        self.glac_bin_melt[:,12*year:12*(year+1)] = (self.glac_bin_melt[:,12*year:12*(year+1)] *
-                                                                     (1 + pygem_prms.tolerance - mb_dif / glac_wide_melt))
+                        # adjust with tolerance to avoid rounding errors that would leave a little glacier volume left
+                        self.glac_bin_melt[:,12*year:12*(year+1)] = (
+                                self.glac_bin_melt[:,12*year:12*(year+1)] * 
+                                (1 + pygem_prms.tolerance - mb_dif / glac_wide_melt))
                         self.glac_bin_massbalclim[:,12*year:12*(year+1)] = (
                                 self.bin_acc[:,12*year:12*(year+1)] + self.glac_bin_refreeze[:,12*year:12*(year+1)] -
                                 self.glac_bin_melt[:,12*year:12*(year+1)])

@@ -684,7 +684,8 @@ def main(list_packed_vars):
                 ddfsnow_init = pygem_prms.ddfsnow_init
                 ddfsnow_bndlow = pygem_prms.ddfsnow_bndlow
                 ddfsnow_bndhigh = pygem_prms.ddfsnow_bndhigh
-                assert pygem_prms.ddfsnow_iceratio == 0.5, 'Error: ddfsnow_iceratio for HH2015 must be 0.5'
+                
+#                assert pygem_prms.ddfsnow_iceratio == 0.5, 'Error: ddfsnow_iceratio for HH2015 must be 0.5'
 
                 # ----- Initialize model parameters -----
                 modelprms['tbias'] = tbias_init
@@ -1364,7 +1365,7 @@ if __name__ == '__main__':
 #        modelprms = main_vars['modelprms']
         glacier_rgi_table = main_vars['glacier_rgi_table']
         glacier_str = main_vars['glacier_str']
-        if pygem_prms.hyps_data in ['oggm']:
+        if pygem_prms.hyps_data in ['OGGM']:
             gdir = main_vars['gdir']
             fls = main_vars['fls']
             elev_bins = fls[0].surface_h
