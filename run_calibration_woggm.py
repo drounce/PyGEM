@@ -1079,7 +1079,7 @@ def main(list_packed_vars):
                 # ----- RUN OPTIMIZATION WITH CONSTRAINED BOUNDS -----
                 tbias_bnds = (tbias_bndlow_opt, tbias_bndhigh_opt)
                 kp_bnds = (kp_bndlow, kp_bndhigh)
-                ddfsnow_bnds = (ddfsnow_init, ddfsnow_init)
+                ddfsnow_bnds = (ddfsnow_init-pygem_prms.tolerance, ddfsnow_init+pygem_prms.tolerance)
                 tbias_init = np.mean([tbias_bndlow_opt, tbias_bndhigh_opt])
                 kp_init = kp_init
 
