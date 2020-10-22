@@ -194,8 +194,8 @@ option_bias_adjustment = 1
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('MCMC', 'HH2015', 'HH2015mod')
 #option_calibration = 'MCMC'
-option_calibration = 'HH2015'
-#option_calibration = 'HH2015mod'
+#option_calibration = 'HH2015'
+option_calibration = 'HH2015mod'
 #option_calibration = 'emulator'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 cal_datasets = ['shean']
@@ -589,8 +589,8 @@ elif hyps_data == 'OGGM':
     overwrite_gdirs = False
     
 # Glacier dynamics options ('OGGM', 'MassRedistributionCurves', None??)
-option_dynamics = 'OGGM'
-#option_dynamics = 'MassRedistributionCurves'
+#option_dynamics = 'OGGM'
+option_dynamics = 'MassRedistributionCurves'
     
 # Debris datasets
 if include_debris:

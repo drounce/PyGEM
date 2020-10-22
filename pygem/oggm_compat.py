@@ -68,9 +68,13 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
             # If the above works the directory is already processed, return
             return gdir
         except:
-            pass
+            process_gdir = True
+        
     else:
+        process_gdir = True
+        print('here!')
 
+    if process_gdir:
         # ===== SELECT BEST DEM =====
 #        gdirs = rgitopo.init_glacier_directories_from_rgitopo([rgi_id])  # removed 10/20/2020
 #        gdirs = workflow.init_glacier_directories([rgi_id])

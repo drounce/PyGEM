@@ -1032,8 +1032,8 @@ def main(list_packed_vars):
 
                 # Constrain bounds of precipitation factor and temperature bias
                 mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-                nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms_copy, glacier_rgi_table, fls=fls,
-                                                           return_tbias_mustmelt=True)
+                nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                   return_tbias_mustmelt=True)
 
                 if debug:
                     print('\ntbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),

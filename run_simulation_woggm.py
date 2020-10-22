@@ -858,12 +858,27 @@ def main(list_packed_vars):
                 elif pygem_prms.option_dynamics == 'MassRedistributionCurves':
                     print('\nrunning mass redistribution model...')
                     ev_model = MassRedistributionCurveModel(nfls, mb_model=mbmod, y0=0)
+                    
+#                    ev_model.run_until(nyears)
+#                    print(ev_model.mb_model.glac_wide_area_annual)
+                    
 #                    ev_model.run_until_and_store(nyears)
-                    ev_model.run_until(nyears)
+                    _, diag = ev_model.run_until_and_store(nyears)
+#                    
+#                    if debug:
+#                        graphics.plot_modeloutput_section(ev_model)
+#                        plt.figure()
+#                        diag.volume_m3.plot()
+#                        plt.figure()
+#                        diag.area_m2.plot()
+#                        plt.show()
+#                        
+#                        if debug:
+#                            mb_check = ((diag.volume_m3.values[-1] - diag.volume_m3.values[0]) 
+#                                        / diag.area_m2.values[0] / nyears)
+#                            print('mb_check [mwea]:', np.round(mb_check,2))
+
                     
-                    print('See if we can get run_until_and_store working similarly to oggm')
-                    
-                    print(ev_model.mb_model.glac_wide_area_annual)
             
             
 #                    plt.figure()
@@ -1010,6 +1025,7 @@ def main(list_packed_vars):
 
                 if args.option_parallels == 0:
                     print('\nTO-DO LIST:')
+                    print(' - HH2015mod doesnt load inversion flowlines')
                     print(' - remove diag.area_m2 recording and diag.volume_m3 and record within model for consistency')
                     print(' - automate ice thickness inversion for volume to agree with consensus estimate')
                     print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
