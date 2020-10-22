@@ -589,8 +589,8 @@ elif hyps_data == 'OGGM':
     overwrite_gdirs = False
     
 # Glacier dynamics options ('OGGM', 'MassRedistributionCurves', None??)
-#option_dynamics = 'OGGM'
-option_dynamics = 'MassRedistributionCurves'
+option_dynamics = 'OGGM'
+#option_dynamics = 'MassRedistributionCurves'
     
 # Debris datasets
 if include_debris:
