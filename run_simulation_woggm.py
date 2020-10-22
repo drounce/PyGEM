@@ -848,10 +848,10 @@ def main(list_packed_vars):
                         diag.area_m2.plot()
                         plt.show()
                         
-                        if debug:
-                            mb_check = ((diag.volume_m3.values[-1] - diag.volume_m3.values[0]) 
-                                        / diag.area_m2.values[0] / nyears)
-                            print('mb_check [mwea]:', np.round(mb_check,2))
+#                        if debug:
+#                            mb_check = ((diag.volume_m3.values[-1] - diag.volume_m3.values[0]) 
+#                                        / diag.area_m2.values[0] / nyears)
+#                            print('mb_check [mwea]:', np.round(mb_check,2))
                             
                     
                     
@@ -864,19 +864,24 @@ def main(list_packed_vars):
                     
 #                    ev_model.run_until_and_store(nyears)
                     _, diag = ev_model.run_until_and_store(nyears)
-#                    
-#                    if debug:
-#                        graphics.plot_modeloutput_section(ev_model)
-#                        plt.figure()
-#                        diag.volume_m3.plot()
-#                        plt.figure()
-#                        diag.area_m2.plot()
-#                        plt.show()
-#                        
-#                        if debug:
-#                            mb_check = ((diag.volume_m3.values[-1] - diag.volume_m3.values[0]) 
-#                                        / diag.area_m2.values[0] / nyears)
-#                            print('mb_check [mwea]:', np.round(mb_check,2))
+                    
+                    if debug:
+                        graphics.plot_modeloutput_section(ev_model)
+                        plt.figure()
+                        diag.volume_m3.plot()
+                        plt.figure()
+                        diag.area_m2.plot()
+                        plt.show()
+                        
+                if debug:
+                    mb_check = ((diag.volume_m3.values[-1] - diag.volume_m3.values[0]) 
+                                / diag.area_m2.values[0] / nyears)
+                    mb_check_mbmod = mbmod.glac_wide_massbaltotal.sum() / diag.area_m2.values[0] / nyears
+                    
+                    print('mb_check_from_vol [mwea]:', np.round(mb_check,3),
+                          'mb_check_from_mbmod [mwea]:', np.round(mb_check_mbmod,3))
+                    
+                    print('\n\n ISSUE: APPEAR TO NOT BE CONSERVING MASS WITH MASS REDISTRIBUTION\n\n')
 
                     
             
@@ -1025,7 +1030,6 @@ def main(list_packed_vars):
 
                 if args.option_parallels == 0:
                     print('\nTO-DO LIST:')
-                    print(' - HH2015mod doesnt load inversion flowlines')
                     print(' - remove diag.area_m2 recording and diag.volume_m3 and record within model for consistency')
                     print(' - automate ice thickness inversion for volume to agree with consensus estimate')
                     print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')

@@ -65,6 +65,7 @@ class MassRedistributionCurveModel(FlowlineModel):
         self.constantarea_years = constantarea_years
         self.spinupyears = spinupyears
         self.glac_idx_initial = [fl.thick.nonzero()[0] for fl in flowlines]
+        self.y0 = 0
         
         # HERE IS THE STUFF TO RECORD FOR EACH FLOWLINE!
         self.calving_m3_since_y0 = 0.  # total calving since time y0
@@ -72,8 +73,7 @@ class MassRedistributionCurveModel(FlowlineModel):
         assert len(flowlines) == 1, 'MassRedistributionCurveModel is not set up for multiple flowlines'
 
 
-#    def run_until(self, y1, y0=0):
-    def run_until(self, y1):
+    def run_until(self, y1, y0=0):
         """Runs the model from the current year up to a given year date y1.
         This function runs the model for the time difference y1-self.y0
         If self.y0 has not been specified at some point, it is 0 and y1 will
@@ -84,13 +84,9 @@ class MassRedistributionCurveModel(FlowlineModel):
             Upper time span for how long the model should run
         """
         
-        # Consider running backwards within here
-        
         # We force timesteps to yearly timesteps
-#        years = np.arange(self.y0, y1)
-        years = np.arange(0, y1)
+        years = np.arange(y0, y1+1)
         for year in years:
-            print('year in run_until func:', year)
             self.updategeometry(year)
 
         # Check for domain bounds
@@ -136,11 +132,11 @@ class MassRedistributionCurveModel(FlowlineModel):
         """
 
         # time
-        yearly_time = np.arange(np.floor(self.yr), np.floor(y1)+1)
+        yearly_time = np.arange(np.floor(self.yr), np.floor(y1))
         if store_monthly_step:
             monthly_time = utils.monthly_timeseries(self.yr, y1)
         else:
-            monthly_time = np.arange(np.floor(self.yr), np.floor(y1)+1)
+            monthly_time = np.arange(np.floor(self.yr), np.floor(y1))
         yrs, months = utils.floatyear_to_date(monthly_time)
         if pygem_prms.gcm_wateryear == 1:
             start_month = pygem_prms.wateryear_month_start
@@ -168,8 +164,7 @@ class MassRedistributionCurveModel(FlowlineModel):
         diag_ds.attrs['description'] = 'PyGEM-OGGM model output'
         diag_ds.attrs['oggm_version'] = __version__
         diag_ds.attrs['calendar'] = '365-day no leap'
-        diag_ds.attrs['creation_date'] = strftime("%Y-%m-%d %H:%M:%S",
-                                                  gmtime())
+        diag_ds.attrs['creation_date'] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
 
         # Coordinates
         diag_ds.coords['time'] = ('time', monthly_time)
@@ -194,9 +189,6 @@ class MassRedistributionCurveModel(FlowlineModel):
         diag_ds['length_m'] = ('time', np.zeros(nm) * np.NaN)
         diag_ds['length_m'].attrs['description'] = 'Glacier length'
         diag_ds['length_m'].attrs['unit'] = 'm 3'
-        diag_ds['ela_m'] = ('time', np.zeros(nm) * np.NaN)
-        diag_ds['ela_m'].attrs['description'] = ('Annual Equilibrium Line Altitude  (ELA)')
-        diag_ds['ela_m'].attrs['unit'] = 'm a.s.l'
         if self.is_tidewater:
             diag_ds['calving_m3'] = ('time', np.zeros(nm) * np.NaN)
             diag_ds['calving_m3'].attrs['description'] = ('Total accumulated calving flux')
@@ -205,8 +197,9 @@ class MassRedistributionCurveModel(FlowlineModel):
         # Run
         j = 0
         for i, (yr, mo) in enumerate(zip(monthly_time, months)):
-            print('year for run_until:', yr)
-            self.run_until(yr)
+            # Hack to run individual year, since run_until arranges years as yr+1 to be inclusive
+            #  hence, yr and y0=yr means you're just running this for the given year
+            self.run_until(yr, y0=yr)
             # Model run
             if mo == 1:
                 for s, w, fl in zip(sects, widths, self.fls):
@@ -217,7 +210,6 @@ class MassRedistributionCurveModel(FlowlineModel):
             diag_ds['volume_m3'].data[i] = self.volume_m3
             diag_ds['area_m2'].data[i] = self.area_m2
             diag_ds['length_m'].data[i] = self.length_m
-#            diag_ds['ela_m'].data[i] = self.mb_model.get_ela(year=yr)
             if self.is_tidewater:
                 diag_ds['calving_m3'].data[i] = self.calving_m3_since_y0
 
@@ -278,7 +270,7 @@ class MassRedistributionCurveModel(FlowlineModel):
             
             # CONSTANT AREAS
             #  Mass redistribution ignored for calibration and spinup years (glacier properties constant)
-            if (self.option_areaconstant == 1) or (year < self.spinupyears) or (year < self.constantarea_years):
+            if (self.option_areaconstant) or (year < self.spinupyears) or (year < self.constantarea_years):
                 # run mass balance
                 glac_bin_massbalclim_annual = self.mb_model.get_annual_mb(heights, fls=self.fls, fl_id=fl_id, 
                                                                               year=year, debug=False)                                
