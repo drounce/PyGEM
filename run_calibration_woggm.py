@@ -272,7 +272,7 @@ def main(list_packed_vars):
 
     # ===== LOOP THROUGH GLACIERS TO RUN CALIBRATION =====
     for glac in range(main_glac_rgi.shape[0]):
-        if glac == 0 or glac == main_glac_rgi.shape[0]:
+        if debug or glac == 0 or glac == main_glac_rgi.shape[0]:
             print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
@@ -1051,7 +1051,7 @@ def main(list_packed_vars):
                     while mb_mwea > mb_obs_mwea and test_count < 20:
                         mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
                         if debug:
-                            print('\ntbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                            print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
                                   'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
                         if test_count > 0:
                             tbias_bndlow_opt = modelprms['tbias'] - tbias_step
@@ -1095,8 +1095,8 @@ def main(list_packed_vars):
                 kp_opt = modelparams_opt['kp']
                 tbias_opt = modelparams_opt['tbias']
                 if debug:
-                    print('\nmb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(mb_obs_mwea,2),
-                          '\nkp:', np.round(kp_opt,2), 'tbias:', np.round(tbias_opt,2))
+                    print('Final:  mb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(mb_obs_mwea,2),
+                          'kp:', np.round(kp_opt,2), 'tbias:', np.round(tbias_opt,2), '\n\n')
 
                 # Epsilon (the amount the variable change to calculate the jacobian) can be too small, which causes
                 #  the minimization to believe it has reached a local minima and stop. Therefore, adjust epsilon
@@ -1121,7 +1121,7 @@ def main(list_packed_vars):
                     tbias_opt = modelparams_opt['tbias']
                     if debug:
                         print('\nmb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(mb_obs_mwea,2),
-                              '\nkp:', np.round(kp_opt,2), 'tbias:', np.round(tbias_opt,2))
+                              '\nkp:', np.round(kp_opt,2), 'tbias:', np.round(tbias_opt,2), '\n\n')
 
                 # Export model parameters
                 modelprms = modelparams_opt

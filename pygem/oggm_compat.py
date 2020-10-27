@@ -72,7 +72,6 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         
     else:
         process_gdir = True
-        print('here!')
 
     if process_gdir:
         # ===== SELECT BEST DEM =====
@@ -80,7 +79,12 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
 #        gdirs = workflow.init_glacier_directories([rgi_id])
         
         # Download preprocessed data
-        gdirs = workflow.init_glacier_regions([rgi_id], from_prepro_level=1, prepro_border=prepro_border)        
+        gdirs = workflow.init_glacier_regions([rgi_id], from_prepro_level=1, prepro_border=prepro_border)
+        
+        # Start after the prepro task level
+#        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/single_fl'
+#        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40, 
+#                                                  prepro_base_url=base_url, prepro_rgi_version='62')
         
         # Compute all the stuff
         list_tasks = [

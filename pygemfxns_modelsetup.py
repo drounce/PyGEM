@@ -33,18 +33,17 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
     # Include spinup time in start year
     startyear_wspinup = startyear - spinupyears
     # Convert start year into date depending on option_wateryear
-    if option_wateryear == 1:
+    if option_wateryear == 'hydro':
         startdate = str(startyear_wspinup - 1) + '-10-01'
         enddate = str(endyear) + '-09-30'
-    elif option_wateryear == 2:
+    elif option_wateryear == 'calendar':
         startdate = str(startyear_wspinup) + '-01-01'
         enddate = str(endyear) + '-12-31'
-    elif option_wateryear == 3:
+    elif option_wateryear == 'custom':
         startdate = str(startyear_wspinup) + '-' + pygem_prms.startmonthday
         enddate = str(endyear) + '-' + pygem_prms.endmonthday
     else:
-        print("\n\nError: Please select an option_wateryear that exists. Exiting model run now.\n")
-        exit()
+        assert True==False, "\n\nError: Select an option_wateryear that exists.\n"
     # Convert input format into proper datetime format
     startdate = datetime(*[int(item) for item in startdate.split('-')])
     enddate = datetime(*[int(item) for item in enddate.split('-')])

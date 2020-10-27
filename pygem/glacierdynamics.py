@@ -5,10 +5,11 @@ Created on Mon Feb  3 14:00:14 2020
 
 @author: davidrounce
 """
+from collections import OrderedDict
 from time import gmtime, strftime
 
 import numpy as np
-import pandas as pd
+#import pandas as pd
 #import netCDF4
 import xarray as xr
 
@@ -17,7 +18,6 @@ from oggm.core.flowline import FlowlineModel
 from oggm.exceptions import InvalidParamsError
 from oggm import __version__
 import pygem.pygem_input as pygem_prms
-
 
 cfg.initialize()
 
@@ -71,24 +71,29 @@ class MassRedistributionCurveModel(FlowlineModel):
         self.calving_m3_since_y0 = 0.  # total calving since time y0
         
         assert len(flowlines) == 1, 'MassRedistributionCurveModel is not set up for multiple flowlines'
-
-
-    def run_until(self, y1, y0=0):
+        
+        
+    def run_until(self, y1, run_single_year=False):
         """Runs the model from the current year up to a given year date y1.
+
         This function runs the model for the time difference y1-self.y0
         If self.y0 has not been specified at some point, it is 0 and y1 will
         be the time span in years to run the model for.
+
         Parameters
         ----------
         y1 : float
             Upper time span for how long the model should run
-        """
-        
+        """                                   
+                    
         # We force timesteps to yearly timesteps
-        years = np.arange(y0, y1+1)
-        for year in years:
-            self.updategeometry(year)
-
+        if run_single_year:
+            self.updategeometry(y1)
+        else:
+            years = np.arange(self.yr, y1)
+            for year in years:
+                self.updategeometry(year)
+            
         # Check for domain bounds
         if self.check_for_boundaries:
             if self.fls[-1].thick[-1] > 10:
@@ -98,11 +103,11 @@ class MassRedistributionCurveModel(FlowlineModel):
         for fl in self.fls:
             if np.any(~np.isfinite(fl.thick)):
                 raise FloatingPointError('NaN in numerical solution.')
-                
-                
-    #%%
+        
+                    
+
     def run_until_and_store(self, y1, run_path=None, diag_path=None,
-                            store_monthly_step=False):
+                            store_monthly_step=None):
         """Runs the model and returns intermediate steps in xarray datasets.
 
         This function repeatedly calls FlowlineModel.run_until for either
@@ -111,13 +116,16 @@ class MassRedistributionCurveModel(FlowlineModel):
         Parameters
         ----------
         y1 : int
-            Upper time span for how long the model should run
+            Upper time span for how long the model should run (needs to be
+            a full year)
         run_path : str
             Path and filename where to store the model run dataset
         diag_path : str
             Path and filename where to store the model diagnostics dataset
         store_monthly_step : Bool
-            If True (False)  model diagnostics will be stored monthly (yearly)
+            If True (False)  model diagnostics will be stored monthly (yearly).
+            If unspecified, we follow the update of the MB model, which
+            defaults to yearly (see __init__).
 
         Returns
         -------
@@ -131,20 +139,30 @@ class MassRedistributionCurveModel(FlowlineModel):
             and ELA of the glacier.
         """
 
+        if int(y1) != y1:
+            raise InvalidParamsError('run_until_and_store only accepts '
+                                     'integer year dates.')
+
+        if not self.mb_model.hemisphere:
+            raise InvalidParamsError('run_until_and_store needs a '
+                                     'mass-balance model with an unambiguous '
+                                     'hemisphere.')
         # time
-        yearly_time = np.arange(np.floor(self.yr), np.floor(y1))
+        yearly_time = np.arange(np.floor(self.yr), np.floor(y1)+1)
+
+        if store_monthly_step is None:
+            store_monthly_step = self.mb_step == 'monthly'
+
         if store_monthly_step:
             monthly_time = utils.monthly_timeseries(self.yr, y1)
         else:
-            monthly_time = np.arange(np.floor(self.yr), np.floor(y1))
+            monthly_time = np.arange(np.floor(self.yr), np.floor(y1)+1)
+
+        sm = cfg.PARAMS['hydro_month_' + self.mb_model.hemisphere]
+
         yrs, months = utils.floatyear_to_date(monthly_time)
-        if pygem_prms.gcm_wateryear == 1:
-            start_month = pygem_prms.wateryear_month_start
-        elif pygem_prms.gcm_wateryear == 2:
-            start_month = 1
-        else:
-            start_month = None
-        cyrs, cmonths = utils.hydrodate_to_calendardate(yrs, months, start_month=start_month)
+        cyrs, cmonths = utils.hydrodate_to_calendardate(yrs, months,
+                                                        start_month=sm)
 
         # init output
         if run_path is not None:
@@ -158,13 +176,17 @@ class MassRedistributionCurveModel(FlowlineModel):
         nm = len(monthly_time)
         sects = [(np.zeros((ny, fl.nx)) * np.NaN) for fl in self.fls]
         widths = [(np.zeros((ny, fl.nx)) * np.NaN) for fl in self.fls]
+        bucket = [(np.zeros(ny) * np.NaN) for _ in self.fls]
         diag_ds = xr.Dataset()
 
         # Global attributes
-        diag_ds.attrs['description'] = 'PyGEM-OGGM model output'
+        diag_ds.attrs['description'] = 'OGGM model output'
         diag_ds.attrs['oggm_version'] = __version__
         diag_ds.attrs['calendar'] = '365-day no leap'
-        diag_ds.attrs['creation_date'] = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+        diag_ds.attrs['creation_date'] = strftime("%Y-%m-%d %H:%M:%S",
+                                                  gmtime())
+        diag_ds.attrs['hemisphere'] = self.mb_model.hemisphere
+        diag_ds.attrs['water_level'] = self.water_level
 
         # Coordinates
         diag_ds.coords['time'] = ('time', monthly_time)
@@ -183,68 +205,108 @@ class MassRedistributionCurveModel(FlowlineModel):
         diag_ds['volume_m3'] = ('time', np.zeros(nm) * np.NaN)
         diag_ds['volume_m3'].attrs['description'] = 'Total glacier volume'
         diag_ds['volume_m3'].attrs['unit'] = 'm 3'
+        if self.is_marine_terminating:
+            diag_ds['volume_bsl_m3'] = ('time', np.zeros(nm) * np.NaN)
+            diag_ds['volume_bsl_m3'].attrs['description'] = ('Glacier volume '
+                                                             'below '
+                                                             'sea-level')
+            diag_ds['volume_bsl_m3'].attrs['unit'] = 'm 3'
+            diag_ds['volume_bwl_m3'] = ('time', np.zeros(nm) * np.NaN)
+            diag_ds['volume_bwl_m3'].attrs['description'] = ('Glacier volume '
+                                                             'below '
+                                                             'water-level')
+            diag_ds['volume_bwl_m3'].attrs['unit'] = 'm 3'
+
         diag_ds['area_m2'] = ('time', np.zeros(nm) * np.NaN)
         diag_ds['area_m2'].attrs['description'] = 'Total glacier area'
         diag_ds['area_m2'].attrs['unit'] = 'm 2'
         diag_ds['length_m'] = ('time', np.zeros(nm) * np.NaN)
         diag_ds['length_m'].attrs['description'] = 'Glacier length'
         diag_ds['length_m'].attrs['unit'] = 'm 3'
+        diag_ds['ela_m'] = ('time', np.zeros(nm) * np.NaN)
+        diag_ds['ela_m'].attrs['description'] = ('Annual Equilibrium Line '
+                                                 'Altitude  (ELA)')
+        diag_ds['ela_m'].attrs['unit'] = 'm a.s.l'
         if self.is_tidewater:
             diag_ds['calving_m3'] = ('time', np.zeros(nm) * np.NaN)
-            diag_ds['calving_m3'].attrs['description'] = ('Total accumulated calving flux')
+            diag_ds['calving_m3'].attrs['description'] = ('Total accumulated '
+                                                          'calving flux')
             diag_ds['calving_m3'].attrs['unit'] = 'm 3'
+            diag_ds['calving_rate_myr'] = ('time', np.zeros(nm) * np.NaN)
+            diag_ds['calving_rate_myr'].attrs['description'] = 'Calving rate'
+            diag_ds['calving_rate_myr'].attrs['unit'] = 'm yr-1'
 
         # Run
         j = 0
-        for i, (yr, mo) in enumerate(zip(monthly_time, months)):
-            # Hack to run individual year, since run_until arranges years as yr+1 to be inclusive
-            #  hence, yr and y0=yr means you're just running this for the given year
-            self.run_until(yr, y0=yr)
+        for i, (yr, mo) in enumerate(zip(yearly_time[:-1], months[:-1])):
+
+            # Record initial parameters
+            if i == 0:
+                diag_ds['volume_m3'].data[i] = self.volume_m3
+                diag_ds['area_m2'].data[i] = self.area_m2
+                diag_ds['length_m'].data[i] = self.length_m
+            
+            self.run_until(yr, run_single_year=True)
             # Model run
             if mo == 1:
-                for s, w, fl in zip(sects, widths, self.fls):
+                for s, w, b, fl in zip(sects, widths, bucket, self.fls):
                     s[j, :] = fl.section
                     w[j, :] = fl.widths_m
+                    if self.is_tidewater:
+                        try:
+                            b[j] = fl.calving_bucket_m3
+                        except AttributeError:
+                            pass
                 j += 1
             # Diagnostics
-            diag_ds['volume_m3'].data[i] = self.volume_m3
-            diag_ds['area_m2'].data[i] = self.area_m2
-            diag_ds['length_m'].data[i] = self.length_m
+            diag_ds['volume_m3'].data[i+1] = self.volume_m3
+            diag_ds['area_m2'].data[i+1] = self.area_m2
+            diag_ds['length_m'].data[i+1] = self.length_m
+
             if self.is_tidewater:
                 diag_ds['calving_m3'].data[i] = self.calving_m3_since_y0
+                diag_ds['calving_rate_myr'].data[i] = self.calving_rate_myr
+                if self.is_marine_terminating:
+                    diag_ds['volume_bsl_m3'].data[i] = self.volume_bsl_m3
+                    diag_ds['volume_bwl_m3'].data[i] = self.volume_bwl_m3
 
         # to datasets
         run_ds = []
-#        for (s, w) in zip(sects, widths):
-#            ds = xr.Dataset()
-#            ds.attrs['description'] = 'OGGM model output'
-#            ds.attrs['oggm_version'] = __version__
-#            ds.attrs['calendar'] = '365-day no leap'
-#            ds.attrs['creation_date'] = strftime("%Y-%m-%d %H:%M:%S",
-#                                                 gmtime())
-#            ds.coords['time'] = yearly_time
-#            ds['time'].attrs['description'] = 'Floating hydrological year'
-#            varcoords = OrderedDict(time=('time', yearly_time),
-#                                    year=('time', yearly_time))
-#            ds['ts_section'] = xr.DataArray(s, dims=('time', 'x'),
-#                                            coords=varcoords)
-#            ds['ts_width_m'] = xr.DataArray(w, dims=('time', 'x'),
-#                                            coords=varcoords)
-#            run_ds.append(ds)
-#
-#        # write output?
-#        if run_path is not None:
-#            encode = {'ts_section': {'zlib': True, 'complevel': 5},
-#                      'ts_width_m': {'zlib': True, 'complevel': 5},
-#                      }
-#            for i, ds in enumerate(run_ds):
-#                ds.to_netcdf(run_path, 'a', group='fl_{}'.format(i),
-#                             encoding=encode)
-#        if diag_path is not None:
-#            diag_ds.to_netcdf(diag_path)
-#
+        for (s, w, b) in zip(sects, widths, bucket):
+            ds = xr.Dataset()
+            ds.attrs['description'] = 'OGGM model output'
+            ds.attrs['oggm_version'] = __version__
+            ds.attrs['calendar'] = '365-day no leap'
+            ds.attrs['creation_date'] = strftime("%Y-%m-%d %H:%M:%S",
+                                                 gmtime())
+            ds.coords['time'] = yearly_time
+            ds['time'].attrs['description'] = 'Floating hydrological year'
+            varcoords = OrderedDict(time=('time', yearly_time),
+                                    year=('time', yearly_time))
+            ds['ts_section'] = xr.DataArray(s, dims=('time', 'x'),
+                                            coords=varcoords)
+            ds['ts_width_m'] = xr.DataArray(w, dims=('time', 'x'),
+                                            coords=varcoords)
+            if self.is_tidewater:
+                ds['ts_calving_bucket_m3'] = xr.DataArray(b, dims=('time', ),
+                                                          coords=varcoords)
+            run_ds.append(ds)
+
+        # write output?
+        if run_path is not None:
+            encode = {'ts_section': {'zlib': True, 'complevel': 5},
+                      'ts_width_m': {'zlib': True, 'complevel': 5},
+                      }
+            for i, ds in enumerate(run_ds):
+                ds.to_netcdf(run_path, 'a', group='fl_{}'.format(i),
+                             encoding=encode)
+            # Add other diagnostics
+            diag_ds.to_netcdf(run_path, 'a')
+
+        if diag_path is not None:
+            diag_ds.to_netcdf(diag_path)
+
         return run_ds, diag_ds
-    #%%
     
     
     def updategeometry(self, year):
@@ -321,7 +383,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                     sec_in_year = (self.mb_model.dates_table.loc[12*year:12*(year+1)-1,'daysinmonth'].values.sum() 
                                    * 24 * 3600)
                     self._massredistributionHuss(section_t0, thick_t0, width_t0, glac_bin_massbalclim_annual, 
-                                                 self.glac_idx_initial[fl_id], heights, sec_in_year=sec_in_year)                
+                                                 self.glac_idx_initial[fl_id], heights, sec_in_year=sec_in_year)
                     
             # Record glacier properties (volume [m3], area [m2], thickness [m], width [km])
             #  record the next year's properties as well

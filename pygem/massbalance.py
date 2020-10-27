@@ -120,15 +120,15 @@ class PyGEMMassBalance(MassBalanceModel):
         self.glac_bin_snowpack = np.zeros((nbins,self.nmonths))
         self.glac_bin_massbalclim = np.zeros((nbins,self.nmonths))
         self.glac_bin_massbalclim_annual = np.zeros((nbins,self.nyears))
-        self.glac_bin_surfacetype_annual = np.zeros((nbins,self.nyears))
-        self.glac_bin_area_annual = np.zeros((nbins,self.nyears))
-        self.glac_bin_icethickness_annual = np.zeros((nbins,self.nyears)) # Needed for MassRedistributionCurves
-        self.glac_bin_width_annual = np.zeros((nbins,self.nyears))        # Needed for MassRedistributionCurves
+        self.glac_bin_surfacetype_annual = np.zeros((nbins,self.nyears+1))
+        self.glac_bin_area_annual = np.zeros((nbins,self.nyears+1))
+        self.glac_bin_icethickness_annual = np.zeros((nbins,self.nyears+1)) # Needed for MassRedistributionCurves
+        self.glac_bin_width_annual = np.zeros((nbins,self.nyears+1))        # Needed for MassRedistributionCurves
         self.offglac_bin_prec = np.zeros((nbins,self.nmonths))
         self.offglac_bin_melt = np.zeros((nbins,self.nmonths))
         self.offglac_bin_refreeze = np.zeros((nbins,self.nmonths))
         self.offglac_bin_snowpack = np.zeros((nbins,self.nmonths))
-        self.offglac_bin_area_annual = np.zeros((nbins,self.nyears))
+        self.offglac_bin_area_annual = np.zeros((nbins,self.nyears+1))
         self.glac_wide_temp = np.zeros(self.nmonths)
         self.glac_wide_prec = np.zeros(self.nmonths)
         self.glac_wide_acc = np.zeros(self.nmonths)
@@ -138,11 +138,9 @@ class PyGEMMassBalance(MassBalanceModel):
         self.glac_wide_massbaltotal = np.zeros(self.nmonths)
         self.glac_wide_runoff = np.zeros(self.nmonths)
         self.glac_wide_snowline = np.zeros(self.nmonths)
-        self.glac_wide_area_annual = np.zeros(self.nyears)
-        self.glac_wide_area_initial = np.zeros(1)
-        self.glac_wide_volume_annual = np.zeros(self.nyears)
-        self.glac_wide_volume_initial = np.zeros(1)
-        self.glac_wide_ELA_annual = np.zeros(self.nyears)
+        self.glac_wide_area_annual = np.zeros(self.nyears+1)
+        self.glac_wide_volume_annual = np.zeros(self.nyears+1)
+        self.glac_wide_ELA_annual = np.zeros(self.nyears+1)
         self.offglac_wide_prec = np.zeros(self.nmonths)
         self.offglac_wide_refreeze = np.zeros(self.nmonths)
         self.offglac_wide_melt = np.zeros(self.nmonths)
@@ -181,7 +179,7 @@ class PyGEMMassBalance(MassBalanceModel):
                       debug=False, option_areaconstant=False):
         """FIXED FORMAT FOR THE FLOWLINE MODEL
 
-        Returns annual climatic mass balance
+        Returns annual climatic mass balance [m ice per second]
 
         Parameters
         ----------
@@ -563,7 +561,7 @@ class PyGEMMassBalance(MassBalanceModel):
                             self.bin_acc[glac_idx_t0,step] + self.glac_bin_refreeze[glac_idx_t0,step] -
                             self.glac_bin_melt[glac_idx_t0,step])
 
-                    # OFF-GLACIER ACCUMULATION, MELT, REFREEZE, AND SNOWPAC
+                    # OFF-GLACIER ACCUMULATION, MELT, REFREEZE, AND SNOWPACK
                     if option_areaconstant == False:
                         # precipitation, refreeze, and snowpack are the same both on- and off-glacier
                         self.offglac_bin_prec[offglac_idx,step] = self.bin_prec[offglac_idx,step]

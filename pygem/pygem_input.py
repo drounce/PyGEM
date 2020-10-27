@@ -116,7 +116,7 @@ def glac_fromcsv(csv_fullfn, cn='RGIId'):
 main_directory = os.getcwd()
 # Output directory
 output_filepath = main_directory + '/../Output/'
-model_run_date = 'June 14, 2020'
+model_run_date = 'October 23, 2020'
 
 # ===== GLACIER SELECTION =====
 #rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
@@ -130,9 +130,8 @@ rgi_glac_number = 'all'
 #rgi_glac_number = glac_num_fromrange(1,5)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
-glac_no = ['15.03733']
-#glac_no = ['13.42413']
-#glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
+#glac_no = ['15.03733']
+glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
 #glac_no = None
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
@@ -143,7 +142,7 @@ if glac_no is not None:
 ref_gcm_name = 'ERA5'               # reference climate dataset
 ref_startyear = 2000                # first year of model run (reference dataset)
 ref_endyear = 2019                  # last year of model run (reference dataset)
-ref_wateryear = 2                   # 1: water year, 2: calendar year, 3: custom defined 
+ref_wateryear = 'calendar'          # options for years: 'calendar', 'hydro', 'custom'
 ref_spinupyears = 0                 # spin up years
 constantarea_years = 0              # number of years to not let the area or volume change
 if ref_spinupyears > 0:
@@ -152,14 +151,14 @@ if constantarea_years > 0:
     print('\nConstant area years > 0\n')
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
-gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2019              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2100              # last year of model run (simulation dataset)
+#gcm_endyear = 2019              # last year of model run (simulation dataset)
+gcm_startyear = 2000            # first year of model run (simulation dataset)
+gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
-gcm_wateryear = 2               # water year for simmulation
+gcm_wateryear = 'calendar'      # water year for simulation
 
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
 hindcast = 0                    # 1: run hindcast simulation, 0: do not
@@ -178,6 +177,10 @@ if option_synthetic_sim == 1:
     synthetic_prec_factor = 1.12    # Precipitation adjustment factor for synthetic runs
 
 #%% SIMULATION OPTIONS
+# Glacier dynamics options ('OGGM', 'MassRedistributionCurves', None??)
+#option_dynamics = 'OGGM'
+option_dynamics = 'MassRedistributionCurves'
+    
 # MCMC options
 sim_iters = 100     # number of simulations (needed for cal_opt 2)
 #sim_iters = 1     # number of simulations (needed for cal_opt 2)
@@ -375,7 +378,7 @@ option_preclimit = 0                # 1: limit the uppermost 25% using an expont
 option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 deg using linear interpolation
 
 # Ablation model options
-option_ablation = 2                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
+option_ablation = 1                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
 option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
 ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
@@ -588,9 +591,6 @@ elif hyps_data == 'OGGM':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
     overwrite_gdirs = False
     
-# Glacier dynamics options ('OGGM', 'MassRedistributionCurves', None??)
-#option_dynamics = 'OGGM'
-option_dynamics = 'MassRedistributionCurves'
     
 # Debris datasets
 if include_debris:
