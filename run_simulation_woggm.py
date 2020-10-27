@@ -878,12 +878,6 @@ def main(list_packed_vars):
                     
                     print('mb_check_from_vol [mwea]:', np.round(mb_check,3),
                           'mb_check_from_mbmod [mwea]:', np.round(mb_check_mbmod,3))
-                    
-                    print('\n\nFIND OUT WHY THESE CHECKS ARE NOT CONSISTENT\n\n')
-                    
-                    print('\n\nMASS REDISTRIBUTION CURVES ARE INCREDIBLY SLOW FOR SOME REASON WITH CanESM2 RCP26')
-
-    
 
                 #%% ===== Adding functionality for calving =====
 #                water_level = None
@@ -1022,8 +1016,10 @@ def main(list_packed_vars):
 
 
 
-                if args.option_parallels == 0:
+                if args.option_parallels == 0 and debug:
                     print('\nTO-DO LIST:')
+                    print(' - Find out why checks are not consistent (may be due to dynamics in OGGM)')
+                    print(' - Check if happy with 18.02342 CanESM2 RCP26, retreat then grows in an overdeepening')
                     print(' - automate hemisphere based on region and glacier string')
                     print(' - remove diag.area_m2 recording and diag.volume_m3 and record within model for consistency')
                     print(' - automate ice thickness inversion for volume to agree with consensus estimate')

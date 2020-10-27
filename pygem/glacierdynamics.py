@@ -385,8 +385,8 @@ class MassRedistributionCurveModel(FlowlineModel):
                     sec_in_year = (self.mb_model.dates_table.loc[12*year:12*(year+1)-1,'daysinmonth'].values.sum() 
                                    * 24 * 3600)
                     
-                    # Debugging block
-#                    debug_years = []
+#                    # Debugging block
+#                    debug_years = [71]
 #                    if year in debug_years:
 #                        print(year, glac_bin_massbalclim_annual)
 #                        print('section t0:', section_t0)
@@ -423,9 +423,15 @@ class MassRedistributionCurveModel(FlowlineModel):
                                 glac_idx_initial, heights, debug=False, hindcast=0, sec_in_year=365*24*3600):
         """
         Mass redistribution according to empirical equations from Huss and Hock (2015) accounting for retreat/advance.
-        glac_idx_initial is required to ensure that the glacier does not advance to area where glacier did not exist before
-        (e.g., retreat and advance over a vertical cliff)
+        glac_idx_initial is required to ensure that the glacier does not advance to area where glacier did not exist 
+        before (e.g., retreat and advance over a vertical cliff)
         
+        Note: since OGGM uses the DEM, heights along the flowline do not necessarily decrease, i.e., there can be
+        overdeepenings along the flowlines that occur as the glacier retreats. This is problematic for 'adding' a bin 
+        downstream in cases of glacier advance because you'd be moving new ice to a higher elevation. To avoid this 
+        unrealistic case, in the event that this would occur, the overdeepening will simply fill up with ice first until
+        it reaches an elevation where it would put new ice into a downstream bin.
+
         Parameters
         ----------
         glacier_area_t0 : np.ndarray
@@ -479,7 +485,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                                                           glacier_volumechange, glac_bin_massbalclim_annual,
                                                           heights, debug=False))
                 if debug:
-                    print('ice thickness change:', icethickness_change)
+#                    print('ice thickness change:', icethickness_change)
                     print('\nmax icethickness change:', np.round(icethickness_change.max(),3), 
                           '\nmin icethickness change:', np.round(icethickness_change.min(),3), 
                           '\nvolume remaining:', glacier_volumechange_remaining)
@@ -532,12 +538,17 @@ class MassRedistributionCurveModel(FlowlineModel):
             while (icethickness_change > pygem_prms.icethickness_advancethreshold).any() == True: 
                 if debug:
                     print('advancing glacier')
-
+                    
                 # Record glacier area and ice thickness before advance corrections applied
                 section_t0_raw = self.fls[0].section.copy()
                 thick_t0_raw = self.fls[0].thick.copy()
                 width_t0_raw = self.fls[0].widths_m.copy()
                 glacier_area_t0_raw = width_t0_raw * self.fls[0].dx_meter
+                
+                if debug:
+                    print('\n\nthickness t0:', thick_t0_raw)
+                    print('glacier area t0:', glacier_area_t0_raw)
+                    print('width_t0_raw:', width_t0_raw,'\n\n')
                 
                 # Index bins that are advancing
                 icethickness_change[icethickness_change <= pygem_prms.icethickness_advancethreshold] = 0
@@ -551,6 +562,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                 # Advance volume [m3]
                 advance_volume = ((glacier_area_t0_raw[glac_idx_advance] * thick_t0_raw[glac_idx_advance]).sum() 
                                   - (glacier_area_t1[glac_idx_advance] * self.fls[0].thick[glac_idx_advance]).sum())
+                
                 # Set the cross sectional area of the next bin
                 advance_section = advance_volume / self.fls[0].dx_meter
                 
@@ -608,10 +620,18 @@ class MassRedistributionCurveModel(FlowlineModel):
                 # With remaining advance volume, add a bin or redistribute over existing bins if no bins left
                 if advance_volume > 0:
                     # Indices for additional bins below the terminus
-                    below_glac_idx = np.where(heights < heights[glacier_area_t1 > 0].min())[0]
+                    glac_idx_t1 = np.where(glacier_area_t1 > 0)[0]
+                    below_glac_idx = np.where(heights < heights[glac_idx_t1].min())[0]
+
                     # if no more bins below, then distribute volume over the glacier without further adjustments
+                    #  this occurs with OGGM flowlines when the terminus is in an overdeepening, so we just fill up 
+                    #  the overdeepening
                     if len(below_glac_idx) == 0:
+                        # Revert to the initial section, which also updates the thickness and width automatically
                         self.fls[0].section = section_t0_raw
+                        
+                        # set icethickness change and advance_volume to 0 to break the loop
+                        icethickness_change[icethickness_change > 0] = 0
                         advance_volume = 0
                         
                     # otherwise, redistribute mass
@@ -674,6 +694,7 @@ class MassRedistributionCurveModel(FlowlineModel):
         # Glacier area used to select parameters
         glacier_area_t0 = width_t0 * self.fls[0].dx_meter
         glacier_area_t0[thick_t0 == 0] = 0
+        
         # Apply mass redistribution curve
         if glac_idx_t0.shape[0] > 3:
             # Select the factors for the normalized ice thickness change curve based on glacier area
