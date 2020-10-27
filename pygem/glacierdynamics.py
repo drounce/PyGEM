@@ -311,6 +311,8 @@ class MassRedistributionCurveModel(FlowlineModel):
     
     def updategeometry(self, year):
         """Update geometry for a given year"""
+        
+#        print('year:', year)
             
         # Loop over flowlines
         for fl_id, fl in enumerate(self.fls):
@@ -320,7 +322,7 @@ class MassRedistributionCurveModel(FlowlineModel):
             section_t0 = fl.section.copy()
             thick_t0 = fl.thick.copy()
             width_t0 = fl.widths_m.copy()
-            
+
             # Recording time zero separately now
 #            if year == 0:
 #                self.mb_model.glac_bin_area_annual[:,year] = fl.widths_m / 1000 * fl.dx_meter / 1000
@@ -382,8 +384,28 @@ class MassRedistributionCurveModel(FlowlineModel):
                                                                               year=year, debug=False)        
                     sec_in_year = (self.mb_model.dates_table.loc[12*year:12*(year+1)-1,'daysinmonth'].values.sum() 
                                    * 24 * 3600)
+                    
+                    # Debugging block
+#                    debug_years = []
+#                    if year in debug_years:
+#                        print(year, glac_bin_massbalclim_annual)
+#                        print('section t0:', section_t0)
+#                        print('thick_t0:', thick_t0)
+#                        print('width_t0:', width_t0)
+#                        print(self.glac_idx_initial[fl_id])
+#                        print('heights:', heights)
+#                        print('\n----- ENTERING MASS REDISTRIBUTION CURVE -----')
+#                        self._massredistributionHuss(section_t0, thick_t0, width_t0, glac_bin_massbalclim_annual, 
+#                                                 self.glac_idx_initial[fl_id], heights, sec_in_year=sec_in_year,
+#                                                 debug=True)
+#                        print('----- FINISHED ----- \n\n')
+#                        
+#                    else:
+#                        self._massredistributionHuss(section_t0, thick_t0, width_t0, glac_bin_massbalclim_annual, 
+#                                                 self.glac_idx_initial[fl_id], heights, sec_in_year=sec_in_year)
+                    
                     self._massredistributionHuss(section_t0, thick_t0, width_t0, glac_bin_massbalclim_annual, 
-                                                 self.glac_idx_initial[fl_id], heights, sec_in_year=sec_in_year)
+                                                 self.glac_idx_initial[fl_id], heights, sec_in_year=sec_in_year)     
                     
             # Record glacier properties (volume [m3], area [m2], thickness [m], width [km])
             #  record the next year's properties as well
@@ -457,13 +479,19 @@ class MassRedistributionCurveModel(FlowlineModel):
                                                           glacier_volumechange, glac_bin_massbalclim_annual,
                                                           heights, debug=False))
                 if debug:
+                    print('ice thickness change:', icethickness_change)
                     print('\nmax icethickness change:', np.round(icethickness_change.max(),3), 
                           '\nmin icethickness change:', np.round(icethickness_change.min(),3), 
                           '\nvolume remaining:', glacier_volumechange_remaining)
+                    nloop = 0
     
             # Glacier retreat
             #  if glacier retreats (ice thickness == 0), volume change needs to be redistributed over glacier again
             while glacier_volumechange_remaining < 0:
+                
+                if debug:
+                    print('\n\nGlacier retreating (loop ' + str(nloop) + '):')
+                
                 section_t0_retreated = self.fls[0].section.copy()
                 thick_t0_retreated = self.fls[0].thick.copy()
                 width_t0_retreated = self.fls[0].widths_m.copy()
@@ -483,6 +511,16 @@ class MassRedistributionCurveModel(FlowlineModel):
                         self._massredistributioncurveHuss(
                                 section_t0_retreated, thick_t0_retreated, width_t0_retreated, glac_idx_t0_retreated, 
                                 glacier_volumechange_remaining_retreated, massbalclim_retreat, heights, debug=False))
+                    # Avoid rounding errors that get loop stuck
+                    if abs(glacier_volumechange_remaining) < 1:
+                        glacier_volumechange_remaining = 0
+                    
+                    if debug:
+                        print('ice thickness change:', icethickness_change)
+                        print('\nmax icethickness change:', np.round(icethickness_change.max(),3), 
+                              '\nmin icethickness change:', np.round(icethickness_change.min(),3), 
+                              '\nvolume remaining:', glacier_volumechange_remaining)
+                        nloop += 1
 
             # Glacier advances 
             #  based on ice thickness change exceeding threshold

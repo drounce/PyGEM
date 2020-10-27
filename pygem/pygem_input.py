@@ -131,7 +131,8 @@ rgi_glac_number = 'all'
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 #glac_no = ['15.03733']
-glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
+glac_no = ['1.00570']
+#glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
 #glac_no = None
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
