@@ -180,8 +180,8 @@ if option_synthetic_sim == 1:
 
 #%% SIMULATION OPTIONS
 # Glacier dynamics options ('OGGM', 'MassRedistributionCurves', None??)
-#option_dynamics = 'OGGM'
-option_dynamics = 'MassRedistributionCurves'
+option_dynamics = 'OGGM'
+#option_dynamics = 'MassRedistributionCurves'
     
 # MCMC options
 sim_iters = 100     # number of simulations (needed for cal_opt 2)
