@@ -131,9 +131,9 @@ rgi_glac_number = 'all'
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 #glac_no = ['15.03733']
-#glac_no = ['1.00570']
+glac_no = ['1.00570']
 #glac_no = ['18.02342']
-glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
+#glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
 #glac_no = None
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
@@ -605,7 +605,7 @@ else:
 #%% MODEL TIME FRAME DATA
 # Models require complete data for each year such that refreezing, scaling, etc. can be calculated
 # Leap year option
-option_leapyear = 1         # 1: include leap year days, 0: exclude leap years so February always has 28 days
+option_leapyear = 0         # 1: include leap year days, 0: exclude leap years so February always has 28 days
 # User specified start/end dates
 #  note: start and end dates must refer to whole years
 startmonthday = '06-01'

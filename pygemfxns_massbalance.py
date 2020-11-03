@@ -354,7 +354,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                 for h in np.arange(0, pygem_prms.rf_dsc):                                  
                                     # Compute heat conduction in layers (loop through rows)
                                     #  go from 1 to rf_layers-1 to avoid indexing errors with "j-1" and "j+1"
-                                    #  "j+1" is set to zero, which is fine for temperate glaciers but inaccurate for cold/polythermal glaciers
+                                    #  "j+1" is set to zero, which is fine for temperate glaciers but inaccurate for 
+                                    #  cold/polythermal glaciers
                                     for j in np.arange(1, pygem_prms.rf_layers-1):
                                         # Assume temperature of first layer equals air temperature
                                         #  assumption probably wrong, but might still work at annual average
@@ -384,8 +385,10 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                 # Refreezing over ice surface
                                 else:
                                     # Approximate number of layers of snow on top of ice
-                                    smax = np.round((bin_snowpack[gidx,step] / (rf_layers_dens[0] / 1000) + pygem_prms.pp) / pygem_prms.rf_dz, 0)
-                                    # if there is very little snow on the ground (SWE > 0.06 m for pp=0.3), then still set smax (layers) to 1
+                                    smax = np.round((bin_snowpack[gidx,step] / (rf_layers_dens[0] / 1000) + 
+                                                     pygem_prms.pp) / pygem_prms.rf_dz, 0)
+                                    # if there is very little snow on the ground (SWE > 0.06 m for pp=0.3), 
+                                    #  then still set smax (layers) to 1
                                     if bin_snowpack[gidx,step] > 0 and smax == 0:
                                         smax=1
                                     # if no snow on the ground, then set to rf_cold to NoData value
@@ -406,7 +409,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                     for j in np.arange(0,nlayers):
                                         j += 1
                                         # units: (degC) * (J K-1 m-3) * (m) * (kg J-1) * (m3 kg-1)
-                                        rf_cold_layer = tl_rf[j,gidx] * rf_layers_ch[j] * pygem_prms.rf_dz / pygem_prms.Lh_rf / pygem_prms.density_water
+                                        rf_cold_layer = (tl_rf[j,gidx] * rf_layers_ch[j] * pygem_prms.rf_dz / 
+                                                         pygem_prms.Lh_rf / pygem_prms.density_water)
                                         rf_cold[gidx] -= rf_cold_layer
                                         
                                         if debug_refreeze and nbin == 0 and step < 12:
@@ -522,8 +526,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                 # ===== RETURN TO ANNUAL LOOP =====
                 # Mass loss cannot exceed glacier volume
                 #  mb [mwea] = -1 * sum{area [km2] * ice thickness [m]} / total area [km2] * density_ice / density_water
-                mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * pygem_prms.density_ice / pygem_prms.density_water).sum() 
-                               / glacier_area_t0.sum())
+                mb_max_loss = (-1 * (glacier_area_t0 * icethickness_t0 * pygem_prms.density_ice / 
+                                     pygem_prms.density_water).sum() / glacier_area_t0.sum())
                 # Check annual climatic mass balance
                 mb_mwea = ((glacier_area_t0 * glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
                             glacier_area_t0.sum()) 
@@ -545,7 +549,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                                             (1 + pygem_prms.tolerance - mb_dif / glac_wide_melt))
                     glac_bin_massbalclim[:,12*year:12*(year+1)] = (
                             bin_acc[:,12*year:12*(year+1)] + glac_bin_refreeze[:,12*year:12*(year+1)] - 
-                            glac_bin_melt[:,12*year:12*(year+1)])    
+                            glac_bin_melt[:,12*year:12*(year+1)])
+
                     # Check annual climatic mass balance
                     mb_mwea = ((glacier_area_t0 * glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() / 
                                 glacier_area_t0.sum()) 
@@ -645,15 +650,17 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                                     frontalablation_volumeloss / (glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6)
                                     * pygem_prms.density_ice / pygem_prms.density_water)
                         frontalablation_volumeloss += (
-                                -1 * glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] * pygem_prms.density_water 
-                                / pygem_prms.density_ice * glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6)                        
+                                -1 * glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] * 
+                                pygem_prms.density_water / pygem_prms.density_ice * 
+                                glacier_area_t0[glac_idx_fa[calving_bin_idx]] * 10**6)  
                                                 
                         if debug:
                             print('glacier idx:', glac_idx_fa[calving_bin_idx], 
                                   'volume loss:', (glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] * 
                                   glacier_area_t0[glac_idx_fa[calving_bin_idx]] * pygem_prms.density_water / 
                                   pygem_prms.density_ice * 10**6).round(0))
-                            print('remaining volume loss:', frontalablation_volumeloss, 'tolerance:', pygem_prms.tolerance)
+                            print('remaining volume loss:', frontalablation_volumeloss, 
+                                  'tolerance:', pygem_prms.tolerance)
                         
                         bin_count += 1         
                             
@@ -700,8 +707,8 @@ def runmassbalance(modelparameters, glacier_rgi_table, glacier_area_initial, ice
                     if glac_bin_frontalablation[:,step].max() > 0:
                         # Frontal ablation loss [mwe]
                         #  fa_change tracks whether entire bin is lost or not
-                        fa_change = abs(glac_bin_frontalablation[:, step] * pygem_prms.density_water / pygem_prms.density_ice
-                                        - icethickness_t0)
+                        fa_change = abs(glac_bin_frontalablation[:, step] * pygem_prms.density_water / 
+                                        pygem_prms.density_ice - icethickness_t0)
                         fa_change[fa_change <= pygem_prms.tolerance] = 0
                         
                         if debug:
