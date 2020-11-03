@@ -1078,20 +1078,20 @@ def main(list_packed_vars):
 
 
                 #%%
-                if args.option_parallels == 0 and debug:
-                    print('\nTO-DO LIST:')
-                    print(' - add option to export limited outputs:')
-                    print(      'area, vol, vol_ignored, mb components, runoff (on/off), SLA, ELA')
-                    print(' - Check if happy with 18.02342 CanESM2 RCP26, retreat then grows in an overdeepening')
-                    print(' - automate hemisphere based on region and glacier string')
-                    print(' - offglac_snowpack_monthly continously grows bc retreat at high altitudes where acc > melt')
-                    print(' - automate ice thickness inversion for volume to agree with consensus estimate')
-                    print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
-                    print(' - emulators for calibration')
-                    print(' - new environment without PyMC2')
-                    print(' - update supercomputer environment to ensure code still runs on spc')
-                    print('    --> get set up with Pittsburgh Supercomputing Center')
-                    print(' - climate data likely mismatch with OGGM, e.g., prec in m for the month')
+            if args.option_parallels == 0 and debug:
+                print('\nTO-DO LIST:')
+                print(' - add option to export limited outputs:')
+                print(      'area, vol, vol_ignored, mb components, runoff (on/off), SLA, ELA')
+                print(' - Check if happy with 18.02342 CanESM2 RCP26, retreat then grows in an overdeepening')
+                print(' - automate hemisphere based on region and glacier string')
+                print(' - offglac_snowpack_monthly continously grows bc retreat at high altitudes where acc > melt')
+                print(' - automate ice thickness inversion for volume to agree with consensus estimate')
+                print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
+                print(' - emulators for calibration')
+                print(' - new environment without PyMC2')
+                print(' - update supercomputer environment to ensure code still runs on spc')
+                print('    --> get set up with Pittsburgh Supercomputing Center')
+                print(' - climate data likely mismatch with OGGM, e.g., prec in m for the month')
 
                     
             # ===== Export Results =====
