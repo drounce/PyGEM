@@ -30,7 +30,8 @@ class PyGEMMassBalance(MassBalanceModel):
                  fls=None, fl_id=0,
                  heights=None, repeat_period=False,
 #                       use_refreeze=True
-                 hyps_data=pygem_prms.hyps_data
+                 hyps_data=pygem_prms.hyps_data,
+                 inversion_filter=False
                        ):
         """ Initialize.
 
@@ -54,6 +55,7 @@ class PyGEMMassBalance(MassBalanceModel):
         if debug:
             print('\n\nDEBUGGING MASS BALANCE FUNCTION\n\n')
         self.debug_refreeze = debug_refreeze
+        self.inversion_filter = inversion_filter
 
         super(PyGEMMassBalance, self).__init__()
         self.valid_bounds = [-1e4, 2e4]  # in m
@@ -649,7 +651,11 @@ class PyGEMMassBalance(MassBalanceModel):
         # Mass balance for each bin [m ice per second]
         seconds_in_year = self.dayspermonth[12*year:12*(year+1)].sum() * 24 * 3600
         mb = (self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)
-              * pygem_prms.density_water / pygem_prms.density_ice / seconds_in_year)        
+              * pygem_prms.density_water / pygem_prms.density_ice / seconds_in_year)
+        
+        if self.inversion_filter:
+            mb = np.minimum.accumulate(mb)
+#            print('FILTER THIS SUCKER!')
 
         return mb
 

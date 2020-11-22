@@ -97,9 +97,9 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
             tasks.catchment_intersections,      
             tasks.catchment_width_geom,
             tasks.catchment_width_correction,            
-            # Consensus ice thickness
-            icethickness.consensus_gridded,
-            icethickness.consensus_binned,
+#            # Consensus ice thickness
+#            icethickness.consensus_gridded,
+#            icethickness.consensus_binned,
             # Mass balance data
             mbdata.mb_df_to_gdir
         ]

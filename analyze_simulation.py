@@ -1,4 +1,4 @@
-""" Analyze MCMC output - chain length, etc. """
+""" Analyze simulation output - mass change, runoff, etc. """
 
 # Built-in libraries
 from collections import OrderedDict
@@ -49,7 +49,7 @@ option_region_map_nodata = 0
 option_peakwater_map = 0                            # updated - 11/7/2019
 option_temp_and_prec_map = 0                        # updated - 11/18/2019
 option_watersheds_colored = 0                       # still good 11/6/2019
-option_runoff_monthlychange_and_components = 0      # updated - 11/20/2019
+option_runoff_monthlychange_and_components = 1      # updated - 11/20/2019
 runoff_erainterim_bywatershed = 0                   # updated - better to export to table
 option_excess_meltwater_diagram = 0
 
@@ -75,7 +75,8 @@ option_regional_hyps = 0
 #%% ===== Input data =====
 #netcdf_fp_cmip5 = pygem_prms.output_sim_fp + 'spc_subset/'
 #netcdf_fp_cmip5 = pygem_prms.output_sim_fp + 'spc_multimodel/'
-netcdf_fp_cmip5 = pygem_prms.output_filepath + 'simulations/spc_20190914/merged/multimodel/'
+#netcdf_fp_cmip5 = pygem_prms.output_filepath + 'simulations/spc_20190914/merged/multimodel/'
+netcdf_fp_cmip5 = '/Volumes/LaCie/HMA_PyGEM/2019_0914/multimodel/'
 #netcdf_fp_cmip5 = pygem_prms.output_filepath + 'simulations/CCSM4/'
 netcdf_fp_era = pygem_prms.output_filepath + 'simulations/spc_20190914/merged/ERA-Interim/'
 
@@ -340,6 +341,10 @@ def peakwater(runoff, time_values, nyears):
 
 def excess_meltwater_m3(glac_vol, option_lastloss=1):
     """ Excess meltwater based on running minimum glacier volume 
+    
+    Note: when analyzing excess meltwater for a region, if there are glaciers that gain mass, the excess meltwater will
+    be zero. Consequently, the total excess meltwater will actually be more than the total mass loss because these
+    positive mass balances do not "remove" total excess meltwater.
     
     Parameters
     ----------
@@ -958,11 +963,17 @@ if option_runoff_monthlychange_and_components == 1:
         for region in regions:
             
             # Load datasets
-            ds_fn = 'R' + str(region) + '_multimodel_' + rcp + '_c2_ba1_100sets_2000_2100.nc'
+#            ds_fn = 'R' + str(region) + '_multimodel_' + rcp + '_c2_ba1_100sets_2000_2100.nc'
+            ds_fn = 'R' + str(region) + '_multigcm_' + rcp + '_c2_ba1_100sets_2000_2100.nc'
             ds = xr.open_dataset(netcdf_fp_cmip5 + ds_fn)
-            df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
-            df['RGIId'] = ['RGI60-' + str(int(df.O1Region.values[x])) + '.' +
-                           str(int(df.glacno.values[x])).zfill(5) for x in df.index.values]
+            
+#            df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
+#            df['RGIId'] = ['RGI60-' + str(int(df.O1Region.values[x])) + '.' +
+#                           str(int(df.glacno.values[x])).zfill(5) for x in df.index.values]
+            df = pd.DataFrame(np.transpose(np.vstack((ds.RGIId.values, ds.CenLon.values, ds.CenLat.values,
+                                                      ds.O1Region.values, ds.O2Region.values, ds.Area.values))),
+                              columns=['RGIId','CenLon','CenLat','O1Region','O2Region','Area'])
+
 
             # Extract time variable
             time_values_annual = ds.coords['year_plus1'].values
@@ -980,25 +991,23 @@ if option_runoff_monthlychange_and_components == 1:
             eocmonth_idx2 = eocyear_idx2 * 12
             
             # RUNOFF (Gt)
-            ds_runoff_reg = ((ds['runoff_glac_monthly'].values[:,:,0] + ds['offglac_runoff_monthly'].values[:,:,0]) 
-                             / 10**9)
-            ds_runoff_reg_std = ((ds['runoff_glac_monthly'].values[:,:,1] + ds['offglac_runoff_monthly'].values[:,:,1]) 
-                                 / 10**9)
-            ds_runoff_onglac_reg = ds['runoff_glac_monthly'].values[:,:,0] / 10**9
-            ds_runoff_offglac_reg = ds['offglac_runoff_monthly'].values[:,:,0] / 10**9
+            ds_runoff_reg = ((ds['glac_runoff_monthly'].values + ds['offglac_runoff_monthly'].values) / 10**9)
+            ds_runoff_reg_std = ((ds['glac_runoff_monthly_std'].values + ds['offglac_runoff_monthly_std']) / 10**9)
+            ds_runoff_onglac_reg = ds['glac_runoff_monthly'].values / 10**9
+            ds_runoff_offglac_reg = ds['offglac_runoff_monthly'].values / 10**9
             
             # RUNOFF COMPONENTS (UNITS: Gt)
-            ds_vol_reg = ds['volume_glac_annual'].values[:,:,0]
-            ds_area_reg = ds['area_glac_annual'].values[:,:,0][:,:-1].repeat(12,axis=1)
-            ds_prec_reg = ds['prec_glac_monthly'].values[:,:,0] * ds_area_reg * 10**6 / 10**9
-            ds_melt_reg = ds['melt_glac_monthly'].values[:,:,0] * ds_area_reg * 10**6 / 10**9
-            ds_refr_reg = ds['refreeze_glac_monthly'].values[:,:,0] * ds_area_reg * 10**6 / 10**9
+            ds_vol_reg = ds['glac_volume_annual'].values
+            ds_area_reg = ds['glac_area_annual'].values[:,:-1].repeat(12,axis=1)
+            ds_prec_reg = ds['glac_prec_monthly'].values * ds_area_reg * 10**6 / 10**9
+            ds_melt_reg = ds['glac_melt_monthly'].values * ds_area_reg * 10**6 / 10**9
+            ds_refr_reg = ds['glac_refreeze_monthly'].values * ds_area_reg * 10**6 / 10**9
             # Off-glacier
             ds_area_off_reg = ds_area_reg[:,0][:,np.newaxis] - ds_area_reg
             ds_area_off_reg[ds_area_off_reg < 0] = 0
-            ds_prec_off_reg = ds['offglac_prec_monthly'].values[:,:,0] * ds_area_off_reg * 10**6 / 10**9
-            ds_melt_off_reg = ds['offglac_melt_monthly'].values[:,:,0] * ds_area_off_reg * 10**6 / 10**9
-            ds_refr_off_reg = ds['offglac_refreeze_monthly'].values[:,:,0] * ds_area_off_reg * 10**6 / 10**9
+            ds_prec_off_reg = ds['offglac_prec_monthly'].values * ds_area_off_reg * 10**6 / 10**9
+            ds_melt_off_reg = ds['offglac_melt_monthly'].values * ds_area_off_reg * 10**6 / 10**9
+            ds_refr_off_reg = ds['offglac_refreeze_monthly'].values * ds_area_off_reg * 10**6 / 10**9
             
             ds.close()
             
@@ -1051,7 +1060,7 @@ if option_runoff_monthlychange_and_components == 1:
         ds_prec_off_annual = gcmbiasadj.annual_sum_2darray(ds_prec_off)
         ds_melt_off_annual = gcmbiasadj.annual_sum_2darray(ds_melt_off)
         ds_refr_off_annual = gcmbiasadj.annual_sum_2darray(ds_refr_off)               
-        # excess glacier meltwater based on volume changen
+        # excess glacier meltwater based on volume change
         ds_melt_excess_annual = excess_meltwater_m3(ds_vol) / 1e9
    
         # Remove RGIIds from main_glac_rgi that are not in the model runs
@@ -1061,6 +1070,153 @@ if option_runoff_monthlychange_and_components == 1:
             rgi_idx = [rgiid_all.index(x) for x in rgiid_df]
             main_glac_rgi = main_glac_rgi.loc[rgi_idx,:]
             main_glac_rgi.reset_index(inplace=True, drop=True)
+            
+        #%%  THIS IS A CHECK FOR ERA-INTERIM MULTI-MODEL DATA SO DON'T DELETE IT IF USING OLD VERSION OF CODE 11/19/2020
+#        print('\n\nDELETE ME!\n\n')
+##        print('CHECK FOR THE )
+#        # Glacier and grouped annual specific mass balance and mass change
+#        for region in regions:
+#            
+#            # Load datasets
+#            ds_fn = 'R' + str(region) + '--all--ERA-Interim_c2_ba1_100sets_2000_2018.nc'
+#            netcdf_era_fp = '/Volumes/LaCie/HMA_PyGEM/2019_0914/ERA-Interim/wateryear_3_forshean/'
+#            ds = xr.open_dataset(netcdf_era_fp + ds_fn)
+##            df = pd.DataFrame(np.transpose(np.vstack((ds.RGIId.values, ds.CenLon.values, ds.CenLat.values,
+##                                                      ds.O1Region.values, ds.O2Region.values, ds.Area.values))),
+##                              columns=['RGIId','CenLon','CenLat','O1Region','O2Region','Area'])
+#            df = pd.DataFrame(ds.glacier_table.values, columns=ds.glac_attrs)
+#            df['RGIId'] = ['RGI60-' + str(int(df.O1Region.values[x])) + '.' +
+#                           str(int(df.glacno.values[x])).zfill(5) for x in df.index.values]
+#
+#
+#            # Extract time variable
+#            time_values_annual = ds.coords['year_plus1'].values
+#            time_values_monthly = ds.coords['time'].values
+#            time_values_df = pd.DatetimeIndex(time_values_monthly)
+#            time_values_months = np.array([x.month for x in time_values_df])
+#            months = list(time_values_months[0:12])
+#            
+#            # RUNOFF (Gt)
+#            ds_runoff_reg = ((ds['runoff_glac_monthly'].values[:,:,0] + ds['offglac_runoff_monthly'].values[:,:,0]) / 10**9)
+#            ds_runoff_reg_std = ((ds['runoff_glac_monthly'].values[:,:,1] + ds['offglac_runoff_monthly'][:,:,1]) / 10**9)
+#            ds_runoff_onglac_reg = ds['runoff_glac_monthly'].values[:,:,0] / 10**9
+#            ds_runoff_offglac_reg = ds['offglac_runoff_monthly'].values[:,:,0] / 10**9
+#            
+#            # RUNOFF COMPONENTS (UNITS: Gt)
+#            ds_vol_reg = ds['volume_glac_annual'].values[:,:,0]
+#            ds_area_reg = ds['area_glac_annual'].values[:,:,0][:,:-1].repeat(12,axis=1)
+#            ds_prec_reg = ds['prec_glac_monthly'].values[:,:,0] * ds_area_reg * 10**6 / 10**9
+#            ds_melt_reg = ds['melt_glac_monthly'].values[:,:,0] * ds_area_reg * 10**6 / 10**9
+#            ds_refr_reg = ds['refreeze_glac_monthly'].values[:,:,0] * ds_area_reg * 10**6 / 10**9
+#            # Off-glacier
+#            ds_area_off_reg = ds_area_reg[:,0][:,np.newaxis] - ds_area_reg
+#            ds_area_off_reg[ds_area_off_reg < 0] = 0
+#            ds_prec_off_reg = ds['offglac_prec_monthly'][:,:,0].values * ds_area_off_reg * 10**6 / 10**9
+#            ds_melt_off_reg = ds['offglac_melt_monthly'][:,:,0].values * ds_area_off_reg * 10**6 / 10**9
+#            ds_refr_off_reg = ds['offglac_refreeze_monthly'][:,:,0].values * ds_area_off_reg * 10**6 / 10**9
+#            
+#            ds.close()
+#            
+#            if region == regions[0]:
+#                df_all = df
+#                ds_runoff = ds_runoff_reg
+#                ds_runoff_std = ds_runoff_reg_std
+#                ds_runoff_onglac = ds_runoff_onglac_reg
+#                ds_runoff_offglac = ds_runoff_offglac_reg
+#                ds_vol = ds_vol_reg
+#                ds_prec = ds_prec_reg
+#                ds_melt = ds_melt_reg
+#                ds_refr = ds_refr_reg
+#                ds_area = ds_area_reg
+#                ds_prec_off = ds_prec_off_reg
+#                ds_melt_off = ds_melt_off_reg
+#                ds_refr_off = ds_refr_off_reg
+#                ds_area_off = ds_area_off_reg
+#            else:
+#                df_all = pd.concat([df_all, df], axis=0)
+#                ds_runoff = np.concatenate((ds_runoff, ds_runoff_reg), axis=0)
+#                ds_runoff_std = np.concatenate((ds_runoff_std, ds_runoff_reg_std), axis=0)
+#                ds_runoff_onglac = np.concatenate((ds_runoff_onglac, ds_runoff_onglac_reg), axis=0)
+#                ds_runoff_offglac = np.concatenate((ds_runoff_offglac, ds_runoff_offglac_reg), axis=0)
+#                ds_vol = np.concatenate((ds_vol, ds_vol_reg), axis=0)
+#                ds_area = np.concatenate((ds_area, ds_area_reg), axis=0)
+#                ds_prec = np.concatenate((ds_prec, ds_prec_reg), axis=0)
+#                ds_melt = np.concatenate((ds_melt, ds_melt_reg), axis=0)
+#                ds_refr = np.concatenate((ds_refr, ds_refr_reg), axis=0)
+#                ds_area_off = np.concatenate((ds_area_off, ds_area_off_reg), axis=0)
+#                ds_prec_off = np.concatenate((ds_prec_off, ds_prec_off_reg), axis=0)
+#                ds_melt_off = np.concatenate((ds_melt_off, ds_melt_off_reg), axis=0)
+#                ds_refr_off = np.concatenate((ds_refr_off, ds_refr_off_reg), axis=0)
+#
+#
+#        # RUNOFF FROM COMPONENTS AND RELATIVE FRACTION OF EACH COMPONENT
+#        #  note: this significantly differs from runoff values due to the propagation of errors associated with
+#        #        the averaging of each of the components and the area, which in part result from using the mean values
+#        #        since this is biased towards higher values (see Figure Uncertainty in Projections Paper)
+#        ds_runoff2 = ds_prec + ds_melt - ds_refr + ds_prec_off + ds_melt_off - ds_refr_off    
+#        
+#        # ANNUAL RUNOFF AND COMPONENTS
+#        ds_runoff_annual = gcmbiasadj.annual_sum_2darray(ds_runoff)
+#        ds_runoff_onglac_annual = gcmbiasadj.annual_sum_2darray(ds_runoff_onglac)
+#        ds_runoff_offglac_annual = gcmbiasadj.annual_sum_2darray(ds_runoff_offglac)
+#        ds_runoff2_annual = gcmbiasadj.annual_sum_2darray(ds_runoff2)
+#        ds_prec_annual = gcmbiasadj.annual_sum_2darray(ds_prec)
+#        ds_melt_annual = gcmbiasadj.annual_sum_2darray(ds_melt)
+#        ds_refr_annual = gcmbiasadj.annual_sum_2darray(ds_refr)
+#        ds_prec_off_annual = gcmbiasadj.annual_sum_2darray(ds_prec_off)
+#        ds_melt_off_annual = gcmbiasadj.annual_sum_2darray(ds_melt_off)
+#        ds_refr_off_annual = gcmbiasadj.annual_sum_2darray(ds_refr_off)               
+#        # excess glacier meltwater based on volume change
+#        ds_melt_excess_annual = excess_meltwater_m3(ds_vol) / 1e9
+#        
+#        #%%
+#        hma_vol = ds_vol.sum(0)
+#        print('mass change [Gt/yr]:', (hma_vol[18] - hma_vol[0]) / 18 * 0.9)
+#        print('mass change [km3 ice]:', hma_vol[18] - hma_vol[0])
+#        print('mass change [Gt]:', (hma_vol[18] - hma_vol[0]) * 0.9)
+#        
+##        glac_vol = ds_vol
+##        glac_vol_m3we = glac_vol * pygem_prms.density_ice / pygem_prms.density_water * 1000**3
+##        glac_vol_m3we_norm = glac_vol_m3we - glac_vol_m3we[:,0][:,np.newaxis]
+##        glac_vol_m3we_norm_reversed = glac_vol_m3we_norm[:,::-1]
+##        
+##        glac_vol_runningmin = np.maximum.accumulate(glac_vol_m3we_norm_reversed,axis=1)[:,::-1]
+##        glac_vol_runningmin[glac_vol_runningmin > 0] = 0
+##        glac_excess = glac_vol_runningmin[:,:-1] - glac_vol_runningmin[:,1:]
+##        
+##        glac_excess_total = glac_excess.sum(1)
+##        A = glac_excess_total - -1*glac_vol_runningmin[:,-1]
+##        #26123, 72604, 74719
+##        glac_idx = 74719
+##        print(A[glac_idx])
+##        print(glac_vol_m3we[glac_idx,:])
+##        print(glac_excess_total[glac_idx])
+##        print(glac_excess[glac_idx,:])
+##        print(glac_vol_m3we[glac_idx,-1] - glac_vol_m3we[glac_idx,0])
+##        
+##        glac_vol_chg = glac_vol_m3we[:,-1] - glac_vol_m3we[:,0]
+###        for ncol in range(0, glac_vol.shape[1]):
+###            print(ncol)
+###            glac_vol_norm_t1 = glac_vol_runningmin[:,ncol]
+###            ridx = np.where(glac_vol_norm_t1 > 0)[0]
+####            ridx = np.where( > glac_vol_init)[0]
+###            print(ridx)
+##        
+##
+###                # initial volume sets limit of loss (gaining and then losing ice does not contribute to excess melt)
+###                for ncol in range(0,glac_vol_m3.shape[1]):
+###                    mask = glac_vol_runningmin[:,ncol] > glac_vol_m3[:,0]
+###                    glac_vol_runningmin[mask,ncol] = glac_vol_m3[mask,0]
+###            glac_excess = glac_vol_runningmin[:,:-1] - glac_vol_runningmin[:,1:] 
+###            return glac_excess
+#        
+#        
+#        
+#        print('excess melt [Gt]:', ds_melt_excess_annual.sum())
+#        print('excess melt [Gt/yr]:', ds_melt_excess_annual.sum() / 18)
+#        
+#        print('-------- END TESTING HERE -----')
+   
 
         #%%
         # GROUP PROCESSING (RUNOFF AND UNCERTAINTY)
@@ -1267,6 +1423,10 @@ if option_runoff_monthlychange_and_components == 1:
             group_annual_prec_off_adj = group_annual_prec_off_frac * group_annual_runoff
             group_annual_melt_off_adj = group_annual_melt_off_frac * group_annual_runoff
             group_annual_refr_off_adj = group_annual_refr_off_frac * group_annual_runoff
+            
+            print(group_annual_melt_excess_adj[0:18].mean())
+            
+            #%%
             
             
             # Normalize values for plot
@@ -7951,13 +8111,3 @@ if option_caldata_compare == 1:
 #length_v2 = length.copy()
 #length_v2.loc[:,thickness_cns] = length_values
 #length_v2.to_csv(pygem_prms.hyps_filepath + 'updated/' + length_fn, index=False)
-
-
-
-    
-    
-    
-    
-    
-    
-    
