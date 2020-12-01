@@ -43,6 +43,12 @@ from oggm.core.flowline import FluxBasedModel
 from oggm.core.inversion import calving_flux_from_depth
 
 
+cfg.PARAMS['hydro_month_nh']=1
+cfg.PARAMS['hydro_month_sh']=1
+#print('\n\nCHECK THAT THIS DOES WHAT WE WOULD EXPECT, as run_until_and_store uses this')
+#print('Fabien says this trick will cause it to be one year off')
+#print('Talk to Regine if want to do hydro or calendar year\n\n')
+
 # ----- FUNCTIONS -----
 def getparser():
     """
@@ -832,18 +838,6 @@ def main(list_packed_vars):
                     plt.xlabel('Mass balance (mwea)')
                     plt.show()
                     
-                #%%
-                
-#                A = np.minimum.accumulate(mb)
-#                if debug:
-#                    plt.plot(A, h, '.')
-#                    plt.plot(mb_t0, h, '.')
-#                    plt.ylabel('Elevation')
-#                    plt.xlabel('Mass balance (mwea)')
-#                    plt.show()
-                
-                #%%
-               
                
                 # Arbitrariliy shift the MB profile up (or down) until mass balance is zero (equilibrium for inversion)
                 climate.apparent_mb_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears))
@@ -894,15 +888,13 @@ def main(list_packed_vars):
                     
                 if debug:
                     graphics.plot_modeloutput_section(ev_model)
-#                    graphics.plot_modeloutput_map(gdir, model=ev_model)
+                    graphics.plot_modeloutput_map(gdir, model=ev_model)
                     plt.figure()
                     diag.volume_m3.plot()
                     plt.figure()
                     diag.area_m2.plot()
                     plt.show()
-                        
-                
-                    
+
                 # Post-process data to ensure mass is conserved and update accordingly for ignored mass losses
                 #  ignored mass losses occur because mass balance model does not know ice thickness and flux divergence
                 area_initial = mbmod.glac_bin_area_annual[:,0].sum()
@@ -912,19 +904,17 @@ def main(list_packed_vars):
                
                 if debug:
                     vol_change_diag = diag.volume_m3.values[-1] - diag.volume_m3.values[0]
-#                    vol_change_mbmod = (mbmod.glac_wide_massbaltotal.sum() * pygem_prms.density_water / 
-#                                        pygem_prms.density_ice)
-#                    print('  vol change mbmod :', vol_change_mbmod)
                     print('  vol init  [Gt]:', np.round(diag.volume_m3.values[0] * 0.9 / 1e9,5))
                     print('  vol final [Gt]:', np.round(diag.volume_m3.values[-1] * 0.9 / 1e9,5))
                     print('  vol change[Gt]:', np.round(vol_change_diag * 0.9 / 1e9,5))
                     print('  mb [mwea]:', np.round(mb_mwea_diag,2))
-                    
-#                    print('  mb_mbmod [mwea]:', mb_mwea_mbmod)
+                    print('  mb_mbmod [mwea]:', mb_mwea_mbmod)
                 
-                #%%
+                
                 if np.abs(mb_mwea_diag - mb_mwea_mbmod) > 1e-6:
                     ev_model.mb_model.ensure_mass_conservation(diag)
+                    
+                print('mass loss [Gt]:', mbmod.glac_wide_massbaltotal.sum() / 1e9)
 
                 # RECORD PARAMETERS TO DATASET
                 output_glac_temp_monthly[:, n_iter] = mbmod.glac_wide_temp
@@ -945,23 +935,7 @@ def main(list_packed_vars):
                 output_offglac_melt_monthly[:, n_iter] = mbmod.offglac_wide_melt
                 output_offglac_snowpack_monthly[:, n_iter] = mbmod.offglac_wide_snowpack
                 output_offglac_runoff_monthly[:, n_iter] = mbmod.offglac_wide_runoff
-                
-                    
-                    #%%                    
-#                    print('volume:', diag.volume_m3.values)
-#                    np.savetxt(pygem_prms.output_filepath + 'bin_mbclim.csv', 
-#                               mbmod.glac_bin_massbalclim_annual, delimiter=',')
-#                    
-#                    nyears = dates_table.shape[0] / 12
-#                    glacwide_mb_mwea_annual = mbmod.glac_bin_area_annual[:,0:-1] * mbmod.glac_bin_massbalclim_annual
-#                    glacwide_mb_mwea_mean = glacwide_mb_mwea_annual.sum() / area_initial / nyears
-#                    glacwide_area = mbmod.glac_bin_area_annual.sum(0)
-#                    print('area from mbmod:', glacwide_area)
-#                    print('area dif :', glacwide_area - diag.area_m2.values)
-#                    print('mb_check_from_mbmod 2 mwea:', glacwide_mb_mwea_mean)
-#                    glacwide_mb_mwea_mean = glacwide_mb_mwea_annual.sum() / nfls[0].area_m2 / nyears
-#                    print('third:', glacwide_mb_mwea_mean)
-                    
+                  
 
                 #%% ===== Adding functionality for calving =====
 #                water_level = None
@@ -1332,3 +1306,10 @@ if __name__ == '__main__':
             diag = main_vars['diag']
             if pygem_prms.use_calibrated_modelparams:
                 modelprms_dict = main_vars['modelprms_dict']
+                
+    #%%
+    # Scratch debugging space
+#    plt.plot(A[:,-1],mbmod.heights,'.')
+#    plt.ylabel('Elevation')
+#    plt.xlabel('Mass balance (mwea)')
+#    plt.show()
