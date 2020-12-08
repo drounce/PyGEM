@@ -74,17 +74,14 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         process_gdir = True
 
     if process_gdir:
-        # ===== SELECT BEST DEM =====
-#        gdirs = rgitopo.init_glacier_directories_from_rgitopo([rgi_id])  # removed 10/20/2020
-#        gdirs = workflow.init_glacier_directories([rgi_id])
-        
         # Download preprocessed data
-        gdirs = workflow.init_glacier_regions([rgi_id], from_prepro_level=1, prepro_border=prepro_border)
+#        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40)
         
         # Start after the prepro task level
 #        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/single_fl'
-#        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40, 
-#                                                  prepro_base_url=base_url, prepro_rgi_version='62')
+        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl'
+        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40, 
+                                                  prepro_base_url=base_url, prepro_rgi_version='62')
         
         # Compute all the stuff
         list_tasks = [

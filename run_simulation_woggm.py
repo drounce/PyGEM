@@ -21,7 +21,6 @@ import numpy as np
 import xarray as xr
 # Local libraries
 import class_climate
-#import class_mbdata
 import pygem.pygem_input as pygem_prms
 from pygem.massbalance import PyGEMMassBalance
 from pygem.glacierdynamics import MassRedistributionCurveModel
@@ -45,9 +44,9 @@ from oggm.core.inversion import calving_flux_from_depth
 
 cfg.PARAMS['hydro_month_nh']=1
 cfg.PARAMS['hydro_month_sh']=1
-#print('\n\nCHECK THAT THIS DOES WHAT WE WOULD EXPECT, as run_until_and_store uses this')
-#print('Fabien says this trick will cause it to be one year off')
-#print('Talk to Regine if want to do hydro or calendar year\n\n')
+print('\n\nCHECK THAT THIS DOES WHAT WE WOULD EXPECT, as run_until_and_store uses this')
+print('Fabien says this trick will cause it to be one year off')
+print('Talk to Regine if want to do hydro or calendar year\n\n')
 
 # ----- FUNCTIONS -----
 def getparser():
@@ -664,7 +663,7 @@ def main(list_packed_vars):
         assert True==False, 'Adjust nyears for non-monthly timestep'
 
     for glac in range(main_glac_rgi.shape[0]):
-        if glac == 0 or glac == main_glac_rgi.shape[0]:
+        if glac == 0:
             print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
@@ -867,9 +866,9 @@ def main(list_packed_vars):
                     print('OGGM GLACIER DYNAMICS!')
                     ev_model = FluxBasedModel(nfls, y0=0, mb_model=mbmod, 
                                               glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
-                    if debug:
-                        print('New glacier vol', ev_model.volume_m3)
-                        graphics.plot_modeloutput_section(ev_model)
+#                    if debug:
+#                        print('New glacier vol', ev_model.volume_m3)
+#                        graphics.plot_modeloutput_section(ev_model)
        
                     _, diag = ev_model.run_until_and_store(nyears)
                     ev_model.mb_model.glac_wide_volume_annual[-1] = diag.volume_m3[-1]
@@ -887,7 +886,7 @@ def main(list_packed_vars):
                     _, diag = ev_model.run_until_and_store(nyears)
                     
                 if debug:
-                    graphics.plot_modeloutput_section(ev_model)
+#                    graphics.plot_modeloutput_section(ev_model)
                     graphics.plot_modeloutput_map(gdir, model=ev_model)
                     plt.figure()
                     diag.volume_m3.plot()

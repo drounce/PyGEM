@@ -625,7 +625,20 @@ class PyGEMMassBalance(MassBalanceModel):
         if self.inversion_filter:
             mb = np.minimum.accumulate(mb)
 
-        return mb
+        # Fill in non-glaciated areas - needed for OGGM dynamics to remove small ice flux into next bin
+        mb_filled = mb.copy()
+        if len(glac_idx_t0) > 1:
+            mb_max = np.max(mb[glac_idx_t0])
+            mb_min = np.min(mb[glac_idx_t0])
+            height_max = np.max(heights[glac_idx_t0])
+            height_min = np.min(heights[glac_idx_t0])
+            mb_grad = (mb_min - mb_max) / (height_max - height_min)
+            mb_filled[mb_filled==0] = mb_min + mb_grad * (height_min - heights[mb_filled==0])
+        elif len(glac_idx_t0) == 1 and mb.max() <= 0:
+            mb_min = np.min(mb[glac_idx_t0])
+            mb_filled[mb_filled==0] = mb_min
+                
+        return mb_filled
 
 
     #%%

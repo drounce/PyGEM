@@ -155,7 +155,7 @@ if constantarea_years > 0:
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
 #gcm_endyear = 2019              # last year of model run (simulation dataset)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2100              # last year of model run (simulation dataset)
+gcm_endyear = 2099              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
