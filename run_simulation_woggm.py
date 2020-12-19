@@ -886,7 +886,7 @@ def main(list_packed_vars):
                     _, diag = ev_model.run_until_and_store(nyears)
                     
                 if debug:
-#                    graphics.plot_modeloutput_section(ev_model)
+                    graphics.plot_modeloutput_section(ev_model)
                     graphics.plot_modeloutput_map(gdir, model=ev_model)
                     plt.figure()
                     diag.volume_m3.plot()
@@ -1213,102 +1213,103 @@ if __name__ == '__main__':
     else:
         main_glac_rgi_all = modelsetup.selectglaciersrgitable(
                 rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2,
-                rgi_glac_number=pygem_prms.rgi_glac_number)
+                rgi_glac_number=pygem_prms.rgi_glac_number, include_landterm=pygem_prms.include_landterm,
+                include_laketerm=pygem_prms.include_laketerm, include_tidewater=pygem_prms.include_tidewater)
         glac_no = list(main_glac_rgi_all['rgino_str'].values)
 
-    # Number of cores for parallel processing
-    if args.option_parallels != 0:
-        num_cores = int(np.min([len(glac_no), args.num_simultaneous_processes]))
-    else:
-        num_cores = 1
-
-    # Glacier number lists to pass for parallel processing
-    glac_no_lsts = split_glaciers.split_list(glac_no, n=num_cores, option_ordered=args.option_ordered)
-
-    # Read GCM names from argument parser
-    gcm_name = args.gcm_list_fn
-    if args.gcm_name is not None:
-        gcm_list = [args.gcm_name]
-        rcp_scenario = args.rcp
-    elif args.gcm_list_fn == pygem_prms.ref_gcm_name:
-        gcm_list = [pygem_prms.ref_gcm_name]
-        rcp_scenario = args.rcp
-    else:
-        with open(args.gcm_list_fn, 'r') as gcm_fn:
-            gcm_list = gcm_fn.read().splitlines()
-            rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
-            print('Found %d gcms to process'%(len(gcm_list)))
-
-    # Loop through all GCMs
-    for gcm_name in gcm_list:
-        if args.rcp is None:
-            print('Processing:', gcm_name)
-        else:
-            print('Processing:', gcm_name, rcp_scenario)
-        # Pack variables for multiprocessing
-        list_packed_vars = []
-        for count, glac_no_lst in enumerate(glac_no_lsts):
-            list_packed_vars.append([count, glac_no_lst, gcm_name])
-
-        # Parallel processing
-        if args.option_parallels != 0:
-            print('Processing in parallel with ' + str(args.num_simultaneous_processes) + ' cores...')
-            with multiprocessing.Pool(args.num_simultaneous_processes) as p:
-                p.map(main,list_packed_vars)
-        # If not in parallel, then only should be one loop
-        else:
-            # Loop through the chunks and export bias adjustments
-            for n in range(len(list_packed_vars)):
-                main(list_packed_vars[n])
-
-
-
-    print('Total processing time:', time.time()-time_start, 's')
-
-
-#%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
-    # Place local variables in variable explorer
-    if args.option_parallels == 0:
-        main_vars_list = list(main_vars.keys())
-        gcm_name = main_vars['gcm_name']
-        main_glac_rgi = main_vars['main_glac_rgi']
-        if pygem_prms.hyps_data in ['Huss', 'Farinotti']:
-            main_glac_hyps = main_vars['main_glac_hyps']
-            main_glac_icethickness = main_vars['main_glac_icethickness']
-            main_glac_width = main_vars['main_glac_width']
-        dates_table = main_vars['dates_table']
-        if pygem_prms.option_synthetic_sim == 1:
-            dates_table_synthetic = main_vars['dates_table_synthetic']
-            gcm_temp_tile = main_vars['gcm_temp_tile']
-            gcm_prec_tile = main_vars['gcm_prec_tile']
-            gcm_lr_tile = main_vars['gcm_lr_tile']
-        gcm_temp = main_vars['gcm_temp']
-        gcm_tempstd = main_vars['gcm_tempstd']
-        gcm_prec = main_vars['gcm_prec']
-        gcm_elev = main_vars['gcm_elev']
-        gcm_lr = main_vars['gcm_lr']
-        gcm_temp_adj = main_vars['gcm_temp_adj']
-        gcm_prec_adj = main_vars['gcm_prec_adj']
-        gcm_elev_adj = main_vars['gcm_elev_adj']
-        gcm_temp_lrglac = main_vars['gcm_lr']
-#        output_ds_all_stats = main_vars['output_ds_all_stats']
-#        modelprms = main_vars['modelprms']
-        glacier_rgi_table = main_vars['glacier_rgi_table']
-        glacier_str = main_vars['glacier_str']
-        if pygem_prms.hyps_data in ['OGGM']:
-            gdir = main_vars['gdir']
-            fls = main_vars['fls']
-            width_initial = fls[0].widths_m
-            glacier_area_initial = width_initial * fls[0].dx
-            mbmod = main_vars['mbmod']
-            ev_model = main_vars['ev_model']
-            diag = main_vars['diag']
-            if pygem_prms.use_calibrated_modelparams:
-                modelprms_dict = main_vars['modelprms_dict']
-                
-    #%%
-    # Scratch debugging space
-#    plt.plot(A[:,-1],mbmod.heights,'.')
-#    plt.ylabel('Elevation')
-#    plt.xlabel('Mass balance (mwea)')
-#    plt.show()
+#    # Number of cores for parallel processing
+#    if args.option_parallels != 0:
+#        num_cores = int(np.min([len(glac_no), args.num_simultaneous_processes]))
+#    else:
+#        num_cores = 1
+#
+#    # Glacier number lists to pass for parallel processing
+#    glac_no_lsts = split_glaciers.split_list(glac_no, n=num_cores, option_ordered=args.option_ordered)
+#
+#    # Read GCM names from argument parser
+#    gcm_name = args.gcm_list_fn
+#    if args.gcm_name is not None:
+#        gcm_list = [args.gcm_name]
+#        rcp_scenario = args.rcp
+#    elif args.gcm_list_fn == pygem_prms.ref_gcm_name:
+#        gcm_list = [pygem_prms.ref_gcm_name]
+#        rcp_scenario = args.rcp
+#    else:
+#        with open(args.gcm_list_fn, 'r') as gcm_fn:
+#            gcm_list = gcm_fn.read().splitlines()
+#            rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
+#            print('Found %d gcms to process'%(len(gcm_list)))
+#
+#    # Loop through all GCMs
+#    for gcm_name in gcm_list:
+#        if args.rcp is None:
+#            print('Processing:', gcm_name)
+#        else:
+#            print('Processing:', gcm_name, rcp_scenario)
+#        # Pack variables for multiprocessing
+#        list_packed_vars = []
+#        for count, glac_no_lst in enumerate(glac_no_lsts):
+#            list_packed_vars.append([count, glac_no_lst, gcm_name])
+#
+#        # Parallel processing
+#        if args.option_parallels != 0:
+#            print('Processing in parallel with ' + str(args.num_simultaneous_processes) + ' cores...')
+#            with multiprocessing.Pool(args.num_simultaneous_processes) as p:
+#                p.map(main,list_packed_vars)
+#        # If not in parallel, then only should be one loop
+#        else:
+#            # Loop through the chunks and export bias adjustments
+#            for n in range(len(list_packed_vars)):
+#                main(list_packed_vars[n])
+#
+#
+#
+#    print('Total processing time:', time.time()-time_start, 's')
+#
+#
+##%% ===== PLOTTING AND PROCESSING FOR MODEL DEVELOPMENT =====
+#    # Place local variables in variable explorer
+#    if args.option_parallels == 0:
+#        main_vars_list = list(main_vars.keys())
+#        gcm_name = main_vars['gcm_name']
+#        main_glac_rgi = main_vars['main_glac_rgi']
+#        if pygem_prms.hyps_data in ['Huss', 'Farinotti']:
+#            main_glac_hyps = main_vars['main_glac_hyps']
+#            main_glac_icethickness = main_vars['main_glac_icethickness']
+#            main_glac_width = main_vars['main_glac_width']
+#        dates_table = main_vars['dates_table']
+#        if pygem_prms.option_synthetic_sim == 1:
+#            dates_table_synthetic = main_vars['dates_table_synthetic']
+#            gcm_temp_tile = main_vars['gcm_temp_tile']
+#            gcm_prec_tile = main_vars['gcm_prec_tile']
+#            gcm_lr_tile = main_vars['gcm_lr_tile']
+#        gcm_temp = main_vars['gcm_temp']
+#        gcm_tempstd = main_vars['gcm_tempstd']
+#        gcm_prec = main_vars['gcm_prec']
+#        gcm_elev = main_vars['gcm_elev']
+#        gcm_lr = main_vars['gcm_lr']
+#        gcm_temp_adj = main_vars['gcm_temp_adj']
+#        gcm_prec_adj = main_vars['gcm_prec_adj']
+#        gcm_elev_adj = main_vars['gcm_elev_adj']
+#        gcm_temp_lrglac = main_vars['gcm_lr']
+##        output_ds_all_stats = main_vars['output_ds_all_stats']
+##        modelprms = main_vars['modelprms']
+#        glacier_rgi_table = main_vars['glacier_rgi_table']
+#        glacier_str = main_vars['glacier_str']
+#        if pygem_prms.hyps_data in ['OGGM']:
+#            gdir = main_vars['gdir']
+#            fls = main_vars['fls']
+#            width_initial = fls[0].widths_m
+#            glacier_area_initial = width_initial * fls[0].dx
+#            mbmod = main_vars['mbmod']
+#            ev_model = main_vars['ev_model']
+#            diag = main_vars['diag']
+#            if pygem_prms.use_calibrated_modelparams:
+#                modelprms_dict = main_vars['modelprms_dict']
+#                
+#    #%%
+#    # Scratch debugging space
+##    plt.plot(A[:,-1],mbmod.heights,'.')
+##    plt.ylabel('Elevation')
+##    plt.xlabel('Mass balance (mwea)')
+##    plt.show()

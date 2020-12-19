@@ -116,12 +116,11 @@ def glac_fromcsv(csv_fullfn, cn='RGIId'):
 main_directory = os.getcwd()
 # Output directory
 output_filepath = main_directory + '/../Output/'
-model_run_date = 'October 23, 2020'
+model_run_date = 'December 19 2020'
 
 # ===== GLACIER SELECTION =====
-#rgi_regionsO1 = [13, 14, 15]            # 1st order region number (RGI V6.0)
-rgi_regionsO1 = [1]            # 1st order region number (RGI V6.0)
-rgi_regionsO2 = 'all'           # 2nd order region number (RGI V6.0)
+rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
+rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
@@ -131,11 +130,16 @@ rgi_glac_number = 'all'
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 #glac_no = ['15.03733']
-glac_no = ['15.03742']
+#glac_no = ['15.03742']
 #glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
-#glac_no = None
+glac_no = None
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
+include_landterm = True                # Switch to include land-terminating glaciers
+include_laketerm = True                # Switch to include lake-terminating glaciers
+include_tidewater = False              # Switch to include tidewater glaciers
+
+oggm_base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl_with_consensus'
 
 # ===== CLIMATE DATA ===== 
 # Reference period runs
@@ -328,23 +332,15 @@ frontalablation_k0dict = {1:3.4,    # Calving dictionary with values from HH2015
                           17:6, 18:0, 19:1}
 
 # Calving width dictionary to override RGI elevation bins, which can be highly inaccurate at the calving front
-width_calving_dict_fullfn = main_directory + '/../Calving_data/calvingfront_widths.csv'
+width_calving_dict_fullfn = main_directory + '/../calving_data/calvingfront_widths.csv'
 if os.path.exists(width_calving_dict_fullfn):
     width_calving_df = pd.read_csv(width_calving_dict_fullfn)
     width_calving_dict = dict(zip(width_calving_df.RGIId, width_calving_df.front_width_m))
 else:
     width_calving_dict = {}
-
-## Calving parameter dictionary (according to Supplementary Table 3 in HH2015)
-#frontalablation_k0dict_fullfn = main_directory + '/../Calving_data/frontalablation_k0_dict.csv'
-#if os.path.exists(frontalablation_k0dict_fullfn):
-#    frontalablation_k0dict_df = pd.read_csv(frontalablation_k0dict_fullfn)
-#    frontalablation_k0dict = dict(zip(frontalablation_k0dict_df.O1Region, frontalablation_k0dict_df.k0))
-#else:
-#    frontalablation_k0dict = None
-    
-# Calving glacier data
-calving_data_fullfn = main_directory + '/../Calving_data/calving_glacier_data.csv'
+# Frontal ablation glacier data
+frontalablation_glacier_data_fullfn = main_directory + '/../calving_data/frontalablation_glacier_data.csv'
+frontalablation_regional_data_fullfn = main_directory + '/../calving_data/frontalablation_regional_data.csv'
 
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
@@ -431,7 +427,7 @@ option_lr_method = 1
 
 # ERA5
 if ref_gcm_name == 'ERA5':
-    era5_fp = main_directory + '/../Climate_data/ERA5/'
+    era5_fp = main_directory + '/../climate_data/ERA5/'
     era5_temp_fn = 'ERA5_temp_monthly.nc'
     era5_tempstd_fn = 'ERA5_tempstd_monthly.nc'
     era5_prec_fn = 'ERA5_totalprecip_monthly.nc'
@@ -448,7 +444,7 @@ if ref_gcm_name == 'ERA5':
 
 # ERA-Interim
 elif ref_gcm_name == 'ERA-Interim':
-    eraint_fp = main_directory + '/../Climate_data/ERA_Interim/download/'
+    eraint_fp = main_directory + '/../climate_data/ERA_Interim/download/'
     eraint_temp_fn = 'ERAInterim_Temp2m_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
     eraint_prec_fn = 'ERAInterim_TotalPrec_DailyMeanMonthly_' + eraint_start_date + '_' + eraint_end_date + '.nc'
     eraint_elev_fn = 'ERAInterim_geopotential.nc'
@@ -464,16 +460,16 @@ elif ref_gcm_name == 'ERA-Interim':
         assert 0==1, 'ERA-Interim not set up to use option_ablation 2 (temperature std data not downloaded)'
 
 # CMIP5 (GCM data)
-cmip5_fp_var_prefix = main_directory + '/../Climate_data/cmip5/'
+cmip5_fp_var_prefix = main_directory + '/../climate_data/cmip5/'
 cmip5_fp_var_ending = '_r1i1p1_monNG/'
-cmip5_fp_fx_prefix = main_directory + '/../Climate_data/cmip5/'
+cmip5_fp_fx_prefix = main_directory + '/../climate_data/cmip5/'
 cmip5_fp_fx_ending = '_r0i0p0_fx/'
-cmip5_fp_lr = main_directory + '/../Climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
+cmip5_fp_lr = main_directory + '/../climate_data/cmip5/bias_adjusted_1995_2100/2018_0524/'
 cmip5_lr_fn = 'biasadj_mon_lravg_1995_2015_R15.csv'
 
 # COAWST (High-resolution climate data over HMA)
-coawst_fp_unmerged = main_directory + '/../Climate_data/coawst/Monthly/'
-coawst_fp = main_directory + '/../Climate_data/coawst/'
+coawst_fp_unmerged = main_directory + '/../climate_data/coawst/Monthly/'
+coawst_fp = main_directory + '/../climate_data/coawst/'
 coawst_fn_prefix_d02 = 'wrfout_d02_Monthly_'
 coawst_fn_prefix_d01 = 'wrfout_d01_Monthly_'
 coawst_temp_fn_d02 = 'wrfout_d02_Monthly_T2_1999100100-2006123123.nc'

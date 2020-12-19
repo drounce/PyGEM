@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 # Local libraries
 import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
-import pygemfxns_massbalance as massbalance
 import class_climate
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====

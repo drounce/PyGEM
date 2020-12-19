@@ -79,7 +79,8 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         
         # Start after the prepro task level
 #        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/single_fl'
-        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl'
+#        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl'
+        base_url = pygem_prms.oggm_base_url
         gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40, 
                                                   prepro_base_url=base_url, prepro_rgi_version='62')
         

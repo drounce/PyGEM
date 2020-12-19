@@ -10,7 +10,6 @@ from datetime import datetime
 import pygem.pygem_input as pygem_prms
 
 
-
 def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, 
                   spinupyears=pygem_prms.ref_spinupyears, option_wateryear=pygem_prms.ref_wateryear):
     """
@@ -168,7 +167,6 @@ def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=py
 
     Line Profiling: Loading in the table takes the most time (~2.3 s)
     """
-    #%%
     rgi_regionsO1 = sorted(list(rgi_table.O1Region.unique()))
     glac_no = [x.split('-')[1] for x in rgi_table.RGIId.values]
     glac_no_byregion = {}
@@ -258,15 +256,13 @@ def selectcalibrationdata(main_glac_rgi):
     return main_glac_calmassbal
 
 
-def selectglaciersrgitable(glac_no=None,
-                           rgi_regionsO1=None,
-                           rgi_regionsO2=None,
-                           rgi_glac_number=None,
-                           rgi_fp=pygem_prms.rgi_fp,
+def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2=None, rgi_glac_number=None,
+                           rgi_fp=pygem_prms.rgi_fp, 
                            rgi_cols_drop=pygem_prms.rgi_cols_drop,
                            rgi_O1Id_colname=pygem_prms.rgi_O1Id_colname,
                            rgi_glacno_float_colname=pygem_prms.rgi_glacno_float_colname,
-                           indexname=pygem_prms.indexname):
+                           indexname=pygem_prms.indexname,
+                           include_landterm=True,include_laketerm=True,include_tidewater=True):
     """
     Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI
     glacier inventory. This function returns the rgi table associated with all of these glaciers.
@@ -374,6 +370,16 @@ def selectglaciersrgitable(glac_no=None,
     glacier_table['CenLon_360'] = glacier_table['CenLon']
     glacier_table.loc[glacier_table['CenLon'] < 0, 'CenLon_360'] = (
             360 + glacier_table.loc[glacier_table['CenLon'] < 0, 'CenLon_360'])
+    # Subset glaciers based on their terminus type
+    termtype_values = []
+    if include_landterm:
+        termtype_values.append(0)
+    if include_tidewater:
+        termtype_values.append(1)
+    if include_laketerm:
+        termtype_values.append(2)
+    glacier_table = glacier_table.loc[glacier_table['TermType'].isin(termtype_values)]
+    glacier_table.reset_index(inplace=True, drop=True)
 
     print("This study is focusing on %s glaciers in region %s" % (glacier_table.shape[0], rgi_regionsO1))
 
