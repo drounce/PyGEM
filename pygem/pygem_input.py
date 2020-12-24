@@ -119,25 +119,29 @@ output_filepath = main_directory + '/../Output/'
 model_run_date = 'December 19 2020'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [11]                 # 1st order region number (RGI V6.0)
+#rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
 rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 rgi_glac_number = 'all'
 #rgi_glac_number = ['00013']
-#rgi_glac_number = glac_num_fromrange(1,5)
+#rgi_glac_number = glac_num_fromrange(1,8)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
-#glac_no = ['15.03733']
-#glac_no = ['15.03742']
-#glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
 glac_no = None
+glac_no = ['11.00763']
+#glac_no = ['11.01052']
+#glac_no = ['11.02491']
+#glac_no = ['11.02961']
+#glac_no = ['15.03733']
+#glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 include_landterm = True                # Switch to include land-terminating glaciers
 include_laketerm = True                # Switch to include lake-terminating glaciers
-include_tidewater = False              # Switch to include tidewater glaciers
+include_tidewater = True               # Switch to include tidewater glaciers
 
 oggm_base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl_with_consensus'
 
@@ -203,13 +207,13 @@ option_bias_adjustment = 1
 # Calibration option ('MCMC', 'HH2015', 'HH2015mod')
 #option_calibration = 'MCMC'
 #option_calibration = 'HH2015'
-option_calibration = 'HH2015mod'
-#option_calibration = 'emulator'
+#option_calibration = 'HH2015mod'
+option_calibration = 'emulator'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
-cal_datasets = ['shean']
+#cal_datasets = ['shean']
 #cal_datasets = ['shean']
 # Calibration output filepath
-output_fp_cal = output_filepath + 'cal_' + option_calibration + '/'
+#output_fp_cal = output_filepath + 'calibration/'
 
 if option_calibration == 'HH2015':
     tbias_init = 0
@@ -227,7 +231,7 @@ elif option_calibration == 'HH2015mod':
     tbias_step = 0.5
     kp_init = 1
     kp_bndlow = 0.5
-    kp_bndhigh = 5
+    kp_bndhigh = 3
     ddfsnow_init = 0.0041
     # Minimization details 
     method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
@@ -236,10 +240,14 @@ elif option_calibration == 'HH2015mod':
     eps_opt = 0.01                  # epsilon (adjust variables for jacobian) for SciPy optimization scheme (1e-6 works)
     
 elif option_calibration == 'emulator':
-    emulator_sims = 10000            # Number of simulations to develop the emulator
-    tbias_step = 1                   # tbias step size
+    emulator_sims = 100              # Number of simulations to develop the emulator
+    opt_hh2015_mod = True            # Option to also perform the HH2015_mod calibration using the emulator
+    emulator_fp = output_filepath + 'emulator/'
+    tbias_step = 0.5                 # tbias step size
     tbias_init = 0                   # tbias initial value
     kp_init = 1                      # kp initial value
+    kp_bndlow = 0.5
+    kp_bndhigh = 3
     ddfsnow_init = 0.0041            # ddfsnow initial value
     # Distributions
     tbias_disttype = 'truncnormal'   # Temperature bias distribution ('truncnormal', 'uniform')
@@ -251,8 +259,16 @@ elif option_calibration == 'emulator':
     ddfsnow_sigma = 0.0015           # ddfsnow standard deviation
     ddfsnow_bndlow = 0               # ddfsnow lower bound
     ddfsnow_bndhigh = np.inf         # ddfsnow upper bound
+    # Minimization details 
+    method_opt = 'SLSQP'            # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
+    params2opt = ['tbias', 'kp']
+    ftol_opt = 1e-6                 # tolerance for SciPy optimization scheme
+    eps_opt = 0.01                  # epsilon (adjust variables for jacobian) for SciPy optimization scheme
+    
 
 elif option_calibration == 'MCMC':
+    tbias_step = 1
+    tbias_stepsmall = 0.1
     # Chain options
     n_chains = 1                    # number of chains (min 1, max 3)
     mcmc_sample_no = 10           # number of steps (10000 was found to be sufficient in HMA)
@@ -636,10 +652,16 @@ mb_binned_fp = main_directory + '/../DEMs/mb_bins_all-20200430/'
 
 # ===== HUGONNET GEODETIC =====
 hugonnet_fp = main_directory + '/../DEMs/Hugonnet2020/'
-hugonnet_fn = 'df_pergla_global_20yr.csv'
-hugonnet_rgi_glacno_cn = 'rgiid'
-hugonnet_mb_cn = 'dmdtda'
-hugonnet_mb_err_cn = 'err_dmdtda'
+hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
+#hugonnet_fn = 'df_pergla_global_20yr.csv'
+if hugonnet_fn.endswith('-filled.csv'):
+    hugonnet_mb_cn = 'mb_mwea'
+    hugonnet_mb_err_cn = 'mb_mwea_err'
+    hugonnet_rgi_glacno_cn = 'RGIId'
+else:
+    hugonnet_mb_cn = 'dmdtda'
+    hugonnet_mb_err_cn = 'err_dmdtda'
+    hugonnet_rgi_glacno_cn = 'rgiid'
 hugonnet_time1_cn = 't1'
 hugonnet_time2_cn = 't2'
 hugonnet_area_cn = 'area_km2'

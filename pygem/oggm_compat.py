@@ -51,6 +51,10 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
 
     # Initialize OGGM and set up the default run parameters
     cfg.initialize(logging_level='WORKFLOW')
+    # Set multiprocessing to false; otherwise, causes daemonic error due to PyGEM's multiprocessing
+    #  - avoids having multiple multiprocessing going on at the same time
+    cfg.PARAMS['use_multiprocessing']  = False
+    # Set border boundary
     cfg.PARAMS['border'] = 10
     # Usually we recommend to set dl_verify to True - here it is quite slow
     # because of the huge files so we just turn it off.
@@ -95,8 +99,8 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
             tasks.catchment_intersections,      
             tasks.catchment_width_geom,
             tasks.catchment_width_correction,            
-#            # Consensus ice thickness
-#            icethickness.consensus_gridded,
+            # Consensus ice thickness
+            icethickness.consensus_gridded,
 #            icethickness.consensus_binned,
             # Mass balance data
             mbdata.mb_df_to_gdir
@@ -147,7 +151,10 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
                                                                                               k_calving)
     cfg.PATHS['working_dir'] = wd
     cfg.PARAMS['use_multiple_flowlines'] = False
-    cfg.PARAMS['use_multiprocessing'] = False
+    # Set multiprocessing to false; otherwise, causes daemonic error due to PyGEM's multiprocessing
+    #  - avoids having multiple multiprocessing going on at the same time
+    cfg.PARAMS['use_multiprocessing']  = False
+    
     # Check if folder is already processed
     try:
         gdir = utils.GlacierDirectory(rgi_id)

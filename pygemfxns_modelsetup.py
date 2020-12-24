@@ -374,8 +374,14 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2=None,
     termtype_values = []
     if include_landterm:
         termtype_values.append(0)
+        # assume dry calving, regenerated, and not assigned are land-terminating
+        termtype_values.append(3)
+        termtype_values.append(4)
+        termtype_values.append(9)
     if include_tidewater:
         termtype_values.append(1)
+        # assume shelf-terminating glaciers are tidewater
+        termtype_values.append(5)
     if include_laketerm:
         termtype_values.append(2)
     glacier_table = glacier_table.loc[glacier_table['TermType'].isin(termtype_values)]

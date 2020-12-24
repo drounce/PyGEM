@@ -16,21 +16,6 @@ import pygem.pygem_input as pygem_prms
 import pygemfxns_modelsetup as modelsetup
 
 
-#%% ----- MANUAL INPUT DATA -----
-wgms_fp = pygem_prms.main_directory +  '/../WGMS/DOI-WGMS-FoG-2020-08/'
-wgms_eee_fn = 'WGMS-FoG-2020-08-EEE-MASS-BALANCE-POINT.csv'
-wgms_ee_fn = 'WGMS-FoG-2020-08-EE-MASS-BALANCE.csv'
-wgms_e_fn = 'WGMS-FoG-2020-08-E-MASS-BALANCE-OVERVIEW.csv'
-wgms_id_fn = 'WGMS-FoG-2020-08-AA-GLACIER_ID_LUT.csv'
-
-wgms_output_fp = pygem_prms.output_filepath + 'wgms/'
-wgms_ee_winter_fn = 'WGMS-FoG-2019-12-EE-MASS-BALANCE-winter_processed.csv'
-wgms_ee_winter_fn_subset = wgms_ee_winter_fn.replace('.csv', '-subset.csv')
-wgms_ee_winter_fn_kp = wgms_ee_winter_fn.replace('.csv', '-subset-kp.csv')
-wgms_reg_kp_stats_fn = 'WGMS-FoG-2019-12-reg_kp_summary.csv'
-subset_time_value = 20000000
-
-
 #%% ----- ARGUMENT PARSER -----
 def getparser():
     """
@@ -53,11 +38,35 @@ def getparser():
                         help='option to process wgms winter data (1=yes, 0=no)')
     parser.add_argument('-estimate_kp', action='store', type=int, default=0,
                         help='option to estimate precipitation factors from winter data (1=yes, 0=no)')
+    parser.add_argument('-mb_data_fill_wreg_hugonnet', action='store', type=int, default=0,
+                        help='option to fill mass balance with regional stats (1=yes, 0=no)')
     return parser
 
 parser = getparser()
 args = parser.parse_args()
 
+
+#%% ----- INPUT DATA FOR EACH OPTION s-----
+if args.subset_winter == 1 or args.estimate_kp == 1:
+    # ===== WGMS DATA =====
+    wgms_fp = pygem_prms.main_directory +  '/../WGMS/DOI-WGMS-FoG-2020-08/'
+    wgms_eee_fn = 'WGMS-FoG-2020-08-EEE-MASS-BALANCE-POINT.csv'
+    wgms_ee_fn = 'WGMS-FoG-2020-08-EE-MASS-BALANCE.csv'
+    wgms_e_fn = 'WGMS-FoG-2020-08-E-MASS-BALANCE-OVERVIEW.csv'
+    wgms_id_fn = 'WGMS-FoG-2020-08-AA-GLACIER_ID_LUT.csv'
+    
+    wgms_output_fp = pygem_prms.output_filepath + 'wgms/'
+    wgms_ee_winter_fn = 'WGMS-FoG-2019-12-EE-MASS-BALANCE-winter_processed.csv'
+    wgms_ee_winter_fn_subset = wgms_ee_winter_fn.replace('.csv', '-subset.csv')
+    wgms_ee_winter_fn_kp = wgms_ee_winter_fn.replace('.csv', '-subset-kp.csv')
+    wgms_reg_kp_stats_fn = 'WGMS-FoG-2019-12-reg_kp_summary.csv'
+    subset_time_value = 20000000
+    
+elif args.mb_data_fill_wreg_hugonnet == 1:
+    # ===== HUGONNET GEODETIC DATA =====
+    hugonnet_fp = pygem_prms.main_directory + '/../DEMs/Hugonnet2020/'
+    hugonnet_fn = 'df_pergla_global_20yr.csv'
+    
 
 #%% ----- PROCESS WINTER DATA -----
 if args.subset_winter == 1:
@@ -161,7 +170,6 @@ if args.subset_winter == 1:
 
 #%% ----- WINTER PRECIPITATION COMPARISON -----
 if args.estimate_kp == 1:
-    
     # Load data
     assert os.path.exists(wgms_output_fp + wgms_ee_winter_fn_subset), 'wgms_ee_winter_fn_subset does not exist!'
     wgms_df = pd.read_csv(wgms_output_fp + wgms_ee_winter_fn_subset, encoding='unicode_escape')
@@ -178,12 +186,11 @@ if args.estimate_kp == 1:
     wgms_df['END_DAY'] = [int(x[6:]) for x in list(wgms_df.loc[:,'END_WINTER'])]
     wgms_df['END_YEARMONTH'] = [x[0:6] for x in list(wgms_df.loc[:,'END_WINTER'])]
     
-    # Process unique glaciers
+    # ===== PROCESS UNIQUE GLACIERS =====
     rgiids_unique = list(wgms_df['rgiid'].unique())
     glac_no = [x.split('-')[1] for x in rgiids_unique]
     
     main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glac_no)
-    
     
     # ===== TIME PERIOD =====
     dates_table = modelsetup.datesmodelrun(
@@ -207,13 +214,12 @@ if args.estimate_kp == 1:
     # Lapse rate
     gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     
-    #%%
+    # ===== PROCESS THE OBSERVATIONS ======
     prec_cn = pygem_prms.ref_gcm_name + '_prec'
     wgms_df[prec_cn] = np.nan
     wgms_df['kp'] = np.nan
     wgms_df['ndays'] = np.nan
     for glac in range(main_glac_rgi.shape[0]):
-#    for glac in [0]:
         print(glac, main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
@@ -226,8 +232,6 @@ if args.estimate_kp == 1:
         
         wgms_df_single[prec_cn] = np.nan
         for nobs in range(wgms_df_single.shape[0]):
-#        for nobs in [0]:
-    #        print('  ', nobs)
             
             # Only process good data
             # - dates are provided and real
@@ -276,52 +280,151 @@ if args.estimate_kp == 1:
         os.makedirs(wgms_output_fp)
     wgms_df_wkp.to_csv(wgms_output_fp + wgms_ee_winter_fn_kp, index=False)
 
+    # Calculate stats for all and each region
+    wgms_df_wkp['reg'] = [x.split('-')[1].split('.')[0] for x in wgms_df_wkp['rgiid'].values]
+    reg_unique = list(wgms_df_wkp['reg'].unique())
+    
+    # Output dataframe
+    reg_kp_cns = ['region', 'count_obs', 'count_glaciers', 'kp_mean', 'kp_std', 'kp_med', 'kp_nmad', 'kp_min', 'kp_max']
+    reg_kp_df = pd.DataFrame(np.zeros((len(reg_unique)+1,len(reg_kp_cns))), columns=reg_kp_cns)
+    
+    # Only those with at least 1 month of data
+    wgms_df_wkp = wgms_df_wkp.loc[wgms_df_wkp['ndays'] >= 30]
+    
+    # All stats
+    reg_kp_df.loc[0,'region'] = 'all'
+    reg_kp_df.loc[0,'count_obs'] = wgms_df_wkp.shape[0]
+    reg_kp_df.loc[0,'count_glaciers'] = len(wgms_df_wkp['rgiid'].unique())
+    reg_kp_df.loc[0,'kp_mean'] = np.mean(wgms_df_wkp.kp.values)
+    reg_kp_df.loc[0,'kp_std'] = np.std(wgms_df_wkp.kp.values)
+    reg_kp_df.loc[0,'kp_med'] = np.median(wgms_df_wkp.kp.values)
+    reg_kp_df.loc[0,'kp_nmad'] = median_abs_deviation(wgms_df_wkp.kp.values, scale='normal')
+    reg_kp_df.loc[0,'kp_min'] = np.min(wgms_df_wkp.kp.values)
+    reg_kp_df.loc[0,'kp_max'] = np.max(wgms_df_wkp.kp.values)
+    
+    # Regional stats
+    for nreg, reg in enumerate(reg_unique):
+        wgms_df_wkp_reg = wgms_df_wkp.loc[wgms_df_wkp['reg'] == reg]
+        
+        reg_kp_df.loc[nreg+1,'region'] = reg
+        reg_kp_df.loc[nreg+1,'count_obs'] = wgms_df_wkp_reg.shape[0]
+        reg_kp_df.loc[nreg+1,'count_glaciers'] = len(wgms_df_wkp_reg['rgiid'].unique())
+        reg_kp_df.loc[nreg+1,'kp_mean'] = np.mean(wgms_df_wkp_reg.kp.values)
+        reg_kp_df.loc[nreg+1,'kp_std'] = np.std(wgms_df_wkp_reg.kp.values)
+        reg_kp_df.loc[nreg+1,'kp_med'] = np.median(wgms_df_wkp_reg.kp.values)
+        reg_kp_df.loc[nreg+1,'kp_nmad'] = median_abs_deviation(wgms_df_wkp_reg.kp.values, scale='normal')
+        reg_kp_df.loc[nreg+1,'kp_min'] = np.min(wgms_df_wkp_reg.kp.values)
+        reg_kp_df.loc[nreg+1,'kp_max'] = np.max(wgms_df_wkp_reg.kp.values)
+        
+        
+        print('region', reg)
+        print('  count:', wgms_df_wkp_reg.shape[0])
+        print('  glaciers:', len(wgms_df_wkp_reg['rgiid'].unique()))
+        print('  mean:', np.mean(wgms_df_wkp_reg.kp.values))
+        print('  std :', np.std(wgms_df_wkp_reg.kp.values))
+        print('  med :', np.median(wgms_df_wkp_reg.kp.values))
+        print('  nmad:', median_abs_deviation(wgms_df_wkp_reg.kp.values, scale='normal'))
+        print('  min :', np.min(wgms_df_wkp_reg.kp.values))
+        print('  max :', np.max(wgms_df_wkp_reg.kp.values))
+        
+    reg_kp_df.to_csv(wgms_output_fp + wgms_reg_kp_stats_fn, index=False)
+    
+
+#%% ----- FILL MASS BALANCE DATASET WITH REGIONAL STATISTICS -----
+if args.mb_data_fill_wreg_hugonnet == 1:
+    print('Filling in missing data with regional estimates...')
+    
+    #%%
+#    hugonnet_rgi_glacno_cn = 'rgiid'
+#    hugonnet_mb_cn = 'dmdtda'
+#    hugonnet_mb_err_cn = 'err_dmdtda'
+#    hugonnet_time1_cn = 't1'
+#    hugonnet_time2_cn = 't2'
+#    hugonnet_area_cn = 'area_km2'
+    
+    df_fp = hugonnet_fp
+    df_fn = hugonnet_fn
+    
+    # Load mass balance measurements and identify unique rgi regions 
+    df = pd.read_csv(df_fp + df_fn)
+    df = df.rename(columns={"rgiid": "RGIId"})
+    
+    # Load glaciers
+    rgiids = [x for x in df.RGIId.values if x.startswith('RGI60-')]
+    glac_no = [x.split('-')[1] for x in rgiids]
+    main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glac_no)
+    main_glac_rgi['O1Region'] = [int(x) for x in main_glac_rgi['O1Region']]
+    
 #%%
-# Calculate stats for all and each region
-wgms_df_wkp['reg'] = [x.split('-')[1].split('.')[0] for x in wgms_df_wkp['rgiid'].values]
-reg_unique = list(wgms_df_wkp['reg'].unique())
+    # Regions with data
+    dict_rgi_regionsO1 = dict(zip(main_glac_rgi.RGIId, main_glac_rgi.O1Region))
+    df['O1Region'] = df.RGIId.map(dict_rgi_regionsO1)
+    rgi_regionsO1 = sorted(df['O1Region'].unique().tolist())
+    rgi_regionsO1 = [int(x) for x in rgi_regionsO1 if np.isnan(x) == False]
 
-# Output dataframe
-reg_kp_cns = ['region', 'count_obs', 'count_glaciers', 'kp_mean', 'kp_std', 'kp_med', 'kp_nmad', 'kp_min', 'kp_max']
-reg_kp_df = pd.DataFrame(np.zeros((len(reg_unique)+1,len(reg_kp_cns))), columns=reg_kp_cns)
-
-# Only those with at least 1 month of data
-wgms_df_wkp = wgms_df_wkp.loc[wgms_df_wkp['ndays'] >= 30]
-
-# All stats
-reg_kp_df.loc[0,'region'] = 'all'
-reg_kp_df.loc[0,'count_obs'] = wgms_df_wkp.shape[0]
-reg_kp_df.loc[0,'count_glaciers'] = len(wgms_df_wkp['rgiid'].unique())
-reg_kp_df.loc[0,'kp_mean'] = np.mean(wgms_df_wkp.kp.values)
-reg_kp_df.loc[0,'kp_std'] = np.std(wgms_df_wkp.kp.values)
-reg_kp_df.loc[0,'kp_med'] = np.median(wgms_df_wkp.kp.values)
-reg_kp_df.loc[0,'kp_nmad'] = median_abs_deviation(wgms_df_wkp.kp.values, scale='normal')
-reg_kp_df.loc[0,'kp_min'] = np.min(wgms_df_wkp.kp.values)
-reg_kp_df.loc[0,'kp_max'] = np.max(wgms_df_wkp.kp.values)
-
-# Regional stats
-for nreg, reg in enumerate(reg_unique):
-    wgms_df_wkp_reg = wgms_df_wkp.loc[wgms_df_wkp['reg'] == reg]
+    # Add mass balance and uncertainty to main_glac_rgi
+    dict_rgi_mb = dict(zip(df.RGIId, df.dmdtda))
+    dict_rgi_mb_sigma = dict(zip(df.RGIId, df.err_dmdtda))
+    dict_rgi_area = dict(zip(df.RGIId, df.area))
+    main_glac_rgi['mb_mwea'] = main_glac_rgi.RGIId.map(dict_rgi_mb)
+    main_glac_rgi['mb_mwea_sigma'] = main_glac_rgi.RGIId.map(dict_rgi_mb_sigma)
+    main_glac_rgi['area_hugonnet'] = main_glac_rgi.RGIId.map(dict_rgi_area)
     
-    reg_kp_df.loc[nreg+1,'region'] = reg
-    reg_kp_df.loc[nreg+1,'count_obs'] = wgms_df_wkp_reg.shape[0]
-    reg_kp_df.loc[nreg+1,'count_glaciers'] = len(wgms_df_wkp_reg['rgiid'].unique())
-    reg_kp_df.loc[nreg+1,'kp_mean'] = np.mean(wgms_df_wkp_reg.kp.values)
-    reg_kp_df.loc[nreg+1,'kp_std'] = np.std(wgms_df_wkp_reg.kp.values)
-    reg_kp_df.loc[nreg+1,'kp_med'] = np.median(wgms_df_wkp_reg.kp.values)
-    reg_kp_df.loc[nreg+1,'kp_nmad'] = median_abs_deviation(wgms_df_wkp_reg.kp.values, scale='normal')
-    reg_kp_df.loc[nreg+1,'kp_min'] = np.min(wgms_df_wkp_reg.kp.values)
-    reg_kp_df.loc[nreg+1,'kp_max'] = np.max(wgms_df_wkp_reg.kp.values)
+    def weighted_avg_and_std(values, weights):
+        """
+        Return the weighted average and standard deviation.
     
+        values, weights -- Numpy ndarrays with the same shape.
+        """
+        average = np.average(values, weights=weights)
+        # Fast and numerically precise:
+        variance = np.average((values-average)**2, weights=weights)
+        return average, variance**0.5
     
-    print('region', reg)
-    print('  count:', wgms_df_wkp_reg.shape[0])
-    print('  glaciers:', len(wgms_df_wkp_reg['rgiid'].unique()))
-    print('  mean:', np.mean(wgms_df_wkp_reg.kp.values))
-    print('  std :', np.std(wgms_df_wkp_reg.kp.values))
-    print('  med :', np.median(wgms_df_wkp_reg.kp.values))
-    print('  nmad:', median_abs_deviation(wgms_df_wkp_reg.kp.values, scale='normal'))
-    print('  min :', np.min(wgms_df_wkp_reg.kp.values))
-    print('  max :', np.max(wgms_df_wkp_reg.kp.values))
+    #%%
+    all_sigma_mean = main_glac_rgi['mb_mwea_sigma'].mean()
+    all_sigma_std = main_glac_rgi['mb_mwea_sigma'].std()
+    all_sigma_threshold = all_sigma_mean + 3 * all_sigma_std
     
-reg_kp_df.to_csv(wgms_output_fp + wgms_reg_kp_stats_fn, index=False)
+    print('all sigma threshold:', np.round(all_sigma_threshold,2))
+    
+    main_glac_rgi_filled = main_glac_rgi.copy()
+    df_filled = df.copy()
+    for reg in rgi_regionsO1:
+        main_glac_rgi_subset = main_glac_rgi.loc[main_glac_rgi.O1Region == reg, :]
+        
+        # Too high of sigma causes large issues for model
+        #  sigma theoretically should be independent of region
+        reg_sigma_mean = main_glac_rgi_subset['mb_mwea_sigma'].mean()
+        reg_sigma_std = main_glac_rgi_subset['mb_mwea_sigma'].std()
+        reg_sigma_threshold = reg_sigma_mean + 3 * reg_sigma_std
+        # Don't penalize regions that are well-measured, so use all threshold as minimum
+        if reg_sigma_threshold < all_sigma_threshold:
+            reg_sigma_threshold = all_sigma_threshold
+        
+        rm_idx = main_glac_rgi_subset.loc[main_glac_rgi_subset.mb_mwea_sigma > reg_sigma_threshold,:].index.values
+        main_glac_rgi_filled.loc[rm_idx,'mb_mwea'] = np.nan
+        main_glac_rgi_filled.loc[rm_idx,'mb_mwea_sigma'] = np.nan
+        
+        rgi_subset_good = main_glac_rgi_subset.loc[main_glac_rgi_subset['mb_mwea_sigma'] <= reg_sigma_threshold,:]
+        
+        reg_mb_mean, reg_mb_std = weighted_avg_and_std(rgi_subset_good.mb_mwea, rgi_subset_good.area_hugonnet)
+        
+        print(reg, np.round(reg_sigma_threshold,2), 'exclude:', len(rm_idx),
+              '  mb mean/std:', np.round(reg_mb_mean,2), np.round(reg_mb_std,2))
+        
+        # Replace nan values
+        nan_idx = main_glac_rgi_filled.loc[np.isnan(main_glac_rgi_filled.mb_mwea) & 
+                                           (main_glac_rgi_filled.O1Region == reg), :].index.values
+                                           
+        main_glac_rgi_filled.loc[nan_idx,'mb_mwea'] = reg_mb_mean
+        main_glac_rgi_filled.loc[nan_idx,'mb_mwea_sigma'] = reg_mb_std
+        
+    # Map back onto original dataset
+    dict_rgi_mb_filled_mean = dict(zip(main_glac_rgi_filled.RGIId, main_glac_rgi_filled.mb_mwea))
+    dict_rgi_mb_filled_sigma = dict(zip(main_glac_rgi_filled.RGIId, main_glac_rgi_filled.mb_mwea_sigma))
+    df_filled['mb_mwea'] = df.RGIId.map(dict_rgi_mb_filled_mean)
+    df_filled['mb_mwea_err'] = df.RGIId.map(dict_rgi_mb_filled_sigma)        
+    
+    # Export dataset
+    df_filled.to_csv(df_fp + df_fn.replace('.csv','-filled.csv'), index=False)
