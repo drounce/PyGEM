@@ -124,61 +124,67 @@ def debris_binned(gdir, ignore_debris=False, fl_str='inversion_flowlines'):
     gdir : :py:class:`oggm.GlacierDirectory`
         where to write the data
     """
-    flowlines = gdir.read_pickle(fl_str)
-    fl = flowlines[0]
-    
-    assert len(flowlines) == 1, 'Error: binning debris data set up only for single flowlines at present'
-    
-    # Add binned debris thickness and enhancement factors to flowlines
-    if os.path.exists(gdir.get_filepath('debris_hd')) and ignore_debris==False:
-        ds = xr.open_dataset(gdir.get_filepath('gridded_data'))
-        glacier_mask = ds['glacier_mask'].values
-        topo = ds['topo_smoothed'].values
-        hd = ds['debris_hd'].values
-        ed = ds['debris_ed'].values
-    
-        # Only bin on-glacier values
-        idx_glac = np.where(glacier_mask == 1)
-        topo_onglac = topo[idx_glac]
-        hd_onglac = hd[idx_glac]
-        ed_onglac = ed[idx_glac]
-
-        # Bin edges        
-        nbins = len(fl.dis_on_line)
-        z_center = (fl.surface_h[0:-1] + fl.surface_h[1:]) / 2
-        z_bin_edges = np.concatenate((np.array([topo[idx_glac].max() + 1]), 
-                                      z_center, 
-                                      np.array([topo[idx_glac].min() - 1])))
-        # Loop over bins and calculate the mean debris thickness and enhancement factor for each bin
-        hd_binned = np.zeros(nbins)
-        ed_binned = np.ones(nbins)    
-        for nbin in np.arange(0,len(z_bin_edges)-1):
-            bin_max = z_bin_edges[nbin]
-            bin_min = z_bin_edges[nbin+1]
-            bin_idx = np.where((topo_onglac < bin_max) & (topo_onglac >= bin_min))[0]
-            # Debris thickness and enhancement factors for on-glacier bins
-            if len(bin_idx) > 0:
-                hd_binned[nbin] = np.nanmean(hd_onglac[bin_idx])
-                ed_binned[nbin] = np.nanmean(ed_onglac[bin_idx])
-                hd_terminus = hd_binned[nbin]
-                ed_terminus = ed_binned[nbin]
-            # Debris thickness and enhancement factors for bins below the present-day glacier
-            #  assume an advancing glacier will have debris thickness equal to the terminus
-            elif np.mean([bin_min, bin_max]) < topo[idx_glac].min():
-                hd_binned[nbin] = hd_terminus
-                ed_binned[nbin] = ed_terminus
-            else:
-                hd_binned[nbin] = 0
-                ed_binned[nbin] = 1        
-                
-        fl.debris_hd = hd_binned
-        fl.debris_ed = ed_binned
+    # Nominal glaciers will throw error, so make sure inversion_flowlines exist
+    try:
+        flowlines = gdir.read_pickle(fl_str)
+        fl = flowlines[0]
         
-    else:
-        nbins = len(fl.dis_on_line)
-        fl.debris_hd = np.zeros(nbins)
-        fl.debris_ed = np.ones(nbins)
+        assert len(flowlines) == 1, 'Error: binning debris only works for single flowlines at present'
+        
+    except:
+        flowlines = None        
     
-    # Overwrite pickle
-    gdir.write_pickle(flowlines, fl_str)
+    if flowlines is not None:
+        # Add binned debris thickness and enhancement factors to flowlines
+        if os.path.exists(gdir.get_filepath('debris_hd')) and ignore_debris==False:
+            ds = xr.open_dataset(gdir.get_filepath('gridded_data'))
+            glacier_mask = ds['glacier_mask'].values
+            topo = ds['topo_smoothed'].values
+            hd = ds['debris_hd'].values
+            ed = ds['debris_ed'].values
+        
+            # Only bin on-glacier values
+            idx_glac = np.where(glacier_mask == 1)
+            topo_onglac = topo[idx_glac]
+            hd_onglac = hd[idx_glac]
+            ed_onglac = ed[idx_glac]
+    
+            # Bin edges        
+            nbins = len(fl.dis_on_line)
+            z_center = (fl.surface_h[0:-1] + fl.surface_h[1:]) / 2
+            z_bin_edges = np.concatenate((np.array([topo[idx_glac].max() + 1]), 
+                                          z_center, 
+                                          np.array([topo[idx_glac].min() - 1])))
+            # Loop over bins and calculate the mean debris thickness and enhancement factor for each bin
+            hd_binned = np.zeros(nbins)
+            ed_binned = np.ones(nbins)    
+            for nbin in np.arange(0,len(z_bin_edges)-1):
+                bin_max = z_bin_edges[nbin]
+                bin_min = z_bin_edges[nbin+1]
+                bin_idx = np.where((topo_onglac < bin_max) & (topo_onglac >= bin_min))[0]
+                # Debris thickness and enhancement factors for on-glacier bins
+                if len(bin_idx) > 0:
+                    hd_binned[nbin] = np.nanmean(hd_onglac[bin_idx])
+                    ed_binned[nbin] = np.nanmean(ed_onglac[bin_idx])
+                    hd_terminus = hd_binned[nbin]
+                    ed_terminus = ed_binned[nbin]
+                # Debris thickness and enhancement factors for bins below the present-day glacier
+                #  assume an advancing glacier will have debris thickness equal to the terminus
+                elif np.mean([bin_min, bin_max]) < topo[idx_glac].min():
+                    hd_binned[nbin] = hd_terminus
+                    ed_binned[nbin] = ed_terminus
+                else:
+                    hd_binned[nbin] = 0
+                    ed_binned[nbin] = 1        
+                    
+            fl.debris_hd = hd_binned
+            fl.debris_ed = ed_binned
+            
+        else:
+            nbins = len(fl.dis_on_line)
+            fl.debris_hd = np.zeros(nbins)
+            fl.debris_ed = np.ones(nbins)
+        
+        # Overwrite pickle
+        gdir.write_pickle(flowlines, fl_str)
         

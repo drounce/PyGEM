@@ -279,18 +279,24 @@ def main(list_packed_vars):
 
     # ===== LOOP THROUGH GLACIERS TO RUN CALIBRATION =====
     for glac in range(main_glac_rgi.shape[0]):
-        if debug or glac == 0 or glac == main_glac_rgi.shape[0]:
-            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+        print(main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+#        if debug or glac == 0 or glac == main_glac_rgi.shape[0]:
+#            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
 
         # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====
-        if glacier_rgi_table['TermType'] == 1:
-            gdir = single_flowline_glacier_directory_with_calving(glacier_str)
-        else:
-            gdir = single_flowline_glacier_directory(glacier_str)
-        fls = gdir.read_pickle('inversion_flowlines')
+#        if glacier_rgi_table['TermType'] == 1:
+#            gdir = single_flowline_glacier_directory_with_calving(glacier_str)
+#        else:
+        gdir = single_flowline_glacier_directory(glacier_str)
+            
+        try:
+            fls = gdir.read_pickle('inversion_flowlines')
+            glacier_area = fls[0].widths_m * fls[0].dx_meter
+        except:
+            fls = None
 
         # Add climate data to glacier directory
         gdir.historical_climate = {'elev': gcm_elev[glac],
@@ -329,8 +335,7 @@ def main(list_packed_vars):
             
         
         # ----- Mass balance model ------
-        glacier_area = fls[0].widths_m * fls[0].dx_meter
-        if glacier_area.sum() > 0 and gdir.mbdata is not None:
+        if (fls is not None) and (gdir.mbdata is not None) and (glacier_area.sum() > 0):
             
             modelprms = {'kp': pygem_prms.kp,
                          'tbias': pygem_prms.tbias,

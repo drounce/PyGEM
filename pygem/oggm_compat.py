@@ -54,6 +54,10 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
     # Set multiprocessing to false; otherwise, causes daemonic error due to PyGEM's multiprocessing
     #  - avoids having multiple multiprocessing going on at the same time
     cfg.PARAMS['use_multiprocessing']  = False
+    
+    # Avoid erroneous glaciers (e.g., Centerlines too short or other issues)
+    cfg.PARAMS['continue_on_error'] = True
+    
     # Set border boundary
     cfg.PARAMS['border'] = 10
     # Usually we recommend to set dl_verify to True - here it is quite slow

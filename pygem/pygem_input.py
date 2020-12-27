@@ -119,7 +119,7 @@ output_filepath = main_directory + '/../Output/'
 model_run_date = 'December 19 2020'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [11]                 # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
 #rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
 rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
@@ -131,7 +131,8 @@ rgi_glac_number = 'all'
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 glac_no = None
-glac_no = ['11.00763']
+#glac_no = ['11.03235']
+#glac_no = ['11.00763']
 #glac_no = ['11.01052']
 #glac_no = ['11.02491']
 #glac_no = ['11.02961']
