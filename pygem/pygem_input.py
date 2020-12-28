@@ -119,7 +119,7 @@ output_filepath = main_directory + '/../Output/'
 model_run_date = 'December 19 2020'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [2]                 # 1st order region number (RGI V6.0)
 #rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
 rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
@@ -127,15 +127,11 @@ rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 rgi_glac_number = 'all'
 #rgi_glac_number = ['00013']
-#rgi_glac_number = glac_num_fromrange(1,8)
+#rgi_glac_number = glac_num_fromrange(24602,27112)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 glac_no = None
-#glac_no = ['11.03235']
-#glac_no = ['11.00763']
-#glac_no = ['11.01052']
-#glac_no = ['11.02491']
-#glac_no = ['11.02961']
+#glac_no = ['1.24602']
 #glac_no = ['15.03733']
 #glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
 if glac_no is not None:
@@ -216,6 +212,9 @@ option_calibration = 'emulator'
 # Calibration output filepath
 #output_fp_cal = output_filepath + 'calibration/'
 
+# Prior distribution
+prior_region_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
+
 if option_calibration == 'HH2015':
     tbias_init = 0
     tbias_step = 1
@@ -288,7 +287,7 @@ elif option_calibration == 'MCMC':
     # Precipitation factor distribution options
     kp_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
     kp_gamma_region_dict_fullfn = None
-#    kp_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
+    kp_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
     if kp_gamma_region_dict_fullfn is not None:
         assert os.path.exists(kp_gamma_region_dict_fullfn), ('Using option_calibration: ' + option_calibration +
                              '.  Precfactor regional dictionary does not exist.')

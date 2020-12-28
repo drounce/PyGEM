@@ -1259,7 +1259,7 @@ def main(list_packed_vars):
                     # Tbias 'mid-point'
                     modelprms['kp'] = pygem_prms.kp_init
                     ncount_tbias = 0
-                    while mb_mwea > mb_obs_mwea and modelprms['tbias'] < 20:
+                    while mb_mwea > mb_obs_mwea and modelprms['tbias'] < 50:
                         modelprms['tbias'] = modelprms['tbias'] + tbias_step
                         nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
                                                                     return_tbias_mustmelt_wmb=True)
@@ -1903,7 +1903,7 @@ if __name__ == '__main__':
         glac_no = pygem_prms.glac_no
     else:
         main_glac_rgi_all = modelsetup.selectglaciersrgitable(
-                rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2,
+                rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2=pygem_prms.rgi_regionsO2,
                 rgi_glac_number=pygem_prms.rgi_glac_number, include_landterm=pygem_prms.include_landterm,
                 include_laketerm=pygem_prms.include_laketerm, include_tidewater=pygem_prms.include_tidewater)
         glac_no = list(main_glac_rgi_all['rgino_str'].values)
@@ -1979,3 +1979,18 @@ if __name__ == '__main__':
 #            if pygem_prms.use_calibrated_modelparams:
 #                modelprms_dict = main_vars['modelprms_dict']
 #            model = main_vars['model']
+
+#%%
+# Find missing glaciers
+#fp = pygem_prms.output_filepath + 'emulator/sims/01'
+#rgiids_cal = ['RGI60-0' + i.split('-')[0] for i in os.listdir(fp) if i.endswith('.csv')]
+#rgiids_cal = sorted(rgiids_cal)
+#
+#main_glac_rgi_all = modelsetup.selectglaciersrgitable(
+#                rgi_regionsO1=[1], rgi_regionsO2 ='all',
+#                rgi_glac_number='all')
+#
+#rgiids_all = list(main_glac_rgi_all.RGIId.values)
+#
+#rgiids_not = np.setdiff1d(rgiids_all,rgiids_cal).tolist()
+#rgiids_not = sorted(rgiids_not)
