@@ -221,6 +221,168 @@ def retrieve_tbias_bnds(gdir, modelprms, glacier_rgi_table, fls=None, debug=Fals
 
     return tbias_bndlow, tbias_bndhigh, mb_max_loss
 
+
+class ExactGPModel(gpytorch.models.ExactGP):
+    """ Use the simplest form of GP model, exact inference """
+    def __init__(self, train_x, train_y, likelihood):
+        super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
+        self.mean_module = gpytorch.means.ConstantMean()
+        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=3))
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+
+def create_emulator(glacier_str, sims_df, y_cn, 
+                    X_cns=['tbias','kp','ddfsnow'], 
+                    em_fp=pygem_prms.output_filepath + 'emulator/', debug=False):
+    
+    assert y_cn in sims_df.columns, 'emulator error: y_cn not in sims_df'
+    
+    X = sims_df.loc[:,X_cns].values
+    y = sims_df[y_cn].values
+
+    # Normalize data
+    X_mean = X.mean(axis=0)
+    X_std = X.std(axis=0)
+    X_norm = (X - X_mean) / X_std
+
+    y_mean = y.mean()
+    y_std = y.std()
+    y_norm = (y - y_mean) / y_std
+
+    # Split into training and test data and cast to torch tensors
+    X_train,X_test,y_train,y_test = [torch.tensor(x).to(torch.float) 
+                                     for x in sklearn.model_selection.train_test_split(X_norm,y_norm)]
+    # Add a small amount of noise
+    y_train += torch.randn(*y_train.shape)*0.01
+
+    # initialize likelihood and model
+    likelihood = gpytorch.likelihoods.GaussianLikelihood()
+    model = ExactGPModel(X_train, y_train, likelihood)
+
+    # Plot test set predictions prior to training
+    # Get into evaluation (predictive posterior) mode
+    model.eval()
+    likelihood.eval()
+    with torch.no_grad():#, gpytorch.settings.fast_pred_var():
+        y_pred = likelihood(model(X_test))
+
+    idx = np.argsort(y_test.numpy())
+
+    with torch.no_grad():
+        lower, upper = y_pred.confidence_region()
+
+        if debug:
+            f, ax = plt.subplots(1, 1, figsize=(4, 4))
+            ax.plot(y_test.numpy()[idx], y_pred.mean.numpy()[idx], 'k*')
+            ax.fill_between(y_test.numpy()[idx], lower.numpy()[idx], upper.numpy()[idx], alpha=0.5)
+            plt.show()
+
+    # ----- Find optimal model hyperparameters -----
+    model.train()
+    likelihood.train()
+
+    # Use the adam optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.03)  # Includes GaussianLikelihood parameters
+
+    # "Loss" for GPs - the marginal log likelihood
+    mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
+
+    for i in range(1000):
+        # Zero gradients from previous iteration
+        optimizer.zero_grad()
+        # Output from model
+        output = model(X_train)
+        # Calc loss and backprop gradients
+        loss = -mll(output, y_train)
+        loss.backward()
+#        if debug and i%100==0:
+#            print(i, loss.item(), model.covar_module.base_kernel.lengthscale[0], 
+#                  model.likelihood.noise.item())
+        optimizer.step()
+
+    # Plot posterior distributions (with test data on x-axis)
+    # Get into evaluation (predictive posterior) mode
+    model.eval()
+    likelihood.eval()
+    with torch.no_grad():#, gpytorch.settings.fast_pred_var():
+        y_pred = likelihood(model(X_test))
+
+    idx = np.argsort(y_test.numpy())
+
+    with torch.no_grad():
+        lower, upper = y_pred.confidence_region()
+
+        if debug:
+            f, ax = plt.subplots(1, 1, figsize=(4, 4))
+            ax.plot(y_test.numpy()[idx], y_pred.mean.numpy()[idx], 'k*')
+            ax.fill_between(y_test.numpy()[idx], lower.numpy()[idx], upper.numpy()[idx], 
+                            alpha=0.5)
+            plt.show()
+
+    if debug:
+        # Compare user-defined parameter sets within the emulator
+        tbias_set = (np.arange(-7,4,0.5)).reshape(-1,1)
+        kp_set = np.zeros(tbias_set.shape) + 1
+        ddf_set = np.zeros(tbias_set.shape) + 0.0041
+
+        modelprms_set = np.hstack((tbias_set, kp_set, ddf_set))
+        modelprms_set_norm = (modelprms_set - X_mean) / X_std
+
+        y_set_norm = model(torch.tensor(modelprms_set_norm).to(torch.float)).mean.detach().numpy()
+        y_set = y_set_norm * y_std + y_mean
+
+        f, ax = plt.subplots(1, 1, figsize=(4, 4))
+        kp_1_idx = np.where(sims_df['kp'] == 1)[0]
+        ax.plot(sims_df.loc[kp_1_idx,'tbias'], sims_df.loc[kp_1_idx,y_cn])
+        ax.plot(tbias_set,y_set,'.')
+        ax.set_xlabel('tbias (degC)')
+        if y_cn == 'mb_mwea':
+            ax.set_ylabel('PyGEM MB (mwea)')
+        elif y_cn == 'nbinyrs_negmbclim':
+            ax.set_ylabel('nbinyrs_negmbclim (-)')
+        plt.show()
+
+        # Compare the modeled and emulated mass balances
+        y_em_norm = model(torch.tensor(X_norm).to(torch.float)).mean.detach().numpy()
+        y_em = y_em_norm * y_std + y_mean
+
+        f, ax = plt.subplots(1, 1, figsize=(4, 4))
+        ax.plot(y,y_em,'.')
+        ax.plot([y.min(),y.max()], [y.min(), y.max()])
+        if y_cn == 'mb_mwea':
+            ax.set_xlabel('emulator MB (mwea)')
+            ax.set_ylabel('PyGEM MB (mwea)')
+            ax.set_xlim(-1,1)
+            ax.set_ylim(-1,1)
+        elif y_cn == 'nbinyrs_negmbclim':
+            ax.set_xlabel('emulator nbinyrs_negmbclim (-)')
+            ax.set_ylabel('PyGEM nbinyrs_negmbclim (-)')
+        plt.show()
+        
+    # ----- EXPORT EMULATOR -----
+    # Save emulator (model state, x_train, y_train, etc.)
+    em_mod_fn = glacier_str + '-emulator-' + y_cn + '.pth'
+    em_mod_fp = em_fp + 'models/' + glacier_str.split('.')[0].zfill(2) + '/'
+    if not os.path.exists(em_mod_fp):
+        os.makedirs(em_mod_fp)
+    torch.save(model.state_dict(), em_mod_fp + em_mod_fn)
+    # Extra required datasets
+    em_extra_dict = {'X_train': X_train,
+                     'X_mean': X_mean,
+                     'X_std': X_std,
+                     'y_train': y_train,
+                     'y_mean': y_mean,
+                     'y_std': y_std}
+    em_extra_fn = em_mod_fn.replace('.pth','_extra.pkl')
+    with open(em_mod_fp + em_extra_fn, 'wb') as f:
+        pickle.dump(em_extra_dict, f)
+        
+    return X_train, X_mean, X_std, y_train, y_mean, y_std, likelihood, model
+        
     
 #%%
 def main(list_packed_vars):
@@ -357,15 +519,13 @@ def main(list_packed_vars):
                 # ===== Define functions needed for MCMC method =====
                 def run_MCMC(gdir,
                              kp_disttype=pygem_prms.kp_disttype,
-                             kp_gamma_alpha=pygem_prms.kp_gamma_alpha, kp_gamma_beta=pygem_prms.kp_gamma_beta,
-                             kp_lognorm_mu=pygem_prms.kp_lognorm_mu, kp_lognorm_tau=pygem_prms.kp_lognorm_tau,
-                             kp_mu=pygem_prms.kp_mu, kp_sigma=pygem_prms.kp_sigma,
-                             kp_bndlow=pygem_prms.kp_bndlow, kp_bndhigh=pygem_prms.kp_bndhigh,
-                             kp_start=pygem_prms.kp_start,
+                             kp_gamma_alpha=None, kp_gamma_beta=None,
+                             kp_lognorm_mu=None, kp_lognorm_tau=None,
+                             kp_mu=None, kp_sigma=None, kp_bndlow=None, kp_bndhigh=None,
+                             kp_start=None,
                              tbias_disttype=pygem_prms.tbias_disttype,
-                             tbias_mu=pygem_prms.tbias_mu, tbias_sigma=pygem_prms.tbias_sigma,
-                             tbias_bndlow=pygem_prms.tbias_bndlow, tbias_bndhigh=pygem_prms.tbias_bndhigh,
-                             tbias_start=pygem_prms.tbias_start,
+                             tbias_mu=None, tbias_sigma=None, tbias_bndlow=None, tbias_bndhigh=None,
+                             tbias_start=None,
                              ddfsnow_disttype=pygem_prms.ddfsnow_disttype,
                              ddfsnow_mu=pygem_prms.ddfsnow_mu, ddfsnow_sigma=pygem_prms.ddfsnow_sigma,
                              ddfsnow_bndlow=pygem_prms.ddfsnow_bndlow, ddfsnow_bndhigh=pygem_prms.ddfsnow_bndhigh,
@@ -500,6 +660,95 @@ def main(list_packed_vars):
                                                value=ddfsnow_start)
                         priors_dict['ddfsnow_bndlow'] = ddfsnow_bndlow
                         priors_dict['ddfsnow_bndhigh'] = ddfsnow_bndhigh
+                        
+                    #%%
+                    # ===== EMULATORS FOR FAST PROCESSING =====
+                    # Emulator filepath
+                    em_mod_fp = pygem_prms.emulator_fp + 'models/' + glacier_str.split('.')[0].zfill(2) + '/'
+                    
+                    # ----- EMULATOR: Mass balance -----
+                    em_mb_fn = glacier_str + '-emulator-mb_mwea.pth'
+                    if not os.path.exists(em_mod_fp + em_mb_fn):
+                        (X_train, X_mean, X_std, y_train, y_mean, y_std, likelihood, em_model_mb) = (
+                                create_emulator(glacier_str, sims_df, y_cn='mb_mwea', debug=True))
+                    else:
+                        # ----- LOAD EMULATOR -----
+                        state_dict = torch.load(em_mod_fp + em_mb_fn)
+                        
+                        emulator_extra_fn = em_mb_fn.replace('.pth','_extra.pkl')
+                        with open(em_mod_fp + emulator_extra_fn, 'rb') as f:
+                            emulator_extra_dict = pickle.load(f)
+                            
+                        X_train = emulator_extra_dict['X_train']
+                        X_mean = emulator_extra_dict['X_mean']
+                        X_std = emulator_extra_dict['X_std']
+                        y_train = emulator_extra_dict['y_train']
+                        y_mean = emulator_extra_dict['y_mean']
+                        y_std = emulator_extra_dict['y_std']
+                        
+                        # initialize likelihood and model
+                        likelihood = gpytorch.likelihoods.GaussianLikelihood()
+                        
+                        # Create a new GP model
+                        em_model_mb = ExactGPModel(X_train, y_train, likelihood)  
+                        em_model_mb.load_state_dict(state_dict)
+                        em_model_mb.eval()
+                        
+                    # Mass balance emulator function
+                    def run_emulator_mb(modelprms):
+                        """ Run the emulator
+                        """
+                        modelprms_1d_norm = ((np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow']]) - 
+                                              X_mean) / X_std)                    
+                        modelprms_2d_norm = modelprms_1d_norm.reshape(1,3)
+                        mb_mwea_norm = em_model_mb(
+                                torch.tensor(modelprms_2d_norm).to(torch.float)).mean.detach().numpy()[0]
+                        mb_mwea = mb_mwea_norm * y_std + y_mean
+                        return mb_mwea
+                    
+                    
+                    #%%
+                    # ----- EMULATOR: nbinyrs_negmbclim -----
+                    em_meltyrs_fn = glacier_str + '-emulator-nbinyrs_negmbclim.pth'                    
+                    if not os.path.exists(em_mod_fp + em_meltyrs_fn):
+                        (X_train_meltyrs, X_mean_meltyrs, X_std_meltyrs, 
+                         y_train_meltyrs, y_mean_meltyrs, y_std_meltyrs, 
+                         likelihood_meltyrs, em_model_meltyrs) = (
+                                create_emulator(glacier_str, sims_df, y_cn='nbinyrs_negmbclim', debug=True))
+                    else:
+                        # ----- LOAD EMULATOR -----
+                        state_dict_meltyrs = torch.load(em_mod_fp + em_meltyrs_fn)
+                        
+                        em_meltyrs_extra_fn = em_meltyrs_fn.replace('.pth','_extra.pkl')
+                        with open(em_mod_fp + em_meltyrs_extra_fn, 'rb') as f:
+                            em_meltyrs_extra_dict = pickle.load(f)
+                            
+                        X_train_meltyrs = em_meltyrs_extra_dict['X_train']
+                        X_mean_meltyrs = em_meltyrs_extra_dict['X_mean']
+                        X_std_meltyrs = em_meltyrs_extra_dict['X_std']
+                        y_train_meltyrs = em_meltyrs_extra_dict['y_train']
+                        y_mean_meltyrs = em_meltyrs_extra_dict['y_mean']
+                        y_std_meltyrs = em_meltyrs_extra_dict['y_std']
+                        
+                        # initialize likelihood and model
+                        likelihood_meltyrs = gpytorch.likelihoods.GaussianLikelihood()
+                        
+                        # Create a new GP model
+                        em_model_meltyrs = ExactGPModel(X_train_meltyrs, y_train_meltyrs, likelihood_meltyrs)  
+                        em_model_meltyrs.load_state_dict(state_dict_meltyrs)
+                        em_model_meltyrs.eval()
+                        
+                    # Mass balance emulator function
+                    def run_emulator_meltyrs(modelprms):
+                        """ Run the emulator to get nbinyrs_negmbclim """
+                        modelprms_1d_norm = ((np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow']]) - 
+                                              X_mean_meltyrs) / X_std_meltyrs)                    
+                        modelprms_2d_norm = modelprms_1d_norm.reshape(1,3)
+                        nbinyrs_negmbclim_norm = em_model_meltyrs(
+                                torch.tensor(modelprms_2d_norm).to(torch.float)).mean.detach().numpy()[0]
+                        nbinyrs_negmbclim = nbinyrs_negmbclim_norm * y_std_meltyrs + y_mean_meltyrs
+                        return nbinyrs_negmbclim
+                        
 
                     # ===== DETERMINISTIC FUNCTION ====
                     # Define deterministic function for MCMC model based on our a priori probobaility distributions.
@@ -516,8 +765,10 @@ def main(list_packed_vars):
                         if ddfsnow is not None:
                             modelprms_copy['ddfsnow'] = float(ddfsnow)
                             modelprms_copy['ddfice'] = modelprms_copy['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-                        mb_mwea = mb_mwea_calc(gdir, modelprms_copy, glacier_rgi_table, fls=fls)
+#                        mb_mwea = mb_mwea_calc(gdir, modelprms_copy, glacier_rgi_table, fls=fls)
+                        mb_mwea = run_emulator_mb(modelprms_copy)
                         return mb_mwea
+
 
                     # ===== POTENTIAL FUNCTIONS =====
                     # Potential functions are used to impose additional constrains on the model
@@ -543,8 +794,9 @@ def main(list_packed_vars):
                         if ddfsnow is not None:
                             modelprms_copy['ddfsnow'] = float(ddfsnow)
                             modelprms_copy['ddfice'] = modelprms_copy['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-                        nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms_copy, glacier_rgi_table, fls=fls,
-                                                           return_tbias_mustmelt=True)
+#                        nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms_copy, glacier_rgi_table, fls=fls,
+#                                                           return_tbias_mustmelt=True)
+                        nbinyears_negmbclim = run_emulator_meltyrs(modelprms_copy)
                         if nbinyears_negmbclim > 0:
                             return 0
                         else:
@@ -582,19 +834,23 @@ def main(list_packed_vars):
                     return model, priors_dict
 
                 # ===== RUNNING MCMC =====
-                # Prior distribution (specified or informed by regions)
-                # Precipitation factor prior
-                if pygem_prms.kp_gamma_region_dict_fullfn is not None:
-                    kp_gamma_alpha = pygem_prms.kp_gamma_region_dict[glacier_rgi_table.loc['region']][0]
-                    kp_gamma_beta = pygem_prms.kp_gamma_region_dict[glacier_rgi_table.loc['region']][1]
+                # Prior distributions (specified or informed by regions)
+                if pygem_prms.priors_reg_fullfn is not None:
+                    # Load priors
+                    priors_df = pd.read_csv(pygem_prms.priors_reg_fullfn)
+                    priors_idx = np.where((priors_df.O1Region == glacier_rgi_table['O1Region']) & 
+                                          (priors_df.O2Region == glacier_rgi_table['O2Region']))[0][0]
+                    # Precipitation factor priors
+                    kp_gamma_alpha = priors_df.loc[priors_idx, 'kp_alpha']
+                    kp_gamma_beta = priors_df.loc[priors_idx, 'kp_beta']
+                    # Temperature bias priors
+                    tbias_mu = priors_df.loc[priors_idx, 'tbias_mean']
+                    tbias_sigma = priors_df.loc[priors_idx, 'tbias_std']
                 else:
+                    # Precipitation factor priors
                     kp_gamma_alpha = pygem_prms.kp_gamma_alpha
                     kp_gamma_beta = pygem_prms.kp_gamma_beta
-                # Temperature bias prior
-                if pygem_prms.tbias_norm_region_dict_fullfn is not None:
-                    tbias_mu = pygem_prms.tbias_norm_region_dict[glacier_rgi_table.loc['region']][0]
-                    tbias_sigma = pygem_prms.tbias_norm_region_dict[glacier_rgi_table.loc['region']][1]
-                else:
+                    # Temperature bias priors
                     tbias_mu = pygem_prms.tbias_mu
                     tbias_sigma = pygem_prms.tbias_sigma
 
@@ -628,25 +884,37 @@ def main(list_packed_vars):
                     modelprms['kp'] = kp_start
                     modelprms['ddfsnow'] = ddfsnow_start
                     modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-
-                    # Retrieve temperature bias bounds
-                    tbias_bndlow, tbias_bndhigh, mb_max_loss = retrieve_tbias_bnds(
-                            gdir, modelprms, glacier_rgi_table, fls=fls, debug=False)
-
+                    
+                    # ----- TEMPERATURE BIAS BOUNDS -----
+                    # Selects from emulator sims dataframe
+                    sims_fp = pygem_prms.emulator_fp + 'sims/' + glacier_str.split('.')[0].zfill(2) + '/'
+                    sims_fn = glacier_str + '-' + str(pygem_prms.emulator_sims) + '_emulator_sims.csv'
+                    sims_df = pd.read_csv(sims_fp + sims_fn)
+                    sims_df_subset = sims_df.loc[sims_df['kp']==1, :]
+                    tbias_bndhigh = sims_df_subset['tbias'].max()
+                    tbias_bndlow = sims_df_subset['tbias'].min()
+                    
                     if debug:
-                        print('tbias_bndlow:', np.round(tbias_bndlow,2), 'tbias_bndhigh:', np.round(tbias_bndhigh,2),
-                              'mb_max_loss:', np.round(mb_max_loss,2))
-
-                    # Check that tbias mu and sigma is somewhat within bndhigh and bndlow
+                        print('tbias_bndlow:', np.round(tbias_bndlow,2), 'tbias_bndhigh:', np.round(tbias_bndhigh,2))
+                    
+                    # Adjust tbias_init based on bounds
                     if tbias_start > tbias_bndhigh:
                         tbias_start = tbias_bndhigh
                     elif tbias_start < tbias_bndlow:
                         tbias_start = tbias_bndlow
-
+                        
+                    # ----- Mass balance max loss -----
+                    # Maximum mass loss [mwea] (based on consensus ice thickness estimate)
+                    with open(gdir.get_filepath('consensus_mass'), 'rb') as f:
+                        consensus_mass = pickle.load(f)
+                    mb_max_loss = (-1 * consensus_mass / pygem_prms.density_water / gdir.rgi_area_m2 / 
+                                   (gdir.dates_table.shape[0] / 12))
+                    
                     if debug:
                         print('\ntbias_start:', np.round(tbias_start,3), 'pf_start:', np.round(kp_start,3),
-                              'ddf_start:', np.round(ddfsnow_start,4))
-
+                              'ddf_start:', np.round(ddfsnow_start,4), 'mb_max_loss:', np.round(mb_max_loss,2))
+                        
+                    
                     model, priors_dict = run_MCMC(
                             gdir,
                             iterations=pygem_prms.mcmc_sample_no, burn=pygem_prms.mcmc_burn_no,
@@ -655,7 +923,7 @@ def main(list_packed_vars):
                             tbias_mu=tbias_mu, tbias_sigma=tbias_sigma, tbias_start=tbias_start,
                             ddfsnow_start=ddfsnow_start, mb_max_loss=mb_max_loss,
                             use_potentials=True)
-
+                    
                     if debug:
                         print('\nacceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
                         print('mb_mwea_mean:', np.round(np.mean(model.trace('massbal')[:]),3),
@@ -692,7 +960,19 @@ def main(list_packed_vars):
                 else:
                     modelprms_dict = {pygem_prms.option_calibration: modelprms_export}
                 with open(modelprms_fullfn, 'wb') as f:
-                    pickle.dump(modelprms_dict, f)            
+                    pickle.dump(modelprms_dict, f)        
+                        
+                if not os.path.exists(modelprms_fp):
+                    os.makedirs(modelprms_fp)
+                modelprms_fullfn = modelprms_fp + modelprms_fn
+                if os.path.exists(modelprms_fullfn):
+                    with open(modelprms_fullfn, 'rb') as f:
+                        modelprms_dict = pickle.load(f)
+                    modelprms_dict[pygem_prms.option_calibration] = modelprms
+                else:
+                    modelprms_dict = {pygem_prms.option_calibration: modelprms}
+                with open(modelprms_fullfn, 'wb') as f:
+                    pickle.dump(modelprms_dict, f)
             
 
             #%% ===== HUSS AND HOCK (2015) CALIBRATION =====
@@ -1342,160 +1622,18 @@ def main(list_packed_vars):
                     sims_df = pd.read_csv(sims_fp + sims_fn)
                     
                 
-                # ----- EMULATOR -----
+                # ----- EMULATOR: Mass balance -----
+                em_mod_fn = glacier_str + '-emulator-mb_mwea.pth'
                 em_mod_fp = pygem_prms.emulator_fp + 'models/' + glacier_str.split('.')[0].zfill(2) + '/'
-                em_mod_fn = glacier_str + '-emulator.pth'
                 if not os.path.exists(em_mod_fp + em_mod_fn):
-                    # ----- Create emulator -----
-                    # Select datasets for emulator
-                    X = sims_df.loc[:,['tbias', 'kp', 'ddfsnow']].values
-                    y = sims_df['mb_mwea'].values
-                    
-                    # Normalize data
-                    X_mean = X.mean(axis=0)
-                    X_std = X.std(axis=0)
-                    X_norm = (X - X_mean) / X_std
-                    
-                    y_mean = y.mean()
-                    y_std = y.std()
-                    y_norm = (y - y_mean) / y_std
-
-                    # Split into training and test data and cast to torch tensors
-                    X_train,X_test,y_train,y_test = [torch.tensor(x).to(torch.float) 
-                                                     for x in sklearn.model_selection.train_test_split(X_norm,y_norm)]
-                    # Add a small amount of noise
-                    y_train += torch.randn(*y_train.shape)*0.01
-                    
-                    # We will use the simplest form of GP model, exact inference
-                    class ExactGPModel(gpytorch.models.ExactGP):
-                        def __init__(self, train_x, train_y, likelihood):
-                            super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
-                            self.mean_module = gpytorch.means.ConstantMean()
-                            self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=3))
-                    
-                        def forward(self, x):
-                            mean_x = self.mean_module(x)
-                            covar_x = self.covar_module(x)
-                            return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
-                    
-                    # initialize likelihood and model
-                    likelihood = gpytorch.likelihoods.GaussianLikelihood()
-                    model = ExactGPModel(X_train, y_train, likelihood)
-                    
-                    # Plot test set predictions prior to training
-                    # Get into evaluation (predictive posterior) mode
-                    model.eval()
-                    likelihood.eval()
-                    with torch.no_grad():#, gpytorch.settings.fast_pred_var():
-                        y_pred = likelihood(model(X_test))
-                        
-                    idx = np.argsort(y_test.numpy())
-                        
-                    with torch.no_grad():
-                        lower, upper = y_pred.confidence_region()
-                        
-                        if debug:
-                            f, ax = plt.subplots(1, 1, figsize=(4, 4))
-                            ax.plot(y_test.numpy()[idx], y_pred.mean.numpy()[idx], 'k*')
-                            ax.fill_between(y_test.numpy()[idx], lower.numpy()[idx], upper.numpy()[idx], alpha=0.5)
-                            plt.show()
-                            
-                    # ----- Find optimal model hyperparameters -----
-                    model.train()
-                    likelihood.train()
-                    
-                    # Use the adam optimizer
-                    optimizer = torch.optim.Adam(model.parameters(), lr=0.03)  # Includes GaussianLikelihood parameters
-                    
-                    # "Loss" for GPs - the marginal log likelihood
-                    mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
-                    
-                    for i in range(1000):
-                        # Zero gradients from previous iteration
-                        optimizer.zero_grad()
-                        # Output from model
-                        output = model(X_train)
-                        # Calc loss and backprop gradients
-                        loss = -mll(output, y_train)
-                        loss.backward()
-#                        if debug and i%100==0:
-#                            print(i, loss.item(), model.covar_module.base_kernel.lengthscale[0], 
-#                                  model.likelihood.noise.item())
-                        optimizer.step()
-                    
-                    # Plot posterior distributions (with test data on x-axis)
-                    # Get into evaluation (predictive posterior) mode
-                    model.eval()
-                    likelihood.eval()
-                    with torch.no_grad():#, gpytorch.settings.fast_pred_var():
-                        y_pred = likelihood(model(X_test))
-                        
-                    idx = np.argsort(y_test.numpy())
-                        
-                    with torch.no_grad():
-                        lower, upper = y_pred.confidence_region()
-                        
-                        if debug:
-                            f, ax = plt.subplots(1, 1, figsize=(4, 4))
-                            ax.plot(y_test.numpy()[idx], y_pred.mean.numpy()[idx], 'k*')
-                            ax.fill_between(y_test.numpy()[idx], lower.numpy()[idx], upper.numpy()[idx], 
-                                            alpha=0.5)
-                            plt.show()
-                            
-                    if debug:
-                        # Compare user-defined parameter sets within the emulator
-                        tbias_set = (np.arange(-7,4,0.5)).reshape(-1,1)
-                        kp_set = np.zeros(tbias_set.shape) + 1
-                        ddf_set = np.zeros(tbias_set.shape) + 0.0041
-                        
-                        modelprms_set = np.hstack((tbias_set, kp_set, ddf_set))
-                        modelprms_set_norm = (modelprms_set - X_mean) / X_std
-                        
-                        mb_set_norm = model(torch.tensor(modelprms_set_norm).to(torch.float)).mean.detach().numpy()
-                        mb_set = mb_set_norm * y_std + y_mean
-                        
-                        f, ax = plt.subplots(1, 1, figsize=(4, 4))
-                        kp_1_idx = np.where(sims_df['kp'] == 1)[0]
-                        ax.plot(sims_df.loc[kp_1_idx,'tbias'], sims_df.loc[kp_1_idx,'mb_mwea'])
-                        ax.plot(tbias_set,mb_set,'.')
-                        ax.set_xlabel('tbias (degC)')
-                        ax.set_ylabel('PyGEM MB (mwea)')
-                        plt.show()
-                        
-                        # Compare the modeled and emulated mass balances
-                        mb_em_norm = model(torch.tensor(X_norm).to(torch.float)).mean.detach().numpy()
-                        mb_em = mb_em_norm * y_std + y_mean
-                        
-                        f, ax = plt.subplots(1, 1, figsize=(4, 4))
-                        ax.plot(y,mb_em,'.')
-                        ax.plot([y.min(),y.max()], [y.min(), y.max()])
-                        ax.set_xlabel('emulator MB (mwea)')
-                        ax.set_ylabel('PyGEM MB (mwea)')
-                        ax.set_xlim(-1,1)
-                        ax.set_ylim(-1,1)
-                        plt.show()
-                    
-                    # ----- EXPORT EMULATOR -----
-                    # Save emulator (model state, x_train, y_train, etc.)
-                    if not os.path.exists(em_mod_fp):
-                        os.makedirs(em_mod_fp)
-                    torch.save(model.state_dict(), em_mod_fp + em_mod_fn)
-                    # Extra required datasets
-                    emulator_extra_dict = {'X_train': X_train,
-                                           'X_mean': X_mean,
-                                           'X_std': X_std,
-                                           'y_train': y_train,
-                                           'y_mean': y_mean,
-                                           'y_std': y_std}
-                    emulator_extra_fn = glacier_str + '-emulator_extra.pkl'
-                    with open(em_mod_fp + emulator_extra_fn, 'wb') as f:
-                        pickle.dump(emulator_extra_dict, f)
-                        
+                    (X_train, X_mean, X_std, y_train, y_mean, y_std, likelihood, model) = (
+                            create_emulator(glacier_str, sims_df, y_cn='mb_mwea', debug=True))
+                
                 else:
                     # ----- LOAD EMULATOR -----
                     state_dict = torch.load(em_mod_fp + em_mod_fn)
                     
-                    emulator_extra_fn = glacier_str + '-emulator_extra.pkl'
+                    emulator_extra_fn = em_mod_fn.replace('.pth','_extra.pkl')
                     with open(em_mod_fp + emulator_extra_fn, 'rb') as f:
                         emulator_extra_dict = pickle.load(f)
                         
@@ -1505,19 +1643,6 @@ def main(list_packed_vars):
                     y_train = emulator_extra_dict['y_train']
                     y_mean = emulator_extra_dict['y_mean']
                     y_std = emulator_extra_dict['y_std']
-                    
-                    # We will use the simplest form of GP model, exact inference
-                    class ExactGPModel(gpytorch.models.ExactGP):
-                        def __init__(self, train_x, train_y, likelihood):
-                            super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
-                            self.mean_module = gpytorch.means.ConstantMean()
-                            self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=3))
-                    
-                        def forward(self, x):
-                            mean_x = self.mean_module(x)
-                            covar_x = self.covar_module(x)
-                            return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
-                        
                     
                     # initialize likelihood and model
                     likelihood = gpytorch.likelihoods.GaussianLikelihood()
@@ -1538,7 +1663,7 @@ def main(list_packed_vars):
                     ddfsnow_init = pygem_prms.ddfsnow_init
 
                     # ----- FUNCTIONS -----
-                    def run_emulator(modelprms):
+                    def run_emulator_mb(modelprms):
                         """ Run the emulator
                         """
                         modelprms_1d_norm = ((np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow']]) - 
@@ -1579,7 +1704,7 @@ def main(list_packed_vars):
                         prm_mid_new = (prm_bndlow_new + prm_bndhigh_new) / 2
                         modelprms[prm2opt] = prm_mid_new
                         modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-                        mb_mwea_mid_new = run_emulator(modelprms)
+                        mb_mwea_mid_new = run_emulator_mb(modelprms)
     
                         if debug:
                             print(prm2opt + '_bndlow:', np.round(prm_bndlow_new,2), 
@@ -1621,16 +1746,16 @@ def main(list_packed_vars):
                         # Lower bound
                         modelprms[prm2opt] = prm_bndlow
                         modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-                        mb_mwea_low = run_emulator(modelprms)
+                        mb_mwea_low = run_emulator_mb(modelprms)
                         # Upper bound
                         modelprms[prm2opt] = prm_bndhigh
                         modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-                        mb_mwea_high = run_emulator(modelprms)
+                        mb_mwea_high = run_emulator_mb(modelprms)
                         # Middle bound
                         prm_mid = (prm_bndlow + prm_bndhigh) / 2
                         modelprms[prm2opt] = prm_mid
                         modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-                        mb_mwea_mid = run_emulator(modelprms)
+                        mb_mwea_mid = run_emulator_mb(modelprms)
                         
                         if debug:
                             print(prm2opt + '_bndlow:', np.round(prm_bndlow,2), 'mb_mwea_low:', np.round(mb_mwea_low,2))
@@ -1664,7 +1789,7 @@ def main(list_packed_vars):
                             modelprms['tbias'] = sims_df.loc[nidx,'tbias']
                             modelprms['kp'] = sims_df.loc[nidx,'kp']
                             modelprms['ddfsnow'] = sims_df.loc[nidx,'ddfsnow']
-                            sims_df.loc[nidx,'mb_em'] = run_emulator(modelprms)
+                            sims_df.loc[nidx,'mb_em'] = run_emulator_mb(modelprms)
                         sims_df['mb_em_dif'] = sims_df['mb_em'] - sims_df['mb_mwea'] 
                     
                     # ----- TEMPERATURE BIAS BOUNDS -----
@@ -1684,12 +1809,12 @@ def main(list_packed_vars):
                     modelprms['kp'] = kp_bndhigh
                     modelprms['tbias'] = tbias_bndlow
                     modelprms['ddfsnow'] = ddfsnow_init
-                    mb_mwea_bndhigh = run_emulator(modelprms)
+                    mb_mwea_bndhigh = run_emulator_mb(modelprms)
                     # Lower bound
                     modelprms['kp'] = kp_bndlow
                     modelprms['tbias'] = tbias_bndhigh
                     modelprms['ddfsnow'] = ddfsnow_init
-                    mb_mwea_bndlow = run_emulator(modelprms)
+                    mb_mwea_bndlow = run_emulator_mb(modelprms)
                     if debug:
                         print('mb_mwea_max:', np.round(mb_mwea_bndhigh,2),
                               'mb_mwea_min:', np.round(mb_mwea_bndlow,2))
@@ -1731,14 +1856,14 @@ def main(list_packed_vars):
                         modelprms['ddfsnow'] = ddfsnow_init
                         
                         test_count = 0
-                        mb_mwea = run_emulator(modelprms)
+                        mb_mwea = run_emulator_mb(modelprms)
                         if mb_mwea > mb_obs_mwea:
                             if debug:
                                 print('increase tbias, decrease kp')
                             kp_bndhigh = 1
                             # Check if lower bound causes good agreement
                             modelprms['kp'] = kp_bndlow
-                            mb_mwea = run_emulator(modelprms)
+                            mb_mwea = run_emulator_mb(modelprms)
                             if debug:
                                     print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
                                           'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
@@ -1749,7 +1874,7 @@ def main(list_packed_vars):
                                 tbias_bndhigh_opt = modelprms['tbias']
                                 tbias_bndlow_opt = modelprms['tbias'] - tbias_step
                                 # Compute mass balance
-                                mb_mwea = run_emulator(modelprms)
+                                mb_mwea = run_emulator_mb(modelprms)
                                 if debug:
                                     print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
                                           'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
@@ -1760,7 +1885,7 @@ def main(list_packed_vars):
                             kp_bndlow = 1
                             # Check if upper bound causes good agreement
                             modelprms['kp'] = kp_bndhigh
-                            mb_mwea = run_emulator(modelprms)
+                            mb_mwea = run_emulator_mb(modelprms)
                             while mb_obs_mwea > mb_mwea and test_count < 100:
                                 # Update temperature bias
                                 modelprms['tbias'] = modelprms['tbias'] - tbias_step
@@ -1774,7 +1899,7 @@ def main(list_packed_vars):
                                 tbias_bndlow_opt = modelprms['tbias']
                                 tbias_bndhigh_opt = modelprms['tbias'] + tbias_step
                                 # Compute mass balance
-                                mb_mwea = run_emulator(modelprms)
+                                mb_mwea = run_emulator_mb(modelprms)
                                 if debug:
                                     print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
                                           'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
@@ -1794,10 +1919,10 @@ def main(list_packed_vars):
                         
                         # Lower bound
                         modelprms['kp'] = kp_bndlow
-                        mb_mwea_kp_low = run_emulator(modelprms)
+                        mb_mwea_kp_low = run_emulator_mb(modelprms)
                         # Upper bound
                         modelprms['kp'] = kp_bndhigh
-                        mb_mwea_kp_high = run_emulator(modelprms)
+                        mb_mwea_kp_high = run_emulator_mb(modelprms)
                         
                         # Optimal precipitation factor
                         if mb_obs_mwea < mb_mwea_kp_low:

@@ -159,7 +159,7 @@ for reg in rgi_regionsO1:
             priors_df = pd.read_csv(pygem_prms.prior_region_fullfn)
             
             # Add or overwrite existing priors
-            priors_idx = np.where((priors_df.O1Region == reg) & (priors_df.O2Region == regO2))[0]            
+            priors_idx = np.where((priors_df.O1Region == reg) & (priors_df.O2Region == regO2))[0]
             if len(priors_idx) > 0:
                 priors_df.loc[priors_idx,:] = priors_df_single.values
             else:

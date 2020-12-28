@@ -119,7 +119,7 @@ output_filepath = main_directory + '/../Output/'
 model_run_date = 'December 19 2020'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [2]                 # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [11]                 # 1st order region number (RGI V6.0)
 #rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
 rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
@@ -132,6 +132,7 @@ rgi_glac_number = 'all'
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
 glac_no = None
 #glac_no = ['1.24602']
+glac_no = ['11.03005']
 #glac_no = ['15.03733']
 #glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
 if glac_no is not None:
@@ -202,10 +203,10 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('MCMC', 'HH2015', 'HH2015mod')
-#option_calibration = 'MCMC'
+option_calibration = 'MCMC'
 #option_calibration = 'HH2015'
 #option_calibration = 'HH2015mod'
-option_calibration = 'emulator'
+#option_calibration = 'emulator'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 #cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -267,11 +268,13 @@ elif option_calibration == 'emulator':
     
 
 elif option_calibration == 'MCMC':
+    emulator_fp = output_filepath + 'emulator/'
+    emulator_sims = 100
     tbias_step = 1
     tbias_stepsmall = 0.1
     # Chain options
     n_chains = 1                    # number of chains (min 1, max 3)
-    mcmc_sample_no = 10           # number of steps (10000 was found to be sufficient in HMA)
+    mcmc_sample_no = 10000           # number of steps (10000 was found to be sufficient in HMA)
     mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
     mcmc_step = None                # step option (None or 'am')
     thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
@@ -284,18 +287,14 @@ elif option_calibration == 'MCMC':
     ddfsnow_bndhigh = np.inf
     ddfsnow_start=ddfsnow_mu
     
+    priors_reg_fullfn = None
+    priors_reg_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
+    if priors_reg_fullfn is not None:
+        assert os.path.exists(priors_reg_fullfn), 'Using MCMC and priors_reg_fullfn does not exist.'
+    
     # Precipitation factor distribution options
     kp_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
-    kp_gamma_region_dict_fullfn = None
-    kp_gamma_region_dict_fullfn = main_directory + '/../Output/precfactor_gamma_region_dict.csv'
-    if kp_gamma_region_dict_fullfn is not None:
-        assert os.path.exists(kp_gamma_region_dict_fullfn), ('Using option_calibration: ' + option_calibration +
-                             '.  Precfactor regional dictionary does not exist.')
-        kp_gamma_region_df = pd.read_csv(kp_gamma_region_dict_fullfn)
-        kp_gamma_region_dict = dict(zip(kp_gamma_region_df.Region.values, 
-                                        [[kp_gamma_region_df.loc[x,'alpha'], kp_gamma_region_df.loc[x,'beta']] 
-                                        for x in kp_gamma_region_df.index.values]))
-    else:
+    if priors_reg_fullfn is None:
         kp_gamma_alpha = 9
         kp_gamma_beta = 4
         kp_lognorm_mu = 0
@@ -308,16 +307,7 @@ elif option_calibration == 'MCMC':
         
     # Temperature bias distribution options
     tbias_disttype = 'normal'  # distribution type ('normal', 'truncnormal', 'uniform')
-    tbias_norm_region_dict_fullfn = None
-#    tbias_norm_region_dict_fullfn = main_directory + '/../Output/tempchange_norm_region_dict.csv'
-    if tbias_norm_region_dict_fullfn is not None:
-        assert os.path.exists(tbias_norm_region_dict_fullfn), ('Using option_calibration: ' + option_calibration +
-                             '.  Tempbias regional dictionary does not exist.')
-        tbias_norm_region_df = pd.read_csv(tbias_norm_region_dict_fullfn)
-        tbias_norm_region_dict = dict(zip(tbias_norm_region_df.Region.values, 
-                                          [[tbias_norm_region_df.loc[x,'mu'], tbias_norm_region_df.loc[x,'sigma']] 
-                                          for x in tbias_norm_region_df.index.values]))
-    else:
+    if priors_reg_fullfn is None:
         tbias_mu = 0
         tbias_sigma = 1
         tbias_bndlow = -10
