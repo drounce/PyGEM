@@ -6,7 +6,6 @@ import numpy as np
 import xarray as xr
 # Local libraries
 import pygem.pygem_input as pygem_prms
-import pygemfxns_modelsetup as modelsetup
 
 
 class GCM():

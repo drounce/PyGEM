@@ -10,7 +10,7 @@ import pandas as pd
 from scipy import stats
 
 import pygem.pygem_input as pygem_prms
-import pygemfxns_modelsetup as modelsetup
+import pygem.pygem_modelsetup as modelsetup
 
 
 def getparser():
@@ -155,8 +155,8 @@ for reg in rgi_regionsO1:
                 [reg, regO2, main_glac_rgi_subset.shape[0],
                  kp_mean, kp_std, kp_med, kp_min, kp_max, kp_alpha, kp_beta, 
                  tbias_mean, tbias_std, tbias_med, tbias_min, tbias_max])
-        if os.path.exists(pygem_prms.prior_region_fullfn):
-            priors_df = pd.read_csv(pygem_prms.prior_region_fullfn)
+        if os.path.exists(pygem_prms.priors_reg_fullfn):
+            priors_df = pd.read_csv(pygem_prms.priors_reg_fullfn)
             
             # Add or overwrite existing priors
             priors_idx = np.where((priors_df.O1Region == reg) & (priors_df.O2Region == regO2))[0]
@@ -170,7 +170,7 @@ for reg in rgi_regionsO1:
             
         priors_df = priors_df.sort_values(['O1Region', 'O2Region'], ascending=[True, True])
         priors_df.reset_index(inplace=True, drop=True)
-        priors_df.to_csv(pygem_prms.prior_region_fullfn, index=False)
+        priors_df.to_csv(pygem_prms.priors_reg_fullfn, index=False)
     
     #%% ===== REGIONAL PRIOR: PRECIPITATION FACTOR ======
     nbins = 50    
@@ -213,12 +213,13 @@ for reg in rgi_regionsO1:
             nrow += 1
             ncol = 0
 
-    # Remove extra plots    
-    n_extras = ncols-len(rgi_regionsO2)%ncols
-    if n_extras > 0:
-        for nextra in np.arange(0,n_extras):
-            ax[nrow,ncol].axis('off')
-            ncol += 1
+    # Remove extra plots
+    if len(rgi_regionsO2)%ncols > 0:
+        n_extras = ncols-len(rgi_regionsO2)%ncols
+        if n_extras > 0:
+            for nextra in np.arange(0,n_extras):
+                ax[nrow,ncol].axis('off')
+                ncol += 1
             
     # Labels
     fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
@@ -267,12 +268,13 @@ for reg in rgi_regionsO1:
             nrow += 1
             ncol = 0
 
-    # Remove extra plots    
-    n_extras = ncols-len(rgi_regionsO2)%ncols
-    if n_extras > 0:
-        for nextra in np.arange(0,n_extras):
-            ax[nrow,ncol].axis('off')
-            ncol += 1
+    # Remove extra plots
+    if len(rgi_regionsO2)%ncols > 0:
+        n_extras = ncols-len(rgi_regionsO2)%ncols
+        if n_extras > 0:
+            for nextra in np.arange(0,n_extras):
+                ax[nrow,ncol].axis('off')
+                ncol += 1
             
     # Labels
     fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)

@@ -1,13 +1,13 @@
 #!/bin/sh
-#SBATCH --partition=t1standard
-#SBATCH --ntasks=576
+#SBATCH --partition=debug
+#SBATCH --ntasks=48
 #SBATCH --tasks-per-node=24
 
 # activate environment
-module load lang/Anaconda3/2.5.0
-source activate pygem_hpc
+module load lang/Anaconda3/5.3.0
+source activate oggm_env_v02
 
-REGNO="15"
+REGNO="1"
 ADD_CAL_SWITCH=1
 
 # split glaciers into batches for different nodes
@@ -30,7 +30,7 @@ do
   # print the filename
   echo $i
   # run the file on a separate node (& tells the command to move to the next loop for any empty nodes)
-  srun -N 1 -n 1 python run_calibration.py -num_simultaneous_processes=$SLURM_NTASKS_PER_NODE -rgi_glac_number_fn=$i &
+  srun -N 1 -n 1 python run_calibration_woggm.py -num_simultaneous_processes=$SLURM_NTASKS_PER_NODE -rgi_glac_number_fn=$i &
 done
 # wait tells the loop to not move on until all the srun commands are completed
 wait

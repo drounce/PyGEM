@@ -8,7 +8,7 @@ import numpy as np
 import pickle
 # Local libraries
 import pygem.pygem_input as pygem_prms
-import pygemfxns_modelsetup as modelsetup
+import pygem.pygem_modelsetup as modelsetup
 
 
 def getparser():

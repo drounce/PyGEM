@@ -8,9 +8,9 @@ import numpy as np
 
 
 #%% Functions to select specific glacier numbers
-def get_same_glaciers(glac_fp):
+def get_same_glaciers(glac_fp, ending):
     """
-    Get same 1000 glaciers for testing of priors
+    Get same glaciers for testing of priors
 
     Parameters
     ----------
@@ -24,9 +24,10 @@ def get_same_glaciers(glac_fp):
     """
     glac_list = []
     for i in os.listdir(glac_fp):
-        if i.endswith('.nc'):
-            glac_list.append(i.split('.')[1])
+        if i.endswith(ending):
+            glac_list.append(i.split(ending)[0])
     glac_list = sorted(glac_list)
+    
     return glac_list
 
 
@@ -119,27 +120,35 @@ output_filepath = main_directory + '/../Output/'
 model_run_date = 'December 19 2020'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [11]                 # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
 #rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
 rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #               (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 rgi_glac_number = 'all'
-#rgi_glac_number = ['00013']
-#rgi_glac_number = glac_num_fromrange(24602,27112)
+#rgi_glac_number = ['00001']
+rgi_glac_number = glac_num_fromrange(1,48)
 #rgi_glac_number = get_same_glaciers(output_filepath + 'cal_opt1/reg1/')
 #rgi_glac_number = get_shean_glacier_nos(rgi_regionsO1[0], 1, option_random=1)
+glac_no_skip = None
+#glac_no_skip = get_same_glaciers(main_directory + '/../Output/calibration/19/', '-modelprms_dict.pkl')
 glac_no = None
-#glac_no = ['1.24602']
-glac_no = ['11.03005']
+#glac_no = ['19.02147']
+#glac_no = ['11.03005']
 #glac_no = ['15.03733']
 #glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
+#glac_no = ['1.03622']
+#glac_no = ['3.00183']
+#glac_no = ['1.03622','1.03377','1.04375','1.03890','1.20968','1.20734','1.20891','1.26732','1.14443',
+#           '1.13638','1.14878','1.14683','1.10689','1.10612','1.10575','1.10607','1.10325','1.09810',
+#           '1.09426','1.09519','1.09639','1.17843','1.17807','1.17876','1.17840']
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 include_landterm = True                # Switch to include land-terminating glaciers
 include_laketerm = True                # Switch to include lake-terminating glaciers
 include_tidewater = True               # Switch to include tidewater glaciers
+ignore_calving = True                  # Switch to ignore calving and treat tidewater glaciers as land-terminating
 
 oggm_base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl_with_consensus'
 
@@ -161,7 +170,7 @@ if constantarea_years > 0:
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
 #gcm_endyear = 2019              # last year of model run (simulation dataset)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2099              # last year of model run (simulation dataset)
+gcm_endyear = 2019              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
@@ -203,10 +212,10 @@ option_bias_adjustment = 1
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('MCMC', 'HH2015', 'HH2015mod')
-option_calibration = 'MCMC'
+#option_calibration = 'MCMC'
 #option_calibration = 'HH2015'
 #option_calibration = 'HH2015mod'
-#option_calibration = 'emulator'
+option_calibration = 'emulator'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 #cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -214,7 +223,12 @@ option_calibration = 'MCMC'
 #output_fp_cal = output_filepath + 'calibration/'
 
 # Prior distribution
-prior_region_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
+#prior_region_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
+
+priors_reg_fullfn = None
+#priors_reg_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
+if priors_reg_fullfn is not None:
+    assert os.path.exists(priors_reg_fullfn), 'Using MCMC and priors_reg_fullfn does not exist.'
 
 if option_calibration == 'HH2015':
     tbias_init = 0
@@ -242,6 +256,7 @@ elif option_calibration == 'HH2015mod':
     
 elif option_calibration == 'emulator':
     emulator_sims = 100              # Number of simulations to develop the emulator
+    overwrite_em_sims = True         # Overwrite emulator simulations
     opt_hh2015_mod = True            # Option to also perform the HH2015_mod calibration using the emulator
     emulator_fp = output_filepath + 'emulator/'
     tbias_step = 0.5                 # tbias step size
@@ -274,7 +289,7 @@ elif option_calibration == 'MCMC':
     tbias_stepsmall = 0.1
     # Chain options
     n_chains = 1                    # number of chains (min 1, max 3)
-    mcmc_sample_no = 10000           # number of steps (10000 was found to be sufficient in HMA)
+    mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
     mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
     mcmc_step = None                # step option (None or 'am')
     thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
@@ -286,11 +301,6 @@ elif option_calibration == 'MCMC':
     ddfsnow_bndlow = 0
     ddfsnow_bndhigh = np.inf
     ddfsnow_start=ddfsnow_mu
-    
-    priors_reg_fullfn = None
-    priors_reg_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
-    if priors_reg_fullfn is not None:
-        assert os.path.exists(priors_reg_fullfn), 'Using MCMC and priors_reg_fullfn does not exist.'
     
     # Precipitation factor distribution options
     kp_disttype = 'gamma'   # distribution type ('gamma', 'lognormal', 'uniform')
@@ -346,7 +356,7 @@ else:
     width_calving_dict = {}
 # Frontal ablation glacier data
 frontalablation_glacier_data_fullfn = main_directory + '/../calving_data/frontalablation_glacier_data.csv'
-frontalablation_regional_data_fullfn = main_directory + '/../calving_data/frontalablation_regional_data.csv'
+#frontalablation_regional_data_fullfn = main_directory + '/../calving_data/frontalablation_regional_data.csv'
 
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
@@ -592,7 +602,7 @@ elif hyps_data == 'Huss':
     width_colsdrop = ['RGI-ID','Cont_range']
 elif hyps_data == 'OGGM':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
-    overwrite_gdirs = False
+    overwrite_gdirs = True
     
     
 # Debris datasets

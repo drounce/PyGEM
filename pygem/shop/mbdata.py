@@ -15,7 +15,7 @@ from oggm.utils import entity_task
 #from oggm.core.gis import rasterio_to_gdir
 #from oggm.utils import ncDataset
 import pygem.pygem_input as pygem_prms
-import pygemfxns_modelsetup as modelsetup
+import pygem.pygem_modelsetup as modelsetup
 
 """
 TO-DO LIST:
@@ -66,27 +66,33 @@ def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
     assert os.path.exists(mbdata_fp + mbdata_fn), "Error: mb dataset does not exist."
     
     mb_df = pd.read_csv(mbdata_fp + mbdata_fn)
-    mb_df_rgiids = set(list(mb_df[rgiid_cn]))
-    
+    mb_df_rgiids = list(mb_df[rgiid_cn])
+
     if gdir.rgi_id in mb_df_rgiids:
+        # RGIId index
         rgiid_idx = np.where(gdir.rgi_id == mb_df[rgiid_cn])[0][0]
         
         # Glacier-wide mass balance
         mb_mwea = mb_df.loc[rgiid_idx, mb_cn]
         mb_mwea_err = mb_df.loc[rgiid_idx, mberr_cn]
+        
         t1_str = mb_df.loc[rgiid_idx, t1_cn]
         t2_str = mb_df.loc[rgiid_idx, t2_cn]  
-        t1_datetime = pd.to_datetime(pd.DataFrame({'year':[t1_str.split('-')[0]], 
-                                                   'month':[t1_str.split('-')[1]], 
-                                                   'day':[t1_str.split('-')[2]]}))[0]
-        t2_datetime = pd.to_datetime(pd.DataFrame({'year':[t2_str.split('-')[0]], 
-                                                   'month':[t2_str.split('-')[1]], 
-                                                   'day':[t2_str.split('-')[2]]}))[0]
+        
+        t1_datetime = pd.to_datetime(t1_str)
+        t2_datetime = pd.to_datetime(t2_str)
+#        t1_datetime = pd.to_datetime(pd.DataFrame({'year':[t1_str.split('-')[0]], 
+#                                                   'month':[t1_str.split('-')[1]], 
+#                                                   'day':[t1_str.split('-')[2]]}))[0]
+#        t2_datetime = pd.to_datetime(pd.DataFrame({'year':[t2_str.split('-')[0]], 
+#                                                   'month':[t2_str.split('-')[1]], 
+#                                                   'day':[t2_str.split('-')[2]]}))[0]
+
         # remove one day from t2 datetime for proper indexing (ex. 2001-01-01 want to run through 2000-12-31)
         t2_datetime = t2_datetime - timedelta(days=1)
         # Number of years
         nyears = (t2_datetime + timedelta(days=1) - t1_datetime).days / 365.25
-        
+
         # Record data
         mbdata = {'mb_mwea': mb_mwea,
                   'mb_mwea_err': mb_mwea_err,
@@ -146,7 +152,7 @@ def mb_bins_to_glacierwide(gdir, mb_binned_fp=pygem_prms.mb_binned_fp):
 def mb_bins_to_reg_glacierwide(mb_binned_fp=pygem_prms.mb_binned_fp, O1Regions=['01']):
     # Delete these import
     mb_binned_fp=pygem_prms.mb_binned_fp
-    O1Regions=['01']
+    O1Regions=['19']
     
     print('\n\n SPECIFYING UNCERTAINTY AS 0.3 mwea for model development - needs to be updated from mb providers!\n\n')
     reg_mb_mwea_err = 0.3

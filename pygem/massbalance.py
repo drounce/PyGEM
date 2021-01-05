@@ -7,14 +7,16 @@ Created on Mon Feb  3 14:00:14 2020
 """
 # External libraries
 import numpy as np
-import pandas as pd
+#import pandas as pd
 # Local libraries
-from oggm import cfg, utils
+#from oggm import cfg 
+#from oggm import utils
 from oggm.core.massbalance import MassBalanceModel
 import pygem.pygem_input as pygem_prms
 from pygem.utils._funcs import annualweightedmean_array
 
-cfg.initialize()
+#cfg.initialize()
+#cfg.PARAMS['has_internet'] = False
 
 #%%
 class PyGEMMassBalance(MassBalanceModel):
@@ -31,7 +33,8 @@ class PyGEMMassBalance(MassBalanceModel):
                  heights=None, repeat_period=False,
 #                       use_refreeze=True
                  hyps_data=pygem_prms.hyps_data,
-                 inversion_filter=False
+                 inversion_filter=False,
+                 ignore_debris=False
                        ):
         """ Initialize.
 
@@ -78,7 +81,7 @@ class PyGEMMassBalance(MassBalanceModel):
             self.width_initial = fls[fl_id].widths_m
             self.glacier_area_initial = fls[fl_id].widths_m * fls[fl_id].dx_meter
             self.heights = fls[fl_id].surface_h
-            if pygem_prms.include_debris:
+            if pygem_prms.include_debris and not ignore_debris and not gdir.is_tidewater:
                 self.debris_ed = fls[fl_id].debris_ed
             else:
                 self.debris_ed = np.ones(self.glacier_area_initial.shape[0])

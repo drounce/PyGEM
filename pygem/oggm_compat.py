@@ -7,7 +7,7 @@ import netCDF4
 import pygem.pygem_input as pygem_prms
 from oggm import cfg, utils
 from oggm import workflow
-from oggm import tasks
+#from oggm import tasks
 from oggm.cfg import SEC_IN_YEAR
 from oggm.core.massbalance import MassBalanceModel
 #from oggm.shop import rgitopo
@@ -23,7 +23,7 @@ class CompatGlacDir:
         
         
         
-def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
+def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80, logging_level='WORKFLOW'):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     Parameters
@@ -50,7 +50,9 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
         raise ValueError('Check RGIId is correct')
 
     # Initialize OGGM and set up the default run parameters
-    cfg.initialize(logging_level='WORKFLOW')
+    cfg.initialize(logging_level=logging_level)
+#    cfg.initialize(logging_level='CRITICAL')
+#    cfg.initialize(logging_level='ERROR')
     # Set multiprocessing to false; otherwise, causes daemonic error due to PyGEM's multiprocessing
     #  - avoids having multiple multiprocessing going on at the same time
     cfg.PARAMS['use_multiprocessing']  = False
@@ -89,20 +91,22 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
 #        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/single_fl'
 #        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl'
         base_url = pygem_prms.oggm_base_url
-        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40, 
-                                                  prepro_base_url=base_url, prepro_rgi_version='62')
         
+#        try:
+        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40, 
+                                                  prepro_base_url=base_url, prepro_rgi_version='62',
+                                                  use_demo_glaciers=False)
         # Compute all the stuff
         list_tasks = [
-            tasks.glacier_masks,
-            tasks.compute_centerlines,
-            tasks.initialize_flowlines,
-            tasks.compute_downstream_line,
-            tasks.compute_downstream_bedshape,
-            tasks.catchment_area,
-            tasks.catchment_intersections,      
-            tasks.catchment_width_geom,
-            tasks.catchment_width_correction,            
+#                tasks.glacier_masks,
+#                tasks.compute_centerlines,
+#                tasks.initialize_flowlines,
+#                tasks.compute_downstream_line,
+#                tasks.compute_downstream_bedshape,
+#                tasks.catchment_area,
+#                tasks.catchment_intersections,      
+#                tasks.catchment_width_geom,
+#                tasks.catchment_width_correction,            
             # Consensus ice thickness
             icethickness.consensus_gridded,
 #            icethickness.consensus_binned,
@@ -118,12 +122,17 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80):
     
         for task in list_tasks:
             workflow.execute_entity_task(task, gdirs)
+            
+        gdir = gdirs[0]
+        
+#        except:
+#            gdir = None
     
-        return gdirs[0]
+        return gdir
 
 
-
-def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_border=10, k_calving=2):
+def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_border=80, k_calving=1,
+                                                   logging_level='WORKFLOW'):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     k_calving is free variable!
@@ -142,83 +151,76 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
     -------
     a GlacierDirectory object
     """
-    assert 1==0, 'UPDATE LATEST GLACIER DIRECTORY OPTIONS FROM NON-CALVING'
     if type(rgi_id) != str:
         raise ValueError('We expect rgi_id to be a string')
     if rgi_id.startswith('RGI60-') == False:
         rgi_id = 'RGI60-' + rgi_id.split('.')[0].zfill(2) + '.' + rgi_id.split('.')[1]
     else:
         raise ValueError('Check RGIId is correct')
-    cfg.initialize()
 
-    wd = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/Output/oggm-pygem-{}-b{}-k{}'.format(rgi_id, prepro_border,
-                                                                                              k_calving)
-    cfg.PATHS['working_dir'] = wd
-    cfg.PARAMS['use_multiple_flowlines'] = False
+    # Initialize OGGM and set up the default run parameters
+    cfg.initialize(logging_level=logging_level)
     # Set multiprocessing to false; otherwise, causes daemonic error due to PyGEM's multiprocessing
     #  - avoids having multiple multiprocessing going on at the same time
     cfg.PARAMS['use_multiprocessing']  = False
     
+    # Avoid erroneous glaciers (e.g., Centerlines too short or other issues)
+    cfg.PARAMS['continue_on_error'] = True
+    
+    # Set border boundary
+    cfg.PARAMS['border'] = 10
+    # Usually we recommend to set dl_verify to True - here it is quite slow
+    # because of the huge files so we just turn it off.
+    # Switch it on for real cases!
+    cfg.PARAMS['dl_verify'] = True
+    cfg.PARAMS['use_multiple_flowlines'] = False
+    # temporary directory for testing (deleted on computer restart)
+    cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
+    
     # Check if folder is already processed
-    try:
-        gdir = utils.GlacierDirectory(rgi_id)
-        gdir.read_pickle('model_flowlines')
-        # If the above works the directory is already processed, return
-        return gdir
-    except:
-        pass
-    # If not ready, we download the preprocessed data for this glacier
-    gdirs = workflow.init_glacier_regions([rgi_id],
-                                          from_prepro_level=2,
-                                          prepro_border=prepro_border)
-    if not gdirs[0].is_tidewater:
-        raise ValueError('This glacier is not tidewater!')
-    # Compute all the stuff
-    list_tasks = [
-        tasks.glacier_masks,
-        tasks.compute_centerlines,
-        tasks.initialize_flowlines,
-        tasks.compute_downstream_line,
-        tasks.compute_downstream_bedshape,
-        tasks.catchment_area,
-        tasks.catchment_intersections, # added 10/20/2020
-        tasks.catchment_width_geom,
-        tasks.catchment_width_correction,
-        # Consensus ice thickness
-        icethickness.consensus_gridded,
-        icethickness.consensus_binned,
-        # Mass balance data
-#        mbdata.mb_bins_to_glacierwide
-        mbdata.mb_df_to_gdir
-    ]
-    
-    # Debris tasks
-    if pygem_prms.include_debris:
-        list_tasks.append(debris.debris_to_gdir)
-        list_tasks.append(debris.debris_binned)
-    
-    for task in list_tasks:
-        # The order matters!
-        workflow.execute_entity_task(task, gdirs)
+    if not pygem_prms.overwrite_gdirs:
+        try:
+            gdir = utils.GlacierDirectory(rgi_id)
+            gdir.read_pickle('inversion_flowlines')
+            # previously was model_flowlines and not inversion_flowlines
+#            gdir.read_pickle('model_flowlines')
+            # If the above works the directory is already processed, return
+            return gdir
+        except:
+            process_gdir = True
+        
+    else:
+        process_gdir = True
 
-    # Calving according to Recinos et al. 2019
-    #  solves equality between ice derformation and Oerleman's calving law
-    #  reduces temperature sensitivity
-    from oggm.core.inversion import find_inversion_calving
-    cfg.PARAMS['k_calving'] = k_calving
-    df = find_inversion_calving(gdirs[0])
-    print('Calving results:')
-    print('k calving:', k_calving)
-    for k, v in df.items():
-        print(k + ':', v)
-    list_tasks = [
-        # THIS WILL NOW FAIL BECAUSE OF USING HUSS
-        tasks.init_present_time_glacier,
-    ]
-    for task in list_tasks:
-        # The order matters!
-        workflow.execute_entity_task(task, gdirs)
-    return gdirs[0]
+    if process_gdir:
+        # Download preprocessed data
+#        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40)
+        
+        # Start after the prepro task level
+#        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/single_fl'
+#        base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl'
+        base_url = pygem_prms.oggm_base_url
+        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40, 
+                                                  prepro_base_url=base_url, prepro_rgi_version='62')
+        
+        if not gdirs[0].is_tidewater:
+            raise ValueError('This glacier is not tidewater!')
+            
+        
+        # Compute all the stuff
+        list_tasks = [
+            # Consensus ice thickness
+            icethickness.consensus_gridded,
+#            icethickness.consensus_binned,
+            # Mass balance data
+            mbdata.mb_df_to_gdir
+        ]
+        
+        for task in list_tasks:
+            # The order matters!
+            workflow.execute_entity_task(task, gdirs)
+            
+        return gdirs[0]        
 
 
 def create_empty_glacier_directory(rgi_id):

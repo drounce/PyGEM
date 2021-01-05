@@ -677,8 +677,6 @@ def main(list_packed_vars):
         
         # Flowlines
         fls = gdir.read_pickle('inversion_flowlines')
-        
-        print(fls[0].surface_h)
 
         # Add climate data to glacier directory
         gdir.historical_climate = {'elev': gcm_elev_adj[glac],
@@ -689,7 +687,7 @@ def main(list_packed_vars):
         gdir.dates_table = dates_table
 
         glacier_area_km2 = fls[0].widths_m * fls[0].dx_meter / 1e6
-        if (fls is not None) and (glacier_area_km2.sum() > 0):
+        if glacier_area_km2.sum() > 0:
 #            if pygem_prms.hindcast == 1:
 #                glacier_gcm_prec = glacier_gcm_prec[::-1]
 #                glacier_gcm_temp = glacier_gcm_temp[::-1]
@@ -740,7 +738,7 @@ def main(list_packed_vars):
                                   'ddfice': [pygem_prms.ddfice],
                                   'tsnow_threshold': [pygem_prms.tsnow_threshold],
                                   'precgrad': [pygem_prms.precgrad]}
-                      
+            
             # Time attributes and values
             if pygem_prms.gcm_wateryear == 'hydro':
                 annual_columns = np.unique(dates_table['wateryear'].values)[0:int(dates_table.shape[0]/12)]
@@ -781,16 +779,41 @@ def main(list_packed_vars):
                     print(glacier_str + '  kp: ' + str(np.round(modelprms['kp'],2)) +
                           ' ddfsnow: ' + str(np.round(modelprms['ddfsnow'],4)) +
                           ' tbias: ' + str(np.round(modelprms['tbias'],2)))
-                
+
+#                # OGGM WANTS THIS FUNCTION TO SIMPLY RETURN THE MASS BALANCE AS A FUNCTION OF HEIGHT AND THAT'S IT
+#                mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
+#                                         hindcast=pygem_prms.hindcast,
+#                                         debug=pygem_prms.debug_mb,
+#                                         debug_refreeze=pygem_prms.debug_refreeze,
+#                                         fls=fls, option_areaconstant=True)
+#
+#                # ----- MODEL RUN WITH CONSTANT GLACIER AREA -----
+#                years = np.arange(pygem_prms.gcm_startyear, pygem_prms.gcm_endyear + 1)
+#                mb_all = []
+#                for fl_id, fl in enumerate(fls):
+#                    for year in years - years[0]:
+#                        mb_annual = mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=fl_id, year=year,
+#                                                        debug=True)
+#                        mb_mwea = (mb_annual * 365 * 24 * 3600 * pygem_prms.density_ice /
+#                                       pygem_prms.density_water)
+#                        glac_wide_mb_mwea = ((mb_mwea * mbmod.glacier_area_initial).sum() /
+#                                              mbmod.glacier_area_initial.sum())
+#                        print('year:', year, np.round(glac_wide_mb_mwea,3))
+#
+#                        mb_all.append(glac_wide_mb_mwea)
+#
+#                print('iter:', n_iter, 'massbal (mean, std):', np.round(np.mean(mb_all),3), np.round(np.std(mb_all),3))
+
+
                 #%%
                 # ----- ICE THICKNESS INVERSION using OGGM -----
+                # Perform inversion based on PyGEM MB
+
                 # Apply inversion_filter on mass balance with debris to avoid negative flux
                 if pygem_prms.include_debris:
                     inversion_filter = True
                 else:
                     inversion_filter = False
-                    
-                # Perform inversion based on PyGEM MB
                 mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
                                               hindcast=pygem_prms.hindcast,
                                               debug=pygem_prms.debug_mb,
@@ -807,6 +830,7 @@ def main(list_packed_vars):
                     plt.xlabel('Mass balance (mwea)')
                     plt.show()
                     
+               
                 # Arbitrariliy shift the MB profile up (or down) until mass balance is zero (equilibrium for inversion)
                 climate.apparent_mb_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears))
                
@@ -820,33 +844,6 @@ def main(list_packed_vars):
                 tasks.init_present_time_glacier(gdir) # adds bins below
                 debris.debris_binned(gdir, fl_str='model_flowlines')  # add debris enhancement factors to flowlines
                 nfls = gdir.read_pickle('model_flowlines')
-                
-                # ----- TIDEWATER GLACIER SCRIPT  ------------------------------------------------------------------------
-#            # Calving and dynamic parameters
-#            cfg.PARAMS['calving_k'] = calving_k
-#            cfg.PARAMS['inversion_calving_k'] = cfg.PARAMS['calving_k']
-#            glen_a_multiplier = 1       # calibrate this based on ice thickness data or the consensus estimates
-#            fs = 0                      # keep this set at 0
-#            cfg.PARAMS['cfl_number'] = 0.01     # 0.01 is more conservative than the default of 0.02 (less issues)
-##            cfg.PARAMS['cfl_number'] = 0.001     # 0.01 is more conservative than the default of 0.02 (less issues)
-#            
-#            # ----- Mass balance model for ice thickness inversion using OGGM -----
-#            mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
-#                                          hindcast=pygem_prms.hindcast,
-#                                          debug=pygem_prms.debug_mb,
-#                                          debug_refreeze=pygem_prms.debug_refreeze,
-#                                          fls=fls, option_areaconstant=False,
-#                                          inversion_filter=False)
-#            h, w = gdir.get_inversion_flowline_hw()
-#            
-##            if debug:
-##                mb_t0 = (mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls) * cfg.SEC_IN_YEAR * 
-##                         pygem_prms.density_ice / pygem_prms.density_water) 
-##                plt.plot(mb_t0, h, '.')
-##                plt.ylabel('Elevation')
-##                plt.xlabel('Mass balance (mwea)')
-##                plt.show()
-#
                 
                 #%%
                 # ------ MODEL WITH EVOLVING AREA ------
@@ -941,6 +938,72 @@ def main(list_packed_vars):
                 #%% ===== Adding functionality for calving =====
         
 #        # ===== FROM FRONTAL ABLATION CALIBRATION!!!!! =====
+#        # ----- Invert ice thickness and run simulation ------
+#        if (fls is not None) and (glacier_area.sum() > 0):
+#            
+#            # ----- Model parameters -----
+#            kp_value = None
+#            tbias_value = None
+#            # Use most likely parameters from initial calibration to force the mass balance gradient for the inversion
+#            if prms_from_reg_priors:
+#                if pygem_prms.priors_reg_fullfn is not None:
+#                    # Load priors
+#                    priors_df = pd.read_csv(pygem_prms.priors_reg_fullfn)
+#                    priors_idx = np.where((priors_df.O1Region == glacier_rgi_table['O1Region']) & 
+#                                          (priors_df.O2Region == glacier_rgi_table['O2Region']))[0][0]
+#                    kp_value = priors_df.loc[priors_idx,'kp_med']
+#                    tbias_value = priors_df.loc[priors_idx,'tbias_med']
+#            # Use the calibrated model parameters (although they were calibrated without accounting for calving)
+#            elif prms_from_glac_cal:
+#                modelprms_fn = glacier_str + '-modelprms_dict.pkl'
+#                modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
+#                                + '/')
+#                assert os.path.exists(modelprms_fp + modelprms_fn), 'modelprms_dict file does not exist'
+#                with open(modelprms_fp + modelprms_fn, 'rb') as f:
+#                    modelprms_dict = pickle.load(f)
+#                modelprms_em = modelprms_dict['emulator']
+#                kp_value = modelprms_em['kp'][0]
+#                tbias_value = modelprms_em['tbias'][0]
+#                
+#            # Otherwise use input parameters
+#            if kp_value is None:
+#                kp_value = pygem_prms.kp
+#            if tbias_value is None:
+#                tbias_value = pygem_prms.tbias
+#            
+#            # Set model parameters
+#            modelprms = {'kp': kp_value,
+#                         'tbias': tbias_value,
+#                         'ddfsnow': pygem_prms.ddfsnow,
+#                         'ddfice': pygem_prms.ddfice,
+#                         'tsnow_threshold': pygem_prms.tsnow_threshold,
+#                         'precgrad': pygem_prms.precgrad}                
+#                
+#            # Calving and dynamic parameters
+#            cfg.PARAMS['calving_k'] = calving_k
+#            cfg.PARAMS['inversion_calving_k'] = cfg.PARAMS['calving_k']
+#            glen_a_multiplier = 1       # calibrate this based on ice thickness data or the consensus estimates
+#            fs = 0                      # keep this set at 0
+#            cfg.PARAMS['cfl_number'] = 0.01     # 0.01 is more conservative than the default of 0.02 (less issues)
+##            cfg.PARAMS['cfl_number'] = 0.001     # 0.01 is more conservative than the default of 0.02 (less issues)
+#            
+#            # ----- Mass balance model for ice thickness inversion using OGGM -----
+#            mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
+#                                          hindcast=pygem_prms.hindcast,
+#                                          debug=pygem_prms.debug_mb,
+#                                          debug_refreeze=pygem_prms.debug_refreeze,
+#                                          fls=fls, option_areaconstant=False,
+#                                          inversion_filter=False)
+#            h, w = gdir.get_inversion_flowline_hw()
+#            
+##            if debug:
+##                mb_t0 = (mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls) * cfg.SEC_IN_YEAR * 
+##                         pygem_prms.density_ice / pygem_prms.density_water) 
+##                plt.plot(mb_t0, h, '.')
+##                plt.ylabel('Elevation')
+##                plt.xlabel('Mass balance (mwea)')
+##                plt.show()
+#
 #            # ----- CALVING -----
 #            # Number of years (for OGGM's run_until_and_store)
 #            if pygem_prms.timestep == 'monthly':

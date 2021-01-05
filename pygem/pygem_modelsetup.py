@@ -262,7 +262,8 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2=None,
                            rgi_O1Id_colname=pygem_prms.rgi_O1Id_colname,
                            rgi_glacno_float_colname=pygem_prms.rgi_glacno_float_colname,
                            indexname=pygem_prms.indexname,
-                           include_landterm=True,include_laketerm=True,include_tidewater=True):
+                           include_landterm=True,include_laketerm=True,include_tidewater=True,
+                           glac_no_skip=pygem_prms.glac_no_skip):
     """
     Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI
     glacier inventory. This function returns the rgi table associated with all of these glaciers.
@@ -386,6 +387,17 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2=None,
         termtype_values.append(2)
     glacier_table = glacier_table.loc[glacier_table['TermType'].isin(termtype_values)]
     glacier_table.reset_index(inplace=True, drop=True)
+    # Glacier number with no trailing zeros
+    glacier_table['glacno'] = [str(int(x.split('-')[1].split('.')[0])) + '.' + x.split('-')[1].split('.')[1]
+                               for x in glacier_table.RGIId]
+
+    # Remove glaciers that are meant to be skipped
+    if glac_no_skip is not None:
+        glac_no_all = list(glacier_table['glacno'])
+        glac_no_unique = [x for x in glac_no_all if x not in glac_no_skip]
+        unique_idx = [glac_no_all.index(x) for x in glac_no_unique]
+        glacier_table = glacier_table.loc[unique_idx,:]
+        glacier_table.reset_index(inplace=True, drop=True)
 
     print("This study is focusing on %s glaciers in region %s" % (glacier_table.shape[0], rgi_regionsO1))
 

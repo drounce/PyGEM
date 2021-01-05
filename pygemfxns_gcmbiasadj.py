@@ -17,7 +17,7 @@ import pickle
 import matplotlib.pyplot as plt
 # Local libraries
 import pygem.pygem_input as pygem_prms
-import pygemfxns_modelsetup as modelsetup
+import pygem.pygem_modelsetup as modelsetup
 import class_climate
 
 #%% ===== SCRIPT SPECIFIC INPUT DATA =====
