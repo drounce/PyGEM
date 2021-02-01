@@ -41,6 +41,8 @@ if args.rgi_regionsO1_single is None:
 else:
     rgi_regionsO1 = [args.rgi_regionsO1_single]
     
+print('rgi_regionsO1:', rgi_regionsO1)
+    
 # Region dictionary for titles
 reg_dict = {1:'Alaska',
             2:'W CA/USA',
@@ -122,6 +124,10 @@ for reg in rgi_regionsO1:
         kp_min = np.min(main_glac_rgi_subset['kp'])
         kp_max = np.max(main_glac_rgi_subset['kp'])
 
+        # Small regions may all have the same values (e.g., 16-4 has 5 glaciers)
+        if kp_std == 0:
+            kp_std = 0.5
+
         kp_beta = kp_mean / kp_std
         kp_alpha = kp_mean * kp_beta
         
@@ -136,6 +142,11 @@ for reg in rgi_regionsO1:
         tbias_med = np.median(main_glac_rgi_subset['tbias'])
         tbias_min = np.min(main_glac_rgi_subset['tbias'])
         tbias_max = np.max(main_glac_rgi_subset['tbias'])
+        
+        # tbias_std of 1 is reasonable for most subregions
+        if tbias_std == 0:
+            tbias_std = 1
+        
         print('tbias (mean/std/med/min/max):', np.round(tbias_mean,2), np.round(tbias_std,2),
               np.round(tbias_med,2), np.round(tbias_min,2), np.round(tbias_max,2))
 

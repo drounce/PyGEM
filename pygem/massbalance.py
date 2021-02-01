@@ -218,7 +218,10 @@ class PyGEMMassBalance(MassBalanceModel):
         # Quality control: ensure you only have glacier area where there is ice
         if icethickness_t0 is not None:
             glacier_area_t0[icethickness_t0 == 0] = 0
-
+            
+        # Record ice thickness
+        self.glac_bin_icethickness_annual[:,year] = icethickness_t0
+        
         # Glacier indices
         glac_idx_t0 = glacier_area_t0.nonzero()[0]
         
@@ -612,7 +615,7 @@ class PyGEMMassBalance(MassBalanceModel):
                                                option_areaconstant=option_areaconstant)
 
 #                if debug:
-#                    print('glac_bin_massbalclim:', self.glac_bin_massbalclim[12:20,12*year:12*(year+1)].sum(1))
+#                    print('glac_bin_massbalclim:', self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1))
 #                    print('surface type present:', self.glac_bin_surfacetype_annual[12:20,year])
 #                    print('surface type updated:', self.surfacetype[12:20])
 
@@ -754,6 +757,7 @@ class PyGEMMassBalance(MassBalanceModel):
                         snowline_idx_nan.append(ncol)
                 heights_manual = heights[snowline_idx] - heights_change[snowline_idx] / 2
                 heights_manual[snowline_idx_nan] = np.nan
+                # this line below causes a potential All-NaN slice encountered issue at some time steps
                 self.glac_wide_snowline[12*year:12*(year+1)] = heights_manual
 
             # Equilibrium line altitude (m a.s.l.)
@@ -818,16 +822,52 @@ class PyGEMMassBalance(MassBalanceModel):
                                         pygem_prms.density_water / pygem_prms.density_ice)
         vol_change_annual_melt_reduction = np.zeros(vol_change_annual_mbmod.shape)
         chg_idx = vol_change_annual_mbmod.nonzero()[0]
-        vol_change_annual_melt_reduction[chg_idx] = (
-                1 - vol_change_annual_dif[chg_idx] / vol_change_annual_mbmod_melt[chg_idx])
+        chg_idx_posmbmod = vol_change_annual_mbmod_melt.nonzero()[0]
+        chg_idx_melt = list(set(chg_idx).intersection(chg_idx_posmbmod))
+        
+#        print('change_idx:', chg_idx_melt)
+#        print('vol_change_annual_dif:', vol_change_annual_dif[chg_idx_melt])
+#        print('vol_change_annual_mbmod_melt:', vol_change_annual_mbmod_melt[chg_idx_melt])
+        
+        vol_change_annual_melt_reduction[chg_idx_melt] = (
+                1 - vol_change_annual_dif[chg_idx_melt] / vol_change_annual_mbmod_melt[chg_idx_melt])      
+        
         vol_change_annual_melt_reduction_monthly = np.repeat(vol_change_annual_melt_reduction, 12)
         
         # Glacier-wide melt (m3 w.e.)
         self.glac_wide_melt = self.glac_wide_melt * vol_change_annual_melt_reduction_monthly
         
+#        # Reduce glacier accumulation by difference if there was no melt
+#        print('Do not need to do this.  Differences should be very small due to rounding error only')
+#        chg_idx_acc = np.setdiff1d(chg_idx,chg_idx_posmbmod)
+#        if len(chg_idx_acc) > 0:
+#            print('change_idx_acc:', chg_idx_acc)
+#            
+#            vol_change_annual_mbmod_acc = (self.glac_wide_acc.reshape(-1,12).sum(1) * 
+#                                           pygem_prms.density_water / pygem_prms.density_ice)
+#            
+#            print('glac_wide_massbaltotal:', self.glac_wide_massbaltotal.reshape(-1,12).sum(1) * 1000 / 900)
+#            print('vol_change_annual_mbmod all:', vol_change_annual_mbmod)
+#            print('vol_change_annual_mbmod:', vol_change_annual_mbmod[chg_idx_acc])
+#            print('vol_change_annual_diag:', vol_change_annual_diag[chg_idx_acc])
+#            print('vol_change_annual_dif:', vol_change_annual_dif[chg_idx_acc])
+#            print('vol_change_annual_mbmod_acc:', vol_change_annual_mbmod_acc[chg_idx_acc])
+#            
+#            vol_change_annual_acc_reduction = np.zeros(vol_change_annual_mbmod.shape)
+#            vol_change_annual_acc_reduction[chg_idx_acc] = (
+#                    vol_change_annual_dif[chg_idx_acc] / vol_change_annual_mbmod_acc[chg_idx_acc])
+#            
+#            print('vol_change_annual_acc_reduction:', vol_change_annual_acc_reduction[chg_idx_acc])
+#            
+#            vol_change_annual_acc_reduction_monthly = np.repeat(vol_change_annual_acc_reduction, 12)
+#            
+#            # Glacier-wide accumulation (m3 w.e.)
+#            self.glac_wide_acc = self.glac_wide_acc * vol_change_annual_acc_reduction_monthly
+        
         # Glacier-wide total mass balance (m3 w.e.)
         if np.abs(self.glac_wide_frontalablation.sum()) > 0:
-            print('\n\nCHECK IF FRONTAL ABLATION IS POSITIVE OR NEGATIVE - WHETHER ADD OR SUBTRACT BELOW HERE') 
+            print('\n\nCHECK IF FRONTAL ABLATION IS POSITIVE OR NEGATIVE - WHETHER ADD OR SUBTRACT BELOW HERE')
+            assert True==False, 'Need to account for frontal ablation properly here'
         self.glac_wide_massbaltotal = (self.glac_wide_acc + self.glac_wide_refreeze - self.glac_wide_melt -
                                        self.glac_wide_frontalablation)
         
@@ -835,8 +875,7 @@ class PyGEMMassBalance(MassBalanceModel):
         self.glac_wide_runoff = self.glac_wide_prec + self.glac_wide_melt - self.glac_wide_refreeze
         
         self.glac_wide_volume_change_ignored_annual = vol_change_annual_dif
-
-
+        
 
     #%%
     def get_annual_frontalablation(self, heights, year=None, flowline=None, fl_id=None,

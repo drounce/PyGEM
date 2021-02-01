@@ -2,6 +2,7 @@
 
 # Built-in libraries
 import os
+import pickle
 # External libraries
 import pandas as pd
 import numpy as np
@@ -111,17 +112,49 @@ def glac_fromcsv(csv_fullfn, cn='RGIId'):
     df = pd.read_csv(csv_fullfn)
     return [x.split('-')[1] for x in df['RGIId'].values]
 
+#%%
+def glac_wo_cal(regions, prms_fp_sub=None, cal_option='MCMC'):
+    """
+    Glacier list of glaciers that still need to be calibrated
+    """
+    todo_list=[]
+    for reg in regions:
+        prms_fns = []
+        prms_fp = prms_fp_sub + str(reg).zfill(2) + '/'
+        for i in os.listdir(prms_fp):
+            if i.endswith('-modelprms_dict.pkl'):
+                prms_fns.append(i)
+                
+        prms_fns = sorted(prms_fns)
+
+        for nfn, prms_fn in enumerate(prms_fns):
+            glac_str = prms_fn.split('-')[0]
+            
+            if nfn%500 == 0:
+                print(glac_str)
+                
+            # Load model parameters
+            with open(prms_fp + prms_fn, 'rb') as f:
+                modelprms_dict = pickle.load(f)
+                
+            # Check if 'MCMC' is in the modelprms_dict
+            if not cal_option in modelprms_dict.keys():
+                todo_list.append(glac_str)
+                
+    return todo_list
+
 
 #%%
 # Model setup directory
 main_directory = os.getcwd()
 # Output directory
 output_filepath = main_directory + '/../Output/'
-model_run_date = 'December 19 2020'
+model_run_date = 'January 30 2021'
 
 # ===== GLACIER SELECTION =====
 rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
-#rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
+#rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+#rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19]
 rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Two options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
@@ -134,15 +167,24 @@ rgi_glac_number = glac_num_fromrange(1,48)
 glac_no_skip = None
 #glac_no_skip = get_same_glaciers(main_directory + '/../Output/calibration/19/', '-modelprms_dict.pkl')
 glac_no = None
+#glac_no = glac_wo_cal(rgi_regionsO1, prms_fp_sub=main_directory + '/../Output/calibration/')
 #glac_no = ['19.02147']
 #glac_no = ['11.03005']
 #glac_no = ['15.03733']
 #glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
-#glac_no = ['1.03622']
-#glac_no = ['3.00183']
-#glac_no = ['1.03622','1.03377','1.04375','1.03890','1.20968','1.20734','1.20891','1.26732','1.14443',
-#           '1.13638','1.14878','1.14683','1.10689','1.10612','1.10575','1.10607','1.10325','1.09810',
-#           '1.09426','1.09519','1.09639','1.17843','1.17807','1.17876','1.17840']
+#glac_no = ['1.15645']
+
+# MCMC problems
+
+# MCMC problems - process on mac
+#glac_no = ['1.16022'] - DONE!
+#glac_no = ['2.13562', '2.13563', '2.13564', '2.13571', '2.13575', '2.13582', '2.13583', '2.13584', '2.13587', '2.13588', '2.13590', '2.13591', '2.13597', '2.13598', '2.13599', '2.13600', '2.13601', '2.13602', '2.13604', '2.13605', '2.13606', '2.13607', '2.13609', '2.13611', '2.13615', '2.13617', '2.13620', '2.13624', '2.13625', '2.13628', '2.13629', '2.13631', '2.13633', '2.13635', '2.13636', '2.13637', '2.13638', '2.13644', '2.13645', '2.13649', '2.13656', '2.13663', '2.13664', '2.13665', '2.13667', '2.13668', '2.13669', '2.13670', '2.13671', '2.13673', '2.13674', '2.13676', '2.13679', '2.13681', '2.13682', '2.13683', '2.13685', '2.13687', '2.13688', '2.13692', '2.13693', '2.13694', '2.13704', '2.13706', '2.13710', '2.13711', '2.13712', '2.13713', '2.13714', '2.13734', '2.13743', '2.14808', '2.14809', '2.14854', '2.15729', '2.15765', '2.15770', '2.15862', '2.15867', '2.15886', '2.15912', '2.16105', '2.16109', '2.16333', '2.16335', '2.16359', '2.16402', '2.16418', '2.16497', '2.16660', '2.16662', '2.16664', '2.16666', '2.16676', '2.16677', '2.18499', '2.18520', '2.18539', '2.18555', '2.18655', '2.18656'] - DONE!
+#glac_no = ['3.03177', '3.04552', '3.04553', '3.04554', '3.04555', '3.04556', '3.04557', '3.04558'] - DONE!
+#glac_no = ['4.00477', '4.00478', '4.05502'] - DONE!
+#glac_no = ['5.08338', '5.14122', '5.17524', '5.18252'] - DONE!
+#glac_no = ['14.08401', '14.08402', '14.10263', '14.19451', '14.19452', '14.26419']
+
+
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 include_landterm = True                # Switch to include land-terminating glaciers
@@ -168,9 +210,9 @@ if constantarea_years > 0:
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2019              # last year of model run (simulation dataset)
+#gcm_endyear = 2020              # last year of model run (simulation dataset)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2019              # last year of model run (simulation dataset)
+gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
@@ -198,24 +240,42 @@ option_dynamics = 'OGGM'
 #option_dynamics = 'MassRedistributionCurves'
     
 # MCMC options
-sim_iters = 100     # number of simulations (needed for cal_opt 2)
-#sim_iters = 1     # number of simulations (needed for cal_opt 2)
-#print('\n\nDELETE ME! - SWITCH SIM_ITERS BACK TO 100\n\n')
-sim_burn = 200      # number of burn-in (needed for cal_opt 2)
+sim_iters = 100     # number of simulations
+sim_burn = 0        # number of burn-in (if burn-in is done in MCMC sampling, then don't do here)
 
 # Simulation output filepath
 output_sim_fp = output_filepath + 'simulations/'
 # Simulation output statistics (can include 'mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%')
-sim_stat_cns = ['mean', 'std']
+#sim_stat_cns = ['mean', 'std']
+sim_stat_cns = ['median', 'mad']
+
+# Output options
+export_nonessential_data = True     # Export non-essential data (ex. mass balance components, ElA, etc.)
+export_binned_thickness = True      # Export binned ice thickness
+export_binned_area_threshold = 0    # Area threshold for exporting binned ice thickness
+
 # Bias adjustment options (0: no adjustment, 1: new prec scheme and temp from HH2015, 2: HH2015 methods)
 option_bias_adjustment = 1
 
+# OGGM glacier dynamics parameters
+if option_dynamics == 'OGGM':
+    cfl_number = 0.02
+    #glena_reg_fullfn = None
+    glena_reg_fullfn = main_directory + '/../Output/calibration/glena_region.csv'
+    use_reg_glena = True
+    if use_reg_glena:
+        assert os.path.exists(glena_reg_fullfn), 'Regional glens a calibration file does not exist.'
+    else:
+        fs = 0
+        glen_a_multiplier = 1
+        
+
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('MCMC', 'HH2015', 'HH2015mod')
-#option_calibration = 'MCMC'
+#option_calibration = 'emulator'
+option_calibration = 'MCMC'
 #option_calibration = 'HH2015'
 #option_calibration = 'HH2015mod'
-option_calibration = 'emulator'
 # Calibration datasets ('shean', 'larsen', 'mcnabb', 'wgms_d', 'wgms_ee', 'group')
 #cal_datasets = ['shean']
 #cal_datasets = ['shean']
@@ -225,10 +285,10 @@ option_calibration = 'emulator'
 # Prior distribution
 #prior_region_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
 
-priors_reg_fullfn = None
-#priors_reg_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
-if priors_reg_fullfn is not None:
-    assert os.path.exists(priors_reg_fullfn), 'Using MCMC and priors_reg_fullfn does not exist.'
+#priors_reg_fullfn = None
+priors_reg_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
+#if priors_reg_fullfn is not None:
+#    assert os.path.exists(priors_reg_fullfn), 'Using MCMC and priors_reg_fullfn does not exist.'
 
 if option_calibration == 'HH2015':
     tbias_init = 0
@@ -256,7 +316,7 @@ elif option_calibration == 'HH2015mod':
     
 elif option_calibration == 'emulator':
     emulator_sims = 100              # Number of simulations to develop the emulator
-    overwrite_em_sims = True         # Overwrite emulator simulations
+    overwrite_em_sims = False         # Overwrite emulator simulations
     opt_hh2015_mod = True            # Option to also perform the HH2015_mod calibration using the emulator
     emulator_fp = output_filepath + 'emulator/'
     tbias_step = 0.5                 # tbias step size
@@ -290,9 +350,9 @@ elif option_calibration == 'MCMC':
     # Chain options
     n_chains = 1                    # number of chains (min 1, max 3)
     mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
-    mcmc_burn_no = 0                # number of steps to burn-in (0 records all steps in chain)
+    mcmc_burn_no = 200              # number of steps to burn-in (0 records all steps in chain)
     mcmc_step = None                # step option (None or 'am')
-    thin_interval = 1               # thin interval if need to reduce file size (best to leave at 1 if space allows)
+    thin_interval = 10               # thin interval if need to reduce file size (best to leave at 1 if space allows)
     
     # Degree-day factor of snow distribution options
     ddfsnow_disttype = 'truncnormal' # distribution type ('truncnormal', 'uniform')
@@ -327,8 +387,10 @@ elif option_calibration == 'MCMC':
 
 #%% ===== MODEL PARAMETERS =====
 use_calibrated_modelparams = True   # False: use input values, True: use calibrated model parameters
-#print('\nWARNING: using non-calibrated model parameters\n')
-kp = 1                              # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
+if not use_calibrated_modelparams:
+    print('\nWARNING: using non-calibrated model parameters\n')
+    sim_iters = 1
+kp = 1                           # precipitation factor [-] (k_p in Radic etal 2013; c_prec in HH2015)
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
 ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC-1]
 ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
@@ -602,7 +664,7 @@ elif hyps_data == 'Huss':
     width_colsdrop = ['RGI-ID','Cont_range']
 elif hyps_data == 'OGGM':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
-    overwrite_gdirs = True
+    overwrite_gdirs = False
     
     
 # Debris datasets
@@ -862,3 +924,11 @@ if __name__ == '__main__':
         reg_str += str(region)
     print(reg_str)
 #    print(rgi_glac_number[0:10])
+    
+#%%
+#import pickle 
+#
+#pkl_fn = '/Users/drounce/Documents/HiMAT/Output/calibration/01/1.16022-modelprms_dict.pkl'
+#with open(pkl_fn, 'rb') as f:
+#    modelprms_dict = pickle.load(f)
+#print('\nkeys:', modelprms_dict.keys())

@@ -178,11 +178,22 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg,
             # Calving and dynamic parameters
             cfg.PARAMS['calving_k'] = calving_k
             cfg.PARAMS['inversion_calving_k'] = cfg.PARAMS['calving_k']
-            glen_a_multiplier = 1       # calibrate this based on ice thickness data or the consensus estimates
-            fs = 0                      # keep this set at 0
-#            cfg.PARAMS['cfl_number'] = 0.02
-            cfg.PARAMS['cfl_number'] = 0.01     # 0.01 is more conservative than the default of 0.02 (less issues)
-#            cfg.PARAMS['cfl_number'] = 0.001     # 0.01 is more conservative than the default of 0.02 (less issues)
+            
+            if pygem_prms.use_reg_glena:
+                glena_df = pd.read_csv(pygem_prms.glena_reg_fullfn)
+                
+                assert glacier_rgi_table.O1Region in glena_df.O1Region, glacier_str + ' O1 region not in glena_df'
+                
+                glena_idx = np.where(glena_df.O1Region == glacier_rgi_table.O1Region)[0][0]
+                
+                glen_a_multiplier = glena_df.loc[glena_idx,'glens_a_multiplier']
+                fs = glena_df.loc[glena_idx,'fs']
+            else:
+                fs = pygem_prms.fs
+                glen_a_multiplier = pygem_prms.glen_a_multiplier
+            
+            # cfl_number of 0.01 is more conservative than the default of 0.02 (less issues)
+            cfg.PARAMS['cfl_number'] = pygem_prms.cfl_number
             
             # ----- Mass balance model for ice thickness inversion using OGGM -----
             mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,

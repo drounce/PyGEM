@@ -24,6 +24,8 @@ from scipy.optimize import minimize
 from scipy import stats
 import xarray as xr
 
+import salem
+
 # Local libraries
 import class_climate
 #import class_mbdata
@@ -47,7 +49,6 @@ import math
 import torch
 import gpytorch
 import sklearn.model_selection
-
 
 #%% FUNCTIONS
 def getparser():
@@ -146,78 +147,78 @@ def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
         return mb_mwea
     
     
-def retrieve_tbias_bnds(gdir, modelprms, glacier_rgi_table, fls=None, debug=False):
-    """
-    Calculate parameters for prior distributions for the MCMC analysis
-    """    
-    # Maximum mass loss [mwea] (based on consensus ice thickness estimate)
-    with open(gdir.get_filepath('consensus_mass'), 'rb') as f:
-        consensus_mass = pickle.load(f)
-    mb_max_loss = -1 * consensus_mass / pygem_prms.density_water / gdir.rgi_area_m2 / (gdir.dates_table.shape[0] / 12)
-
-    # ----- TEMPERATURE BIAS UPPER BOUND -----
-    # Temperature where no melt
-    tbias_max_acc = (-1 * (gdir.historical_climate['temp'] + gdir.historical_climate['lr'] *
-                     (fls[0].surface_h.min() - gdir.historical_climate['elev'])).max())
-    if debug:
-        print('tbias_max_acc:', np.round(tbias_max_acc,2))
-
-    # Looping forward and backward to ensure optimization does not get stuck
-    modelprms['tbias'] = tbias_max_acc
-    mb_mwea_1 = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-    # use absolute value because with area evolving the maximum value is a limit
-    while mb_mwea_1 > mb_max_loss:
-        modelprms['tbias'] = modelprms['tbias'] + 1
-        mb_mwea_1 = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-        if debug:
-            print('TC:', np.round(modelprms['tbias'],2), 'mb_mwea_1:', np.round(mb_mwea_1,2),
-                  'mb_max_loss:', np.round(mb_max_loss,2))
-    # Looping backward for tempchange at max loss
-    while mb_mwea_1 < mb_max_loss:
-        modelprms['tbias'] = modelprms['tbias'] - 0.05
-        mb_mwea_1 = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-        if debug:
-            print('tbias:', np.round(modelprms['tbias'],2), 'mb_mwea_1:', np.round(mb_mwea_1,2),
-                  'mb_max_loss:', np.round(mb_max_loss,2))
-    tbias_max_loss = modelprms['tbias']
-    tbias_bndhigh = tbias_max_loss
-    if debug:
-        print('tbias_bndhigh:', np.round(tbias_bndhigh,2), 'mb_max_loss:', np.round(mb_max_loss,2))
-
-    # ----- TEMPERATURE BIAS LOWER BOUND -----
-    #  Since the mass balance ablation is conditional on the glacier evolution, there can be cases where higher
-    # temperature biases still have 0 for nbinyears_negmbclim. Hence, the need to loop beyond the first instance, and
-    # then go back and check that you're using the good cases from there onward. This ensures starting point is good.
-    modelprms['tbias'] = tbias_max_acc
-    nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls, return_tbias_mustmelt=True)
-    nbinyears_negmbclim_list = [nbinyears_negmbclim]
-    tbias_negmbclim_list = [modelprms['tbias']]
-    tbias_smallstep_switch = False
-    while nbinyears_negmbclim < 10 and modelprms['tbias'] < tbias_bndhigh:
-        # Switch from large to small step sizes to speed up calculations
-        if tbias_smallstep_switch == False:
-            tbias_stepsize = 1
-        else:
-            tbias_stepsize = 0.05
-        tbias_old = modelprms['tbias']
-        modelprms['tbias'] = modelprms['tbias'] + tbias_stepsize
-        nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls, return_tbias_mustmelt=True)
-        # Record if using big step and no there is no melt or if using small step and there is melt
-        if nbinyears_negmbclim == 0 or (nbinyears_negmbclim > 0 and tbias_smallstep_switch == True):
-            nbinyears_negmbclim_list.append(nbinyears_negmbclim)
-            tbias_negmbclim_list.append(modelprms['tbias'])
-        # First time nbinyears_negmbclim is > 0, flip switch to use smalll step and restart with last tbias
-        if nbinyears_negmbclim > 0 and tbias_smallstep_switch == False:
-            tbias_smallstep_switch = True
-            modelprms['tbias'] = tbias_old
-            nbinyears_negmbclim = 0
-        if debug:
-            print('tbias:', np.round(modelprms['tbias'],2), 'nbinyears_negmbclim:', nbinyears_negmbclim)
-    tbias_bndlow = tbias_negmbclim_list[np.where(np.array(nbinyears_negmbclim_list) == 0)[0][-1] + 1]
-    if debug:
-        print('tbias_bndlow:', np.round(tbias_bndlow,2))
-
-    return tbias_bndlow, tbias_bndhigh, mb_max_loss
+#def retrieve_tbias_bnds(gdir, modelprms, glacier_rgi_table, fls=None, debug=False):
+#    """
+#    Calculate parameters for prior distributions for the MCMC analysis
+#    """    
+#    # Maximum mass loss [mwea] (based on consensus ice thickness estimate)
+#    with open(gdir.get_filepath('consensus_mass'), 'rb') as f:
+#        consensus_mass = pickle.load(f)
+#    mb_max_loss = -1 * consensus_mass / pygem_prms.density_water / gdir.rgi_area_m2 / (gdir.dates_table.shape[0] / 12)
+#
+#    # ----- TEMPERATURE BIAS UPPER BOUND -----
+#    # Temperature where no melt
+#    tbias_max_acc = (-1 * (gdir.historical_climate['temp'] + gdir.historical_climate['lr'] *
+#                     (fls[0].surface_h.min() - gdir.historical_climate['elev'])).max())
+#    if debug:
+#        print('tbias_max_acc:', np.round(tbias_max_acc,2))
+#
+#    # Looping forward and backward to ensure optimization does not get stuck
+#    modelprms['tbias'] = tbias_max_acc
+#    mb_mwea_1 = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+#    # use absolute value because with area evolving the maximum value is a limit
+#    while mb_mwea_1 > mb_max_loss:
+#        modelprms['tbias'] = modelprms['tbias'] + 1
+#        mb_mwea_1 = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+#        if debug:
+#            print('TC:', np.round(modelprms['tbias'],2), 'mb_mwea_1:', np.round(mb_mwea_1,2),
+#                  'mb_max_loss:', np.round(mb_max_loss,2))
+#    # Looping backward for tempchange at max loss
+#    while mb_mwea_1 < mb_max_loss:
+#        modelprms['tbias'] = modelprms['tbias'] - 0.05
+#        mb_mwea_1 = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+#        if debug:
+#            print('tbias:', np.round(modelprms['tbias'],2), 'mb_mwea_1:', np.round(mb_mwea_1,2),
+#                  'mb_max_loss:', np.round(mb_max_loss,2))
+#    tbias_max_loss = modelprms['tbias']
+#    tbias_bndhigh = tbias_max_loss
+#    if debug:
+#        print('tbias_bndhigh:', np.round(tbias_bndhigh,2), 'mb_max_loss:', np.round(mb_max_loss,2))
+#
+#    # ----- TEMPERATURE BIAS LOWER BOUND -----
+#    #  Since the mass balance ablation is conditional on the glacier evolution, there can be cases where higher
+#    # temperature biases still have 0 for nbinyears_negmbclim. Hence, the need to loop beyond the first instance, and
+#    # then go back and check that you're using the good cases from there onward. This ensures starting point is good.
+#    modelprms['tbias'] = tbias_max_acc
+#    nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls, return_tbias_mustmelt=True)
+#    nbinyears_negmbclim_list = [nbinyears_negmbclim]
+#    tbias_negmbclim_list = [modelprms['tbias']]
+#    tbias_smallstep_switch = False
+#    while nbinyears_negmbclim < 10 and modelprms['tbias'] < tbias_bndhigh:
+#        # Switch from large to small step sizes to speed up calculations
+#        if tbias_smallstep_switch == False:
+#            tbias_stepsize = 1
+#        else:
+#            tbias_stepsize = 0.05
+#        tbias_old = modelprms['tbias']
+#        modelprms['tbias'] = modelprms['tbias'] + tbias_stepsize
+#        nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls, return_tbias_mustmelt=True)
+#        # Record if using big step and no there is no melt or if using small step and there is melt
+#        if nbinyears_negmbclim == 0 or (nbinyears_negmbclim > 0 and tbias_smallstep_switch == True):
+#            nbinyears_negmbclim_list.append(nbinyears_negmbclim)
+#            tbias_negmbclim_list.append(modelprms['tbias'])
+#        # First time nbinyears_negmbclim is > 0, flip switch to use smalll step and restart with last tbias
+#        if nbinyears_negmbclim > 0 and tbias_smallstep_switch == False:
+#            tbias_smallstep_switch = True
+#            modelprms['tbias'] = tbias_old
+#            nbinyears_negmbclim = 0
+#        if debug:
+#            print('tbias:', np.round(modelprms['tbias'],2), 'nbinyears_negmbclim:', nbinyears_negmbclim)
+#    tbias_bndlow = tbias_negmbclim_list[np.where(np.array(nbinyears_negmbclim_list) == 0)[0][-1] + 1]
+#    if debug:
+#        print('tbias_bndlow:', np.round(tbias_bndlow,2))
+#
+#    return tbias_bndlow, tbias_bndhigh, mb_max_loss
 
 
 class ExactGPModel(gpytorch.models.ExactGP):
@@ -237,6 +238,9 @@ def create_emulator(glacier_str, sims_df, y_cn,
                     X_cns=['tbias','kp','ddfsnow'], 
                     em_fp=pygem_prms.output_filepath + 'emulator/', debug=False):
     
+    # This is required for the supercomputer such that resources aren't stolen from other cpus
+    torch.set_num_threads(1)
+    
     assert y_cn in sims_df.columns, 'emulator error: y_cn not in sims_df'
     
     X = sims_df.loc[:,X_cns].values
@@ -249,6 +253,7 @@ def create_emulator(glacier_str, sims_df, y_cn,
 
     y_mean = y.mean()
     y_std = y.std()
+    
     y_norm = (y - y_mean) / y_std
 
     # Split into training and test data and cast to torch tensors
@@ -260,11 +265,13 @@ def create_emulator(glacier_str, sims_df, y_cn,
     # initialize likelihood and model
     likelihood = gpytorch.likelihoods.GaussianLikelihood()
     model = ExactGPModel(X_train, y_train, likelihood)
+    
+    
 
     # Plot test set predictions prior to training
     # Get into evaluation (predictive posterior) mode
     model.eval()
-    likelihood.eval()    
+    likelihood.eval()
     with torch.no_grad():#, gpytorch.settings.fast_pred_var():
         y_pred = likelihood(model(X_test))
     idx = np.argsort(y_test.numpy())
@@ -396,11 +403,12 @@ def main(list_packed_vars):
     -------
     netcdf files of the simulation output (specific output is dependent on the output option)
     """
+    
     # Unpack variables
     count = list_packed_vars[0]
     glac_no = list_packed_vars[1]
     gcm_name = list_packed_vars[2]
-
+    
     parser = getparser()
     args = parser.parse_args()
     time_start = time.time()
@@ -446,11 +454,10 @@ def main(list_packed_vars):
         glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
 
         # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====        
-#        try: 
-        for batman in [0]:
+        try: 
             
 #            if not glacier_rgi_table['TermType'] in [1,5] or pygem_prms.ignore_calving:
-            gdir = single_flowline_glacier_directory(glacier_str)
+            gdir = single_flowline_glacier_directory(glacier_str, logging_level='CRITICAL')
 #            else:
 #                gdir = single_flowline_glacier_directory_with_calving(glacier_str)
                 
@@ -493,215 +500,165 @@ def main(list_packed_vars):
             except:
                 gdir.mbdata = None
             
-#        except:
-#            fls = None
-#
-#        # ----- Mass balance model ------
-#        if (fls is not None) and (gdir.mbdata is not None) and (glacier_area.sum() > 0):
-#            
-#            modelprms = {'kp': pygem_prms.kp,
-#                         'tbias': pygem_prms.tbias,
-#                         'ddfsnow': pygem_prms.ddfsnow,
-#                         'ddfice': pygem_prms.ddfice,
-#                         'tsnow_threshold': pygem_prms.tsnow_threshold,
-#                         'precgrad': pygem_prms.precgrad}
-#            
-#            # ===== CALIBRATION OPTIONS =====
-#            # 'MCMC' : use MCMC method to determine posterior probability distributions of the three parameters tbias,
-#            #          ddfsnow and kp. Then create an ensemble of parameter sets evenly sampled from these
-#            #          distributions, and output these sets of parameters and their corresponding mass balances to be
-#            #          used in the simulations.
-#            if pygem_prms.option_calibration == 'MCMC':
-#
-#                # ===== Define functions needed for MCMC method =====
-#                def run_MCMC(gdir,
-#                             kp_disttype=pygem_prms.kp_disttype,
-#                             kp_gamma_alpha=None, kp_gamma_beta=None,
-#                             kp_lognorm_mu=None, kp_lognorm_tau=None,
-#                             kp_mu=None, kp_sigma=None, kp_bndlow=None, kp_bndhigh=None,
-#                             kp_start=None,
-#                             tbias_disttype=pygem_prms.tbias_disttype,
-#                             tbias_mu=None, tbias_sigma=None, tbias_bndlow=None, tbias_bndhigh=None,
-#                             tbias_start=None,
-#                             ddfsnow_disttype=pygem_prms.ddfsnow_disttype,
-#                             ddfsnow_mu=pygem_prms.ddfsnow_mu, ddfsnow_sigma=pygem_prms.ddfsnow_sigma,
-#                             ddfsnow_bndlow=pygem_prms.ddfsnow_bndlow, ddfsnow_bndhigh=pygem_prms.ddfsnow_bndhigh,
-#                             ddfsnow_start=pygem_prms.ddfsnow_start,
-#                             iterations=10, burn=0, thin=pygem_prms.thin_interval, tune_interval=1000, step=None,
-#                             tune_throughout=True, save_interval=None, burn_till_tuned=False, stop_tuning_after=5,
-#                             verbose=0, progress_bar=args.progress_bar, dbname=None,
-#                             use_potentials=True, mb_max_loss=None):
-#                    """
-#                    Runs the MCMC algorithm.
-#
-#                    Runs the MCMC algorithm by setting the prior distributions and calibrating the probability
-#                    distributions of three model parameters for the mass balance function.
-#
-#                    Parameters
-#                    ----------
-#                    kp_disttype : str
-#                        Distribution type of precipitation factor (either 'lognormal', 'uniform', or 'custom')
-#                    kp_lognorm_mu, kp_lognorm_tau : float
-#                        Lognormal mean and tau (1/variance) of precipitation factor
-#                    kp_mu, kp_sigma, kp_bndlow, kp_bndhigh, kp_start : float
-#                        Mean, stdev, lower bound, upper bound, and start value of precipitation factor
-#                    tbias_disttype : str
-#                        Distribution type of tbias (either 'truncnormal' or 'uniform')
-#                    tbias_mu, tbias_sigma, tbias_bndlow, tbias_bndhigh, tbias_start : float
-#                        Mean, stdev, lower bound, upper bound, and start value of temperature bias
-#                    ddfsnow_disttype : str
-#                        Distribution type of degree day factor of snow (either 'truncnormal' or 'uniform')
-#                    ddfsnow_mu, ddfsnow_sigma, ddfsnow_bndlow, ddfsnow_bndhigh, ddfsnow_start : float
-#                        Mean, stdev, lower bound, upper bound, and start value of degree day factor of snow
-#                    iterations : int
-#                        Total number of iterations to do (default 10).
-#                    burn : int
-#                        Variables will not be tallied until this many iterations are complete (default 0).
-#                    thin : int
-#                        Variables will be tallied at intervals of this many iterations (default 1).
-#                    tune_interval : int
-#                        Step methods will be tuned at intervals of this many iterations (default 1000).
-#                    step : str
-#                        Choice of step method to use (default metropolis-hastings).
-#                    tune_throughout : boolean
-#                        If true, tuning will continue after the burnin period; otherwise tuning will halt at the end of
-#                        the burnin period (default True).
-#                    save_interval : int or None
-#                        If given, the model state will be saved at intervals of this many iterations (default None).
-#                    burn_till_tuned: boolean
-#                        If True the Sampler will burn samples until all step methods are tuned. A tuned step methods is
-#                        one that was not tuned for the last `stop_tuning_after` tuning intervals. The burn-in phase will
-#                        have a minimum of 'burn' iterations but could be longer if tuning is needed. After the phase is
-#                        done the sampler will run for another (iter - burn) iterations, and will tally the samples
-#                        according to the 'thin' argument. This means that the total number of iteration is updated
-#                        throughout the sampling procedure.  If True, it also overrides the tune_thorughout argument, so
-#                        no step method will be tuned when sample are being tallied (default False).
-#                    stop_tuning_after: int
-#                        The number of untuned successive tuning interval needed to be reached in order for the burn-in
-#                        phase to be done (if burn_till_tuned is True) (default 5).
-#                    verbose : int
-#                        An integer controlling the verbosity of the models output for debugging (default 0).
-#                    progress_bar : boolean
-#                        Display progress bar while sampling (default True).
-#                    dbname : str
-#                        Choice of database name the sample should be saved to (default None).
-#                    use_potentials : Boolean
-#                        Boolean to use of potential functions to further constrain likelihood functionns
-#                    mb_max_loss : float
-#                        Mass balance [mwea] at which the glacier completely melts
-#
-#                    Returns
-#                    -------
-#                    pymc.MCMC.MCMC
-#                        Returns a model that contains sample traces of tbias, ddfsnow, kp and massbalance. These
-#                        samples can be accessed by calling the trace attribute. For example:
-#
-#                            model.trace('ddfsnow')[:]
-#
-#                        gives the trace of ddfsnow values.
-#
-#                        A trace, or Markov Chain, is an array of values outputed by the MCMC simulation which defines
-#                        the posterior probability distribution of the variable at hand.
-#                    """
-#                    # ===== PRIOR DISTRIBUTIONS =====
-#                    # Priors dict to record values for export
-#                    priors_dict = {}
-#                    priors_dict['kp_disttype'] = kp_disttype
-#                    priors_dict['tbias_disttype'] = tbias_disttype
-#                    priors_dict['ddfsnow_disttype'] = ddfsnow_disttype
-#                    # Precipitation factor [-]
-#                    if kp_disttype == 'gamma':
-#                        kp = pymc.Gamma('kp', alpha=kp_gamma_alpha, beta=kp_gamma_beta, value=kp_start)
-#                        priors_dict['kp_gamma_alpha'] = kp_gamma_alpha
-#                        priors_dict['kp_gamma_beta'] = kp_gamma_beta
-#                    elif kp_disttype =='lognormal':
-#                        #  lognormal distribution (roughly 0.3 to 3)
-#                        kp_start = np.exp(kp_start)
-#                        kp = pymc.Lognormal('kp', mu=kp_lognorm_mu, tau=kp_lognorm_tau, value=kp_start)
-#                        priors_dict['kp_lognorm_mu'] = kp_lognorm_mu
-#                        priors_dict['kp_lognorm_tau'] = kp_lognorm_tau
-#                    elif kp_disttype == 'uniform':
-#                        kp = pymc.Uniform('kp', lower=kp_bndlow, upper=kp_bndhigh, value=kp_start)
-#                        priors_dict['kp_bndlow'] = kp_bndlow
-#                        priors_dict['kp_bndhigh'] = kp_bndhigh
-#
-#                    # Temperature bias [degC]
-#                    if tbias_disttype == 'normal':
-#                        tbias = pymc.Normal('tbias', mu=tbias_mu, tau=1/(tbias_sigma**2), value=tbias_start)
-#                        priors_dict['tbias_mu'] = tbias_mu
-#                        priors_dict['tbias_sigma'] = tbias_sigma
-#                    elif tbias_disttype =='truncnormal':
-#                        tbias = pymc.TruncatedNormal('tbias', mu=tbias_mu, tau=1/(tbias_sigma**2),
-#                                                     a=tbias_bndlow, b=tbias_bndhigh, value=tbias_start)
-#                        priors_dict['tbias_mu'] = tbias_mu
-#                        priors_dict['tbias_sigma'] = tbias_sigma
-#                        priors_dict['tbias_bndlow'] = tbias_bndlow
-#                        priors_dict['tbias_bndhigh'] = tbias_bndhigh
-#                    elif tbias_disttype =='uniform':
-#                        tbias = pymc.Uniform('tbias', lower=tbias_bndlow, upper=tbias_bndhigh, value=tbias_start)
-#                        priors_dict['tbias_bndlow'] = tbias_bndlow
-#                        priors_dict['tbias_bndhigh'] = tbias_bndhigh
-#
-#                    # Degree day factor of snow [mwe degC-1 d-1]
-#                    #  always truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of
-#                    #  0.0015 (Braithwaite, 2008), since it's based on data; uniform should only be used for testing
-#                    if ddfsnow_disttype == 'truncnormal':
-#                        ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2),
-#                                                       a=ddfsnow_bndlow, b=ddfsnow_bndhigh, value=ddfsnow_start)
-#                        priors_dict['ddfsnow_mu'] = ddfsnow_mu
-#                        priors_dict['ddfsnow_sigma'] = ddfsnow_sigma
-#                        priors_dict['ddfsnow_bndlow'] = ddfsnow_bndlow
-#                        priors_dict['ddfsnow_bndhigh'] = ddfsnow_bndhigh
-#                    elif ddfsnow_disttype == 'uniform':
-#                        ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_bndlow, upper=ddfsnow_bndhigh,
-#                                               value=ddfsnow_start)
-#                        priors_dict['ddfsnow_bndlow'] = ddfsnow_bndlow
-#                        priors_dict['ddfsnow_bndhigh'] = ddfsnow_bndhigh
-#                        
-#                    # ===== EMULATORS FOR FAST PROCESSING =====
-#                    # Emulator filepath
-#                    em_mod_fp = pygem_prms.emulator_fp + 'models/' + glacier_str.split('.')[0].zfill(2) + '/'
-#                    
-#                    # ----- EMULATOR: Mass balance -----
-#                    em_mb_fn = glacier_str + '-emulator-mb_mwea.pth'
-#                    if not os.path.exists(em_mod_fp + em_mb_fn):
-#                        (X_train, X_mean, X_std, y_train, y_mean, y_std, likelihood, em_model_mb) = (
-#                                create_emulator(glacier_str, sims_df, y_cn='mb_mwea'))
-#                    else:
-#                        # ----- LOAD EMULATOR -----
-#                        state_dict = torch.load(em_mod_fp + em_mb_fn)
-#                        
-#                        emulator_extra_fn = em_mb_fn.replace('.pth','_extra.pkl')
-#                        with open(em_mod_fp + emulator_extra_fn, 'rb') as f:
-#                            emulator_extra_dict = pickle.load(f)
-#                            
-#                        X_train = emulator_extra_dict['X_train']
-#                        X_mean = emulator_extra_dict['X_mean']
-#                        X_std = emulator_extra_dict['X_std']
-#                        y_train = emulator_extra_dict['y_train']
-#                        y_mean = emulator_extra_dict['y_mean']
-#                        y_std = emulator_extra_dict['y_std']
-#                        
-#                        # initialize likelihood and model
-#                        likelihood = gpytorch.likelihoods.GaussianLikelihood()
-#                        
-#                        # Create a new GP model
-#                        em_model_mb = ExactGPModel(X_train, y_train, likelihood)  
-#                        em_model_mb.load_state_dict(state_dict)
-#                        em_model_mb.eval()
-#                        
-#                    # Mass balance emulator function
-#                    def run_emulator_mb(modelprms):
-#                        """ Run the emulator
-#                        """
-#                        modelprms_1d_norm = ((np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow']]) - 
-#                                              X_mean) / X_std)                    
-#                        modelprms_2d_norm = modelprms_1d_norm.reshape(1,3)
-#                        mb_mwea_norm = em_model_mb(
-#                                torch.tensor(modelprms_2d_norm).to(torch.float)).mean.detach().numpy()[0]
-#                        mb_mwea = mb_mwea_norm * y_std + y_mean
-#                        return mb_mwea
-#                    
+        except:
+            fls = None
+
+        # ----- Mass balance model ------
+        if (fls is not None) and (gdir.mbdata is not None) and (glacier_area.sum() > 0):
+            
+            modelprms = {'kp': pygem_prms.kp,
+                         'tbias': pygem_prms.tbias,
+                         'ddfsnow': pygem_prms.ddfsnow,
+                         'ddfice': pygem_prms.ddfice,
+                         'tsnow_threshold': pygem_prms.tsnow_threshold,
+                         'precgrad': pygem_prms.precgrad}
+            
+            # ===== CALIBRATION OPTIONS =====
+            # 'MCMC' : use MCMC method to determine posterior probability distributions of the three parameters tbias,
+            #          ddfsnow and kp. Then create an ensemble of parameter sets evenly sampled from these
+            #          distributions, and output these sets of parameters and their corresponding mass balances to be
+            #          used in the simulations.
+            if pygem_prms.option_calibration == 'MCMC':
+
+                # ===== Define functions needed for MCMC method =====
+                def run_MCMC(gdir,
+                             kp_disttype=pygem_prms.kp_disttype,
+                             kp_gamma_alpha=None, kp_gamma_beta=None,
+                             kp_lognorm_mu=None, kp_lognorm_tau=None,
+                             kp_mu=None, kp_sigma=None, kp_bndlow=None, kp_bndhigh=None,
+                             kp_start=None,
+                             tbias_disttype=pygem_prms.tbias_disttype,
+                             tbias_mu=None, tbias_sigma=None, tbias_bndlow=None, tbias_bndhigh=None,
+                             tbias_start=None,
+                             ddfsnow_disttype=pygem_prms.ddfsnow_disttype,
+                             ddfsnow_mu=pygem_prms.ddfsnow_mu, ddfsnow_sigma=pygem_prms.ddfsnow_sigma,
+                             ddfsnow_bndlow=pygem_prms.ddfsnow_bndlow, ddfsnow_bndhigh=pygem_prms.ddfsnow_bndhigh,
+                             ddfsnow_start=pygem_prms.ddfsnow_start,
+                             iterations=10, mcmc_burn_no=pygem_prms.mcmc_burn_no, thin=pygem_prms.thin_interval, 
+                             tune_interval=1000, step=None, tune_throughout=True, save_interval=None, 
+                             burn_till_tuned=False, stop_tuning_after=5,
+                             verbose=0, progress_bar=args.progress_bar, dbname=None,
+                             use_potentials=True, mb_max_loss=None):
+                    """
+                    Runs the MCMC algorithm.
+
+                    Runs the MCMC algorithm by setting the prior distributions and calibrating the probability
+                    distributions of three model parameters for the mass balance function.
+
+                    Parameters
+                    ----------
+                    kp_disttype : str
+                        Distribution type of precipitation factor (either 'lognormal', 'uniform', or 'custom')
+                    kp_lognorm_mu, kp_lognorm_tau : float
+                        Lognormal mean and tau (1/variance) of precipitation factor
+                    kp_mu, kp_sigma, kp_bndlow, kp_bndhigh, kp_start : float
+                        Mean, stdev, lower bound, upper bound, and start value of precipitation factor
+                    tbias_disttype : str
+                        Distribution type of tbias (either 'truncnormal' or 'uniform')
+                    tbias_mu, tbias_sigma, tbias_bndlow, tbias_bndhigh, tbias_start : float
+                        Mean, stdev, lower bound, upper bound, and start value of temperature bias
+                    ddfsnow_disttype : str
+                        Distribution type of degree day factor of snow (either 'truncnormal' or 'uniform')
+                    ddfsnow_mu, ddfsnow_sigma, ddfsnow_bndlow, ddfsnow_bndhigh, ddfsnow_start : float
+                        Mean, stdev, lower bound, upper bound, and start value of degree day factor of snow
+                    iterations : int
+                        Total number of iterations to do (default 10).
+                    mcmc_burn_no : int
+                        Variables will not be tallied until this many iterations are complete (default 0).
+                    thin : int
+                        Variables will be tallied at intervals of this many iterations (default 1).
+                    tune_interval : int
+                        Step methods will be tuned at intervals of this many iterations (default 1000).
+                    step : str
+                        Choice of step method to use (default metropolis-hastings).
+                    tune_throughout : boolean
+                        If true, tuning will continue after the burnin period; otherwise tuning will halt at the end of
+                        the burnin period (default True).
+                    save_interval : int or None
+                        If given, the model state will be saved at intervals of this many iterations (default None).
+                    burn_till_tuned: boolean
+                        If True the Sampler will burn samples until all step methods are tuned. A tuned step methods is
+                        one that was not tuned for the last `stop_tuning_after` tuning intervals. The burn-in phase will
+                        have a minimum of 'burn' iterations but could be longer if tuning is needed. After the phase is
+                        done the sampler will run for another (iter - burn) iterations, and will tally the samples
+                        according to the 'thin' argument. This means that the total number of iteration is updated
+                        throughout the sampling procedure.  If True, it also overrides the tune_thorughout argument, so
+                        no step method will be tuned when sample are being tallied (default False).
+                    stop_tuning_after: int
+                        The number of untuned successive tuning interval needed to be reached in order for the burn-in
+                        phase to be done (if burn_till_tuned is True) (default 5).
+                    verbose : int
+                        An integer controlling the verbosity of the models output for debugging (default 0).
+                    progress_bar : boolean
+                        Display progress bar while sampling (default True).
+                    dbname : str
+                        Choice of database name the sample should be saved to (default None).
+                    use_potentials : Boolean
+                        Boolean to use of potential functions to further constrain likelihood functionns
+                    mb_max_loss : float
+                        Mass balance [mwea] at which the glacier completely melts
+
+                    Returns
+                    -------
+                    pymc.MCMC.MCMC
+                        Returns a model that contains sample traces of tbias, ddfsnow, kp and massbalance. These
+                        samples can be accessed by calling the trace attribute. For example:
+
+                            model.trace('ddfsnow')[:]
+
+                        gives the trace of ddfsnow values.
+
+                        A trace, or Markov Chain, is an array of values outputed by the MCMC simulation which defines
+                        the posterior probability distribution of the variable at hand.
+                    """
+                    
+                    # ===== EMULATORS FOR FAST PROCESSING =====
+                    # Emulator filepath
+                    em_mod_fp = pygem_prms.emulator_fp + 'models/' + glacier_str.split('.')[0].zfill(2) + '/'
+                    
+                    # ----- EMULATOR: Mass balance -----
+                    em_mb_fn = glacier_str + '-emulator-mb_mwea.pth'
+                    if not os.path.exists(em_mod_fp + em_mb_fn):
+                        (X_train, X_mean, X_std, y_train, y_mean, y_std, likelihood, em_model_mb) = (
+                                create_emulator(glacier_str, sims_df, y_cn='mb_mwea'))
+                    else:
+                        # ----- LOAD EMULATOR -----
+                        # This is required for the supercomputer such that resources aren't stolen from other cpus
+                        torch.set_num_threads(1)
+                    
+                        state_dict = torch.load(em_mod_fp + em_mb_fn)
+                        
+                        emulator_extra_fn = em_mb_fn.replace('.pth','_extra.pkl')
+                        with open(em_mod_fp + emulator_extra_fn, 'rb') as f:
+                            emulator_extra_dict = pickle.load(f)
+                            
+                        X_train = emulator_extra_dict['X_train']
+                        X_mean = emulator_extra_dict['X_mean']
+                        X_std = emulator_extra_dict['X_std']
+                        y_train = emulator_extra_dict['y_train']
+                        y_mean = emulator_extra_dict['y_mean']
+                        y_std = emulator_extra_dict['y_std']
+                        
+                        # initialize likelihood and model
+                        likelihood = gpytorch.likelihoods.GaussianLikelihood()
+                        
+                        # Create a new GP model
+                        em_model_mb = ExactGPModel(X_train, y_train, likelihood)  
+                        em_model_mb.load_state_dict(state_dict)
+                        em_model_mb.eval()
+                        
+                    # Mass balance emulator function
+                    def run_emulator_mb(modelprms):
+                        """ Run the emulator
+                        """
+                        modelprms_1d_norm = ((np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow']]) - 
+                                              X_mean) / X_std)                    
+                        modelprms_2d_norm = modelprms_1d_norm.reshape(1,3)
+                        mb_mwea_norm = em_model_mb(
+                                torch.tensor(modelprms_2d_norm).to(torch.float)).mean.detach().numpy()[0]
+                        mb_mwea = mb_mwea_norm * y_std + y_mean
+                        return mb_mwea
+                    
 #                    # ----- EMULATOR: nbinyrs_negmbclim -----
 #                    em_meltyrs_fn = glacier_str + '-emulator-nbinyrs_negmbclim.pth'                    
 #                    if not os.path.exists(em_mod_fp + em_meltyrs_fn):
@@ -711,6 +668,9 @@ def main(list_packed_vars):
 #                                create_emulator(glacier_str, sims_df, y_cn='nbinyrs_negmbclim'))
 #                    else:
 #                        # ----- LOAD EMULATOR -----
+#                        # This is required for the supercomputer such that resources aren't stolen from other cpus
+#                        torch.set_num_threads(1)
+#                    
 #                        state_dict_meltyrs = torch.load(em_mod_fp + em_meltyrs_fn)
 #                        
 #                        em_meltyrs_extra_fn = em_meltyrs_fn.replace('.pth','_extra.pkl')
@@ -731,7 +691,7 @@ def main(list_packed_vars):
 #                        em_model_meltyrs = ExactGPModel(X_train_meltyrs, y_train_meltyrs, likelihood_meltyrs)  
 #                        em_model_meltyrs.load_state_dict(state_dict_meltyrs)
 #                        em_model_meltyrs.eval()
-#                        
+#
 #                    # Mass balance emulator function
 #                    def run_emulator_meltyrs(modelprms):
 #                        """ Run the emulator to get nbinyrs_negmbclim """
@@ -742,78 +702,175 @@ def main(list_packed_vars):
 #                                torch.tensor(modelprms_2d_norm).to(torch.float)).mean.detach().numpy()[0]
 #                        nbinyrs_negmbclim = nbinyrs_negmbclim_norm * y_std_meltyrs + y_mean_meltyrs
 #                        return nbinyrs_negmbclim
-#                    
-#                    
-#                    #%%
-##                    # ------ RANDOM RUNS FOR TIME PURPOSES -------
-##                    # Temperature bias
-##                    tbias_zlow = (tbias_bndlow - tbias_mu) / tbias_sigma
-##                    tbias_zhigh = (tbias_bndhigh - tbias_mu) / tbias_sigma
-##                    tbias_random = stats.truncnorm.rvs(a=tbias_zlow, b=tbias_zhigh, loc=tbias_mu,
-##                                                       scale=tbias_sigma, size=pygem_prms.mcmc_sample_no)
-##                    if debug:
-##                        print('\ntbias random:', tbias_random.mean(), tbias_random.std())
-##                    
-##                    # Precipitation factor
-##                    kp_random = stats.gamma.rvs(kp_gamma_alpha, scale=1/kp_gamma_beta, size=pygem_prms.mcmc_sample_no)
-##                    if debug:
-##                        print('kp random:', kp_random.mean(), kp_random.std())
-##                    
-##                    # Degree-day factor of snow
-##                    ddfsnow_zlow = (pygem_prms.ddfsnow_bndlow - pygem_prms.ddfsnow_mu) / pygem_prms.ddfsnow_sigma
-##                    ddfsnow_zhigh = (pygem_prms.ddfsnow_bndhigh - pygem_prms.ddfsnow_mu) / pygem_prms.ddfsnow_sigma
-##                    ddfsnow_random = stats.truncnorm.rvs(a=ddfsnow_zlow, b=ddfsnow_zhigh, loc=pygem_prms.ddfsnow_mu,
-##                                                         scale=pygem_prms.ddfsnow_sigma, size=pygem_prms.mcmc_sample_no)
-##                    if debug:    
-##                        print('ddfsnow random:', ddfsnow_random.mean(), ddfsnow_random.std(),'\n')
-##                    
-##                    # Run through random values
-##                    for nsim in range(pygem_prms.mcmc_sample_no):
-##                        modelprms['tbias'] = tbias_random[nsim]
-##                        modelprms['kp'] = kp_random[nsim]
-##                        modelprms['ddfsnow'] = ddfsnow_random[nsim]
-##                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-##                        mb_mwea = run_emulator_mb(modelprms)
-##                        meltyrs = run_emulator_meltyrs(modelprms)
-###                        output_single = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
-###                                                  mb_mwea, nbinyears_negmbclim])
-###                        output_all = np.vstack((output_all, output_single))
-##                        if debug and nsim%500 == 0:
-##                            print(nsim, 'tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-##                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3))
-#                        
-#
-#                    # ===== DETERMINISTIC FUNCTION ====
-#                    # Define deterministic function for MCMC model based on our a priori probobaility distributions.
-#                    @deterministic(plot=False)
-#                    def massbal(tbias=tbias, kp=kp, ddfsnow=ddfsnow):
-#                        """
-#                        Likelihood function for mass balance [mwea] based on model parameters
-#                        """
-#                        modelprms_copy = modelprms.copy()
-#                        if tbias is not None:
-#                            modelprms_copy['tbias'] = float(tbias)
-#                        if kp is not None:
-#                            modelprms_copy['kp'] = float(kp)
-#                        if ddfsnow is not None:
-#                            modelprms_copy['ddfsnow'] = float(ddfsnow)
-#                            modelprms_copy['ddfice'] = modelprms_copy['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-##                        mb_mwea = mb_mwea_calc(gdir, modelprms_copy, glacier_rgi_table, fls=fls)
-#                        mb_mwea = run_emulator_mb(modelprms_copy)
-#                        return mb_mwea
-#
-#
-#                    # ===== POTENTIAL FUNCTIONS =====
-#                    # Potential functions are used to impose additional constrains on the model
-#                    @pymc.potential
-#                    def mb_max(mb_max_loss=mb_max_loss, massbal=massbal):
-#                        """Model parameters cannot completely melt the glacier,
-#                           i.e., reject any parameter set within 0.01 mwea of completely melting the glacier"""
-#                        if massbal < mb_max_loss:
-#                            return -np.inf
-#                        else:
-#                            return 0
-#
+                       
+                    # Rough estimate of minimum elevation mass balance function
+                    def calc_mb_total_minelev(modelprms):
+                        """ Approximate estimate of the mass balance at minimum elevation """
+                        fl = fls[0]
+                        min_elev = fl.surface_h.min()
+                        glacier_gcm_temp = gdir.historical_climate['temp']
+                        glacier_gcm_prec = gdir.historical_climate['prec']
+                        glacier_gcm_lr = gdir.historical_climate['lr']
+                        glacier_gcm_elev = gdir.historical_climate['elev']
+                        # Temperature using gcm and glacier lapse rates
+                        #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+                        T_minelev = (glacier_gcm_temp + glacier_gcm_lr *
+                                     (glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale] - glacier_gcm_elev) +
+                                     glacier_gcm_lr * 
+                                     (min_elev - glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale]) +
+                                     modelprms['tbias'])
+                        # Precipitation using precipitation factor and precipitation gradient
+                        #  P_bin = P_gcm * prec_factor * (1 + prec_grad * (z_bin - z_ref))
+                        P_minelev = (glacier_gcm_prec * modelprms['kp'] * (1 + modelprms['precgrad'] * (min_elev -
+                                     glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale])))
+                        # Accumulation using tsnow_threshold
+                        Acc_minelev = np.zeros(P_minelev.shape)
+                        Acc_minelev[T_minelev <= modelprms['tsnow_threshold']] = (
+                                P_minelev[T_minelev <= modelprms['tsnow_threshold']])
+                        # Melt
+                        # energy available for melt [degC day]
+                        melt_energy_available = T_minelev * dates_table['daysinmonth'].values
+                        melt_energy_available[melt_energy_available < 0] = 0
+                        # assume all snow melt because anything more would melt underlying ice in lowermost bin
+                        # SNOW MELT [m w.e.]
+                        Melt_minelev = modelprms['ddfsnow'] * melt_energy_available
+                        # Total mass balance over entire period at minimum elvation
+                        mb_total_minelev = (Acc_minelev - Melt_minelev).sum()
+                    
+                        return mb_total_minelev
+                    
+                    # ===== CHECK STARTING CONDITIONS (adjust tbias as needed) =====
+                    # Test initial model parameters provide good starting condition
+                    modelprms['kp'] = kp_start
+                    modelprms['tbias'] = tbias_start
+                    modelprms['ddfsnow'] = ddfsnow_start
+                    
+                    # check starting mass balance is not less than the maximum mass loss
+                    mb_mwea_start = run_emulator_mb(modelprms)
+                    tbias_step = 0.1
+                    while mb_mwea_start < mb_max_loss:
+                        modelprms['tbias'] = modelprms['tbias'] - tbias_step
+                        mb_mwea_start = run_emulator_mb(modelprms)
+                        
+                    # check melting occurs for starting conditions
+                    mb_total_minelev_start = calc_mb_total_minelev(modelprms)
+                    tbias_smallstep = 0.01
+                    while mb_total_minelev_start > 0 and mb_mwea_start > mb_max_loss:
+                        modelprms['tbias'] = modelprms['tbias'] + tbias_smallstep
+                        mb_total_minelev_start = calc_mb_total_minelev(modelprms)
+                        mb_mwea_start = run_emulator_mb(modelprms)
+                        
+#                    nbinsyr_negmbclim_start = run_emulator_meltyrs(modelprms)
+#                    tbias_smallstep = 0.01
+#                    while nbinsyr_negmbclim_start < 0 and mb_mwea_start > mb_max_loss:
+#                        modelprms['tbias'] = modelprms['tbias'] + tbias_smallstep
+#                        nbinsyr_negmbclim_start = run_emulator_meltyrs(modelprms)
+#                        mb_mwea_start = run_emulator_mb(modelprms)
+                    
+                    tbias_start = modelprms['tbias']
+
+                    # ===== PRIOR DISTRIBUTIONS =====
+                    # Priors dict to record values for export
+                    priors_dict = {}
+                    priors_dict['kp_disttype'] = kp_disttype
+                    priors_dict['tbias_disttype'] = tbias_disttype
+                    priors_dict['ddfsnow_disttype'] = ddfsnow_disttype
+                    # Precipitation factor [-]
+                    if kp_disttype == 'gamma':
+                        kp = pymc.Gamma('kp', alpha=kp_gamma_alpha, beta=kp_gamma_beta, value=kp_start)
+                        priors_dict['kp_gamma_alpha'] = kp_gamma_alpha
+                        priors_dict['kp_gamma_beta'] = kp_gamma_beta
+                    elif kp_disttype =='lognormal':
+                        #  lognormal distribution (roughly 0.3 to 3)
+                        kp_start = np.exp(kp_start)
+                        kp = pymc.Lognormal('kp', mu=kp_lognorm_mu, tau=kp_lognorm_tau, value=kp_start)
+                        priors_dict['kp_lognorm_mu'] = kp_lognorm_mu
+                        priors_dict['kp_lognorm_tau'] = kp_lognorm_tau
+                    elif kp_disttype == 'uniform':
+                        kp = pymc.Uniform('kp', lower=kp_bndlow, upper=kp_bndhigh, value=kp_start)
+                        priors_dict['kp_bndlow'] = kp_bndlow
+                        priors_dict['kp_bndhigh'] = kp_bndhigh
+
+                    # Temperature bias [degC]
+                    if tbias_disttype == 'normal':
+                        tbias = pymc.Normal('tbias', mu=tbias_mu, tau=1/(tbias_sigma**2), value=tbias_start)
+                        priors_dict['tbias_mu'] = tbias_mu
+                        priors_dict['tbias_sigma'] = tbias_sigma
+                    elif tbias_disttype =='truncnormal':
+                        tbias = pymc.TruncatedNormal('tbias', mu=tbias_mu, tau=1/(tbias_sigma**2),
+                                                     a=tbias_bndlow, b=tbias_bndhigh, value=tbias_start)
+                        priors_dict['tbias_mu'] = tbias_mu
+                        priors_dict['tbias_sigma'] = tbias_sigma
+                        priors_dict['tbias_bndlow'] = tbias_bndlow
+                        priors_dict['tbias_bndhigh'] = tbias_bndhigh
+                    elif tbias_disttype =='uniform':
+                        tbias = pymc.Uniform('tbias', lower=tbias_bndlow, upper=tbias_bndhigh, value=tbias_start)
+                        priors_dict['tbias_bndlow'] = tbias_bndlow
+                        priors_dict['tbias_bndhigh'] = tbias_bndhigh
+
+                    # Degree day factor of snow [mwe degC-1 d-1]
+                    #  always truncated normal distribution with mean 0.0041 mwe degC-1 d-1 and standard deviation of
+                    #  0.0015 (Braithwaite, 2008), since it's based on data; uniform should only be used for testing
+                    if ddfsnow_disttype == 'truncnormal':
+                        ddfsnow = pymc.TruncatedNormal('ddfsnow', mu=ddfsnow_mu, tau=1/(ddfsnow_sigma**2),
+                                                       a=ddfsnow_bndlow, b=ddfsnow_bndhigh, value=ddfsnow_start)
+                        priors_dict['ddfsnow_mu'] = ddfsnow_mu
+                        priors_dict['ddfsnow_sigma'] = ddfsnow_sigma
+                        priors_dict['ddfsnow_bndlow'] = ddfsnow_bndlow
+                        priors_dict['ddfsnow_bndhigh'] = ddfsnow_bndhigh
+                    elif ddfsnow_disttype == 'uniform':
+                        ddfsnow = pymc.Uniform('ddfsnow', lower=ddfsnow_bndlow, upper=ddfsnow_bndhigh,
+                                               value=ddfsnow_start)
+                        priors_dict['ddfsnow_bndlow'] = ddfsnow_bndlow
+                        priors_dict['ddfsnow_bndhigh'] = ddfsnow_bndhigh
+
+                    # ===== DETERMINISTIC FUNCTION ====
+                    # Define deterministic function for MCMC model based on our a priori probobaility distributions.
+                    @deterministic(plot=False)
+                    def massbal(tbias=tbias, kp=kp, ddfsnow=ddfsnow):
+                        """ Likelihood function for mass balance [mwea] based on model parameters """
+                        modelprms_copy = modelprms.copy()
+                        if tbias is not None:
+                            modelprms_copy['tbias'] = float(tbias)
+                        if kp is not None:
+                            modelprms_copy['kp'] = float(kp)
+                        if ddfsnow is not None:
+                            modelprms_copy['ddfsnow'] = float(ddfsnow)
+                            modelprms_copy['ddfice'] = modelprms_copy['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+#                        mb_mwea = mb_mwea_calc(gdir, modelprms_copy, glacier_rgi_table, fls=fls)
+                        mb_mwea = run_emulator_mb(modelprms_copy)
+                        return mb_mwea
+
+
+                    # ===== POTENTIAL FUNCTIONS =====
+                    # Potential functions are used to impose additional constrains on the model
+                    @pymc.potential
+                    def mb_max(mb_max_loss=mb_max_loss, massbal=massbal):
+                        """ Model parameters cannot completely melt the glacier """
+                        if massbal < mb_max_loss:
+                            return -np.inf
+                        else:
+                            return 0
+                        
+                    @pymc.potential
+                    def must_melt(tbias=tbias, kp=kp, ddfsnow=ddfsnow):
+                        """
+                        Likelihood function for mass balance [mwea] based on model parameters
+                        """                          
+                        modelprms_copy = modelprms.copy()
+                        if tbias is not None:
+                            modelprms_copy['tbias'] = float(tbias)
+                        if kp is not None:
+                            modelprms_copy['kp'] = float(kp)
+                        if ddfsnow is not None:
+                            modelprms_copy['ddfsnow'] = float(ddfsnow)
+                            modelprms_copy['ddfice'] = modelprms_copy['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                        mb_total_minelev = calc_mb_total_minelev(modelprms_copy)
+                        if mb_total_minelev < 0:
+                            return 0
+                        else:
+                            return -np.inf
+
 #                    @pymc.potential
 #                    def must_melt(tbias=tbias, kp=kp, ddfsnow=ddfsnow):
 #                        """
@@ -834,1208 +891,1241 @@ def main(list_packed_vars):
 #                            return 0
 #                        else:
 #                            return -np.inf
-#
-#                    # ===== OBSERVED DATA =====
-#                    #  Observed data defines the observed likelihood of mass balances (based on geodetic observations)
-#                    obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(mb_obs_mwea_err**2)),
-#                                              value=float(mb_obs_mwea), observed=True)
-#                    # Set model
-#                    if use_potentials:
-#                        model = pymc.MCMC([{'kp':kp, 'tbias':tbias, 'ddfsnow':ddfsnow,
-#                                           'massbal':massbal, 'obs_massbal':obs_massbal}, mb_max, must_melt])
-#                    else:
-#                        model = pymc.MCMC({'kp':kp, 'tbias':tbias, 'ddfsnow':ddfsnow,
-#                                           'massbal':massbal, 'obs_massbal':obs_massbal})
-#
-#                    # Step method (if changed from default)
-#                    #  Adaptive metropolis is supposed to perform block update, i.e., update all model parameters
-#                    #  together based on their covariance, which would reduce autocorrelation; however, tests show
-#                    #  doesn't make a difference.
-#                    if step == 'am':
-#                        model.use_step_method(pymc.AdaptiveMetropolis, [kp, tbias, ddfsnow], delay = 1000)
-#                    # Sample
-#                    if args.progress_bar == 1:
-#                        progress_bar_switch = True
-#                    else:
-#                        progress_bar_switch = False
-#                    model.sample(iter=iterations, burn=burn, thin=thin,
-#                                 tune_interval=tune_interval, tune_throughout=tune_throughout,
-#                                 save_interval=save_interval, verbose=verbose, progress_bar=progress_bar_switch)
-#                    # Close database
-#                    model.db.close()
-#
-#                    return model, priors_dict
-#
-#                # ===== RUNNING MCMC =====
-#                # Prior distributions (specified or informed by regions)
-#                if pygem_prms.priors_reg_fullfn is not None:
-#                    # Load priors
-#                    priors_df = pd.read_csv(pygem_prms.priors_reg_fullfn)
-#                    priors_idx = np.where((priors_df.O1Region == glacier_rgi_table['O1Region']) & 
-#                                          (priors_df.O2Region == glacier_rgi_table['O2Region']))[0][0]
-#                    # Precipitation factor priors
-#                    kp_gamma_alpha = priors_df.loc[priors_idx, 'kp_alpha']
-#                    kp_gamma_beta = priors_df.loc[priors_idx, 'kp_beta']
-#                    # Temperature bias priors
-#                    tbias_mu = priors_df.loc[priors_idx, 'tbias_mean']
-#                    tbias_sigma = priors_df.loc[priors_idx, 'tbias_std']
-#                else:
-#                    # Precipitation factor priors
-#                    kp_gamma_alpha = pygem_prms.kp_gamma_alpha
-#                    kp_gamma_beta = pygem_prms.kp_gamma_beta
-#                    # Temperature bias priors
-#                    tbias_mu = pygem_prms.tbias_mu
-#                    tbias_sigma = pygem_prms.tbias_sigma
-#
-#                modelprms_export = {}
-#                # fit the MCMC model
-#                for n_chain in range(0,pygem_prms.n_chains):
-#
+
+                    # ===== OBSERVED DATA =====
+                    #  Observed data defines the observed likelihood of mass balances (based on geodetic observations)
+                    obs_massbal = pymc.Normal('obs_massbal', mu=massbal, tau=(1/(mb_obs_mwea_err**2)),
+                                              value=float(mb_obs_mwea), observed=True)
+                    # Set model
+                    if use_potentials:
+                        model = pymc.MCMC([{'kp':kp, 'tbias':tbias, 'ddfsnow':ddfsnow,
+                                           'massbal':massbal, 'obs_massbal':obs_massbal}, mb_max, must_melt])
+                    else:
+                        model = pymc.MCMC({'kp':kp, 'tbias':tbias, 'ddfsnow':ddfsnow,
+                                           'massbal':massbal, 'obs_massbal':obs_massbal})
+
+                    # Step method (if changed from default)
+                    #  Adaptive metropolis is supposed to perform block update, i.e., update all model parameters
+                    #  together based on their covariance, which would reduce autocorrelation; however, tests show
+                    #  doesn't make a difference.
+                    if step == 'am':
+                        model.use_step_method(pymc.AdaptiveMetropolis, [kp, tbias, ddfsnow], delay = 1000)
+                    # Sample
+                    if args.progress_bar == 1:
+                        progress_bar_switch = True
+                    else:
+                        progress_bar_switch = False
+                    model.sample(iter=iterations, burn=mcmc_burn_no, thin=thin,
+                                 tune_interval=tune_interval, tune_throughout=tune_throughout,
+                                 save_interval=save_interval, verbose=verbose, progress_bar=progress_bar_switch)
+                    # Close database
+                    model.db.close()
+
+                    return model, priors_dict
+                
+                try:
+                    # ===== RUNNING MCMC =====
+                    # Prior distributions (specified or informed by regions)
+                    if pygem_prms.priors_reg_fullfn is not None:
+                        # Load priors
+                        priors_df = pd.read_csv(pygem_prms.priors_reg_fullfn)
+                        priors_idx = np.where((priors_df.O1Region == glacier_rgi_table['O1Region']) & 
+                                              (priors_df.O2Region == glacier_rgi_table['O2Region']))[0][0]
+                        # Precipitation factor priors
+                        kp_gamma_alpha = priors_df.loc[priors_idx, 'kp_alpha']
+                        kp_gamma_beta = priors_df.loc[priors_idx, 'kp_beta']
+                        # Temperature bias priors
+                        tbias_mu = priors_df.loc[priors_idx, 'tbias_mean']
+                        tbias_sigma = priors_df.loc[priors_idx, 'tbias_std']
+                    else:
+                        # Precipitation factor priors
+                        kp_gamma_alpha = pygem_prms.kp_gamma_alpha
+                        kp_gamma_beta = pygem_prms.kp_gamma_beta
+                        # Temperature bias priors
+                        tbias_mu = pygem_prms.tbias_mu
+                        tbias_sigma = pygem_prms.tbias_sigma
+                        
+                    modelprms_export = {}
+                    # fit the MCMC model
+                    for n_chain in range(0,pygem_prms.n_chains):
+    
+                        if debug:
+                            print('\n', glacier_str, ' chain' + str(n_chain))
+    
+                        if n_chain == 0:
+                            # Starting values: middle
+                            tbias_start = tbias_mu
+                            kp_start = kp_gamma_alpha / kp_gamma_beta
+                            ddfsnow_start = pygem_prms.ddfsnow_mu
+    
+                        elif n_chain == 1:
+                            # Starting values: lowest
+                            tbias_start = tbias_mu - 1.96 * tbias_sigma
+                            ddfsnow_start = pygem_prms.ddfsnow_mu - 1.96 * pygem_prms.ddfsnow_sigma
+                            kp_start = stats.gamma.ppf(0.05,kp_gamma_alpha, scale=1/kp_gamma_beta)
+    
+                        elif n_chain == 2:
+                            # Starting values: high
+                            tbias_start = tbias_mu + 1.96 * tbias_sigma
+                            ddfsnow_start = pygem_prms.ddfsnow_mu + 1.96 * pygem_prms.ddfsnow_sigma
+                            kp_start = stats.gamma.ppf(0.95,kp_gamma_alpha, scale=1/kp_gamma_beta)
+    
+    
+                        # Determine bounds to check TC starting values and estimate maximum mass loss
+                        modelprms['kp'] = kp_start
+                        modelprms['ddfsnow'] = ddfsnow_start
+                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                        
+                        # ----- TEMPERATURE BIAS BOUNDS -----
+                        # Selects from emulator sims dataframe
+                        sims_fp = pygem_prms.emulator_fp + 'sims/' + glacier_str.split('.')[0].zfill(2) + '/'
+                        sims_fn = glacier_str + '-' + str(pygem_prms.emulator_sims) + '_emulator_sims.csv'
+                        sims_df = pd.read_csv(sims_fp + sims_fn)
+                        sims_df_subset = sims_df.loc[sims_df['kp']==1, :]
+                        tbias_bndhigh = sims_df_subset['tbias'].max()
+                        tbias_bndlow = sims_df_subset['tbias'].min()
+                        
+                        if debug:
+                            print('tbias_bndlow:', np.round(tbias_bndlow,2), 'tbias_bndhigh:', np.round(tbias_bndhigh,2))
+                        
+                        # Adjust tbias_init based on bounds
+                        if tbias_start > tbias_bndhigh:
+                            tbias_start = tbias_bndhigh
+                        elif tbias_start < tbias_bndlow:
+                            tbias_start = tbias_bndlow
+                            
+                        # ----- Mass balance max loss -----
+                        # Maximum mass loss [mwea] (based on consensus ice thickness estimate)
+                        # consensus_mass has units of kg
+                        if os.path.exists(gdir.get_filepath('consensus_mass')):
+                            with open(gdir.get_filepath('consensus_mass'), 'rb') as f:
+                                consensus_mass = pickle.load(f)
+                        else:
+                            # Mean global ice thickness from Farinotti et al. (2019) used for missing consensus glaciers
+                            ice_thickness_constant = 224
+                            consensus_mass = glacier_rgi_table.Area * 1e6 * ice_thickness_constant * pygem_prms.density_ice
+    
+                        mb_max_loss = (-1 * consensus_mass / pygem_prms.density_water / gdir.rgi_area_m2 / 
+                                       (gdir.dates_table.shape[0] / 12))
+                        
+                        if debug:
+                            print('\ntbias_start:', np.round(tbias_start,3), 'pf_start:', np.round(kp_start,3),
+                                  'ddf_start:', np.round(ddfsnow_start,4), 'mb_max_loss:', np.round(mb_max_loss,2))
+                        
+                        model, priors_dict = run_MCMC(
+                                gdir,
+                                iterations=pygem_prms.mcmc_sample_no, mcmc_burn_no=pygem_prms.mcmc_burn_no,
+                                step=pygem_prms.mcmc_step,
+                                kp_gamma_alpha=kp_gamma_alpha, kp_gamma_beta=kp_gamma_beta, kp_start=kp_start,
+                                tbias_mu=tbias_mu, tbias_sigma=tbias_sigma, tbias_start=tbias_start,
+                                ddfsnow_start=ddfsnow_start, mb_max_loss=mb_max_loss,
+                                tbias_bndlow=tbias_bndlow, tbias_bndhigh=tbias_bndhigh,
+                                use_potentials=True)                    
+                        
+                        if debug:
+                            print('\nacceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
+                            print('mb_mwea_mean:', np.round(np.mean(model.trace('massbal')[:]),3),
+                                  'mb_mwea_std:', np.round(np.std(model.trace('massbal')[:]),3),
+                                  '\nmb_obs_mean:', np.round(mb_obs_mwea,3), 'mb_obs_std:', np.round(mb_obs_mwea_err,3))
+    
+    
+                        # Store data from model to be exported
+                        chain_str = 'chain_' + str(n_chain)
+                        modelprms_export['tbias'] = {chain_str : list(model.trace('tbias')[:])}
+                        modelprms_export['kp'] = {chain_str  : list(model.trace('kp')[:])}
+                        modelprms_export['ddfsnow'] = {chain_str : list(model.trace('ddfsnow')[:])}
+                        modelprms_export['ddfice'] = {chain_str : list(model.trace('ddfsnow')[:] /
+                                                                   pygem_prms.ddfsnow_iceratio)}
+                        modelprms_export['mb_mwea'] = {chain_str : list(model.trace('massbal')[:])}
+    
+                    # Export model parameters
+                    modelprms_export['precgrad'] = [pygem_prms.precgrad]
+                    modelprms_export['tsnow_threshold'] = [pygem_prms.tsnow_threshold]
+                    modelprms_export['mb_obs_mwea'] = [mb_obs_mwea]
+                    modelprms_export['mb_obs_mwea_err'] = [mb_obs_mwea_err]
+                    modelprms_export['priors'] = priors_dict
+                    
+                    modelprms_fn = glacier_str + '-modelprms_dict.pkl'
+                    modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
+                                    + '/')
+                    if not os.path.exists(modelprms_fp):
+                        os.makedirs(modelprms_fp, exist_ok=True)
+                    modelprms_fullfn = modelprms_fp + modelprms_fn
+                    if os.path.exists(modelprms_fullfn):
+                        with open(modelprms_fullfn, 'rb') as f:
+                            modelprms_dict = pickle.load(f)
+                        modelprms_dict[pygem_prms.option_calibration] = modelprms_export
+                    else:
+                        modelprms_dict = {pygem_prms.option_calibration: modelprms_export}
+                    with open(modelprms_fullfn, 'wb') as f:
+                        pickle.dump(modelprms_dict, f)        
+                            
+                    if not os.path.exists(modelprms_fp):
+                        os.makedirs(modelprms_fp, exist_ok=True)
+                    modelprms_fullfn = modelprms_fp + modelprms_fn
+                    if os.path.exists(modelprms_fullfn):
+                        with open(modelprms_fullfn, 'rb') as f:
+                            modelprms_dict = pickle.load(f)
+                        modelprms_dict[pygem_prms.option_calibration] = modelprms_export
+                    else:
+                        modelprms_dict = {pygem_prms.option_calibration: modelprms_export}
+                    with open(modelprms_fullfn, 'wb') as f:
+                        pickle.dump(modelprms_dict, f)
+                    
+                    # MCMC LOG SUCCESS
+                    mcmc_good_fp = pygem_prms.output_filepath + 'mcmc_success/' + glacier_str.split('.')[0].zfill(2) + '/'
+                    if not os.path.exists(mcmc_good_fp):
+                        os.makedirs(mcmc_good_fp, exist_ok=True)
+                    txt_fn_good = glacier_str + "-mcmc_success.txt"
+                    with open(mcmc_good_fp + txt_fn_good, "w") as text_file:
+                        text_file.write(glacier_str + ' successfully exported mcmc results')
+                
+                except:
+                    # MCMC LOG FAILURE
+                    mcmc_fail_fp = pygem_prms.output_filepath + 'mcmc_fail/' + glacier_str.split('.')[0].zfill(2) + '/'
+                    if not os.path.exists(mcmc_fail_fp):
+                        os.makedirs(mcmc_fail_fp, exist_ok=True)
+                    txt_fn_fail = glacier_str + "-mcmc_fail.txt"
+                    with open(mcmc_fail_fp + txt_fn_fail, "w") as text_file:
+                        text_file.write(glacier_str + ' failed to complete MCMC')
+            
+
+            #%% ===== HUSS AND HOCK (2015) CALIBRATION =====
+            elif pygem_prms.option_calibration == 'HH2015':
+                tbias_init = pygem_prms.tbias_init
+                tbias_step = pygem_prms.tbias_step
+                kp_init = pygem_prms.kp_init
+                kp_bndlow = pygem_prms.kp_bndlow
+                kp_bndhigh = pygem_prms.kp_bndhigh
+                ddfsnow_init = pygem_prms.ddfsnow_init
+                ddfsnow_bndlow = pygem_prms.ddfsnow_bndlow
+                ddfsnow_bndhigh = pygem_prms.ddfsnow_bndhigh
+                
+#                assert pygem_prms.ddfsnow_iceratio == 0.5, 'Error: ddfsnow_iceratio for HH2015 must be 0.5'
+
+                # ----- Initialize model parameters -----
+                modelprms['tbias'] = tbias_init
+                modelprms['kp'] = kp_init
+                modelprms['ddfsnow'] = ddfsnow_init
+                modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                continue_param_search = True
+                
+                # ----- FUNCTIONS: COMPUTATIONALLY FASTER AND MORE ROBUST THAN SCIPY MINIMIZE -----
+                def update_bnds(prm2opt, prm_bndlow, prm_bndhigh, prm_mid, mb_mwea_low, mb_mwea_high, mb_mwea_mid,
+                                debug=False):
+                    # If mass balance less than observation, reduce tbias
+                    if prm2opt == 'kp':
+                        if mb_mwea_mid < mb_obs_mwea:
+                            prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
+                            prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
+                        else:
+                            prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
+                            prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
+                    elif prm2opt == 'ddfsnow':
+                        if mb_mwea_mid < mb_obs_mwea:
+                            prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
+                            prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
+                        else:
+                            prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
+                            prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
+                    elif prm2opt == 'tbias':
+                        if mb_mwea_mid < mb_obs_mwea:
+                            prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
+                            prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
+                        else:
+                            prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
+                            prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
+                    
+                    prm_mid_new = (prm_bndlow_new + prm_bndhigh_new) / 2
+                    modelprms[prm2opt] = prm_mid_new
+                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                    mb_mwea_mid_new = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+
+                    if debug:
+                        print(prm2opt + '_bndlow:', np.round(prm_bndlow_new,2), 
+                              'mb_mwea_low:', np.round(mb_mwea_low_new,2))                        
+                        print(prm2opt + '_bndhigh:', np.round(prm_bndhigh_new,2), 
+                              'mb_mwea_high:', np.round(mb_mwea_high_new,2))                        
+                        print(prm2opt + '_mid:', np.round(prm_mid_new,2), 
+                              'mb_mwea_mid:', np.round(mb_mwea_mid_new,3))
+                    
+                    return (prm_bndlow_new, prm_bndhigh_new, prm_mid_new, 
+                            mb_mwea_low_new, mb_mwea_high_new, mb_mwea_mid_new)
+                    
+                
+                def single_param_optimizer(modelprms_subset, mb_obs_mwea, prm2opt=None,
+                                           kp_bnds=None, tbias_bnds=None, ddfsnow_bnds=None,
+                                           mb_mwea_threshold=0.005, debug=False):
+                    assert prm2opt is not None, 'For single_param_optimizer you must specify parameter to optimize'
+               
+                    if prm2opt == 'kp':
+                        prm_bndlow = kp_bnds[0]
+                        prm_bndhigh = kp_bnds[1]
+                        modelprms['tbias'] = modelprms_subset['tbias']
+                        modelprms['ddfsnow'] = modelprms_subset['ddfsnow']
+                    elif prm2opt == 'ddfsnow':
+                        prm_bndlow = ddfsnow_bnds[0]
+                        prm_bndhigh = ddfsnow_bnds[1]
+                        modelprms['kp'] = modelprms_subset['kp']
+                        modelprms['tbias'] = modelprms_subset['tbias']
+                    elif prm2opt == 'tbias':
+                        prm_bndlow = tbias_bnds[0]
+                        prm_bndhigh = tbias_bnds[1]
+                        modelprms['kp'] = modelprms_subset['kp']
+                        modelprms['ddfsnow'] = modelprms_subset['ddfsnow']
+
+                    # Lower bound
+                    modelprms[prm2opt] = prm_bndlow
+                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                    mb_mwea_low = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    # Upper bound
+                    modelprms[prm2opt] = prm_bndhigh
+                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                    mb_mwea_high = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    # Middle bound
+                    prm_mid = (prm_bndlow + prm_bndhigh) / 2
+                    modelprms[prm2opt] = prm_mid
+                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                    mb_mwea_mid = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    
+                    if debug:
+                        print(prm2opt + '_bndlow:', np.round(prm_bndlow,2), 'mb_mwea_low:', np.round(mb_mwea_low,2))
+                        print(prm2opt + '_bndhigh:', np.round(prm_bndhigh,2), 'mb_mwea_high:', np.round(mb_mwea_high,2))
+                        print(prm2opt + '_mid:', np.round(prm_mid,2), 'mb_mwea_mid:', np.round(mb_mwea_mid,3))
+                    
+                    # Optimize the model parameter
+                    if np.absolute(mb_mwea_low - mb_obs_mwea) <= mb_mwea_threshold:
+                        modelprms[prm2opt] = prm_bndlow
+                        mb_mwea_mid = mb_mwea_low
+                    elif np.absolute(mb_mwea_low - mb_obs_mwea) <= mb_mwea_threshold:
+                        modelprms[prm2opt] = prm_bndhigh
+                        mb_mwea_mid = mb_mwea_high
+                    else:
+                        ncount = 0
+                        while np.absolute(mb_mwea_mid - mb_obs_mwea) > mb_mwea_threshold:
+                            if debug:
+                                print('\n ncount:', ncount)
+                            (prm_bndlow, prm_bndhigh, prm_mid, mb_mwea_low, mb_mwea_high, mb_mwea_mid) = (
+                                    update_bnds(prm2opt, prm_bndlow, prm_bndhigh, prm_mid, 
+                                                mb_mwea_low, mb_mwea_high, mb_mwea_mid, debug=debug))
+                            ncount += 1
+                        
+                    return modelprms, mb_mwea_mid
+                
+                
+                # ===== ROUND 1: PRECIPITATION FACTOR ======
+                if debug:
+                    print('Round 1:')
+                    
+                if debug:
+                    print(glacier_str + '  kp: ' + str(np.round(modelprms['kp'],2)) +
+                          ' ddfsnow: ' + str(np.round(modelprms['ddfsnow'],4)) +
+                          ' tbias: ' + str(np.round(modelprms['tbias'],2)))
+                
+                # Lower bound
+                modelprms['kp'] = kp_bndlow
+                mb_mwea_kp_low = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                # Upper bound
+                modelprms['kp'] = kp_bndhigh
+                mb_mwea_kp_high = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                
+                # Optimal precipitation factor
+                if mb_obs_mwea < mb_mwea_kp_low:
+                    kp_opt = kp_bndlow
+                    mb_mwea = mb_mwea_kp_low
+                elif mb_obs_mwea > mb_mwea_kp_high:
+                    kp_opt = kp_bndhigh
+                    mb_mwea = mb_mwea_kp_high
+                else:
+                    # Single parameter optimizer (computationally more efficient and less prone to fail)
+                    modelprms_subset = {'kp':kp_init, 'ddfsnow': ddfsnow_init, 'tbias': tbias_init}
+                    kp_bnds = (kp_bndlow, kp_bndhigh)
+                    modelprms_opt, mb_mwea = single_param_optimizer(
+                            modelprms_subset, mb_obs_mwea, prm2opt='kp', kp_bnds=kp_bnds, debug=debug)
+                    kp_opt = modelprms_opt['kp']
+                    continue_param_search = False
+                    
+                # Update parameter values
+                modelprms['kp'] = kp_opt
+                if debug:
+                    print('  kp:', np.round(kp_opt,2), 'mb_mwea:', np.round(mb_mwea,2))
+
+                # ===== ROUND 2: DEGREE-DAY FACTOR OF SNOW ======
+                if continue_param_search:
+                    if debug:
+                        print('Round 2:')
+                    # Lower bound
+                    modelprms['ddfsnow'] = ddfsnow_bndlow
+                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                    mb_mwea_ddflow = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    # Upper bound
+                    modelprms['ddfsnow'] = ddfsnow_bndhigh
+                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                    mb_mwea_ddfhigh = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    # Optimal degree-day factor of snow
+                    if mb_obs_mwea < mb_mwea_ddfhigh:
+                        ddfsnow_opt = ddfsnow_bndhigh
+                        mb_mwea = mb_mwea_ddfhigh
+                    elif mb_obs_mwea > mb_mwea_ddflow:
+                        ddfsnow_opt = ddfsnow_bndlow
+                        mb_mwea = mb_mwea_ddflow
+                    else:
+                        # Single parameter optimizer (computationally more efficient and less prone to fail)
+                        modelprms_subset = {'kp':kp_opt, 'ddfsnow': ddfsnow_init, 'tbias': tbias_init}
+                        ddfsnow_bnds = (ddfsnow_bndlow, ddfsnow_bndhigh)
+                        modelprms_opt, mb_mwea = single_param_optimizer(
+                                modelprms_subset, mb_obs_mwea, prm2opt='ddfsnow', ddfsnow_bnds=ddfsnow_bnds, debug=debug)
+                        ddfsnow_opt = modelprms_opt['ddfsnow']
+                        continue_param_search = False
+                    # Update parameter values
+                    modelprms['ddfsnow'] = ddfsnow_opt
+                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                    if debug:
+                        print('  ddfsnow:', np.round(ddfsnow_opt,4), 'mb_mwea:', np.round(mb_mwea,2))
+                else:
+                    ddfsnow_opt = modelprms['ddfsnow']
+                        
+                # ===== ROUND 3: TEMPERATURE BIAS ======
+                if continue_param_search:
+                    if debug:
+                        print('Round 3:')
+                    # ----- TEMPBIAS: max accumulation -----
+                    # Lower temperature bound based on no positive temperatures
+                    # Temperature at the lowest bin
+                    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tbias
+                    tbias_max_acc = (-1 * (gdir.historical_climate['temp'] + gdir.historical_climate['lr'] *
+                                     (fls[0].surface_h.min() - gdir.historical_climate['elev'])).max())
+                    tbias_bndlow = tbias_max_acc
+                    modelprms['tbias'] = tbias_bndlow
+                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+
+                    if debug:
+                        print('  tbias_bndlow:', np.round(tbias_bndlow,2), 'mb_mwea:', np.round(mb_mwea,2))
+
+                    # Upper bound
+                    while mb_mwea > mb_obs_mwea and modelprms['tbias'] < 20:
+                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
+                        mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                        if debug:
+                            print('  tc:', np.round(modelprms['tbias'],2), 'mb_mwea:', np.round(mb_mwea,2))
+                        tbias_bndhigh = modelprms['tbias']
+
+                    # Single parameter optimizer (computationally more efficient and less prone to fail)
+                    modelprms_subset = {'kp':kp_opt, 
+                                        'ddfsnow': ddfsnow_opt, 
+                                        'tbias': modelprms['tbias'] - tbias_step/2}
+                    tbias_bnds = (tbias_bndhigh-tbias_step, tbias_bndhigh)
+                    modelprms_opt, mb_mwea = single_param_optimizer(
+                            modelprms_subset, mb_obs_mwea, prm2opt='tbias', tbias_bnds=tbias_bnds, debug=debug)
+                    
+                    # Update parameter values
+                    tbias_opt = modelprms_opt['tbias']
+                    modelprms['tbias'] = tbias_opt
+                    if debug:
+                        print('  tbias:', np.round(tbias_opt,3), 'mb_mwea:', np.round(mb_mwea,3))
+
+                else:
+                    tbias_opt = modelprms['tbias']
+                
+                    
+                # Export model parameters
+                modelprms = modelprms_opt
+                for vn in ['ddfice', 'ddfsnow', 'kp', 'precgrad', 'tbias', 'tsnow_threshold']:
+                    modelprms[vn] = [modelprms[vn]]
+                modelprms['mb_mwea'] = [mb_mwea]
+                modelprms['mb_obs_mwea'] = [mb_obs_mwea]
+                modelprms['mb_obs_mwea_err'] = [mb_obs_mwea_err]
+
+                modelprms_fn = glacier_str + '-modelprms_dict.pkl'
+                modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
+                                + '/')
+                if not os.path.exists(modelprms_fp):
+                    os.makedirs(modelprms_fp, exist_ok=True)
+                modelprms_fullfn = modelprms_fp + modelprms_fn
+                if os.path.exists(modelprms_fullfn):
+                    with open(modelprms_fullfn, 'rb') as f:
+                        modelprms_dict = pickle.load(f)
+                    modelprms_dict[pygem_prms.option_calibration] = modelprms
+                else:
+                    modelprms_dict = {pygem_prms.option_calibration: modelprms}
+                with open(modelprms_fullfn, 'wb') as f:
+                    pickle.dump(modelprms_dict, f)
+                    
+                    
+            #%% ===== MODIFIED HUSS AND HOCK (2015) CALIBRATION =====
+            # used in Rounce et al. (2020; MCMC paper)
+            # - precipitation factor, then temperature bias (no ddfsnow)
+            # - ranges different
+            elif pygem_prms.option_calibration == 'HH2015mod':
+                tbias_init = pygem_prms.tbias_init
+                tbias_step = pygem_prms.tbias_step
+                kp_init = pygem_prms.kp_init
+                kp_bndlow = pygem_prms.kp_bndlow
+                kp_bndhigh = pygem_prms.kp_bndhigh
+                ddfsnow_init = pygem_prms.ddfsnow_init
+                
+                # ----- Initialize model parameters -----
+                modelprms['tbias'] = tbias_init
+                modelprms['kp'] = kp_init
+                modelprms['ddfsnow'] = ddfsnow_init
+                modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                
+                # ----- FUNCTIONS -----
+                def objective(modelprms_subset):
+                    """ Objective function for mass balance data (mimize difference between model and observation).
+
+                    Parameters
+                    ----------
+                    modelprms_subset : list of model parameters [kp, ddfsnow, tbias]
+                    """
+                    # Subset of model parameters used to reduce number of constraints required
+                    modelprms['kp'] = modelprms_subset[0]
+                    modelprms['tbias'] = tbias_init
+                    if len(modelprms_subset) > 1:
+                        modelprms['tbias'] = modelprms_subset[1]  
+                    # Mass balance
+                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    # Difference with observation (mwea)
+                    mb_dif_mwea_abs = abs(mb_obs_mwea - mb_mwea)
+                    return mb_dif_mwea_abs
+
+
+                def run_objective(modelprms_init, mb_obs_mwea, modelprms_bnds=None, 
+                                  run_opt=True, eps_opt=pygem_prms.eps_opt,
+                                  ftol_opt=pygem_prms.ftol_opt):
+                    """ Run the optimization for the single glacier objective function.
+
+                    Parameters
+                    ----------
+                    modelparams_init : list of model parameters to calibrate [kp, ddfsnow, tbias]
+                    kp_bnds, tbias_bnds, ddfsnow_bnds, precgrad_bnds : tuples (lower & upper bounds)
+                    run_opt : Boolean statement run optimization or bypass optimization and run with initial parameters
+
+                    Returns
+                    -------
+                    modelparams : model parameters dict and specific mass balance (mwea)
+                    """
+                    # Run the optimization
+                    if run_opt:
+                        modelprms_opt = minimize(objective, modelprms_init, method=pygem_prms.method_opt,
+                                                 bounds=modelprms_bnds, options={'ftol':ftol_opt, 'eps':eps_opt})
+                        # Record the optimized parameters
+                        modelprms_subset = modelprms_opt.x
+                    else:
+                        modelprms_subset = modelprms.copy()
+                    modelprms['kp'] = modelprms_subset[0]
+                    if len(modelprms_subset) == 2:
+                        modelprms['tbias'] = modelprms_subset[1]                    
+                    # Re-run the optimized parameters in order to see the mass balance
+                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    return modelprms, mb_mwea
+
+
+                # ----- Temperature bias bounds -----
+                tbias_bndhigh = 0
+                # Tbias lower bound based on no positive temperatures
+                tbias_bndlow = (-1 * (gdir.historical_climate['temp'] + gdir.historical_climate['lr'] *
+                                 (fls[0].surface_h.min() - gdir.historical_climate['elev'])).max())
+                modelprms['tbias'] = tbias_bndlow
+                mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                if debug:
+                    print('  tbias_bndlow:', np.round(tbias_bndlow,2), 'mb_mwea:', np.round(mb_mwea,2))
+                # Tbias upper bound (based on kp_bndhigh)
+                modelprms['kp'] = kp_bndhigh
+                
+                while mb_mwea > mb_obs_mwea and modelprms['tbias'] < 20:
+                    modelprms['tbias'] = modelprms['tbias'] + 1
+                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    if debug:
+                        print('  tc:', np.round(modelprms['tbias'],2), 'mb_mwea:', np.round(mb_mwea,2))
+                    tbias_bndhigh = modelprms['tbias']
+
+                # ===== ROUND 1: PRECIPITATION FACTOR =====
+                # Adjust bounds based on range of temperature bias
+                if tbias_init > tbias_bndhigh:
+                    tbias_init = tbias_bndhigh
+                elif tbias_init < tbias_bndlow:
+                    tbias_init = tbias_bndlow
+                modelprms['tbias'] = tbias_init
+                modelprms['kp'] = kp_init
+
+                tbias_bndlow_opt = tbias_init
+                tbias_bndhigh_opt = tbias_init
+
+                # Constrain bounds of precipitation factor and temperature bias
+                mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                   return_tbias_mustmelt=True)
+
+                if debug:
+                    print('\ntbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                          'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
+
+                # Adjust lower or upper bound based on the observed mass balance
+                test_count = 0
+                if mb_mwea > mb_obs_mwea:
+                    if debug:
+                        print('increase tbias, decrease kp')
+                    kp_bndhigh = 1
+                    # Check if lower bound causes good agreement
+                    modelprms['kp'] = kp_bndlow
+                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    while mb_mwea > mb_obs_mwea and test_count < 20:
+                        # Update temperature bias
+                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
+                        # Update bounds
+                        tbias_bndhigh_opt = modelprms['tbias']
+                        tbias_bndlow_opt = modelprms['tbias'] - tbias_step
+                        # Compute mass balance
+                        mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                        if debug:
+                            print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                  'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
+                        test_count += 1
+                else:
+                    if debug:
+                        print('decrease tbias, increase kp')
+                    kp_bndlow = 1
+                    # Check if upper bound causes good agreement
+                    modelprms['kp'] = kp_bndhigh
+                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                    
+                    while mb_obs_mwea > mb_mwea and test_count < 20:
+                        # Update temperature bias
+                        modelprms['tbias'] = modelprms['tbias'] - tbias_step
+                        # If temperature bias is at lower limit, then increase precipitation factor
+                        if modelprms['tbias'] <= tbias_bndlow:
+                            modelprms['tbias'] = tbias_bndlow
+                            if test_count > 0:
+                                kp_bndhigh = kp_bndhigh + 1
+                                modelprms['kp'] = kp_bndhigh
+                        # Update bounds (must do after potential correction for lower bound)
+                        tbias_bndlow_opt = modelprms['tbias']
+                        tbias_bndhigh_opt = modelprms['tbias'] + tbias_step
+                        # Compute mass balance
+                        mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
+                        if debug:
+                            print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                  'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
+                        test_count += 1
+
+                # ----- RUN OPTIMIZATION WITH CONSTRAINED BOUNDS -----
+                kp_bnds = (kp_bndlow, kp_bndhigh)
+                kp_init = kp_init
+                
+                tbias_bnds = (tbias_bndlow_opt, tbias_bndhigh_opt)
+                tbias_init = np.mean([tbias_bndlow_opt, tbias_bndhigh_opt])
+
+                if debug:
+                    print('tbias bounds:', tbias_bnds)
+                    print('kp bounds:', kp_bnds)
+                
+                # Set up optimization for only the precipitation factor
+                if tbias_bndlow_opt == tbias_bndhigh_opt:
+                    modelprms_subset = [kp_init]
+                    modelprms_bnds = (kp_bnds,)
+                # Set up optimization for precipitation factor and temperature bias
+                else:
+                    modelprms_subset = [kp_init, tbias_init]
+                    modelprms_bnds = (kp_bnds, tbias_bnds)
+                    
+                # Run optimization
+                modelparams_opt, mb_mwea = run_objective(modelprms_subset, mb_obs_mwea, 
+                                                         modelprms_bnds=modelprms_bnds, ftol_opt=1e-3)
+
+                kp_opt = modelparams_opt['kp']
+                tbias_opt = modelparams_opt['tbias']
+                if debug:
+                    print('mb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(mb_obs_mwea,2),
+                          'kp:', np.round(kp_opt,2), 'tbias:', np.round(tbias_opt,2), '\n\n')
+
+#                # Epsilon (the amount the variable change to calculate the jacobian) can be too small, which causes
+#                #  the minimization to believe it has reached a local minima and stop. Therefore, adjust epsilon
+#                #  to ensure this is not the case.
+#                eps_opt_new = pygem_prms.eps_opt
+#                nround = 0
+#                while np.absolute(mb_mwea - mb_obs_mwea) > 0.3 and eps_opt_new <= 0.1:
+#                    nround += 1
 #                    if debug:
-#                        print('\n', glacier_str, ' chain' + str(n_chain))
+#                        print('DIDNT WORK SO TRYING NEW INITIAL CONDITIONS')
+#                        print('  old eps_opt:', eps_opt_new)
 #
-#                    if n_chain == 0:
-#                        # Starting values: middle
-#                        tbias_start = tbias_mu
-#                        kp_start = kp_gamma_alpha / kp_gamma_beta
-#                        ddfsnow_start = pygem_prms.ddfsnow_mu
-#
-#                    elif n_chain == 1:
-#                        # Starting values: lowest
-#                        tbias_start = tbias_mu - 1.96 * tbias_sigma
-#                        ddfsnow_start = pygem_prms.ddfsnow_mu - 1.96 * pygem_prms.ddfsnow_sigma
-#                        kp_start = stats.gamma.ppf(0.05,kp_gamma_alpha, scale=1/kp_gamma_beta)
-#
-#                    elif n_chain == 2:
-#                        # Starting values: high
-#                        tbias_start = tbias_mu + 1.96 * tbias_sigma
-#                        ddfsnow_start = pygem_prms.ddfsnow_mu + 1.96 * pygem_prms.ddfsnow_sigma
-#                        kp_start = stats.gamma.ppf(0.95,kp_gamma_alpha, scale=1/kp_gamma_beta)
-#
-#
-#                    # Determine bounds to check TC starting values and estimate maximum mass loss
-#                    modelprms['kp'] = kp_start
-#                    modelprms['ddfsnow'] = ddfsnow_start
-#                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                    
-#                    # ----- TEMPERATURE BIAS BOUNDS -----
-#                    # Selects from emulator sims dataframe
-#                    sims_fp = pygem_prms.emulator_fp + 'sims/' + glacier_str.split('.')[0].zfill(2) + '/'
-#                    sims_fn = glacier_str + '-' + str(pygem_prms.emulator_sims) + '_emulator_sims.csv'
-#                    sims_df = pd.read_csv(sims_fp + sims_fn)
-#                    sims_df_subset = sims_df.loc[sims_df['kp']==1, :]
-#                    tbias_bndhigh = sims_df_subset['tbias'].max()
-#                    tbias_bndlow = sims_df_subset['tbias'].min()
-#                    
+#                    eps_opt_new = eps_opt_new * 10
 #                    if debug:
-#                        print('tbias_bndlow:', np.round(tbias_bndlow,2), 'tbias_bndhigh:', np.round(tbias_bndhigh,2))
-#                    
-#                    # Adjust tbias_init based on bounds
-#                    if tbias_start > tbias_bndhigh:
-#                        tbias_start = tbias_bndhigh
-#                    elif tbias_start < tbias_bndlow:
-#                        tbias_start = tbias_bndlow
-#                        
-#                    # ----- Mass balance max loss -----
-#                    # Maximum mass loss [mwea] (based on consensus ice thickness estimate)
-#                    with open(gdir.get_filepath('consensus_mass'), 'rb') as f:
-#                        consensus_mass = pickle.load(f)
-#                    mb_max_loss = (-1 * consensus_mass / pygem_prms.density_water / gdir.rgi_area_m2 / 
-#                                   (gdir.dates_table.shape[0] / 12))
-#                    
+#                        print('  new eps_opt:', eps_opt_new)
+#
+#                    modelprms_subset = [kp_init, ddfsnow_init, tbias_init]
+#                    modelparams_opt, mb_mwea = run_objective(modelprms_subset, mb_obs_mwea, kp_bnds=kp_bnds,
+#                                                             tbias_bnds=tbias_bnds, ddfsnow_bnds=ddfsnow_bnds,
+#                                                             ftol_opt=eps_opt_new)
+#                    kp_opt = modelparams_opt['kp']
+#                    tbias_opt = modelparams_opt['tbias']
 #                    if debug:
-#                        print('\ntbias_start:', np.round(tbias_start,3), 'pf_start:', np.round(kp_start,3),
-#                              'ddf_start:', np.round(ddfsnow_start,4), 'mb_max_loss:', np.round(mb_max_loss,2))
-#                    
-#                    model, priors_dict = run_MCMC(
-#                            gdir,
-#                            iterations=pygem_prms.mcmc_sample_no, burn=pygem_prms.mcmc_burn_no,
-#                            step=pygem_prms.mcmc_step,
-#                            kp_gamma_alpha=kp_gamma_alpha, kp_gamma_beta=kp_gamma_beta, kp_start=kp_start,
-#                            tbias_mu=tbias_mu, tbias_sigma=tbias_sigma, tbias_start=tbias_start,
-#                            ddfsnow_start=ddfsnow_start, mb_max_loss=mb_max_loss,
-#                            
-#                            tbias_bndlow=tbias_bndlow, tbias_bndhigh=tbias_bndhigh,
-#                            
-#                            use_potentials=True)
-#                    
-#                    if debug:
-#                        print('\nacceptance ratio:', model.step_method_dict[next(iter(model.stochastics))][0].ratio)
-#                        print('mb_mwea_mean:', np.round(np.mean(model.trace('massbal')[:]),3),
-#                              'mb_mwea_std:', np.round(np.std(model.trace('massbal')[:]),3),
-#                              '\nmb_obs_mean:', np.round(mb_obs_mwea,3), 'mb_obs_std:', np.round(mb_obs_mwea_err,3))
-#
-#
-#                    # Store data from model to be exported
-#                    chain_str = 'chain_' + str(n_chain)
-#                    modelprms_export['tbias'] = {chain_str : list(model.trace('tbias')[:])}
-#                    modelprms_export['kp'] = {chain_str  : list(model.trace('kp')[:])}
-#                    modelprms_export['ddfsnow'] = {chain_str : list(model.trace('ddfsnow')[:])}
-#                    modelprms_export['ddfice'] = {chain_str : list(model.trace('ddfsnow')[:] /
-#                                                               pygem_prms.ddfsnow_iceratio)}
-#                    modelprms_export['mb_mwea'] = {chain_str : list(model.trace('massbal')[:])}
-#
-#                # Export model parameters
-#                modelprms_export['precgrad'] = [pygem_prms.precgrad]
-#                modelprms_export['tsnow_threshold'] = [pygem_prms.tsnow_threshold]
-#                modelprms_export['mb_obs_mwea'] = [mb_obs_mwea]
-#                modelprms_export['mb_obs_mwea_err'] = [mb_obs_mwea_err]
-#                modelprms_export['priors'] = priors_dict
-#                
-#                modelprms_fn = glacier_str + '-modelprms_dict.pkl'
-#                modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
-#                                + '/')
-#                if not os.path.exists(modelprms_fp):
-#                    os.makedirs(modelprms_fp, exist_ok=True)
-#                modelprms_fullfn = modelprms_fp + modelprms_fn
-#                if os.path.exists(modelprms_fullfn):
-#                    with open(modelprms_fullfn, 'rb') as f:
-#                        modelprms_dict = pickle.load(f)
-#                    modelprms_dict[pygem_prms.option_calibration] = modelprms_export
-#                else:
-#                    modelprms_dict = {pygem_prms.option_calibration: modelprms_export}
-#                with open(modelprms_fullfn, 'wb') as f:
-#                    pickle.dump(modelprms_dict, f)        
-#                        
-#                if not os.path.exists(modelprms_fp):
-#                    os.makedirs(modelprms_fp, exist_ok=True)
-#                modelprms_fullfn = modelprms_fp + modelprms_fn
-#                if os.path.exists(modelprms_fullfn):
-#                    with open(modelprms_fullfn, 'rb') as f:
-#                        modelprms_dict = pickle.load(f)
-#                    modelprms_dict[pygem_prms.option_calibration] = modelprms_export
-#                else:
-#                    modelprms_dict = {pygem_prms.option_calibration: modelprms_export}
-#                with open(modelprms_fullfn, 'wb') as f:
-#                    pickle.dump(modelprms_dict, f)
-#            
-#
-#            #%% ===== HUSS AND HOCK (2015) CALIBRATION =====
-#            elif pygem_prms.option_calibration == 'HH2015':
-#                tbias_init = pygem_prms.tbias_init
-#                tbias_step = pygem_prms.tbias_step
-#                kp_init = pygem_prms.kp_init
-#                kp_bndlow = pygem_prms.kp_bndlow
-#                kp_bndhigh = pygem_prms.kp_bndhigh
-#                ddfsnow_init = pygem_prms.ddfsnow_init
-#                ddfsnow_bndlow = pygem_prms.ddfsnow_bndlow
-#                ddfsnow_bndhigh = pygem_prms.ddfsnow_bndhigh
-#                
-##                assert pygem_prms.ddfsnow_iceratio == 0.5, 'Error: ddfsnow_iceratio for HH2015 must be 0.5'
-#
-#                # ----- Initialize model parameters -----
-#                modelprms['tbias'] = tbias_init
-#                modelprms['kp'] = kp_init
-#                modelprms['ddfsnow'] = ddfsnow_init
-#                modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                continue_param_search = True
-#                
-#                # ----- FUNCTIONS: COMPUTATIONALLY FASTER AND MORE ROBUST THAN SCIPY MINIMIZE -----
-#                def update_bnds(prm2opt, prm_bndlow, prm_bndhigh, prm_mid, mb_mwea_low, mb_mwea_high, mb_mwea_mid,
-#                                debug=False):
-#                    # If mass balance less than observation, reduce tbias
-#                    if prm2opt == 'kp':
-#                        if mb_mwea_mid < mb_obs_mwea:
-#                            prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
-#                            prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
-#                        else:
-#                            prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
-#                            prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
-#                    elif prm2opt == 'ddfsnow':
-#                        if mb_mwea_mid < mb_obs_mwea:
-#                            prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
-#                            prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
-#                        else:
-#                            prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
-#                            prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
-#                    elif prm2opt == 'tbias':
-#                        if mb_mwea_mid < mb_obs_mwea:
-#                            prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
-#                            prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
-#                        else:
-#                            prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
-#                            prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
-#                    
-#                    prm_mid_new = (prm_bndlow_new + prm_bndhigh_new) / 2
-#                    modelprms[prm2opt] = prm_mid_new
-#                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                    mb_mwea_mid_new = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#
-#                    if debug:
-#                        print(prm2opt + '_bndlow:', np.round(prm_bndlow_new,2), 
-#                              'mb_mwea_low:', np.round(mb_mwea_low_new,2))                        
-#                        print(prm2opt + '_bndhigh:', np.round(prm_bndhigh_new,2), 
-#                              'mb_mwea_high:', np.round(mb_mwea_high_new,2))                        
-#                        print(prm2opt + '_mid:', np.round(prm_mid_new,2), 
-#                              'mb_mwea_mid:', np.round(mb_mwea_mid_new,3))
-#                    
-#                    return (prm_bndlow_new, prm_bndhigh_new, prm_mid_new, 
-#                            mb_mwea_low_new, mb_mwea_high_new, mb_mwea_mid_new)
-#                    
-#                
-#                def single_param_optimizer(modelprms_subset, mb_obs_mwea, prm2opt=None,
-#                                           kp_bnds=None, tbias_bnds=None, ddfsnow_bnds=None,
-#                                           mb_mwea_threshold=0.005, debug=False):
-#                    assert prm2opt is not None, 'For single_param_optimizer you must specify parameter to optimize'
-#               
-#                    if prm2opt == 'kp':
-#                        prm_bndlow = kp_bnds[0]
-#                        prm_bndhigh = kp_bnds[1]
-#                        modelprms['tbias'] = modelprms_subset['tbias']
-#                        modelprms['ddfsnow'] = modelprms_subset['ddfsnow']
-#                    elif prm2opt == 'ddfsnow':
-#                        prm_bndlow = ddfsnow_bnds[0]
-#                        prm_bndhigh = ddfsnow_bnds[1]
-#                        modelprms['kp'] = modelprms_subset['kp']
-#                        modelprms['tbias'] = modelprms_subset['tbias']
-#                    elif prm2opt == 'tbias':
-#                        prm_bndlow = tbias_bnds[0]
-#                        prm_bndhigh = tbias_bnds[1]
-#                        modelprms['kp'] = modelprms_subset['kp']
-#                        modelprms['ddfsnow'] = modelprms_subset['ddfsnow']
-#
-#                    # Lower bound
-#                    modelprms[prm2opt] = prm_bndlow
-#                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                    mb_mwea_low = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    # Upper bound
-#                    modelprms[prm2opt] = prm_bndhigh
-#                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                    mb_mwea_high = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    # Middle bound
-#                    prm_mid = (prm_bndlow + prm_bndhigh) / 2
-#                    modelprms[prm2opt] = prm_mid
-#                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                    mb_mwea_mid = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    
-#                    if debug:
-#                        print(prm2opt + '_bndlow:', np.round(prm_bndlow,2), 'mb_mwea_low:', np.round(mb_mwea_low,2))
-#                        print(prm2opt + '_bndhigh:', np.round(prm_bndhigh,2), 'mb_mwea_high:', np.round(mb_mwea_high,2))
-#                        print(prm2opt + '_mid:', np.round(prm_mid,2), 'mb_mwea_mid:', np.round(mb_mwea_mid,3))
-#                    
-#                    # Optimize the model parameter
-#                    if np.absolute(mb_mwea_low - mb_obs_mwea) <= mb_mwea_threshold:
-#                        modelprms[prm2opt] = prm_bndlow
-#                        mb_mwea_mid = mb_mwea_low
-#                    elif np.absolute(mb_mwea_low - mb_obs_mwea) <= mb_mwea_threshold:
-#                        modelprms[prm2opt] = prm_bndhigh
-#                        mb_mwea_mid = mb_mwea_high
-#                    else:
-#                        ncount = 0
-#                        while np.absolute(mb_mwea_mid - mb_obs_mwea) > mb_mwea_threshold:
-#                            if debug:
-#                                print('\n ncount:', ncount)
-#                            (prm_bndlow, prm_bndhigh, prm_mid, mb_mwea_low, mb_mwea_high, mb_mwea_mid) = (
-#                                    update_bnds(prm2opt, prm_bndlow, prm_bndhigh, prm_mid, 
-#                                                mb_mwea_low, mb_mwea_high, mb_mwea_mid, debug=debug))
-#                            ncount += 1
-#                        
-#                    return modelprms, mb_mwea_mid
-#                
-#                
-#                # ===== ROUND 1: PRECIPITATION FACTOR ======
-#                if debug:
-#                    print('Round 1:')
-#                    
-#                if debug:
-#                    print(glacier_str + '  kp: ' + str(np.round(modelprms['kp'],2)) +
-#                          ' ddfsnow: ' + str(np.round(modelprms['ddfsnow'],4)) +
-#                          ' tbias: ' + str(np.round(modelprms['tbias'],2)))
-#                
-#                # Lower bound
-#                modelprms['kp'] = kp_bndlow
-#                mb_mwea_kp_low = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                # Upper bound
-#                modelprms['kp'] = kp_bndhigh
-#                mb_mwea_kp_high = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                
-#                # Optimal precipitation factor
-#                if mb_obs_mwea < mb_mwea_kp_low:
-#                    kp_opt = kp_bndlow
-#                    mb_mwea = mb_mwea_kp_low
-#                elif mb_obs_mwea > mb_mwea_kp_high:
-#                    kp_opt = kp_bndhigh
-#                    mb_mwea = mb_mwea_kp_high
-#                else:
-#                    # Single parameter optimizer (computationally more efficient and less prone to fail)
-#                    modelprms_subset = {'kp':kp_init, 'ddfsnow': ddfsnow_init, 'tbias': tbias_init}
-#                    kp_bnds = (kp_bndlow, kp_bndhigh)
-#                    modelprms_opt, mb_mwea = single_param_optimizer(
-#                            modelprms_subset, mb_obs_mwea, prm2opt='kp', kp_bnds=kp_bnds, debug=debug)
-#                    kp_opt = modelprms_opt['kp']
-#                    continue_param_search = False
-#                    
-#                # Update parameter values
-#                modelprms['kp'] = kp_opt
-#                if debug:
-#                    print('  kp:', np.round(kp_opt,2), 'mb_mwea:', np.round(mb_mwea,2))
-#
-#                # ===== ROUND 2: DEGREE-DAY FACTOR OF SNOW ======
-#                if continue_param_search:
-#                    if debug:
-#                        print('Round 2:')
-#                    # Lower bound
-#                    modelprms['ddfsnow'] = ddfsnow_bndlow
-#                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                    mb_mwea_ddflow = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    # Upper bound
-#                    modelprms['ddfsnow'] = ddfsnow_bndhigh
-#                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                    mb_mwea_ddfhigh = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    # Optimal degree-day factor of snow
-#                    if mb_obs_mwea < mb_mwea_ddfhigh:
-#                        ddfsnow_opt = ddfsnow_bndhigh
-#                        mb_mwea = mb_mwea_ddfhigh
-#                    elif mb_obs_mwea > mb_mwea_ddflow:
-#                        ddfsnow_opt = ddfsnow_bndlow
-#                        mb_mwea = mb_mwea_ddflow
-#                    else:
-#                        # Single parameter optimizer (computationally more efficient and less prone to fail)
-#                        modelprms_subset = {'kp':kp_opt, 'ddfsnow': ddfsnow_init, 'tbias': tbias_init}
-#                        ddfsnow_bnds = (ddfsnow_bndlow, ddfsnow_bndhigh)
-#                        modelprms_opt, mb_mwea = single_param_optimizer(
-#                                modelprms_subset, mb_obs_mwea, prm2opt='ddfsnow', ddfsnow_bnds=ddfsnow_bnds, debug=debug)
-#                        ddfsnow_opt = modelprms_opt['ddfsnow']
-#                        continue_param_search = False
-#                    # Update parameter values
-#                    modelprms['ddfsnow'] = ddfsnow_opt
-#                    modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                    if debug:
-#                        print('  ddfsnow:', np.round(ddfsnow_opt,4), 'mb_mwea:', np.round(mb_mwea,2))
-#                else:
-#                    ddfsnow_opt = modelprms['ddfsnow']
-#                        
-#                # ===== ROUND 3: TEMPERATURE BIAS ======
-#                if continue_param_search:
-#                    if debug:
-#                        print('Round 3:')
-#                    # ----- TEMPBIAS: max accumulation -----
-#                    # Lower temperature bound based on no positive temperatures
-#                    # Temperature at the lowest bin
-#                    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tbias
-#                    tbias_max_acc = (-1 * (gdir.historical_climate['temp'] + gdir.historical_climate['lr'] *
-#                                     (fls[0].surface_h.min() - gdir.historical_climate['elev'])).max())
-#                    tbias_bndlow = tbias_max_acc
-#                    modelprms['tbias'] = tbias_bndlow
-#                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#
-#                    if debug:
-#                        print('  tbias_bndlow:', np.round(tbias_bndlow,2), 'mb_mwea:', np.round(mb_mwea,2))
-#
-#                    # Upper bound
-#                    while mb_mwea > mb_obs_mwea and modelprms['tbias'] < 20:
-#                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
-#                        mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                        if debug:
-#                            print('  tc:', np.round(modelprms['tbias'],2), 'mb_mwea:', np.round(mb_mwea,2))
-#                        tbias_bndhigh = modelprms['tbias']
-#
-#                    # Single parameter optimizer (computationally more efficient and less prone to fail)
-#                    modelprms_subset = {'kp':kp_opt, 
-#                                        'ddfsnow': ddfsnow_opt, 
-#                                        'tbias': modelprms['tbias'] - tbias_step/2}
-#                    tbias_bnds = (tbias_bndhigh-tbias_step, tbias_bndhigh)
-#                    modelprms_opt, mb_mwea = single_param_optimizer(
-#                            modelprms_subset, mb_obs_mwea, prm2opt='tbias', tbias_bnds=tbias_bnds, debug=debug)
-#                    
-#                    # Update parameter values
-#                    tbias_opt = modelprms_opt['tbias']
-#                    modelprms['tbias'] = tbias_opt
-#                    if debug:
-#                        print('  tbias:', np.round(tbias_opt,3), 'mb_mwea:', np.round(mb_mwea,3))
-#
-#                else:
-#                    tbias_opt = modelprms['tbias']
-#                
-#                    
-#                # Export model parameters
-#                modelprms = modelprms_opt
-#                for vn in ['ddfice', 'ddfsnow', 'kp', 'precgrad', 'tbias', 'tsnow_threshold']:
-#                    modelprms[vn] = [modelprms[vn]]
-#                modelprms['mb_mwea'] = [mb_mwea]
-#                modelprms['mb_obs_mwea'] = [mb_obs_mwea]
-#                modelprms['mb_obs_mwea_err'] = [mb_obs_mwea_err]
-#
-#                modelprms_fn = glacier_str + '-modelprms_dict.pkl'
-#                modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
-#                                + '/')
-#                if not os.path.exists(modelprms_fp):
-#                    os.makedirs(modelprms_fp, exist_ok=True)
-#                modelprms_fullfn = modelprms_fp + modelprms_fn
-#                if os.path.exists(modelprms_fullfn):
-#                    with open(modelprms_fullfn, 'rb') as f:
-#                        modelprms_dict = pickle.load(f)
-#                    modelprms_dict[pygem_prms.option_calibration] = modelprms
-#                else:
-#                    modelprms_dict = {pygem_prms.option_calibration: modelprms}
-#                with open(modelprms_fullfn, 'wb') as f:
-#                    pickle.dump(modelprms_dict, f)
-#                    
-#                    
-#            #%% ===== MODIFIED HUSS AND HOCK (2015) CALIBRATION =====
-#            # used in Rounce et al. (2020; MCMC paper)
-#            # - precipitation factor, then temperature bias (no ddfsnow)
-#            # - ranges different
-#            elif pygem_prms.option_calibration == 'HH2015mod':
-#                tbias_init = pygem_prms.tbias_init
-#                tbias_step = pygem_prms.tbias_step
-#                kp_init = pygem_prms.kp_init
-#                kp_bndlow = pygem_prms.kp_bndlow
-#                kp_bndhigh = pygem_prms.kp_bndhigh
-#                ddfsnow_init = pygem_prms.ddfsnow_init
-#                
-#                # ----- Initialize model parameters -----
-#                modelprms['tbias'] = tbias_init
-#                modelprms['kp'] = kp_init
-#                modelprms['ddfsnow'] = ddfsnow_init
-#                modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                
-#                # ----- FUNCTIONS -----
-#                def objective(modelprms_subset):
-#                    """ Objective function for mass balance data (mimize difference between model and observation).
-#
-#                    Parameters
-#                    ----------
-#                    modelprms_subset : list of model parameters [kp, ddfsnow, tbias]
-#                    """
-#                    # Subset of model parameters used to reduce number of constraints required
-#                    modelprms['kp'] = modelprms_subset[0]
-#                    modelprms['tbias'] = tbias_init
-#                    if len(modelprms_subset) > 1:
-#                        modelprms['tbias'] = modelprms_subset[1]  
-#                    # Mass balance
-#                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    # Difference with observation (mwea)
-#                    mb_dif_mwea_abs = abs(mb_obs_mwea - mb_mwea)
-#                    return mb_dif_mwea_abs
-#
-#
-#                def run_objective(modelprms_init, mb_obs_mwea, modelprms_bnds=None, 
-#                                  run_opt=True, eps_opt=pygem_prms.eps_opt,
-#                                  ftol_opt=pygem_prms.ftol_opt):
-#                    """ Run the optimization for the single glacier objective function.
-#
-#                    Parameters
-#                    ----------
-#                    modelparams_init : list of model parameters to calibrate [kp, ddfsnow, tbias]
-#                    kp_bnds, tbias_bnds, ddfsnow_bnds, precgrad_bnds : tuples (lower & upper bounds)
-#                    run_opt : Boolean statement run optimization or bypass optimization and run with initial parameters
-#
-#                    Returns
-#                    -------
-#                    modelparams : model parameters dict and specific mass balance (mwea)
-#                    """
-#                    # Run the optimization
-#                    if run_opt:
-#                        modelprms_opt = minimize(objective, modelprms_init, method=pygem_prms.method_opt,
-#                                                 bounds=modelprms_bnds, options={'ftol':ftol_opt, 'eps':eps_opt})
-#                        # Record the optimized parameters
-#                        modelprms_subset = modelprms_opt.x
-#                    else:
-#                        modelprms_subset = modelprms.copy()
-#                    modelprms['kp'] = modelprms_subset[0]
-#                    if len(modelprms_subset) == 2:
-#                        modelprms['tbias'] = modelprms_subset[1]                    
-#                    # Re-run the optimized parameters in order to see the mass balance
-#                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    return modelprms, mb_mwea
-#
-#
-#                # ----- Temperature bias bounds -----
-#                tbias_bndhigh = 0
-#                # Tbias lower bound based on no positive temperatures
-#                tbias_bndlow = (-1 * (gdir.historical_climate['temp'] + gdir.historical_climate['lr'] *
-#                                 (fls[0].surface_h.min() - gdir.historical_climate['elev'])).max())
-#                modelprms['tbias'] = tbias_bndlow
-#                mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                if debug:
-#                    print('  tbias_bndlow:', np.round(tbias_bndlow,2), 'mb_mwea:', np.round(mb_mwea,2))
-#                # Tbias upper bound (based on kp_bndhigh)
-#                modelprms['kp'] = kp_bndhigh
-#                
-#                while mb_mwea > mb_obs_mwea and modelprms['tbias'] < 20:
-#                    modelprms['tbias'] = modelprms['tbias'] + 1
-#                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    if debug:
-#                        print('  tc:', np.round(modelprms['tbias'],2), 'mb_mwea:', np.round(mb_mwea,2))
-#                    tbias_bndhigh = modelprms['tbias']
-#
-#                # ===== ROUND 1: PRECIPITATION FACTOR =====
-#                # Adjust bounds based on range of temperature bias
-#                if tbias_init > tbias_bndhigh:
-#                    tbias_init = tbias_bndhigh
-#                elif tbias_init < tbias_bndlow:
-#                    tbias_init = tbias_bndlow
-#                modelprms['tbias'] = tbias_init
-#                modelprms['kp'] = kp_init
-#
-#                tbias_bndlow_opt = tbias_init
-#                tbias_bndhigh_opt = tbias_init
-#
-#                # Constrain bounds of precipitation factor and temperature bias
-#                mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                nbinyears_negmbclim = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
-#                                                   return_tbias_mustmelt=True)
-#
-#                if debug:
-#                    print('\ntbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                          'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
-#
-#                # Adjust lower or upper bound based on the observed mass balance
-#                test_count = 0
-#                if mb_mwea > mb_obs_mwea:
-#                    if debug:
-#                        print('increase tbias, decrease kp')
-#                    kp_bndhigh = 1
-#                    # Check if lower bound causes good agreement
-#                    modelprms['kp'] = kp_bndlow
-#                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    while mb_mwea > mb_obs_mwea and test_count < 20:
-#                        # Update temperature bias
-#                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
-#                        # Update bounds
-#                        tbias_bndhigh_opt = modelprms['tbias']
-#                        tbias_bndlow_opt = modelprms['tbias'] - tbias_step
-#                        # Compute mass balance
-#                        mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                        if debug:
-#                            print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                  'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
-#                        test_count += 1
-#                else:
-#                    if debug:
-#                        print('decrease tbias, increase kp')
-#                    kp_bndlow = 1
-#                    # Check if upper bound causes good agreement
-#                    modelprms['kp'] = kp_bndhigh
-#                    mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                    
-#                    while mb_obs_mwea > mb_mwea and test_count < 20:
-#                        # Update temperature bias
-#                        modelprms['tbias'] = modelprms['tbias'] - tbias_step
-#                        # If temperature bias is at lower limit, then increase precipitation factor
-#                        if modelprms['tbias'] <= tbias_bndlow:
-#                            modelprms['tbias'] = tbias_bndlow
-#                            if test_count > 0:
-#                                kp_bndhigh = kp_bndhigh + 1
-#                                modelprms['kp'] = kp_bndhigh
-#                        # Update bounds (must do after potential correction for lower bound)
-#                        tbias_bndlow_opt = modelprms['tbias']
-#                        tbias_bndhigh_opt = modelprms['tbias'] + tbias_step
-#                        # Compute mass balance
-#                        mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls)
-#                        if debug:
-#                            print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                  'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
-#                        test_count += 1
-#
-#                # ----- RUN OPTIMIZATION WITH CONSTRAINED BOUNDS -----
-#                kp_bnds = (kp_bndlow, kp_bndhigh)
-#                kp_init = kp_init
-#                
-#                tbias_bnds = (tbias_bndlow_opt, tbias_bndhigh_opt)
-#                tbias_init = np.mean([tbias_bndlow_opt, tbias_bndhigh_opt])
-#
-#                if debug:
-#                    print('tbias bounds:', tbias_bnds)
-#                    print('kp bounds:', kp_bnds)
-#                
-#                # Set up optimization for only the precipitation factor
-#                if tbias_bndlow_opt == tbias_bndhigh_opt:
-#                    modelprms_subset = [kp_init]
-#                    modelprms_bnds = (kp_bnds,)
-#                # Set up optimization for precipitation factor and temperature bias
-#                else:
-#                    modelprms_subset = [kp_init, tbias_init]
-#                    modelprms_bnds = (kp_bnds, tbias_bnds)
-#                    
-#                # Run optimization
-#                modelparams_opt, mb_mwea = run_objective(modelprms_subset, mb_obs_mwea, 
-#                                                         modelprms_bnds=modelprms_bnds, ftol_opt=1e-3)
-#
-#                kp_opt = modelparams_opt['kp']
-#                tbias_opt = modelparams_opt['tbias']
-#                if debug:
-#                    print('mb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(mb_obs_mwea,2),
-#                          'kp:', np.round(kp_opt,2), 'tbias:', np.round(tbias_opt,2), '\n\n')
-#
-##                # Epsilon (the amount the variable change to calculate the jacobian) can be too small, which causes
-##                #  the minimization to believe it has reached a local minima and stop. Therefore, adjust epsilon
-##                #  to ensure this is not the case.
-##                eps_opt_new = pygem_prms.eps_opt
-##                nround = 0
-##                while np.absolute(mb_mwea - mb_obs_mwea) > 0.3 and eps_opt_new <= 0.1:
-##                    nround += 1
-##                    if debug:
-##                        print('DIDNT WORK SO TRYING NEW INITIAL CONDITIONS')
-##                        print('  old eps_opt:', eps_opt_new)
-##
-##                    eps_opt_new = eps_opt_new * 10
-##                    if debug:
-##                        print('  new eps_opt:', eps_opt_new)
-##
-##                    modelprms_subset = [kp_init, ddfsnow_init, tbias_init]
-##                    modelparams_opt, mb_mwea = run_objective(modelprms_subset, mb_obs_mwea, kp_bnds=kp_bnds,
-##                                                             tbias_bnds=tbias_bnds, ddfsnow_bnds=ddfsnow_bnds,
-##                                                             ftol_opt=eps_opt_new)
-##                    kp_opt = modelparams_opt['kp']
-##                    tbias_opt = modelparams_opt['tbias']
-##                    if debug:
-##                        print('\nmb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(mb_obs_mwea,2),
-##                              '\nkp:', np.round(kp_opt,2), 'tbias:', np.round(tbias_opt,2), '\n\n')
-#
-#                # Export model parameters
-#                modelprms = modelparams_opt
-#                for vn in ['ddfice', 'ddfsnow', 'kp', 'precgrad', 'tbias', 'tsnow_threshold']:
-#                    modelprms[vn] = [modelprms[vn]]
-#                modelprms['mb_mwea'] = [mb_mwea]
-#                modelprms['mb_obs_mwea'] = [mb_obs_mwea]
-#                modelprms['mb_obs_mwea_err'] = [mb_obs_mwea_err]
-#
-#                modelprms_fn = glacier_str + '-modelprms_dict.pkl'
-#                modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
-#                                + '/')
-#                if not os.path.exists(modelprms_fp):
-#                    os.makedirs(modelprms_fp, exist_ok=True)
-#                modelprms_fullfn = modelprms_fp + modelprms_fn
-#                if os.path.exists(modelprms_fullfn):
-#                    with open(modelprms_fullfn, 'rb') as f:
-#                        modelprms_dict = pickle.load(f)
-#                    modelprms_dict[pygem_prms.option_calibration] = modelprms
-#                else:
-#                    modelprms_dict = {pygem_prms.option_calibration: modelprms}
-#                with open(modelprms_fullfn, 'wb') as f:
-#                    pickle.dump(modelprms_dict, f)
-#                    
-#                    
-#            #%% ===== EMULATOR TO SETUP MCMC ANALYSIS =====
-#            # - precipitation factor, temperature bias, degree-day factor of snow
-#            elif pygem_prms.option_calibration == 'emulator':
-#                tbias_step = pygem_prms.tbias_step
-#                tbias_init = pygem_prms.tbias_init
-#                kp_init = pygem_prms.kp_init
-#                ddfsnow_init = pygem_prms.ddfsnow_init
-#                
-#                # ----- Initialize model parameters -----
-#                modelprms['tbias'] = tbias_init
-#                modelprms['kp'] = kp_init
-#                modelprms['ddfsnow'] = ddfsnow_init
-#                modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                
-#                # Load sims df
-#                sims_fp = pygem_prms.emulator_fp + 'sims/' + glacier_str.split('.')[0].zfill(2) + '/'
-#                sims_fn = glacier_str + '-' + str(pygem_prms.emulator_sims) + '_emulator_sims.csv'
-#                
-#                if not os.path.exists(sims_fp + sims_fn) or pygem_prms.overwrite_em_sims:
-#                    # ----- Temperature bias bounds (ensure reasonable values) -----
-#                    # Tbias lower bound based on some bins having negative climatic mass balance
-#                    tbias_maxacc = (-1 * (gdir.historical_climate['temp'] + gdir.historical_climate['lr'] *
-#                                    (fls[0].surface_h.min() - gdir.historical_climate['elev'])).max())
-#                    modelprms['tbias'] = tbias_maxacc
-#                    nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
-#                                                                return_tbias_mustmelt_wmb=True)
-#                    while nbinyears_negmbclim < 10 and mb_mwea > mb_obs_mwea:
-#                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
-#                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
-#                                                                    return_tbias_mustmelt_wmb=True)
-#                        if debug:
-#                            print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3),
-#                                  'nbinyears_negmbclim:', nbinyears_negmbclim)        
-#                    tbias_stepsmall = 0.05
-#                    while nbinyears_negmbclim > 10:
-#                        modelprms['tbias'] = modelprms['tbias'] - tbias_stepsmall
-#                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
-#                                                                    return_tbias_mustmelt_wmb=True)
-#                        if debug:
-#                            print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3),
-#                                  'nbinyears_negmbclim:', nbinyears_negmbclim)
-#                    # Tbias lower bound 
-#                    tbias_bndlow = modelprms['tbias'] + tbias_stepsmall
-#                    modelprms['tbias'] = tbias_bndlow
-#                    nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
-#                                                                return_tbias_mustmelt_wmb=True)
-#                    output_all = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
-#                                           mb_mwea, nbinyears_negmbclim])
-#                    
-#                    # Tbias lower bound & high precipitation factor
-#                    modelprms['kp'] = stats.gamma.ppf(0.99, pygem_prms.kp_gamma_alpha, scale=1/pygem_prms.kp_gamma_beta)
-#                    nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
-#                                                                return_tbias_mustmelt_wmb=True)
-#                    output_single = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
-#                                              mb_mwea, nbinyears_negmbclim])
-#                    output_all = np.vstack((output_all, output_single))
-#                    
-#                    if debug:
-#                        print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                              'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3))
-#                    
-#                    # Tbias 'mid-point'
-#                    modelprms['kp'] = pygem_prms.kp_init
-#                    ncount_tbias = 0
-#                    tbias_bndhigh = 10
-#                    tbias_middle = tbias_bndlow + tbias_step
-#                    while mb_mwea > mb_obs_mwea and modelprms['tbias'] < 50:
-#                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
-#                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
-#                                                                    return_tbias_mustmelt_wmb=True)
-#                        output_single = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
-#                                                  mb_mwea, nbinyears_negmbclim])
-#                        output_all = np.vstack((output_all, output_single))
-#                        tbias_middle = modelprms['tbias'] - tbias_step / 2
-#                        ncount_tbias += 1
-#                        if debug:
-#                            print(ncount_tbias, 
-#                                  'tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3))
-#                    
-#                    # Tbias upper bound (run for equal amount of steps above the midpoint)
-#                    while ncount_tbias > 0:
-#                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
-#                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
-#                                                                    return_tbias_mustmelt_wmb=True)
-#                        output_single = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
-#                                                  mb_mwea, nbinyears_negmbclim])
-#                        output_all = np.vstack((output_all, output_single))
-#                        tbias_bndhigh = modelprms['tbias']
-#                        ncount_tbias -= 1
-#                        if debug:
-#                            print(ncount_tbias, 
-#                                  'tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3))
-#    
-#                    # ------ RANDOM RUNS -------
-#                    # Temperature bias
-#                    if pygem_prms.tbias_disttype == 'uniform':
-#                        tbias_random = np.random.uniform(low=tbias_bndlow, high=tbias_bndhigh, 
-#                                                         size=pygem_prms.emulator_sims)
-#                    elif pygem_prms.tbias_disttype == 'truncnormal':
-#                        tbias_zlow = (tbias_bndlow - tbias_middle) / pygem_prms.tbias_sigma
-#                        tbias_zhigh = (tbias_bndhigh - tbias_middle) / pygem_prms.tbias_sigma
-#                        tbias_random = stats.truncnorm.rvs(a=tbias_zlow, b=tbias_zhigh, loc=tbias_middle,
-#                                                           scale=pygem_prms.tbias_sigma, size=pygem_prms.emulator_sims)
-#                    if debug:
-#                        print('\ntbias random:', tbias_random.mean(), tbias_random.std())
-#                    
-#                    # Precipitation factor
-#                    kp_random = stats.gamma.rvs(pygem_prms.kp_gamma_alpha, scale=1/pygem_prms.kp_gamma_beta, 
-#                                                size=pygem_prms.emulator_sims)
-#                    if debug:
-#                        print('kp random:', kp_random.mean(), kp_random.std())
-#                    
-#                    # Degree-day factor of snow
-#                    ddfsnow_zlow = (pygem_prms.ddfsnow_bndlow - pygem_prms.ddfsnow_mu) / pygem_prms.ddfsnow_sigma
-#                    ddfsnow_zhigh = (pygem_prms.ddfsnow_bndhigh - pygem_prms.ddfsnow_mu) / pygem_prms.ddfsnow_sigma
-#                    ddfsnow_random = stats.truncnorm.rvs(a=ddfsnow_zlow, b=ddfsnow_zhigh, loc=pygem_prms.ddfsnow_mu,
-#                                                         scale=pygem_prms.ddfsnow_sigma, size=pygem_prms.emulator_sims)
-#                    if debug:    
-#                        print('ddfsnow random:', ddfsnow_random.mean(), ddfsnow_random.std(),'\n')
-#                    
-#                    # Run through random values
-#                    for nsim in range(pygem_prms.emulator_sims):
-#                        modelprms['tbias'] = tbias_random[nsim]
-#                        modelprms['kp'] = kp_random[nsim]
-#                        modelprms['ddfsnow'] = ddfsnow_random[nsim]
-#                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
-#                                                                    return_tbias_mustmelt_wmb=True)
-#                        
-#                        
-#                        output_single = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
-#                                                  mb_mwea, nbinyears_negmbclim])
-#                        output_all = np.vstack((output_all, output_single))
-#                        if debug and nsim%500 == 0:
-#                            print(nsim, 'tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3))
-#                    
-#                    # ----- Export results -----
-#                    sims_df = pd.DataFrame(output_all, columns=['tbias', 'kp', 'ddfsnow', 'mb_mwea', 
-#                                                                'nbinyrs_negmbclim'])
-#                    if os.path.exists(sims_fp) == False:
-#                        os.makedirs(sims_fp, exist_ok=True)
-#                    sims_df.to_csv(sims_fp + sims_fn, index=False)
-#                
-#                else:
-#                    # Load simulations
-#                    sims_df = pd.read_csv(sims_fp + sims_fn)
-#
-#                # ----- EMULATOR: Mass balance -----
-#                em_mod_fn = glacier_str + '-emulator-mb_mwea.pth'
-#                em_mod_fp = pygem_prms.emulator_fp + 'models/' + glacier_str.split('.')[0].zfill(2) + '/'
-#                if not os.path.exists(em_mod_fp + em_mod_fn):
-#                    (X_train, X_mean, X_std, y_train, y_mean, y_std, likelihood, model) = (
-#                            create_emulator(glacier_str, sims_df, y_cn='mb_mwea'))
-#                else:
-#                    # ----- LOAD EMULATOR -----
-#                    state_dict = torch.load(em_mod_fp + em_mod_fn)
-#                    
-#                    emulator_extra_fn = em_mod_fn.replace('.pth','_extra.pkl')
-#                    with open(em_mod_fp + emulator_extra_fn, 'rb') as f:
-#                        emulator_extra_dict = pickle.load(f)
-#                        
-#                    X_train = emulator_extra_dict['X_train']
-#                    X_mean = emulator_extra_dict['X_mean']
-#                    X_std = emulator_extra_dict['X_std']
-#                    y_train = emulator_extra_dict['y_train']
-#                    y_mean = emulator_extra_dict['y_mean']
-#                    y_std = emulator_extra_dict['y_std']
-#                    
-#                    # initialize likelihood and model
-#                    likelihood = gpytorch.likelihoods.GaussianLikelihood()
-#                    
-#                    # Create a new GP model
-#                    model = ExactGPModel(X_train, y_train, likelihood)  
-#                    model.load_state_dict(state_dict)
-#                    model.eval()
-#                    
-#
-#                # ===== HH2015 MODIFIED CALIBRATION USING EMULATOR =====
-#                if pygem_prms.opt_hh2015_mod:
-#                    tbias_init = pygem_prms.tbias_init
-#                    tbias_step = pygem_prms.tbias_step
-#                    kp_init = pygem_prms.kp_init
-#                    kp_bndlow = pygem_prms.kp_bndlow
-#                    kp_bndhigh = pygem_prms.kp_bndhigh
-#                    ddfsnow_init = pygem_prms.ddfsnow_init
-#
-#                    # ----- FUNCTIONS -----
-#                    def run_emulator_mb(modelprms):
-#                        """ Run the emulator
-#                        """
-#                        modelprms_1d_norm = ((np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow']]) - 
-#                                              X_mean) / X_std)                    
-#                        modelprms_2d_norm = modelprms_1d_norm.reshape(1,3)
-#                        mb_mwea_norm = model(torch.tensor(modelprms_2d_norm).to(torch.float)).mean.detach().numpy()[0]
-#                        mb_mwea = mb_mwea_norm * y_std + y_mean
-#                        return mb_mwea
-#                    
-#
-#                    # ----- FUNCTIONS: COMPUTATIONALLY FASTER AND MORE ROBUST THAN SCIPY MINIMIZE -----
-#                    def update_bnds(prm2opt, prm_bndlow, prm_bndhigh, prm_mid, mb_mwea_low, mb_mwea_high, mb_mwea_mid,
-#                                    debug=False):
-#                        """ Update bounds for various parameters for the single_param_optimizer """
-#                        # If mass balance less than observation, reduce tbias
-#                        if prm2opt == 'kp':
-#                            if mb_mwea_mid < mb_obs_mwea:
-#                                prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
-#                                prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
-#                            else:
-#                                prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
-#                                prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
-#                        elif prm2opt == 'ddfsnow':
-#                            if mb_mwea_mid < mb_obs_mwea:
-#                                prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
-#                                prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
-#                            else:
-#                                prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
-#                                prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
-#                        elif prm2opt == 'tbias':
-#                            if mb_mwea_mid < mb_obs_mwea:
-#                                prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
-#                                prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
-#                            else:
-#                                prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
-#                                prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
-#                        
-#                        prm_mid_new = (prm_bndlow_new + prm_bndhigh_new) / 2
-#                        modelprms[prm2opt] = prm_mid_new
-#                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                        mb_mwea_mid_new = run_emulator_mb(modelprms)
-#    
-#                        if debug:
-#                            print(prm2opt + '_bndlow:', np.round(prm_bndlow_new,2), 
-#                                  'mb_mwea_low:', np.round(mb_mwea_low_new,2))                        
-#                            print(prm2opt + '_bndhigh:', np.round(prm_bndhigh_new,2), 
-#                                  'mb_mwea_high:', np.round(mb_mwea_high_new,2))                        
-#                            print(prm2opt + '_mid:', np.round(prm_mid_new,2), 
-#                                  'mb_mwea_mid:', np.round(mb_mwea_mid_new,3))
-#                        
-#                        return (prm_bndlow_new, prm_bndhigh_new, prm_mid_new, 
-#                                mb_mwea_low_new, mb_mwea_high_new, mb_mwea_mid_new)
-#                        
-#                        
-#                    def single_param_optimizer(modelprms_subset, mb_obs_mwea, prm2opt=None,
-#                                               kp_bnds=None, tbias_bnds=None, ddfsnow_bnds=None,
-#                                               mb_mwea_threshold=0.005, debug=False):
-#                        """ Single parameter optimizer based on a mid-point approach 
-#                        
-#                        Computationally more robust and sometimes faster than scipy minimize
-#                        """
-#                        assert prm2opt is not None, 'For single_param_optimizer you must specify parameter to optimize'
-#                   
-#                        if prm2opt == 'kp':
-#                            prm_bndlow = kp_bnds[0]
-#                            prm_bndhigh = kp_bnds[1]
-#                            modelprms['tbias'] = modelprms_subset['tbias']
-#                            modelprms['ddfsnow'] = modelprms_subset['ddfsnow']
-#                        elif prm2opt == 'ddfsnow':
-#                            prm_bndlow = ddfsnow_bnds[0]
-#                            prm_bndhigh = ddfsnow_bnds[1]
-#                            modelprms['kp'] = modelprms_subset['kp']
-#                            modelprms['tbias'] = modelprms_subset['tbias']
-#                        elif prm2opt == 'tbias':
-#                            prm_bndlow = tbias_bnds[0]
-#                            prm_bndhigh = tbias_bnds[1]
-#                            modelprms['kp'] = modelprms_subset['kp']
-#                            modelprms['ddfsnow'] = modelprms_subset['ddfsnow']
-#    
-#                        # Lower bound
-#                        modelprms[prm2opt] = prm_bndlow
-#                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                        mb_mwea_low = run_emulator_mb(modelprms)
-#                        # Upper bound
-#                        modelprms[prm2opt] = prm_bndhigh
-#                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                        mb_mwea_high = run_emulator_mb(modelprms)
-#                        # Middle bound
-#                        prm_mid = (prm_bndlow + prm_bndhigh) / 2
-#                        modelprms[prm2opt] = prm_mid
-#                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
-#                        mb_mwea_mid = run_emulator_mb(modelprms)
-#                        
-#                        if debug:
-#                            print(prm2opt + '_bndlow:', np.round(prm_bndlow,2), 'mb_mwea_low:', np.round(mb_mwea_low,2))
-#                            print(prm2opt + '_bndhigh:', np.round(prm_bndhigh,2), 'mb_mwea_high:', np.round(mb_mwea_high,2))
-#                            print(prm2opt + '_mid:', np.round(prm_mid,2), 'mb_mwea_mid:', np.round(mb_mwea_mid,3))
-#                        
-#                        # Optimize the model parameter
-#                        if np.absolute(mb_mwea_low - mb_obs_mwea) <= mb_mwea_threshold:
-#                            modelprms[prm2opt] = prm_bndlow
-#                            mb_mwea_mid = mb_mwea_low
-#                        elif np.absolute(mb_mwea_low - mb_obs_mwea) <= mb_mwea_threshold:
-#                            modelprms[prm2opt] = prm_bndhigh
-#                            mb_mwea_mid = mb_mwea_high
-#                        else:
-#                            ncount = 0
-#                            while np.absolute(mb_mwea_mid - mb_obs_mwea) > mb_mwea_threshold:
-#                                if debug:
-#                                    print('\n ncount:', ncount)
-#                                (prm_bndlow, prm_bndhigh, prm_mid, mb_mwea_low, mb_mwea_high, mb_mwea_mid) = (
-#                                        update_bnds(prm2opt, prm_bndlow, prm_bndhigh, prm_mid, 
-#                                                    mb_mwea_low, mb_mwea_high, mb_mwea_mid, debug=debug))
-#                                ncount += 1
-#                            
-#                        return modelprms, mb_mwea_mid
-#
-#
-#                    # ===== SET THINGS UP ======
-#                    if debug:
-#                        sims_df['mb_em'] = np.nan
-#                        for nidx in sims_df.index.values:
-#                            modelprms['tbias'] = sims_df.loc[nidx,'tbias']
-#                            modelprms['kp'] = sims_df.loc[nidx,'kp']
-#                            modelprms['ddfsnow'] = sims_df.loc[nidx,'ddfsnow']
-#                            sims_df.loc[nidx,'mb_em'] = run_emulator_mb(modelprms)
-#                        sims_df['mb_em_dif'] = sims_df['mb_em'] - sims_df['mb_mwea'] 
-#                    
-#                    # ----- TEMPERATURE BIAS BOUNDS -----
-#                    # Selects from emulator sims dataframe
-#                    sims_df_subset = sims_df.loc[sims_df['kp']==1, :]
-#                    tbias_bndhigh = sims_df_subset['tbias'].max()
-#                    tbias_bndlow = sims_df_subset['tbias'].min()
-#                    
-#                    # Adjust tbias_init based on bounds
-#                    if tbias_init > tbias_bndhigh:
-#                        tbias_init = tbias_bndhigh
-#                    elif tbias_init < tbias_bndlow:
-#                        tbias_init = tbias_bndlow
-#                        
-#                    # ----- Mass balance bounds -----
-#                    # Upper bound
-#                    modelprms['kp'] = kp_bndhigh
-#                    modelprms['tbias'] = tbias_bndlow
-#                    modelprms['ddfsnow'] = ddfsnow_init
-#                    mb_mwea_bndhigh = run_emulator_mb(modelprms)
-#                    # Lower bound
-#                    modelprms['kp'] = kp_bndlow
-#                    modelprms['tbias'] = tbias_bndhigh
-#                    modelprms['ddfsnow'] = ddfsnow_init
-#                    mb_mwea_bndlow = run_emulator_mb(modelprms)
-#                    if debug:
-#                        print('mb_mwea_max:', np.round(mb_mwea_bndhigh,2),
-#                              'mb_mwea_min:', np.round(mb_mwea_bndlow,2))
-#
-#                    if mb_obs_mwea > mb_mwea_bndhigh:
-#                        continue_param_search = False
-#                        tbias_opt = tbias_bndlow
-#                        kp_opt= kp_bndhigh
-#                        troubleshoot_fp = (pygem_prms.output_filepath + 'errors/' + 
-#                                           pygem_prms.option_calibration + '/' + 
-#                                           glacier_str.split('.')[0].zfill(2) + '/')
-#                        if not os.path.exists(troubleshoot_fp):
-#                            os.makedirs(troubleshoot_fp, exist_ok=True)
-#                        txt_fn_extrapfail = glacier_str + "-mbs_obs_outside_bnds.txt"
-#                        with open(troubleshoot_fp + txt_fn_extrapfail, "w") as text_file:
-#                            text_file.write(glacier_str + ' observed mass balance exceeds max accumulation ' +
-#                                            'with value of ' + str(np.round(mb_obs_mwea,2)) + ' mwea')
-#                        
-#                    elif mb_obs_mwea < mb_mwea_bndlow:
-#                        continue_param_search = False
-#                        tbias_opt = tbias_bndhigh
-#                        kp_opt= kp_bndlow
-#                        troubleshoot_fp = (pygem_prms.output_filepath + 'errors/' + 
-#                                           pygem_prms.option_calibration + '/' + 
-#                                           glacier_str.split('.')[0].zfill(2) + '/')
-#                        if not os.path.exists(troubleshoot_fp):
-#                            os.makedirs(troubleshoot_fp, exist_ok=True)
-#                        txt_fn_extrapfail = glacier_str + "-mbs_obs_outside_bnds.txt"
-#                        with open(troubleshoot_fp + txt_fn_extrapfail, "w") as text_file:
-#                            text_file.write(glacier_str + ' observed mass balance below max loss ' +
-#                                            'with value of ' + str(np.round(mb_obs_mwea,2)) + ' mwea')
-#                    else:
-#                        continue_param_search = True
-#                        
-#                        # ===== ADJUST LOWER AND UPPER BOUNDS TO SET UP OPTIMIZATION ======
-#                        # Initialize model parameters
-#                        modelprms['tbias'] = tbias_init
-#                        modelprms['kp'] = kp_init
-#                        modelprms['ddfsnow'] = ddfsnow_init
-#                        
-#                        test_count = 0
-#                        mb_mwea = run_emulator_mb(modelprms)
-#                        if mb_mwea > mb_obs_mwea:
-#                            if debug:
-#                                print('increase tbias, decrease kp')
-#                            kp_bndhigh = 1
-#                            # Check if lower bound causes good agreement
-#                            modelprms['kp'] = kp_bndlow
-#                            mb_mwea = run_emulator_mb(modelprms)
-#                            if debug:
-#                                    print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                          'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
-#                            while mb_mwea > mb_obs_mwea and test_count < 100:
-#                                # Update temperature bias
-#                                modelprms['tbias'] = modelprms['tbias'] + tbias_step
-#                                # Update bounds
-#                                tbias_bndhigh_opt = modelprms['tbias']
-#                                tbias_bndlow_opt = modelprms['tbias'] - tbias_step
-#                                # Compute mass balance
-#                                mb_mwea = run_emulator_mb(modelprms)
-#                                if debug:
-#                                    print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                          'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
-#                                test_count += 1
-#                        else:
-#                            if debug:
-#                                print('decrease tbias, increase kp')
-#                            kp_bndlow = 1
-#                            # Check if upper bound causes good agreement
-#                            modelprms['kp'] = kp_bndhigh
-#                            mb_mwea = run_emulator_mb(modelprms)
-#                            while mb_obs_mwea > mb_mwea and test_count < 100:
-#                                # Update temperature bias
-#                                modelprms['tbias'] = modelprms['tbias'] - tbias_step
-#                                # If temperature bias is at lower limit, then increase precipitation factor
-#                                if modelprms['tbias'] <= tbias_bndlow:
-#                                    modelprms['tbias'] = tbias_bndlow
-#                                    if test_count > 0:
-#                                        kp_bndhigh = kp_bndhigh + 1
-#                                        modelprms['kp'] = kp_bndhigh
-#                                # Update bounds (must do after potential correction for lower bound)
-#                                tbias_bndlow_opt = modelprms['tbias']
-#                                tbias_bndhigh_opt = modelprms['tbias'] + tbias_step
-#                                # Compute mass balance
-#                                mb_mwea = run_emulator_mb(modelprms)
-#                                if debug:
-#                                    print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
-#                                          'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
-#                                test_count += 1
-#                    
-#                        # ===== ROUND 1: PRECIPITATION FACTOR ======    
-#                        if debug:
-#                            print('Round 1:')
-#                            print(glacier_str + '  kp: ' + str(np.round(modelprms['kp'],2)) +
-#                                  ' ddfsnow: ' + str(np.round(modelprms['ddfsnow'],4)) +
-#                                  ' tbias: ' + str(np.round(modelprms['tbias'],2)))
-#                        
-#                        # Reset parameters
-#                        modelprms['tbias'] = tbias_init
-#                        modelprms['kp'] = kp_init
-#                        modelprms['ddfsnow'] = ddfsnow_init
-#                        
-#                        # Lower bound
-#                        modelprms['kp'] = kp_bndlow
-#                        mb_mwea_kp_low = run_emulator_mb(modelprms)
-#                        # Upper bound
-#                        modelprms['kp'] = kp_bndhigh
-#                        mb_mwea_kp_high = run_emulator_mb(modelprms)
-#                        
-#                        # Optimal precipitation factor
-#                        if mb_obs_mwea < mb_mwea_kp_low:
-#                            kp_opt = kp_bndlow
-#                            mb_mwea = mb_mwea_kp_low
-#                        elif mb_obs_mwea > mb_mwea_kp_high:
-#                            kp_opt = kp_bndhigh
-#                            mb_mwea = mb_mwea_kp_high
-#                        else:
-#                            # Single parameter optimizer (computationally more efficient and less prone to fail)
-#                            modelprms_subset = {'kp':kp_init, 'ddfsnow': ddfsnow_init, 'tbias': tbias_init}
-#                            kp_bnds = (kp_bndlow, kp_bndhigh)
-#                            modelprms_opt, mb_mwea = single_param_optimizer(
-#                                    modelprms_subset, mb_obs_mwea, prm2opt='kp', kp_bnds=kp_bnds, debug=debug)
-#                            kp_opt = modelprms_opt['kp']
-#                            continue_param_search = False
-#                            
-#                        # Update parameter values
-#                        modelprms['kp'] = kp_opt
-#                        if debug:
-#                            print('  kp:', np.round(kp_opt,2), 'mb_mwea:', np.round(mb_mwea,3), 
-#                                  'obs_mwea:', np.round(mb_obs_mwea,3))
-#                                
-#                        # ===== ROUND 2: TEMPERATURE BIAS ======
-#                        if continue_param_search:
-#                            if debug:
-#                                print('Round 2:')    
-#                            # Single parameter optimizer (computationally more efficient and less prone to fail)
-#                            modelprms_subset = {'kp':kp_opt, 'ddfsnow': ddfsnow_init, 
-#                                                'tbias': np.mean([tbias_bndlow_opt, tbias_bndhigh_opt])}
-#                            tbias_bnds = (tbias_bndlow_opt, tbias_bndhigh_opt)
-#                            modelprms_opt, mb_mwea = single_param_optimizer(
-#                                    modelprms_subset, mb_obs_mwea, prm2opt='tbias', tbias_bnds=tbias_bnds, debug=debug)
-#                            
-#                            # Update parameter values
-#                            tbias_opt = modelprms_opt['tbias']
-#                            modelprms['tbias'] = tbias_opt
-#                            if debug:
-#                                print('  tbias:', np.round(tbias_opt,3), 'mb_mwea:', np.round(mb_mwea,3), 
-#                                      'obs_mwea:', np.round(mb_obs_mwea,3))
-#        
-#                        else:
-#                            tbias_opt = modelprms['tbias']
-#                        
-#                        
-#                        if debug:
-#                            print('\n\ntbias:', np.round(tbias_opt,2), 'kp:', np.round(kp_opt,2),
-#                                  'mb_mwea:', np.round(mb_mwea,3), 'obs_mwea:', np.round(mb_obs_mwea,3), '\n\n')
-#                    
-#                    modelparams_opt = modelprms
-#                    modelparams_opt['kp'] = kp_opt
-#                    modelparams_opt['tbias'] = tbias_opt
-#                    
-#                    # Export model parameters
-#                    modelprms = modelparams_opt
-#                    for vn in ['ddfice', 'ddfsnow', 'kp', 'precgrad', 'tbias', 'tsnow_threshold']:
-#                        modelprms[vn] = [modelprms[vn]]
-#                    modelprms['mb_mwea'] = [mb_mwea]
-#                    modelprms['mb_obs_mwea'] = [mb_obs_mwea]
-#                    modelprms['mb_obs_mwea_err'] = [mb_obs_mwea_err]
-#                    
-#                    modelprms_fn = glacier_str + '-modelprms_dict.pkl'
-#                    modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
-#                                    + '/')
-#                    if not os.path.exists(modelprms_fp):
-#                        os.makedirs(modelprms_fp, exist_ok=True)
-#                    modelprms_fullfn = modelprms_fp + modelprms_fn
-#                    if os.path.exists(modelprms_fullfn):
-#                        with open(modelprms_fullfn, 'rb') as f:
-#                            modelprms_dict = pickle.load(f)
-#                        modelprms_dict[pygem_prms.option_calibration] = modelprms
-#                    else:
-#                        modelprms_dict = {pygem_prms.option_calibration: modelprms}
-#                    with open(modelprms_fullfn, 'wb') as f:
-#                        pickle.dump(modelprms_dict, f)
-#                             
+#                        print('\nmb_mwea:', np.round(mb_mwea,2), 'obs_mb:', np.round(mb_obs_mwea,2),
+#                              '\nkp:', np.round(kp_opt,2), 'tbias:', np.round(tbias_opt,2), '\n\n')
+
+                # Export model parameters
+                modelprms = modelparams_opt
+                for vn in ['ddfice', 'ddfsnow', 'kp', 'precgrad', 'tbias', 'tsnow_threshold']:
+                    modelprms[vn] = [modelprms[vn]]
+                modelprms['mb_mwea'] = [mb_mwea]
+                modelprms['mb_obs_mwea'] = [mb_obs_mwea]
+                modelprms['mb_obs_mwea_err'] = [mb_obs_mwea_err]
+
+                modelprms_fn = glacier_str + '-modelprms_dict.pkl'
+                modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
+                                + '/')
+                if not os.path.exists(modelprms_fp):
+                    os.makedirs(modelprms_fp, exist_ok=True)
+                modelprms_fullfn = modelprms_fp + modelprms_fn
+                if os.path.exists(modelprms_fullfn):
+                    with open(modelprms_fullfn, 'rb') as f:
+                        modelprms_dict = pickle.load(f)
+                    modelprms_dict[pygem_prms.option_calibration] = modelprms
+                else:
+                    modelprms_dict = {pygem_prms.option_calibration: modelprms}
+                with open(modelprms_fullfn, 'wb') as f:
+                    pickle.dump(modelprms_dict, f)
+                    
+                    
+            #%% ===== EMULATOR TO SETUP MCMC ANALYSIS =====
+            # - precipitation factor, temperature bias, degree-day factor of snow
+            elif pygem_prms.option_calibration == 'emulator':
+                tbias_step = pygem_prms.tbias_step
+                tbias_init = pygem_prms.tbias_init
+                kp_init = pygem_prms.kp_init
+                ddfsnow_init = pygem_prms.ddfsnow_init
+                
+                # ----- Initialize model parameters -----
+                modelprms['tbias'] = tbias_init
+                modelprms['kp'] = kp_init
+                modelprms['ddfsnow'] = ddfsnow_init
+                modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                
+                # Load sims df
+                sims_fp = pygem_prms.emulator_fp + 'sims/' + glacier_str.split('.')[0].zfill(2) + '/'
+                sims_fn = glacier_str + '-' + str(pygem_prms.emulator_sims) + '_emulator_sims.csv'
+                
+                if not os.path.exists(sims_fp + sims_fn) or pygem_prms.overwrite_em_sims:
+                    # ----- Temperature bias bounds (ensure reasonable values) -----
+                    # Tbias lower bound based on some bins having negative climatic mass balance
+                    tbias_maxacc = (-1 * (gdir.historical_climate['temp'] + gdir.historical_climate['lr'] *
+                                    (fls[0].surface_h.min() - gdir.historical_climate['elev'])).max())
+                    modelprms['tbias'] = tbias_maxacc
+                    nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                                return_tbias_mustmelt_wmb=True)
+                    while nbinyears_negmbclim < 10 or mb_mwea > mb_obs_mwea:
+                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
+                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                                    return_tbias_mustmelt_wmb=True)
+                        if debug:
+                            print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3),
+                                  'nbinyears_negmbclim:', nbinyears_negmbclim)        
+                    tbias_stepsmall = 0.05
+                    while nbinyears_negmbclim > 10:
+                        modelprms['tbias'] = modelprms['tbias'] - tbias_stepsmall
+                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                                    return_tbias_mustmelt_wmb=True)
+                        if debug:
+                            print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3),
+                                  'nbinyears_negmbclim:', nbinyears_negmbclim)
+                    # Tbias lower bound 
+                    tbias_bndlow = modelprms['tbias'] + tbias_stepsmall
+                    modelprms['tbias'] = tbias_bndlow
+                    nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                                return_tbias_mustmelt_wmb=True)
+                    output_all = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
+                                           mb_mwea, nbinyears_negmbclim])
+                    
+                    # Tbias lower bound & high precipitation factor
+                    modelprms['kp'] = stats.gamma.ppf(0.99, pygem_prms.kp_gamma_alpha, scale=1/pygem_prms.kp_gamma_beta)
+                    nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                                return_tbias_mustmelt_wmb=True)
+                    output_single = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
+                                              mb_mwea, nbinyears_negmbclim])
+                    output_all = np.vstack((output_all, output_single))
+                    
+                    if debug:
+                        print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                              'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3))
+
+                    # Tbias 'mid-point'
+                    modelprms['kp'] = pygem_prms.kp_init
+                    ncount_tbias = 0
+                    tbias_bndhigh = 10
+                    tbias_middle = tbias_bndlow + tbias_step
+                    while mb_mwea > mb_obs_mwea and modelprms['tbias'] < 50:
+                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
+                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                                    return_tbias_mustmelt_wmb=True)
+                        output_single = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
+                                                  mb_mwea, nbinyears_negmbclim])
+                        output_all = np.vstack((output_all, output_single))
+                        tbias_middle = modelprms['tbias'] - tbias_step / 2
+                        ncount_tbias += 1
+                        if debug:
+                            print(ncount_tbias, 
+                                  'tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3))
+                    
+                    # Tbias upper bound (run for equal amount of steps above the midpoint)
+                    while ncount_tbias > 0:
+                        modelprms['tbias'] = modelprms['tbias'] + tbias_step
+                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                                    return_tbias_mustmelt_wmb=True)
+                        output_single = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
+                                                  mb_mwea, nbinyears_negmbclim])
+                        output_all = np.vstack((output_all, output_single))
+                        tbias_bndhigh = modelprms['tbias']
+                        ncount_tbias -= 1
+                        if debug:
+                            print(ncount_tbias, 
+                                  'tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3))
+    
+                    # ------ RANDOM RUNS -------
+                    # Temperature bias
+                    if pygem_prms.tbias_disttype == 'uniform':
+                        tbias_random = np.random.uniform(low=tbias_bndlow, high=tbias_bndhigh, 
+                                                         size=pygem_prms.emulator_sims)
+                    elif pygem_prms.tbias_disttype == 'truncnormal':
+                        tbias_zlow = (tbias_bndlow - tbias_middle) / pygem_prms.tbias_sigma
+                        tbias_zhigh = (tbias_bndhigh - tbias_middle) / pygem_prms.tbias_sigma
+                        tbias_random = stats.truncnorm.rvs(a=tbias_zlow, b=tbias_zhigh, loc=tbias_middle,
+                                                           scale=pygem_prms.tbias_sigma, size=pygem_prms.emulator_sims)
+                    if debug:
+                        print('\ntbias random:', tbias_random.mean(), tbias_random.std())
+                    
+                    # Precipitation factor
+                    kp_random = stats.gamma.rvs(pygem_prms.kp_gamma_alpha, scale=1/pygem_prms.kp_gamma_beta, 
+                                                size=pygem_prms.emulator_sims)
+                    if debug:
+                        print('kp random:', kp_random.mean(), kp_random.std())
+                    
+                    # Degree-day factor of snow
+                    ddfsnow_zlow = (pygem_prms.ddfsnow_bndlow - pygem_prms.ddfsnow_mu) / pygem_prms.ddfsnow_sigma
+                    ddfsnow_zhigh = (pygem_prms.ddfsnow_bndhigh - pygem_prms.ddfsnow_mu) / pygem_prms.ddfsnow_sigma
+                    ddfsnow_random = stats.truncnorm.rvs(a=ddfsnow_zlow, b=ddfsnow_zhigh, loc=pygem_prms.ddfsnow_mu,
+                                                         scale=pygem_prms.ddfsnow_sigma, size=pygem_prms.emulator_sims)
+                    if debug:    
+                        print('ddfsnow random:', ddfsnow_random.mean(), ddfsnow_random.std(),'\n')
+                    
+                    # Run through random values
+                    for nsim in range(pygem_prms.emulator_sims):
+                        modelprms['tbias'] = tbias_random[nsim]
+                        modelprms['kp'] = kp_random[nsim]
+                        modelprms['ddfsnow'] = ddfsnow_random[nsim]
+                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                        nbinyears_negmbclim, mb_mwea = mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=fls,
+                                                                    return_tbias_mustmelt_wmb=True)
+                        
+                        
+                        output_single = np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow'], 
+                                                  mb_mwea, nbinyears_negmbclim])
+                        output_all = np.vstack((output_all, output_single))
+                        if debug and nsim%500 == 0:
+                            print(nsim, 'tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                  'ddfsnow:', np.round(modelprms['ddfsnow'],4), 'mb_mwea:', np.round(mb_mwea,3))
+                    
+                    # ----- Export results -----
+                    sims_df = pd.DataFrame(output_all, columns=['tbias', 'kp', 'ddfsnow', 'mb_mwea', 
+                                                                'nbinyrs_negmbclim'])
+                    if os.path.exists(sims_fp) == False:
+                        os.makedirs(sims_fp, exist_ok=True)
+                    sims_df.to_csv(sims_fp + sims_fn, index=False)
+                
+                else:
+                    # Load simulations
+                    sims_df = pd.read_csv(sims_fp + sims_fn)
+
+                # ----- EMULATOR: Mass balance -----
+                em_mod_fn = glacier_str + '-emulator-mb_mwea.pth'
+                em_mod_fp = pygem_prms.emulator_fp + 'models/' + glacier_str.split('.')[0].zfill(2) + '/'
+                if not os.path.exists(em_mod_fp + em_mod_fn):
+                    (X_train, X_mean, X_std, y_train, y_mean, y_std, likelihood, model) = (
+                            create_emulator(glacier_str, sims_df, y_cn='mb_mwea'))
+                else:
+                    # ----- LOAD EMULATOR -----
+                    # This is required for the supercomputer such that resources aren't stolen from other cpus
+#                    torch.set_num_threads = 1
+                    torch.set_num_threads(1)
+    
+                    state_dict = torch.load(em_mod_fp + em_mod_fn)
+                    
+                    emulator_extra_fn = em_mod_fn.replace('.pth','_extra.pkl')
+                    with open(em_mod_fp + emulator_extra_fn, 'rb') as f:
+                        emulator_extra_dict = pickle.load(f)
+                        
+                    X_train = emulator_extra_dict['X_train']
+                    X_mean = emulator_extra_dict['X_mean']
+                    X_std = emulator_extra_dict['X_std']
+                    y_train = emulator_extra_dict['y_train']
+                    y_mean = emulator_extra_dict['y_mean']
+                    y_std = emulator_extra_dict['y_std']
+                    
+                    # initialize likelihood and model
+                    likelihood = gpytorch.likelihoods.GaussianLikelihood()
+                    
+                    # Create a new GP model
+                    model = ExactGPModel(X_train, y_train, likelihood)  
+                    model.load_state_dict(state_dict)
+                    model.eval()
+                    
+
+                # ===== HH2015 MODIFIED CALIBRATION USING EMULATOR =====
+                if pygem_prms.opt_hh2015_mod:
+                    tbias_init = pygem_prms.tbias_init
+                    tbias_step = pygem_prms.tbias_step
+                    kp_init = pygem_prms.kp_init
+                    kp_bndlow = pygem_prms.kp_bndlow
+                    kp_bndhigh = pygem_prms.kp_bndhigh
+                    ddfsnow_init = pygem_prms.ddfsnow_init
+
+                    # ----- FUNCTIONS -----
+                    def run_emulator_mb(modelprms):
+                        """ Run the emulator
+                        """
+                        modelprms_1d_norm = ((np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow']]) - 
+                                              X_mean) / X_std)                    
+                        modelprms_2d_norm = modelprms_1d_norm.reshape(1,3)
+                        mb_mwea_norm = model(torch.tensor(modelprms_2d_norm).to(torch.float)).mean.detach().numpy()[0]
+                        mb_mwea = mb_mwea_norm * y_std + y_mean
+                        return mb_mwea
+                    
+
+                    # ----- FUNCTIONS: COMPUTATIONALLY FASTER AND MORE ROBUST THAN SCIPY MINIMIZE -----
+                    def update_bnds(prm2opt, prm_bndlow, prm_bndhigh, prm_mid, mb_mwea_low, mb_mwea_high, mb_mwea_mid,
+                                    debug=False):
+                        """ Update bounds for various parameters for the single_param_optimizer """
+                        # If mass balance less than observation, reduce tbias
+                        if prm2opt == 'kp':
+                            if mb_mwea_mid < mb_obs_mwea:
+                                prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
+                                prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
+                            else:
+                                prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
+                                prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
+                        elif prm2opt == 'ddfsnow':
+                            if mb_mwea_mid < mb_obs_mwea:
+                                prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
+                                prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
+                            else:
+                                prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
+                                prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
+                        elif prm2opt == 'tbias':
+                            if mb_mwea_mid < mb_obs_mwea:
+                                prm_bndlow_new, mb_mwea_low_new = prm_bndlow, mb_mwea_low
+                                prm_bndhigh_new, mb_mwea_high_new = prm_mid, mb_mwea_mid
+                            else:
+                                prm_bndlow_new, mb_mwea_low_new = prm_mid, mb_mwea_mid
+                                prm_bndhigh_new, mb_mwea_high_new = prm_bndhigh, mb_mwea_high
+                        
+                        prm_mid_new = (prm_bndlow_new + prm_bndhigh_new) / 2
+                        modelprms[prm2opt] = prm_mid_new
+                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                        mb_mwea_mid_new = run_emulator_mb(modelprms)
+    
+                        if debug:
+                            print(prm2opt + '_bndlow:', np.round(prm_bndlow_new,2), 
+                                  'mb_mwea_low:', np.round(mb_mwea_low_new,2))                        
+                            print(prm2opt + '_bndhigh:', np.round(prm_bndhigh_new,2), 
+                                  'mb_mwea_high:', np.round(mb_mwea_high_new,2))                        
+                            print(prm2opt + '_mid:', np.round(prm_mid_new,2), 
+                                  'mb_mwea_mid:', np.round(mb_mwea_mid_new,3))
+                        
+                        return (prm_bndlow_new, prm_bndhigh_new, prm_mid_new, 
+                                mb_mwea_low_new, mb_mwea_high_new, mb_mwea_mid_new)
+                        
+                        
+                    def single_param_optimizer(modelprms_subset, mb_obs_mwea, prm2opt=None,
+                                               kp_bnds=None, tbias_bnds=None, ddfsnow_bnds=None,
+                                               mb_mwea_threshold=0.005, debug=False):
+                        """ Single parameter optimizer based on a mid-point approach 
+                        
+                        Computationally more robust and sometimes faster than scipy minimize
+                        """
+                        assert prm2opt is not None, 'For single_param_optimizer you must specify parameter to optimize'
+                   
+                        if prm2opt == 'kp':
+                            prm_bndlow = kp_bnds[0]
+                            prm_bndhigh = kp_bnds[1]
+                            modelprms['tbias'] = modelprms_subset['tbias']
+                            modelprms['ddfsnow'] = modelprms_subset['ddfsnow']
+                        elif prm2opt == 'ddfsnow':
+                            prm_bndlow = ddfsnow_bnds[0]
+                            prm_bndhigh = ddfsnow_bnds[1]
+                            modelprms['kp'] = modelprms_subset['kp']
+                            modelprms['tbias'] = modelprms_subset['tbias']
+                        elif prm2opt == 'tbias':
+                            prm_bndlow = tbias_bnds[0]
+                            prm_bndhigh = tbias_bnds[1]
+                            modelprms['kp'] = modelprms_subset['kp']
+                            modelprms['ddfsnow'] = modelprms_subset['ddfsnow']
+    
+                        # Lower bound
+                        modelprms[prm2opt] = prm_bndlow
+                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                        mb_mwea_low = run_emulator_mb(modelprms)
+                        # Upper bound
+                        modelprms[prm2opt] = prm_bndhigh
+                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                        mb_mwea_high = run_emulator_mb(modelprms)
+                        # Middle bound
+                        prm_mid = (prm_bndlow + prm_bndhigh) / 2
+                        modelprms[prm2opt] = prm_mid
+                        modelprms['ddfice'] = modelprms['ddfsnow'] / pygem_prms.ddfsnow_iceratio
+                        mb_mwea_mid = run_emulator_mb(modelprms)
+                        
+                        if debug:
+                            print(prm2opt + '_bndlow:', np.round(prm_bndlow,2), 'mb_mwea_low:', np.round(mb_mwea_low,2))
+                            print(prm2opt + '_bndhigh:', np.round(prm_bndhigh,2), 'mb_mwea_high:', np.round(mb_mwea_high,2))
+                            print(prm2opt + '_mid:', np.round(prm_mid,2), 'mb_mwea_mid:', np.round(mb_mwea_mid,3))
+                        
+                        # Optimize the model parameter
+                        if np.absolute(mb_mwea_low - mb_obs_mwea) <= mb_mwea_threshold:
+                            modelprms[prm2opt] = prm_bndlow
+                            mb_mwea_mid = mb_mwea_low
+                        elif np.absolute(mb_mwea_low - mb_obs_mwea) <= mb_mwea_threshold:
+                            modelprms[prm2opt] = prm_bndhigh
+                            mb_mwea_mid = mb_mwea_high
+                        else:
+                            ncount = 0
+                            while (np.absolute(mb_mwea_mid - mb_obs_mwea) > mb_mwea_threshold and 
+                                   np.absolute(mb_mwea_low - mb_mwea_high) > mb_mwea_threshold):
+                                if debug:
+                                    print('\n ncount:', ncount)
+                                (prm_bndlow, prm_bndhigh, prm_mid, mb_mwea_low, mb_mwea_high, mb_mwea_mid) = (
+                                        update_bnds(prm2opt, prm_bndlow, prm_bndhigh, prm_mid, 
+                                                    mb_mwea_low, mb_mwea_high, mb_mwea_mid, debug=debug))
+                                ncount += 1
+                            
+                        return modelprms, mb_mwea_mid
+
+
+                    # ===== SET THINGS UP ======
+                    if debug:
+                        sims_df['mb_em'] = np.nan
+                        for nidx in sims_df.index.values:
+                            modelprms['tbias'] = sims_df.loc[nidx,'tbias']
+                            modelprms['kp'] = sims_df.loc[nidx,'kp']
+                            modelprms['ddfsnow'] = sims_df.loc[nidx,'ddfsnow']
+                            sims_df.loc[nidx,'mb_em'] = run_emulator_mb(modelprms)
+                        sims_df['mb_em_dif'] = sims_df['mb_em'] - sims_df['mb_mwea'] 
+                    
+                    # ----- TEMPERATURE BIAS BOUNDS -----
+                    # Selects from emulator sims dataframe
+                    sims_df_subset = sims_df.loc[sims_df['kp']==1, :]
+                    tbias_bndhigh = sims_df_subset['tbias'].max()
+                    tbias_bndlow = sims_df_subset['tbias'].min()
+                    
+                    # Adjust tbias_init based on bounds
+                    if tbias_init > tbias_bndhigh:
+                        tbias_init = tbias_bndhigh
+                    elif tbias_init < tbias_bndlow:
+                        tbias_init = tbias_bndlow
+                        
+                    # ----- Mass balance bounds -----
+                    # Upper bound
+                    modelprms['kp'] = kp_bndhigh
+                    modelprms['tbias'] = tbias_bndlow
+                    modelprms['ddfsnow'] = ddfsnow_init
+                    mb_mwea_bndhigh = run_emulator_mb(modelprms)
+                    # Lower bound
+                    modelprms['kp'] = kp_bndlow
+                    modelprms['tbias'] = tbias_bndhigh
+                    modelprms['ddfsnow'] = ddfsnow_init
+                    mb_mwea_bndlow = run_emulator_mb(modelprms)
+                    if debug:
+                        print('mb_mwea_max:', np.round(mb_mwea_bndhigh,2),
+                              'mb_mwea_min:', np.round(mb_mwea_bndlow,2))
+
+                    if mb_obs_mwea > mb_mwea_bndhigh:
+                        continue_param_search = False
+                        tbias_opt = tbias_bndlow
+                        kp_opt= kp_bndhigh
+                        troubleshoot_fp = (pygem_prms.output_filepath + 'errors/' + 
+                                           pygem_prms.option_calibration + '/' + 
+                                           glacier_str.split('.')[0].zfill(2) + '/')
+                        if not os.path.exists(troubleshoot_fp):
+                            os.makedirs(troubleshoot_fp, exist_ok=True)
+                        txt_fn_extrapfail = glacier_str + "-mbs_obs_outside_bnds.txt"
+                        with open(troubleshoot_fp + txt_fn_extrapfail, "w") as text_file:
+                            text_file.write(glacier_str + ' observed mass balance exceeds max accumulation ' +
+                                            'with value of ' + str(np.round(mb_obs_mwea,2)) + ' mwea')
+                        
+                    elif mb_obs_mwea < mb_mwea_bndlow:
+                        continue_param_search = False
+                        tbias_opt = tbias_bndhigh
+                        kp_opt= kp_bndlow
+                        troubleshoot_fp = (pygem_prms.output_filepath + 'errors/' + 
+                                           pygem_prms.option_calibration + '/' + 
+                                           glacier_str.split('.')[0].zfill(2) + '/')
+                        if not os.path.exists(troubleshoot_fp):
+                            os.makedirs(troubleshoot_fp, exist_ok=True)
+                        txt_fn_extrapfail = glacier_str + "-mbs_obs_outside_bnds.txt"
+                        with open(troubleshoot_fp + txt_fn_extrapfail, "w") as text_file:
+                            text_file.write(glacier_str + ' observed mass balance below max loss ' +
+                                            'with value of ' + str(np.round(mb_obs_mwea,2)) + ' mwea')
+                    else:
+                        continue_param_search = True
+                        
+                        # ===== ADJUST LOWER AND UPPER BOUNDS TO SET UP OPTIMIZATION ======
+                        # Initialize model parameters
+                        modelprms['tbias'] = tbias_init
+                        modelprms['kp'] = kp_init
+                        modelprms['ddfsnow'] = ddfsnow_init
+                        
+                        test_count = 0
+                        test_count_acc = 0
+                        mb_mwea = run_emulator_mb(modelprms)
+                        if mb_mwea > mb_obs_mwea:
+                            if debug:
+                                print('increase tbias, decrease kp')
+                            kp_bndhigh = 1
+                            # Check if lower bound causes good agreement
+                            modelprms['kp'] = kp_bndlow
+                            mb_mwea = run_emulator_mb(modelprms)
+                            if debug:
+                                    print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                          'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
+                            while mb_mwea > mb_obs_mwea and test_count < 100:
+                                # Update temperature bias
+                                modelprms['tbias'] = modelprms['tbias'] + tbias_step
+                                # Update bounds
+                                tbias_bndhigh_opt = modelprms['tbias']
+                                tbias_bndlow_opt = modelprms['tbias'] - tbias_step
+                                # Compute mass balance
+                                mb_mwea = run_emulator_mb(modelprms)
+                                if debug:
+                                    print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                          'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
+                                test_count += 1
+                        else:
+                            if debug:
+                                print('decrease tbias, increase kp')
+                            kp_bndlow = 1
+                            # Check if upper bound causes good agreement
+                            modelprms['kp'] = kp_bndhigh
+                            mb_mwea = run_emulator_mb(modelprms)
+                            if debug:
+                                print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                      'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
+                            while mb_obs_mwea > mb_mwea and test_count < 100:
+                                # Update temperature bias
+                                modelprms['tbias'] = modelprms['tbias'] - tbias_step
+                                # If temperature bias is at lower limit, then increase precipitation factor
+                                if modelprms['tbias'] <= tbias_bndlow:
+                                    modelprms['tbias'] = tbias_bndlow
+                                    if test_count_acc > 0:
+                                        kp_bndhigh = kp_bndhigh + 1
+                                        modelprms['kp'] = kp_bndhigh
+                                    test_count_acc += 1
+                                # Update bounds (must do after potential correction for lower bound)
+                                tbias_bndlow_opt = modelprms['tbias']
+                                tbias_bndhigh_opt = modelprms['tbias'] + tbias_step
+                                # Compute mass balance
+                                mb_mwea = run_emulator_mb(modelprms)
+                                if debug:
+                                    print('tbias:', np.round(modelprms['tbias'],2), 'kp:', np.round(modelprms['kp'],2),
+                                          'mb_mwea:', np.round(mb_mwea,2), 'obs_mwea:', np.round(mb_obs_mwea,2))
+                                test_count += 1
+
+                        # ===== ROUND 1: PRECIPITATION FACTOR ======    
+                        if debug:
+                            print('Round 1:')
+                            print(glacier_str + '  kp: ' + str(np.round(modelprms['kp'],2)) +
+                                  ' ddfsnow: ' + str(np.round(modelprms['ddfsnow'],4)) +
+                                  ' tbias: ' + str(np.round(modelprms['tbias'],2)))
+                        
+                        # Reset parameters
+                        modelprms['tbias'] = tbias_init
+                        modelprms['kp'] = kp_init
+                        modelprms['ddfsnow'] = ddfsnow_init
+                        
+                        # Lower bound
+                        modelprms['kp'] = kp_bndlow
+                        mb_mwea_kp_low = run_emulator_mb(modelprms)
+                        # Upper bound
+                        modelprms['kp'] = kp_bndhigh
+                        mb_mwea_kp_high = run_emulator_mb(modelprms)
+                        
+                        # Optimal precipitation factor
+                        if mb_obs_mwea < mb_mwea_kp_low:
+                            kp_opt = kp_bndlow
+                            mb_mwea = mb_mwea_kp_low
+                        elif mb_obs_mwea > mb_mwea_kp_high:
+                            kp_opt = kp_bndhigh
+                            mb_mwea = mb_mwea_kp_high
+                        else:
+                            # Single parameter optimizer (computationally more efficient and less prone to fail)
+                            modelprms_subset = {'kp':kp_init, 'ddfsnow': ddfsnow_init, 'tbias': tbias_init}
+                            kp_bnds = (kp_bndlow, kp_bndhigh)
+                            modelprms_opt, mb_mwea = single_param_optimizer(
+                                    modelprms_subset, mb_obs_mwea, prm2opt='kp', kp_bnds=kp_bnds, debug=debug)
+                            kp_opt = modelprms_opt['kp']
+                            continue_param_search = False
+                            
+                        # Update parameter values
+                        modelprms['kp'] = kp_opt
+                        if debug:
+                            print('  kp:', np.round(kp_opt,2), 'mb_mwea:', np.round(mb_mwea,3), 
+                                  'obs_mwea:', np.round(mb_obs_mwea,3))
+
+                        # ===== ROUND 2: TEMPERATURE BIAS ======
+                        if continue_param_search:
+                            if debug:
+                                print('Round 2:')    
+                            # Single parameter optimizer (computationally more efficient and less prone to fail)
+                            modelprms_subset = {'kp':kp_opt, 'ddfsnow': ddfsnow_init, 
+                                                'tbias': np.mean([tbias_bndlow_opt, tbias_bndhigh_opt])}
+                            tbias_bnds = (tbias_bndlow_opt, tbias_bndhigh_opt)                            
+                            modelprms_opt, mb_mwea = single_param_optimizer(
+                                    modelprms_subset, mb_obs_mwea, prm2opt='tbias', tbias_bnds=tbias_bnds, debug=debug)
+                            
+                            # Update parameter values
+                            tbias_opt = modelprms_opt['tbias']
+                            modelprms['tbias'] = tbias_opt
+                            if debug:
+                                print('  tbias:', np.round(tbias_opt,3), 'mb_mwea:', np.round(mb_mwea,3), 
+                                      'obs_mwea:', np.round(mb_obs_mwea,3))
+        
+                        else:
+                            tbias_opt = modelprms['tbias']
+                        
+                        
+                        if debug:
+                            print('\n\ntbias:', np.round(tbias_opt,2), 'kp:', np.round(kp_opt,2),
+                                  'mb_mwea:', np.round(mb_mwea,3), 'obs_mwea:', np.round(mb_obs_mwea,3), '\n\n')
+                    
+                    modelparams_opt = modelprms
+                    modelparams_opt['kp'] = kp_opt
+                    modelparams_opt['tbias'] = tbias_opt
+                    
+                    # Export model parameters
+                    modelprms = modelparams_opt
+                    for vn in ['ddfice', 'ddfsnow', 'kp', 'precgrad', 'tbias', 'tsnow_threshold']:
+                        modelprms[vn] = [modelprms[vn]]
+                    modelprms['mb_mwea'] = [mb_mwea]
+                    modelprms['mb_obs_mwea'] = [mb_obs_mwea]
+                    modelprms['mb_obs_mwea_err'] = [mb_obs_mwea_err]
+                    
+                    modelprms_fn = glacier_str + '-modelprms_dict.pkl'
+                    modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
+                                    + '/')
+                    if not os.path.exists(modelprms_fp):
+                        os.makedirs(modelprms_fp, exist_ok=True)
+                    modelprms_fullfn = modelprms_fp + modelprms_fn
+                    if os.path.exists(modelprms_fullfn):
+                        with open(modelprms_fullfn, 'rb') as f:
+                            modelprms_dict = pickle.load(f)
+                        modelprms_dict[pygem_prms.option_calibration] = modelprms
+                    else:
+                        modelprms_dict = {pygem_prms.option_calibration: modelprms}
+                    with open(modelprms_fullfn, 'wb') as f:
+                        pickle.dump(modelprms_dict, f)
+                             
 
     # Global variables for Spyder development
     if args.option_parallels == 0:
