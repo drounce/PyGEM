@@ -7,7 +7,7 @@
 module load lang/Anaconda3/5.3.0
 source activate oggm_env_v02
 
-REGNO="1"
+REGNO="4"
 ADD_CAL_SWITCH=1
 
 # split glaciers into batches for different nodes

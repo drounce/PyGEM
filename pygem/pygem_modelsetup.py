@@ -338,7 +338,7 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2=None,
                 
             rgiid_subset = ['RGI60-' + str(region).zfill(2) + '.' + x for x in rgi_glac_number] 
             rgiid_all = list(csv_regionO1.RGIId.values)
-            rgi_idx = [rgiid_all.index(x) for x in rgiid_subset]
+            rgi_idx = [rgiid_all.index(x) for x in rgiid_subset if x in rgiid_all]
             if glacier_table.empty:
                 glacier_table = csv_regionO1.loc[rgi_idx]
             else:
@@ -348,6 +348,9 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2=None,
     glacier_table = glacier_table.copy()
     # reset the index so that it is in sequential order (0, 1, 2, etc.)
     glacier_table.reset_index(inplace=True)
+    # drop connectivity 2 for Greenland and Antarctica
+    glacier_table = glacier_table.loc[glacier_table['Connect'].isin([0,1])]
+    glacier_table.reset_index(drop=True, inplace=True)
     # change old index to 'O1Index' to be easier to recall what it is
     glacier_table.rename(columns={'index': 'O1Index'}, inplace=True)
     # Record the reference date

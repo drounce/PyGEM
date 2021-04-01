@@ -42,7 +42,32 @@ def getparser():
                         help='switch to add "cal" to batch filenames')
     parser.add_argument('-option_ordered', action='store', type=int, default=1,
                         help='switch to keep lists ordered or not')
+    parser.add_argument('-startno', action='store', type=int, default=None,
+                        help='starting number of rgi glaciers')
+    parser.add_argument('-endno', action='store', type=int, default=None,
+                        help='starting number of rgi glaciers')
     return parser
+
+
+def glac_num_fromrange(int_low, int_high):
+    """
+    Generate list of glaciers for all numbers between two integers.
+
+    Parameters
+    ----------
+    int_low : int64
+        low value of range
+    int_high : int64
+        high value of range
+
+    Returns
+    -------
+    y : list
+        list of rgi glacier numbers
+    """
+    x = (np.arange(int_low, int_high+1)).tolist()
+    y = [str(i).zfill(5) for i in x]
+    return y
 
 
 def split_list(lst, n=1, option_ordered=1):
@@ -105,7 +130,7 @@ if __name__ == '__main__':
     # Count glaciers in existing batch
     batch_list = []
     count_glac = 0
-    batch_str = 'rgi_glac_number_batch_'
+    batch_str = 'rgi_glac_number_'
     # region string
     regions_str = 'R'
     for region in pygem_prms.rgi_regionsO1:
@@ -130,33 +155,40 @@ if __name__ == '__main__':
             count_glac += len(rgi_glac_number)
     
     # Select all glaciers
+    if not args.startno is None and not args.endno is None:
+        rgi_glac_number = glac_num_fromrange(int(args.startno), int(args.endno))
+        glac_no = None
+    else:
+        rgi_glac_number = pygem_prms.rgi_glac_number
+        glac_no = pygem_prms.glac_no
+    
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(
-            rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2, rgi_glac_number=pygem_prms.rgi_glac_number, 
-            glac_no=pygem_prms.glac_no)
+            rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2, 
+            rgi_glac_number=rgi_glac_number, glac_no=glac_no)
     glacno_str = [x.split('-')[1] for x in main_glac_rgi_all.RGIId.values]
     
-    #%%    
-    # Check if need to update old batch files or not
-    #  (different number of glaciers or batches)
-    if count_glac != len(glacno_str) or args.n_batches != len(batch_list):
-        # Delete old files
-        for i in batch_list:
-            os.remove(i)
+
+    # Split list of glacier numbers
+    rgi_glac_number_batches = split_list(glacno_str, n=args.n_batches, option_ordered=args.option_ordered)
+
+    # Export new lists
+    for n in range(len(rgi_glac_number_batches)):
+    #    print('Batch', n, ':\n', rgi_glac_number_batches[n], '\n')
+        if args.ignore_regionname == 0:
+            batch_fn = regions_str + '_' + batch_str
+        elif args.ignore_regionname == 1:
+            batch_fn = batch_str
             
-        # Split list of glacier numbers
-        rgi_glac_number_batches = split_list(glacno_str, n=args.n_batches, option_ordered=args.option_ordered)
-    
-        # Export new lists
-        for n in range(len(rgi_glac_number_batches)):
-        #    print('Batch', n, ':\n', rgi_glac_number_batches[n], '\n')
-            if args.ignore_regionname == 0:
-                batch_fn = regions_str + '_' + batch_str + str(n) + '.pkl'
-            elif args.ignore_regionname == 1:
-                batch_fn = batch_str + str(n) + '.pkl'
+        # Add start and end numbers
+        if not args.startno is None and not args.endno is None:
+            batch_fn += str(args.startno) + '-' + str(args.endno) + 'glac_'
             
-            if args.add_cal == 1:
-                batch_fn = 'Cal_' + batch_fn
-                
-            print('Batch', n, ':\n', batch_fn, '\n')
-            with open(batch_fn, 'wb') as f:
-                pickle.dump(rgi_glac_number_batches[n], f)
+        # add batch number and .pkl
+        batch_fn += 'batch_' + str(n) + '.pkl'
+        
+        if args.add_cal == 1:
+            batch_fn = 'Cal_' + batch_fn
+            
+        print('Batch', n, ':\n', batch_fn, '\n')
+        with open(batch_fn, 'wb') as f:
+            pickle.dump(rgi_glac_number_batches[n], f)

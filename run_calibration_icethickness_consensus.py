@@ -34,7 +34,7 @@ a_multiplier = 1       # calibrate this based on ice thickness data or the conse
 a_multiplier_bndlow = 0.1
 a_multiplier_bndhigh = 10
 
-regions = [1]
+regions = [13]
 
 #%% FUNCTIONS
 def getparser():

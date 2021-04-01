@@ -213,7 +213,14 @@ class PyGEMMassBalance(MassBalanceModel):
         np.testing.assert_allclose(heights, fl.surface_h)
         glacier_area_t0 = fl.widths_m * fl.dx_meter
         glacier_area_initial = self.glacier_area_initial
-        icethickness_t0 = getattr(fls[fl_id], 'thick', None)
+        fl_widths_m = getattr(fl, 'widths_m', None)
+        fl_section = getattr(fl,'section',None)
+        # Ice thickness (average)
+        if fl_section is not None and fl_widths_m is not None:
+            icethickness_t0 = np.zeros(fl_section.shape)
+            icethickness_t0[fl_widths_m > 0] = fl_section[fl_widths_m > 0] / fl_widths_m[fl_widths_m > 0]
+        else:
+            icethickness_t0 = None
 
         # Quality control: ensure you only have glacier area where there is ice
         if icethickness_t0 is not None:
@@ -614,10 +621,15 @@ class PyGEMMassBalance(MassBalanceModel):
                 self._convert_glacwide_results(year, glacier_area_t0, heights, fls=fls, fl_id=fl_id, 
                                                option_areaconstant=option_areaconstant)
 
-#                if debug:
-#                    print('glac_bin_massbalclim:', self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1))
-#                    print('surface type present:', self.glac_bin_surfacetype_annual[12:20,year])
-#                    print('surface type updated:', self.surfacetype[12:20])
+##                if debug:
+#                debug_startyr = 57
+#                debug_endyr = 61
+#                if year > debug_startyr and year < debug_endyr:
+#                    print('\n', year, 'glac_bin_massbalclim:', self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1))
+#                    print('ice thickness:', icethickness_t0)
+#                    print('heights:', heights[glac_idx_t0])
+##                    print('surface type present:', self.glac_bin_surfacetype_annual[12:20,year])
+##                    print('surface type updated:', self.surfacetype[12:20])
 
         # Example of modularity
 #        if self.use_refreeze:
@@ -631,18 +643,36 @@ class PyGEMMassBalance(MassBalanceModel):
         if self.inversion_filter:
             mb = np.minimum.accumulate(mb)
 
+#        debug_startyr = 57
+#        debug_endyr = 61
+
         # Fill in non-glaciated areas - needed for OGGM dynamics to remove small ice flux into next bin
         mb_filled = mb.copy()
-        if len(glac_idx_t0) > 1:
+        if len(glac_idx_t0) > 3:
             mb_max = np.max(mb[glac_idx_t0])
             mb_min = np.min(mb[glac_idx_t0])
             height_max = np.max(heights[glac_idx_t0])
             height_min = np.min(heights[glac_idx_t0])
             mb_grad = (mb_min - mb_max) / (height_max - height_min)
-            mb_filled[mb_filled==0] = mb_min + mb_grad * (height_min - heights[mb_filled==0])
-        elif len(glac_idx_t0) == 1 and mb.max() <= 0:
+            mb_filled[(mb_filled==0) & (heights < height_max)] = (
+                    mb_min + mb_grad * (height_min - heights[(mb_filled==0) & (heights < height_max)]))
+
+        elif len(glac_idx_t0) >= 1 and len(glac_idx_t0) <= 3 and mb.max() <= 0:
             mb_min = np.min(mb[glac_idx_t0])
-            mb_filled[mb_filled==0] = mb_min
+            height_max = np.max(heights[glac_idx_t0])
+            mb_filled[(mb_filled==0) & (heights < height_max)] = mb_min
+            
+#            if year > debug_startyr and year < debug_endyr:
+#                print('mb_min:', mb_min)
+#                
+#        if year > debug_startyr and year < debug_endyr:
+#            import matplotlib.pyplot as plt
+#            plt.plot(mb_filled, heights, '.')
+#            plt.ylabel('Elevation')
+#            plt.xlabel('Mass balance (mwea)')
+#            plt.show()
+#            
+#            print('mb_filled:', mb_filled)
                 
         return mb_filled
 
@@ -771,21 +801,21 @@ class PyGEMMassBalance(MassBalanceModel):
                 ela_idx = np.nanargmin(ela_onlypos)
                 self.glac_wide_ELA_annual[year] = heights[ela_idx] - heights_change[ela_idx] / 2
 
-            # ===== Off-glacier ====
-            offglac_idx = self.offglac_bin_area_annual[:,year].nonzero()[0]
+            # ===== Off-glacier ====                
+            offglac_idx = np.where(self.offglac_bin_area_annual[:,year] > 0)[0]
             if option_areaconstant == False and len(offglac_idx) > 0:
                 offglacier_area_monthly = self.offglac_bin_area_annual[:,year][:,np.newaxis].repeat(12,axis=1)
 
                 # Off-glacier precipitation (m3)
                 self.offglac_wide_prec[12*year:12*(year+1)] = (
-                        (self.bin_prec[:,12*year:12*(year+1)][glac_idx] * offglacier_area_monthly[glac_idx]).sum(0))
+                        (self.bin_prec[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]).sum(0))
                 # Off-glacier melt (m3 w.e.)
                 self.offglac_wide_melt[12*year:12*(year+1)] = (
-                        (self.offglac_bin_melt[:,12*year:12*(year+1)][glac_idx] * offglacier_area_monthly[glac_idx]
+                        (self.offglac_bin_melt[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]
                         ).sum(0))
                 # Off-glacier refreeze (m3 w.e.)
                 self.offglac_wide_refreeze[12*year:12*(year+1)] = (
-                        (self.offglac_bin_refreeze[:,12*year:12*(year+1)][glac_idx] * offglacier_area_monthly[glac_idx]
+                        (self.offglac_bin_refreeze[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]
                         ).sum(0))
                 # Off-glacier runoff (m3)
                 self.offglac_wide_runoff[12*year:12*(year+1)] = (
@@ -793,7 +823,7 @@ class PyGEMMassBalance(MassBalanceModel):
                         self.offglac_wide_refreeze[12*year:12*(year+1)])
                 # Off-glacier snowpack (m3 w.e.)
                 self.offglac_wide_snowpack[12*year:12*(year+1)] = (
-                        (self.offglac_bin_snowpack[:,12*year:12*(year+1)][glac_idx] * offglacier_area_monthly[glac_idx]
+                        (self.offglac_bin_snowpack[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]
                         ).sum(0))
                 
                 

@@ -752,6 +752,8 @@ def main(list_packed_vars):
                         modelprms['tbias'] = modelprms['tbias'] - tbias_step
                         mb_mwea_start = run_emulator_mb(modelprms)
                         
+#                        print('tbias:', modelprms['tbias'], mb_mwea_start)
+                        
                     # check melting occurs for starting conditions
                     mb_total_minelev_start = calc_mb_total_minelev(modelprms)
                     tbias_smallstep = 0.01
@@ -760,15 +762,10 @@ def main(list_packed_vars):
                         mb_total_minelev_start = calc_mb_total_minelev(modelprms)
                         mb_mwea_start = run_emulator_mb(modelprms)
                         
-#                    nbinsyr_negmbclim_start = run_emulator_meltyrs(modelprms)
-#                    tbias_smallstep = 0.01
-#                    while nbinsyr_negmbclim_start < 0 and mb_mwea_start > mb_max_loss:
-#                        modelprms['tbias'] = modelprms['tbias'] + tbias_smallstep
-#                        nbinsyr_negmbclim_start = run_emulator_meltyrs(modelprms)
-#                        mb_mwea_start = run_emulator_mb(modelprms)
+#                        print('tbias:', modelprms['tbias'], mb_mwea_start, mb_total_minelev_start)
                     
                     tbias_start = modelprms['tbias']
-
+                    
                     # ===== PRIOR DISTRIBUTIONS =====
                     # Priors dict to record values for export
                     priors_dict = {}
@@ -904,6 +901,8 @@ def main(list_packed_vars):
                         model = pymc.MCMC({'kp':kp, 'tbias':tbias, 'ddfsnow':ddfsnow,
                                            'massbal':massbal, 'obs_massbal':obs_massbal})
 
+                    
+
                     # Step method (if changed from default)
                     #  Adaptive metropolis is supposed to perform block update, i.e., update all model parameters
                     #  together based on their covariance, which would reduce autocorrelation; however, tests show
@@ -970,7 +969,6 @@ def main(list_packed_vars):
                             ddfsnow_start = pygem_prms.ddfsnow_mu + 1.96 * pygem_prms.ddfsnow_sigma
                             kp_start = stats.gamma.ppf(0.95,kp_gamma_alpha, scale=1/kp_gamma_beta)
     
-    
                         # Determine bounds to check TC starting values and estimate maximum mass loss
                         modelprms['kp'] = kp_start
                         modelprms['ddfsnow'] = ddfsnow_start
@@ -1007,6 +1005,7 @@ def main(list_packed_vars):
     
                         mb_max_loss = (-1 * consensus_mass / pygem_prms.density_water / gdir.rgi_area_m2 / 
                                        (gdir.dates_table.shape[0] / 12))
+                        
                         
                         if debug:
                             print('\ntbias_start:', np.round(tbias_start,3), 'pf_start:', np.round(kp_start,3),

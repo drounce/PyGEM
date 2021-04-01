@@ -16,7 +16,7 @@ import pandas as pd
 import pygem.pygem_input as pygem_prms
 
 
-regions = [1]
+regions = [3]
 #regions = pygem_prms.rgi_regionsO1
 
 #start_count = 10000
@@ -24,12 +24,27 @@ regions = [1]
 start_count = 0
 end_count = None
 
+option_missing_sims = True
 option_read_missing_mcmc_pkl = False
 option_missing_mcmc = False
 option_dif_success = False
 option_redo_nomelt = False
 
-option_zip_dir = True
+option_zip_dir = False
+
+
+if option_missing_sims:
+    glacno_list = []
+    for reg in regions:
+        dir_fp = ('/Users/drounce/Documents/HiMAT/spc_backup/simulations/' + str(reg).zfill(2) + 
+                  '/failed/' + str(reg).zfill(2) + '/CanESM2/rcp26/')
+        for i in os.listdir(dir_fp):
+            if i.endswith('.txt'):
+                glacno_list.append(i.split('-')[0])
+        glacno_list = sorted(glacno_list)
+        print(glacno_list)
+                
+
 
 if option_zip_dir:
     
@@ -38,7 +53,14 @@ if option_zip_dir:
 #        dir_fp = pygem_prms.output_filepath + 'calibration/' + str(reg).zfill(2)
 #        dir_fp = pygem_prms.output_filepath + 'emulator/models/' + str(reg).zfill(2)
 #        dir_fp = pygem_prms.output_filepath + 'emulator/sims/' + str(reg).zfill(2)
-        dir_fp = pygem_prms.oggm_gdir_fp + 'per_glacier/RGI60-' + str(reg).zfill(2)
+#        dir_fp = pygem_prms.oggm_gdir_fp + 'per_glacier/RGI60-' + str(reg).zfill(2)
+        
+#        for gcm_name in ['GFDL-ESM2M']:
+#        for gcm_name in ['GISS-E2-R']:
+#        for gcm_name in ['IPSL-CM5A-LR']:
+#        for gcm_name in ['MPI-ESM-LR']:
+        for gcm_name in ['NorESM1-M']:
+            dir_fp = pygem_prms.output_filepath + 'simulations/' + gcm_name
        
         print('trying to zip ' + dir_fp)
         
@@ -71,7 +93,7 @@ if option_read_missing_mcmc_pkl:
 if option_missing_mcmc:
     for reg in regions:
     
-        prms_fp = '/Users/drounce/Documents/HiMAT/spc_backup/calibration/' + str(reg).zfill(2) + '/'
+        prms_fp = '/Users/drounce/Documents/HiMAT/spc_backup/calibration-trial/' + str(reg).zfill(2) + '/'
 #        prms_fp = pygem_prms.output_filepath + 'calibration/' + str(reg).zfill(2) + '/'
         print(prms_fp)
         prms_fns = []
