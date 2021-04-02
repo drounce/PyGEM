@@ -1316,9 +1316,9 @@ def main(list_packed_vars):
                                                   )
                         if gdir.is_tidewater:
                             assert True==False, 'Need to pass water level'
-    #                    if debug:
-    #                        print('New glacier vol', ev_model.volume_m3)
-    #                        graphics.plot_modeloutput_section(ev_model)
+#                        if debug:
+#                            print('New glacier vol', ev_model.volume_m3)
+#                            graphics.plot_modeloutput_section(ev_model)
                             
                         try:
                             _, diag = ev_model.run_until_and_store(nyears)
@@ -1405,7 +1405,7 @@ def main(list_packed_vars):
                                 diag.volume_m3.plot()
                                 plt.figure()
     #                                diag.area_m2.plot()
-    #                                plt.show()
+                                plt.show()
             
                             # Post-process data to ensure mass is conserved and update accordingly for ignored mass losses
                             #  ignored mass losses occur because mass balance model does not know ice thickness and flux divergence
@@ -1722,40 +1722,6 @@ def main(list_packed_vars):
                     #%%
                 # ===== Export Results =====
                 if count_exceed_boundary_errors < pygem_prms.sim_iters:
-    #                    # ----- INDIVIDUAL RUNS (area, volume, fixed-gauge runoff) -----
-    #                    # Create empty annual dataset
-    #                    output_ds_essential_sims, encoding_essential_sims = (
-    #                            create_xrdataset_essential_sims(glacier_rgi_table, dates_table))
-    #                    output_ds_essential_sims['glac_area_annual'].values[0,:,:] = output_glac_area_annual
-    #                    output_ds_essential_sims['glac_volume_annual'].values[0,:,:] = output_glac_volume_annual
-    #                    output_ds_essential_sims['fixed_runoff_monthly'].values[0,:,:] = (
-    #                            output_glac_runoff_monthly + output_offglac_runoff_monthly)
-    #        
-    #                    # Export to netcdf
-    #                    output_sim_essential_fp = pygem_prms.output_sim_fp + reg_str + '/' + gcm_name + '/'
-    #                    if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
-    #                        output_sim_essential_fp += rcp_scenario + '/'
-    #                    output_sim_essential_fp += 'essential/'
-    #                    # Create filepath if it does not exist
-    #                    if os.path.exists(output_sim_essential_fp) == False:
-    #                        os.makedirs(output_sim_essential_fp, exist_ok=True)
-    #                    # Netcdf filename
-    #                    if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
-    #                        # Filename
-    #                        netcdf_fn = (glacier_str + '_' + gcm_name + '_' + str(pygem_prms.option_calibration) + '_ba' +
-    #                                      str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
-    #                                      str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '_annual.nc')
-    #                    else:
-    #                        netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_' +
-    #                                      str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + 
-    #                                      '_' + str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + 
-    #                                      str(pygem_prms.gcm_endyear) + '_annual.nc')
-    #                    # Export netcdf
-    #                    output_ds_essential_sims.to_netcdf(output_sim_essential_fp + netcdf_fn, encoding=encoding_essential_sims)
-    #                    # Close datasets
-    #                    output_ds_essential_sims.close()
-        
-                    
                     # ----- STATS OF ALL VARIABLES -----
                     if pygem_prms.export_nonessential_data:
                         # Create empty dataset
@@ -1855,7 +1821,7 @@ def main(list_packed_vars):
                         # Close datasets
                         output_ds_all_stats.close()
                     
-                    #%%
+
                     # ----- DECADAL ICE THICKNESS STATS FOR OVERDEEPENINGS -----
                     if pygem_prms.export_binned_thickness and glacier_rgi_table.Area > pygem_prms.export_binned_area_threshold:
                         
@@ -1888,6 +1854,40 @@ def main(list_packed_vars):
             
                         # Close datasets
                         output_ds_binned_stats.close()
+                        
+                        
+    #                    # ----- INDIVIDUAL RUNS (area, volume, fixed-gauge runoff) -----
+    #                    # Create empty annual dataset
+    #                    output_ds_essential_sims, encoding_essential_sims = (
+    #                            create_xrdataset_essential_sims(glacier_rgi_table, dates_table))
+    #                    output_ds_essential_sims['glac_area_annual'].values[0,:,:] = output_glac_area_annual
+    #                    output_ds_essential_sims['glac_volume_annual'].values[0,:,:] = output_glac_volume_annual
+    #                    output_ds_essential_sims['fixed_runoff_monthly'].values[0,:,:] = (
+    #                            output_glac_runoff_monthly + output_offglac_runoff_monthly)
+    #        
+    #                    # Export to netcdf
+    #                    output_sim_essential_fp = pygem_prms.output_sim_fp + reg_str + '/' + gcm_name + '/'
+    #                    if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
+    #                        output_sim_essential_fp += rcp_scenario + '/'
+    #                    output_sim_essential_fp += 'essential/'
+    #                    # Create filepath if it does not exist
+    #                    if os.path.exists(output_sim_essential_fp) == False:
+    #                        os.makedirs(output_sim_essential_fp, exist_ok=True)
+    #                    # Netcdf filename
+    #                    if gcm_name in ['ERA-Interim', 'ERA5', 'COAWST']:
+    #                        # Filename
+    #                        netcdf_fn = (glacier_str + '_' + gcm_name + '_' + str(pygem_prms.option_calibration) + '_ba' +
+    #                                      str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
+    #                                      str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '_annual.nc')
+    #                    else:
+    #                        netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_' +
+    #                                      str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + 
+    #                                      '_' + str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + 
+    #                                      str(pygem_prms.gcm_endyear) + '_annual.nc')
+    #                    # Export netcdf
+    #                    output_ds_essential_sims.to_netcdf(output_sim_essential_fp + netcdf_fn, encoding=encoding_essential_sims)
+    #                    # Close datasets
+    #                    output_ds_essential_sims.close()
                     
                     
 #    print('\n\nPUT BACK THE EXCEPT STATEMENT:\n\n')
@@ -2010,9 +2010,9 @@ if __name__ == '__main__':
         gcm_prec_adj = main_vars['gcm_prec_adj']
         gcm_elev_adj = main_vars['gcm_elev_adj']
         gcm_temp_lrglac = main_vars['gcm_lr']
-        output_ds_all_stats = main_vars['output_ds_all_stats']
+        ds_stats = main_vars['output_ds_all_stats']
 #        output_ds_essential_sims = main_vars['output_ds_essential_sims']
-        output_ds_binned_stats = main_vars['output_ds_binned_stats']
+        ds_binned = main_vars['output_ds_binned_stats']
 #        modelprms = main_vars['modelprms']
         glacier_rgi_table = main_vars['glacier_rgi_table']
         glacier_str = main_vars['glacier_str']
@@ -2034,14 +2034,7 @@ if __name__ == '__main__':
         print(' - climate data likely mismatch with OGGM, e.g., prec in m for the month')
         print(' - tidewater does not have frontal ablation on')
 
-#    print('\n\nTURN BACK ON THE TRY/EXCEPT STATEMENT!!!\n\n')
-    #%%
-    # Scratch debugging space
-#    plt.plot(A[:,-1],mbmod.heights,'.')
-#    plt.ylabel('Elevation')
-#    plt.xlabel('Mass balance (mwea)')
-#    plt.show()
-    
+
     #%%
     # Check volume is consistent
 #    vol_binned = output_ds_binned_stats['bin_volume_annual'].values[0,:,:].sum(0)
@@ -2050,22 +2043,4 @@ if __name__ == '__main__':
 #    mb_monthly_m3we = output_ds_all_stats['glac_massbaltotal_monthly'].values[0,:]
 #    mb_mwea_mean = mb_monthly_m3we.sum() / glac_area_init / (mb_monthly_m3we.shape[0]/12)
 #    print('\n\nmb_mwea_mean:', np.round(mb_mwea_mean,3),'\n\n')
-    
-    #%%
-    
-#    print('\n\nDELETE ME!\n\n')
-#    fullfn = '/Users/drounce/Documents/HiMAT/Output/simulations/CanESM2/rcp26/essential/1.00001_CanESM2_rcp26_MCMC_ba1_1sets_2000_2100_annual.nc'
-#    ds = xr.open_dataset(fullfn)
-#    
-#    fullfn_stats = '/Users/drounce/Documents/HiMAT/Output/simulations/CanESM2/rcp26/stats/1.00001_CanESM2_rcp26_MCMC_ba1_1sets_2000_2100_all.nc'
-#    ds_stats = xr.open_dataset(fullfn_stats)
-#    
-#    A = ds.glac_volume_annual.values[0,:,:]
-#    
-#    B = output_ds_essential_sims.glac_volume_annual.values[0,:,:]
-#    import xarray as xr
-#    fullfn = ('/Users/drounce/Documents/HiMAT/spc_backup/simulations/CanESM2/rcp26/essential/' + 
-#              '1.00001_CanESM2_rcp26_MCMC_ba1_100sets_2000_2100_annual.nc')
-#    ds = xr.open_dataset(fullfn)
-    
     

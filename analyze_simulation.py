@@ -34,10 +34,10 @@ import pygem.pygem_modelsetup as modelsetup
 # Script options
 option_get_missing_glacno = False
 option_plot_cmip5_volchange = False
-option_plot_era5_volchange = False
+option_plot_era5_volchange = True
 option_plot_era5_AAD = False
 
-option_process_data = True
+option_process_data = False
 
 
 #%% ===== Input data =====
