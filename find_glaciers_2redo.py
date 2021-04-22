@@ -16,7 +16,7 @@ import pandas as pd
 import pygem.pygem_input as pygem_prms
 
 
-regions = [3]
+regions = [4]
 #regions = pygem_prms.rgi_regionsO1
 
 #start_count = 10000

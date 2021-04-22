@@ -82,7 +82,7 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80, log
         
     else:
         process_gdir = True
-
+    
     if process_gdir:
         # Download preprocessed data
 #        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40)

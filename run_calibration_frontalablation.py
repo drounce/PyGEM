@@ -28,7 +28,7 @@ from oggm.core.inversion import find_inversion_calving_from_any_mb
 
 
 #%% ----- MANUAL INPUT DATA -----
-regions = [3]
+regions = [1]
 # For region 9 decide if using individual glacier data or regional data
 drop_ind_glaciers = False
 
@@ -36,15 +36,16 @@ drop_ind_glaciers = False
 calving_k_init = 0.1
 calving_k_bndlow = 0.01
 calving_k_bndhigh = 5
-calving_k_step = 0.01
+calving_k_step = 0.2
 nround_max = 5
+cfl_number = 0.01
 
 debug=True
 prms_from_reg_priors=True
 prms_from_glac_cal=False
 
-option_reg_calving_k = True    # Calibrate all glaciers regionally
-option_ind_calving_k = False     # Calibrate individual glaciers
+option_reg_calving_k = False    # Calibrate all glaciers regionally
+option_ind_calving_k = True     # Calibrate individual glaciers
 
 
 
@@ -193,7 +194,10 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg,
                 glen_a_multiplier = pygem_prms.glen_a_multiplier
             
             # cfl_number of 0.01 is more conservative than the default of 0.02 (less issues)
-            cfg.PARAMS['cfl_number'] = pygem_prms.cfl_number
+            if cfl_number is None:
+                cfg.PARAMS['cfl_number'] = pygem_prms.cfl_number
+            else:
+                cfg.PARAMS['cfl_number'] = cfl_number
             
             # ----- Mass balance model for ice thickness inversion using OGGM -----
             mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
@@ -251,61 +255,65 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg,
                                          debug_refreeze=pygem_prms.debug_refreeze,
                                          fls=nfls, ignore_debris=True)
                
-#                try:
-                # Glacier dynamics model
-                if pygem_prms.option_dynamics == 'OGGM':
-                    ev_model = FluxBasedModel(nfls, y0=0, mb_model=mbmod, 
-                                              glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs,
-                                              is_tidewater=gdir.is_tidewater,
-                                              water_level=gdir.get_diagnostics().get('calving_water_level', None),
-#                                              calving_use_limiter=False
-                                              )
+                try:
+                    # Glacier dynamics model
+                    if pygem_prms.option_dynamics == 'OGGM':
+                        ev_model = FluxBasedModel(nfls, y0=0, mb_model=mbmod, 
+                                                  glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs,
+                                                  is_tidewater=gdir.is_tidewater,
+                                                  water_level=gdir.get_diagnostics().get('calving_water_level', None),
+    #                                              calving_use_limiter=False
+                                                  )
+                        
+                        if debug:
+                            print('New glacier vol', ev_model.volume_m3)
+#                            graphics.plot_modeloutput_section(ev_model)
+#                            plt.show()
+                            
+                            
+    #                        print(dir(nfls[0]))
+                            print('flowline volume:', nfls[0].volume_km3)
+                            bin_volume = nfls[0].section * fls[0].dx_meter
+                            last_bin_idx = np.where(nfls[0].section > 0)[0][-1]
+                            print('last bin:', last_bin_idx)
+                            print('surface_h', nfls[0].surface_h[last_bin_idx])
+                            print('bin volume (Gt):', bin_volume[last_bin_idx] / 1e9 * 0.9)
+               
+                        _, diag = ev_model.run_until_and_store(nyears)
+                        ev_model.mb_model.glac_wide_volume_annual[-1] = diag.volume_m3[-1]
+                        ev_model.mb_model.glac_wide_area_annual[-1] = diag.area_m2[-1]
+                    
+                    # Calving flux (Gt/yr) from simulation
+                    calving_flux_gta = diag.calving_m3.values[-1] * pygem_prms.density_ice / 1e12 / nyears
+                        
+    #                    area_initial = mbmod.glac_bin_area_annual[:,0].sum()
+    #                    mb_mod_mwea = ((diag.volume_m3.values[-1] - diag.volume_m3.values[0]) 
+    #                                    / area_initial / nyears * pygem_prms.density_ice / pygem_prms.density_water)
                     
                     if debug:
-                        print('New glacier vol', ev_model.volume_m3)
-                        graphics.plot_modeloutput_section(ev_model)
-                        plt.show()
+                        print('  calving_flux sim (Gt/yr):', np.round(calving_flux_gta,5))
+                                      
+    #                        fl = nfls[-1]
+    #                        xc = fl.dis_on_line * fl.dx_meter / 1000
+    #                        f, ax = plt.subplots(1, 1, figsize=(8, 5))
+    #                        plt.plot(xc, fl.surface_h, '-', color='C1', label='Surface')
+    #                        plt.plot(xc, gdir.read_pickle('model_flowlines')[-1].bed_h, '--', color='k', label='Glacier bed')
+    #                        plt.hlines(0, 0, xc[-1], color='C0', linestyle=':'), plt.legend();
+    #                        plt.show()
+    #                        
+    #                        graphics.plot_modeloutput_section(ev_model)
+    #                        plt.show()
                         
-                        
-#                        print(dir(nfls[0]))
-                        print('flowline volume:', nfls[0].volume_km3)
-                        bin_volume = nfls[0].section * fls[0].dx_meter
-                        last_bin_idx = np.where(nfls[0].section > 0)[0][-1]
-                        print('last bin:', last_bin_idx)
-                        print('surface_h', nfls[0].surface_h[last_bin_idx])
-                        print('bin volume (Gt):', bin_volume[last_bin_idx] / 1e9 * 0.9)
-           
-                    _, diag = ev_model.run_until_and_store(nyears)
-                    ev_model.mb_model.glac_wide_volume_annual[-1] = diag.volume_m3[-1]
-                    ev_model.mb_model.glac_wide_area_annual[-1] = diag.area_m2[-1]
-                
-                # Calving flux (Gt/yr) from simulation
-                calving_flux_gta = diag.calving_m3.values[-1] * pygem_prms.density_ice / 1e12 / nyears
+                    output_df.loc[nglac,'calving_flux_Gta'] = calving_flux_gta
+                    output_df.loc[nglac,'no_errors'] = 1
                     
-#                    area_initial = mbmod.glac_bin_area_annual[:,0].sum()
-#                    mb_mod_mwea = ((diag.volume_m3.values[-1] - diag.volume_m3.values[0]) 
-#                                    / area_initial / nyears * pygem_prms.density_ice / pygem_prms.density_water)
-                
-                if debug:
-                    print('  calving_flux sim (Gt/yr):', np.round(calving_flux_gta,5))
-                                  
-#                        fl = nfls[-1]
-#                        xc = fl.dis_on_line * fl.dx_meter / 1000
-#                        f, ax = plt.subplots(1, 1, figsize=(8, 5))
-#                        plt.plot(xc, fl.surface_h, '-', color='C1', label='Surface')
-#                        plt.plot(xc, gdir.read_pickle('model_flowlines')[-1].bed_h, '--', color='k', label='Glacier bed')
-#                        plt.hlines(0, 0, xc[-1], color='C0', linestyle=':'), plt.legend();
-#                        plt.show()
-#                        
-#                        graphics.plot_modeloutput_section(ev_model)
-#                        plt.show()
-                    
-                output_df.loc[nglac,'calving_flux_Gta'] = calving_flux_gta
-                output_df.loc[nglac,'no_errors'] = 1
-                    
-#                except:
-#                    output_df.loc[nglac,'calving_flux_Gta'] = np.nan
-#                    output_df.loc[nglac,'no_errors'] = 0
+                except RuntimeError as e:
+                    if 'Glacier exceeds domain boundaries' in repr(e):
+                        print('\n\nFailed: Glacier exceeds domain boundaries\n\n')          
+                    else:
+                        raise
+                    output_df.loc[nglac,'calving_flux_Gta'] = np.nan
+                    output_df.loc[nglac,'no_errors'] = 0
                     
                     
             else:
@@ -345,7 +353,7 @@ if option_reg_calving_k:
                     fa_idxs.append(nglac)
             fa_glac_data_reg = fa_glac_data_reg.loc[fa_idxs,:]
             fa_glac_data_reg.reset_index(inplace=True, drop=True)
-        
+
         if fa_glac_data_reg.loc[0,'RGIId'] == 'all':
             main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=[reg], rgi_regionsO2='all', 
                                                                   rgi_glac_number='all', 
@@ -357,9 +365,9 @@ if option_reg_calving_k:
             fa_glac_data_reg['glacno'] = np.nan
             for nglac, rgiid in enumerate(fa_glac_data_reg.RGIId):
                 # Avoid regional data and observations from multiple RGIIds (len==14)
-                if (not fa_glac_data_reg.loc[nglac,'RGIId'] == 'all' and len(fa_glac_data_reg.loc[nglac,'RGIId']) == 14
-                    and fa_glac_data_reg.loc[nglac,'RGIId'] in ['RGI60-03.00191']):
-#                if not fa_glac_data_reg.loc[nglac,'RGIId'] == 'all' and len(fa_glac_data_reg.loc[nglac,'RGIId']) == 14:
+#                if (not fa_glac_data_reg.loc[nglac,'RGIId'] == 'all' and len(fa_glac_data_reg.loc[nglac,'RGIId']) == 14
+#                    and fa_glac_data_reg.loc[nglac,'RGIId'] in ['RGI60-03.00191']):
+                if not fa_glac_data_reg.loc[nglac,'RGIId'] == 'all' and len(fa_glac_data_reg.loc[nglac,'RGIId']) == 14:
                     fa_glac_data_reg.loc[nglac,'glacno'] = (str(int(rgiid.split('-')[1].split('.')[0])) + '.' + 
                                                             rgiid.split('-')[1].split('.')[1])
             # Drop observations that aren't of individual glaciers
@@ -499,94 +507,100 @@ if option_reg_calving_k:
                     
                     
         #%%
-#        # ----- EXPORT MODEL RESULTS -----
-#        if fa_glac_data_reg.loc[0,'RGIId'] == 'all':
-#            output_df['fa_gta_obs'] = np.nan
-#            output_df['fa_gta_obs_unc'] = np.nan
-#        else:
-#            fa_obs_dict = dict(zip(fa_glac_data_reg.RGIId, fa_glac_data_reg.frontal_ablation_Gta))
-#            fa_obs_unc_dict = dict(zip(fa_glac_data_reg.RGIId, fa_glac_data_reg.frontal_ablation_unc_Gta))
-#            fa_glacname_dict = dict(zip(fa_glac_data_reg.RGIId, fa_glac_data_reg.glacier_name))
-#            output_df['fa_gta_obs'] = output_df['RGIId'].map(fa_obs_dict)
-#            output_df['fa_gta_obs_unc'] = output_df['RGIId'].map(fa_obs_unc_dict)
-#            output_df['name'] = output_df['RGIId'].map(fa_glacname_dict)
-#        
-#        rgi_area_dict = dict(zip(main_glac_rgi.RGIId, main_glac_rgi.Area))
-#        output_df['area_km2'] = output_df['RGIId'].map(rgi_area_dict)
-#        
-#        output_fp = pygem_prms.output_filepath + 'calibration/calving/'
-#        if not os.path.exists(output_fp):
-#            os.makedirs(output_fp)
-#        output_fn = str(reg) + '-calving_cal_reg.csv'
-#        output_df.to_csv(output_fp + output_fn, index=False)
-#        #%%
-#        # ----- PLOT RESULTS FOR EACH GLACIER -----
-#        if not fa_glac_data_reg.loc[0,'RGIId'] == 'all':
-#            
-#            plot_max_raw = np.max([output_df.calving_flux_Gta.max(), output_df.fa_gta_obs.max()])
-#            plot_max = 10**np.ceil(np.log10(plot_max_raw))
-#    
-#            plot_min_raw = np.max([output_df.calving_flux_Gta.min(), output_df.fa_gta_obs.min()])
-#            plot_min = 10**np.floor(np.log10(plot_min_raw))
-#    
-#            x_min, x_max = plot_min, plot_max
-#            
-#        
-#            fig, ax = plt.subplots(1, 1, squeeze=False, gridspec_kw = {'wspace':0, 'hspace':0})
-#            
-#            # Marker size
-#            glac_area_all = output_df['area_km2'].values
-#            s_sizes = [10,50,250,1000]
-#            s_byarea = np.zeros(glac_area_all.shape) + s_sizes[3]
-#            s_byarea[(glac_area_all < 10)] = s_sizes[0]
-#            s_byarea[(glac_area_all >= 10) & (glac_area_all < 100)] = s_sizes[1]
-#            s_byarea[(glac_area_all >= 100) & (glac_area_all < 1000)] = s_sizes[2]
-#            
-#            sc = ax[0,0].scatter(output_df['fa_gta_obs'], output_df['calving_flux_Gta'], 
-#                                 color='k', marker='o', linewidth=1, facecolor='none', 
-#                                 s=s_byarea, clip_on=True)
-#            
-#            # Labels
-#            ax[0,0].set_xlabel('Observed $A_{f}$ (Gt/yr)', size=12)    
-#            ax[0,0].set_ylabel('Modeled $A_{f}$ (Gt/yr)', size=12)
-#            ax[0,0].set_xlim(x_min,x_max)
-#            ax[0,0].set_ylim(x_min,x_max)
-#            ax[0,0].plot([x_min, x_max], [x_min, x_max], color='k', linewidth=0.5, zorder=1)
-#            
-#            ax[0,0].text(0.97, 0.03, '$k_{f} =$' + str(np.round(calving_k,3)), size=10, color='grey',
-#                         horizontalalignment='right', verticalalignment='bottom',
-#                         transform=ax[0,0].transAxes)
-#            
-#            # Log scale
-#            ax[0,0].set_xscale('log')
-#            ax[0,0].set_yscale('log')
-#            
-#            # Legend
-#            obs_labels = ['< 10', '10-100', '100-1000', '> 1000']
-#            for nlabel, obs_label in enumerate(obs_labels):
-#                ax[0,0].scatter([-10],[-10], color='grey', marker='o', linewidth=1, 
-#                                facecolor='none', s=s_sizes[nlabel], zorder=3, label=obs_label)
-#            ax[0,0].text(1.08, 0.97, 'Area (km$^{2}$)', size=12, horizontalalignment='left', verticalalignment='top', 
-#                         transform=ax[0,0].transAxes, color='grey')
-#            leg = ax[0,0].legend(loc='upper left', ncol=1, fontsize=10, frameon=False,
-#                                 handletextpad=1, borderpad=0.25, labelspacing=1, labelcolor='grey',
-#                                 bbox_to_anchor=(1.035, 0.9))
-#            
-#    #        # Legend (over plot)
-#    #        obs_labels = ['< 10', '10-10$^{2}$', '10$^{2}$-10$^{3}$', '> 10$^{3}$']
-#    #        for nlabel, obs_label in enumerate(obs_labels):
-#    #            ax[0,0].scatter([-10],[-10], color='grey', marker='o', linewidth=1, 
-#    #                            facecolor='none', s=s_sizes[nlabel], zorder=3, label=obs_label)
-#    #        ax[0,0].text(0.06, 0.98, 'Area (km$^{2}$)', size=12, horizontalalignment='left', verticalalignment='top', 
-#    #                     transform=ax[0,0].transAxes, color='grey')
-#    #        leg = ax[0,0].legend(loc='upper left', ncol=1, fontsize=10, frameon=False,
-#    #                             handletextpad=1, borderpad=0.25, labelspacing=0.4, bbox_to_anchor=(0.0, 0.93),
-#    #                             labelcolor='grey')
-#            
-#            # Save figure
-#            fig.set_size_inches(3.45,3.45)
-#            fig_fullfn = output_fp + str(reg) + '-calving_glac_compare-cal_reg.png'
-#            fig.savefig(fig_fullfn, bbox_inches='tight', dpi=300)
+        # ----- EXPORT MODEL RESULTS -----
+        if fa_glac_data_reg.loc[0,'RGIId'] == 'all':
+            output_df['fa_gta_obs'] = np.nan
+            output_df['fa_gta_obs_unc'] = np.nan
+        else:
+            fa_obs_dict = dict(zip(fa_glac_data_reg.RGIId, fa_glac_data_reg.frontal_ablation_Gta))
+            fa_obs_unc_dict = dict(zip(fa_glac_data_reg.RGIId, fa_glac_data_reg.frontal_ablation_unc_Gta))
+            fa_glacname_dict = dict(zip(fa_glac_data_reg.RGIId, fa_glac_data_reg.glacier_name))
+            output_df['fa_gta_obs'] = output_df['RGIId'].map(fa_obs_dict)
+            output_df['fa_gta_obs_unc'] = output_df['RGIId'].map(fa_obs_unc_dict)
+            output_df['name'] = output_df['RGIId'].map(fa_glacname_dict)
+        
+        rgi_area_dict = dict(zip(main_glac_rgi.RGIId, main_glac_rgi.Area))
+        output_df['area_km2'] = output_df['RGIId'].map(rgi_area_dict)
+        
+        if cfl_number is None:
+            output_df['cfl_number'] = pygem_prms.cfl_number
+        else:
+            output_df['cfl_number'] = cfl_number
+        
+        
+        output_fp = pygem_prms.main_directory + '/../calving_data/analysis/'
+        if not os.path.exists(output_fp):
+            os.makedirs(output_fp)
+        output_fn = str(reg) + '-calving_cal_reg.csv'
+        output_df.to_csv(output_fp + output_fn, index=False)
+        #%%
+        # ----- PLOT RESULTS FOR EACH GLACIER -----
+        if not fa_glac_data_reg.loc[0,'RGIId'] == 'all':
+            
+            plot_max_raw = np.max([output_df.calving_flux_Gta.max(), output_df.fa_gta_obs.max()])
+            plot_max = 10**np.ceil(np.log10(plot_max_raw))
+    
+            plot_min_raw = np.max([output_df.calving_flux_Gta.min(), output_df.fa_gta_obs.min()])
+            plot_min = 10**np.floor(np.log10(plot_min_raw))
+    
+            x_min, x_max = plot_min, plot_max
+            
+        
+            fig, ax = plt.subplots(1, 1, squeeze=False, gridspec_kw = {'wspace':0, 'hspace':0})
+            
+            # Marker size
+            glac_area_all = output_df['area_km2'].values
+            s_sizes = [10,50,250,1000]
+            s_byarea = np.zeros(glac_area_all.shape) + s_sizes[3]
+            s_byarea[(glac_area_all < 10)] = s_sizes[0]
+            s_byarea[(glac_area_all >= 10) & (glac_area_all < 100)] = s_sizes[1]
+            s_byarea[(glac_area_all >= 100) & (glac_area_all < 1000)] = s_sizes[2]
+            
+            sc = ax[0,0].scatter(output_df['fa_gta_obs'], output_df['calving_flux_Gta'], 
+                                 color='k', marker='o', linewidth=1, facecolor='none', 
+                                 s=s_byarea, clip_on=True)
+            
+            # Labels
+            ax[0,0].set_xlabel('Observed $A_{f}$ (Gt/yr)', size=12)    
+            ax[0,0].set_ylabel('Modeled $A_{f}$ (Gt/yr)', size=12)
+            ax[0,0].set_xlim(x_min,x_max)
+            ax[0,0].set_ylim(x_min,x_max)
+            ax[0,0].plot([x_min, x_max], [x_min, x_max], color='k', linewidth=0.5, zorder=1)
+            
+            ax[0,0].text(0.97, 0.03, '$k_{f} =$' + str(np.round(calving_k,3)), size=10, color='grey',
+                         horizontalalignment='right', verticalalignment='bottom',
+                         transform=ax[0,0].transAxes)
+            
+            # Log scale
+            ax[0,0].set_xscale('log')
+            ax[0,0].set_yscale('log')
+            
+            # Legend
+            obs_labels = ['< 10', '10-100', '100-1000', '> 1000']
+            for nlabel, obs_label in enumerate(obs_labels):
+                ax[0,0].scatter([-10],[-10], color='grey', marker='o', linewidth=1, 
+                                facecolor='none', s=s_sizes[nlabel], zorder=3, label=obs_label)
+            ax[0,0].text(1.08, 0.97, 'Area (km$^{2}$)', size=12, horizontalalignment='left', verticalalignment='top', 
+                         transform=ax[0,0].transAxes, color='grey')
+            leg = ax[0,0].legend(loc='upper left', ncol=1, fontsize=10, frameon=False,
+                                 handletextpad=1, borderpad=0.25, labelspacing=1, labelcolor='grey',
+                                 bbox_to_anchor=(1.035, 0.9))
+            
+    #        # Legend (over plot)
+    #        obs_labels = ['< 10', '10-10$^{2}$', '10$^{2}$-10$^{3}$', '> 10$^{3}$']
+    #        for nlabel, obs_label in enumerate(obs_labels):
+    #            ax[0,0].scatter([-10],[-10], color='grey', marker='o', linewidth=1, 
+    #                            facecolor='none', s=s_sizes[nlabel], zorder=3, label=obs_label)
+    #        ax[0,0].text(0.06, 0.98, 'Area (km$^{2}$)', size=12, horizontalalignment='left', verticalalignment='top', 
+    #                     transform=ax[0,0].transAxes, color='grey')
+    #        leg = ax[0,0].legend(loc='upper left', ncol=1, fontsize=10, frameon=False,
+    #                             handletextpad=1, borderpad=0.25, labelspacing=0.4, bbox_to_anchor=(0.0, 0.93),
+    #                             labelcolor='grey')
+            
+            # Save figure
+            fig.set_size_inches(3.45,3.45)
+            fig_fullfn = output_fp + str(reg) + '-calving_glac_compare-cal_reg.png'
+            fig.savefig(fig_fullfn, bbox_inches='tight', dpi=300)
 
 
 #%% ===== INDIVIDUAL CALIBRATION =========================================================================================        
@@ -631,7 +645,7 @@ if option_ind_calving_k:
         #%%
         # ----- OPTIMIZE CALVING_K BASED ON INDIVIDUAL GLACIER FRONTAL ABLATION DATA -----
         for nglac in np.arange(main_glac_rgi.shape[0]):
-#        for nglac in [14]:
+#        for nglac in [33]:
             
             # Reset bounds
             calving_k = calving_k_init
@@ -665,10 +679,13 @@ if option_ind_calving_k:
                 if debug:
                     print('\nincrease calving_k')
                     
+#                while ((reg_calving_gta_mod < reg_calving_gta_obs and np.round(calving_k,2) < calving_k_bndhigh
+#                       and (np.abs(reg_calving_gta_mod - reg_calving_gta_obs) / reg_calving_gta_obs > 0.1
+#                            and np.abs(reg_calving_gta_mod - reg_calving_gta_obs) > 1e-3))
+#                       and not np.isnan(output_df.loc[0,'calving_flux_Gta'])):
                 while ((reg_calving_gta_mod < reg_calving_gta_obs and np.round(calving_k,2) < calving_k_bndhigh
                        and (np.abs(reg_calving_gta_mod - reg_calving_gta_obs) / reg_calving_gta_obs > 0.1
-                            and np.abs(reg_calving_gta_mod - reg_calving_gta_obs) > 1e-3))
-                       and not np.isnan(output_df.loc[0,'calving_flux_Gta'])):
+                            and np.abs(reg_calving_gta_mod - reg_calving_gta_obs) > 1e-3))):
                     # Record previous output
                     calving_k_last = calving_k
                     output_df_last = output_df.copy()
@@ -810,7 +827,7 @@ if option_ind_calving_k:
         output_df_all['name'] = output_df_all['RGIId'].map(fa_glacname_dict)
         output_df_all['area_km2'] = output_df_all['RGIId'].map(rgi_area_dict)
         
-        output_fp = pygem_prms.output_filepath + 'calibration/calving/'
+        output_fp = pygem_prms.main_directory + '/../calving_data/analysis/'
         if not os.path.exists(output_fp):
             os.makedirs(output_fp)
         output_fn = str(reg) + '-calving_cal_ind.csv'

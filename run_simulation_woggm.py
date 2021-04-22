@@ -57,8 +57,8 @@ def getparser():
         text file that contains the climate data to be used in the model simulation
     gcm_name (optional) : str
         gcm name
-    rcp (optional) : str
-        representative concentration pathway (ex. 'rcp26')
+    scenario (optional) : str
+        representative concentration pathway or shared socioeconomic pathway (ex. 'rcp26', 'ssp585')
     num_simultaneous_processes (optional) : int
         number of cores to use in parallels
     option_parallels (optional) : int
@@ -86,8 +86,8 @@ def getparser():
                         help='text file full of commands to run')
     parser.add_argument('-gcm_name', action='store', type=str, default=None,
                         help='GCM name used for model run')
-    parser.add_argument('-rcp', action='store', type=str, default=None,
-                        help='rcp scenario used for model run (ex. rcp26)')
+    parser.add_argument('-scenario', action='store', type=str, default=None,
+                        help='rcp or ssp scenario used for model run (ex. rcp26 or ssp585)')
     parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=4,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-option_parallels', action='store', type=int, default=1,
@@ -890,13 +890,13 @@ def main(list_packed_vars):
     gcm_name = list_packed_vars[2]
     parser = getparser()
     args = parser.parse_args()
-    if (gcm_name != pygem_prms.ref_gcm_name) and (args.rcp is None):
-        rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
-    elif args.rcp is not None:
-        rcp_scenario = args.rcp
+    if (gcm_name != pygem_prms.ref_gcm_name) and (args.scenario is None):
+        scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
+    elif not args.scenario is None:
+        scenario = args.scenario
     if debug:
-        if 'rcp_scenario' in locals():
-            print(rcp_scenario)
+        if 'scenario' in locals():
+            print(scenario)
     if args.debug_spc == 1:
         debug_spc = True
     else:
@@ -918,7 +918,7 @@ def main(list_packed_vars):
             assert pygem_prms.gcm_endyear <= int(time.strftime("%Y")), 'Climate data not available to gcm_endyear'
     else:
         # GCM object
-        gcm = class_climate.GCM(name=gcm_name, rcp_scenario=rcp_scenario)
+        gcm = class_climate.GCM(name=gcm_name, scenario=scenario)
         # Reference GCM
         ref_gcm = class_climate.GCM(name=pygem_prms.ref_gcm_name)
         # Adjust reference dates in event that reference is longer than GCM data
@@ -1264,7 +1264,18 @@ def main(list_packed_vars):
         #                tasks.filter_inversion_output(gdir)
                     tasks.init_present_time_glacier(gdir) # adds bins below
                     debris.debris_binned(gdir, fl_str='model_flowlines')  # add debris enhancement factors to flowlines
-                    nfls = gdir.read_pickle('model_flowlines')
+    #                nfls = gdir.read_pickle('model_flowlines')
+                    
+                    try:
+                        nfls = gdir.read_pickle('model_flowlines')
+                    except FileNotFoundError as e:
+                        if 'model_flowlines.pkl' in str(e):
+                            tasks.compute_downstream_line(gdir)
+                            tasks.compute_downstream_bedshape(gdir)
+                            tasks.init_present_time_glacier(gdir) # adds bins below
+                            nfls = gdir.read_pickle('model_flowlines')
+                        else:
+                            raise
                     
                     # Record initial surface h for overdeepening calculations
                     surface_h_initial = nfls[0].surface_h
@@ -1316,9 +1327,9 @@ def main(list_packed_vars):
                                                   )
                         if gdir.is_tidewater:
                             assert True==False, 'Need to pass water level'
-#                        if debug:
-#                            print('New glacier vol', ev_model.volume_m3)
-#                            graphics.plot_modeloutput_section(ev_model)
+    #                        if debug:
+    #                            print('New glacier vol', ev_model.volume_m3)
+    #                            graphics.plot_modeloutput_section(ev_model)
                             
                         try:
                             _, diag = ev_model.run_until_and_store(nyears)
@@ -1333,13 +1344,13 @@ def main(list_packed_vars):
                                 fail_domain_fp = (pygem_prms.output_sim_fp + 'fail-exceed_domain/' + reg_str + '/' 
                                                   + gcm_name + '/')
                                 if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
-                                    fail_domain_fp += rcp_scenario + '/'
+                                    fail_domain_fp += scenario + '/'
                                 if not os.path.exists(fail_domain_fp):
                                     os.makedirs(fail_domain_fp, exist_ok=True)
                                 txt_fn_fail = glacier_str + "-sim_failed.txt"
                                 with open(fail_domain_fp + txt_fn_fail, "w") as text_file:
                                     text_file.write(glacier_str + ' failed to complete ' + 
-                                                    str(count_exceed_boundary_errors) + ' simulations')                            
+                                                    str(count_exceed_boundary_errors) + ' simulations')
                             else:
                                 raise
                             
@@ -1799,7 +1810,7 @@ def main(list_packed_vars):
                         # Export statistics to netcdf
                         output_sim_fp = pygem_prms.output_sim_fp + reg_str + '/' + gcm_name + '/'
                         if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
-                            output_sim_fp += rcp_scenario + '/'
+                            output_sim_fp += scenario + '/'
                         output_sim_fp += 'stats/'
                         # Create filepath if it does not exist
                         if os.path.exists(output_sim_fp) == False:
@@ -1811,7 +1822,7 @@ def main(list_packed_vars):
                                           str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
                                           str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '_all.nc')
                         else:
-                            netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_' +
+                            netcdf_fn = (glacier_str + '_' + gcm_name + '_' + scenario + '_' +
                                           str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + 
                                           '_' + str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + 
                                           str(pygem_prms.gcm_endyear) + '_all.nc')
@@ -1821,7 +1832,7 @@ def main(list_packed_vars):
                         # Close datasets
                         output_ds_all_stats.close()
                     
-
+    
                     # ----- DECADAL ICE THICKNESS STATS FOR OVERDEEPENINGS -----
                     if pygem_prms.export_binned_thickness and glacier_rgi_table.Area > pygem_prms.export_binned_area_threshold:
                         
@@ -1833,7 +1844,7 @@ def main(list_packed_vars):
                         # Export statistics to netcdf
                         output_sim_binned_fp = pygem_prms.output_sim_fp + reg_str + '/' + gcm_name + '/'
                         if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
-                            output_sim_binned_fp += rcp_scenario + '/'
+                            output_sim_binned_fp += scenario + '/'
                         output_sim_binned_fp += 'binned/'
                         # Create filepath if it does not exist
                         if os.path.exists(output_sim_binned_fp) == False:
@@ -1845,7 +1856,7 @@ def main(list_packed_vars):
                                           str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
                                           str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '_binned.nc')
                         else:
-                            netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_' +
+                            netcdf_fn = (glacier_str + '_' + gcm_name + '_' + scenario + '_' +
                                           str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + 
                                           '_' + str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + 
                                           str(pygem_prms.gcm_endyear) + '_binned.nc')
@@ -1868,7 +1879,7 @@ def main(list_packed_vars):
     #                    # Export to netcdf
     #                    output_sim_essential_fp = pygem_prms.output_sim_fp + reg_str + '/' + gcm_name + '/'
     #                    if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
-    #                        output_sim_essential_fp += rcp_scenario + '/'
+    #                        output_sim_essential_fp += scenario + '/'
     #                    output_sim_essential_fp += 'essential/'
     #                    # Create filepath if it does not exist
     #                    if os.path.exists(output_sim_essential_fp) == False:
@@ -1880,7 +1891,7 @@ def main(list_packed_vars):
     #                                      str(pygem_prms.option_bias_adjustment) + '_' +  str(sim_iters) + 'sets' + '_' +
     #                                      str(pygem_prms.gcm_startyear) + '_' + str(pygem_prms.gcm_endyear) + '_annual.nc')
     #                    else:
-    #                        netcdf_fn = (glacier_str + '_' + gcm_name + '_' + rcp_scenario + '_' +
+    #                        netcdf_fn = (glacier_str + '_' + gcm_name + '_' + scenario + '_' +
     #                                      str(pygem_prms.option_calibration) + '_ba' + str(pygem_prms.option_bias_adjustment) + 
     #                                      '_' + str(sim_iters) + 'sets' + '_' + str(pygem_prms.gcm_startyear) + '_' + 
     #                                      str(pygem_prms.gcm_endyear) + '_annual.nc')
@@ -1895,7 +1906,7 @@ def main(list_packed_vars):
             # LOG FAILURE
             fail_fp = pygem_prms.output_sim_fp + 'failed/' + reg_str + '/' + gcm_name + '/'
             if gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
-                fail_fp += rcp_scenario + '/'
+                fail_fp += scenario + '/'
             if not os.path.exists(fail_fp):
                 os.makedirs(fail_fp, exist_ok=True)
             txt_fn_fail = glacier_str + "-sim_failed.txt"
@@ -1948,22 +1959,22 @@ if __name__ == '__main__':
     gcm_name = args.gcm_list_fn
     if args.gcm_name is not None:
         gcm_list = [args.gcm_name]
-        rcp_scenario = args.rcp
+        scenario = args.scenario
     elif args.gcm_list_fn == pygem_prms.ref_gcm_name:
         gcm_list = [pygem_prms.ref_gcm_name]
-        rcp_scenario = args.rcp
+        scenario = args.scenario
     else:
         with open(args.gcm_list_fn, 'r') as gcm_fn:
             gcm_list = gcm_fn.read().splitlines()
-            rcp_scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
+            scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
             print('Found %d gcms to process'%(len(gcm_list)))
 
     # Loop through all GCMs
     for gcm_name in gcm_list:
-        if args.rcp is None:
+        if args.scenario is None:
             print('Processing:', gcm_name)
-        else:
-            print('Processing:', gcm_name, rcp_scenario)
+        elif not args.scenario is None:
+            print('Processing:', gcm_name, scenario)
         # Pack variables for multiprocessing
         list_packed_vars = []
         for count, glac_no_lst in enumerate(glac_no_lsts):

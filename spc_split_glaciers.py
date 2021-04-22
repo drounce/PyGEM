@@ -46,6 +46,8 @@ def getparser():
                         help='starting number of rgi glaciers')
     parser.add_argument('-endno', action='store', type=int, default=None,
                         help='starting number of rgi glaciers')
+    parser.add_argument('-regno', action='store', type=int, default=None,
+                        help='regno for rgi glaciers')
     return parser
 
 
@@ -133,8 +135,15 @@ if __name__ == '__main__':
     batch_str = 'rgi_glac_number_'
     # region string
     regions_str = 'R'
-    for region in pygem_prms.rgi_regionsO1:
-        regions_str += str(region)
+
+    if not args.regno is None:
+        regions_str += str(args.regno)
+    else:
+        for region in pygem_prms.rgi_regionsO1:
+            regions_str += str(region)
+#    for region in pygem_prms.rgi_regionsO1:
+#        regions_str += str(region)
+        
     # check files
     for i in os.listdir():
             
@@ -156,11 +165,22 @@ if __name__ == '__main__':
     
     # Select all glaciers
     if not args.startno is None and not args.endno is None:
-        rgi_glac_number = glac_num_fromrange(int(args.startno), int(args.endno))
-        glac_no = None
+        if args.regno is None:
+            rgi_glac_number = glac_num_fromrange(int(args.startno), int(args.endno))
+            glac_no = None
+        else:
+            rgi_glac_number = glac_num_fromrange(int(args.startno), int(args.endno))
+            glac_no = [str(args.regno) + '.' + x for x in rgi_glac_number]
     else:
         rgi_glac_number = pygem_prms.rgi_glac_number
         glac_no = pygem_prms.glac_no
+    
+#    if not args.startno is None and not args.endno is None:
+#        rgi_glac_number = glac_num_fromrange(int(args.startno), int(args.endno))
+#        glac_no = None
+#    else:
+#        rgi_glac_number = pygem_prms.rgi_glac_number
+#        glac_no = pygem_prms.glac_no
     
     main_glac_rgi_all = modelsetup.selectglaciersrgitable(
             rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 =pygem_prms.rgi_regionsO2, 

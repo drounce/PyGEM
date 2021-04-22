@@ -16,12 +16,12 @@ class GCM():
     ----------
     name : str
         name of climate dataset.
-    rcp_scenario : str
-        rcp scenario (example: 'rcp26')
+    scenario : str
+        rcp or ssp scenario (example: 'rcp26' or 'ssp585')
     """
     def __init__(self, 
                  name=str(),
-                 rcp_scenario=str()):
+                 scenario=str()):
         """
         Add variable name and specific properties associated with each gcm.
         """
@@ -102,8 +102,8 @@ class GCM():
             self.rgi_lat_colname=pygem_prms.rgi_lat_colname
             self.rgi_lon_colname=pygem_prms.rgi_lon_colname
             
-        # Other options are currently all from standardized CMIP5 format
-        else:
+        # Standardized CMIP5 format (GCM/RCP)
+        elif 'rcp' in scenario:
             # Variable names
             self.temp_vn = 'tas'
             self.prec_vn = 'pr'
@@ -112,19 +112,39 @@ class GCM():
             self.lon_vn = 'lon'
             self.time_vn = 'time'
             # Variable filenames
-            self.temp_fn = self.temp_vn + '_mon_' + name + '_' + rcp_scenario + '_r1i1p1_native.nc'
-            self.prec_fn = self.prec_vn + '_mon_' + name + '_' + rcp_scenario + '_r1i1p1_native.nc'
-            self.elev_fn = self.elev_vn + '_fx_' + name + '_' + rcp_scenario + '_r0i0p0.nc'
-#            self.lr_fn = pygem_prms.cmip5_lr_fn
+            self.temp_fn = self.temp_vn + '_mon_' + name + '_' + scenario + '_r1i1p1_native.nc'
+            self.prec_fn = self.prec_vn + '_mon_' + name + '_' + scenario + '_r1i1p1_native.nc'
+            self.elev_fn = self.elev_vn + '_fx_' + name + '_' + scenario + '_r0i0p0.nc'
             # Variable filepaths
-            self.var_fp = pygem_prms.cmip5_fp_var_prefix + rcp_scenario + pygem_prms.cmip5_fp_var_ending
-            self.fx_fp = pygem_prms.cmip5_fp_fx_prefix + rcp_scenario + pygem_prms.cmip5_fp_fx_ending
-#            self.lr_fp = pygem_prms.cmip5_fp_lr
+            self.var_fp = pygem_prms.cmip5_fp_var_prefix + scenario + pygem_prms.cmip5_fp_var_ending
+            self.fx_fp = pygem_prms.cmip5_fp_fx_prefix + scenario + pygem_prms.cmip5_fp_fx_ending
             # Extra information
             self.timestep = pygem_prms.timestep
             self.rgi_lat_colname=pygem_prms.rgi_lat_colname
             self.rgi_lon_colname=pygem_prms.rgi_lon_colname
-            self.rcp_scenario = rcp_scenario
+            self.scenario = scenario
+        
+        # Standardized CMIP6 format (GCM/SSP)
+        elif 'ssp' in scenario:
+            # Variable names
+            self.temp_vn = 'tas'
+            self.prec_vn = 'pr'
+            self.elev_vn = 'orog'
+            self.lat_vn = 'lat'
+            self.lon_vn = 'lon'
+            self.time_vn = 'time'
+            # Variable filenames
+            self.temp_fn = name + '_' + scenario + '_r1i1p1f1_' + self.temp_vn + '.nc'
+            self.prec_fn = name + '_' + scenario + '_r1i1p1f1_' + self.prec_vn + '.nc'
+            self.elev_fn = name + '_' + self.elev_vn + '.nc'
+            # Variable filepaths
+            self.var_fp = pygem_prms.cmip6_fp_prefix + name + '/'
+            self.fx_fp = pygem_prms.cmip6_fp_prefix + name + '/'
+            # Extra information
+            self.timestep = pygem_prms.timestep
+            self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+            self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+            self.scenario = scenario
             
             
     def importGCMfxnearestneighbor_xarray(self, filename, vn, main_glac_rgi):
@@ -183,12 +203,6 @@ class GCM():
             
             glac_variable = np.array([glac_variable_dict[x] for x in latlon_nearidx])    
             
-#            for glac in range(main_glac_rgi.shape[0]):
-#                # Select the slice of GCM data for each glacier
-#                try:
-#                    glac_variable[glac] = data[vn][time_idx, lat_nearidx[glac], lon_nearidx[glac]].values
-#                except:
-#                    glac_variable[glac] = data[vn][lat_nearidx[glac], lon_nearidx[glac]].values
         # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
         if vn == self.elev_vn:
             # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
@@ -236,6 +250,12 @@ class GCM():
         # Import netcdf file
         data = xr.open_dataset(self.var_fp + filename)
         glac_variable_series = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
+        
+        # Check GCM provides required years of data
+        years_check = pd.Series(data['time']).apply(lambda x: int(x.strftime('%Y')))
+        assert years_check.max() >= dates_table.year.max(), self.name + ' does not provide data out to ' + str(dates_table.year.max())
+        assert years_check.min() <= dates_table.year.min(), self.name + ' does not provide data back to ' + str(dates_table.year.min())
+        
         # Determine the correct time indices
         if self.timestep == 'monthly':
             start_idx = (np.where(pd.Series(data[self.time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
@@ -264,7 +284,7 @@ class GCM():
                                 .apply(lambda x: x.strftime('%Y-%m-%d')) == dates_table['date']
                                 .apply(lambda x: x.strftime('%Y-%m-%d'))[dates_table.shape[0] - 1]))[0][0]
         # Extract the time series
-        time_series = pd.Series(data[self.time_vn][start_idx:end_idx+1])
+        time_series = pd.Series(data[self.time_vn][start_idx:end_idx+1]) 
         # Find Nearest Neighbor
         if self.name == 'COAWST':
             for glac in range(main_glac_rgi.shape[0]):
@@ -295,13 +315,8 @@ class GCM():
                     glac_variable_dict[latlon] = data[vn][start_idx:end_idx+1, latlon[0], latlon[1]].values
                 
             # Convert to series
-            glac_variable_series = np.array([glac_variable_dict[x] for x in latlon_nearidx])    
+            glac_variable_series = np.array([glac_variable_dict[x] for x in latlon_nearidx])  
 
-#            for glac in range(main_glac_rgi.shape[0]):
-#                # Select the slice of GCM data for each glacier
-#                glac_variable_series[glac,:] = (
-#                        data[vn][start_idx:end_idx+1, lat_nearidx[glac], lon_nearidx[glac]].values)
-                
         # Perform corrections to the data if necessary
         # Surface air temperature corrections
         if vn in ['tas', 't2m', 'T2']:
@@ -319,7 +334,7 @@ class GCM():
             # If the variable has units and those units are meters (ERA Interim)
             if 'units' in data[vn].attrs and data[vn].attrs['units'] == 'm':
                 pass
-            # Elseif the variable has units and those units are kg m-2 s-1 (CMIP5)
+            # Elseif the variable has units and those units are kg m-2 s-1 (CMIP5/CMIP6)
             elif 'units' in data[vn].attrs and data[vn].attrs['units'] == 'kg m-2 s-1':  
                 # Convert from kg m-2 s-1 to m day-1
                 glac_variable_series = glac_variable_series/1000*3600*24
@@ -341,53 +356,179 @@ class GCM():
 
 #%% Testing
 if __name__ == '__main__':
-##    gcm = GCM(name='CanESM2', rcp_scenario='rcp85')
-    gcm = GCM(name='ERA5')
-##    gcm = GCM(name='ERA-Interim')
+    
+    import time
+    import pygem.pygem_modelsetup as modelsetup
+    import pygemfxns_gcmbiasadj as gcmbiasadj
+    
+##    gcm_name = 'NorESM1-M'
+##    scenario = 'rcp85'
 #    
-#    main_glac_rgi = modelsetup.selectglaciersrgitable(rgi_regionsO1=pygem_prms.rgi_regionsO1, rgi_regionsO2 = 'all',
-#                                                      rgi_glac_number=pygem_prms.rgi_glac_number)
-#    dates_table = modelsetup.datesmodelrun(startyear=1980, endyear=2017, spinupyears=0, 
-#                                           option_wateryear=pygem_prms.gcm_wateryear)
+#    gcm_name = 'NorESM2-MM'
+#    scenario = 'ssp126'
 #
-#    # Air temperature [degC], Precipitation [m], Elevation [masl], Lapse rate [K m-1]
-#    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-#    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi, dates_table)
-#    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-#    if gcm.name == 'ERA-Interim' or gcm.name == 'ERA5':
-#        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-#    if gcm.name == 'ERA5':
-#        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn, main_glac_rgi, 
-#                                                                        dates_table)
+#    # Load GCM    
+#    gcm = GCM(name=gcm_name, scenario=scenario)
+#    
+#    main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=pygem_prms.glac_no)
+#    dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2019, spinupyears=0, 
+#                                           option_wateryear=pygem_prms.gcm_wateryear)
+#    
+#    
+#    # ===== TIME PERIOD =====
+#    dates_table = modelsetup.datesmodelrun(
+#            startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear, spinupyears=pygem_prms.gcm_spinupyears,
+#            option_wateryear=pygem_prms.gcm_wateryear)
+#    
+#    # ===== LOAD CLIMATE DATA =====
+#    # Climate class
+#    if gcm_name in ['ERA5', 'ERA-Interim', 'COAWST']:
+#        gcm = GCM(name=gcm_name)
+#        if pygem_prms.option_synthetic_sim == 0:
+#            assert pygem_prms.gcm_endyear <= int(time.strftime("%Y")), 'Climate data not available to gcm_endyear'
 #    else:
-#        gcm_lr = np.tile(ref_lr_monthly_avg, int(gcm_temp.shape[1]/12))
-#    # COAWST data has two domains, so need to merge the two domains
-#    if gcm.name == 'COAWST':
-#        gcm_temp_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn_d01, gcm.temp_vn, main_glac_rgi, 
-#                                                                         dates_table)
-#        gcm_prec_d01, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn_d01, gcm.prec_vn, main_glac_rgi, 
-#                                                                         dates_table)
-#        gcm_elev_d01 = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn_d01, gcm.elev_vn, main_glac_rgi)
-#        # Check if glacier outside of high-res (d02) domain
-#        for glac in range(main_glac_rgi.shape[0]):
-#            glac_lat = main_glac_rgi.loc[glac,pygem_prms.rgi_lat_colname]
-#            glac_lon = main_glac_rgi.loc[glac,pygem_prms.rgi_lon_colname]
-#            if (~(pygem_prms.coawst_d02_lat_min <= glac_lat <= pygem_prms.coawst_d02_lat_max) or 
-#                ~(pygem_prms.coawst_d02_lon_min <= glac_lon <= pygem_prms.coawst_d02_lon_max)):
-#                gcm_prec[glac,:] = gcm_prec_d01[glac,:]
-#                gcm_temp[glac,:] = gcm_temp_d01[glac,:]
-#                gcm_elev[glac] = gcm_elev_d01[glac]
+#        # GCM object
+#        gcm = GCM(name=gcm_name, scenario=scenario)
+#        # Reference GCM
+#        ref_gcm = GCM(name=pygem_prms.ref_gcm_name)
+#        # Adjust reference dates in event that reference is longer than GCM data
+#        if pygem_prms.ref_startyear >= pygem_prms.gcm_startyear:
+#            ref_startyear = pygem_prms.ref_startyear
+#        else:
+#            ref_startyear = pygem_prms.gcm_startyear
+#        if pygem_prms.ref_endyear <= pygem_prms.gcm_endyear:
+#            ref_endyear = pygem_prms.ref_endyear
+#        else:
+#            ref_endyear = pygem_prms.gcm_endyear
+#        dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear,
+#                                                   spinupyears=pygem_prms.ref_spinupyears,
+#                                                   option_wateryear=pygem_prms.ref_wateryear)
+#    
+#    # Air temperature [degC]
+#    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi,
+#                                                                  dates_table)
+#    if pygem_prms.option_ablation != 2:
+#        gcm_tempstd = np.zeros(gcm_temp.shape)
+#    elif pygem_prms.option_ablation == 2 and gcm_name in ['ERA5']:
+#        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn,
+#                                                                        main_glac_rgi, dates_table)
+#    elif pygem_prms.option_ablation == 2 and pygem_prms.ref_gcm_name in ['ERA5']:
+#        # Compute temp std based on reference climate data
+#        ref_tempstd, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.tempstd_fn, ref_gcm.tempstd_vn,
+#                                                                            main_glac_rgi, dates_table_ref)
+#        # Monthly average from reference climate data
+#        gcm_tempstd = gcmbiasadj.monthly_avg_array_rolled(ref_tempstd, dates_table_ref, dates_table)
+#    else:
+#        gcm_tempstd = np.zeros(gcm_temp.shape)
+#
+#    # Precipitation [m]
+#    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi,
+#                                                                  dates_table)
+#    # Elevation [m asl]
+#    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+#    # Lapse rate
+#    if gcm_name in ['ERA-Interim', 'ERA5']:
+#        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+#    else:
+#        # Compute lapse rates based on reference climate data
+#        ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi,
+#                                                                        dates_table_ref)
+#        # Monthly average from reference climate data
+#        gcm_lr = gcmbiasadj.monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table)
+
         
     #%%
-#    # Get range of dates
-#    rcp_scenario = 'rcp85'
+    # ===== RANGE OF DATES =====
+#    scenario = 'rcp85'
 #    gcm_names = ['bcc-csm1-1', 'CanESM2', 'CESM1-CAM5', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'FGOALS-g2', 'GFDL-CM3', 
 #             'GFDL-ESM2G', 'GFDL-ESM2M', 'GISS-E2-R', 'HadGEM2-ES', 'IPSL-CM5A-LR', 'IPSL-CM5A-MR', 'MIROC-ESM', 
 #             'MIROC-ESM-CHEM', 'MIROC5', 'MPI-ESM-LR', 'MPI-ESM-MR', 'MRI-CGCM3', 'NorESM1-M', 'NorESM1-ME']
 #    for gcm_name in gcm_names:
 #        print(gcm_name)
-#        ds = xr.open_dataset(pygem_prms.cmip5_fp_var_prefix + rcp_scenario + pygem_prms.cmip5_fp_var_ending + 
-#                             'tas' + '_mon_' + gcm_name + '_' + rcp_scenario + '_r1i1p1_native.nc')
+#        ds = xr.open_dataset(pygem_prms.cmip5_fp_var_prefix + scenario + pygem_prms.cmip5_fp_var_ending + 
+#                             'tas' + '_mon_' + gcm_name + '_' + scenario + '_r1i1p1_native.nc')
 #        
 #        print('  ', ds.time[0].values,
 #              '\n  ', ds.time[-1].values)
+
+
+    main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=pygem_prms.glac_no)
+    dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2019, spinupyears=0, 
+                                           option_wateryear=pygem_prms.gcm_wateryear)
+    
+    # ===== TIME PERIOD =====
+    dates_table = modelsetup.datesmodelrun(
+            startyear=pygem_prms.gcm_startyear, endyear=pygem_prms.gcm_endyear, spinupyears=pygem_prms.gcm_spinupyears,
+            option_wateryear=pygem_prms.gcm_wateryear)
+
+    scenarios = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
+    gcm_names = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 'GFDL-ESM4', 
+                 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
+    for gcm_name in gcm_names:
+        for scenario in scenarios:
+                    
+            ds = xr.open_dataset(pygem_prms.cmip6_fp_prefix + gcm_name + '/' + 
+                                 gcm_name + '_' + scenario + '_r1i1p1f1_tas.nc')
+            
+            print(gcm_name, scenario, ds.time[0].values, ds.time[-1].values)
+            
+            # Load GCM    
+            gcm = GCM(name=gcm_name, scenario=scenario)
+
+            # ===== LOAD CLIMATE DATA =====
+            # Climate class
+            if gcm_name in ['ERA5', 'ERA-Interim', 'COAWST']:
+                gcm = GCM(name=gcm_name)
+                if pygem_prms.option_synthetic_sim == 0:
+                    assert pygem_prms.gcm_endyear <= int(time.strftime("%Y")), 'Climate data not available to gcm_endyear'
+            else:
+                # GCM object
+                gcm = GCM(name=gcm_name, scenario=scenario)
+                # Reference GCM
+                ref_gcm = GCM(name=pygem_prms.ref_gcm_name)
+                # Adjust reference dates in event that reference is longer than GCM data
+                if pygem_prms.ref_startyear >= pygem_prms.gcm_startyear:
+                    ref_startyear = pygem_prms.ref_startyear
+                else:
+                    ref_startyear = pygem_prms.gcm_startyear
+                if pygem_prms.ref_endyear <= pygem_prms.gcm_endyear:
+                    ref_endyear = pygem_prms.ref_endyear
+                else:
+                    ref_endyear = pygem_prms.gcm_endyear
+                dates_table_ref = modelsetup.datesmodelrun(startyear=ref_startyear, endyear=ref_endyear,
+                                                           spinupyears=pygem_prms.ref_spinupyears,
+                                                           option_wateryear=pygem_prms.ref_wateryear)
+            
+            # Air temperature [degC]
+            gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi,
+                                                                          dates_table)
+            if pygem_prms.option_ablation != 2:
+                gcm_tempstd = np.zeros(gcm_temp.shape)
+            elif pygem_prms.option_ablation == 2 and gcm_name in ['ERA5']:
+                gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn,
+                                                                                main_glac_rgi, dates_table)
+            elif pygem_prms.option_ablation == 2 and pygem_prms.ref_gcm_name in ['ERA5']:
+                # Compute temp std based on reference climate data
+                ref_tempstd, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.tempstd_fn, ref_gcm.tempstd_vn,
+                                                                                    main_glac_rgi, dates_table_ref)
+                # Monthly average from reference climate data
+                gcm_tempstd = gcmbiasadj.monthly_avg_array_rolled(ref_tempstd, dates_table_ref, dates_table)
+            else:
+                gcm_tempstd = np.zeros(gcm_temp.shape)
+        
+            # Precipitation [m]
+            gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi,
+                                                                          dates_table)
+            # Elevation [m asl]
+            gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+            # Lapse rate
+            if gcm_name in ['ERA-Interim', 'ERA5']:
+                gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+            else:
+                # Compute lapse rates based on reference climate data
+                ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi,
+                                                                                dates_table_ref)
+                # Monthly average from reference climate data
+                gcm_lr = gcmbiasadj.monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table)
+                
+            print('    ', 'elev:', int(gcm_elev[0]), ' T:', np.round(gcm_temp.mean(),1), 'C   P:', np.round(gcm_prec.sum() / (gcm_prec.shape[1]/12),1), 'm')

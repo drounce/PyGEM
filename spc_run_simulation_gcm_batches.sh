@@ -3,23 +3,21 @@
 #SBATCH --ntasks=48
 #SBATCH --tasks-per-node=24
 
-STARTNO="25501"
-ENDNO="27112"
+STARTNO="15601"
+ENDNO="15648"
 
 # region
-REGNO="1"
+REGNO="5"
 MERGE_SWITCH=0
 ORDERED_SWITCH=0
 
-# gcm list
-GCM_NAMES_FP="../climate_data/cmip5/"
-GCM_NAMES_FN="gcm_rcp26_filenames.txt"
-# determine gcm names and rcp scenario
-GCM_NAMES_LST="$(< $GCM_NAMES_FP$GCM_NAMES_FN)"
+# GCM list
+#GCM_NAMES_LST="CanESM2 CCSM4 CNRM-CM5 CSIRO-Mk3-6-0 GFDL-CM3 GFDL-ESM2M GISS-E2-R IPSL-CM5A-LR MPI-ESM-LR NorESM1-M"
+GCM_NAMES_LST="IPSL-CM5A-LR MPI-ESM-LR NorESM1-M"
 
-#RCP="$(cut -d'_' -f2 <<<"$GCM_NAMES_FN")"
-RCPS="rcp26 rcp45 rcp85"
-
+# Scenarios list
+SCENARIOS="rcp26 rcp45 rcp85"
+#SCENARIOS="ssp126 ssp245 ssp370 ssp585"
 
 # activate environment
 module load lang/Anaconda3/5.3.0
@@ -27,7 +25,8 @@ source activate oggm_env_v02
 
 
 # split glaciers into batches for different nodes
-python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -option_ordered=$ORDERED_SWITCH -startno=$STARTNO -endno=$ENDNO
+python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -option_ordered=$ORDERED_SWITCH -startno=$STARTNO -endno=$ENDNO -regno=$REGNO
+#python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -option_ordered=$ORDERED_SWITCH -startno=$STARTNO -endno=$ENDNO
 #python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -option_ordered=$ORDERED_SWITCH
 
 # list rgi_glac_number batch filenames
@@ -53,8 +52,8 @@ for GCM_NAME in $GCM_NAMES_LST; do
   GCM_NAME_NOSPACE="$(echo -e "${GCM_NAME}" | tr -d '[:space:]')"
   echo -e "\n$GCM_NAME"
   
-  for RCP in $RCPS; do
-    echo "$RCP"
+  for SCENARIO in $SCENARIOS; do
+    echo "$SCENARIO"
 
     count=0
     # Launch the application
@@ -63,7 +62,7 @@ for GCM_NAME in $GCM_NAMES_LST; do
       rgi_fn=${list_rgi_fns[count]}
       echo $rgi_fn
       # ONLY WORKS WITH EXCLUSIVE!
-      srun --exclusive -N1 -n1 python run_simulation_woggm.py -gcm_name="$GCM_NAME_NOSPACE" -rcp="$RCP" -num_simultaneous_processes=24 -rgi_glac_number_fn=$rgi_fn -option_ordered=$ORDERED_SWITCH &
+      srun --exclusive -N1 -n1 python run_simulation_woggm.py -gcm_name="$GCM_NAME_NOSPACE" -scenario="$SCENARIO" -num_simultaneous_processes=24 -rgi_glac_number_fn=$rgi_fn -option_ordered=$ORDERED_SWITCH &
       #echo $NODE
       #echo $count
       ((count++))

@@ -82,7 +82,10 @@ class PyGEMMassBalance(MassBalanceModel):
             self.glacier_area_initial = fls[fl_id].widths_m * fls[fl_id].dx_meter
             self.heights = fls[fl_id].surface_h
             if pygem_prms.include_debris and not ignore_debris and not gdir.is_tidewater:
-                self.debris_ed = fls[fl_id].debris_ed
+                try:
+                    self.debris_ed = fls[fl_id].debris_ed
+                except:
+                    self.debris_ed = np.ones(self.glacier_area_initial.shape[0])
             else:
                 self.debris_ed = np.ones(self.glacier_area_initial.shape[0])
 

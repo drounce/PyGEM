@@ -33,11 +33,12 @@ import pygem.pygem_input as pygem_prms
 from pygem.massbalance import PyGEMMassBalance
 #from pygem.glacierdynamics import MassRedistributionCurveModel
 from pygem.oggm_compat import single_flowline_glacier_directory, single_flowline_glacier_directory_with_calving
+from pygem.shop import debris 
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import pygem.pygem_modelsetup as modelsetup
 import spc_split_glaciers as split_glaciers
 
-#from oggm import cfg
+from oggm import cfg
 from oggm import graphics
 from oggm import tasks
 from oggm import utils
@@ -145,6 +146,113 @@ def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
         nyears = gdir.mbdata['nyears']
         mb_mwea = mbmod.glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / mbmod.glac_wide_area_annual[0] / nyears
         return mb_mwea
+    
+
+#def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
+#                 option_areaconstant=pygem_prms.option_areaconstant, return_tbias_mustmelt=False, return_tbias_mustmelt_wmb=False,
+#                 cfl_number=0.02, fs=0, glen_a_multiplier=1, account_tidewater=False):
+#    """
+#    Run the mass balance and calculate the mass balance [mwea]
+#    
+#    Returns
+#    -------
+#    mb_mwea : float
+#        mass balance [m w.e. a-1]
+#    """
+#    if option_areaconstant:
+#        # CONSTANT AREA MASS BALANCE
+#        mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table, fls=fls, option_areaconstant=True,
+#                                 debug=pygem_prms.debug_mb, debug_refreeze=pygem_prms.debug_refreeze)
+#        years = np.arange(0, int(gdir.dates_table.shape[0]/12))
+#        for year in years:
+#            mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=0, year=year, debug=False)
+#    else:
+#        nyears = int(gdir.dates_table.shape[0]/12) 
+#        # Apply inversion_filter on mass balance with debris to avoid negative flux
+#        if pygem_prms.include_debris:
+#            inversion_filter = True
+#        else:
+#            inversion_filter = False
+#            
+#        # Perform inversion based on PyGEM MB
+#        mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
+#                                      hindcast=pygem_prms.hindcast,
+#                                      debug=pygem_prms.debug_mb,
+#                                      debug_refreeze=pygem_prms.debug_refreeze,
+#                                      fls=fls, option_areaconstant=True,
+#                                      inversion_filter=inversion_filter)
+#            
+#        # Arbitrariliy shift the MB profile up (or down) until mass balance is zero (equilibrium for inversion)
+#        climate.apparent_mb_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears))
+#        tasks.prepare_for_inversion(gdir)
+#        tasks.mass_conservation_inversion(gdir, glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
+#        tasks.init_present_time_glacier(gdir) # adds bins below
+#        debris.debris_binned(gdir, fl_str='model_flowlines')  # add debris enhancement factors to flowlines
+#                    
+#        try:
+#            nfls = gdir.read_pickle('model_flowlines')
+#        except FileNotFoundError as e:
+#            if 'model_flowlines.pkl' in str(e):
+#                tasks.compute_downstream_line(gdir)
+#                tasks.compute_downstream_bedshape(gdir)
+#                tasks.init_present_time_glacier(gdir) # adds bins below
+#                nfls = gdir.read_pickle('model_flowlines')
+#            else:
+#                raise
+#                    
+#        # ------ MODEL WITH EVOLVING AREA ------
+#        # Mass balance model
+#        mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
+#                                  hindcast=pygem_prms.hindcast,
+#                                  debug=pygem_prms.debug_mb,
+#                                  debug_refreeze=pygem_prms.debug_refreeze,
+#                                  fls=nfls, option_areaconstant=True)
+#       
+#        # Glacier dynamics model
+#        if pygem_prms.option_dynamics == 'OGGM':
+#            if not account_tidewater:
+#                gdir.is_tidewater = False
+#            ev_model = FluxBasedModel(nfls, y0=0, mb_model=mbmod, 
+#                                      glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs,
+#                                      is_tidewater=gdir.is_tidewater)
+#            if gdir.is_tidewater:
+#                assert True==False, 'Need to pass water level'
+#                
+#            try:
+#                _, diag = ev_model.run_until_and_store(nyears)
+#                ev_model.mb_model.glac_wide_volume_annual[-1] = diag.volume_m3[-1]
+#                ev_model.mb_model.glac_wide_area_annual[-1] = diag.area_m2[-1]
+#            except RuntimeError as e:
+#                if 'Glacier exceeds domain boundaries' in repr(e):
+#                    # CONSTANT AREA MASS BALANCE
+#                    mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table, fls=fls, option_areaconstant=True,
+#                                             debug=pygem_prms.debug_mb, debug_refreeze=pygem_prms.debug_refreeze)
+#                    years = np.arange(0, int(gdir.dates_table.shape[0]/12))
+#                    for year in years:
+#                        mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=0, year=year, debug=False)
+#                else:
+#                    raise
+#
+#    # Option for must melt condition
+#    if return_tbias_mustmelt:
+#        # Number of years and bins with negative climatic mass balance
+#        nbinyears_negmbclim =  len(np.where(mbmod.glac_bin_massbalclim_annual < 0)[0])
+#        return nbinyears_negmbclim
+#    elif return_tbias_mustmelt_wmb:
+#        nbinyears_negmbclim =  len(np.where(mbmod.glac_bin_massbalclim_annual < 0)[0])
+#        t1_idx = gdir.mbdata['t1_idx']
+#        t2_idx = gdir.mbdata['t2_idx']
+#        nyears = gdir.mbdata['nyears']
+#        mb_mwea = mbmod.glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / mbmod.glac_wide_area_annual[0] / nyears
+#        return nbinyears_negmbclim, mb_mwea
+#    # Otherwise return specific mass balance
+#    else:        
+#        # Specific mass balance [mwea]
+#        t1_idx = gdir.mbdata['t1_idx']
+#        t2_idx = gdir.mbdata['t2_idx']
+#        nyears = gdir.mbdata['nyears']
+#        mb_mwea = mbmod.glac_wide_massbaltotal[t1_idx:t2_idx+1].sum() / mbmod.glac_wide_area_annual[0] / nyears
+#        return mb_mwea
     
     
 #def retrieve_tbias_bnds(gdir, modelprms, glacier_rgi_table, fls=None, debug=False):
@@ -455,7 +563,7 @@ def main(list_packed_vars):
 
         # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====        
         try: 
-            
+
 #            if not glacier_rgi_table['TermType'] in [1,5] or pygem_prms.ignore_calving:
             gdir = single_flowline_glacier_directory(glacier_str, logging_level='CRITICAL')
 #            else:

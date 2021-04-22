@@ -158,7 +158,7 @@ def hypsometrystats(hyps_table, thickness_table):
     return glac_volume, glac_hyps_mean
 
 
-def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=pygem_prms.indexname):
+def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=pygem_prms.indexname, option_shift_elevbins_20m=True):
     """Use the dictionary specified by the user to extract the desired variable.
     The files must be in the proper units (ice thickness [m], area [km2], width [km]) and should be pre-processed.
 
@@ -217,7 +217,7 @@ def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=py
     # change NAN from -99 to 0
     glac_table_copy[glac_table_copy==-99] = 0.
     # Shift Huss bins by 20 m since the elevation bins appear to be 20 m higher than they should be
-    if pygem_prms.option_shift_elevbins_20m == 1:
+    if option_shift_elevbins_20m:
         colnames = glac_table_copy.columns.tolist()[:-2]
         glac_table_copy = glac_table_copy.iloc[:,2:]
         glac_table_copy.columns = colnames

@@ -32,11 +32,11 @@ import pygem.pygem_input as pygem_prms
 import pygem.pygem_modelsetup as modelsetup
 
 # Script options
-option_get_missing_glacno = False
-option_plot_cmip5_volchange = False
 option_plot_era5_volchange = True
-option_plot_era5_AAD = False
+option_get_missing_glacno = False
 
+option_plot_cmip5_volchange = False
+option_plot_era5_AAD = False
 option_process_data = False
 
 
@@ -49,8 +49,7 @@ netcdf_fp_sims = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
 
 #%%
 #regions = [1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19]
-regions = [11]
-#print('reanalyze 13')
+regions = [17]
 
 # GCMs and RCP scenarios
 gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
@@ -220,7 +219,7 @@ if option_process_data:
             for gcm_name in gcm_names:
                 
                 # Filepath where glaciers are stored
-                netcdf_fp = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/essential/'
+                netcdf_fp = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
                 
                 # Load the glaciers
                 glacno_list_gcmrcp = []
@@ -458,26 +457,46 @@ if option_get_missing_glacno:
     """ Get list of missing glaciers for each rcp scenario! """
     for reg in regions:
         
-        # Load glaciers
-        glacno_list = {}
-        for gcm in gcm_names:
-            glacno_list[gcm] = {}
-            for rcp in rcps:
-                # Filepath where glaciers are stored
-                fail_fp = netcdf_fp_cmip5 + 'failed/' + gcm + '/' + rcp + '/'
-                
-                glacno_list_gcmrcp = []
-                for i in os.listdir(fail_fp):
-                    if i.endswith('-sim_failed.txt'):
-                        glacno_list_gcmrcp.append(i.split('-')[0])
-                        
-                glacno_list[gcm][rcp] = sorted(glacno_list_gcmrcp)
+#        # Load glaciers
+#        glacno_list = {}
+#        for gcm in gcm_names:
+#            glacno_list[gcm] = {}
+#            for rcp in rcps:
+#                # Filepath where glaciers are stored
+#                fail_fp = netcdf_fp_cmip5 + 'failed/' + gcm + '/' + rcp + '/'
+#                
+#                glacno_list_gcmrcp = []
+#                for i in os.listdir(fail_fp):
+#                    if i.endswith('-sim_failed.txt'):
+#                        glacno_list_gcmrcp.append(i.split('-')[0])
+#                        
+#                glacno_list[gcm][rcp] = sorted(glacno_list_gcmrcp)
+        
+        
+        # All glaciers for fraction
+        main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=[reg], 
+                                                              rgi_regionsO2='all', rgi_glac_number='all', 
+                                                              glac_no=None)
+           
+        # ----- Missing glaciers -----
+        # Filepath where glaciers are stored
+        # Load the glaciers
+        glacno_list_fp = '/Users/drounce/Documents/HiMAT/spc_backup/calibration/' + str(reg).zfill(2) + '/'
+        glacno_list = []
+        for i in os.listdir(glacno_list_fp):
+            if i.endswith('.pkl'):
+                glacno_list.append(i.split('-')[0])
+        glacno_list = sorted(glacno_list)
+        
+        glacno_list_all = list(main_glac_rgi_all.glacno.values)
+        
+        glacno_missing = np.setdiff1d(glacno_list_all, glacno_list).tolist()
                         
 
 #%%
 if option_plot_era5_volchange:
     
-    overwrite_pickle = False
+    overwrite_pickle = True
     
     # Input information for analysis    
     cal_startyr = 2000
@@ -487,9 +506,11 @@ if option_plot_era5_volchange:
     mb_dataset = 'Hugonnet2020'
     
     #%%
-    cal_fp = pygem_prms.output_filepath + 'calibration/'
+#    cal_fp = pygem_prms.output_filepath + 'calibration/'
+    cal_fp = '/Users/drounce/Documents/HiMAT/spc_backup/calibration/'
+    netcdf_fn_ending = '_ERA5_MCMC_ba1_50sets_2000_2019_all.nc'
+#    netcdf_fn_ending = '_ERA5_emulator_ba1_1sets_2000_2019_all.nc'
     #%%
-    netcdf_fn_ending = '_ERA5_MCMC_ba1_50sets_2000_2019_annual.nc'
     fig_fp = netcdf_fp_sims + '/../analysis/figures/'
     if not os.path.exists(fig_fp):
         os.makedirs(fig_fp, exist_ok=True)
@@ -508,11 +529,26 @@ if option_plot_era5_volchange:
         # Load glaciers
         glacno_list = []
         # Filepath where glaciers are stored
-        netcdf_fp = netcdf_fp_sims + str(reg).zfill(2) + '/ERA5/essential/'
+        netcdf_fp = netcdf_fp_sims + str(reg).zfill(2) + '/ERA5/binned/'
+        netcdf_fp_stats = netcdf_fp_sims + str(reg).zfill(2) + '/ERA5/stats/'
         for i in os.listdir(netcdf_fp):
             if i.endswith('.nc'):
                 glacno_list.append(i.split('_')[0])
         glacno_list = sorted(glacno_list)
+        
+        print('\n\nLimiting by calibration files too\n\n')
+        glacno_list_cal = []
+        for i in os.listdir(cal_fp + str(reg).zfill(2) + '/'):
+            if i.endswith('.pkl'):
+                glacno_list_cal.append(i.split('-')[0])
+        glacno_list_cal = sorted(glacno_list_cal)
+        
+        glacno_list = list(set(glacno_list).intersection(glacno_list_cal))
+        glacno_list = sorted(glacno_list)
+        
+#        print('\n\nDELETE ME!\n\n')
+#        glacno_list = glacno_list_cal
+        
         
         print('simulated', len(glacno_list), 'glaciers')
         
@@ -615,30 +651,31 @@ if option_plot_era5_volchange:
                 
                 ds_fn = glacno + netcdf_fn_ending
                         
-                ds = xr.open_dataset(netcdf_fp + ds_fn)
+                ds = xr.open_dataset(netcdf_fp_stats + ds_fn)
 
                 # Time values
                 if years is None:
                     years = ds.year.values
                     idx_cal_startyr = np.where(years == cal_startyr)[0][0]
                     idx_cal_endyr = np.where(years == cal_endyr)[0][0]
-                    
+
                 # Volume data
-                glac_vol = ds.glac_volume_annual.values[0,:,:]
-                glac_area = ds.glac_area_annual.values[0,:,:]
-                    
+                glac_vol = ds.glac_volume_annual.values[0,:]
+                glac_area = ds.glac_area_annual.values[0,:]
+
                 # Volume
                 # Fill nan values, i.e., simulations that failed, with the max run
                 #  as this is due to a glacier exceeding the original bounds (i.e., positive gain)
                 #  note: this should have limited impact as this happens to very few runs
-                nan_col_idx = np.where(np.isnan(glac_vol[0,:]))[0]
+                nan_col_idx = np.where(np.isnan(glac_vol))[0]
                 if len(nan_col_idx) > 0:
+                    assert True==False, 'This is broken; needs to be fixed'
                     max_vol_idx = np.where(glac_vol[-1,:] == np.nanmax(glac_vol[-1,:]))[0][0]
                     glac_vol_annual_max = glac_vol[:,max_vol_idx]
                     glac_vol[:,nan_col_idx] = glac_vol_annual_max[:,np.newaxis]
 #                    glac_vol_annual_med = np.nanmedian(glac_vol, axis=1)
 #                    glac_vol[:,nan_col_idx] = glac_vol_annual_med[:,np.newaxis]
-                        
+
 #                # Check for any unrealistic major gains that are due to errors in code
 #                glac_vol_dif = glac_vol[1:,:] - glac_vol[0:-1,:]
 #                glac_vol_start_med = np.nanmedian(glac_vol[0,:])
@@ -654,8 +691,9 @@ if option_plot_era5_volchange:
                     reg_vol += glac_vol
                     
                 # Area
-                nan_col_idx_area = np.where(np.isnan(glac_area[0,:]))[0]
+                nan_col_idx_area = np.where(np.isnan(glac_area))[0]
                 if len(nan_col_idx_area) > 0:
+                    assert True==False, 'This is broken; needs to be fixed'
                     glac_area_annual_max = glac_area[:,max_vol_idx]
                     glac_area[:,nan_col_idx] = glac_area_annual_max[:,np.newaxis]
 #                    glac_area_annual_med = np.nanmedian(glac_area, axis=1)
@@ -663,43 +701,35 @@ if option_plot_era5_volchange:
                     
                 # Record data
                 glac_mass = glac_vol * pygem_prms.density_ice
-                glac_mass_mean = np.mean(glac_mass,axis=1)
-                mb_mod_gta_mean = ((glac_mass_mean[idx_cal_endyr] - glac_mass_mean[idx_cal_startyr]) / 
+                
+                mb_mod_gta = ((glac_mass[idx_cal_endyr] - glac_mass[idx_cal_startyr]) / 
                                    (cal_endyr - cal_startyr) / 1e12)
-                mb_mod_mwea_mean = mb_mod_gta_mean * 1e12 / pygem_prms.density_water / glac_area[0,0]
+                mb_mod_mwea_mean = mb_mod_gta * 1e12 / pygem_prms.density_water / glac_area[0]
                 
                 # MCMC calibration
-                mcmc_fp = cal_fp + str(reg).zfill(2) + '/'
                 glacier_str = glacno
                 modelprms_fn = glacier_str + '-modelprms_dict.pkl'
-                modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
-                                + '/')
+                modelprms_fp = cal_fp + glacier_str.split('.')[0].zfill(2)  + '/'
                 modelprms_fullfn = modelprms_fp + modelprms_fn
 
                 assert os.path.exists(modelprms_fullfn), 'Calibrated parameters do not exist.'
                 with open(modelprms_fullfn, 'rb') as f:
                     modelprms_dict = pickle.load(f)
-
-
-
+                
                 mb_compare.loc[nglac,'mb_mwea_emulator'] = modelprms_dict['emulator']['mb_mwea'][0]
                 mb_compare.loc[nglac,'mb_mwea_mcmc'] = np.mean(modelprms_dict['MCMC']['mb_mwea']['chain_0'])
-                mb_compare.loc[nglac,'mb_mwea_oggm'] = mb_mod_mwea_mean
+#                mb_compare.loc[nglac,'mb_mwea_oggm'] = mb_mod_mwea_mean
                 mb_compare.loc[nglac,'mb_gta_emulator'] = (
-                        mwea_to_gta(modelprms_dict['emulator']['mb_mwea'][0], glac_area[0,0]))
+                        mwea_to_gta(mb_compare.loc[nglac,'mb_mwea_emulator'], main_glac_rgi.loc[nglac,'Area']*1e6))
                 mb_compare.loc[nglac,'mb_gta_mcmc'] = (
-                        mwea_to_gta(np.mean(modelprms_dict['MCMC']['mb_mwea']['chain_0']), glac_area[0,0]))
-                mb_compare.loc[nglac,'mb_gta_oggm'] = mwea_to_gta(mb_mod_mwea_mean,glac_area[0,0])
+                        mwea_to_gta(np.mean(modelprms_dict['MCMC']['mb_mwea']['chain_0']), main_glac_rgi.loc[nglac,'Area']*1e6))
+                mb_compare.loc[nglac,'mb_gta_oggm'] = mwea_to_gta(mb_mod_mwea_mean,glac_area[0])
 
                 # Combine to get regional dataset
                 if reg_area is None:
                     reg_area = glac_area
                 else:
                     reg_area += glac_area
-                    
-#            plt.plot(years, reg_vol)
-#            plt.ylabel('Volume [m3]')
-#            plt.show()
                   
             # Pickle the dataset
             with open(pickle_fp + reg_vol_fn, 'wb') as f:
@@ -708,6 +738,11 @@ if option_plot_era5_volchange:
                 pickle.dump(reg_area, f)
                 
             # Export csv
+            #%%
+            mb_compare['dif_gta_obs_oggm'] = mb_compare['mb_obs_gta'] - mb_compare['mb_gta_oggm']
+            mb_compare['dif_gta_obs_em'] = mb_compare['mb_obs_gta'] - mb_compare['mb_gta_emulator']
+            mb_compare['dif_gta_oggm_em'] = mb_compare['mb_gta_oggm'] - mb_compare['mb_gta_emulator']
+            #%%
             mb_compare.to_csv(mb_compare_fullfn, index=False)
                     
         else:
@@ -724,10 +759,11 @@ if option_plot_era5_volchange:
                 years = np.arange(2000,2021)
            
         #%%
-        print(mb_compare.mb_gta_emulator.sum())
-        print(mb_compare.mb_gta_mcmc.sum())
-        print(mb_compare.mb_gta_oggm.sum())
-        
+        print('obs  [gta]:', mb_compare.mb_obs_gta.sum())
+        print('em   [gta]:', mb_compare.mb_gta_emulator.sum())
+        print('mcmc [gta]:', mb_compare.mb_gta_mcmc.sum())
+        print('oggm [gta]:', mb_compare.mb_gta_oggm.sum())
+        #%%
         print(list(main_glac_rgi_missing.glacno.values))
               #%%
             
@@ -885,7 +921,7 @@ if option_plot_cmip5_volchange:
     
     # Input information for analysis
     startyear = 2000
-    endyear = 2100
+    endyear = 2019
     normyear = 2015
     
     grouping = 'all'
@@ -909,7 +945,7 @@ if option_plot_cmip5_volchange:
             for gcm_name in gcm_names:
                 
                 # Filepath where glaciers are stored
-                netcdf_fp = netcdf_fp_cmip5 + gcm_name + '/' + rcp + '/essential/'
+                netcdf_fp = netcdf_fp_cmip5 + gcm_name + '/' + rcp + '/stats/'
                 
                 # Load the glaciers
                 glacno_list_gcmrcp = []
@@ -964,7 +1000,7 @@ if option_plot_cmip5_volchange:
 #                for batman in [0]:
             
                     # Load datasets
-                    netcdf_fp = netcdf_fp_cmip5 + gcm_name + '/' + rcp + '/essential/'
+                    netcdf_fp = netcdf_fp_cmip5 + gcm_name + '/' + rcp + '/stats/'
 
                     years = None
                     reg_vol = None

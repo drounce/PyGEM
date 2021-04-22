@@ -1,28 +1,32 @@
 """ Analyze simulation output - mass change, runoff, etc. """
 
 # Built-in libraries
-from collections import OrderedDict
-import datetime
-import glob
+import argparse
+#from collections import OrderedDict
+#import datetime
+#import glob
 import os
 import pickle
+import shutil
+import time
+#import zipfile
 # External libraries
-import cartopy
-import matplotlib as mpl
+#import cartopy
+#import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import MaxNLocator
-from matplotlib.lines import Line2D
-import matplotlib.patches as mpatches
+#from matplotlib.pyplot import MaxNLocator
+#from matplotlib.lines import Line2D
+#import matplotlib.patches as mpatches
 from matplotlib.ticker import MultipleLocator
-from matplotlib.ticker import EngFormatter
-from matplotlib.ticker import StrMethodFormatter
-from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
+#from matplotlib.ticker import EngFormatter
+#from matplotlib.ticker import StrMethodFormatter
+#from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 import numpy as np
 import pandas as pd
-from scipy.stats import median_abs_deviation
-from scipy.stats import linregress
+#from scipy.stats import median_abs_deviation
+#from scipy.stats import linregress
 from scipy.ndimage import uniform_filter
-import scipy
+#import scipy
 import xarray as xr
 # Local libraries
 #import class_climate
@@ -31,36 +35,50 @@ import pygem.pygem_input as pygem_prms
 #import pygemfxns_gcmbiasadj as gcmbiasadj
 import pygem.pygem_modelsetup as modelsetup
 
-from oggm import utils
+#from oggm import utils
 from pygem.oggm_compat import single_flowline_glacier_directory
-
-# Script options
-option_get_missing_glacno = False
-option_plot_cmip5_volchange = False
-option_plot_era5_volchange = False
-option_plot_era5_AAD = False
-
-option_process_data = True
 
 
 #%% ===== Input data =====
-netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
-#netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations-growth/'
+# Script options
+option_process_data = True
+option_zip_sims = False
 
-netcdf_fp_sims = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
-
-
-#%%
 #regions = [1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19]
-regions = [11]
-#print('reanalyze 13')
+regions = [13]
 
 # GCMs and RCP scenarios
 gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
              'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
-#gcm_names = ['CanESM2']
+#gcm_names = ['BCC-CSM2-MR', 'CAMS-CSM1-0', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg',
+#             'FGOALS-f3-L', 'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
+#gcm_names = ['IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M'] # Region 14
+gcm_names = ['CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M'] # Region 13
 rcps = ['rcp26', 'rcp45', 'rcp85']
-#rcps = ['rcp26']
+
+def getparser():
+    """
+    Use argparse to add arguments from the command line
+
+    Parameters
+    ----------
+    option_plot (optional) : int
+        switch to plot or not
+    """
+    parser = argparse.ArgumentParser(description="run simulations from gcm list in parallel")
+    # add arguments
+    parser.add_argument('-option_plot', action='store', type=int, default=1,
+                        help='switch to keep lists ordered or not')
+    return parser
+parser = getparser()
+args = parser.parse_args()
+if args.option_plot == 1:
+    option_plot = True
+    netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
+else:
+    option_plot = False
+    netcdf_fp_cmip5 = pygem_prms.output_sim_fp
+
 
 # Grouping
 #grouping = 'all'
@@ -103,12 +121,6 @@ rgi_reg_dict = {1:'Alaska',
                 18:'New Zealand',
                 19:'Antarctica/Subantarctic'
                 }
-#title_dict = {}
-#title_location = {}
-#rcp_dict = {'rcp26': '2.6',
-#            'rcp45': '4.5',
-#            'rcp60': '6.0',
-#            'rcp85': '8.5'}
 # Colors list
 colors_rgb = [(0.00, 0.57, 0.57), (0.71, 0.43, 1.00), (0.86, 0.82, 0.00), (0.00, 0.29, 0.29), (0.00, 0.43, 0.86), 
               (0.57, 0.29, 0.00), (1.00, 0.43, 0.71), (0.43, 0.71, 1.00), (0.14, 1.00, 0.14), (1.00, 0.71, 0.47), 
@@ -123,10 +135,6 @@ high_percentile = 95
 
 colors = ['#387ea0', '#fcb200', '#d20048']
 linestyles = ['-', '--', ':']
-
-# Shapefiles
-rgiO1_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/RGI/rgi60/00_rgi60_regions/00_rgi60_O1Regions.shp'
-#rgi_glac_shp_fn = '/Users/davidrounce/Documents/Dave_Rounce/HiMAT/qgis_himat/rgi60_HMA.shp'
 
 
 #%% ===== FUNCTIONS =====
@@ -213,6 +221,94 @@ def select_groups(grouping, main_glac_rgi_all):
 
 
 #%%
+time_start = time.time()
+if option_zip_sims:
+    """ Zip simulations """
+    for reg in regions:
+        
+        # All glaciers for fraction
+        main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=[reg], 
+                                                              rgi_regionsO2='all', rgi_glac_number='all', 
+                                                              glac_no=None)
+        # Calving glaciers
+        termtype_list = [1,5]
+        main_glac_rgi_calving = main_glac_rgi_all.loc[main_glac_rgi_all['TermType'].isin(termtype_list)]
+        main_glac_rgi_calving.reset_index(inplace=True, drop=True)
+        glacno_list_calving = list(main_glac_rgi_calving.glacno.values)
+        
+        for gcm_name in gcm_names:
+            for rcp in rcps:
+                print('zipping', reg, gcm_name, rcp)
+
+                # Filepath where glaciers are stored
+                netcdf_fp_binned = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/binned/'
+                netcdf_fp_stats = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
+                
+                # ----- Zip directories -----
+                zipped_fp_binned = netcdf_fp_cmip5 + '_zipped/' + str(reg).zfill(2) + '/binned/'
+                zipped_fp_stats = netcdf_fp_cmip5 + '_zipped/' + str(reg).zfill(2) + '/stats/'
+                zipped_fn_binned = gcm_name + '_' + rcp + '_binned'
+                zipped_fn_stats = gcm_name + '_' + rcp + '_stats'
+                
+                if not os.path.exists(zipped_fp_binned):
+                    os.makedirs(zipped_fp_binned, exist_ok=True)
+                if not os.path.exists(zipped_fp_stats):
+                    os.makedirs(zipped_fp_stats, exist_ok=True)
+                    
+                shutil.make_archive(zipped_fp_binned + zipped_fn_binned, 'zip', netcdf_fp_binned)
+                shutil.make_archive(zipped_fp_stats + zipped_fn_stats, 'zip', netcdf_fp_stats)
+                
+
+                # ----- Copy calving glaciers for comparison -----
+                if len(glacno_list_calving) > 0:
+                    calving_fp_binned = netcdf_fp_cmip5 + '_calving/' + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/binned/'
+                    calving_fp_stats = netcdf_fp_cmip5 + '_calving/' + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
+                    
+                    if not os.path.exists(calving_fp_binned):
+                        os.makedirs(calving_fp_binned, exist_ok=True)
+                    if not os.path.exists(calving_fp_stats):
+                        os.makedirs(calving_fp_stats, exist_ok=True)
+                    
+                    # Copy calving glaciers for comparison
+                    for glacno in glacno_list_calving:
+                        binned_fn = glacno + '_' + gcm_name + '_' + rcp + '_MCMC_ba1_50sets_2000_2100_binned.nc'
+                        if os.path.exists(netcdf_fp_binned + binned_fn):
+                            shutil.copyfile(netcdf_fp_binned + binned_fn, calving_fp_binned + binned_fn)
+                        stats_fn = glacno + '_' + gcm_name + '_' + rcp + '_MCMC_ba1_50sets_2000_2100_all.nc'
+                        if os.path.exists(netcdf_fp_stats + stats_fn):
+                            shutil.copyfile(netcdf_fp_stats + stats_fn, calving_fp_stats + stats_fn)
+                            
+#                # ----- Missing glaciers -----
+#                # Filepath where glaciers are stored
+#                # Load the glaciers
+#                glacno_list_stats = []
+#                for i in os.listdir(netcdf_fp_stats):
+#                    if i.endswith('.nc'):
+#                        glacno_list_stats.append(i.split('_')[0])
+#                glacno_list_stats = sorted(glacno_list_stats)
+#                
+#                glacno_list_binned = []
+#                for i in os.listdir(netcdf_fp_binned):
+#                    if i.endswith('.nc'):
+#                        glacno_list_binned.append(i.split('_')[0])
+#                glacno_list_binned = sorted(glacno_list_binned)
+#                
+#                glacno_list_all = list(main_glac_rgi_all.glacno.values)
+#                
+#                A = np.setdiff1d(glacno_list_stats, glacno_list_binned).tolist()
+#                B = np.setdiff1d(glacno_list_all, glacno_list_stats).tolist()
+#                
+#                print(len(B), B)
+#                
+#                if rcp in ['rcp26']:
+#                    C = glacno_list_stats.copy()
+#                elif rcp in ['rcp45']:
+#                    D = glacno_list_stats.copy()
+##                C_dif = np.setdiff1d(D, C).tolist()
+                    
+                
+                #%%
+
 if option_process_data:
 
     overwrite_pickle = False
@@ -220,10 +316,10 @@ if option_process_data:
     grouping = 'all'
 
     netcdf_fn_ending = '_ERA5_MCMC_ba1_50sets_2000_2019_annual.nc'
-    fig_fp = netcdf_fp_sims + '/../analysis/figures/'
+    fig_fp = netcdf_fp_cmip5 + '/../analysis/figures/'
     if not os.path.exists(fig_fp):
         os.makedirs(fig_fp, exist_ok=True)
-    csv_fp = netcdf_fp_sims + '/../analysis/csv/'
+    csv_fp = netcdf_fp_cmip5 + '/../analysis/csv/'
     if not os.path.exists(csv_fp):
         os.makedirs(csv_fp, exist_ok=True)
     pickle_fp = fig_fp + '../pickle/'
@@ -241,7 +337,7 @@ if option_process_data:
             for gcm_name in gcm_names:
                 
                 # Filepath where glaciers are stored
-                netcdf_fp = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/essential/'
+                netcdf_fp = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
                 
                 # Load the glaciers
                 glacno_list_gcmrcp = []
@@ -314,7 +410,7 @@ if option_process_data:
         main_glac_rgi['deg_id'] = main_glac_rgi.CenLon_CenLat.map(deg_dict)
         
         # River Basin
-        watershed_dict_fn = '/Users/drounce/Documents/HiMAT/qgis_datasets/rgi60_watershed_dict.csv'
+        watershed_dict_fn = pygem_prms.main_directory + '/../qgis_datasets/rgi60_watershed_dict.csv'
         watershed_csv = pd.read_csv(watershed_dict_fn)
         watershed_dict = dict(zip(watershed_csv.RGIId, watershed_csv.watershed))
         main_glac_rgi['watershed'] = main_glac_rgi.RGIId.map(watershed_dict)
@@ -372,12 +468,11 @@ if option_process_data:
         
         #%%
         years = None
-        for rcp in rcps[0:1]:
-            for gcm_name in gcm_names[0:1]:
-                
+        for gcm_name in gcm_names:
+            for rcp in rcps:
+
                 # Filepath where glaciers are stored
                 netcdf_fp_binned = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/binned/'
-#                netcdf_fp_essential = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/essential/'
                 netcdf_fp_stats = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
                 
                 # ----- GCM/RCP PICKLE FILEPATHS AND FILENAMES -----
@@ -597,7 +692,7 @@ if option_process_data:
     
                     for nglac, glacno in enumerate(glacno_list):
                         if nglac%10 == 0:
-                            print(glacno)
+                            print(gcm_name, rcp, glacno)
                         
                         # Group indices
                         glac_idx = np.where(main_glac_rgi['glacno'] == glacno)[0][0]
@@ -611,16 +706,12 @@ if option_process_data:
                         # Filenames
                         netcdf_fn_binned_ending = 'MCMC_ba1_50sets_2000_2100_binned.nc'
                         netcdf_fn_binned = '_'.join([glacno, gcm_name, rcp, netcdf_fn_binned_ending])
-                        
-    #                    netcdf_fn_essential_ending = 'MCMC_ba1_50sets_2000_2100_annual.nc'
-    #                    netcdf_fn_essential = '_'.join([glacno, gcm_name, rcp, netcdf_fn_essential_ending])
-                        
+
                         netcdf_fn_stats_ending = 'MCMC_ba1_50sets_2000_2100_all.nc'
                         netcdf_fn_stats = '_'.join([glacno, gcm_name, rcp, netcdf_fn_stats_ending])
                         
                         # Open files
                         ds_binned = xr.open_dataset(netcdf_fp_binned + '/' + netcdf_fn_binned)
-    #                    ds_essential = xr.open_dataset(netcdf_fp_essential + '/' + netcdf_fn_essential)
                         ds_stats = xr.open_dataset(netcdf_fp_stats + '/' + netcdf_fn_stats)
             
                         # Years
@@ -717,9 +808,10 @@ if option_process_data:
                         gdir = single_flowline_glacier_directory(glacno, logging_level='CRITICAL')
                         fls = gdir.read_pickle('inversion_flowlines')
                         bin_debris_hd = np.zeros(bin_z_init.shape)
-                        bin_debris_hd[0:fls[0].debris_hd.shape[0]] = fls[0].debris_hd
                         bin_debris_ed = np.zeros(bin_z_init.shape) + 1
-                        bin_debris_ed[0:fls[0].debris_hd.shape[0]] = fls[0].debris_ed
+                        if 'debris_hd' in dir(fls[0]):
+                            bin_debris_hd[0:fls[0].debris_hd.shape[0]] = fls[0].debris_hd
+                            bin_debris_ed[0:fls[0].debris_hd.shape[0]] = fls[0].debris_ed
                         if bin_debris_hd.sum() > 0:
                             bin_vol_annual_bd = np.zeros(bin_vol_annual.shape)
                             bin_vol_annual_bd[bin_debris_hd > 0, :] = bin_vol_annual[bin_debris_hd > 0, :]
@@ -1209,17 +1301,20 @@ if option_process_data:
                             zmax_annual = np.nanmax(bin_z_surf_annual_glaconly, axis=0)
                             glac_ela_annual[np.isnan(glac_ela_annual)] = zmax_annual[np.isnan(glac_ela_annual)]
     
-    
                         # Area-weighted ELA
                         # All
                         if reg_ela_annual is None:
                             reg_ela_annual = glac_ela_annual
                             reg_ela_annual_area = glac_area_annual.copy()
                         else:
-                            reg_ela_annual = ((reg_ela_annual * reg_ela_annual_area + 
-                                               glac_ela_annual * glac_area_annual) / 
-                                              (reg_ela_annual_area + glac_area_annual))
+                            # Use index to avoid dividing by 0 when glacier completely melts                            
+                            ela_idx = np.where(reg_ela_annual_area + glac_area_annual > 0)[0]
+                            reg_ela_annual[ela_idx] = (
+                                    (reg_ela_annual[ela_idx] * reg_ela_annual_area[ela_idx] + 
+                                     glac_ela_annual[ela_idx] * glac_area_annual[ela_idx]) / 
+                                    (reg_ela_annual_area[ela_idx] + glac_area_annual[ela_idx]))
                             reg_ela_annual_area += glac_area_annual
+                        
                         # O2Region
                         if regO2_ela_annual is None:
                             regO2_ela_annual = np.zeros((len(unique_regO2s),years.shape[0]))
@@ -1227,11 +1322,13 @@ if option_process_data:
                             regO2_ela_annual_area = np.zeros((len(unique_regO2s),years.shape[0]))
                             regO2_ela_annual_area[regO2_idx,:] = glac_area_annual.copy()
                         else:
-                            regO2_ela_annual[regO2_idx,:] = (
-                                    (regO2_ela_annual[regO2_idx,:] * regO2_ela_annual_area[regO2_idx,:] + 
-                                     glac_ela_annual * glac_area_annual) / 
-                                     (regO2_ela_annual_area[regO2_idx,:] + glac_area_annual))
+                            ela_idx = np.where(regO2_ela_annual_area[regO2_idx,:] + glac_area_annual > 0)[0]
+                            regO2_ela_annual[regO2_idx,ela_idx] = (
+                                    (regO2_ela_annual[regO2_idx,ela_idx] * regO2_ela_annual_area[regO2_idx,ela_idx] + 
+                                     glac_ela_annual[ela_idx] * glac_area_annual[ela_idx]) / 
+                                     (regO2_ela_annual_area[regO2_idx,ela_idx] + glac_area_annual[ela_idx]))
                             regO2_ela_annual_area[regO2_idx,:] += glac_area_annual
+                        
                         # Watershed
                         if watershed_ela_annual is None:
                             watershed_ela_annual = np.zeros((len(unique_watersheds),years.shape[0]))
@@ -1239,13 +1336,14 @@ if option_process_data:
                             watershed_ela_annual_area = np.zeros((len(unique_watersheds),years.shape[0]))
                             watershed_ela_annual_area[watershed_idx,:] = glac_area_annual.copy()
                         else:
-                            watershed_ela_annual[watershed_idx,:] = (
-                                    (watershed_ela_annual[watershed_idx,:] * watershed_ela_annual_area[watershed_idx,:] + 
-                                     glac_ela_annual * glac_area_annual) / 
-                                     (watershed_ela_annual_area[watershed_idx,:] + glac_area_annual))
+                            ela_idx = np.where(watershed_ela_annual_area[watershed_idx,:] + glac_area_annual > 0)[0]
+                            watershed_ela_annual[watershed_idx,ela_idx] = (
+                                    (watershed_ela_annual[watershed_idx,ela_idx] * watershed_ela_annual_area[watershed_idx,ela_idx] + 
+                                     glac_ela_annual[ela_idx] * glac_area_annual[ela_idx]) / 
+                                     (watershed_ela_annual_area[watershed_idx,ela_idx] + glac_area_annual[ela_idx]))
                             watershed_ela_annual_area[watershed_idx,:] += glac_area_annual
                         
-                        
+
                         # ----- 14. AAR vs. Time -----
                         #  - averaging issue with bin_area_annual.sum(0) != glac_area_annual
                         #  - hence only use these 
@@ -1674,215 +1772,214 @@ if option_process_data:
         
                     
                 #%%
-                # ===== REGIONAL PLOTS =====
-                fig_fp_reg = fig_fp + str(reg).zfill(2) + '/'
-                if not os.path.exists(fig_fp_reg):
-                    os.makedirs(fig_fp_reg)
+                if args.option_plot:
+                    # ===== REGIONAL PLOTS =====
+                    fig_fp_reg = fig_fp + str(reg).zfill(2) + '/'
+                    if not os.path.exists(fig_fp_reg):
+                        os.makedirs(fig_fp_reg)
+                        
+                    # ----- FIGURE: DIAGNOSTIC OF EVERYTHING ----- 
+                    fig, ax = plt.subplots(3, 4, squeeze=False, sharex=False, sharey=False, 
+                                           gridspec_kw = {'wspace':0.7, 'hspace':0.5})
+                    label= gcm_name + ' ' + rcp
                     
-                # ----- FIGURE: DIAGNOSTIC OF EVERYTHING ----- 
-                fig, ax = plt.subplots(3, 4, squeeze=False, sharex=False, sharey=False, 
-                                       gridspec_kw = {'wspace':0.7, 'hspace':0.5})
-                label= gcm_name + ' ' + rcp
-                
-                # VOLUME CHANGE
-                ax[0,0].plot(years, reg_vol_annual/1e9, color=rcp_colordict[rcp], linewidth=1, zorder=4, label=None)
-                if not reg_vol_annual_bwl is None:
-                    ax[0,0].plot(years, reg_vol_annual_bwl/1e9, color=rcp_colordict[rcp], linewidth=0.5, linestyle='--', zorder=4, label='bwl')
-                if not reg_vol_annual_bd is None:
-                    ax[0,0].plot(years, reg_vol_annual_bd/1e9, color=rcp_colordict[rcp], linewidth=0.5, linestyle=':', zorder=4, label='bd')
-                ax[0,0].set_ylabel('Volume (km$^{3}$)')
-                ax[0,0].set_xlim(years.min(), years.max())
-                ax[0,0].xaxis.set_major_locator(MultipleLocator(50))
-                ax[0,0].xaxis.set_minor_locator(MultipleLocator(10))
-                ax[0,0].set_ylim(0,reg_vol_annual.max()*1.05/1e9)
-                ax[0,0].tick_params(direction='inout', right=True)
-                ax[0,0].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
-#                               loc=(0.05,0.05),
-                               )        
-                
-
-                # AREA CHANGE
-                ax[0,1].plot(years, reg_area_annual/1e6, color=rcp_colordict[rcp], linewidth=1, zorder=4, label=None)
-                if not reg_area_annual_bd is None:
-                    ax[0,1].plot(years, reg_area_annual_bd/1e6, color=rcp_colordict[rcp], linewidth=0.5, linestyle=':', zorder=4, label='bd')
-                ax[0,1].set_ylabel('Area (km$^{2}$)')
-                ax[0,1].set_xlim(years.min(), years.max())
-                ax[0,1].xaxis.set_major_locator(MultipleLocator(50))
-                ax[0,1].xaxis.set_minor_locator(MultipleLocator(10))
-                ax[0,1].set_ylim(0,reg_area_annual.max()*1.05/1e6)
-                ax[0,1].tick_params(direction='inout', right=True)
-                ax[0,1].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
-#                               loc=(0.05,0.05),
-                               )    
-                
-                
-                # MASS BALANCE
-                reg_mbmwea_annual = ((reg_vol_annual[1:] - reg_vol_annual[:-1]) / reg_area_annual[:-1] * 
-                                     pygem_prms.density_ice / pygem_prms.density_water)
-                ax[0,2].plot(years[0:-1], reg_mbmwea_annual, color=rcp_colordict[rcp], linewidth=1, zorder=4, label=None)
-                ax[0,2].set_ylabel('$B$ (m w.e. yr$^{-1}$)')
-                ax[0,2].set_xlim(years.min(), years[0:-1].max())
-                ax[0,2].xaxis.set_major_locator(MultipleLocator(50))
-                ax[0,2].xaxis.set_minor_locator(MultipleLocator(10))
-                ax[0,2].tick_params(direction='inout', right=True)
-                
-                
-                # RUNOFF CHANGE 
-                reg_runoff_annual_fixed = reg_runoff_monthly_fixed.reshape(-1,12).sum(axis=1)
-                reg_runoff_annual_moving = reg_runoff_monthly_moving.reshape(-1,12).sum(axis=1)
-                ax[0,3].plot(years[0:-1], reg_runoff_annual_fixed/1e9, color=rcp_colordict[rcp], linewidth=1, zorder=4, label='Fixed')
-                ax[0,3].plot(years[0:-1], reg_runoff_annual_moving/1e9, color='k', linestyle=':', linewidth=1, zorder=4, label='Moving')
-                ax[0,3].set_ylabel('Runoff (km$^{3}$)')
-                ax[0,3].set_xlim(years.min(), years[0:-1].max())
-                ax[0,3].xaxis.set_major_locator(MultipleLocator(50))
-                ax[0,3].xaxis.set_minor_locator(MultipleLocator(10))
-                ax[0,3].set_ylim(0,reg_runoff_annual_fixed.max()*1.05/1e9)
-                ax[0,3].tick_params(direction='inout', right=True)
-                
-                
-
-                
-                # BINNED VOLUME
-                elev_bin_major = 1000
-                elev_bin_minor = 250
-                ymin = np.floor(elev_bins[np.nonzero(reg_vol_annual_binned.sum(1))[0][0]] / elev_bin_major) * elev_bin_major
-                ymax = np.ceil(elev_bins[np.nonzero(reg_vol_annual_binned.sum(1))[0][-1]] / elev_bin_major) * elev_bin_major
-                ax[1,0].plot(reg_vol_annual_binned[:,0]/1e9, elev_bins[1:], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
-                ax[1,0].plot(reg_vol_annual_binned[:,-1]/1e9, elev_bins[1:], color='b', linewidth=0.5, zorder=4, label=str(years[-1]))
-                ax[1,0].plot(reg_vol_annual_binned_bd[:,0]/1e9, elev_bins[1:], color='k', linestyle=':', linewidth=0.5, zorder=4, label=None)
-                ax[1,0].plot(reg_vol_annual_binned_bd[:,-1]/1e9, elev_bins[1:], color='b', linestyle=':', linewidth=0.5, zorder=4, label=None)
-                ax[1,0].set_ylabel('Elevation (m)')
-                ax[1,0].set_xlabel('Volume (km$^{3}$)')
-                ax[1,0].set_xlim(0, reg_vol_annual_binned.max()/1e9)
-                ax[1,0].set_ylim(ymin, ymax)
-                ax[1,0].yaxis.set_major_locator(MultipleLocator(elev_bin_major))
-                ax[1,0].yaxis.set_minor_locator(MultipleLocator(elev_bin_minor))
-                ax[1,0].tick_params(direction='inout', right=True)
-                ax[1,0].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
-#                               loc=(0.05,0.05),
-                               ) 
-
-                # BINNED AREA
-                ax[1,1].plot(reg_area_annual_binned[:,0]/1e6, elev_bins[1:], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
-                ax[1,1].plot(reg_area_annual_binned[:,-1]/1e6, elev_bins[1:], color='b', linewidth=0.5, zorder=4, label=str(years[-1]))
-                ax[1,1].plot(reg_area_annual_binned_bd[:,0]/1e6, elev_bins[1:], color='k', linestyle=':', linewidth=0.5, zorder=4, label=None)
-                ax[1,1].plot(reg_area_annual_binned_bd[:,-1]/1e6, elev_bins[1:], color='b', linestyle=':', linewidth=0.5, zorder=4, label=None)
-                ax[1,1].set_ylabel('Elevation (m)')
-                ax[1,1].set_xlabel('Area (km$^{2}$)')
-                ax[1,1].set_xlim(0, reg_area_annual_binned.max()/1e6)
-                ax[1,1].set_ylim(ymin, ymax)
-                ax[1,1].yaxis.set_major_locator(MultipleLocator(elev_bin_major))
-                ax[1,1].yaxis.set_minor_locator(MultipleLocator(elev_bin_minor))
-                ax[1,1].tick_params(direction='inout', right=True)
-                ax[1,1].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
-#                               loc=(0.05,0.05),
-                               ) 
-
-                # CLIMATIC MASS BALANCE GRADIENT
-                reg_mbclim_annual_binned_mwea = reg_mbclim_annual_binned / reg_area_annual_binned
-                ax[1,2].plot(reg_mbclim_annual_binned_mwea[:,0], elev_bins[1:], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
-                ax[1,2].plot(reg_mbclim_annual_binned_mwea[:,-2], elev_bins[1:], color='b', linewidth=0.5, zorder=4, label=str(years.min()))
-                ax[1,2].set_ylabel('Elevation (m)')
-                ax[1,2].set_xlabel('$b_{clim}$ (m w.e. yr$^{-1}$)')
-                ax[1,2].set_ylim(ymin, ymax)
-                ax[1,2].yaxis.set_major_locator(MultipleLocator(elev_bin_major))
-                ax[1,2].yaxis.set_minor_locator(MultipleLocator(elev_bin_minor))
-                ax[1,2].tick_params(direction='inout', right=True)           
-                ax[1,2].axvline(0, color='k', linewidth=0.25)
-                
-                
-                # RUNOFF COMPONENTS
-#                reg_offglac_melt_annual = reg_offglac_melt_monthly.reshape(-1,12).sum(axis=1)
-#                reg_runoff_annual_moving = reg_runoff_monthly_moving.reshape(-1,12).sum(axis=1)
-#                ax[0,3].plot(years[0:-1], reg_runoff_annual_fixed/1e9, color=rcp_colordict[rcp], linewidth=1, zorder=4, label='Fixed')
-#                ax[0,3].plot(years[0:-1], reg_runoff_annual_moving/1e9, color='k', linestyle=':', linewidth=1, zorder=4, label='Moving')
-#                ax[0,3].set_ylabel('Runoff (km$^{3}$)')
-#                ax[0,3].set_xlim(years.min(), years[0:-1].max())
-#                ax[0,3].xaxis.set_major_locator(MultipleLocator(50))
-#                ax[0,3].xaxis.set_minor_locator(MultipleLocator(10))
-#                ax[0,3].set_ylim(0,reg_runoff_annual_fixed.max()*1.05/1e9)
-#                ax[0,3].tick_params(direction='inout', right=True)
-                
-                
-                # ELA
-                ela_min = np.floor(np.min(reg_ela_annual[0:-1]) / 100) * 100
-                ela_max = np.ceil(np.max(reg_ela_annual[0:-1]) / 100) * 100
-                ax[2,0].plot(years[0:-1], reg_ela_annual[0:-1], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
-                ax[2,0].set_ylabel('ELA (m)')
-                ax[2,0].set_xlim(years.min(), years[0:-1].max())
-                ax[2,0].set_ylim(ela_min, ela_max)
-                ax[2,0].tick_params(direction='inout', right=True)
-                
-                
-                # AAR
-                ax[2,1].plot(years, reg_aar_annual, color='k', linewidth=0.5, zorder=4, label=str(years.min()))
-                ax[2,1].set_ylabel('AAR (-)')
-                ax[2,1].set_ylim(0,1)
-                ax[2,1].set_xlim(years.min(), years[0:-1].max())
-                ax[2,1].tick_params(direction='inout', right=True)
-                
-                
-                # MASS BALANCE COMPONENTS
-                # - these are only meant for monthly and/or relative purposes 
-                #   mass balance from volume change should be used for annual changes
-                reg_acc_annual = reg_acc_monthly.reshape(-1,12).sum(axis=1)
-                # Refreeze
-                reg_refreeze_annual = reg_refreeze_monthly.reshape(-1,12).sum(axis=1)
-                # Melt
-                reg_melt_annual = reg_melt_monthly.reshape(-1,12).sum(axis=1)
-                # Frontal Ablation
-                reg_frontalablation_annual = reg_frontalablation_monthly.reshape(-1,12).sum(axis=1)
-                # Periods
-                if reg_acc_annual.shape[0] == 101:
-                    period_yrs = 20
-                    periods = (np.arange(years.min(), years[0:100].max(), period_yrs) + period_yrs/2).astype(int)
-                    reg_acc_periods = reg_acc_annual[0:100].reshape(-1,period_yrs).sum(1)
-                    reg_refreeze_periods = reg_refreeze_annual[0:100].reshape(-1,period_yrs).sum(1)
-                    reg_melt_periods = reg_melt_annual[0:100].reshape(-1,period_yrs).sum(1)
-                    reg_frontalablation_periods = reg_frontalablation_annual[0:100].reshape(-1,period_yrs).sum(1)
-                    reg_massbaltotal_periods = reg_acc_periods + reg_refreeze_periods - reg_melt_periods - reg_frontalablation_periods
+                    # VOLUME CHANGE
+                    ax[0,0].plot(years, reg_vol_annual/1e9, color=rcp_colordict[rcp], linewidth=1, zorder=4, label=None)
+                    if not reg_vol_annual_bwl is None:
+                        ax[0,0].plot(years, reg_vol_annual_bwl/1e9, color=rcp_colordict[rcp], linewidth=0.5, linestyle='--', zorder=4, label='bwl')
+                    if not reg_vol_annual_bd is None:
+                        ax[0,0].plot(years, reg_vol_annual_bd/1e9, color=rcp_colordict[rcp], linewidth=0.5, linestyle=':', zorder=4, label='bd')
+                    ax[0,0].set_ylabel('Volume (km$^{3}$)')
+                    ax[0,0].set_xlim(years.min(), years.max())
+                    ax[0,0].xaxis.set_major_locator(MultipleLocator(50))
+                    ax[0,0].xaxis.set_minor_locator(MultipleLocator(10))
+                    ax[0,0].set_ylim(0,reg_vol_annual.max()*1.05/1e9)
+                    ax[0,0].tick_params(direction='inout', right=True)
+                    ax[0,0].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+    #                               loc=(0.05,0.05),
+                                   )        
                     
-                    # Convert to mwea
-                    reg_area_periods = reg_area_annual[0:100].reshape(-1,period_yrs).mean(1)
-                    reg_acc_periods_mwea = reg_acc_periods / reg_area_periods / period_yrs
-                    reg_refreeze_periods_mwea = reg_refreeze_periods / reg_area_periods / period_yrs
-                    reg_melt_periods_mwea = reg_melt_periods / reg_area_periods / period_yrs
-                    reg_frontalablation_periods_mwea = reg_frontalablation_periods / reg_area_periods / period_yrs
-                    reg_massbaltotal_periods_mwea = reg_massbaltotal_periods / reg_area_periods / period_yrs
-                else:
-                    assert True==False, 'Set up for different time periods'
-
-                # Plot
-                ax[2,2].bar(periods, reg_acc_periods_mwea + reg_refreeze_periods_mwea, color='#3553A5', width=period_yrs/2-1, label='refreeze', zorder=2)
-                ax[2,2].bar(periods, reg_acc_periods_mwea, color='#3478BD', width=period_yrs/2-1, label='acc', zorder=3)
-                if not reg_frontalablation_periods_mwea.sum() == 0:
-                    ax[2,2].bar(periods, -reg_frontalablation_periods_mwea, color='#83439A', width=period_yrs/2-1, label='frontal ablation', zorder=3)
-                ax[2,2].bar(periods, -reg_melt_periods_mwea - reg_frontalablation_periods_mwea, color='#F47A20', width=period_yrs/2-1, label='melt', zorder=2)
-                ax[2,2].bar(periods, reg_massbaltotal_periods_mwea, color='#555654', width=period_yrs-2, label='total', zorder=1)
-                ax[2,2].set_ylabel('$B$ (m w.e. yr$^{-1}$)')
-                ax[2,2].set_xlim(years.min(), years[0:-1].max())
-                ax[2,2].xaxis.set_major_locator(MultipleLocator(100))
-                ax[2,2].xaxis.set_minor_locator(MultipleLocator(20))
-                ax[2,2].yaxis.set_major_locator(MultipleLocator(1))
-                ax[2,2].yaxis.set_minor_locator(MultipleLocator(0.25))
-                ax[2,2].tick_params(direction='inout', right=True)
-                ax[2,2].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False,
-                               loc=(1.2,0.25)) 
-                
-                
-                # Remove plot in lower right
-                fig.delaxes(ax[2,3])
-                
-                
-                # Title
-                fig.text(0.5, 0.95, rgi_reg_dict[reg] + ' (' + gcm_name + ' ' + rcp + ')', size=12, ha='center', va='top',)
-                
-                # Save figure
-                fig_fn = str(reg) + '_allplots_' + str(years.min()) + '-' + str(years.max()) + gcm_name + '' + rcp + '.png'
-                fig.set_size_inches(8,6)
-                fig.savefig(fig_fp_reg + fig_fn, bbox_inches='tight', dpi=300)
-                
-                print('\n\nreg_offglac_prec_monthly has negative values!!!!\n\n')
+    
+                    # AREA CHANGE
+                    ax[0,1].plot(years, reg_area_annual/1e6, color=rcp_colordict[rcp], linewidth=1, zorder=4, label=None)
+                    if not reg_area_annual_bd is None:
+                        ax[0,1].plot(years, reg_area_annual_bd/1e6, color=rcp_colordict[rcp], linewidth=0.5, linestyle=':', zorder=4, label='bd')
+                    ax[0,1].set_ylabel('Area (km$^{2}$)')
+                    ax[0,1].set_xlim(years.min(), years.max())
+                    ax[0,1].xaxis.set_major_locator(MultipleLocator(50))
+                    ax[0,1].xaxis.set_minor_locator(MultipleLocator(10))
+                    ax[0,1].set_ylim(0,reg_area_annual.max()*1.05/1e6)
+                    ax[0,1].tick_params(direction='inout', right=True)
+                    ax[0,1].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+    #                               loc=(0.05,0.05),
+                                   )    
+                    
+                    
+                    # MASS BALANCE
+                    reg_mbmwea_annual = ((reg_vol_annual[1:] - reg_vol_annual[:-1]) / reg_area_annual[:-1] * 
+                                         pygem_prms.density_ice / pygem_prms.density_water)
+                    ax[0,2].plot(years[0:-1], reg_mbmwea_annual, color=rcp_colordict[rcp], linewidth=1, zorder=4, label=None)
+                    ax[0,2].set_ylabel('$B$ (m w.e. yr$^{-1}$)')
+                    ax[0,2].set_xlim(years.min(), years[0:-1].max())
+                    ax[0,2].xaxis.set_major_locator(MultipleLocator(50))
+                    ax[0,2].xaxis.set_minor_locator(MultipleLocator(10))
+                    ax[0,2].tick_params(direction='inout', right=True)
+                    
+                    
+                    # RUNOFF CHANGE 
+                    reg_runoff_annual_fixed = reg_runoff_monthly_fixed.reshape(-1,12).sum(axis=1)
+                    reg_runoff_annual_moving = reg_runoff_monthly_moving.reshape(-1,12).sum(axis=1)
+                    ax[0,3].plot(years[0:-1], reg_runoff_annual_fixed/1e9, color=rcp_colordict[rcp], linewidth=1, zorder=4, label='Fixed')
+                    ax[0,3].plot(years[0:-1], reg_runoff_annual_moving/1e9, color='k', linestyle=':', linewidth=1, zorder=4, label='Moving')
+                    ax[0,3].set_ylabel('Runoff (km$^{3}$)')
+                    ax[0,3].set_xlim(years.min(), years[0:-1].max())
+                    ax[0,3].xaxis.set_major_locator(MultipleLocator(50))
+                    ax[0,3].xaxis.set_minor_locator(MultipleLocator(10))
+                    ax[0,3].set_ylim(0,reg_runoff_annual_fixed.max()*1.05/1e9)
+                    ax[0,3].tick_params(direction='inout', right=True)
+                    
+                    
+    
+                    
+                    # BINNED VOLUME
+                    elev_bin_major = 1000
+                    elev_bin_minor = 250
+                    ymin = np.floor(elev_bins[np.nonzero(reg_vol_annual_binned.sum(1))[0][0]] / elev_bin_major) * elev_bin_major
+                    ymax = np.ceil(elev_bins[np.nonzero(reg_vol_annual_binned.sum(1))[0][-1]] / elev_bin_major) * elev_bin_major
+                    ax[1,0].plot(reg_vol_annual_binned[:,0]/1e9, elev_bins[1:], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
+                    ax[1,0].plot(reg_vol_annual_binned[:,-1]/1e9, elev_bins[1:], color='b', linewidth=0.5, zorder=4, label=str(years[-1]))
+                    ax[1,0].plot(reg_vol_annual_binned_bd[:,0]/1e9, elev_bins[1:], color='k', linestyle=':', linewidth=0.5, zorder=4, label=None)
+                    ax[1,0].plot(reg_vol_annual_binned_bd[:,-1]/1e9, elev_bins[1:], color='b', linestyle=':', linewidth=0.5, zorder=4, label=None)
+                    ax[1,0].set_ylabel('Elevation (m)')
+                    ax[1,0].set_xlabel('Volume (km$^{3}$)')
+                    ax[1,0].set_xlim(0, reg_vol_annual_binned.max()/1e9)
+                    ax[1,0].set_ylim(ymin, ymax)
+                    ax[1,0].yaxis.set_major_locator(MultipleLocator(elev_bin_major))
+                    ax[1,0].yaxis.set_minor_locator(MultipleLocator(elev_bin_minor))
+                    ax[1,0].tick_params(direction='inout', right=True)
+                    ax[1,0].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+    #                               loc=(0.05,0.05),
+                                   ) 
+    
+                    # BINNED AREA
+                    ax[1,1].plot(reg_area_annual_binned[:,0]/1e6, elev_bins[1:], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
+                    ax[1,1].plot(reg_area_annual_binned[:,-1]/1e6, elev_bins[1:], color='b', linewidth=0.5, zorder=4, label=str(years[-1]))
+                    ax[1,1].plot(reg_area_annual_binned_bd[:,0]/1e6, elev_bins[1:], color='k', linestyle=':', linewidth=0.5, zorder=4, label=None)
+                    ax[1,1].plot(reg_area_annual_binned_bd[:,-1]/1e6, elev_bins[1:], color='b', linestyle=':', linewidth=0.5, zorder=4, label=None)
+                    ax[1,1].set_ylabel('Elevation (m)')
+                    ax[1,1].set_xlabel('Area (km$^{2}$)')
+                    ax[1,1].set_xlim(0, reg_area_annual_binned.max()/1e6)
+                    ax[1,1].set_ylim(ymin, ymax)
+                    ax[1,1].yaxis.set_major_locator(MultipleLocator(elev_bin_major))
+                    ax[1,1].yaxis.set_minor_locator(MultipleLocator(elev_bin_minor))
+                    ax[1,1].tick_params(direction='inout', right=True)
+                    ax[1,1].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+    #                               loc=(0.05,0.05),
+                                   ) 
+    
+                    # CLIMATIC MASS BALANCE GRADIENT
+                    reg_mbclim_annual_binned_mwea = reg_mbclim_annual_binned / reg_area_annual_binned
+                    ax[1,2].plot(reg_mbclim_annual_binned_mwea[:,0], elev_bins[1:], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
+                    ax[1,2].plot(reg_mbclim_annual_binned_mwea[:,-2], elev_bins[1:], color='b', linewidth=0.5, zorder=4, label=str(years.min()))
+                    ax[1,2].set_ylabel('Elevation (m)')
+                    ax[1,2].set_xlabel('$b_{clim}$ (m w.e. yr$^{-1}$)')
+                    ax[1,2].set_ylim(ymin, ymax)
+                    ax[1,2].yaxis.set_major_locator(MultipleLocator(elev_bin_major))
+                    ax[1,2].yaxis.set_minor_locator(MultipleLocator(elev_bin_minor))
+                    ax[1,2].tick_params(direction='inout', right=True)           
+                    ax[1,2].axvline(0, color='k', linewidth=0.25)
+                    
+                    
+                    # RUNOFF COMPONENTS
+    #                reg_offglac_melt_annual = reg_offglac_melt_monthly.reshape(-1,12).sum(axis=1)
+    #                reg_runoff_annual_moving = reg_runoff_monthly_moving.reshape(-1,12).sum(axis=1)
+    #                ax[0,3].plot(years[0:-1], reg_runoff_annual_fixed/1e9, color=rcp_colordict[rcp], linewidth=1, zorder=4, label='Fixed')
+    #                ax[0,3].plot(years[0:-1], reg_runoff_annual_moving/1e9, color='k', linestyle=':', linewidth=1, zorder=4, label='Moving')
+    #                ax[0,3].set_ylabel('Runoff (km$^{3}$)')
+    #                ax[0,3].set_xlim(years.min(), years[0:-1].max())
+    #                ax[0,3].xaxis.set_major_locator(MultipleLocator(50))
+    #                ax[0,3].xaxis.set_minor_locator(MultipleLocator(10))
+    #                ax[0,3].set_ylim(0,reg_runoff_annual_fixed.max()*1.05/1e9)
+    #                ax[0,3].tick_params(direction='inout', right=True)
+                    
+                    
+                    # ELA
+                    ela_min = np.floor(np.min(reg_ela_annual[0:-1]) / 100) * 100
+                    ela_max = np.ceil(np.max(reg_ela_annual[0:-1]) / 100) * 100
+                    ax[2,0].plot(years[0:-1], reg_ela_annual[0:-1], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
+                    ax[2,0].set_ylabel('ELA (m)')
+                    ax[2,0].set_xlim(years.min(), years[0:-1].max())
+    #                ax[2,0].set_ylim(ela_min, ela_max)
+                    ax[2,0].tick_params(direction='inout', right=True)
+                    
+                    
+                    # AAR
+                    ax[2,1].plot(years, reg_aar_annual, color='k', linewidth=0.5, zorder=4, label=str(years.min()))
+                    ax[2,1].set_ylabel('AAR (-)')
+                    ax[2,1].set_ylim(0,1)
+                    ax[2,1].set_xlim(years.min(), years[0:-1].max())
+                    ax[2,1].tick_params(direction='inout', right=True)
+                    
+                    
+                    # MASS BALANCE COMPONENTS
+                    # - these are only meant for monthly and/or relative purposes 
+                    #   mass balance from volume change should be used for annual changes
+                    reg_acc_annual = reg_acc_monthly.reshape(-1,12).sum(axis=1)
+                    # Refreeze
+                    reg_refreeze_annual = reg_refreeze_monthly.reshape(-1,12).sum(axis=1)
+                    # Melt
+                    reg_melt_annual = reg_melt_monthly.reshape(-1,12).sum(axis=1)
+                    # Frontal Ablation
+                    reg_frontalablation_annual = reg_frontalablation_monthly.reshape(-1,12).sum(axis=1)
+                    # Periods
+                    if reg_acc_annual.shape[0] == 101:
+                        period_yrs = 20
+                        periods = (np.arange(years.min(), years[0:100].max(), period_yrs) + period_yrs/2).astype(int)
+                        reg_acc_periods = reg_acc_annual[0:100].reshape(-1,period_yrs).sum(1)
+                        reg_refreeze_periods = reg_refreeze_annual[0:100].reshape(-1,period_yrs).sum(1)
+                        reg_melt_periods = reg_melt_annual[0:100].reshape(-1,period_yrs).sum(1)
+                        reg_frontalablation_periods = reg_frontalablation_annual[0:100].reshape(-1,period_yrs).sum(1)
+                        reg_massbaltotal_periods = reg_acc_periods + reg_refreeze_periods - reg_melt_periods - reg_frontalablation_periods
+                        
+                        # Convert to mwea
+                        reg_area_periods = reg_area_annual[0:100].reshape(-1,period_yrs).mean(1)
+                        reg_acc_periods_mwea = reg_acc_periods / reg_area_periods / period_yrs
+                        reg_refreeze_periods_mwea = reg_refreeze_periods / reg_area_periods / period_yrs
+                        reg_melt_periods_mwea = reg_melt_periods / reg_area_periods / period_yrs
+                        reg_frontalablation_periods_mwea = reg_frontalablation_periods / reg_area_periods / period_yrs
+                        reg_massbaltotal_periods_mwea = reg_massbaltotal_periods / reg_area_periods / period_yrs
+                    else:
+                        assert True==False, 'Set up for different time periods'
+    
+                    # Plot
+                    ax[2,2].bar(periods, reg_acc_periods_mwea + reg_refreeze_periods_mwea, color='#3553A5', width=period_yrs/2-1, label='refreeze', zorder=2)
+                    ax[2,2].bar(periods, reg_acc_periods_mwea, color='#3478BD', width=period_yrs/2-1, label='acc', zorder=3)
+                    if not reg_frontalablation_periods_mwea.sum() == 0:
+                        ax[2,2].bar(periods, -reg_frontalablation_periods_mwea, color='#83439A', width=period_yrs/2-1, label='frontal ablation', zorder=3)
+                    ax[2,2].bar(periods, -reg_melt_periods_mwea - reg_frontalablation_periods_mwea, color='#F47A20', width=period_yrs/2-1, label='melt', zorder=2)
+                    ax[2,2].bar(periods, reg_massbaltotal_periods_mwea, color='#555654', width=period_yrs-2, label='total', zorder=1)
+                    ax[2,2].set_ylabel('$B$ (m w.e. yr$^{-1}$)')
+                    ax[2,2].set_xlim(years.min(), years[0:-1].max())
+                    ax[2,2].xaxis.set_major_locator(MultipleLocator(100))
+                    ax[2,2].xaxis.set_minor_locator(MultipleLocator(20))
+                    ax[2,2].yaxis.set_major_locator(MultipleLocator(1))
+                    ax[2,2].yaxis.set_minor_locator(MultipleLocator(0.25))
+                    ax[2,2].tick_params(direction='inout', right=True)
+                    ax[2,2].legend(fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25, borderpad=0, frameon=False,
+                                   loc=(1.2,0.25)) 
+                    
+                    
+                    # Remove plot in lower right
+                    fig.delaxes(ax[2,3])
+                    
+                    
+                    # Title
+                    fig.text(0.5, 0.95, rgi_reg_dict[reg] + ' (' + gcm_name + ' ' + rcp + ')', size=12, ha='center', va='top',)
+                    
+                    # Save figure
+                    fig_fn = str(reg) + '_allplots_' + str(years.min()) + '-' + str(years.max()) + '_' + gcm_name + '_' + rcp + '.png'
+                    fig.set_size_inches(8,6)
+                    fig.savefig(fig_fp_reg + fig_fn, bbox_inches='tight', dpi=300)
                 
                 #%%
                 # MULTI-GCM STATISTICS
@@ -1922,6 +2019,8 @@ if option_process_data:
         print('\nTo-do list:')
         print('  - MultiGCM mean and variance plots')
         print('  - Runoff plots')
+
+print('Total processing time:', time.time()-time_start, 's')
         
         #%%
                     
@@ -1939,8 +2038,51 @@ if option_process_data:
 #plt.show
         
 #%%
-import zipfile
-zip_fp = '/Users/drounce/Documents/HiMAT/climate_data/cmip6/'
-zip_fn = 'BCC-CSM2-MR.zip'
-with zipfile.ZipFile(zip_fp + zip_fn, 'r') as zip_ref:
-    zip_ref.extractall(zip_fp)
+#import zipfile
+#zip_fp = '/Users/drounce/Documents/HiMAT/climate_data/cmip6/'
+#zip_fn = 'BCC-CSM2-MR.zip'
+#with zipfile.ZipFile(zip_fp + zip_fn, 'r') as zip_ref:
+#    zip_ref.extractall(zip_fp)
+        
+#%% ----- MISSING DIFFERENT RCPS/GCMS -----
+# Need to run script twice and comment out the processing (cheap shortcut)
+#missing_rcp26 = glacno_list_missing.copy()
+#missing_rcp45 = glacno_list_missing.copy()
+#A = np.setdiff1d(missing_rcp45, missing_rcp26).tolist()
+#print(A)
+        
+#%% ----- MOVE FILES -----
+#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
+#             'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
+#rcps = ['rcp26', 'rcp45', 'rcp85']
+#for gcm_name in gcm_names:
+#    for rcp in rcps:
+#        print('moving', gcm_name, rcp)
+#
+#        # Filepath where glaciers are stored
+#        netcdf_fp_binned = netcdf_fp_cmip5 + '13-batch1/' + gcm_name + '/' + rcp + '/binned/'
+#        netcdf_fp_stats = netcdf_fp_cmip5 + '13-batch1/' + gcm_name + '/' + rcp + '/stats/'
+#        
+#        move_binned = netcdf_fp_cmip5 + '13/' + gcm_name + '/' + rcp + '/binned/'
+#        move_stats = netcdf_fp_cmip5 + '13/' + gcm_name + '/' + rcp + '/stats/'
+#        
+#        binned_fns_2move = []
+#        for i in os.listdir(netcdf_fp_binned):
+#            if i.endswith('.nc'):
+#                binned_fns_2move.append(i)
+#        binned_fns_2move = sorted(binned_fns_2move)
+#
+#        if len(binned_fns_2move) > 0:
+#            for i in binned_fns_2move:
+#                shutil.move(netcdf_fp_binned + i, move_binned + i)
+#        
+#        stats_fns_2move = []
+#        for i in os.listdir(netcdf_fp_stats):
+#            if i.endswith('.nc'):
+#                stats_fns_2move.append(i)
+#        stats_fns_2move = sorted(stats_fns_2move)
+#
+#        if len(stats_fns_2move) > 0:
+#            for i in stats_fns_2move:
+#                shutil.move(netcdf_fp_stats + i, move_stats + i)
+        
