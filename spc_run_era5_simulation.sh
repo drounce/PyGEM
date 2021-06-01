@@ -3,12 +3,13 @@
 #SBATCH --ntasks=48
 #SBATCH --tasks-per-node=24
 
-STARTNO="20001"
-ENDNO="27112"
-# "27112"
+STARTNO="10001"
+ENDNO="20000"
 
 # region
-REGNO="1"
+REGNO="15"
+STARTYR="2000"
+ENDYR="2019"
 MERGE_SWITCH=0
 ORDERED_SWITCH=0
 
@@ -17,7 +18,7 @@ module load lang/Anaconda3/5.3.0
 source activate oggm_env_v02
 
 # split glaciers into batches for different nodes
-python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -option_ordered=$ORDERED_SWITCH -startno=$STARTNO -endno=$ENDNO
+python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -option_ordered=$ORDERED_SWITCH -startno=$STARTNO -endno=$ENDNO -regno=$REGNO
 #python spc_split_glaciers.py -n_batches=$SLURM_JOB_NUM_NODES -option_ordered=$ORDERED_SWITCH
 
 # list rgi_glac_number batch filenames
@@ -46,7 +47,7 @@ for NODE in $NODELIST; do
   rgi_fn=${list_rgi_fns[count]}
   echo $rgi_fn
   # ONLY WORKS WITH EXCLUSIVE!
-  srun --exclusive -N1 -n1 python run_simulation_woggm.py -num_simultaneous_processes=24 -rgi_glac_number_fn=$rgi_fn -option_ordered=$ORDERED_SWITCH &
+  srun --exclusive -N1 -n1 python run_simulation_woggm.py -gcm_startyear=$STARTYR -gcm_endyear=$ENDYR -num_simultaneous_processes=24 -rgi_glac_number_fn=$rgi_fn -option_ordered=$ORDERED_SWITCH &
   #echo $NODE
   #echo $count
   ((count++))

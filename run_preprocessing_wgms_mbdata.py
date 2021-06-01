@@ -13,7 +13,7 @@ from scipy.stats import median_abs_deviation
 # Local libraries
 import class_climate
 import pygem.pygem_input as pygem_prms
-import pygemfxns_modelsetup as modelsetup
+import pygem.pygem_modelsetup as modelsetup
 
 
 #%% ----- ARGUMENT PARSER -----
@@ -428,3 +428,121 @@ if args.mb_data_fill_wreg_hugonnet == 1:
     
     # Export dataset
     df_filled.to_csv(df_fp + df_fn.replace('.csv','-filled.csv'), index=False)
+    
+    #%%
+    # ----- REPLACE REGION 12 -----
+    #  - GLIMSId and RGIId were connected using join by location with greatest overlapping area in QGIS
+    df_filled = pd.read_csv(df_fp + df_fn.replace('.csv','-filled.csv'))
+    shp_df = pd.read_csv('/Users/drounce/Documents/HiMAT/DEMs/Hugonnet2020/12_rgi60_wromain_mb.csv')
+    mb_df = df_filled.copy()
+
+    glac_dict = dict(zip(shp_df['glac_id'], shp_df['RGIId']))
+    glac_dict_df = pd.DataFrame.from_dict(glac_dict, orient='index')
+    #glac_dict_df.to_csv('/Users/drounce/Documents/HiMAT/DEMs/Hugonnet2020/12_GLIMSId_RGIId_dict.csv')
+    mb_df['rgiid-rgi60'] = mb_df['RGIId'].map(glac_dict)
+    mb_df = mb_df.dropna(axis=0, subset=['rgiid-rgi60', 'dmdtda'])
+    mb_df.reset_index(inplace=True, drop=True)
+    
+    # Load glaciers
+    glac_no_12 = [x.split('-')[1] for x in shp_df['RGIId'].values]
+    main_glac_rgi_12 = modelsetup.selectglaciersrgitable(
+            rgi_regionsO1=['12'], rgi_regionsO2='all', rgi_glac_number='all')
+    main_glac_rgi_12['O1Region'] = [int(x) for x in main_glac_rgi_12['O1Region']]
+
+    # Add mass balance and uncertainty to main_glac_rgi
+    mb_df['RGIId'] = mb_df['rgiid-rgi60']
+    dict_rgi_mb_12 = dict(zip(mb_df.RGIId, mb_df.dmdtda))
+    dict_rgi_mb_sigma_12 = dict(zip(mb_df.RGIId, mb_df.err_dmdtda))
+    dict_rgi_area_12 = dict(zip(mb_df.RGIId, mb_df.area))
+    main_glac_rgi_12['mb_mwea'] = main_glac_rgi_12.RGIId.map(dict_rgi_mb_12)
+    main_glac_rgi_12['mb_mwea_sigma'] = main_glac_rgi_12.RGIId.map(dict_rgi_mb_sigma_12)
+    main_glac_rgi_12['area_hugonnet'] = main_glac_rgi_12.RGIId.map(dict_rgi_area_12)
+    
+    
+    print('all sigma threshold:', np.round(all_sigma_threshold,2))
+    
+    
+    main_glac_rgi_filled_12 = main_glac_rgi_12.copy()
+    idx_12 = [x for x in df.index.values if df.loc[x,'RGIId'].startswith('G')]
+    df_filled_12 = df.loc[idx_12,:].copy()
+
+    for reg in [12]:
+        main_glac_rgi_subset = main_glac_rgi_12.loc[main_glac_rgi_12.O1Region == reg, :]
+
+        # Too high of sigma causes large issues for model
+        #  sigma theoretically should be independent of region
+        reg_sigma_mean = main_glac_rgi_subset['mb_mwea_sigma'].mean(skipna=True)
+        reg_sigma_std = main_glac_rgi_subset['mb_mwea_sigma'].std(skipna=True)
+        reg_sigma_threshold = reg_sigma_mean + 3 * reg_sigma_std
+        # Don't penalize regions that are well-measured, so use all threshold as minimum
+        if reg_sigma_threshold < all_sigma_threshold:
+            reg_sigma_threshold = all_sigma_threshold
+        
+        rm_idx = main_glac_rgi_subset.loc[main_glac_rgi_subset.mb_mwea_sigma > reg_sigma_threshold,:].index.values
+        main_glac_rgi_filled.loc[rm_idx,'mb_mwea'] = np.nan
+        main_glac_rgi_filled.loc[rm_idx,'mb_mwea_sigma'] = np.nan
+        
+        rgi_subset_good = main_glac_rgi_subset.loc[main_glac_rgi_subset['mb_mwea_sigma'] <= reg_sigma_threshold,:]
+        
+        reg_mb_mean, reg_mb_std = weighted_avg_and_std(rgi_subset_good.mb_mwea, rgi_subset_good.area_hugonnet)
+        
+        print(reg, np.round(reg_sigma_threshold,2), 'exclude:', len(rm_idx),
+              '  mb mean/std:', np.round(reg_mb_mean,2), np.round(reg_mb_std,2))
+        
+        # Replace nan values
+        nan_idx = main_glac_rgi_filled_12.loc[np.isnan(main_glac_rgi_filled_12.mb_mwea) & 
+                                              (main_glac_rgi_filled_12.O1Region == reg), :].index.values
+                                           
+        main_glac_rgi_filled_12.loc[nan_idx,'mb_mwea'] = reg_mb_mean
+        main_glac_rgi_filled_12.loc[nan_idx,'mb_mwea_sigma'] = reg_mb_std
+        
+    # Map back onto original dataset
+    df_filled_12['rgiid-rgi60'] = df_filled_12['RGIId'].map(glac_dict)
+    df_filled_12['RGIId'] = df_filled_12['rgiid-rgi60']
+    df_filled_12_nonan = df_filled_12.dropna(axis=0, subset=['RGIId', 'dmdtda'])
+    
+    # Create Region 12 dataframe
+    df_filled_12_all = pd.DataFrame(np.zeros((main_glac_rgi_filled_12.shape[0], df_filled.shape[1])), columns=df_filled.columns)
+    df_filled_12_all['RGIId'] = main_glac_rgi_filled_12['RGIId']
+    df_filled_12_all['area'] = main_glac_rgi_filled_12['Area']
+    df_filled_12_all['lat'] = main_glac_rgi_filled_12['CenLat']
+    df_filled_12_all['lon'] = main_glac_rgi_filled_12['CenLon']
+    df_filled_12_all['period'] = '2000-01-01_2020-01-01'
+    df_filled_12_all['reg'] = 12
+    df_filled_12_all['t1'] = '2000-01-01'
+    df_filled_12_all['t2'] = '2020-01-01'
+    df_filled_12_all['O1Region'] = 12
+    dict_c1 = dict(zip(df_filled_12_nonan.RGIId, df_filled_12_nonan.valid_obs))
+    df_filled_12_all['valid_obs'] = df_filled_12_all['RGIId'].map(dict_c1)
+    dict_c2 = dict(zip(df_filled_12_nonan.RGIId, df_filled_12_nonan.perc_area_meas))
+    df_filled_12_all['perc_area_meas'] = df_filled_12_all['RGIId'].map(dict_c2)
+    dict_c3 = dict(zip(df_filled_12_nonan.RGIId, df_filled_12_nonan.err_cont))
+    df_filled_12_all['err_cont'] = df_filled_12_all['RGIId'].map(dict_c3)
+    dict_c4 = dict(zip(df_filled_12_nonan.RGIId, df_filled_12_nonan.perc_err_cont))
+    df_filled_12_all['perc_err_cont'] = df_filled_12_all['RGIId'].map(dict_c4)
+    dict_c5 = dict(zip(df_filled_12_nonan.RGIId, df_filled_12_nonan.dmdtda))
+    df_filled_12_all['dmdtda'] = df_filled_12_all['RGIId'].map(dict_c5)
+    dict_c6 = dict(zip(df_filled_12_nonan.RGIId, df_filled_12_nonan.err_dmdtda))
+    df_filled_12_all['err_dmdtda'] = df_filled_12_all['RGIId'].map(dict_c6)
+    dict_c7 = dict(zip(df_filled_12_nonan.RGIId, df_filled_12_nonan.dhdt))
+    df_filled_12_all['dhdt'] = df_filled_12_all['RGIId'].map(dict_c7)
+    dict_c8 = dict(zip(df_filled_12_nonan.RGIId, df_filled_12_nonan.err_dhdt))
+    df_filled_12_all['err_dhdt'] = df_filled_12_all['RGIId'].map(dict_c8)
+    dict_rgi_mb_filled_mean_12 = dict(zip(main_glac_rgi_filled_12.RGIId, main_glac_rgi_filled_12.mb_mwea))
+    dict_rgi_mb_filled_sigma_12 = dict(zip(main_glac_rgi_filled_12.RGIId, main_glac_rgi_filled_12.mb_mwea_sigma))
+    df_filled_12_all['mb_mwea'] = df_filled_12_all.RGIId.map(dict_rgi_mb_filled_mean_12)
+    df_filled_12_all['mb_mwea_err'] = df_filled_12_all.RGIId.map(dict_rgi_mb_filled_sigma_12)
+    
+    # Append Region 12 dataframe
+    df_filled_all = df_filled.append(df_filled_12_all)
+    df_filled_all.reset_index(inplace=True, drop=True)
+
+    # Remove Region 12 GLIMS
+    idx_rgi = list(np.where(df_filled_all.RGIId.str.startswith('RGI60').values)[0])
+    df_filled_all = df_filled_all.loc[idx_rgi,:].copy()
+
+    df_filled_all = df_filled_all.sort_values('RGIId')
+    df_filled_all.reset_index(inplace=True, drop=True)
+
+    # Export dataset
+    df_filled_all.to_csv(df_fp + df_fn.replace('.csv','-filled.csv'), index=False)

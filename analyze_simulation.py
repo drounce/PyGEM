@@ -549,6 +549,10 @@ if option_plot_era5_volchange:
 #        print('\n\nDELETE ME!\n\n')
 #        glacno_list = glacno_list_cal
         
+        #%%
+        glacno_missing_wcal = list(set(glacno_list_cal).intersection(glacno_list_missing))
+        #%%
+        
         
         print('simulated', len(glacno_list), 'glaciers')
         

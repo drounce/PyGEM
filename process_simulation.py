@@ -23,7 +23,7 @@ from matplotlib.ticker import MultipleLocator
 #from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
 import numpy as np
 import pandas as pd
-#from scipy.stats import median_abs_deviation
+from scipy.stats import median_abs_deviation
 #from scipy.stats import linregress
 from scipy.ndimage import uniform_filter
 #import scipy
@@ -38,23 +38,34 @@ import pygem.pygem_modelsetup as modelsetup
 #from oggm import utils
 from pygem.oggm_compat import single_flowline_glacier_directory
 
+#%%
+
 
 #%% ===== Input data =====
 # Script options
-option_process_data = True
-option_zip_sims = False
+option_find_missing = True             # Checks file transfers and finds missing glaciers
+option_zip_sims = False                 # Zips binned and stats output for each region (gcm/scenario)
+option_process_data = False              # Processes data for regional statistics
+option_calving_mbclim_era5 = False      # mbclim of two lowest elevation bins for Will 
+option_multigcm_plots = False            # Multi-GCM plots of various parameters
 
 #regions = [1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19]
-regions = [13]
+#regions = [1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,18,19]
+regions = [11]
 
 # GCMs and RCP scenarios
-gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
-             'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
-#gcm_names = ['BCC-CSM2-MR', 'CAMS-CSM1-0', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg',
-#             'FGOALS-f3-L', 'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
-#gcm_names = ['IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M'] # Region 14
-gcm_names = ['CSIRO-Mk3-6-0', 'GFDL-CM3', 'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M'] # Region 13
-rcps = ['rcp26', 'rcp45', 'rcp85']
+#gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
+#             'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
+#rcps = ['rcp26', 'rcp45', 'rcp85']
+
+gcm_names = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
+             'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
+gcm_names = ['BCC-CSM2-MR']
+rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
+
+#netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
+netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations-nodebris/'
+
 
 def getparser():
     """
@@ -72,12 +83,35 @@ def getparser():
     return parser
 parser = getparser()
 args = parser.parse_args()
-if args.option_plot == 1:
-    option_plot = True
-    netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
-else:
-    option_plot = False
-    netcdf_fp_cmip5 = pygem_prms.output_sim_fp
+#if args.option_plot == 1:
+#    option_plot = True
+#    netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
+#else:
+#    option_plot = False
+#    netcdf_fp_cmip5 = pygem_prms.output_sim_fp
+    
+    
+    #%%
+
+
+fig_fp = netcdf_fp_cmip5 + '/../analysis/figures/'
+if not os.path.exists(fig_fp):
+    os.makedirs(fig_fp, exist_ok=True)
+csv_fp = netcdf_fp_cmip5 + '/../analysis/csv/'
+if not os.path.exists(csv_fp):
+    os.makedirs(csv_fp, exist_ok=True)
+pickle_fp = fig_fp + '../pickle/'
+if not os.path.exists(pickle_fp):
+    os.makedirs(pickle_fp, exist_ok=True)
+
+for reg in regions:
+    fn_reg_glacno_list = 'R' + str(reg) + '_glacno_list.pkl'
+    with open(pickle_fp + str(reg).zfill(2) + '/' + fn_reg_glacno_list, 'rb') as f:
+        glacno_list = pickle.load(f)
+
+    
+    
+    #%%
 
 
 # Grouping
@@ -101,7 +135,8 @@ vn_label_units_dict = {'massbal':'[mwea]',
                        'precfactor':'[-]',                                                              
                        'tempchange':'[$^\circ$C]',                                                               
                        'ddfsnow':'[mwe d$^{-1}$ $^\circ$C$^{-1}$]'}
-rgi_reg_dict = {1:'Alaska',
+rgi_reg_dict = {'all':'Global',
+                1:'Alaska',
                 2:'W Canada/USA',
                 3:'Arctic Canada (North)',
                 4:'Arctic Canada (South)',
@@ -126,8 +161,10 @@ colors_rgb = [(0.00, 0.57, 0.57), (0.71, 0.43, 1.00), (0.86, 0.82, 0.00), (0.00,
               (0.57, 0.29, 0.00), (1.00, 0.43, 0.71), (0.43, 0.71, 1.00), (0.14, 1.00, 0.14), (1.00, 0.71, 0.47), 
               (0.29, 0.00, 0.57), (0.57, 0.00, 0.00), (0.71, 0.47, 1.00), (1.00, 1.00, 0.47)]
 gcm_colordict = dict(zip(gcm_names, colors_rgb[0:len(gcm_names)]))
-rcp_colordict = {'rcp26':'b', 'rcp45':'k', 'rcp60':'m', 'rcp85':'r'}
-rcp_styledict = {'rcp26':':', 'rcp45':'--', 'rcp85':'-.'}
+rcp_colordict = {'rcp26':'#3D52A4', 'rcp45':'#76B8E5', 'rcp60':'#F47A20', 'rcp85':'#ED2024', 
+                 'ssp126':'#3D52A4', 'ssp245':'#76B8E5', 'ssp370':'#F47A20', 'ssp585':'#ED2024'}
+rcp_styledict = {'rcp26':':', 'rcp45':':', 'rcp85':':',
+                 'ssp126':'-', 'ssp245':'-', 'ssp370':'-', 'ssp585':'-'}
 
 # Bounds (90% bounds --> 95% above/below given threshold)
 low_percentile = 5
@@ -222,6 +259,86 @@ def select_groups(grouping, main_glac_rgi_all):
 
 #%%
 time_start = time.time()
+if option_find_missing:
+    for reg in regions:
+        
+        # All glaciers for fraction and missing
+        main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=[reg], 
+                                                              rgi_regionsO2='all', rgi_glac_number='all', 
+                                                              glac_no=None)
+        
+        # Load glaciers
+        glacno_list = []
+        glacno_list_gcmrcp_missing = {}
+        for rcp in rcps:
+            for gcm_name in gcm_names:
+                
+                # Filepath where glaciers are stored
+                netcdf_fp = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
+                netcdf_fp_binned = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/binned/'
+                
+                # Load the glaciers
+                glacno_list_gcmrcp = []
+                for i in os.listdir(netcdf_fp):
+                    if i.endswith('.nc'):
+                        glacno_list_gcmrcp.append(i.split('_')[0])
+                glacno_list_gcmrcp = sorted(glacno_list_gcmrcp)
+                
+                print(gcm_name, rcp, 'simulated', len(glacno_list_gcmrcp), 'glaciers')
+                
+                # Check other file too
+                glacno_binned_count = 0
+                for i in os.listdir(netcdf_fp_binned):
+                    if i.endswith('.nc'):
+                        glacno_binned_count += 1
+                print('  count of stats  files:', len(glacno_list_gcmrcp))
+                print('  count of binned files:', glacno_binned_count)
+                
+                # Only include the glaciers that were simulated by all GCM/RCP combinations
+                if len(glacno_list) == 0:
+                    glacno_list = glacno_list_gcmrcp
+                else:
+                    glacno_list = list(set(glacno_list).intersection(glacno_list_gcmrcp))
+                glacno_list = sorted(glacno_list)
+                
+                # Missing glaciers by gcm/rcp
+                glacno_list_gcmrcp_missing[gcm_name + '-' + rcp] = (
+                        sorted(np.setdiff1d(list(main_glac_rgi_all.glacno.values), glacno_list_gcmrcp).tolist()))
+                
+#                #%%
+#                # Hack to find missing compared to other runs
+##                glacno_list_best = glacno_list_gcmrcp_missing['BCC-CSM2-MR-ssp126']
+#                fn_reg_glacno_list = 'R' + str(reg) + '_glacno_list.pkl'
+#                with open(pickle_fp + str(reg).zfill(2) + '/' + fn_reg_glacno_list, 'rb') as f:
+#                    glacno_list_best = pickle.load(f)
+#                
+#                glacno_list_find = glacno_list_gcmrcp
+#                
+#                A = sorted(np.setdiff1d(glacno_list_best, glacno_list_find).tolist())
+#                if len(A) > 0:
+#                    print('  missing:', A)
+#                #%%
+                
+                
+        # Glaciers with successful runs to process
+        main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glacno_list)
+        
+        # Missing glaciers
+        glacno_list_missing = sorted(np.setdiff1d(list(main_glac_rgi_all.glacno.values), glacno_list).tolist())
+        if len(glacno_list_missing) > 0:
+            main_glac_rgi_missing = modelsetup.selectglaciersrgitable(glac_no=glacno_list_missing)
+        
+        print('\nGCM/RCPs successfully simulated:\n  -', main_glac_rgi.shape[0], 'of', main_glac_rgi_all.shape[0], 'glaciers',
+              '(', np.round(main_glac_rgi.shape[0]/main_glac_rgi_all.shape[0]*100,1),'%)')
+        print('  -', np.round(main_glac_rgi.Area.sum(),0), 'km2 of', np.round(main_glac_rgi_all.Area.sum(),0), 'km2',
+              '(', np.round(main_glac_rgi.Area.sum()/main_glac_rgi_all.Area.sum()*100,1),'%)')
+        
+        #%%
+
+
+
+
+#%%
 if option_zip_sims:
     """ Zip simulations """
     for reg in regions:
@@ -315,7 +432,6 @@ if option_process_data:
     
     grouping = 'all'
 
-    netcdf_fn_ending = '_ERA5_MCMC_ba1_50sets_2000_2019_annual.nc'
     fig_fp = netcdf_fp_cmip5 + '/../analysis/figures/'
     if not os.path.exists(fig_fp):
         os.makedirs(fig_fp, exist_ok=True)
@@ -467,7 +583,7 @@ if option_process_data:
             pickle.dump(elev_bins, f)
         
         #%%
-        years = None
+        years = None        
         for gcm_name in gcm_names:
             for rcp in rcps:
 
@@ -704,16 +820,26 @@ if option_process_data:
                         degid_idx = np.where(degid == unique_degids)[0][0]
                         
                         # Filenames
-                        netcdf_fn_binned_ending = 'MCMC_ba1_50sets_2000_2100_binned.nc'
-                        netcdf_fn_binned = '_'.join([glacno, gcm_name, rcp, netcdf_fn_binned_ending])
-
-                        netcdf_fn_stats_ending = 'MCMC_ba1_50sets_2000_2100_all.nc'
-                        netcdf_fn_stats = '_'.join([glacno, gcm_name, rcp, netcdf_fn_stats_ending])
-                        
-                        # Open files
-                        ds_binned = xr.open_dataset(netcdf_fp_binned + '/' + netcdf_fn_binned)
-                        ds_stats = xr.open_dataset(netcdf_fp_stats + '/' + netcdf_fn_stats)
-            
+                        nsim_strs = ['50', '100', '150', '200', '250']
+                        ds_binned = None
+                        nset = -1
+                        while ds_binned is None and nset <= len(nsim_strs):
+                            nset += 1
+                            nsim_str = nsim_strs[nset]
+                            
+                            try:
+                                netcdf_fn_binned_ending = 'MCMC_ba1_' + nsim_str + 'sets_2000_2100_binned.nc'
+                                netcdf_fn_binned = '_'.join([glacno, gcm_name, rcp, netcdf_fn_binned_ending])
+        
+                                netcdf_fn_stats_ending = 'MCMC_ba1_' + nsim_str + 'sets_2000_2100_all.nc'
+                                netcdf_fn_stats = '_'.join([glacno, gcm_name, rcp, netcdf_fn_stats_ending])
+                                
+                                # Open files
+                                ds_binned = xr.open_dataset(netcdf_fp_binned + '/' + netcdf_fn_binned)
+                                ds_stats = xr.open_dataset(netcdf_fp_stats + '/' + netcdf_fn_stats)
+                            except:
+                                ds_binned = None
+                            
                         # Years
                         if years is None:
                             years = ds_stats.year.values
@@ -1848,8 +1974,9 @@ if option_process_data:
                     ymax = np.ceil(elev_bins[np.nonzero(reg_vol_annual_binned.sum(1))[0][-1]] / elev_bin_major) * elev_bin_major
                     ax[1,0].plot(reg_vol_annual_binned[:,0]/1e9, elev_bins[1:], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
                     ax[1,0].plot(reg_vol_annual_binned[:,-1]/1e9, elev_bins[1:], color='b', linewidth=0.5, zorder=4, label=str(years[-1]))
-                    ax[1,0].plot(reg_vol_annual_binned_bd[:,0]/1e9, elev_bins[1:], color='k', linestyle=':', linewidth=0.5, zorder=4, label=None)
-                    ax[1,0].plot(reg_vol_annual_binned_bd[:,-1]/1e9, elev_bins[1:], color='b', linestyle=':', linewidth=0.5, zorder=4, label=None)
+                    if not reg_vol_annual_bd is None:
+                        ax[1,0].plot(reg_vol_annual_binned_bd[:,0]/1e9, elev_bins[1:], color='k', linestyle=':', linewidth=0.5, zorder=4, label=None)
+                        ax[1,0].plot(reg_vol_annual_binned_bd[:,-1]/1e9, elev_bins[1:], color='b', linestyle=':', linewidth=0.5, zorder=4, label=None)
                     ax[1,0].set_ylabel('Elevation (m)')
                     ax[1,0].set_xlabel('Volume (km$^{3}$)')
                     ax[1,0].set_xlim(0, reg_vol_annual_binned.max()/1e9)
@@ -1864,8 +1991,9 @@ if option_process_data:
                     # BINNED AREA
                     ax[1,1].plot(reg_area_annual_binned[:,0]/1e6, elev_bins[1:], color='k', linewidth=0.5, zorder=4, label=str(years.min()))
                     ax[1,1].plot(reg_area_annual_binned[:,-1]/1e6, elev_bins[1:], color='b', linewidth=0.5, zorder=4, label=str(years[-1]))
-                    ax[1,1].plot(reg_area_annual_binned_bd[:,0]/1e6, elev_bins[1:], color='k', linestyle=':', linewidth=0.5, zorder=4, label=None)
-                    ax[1,1].plot(reg_area_annual_binned_bd[:,-1]/1e6, elev_bins[1:], color='b', linestyle=':', linewidth=0.5, zorder=4, label=None)
+                    if not reg_area_annual_binned_bd is None:
+                        ax[1,1].plot(reg_area_annual_binned_bd[:,0]/1e6, elev_bins[1:], color='k', linestyle=':', linewidth=0.5, zorder=4, label=None)
+                        ax[1,1].plot(reg_area_annual_binned_bd[:,-1]/1e6, elev_bins[1:], color='b', linestyle=':', linewidth=0.5, zorder=4, label=None)
                     ax[1,1].set_ylabel('Elevation (m)')
                     ax[1,1].set_xlabel('Area (km$^{2}$)')
                     ax[1,1].set_xlim(0, reg_area_annual_binned.max()/1e6)
@@ -1981,44 +2109,1004 @@ if option_process_data:
                     fig.set_size_inches(8,6)
                     fig.savefig(fig_fp_reg + fig_fn, bbox_inches='tight', dpi=300)
                 
-                #%%
-                # MULTI-GCM STATISTICS
-                #  - CALCULATE FOR THE FOLLOWING:
-    #                reg_vol_annual
-    #                reg_vol_annual_bwl
-    #                reg_vol_annual_bd
-    #                reg_area_annual
-    #                reg_area_annual_bd
-    #                reg_runoff_monthly_fixed
-    #                reg_runoff_monthly_moving
-    #                reg_vol_annual_binned
-    #                reg_vol_annual_binned_bd
-    #                reg_area_annual_binned
-    #                reg_area_annual_binned_bd
-    #                reg_mbclim_annual_binned
-    #                reg_ela_annual
-    #                reg_aar_annual
-    #                reg_acc_monthly
-    #                reg_refreeze_monthly
-    #                reg_melt_monthly
-    #                reg_frontalablation_monthly
-    #                reg_massbaltotal_monthly
+
+#%%
+if option_calving_mbclim_era5:
+    
+    calving_rgiid_fn = '/Users/drounce/Documents/HiMAT/calving_data/rgiids_for_will.csv'
+    sim_fp = '/Users/drounce/Documents/HiMAT/spc_backup/simulations_Will-calving/'
+    rgiid_df = pd.read_csv(calving_rgiid_fn)
+    rgiids = list(rgiid_df.rgiid.values)
+    glac_str = [x.split('-')[1] for x in rgiids]
+    glac_no_list = sorted([str(int(x.split('.')[0])) + '.' + x.split('.')[1] for x in glac_str])
+
+    # Load glaciers
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(glac_no=glac_no_list)
+
+    #%%
+    mbclim_term_decadal_all = None
+    glacno_list_all = []
+    for nglac, glacno in enumerate(glac_no_list[0:1]):
+        if nglac%10 == 0:
+            print(nglac, glacno)
+        
+        reg = glacno.split('.')[0]
+        
+        # Filepath and filename
+        era5_fp_binned = sim_fp + str(reg).zfill(2) + '/ERA5/binned/'
+        glac_fn_binned = glacno + '_ERA5_MCMC_ba1_50sets_2000_2019_binned.nc'
+        
+        if os.path.exists(era5_fp_binned + glac_fn_binned):
+            ds = xr.open_dataset(era5_fp_binned + glac_fn_binned)
+    
+            mbclim_binned = ds.bin_massbalclim_annual.values[0,:,:-1]
+            mbclim_binned_mad = ds.bin_massbalclim_annual_mad.values[0,:,:-1]
+            
+            # Terminus average (lower 2 bins)
+            mbclim_term = mbclim_binned[-2:,:].mean(0)
+            mbclim_term_mad = mbclim_binned_mad[-2:,:].mean(0)
+            # Decadal average at the terminus (mwea)
+            mbclim_term_decadal = mbclim_term.reshape(-1,10).mean(1)
+            mbclim_term_decadal_mad = mbclim_term_mad.reshape(-1,10).mean(1)
                 
-#                ds_multigcm = {}
-#                reg_vol_gcm = reg_vol_all[rcp][gcm_name]
-#
-#                if ngcm == 0:
-#                    reg_vol_gcm_all = reg_vol_gcm_med               
-#                else:
-#                    reg_vol_gcm_all = np.vstack((reg_vol_gcm_all, reg_vol_gcm_med))
-#                    
-#            ds_multigcm[rcp] = reg_vol_gcm_all
+            mbclim_term_decadal_output = np.concatenate((mbclim_term_decadal[np.newaxis,:], 
+                                                         mbclim_term_decadal_mad[np.newaxis,:]), axis=1)
+
+            if mbclim_term_decadal_all is None:
+                mbclim_term_decadal_all = mbclim_term_decadal_output   
+            else:
+                mbclim_term_decadal_all = np.concatenate((mbclim_term_decadal_all, 
+                                                          mbclim_term_decadal_output), axis=0)
+            glacno_list_all.append(glacno)
+                    
+    mbclim_term_df_cns = ['RGIId', 'mbclim_mwea_2000_2009', 'mbclim_mwea_2010_2019', 
+                          'mbclim_mwea_2000_2009_mad', 'mbclim_mwea_2010_2019_mad']
+    mbclim_term_df = pd.DataFrame(np.zeros((len(glacno_list_all), mbclim_term_decadal_all.shape[1] +1)), columns=mbclim_term_df_cns)
+    mbclim_term_df.loc[:,'RGIId'] = glacno_list_all
+    mbclim_term_df.loc[:,mbclim_term_df_cns[1:]] = mbclim_term_decadal_all
+    
+    csv_fp = netcdf_fp_cmip5 + '/../analysis/csv/'
+    if not os.path.exists(csv_fp):
+        os.makedirs(csv_fp, exist_ok=True)
+    mbclim_term_df_fn = 'ERA5_2000_2019_calving_mbclim_term_mwea.csv'
+    mbclim_term_df.to_csv(csv_fp + mbclim_term_df_fn, index=False)
+
+    
+#%%
+if option_multigcm_plots:
+    
+    startyear = 2015
+    endyear = 2100
+    normyear = 2015
+    years = np.arange(2000,2101+1)
+    
+    gcm_names_rcps = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
+                      'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
+    gcm_names_ssps = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
+                      'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
+    rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585', 'rcp26', 'rcp45', 'rcp85']
+    
+#    rcps_plot_mad = ['rcp26', 'rcp45', 'rcp85', 'ssp126', 'ssp245', 'ssp370', 'ssp585']
+    rcps_plot_mad = ['ssp126', 'ssp585']
+    
+    fig_fp_multigcm = fig_fp + 'multi_gcm/'
+    if not os.path.exists(fig_fp_multigcm):
+        os.makedirs(fig_fp_multigcm, exist_ok=True)
+    
+    reg_vol_all = {}
+    reg_vol_all_bwl = {}
+    reg_area_all = {}   
+    for reg in regions:
+    
+        reg_vol_all[reg] = {}
+        reg_vol_all_bwl[reg] = {}
+        reg_area_all[reg] = {}
+        
+    
+        for rcp in rcps:
+            reg_vol_all[reg][rcp] = {}
+            reg_vol_all_bwl[reg][rcp] = {}
+            reg_area_all[reg][rcp] = {}
+            
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                gcm_names = gcm_names_ssps
                 
+            for gcm_name in gcm_names:
                 
+                # ----- GCM/RCP PICKLE FILEPATHS AND FILENAMES -----
+                pickle_fp_reg =  pickle_fp + str(reg).zfill(2) + '/O1Regions/' + gcm_name + '/' + rcp + '/'
+                pickle_fp_watershed =  pickle_fp + str(reg).zfill(2) + '/watersheds/' + gcm_name + '/' + rcp + '/'
+                # Region string prefix
+                reg_rcp_gcm_str = 'R' + str(reg) + '_' + rcp + '_' + gcm_name
+                watershed_rcp_gcm_str = 'R' + str(reg) + '_watersheds_' + rcp + '_' + gcm_name
+                
+                # Filenames
+                fn_reg_vol_annual = reg_rcp_gcm_str + '_vol_annual.pkl' 
+                fn_reg_vol_annual_bwl = reg_rcp_gcm_str + '_vol_annual_bwl.pkl'
+                fn_reg_vol_annual_bd = reg_rcp_gcm_str + '_vol_annual_bd.pkl'
+                fn_reg_area_annual = reg_rcp_gcm_str + '_area_annual.pkl'
+                fn_reg_area_annual_bd = reg_rcp_gcm_str + '_area_annual_bd.pkl'
+                fn_reg_vol_annual_binned = reg_rcp_gcm_str + '_vol_annual_binned.pkl'
+                fn_reg_vol_annual_binned_bd = reg_rcp_gcm_str + '_vol_annual_binned_bd.pkl'
+                fn_reg_area_annual_binned = reg_rcp_gcm_str + '_area_annual_binned.pkl'
+                fn_reg_area_annual_binned_bd = reg_rcp_gcm_str + '_area_annual_binned_bd.pkl'
+                fn_reg_acc_monthly = reg_rcp_gcm_str + '_acc_monthly.pkl'
+                fn_reg_refreeze_monthly = reg_rcp_gcm_str + '_refreeze_monthly.pkl'
+                fn_reg_melt_monthly = reg_rcp_gcm_str + '_melt_monthly.pkl'
+                fn_reg_frontalablation_monthly = reg_rcp_gcm_str + '_frontalablation_monthly.pkl'
+                fn_reg_massbaltotal_monthly = reg_rcp_gcm_str + '_massbaltotal_monthly.pkl'
+                fn_reg_mbclim_annual_binned = reg_rcp_gcm_str + '_mbclim_annual_binned.pkl'
+                fn_watershed_mbclim_annual_binned = watershed_rcp_gcm_str + '_mbclim_annual_binned.pkl'
+                fn_reg_runoff_monthly_moving = reg_rcp_gcm_str + '_runoff_monthly_moving.pkl'
+                fn_watershed_runoff_monthly_moving = watershed_rcp_gcm_str + '_runoff_monthly_moving.pkl'
+                fn_reg_runoff_monthly_fixed = reg_rcp_gcm_str + '_runoff_monthly_fixed.pkl'
+                fn_watershed_runoff_monthly_fixed = watershed_rcp_gcm_str + '_runoff_monthly_fixed.pkl'
+                fn_reg_prec_monthly = reg_rcp_gcm_str + '_prec_monthly.pkl'
+                fn_watershed_prec_monthly = watershed_rcp_gcm_str + '_prec_monthly.pkl' 
+                fn_reg_offglac_prec_monthly = reg_rcp_gcm_str + '_offglac_prec_monthly.pkl'  
+                fn_watershed_offglac_prec_monthly = watershed_rcp_gcm_str + '_offglac_prec_monthly.pkl'
+                fn_reg_offglac_melt_monthly = reg_rcp_gcm_str + '_offglac_melt_monthly.pkl'
+                fn_watershed_offglac_melt_monthly = watershed_rcp_gcm_str + '_offglac_melt_monthly.pkl'
+                fn_reg_offglac_refreeze_monthly = reg_rcp_gcm_str + '_offglac_refreeze_monthly.pkl'
+                fn_watershed_offglac_refreeze_monthly = watershed_rcp_gcm_str + '_offglac_refreeze_monthly.pkl'
+                fn_reg_ela_annual = reg_rcp_gcm_str + '_ela_annual.pkl'
+                fn_reg_aar_annual = reg_rcp_gcm_str + '_aar_annual.pkl'
+                
+                 # Volume
+                with open(pickle_fp_reg + fn_reg_vol_annual, 'rb') as f:
+                    reg_vol_annual = pickle.load(f)
+                # Volume below sea level
+                with open(pickle_fp_reg + fn_reg_vol_annual_bwl, 'rb') as f:
+                    reg_vol_annual_bwl = pickle.load(f)
+                # Volume below debris
+                with open(pickle_fp_reg + fn_reg_vol_annual_bd, 'rb') as f:
+                    reg_vol_annual_bd = pickle.load(f)
+                # Area 
+                with open(pickle_fp_reg + fn_reg_area_annual, 'rb') as f:
+                    reg_area_annual = pickle.load(f)
+                # Area below debris
+                with open(pickle_fp_reg + fn_reg_area_annual_bd, 'rb') as f:
+                    reg_area_annual_bd = pickle.load(f)
+                # Binned Volume
+                with open(pickle_fp_reg + fn_reg_vol_annual_binned, 'rb') as f:
+                    reg_vol_annual_binned = pickle.load(f)
+                # Binned Volume below debris
+                with open(pickle_fp_reg + fn_reg_vol_annual_binned_bd, 'rb') as f:
+                    reg_vol_annual_binned_bd = pickle.load(f)
+                # Binned Area
+                with open(pickle_fp_reg + fn_reg_area_annual_binned, 'rb') as f:
+                    reg_area_annual_binned = pickle.load(f)
+                # Binned Area below debris
+                with open(pickle_fp_reg + fn_reg_area_annual_binned_bd, 'rb') as f:
+                    reg_area_annual_binned_bd = pickle.load(f)
+                # Mass balance: accumulation
+                with open(pickle_fp_reg + fn_reg_acc_monthly, 'rb') as f:
+                    reg_acc_monthly = pickle.load(f)
+                # Mass balance: refreeze
+                with open(pickle_fp_reg + fn_reg_refreeze_monthly, 'rb') as f:
+                    reg_refreeze_monthly = pickle.load(f)
+                # Mass balance: melt
+                with open(pickle_fp_reg + fn_reg_melt_monthly, 'rb') as f:
+                    reg_melt_monthly = pickle.load(f)
+                # Mass balance: frontal ablation
+                with open(pickle_fp_reg + fn_reg_frontalablation_monthly, 'rb') as f:
+                    reg_frontalablation_monthly = pickle.load(f)
+                # Mass balance: total mass balance
+                with open(pickle_fp_reg + fn_reg_massbaltotal_monthly, 'rb') as f:
+                    reg_massbaltotal_monthly = pickle.load(f)
+                # Binned Climatic Mass Balance
+                with open(pickle_fp_reg + fn_reg_mbclim_annual_binned, 'rb') as f:
+                    reg_mbclim_annual_binned = pickle.load(f)
+                # Runoff: moving-gauged
+                with open(pickle_fp_reg + fn_reg_runoff_monthly_moving, 'rb') as f:
+                    reg_runoff_monthly_moving = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_runoff_monthly_moving, 'rb') as f:
+                    watershed_runoff_monthly_moving = pickle.load(f)
+                # Runoff: fixed-gauged
+                with open(pickle_fp_reg + fn_reg_runoff_monthly_fixed, 'rb') as f:
+                    reg_runoff_monthly_fixed = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_runoff_monthly_fixed, 'rb') as f:
+                    watershed_runoff_monthly_fixed = pickle.load(f)
+                # Runoff: precipitation
+                with open(pickle_fp_reg + fn_reg_prec_monthly, 'rb') as f:
+                    reg_prec_monthly = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_prec_monthly, 'rb') as f:
+                    watershed_prec_monthly= pickle.load(f)
+                # Runoff: off-glacier precipitation
+                with open(pickle_fp_reg + fn_reg_offglac_prec_monthly, 'rb') as f:
+                    reg_offglac_prec_monthly = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_offglac_prec_monthly, 'rb') as f:
+                    watershed_offglac_prec_monthly = pickle.load(f)
+                # Runoff: off-glacier melt
+                with open(pickle_fp_reg + fn_reg_offglac_melt_monthly, 'rb') as f:
+                    reg_offglac_melt_monthly = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_offglac_melt_monthly, 'rb') as f:
+                    watershed_offglac_melt_monthly = pickle.load(f)
+                # Runoff: off-glacier refreeze
+                with open(pickle_fp_reg + fn_reg_offglac_refreeze_monthly, 'rb') as f:
+                    reg_offglac_refreeze_monthly = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_offglac_refreeze_monthly, 'rb') as f:
+                    watershed_offglac_refreeze_monthly = pickle.load(f)
+                # ELA
+                with open(pickle_fp_reg + fn_reg_ela_annual, 'rb') as f:
+                    reg_ela_annual = pickle.load(f)
+                # AAR
+                with open(pickle_fp_reg + fn_reg_aar_annual, 'rb') as f:
+                    reg_aar_annual = pickle.load(f)
+                    
+                    
+                reg_vol_all[reg][rcp][gcm_name] = reg_vol_annual
+                if reg_vol_annual_bwl is None:
+                    reg_vol_all_bwl[reg][rcp][gcm_name] = np.zeros(reg_vol_annual.shape)
+                else:
+                    reg_vol_all_bwl[reg][rcp][gcm_name] = reg_vol_annual_bwl
+                reg_area_all[reg][rcp][gcm_name] = reg_area_annual    
+             
+    #%%
+    # MULTI-GCM STATISTICS
+    ds_multigcm_vol = {}
+    ds_multigcm_vol_bsl = {}
+    ds_multigcm_area = {}
+    for reg in regions:
+        ds_multigcm_vol[reg] = {}
+        ds_multigcm_vol_bsl[reg] = {}
+        ds_multigcm_area[reg] = {}
+        for rcp in rcps: 
+            
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                gcm_names = gcm_names_ssps
+                
+            for ngcm, gcm_name in enumerate(gcm_names):
+            
+#            for ngcm, gcm_name in enumerate(gcm_names):
+                
+                print(rcp, gcm_name)
+    
+                reg_vol_gcm = reg_vol_all[reg][rcp][gcm_name]
+                reg_vol_bsl_gcm = reg_vol_all_bwl[reg][rcp][gcm_name]
+                reg_area_gcm = reg_area_all[reg][rcp][gcm_name]
+    
+                if ngcm == 0:
+                    reg_vol_gcm_all = reg_vol_gcm   
+                    reg_vol_bsl_gcm_all = reg_vol_bsl_gcm   
+                    reg_area_gcm_all = reg_area_gcm    
+                else:
+                    reg_vol_gcm_all = np.vstack((reg_vol_gcm_all, reg_vol_gcm))
+                    reg_vol_bsl_gcm_all = np.vstack((reg_vol_bsl_gcm_all, reg_vol_bsl_gcm))
+                    reg_area_gcm_all = np.vstack((reg_area_gcm_all, reg_area_gcm))
+            
+            ds_multigcm_vol[reg][rcp] = reg_vol_gcm_all
+            ds_multigcm_vol_bsl[reg][rcp] = reg_vol_bsl_gcm_all
+            ds_multigcm_area[reg][rcp] = reg_area_gcm_all
+    #%%
+
+    #        # ----- FIGURE: VOLUME CHANGE FOR EACH GCM ----- 
+    #        fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=True, 
+    #                               gridspec_kw = {'wspace':0, 'hspace':0})
+    #        
+    #        # Load data
+    #        for rcp in rcps:
+    #            
+    #            for ngcm, gcm_name in enumerate(gcm_names):
+    #                
+    #                if ngcm == 0:
+    #                    label=rcp
+    #                else:
+    #                    label=None
+    #                
+    #                # Median and absolute median deviation
+    #                reg_vol = reg_vol_all[rcp][gcm_name]
+    #                reg_vol_med = np.median(reg_vol, axis=1)
+    #                reg_vol_mad = median_abs_deviation(reg_vol, axis=1)
+    #            
+    #                ax[0,0].plot(years, reg_vol_med, color=rcp_colordict[rcp], linewidth=1, zorder=4, label=label)
+    #                ax[0,0].fill_between(years, 
+    #                                     reg_vol_med + 1.96*reg_vol_mad, 
+    #                                     reg_vol_med - 1.96*reg_vol_mad, 
+    #                                     alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
+    #                
+    #        ax[0,0].set_ylabel('Volume (m$^{3}$)')
+    #        ax[0,0].set_xlim(startyear, endyear)
+    #        ax[0,0].text(0.98, 1.06, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+    #                     verticalalignment='top', transform=ax[0,0].transAxes)
+    #        ax[0,0].legend(
+    ##                rcp_lines, rcp_labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
+    ##                handletextpad=0.25, borderpad=0, frameon=False
+    #                )        
+    #        ax[0,0].tick_params(direction='inout', right=True)
+    #        # Save figure
+    #        fig_fn = str(reg) + '_volchange_' + str(startyear) + '-' + str(endyear) + '_all_gcmrcps.png'
+    #        fig.set_size_inches(4,3)
+    #        fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+    #                    
+    #    
+    #        #%%
+        # ----- FIGURE: VOLUME CHANGE MULTI-GCM -----
+        fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=True, 
+                               gridspec_kw = {'wspace':0, 'hspace':0})
+    
+        for rcp in rcps:
+            
+            # Median and absolute median deviation
+            reg_vol = ds_multigcm_vol[reg][rcp]
+            reg_vol_med = np.median(reg_vol, axis=0)
+            reg_vol_mad = median_abs_deviation(reg_vol, axis=0)
+            
+            ax[0,0].plot(years, reg_vol_med, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], linewidth=1, zorder=4, label=rcp)
+            if rcp in rcps_plot_mad:
+                ax[0,0].fill_between(years, 
+                                     reg_vol_med + 1.96*reg_vol_mad, 
+                                     reg_vol_med - 1.96*reg_vol_mad, 
+                                     alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
+               
+        ax[0,0].set_ylabel('Volume (m$^{3}$)')
+        ax[0,0].set_xlim(startyear, endyear)
+        ax[0,0].text(0.98, 1.06, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+                     verticalalignment='top', transform=ax[0,0].transAxes)
+        ax[0,0].legend(
+    #                rcp_lines, rcp_labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
+    #                handletextpad=0.25, borderpad=0, frameon=False
+                )
+        ax[0,0].tick_params(direction='inout', right=True)
+        # Save figure
+        if 'rcp26' in rcps and 'ssp126' in rcps:
+            scenario_str = 'rcps_ssps'
+        elif 'rcp26' in rcps:
+            scenario_str = 'rcps'
+        elif 'ssp126' in rcp:
+            scenario_str = 'ssps'
+        fig_fn = (str(reg) + '_volchange_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
+                  '-' + scenario_str + '.png')
+        fig.set_size_inches(4,3)
+        fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+        
         #%%
-        print('\nTo-do list:')
-        print('  - MultiGCM mean and variance plots')
-        print('  - Runoff plots')
+        # ----- FIGURE: NORMALIZED VOLUME CHANGE MULTI-GCM -----
+        fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=True, 
+                               gridspec_kw = {'wspace':0, 'hspace':0})
+    
+        normyear_idx = np.where(years == normyear)[0][0]
+    
+        for rcp in rcps:
+            
+            # Median and absolute median deviation
+            reg_vol = ds_multigcm_vol[reg][rcp]
+            reg_vol_med = np.median(reg_vol, axis=0)
+            reg_vol_mad = median_abs_deviation(reg_vol, axis=0)
+            
+            reg_vol_med_norm = reg_vol_med / reg_vol_med[normyear_idx]
+            reg_vol_mad_norm = reg_vol_mad / reg_vol_med[normyear_idx]
+            
+            ax[0,0].plot(years, reg_vol_med_norm, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], linewidth=1, zorder=4, label=rcp)
+            
+            if rcp in rcps_plot_mad:
+                ax[0,0].fill_between(years, 
+                                     reg_vol_med_norm + 1.96*reg_vol_mad_norm, 
+                                     reg_vol_med_norm - 1.96*reg_vol_mad_norm, 
+                                     alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
+        
+        ax[0,0].set_ylabel('Volume (-)')
+        ax[0,0].set_xlim(startyear, endyear)
+        ax[0,0].set_ylim(0,1)
+        ax[0,0].xaxis.set_major_locator(MultipleLocator(20))
+        ax[0,0].xaxis.set_minor_locator(MultipleLocator(10))
+        ax[0,0].yaxis.set_major_locator(MultipleLocator(0.2))
+        ax[0,0].yaxis.set_minor_locator(MultipleLocator(0.1))
+        ax[0,0].tick_params(direction='inout', right=True)
+        ax[0,0].text(0.98, 1.06, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+                     verticalalignment='top', transform=ax[0,0].transAxes)
+        ax[0,0].legend(
+    #                rcp_lines, rcp_labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
+    #                handletextpad=0.25, borderpad=0, frameon=False
+                )
+        ax[0,0].tick_params(direction='inout', right=True)
+        # Save figure
+        fig_fn = (str(reg) + '_volchangenorm_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
+                  '-' + scenario_str + '.png')
+        fig.set_size_inches(4,3)
+        fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+            
+            
+            #%%
+    #        # ----- FIGURE: AREA CHANGE MULTI-GCM -----
+    #        fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=True, 
+    #                               gridspec_kw = {'wspace':0, 'hspace':0})
+    #
+    #        for rcp in rcps:
+    #            
+    #            # Median and absolute median deviation
+    #            reg_area = ds_multigcm_area[reg][rcp]
+    #            reg_area_med = np.median(reg_area, axis=0)
+    #            reg_area_mad = median_abs_deviation(reg_area, axis=0)
+    #            
+    #            ax[0,0].plot(years, reg_area_med, color=rcp_colordict[rcp], linewidth=1, zorder=4, label=rcp)
+    #            if rcp in rcps_plot_mad:
+    #                ax[0,0].fill_between(years, 
+    #                                     reg_area_med + 1.96*reg_area_mad, 
+    #                                     reg_area_med - 1.96*reg_area_mad, 
+    #                                     alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
+    #               
+    #        ax[0,0].set_ylabel('Area (m$^{2}$)')
+    #        ax[0,0].set_xlim(startyear, endyear)
+    #        ax[0,0].text(0.98, 1.06, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+    #                     verticalalignment='top', transform=ax[0,0].transAxes)
+    #        ax[0,0].legend(
+    ##                rcp_lines, rcp_labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
+    ##                handletextpad=0.25, borderpad=0, frameon=False
+    #                )
+    #        ax[0,0].tick_params(direction='inout', right=True)
+    #        # Save figure
+    #        fig_fn = str(reg) + '_areachange_' + str(startyear) + '-' + str(endyear) + '_multigcm.png'
+    #        fig.set_size_inches(4,3)
+    #        fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+    #        
+    #        #%%
+    #        # ----- FIGURE: NORMALIZED AREA CHANGE MULTI-GCM -----
+    #        fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=True, 
+    #                               gridspec_kw = {'wspace':0, 'hspace':0})
+    #
+    #        normyear_idx = np.where(years == normyear)[0][0]
+    #
+    #        for rcp in rcps:
+    #            
+    #            # Median and absolute median deviation
+    #            reg_area = ds_multigcm_area[reg][rcp]
+    #            reg_area_med = np.median(reg_area, axis=0)
+    #            reg_area_mad = median_abs_deviation(reg_area, axis=0)
+    #            
+    #            reg_area_med_norm = reg_area_med / reg_area_med[normyear_idx]
+    #            reg_area_mad_norm = reg_area_mad / reg_area_med[normyear_idx]
+    #            
+    #            ax[0,0].plot(years, reg_area_med_norm, color=rcp_colordict[rcp], linewidth=1, zorder=4, label=rcp)
+    #            
+    #            if rcp in rcps_plot_mad:
+    #                ax[0,0].fill_between(years, 
+    #                                     reg_area_med_norm + 1.96*reg_area_mad_norm, 
+    #                                     reg_area_med_norm - 1.96*reg_area_mad_norm, 
+    #                                     alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
+    #        
+    #        ax[0,0].set_ylabel('Area (-)')
+    #        ax[0,0].set_xlim(startyear, endyear)
+    #        ax[0,0].text(0.98, 1.06, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+    #                     verticalalignment='top', transform=ax[0,0].transAxes)
+    #        ax[0,0].legend(
+    ##                rcp_lines, rcp_labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
+    ##                handletextpad=0.25, borderpad=0, frameon=False
+    #                )
+    #        ax[0,0].tick_params(direction='inout', right=True)
+    #        # Save figure
+    #        fig_fn = str(reg) + '_areachangenorm_' + str(startyear) + '-' + str(endyear) + '_multigcm.png'
+    #        fig.set_size_inches(4,3)
+    #        fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+    
+    #%%
+    # ----- FIGURE: ALL MULTI-GCM NORMALIZED VOLUME CHANGE -----
+    fig = plt.figure()
+    gs = fig.add_gridspec(nrows=6,ncols=4,wspace=0.3,hspace=0.4)
+    ax1 = fig.add_subplot(gs[0:2,0:2])
+    ax2 = fig.add_subplot(gs[0,3])
+    ax3 = fig.add_subplot(gs[1,2])
+    ax4 = fig.add_subplot(gs[1,3])
+    ax5 = fig.add_subplot(gs[2,0])
+    ax6 = fig.add_subplot(gs[2,1])
+    ax7 = fig.add_subplot(gs[2,2])
+    ax8 = fig.add_subplot(gs[2,3])
+    ax9 = fig.add_subplot(gs[3,0])
+    ax10 = fig.add_subplot(gs[3,1])
+    ax11 = fig.add_subplot(gs[3,2])
+    ax12 = fig.add_subplot(gs[3,3])
+    ax13 = fig.add_subplot(gs[4,0])
+    ax14 = fig.add_subplot(gs[4,1])
+    ax15 = fig.add_subplot(gs[4,2])
+    ax16 = fig.add_subplot(gs[4,3])
+    ax17 = fig.add_subplot(gs[5,0])
+    ax18 = fig.add_subplot(gs[5,1])
+    ax19 = fig.add_subplot(gs[5,2])
+    ax20 = fig.add_subplot(gs[5,3])
+    
+    regions_ordered = ['all',19,3,1,5,9,4,7,17,13,6,14,2,13,8,10,11,16,12,18]
+    for nax, ax in enumerate([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax18,ax19,ax20]):
+        
+        reg = regions_ordered[nax]
+        
+        if reg in ['all',17,12]:
+            plot_reg = False
+        else:
+            plot_reg = True
+            
+        
+        for rcp in rcps:
+            
+            if plot_reg:
+                # Median and absolute median deviation
+                reg_vol = ds_multigcm_vol[reg][rcp]
+                reg_vol_med = np.median(reg_vol, axis=0)
+                reg_vol_mad = median_abs_deviation(reg_vol, axis=0)
+                
+                reg_vol_med_norm = reg_vol_med / reg_vol_med[normyear_idx]
+                reg_vol_mad_norm = reg_vol_mad / reg_vol_med[normyear_idx]
+                
+                ax.plot(years, reg_vol_med_norm, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], 
+                        linewidth=1, zorder=4, label=rcp)
+                if rcp in rcps_plot_mad:
+                    ax.fill_between(years, 
+                                    reg_vol_med_norm + 1.96*reg_vol_mad_norm, 
+                                    reg_vol_med_norm - 1.96*reg_vol_mad_norm, 
+                                    alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
+        
+        if ax in [ax1,ax5,ax9,ax13,ax17]:
+            ax.set_ylabel('Mass (rel. to 2015)')
+        ax.set_xlim(startyear, endyear)
+        ax.xaxis.set_major_locator(MultipleLocator(50))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+        ax.set_ylim(0,1.1)
+        ax.yaxis.set_major_locator(MultipleLocator(0.2))
+        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        if nax == 0:
+            label_height=1.06
+        else:
+            label_height=1.14
+        ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+                verticalalignment='top', transform=ax.transAxes)
+        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+        
+        if nax == 1:
+            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'rcp26' in rcps and len(rcps) == 3:
+                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'ssp126' in rcp and len(rcps) == 4:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
+            ax.legend(loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
+                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+                      )
+    # Save figure
+    if 'rcp26' in rcps and 'ssp126' in rcps:
+        scenario_str = 'rcps_ssps'
+    elif 'rcp26' in rcps:
+        scenario_str = 'rcps'
+    elif 'ssp126' in rcp:
+        scenario_str = 'ssps'
+    fig_fn = ('allregions_volchange_norm_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
+              '-' + scenario_str + '.png')
+    fig.set_size_inches(8.5,11)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
+    
+    #%% ----- FIGURE: ALL MULTI-GCM NORMALIZED AREA CHANGE -----
+    fig = plt.figure()
+    gs = fig.add_gridspec(nrows=6,ncols=4,wspace=0.3,hspace=0.4)
+    ax1 = fig.add_subplot(gs[0:2,0:2])
+    ax2 = fig.add_subplot(gs[0,3])
+    ax3 = fig.add_subplot(gs[1,2])
+    ax4 = fig.add_subplot(gs[1,3])
+    ax5 = fig.add_subplot(gs[2,0])
+    ax6 = fig.add_subplot(gs[2,1])
+    ax7 = fig.add_subplot(gs[2,2])
+    ax8 = fig.add_subplot(gs[2,3])
+    ax9 = fig.add_subplot(gs[3,0])
+    ax10 = fig.add_subplot(gs[3,1])
+    ax11 = fig.add_subplot(gs[3,2])
+    ax12 = fig.add_subplot(gs[3,3])
+    ax13 = fig.add_subplot(gs[4,0])
+    ax14 = fig.add_subplot(gs[4,1])
+    ax15 = fig.add_subplot(gs[4,2])
+    ax16 = fig.add_subplot(gs[4,3])
+    ax17 = fig.add_subplot(gs[5,0])
+    ax18 = fig.add_subplot(gs[5,1])
+    ax19 = fig.add_subplot(gs[5,2])
+    ax20 = fig.add_subplot(gs[5,3])
+    
+    regions_ordered = ['all',19,3,1,5,9,4,7,17,13,6,14,2,13,8,10,11,16,12,18]
+    for nax, ax in enumerate([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax18,ax19,ax20]):
+        
+        reg = regions_ordered[nax]
+        
+        if reg in ['all',17,12]:
+            plot_reg = False
+        else:
+            plot_reg = True
+            
+        
+        for rcp in rcps:
+            
+            if plot_reg:
+                # Median and absolute median deviation
+                reg_area = ds_multigcm_area[reg][rcp]
+                reg_area_med = np.median(reg_area, axis=0)
+                reg_area_mad = median_abs_deviation(reg_area, axis=0)
+                
+                reg_area_med_norm = reg_area_med / reg_area_med[normyear_idx]
+                reg_area_mad_norm = reg_area_mad / reg_area_med[normyear_idx]
+                
+                ax.plot(years, reg_area_med_norm, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], 
+                        linewidth=1, zorder=4, label=rcp)
+                if rcp in rcps_plot_mad:
+                    ax.fill_between(years, 
+                                    reg_area_med_norm + 1.96*reg_area_mad_norm, 
+                                    reg_area_med_norm - 1.96*reg_area_mad_norm, 
+                                    alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
+        
+        if ax in [ax1,ax5,ax9,ax13,ax17]:
+            ax.set_ylabel('Area (rel. to 2015)')
+        ax.set_xlim(startyear, endyear)
+        ax.xaxis.set_major_locator(MultipleLocator(50))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+        ax.set_ylim(0,1.1)
+        ax.yaxis.set_major_locator(MultipleLocator(0.2))
+        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        if nax == 0:
+            label_height=1.06
+        else:
+            label_height=1.14
+        ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+                verticalalignment='top', transform=ax.transAxes)
+        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+        
+        if nax == 1:
+            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'rcp26' in rcps and len(rcps) == 3:
+                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'ssp126' in rcp and len(rcps) == 4:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
+            ax.legend(loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
+                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+                      )
+    # Save figure
+    if 'rcp26' in rcps and 'ssp126' in rcps:
+        scenario_str = 'rcps_ssps'
+    elif 'rcp26' in rcps:
+        scenario_str = 'rcps'
+    elif 'ssp126' in rcp:
+        scenario_str = 'ssps'
+    fig_fn = ('allregions_areachange_norm_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
+              '-' + scenario_str + '.png')
+    fig.set_size_inches(8.5,11)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
+    #%% ----- FIGURE: ALL SPECIFIC MASS LOSS RATES -----
+    fig = plt.figure()
+    gs = fig.add_gridspec(nrows=6,ncols=4,wspace=0.3,hspace=0.4)
+    ax1 = fig.add_subplot(gs[0:2,0:2])
+    ax2 = fig.add_subplot(gs[0,3])
+    ax3 = fig.add_subplot(gs[1,2])
+    ax4 = fig.add_subplot(gs[1,3])
+    ax5 = fig.add_subplot(gs[2,0])
+    ax6 = fig.add_subplot(gs[2,1])
+    ax7 = fig.add_subplot(gs[2,2])
+    ax8 = fig.add_subplot(gs[2,3])
+    ax9 = fig.add_subplot(gs[3,0])
+    ax10 = fig.add_subplot(gs[3,1])
+    ax11 = fig.add_subplot(gs[3,2])
+    ax12 = fig.add_subplot(gs[3,3])
+    ax13 = fig.add_subplot(gs[4,0])
+    ax14 = fig.add_subplot(gs[4,1])
+    ax15 = fig.add_subplot(gs[4,2])
+    ax16 = fig.add_subplot(gs[4,3])
+    ax17 = fig.add_subplot(gs[5,0])
+    ax18 = fig.add_subplot(gs[5,1])
+    ax19 = fig.add_subplot(gs[5,2])
+    ax20 = fig.add_subplot(gs[5,3])
+    
+    regions_ordered = ['all',19,3,1,5,9,4,7,17,13,6,14,2,13,8,10,11,16,12,18]
+    for nax, ax in enumerate([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax18,ax19,ax20]):
+        
+        reg = regions_ordered[nax]
+        
+        if reg in ['all',17,12]:
+            plot_reg = False
+        else:
+            plot_reg = True
+            
+        
+        for rcp in rcps:
+            
+            if plot_reg:
+
+                # Median and absolute median deviation
+                reg_vol = ds_multigcm_vol[reg][rcp]
+                reg_mass = reg_vol * pygem_prms.density_ice
+                reg_area = ds_multigcm_area[reg][rcp]
+
+                # Specific mass change rate
+                reg_mb = (reg_mass[:,1:] - reg_mass[:,0:-1]) / reg_area[:,0:-1]
+                reg_mb_med = np.median(reg_mb, axis=0)
+                reg_mb_mad = median_abs_deviation(reg_mb, axis=0)
+                
+                ax.plot(years[0:-1], reg_mb_med / 1000, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], 
+                        linewidth=1, zorder=4, label=rcp)
+                if rcp in rcps_plot_mad:
+                    ax.fill_between(years[0:-1], 
+                                    (reg_mb_med + 1.96*reg_mb_mad) / 1000, 
+                                    (reg_mb_med - 1.96*reg_mb_mad) / 1000, 
+                                    alpha=0.35, facecolor=rcp_colordict[rcp], label=None)
+        
+        if ax in [ax1,ax5,ax9,ax13,ax17]:
+#            ax.set_ylabel('$\Delta$M/$\Delta$t (m w.e. yr$^{-1}$)')
+            ax.set_ylabel('$\Delta$M/$\Delta$t\n(10$^{3}$ kg m$^{-2}$ yr$^{-1}$)')
+        ax.set_xlim(startyear, endyear)
+        ax.xaxis.set_major_locator(MultipleLocator(50))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+        ax.plot(years,np.zeros(years.shape), color='k', linewidth=0.5)
+        ax.set_ylim(-5.5,0.5)
+        ax.yaxis.set_major_locator(MultipleLocator(1))
+        ax.yaxis.set_minor_locator(MultipleLocator(0.5))
+        if nax == 0:
+            label_height=1.06
+        else:
+            label_height=1.14
+        ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+                verticalalignment='top', transform=ax.transAxes)
+        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+        
+        if nax == 1:
+            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'rcp26' in rcps and len(rcps) == 3:
+                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'ssp126' in rcp and len(rcps) == 4:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
+            ax.legend(loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
+                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+                      )
+    # Save figure
+    if 'rcp26' in rcps and 'ssp126' in rcps:
+        scenario_str = 'rcps_ssps'
+    elif 'rcp26' in rcps:
+        scenario_str = 'rcps'
+    elif 'ssp126' in rcp:
+        scenario_str = 'ssps'
+    fig_fn = ('allregions_mb_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
+              '-' + scenario_str + '.png')
+    fig.set_size_inches(8.5,11)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
+    #%% ----- FIGURE: ANNUAL SEA-LEVEL RISE -----
+    fig = plt.figure()
+    gs = fig.add_gridspec(nrows=6,ncols=4,wspace=0.33,hspace=0.4)
+    ax1 = fig.add_subplot(gs[0:2,0:2])
+    ax2 = fig.add_subplot(gs[0,3])
+    ax3 = fig.add_subplot(gs[1,2])
+    ax4 = fig.add_subplot(gs[1,3])
+    ax5 = fig.add_subplot(gs[2,0])
+    ax6 = fig.add_subplot(gs[2,1])
+    ax7 = fig.add_subplot(gs[2,2])
+    ax8 = fig.add_subplot(gs[2,3])
+    ax9 = fig.add_subplot(gs[3,0])
+    ax10 = fig.add_subplot(gs[3,1])
+    ax11 = fig.add_subplot(gs[3,2])
+    ax12 = fig.add_subplot(gs[3,3])
+    ax13 = fig.add_subplot(gs[4,0])
+    ax14 = fig.add_subplot(gs[4,1])
+    ax15 = fig.add_subplot(gs[4,2])
+    ax16 = fig.add_subplot(gs[4,3])
+    ax17 = fig.add_subplot(gs[5,0])
+    ax18 = fig.add_subplot(gs[5,1])
+    ax19 = fig.add_subplot(gs[5,2])
+    ax20 = fig.add_subplot(gs[5,3])
+    
+    regions_ordered = ['all',19,3,1,5,9,4,7,17,13,6,14,2,13,8,10,11,16,12,18]
+    for nax, ax in enumerate([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax18,ax19,ax20]):
+        
+        reg = regions_ordered[nax]
+        
+        if reg in ['all',17,12]:
+            plot_reg = False
+        else:
+            plot_reg = True
+        
+        for rcp in rcps:
+            
+            if plot_reg:
+
+                # Median and absolute median deviation
+                reg_vol = ds_multigcm_vol[reg][rcp]
+                reg_vol_bsl = ds_multigcm_vol_bsl[reg][rcp]
+                reg_area = ds_multigcm_area[reg][rcp]
+
+                # Sea-level change [mm SLE yr-1]
+                #  - accounts for water from glaciers replacing the ice that is below sea level as well
+                #    from Fabien's blog post: https://nbviewer.jupyter.org/gist/jmalles/ca70090812e6499b34a22a3a7a7a8f2a
+                reg_slr = (-1*(((reg_vol[:,1:] - reg_vol[:,0:-1]) * pygem_prms.density_ice / pygem_prms.density_water - 
+                           (reg_vol_bsl[:,1:] - reg_vol_bsl[:,0:-1])) / pygem_prms.area_ocean * 1000))
+                #  - assume all mass loss contributes to sea level rise
+#                reg_slr = -1*(reg_vol[:,1:] - reg_vol[:,0:-1]) * pygem_prms.density_ice / pygem_prms.density_water / pygem_prms.area_ocean * 1000
+                
+                reg_slr_med = np.median(reg_slr, axis=0)
+                reg_slr_mad = median_abs_deviation(reg_slr, axis=0)
+                
+                ax.plot(years[0:-1], reg_slr_med, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], 
+                        linewidth=1, zorder=4, label=rcp)
+                if rcp in rcps_plot_mad:
+                    ax.fill_between(years[0:-1], 
+                                    (reg_slr_med + 1.96*reg_slr_mad), 
+                                    (reg_slr_med - 1.96*reg_slr_mad), 
+                                    alpha=0.35, facecolor=rcp_colordict[rcp], label=None)
+        
+        if ax in [ax1,ax5,ax9,ax13,ax17]:
+            ax.set_ylabel('$\Delta$M/$\Delta$t\n(mm SLE yr$^{-1}$)')
+        ax.set_xlim(startyear, endyear)
+        ax.xaxis.set_major_locator(MultipleLocator(50))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+        ax.plot(years,np.zeros(years.shape), color='k', linewidth=0.5)
+            
+        if reg in [19, 3, 1]:
+            ax.set_ylim(-0.01,0.9)
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1))    
+        elif reg in [5, 9, 4, 7]:
+            ax.set_ylim(-0.01,0.45)
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
+        elif reg in [17, 13, 6, 14, 2, 13]:
+            ax.set_ylim(-0.01,0.175)
+            ax.yaxis.set_major_locator(MultipleLocator(0.1))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.05)) 
+        elif reg in [8, 10, 11, 16, 12, 18]:
+            ax.set_ylim(-0.005,0.025)
+            ax.yaxis.set_major_locator(MultipleLocator(0.01))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.005)) 
+            
+        if nax == 0:
+            label_height=1.06
+        else:
+            label_height=1.14
+        ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+                verticalalignment='top', transform=ax.transAxes)
+        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+        
+        if nax == 1:
+            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'rcp26' in rcps and len(rcps) == 3:
+                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'ssp126' in rcp and len(rcps) == 4:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
+            ax.legend(loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
+                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+                      )
+    # Save figure
+    if 'rcp26' in rcps and 'ssp126' in rcps:
+        scenario_str = 'rcps_ssps'
+    elif 'rcp26' in rcps:
+        scenario_str = 'rcps'
+    elif 'ssp126' in rcp:
+        scenario_str = 'ssps'
+    fig_fn = ('allregions_SLR_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
+              '-' + scenario_str + '.png')
+    fig.set_size_inches(8.5,11)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
+    #%% ----- FIGURE: CUMULATIVE SEA-LEVEL RISE -----
+    fig = plt.figure()
+    gs = fig.add_gridspec(nrows=6,ncols=4,wspace=0.33,hspace=0.4)
+    ax1 = fig.add_subplot(gs[0:2,0:2])
+    ax2 = fig.add_subplot(gs[0,3])
+    ax3 = fig.add_subplot(gs[1,2])
+    ax4 = fig.add_subplot(gs[1,3])
+    ax5 = fig.add_subplot(gs[2,0])
+    ax6 = fig.add_subplot(gs[2,1])
+    ax7 = fig.add_subplot(gs[2,2])
+    ax8 = fig.add_subplot(gs[2,3])
+    ax9 = fig.add_subplot(gs[3,0])
+    ax10 = fig.add_subplot(gs[3,1])
+    ax11 = fig.add_subplot(gs[3,2])
+    ax12 = fig.add_subplot(gs[3,3])
+    ax13 = fig.add_subplot(gs[4,0])
+    ax14 = fig.add_subplot(gs[4,1])
+    ax15 = fig.add_subplot(gs[4,2])
+    ax16 = fig.add_subplot(gs[4,3])
+    ax17 = fig.add_subplot(gs[5,0])
+    ax18 = fig.add_subplot(gs[5,1])
+    ax19 = fig.add_subplot(gs[5,2])
+    ax20 = fig.add_subplot(gs[5,3])
+    
+    regions_ordered = ['all',19,3,1,5,9,4,7,17,13,6,14,2,13,8,10,11,16,12,18]
+    for nax, ax in enumerate([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax18,ax19,ax20]):
+        
+        reg = regions_ordered[nax]
+        
+        if reg in ['all',17,12]:
+            plot_reg = False
+        else:
+            plot_reg = True
+        
+        for rcp in rcps:
+            
+            if plot_reg:
+
+                # Median and absolute median deviation
+                reg_vol = ds_multigcm_vol[reg][rcp]
+                reg_vol_bsl = ds_multigcm_vol_bsl[reg][rcp]
+                reg_area = ds_multigcm_area[reg][rcp]
+
+                # Cumulative Sea-level change [mm SLE]
+                #  - accounts for water from glaciers replacing the ice that is below sea level as well
+                #    from Fabien's blog post: https://nbviewer.jupyter.org/gist/jmalles/ca70090812e6499b34a22a3a7a7a8f2a
+                reg_slr = (-1*(((reg_vol[:,1:] - reg_vol[:,0:-1]) * pygem_prms.density_ice / pygem_prms.density_water - 
+                           (reg_vol_bsl[:,1:] - reg_vol_bsl[:,0:-1])) / pygem_prms.area_ocean * 1000))
+                reg_slr_cum = np.cumsum(reg_slr, axis=1)
+
+                reg_slr_cum_med = np.median(reg_slr_cum, axis=0)
+                reg_slr_cum_mad = median_abs_deviation(reg_slr_cum, axis=0)
+                
+                ax.plot(years[0:-1], reg_slr_cum_med, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], 
+                        linewidth=1, zorder=4, label=rcp)
+                if rcp in rcps_plot_mad:
+                    ax.fill_between(years[0:-1], 
+                                    (reg_slr_cum_med + 1.96*reg_slr_cum_mad), 
+                                    (reg_slr_cum_med - 1.96*reg_slr_cum_mad), 
+                                    alpha=0.35, facecolor=rcp_colordict[rcp], label=None)
+        
+        if ax in [ax1,ax5,ax9,ax13,ax17]:
+            ax.set_ylabel('$\Delta$M (mm SLE)')
+        ax.set_xlim(startyear, endyear)
+        ax.xaxis.set_major_locator(MultipleLocator(50))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+        ax.plot(years,np.zeros(years.shape), color='k', linewidth=0.5)
+            
+        if reg in [19, 3, 1]:
+            ax.set_ylim(0,42)
+            ax.yaxis.set_major_locator(MultipleLocator(10))
+            ax.yaxis.set_minor_locator(MultipleLocator(5))    
+        elif reg in [5, 9, 4, 7]:
+            ax.set_ylim(0,27)
+            ax.yaxis.set_major_locator(MultipleLocator(10))
+            ax.yaxis.set_minor_locator(MultipleLocator(5)) 
+        elif reg in [17, 13, 6, 14, 2, 13]:
+            ax.set_ylim(0,8)
+            ax.yaxis.set_major_locator(MultipleLocator(5))
+            ax.yaxis.set_minor_locator(MultipleLocator(1)) 
+        elif reg in [8]:
+            ax.set_ylim(0,0.85)
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
+        elif reg in [10, 11, 16, 12, 18]:
+            ax.set_ylim(0,0.45)
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
+            
+        if nax == 0:
+            label_height=1.06
+        else:
+            label_height=1.14
+        ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+                verticalalignment='top', transform=ax.transAxes)
+        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+        
+        if nax == 1:
+            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'rcp26' in rcps and len(rcps) == 3:
+                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'ssp126' in rcp and len(rcps) == 4:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
+            ax.legend(loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
+                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+                      )
+    # Save figure
+    if 'rcp26' in rcps and 'ssp126' in rcps:
+        scenario_str = 'rcps_ssps'
+    elif 'rcp26' in rcps:
+        scenario_str = 'rcps'
+    elif 'ssp126' in rcp:
+        scenario_str = 'ssps'
+    fig_fn = ('allregions_SLR-cum_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
+              '-' + scenario_str + '.png')
+    fig.set_size_inches(8.5,11)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
+#%%
 
 print('Total processing time:', time.time()-time_start, 's')
         
