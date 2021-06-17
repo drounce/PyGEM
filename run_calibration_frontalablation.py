@@ -45,7 +45,8 @@ prms_from_reg_priors=True
 prms_from_glac_cal=False
 
 option_reg_calving_k = False    # Calibrate all glaciers regionally
-option_ind_calving_k = True     # Calibrate individual glaciers
+option_ind_calving_k = False     # Calibrate individual glaciers
+option_ind_mb_removeFA = True # Calibrate individual glaciers but remove frontal ablation component from MB
 
 
 
@@ -911,7 +912,7 @@ if option_ind_calving_k:
         fig.set_size_inches(6,3.45)
         fig_fullfn = output_fp + str(reg) + '-calving_glac_compare-cal_ind.png'
         fig.savefig(fig_fullfn, bbox_inches='tight', dpi=300)
-    
+        
 
 #%%             
 print('\n\n------TO-DO LIST:------')

@@ -40,6 +40,8 @@ def getparser():
                         help='option to estimate precipitation factors from winter data (1=yes, 0=no)')
     parser.add_argument('-mb_data_fill_wreg_hugonnet', action='store', type=int, default=0,
                         help='option to fill mass balance with regional stats (1=yes, 0=no)')
+    parser.add_argument('-mb_data_removeFA', action='store', type=int, default=0,
+                        help='option to fill mass balance with regional stats (1=yes, 0=no)')
     return parser
 
 parser = getparser()
@@ -62,10 +64,12 @@ if args.subset_winter == 1 or args.estimate_kp == 1:
     wgms_reg_kp_stats_fn = 'WGMS-FoG-2019-12-reg_kp_summary.csv'
     subset_time_value = 20000000
     
-elif args.mb_data_fill_wreg_hugonnet == 1:
+if args.mb_data_fill_wreg_hugonnet == 1:
     # ===== HUGONNET GEODETIC DATA =====
     hugonnet_fp = pygem_prms.main_directory + '/../DEMs/Hugonnet2020/'
     hugonnet_fn = 'df_pergla_global_20yr.csv'
+    
+#if args.mb_data_removeFA == 1:
     
 
 #%% ----- PROCESS WINTER DATA -----
@@ -546,3 +550,61 @@ if args.mb_data_fill_wreg_hugonnet == 1:
 
     # Export dataset
     df_filled_all.to_csv(df_fp + df_fn.replace('.csv','-filled.csv'), index=False)
+
+
+#%% ===== REMOVE FRONTAL ABLATION FROM MB DATASETS =====
+if args.mb_data_removeFA == 1:
+    mb_data_df = pd.read_csv(pygem_prms.hugonnet_fp + pygem_prms.hugonnet_fn)
+    fa_data_df = pd.read_csv(pygem_prms.frontalablation_glacier_data_fullfn)
+    
+    #%%
+    mb_rgiids_list = list(mb_data_df.RGIId.values)
+    for nglac, rgiid in enumerate(fa_data_df.RGIId.values):
+        
+        if rgiid in ['RGI60-01.10689']:
+            mb_idx = mb_rgiids_list.index('RGI60-01.10689')
+            
+            mb_data_ind = mb_data_df.loc[mb_idx,:]
+            fa_data_ind = fa_data_df.loc[nglac,:]
+            
+            # Convert frontal ablation to mwea
+            fa_mwea = (fa_data_df.loc[nglac,'Calving_flux_2000_to_2020_AVG_gt_per_yr_mean'] * 
+                       1e12 / pygem_prms.density_water / (mb_data_df.loc[mb_idx,'area'] * 1e6))
+            print(fa_mwea)
+#            mb_data_gta = mb_data_df.loc[mb_idx,'area'] 
+            
+#    def mwea_to_gta(mwea, area):
+#        return mwea * pygem_prms.density_water * area / 1e12
+            
+            assert True==False,'stopping'
+            
+            
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    

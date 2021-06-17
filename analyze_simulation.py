@@ -32,8 +32,8 @@ import pygem.pygem_input as pygem_prms
 import pygem.pygem_modelsetup as modelsetup
 
 # Script options
-option_plot_era5_volchange = True
-option_get_missing_glacno = False
+option_plot_era5_volchange = False
+option_get_missing_glacno = True
 
 option_plot_cmip5_volchange = False
 option_plot_era5_AAD = False
@@ -49,7 +49,7 @@ netcdf_fp_sims = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
 
 #%%
 #regions = [1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19]
-regions = [17]
+regions = [12]
 
 # GCMs and RCP scenarios
 gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
@@ -491,6 +491,9 @@ if option_get_missing_glacno:
         glacno_list_all = list(main_glac_rgi_all.glacno.values)
         
         glacno_missing = np.setdiff1d(glacno_list_all, glacno_list).tolist()
+        
+        main_glac_rgi_missing = modelsetup.selectglaciersrgitable(glac_no=glacno_missing)
+        print(reg, main_glac_rgi_missing.Area.sum() / main_glac_rgi_all.Area.sum() * 100, '% missing by area')
                         
 
 #%%

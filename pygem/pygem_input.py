@@ -152,7 +152,7 @@ output_filepath = main_directory + '/../Output/'
 model_run_date = 'January 30 2021'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [11]                 # 1st order region number (RGI V6.0)
 #rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
 #rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19]
 rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
@@ -169,7 +169,7 @@ glac_no_skip = None
 glac_no = None
 #glac_no = glac_wo_cal(rgi_regionsO1, prms_fp_sub=main_directory + '/../Output/calibration/')
 #glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
-glac_no = ['15.03733']
+glac_no = ['11.00897']
 
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
@@ -242,7 +242,7 @@ sim_stat_cns = ['median', 'mad']
 export_nonessential_data = True     # Export non-essential data (ex. mass balance components, ElA, etc.)
 export_binned_thickness = True      # Export binned ice thickness
 export_binned_area_threshold = 0    # Area threshold for exporting binned ice thickness
-export_extra_vars = False
+export_extra_vars = True
 
 # Bias adjustment options (0: no adjustment, 1: new prec scheme and temp from HH2015, 2: HH2015 methods)
 option_bias_adjustment = 1
@@ -371,7 +371,7 @@ elif option_calibration == 'MCMC':
 
 
 #%% ===== MODEL PARAMETERS =====
-use_calibrated_modelparams = True   # False: use input values, True: use calibrated model parameters
+use_calibrated_modelparams = False   # False: use input values, True: use calibrated model parameters
 if not use_calibrated_modelparams:
     print('\nWARNING: using non-calibrated model parameters\n')
     sim_iters = 1
@@ -382,7 +382,7 @@ ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 if ddfsnow_iceratio != 0.7:
     print('\n\n  Warning: ddfsnow_iceratio is', ddfsnow_iceratio, '\n\n')
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
-tbias = 0                           # temperature bias [deg C]
+tbias = 5                           # temperature bias [deg C]
 lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
 lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
 tsnow_threshold = 1.0               # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
@@ -402,9 +402,9 @@ if os.path.exists(width_calving_dict_fullfn):
 else:
     width_calving_dict = {}
 # Frontal ablation glacier data
-frontalablation_glacier_data_fullfn = main_directory + '/../calving_data/frontalablation_glacier_data-NoKochtitzky.csv'
-#frontalablation_glacier_data_fullfn = main_directory + '/../calving_data/frontalablation_glacier_data.csv'
-#frontalablation_regional_data_fullfn = main_directory + '/../calving_data/frontalablation_regional_data.csv'
+frontalablation_glacier_data_fullfn = (
+        main_directory + '/../calving_data/Northern_hemisphere_calving_flux_Kochtitzky_et_al_for_David_Rounce_without_melt_v3.csv')
+#frontalablation_glacier_data_fullfn = main_directory + '/../calving_data/frontalablation_glacier_data-NoKochtitzky.csv'
 
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
@@ -423,7 +423,7 @@ option_surfacetype_initial = 1
 #  option 2 - use mean elevation
 #  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
 include_firn = True                 # True: firn included, False: firn is modeled as snow
-include_debris = False               # True: account for debris with melt factors, False: do not account for debris
+include_debris = True               # True: account for debris with melt factors, False: do not account for debris
 
 # Downscaling model options
 # Reference elevation options for downscaling climate variables
@@ -652,7 +652,6 @@ elif hyps_data == 'Huss':
 elif hyps_data == 'OGGM':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
     overwrite_gdirs = False
-    
     
 # Debris datasets
 if include_debris:

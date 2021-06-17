@@ -248,7 +248,8 @@ class PyGEMMassBalance(MassBalanceModel):
         elif pygem_prms.option_refreezing == 'Woodward':
             refreeze_potential = np.zeros(nbins)
 
-        if len(glac_idx_t0) > 0:
+        if self.glacier_area_initial.sum() > 0:
+#        if len(glac_idx_t0) > 0:
 
             # Surface type [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
             if year == 0:
@@ -262,7 +263,8 @@ class PyGEMMassBalance(MassBalanceModel):
 
             # Functions currently set up for monthly timestep
             #  only compute mass balance while glacier exists
-            if (pygem_prms.timestep == 'monthly') and (glac_idx_t0.shape[0] != 0):
+            if (pygem_prms.timestep == 'monthly'):
+#            if (pygem_prms.timestep == 'monthly') and (glac_idx_t0.shape[0] != 0):
 
                 # AIR TEMPERATURE: Downscale the gcm temperature [deg C] to each bin
                 if pygem_prms.option_temp2bins == 1:
@@ -804,30 +806,30 @@ class PyGEMMassBalance(MassBalanceModel):
                 ela_idx = np.nanargmin(ela_onlypos)
                 self.glac_wide_ELA_annual[year] = heights[ela_idx] - heights_change[ela_idx] / 2
 
-            # ===== Off-glacier ====                
-            offglac_idx = np.where(self.offglac_bin_area_annual[:,year] > 0)[0]
-            if option_areaconstant == False and len(offglac_idx) > 0:
-                offglacier_area_monthly = self.offglac_bin_area_annual[:,year][:,np.newaxis].repeat(12,axis=1)
+        # ===== Off-glacier ====                
+        offglac_idx = np.where(self.offglac_bin_area_annual[:,year] > 0)[0]
+        if option_areaconstant == False and len(offglac_idx) > 0:
+            offglacier_area_monthly = self.offglac_bin_area_annual[:,year][:,np.newaxis].repeat(12,axis=1)
 
-                # Off-glacier precipitation (m3)
-                self.offglac_wide_prec[12*year:12*(year+1)] = (
-                        (self.bin_prec[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]).sum(0))
-                # Off-glacier melt (m3 w.e.)
-                self.offglac_wide_melt[12*year:12*(year+1)] = (
-                        (self.offglac_bin_melt[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]
-                        ).sum(0))
-                # Off-glacier refreeze (m3 w.e.)
-                self.offglac_wide_refreeze[12*year:12*(year+1)] = (
-                        (self.offglac_bin_refreeze[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]
-                        ).sum(0))
-                # Off-glacier runoff (m3)
-                self.offglac_wide_runoff[12*year:12*(year+1)] = (
-                        self.offglac_wide_prec[12*year:12*(year+1)] + self.offglac_wide_melt[12*year:12*(year+1)] -
-                        self.offglac_wide_refreeze[12*year:12*(year+1)])
-                # Off-glacier snowpack (m3 w.e.)
-                self.offglac_wide_snowpack[12*year:12*(year+1)] = (
-                        (self.offglac_bin_snowpack[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]
-                        ).sum(0))
+            # Off-glacier precipitation (m3)
+            self.offglac_wide_prec[12*year:12*(year+1)] = (
+                    (self.bin_prec[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]).sum(0))
+            # Off-glacier melt (m3 w.e.)
+            self.offglac_wide_melt[12*year:12*(year+1)] = (
+                    (self.offglac_bin_melt[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]
+                    ).sum(0))
+            # Off-glacier refreeze (m3 w.e.)
+            self.offglac_wide_refreeze[12*year:12*(year+1)] = (
+                    (self.offglac_bin_refreeze[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]
+                    ).sum(0))
+            # Off-glacier runoff (m3)
+            self.offglac_wide_runoff[12*year:12*(year+1)] = (
+                    self.offglac_wide_prec[12*year:12*(year+1)] + self.offglac_wide_melt[12*year:12*(year+1)] -
+                    self.offglac_wide_refreeze[12*year:12*(year+1)])
+            # Off-glacier snowpack (m3 w.e.)
+            self.offglac_wide_snowpack[12*year:12*(year+1)] = (
+                    (self.offglac_bin_snowpack[:,12*year:12*(year+1)][offglac_idx] * offglacier_area_monthly[offglac_idx]
+                    ).sum(0))
                 
                 
     def ensure_mass_conservation(self, diag):
