@@ -110,7 +110,7 @@ def glac_fromcsv(csv_fullfn, cn='RGIId'):
         list of glacier numbers, e.g., ['14.00001', 15.00001']
     """
     df = pd.read_csv(csv_fullfn)
-    return [x.split('-')[1] for x in df['RGIId'].values]
+    return [x.split('-')[1] for x in df[cn].values]
 
 
 def glac_wo_cal(regions, prms_fp_sub=None, cal_option='MCMC'):
@@ -168,8 +168,10 @@ glac_no_skip = None
 #glac_no_skip = get_same_glaciers(main_directory + '/../Output/calibration/19/', '-modelprms_dict.pkl')
 glac_no = None
 #glac_no = glac_wo_cal(rgi_regionsO1, prms_fp_sub=main_directory + '/../Output/calibration/')
+#glac_no = glac_fromcsv('/Users/drounce/Documents/HiMAT/calving_data/rgiids_for_will.csv', cn='rgiid')
 #glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
-glac_no = ['11.00897']
+glac_no = ['15.03733']
+
 
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
@@ -195,10 +197,10 @@ if constantarea_years > 0:
     print('\nConstant area years > 0\n')
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
+gcm_startyear = 1979            # first year of model run (simulation dataset)
+gcm_endyear = 2019              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
-#gcm_endyear = 2019              # last year of model run (simulation dataset)
-gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2100              # last year of model run (simulation dataset)
+#gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
@@ -222,9 +224,9 @@ if option_synthetic_sim == 1:
 
 #%% SIMULATION OPTIONS
 # Glacier dynamics options ('OGGM', 'MassRedistributionCurves', None)
-option_dynamics = 'OGGM'
+#option_dynamics = 'OGGM'
 #option_dynamics = 'MassRedistributionCurves'
-#option_dynamics = None
+option_dynamics = None
 #print('\n\nTURN BACK ON DYNAMICS!\n\n')
     
 # MCMC options
@@ -371,7 +373,7 @@ elif option_calibration == 'MCMC':
 
 
 #%% ===== MODEL PARAMETERS =====
-use_calibrated_modelparams = False   # False: use input values, True: use calibrated model parameters
+use_calibrated_modelparams = True   # False: use input values, True: use calibrated model parameters
 if not use_calibrated_modelparams:
     print('\nWARNING: using non-calibrated model parameters\n')
     sim_iters = 1
@@ -382,7 +384,7 @@ ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 if ddfsnow_iceratio != 0.7:
     print('\n\n  Warning: ddfsnow_iceratio is', ddfsnow_iceratio, '\n\n')
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
-tbias = 5                           # temperature bias [deg C]
+tbias = 0                           # temperature bias [deg C]
 lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
 lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
 tsnow_threshold = 1.0               # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
@@ -700,9 +702,10 @@ mb_binned_fp = main_directory + '/../DEMs/mb_bins_all-20200430/'
 
 # ===== HUGONNET GEODETIC =====
 hugonnet_fp = main_directory + '/../DEMs/Hugonnet2020/'
-hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
+#hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
+hugonnet_fn = 'df_pergla_global_20yr-filled-FAcorrected.csv'
 #hugonnet_fn = 'df_pergla_global_20yr.csv'
-if hugonnet_fn.endswith('-filled.csv'):
+if '-filled' in hugonnet_fn:
     hugonnet_mb_cn = 'mb_mwea'
     hugonnet_mb_err_cn = 'mb_mwea_err'
     hugonnet_rgi_glacno_cn = 'RGIId'

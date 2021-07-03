@@ -11,9 +11,11 @@ import shutil
 import time
 #import zipfile
 # External libraries
-#import cartopy
-#import matplotlib as mpl
+import cartopy
+import cartopy.crs as ccrs
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.path as mpath
 #from matplotlib.pyplot import MaxNLocator
 from matplotlib.lines import Line2D
 #import matplotlib.patches as mpatches
@@ -21,6 +23,8 @@ from matplotlib.ticker import MultipleLocator
 #from matplotlib.ticker import EngFormatter
 #from matplotlib.ticker import StrMethodFormatter
 #from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
+#from mpl_toolkits.basemap import Basemap
+import geopandas
 import numpy as np
 import pandas as pd
 from scipy.stats import median_abs_deviation
@@ -44,17 +48,21 @@ from oggm import tasks
 #%% ===== Input data =====
 # Script options
 option_find_missing = False             # Checks file transfers and finds missing glaciers
-option_zip_sims = False                 # Zips binned and stats output for each region (gcm/scenario)
+option_zip_sims = True                 # Zips binned and stats output for each region (gcm/scenario)
 option_process_data = False             # Processes data for regional statistics
 option_process_data_nodebris = False     # Processes data for regional statistics
 option_calving_mbclim_era5 = False      # mbclim of two lowest elevation bins for Will 
 option_multigcm_plots_reg = False        # Multi-GCM plots of various parameters for RGI regions
-option_multigcm_plots_ws = True        # Multi-GCM plots of various parameters for watersheds
+option_multigcm_plots_ws = False        # Multi-GCM plots of various parameters for watersheds
 option_glacier_cs_plots = False         # Multi-GCM plots of various parameters
 option_debris_comparison = False         # Mutli-GCM comparison of including debris or not
+option_policy_temp_figs = False          # Policy figures based on temperature deviations 
+option_sensitivity_figs = False          # Mass balance sensitivity figures based on temp/prec deviations
 
 regions = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
-regions = [16]
+#regions = [11]
+
+normyear = 2015
 
 # GCMs and RCP scenarios
 #gcm_names = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
@@ -64,9 +72,17 @@ regions = [16]
 gcm_names = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
              'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
 rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
+gcm_names = ['EC-Earth3', 'EC-Earth3-Veg', 'GFDL-ESM4', 'MRI-ESM2-0']
+#gcm_names = ['EC-Earth3', 'EC-Earth3-Veg']
+rcps = ['ssp119']
 
-#netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
-netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations-nodebris/'
+gcm_names = ['ERA5']
+rcps = ['']
+
+netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
+#netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations-runoff_fixed/'
+#netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations-nodebris/'
+#netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations_ssp119/'
 
 fig_fp = netcdf_fp_cmip5 + '/../analysis/figures/'
 csv_fp = netcdf_fp_cmip5 + '/../analysis/csv/'
@@ -146,9 +162,9 @@ colors_rgb = [(0.00, 0.57, 0.57), (0.71, 0.43, 1.00), (0.86, 0.82, 0.00), (0.00,
               (0.29, 0.00, 0.57), (0.57, 0.00, 0.00), (0.71, 0.47, 1.00), (1.00, 1.00, 0.47)]
 gcm_colordict = dict(zip(gcm_names, colors_rgb[0:len(gcm_names)]))
 rcp_colordict = {'rcp26':'#3D52A4', 'rcp45':'#76B8E5', 'rcp60':'#F47A20', 'rcp85':'#ED2024', 
-                 'ssp126':'#3D52A4', 'ssp245':'#76B8E5', 'ssp370':'#F47A20', 'ssp585':'#ED2024'}
+                 'ssp119':'blue', 'ssp126':'#3D52A4', 'ssp245':'#76B8E5', 'ssp370':'#F47A20', 'ssp585':'#ED2024'}
 rcp_styledict = {'rcp26':':', 'rcp45':':', 'rcp85':':',
-                 'ssp126':'-', 'ssp245':'-', 'ssp370':'-', 'ssp585':'-'}
+                 'ssp119':'-', 'ssp126':'-', 'ssp245':'-', 'ssp370':'-', 'ssp585':'-'}
 
 # Bounds (90% bounds --> 95% above/below given threshold)
 low_percentile = 5
@@ -416,13 +432,14 @@ if option_process_data:
     
     grouping = 'all'
 
-    fig_fp = netcdf_fp_cmip5 + '/../analysis/figures/'
+    analysis_fp = netcdf_fp_cmip5.replace('simulations','analysis')
+    fig_fp = analysis_fp + 'figures/'
     if not os.path.exists(fig_fp):
         os.makedirs(fig_fp, exist_ok=True)
-    csv_fp = netcdf_fp_cmip5 + '/../analysis/csv/'
+    csv_fp = analysis_fp + 'csv/'
     if not os.path.exists(csv_fp):
         os.makedirs(csv_fp, exist_ok=True)
-    pickle_fp = fig_fp + '../pickle/'
+    pickle_fp = analysis_fp + 'pickle/'
     if not os.path.exists(pickle_fp):
         os.makedirs(pickle_fp, exist_ok=True)
         
@@ -3459,7 +3476,6 @@ if option_multigcm_plots_reg:
     
     startyear = 2015
     endyear = 2100
-    normyear = 2015
     years = np.arange(2000,2101+1)
     
     gcm_names_rcps = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
@@ -4743,7 +4759,375 @@ if option_multigcm_plots_reg:
               '-' + scenario_str + '-medstd.png')
     fig.set_size_inches(8.5,11)
     fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
+    #%% ----- FIGURE: GLOBAL COMBINED -----
+    class MidpointNormalize(mpl.colors.Normalize):
+        def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+            self.midpoint = midpoint
+            mpl.colors.Normalize.__init__(self, vmin, vmax, clip)
+    
+        def __call__(self, value, clip=None):
+            # Note that I'm ignoring clipping and other edge cases here.
+            result, is_scalar = self.process_value(value)
+            x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+            return np.ma.array(np.interp(value, x, y), mask=result.mask, copy=False)
+        
+    rgi_reg_fig_dict = {'all':'Global',
+                        1:'Alaska (1)',
+                        2:'W Canada/USA (2)',
+                        3:'Arctic Canada\nNorth (3)',
+                        4:'Arctic Canada\nSouth (4)',
+                        5:'Greenland (5)',
+                        6:'Iceland (6)',
+                        7:'Svalbard (7)',
+                        8:'Scandinavia (8)',
+                        9:'Russian Arctic (9)',
+                        10:'North Asia (10)',
+                        11:'Central\nEurope (11)',
+                        12:'Caucasus\nMiddle East (12)',
+                        13:'Central Asia (13)',
+                        14:'South Asia\nWest (14)',
+                        15:'South Asia\nEast (15))',
+                        16:'Low Latitudes (16)',
+                        17:'Southern\nAndes (17)',
+                        18:'New Zealand (18)',
+                        19:'Antarctica/Subantarctic (19)'
+                        }
+    
+    rcp_colordict = {'ssp119':'#76B8E5', 'ssp126':'#76B8E5', 'ssp245':'#F1EA8A', 'ssp370':'#F47A20', 'ssp585':'#ED2024'}
 
+    fig = plt.figure()
+    ax_background = fig.add_axes([0,0.15,1,0.7], projection=ccrs.Robinson())
+    ax_background.patch.set_facecolor('lightblue')
+    ax_background.get_yaxis().set_visible(False)
+    ax_background.get_xaxis().set_visible(False)
+#    ax_background.coastlines(color='white')
+    ax_background.add_feature(cartopy.feature.LAND, color='white')
+    
+    regions_ordered = ['all',1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    reg_pie_sizes = []
+    for reg in regions_ordered:
+        reg_slr_cum_ssp585 = slr_cum_df.loc[(slr_cum_df.Region==reg) & (slr_cum_df.Scenario=='ssp585'),'med_mmSLE'].values[0]
+        
+        print(reg, np.round(reg_slr_cum_ssp585,2))
+        
+        if reg_slr_cum_ssp585 > 100:
+            pie_size = 0.33
+        elif reg_slr_cum_ssp585 > 25:
+            pie_size = 0.2
+        elif reg_slr_cum_ssp585 < 1:
+            pie_size = 0.05
+        else:
+            pie_size = 0.05 + (reg_slr_cum_ssp585 - 1) / (25-1) * 0.15 
+        reg_pie_sizes.append(pie_size)
+    
+    ax0 = fig.add_axes([0.125,0.2,0.1,0.04], facecolor='none')
+    ax0b = fig.add_axes([0.01,0.225,reg_pie_sizes[0],reg_pie_sizes[0]], facecolor='none')
+    ax1 = fig.add_axes([0.09,0.73,0.1,0.04], facecolor='none')
+    ax1b = fig.add_axes([0.045,0.76,reg_pie_sizes[1],reg_pie_sizes[1]], facecolor='none')
+    ax2 = fig.add_axes([0.1,0.59,0.1,0.04], facecolor='none')
+    ax2b = fig.add_axes([0.12,0.63,reg_pie_sizes[2],reg_pie_sizes[2]], facecolor='none')
+    ax3 = fig.add_axes([0.21,0.875,0.1,0.04], facecolor='none')
+    ax3b = fig.add_axes([0.18,0.905,reg_pie_sizes[3],reg_pie_sizes[3]], facecolor='none')
+    ax4 = fig.add_axes([0.265,0.60,0.1,0.04], facecolor='none')
+    ax4b = fig.add_axes([0.245,0.635,reg_pie_sizes[4],reg_pie_sizes[4]], facecolor='none')
+    ax5 = fig.add_axes([0.33,0.875,0.1,0.04], facecolor='none')
+    ax5b = fig.add_axes([0.3,0.91,reg_pie_sizes[5],reg_pie_sizes[5]], facecolor='none')
+    ax6 = fig.add_axes([0.37,0.64,0.1,0.04], facecolor='none')
+    ax6b = fig.add_axes([0.38,0.675,reg_pie_sizes[6],reg_pie_sizes[6]], facecolor='none')
+    ax7 = fig.add_axes([0.44,0.875,0.1,0.04], facecolor='none')
+    ax7b = fig.add_axes([0.43,0.91,reg_pie_sizes[7],reg_pie_sizes[7]], facecolor='none')
+    ax8 = fig.add_axes([0.55,0.875,0.1,0.04], facecolor='none')
+    ax8b = fig.add_axes([0.575,0.915,reg_pie_sizes[8],reg_pie_sizes[8]], facecolor='none')
+    ax9 = fig.add_axes([0.68,0.875,0.1,0.04], facecolor='none')
+    ax9b = fig.add_axes([0.66,0.91,reg_pie_sizes[9],reg_pie_sizes[9]], facecolor='none')
+    ax10 = fig.add_axes([0.8,0.78,0.1,0.04], facecolor='none')
+    ax10b = fig.add_axes([0.82,0.81,reg_pie_sizes[10],reg_pie_sizes[10]], facecolor='none')
+    ax11 = fig.add_axes([0.425,0.55,0.1,0.04], facecolor='none')
+    ax11b = fig.add_axes([0.455,0.58,reg_pie_sizes[11],reg_pie_sizes[11]], facecolor='none')
+    ax12 = fig.add_axes([0.53,0.5,0.1,0.04], facecolor='none')
+    ax12b = fig.add_axes([0.55,0.54,reg_pie_sizes[12],reg_pie_sizes[12]], facecolor='none')
+    ax13 = fig.add_axes([0.8,0.62,0.1,0.04], facecolor='none')
+    ax13b = fig.add_axes([0.81,0.655,reg_pie_sizes[13],reg_pie_sizes[13]], facecolor='none')
+    ax14 = fig.add_axes([0.65,0.43,0.1,0.04], facecolor='none')
+    ax14b = fig.add_axes([0.66,0.465,reg_pie_sizes[14],reg_pie_sizes[14]], facecolor='none')
+    ax15 = fig.add_axes([0.77,0.47,0.1,0.04], facecolor='none')
+    ax15b = fig.add_axes([0.795,0.51,reg_pie_sizes[15],reg_pie_sizes[15]], facecolor='none')
+    ax16 = fig.add_axes([0.42,0.39,0.1,0.04], facecolor='none')
+    ax16b = fig.add_axes([0.445,0.43,reg_pie_sizes[16],reg_pie_sizes[16]], facecolor='none')
+    ax17 = fig.add_axes([0.25,0.23,0.1,0.04], facecolor='none')
+    ax17b = fig.add_axes([0.25,0.265,reg_pie_sizes[17],reg_pie_sizes[17]], facecolor='none')
+    ax18 = fig.add_axes([0.715,0.3,0.1,0.04], facecolor='none')
+    ax18b = fig.add_axes([0.74,0.34,reg_pie_sizes[18],reg_pie_sizes[18]], facecolor='none')
+    ax19 = fig.add_axes([0.55,0.19,0.1,0.04], facecolor='none')
+    ax19b = fig.add_axes([0.51,0.22,reg_pie_sizes[19],reg_pie_sizes[19]], facecolor='none')
+    
+    # ----- Heat map of specific mass balance (2015 - 2100) -----
+    for nax, ax in enumerate([ax0, ax1, ax2, ax3, ax4, ax5, ax6, ax7, ax8, ax9, ax10,
+                              ax11, ax12, ax13, ax14, ax15, ax16, ax17, ax18, ax19]):
+        
+        reg = regions_ordered[nax]
+        
+#        cmap = 'RdYlBu'
+        cmap = 'Reds_r'
+#        cmap = 'YlOrRd'
+        norm_values = [-2.5,-1.5,-0.25]
+        norm = MidpointNormalize(midpoint=norm_values[1], vmin=norm_values[0], vmax=norm_values[2])
+        
+        mesh = None
+        for rcp in ['ssp245', 'ssp585']:
+        
+            # Median and absolute median deviation
+            reg_vol = ds_multigcm_vol[reg][rcp]
+            reg_mass = reg_vol * pygem_prms.density_ice
+            reg_area = ds_multigcm_area[reg][rcp]
+    
+            # Specific mass change rate
+            reg_mb = (reg_mass[:,1:] - reg_mass[:,0:-1]) / reg_area[:,0:-1]
+            reg_mb_med = np.median(reg_mb, axis=0)
+            reg_mb_mad = median_abs_deviation(reg_mb, axis=0)
+            
+            if mesh is None:
+                mesh = reg_mb_med[np.newaxis,normyear_idx:]
+            else:
+                mesh = np.concatenate((mesh, reg_mb_med[np.newaxis,normyear_idx:]), axis=0)
+            
+        ax.imshow(mesh/1000, aspect='auto', cmap=cmap, norm=norm, interpolation='none')
+        ax.hlines(0.5,0,mesh.shape[1]-1, color='k', linewidth=0.5, zorder=2)
+        ax.get_yaxis().set_visible(False)
+#        ax.get_xaxis().set_visible(False)
+        ax.xaxis.set_major_locator(MultipleLocator(40))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+        ax.tick_params(axis='both', which='major', direction='inout', right=True, top=True)
+        ax.tick_params(axis='both', which='minor', direction='in', right=True, top=True)
+        ax.get_xaxis().set_ticks([])
+        
+        # Add region label
+        ax.text(0.5, -0.14, rgi_reg_fig_dict[reg], size=8, horizontalalignment='center', 
+                verticalalignment='top', transform=ax.transAxes, bbox=dict(facecolor='white', edgecolor='k', pad=2))
+        
+    # ----- Pie Chart of Volume Remaining by end of century -----
+    for nax, ax in enumerate([ax0b, ax1b, ax2b, ax3b, ax4b, ax5b, ax6b, ax7b, ax8b, ax9b, ax10b,
+                              ax11b, ax12b, ax13b, ax14b, ax15b, ax16b, ax17b, ax18b, ax19b]):
+        
+        reg = regions_ordered[nax]
+        
+        ssp_vol_remaining_pies = []
+        ssp_pie_radius = 1
+        for nrcp, rcp in enumerate(['ssp585', 'ssp370', 'ssp245', 'ssp126']):
+            
+            # Median and absolute median deviation
+            reg_vol = ds_multigcm_vol[reg][rcp]
+            reg_vol_med = np.median(reg_vol, axis=0)
+            reg_vol_mad = median_abs_deviation(reg_vol, axis=0)
+            
+            reg_vol_med_norm = reg_vol_med / reg_vol_med[normyear_idx]
+            reg_vol_mad_norm = reg_vol_mad / reg_vol_med[normyear_idx]
+
+            ssp_vol_remaining_pies.append(reg_vol_med_norm[-1])
+            
+        # Single Pie Chart
+#        vol_lost = 1-np.min(ssp_vol_remaining_pies[0])
+#        ssp_pies = [1 - ssp_vol_remaining_pies[3],
+#                    ssp_vol_remaining_pies[3] - ssp_vol_remaining_pies[2],
+#                    ssp_vol_remaining_pies[2] - ssp_vol_remaining_pies[1],
+#                    ssp_vol_remaining_pies[1] - ssp_vol_remaining_pies[0],
+#                    ssp_vol_remaining_pies[0]]
+#        ssp_pie_colors = ['lightgray',rcp_colordict['ssp126'],rcp_colordict['ssp245'],
+#                          rcp_colordict['ssp370'], rcp_colordict['ssp585']]
+#        pie_slices, pie_labels = ax.pie(ssp_pies, counterclock=False, startangle=90, colors=ssp_pie_colors)
+            # Nested Pie Charts
+            wedge_size = 0.25
+            ssp_pies = [1-ssp_vol_remaining_pies[nrcp], ssp_vol_remaining_pies[nrcp]]
+            ssp_pie_colors = ['lightgray',rcp_colordict[rcp]]
+            pie_slices, pie_labels = ax.pie(ssp_pies, radius=ssp_pie_radius, 
+                                            counterclock=False, startangle=90, colors=ssp_pie_colors,
+                                            wedgeprops=dict(width=wedge_size))
+            ssp_pie_radius = ssp_pie_radius - wedge_size
+        ax.axis('equal')
+        
+        # SLR 
+        reg_slr_cum_ssp585 = slr_cum_df.loc[(slr_cum_df.Region==reg) & (slr_cum_df.Scenario=='ssp585'),'med_mmSLE'].values[0]
+        reg_slr_str = str(np.round(reg_slr_cum_ssp585,1))
+        if reg_slr_cum_ssp585 > 1:
+            reg_slr_str = str(np.round(reg_slr_cum_ssp585,1))
+        else:
+            reg_slr_str = ''
+        if reg in ['all']:
+            reg_slr_str += '\nmm SLE'
+        ax.text(0.5, 0.5, reg_slr_str, size=10, color='k', horizontalalignment='center', 
+                verticalalignment='center', transform=ax.transAxes)
+        
+        # Add outer edge by adding new circle with desired properties
+        center = pie_slices[0].center
+        r = 1
+        circle = mpl.patches.Circle(center, r, fill=False, edgecolor="k", linewidth=1)
+        ax.add_patch(circle)
+        
+    # LEGEND
+    # Colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm._A = []
+    cax = plt.axes([0.35, 0.12, 0.3, 0.015])
+    cbar = plt.colorbar(sm, ax=ax, cax=cax, orientation='horizontal', extend='both')
+    cax.xaxis.set_ticks_position('bottom')
+    cax.xaxis.set_tick_params(pad=0)
+    cbar.ax.tick_params(labelsize=8)
+    for n, label in enumerate(cax.xaxis.get_ticklabels()):
+        if n%2 != 0:
+            label.set_visible(False)
+    ax_background.text(0.5, -0.12, 'Mass balance (m yr$^{-1}$)', size=10, horizontalalignment='center', 
+                       verticalalignment='center', transform=ax_background.transAxes)
+    
+    # Sized circles
+    ax_background.text(0.77,-0.13,'Sea level rise from\n2015-2100 for SSP5-85\n(mm SLE)', size=10, 
+                       horizontalalignment='center', verticalalignment='top', transform=ax_background.transAxes)
+    ax_circle1 = fig.add_axes([0.66,0.08,0.05,0.05], facecolor='none')
+    pie_slices, pie_labels = ax_circle1.pie([1], counterclock=False, startangle=90, colors=['white'],
+                                            wedgeprops=dict(edgecolor='k', linewidth=0.5))
+    ax_circle1.axis('equal')
+    ax_circle1.text(0.5,0.5,'1', size=8, horizontalalignment='center',  verticalalignment='center',
+                    transform=ax_circle1.transAxes)
+    
+    ax_circle2 = fig.add_axes([0.69,0.055,0.10625,0.10625], facecolor='none')
+    pie_slices, pie_labels = ax_circle2.pie([1], counterclock=False, startangle=90, colors=['white'],
+                                            wedgeprops=dict(edgecolor='k', linewidth=0.5))
+    ax_circle2.axis('equal')
+    ax_circle2.text(0.5,0.5,'10', size=8, horizontalalignment='center', verticalalignment='center', 
+                    transform=ax_circle2.transAxes)
+
+    ax_circle3 = fig.add_axes([0.75,0.01,0.2,0.2], facecolor='none')
+    ssp_vol_remaining_pies = [0.6, 0.65, 0.7, 0.75]
+    ssp_pie_radius = 1
+    for nrcp, rcp in enumerate(['ssp585', 'ssp370', 'ssp245', 'ssp126']):
+        # Nested Pie Charts
+        wedge_size = 0.25
+        ssp_pies = [1-ssp_vol_remaining_pies[nrcp], ssp_vol_remaining_pies[nrcp]]
+        ssp_pie_colors = ['lightgray',rcp_colordict[rcp]]
+        pie_slices, pie_labels = ax_circle3.pie(ssp_pies, radius=ssp_pie_radius, 
+                                                counterclock=False, startangle=90, colors=ssp_pie_colors,
+                                                wedgeprops=dict(width=wedge_size))
+        ssp_pie_radius = ssp_pie_radius - wedge_size
+    ax_circle3.axis('equal')
+
+#    ax_circle3 = fig.add_axes([0.75,0.01,0.2,0.2], facecolor='none')
+#    pie_slices, pie_labels = ax_circle3.pie([0.25,0.05,0.05,0.05,0.6], counterclock=False, startangle=90, colors=ssp_pie_colors)
+    center = pie_slices[0].center
+    r = 1
+    circle = mpl.patches.Circle(center, r, fill=False, edgecolor="k", linewidth=1)
+    ax_circle3.add_patch(circle)
+    ax_circle3.text(0.5,-0.08,'25', size=8, horizontalalignment='center', transform=ax_circle3.transAxes)
+    ax_circle3.text(0.79,0.37,'SSP1-26', color=rcp_colordict['ssp126'], size=8, 
+                    horizontalalignment='left', transform=ax_circle3.transAxes)
+    ax_circle3.text(0.76,0.24,'SSP2-45', color=rcp_colordict['ssp245'], size=8, 
+                    horizontalalignment='left', transform=ax_circle3.transAxes)
+    ax_circle3.text(0.71,0.12,'SSP3-70', color=rcp_colordict['ssp370'], size=8, 
+                    horizontalalignment='left', transform=ax_circle3.transAxes)
+    ax_circle3.text(0.6,-0.01,'SSP5-85', color=rcp_colordict['ssp585'], size=8, 
+                    horizontalalignment='left', transform=ax_circle3.transAxes)
+    
+    # Pie chart colors
+    ax_background.text(0.95,0.08,'Mass remaining in 2100\nrelative to 2015', size=10, 
+                       horizontalalignment='center', transform=ax_background.transAxes)
+
+    # Heat maps
+    ax_background.text(0.16,-0.04,'Annual mass balance', size=10, 
+                       horizontalalignment='center', transform=ax_background.transAxes)
+    ax_heatmap = fig.add_axes([0.175,0.05,0.1,0.06], facecolor='none')
+    ax_heatmap.hlines(0.5,2015,2100, color='k', linewidth=0.5, zorder=2)
+    ax_heatmap.set_ylim(0,1)
+    ax_heatmap.set_xlim(2015,2100)
+    ax_heatmap.get_yaxis().set_visible(False)
+#    ax_heatmap.get_xaxis().set_visible(False)
+    ax_heatmap.xaxis.set_major_locator(MultipleLocator(40))
+    ax_heatmap.xaxis.set_minor_locator(MultipleLocator(10))
+    ax_heatmap.tick_params(axis='both', which='major', direction='inout', right=True, top=True)
+    ax_heatmap.tick_params(axis='both', which='minor', direction='in', right=True, top=True)
+    ax_heatmap.text(0.5,0.73,'SSP2-45', size=8, 
+                    horizontalalignment='center', verticalalignment='center', transform=ax_heatmap.transAxes)
+    ax_heatmap.text(0.5,0.23,'SSP5-85', size=8, 
+                    horizontalalignment='center', verticalalignment='center', transform=ax_heatmap.transAxes)
+
+        
+    # Save figure
+    fig_fn = ('map_regional_mb_and_volremain.png')
+    fig.set_size_inches(8.5,5)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
+    print('Add glaciers and regions')
+    print('Add edge around pie chart that shows percentage by area of tidewater and debris-covered glaciers')
+    
+    #%% ----- FIGURE: GLOBAL COMBINED -----
+    class MidpointNormalize(mpl.colors.Normalize):
+        def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+            self.midpoint = midpoint
+            mpl.colors.Normalize.__init__(self, vmin, vmax, clip)
+    
+        def __call__(self, value, clip=None):
+            # Note that I'm ignoring clipping and other edge cases here.
+            result, is_scalar = self.process_value(value)
+            x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+            return np.ma.array(np.interp(value, x, y), mask=result.mask, copy=False)
+        
+#    rgi_reg_fig_dict = {'all':'Global',
+#                        1:'Alaska (1)',
+#                        2:'W Canada/USA (2)',
+#                        3:'Arctic Canada\nNorth (3)',
+#                        4:'Arctic Canada\nSouth (4)',
+#                        5:'Greenland (5)',
+#                        6:'Iceland (6)',
+#                        7:'Svalbard (7)',
+#                        8:'Scandinavia (8)',
+#                        9:'Russian Arctic (9)',
+#                        10:'North Asia (10)',
+#                        11:'Central\nEurope (11)',
+#                        12:'Caucasus\nMiddle East (12)',
+#                        13:'Central Asia (13)',
+#                        14:'South Asia\nWest (14)',
+#                        15:'South Asia\nEast (15))',
+#                        16:'Low Latitudes (16)',
+#                        17:'Southern\nAndes (17)',
+#                        18:'New Zealand (18)',
+#                        19:'Antarctica/Subantarctic (19)'
+#                        }
+
+    fig = plt.figure()
+    ax_background = fig.add_axes([0.35,0.25,0.3,0.25], projection=ccrs.Robinson())
+    ax_background.patch.set_facecolor('lightblue')
+    ax_background.get_yaxis().set_visible(False)
+    ax_background.get_xaxis().set_visible(False)
+#    ax_background.coastlines(color='white')
+#    ax_background.add_feature(cartopy.feature.LAND, color='white')
+    ax_background.add_feature(cartopy.feature.NaturalEarthFeature('physical', 'ocean', '50m', facecolor='gainsboro'))
+    ax_background.add_feature(cartopy.feature.NaturalEarthFeature('physical', 'land', '50m', facecolor='dimgrey'))
+    
+#    regions_ordered = ['all',1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+#    for reg in regions_ordered:
+    
+    ax_ak = fig.add_axes([0.1,0.27,0.25,0.5], facecolor='none', projection=ccrs.Robinson())
+    ax_ak.set_extent([-175,-110,36,70], ccrs.Geodetic())
+    ax_hma = fig.add_axes([0.62,0.27,0.25,0.25], facecolor='none', projection=ccrs.Robinson())
+    ax_hma.set_extent([70,105,20,50], ccrs.Geodetic())
+    ax_arctic = fig.add_axes([0.27,0.75,0.7,0.25], facecolor='none', projection=ccrs.Robinson(),
+                             extent=[-90,120,54,90])
+    ax_europe = fig.add_axes([0.33,0.52,0.2,0.25], facecolor='none', projection=ccrs.Robinson(),
+                             extent=[-2,15,41,53])
+    ax_caucasus = fig.add_axes([0.54,0.52,0.15,0.25], facecolor='none', projection=ccrs.Robinson(),
+                               extent=[35,53,30,44])
+    ax_nz = fig.add_axes([0.88,0.27,0.12,0.25], facecolor='none', projection=ccrs.Robinson(),
+                         extent=[166,175,-47.5,-40])
+    for ax in [ax_ak, ax_hma, ax_arctic, ax_europe, ax_caucasus, ax_nz]:
+        ax.patch.set_facecolor('lightblue')
+        ax.get_yaxis().set_visible(False)
+        ax.get_xaxis().set_visible(False)
+        ax.add_feature(cartopy.feature.LAND, color='white')
+        ax.add_feature(cartopy.feature.BORDERS, linestyle=':', color='k', linewidth=0.5)
+        
+    # Save figure
+    fig_fn = ('map_subregional_test.png')
+    fig.set_size_inches(8.5,5)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
 
 #%% ===== MULTI-GCM PLOTS OF RUNOFF BY WATERSHED =====
 if option_multigcm_plots_ws:
@@ -4754,21 +5138,21 @@ if option_multigcm_plots_ws:
     
     startyear = 2015
     endyear = 2100
-    normyear = 2015
     years = np.arange(2000,2101+1)
     
     gcm_names_rcps = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
                       'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
     gcm_names_ssps = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
                       'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
-    rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585', 'rcp26', 'rcp45', 'rcp85']
+    gcm_names_ssps = ['BCC-CSM2-MR', 'CESM2']
+    rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
     
 #    regions = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
     
     # Watersheds
-    ws_reg = 'AK'
+#    ws_reg = 'AK'
 #    ws_reg = 'HMA'
-#    ws_reg = 'Euro_Asia'
+    ws_reg = 'Euro_Asia'
 #    ws_reg = 'SA'
     # North America / Alaska watersheds
     if ws_reg == 'AK':
@@ -4777,8 +5161,10 @@ if option_multigcm_plots_ws:
         regions = [1,2]
     # Europe and North Asia watersheds
     elif ws_reg == 'Euro_Asia':
-        watersheds = ['Danube', 'Po', 'Rhone', 'Rhine', 'Glama', 'Drammenselva', 'Lulealven', 'Kalix', 'Ob', 'Thjorsa', 'Olfusa']
-        regions = [6,8,10,11]
+#        watersheds = ['Danube', 'Po', 'Rhone', 'Rhine', 'Glama', 'Drammenselva', 'Lulealven', 'Kalix', 'Ob', 'Thjorsa', 'Olfusa']
+#        regions = [6,8,10,11]
+        watersheds = ['Danube', 'Po', 'Rhone', 'Rhine']
+        regions = [11]
     # High Mountain Asia watersheds
     elif ws_reg == 'HMA':
         watersheds = ['Brahmaputra', 'Ganges', 'Indus', 'Amu_Darya', 'Syr_Darya', 'Ili', 'Tarim', 'Inner_Tibetan_Plateau', 
@@ -4910,7 +5296,7 @@ if option_multigcm_plots_ws:
     #%%
     ncols = 4
     nrows = int(np.ceil(len(watersheds)/ncols))
-    fig, ax = plt.subplots(nrows,ncols,gridspec_kw = {'wspace':0.3, 'hspace':0.3})
+    fig, ax = plt.subplots(ncols,nrows,gridspec_kw = {'wspace':0.3, 'hspace':0.3})
     
     nrow, ncol = 0,0
     for nws, ws in enumerate(watersheds):
@@ -4984,7 +5370,7 @@ if option_multigcm_plots_ws:
                 labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
             elif 'rcp26' in rcps and len(rcps) == 3:
                 labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
-            elif 'ssp126' in rcp and len(rcps) == 4:
+            elif 'ssp126' in rcps and len(rcps) == 4:
                 labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
             ax[nrow,ncol].legend(loc=(1.1,0.3), labels=labels, fontsize=10, ncol=1, columnspacing=0.5, labelspacing=0.25, 
                                  handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
@@ -5008,7 +5394,7 @@ if option_multigcm_plots_ws:
         scenario_str = 'rcps_ssps'
     elif 'rcp26' in rcps:
         scenario_str = 'rcps'
-    elif 'ssp126' in rcp:
+    elif 'ssp126' in rcps:
         scenario_str = 'ssps'
     fig_fn = (ws_reg + '_watersheds_runoff_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
               '-' + scenario_str + '-medstd.png')
@@ -5016,122 +5402,121 @@ if option_multigcm_plots_ws:
     fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
     
     #%% ----- MONTHLY RUNOFF CHANGE FIGURE -----
-    ncols = 4
-    nrows = int(np.ceil(len(watersheds)/ncols))
-    fig, ax = plt.subplots(nrows,ncols,gridspec_kw = {'wspace':0.3, 'hspace':0.3})
-    
-    nrow, ncol = 0,0
-    for nws, ws in enumerate(watersheds):
-        
-        print(ws)
-        
-        ws_runoff_annual_present_rcps_list = []
-        for rcp in rcps:
-
-            # Median and standard deviation
-            ws_runoff_monthly = ds_multigcm_runoff[ws][rcp]
-            ws_runoff_annual = np.zeros((ws_runoff_monthly.shape[0],101))
-            for nrow_ws in np.arange(0,ws_runoff_monthly.shape[0]):
-                ws_runoff_annual[nrow_ws,:] = ws_runoff_monthly[nrow_ws,:].reshape(-1,12).sum(1)
-
-            ws_runoff_annual_avg = np.median(ws_runoff_annual, axis=0)
-            ws_runoff_annual_std = np.std(ws_runoff_annual, axis=0)
-
-            ws_runoff_annual_present = ws_runoff_annual[:,0:16].mean(1)
-            ws_runoff_norm = ws_runoff_annual / ws_runoff_annual_present[:,np.newaxis]
-            ws_runoff_norm_avg = np.median(ws_runoff_norm, axis=0)
-            ws_runoff_norm_var = np.std(ws_runoff_norm, axis=0)
-            
-            ws_runoff_annual_present_rcps_list.append(ws_runoff_annual_present.mean())
-            
-            # Peakwater
-            peakwater_yr, peakwater_chg, runoff_chg = peakwater(ws_runoff_annual_avg, years[0:-1], 11)
-            
-            ax[nrow,ncol].plot(years[0:-1], ws_runoff_norm_avg, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], 
-                                linewidth=1, zorder=4, label=rcp)
-            
-            if 'ssp' in rcp:
-                peakwater_yr_idx = np.where(peakwater_yr == years[0:-1])[0][0]
-                ax[nrow,ncol].vlines(peakwater_yr, 0, ws_runoff_norm_avg[peakwater_yr_idx], 
-                                     color=rcp_colordict[rcp], linestyle='--', 
-                                     linewidth=1, zorder=5)
-                
-            if rcp in rcps_plot_mad:
-                ax[nrow,ncol].fill_between(years[0:-1], 
-                                           (ws_runoff_norm_avg + ws_runoff_norm_var), 
-                                           (ws_runoff_norm_avg - ws_runoff_norm_var), 
-                                           alpha=0.35, facecolor=rcp_colordict[rcp], label=None)
-        
-        runoff_gta_str = str(np.round(np.mean(ws_runoff_annual_present_rcps_list) * pygem_prms.density_water / 1e12,1))
-        print(ws, runoff_gta_str, 'Gt/yr')
-        ax[nrow,ncol].text(0.97, 0.97, runoff_gta_str, size=10, horizontalalignment='right', 
-                           verticalalignment='top', transform=ax[nrow,ncol].transAxes, zorder=6)
-
-        if ncol == 0:
-            ax[nrow,ncol].set_ylabel('Runoff (-)')
-        ax[nrow,ncol].set_xlim(startyear, endyear)
-        ax[nrow,ncol].xaxis.set_major_locator(MultipleLocator(40))
-        ax[nrow,ncol].xaxis.set_minor_locator(MultipleLocator(10))
-
-
-        ax[nrow,ncol].set_ylim(0,3)
-        ax[nrow,ncol].yaxis.set_major_locator(MultipleLocator(0.5))
-        ax[nrow,ncol].yaxis.set_minor_locator(MultipleLocator(0.1))
-            
-        if ws in watersheds_dict_correct:
-            ws_label = watersheds_dict_correct[ws]
-        else:
-            ws_label = ws
-        ax[nrow,ncol].text(1, 1.1, ws_label, size=10, horizontalalignment='right', 
-                           verticalalignment='top', transform=ax[nrow,ncol].transAxes)
-        ax[nrow,ncol].tick_params(axis='both', which='major', direction='inout', right=True)
-        ax[nrow,ncol].tick_params(axis='both', which='minor', direction='in', right=True)
-        
-        if nrow == 0 and ncol == ncols-1:
-            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
-                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
-            elif 'rcp26' in rcps and len(rcps) == 3:
-                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
-            elif 'ssp126' in rcp and len(rcps) == 4:
-                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
-            ax[nrow,ncol].legend(loc=(1.1,0.3), labels=labels, fontsize=10, ncol=1, columnspacing=0.5, labelspacing=0.25, 
-                                 handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
-                                 )
-
-        # Adjust row and column
-        ncol += 1
-        if ncol == ncols:
-            nrow += 1
-            ncol = 0
-    
-    for batman in np.arange(nrows*ncols-len(watersheds)):
-        ax[nrow,ncol].get_yaxis().set_visible(False)
-        ax[nrow,ncol].get_xaxis().set_visible(False)
-        ax[nrow,ncol].axis('off')
-        ncol += 1
-        
-    
-    # Save figure
-    if 'rcp26' in rcps and 'ssp126' in rcps:
-        scenario_str = 'rcps_ssps'
-    elif 'rcp26' in rcps:
-        scenario_str = 'rcps'
-    elif 'ssp126' in rcp:
-        scenario_str = 'ssps'
-    fig_fn = (ws_reg + '_watersheds_runoff_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
-              '-' + scenario_str + '-medstd.png')
-    fig.set_size_inches(8.5,11)
-    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+#    ncols = 4
+#    nrows = int(np.ceil(len(watersheds)/ncols))
+#    fig, ax = plt.subplots(nrows,ncols,gridspec_kw = {'wspace':0.3, 'hspace':0.3})
+#    
+#    nrow, ncol = 0,0
+#    for nws, ws in enumerate(watersheds):
+#        
+#        print(ws)
+#        
+#        ws_runoff_annual_present_rcps_list = []
+#        for rcp in rcps:
+#
+#            # Median and standard deviation
+#            ws_runoff_monthly = ds_multigcm_runoff[ws][rcp]
+#            ws_runoff_annual = np.zeros((ws_runoff_monthly.shape[0],101))
+#            for nrow_ws in np.arange(0,ws_runoff_monthly.shape[0]):
+#                ws_runoff_annual[nrow_ws,:] = ws_runoff_monthly[nrow_ws,:].reshape(-1,12).sum(1)
+#
+#            ws_runoff_annual_avg = np.median(ws_runoff_annual, axis=0)
+#            ws_runoff_annual_std = np.std(ws_runoff_annual, axis=0)
+#
+#            ws_runoff_annual_present = ws_runoff_annual[:,0:16].mean(1)
+#            ws_runoff_norm = ws_runoff_annual / ws_runoff_annual_present[:,np.newaxis]
+#            ws_runoff_norm_avg = np.median(ws_runoff_norm, axis=0)
+#            ws_runoff_norm_var = np.std(ws_runoff_norm, axis=0)
+#            
+#            ws_runoff_annual_present_rcps_list.append(ws_runoff_annual_present.mean())
+#            
+#            # Peakwater
+#            peakwater_yr, peakwater_chg, runoff_chg = peakwater(ws_runoff_annual_avg, years[0:-1], 11)
+#            
+#            ax[nrow,ncol].plot(years[0:-1], ws_runoff_norm_avg, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], 
+#                                linewidth=1, zorder=4, label=rcp)
+#            
+#            if 'ssp' in rcp:
+#                peakwater_yr_idx = np.where(peakwater_yr == years[0:-1])[0][0]
+#                ax[nrow,ncol].vlines(peakwater_yr, 0, ws_runoff_norm_avg[peakwater_yr_idx], 
+#                                     color=rcp_colordict[rcp], linestyle='--', 
+#                                     linewidth=1, zorder=5)
+#                
+#            if rcp in rcps_plot_mad:
+#                ax[nrow,ncol].fill_between(years[0:-1], 
+#                                           (ws_runoff_norm_avg + ws_runoff_norm_var), 
+#                                           (ws_runoff_norm_avg - ws_runoff_norm_var), 
+#                                           alpha=0.35, facecolor=rcp_colordict[rcp], label=None)
+#        
+#        runoff_gta_str = str(np.round(np.mean(ws_runoff_annual_present_rcps_list) * pygem_prms.density_water / 1e12,1))
+#        print(ws, runoff_gta_str, 'Gt/yr')
+#        ax[nrow,ncol].text(0.97, 0.97, runoff_gta_str, size=10, horizontalalignment='right', 
+#                           verticalalignment='top', transform=ax[nrow,ncol].transAxes, zorder=6)
+#
+#        if ncol == 0:
+#            ax[nrow,ncol].set_ylabel('Runoff (-)')
+#        ax[nrow,ncol].set_xlim(startyear, endyear)
+#        ax[nrow,ncol].xaxis.set_major_locator(MultipleLocator(40))
+#        ax[nrow,ncol].xaxis.set_minor_locator(MultipleLocator(10))
+#
+#
+#        ax[nrow,ncol].set_ylim(0,3)
+#        ax[nrow,ncol].yaxis.set_major_locator(MultipleLocator(0.5))
+#        ax[nrow,ncol].yaxis.set_minor_locator(MultipleLocator(0.1))
+#            
+#        if ws in watersheds_dict_correct:
+#            ws_label = watersheds_dict_correct[ws]
+#        else:
+#            ws_label = ws
+#        ax[nrow,ncol].text(1, 1.1, ws_label, size=10, horizontalalignment='right', 
+#                           verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+#        ax[nrow,ncol].tick_params(axis='both', which='major', direction='inout', right=True)
+#        ax[nrow,ncol].tick_params(axis='both', which='minor', direction='in', right=True)
+#        
+#        if nrow == 0 and ncol == ncols-1:
+#            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
+#                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
+#            elif 'rcp26' in rcps and len(rcps) == 3:
+#                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
+#            elif 'ssp126' in rcp and len(rcps) == 4:
+#                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
+#            ax[nrow,ncol].legend(loc=(1.1,0.3), labels=labels, fontsize=10, ncol=1, columnspacing=0.5, labelspacing=0.25, 
+#                                 handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+#                                 )
+#
+#        # Adjust row and column
+#        ncol += 1
+#        if ncol == ncols:
+#            nrow += 1
+#            ncol = 0
+#    
+#    for batman in np.arange(nrows*ncols-len(watersheds)):
+#        ax[nrow,ncol].get_yaxis().set_visible(False)
+#        ax[nrow,ncol].get_xaxis().set_visible(False)
+#        ax[nrow,ncol].axis('off')
+#        ncol += 1
+#        
+#    
+#    # Save figure
+#    if 'rcp26' in rcps and 'ssp126' in rcps:
+#        scenario_str = 'rcps_ssps'
+#    elif 'rcp26' in rcps:
+#        scenario_str = 'rcps'
+#    elif 'ssp126' in rcp:
+#        scenario_str = 'ssps'
+#    fig_fn = (ws_reg + '_watersheds_runoff_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
+#              '-' + scenario_str + '-medstd.png')
+#    fig.set_size_inches(8.5,11)
+#    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
 
 #%% ---------------------------------------------------------------------------------------------------------
 if option_glacier_cs_plots:
-    glac_nos = ['1.22193', '2.14297', '11.02739', '11.03005', '11.03643', '14.06794', '15.03733', '17.05076', 
-                '17.14140', '18.02342']
-    glac_nos = ['18.02342']
+    glac_nos = ['1.22193', '2.14297', '11.02739', '11.03005', '11.03643', '12.00080', 
+                '14.06794', '15.03733', '17.05076', '17.14140', '18.02342']
+#    glac_nos = ['1.22193']
     
     startyear = 2015
     endyear = 2100
-    normyear = 2015
     years = np.arange(2000,2101+1)
     
     startyear_idx = np.where(years == startyear)[0][0]
@@ -5149,18 +5534,32 @@ if option_glacier_cs_plots:
 #    rcps_plot_mad = ['rcp26', 'rcp45', 'rcp85', 'ssp126', 'ssp245', 'ssp370', 'ssp585']
     rcps_plot_mad = ['ssp126', 'ssp585']
     
-    fig_fp_multigcm = netcdf_fp_cmip5 + '/../analysis/figures/ind_glaciers-nodebris/'
+    fig_fp_multigcm = netcdf_fp_cmip5 + '/../analysis/figures/ind_glaciers/'
     if not os.path.exists(fig_fp_multigcm):
         os.makedirs(fig_fp_multigcm, exist_ok=True)
+        
+    glac_name_dict = {'1.22193':'Kahiltna (Denali)',
+                      '2.14297':'Emmons (Rainier)',
+                      '11.02739':'Zmuttgletscher (Matterhorn)',
+                      '11.03005':'Miage (Mont Blanc)',
+                      '11.03643':'Mer de Glace (Mont Blanc)',
+                      '12.00080':'Bolshoy Azau (Elbrus)',
+                      '14.06794':'Baltoro (K2)',
+                      '15.03733':'Khumbu (Everest)',
+                      '17.05076':'Viedma (Fitz Roy)',
+                      '17.14140':'Horcones Inferior (Aconcagua)',
+                      '18.02342':'Tasman (Aoraki)'}
         
 
     # Set up processing
     glac_zbed_all = {}
     glac_thick_all = {}
     glac_zsurf_all = {}
+    glac_vol_all = {}
     glac_multigcm_zbed = {}
     glac_multigcm_thick = {}
     glac_multigcm_zsurf = {}
+    glac_multigcm_vol = {}
     for glac_no in glac_nos:
 
         gdir = single_flowline_glacier_directory(glac_no, logging_level='CRITICAL')
@@ -5169,8 +5568,11 @@ if option_glacier_cs_plots:
         debris.debris_binned(gdir, fl_str='model_flowlines')  # add debris enhancement factors to flowlines
         nfls = gdir.read_pickle('model_flowlines')
         
-        x = np.arange(nfls[0].nx) * nfls[0].dx * nfls[0].map_dx         
+        x = np.arange(nfls[0].nx) * nfls[0].dx * nfls[0].map_dx
 
+        glac_idx = np.nonzero(nfls[0].thick)[0]
+        xmax = np.ceil(x[glac_idx].max()/1000+0.5)*1000
+        
 #        vol_m3_init = ds_binned.bin_volume_annual[0,:,0].values
 #        thick_init = ds_binned.bin_thick_annual[0,:,0].values
 #        widths_m = nfls[0].widths_m
@@ -5180,6 +5582,7 @@ if option_glacier_cs_plots:
         glac_zbed_all[glac_no] = {}
         glac_thick_all[glac_no] = {}
         glac_zsurf_all[glac_no] = {}
+        glac_vol_all[glac_no] = {}
         
         for rcp in rcps:
 #        for rcp in rcps[0:1]:
@@ -5187,6 +5590,7 @@ if option_glacier_cs_plots:
             glac_zbed_all[glac_no][rcp] = {}
             glac_thick_all[glac_no][rcp] = {}
             glac_zsurf_all[glac_no][rcp] = {}
+            glac_vol_all[glac_no][rcp] = {}
             
             if 'rcp' in rcp:
                 gcm_names = gcm_names_rcps
@@ -5200,23 +5604,30 @@ if option_glacier_cs_plots:
                 for i in os.listdir(ds_binned_fp):
                     if i.startswith(glac_no):
                         ds_binned_fn = i
+                ds_stats_fp = netcdf_fp_cmip5 + glac_no.split('.')[0].zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
+                for i in os.listdir(ds_stats_fp):
+                    if i.startswith(glac_no):
+                        ds_stats_fn = i
                 
                 ds_binned = xr.open_dataset(ds_binned_fp + ds_binned_fn)
+                ds_stats = xr.open_dataset(ds_stats_fp + ds_stats_fn)
 
                 thick = ds_binned.bin_thick_annual[0,:,:].values
                 zsurf_init = ds_binned.bin_surface_h_initial[0].values
                 zbed = zsurf_init - thick[:,startyear_idx]
+                vol = ds_stats.glac_volume_annual[0,:].values
                 
                 glac_thick_all[glac_no][rcp][gcm_name] = thick
                 glac_zbed_all[glac_no][rcp][gcm_name] = zbed
                 glac_zsurf_all[glac_no][rcp][gcm_name] = zbed[:,np.newaxis] + thick
+                glac_vol_all[glac_no][rcp][gcm_name] = vol
                 
-
-        #%%
+                
         # MULTI-GCM STATISTICS
         glac_multigcm_zbed[glac_no] = {}
         glac_multigcm_thick[glac_no] = {}
         glac_multigcm_zsurf[glac_no] = {}
+        glac_multigcm_vol[glac_no] = {}
         for rcp in rcps: 
             
             if 'rcp' in rcp:
@@ -5226,11 +5637,12 @@ if option_glacier_cs_plots:
                 
             for ngcm, gcm_name in enumerate(gcm_names):
                 
-                print(rcp, gcm_name)
+#                print(rcp, gcm_name)
     
                 glac_zbed_gcm = glac_zbed_all[glac_no][rcp][gcm_name]
                 glac_thick_gcm = glac_thick_all[glac_no][rcp][gcm_name]
                 glac_zsurf_gcm = glac_zsurf_all[glac_no][rcp][gcm_name]
+                glac_vol_gcm = glac_vol_all[glac_no][rcp][gcm_name]
                 
                 if x.shape[0] > glac_zbed_gcm.shape[0]:
                     x = x[0:glac_zbed_gcm.shape[0]]
@@ -5239,164 +5651,144 @@ if option_glacier_cs_plots:
                     glac_zbed_gcm_all = glac_zbed_gcm 
                     glac_thick_gcm_all = glac_thick_gcm[np.newaxis,:,:]
                     glac_zsurf_gcm_all = glac_zsurf_gcm[np.newaxis,:,:]
+                    glac_vol_gcm_all = glac_vol_gcm[np.newaxis,:]
                 else:
                     glac_zbed_gcm_all = np.vstack((glac_zbed_gcm_all, glac_zbed_gcm))
                     glac_thick_gcm_all = np.vstack((glac_thick_gcm_all, glac_thick_gcm[np.newaxis,:,:]))
                     glac_zsurf_gcm_all = np.vstack((glac_zsurf_gcm_all, glac_zsurf_gcm[np.newaxis,:,:]))
+                    glac_vol_gcm_all = np.vstack((glac_vol_gcm_all, glac_vol_gcm[np.newaxis,:]))
             
             glac_multigcm_zbed[glac_no][rcp] = glac_zbed_gcm_all
             glac_multigcm_thick[glac_no][rcp] = glac_thick_gcm_all
             glac_multigcm_zsurf[glac_no][rcp] = glac_zsurf_gcm_all
+            glac_multigcm_vol[glac_no][rcp] = glac_vol_gcm_all
     
     
         #%% ----- FIGURE: VOLUME CHANGE MULTI-GCM -----
-        fig, ax = plt.subplots(1, 1, squeeze=False, sharex=False, sharey=True, 
-                               gridspec_kw = {'wspace':0, 'hspace':0})
-        ax2 = ax[0,0].twinx()
+        fig = plt.figure()
+        ax = fig.add_axes([0,0,1,0.65])
+        ax.patch.set_facecolor('none')
+        ax2 = fig.add_axes([0,0.65,1,0.35])
+        ax2.patch.set_facecolor('none')
+        ax3 = fig.add_axes([0.67,0.32,0.3,0.3])
+        ax3.patch.set_facecolor('none')
         
         add_zbed = True
+        ymin, ymax, thick_max = None, None, None
         for rcp in rcps:
             zbed_med = np.median(glac_multigcm_zbed[glac_no][rcp],axis=0)
-            zbed_mad = median_abs_deviation(glac_multigcm_zbed[glac_no][rcp], axis=0)
+            zbed_std = np.std(glac_multigcm_zbed[glac_no][rcp], axis=0)
             
             thick_med = np.median(glac_multigcm_thick[glac_no][rcp],axis=0)
-            thick_mad = median_abs_deviation(glac_multigcm_thick[glac_no][rcp], axis=0)
+            thick_std = np.std(glac_multigcm_thick[glac_no][rcp], axis=0)
             
             zsurf_med = np.median(glac_multigcm_zsurf[glac_no][rcp],axis=0)
-            zsurf_mad = median_abs_deviation(glac_multigcm_zsurf[glac_no][rcp], axis=0)
+            zsurf_std = np.std(glac_multigcm_zsurf[glac_no][rcp], axis=0)
+            
+            vol_med = np.median(glac_multigcm_vol[glac_no][rcp],axis=0)
+            vol_std = np.std(glac_multigcm_vol[glac_no][rcp], axis=0)
+            
+            normyear_idx = np.where(years == normyear)[0][0]
+            
             
             if add_zbed:
-                ax[0,0].plot(x/1000, zbed_med,
+                ax.plot(x/1000, zbed_med,
                              color='k', linestyle='-', linewidth=1, zorder=5, label='zbed')
-                ax[0,0].plot(x/1000, zsurf_med[:,startyear_idx], 
+                ax.plot(x/1000, zsurf_med[:,startyear_idx], 
                              color='k', linestyle=':', linewidth=0.5, zorder=4, label='2015')
                 ax2.plot(x/1000, thick_med[:,startyear_idx], 
                          color='k', linestyle=':', linewidth=0.5, zorder=4, label='2015')
                 add_zbed = False
                 
-            ax[0,0].plot(x/1000, zsurf_med[:,-1], 
+            ax.plot(x/1000, zsurf_med[:,-1], 
                          color=rcp_colordict[rcp], linestyle='-', linewidth=0.5, zorder=4, label='2100')
             
             ax2.plot(x/1000, thick_med[:,-1],
                      color=rcp_colordict[rcp], linestyle='-', linewidth=0.5, zorder=4, label='2100')
-#            if rcp in rcps_plot_mad:
-#                ax[0,0].fill_between(years, 
-#                                     reg_vol_med + 1.96*reg_vol_mad, 
-#                                     reg_vol_med - 1.96*reg_vol_mad, 
-#                                     alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
             
-        if glac_no in ['1.22193']:
-            ax[0,0].set_ylim(-250, 4500)
-            ax[0,0].set_xlim(0,60)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(10))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(5))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(1000))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(500)) 
-            ax2.set_ylim(1200,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(500))
-            ax2.yaxis.set_minor_locator(MultipleLocator(100))
-        elif glac_no in ['2.14297']:
-            ax[0,0].set_ylim(1400, 4700)
-            ax[0,0].set_xlim(0,8)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(2))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(1))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(500))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(100)) 
-            ax2.set_ylim(300,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(100))
-            ax2.yaxis.set_minor_locator(MultipleLocator(20))
-        elif glac_no in ['11.02739']:
-            ax[0,0].set_ylim(2050, 4300)
-            ax[0,0].set_xlim(0,8)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(2))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(1))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(500))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(100)) 
-            ax2.set_ylim(300,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(100))
-            ax2.yaxis.set_minor_locator(MultipleLocator(50))
-        elif glac_no in ['11.03005']:
-            ax[0,0].set_ylim(1600, 5400)
-            ax[0,0].set_xlim(0,9)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(2))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(1))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(500))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(100)) 
-            ax2.set_ylim(300,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(100))
-            ax2.yaxis.set_minor_locator(MultipleLocator(50))
-        elif glac_no in ['11.03643']:
-            ax[0,0].set_ylim(1400, 4300)
-            ax[0,0].set_xlim(0,11)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(2))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(1))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(500))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(100)) 
-            ax2.set_ylim(350,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(100))
-            ax2.yaxis.set_minor_locator(MultipleLocator(20))
-        elif glac_no in ['14.06794']:
-            ax[0,0].set_ylim(3300, 6800)
-            ax[0,0].set_xlim(0,45)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(10))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(5))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(500))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(100)) 
-            ax2.set_ylim(700,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(200))
-            ax2.yaxis.set_minor_locator(MultipleLocator(100))
-        elif glac_no in ['15.03733']:
-            ax[0,0].set_ylim(4650, 7800)
-            ax[0,0].set_xlim(0,14)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(5))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(1))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(500))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(100)) 
-            ax2.set_ylim(300,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(50))
-            ax2.yaxis.set_minor_locator(MultipleLocator(10))
-        elif glac_no in ['17.05076']:
-            ax[0,0].set_ylim(300, 3800)
-            ax[0,0].set_xlim(0,61)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(10))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(5))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(500))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(100)) 
-            ax2.set_ylim(900,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(100))
-            ax2.yaxis.set_minor_locator(MultipleLocator(50))
-        elif glac_no in ['17.14140']:
-            ax[0,0].set_ylim(3400, 6200)
-            ax[0,0].set_xlim(0,11)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(2))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(1))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(500))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(100)) 
-            ax2.set_ylim(300,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(100))
-            ax2.yaxis.set_minor_locator(MultipleLocator(20))
-        elif glac_no in ['18.02342']:
-            ax[0,0].set_ylim(300, 3800)
-            ax[0,0].set_xlim(0,21)
-            ax[0,0].xaxis.set_major_locator(MultipleLocator(5))
-            ax[0,0].xaxis.set_minor_locator(MultipleLocator(1))
-            ax[0,0].yaxis.set_major_locator(MultipleLocator(1000))
-            ax[0,0].yaxis.set_minor_locator(MultipleLocator(200)) 
-            ax2.set_ylim(700,0)
-            ax2.yaxis.set_major_locator(MultipleLocator(100))
-            ax2.yaxis.set_minor_locator(MultipleLocator(50))
+            ax3.plot(years, vol_med / vol_med[normyear_idx], color=rcp_colordict[rcp], 
+                     linewidth=0.5, zorder=4, label=None)
+
+            if rcp in rcps_plot_mad:
+                ax3.fill_between(years, 
+                                 (vol_med + vol_std)/vol_med[normyear_idx], 
+                                 (vol_med - vol_std)/vol_med[normyear_idx],
+                                 alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
             
-        ax[0,0].set_ylabel('Elevation (m a.s.l.)')
-        ax[0,0].set_xlabel('Distance along flowline (km)')
-        ax2.set_ylabel('Ice thickness (m)')
+            # ymin and ymax for bounds
+            if ymin is None:
+                ymin = np.floor(zbed_med.min()/100)*100
+                ymax = np.ceil(zsurf_med[:,-1].max()/100)*100
+            if np.floor(zbed_med.min()/100)*100 < ymin:
+                ymin = np.floor(zbed_med.min()/100)*100
+            if np.ceil(zsurf_med[:,-1].max()/100)*100 > ymax:
+                ymax = np.ceil(zsurf_med[:,-1].max()/100)*100
+            # thickness max for bounds  
+            if thick_max is None:
+                thick_max = np.ceil(thick_med.max()/10)*10
+            if np.ceil(thick_med.max()/10)*10 > thick_max:
+                thick_max = np.ceil(thick_med.max()/10)*10
+        
+        if xmax/1000 > 25:
+            x_major, x_minor = 10, 2
+        elif xmax/1000 > 15:
+            x_major, x_minor = 5, 1
+        else:
+            x_major, x_minor = 2, 0.5
+        
+        y_major, y_minor = 500,100
+        
+        if thick_max > 200:
+            thick_major, thick_minor = 100, 20
+        else:
+            thick_major, thick_minor = 50, 10
+            
+        ax.set_ylim(ymin, ymax)
+        ax.set_xlim(0,xmax/1000)
+        ax2.set_xlim(0,xmax/1000)
+        ax.xaxis.set_major_locator(MultipleLocator(x_major))
+        ax.xaxis.set_minor_locator(MultipleLocator(x_minor))
+        ax.yaxis.set_major_locator(MultipleLocator(y_major))
+        ax.yaxis.set_minor_locator(MultipleLocator(y_minor)) 
+        ax2.set_ylim(0,thick_max)
+        ax2.yaxis.set_major_locator(MultipleLocator(thick_major))
+        ax2.yaxis.set_minor_locator(MultipleLocator(thick_minor))
+        ax2.get_xaxis().set_visible(False)
+            
+        ax.set_ylabel('Elevation (m a.s.l.)')
+        ax.set_xlabel('Distance along flowline (km)')
+        ax2.set_ylabel('Ice thickness (m)', )
+        ax2.yaxis.set_label_position('right')
+        ax2.yaxis.tick_right()
+        ax.spines['top'].set_visible(False)
                 
-#                ax[0,0].text(0.98, 1.06, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
-#                             verticalalignment='top', transform=ax[0,0].transAxes)
-#        ax[0,0].legend(rcp_lines, rcp_labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
+        ax2.text(0.98, 1.16, glac_name_dict[glac_no], size=10, horizontalalignment='right', 
+                verticalalignment='top', transform=ax2.transAxes)
+#        ax.legend(rcp_lines, rcp_labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
 #                       handletextpad=0.25, borderpad=0, frameon=False)
         
+        ax3.set_ylabel('Mass (-)')
+        ax3.set_xlim(startyear, endyear)
+        ax3.xaxis.set_major_locator(MultipleLocator(40))
+        ax3.xaxis.set_minor_locator(MultipleLocator(10))
+        ax3.set_ylim(0,1.1)
+        ax3.yaxis.set_major_locator(MultipleLocator(0.5))
+        ax3.yaxis.set_minor_locator(MultipleLocator(0.1))
+        ax3.tick_params(axis='both', which='major', direction='inout', right=True)
+        ax3.tick_params(axis='both', which='minor', direction='in', right=True)
+        vol_norm_gt = vol_med[normyear_idx] * pygem_prms.density_ice / 1e12
+        if vol_norm_gt > 10:
+            vol_norm_gt_str = str(int(np.round(vol_norm_gt,0))) + ' Gt'
+        elif vol_norm_gt > 1:
+            vol_norm_gt_str = str(np.round(vol_norm_gt,1)) + ' Gt'
+        else:
+            vol_norm_gt_str = str(np.round(vol_norm_gt,2)) + ' Gt'
+        ax3.text(0.05, 0.05, vol_norm_gt_str, size=10, horizontalalignment='left', 
+                verticalalignment='bottom', transform=ax3.transAxes)
+        
         # Legend
-        rcp_dict = {'ssp126': 'SSP1-26',
+        rcp_dict = {'ssp119': 'SSP1-19',
+                    'ssp126': 'SSP1-26',
                     'ssp245': 'SSP2-45',
                     'ssp370': 'SSP3-70',
                     'ssp585': 'SSP5-85'}
@@ -5420,13 +5812,13 @@ if option_glacier_cs_plots:
         rcp_lines.append(line)
         rcp_labels.append('bed')
         
-        ax[0,0].legend(rcp_lines, rcp_labels, loc=(0.02,0.02), fontsize=8, labelspacing=0.25, handlelength=1, 
+        ax.legend(rcp_lines, rcp_labels, loc=(0.02,0.02), fontsize=8, labelspacing=0.25, handlelength=1, 
                        handletextpad=0.25, borderpad=0, ncol=2, columnspacing=0.5, frameon=False)
         
 #        loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
 #                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
         
-        ax[0,0].tick_params(direction='inout')
+        ax.tick_params(direction='inout')
         ax2.tick_params(direction='inout')
         # Save figure
         if 'rcp26' in rcps and 'ssp126' in rcps:
@@ -5438,8 +5830,6 @@ if option_glacier_cs_plots:
         fig_fn = (glac_no + '_profile_2100.png')
         fig.set_size_inches(4,3)
         fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
-    
-    
 #%%   
 if option_debris_comparison:
     
@@ -5451,15 +5841,14 @@ if option_debris_comparison:
     
     startyear = 2015
     endyear = 2100
-    normyear = 2015
     years = np.arange(2000,2101+1)
     
     gcm_names = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
                       'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
     rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
     
-    regions = [1, 2, 11, 12, 15, 18]
-#    regions = [1]
+    regions = [1, 2, 11, 12, 13, 14, 15, 16, 18]
+#    regions = [14]
     
     rcps_plot_mad = ['ssp126', 'ssp585']
     
@@ -5789,11 +6178,1257 @@ if option_debris_comparison:
         fig_fn = (str(reg).zfill(2) + '_volchange_norm_' + str(startyear) + '-' + str(endyear) + '_' + 'debriscompare.png')
         fig.set_size_inches(4,4)
         fig.savefig(fig_fp_debriscompare + fig_fn, bbox_inches='tight', dpi=300)
+        
+    #%%
+    fig = plt.figure()
+    gs = fig.add_gridspec(nrows=3,ncols=3,wspace=0.3,hspace=0.4)
+    ax1 = fig.add_subplot(gs[0,0])
+    ax2 = fig.add_subplot(gs[0,1])
+    ax3 = fig.add_subplot(gs[0,2])
+    ax4 = fig.add_subplot(gs[1,0])
+    ax5 = fig.add_subplot(gs[1,1])
+    ax6 = fig.add_subplot(gs[1,2])
+    ax7 = fig.add_subplot(gs[2,0])
+    ax8 = fig.add_subplot(gs[2,1])
+    ax9 = fig.add_subplot(gs[2,2])
     
-        print('COMPUTE HOW MANY YEARS DELAY IT IS IN VOLUME CHANGE')
-        print('\nADD GLACIER RUNOFF CHANGES\n')
+    regions_ordered = [1,2,11,13,14,15,16,12,18]
+    for nax, ax in enumerate([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9]):
+        
+        reg = regions_ordered[nax]            
     
-#%%
+        for rcp in rcps:
+            
+            # Median and absolute median deviation
+            reg_vol = ds_multigcm_vol[reg][rcp]
+            reg_vol_mean = np.median(reg_vol, axis=0)
+            reg_vol_std = median_abs_deviation(reg_vol, axis=0)
+
+            reg_vol_nodebris = ds_multigcm_vol_nodebris[reg][rcp]
+            reg_vol_mean_nodebris = np.median(reg_vol_nodebris, axis=0)
+            reg_vol_std_nodebris = median_abs_deviation(reg_vol_nodebris, axis=0)
+            
+            # Normalized
+            reg_vol_mean_norm = reg_vol_mean / reg_vol_mean[normyear_idx]
+            reg_vol_std_norm = reg_vol_std / reg_vol_mean[normyear_idx]
+            
+            reg_vol_mean_norm_nodebris = reg_vol_mean_nodebris / reg_vol_mean_nodebris[normyear_idx]
+            reg_vol_std_norm_nodebris = reg_vol_std_nodebris / reg_vol_mean_nodebris[normyear_idx]
+            
+            # Delay in timing
+            reg_vol_delay = np.zeros(reg_vol_mean_norm_nodebris.shape)
+            for nyear, year in enumerate(years):
+#                print(nyear, year, reg_vol_mean_norm[nyear], reg_vol_mean_norm_nodebris[nyear])
+                year_idx = np.where(reg_vol_mean_norm_nodebris[nyear] < reg_vol_mean_norm)[0]
+                if len(year_idx) > 0:
+                    reg_vol_delay[nyear] = years[year_idx[-1]] - year
+
+            # Plot
+            ax.plot(years, reg_vol_mean_norm, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], 
+                    linewidth=1, zorder=4, label=rcp)
+            ax.plot(years, reg_vol_mean_norm_nodebris, color=rcp_colordict[rcp], linestyle=':', 
+                    linewidth=1, zorder=3, label=None)
+#            ax2.plot(years, (reg_vol_mean_norm - reg_vol_mean_norm_nodebris)*100, color=rcp_colordict[rcp], 
+#                     linewidth=1, zorder=4)
+#            ax3.plot(years, reg_vol_delay, color=rcp_colordict[rcp], linewidth=1, zorder=4)
+#            if rcp in rcps_plot_mad:
+#                ax.fill_between(years, 
+#                                reg_vol_med_norm + 1.96*reg_vol_mad_norm, 
+#                                reg_vol_med_norm - 1.96*reg_vol_mad_norm, 
+#                                alpha=0.2, facecolor=rcp_colordict[rcp], label=None)
+        
+        if ax in [ax1, ax4, ax7]:
+            ax.set_ylabel('Mass (rel. to 2015)')
+        ax.set_xlim(startyear, endyear)
+        ax.xaxis.set_major_locator(MultipleLocator(40))
+        ax.xaxis.set_minor_locator(MultipleLocator(10))
+        ax.set_ylim(0,1.1)
+        ax.yaxis.set_major_locator(MultipleLocator(0.2))
+        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+        
+        # Legend
+        if ax == ax3:            
+            rcp_dict = {'ssp119': 'SSP1-19',
+                        'ssp126': 'SSP1-26',
+                        'ssp245': 'SSP2-45',
+                        'ssp370': 'SSP3-70',
+                        'ssp585': 'SSP5-85'}
+            rcp_lines = []
+            rcp_labels = []
+            line = Line2D([0,1],[0,1], color='grey', linestyle='-', linewidth=1)
+            rcp_lines.append(line)
+            rcp_labels.append('Debris')
+            line = Line2D([0,1],[0,1], color='grey', linestyle=':', linewidth=1)
+            rcp_lines.append(line)
+            rcp_labels.append('Clean')
+            line = Line2D([0,1],[0,1], color='grey', linestyle=':', linewidth=0)
+            rcp_lines.append(line)
+            rcp_labels.append(' ')
+            line = Line2D([0,1],[0,1], color='grey', linestyle=':', linewidth=0)
+            rcp_lines.append(line)
+            rcp_labels.append(' ')
+            
+            for rcp in rcps:
+                line = Line2D([0,1],[0,1], color=rcp_colordict[rcp], linewidth=1)
+                rcp_lines.append(line)
+                rcp_labels.append(rcp_dict[rcp])
+            
+            ax.legend(rcp_lines, rcp_labels, loc=(0.13,0.45), fontsize=8, labelspacing=0.2, handlelength=1, 
+                      handletextpad=0.25, borderpad=0, ncol=2, columnspacing=0.3, frameon=False)
+        
+        
+#        ax2.yaxis.set_label_position("right")
+#        ax2.set_ylabel('Difference (%)')
+#        ax2.set_xlim(startyear, endyear)
+#        ax2.xaxis.set_major_locator(MultipleLocator(40))
+#        ax2.xaxis.set_minor_locator(MultipleLocator(10))
+#        if reg in [1,2,11]:
+#            ax2.set_ylim(0,7)
+#        elif reg in [18]:
+#            ax2.set_ylim(0,14)
+#        ax2.yaxis.set_major_locator(MultipleLocator(5))
+#        ax2.yaxis.set_minor_locator(MultipleLocator(1))
+#        ax2.tick_params(axis='both', which='major', direction='inout', right=True)
+#        ax2.tick_params(axis='both', which='minor', direction='in', right=True)
+#        
+#        ax2.tick_params(axis='both', which='major', direction='inout', right=True)
+#        ax2.tick_params(axis='both', which='minor', direction='in', right=True)
+
+        ax.text(1, 1.14, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+                 verticalalignment='top', transform=ax.transAxes)
+    
+
+    # Save figure
+    fig_fn = ('allregions_volchange_norm_' + str(startyear) + '-' + str(endyear) + '_' + 'debriscompare.png')
+    fig.set_size_inches(6.5,5.5)
+    fig.savefig(fig_fp_debriscompare + fig_fn, bbox_inches='tight', dpi=300)
+    
+    print('\nADD GLACIER RUNOFF CHANGES\n')
+        
+#%% ===== TEMPERATURE INCREASE FOR THE VARIOUS CLIMATE SCENARIOS =====     
+if option_policy_temp_figs:
+    regions = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    gcm_names_rcps = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
+                      'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
+    gcm_names_ssps = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
+                      'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
+    rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585', 'rcp26', 'rcp45', 'rcp85']
+
+    temp_dev_fn = 'Global_mean_temp_deviation_2081_2100_rel_1850_1900.csv'
+    
+    fig_fp_multigcm = fig_fp + 'multi_gcm/'
+    
+    if os.path.exists(csv_fp + temp_dev_fn):
+        temp_dev_df = pd.read_csv(csv_fp + temp_dev_fn)
+    else:
+        dates_table = modelsetup.datesmodelrun(startyear=1986, endyear=2100, spinupyears=0)
+        temp_dev_cns = ['Scenario', 'GCM', 'global_mean_deviation_degC']
+        temp_dev_df = pd.DataFrame(np.zeros((len(gcm_names_ssps)*4+len(gcm_names_rcps)*3,len(temp_dev_cns))), columns=temp_dev_cns)
+        ncount = 0
+        for scenario in rcps:
+            
+            if 'rcp' in scenario:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in scenario:
+                gcm_names = gcm_names_ssps
+            
+            for gcm_name in gcm_names:
+    
+                if scenario.startswith('ssp'):
+                    # Variable names
+                    temp_vn = 'tas'
+                    prec_vn = 'pr'
+                    elev_vn = 'orog'
+                    lat_vn = 'lat'
+                    lon_vn = 'lon'
+                    time_vn = 'time'
+                    # Variable filenames
+                    temp_fn = gcm_name + '_' + scenario + '_r1i1p1f1_' + temp_vn + '.nc'
+                    prec_fn = gcm_name + '_' + scenario + '_r1i1p1f1_' + prec_vn + '.nc'
+                    elev_fn = gcm_name + '_' + elev_vn + '.nc'
+                    # Variable filepaths
+                    var_fp = pygem_prms.cmip6_fp_prefix + gcm_name + '/'
+                    fx_fp = pygem_prms.cmip6_fp_prefix + gcm_name + '/'
+                    # Extra information
+                    timestep = pygem_prms.timestep
+                        
+                elif scenario.startswith('rcp'):
+                    # Variable names
+                    temp_vn = 'tas'
+                    prec_vn = 'pr'
+                    elev_vn = 'orog'
+                    lat_vn = 'lat'
+                    lon_vn = 'lon'
+                    time_vn = 'time'
+                    # Variable filenames
+                    temp_fn = temp_vn + '_mon_' + gcm_name + '_' + scenario + '_r1i1p1_native.nc'
+                    prec_fn = prec_vn + '_mon_' + gcm_name + '_' + scenario + '_r1i1p1_native.nc'
+                    elev_fn = elev_vn + '_fx_' + gcm_name + '_' + scenario + '_r0i0p0.nc'
+                    # Variable filepaths
+                    var_fp = pygem_prms.cmip5_fp_var_prefix + scenario + pygem_prms.cmip5_fp_var_ending
+                    fx_fp = pygem_prms.cmip5_fp_fx_prefix + scenario + pygem_prms.cmip5_fp_fx_ending
+                    # Extra information
+                    timestep = pygem_prms.timestep
+                        
+                ds = xr.open_dataset(var_fp + temp_fn)
+                
+                start_idx = (np.where(pd.Series(ds[time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
+                                      dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+                end_idx = (np.where(pd.Series(ds[time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
+                                    dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]              
+        
+                time_series = pd.Series(ds[time_vn][start_idx:end_idx+1])
+    
+                if 'expver' in ds.keys():
+                    expver_idx = 0
+                    temp_all = ds[temp_vn][start_idx:end_idx+1, expver_idx, :, :].values
+                else:
+                    temp_all = ds[temp_vn][start_idx:end_idx+1, :, :].values
+                    
+                years = np.array([x.year for x in time_series][::12])
+                    
+                temp_global_mean_monthly = temp_all.mean(2).mean(1)
+                temp_global_mean_annual = temp_global_mean_monthly.reshape(-1,12).mean(axis=1)
+                
+                temp_global_mean_preindustrial = temp_global_mean_annual[0:20].mean()
+                
+                # SROCC Summary Policy Makers: future global mean surface air temperature relative to 1986-2005 
+                #   + 0.63 to account fo changes from 1850-1986
+                temp_global_mean_deviation = 0.63 + temp_global_mean_annual - temp_global_mean_preindustrial
+                
+                global_mean_deviation_degC = temp_global_mean_deviation[-20:].mean()
+                
+                print(gcm_name, scenario, global_mean_deviation_degC)
+                
+                temp_dev_df.loc[ncount,'GCM'] = gcm_name
+                temp_dev_df.loc[ncount,'Scenario'] = scenario
+                temp_dev_df.loc[ncount,'global_mean_deviation_degC'] = global_mean_deviation_degC
+                
+                ncount += 1
+        temp_dev_df.to_csv(csv_fp + temp_dev_fn, index=False)
+    
+    #%% ----- FIGURE SHOWING DISTRIBUTION OF TEMPERATURES FOR VARIOUS RCP/SSP SCENARIOS -----
+    # Set up processing
+    reg_vol_all = {}
+    reg_vol_all_bwl = {}
+    reg_area_all = {} 
+    reg_runoff_all = {}
+    
+    # Set up Global region
+    reg_vol_all['all'] = {}
+    reg_vol_all_bwl['all'] = {}
+    reg_area_all['all'] = {}
+    reg_runoff_all['all'] = {}
+    for rcp in rcps:
+        reg_vol_all['all'][rcp] = {}
+        reg_vol_all_bwl['all'][rcp] = {}
+        reg_area_all['all'][rcp] = {}
+        reg_runoff_all['all'][rcp] = {}
+        if 'rcp' in rcp:
+            gcm_names = gcm_names_rcps
+        elif 'ssp' in rcp:
+            gcm_names = gcm_names_ssps
+        for gcm_name in gcm_names:
+            reg_vol_all['all'][rcp][gcm_name] = None
+            reg_vol_all_bwl['all'][rcp][gcm_name] = None
+            reg_area_all['all'][rcp][gcm_name] = None
+            reg_runoff_all['all'][rcp][gcm_name] = None
+            
+    for reg in regions:
+    
+        reg_vol_all[reg] = {}
+        reg_vol_all_bwl[reg] = {}
+        reg_area_all[reg] = {}
+        reg_runoff_all[reg] = {}
+        
+        for rcp in rcps:
+            reg_vol_all[reg][rcp] = {}
+            reg_vol_all_bwl[reg][rcp] = {}
+            reg_area_all[reg][rcp] = {}
+            reg_runoff_all[reg][rcp] = {}
+            
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                gcm_names = gcm_names_ssps
+                
+            for gcm_name in gcm_names:
+                
+                # ----- GCM/RCP PICKLE FILEPATHS AND FILENAMES -----
+                pickle_fp_reg =  pickle_fp + str(reg).zfill(2) + '/O1Regions/' + gcm_name + '/' + rcp + '/'
+                pickle_fp_watershed =  pickle_fp + str(reg).zfill(2) + '/watersheds/' + gcm_name + '/' + rcp + '/'
+                # Region string prefix
+                reg_rcp_gcm_str = 'R' + str(reg) + '_' + rcp + '_' + gcm_name
+                watershed_rcp_gcm_str = 'R' + str(reg) + '_watersheds_' + rcp + '_' + gcm_name
+                
+                # Filenames
+                fn_reg_vol_annual = reg_rcp_gcm_str + '_vol_annual.pkl' 
+                fn_reg_vol_annual_bwl = reg_rcp_gcm_str + '_vol_annual_bwl.pkl'
+                fn_reg_area_annual = reg_rcp_gcm_str + '_area_annual.pkl'
+                fn_reg_area_annual_bd = reg_rcp_gcm_str + '_area_annual_bd.pkl'
+                fn_reg_runoff_monthly_moving = reg_rcp_gcm_str + '_runoff_monthly_moving.pkl'
+                fn_watershed_runoff_monthly_moving = watershed_rcp_gcm_str + '_runoff_monthly_moving.pkl'
+                fn_reg_runoff_monthly_fixed = reg_rcp_gcm_str + '_runoff_monthly_fixed.pkl'
+                fn_watershed_runoff_monthly_fixed = watershed_rcp_gcm_str + '_runoff_monthly_fixed.pkl'
+                
+                 # Volume
+                with open(pickle_fp_reg + fn_reg_vol_annual, 'rb') as f:
+                    reg_vol_annual = pickle.load(f)
+                # Volume below sea level
+                with open(pickle_fp_reg + fn_reg_vol_annual_bwl, 'rb') as f:
+                    reg_vol_annual_bwl = pickle.load(f)
+                # Area 
+                with open(pickle_fp_reg + fn_reg_area_annual, 'rb') as f:
+                    reg_area_annual = pickle.load(f)
+                # Runoff: moving-gauged
+                with open(pickle_fp_reg + fn_reg_runoff_monthly_moving, 'rb') as f:
+                    reg_runoff_monthly_moving = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_runoff_monthly_moving, 'rb') as f:
+                    watershed_runoff_monthly_moving = pickle.load(f)
+                # Runoff: fixed-gauged
+                with open(pickle_fp_reg + fn_reg_runoff_monthly_fixed, 'rb') as f:
+                    reg_runoff_monthly_fixed = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_runoff_monthly_fixed, 'rb') as f:
+                    watershed_runoff_monthly_fixed = pickle.load(f)                   
+                    
+                reg_vol_all[reg][rcp][gcm_name] = reg_vol_annual
+                if reg_vol_annual_bwl is None:
+                    reg_vol_all_bwl[reg][rcp][gcm_name] = np.zeros(reg_vol_annual.shape)
+                else:
+                    reg_vol_all_bwl[reg][rcp][gcm_name] = reg_vol_annual_bwl
+                reg_area_all[reg][rcp][gcm_name] = reg_area_annual  
+                reg_runoff_all[reg][rcp][gcm_name] = reg_runoff_monthly_fixed
+                
+                if reg_vol_all['all'][rcp][gcm_name] is None:
+                    reg_vol_all['all'][rcp][gcm_name] = reg_vol_all[reg][rcp][gcm_name]
+                    reg_vol_all_bwl['all'][rcp][gcm_name] = reg_vol_all_bwl[reg][rcp][gcm_name]
+                    reg_area_all['all'][rcp][gcm_name] = reg_area_all[reg][rcp][gcm_name]
+                    reg_runoff_all['all'][rcp][gcm_name] = reg_runoff_all[reg][rcp][gcm_name]
+                else:
+                    reg_vol_all['all'][rcp][gcm_name] = reg_vol_all['all'][rcp][gcm_name] + reg_vol_all[reg][rcp][gcm_name]
+                    reg_vol_all_bwl['all'][rcp][gcm_name] = reg_vol_all_bwl['all'][rcp][gcm_name] + reg_vol_all_bwl[reg][rcp][gcm_name]
+                    reg_area_all['all'][rcp][gcm_name] = reg_area_all['all'][rcp][gcm_name] + reg_area_all[reg][rcp][gcm_name]
+                    reg_runoff_all['all'][rcp][gcm_name] = reg_runoff_all['all'][rcp][gcm_name] + reg_runoff_all[reg][rcp][gcm_name]
+
+    regions.append('all')
+    
+    #%% SLR for each region, gcm, and scenario
+    regions_ordered = ['all',1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    years = np.arange(2000,2101+1)
+    normyear_idx = np.where(years == normyear)[0][0]
+    if not 'SLR_mmSLE-all' in temp_dev_df.columns:
+        for reg in regions_ordered:
+            temp_dev_df['SLR_mmSLE-' + str(reg)] = np.nan
+            temp_dev_df['SLR_mmSLE_max-' + str(reg)] = np.nan
+        for scenario in rcps:
+            if 'rcp' in scenario:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in scenario:
+                gcm_names = gcm_names_ssps
+            
+            for gcm_name in gcm_names:
+                
+                ncount = temp_dev_df.loc[(temp_dev_df.Scenario==scenario) & (temp_dev_df.GCM==gcm_name)].index.values[0]
+                
+                for reg in regions_ordered:
+                    reg_vol = reg_vol_all[reg][scenario][gcm_name]
+                    reg_vol_bsl = reg_vol_all_bwl[reg][scenario][gcm_name]
+                    
+                    # Cumulative Sea-level change [mm SLE]
+                    #  - accounts for water from glaciers replacing the ice that is below sea level as well
+                    #    from Fabien's blog post: https://nbviewer.jupyter.org/gist/jmalles/ca70090812e6499b34a22a3a7a7a8f2a
+                    reg_slr = (-1*(((reg_vol[1:] - reg_vol[0:-1]) * pygem_prms.density_ice / pygem_prms.density_water - 
+                               (reg_vol_bsl[1:] - reg_vol_bsl[0:-1])) / pygem_prms.area_ocean * 1000))
+                    reg_slr_cum_raw = np.cumsum(reg_slr)
+                    reg_slr_cum = reg_slr_cum_raw - reg_slr_cum_raw[normyear_idx]
+                    
+                    reg_slr_max = reg_vol[normyear_idx] * pygem_prms.density_ice / pygem_prms.density_water / pygem_prms.area_ocean * 1000
+                    
+                    temp_dev_df.loc[ncount,'SLR_mmSLE-' + str(reg)] = reg_slr_cum[-1]
+                    temp_dev_df.loc[ncount,'SLR_mmSLE_max-' + str(reg)] = reg_slr_max
+
+        temp_dev_df.to_csv(csv_fp + temp_dev_fn, index=False)
+                    
+    #%% ----- FIGURE: CUMULATIVE SEA-LEVEL RISE -----
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,1,1])
+    ax.patch.set_facecolor('none')
+        
+    for scenario in rcps:
+        temp_dev_df_subset = temp_dev_df.loc[temp_dev_df['Scenario'] == scenario]
+        
+        if scenario.startswith('ssp'):
+            marker = 'o'
+        else:
+            marker = 'd'
+        ax.plot(temp_dev_df_subset['global_mean_deviation_degC'], temp_dev_df_subset['SLR_mmSLE-all'], 
+                linewidth=0, marker=marker, mec=rcp_colordict[scenario], mew=1, mfc='none', label=scenario)
+    
+    ax.set_xlabel('Global mean temperature change (-)')
+    ax.set_ylabel('Sea level rise (mm SLE)', size=12)
+#    ax.set_xlim(startyear, endyear)
+    ax.xaxis.set_major_locator(MultipleLocator(1))
+    ax.xaxis.set_minor_locator(MultipleLocator(0.5))
+#    ax.set_ylim(0,1.1)
+    ax.yaxis.set_major_locator(MultipleLocator(25))
+    ax.yaxis.set_minor_locator(MultipleLocator(5))
+    ax.tick_params(axis='both', which='major', direction='inout', right=True)
+    ax.tick_params(axis='both', which='minor', direction='in', right=True)
+    
+    ax.legend(labels=['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5'],
+              loc=(0.02,0.75), fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25,
+              borderpad=0.1, ncol=2, columnspacing=0.5, frameon=True)
+    
+    # Save figure
+    fig_fn = 'Temp_vs_SLR-global.png'
+    fig.set_size_inches(4,3)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+
+    #%% ----- FIGURE: CUMULATIVE SEA-LEVEL RISE REGIONAL -----
+    fig = plt.figure()
+    gs = fig.add_gridspec(nrows=6,ncols=4,wspace=0.3,hspace=0.4)
+    ax1 = fig.add_subplot(gs[0:2,0:2])
+    ax2 = fig.add_subplot(gs[0,3])
+    ax3 = fig.add_subplot(gs[1,2])
+    ax4 = fig.add_subplot(gs[1,3])
+    ax5 = fig.add_subplot(gs[2,0])
+    ax6 = fig.add_subplot(gs[2,1])
+    ax7 = fig.add_subplot(gs[2,2])
+    ax8 = fig.add_subplot(gs[2,3])
+    ax9 = fig.add_subplot(gs[3,0])
+    ax10 = fig.add_subplot(gs[3,1])
+    ax11 = fig.add_subplot(gs[3,2])
+    ax12 = fig.add_subplot(gs[3,3])
+    ax13 = fig.add_subplot(gs[4,0])
+    ax14 = fig.add_subplot(gs[4,1])
+    ax15 = fig.add_subplot(gs[4,2])
+    ax16 = fig.add_subplot(gs[4,3])
+    ax17 = fig.add_subplot(gs[5,0])
+    ax18 = fig.add_subplot(gs[5,1])
+    ax19 = fig.add_subplot(gs[5,2])
+    ax20 = fig.add_subplot(gs[5,3])
+    
+    regions_ordered = ['all',19,3,1,5,9,4,7,17,13,6,14,2,15,8,10,11,16,12,18]
+    for nax, ax in enumerate([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax18,ax19,ax20]):
+        
+        reg = regions_ordered[nax]            
+    
+        slr_max = 0
+        for scenario in rcps:
+            temp_dev_df_subset = temp_dev_df.loc[temp_dev_df['Scenario'] == scenario]
+            if scenario.startswith('ssp'):
+                marker = 'o'
+            else:
+                marker = 'd'
+            ax.plot(temp_dev_df_subset['global_mean_deviation_degC'], temp_dev_df_subset['SLR_mmSLE-' + str(reg)], 
+                    linewidth=0, marker=marker, mec=rcp_colordict[scenario], mew=1, mfc='none', label=scenario)
+            
+            if temp_dev_df_subset['SLR_mmSLE_max-' + str(reg)].mean() > slr_max:
+                slr_max = temp_dev_df_subset['SLR_mmSLE_max-' + str(reg)].mean()
+        
+        ax.hlines(slr_max, 0, 7, color='k', linewidth=0.5)
+            
+        
+        ax.set_xlim(0,7)
+        ax.xaxis.set_major_locator(MultipleLocator(1))
+        ax.xaxis.set_minor_locator(MultipleLocator(0.5))
+        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+            
+        if reg in ['all']:
+            ax.set_ylim(0,270)
+            ax.yaxis.set_major_locator(MultipleLocator(50))
+            ax.yaxis.set_minor_locator(MultipleLocator(10))
+        if reg in [19, 3, 1]:
+            ax.set_ylim(0,52)
+            ax.yaxis.set_major_locator(MultipleLocator(10))
+            ax.yaxis.set_minor_locator(MultipleLocator(5))    
+        elif reg in [5, 9]:
+            ax.set_ylim(0,33)
+            ax.yaxis.set_major_locator(MultipleLocator(10))
+            ax.yaxis.set_minor_locator(MultipleLocator(5)) 
+        elif reg in [4, 7]:
+            ax.set_ylim(0,23)
+            ax.yaxis.set_major_locator(MultipleLocator(10))
+            ax.yaxis.set_minor_locator(MultipleLocator(5)) 
+        elif reg in [17, 13, 6, 14]:
+            ax.set_ylim(0,13)
+            ax.yaxis.set_major_locator(MultipleLocator(5))
+            ax.yaxis.set_minor_locator(MultipleLocator(1))
+        elif reg in [15, 2]:
+            ax.set_ylim(0,2.7)
+            ax.yaxis.set_major_locator(MultipleLocator(1))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.2)) 
+        elif reg in [8]:
+            ax.set_ylim(0,0.8)
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
+        elif reg in [10, 11, 16]:
+            ax.set_ylim(0,0.32)
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
+        elif reg in [12, 18]:
+            ax.set_ylim(0,0.22)
+            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
+        
+        if nax == 0:
+            label_height=1.06
+        else:
+            label_height=1.14
+        ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+                verticalalignment='top', transform=ax.transAxes)
+        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+        
+        
+        if nax == 1:
+            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'rcp26' in rcps and len(rcps) == 3:
+                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
+            elif 'ssp126' in rcp and len(rcps) == 4:
+                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
+            ax.legend(loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
+                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+                      )
+    fig.text(0.5,0.08,'Global mean temperature change (-)', fontsize=12, horizontalalignment='center', verticalalignment='bottom')
+    fig.text(0.07,0.5,'Sea level rise (mm SLE)', size=12, horizontalalignment='center', verticalalignment='top', rotation=90)
+    
+    # Save figure
+    fig_fn = 'Temp_vs_SLR-regional.png'
+    fig.set_size_inches(8.5,11)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
+    
+#%% ===== MASS BALANCE SENSITIVITY FIGURES =====     
+if option_sensitivity_figs:
+    regions = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+    gcm_names_rcps = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
+                      'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
+    gcm_names_ssps = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
+                      'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
+    rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585', 'rcp26', 'rcp45', 'rcp85']
+
+    mb_sens_fn = 'mb_sensitivity_test.csv'
+    
+    fig_fp_multigcm = fig_fp + 'multi_gcm/'
+    
+    fn_reg_temp_all = 'reg_temp_all.pkl'
+    fn_reg_temp_all_monthly = 'reg_temp_all_monthly.pkl'
+    fn_reg_prec_all = 'reg_prec_all.pkl'
+    fn_reg_prec_all_monthly = 'reg_prec_all_monthly.pkl'
+            
+    
+    if os.path.exists(pickle_fp + fn_reg_temp_all):
+        
+        with open(pickle_fp + fn_reg_temp_all, 'rb') as f:
+            reg_temp_all = pickle.load(f)
+        with open(pickle_fp + fn_reg_temp_all_monthly, 'rb') as f:
+            reg_temp_all_monthly = pickle.load(f)
+        with open(pickle_fp + fn_reg_prec_all, 'rb') as f:
+            reg_prec_all = pickle.load(f)
+        with open(pickle_fp + fn_reg_prec_all_monthly, 'rb') as f:
+            reg_prec_all_monthly = pickle.load(f)
+        
+    else:
+    
+        reg_temp_all = {}
+        reg_temp_all_monthly = {}
+        reg_prec_all = {}
+        reg_prec_all_monthly = {}
+        
+        # Set up regions
+        for reg in regions:
+            reg_temp_all[reg] = {}
+            reg_temp_all_monthly[reg] = {}
+            reg_prec_all[reg] = {}
+            reg_prec_all_monthly[reg] = {}
+    
+            for rcp in rcps:
+                reg_temp_all[reg][rcp] = {}
+                reg_temp_all_monthly[reg][rcp] = {}
+                reg_prec_all[reg][rcp] = {}
+                reg_prec_all_monthly[reg][rcp] = {}
+        
+        # Set up Global and All regions
+        #  - global includes every pixel
+        #  - all includes only glacierized pixels
+        reg_temp_all['all'] = {}
+        reg_temp_all_monthly['all'] = {}
+        reg_prec_all['all'] = {}
+        reg_prec_all_monthly['all'] = {}
+        reg_temp_all['global'] = {}
+        reg_temp_all_monthly['global'] = {}
+        reg_prec_all['global'] = {}
+        reg_prec_all_monthly['global'] = {}
+    
+        for rcp in rcps:
+            reg_temp_all['all'][rcp] = {}
+            reg_temp_all_monthly['all'][rcp] = {}
+            reg_prec_all['all'][rcp] = {}
+            reg_prec_all_monthly['all'][rcp] = {}
+            reg_temp_all['global'][rcp] = {}
+            reg_temp_all_monthly['global'][rcp] = {}
+            reg_prec_all['global'][rcp] = {}
+            reg_prec_all_monthly['global'][rcp] = {}
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                gcm_names = gcm_names_ssps
+        
+            dates_table = modelsetup.datesmodelrun(startyear=2000, endyear=2100, spinupyears=0)
+            
+            scenario = rcp
+            
+            if 'rcp' in scenario:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in scenario:
+                gcm_names = gcm_names_ssps
+            
+            for gcm_name in gcm_names:
+    
+                if scenario.startswith('ssp'):
+                    # Variable names
+                    temp_vn = 'tas'
+                    prec_vn = 'pr'
+                    elev_vn = 'orog'
+                    lat_vn = 'lat'
+                    lon_vn = 'lon'
+                    time_vn = 'time'
+                    # Variable filenames
+                    temp_fn = gcm_name + '_' + scenario + '_r1i1p1f1_' + temp_vn + '.nc'
+                    prec_fn = gcm_name + '_' + scenario + '_r1i1p1f1_' + prec_vn + '.nc'
+                    elev_fn = gcm_name + '_' + elev_vn + '.nc'
+                    # Variable filepaths
+                    var_fp = pygem_prms.cmip6_fp_prefix + gcm_name + '/'
+                    fx_fp = pygem_prms.cmip6_fp_prefix + gcm_name + '/'
+                    # Extra information
+                    timestep = pygem_prms.timestep
+                        
+                elif scenario.startswith('rcp'):
+                    # Variable names
+                    temp_vn = 'tas'
+                    prec_vn = 'pr'
+                    elev_vn = 'orog'
+                    lat_vn = 'lat'
+                    lon_vn = 'lon'
+                    time_vn = 'time'
+                    # Variable filenames
+                    temp_fn = temp_vn + '_mon_' + gcm_name + '_' + scenario + '_r1i1p1_native.nc'
+                    prec_fn = prec_vn + '_mon_' + gcm_name + '_' + scenario + '_r1i1p1_native.nc'
+                    elev_fn = elev_vn + '_fx_' + gcm_name + '_' + scenario + '_r0i0p0.nc'
+                    # Variable filepaths
+                    var_fp = pygem_prms.cmip5_fp_var_prefix + scenario + pygem_prms.cmip5_fp_var_ending
+                    fx_fp = pygem_prms.cmip5_fp_fx_prefix + scenario + pygem_prms.cmip5_fp_fx_ending
+                    # Extra information
+                    timestep = pygem_prms.timestep
+                        
+                ds_temp = xr.open_dataset(var_fp + temp_fn)
+                ds_prec = xr.open_dataset(var_fp + prec_fn)
+                
+                start_idx = (np.where(pd.Series(ds_temp[time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
+                                      dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
+                end_idx = (np.where(pd.Series(ds_temp[time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
+                                    dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[dates_table.shape[0] - 1]))[0][0]              
+        
+                time_series = pd.Series(ds_temp[time_vn][start_idx:end_idx+1])
+                years = np.array([x.year for x in time_series][::12])
+    
+                # Global statistics
+                if 'expver' in ds_temp.keys():
+                    expver_idx = 0
+                    temp_all = ds_temp[temp_vn][start_idx:end_idx+1, expver_idx, :, :].values
+                    prec_all = ds_prec[prec_vn][start_idx:end_idx+1, expver_idx, :, :].values
+                else:
+                    temp_all = ds_temp[temp_vn][start_idx:end_idx+1, :, :].values
+                    prec_all = ds_prec[prec_vn][start_idx:end_idx+1, :, :].values
+                    
+                # Correct precipitaiton to monthly
+                if 'units' in ds_prec[prec_vn].attrs and ds_prec[prec_vn].attrs['units'] == 'kg m-2 s-1':  
+                    # Convert from kg m-2 s-1 to m day-1
+                    prec_all = prec_all/1000*3600*24
+                    #   (1 kg m-2 s-1) * (1 m3/1000 kg) * (3600 s / hr) * (24 hr / day) = (m day-1)
+                # Else check the variables units
+                else:
+                    print('Check units of precipitation from GCM is meters per day.')
+                # Convert from meters per day to meters per month (COAWST data already 'monthly accumulated precipitation')
+                if 'daysinmonth' in dates_table.columns:
+                    prec_all = prec_all * dates_table['daysinmonth'].values[:,np.newaxis,np.newaxis]
+                    
+                temp_global_mean_monthly = temp_all.mean(2).mean(1)
+                temp_global_mean_annual = temp_global_mean_monthly.reshape(-1,12).mean(axis=1)
+                
+                prec_global_mean_monthly = prec_all.mean(2).mean(1)
+                prec_global_sum_annual = prec_global_mean_monthly.reshape(-1,12).sum(axis=1)
+                
+                reg_temp_all['global'][rcp][gcm_name] = temp_global_mean_annual
+                reg_temp_all_monthly['global'][rcp][gcm_name] = temp_global_mean_monthly
+                reg_prec_all['global'][rcp][gcm_name] = prec_global_sum_annual
+                reg_prec_all_monthly['global'][rcp][gcm_name] = prec_global_mean_monthly
+                
+                # Regional statistics
+                for nreg, reg in enumerate(regions):
+                    # Glaciers
+                    fn_reg_glacno_list = 'R' + str(reg) + '_glacno_list.pkl'
+                    with open(pickle_fp + str(reg).zfill(2) + '/' + fn_reg_glacno_list, 'rb') as f:
+                        glacno_list = pickle.load(f)
+                        
+                    main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glacno_list)
+                        
+                    #  argmin() finds the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
+                    #  extract the position's value as opposed to having an array
+                    lat_nearidx = (np.abs(main_glac_rgi[pygem_prms.rgi_lat_colname].values[:,np.newaxis] - 
+                                          ds_temp.variables[lat_vn][:].values).argmin(axis=1))
+                    lon_nearidx = (np.abs(main_glac_rgi[pygem_prms.rgi_lon_colname].values[:,np.newaxis] - 
+                                          ds_temp.variables[lon_vn][:].values).argmin(axis=1))
+                    # Find unique latitude/longitudes
+                    latlon_nearidx = list(zip(lat_nearidx, lon_nearidx))
+                    latlon_nearidx_unique = list(set(latlon_nearidx))
+                    # Create dictionary of time series for each unique latitude/longitude
+                    temp_reg_latlon = {}
+                    prec_reg_latlon = {}
+                    for latlon in latlon_nearidx_unique:                
+                        if 'expver' in ds_temp.keys():
+                            expver_idx = 0
+                            temp_reg_latlon[latlon] = ds_temp[temp_vn][start_idx:end_idx+1, expver_idx, latlon[0], latlon[1]].values
+                            prec_reg_latlon[latlon] = ds_prec[prec_vn][start_idx:end_idx+1, expver_idx, latlon[0], latlon[1]].values
+                        else:
+                            temp_reg_latlon[latlon] = ds_temp[temp_vn][start_idx:end_idx+1, latlon[0], latlon[1]].values
+                            prec_reg_latlon[latlon] = ds_prec[prec_vn][start_idx:end_idx+1, latlon[0], latlon[1]].values
+    
+                    # Convert to regional mean
+                    temp_reg_all = np.array([temp_reg_latlon[x] for x in latlon_nearidx_unique])
+                    temp_reg_mean_monthly = temp_reg_all.mean(axis=0)
+                    temp_reg_mean_annual = temp_reg_mean_monthly.reshape(-1,12).mean(axis=1)
+                    
+                    prec_reg_all = np.array([prec_reg_latlon[x] for x in latlon_nearidx_unique])
+                    prec_reg_mean_monthly = prec_reg_all.mean(axis=0)
+                    # Correct precipitation to monthly
+                    if 'units' in ds_prec[prec_vn].attrs and ds_prec[prec_vn].attrs['units'] == 'kg m-2 s-1':  
+                        # Convert from kg m-2 s-1 to m day-1
+                        prec_reg_mean_monthly = prec_reg_mean_monthly/1000*3600*24
+                        #   (1 kg m-2 s-1) * (1 m3/1000 kg) * (3600 s / hr) * (24 hr / day) = (m day-1)
+                    else:
+                        print('Check units of precipitation from GCM is meters per day.')
+                    # Convert from meters per day to meters per month (COAWST data already 'monthly accumulated precipitation')
+                    if 'daysinmonth' in dates_table.columns:
+                        prec_reg_mean_monthly = prec_reg_mean_monthly * dates_table['daysinmonth'].values
+                    prec_reg_sum_annual = prec_reg_mean_monthly.reshape(-1,12).sum(axis=1)
+                    
+                    # Record data
+                    reg_temp_all[reg][rcp][gcm_name] = temp_reg_mean_annual
+                    reg_temp_all_monthly[reg][rcp][gcm_name] = temp_reg_mean_monthly
+                    reg_prec_all[reg][rcp][gcm_name] = prec_reg_sum_annual
+                    reg_prec_all_monthly[reg][rcp][gcm_name] = prec_reg_mean_monthly
+                    
+                    
+                    if nreg == 0:
+                        temp_reg_all_raw = temp_reg_all
+                        prec_reg_all_raw = prec_reg_all                    
+                    else:
+                        temp_reg_all_raw = np.concatenate((temp_reg_all_raw, temp_reg_all), axis=0)
+                        prec_reg_all_raw = np.concatenate((prec_reg_all_raw, prec_reg_all), axis=0)
+                    
+                # All glacierized statistics
+                temp_reg_all = temp_reg_all_raw
+                temp_reg_mean_monthly = temp_reg_all.mean(axis=0)
+                temp_reg_mean_annual = temp_reg_mean_monthly.reshape(-1,12).mean(axis=1)
+                
+                prec_reg_all = prec_reg_all_raw
+                prec_reg_mean_monthly = prec_reg_all.mean(axis=0)
+                # Correct precipitation to monthly
+                if 'units' in ds_prec[prec_vn].attrs and ds_prec[prec_vn].attrs['units'] == 'kg m-2 s-1':  
+                    # Convert from kg m-2 s-1 to m day-1
+                    prec_reg_mean_monthly = prec_reg_mean_monthly/1000*3600*24
+                    #   (1 kg m-2 s-1) * (1 m3/1000 kg) * (3600 s / hr) * (24 hr / day) = (m day-1)
+                else:
+                    print('Check units of precipitation from GCM is meters per day.')
+                # Convert from meters per day to meters per month (COAWST data already 'monthly accumulated precipitation')
+                if 'daysinmonth' in dates_table.columns:
+                    prec_reg_mean_monthly = prec_reg_mean_monthly * dates_table['daysinmonth'].values
+                prec_reg_sum_annual = prec_reg_mean_monthly.reshape(-1,12).sum(axis=1)
+                
+                # Record data
+                reg_temp_all['all'][rcp][gcm_name] = temp_reg_mean_annual
+                reg_temp_all_monthly['all'][rcp][gcm_name] = temp_reg_mean_monthly
+                reg_prec_all['all'][rcp][gcm_name] = prec_reg_sum_annual
+                reg_prec_all_monthly['all'][rcp][gcm_name] = prec_reg_mean_monthly
+        
+        
+        with open(pickle_fp + fn_reg_temp_all, 'wb') as f:
+            pickle.dump(reg_temp_all, f)
+        with open(pickle_fp + fn_reg_temp_all_monthly, 'wb') as f:
+            pickle.dump(reg_temp_all_monthly, f)
+        with open(pickle_fp + fn_reg_prec_all, 'wb') as f:
+            pickle.dump(reg_prec_all, f)
+        with open(pickle_fp + fn_reg_prec_all_monthly, 'wb') as f:
+            pickle.dump(reg_prec_all_monthly, f)
+            
+            #%%
+            
+            
+            
+            
+    #%% ----- FIGURE SHOWING DISTRIBUTION OF TEMPERATURES FOR VARIOUS RCP/SSP SCENARIOS -----
+    # Set up processing
+    reg_vol_all = {}
+    reg_vol_all_bwl = {}
+    reg_area_all = {} 
+    reg_runoff_all = {}
+    reg_mb_all_monthly = {}
+    
+    # Set up Global region
+    reg_vol_all['all'] = {}
+    reg_vol_all_bwl['all'] = {}
+    reg_area_all['all'] = {}
+    reg_runoff_all['all'] = {}
+    reg_mb_all_monthly['all'] = {}
+    for rcp in rcps:
+        reg_vol_all['all'][rcp] = {}
+        reg_vol_all_bwl['all'][rcp] = {}
+        reg_area_all['all'][rcp] = {}
+        reg_runoff_all['all'][rcp] = {}
+        reg_mb_all_monthly['all'][rcp] = {}
+        if 'rcp' in rcp:
+            gcm_names = gcm_names_rcps
+        elif 'ssp' in rcp:
+            gcm_names = gcm_names_ssps
+        for gcm_name in gcm_names:
+            reg_vol_all['all'][rcp][gcm_name] = None
+            reg_vol_all_bwl['all'][rcp][gcm_name] = None
+            reg_area_all['all'][rcp][gcm_name] = None
+            reg_runoff_all['all'][rcp][gcm_name] = None
+            reg_mb_all_monthly['all'][rcp][gcm_name] = None
+            
+    for reg in regions:
+    
+        reg_vol_all[reg] = {}
+        reg_vol_all_bwl[reg] = {}
+        reg_area_all[reg] = {}
+        reg_runoff_all[reg] = {}
+        reg_mb_all_monthly[reg] = {}
+        
+        for rcp in rcps:
+            reg_vol_all[reg][rcp] = {}
+            reg_vol_all_bwl[reg][rcp] = {}
+            reg_area_all[reg][rcp] = {}
+            reg_runoff_all[reg][rcp] = {}
+            reg_mb_all_monthly[reg][rcp] = {}
+            
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                gcm_names = gcm_names_ssps
+                
+            for gcm_name in gcm_names:
+                
+                # ----- GCM/RCP PICKLE FILEPATHS AND FILENAMES -----
+                pickle_fp_reg =  pickle_fp + str(reg).zfill(2) + '/O1Regions/' + gcm_name + '/' + rcp + '/'
+                pickle_fp_watershed =  pickle_fp + str(reg).zfill(2) + '/watersheds/' + gcm_name + '/' + rcp + '/'
+                # Region string prefix
+                reg_rcp_gcm_str = 'R' + str(reg) + '_' + rcp + '_' + gcm_name
+                watershed_rcp_gcm_str = 'R' + str(reg) + '_watersheds_' + rcp + '_' + gcm_name
+                
+                # Filenames
+                fn_reg_vol_annual = reg_rcp_gcm_str + '_vol_annual.pkl' 
+                fn_reg_vol_annual_bwl = reg_rcp_gcm_str + '_vol_annual_bwl.pkl'
+                fn_reg_area_annual = reg_rcp_gcm_str + '_area_annual.pkl'
+                fn_reg_area_annual_bd = reg_rcp_gcm_str + '_area_annual_bd.pkl'
+                fn_reg_mb_monthly = reg_rcp_gcm_str + '_massbaltotal_monthly.pkl'
+                fn_reg_runoff_monthly_moving = reg_rcp_gcm_str + '_runoff_monthly_moving.pkl'
+                fn_watershed_runoff_monthly_moving = watershed_rcp_gcm_str + '_runoff_monthly_moving.pkl'
+                fn_reg_runoff_monthly_fixed = reg_rcp_gcm_str + '_runoff_monthly_fixed.pkl'
+                fn_watershed_runoff_monthly_fixed = watershed_rcp_gcm_str + '_runoff_monthly_fixed.pkl'
+                
+                 # Volume
+                with open(pickle_fp_reg + fn_reg_vol_annual, 'rb') as f:
+                    reg_vol_annual = pickle.load(f)
+                # Volume below sea level
+                with open(pickle_fp_reg + fn_reg_vol_annual_bwl, 'rb') as f:
+                    reg_vol_annual_bwl = pickle.load(f)
+                # Area 
+                with open(pickle_fp_reg + fn_reg_area_annual, 'rb') as f:
+                    reg_area_annual = pickle.load(f)
+                # Mass balance monthly
+                with open(pickle_fp_reg + fn_reg_mb_monthly, 'rb') as f:
+                    reg_mb_monthly = pickle.load(f)
+                # Runoff: moving-gauged
+                with open(pickle_fp_reg + fn_reg_runoff_monthly_moving, 'rb') as f:
+                    reg_runoff_monthly_moving = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_runoff_monthly_moving, 'rb') as f:
+                    watershed_runoff_monthly_moving = pickle.load(f)
+                # Runoff: fixed-gauged
+                with open(pickle_fp_reg + fn_reg_runoff_monthly_fixed, 'rb') as f:
+                    reg_runoff_monthly_fixed = pickle.load(f)
+                with open(pickle_fp_watershed + fn_watershed_runoff_monthly_fixed, 'rb') as f:
+                    watershed_runoff_monthly_fixed = pickle.load(f)                   
+                    
+                reg_vol_all[reg][rcp][gcm_name] = reg_vol_annual
+                if reg_vol_annual_bwl is None:
+                    reg_vol_all_bwl[reg][rcp][gcm_name] = np.zeros(reg_vol_annual.shape)
+                else:
+                    reg_vol_all_bwl[reg][rcp][gcm_name] = reg_vol_annual_bwl
+                reg_area_all[reg][rcp][gcm_name] = reg_area_annual  
+                reg_mb_all_monthly[reg][rcp][gcm_name] = reg_mb_monthly  
+                reg_runoff_all[reg][rcp][gcm_name] = reg_runoff_monthly_fixed
+                
+                if reg_vol_all['all'][rcp][gcm_name] is None:
+                    reg_vol_all['all'][rcp][gcm_name] = reg_vol_all[reg][rcp][gcm_name]
+                    reg_vol_all_bwl['all'][rcp][gcm_name] = reg_vol_all_bwl[reg][rcp][gcm_name]
+                    reg_area_all['all'][rcp][gcm_name] = reg_area_all[reg][rcp][gcm_name]
+                    reg_mb_all_monthly['all'][rcp][gcm_name] = reg_mb_all_monthly[reg][rcp][gcm_name]
+                    reg_runoff_all['all'][rcp][gcm_name] = reg_runoff_all[reg][rcp][gcm_name]
+                else:
+                    reg_vol_all['all'][rcp][gcm_name] = reg_vol_all['all'][rcp][gcm_name] + reg_vol_all[reg][rcp][gcm_name]
+                    reg_vol_all_bwl['all'][rcp][gcm_name] = reg_vol_all_bwl['all'][rcp][gcm_name] + reg_vol_all_bwl[reg][rcp][gcm_name]
+                    reg_area_all['all'][rcp][gcm_name] = reg_area_all['all'][rcp][gcm_name] + reg_area_all[reg][rcp][gcm_name]
+                    reg_mb_all_monthly['all'][rcp][gcm_name] = reg_mb_all_monthly['all'][rcp][gcm_name] + reg_mb_all_monthly[reg][rcp][gcm_name]
+                    reg_runoff_all['all'][rcp][gcm_name] = reg_runoff_all['all'][rcp][gcm_name] + reg_runoff_all[reg][rcp][gcm_name]
+
+    regions.append('all')
+    
+    # Add the annual mass balance (separately to get global value properly)
+    # Mass balance monthly is m3we, while mass balance below is in mm w.e. yr-1
+    reg_mb_all = {}
+    for reg in regions:
+        reg_mb_all[reg] = {}
+        
+        for rcp in rcps:
+            reg_mb_all[reg][rcp] = {}
+            
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                gcm_names = gcm_names_ssps
+                
+            for gcm_name in gcm_names:
+                
+                # Specific mass balance
+                reg_vol = reg_vol_all[reg][rcp][gcm_name]
+                reg_area = reg_area_all[reg][rcp][gcm_name]
+                reg_mass = reg_vol * pygem_prms.density_ice
+                reg_mb = (reg_mass[1:] - reg_mass[0:-1]) / reg_area[0:-1]
+                
+                reg_mb_all[reg][rcp][gcm_name] = reg_mb
+                
+                # Convert monthly mass balance to same units (note will be slightly off due to averaging time scales)
+                # kg m-2 yr-1, which equals mm w.e. yr-1
+                reg_mb_monthly = reg_mb_all_monthly[reg][rcp][gcm_name]
+                reg_mb_all_monthly[reg][rcp][gcm_name] = reg_mb_monthly / np.repeat(reg_area[0:-1],12) * 1000
+                
+    #%%  ===== MASS BALANCE SENSITIVITY =====
+    for reg in regions:
+        for rcp in rcps:
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                gcm_names = gcm_names_ssps
+                
+            for gcm_name in gcm_names:
+                
+                years_present = [2000,2020]
+                years_future = [2080,2100]
+                idx_present = [np.where(years==years_present[0])[0][0],
+                               np.where(years==years_present[1])[0][0]]
+                idx_future = [np.where(years==years_future[0])[0][0],
+                              np.where(years==years_future[1])[0][0]]
+                
+                # Mass balance sensitivity
+                reg_mb = reg_mb_all[reg][rcp][gcm_name]
+                reg_temp = reg_temp_all[reg][rcp][gcm_name]
+                
+                reg_mb_sens = ((np.mean(reg_mb[idx_future[0]:idx_future[1]]) - np.mean(reg_mb[idx_present[0]:idx_present[1]])) / 
+                               (np.mean(reg_temp[idx_future[0]:idx_future[1]]) - np.mean(reg_temp[idx_present[0]:idx_present[1]])))
+                
+                print(reg, rcp, gcm_name, np.round(reg_mb_sens))
+                
+                
+    print('pickle datasets!')
+                
+    #%%
+#    fig = plt.figure()
+#    gs = fig.add_gridspec(nrows=6,ncols=4,wspace=0.3,hspace=0.4)
+#    ax1 = fig.add_subplot(gs[0:2,0:2])
+#    ax2 = fig.add_subplot(gs[0,3])
+#    ax3 = fig.add_subplot(gs[1,2])
+#    ax4 = fig.add_subplot(gs[1,3])
+#    ax5 = fig.add_subplot(gs[2,0])
+#    ax6 = fig.add_subplot(gs[2,1])
+#    ax7 = fig.add_subplot(gs[2,2])
+#    ax8 = fig.add_subplot(gs[2,3])
+#    ax9 = fig.add_subplot(gs[3,0])
+#    ax10 = fig.add_subplot(gs[3,1])
+#    ax11 = fig.add_subplot(gs[3,2])
+#    ax12 = fig.add_subplot(gs[3,3])
+#    ax13 = fig.add_subplot(gs[4,0])
+#    ax14 = fig.add_subplot(gs[4,1])
+#    ax15 = fig.add_subplot(gs[4,2])
+#    ax16 = fig.add_subplot(gs[4,3])
+#    ax17 = fig.add_subplot(gs[5,0])
+#    ax18 = fig.add_subplot(gs[5,1])
+#    ax19 = fig.add_subplot(gs[5,2])
+#    ax20 = fig.add_subplot(gs[5,3])
+#    
+#    regions_ordered = ['all',19,3,1,5,9,4,7,17,13,6,14,2,15,8,10,11,16,12,18]
+#    for nax, ax in enumerate([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax18,ax19,ax20]):
+#        
+#        reg = regions_ordered[nax]
+#
+#        for rcp in rcps:
+#            
+#            # Median and absolute median deviation
+#            reg_vol = ds_multigcm_vol[reg][rcp]
+#            reg_mass = reg_vol * pygem_prms.density_ice
+#            reg_area = ds_multigcm_area[reg][rcp]
+#
+#            # Specific mass change rate
+#            reg_mb = (reg_mass[:,1:] - reg_mass[:,0:-1]) / reg_area[:,0:-1]
+#            reg_mb_med = np.median(reg_mb, axis=0)
+#            reg_mb_mad = median_abs_deviation(reg_mb, axis=0)
+#            
+#            ax.plot(years[0:-1], reg_mb_med / 1000, color=rcp_colordict[rcp], linestyle=rcp_styledict[rcp], 
+#                    linewidth=1, zorder=4, label=rcp)
+#            if rcp in rcps_plot_mad:
+#                ax.fill_between(years[0:-1], 
+#                                (reg_mb_med + 1.96*reg_mb_mad) / 1000, 
+#                                (reg_mb_med - 1.96*reg_mb_mad) / 1000, 
+#                                alpha=0.35, facecolor=rcp_colordict[rcp], label=None)
+#        
+#        if ax in [ax1,ax5,ax9,ax13,ax17]:
+##            ax.set_ylabel('$\Delta$M/$\Delta$t (m w.e. yr$^{-1}$)')
+#            ax.set_ylabel('$\Delta$M/$\Delta$t\n(10$^{3}$ kg m$^{-2}$ yr$^{-1}$)')
+#        ax.set_xlim(startyear, endyear)
+#        ax.xaxis.set_major_locator(MultipleLocator(50))
+#        ax.xaxis.set_minor_locator(MultipleLocator(10))
+#        ax.plot(years,np.zeros(years.shape), color='k', linewidth=0.5)
+#        ax.set_ylim(-5.5,0.5)
+#        ax.yaxis.set_major_locator(MultipleLocator(1))
+#        ax.yaxis.set_minor_locator(MultipleLocator(0.5))
+#        if nax == 0:
+#            label_height=1.06
+#        else:
+#            label_height=1.14
+#        ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+#                verticalalignment='top', transform=ax.transAxes)
+#        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+#        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+#        
+#        if nax == 1:
+#            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
+#                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
+#            elif 'rcp26' in rcps and len(rcps) == 3:
+#                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
+#            elif 'ssp126' in rcp and len(rcps) == 4:
+#                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
+#            ax.legend(loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
+#                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+#                      )
+#    # Save figure
+#    if 'rcp26' in rcps and 'ssp126' in rcps:
+#        scenario_str = 'rcps_ssps'
+#    elif 'rcp26' in rcps:
+#        scenario_str = 'rcps'
+#    elif 'ssp126' in rcp:
+#        scenario_str = 'ssps'
+#    fig_fn = ('allregions_mb_' + str(startyear) + '-' + str(endyear) + '_multigcm' + 
+#              '-' + scenario_str + '.png')
+#    fig.set_size_inches(8.5,11)
+#    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+    
+    
+    #%% SLR for each region, gcm, and scenario
+#    regions_ordered = ['all',1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+#    years = np.arange(2000,2101+1)
+#    normyear_idx = np.where(years == normyear)[0][0]
+#    if not 'SLR_mmSLE-all' in temp_dev_df.columns:
+#        for reg in regions_ordered:
+#            temp_dev_df['SLR_mmSLE-' + str(reg)] = np.nan
+#            temp_dev_df['SLR_mmSLE_max-' + str(reg)] = np.nan
+#        for scenario in rcps:
+#            if 'rcp' in scenario:
+#                gcm_names = gcm_names_rcps
+#            elif 'ssp' in scenario:
+#                gcm_names = gcm_names_ssps
+#            
+#            for gcm_name in gcm_names:
+#                
+#                ncount = temp_dev_df.loc[(temp_dev_df.Scenario==scenario) & (temp_dev_df.GCM==gcm_name)].index.values[0]
+#                
+#                for reg in regions_ordered:
+#                    reg_vol = reg_vol_all[reg][scenario][gcm_name]
+#                    reg_vol_bsl = reg_vol_all_bwl[reg][scenario][gcm_name]
+#                    
+#                    # Cumulative Sea-level change [mm SLE]
+#                    #  - accounts for water from glaciers replacing the ice that is below sea level as well
+#                    #    from Fabien's blog post: https://nbviewer.jupyter.org/gist/jmalles/ca70090812e6499b34a22a3a7a7a8f2a
+#                    reg_slr = (-1*(((reg_vol[1:] - reg_vol[0:-1]) * pygem_prms.density_ice / pygem_prms.density_water - 
+#                               (reg_vol_bsl[1:] - reg_vol_bsl[0:-1])) / pygem_prms.area_ocean * 1000))
+#                    reg_slr_cum_raw = np.cumsum(reg_slr)
+#                    reg_slr_cum = reg_slr_cum_raw - reg_slr_cum_raw[normyear_idx]
+#                    
+#                    reg_slr_max = reg_vol[normyear_idx] * pygem_prms.density_ice / pygem_prms.density_water / pygem_prms.area_ocean * 1000
+#                    
+#                    temp_dev_df.loc[ncount,'SLR_mmSLE-' + str(reg)] = reg_slr_cum[-1]
+#                    temp_dev_df.loc[ncount,'SLR_mmSLE_max-' + str(reg)] = reg_slr_max
+#
+#        temp_dev_df.to_csv(csv_fp + temp_dev_fn, index=False)
+#                    
+#    #%% ----- FIGURE: CUMULATIVE SEA-LEVEL RISE -----
+#    fig = plt.figure()
+#    ax = fig.add_axes([0,0,1,1])
+#    ax.patch.set_facecolor('none')
+#        
+#    for scenario in rcps:
+#        temp_dev_df_subset = temp_dev_df.loc[temp_dev_df['Scenario'] == scenario]
+#        
+#        if scenario.startswith('ssp'):
+#            marker = 'o'
+#        else:
+#            marker = 'd'
+#        ax.plot(temp_dev_df_subset['global_mean_deviation_degC'], temp_dev_df_subset['SLR_mmSLE-all'], 
+#                linewidth=0, marker=marker, mec=rcp_colordict[scenario], mew=1, mfc='none', label=scenario)
+#    
+#    ax.set_xlabel('Global mean temperature change (-)')
+#    ax.set_ylabel('Sea level rise (mm SLE)', size=12)
+##    ax.set_xlim(startyear, endyear)
+#    ax.xaxis.set_major_locator(MultipleLocator(1))
+#    ax.xaxis.set_minor_locator(MultipleLocator(0.5))
+##    ax.set_ylim(0,1.1)
+#    ax.yaxis.set_major_locator(MultipleLocator(25))
+#    ax.yaxis.set_minor_locator(MultipleLocator(5))
+#    ax.tick_params(axis='both', which='major', direction='inout', right=True)
+#    ax.tick_params(axis='both', which='minor', direction='in', right=True)
+#    
+#    ax.legend(labels=['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5'],
+#              loc=(0.02,0.75), fontsize=10, labelspacing=0.25, handlelength=1, handletextpad=0.25,
+#              borderpad=0.1, ncol=2, columnspacing=0.5, frameon=True)
+#    
+#    # Save figure
+#    fig_fn = 'Temp_vs_SLR-global.png'
+#    fig.set_size_inches(4,3)
+#    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+#
+#    #%% ----- FIGURE: CUMULATIVE SEA-LEVEL RISE REGIONAL -----
+#    fig = plt.figure()
+#    gs = fig.add_gridspec(nrows=6,ncols=4,wspace=0.3,hspace=0.4)
+#    ax1 = fig.add_subplot(gs[0:2,0:2])
+#    ax2 = fig.add_subplot(gs[0,3])
+#    ax3 = fig.add_subplot(gs[1,2])
+#    ax4 = fig.add_subplot(gs[1,3])
+#    ax5 = fig.add_subplot(gs[2,0])
+#    ax6 = fig.add_subplot(gs[2,1])
+#    ax7 = fig.add_subplot(gs[2,2])
+#    ax8 = fig.add_subplot(gs[2,3])
+#    ax9 = fig.add_subplot(gs[3,0])
+#    ax10 = fig.add_subplot(gs[3,1])
+#    ax11 = fig.add_subplot(gs[3,2])
+#    ax12 = fig.add_subplot(gs[3,3])
+#    ax13 = fig.add_subplot(gs[4,0])
+#    ax14 = fig.add_subplot(gs[4,1])
+#    ax15 = fig.add_subplot(gs[4,2])
+#    ax16 = fig.add_subplot(gs[4,3])
+#    ax17 = fig.add_subplot(gs[5,0])
+#    ax18 = fig.add_subplot(gs[5,1])
+#    ax19 = fig.add_subplot(gs[5,2])
+#    ax20 = fig.add_subplot(gs[5,3])
+#    
+#    regions_ordered = ['all',19,3,1,5,9,4,7,17,13,6,14,2,15,8,10,11,16,12,18]
+#    for nax, ax in enumerate([ax1,ax2,ax3,ax4,ax5,ax6,ax7,ax8,ax9,ax10,ax11,ax12,ax13,ax14,ax15,ax16,ax17,ax18,ax19,ax20]):
+#        
+#        reg = regions_ordered[nax]            
+#    
+#        slr_max = 0
+#        for scenario in rcps:
+#            temp_dev_df_subset = temp_dev_df.loc[temp_dev_df['Scenario'] == scenario]
+#            if scenario.startswith('ssp'):
+#                marker = 'o'
+#            else:
+#                marker = 'd'
+#            ax.plot(temp_dev_df_subset['global_mean_deviation_degC'], temp_dev_df_subset['SLR_mmSLE-' + str(reg)], 
+#                    linewidth=0, marker=marker, mec=rcp_colordict[scenario], mew=1, mfc='none', label=scenario)
+#            
+#            if temp_dev_df_subset['SLR_mmSLE_max-' + str(reg)].mean() > slr_max:
+#                slr_max = temp_dev_df_subset['SLR_mmSLE_max-' + str(reg)].mean()
+#        
+#        ax.hlines(slr_max, 0, 7, color='k', linewidth=0.5)
+#            
+#        
+#        ax.set_xlim(0,7)
+#        ax.xaxis.set_major_locator(MultipleLocator(1))
+#        ax.xaxis.set_minor_locator(MultipleLocator(0.5))
+#        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+#        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+#            
+#        if reg in ['all']:
+#            ax.set_ylim(0,270)
+#            ax.yaxis.set_major_locator(MultipleLocator(50))
+#            ax.yaxis.set_minor_locator(MultipleLocator(10))
+#        if reg in [19, 3, 1]:
+#            ax.set_ylim(0,52)
+#            ax.yaxis.set_major_locator(MultipleLocator(10))
+#            ax.yaxis.set_minor_locator(MultipleLocator(5))    
+#        elif reg in [5, 9]:
+#            ax.set_ylim(0,33)
+#            ax.yaxis.set_major_locator(MultipleLocator(10))
+#            ax.yaxis.set_minor_locator(MultipleLocator(5)) 
+#        elif reg in [4, 7]:
+#            ax.set_ylim(0,23)
+#            ax.yaxis.set_major_locator(MultipleLocator(10))
+#            ax.yaxis.set_minor_locator(MultipleLocator(5)) 
+#        elif reg in [17, 13, 6, 14]:
+#            ax.set_ylim(0,13)
+#            ax.yaxis.set_major_locator(MultipleLocator(5))
+#            ax.yaxis.set_minor_locator(MultipleLocator(1))
+#        elif reg in [15, 2]:
+#            ax.set_ylim(0,2.7)
+#            ax.yaxis.set_major_locator(MultipleLocator(1))
+#            ax.yaxis.set_minor_locator(MultipleLocator(0.2)) 
+#        elif reg in [8]:
+#            ax.set_ylim(0,0.8)
+#            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+#            ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
+#        elif reg in [10, 11, 16]:
+#            ax.set_ylim(0,0.32)
+#            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+#            ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
+#        elif reg in [12, 18]:
+#            ax.set_ylim(0,0.22)
+#            ax.yaxis.set_major_locator(MultipleLocator(0.2))
+#            ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
+#        
+#        if nax == 0:
+#            label_height=1.06
+#        else:
+#            label_height=1.14
+#        ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
+#                verticalalignment='top', transform=ax.transAxes)
+#        ax.tick_params(axis='both', which='major', direction='inout', right=True)
+#        ax.tick_params(axis='both', which='minor', direction='in', right=True)
+#        
+#        
+#        if nax == 1:
+#            if 'rcp26' in rcps and 'ssp126' in rcps and len(rcps)==7:
+#                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85', 'RCP2.6', 'RCP4.5', 'RCP8.5']
+#            elif 'rcp26' in rcps and len(rcps) == 3:
+#                labels = ['RCP2.6', 'RCP4.5', 'RCP8.5']
+#            elif 'ssp126' in rcp and len(rcps) == 4:
+#                labels = ['SSP1-26', 'SSP2-45', 'SSP3-70', 'SSP5-85']
+#            ax.legend(loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
+#                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+#                      )
+#    fig.text(0.5,0.08,'Global mean temperature change (-)', fontsize=12, horizontalalignment='center', verticalalignment='bottom')
+#    fig.text(0.07,0.5,'Sea level rise (mm SLE)', size=12, horizontalalignment='center', verticalalignment='top', rotation=90)
+#    
+#    # Save figure
+#    fig_fn = 'Temp_vs_SLR-regional.png'
+#    fig.set_size_inches(8.5,11)
+#    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+
+            
+#%%    
 
 print('Total processing time:', time.time()-time_start, 's')
         

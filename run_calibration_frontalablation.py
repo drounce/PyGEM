@@ -49,7 +49,6 @@ option_ind_calving_k = False     # Calibrate individual glaciers
 option_ind_mb_removeFA = True # Calibrate individual glaciers but remove frontal ablation component from MB
 
 
-
 #%% ----- CALIBRATE FRONTAL ABLATION -----
 def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg, 
                      prms_from_reg_priors=False, prms_from_glac_cal=False, ignore_nan=True, debug=False):

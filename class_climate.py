@@ -1,5 +1,6 @@
 """class of climate data and functions associated with manipulating the dataset to be in the proper format"""
 
+import os
 # External libraries
 import pandas as pd
 import numpy as np
@@ -219,7 +220,7 @@ class GCM():
         return glac_variable
 
     
-    def importGCMvarnearestneighbor_xarray(self, filename, vn, main_glac_rgi, dates_table):
+    def importGCMvarnearestneighbor_xarray(self, filename, vn, main_glac_rgi, dates_table, realizations=['r1i1p1f1','r4i1p1f1']):
         """
         Import time series of variables and extract nearest neighbor.
         
@@ -248,6 +249,12 @@ class GCM():
             timestep, i.e., be from the beginning/middle/end of month)
         """
         # Import netcdf file
+        if not os.path.exists(self.var_fp + filename):
+            for realization in realizations:
+                filename_realization = filename.replace('r1i1p1f1','r4i1p1f1')
+                if os.path.exists(self.var_fp + filename_realization):
+                    filename = filename_realization
+            
         data = xr.open_dataset(self.var_fp + filename)
         glac_variable_series = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
         

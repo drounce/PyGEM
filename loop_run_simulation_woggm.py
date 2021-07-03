@@ -17,6 +17,9 @@ gcm_names = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg'
              'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
 rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
 
+#gcm_names = ['BCC-CSM2-MR']
+#rcps = ['ssp126']
+
 #%% Using input file
 for gcm in gcm_names:
     for rcp in rcps:

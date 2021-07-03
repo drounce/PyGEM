@@ -9,6 +9,8 @@ import os
 # External libraries
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
 from scipy.stats import median_abs_deviation
 # Local libraries
 import class_climate
@@ -68,9 +70,11 @@ if args.mb_data_fill_wreg_hugonnet == 1:
     # ===== HUGONNET GEODETIC DATA =====
     hugonnet_fp = pygem_prms.main_directory + '/../DEMs/Hugonnet2020/'
     hugonnet_fn = 'df_pergla_global_20yr.csv'
-    
-#if args.mb_data_removeFA == 1:
-    
+
+if args.mb_data_removeFA == 1:
+    # ===== WILL CALVING DATA =====
+    will_fp = pygem_prms.main_directory + '/../calving_data/'
+    will_fn = 'Northern_hemisphere_calving_flux_Kochtitzky_et_al_for_David_Rounce_with_melt_v6.csv'    
 
 #%% ----- PROCESS WINTER DATA -----
 if args.subset_winter == 1:
@@ -555,30 +559,196 @@ if args.mb_data_fill_wreg_hugonnet == 1:
 #%% ===== REMOVE FRONTAL ABLATION FROM MB DATASETS =====
 if args.mb_data_removeFA == 1:
     mb_data_df = pd.read_csv(pygem_prms.hugonnet_fp + pygem_prms.hugonnet_fn)
-    fa_data_df = pd.read_csv(pygem_prms.frontalablation_glacier_data_fullfn)
+    mb_data_df['mb_mwea_romain'] = mb_data_df['mb_mwea'].copy() 
+    mb_data_df['mb_mwea_err_romain'] = mb_data_df['mb_mwea_err'].copy() 
+    fa_data_df = pd.read_csv(will_fp + will_fn)
     
-    #%%
+    fa_gta_cn = 'Frontal_ablation_2000_to_2020_AVG_gt_per_yr_mean_without_melt'
+    fa_gta_err_cn = 'Above_water_frontal_ablation_2000_to_2020_AVG_gt_per_yr_mean_err_without_melt'
+    fa_gta_term_cn = 'terminus_gt_change_per_year_total_without_melt'
+    
+    def mwea_to_gta(mwea, area_m2):
+        return mwea * pygem_prms.density_water * area_m2 / 1e12
+    def gta_to_mwea(gta, area_m2):
+        """ area in m2 """
+        return gta * 1e12 / pygem_prms.density_water / area_m2
+
+    fa_data_df['fa_mwea'] = np.nan
+    fa_data_df['fa_mwea_err'] = np.nan
+    fa_data_df['Romain_mwea'] = np.nan
+    fa_data_df['Romain_mwea_err'] = np.nan
+    fa_data_df['Romain_area_km2'] = np.nan
+    fa_data_df['Romain_gta'] = np.nan
+    fa_data_df['Romain_gta_err'] = np.nan
+    fa_data_df['Romain_gta_mbtot'] = np.nan
+    fa_data_df['Romain_gta_mbtot_err'] = np.nan
+    fa_data_df['Romain_gta_mbclim'] = np.nan
+    fa_data_df['Romain_gta_mbclim_err'] = np.nan
+    fa_data_df['Romain_mwea_mbtot'] = np.nan
+    fa_data_df['Romain_mwea_mbtot_err'] = np.nan
+    fa_data_df['Romain_mwea_mbclim'] = np.nan
+    fa_data_df['Romain_mwea_mbclim_err'] = np.nan
     mb_rgiids_list = list(mb_data_df.RGIId.values)
     for nglac, rgiid in enumerate(fa_data_df.RGIId.values):
         
-        if rgiid in ['RGI60-01.10689']:
-            mb_idx = mb_rgiids_list.index('RGI60-01.10689')
+#        if rgiid in ['RGI60-01.10689']:
+        mb_idx = mb_rgiids_list.index(rgiid)
+        
+        fa_data_df.loc[nglac,'Romain_mwea'] = mb_data_df.loc[mb_idx,pygem_prms.hugonnet_mb_cn]
+        fa_data_df.loc[nglac,'Romain_mwea_err'] = mb_data_df.loc[mb_idx,pygem_prms.hugonnet_mb_err_cn]
+        fa_data_df.loc[nglac,'area_km2'] = mb_data_df.loc[mb_idx,'area']
+        
+        area_m2 = mb_data_df.loc[mb_idx,'area'] * 1e6
+        
+#        mb_data_ind = mb_data_df.loc[mb_idx,:]
+#        fa_data_ind = fa_data_df.loc[nglac,:]
+        
+        # Frontal Ablation (mwea)
+        fa_data_df.loc[nglac,'fa_mwea'] = gta_to_mwea(fa_data_df.loc[nglac,fa_gta_cn], area_m2)
+        fa_data_df.loc[nglac,'fa_mwea_err'] = gta_to_mwea(fa_data_df.loc[nglac,fa_gta_err_cn], area_m2)
+        
+        # Convert mass balance to Gta
+        mb_gta_raw = mwea_to_gta(mb_data_df.loc[mb_idx,pygem_prms.hugonnet_mb_cn], area_m2)
+        mb_gta_raw_err = mwea_to_gta(mb_data_df.loc[mb_idx,pygem_prms.hugonnet_mb_err_cn], area_m2)
+        fa_data_df.loc[nglac,'Romain_gta'] = mb_gta_raw
+        fa_data_df.loc[nglac,'Romain_gta_err'] = mb_gta_raw_err
+        
+        # Total mass balance corrected for frontal ablation of retreat below sea level
+        fa_gta_term_bsl = fa_data_df.loc[nglac, fa_gta_term_cn] * 0.7
+        mb_gta_mbtot = mb_gta_raw + fa_gta_term_bsl
+        fa_data_df.loc[nglac,'Romain_gta_mbtot'] = mb_gta_mbtot
+        # assume 50-90% below sea level (70% is mean)
+        # - assume 95% confidence in this so z-score = 1.96, which gives stdev of 0.10
+        fa_gta_term_bsl_err = fa_data_df.loc[nglac, fa_gta_term_cn] * 0.1
+        # sum of squares to aggregate uncertainties
+        mb_gta_mbtot_err = (mb_gta_raw_err**2 + fa_gta_term_bsl_err**2)**0.5
+        fa_data_df.loc[nglac,'Romain_gta_mbtot_err'] = mb_gta_mbtot_err
+        
+#        print('gta:', fa_data_df.loc[nglac,'Romain_gta_mbtot'], fa_data_df.loc[nglac,'Romain_gta_mbtot_err'])
+        
+
+        # Climatic mass balance correct for frontal ablation
+        #  - equals total mass balance minus frontal ablation
+        fa_gta = fa_data_df.loc[nglac,fa_gta_cn]
+        fa_gta_err = fa_data_df.loc[nglac,fa_gta_err_cn]
+        mb_gta_mbclim = mb_gta_mbtot + fa_gta
+        fa_data_df.loc[nglac,'Romain_gta_mbclim'] = mb_gta_mbclim
+        # sum of squares to aggregate error
+        mb_gta_mbclim_err = (mb_gta_mbtot_err**2 + fa_gta_err**2)**0.5
+        fa_data_df.loc[nglac,'Romain_gta_mbclim_err'] = mb_gta_mbclim_err
             
-            mb_data_ind = mb_data_df.loc[mb_idx,:]
-            fa_data_ind = fa_data_df.loc[nglac,:]
-            
-            # Convert frontal ablation to mwea
-            fa_mwea = (fa_data_df.loc[nglac,'Calving_flux_2000_to_2020_AVG_gt_per_yr_mean'] * 
-                       1e12 / pygem_prms.density_water / (mb_data_df.loc[mb_idx,'area'] * 1e6))
-            print(fa_mwea)
-#            mb_data_gta = mb_data_df.loc[mb_idx,'area'] 
-            
-#    def mwea_to_gta(mwea, area):
-#        return mwea * pygem_prms.density_water * area / 1e12
-            
-            assert True==False,'stopping'
-            
-            
+        # Convert to mwea 
+        fa_data_df.loc[nglac,'Romain_mwea_mbtot'] = gta_to_mwea(mb_gta_mbtot, area_m2) 
+        fa_data_df.loc[nglac,'Romain_mwea_mbtot_err'] = gta_to_mwea(mb_gta_mbtot_err, area_m2) 
+        fa_data_df.loc[nglac,'Romain_mwea_mbclim'] = gta_to_mwea(mb_gta_mbclim, area_m2)
+        fa_data_df.loc[nglac,'Romain_mwea_mbclim_err'] = gta_to_mwea(mb_gta_mbclim_err, area_m2)
+        
+        print('mwea:', np.round(gta_to_mwea(mb_gta_mbclim, area_m2),2), np.round(gta_to_mwea(mb_gta_mbclim_err, area_m2),2))
+        
+#           assert True==False
+        # ----- UPDATE ROMAIN'S DATA -----
+        mb_data_df.loc[mb_idx,'mb_mwea'] = gta_to_mwea(mb_gta_mbclim, area_m2)
+        mb_data_df.loc[mb_idx,'mb_mwea_err'] = gta_to_mwea(mb_gta_mbclim_err, area_m2)
+    
+    # Export Romain's data
+    mb_data_df.to_csv(pygem_prms.hugonnet_fp + pygem_prms.hugonnet_fn.replace('.csv','-FAcorrected.csv'), index=False)
+    
+    #%%
+    # Plot the data for each region
+    fa_data_df['O1Region'] = [int(x.split('-')[1].split('.')[0]) for x in fa_data_df.RGIId.values]
+    regions = [int(x.split('-')[1].split('.')[0]) for x in fa_data_df.RGIId.values]
+    regions_unique = sorted(list(np.unique(fa_data_df.O1Region.values)))
+    
+    rgi_reg_dict = {'all':'Global',
+                1:'Alaska',
+                2:'W Canada/USA',
+                3:'Arctic Canada (North)',
+                4:'Arctic Canada (South)',
+                5:'Greenland',
+                6:'Iceland',
+                7:'Svalbard',
+                8:'Scandinavia',
+                9:'Russian Arctic',
+                10:'North Asia',
+                11:'Central Europe',
+                12:'Caucasus/Middle East',
+                13:'Central Asia',
+                14:'South Asia (West)',
+                15:'South Asia (East)',
+                16:'Low Latitudes',
+                17:'Southern Andes',
+                18:'New Zealand',
+                19:'Antarctica/Subantarctic'
+                }
+    
+    for reg in regions_unique:
+#    for reg in [1]:
+        fa_data_df_subset = fa_data_df.loc[fa_data_df['O1Region']==reg]
+        
+        # ----- FIGURES -----
+        fig, ax = plt.subplots(2, 3, squeeze=False, sharex=False, sharey=False, 
+                               gridspec_kw = {'wspace':0.5, 'hspace':0.25})
+        
+        # Frontal ablation (gta)
+#        ax[0,0].scatter(fa_data_df_subset['area_km2'], fa_data_df_subset[fa_gta_cn], 
+#                        marker='o', edgecolors='k', facecolors='None', linewidth=0.5, s=3)
+        ax[0,0].errorbar(fa_data_df_subset['area_km2'], fa_data_df_subset[fa_gta_cn], 
+                         yerr=fa_data_df_subset[fa_gta_err_cn], fmt='o',
+                         marker='o', mec='k', mew=0.5, mfc='none', markersize=3, c='k', lw=0.25)
+        ax[0,0].set_ylabel('FA (gta)')
+        ax[0,0].set_xlabel('Area (km2)')
+#        ax[0,0].set_xlim(left=0)
+        ax[0,0].set_xscale('log')
+        ax[0,0].set_ylim(bottom=0)
+        
+        ax[1,0].hist(fa_data_df_subset[fa_gta_cn].values, bins=20, color='grey')
+        ax[1,0].set_xlabel('FA (Gta)')
+        ax[1,0].set_ylabel('Count')
+        
+        # Frontal Ablation (mwea)
+#        ax[0,1].scatter(fa_data_df_subset['area_km2'], fa_data_df_subset['fa_mwea'], 
+#                        marker='o', edgecolors='k', facecolors='None', linewidth=0.5, s=3)
+        ax[0,1].errorbar(fa_data_df_subset['area_km2'], fa_data_df_subset['fa_mwea'], 
+                         yerr=fa_data_df_subset['fa_mwea_err'], fmt='o',
+                         marker='o', mec='k', mew=0.5, mfc='none', markersize=3, c='k', lw=0.25)
+        ax[0,1].set_ylabel('FA (mwea)')
+        ax[0,1].set_xlabel('Area (km2)')
+#        ax[0,1].set_xlim(left=0)
+        ax[0,1].set_xscale('log')
+        ax[0,1].set_ylim(bottom=0)
+        
+        ax[1,1].hist(fa_data_df_subset['fa_mwea'].values, bins=20, color='grey')
+        ax[1,1].set_xlabel('FA (mwea)')
+        ax[1,1].set_ylabel('Count')
+        
+        # Climatic mass balance (mwea)
+#        ax[0,2].scatter(fa_data_df_subset['area_km2'], fa_data_df_subset['Romain_mwea_mbclim'], 
+#                        marker='o', edgecolors='k', facecolors='None', linewidth=0.5, s=3)
+        ax[0,2].errorbar(fa_data_df_subset['area_km2'], fa_data_df_subset['Romain_mwea_mbclim'], 
+                         yerr=fa_data_df_subset['Romain_mwea_mbclim_err'], fmt='o',
+                         marker='o', mec='k', mew=0.5, mfc='none', markersize=3, c='k', lw=0.25)
+        ax[0,2].set_ylabel('B_clim (mwea)')
+        ax[0,2].set_xlabel('Area (km2)')
+#        ax[0,2].set_xlim(left=0)
+        ax[0,2].set_xscale('log')
+        ax[0,2].axhline(0, color='k', lw=0.5)
+        
+        ax[1,2].hist(fa_data_df_subset['Romain_mwea_mbclim'].values, bins=20, color='grey')
+        ax[1,2].set_xlabel('B_clim (mwea)')
+        ax[1,2].set_ylabel('Count')
+        
+        fig.suptitle(rgi_reg_dict[reg])
+
+        # Save figure
+        fig_fn = (str(reg) + '-' + rgi_reg_dict[reg] + '_fa_diagnostics.png')
+        fig.set_size_inches(6.5,3)
+        plt.show()
+        fig_fp = will_fp + 'figs/'
+        if not os.path.exists(fig_fp):
+            os.makedirs(fig_fp)
+        fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+    
+    
     
     
     
