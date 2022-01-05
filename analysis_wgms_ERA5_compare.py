@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 #from matplotlib.pyplot import MaxNLocator
 #from matplotlib.lines import Line2D
 #import matplotlib.patches as mpatches
-#from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import MultipleLocator
 #from matplotlib.ticker import EngFormatter
 #from matplotlib.ticker import StrMethodFormatter
 #from mpl_toolkits.axes_grid1.axes_divider import make_axes_locatable
@@ -37,9 +37,16 @@ import xarray as xr
 import pygem.pygem_input as pygem_prms
 import pygem.pygem_modelsetup as modelsetup
 
-wgms_annual_comparison = False
-wgms_winter_comparison = False
-wgms_summer_comparison = True
+
+wgms_all_comparison = True
+if wgms_all_comparison:
+    wgms_annual_comparison = True
+    wgms_winter_comparison = True
+    wgms_summer_comparison = True
+else:
+    wgms_annual_comparison = False
+    wgms_winter_comparison = False
+    wgms_summer_comparison = True
 
 
 netcdf_fp_era5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
@@ -76,6 +83,29 @@ wgms_eee_df_raw = wgms_eee_df_raw.dropna(subset=['RGIId_raw'])
 # Link RGIv5.0 with RGIv6.0
 rgi60_fp = pygem_prms.main_directory +  '/../RGI/rgi60/00_rgi60_attribs/'
 rgi50_fp = pygem_prms.main_directory +  '/../RGI/00_rgi50_attribs/'
+
+rgi_reg_dict = {'all':'Global',
+                'global':'Global',
+                1:'Alaska',
+                2:'W Canada/USA',
+                3:'Arctic Canada North',
+                4:'Arctic Canada South',
+                5:'Greenland',
+                6:'Iceland',
+                7:'Svalbard',
+                8:'Scandinavia',
+                9:'Russian Arctic',
+                10:'North Asia',
+                11:'Central Europe',
+                12:'Caucasus/Middle East',
+                13:'Central Asia',
+                14:'South Asia West',
+                15:'South Asia East',
+                16:'Low Latitudes',
+                17:'Southern Andes',
+                18:'New Zealand',
+                19:'Antarctica/Subantarctic'
+                }
 
 # Process each region
 regions_str = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18']
@@ -785,5 +815,599 @@ if wgms_summer_comparison:
             os.makedirs(fig_fp)
         fig.set_size_inches(3,3)
         fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+   
+    
+#%%
+if wgms_all_comparison:
+    
+    rgiids_list = list(wgms_ee_df_annual.RGIId.values)
+    glacno_list = [x.split('-')[1] for x in rgiids_list]
+    main_glac_rgi_all = modelsetup.selectglaciersrgitable(glac_no=glacno_list)
+    area_dict = dict(zip(main_glac_rgi_all.RGIId, main_glac_rgi_all.Area))
+    wgms_ee_df_annual['area_rgi'] = wgms_ee_df_annual.RGIId.map(area_dict)
+    wgms_ee_df_annual['area_rgi'] = wgms_ee_df_annual.RGIId.map(area_dict)
+    wgms_ee_df_summer['area_rgi'] = wgms_ee_df_summer.RGIId.map(area_dict)
+    wgms_ee_df_winter['area_rgi'] = wgms_ee_df_winter.RGIId.map(area_dict)
+    
+    #%%
+    mew = 0.25
+    ms = 1
+    
+    # Validation Figure
+    fig, ax = plt.subplots(1, 3, squeeze=False, sharex=False, sharey=False, 
+                           gridspec_kw = {'wspace':0.35, 'hspace':0})
+    
+    # --- Annual ---
+    # Correlation
+    slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_annual['annual_mwe'].values, 
+                                                             wgms_ee_df_annual['mod_annual_mwe'].values)
+    print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+          'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+    # Mean absolute error
+    mae = np.mean(np.absolute(wgms_ee_df_annual['annual_mwe'].values - wgms_ee_df_annual['mod_annual_mwe'].values))
+    print('  mean absolute error:', np.round(mae,2))
+    # Bias
+    bias = np.mean(wgms_ee_df_annual['mod_annual_mwe'].values - wgms_ee_df_annual['annual_mwe'].values)
+    print('  bias:', np.round(bias,2))
+    
+    # Plot
+    ax[0,0].plot(wgms_ee_df_annual['annual_mwe'].values, 
+                 wgms_ee_df_annual['mod_annual_mwe'].values,
+                 linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
+    
+    ax[0,0].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[0,0].set_ylabel('$B_{mod}$ (m w.e.)')
+    ax[0,0].text(0.98, 1.07, 'Annual', size=10, horizontalalignment='right', 
+                 verticalalignment='top', transform=ax[0,0].transAxes)
+    ax[0,0].set_xlim(-6.5,6.5)
+    ax[0,0].set_ylim(-6.5,6.5)
+    ax[0,0].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
+    ax[0,0].xaxis.set_major_locator(MultipleLocator(5))
+    ax[0,0].xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,0].yaxis.set_major_locator(MultipleLocator(5))
+    ax[0,0].yaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,0].tick_params(direction='inout', right=True)
+    
+    nglac = np.unique(wgms_ee_df_annual.RGIId.values).shape[0]
+    ax[0,0].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[0,0].transAxes)
+    ax[0,0].text(0.04, 0.88, '$n_{obs}$=' + str(wgms_ee_df_annual.shape[0]), size=10, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[0,0].transAxes)
+    ax[0,0].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,0].transAxes)
+    ax[0,0].text(0.98, 0.12, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,0].transAxes)
+    ax[0,0].text(0.98, 0.22, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,0].transAxes)
     
     
+    
+    
+    
+    # --- Summer ---
+    # Correlation
+    slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_summer['summer_mwe'].values, 
+                                                             wgms_ee_df_summer['mod_summer_mwe'].values)
+    print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+          'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+    # Mean absolute error
+    mae = np.mean(np.absolute(wgms_ee_df_summer['summer_mwe'].values - wgms_ee_df_summer['mod_summer_mwe'].values))
+    print('  mean absolute error:', np.round(mae,2))
+    # Bias
+    bias = np.mean(wgms_ee_df_summer['mod_summer_mwe'].values - wgms_ee_df_summer['summer_mwe'].values)
+    print('  bias:', np.round(bias,2))
+    
+    # Plot
+    ax[0,1].plot(wgms_ee_df_summer['summer_mwe'].values, 
+                 wgms_ee_df_summer['mod_summer_mwe'].values,
+                 linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
+    ax[0,1].text(0.98, 1.07, 'Summer', size=10, horizontalalignment='right', 
+                 verticalalignment='top', transform=ax[0,1].transAxes)
+    ax[0,1].set_xlim(-6.5,6.5)
+    ax[0,1].set_ylim(-6.5,6.5)
+    ax[0,1].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[0,1].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5) 
+    ax[0,1].xaxis.set_major_locator(MultipleLocator(5))
+    ax[0,1].xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,1].yaxis.set_major_locator(MultipleLocator(5))
+    ax[0,1].yaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,1].tick_params(direction='inout', right=True)
+    nglac = np.unique(wgms_ee_df_summer.RGIId.values).shape[0]
+    ax[0,1].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[0,1].transAxes)
+    ax[0,1].text(0.04, 0.88, '$n_{obs}$=' + str(wgms_ee_df_summer.shape[0]), size=10, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[0,1].transAxes)
+    ax[0,1].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,1].transAxes)
+    ax[0,1].text(0.98, 0.12, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,1].transAxes)
+    ax[0,1].text(0.98, 0.22, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,1].transAxes)
+    
+    
+    
+    
+    # --- Winter ---
+    # Correlation
+    slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_winter['winter_mwe'].values, 
+                                                             wgms_ee_df_winter['mod_winter_mwe'].values)
+    print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+          'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+    # Mean absolute error
+    mae = np.mean(np.absolute(wgms_ee_df_winter['winter_mwe'].values - wgms_ee_df_winter['mod_winter_mwe'].values))
+    print('  mean absolute error:', np.round(mae,2))
+    # Bias
+    bias = np.mean(wgms_ee_df_winter['mod_winter_mwe'].values - wgms_ee_df_winter['winter_mwe'].values)
+    print('  bias:', np.round(bias,2))
+    
+    # Plot
+    ax[0,2].plot(wgms_ee_df_winter['winter_mwe'].values, 
+                 wgms_ee_df_winter['mod_winter_mwe'].values,
+                 linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
+    ax[0,2].text(0.98, 1.07, 'Winter', size=10, horizontalalignment='right', 
+                 verticalalignment='top', transform=ax[0,2].transAxes)
+    ax[0,2].set_xlim(-6.5,6.5)
+    ax[0,2].set_ylim(-6.5,6.5)
+    ax[0,2].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[0,2].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
+    ax[0,2].xaxis.set_major_locator(MultipleLocator(5))
+    ax[0,2].xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,2].yaxis.set_major_locator(MultipleLocator(5))
+    ax[0,2].yaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,2].tick_params(direction='inout', right=True)
+    nglac = np.unique(wgms_ee_df_winter.RGIId.values).shape[0]
+    ax[0,2].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[0,2].transAxes)
+    ax[0,2].text(0.04, 0.88, '$n_{obs}$=' + str(wgms_ee_df_winter.shape[0]), size=10, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[0,2].transAxes)
+    ax[0,2].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,2].transAxes)
+    ax[0,2].text(0.98, 0.12, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,2].transAxes)
+    ax[0,2].text(0.98, 0.22, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,2].transAxes)
+
+
+    # Save figure
+    fig_fn = 'validation_mb_mwea_3seasons_all.png'
+    fig_fp = netcdf_fp_era5 + '../analysis/figures/validation/'
+    if not os.path.exists(fig_fp):
+        os.makedirs(fig_fp)
+    fig.set_size_inches(6.5,2.5)
+    fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+    
+#%%
+ms = 3
+regions = np.unique(wgms_ee_df_annual.O1Region)
+
+#assert 1==0, 'put these all on the same plot!'
+#assert 1==0, 'add the region names somewhere on the plot'
+
+for reg in regions:
+    
+    wgms_ee_df_annual_subset = wgms_ee_df_annual.loc[wgms_ee_df_annual.O1Region == reg, :]
+    wgms_ee_df_summer_subset = wgms_ee_df_summer.loc[wgms_ee_df_summer.O1Region == reg, :]
+    wgms_ee_df_winter_subset = wgms_ee_df_winter.loc[wgms_ee_df_winter.O1Region == reg, :]
+    
+    # Validation Figure
+    fig, ax = plt.subplots(1, 3, squeeze=False, sharex=False, sharey=False, 
+                           gridspec_kw = {'wspace':0.35, 'hspace':0})
+    
+    # --- Annual ---
+    # Correlation
+    slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_annual_subset['annual_mwe'].values, 
+                                                             wgms_ee_df_annual_subset['mod_annual_mwe'].values)
+    print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+          'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+    # Mean absolute error
+    mae = np.mean(np.absolute(wgms_ee_df_annual_subset['annual_mwe'].values - wgms_ee_df_annual_subset['mod_annual_mwe'].values))
+    print('  mean absolute error:', np.round(mae,2))
+    # Bias
+    bias = np.mean(wgms_ee_df_annual_subset['mod_annual_mwe'].values - wgms_ee_df_annual_subset['annual_mwe'].values)
+    print('  bias:', np.round(bias,2))
+    
+    # Plot
+    ax[0,0].plot(wgms_ee_df_annual_subset['annual_mwe'].values, 
+                 wgms_ee_df_annual_subset['mod_annual_mwe'].values,
+                 linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
+    ax[0,0].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
+    
+    ax[0,0].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[0,0].set_ylabel('$B_{mod}$ (m w.e.)')
+    ax[0,0].text(0.98, 1.07, 'Annual', size=10, horizontalalignment='right', 
+                 verticalalignment='top', transform=ax[0,0].transAxes)
+    ax[0,0].set_xlim(-6.5,6.5)
+    ax[0,0].set_ylim(-6.5,6.5)
+    ax[0,0].xaxis.set_major_locator(MultipleLocator(5))
+    ax[0,0].xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,0].yaxis.set_major_locator(MultipleLocator(5))
+    ax[0,0].yaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,0].tick_params(direction='inout', right=True)
+    
+    nglac = np.unique(wgms_ee_df_annual_subset.RGIId.values).shape[0]
+    ax[0,0].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[0,0].transAxes)
+    ax[0,0].text(0.04, 0.88, '$n_{obs}$=' + str(wgms_ee_df_annual.shape[0]), size=10, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[0,0].transAxes)
+    ax[0,0].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,0].transAxes)
+    ax[0,0].text(0.98, 0.12, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,0].transAxes)
+    ax[0,0].text(0.98, 0.22, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,0].transAxes)
+    
+    
+    
+    
+    
+    # --- Summer ---
+    if wgms_ee_df_summer_subset.shape[0] > 0:
+        # Correlation
+        slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_summer_subset['summer_mwe'].values, 
+                                                                 wgms_ee_df_summer_subset['mod_summer_mwe'].values)
+        print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+              'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+        # Mean absolute error
+        mae = np.mean(np.absolute(wgms_ee_df_summer_subset['summer_mwe'].values - wgms_ee_df_summer_subset['mod_summer_mwe'].values))
+        print('  mean absolute error:', np.round(mae,2))
+        # Bias
+        bias = np.mean(wgms_ee_df_summer_subset['mod_summer_mwe'].values - wgms_ee_df_summer_subset['summer_mwe'].values)
+        print('  bias:', np.round(bias,2))
+        
+        # Plot
+        ax[0,1].plot(wgms_ee_df_summer_subset['summer_mwe'].values, 
+                     wgms_ee_df_summer_subset['mod_summer_mwe'].values,
+                     linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
+        ax[0,1].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
+        
+        nglac = np.unique(wgms_ee_df_summer_subset.RGIId.values).shape[0]
+        ax[0,1].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[0,1].transAxes)
+        ax[0,1].text(0.04, 0.88, '$n_{obs}$=' + str(wgms_ee_df_summer.shape[0]), size=10, horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[0,1].transAxes)
+        ax[0,1].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[0,1].transAxes)
+        ax[0,1].text(0.98, 0.12, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[0,1].transAxes)
+        ax[0,1].text(0.98, 0.22, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[0,1].transAxes)
+        
+    ax[0,1].text(0.98, 1.07, 'Summer', size=10, horizontalalignment='right', 
+                 verticalalignment='top', transform=ax[0,1].transAxes)
+    ax[0,1].set_xlim(-6.5,6.5)
+    ax[0,1].set_ylim(-6.5,6.5)
+    ax[0,1].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[0,1].xaxis.set_major_locator(MultipleLocator(5))
+    ax[0,1].xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,1].yaxis.set_major_locator(MultipleLocator(5))
+    ax[0,1].yaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,1].tick_params(direction='inout', right=True)
+    
+    
+    
+    
+    # --- Winter ---
+    if wgms_ee_df_winter_subset.shape[0] > 0:
+        # Correlation
+        slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_winter_subset['winter_mwe'].values, 
+                                                                 wgms_ee_df_winter_subset['mod_winter_mwe'].values)
+        print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+              'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+        # Mean absolute error
+        mae = np.mean(np.absolute(wgms_ee_df_winter_subset['winter_mwe'].values - wgms_ee_df_winter_subset['mod_winter_mwe'].values))
+        print('  mean absolute error:', np.round(mae,2))
+        # Bias
+        bias = np.mean(wgms_ee_df_winter_subset['mod_winter_mwe'].values - wgms_ee_df_winter_subset['winter_mwe'].values)
+        print('  bias:', np.round(bias,2))
+        
+        # Plot
+        ax[0,2].plot(wgms_ee_df_winter_subset['winter_mwe'].values, 
+                     wgms_ee_df_winter_subset['mod_winter_mwe'].values,
+                     linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
+        ax[0,2].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
+        nglac = np.unique(wgms_ee_df_winter_subset.RGIId.values).shape[0]
+        ax[0,2].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[0,2].transAxes)
+        ax[0,2].text(0.04, 0.88, '$n_{obs}$=' + str(wgms_ee_df_winter.shape[0]), size=10, horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[0,2].transAxes)
+        ax[0,2].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[0,2].transAxes)
+        ax[0,2].text(0.98, 0.12, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[0,2].transAxes)
+        ax[0,2].text(0.98, 0.22, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[0,2].transAxes)
+    
+    ax[0,2].text(0.98, 1.07, 'Winter', size=10, horizontalalignment='right', 
+                 verticalalignment='top', transform=ax[0,2].transAxes)
+    ax[0,2].set_xlim(-6.5,6.5)
+    ax[0,2].set_ylim(-6.5,6.5)
+    ax[0,2].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[0,2].xaxis.set_major_locator(MultipleLocator(5))
+    ax[0,2].xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,2].yaxis.set_major_locator(MultipleLocator(5))
+    ax[0,2].yaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[0,2].tick_params(direction='inout', right=True)
+    
+
+    # Save figure
+    fig_fn = 'Reg-' + str(reg).zfill(2) + '_validation_mb_mwea_3seasons_all.png'
+    fig_fp = netcdf_fp_era5 + '../analysis/figures/validation/'
+    if not os.path.exists(fig_fp):
+        os.makedirs(fig_fp)
+    fig.set_size_inches(6.5,2.5)
+    fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+    
+
+#%%
+
+#regions = np.unique(wgms_ee_df_annual.O1Region)
+#regions_together = ['all']
+#for reg in regions:
+#    regions_together.append(reg)
+
+# ----- Annual mass balance for each -----
+ms = 3
+textsize = 9
+# Validation Figure
+nrows = int(np.ceil(len(regions)/3))
+fig, ax = plt.subplots(nrows, 3, squeeze=False, sharex=False, sharey=False, 
+                       gridspec_kw = {'wspace':0.3, 'hspace':0.45})
+    
+nrow = 0
+ncol = 0
+for nreg, reg in enumerate(regions):
+    
+    print(nreg, reg, nrow, ncol)
+    
+    if reg in ['all']:
+        wgms_ee_df_annual_subset = wgms_ee_df_annual.copy()
+#        wgms_ee_df_summer_subset = wgms_ee_df_summer.copy()
+#        wgms_ee_df_winter_subset = wgms_ee_df_winter.copy()
+    else:
+        wgms_ee_df_annual_subset = wgms_ee_df_annual.loc[wgms_ee_df_annual.O1Region == reg, :]
+#        wgms_ee_df_summer_subset = wgms_ee_df_summer.loc[wgms_ee_df_summer.O1Region == reg, :]
+#        wgms_ee_df_winter_subset = wgms_ee_df_winter.loc[wgms_ee_df_winter.O1Region == reg, :]
+    
+    # --- Annual ---
+    # Correlation
+    slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_annual_subset['annual_mwe'].values, 
+                                                             wgms_ee_df_annual_subset['mod_annual_mwe'].values)
+    print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+          'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+    # Mean absolute error
+    mae = np.mean(np.absolute(wgms_ee_df_annual_subset['annual_mwe'].values - wgms_ee_df_annual_subset['mod_annual_mwe'].values))
+    print('  mean absolute error:', np.round(mae,2))
+    # Bias
+    bias = np.mean(wgms_ee_df_annual_subset['mod_annual_mwe'].values - wgms_ee_df_annual_subset['annual_mwe'].values)
+    print('  bias:', np.round(bias,2))
+    
+    # Plot
+    ax[nrow,ncol].plot(wgms_ee_df_annual_subset['annual_mwe'].values, 
+                 wgms_ee_df_annual_subset['mod_annual_mwe'].values,
+                 linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
+    ax[nrow,ncol].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
+    
+    if ncol == 0:
+        ax[nrow,ncol].set_ylabel('$B_{mod}$ (m w.e.)')
+    if nrow == nrows-1:
+        ax[nrow,ncol].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[nrow,ncol].text(0.98, 1.02, rgi_reg_dict[reg], size=textsize, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+    ax[nrow,ncol].set_xlim(-6.5,6.5)
+    ax[nrow,ncol].set_ylim(-6.5,6.5)
+    ax[nrow,ncol].xaxis.set_major_locator(MultipleLocator(5))
+    ax[nrow,ncol].xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[nrow,ncol].yaxis.set_major_locator(MultipleLocator(5))
+    ax[nrow,ncol].yaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[nrow,ncol].tick_params(direction='inout', right=True)
+    
+    nglac = np.unique(wgms_ee_df_annual_subset.RGIId.values).shape[0]
+    ax[nrow,ncol].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=textsize, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+    ax[nrow,ncol].text(0.04, 0.82, '$n_{obs}$=' + str(wgms_ee_df_annual_subset.shape[0]), size=textsize, horizontalalignment='left', 
+                 verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+    ax[nrow,ncol].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=textsize, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+    ax[nrow,ncol].text(0.98, 0.18, '$Bias$=' + str(np.round(bias,2)), size=textsize, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+    ax[nrow,ncol].text(0.98, 0.34, '$R^{2}$=' + str(np.round(r_value**2,2)), size=textsize, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+    
+    if nreg%3 == 2:
+        ncol = 0
+        nrow += 1
+    else:
+        ncol += 1
+
+ax[5,2].spines['top'].set_visible(False)
+ax[5,2].spines['right'].set_visible(False)
+ax[5,2].spines['bottom'].set_visible(False)
+ax[5,2].spines['left'].set_visible(False)
+ax[5,2].get_xaxis().set_ticks([])
+ax[5,2].get_yaxis().set_ticks([])
+
+# Save figure
+fig_fn = 'validation_mb_mwea_annual_all-regional.png'
+fig_fp = netcdf_fp_era5 + '../analysis/figures/validation/'
+if not os.path.exists(fig_fp):
+    os.makedirs(fig_fp)
+fig.set_size_inches(6.5,9)
+fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+
+
+
+#%% ----- SUMMER REGIONAL WGMS COMPARISON -----
+ms = 3
+textsize = 9
+# Validation Figure
+nrows = int(np.ceil(len(regions)/3))
+fig, ax = plt.subplots(nrows, 3, squeeze=False, sharex=False, sharey=False, 
+                       gridspec_kw = {'wspace':0.3, 'hspace':0.45})
+    
+nrow = 0
+ncol = 0
+for nreg, reg in enumerate(regions):
+    
+    print(nreg, reg, nrow, ncol)
+    
+    if reg in ['all']:
+        wgms_ee_df_summer_subset = wgms_ee_df_summer.copy()
+    else:
+        wgms_ee_df_summer_subset = wgms_ee_df_summer.loc[wgms_ee_df_summer.O1Region == reg, :]
+    
+    # --- Summer ---
+    if wgms_ee_df_summer_subset.shape[0] > 0:
+        # Correlation
+        slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_summer_subset['summer_mwe'].values, 
+                                                                 wgms_ee_df_summer_subset['mod_summer_mwe'].values)
+        print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+              'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+        # Mean absolute error
+        mae = np.mean(np.absolute(wgms_ee_df_summer_subset['summer_mwe'].values - wgms_ee_df_summer_subset['mod_summer_mwe'].values))
+        print('  mean absolute error:', np.round(mae,2))
+        # Bias
+        bias = np.mean(wgms_ee_df_summer_subset['mod_summer_mwe'].values - wgms_ee_df_summer_subset['summer_mwe'].values)
+        print('  bias:', np.round(bias,2))
+        
+        # Plot
+        ax[nrow,ncol].plot(wgms_ee_df_summer_subset['summer_mwe'].values, 
+                     wgms_ee_df_summer_subset['mod_summer_mwe'].values,
+                     linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
+        ax[nrow,ncol].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
+        
+        nglac = np.unique(wgms_ee_df_summer_subset.RGIId.values).shape[0]
+        ax[nrow,ncol].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+        ax[nrow,ncol].text(0.04, 0.82, '$n_{obs}$=' + str(wgms_ee_df_summer_subset.shape[0]), size=10, horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+        ax[nrow,ncol].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        ax[nrow,ncol].text(0.98, 0.18, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        ax[nrow,ncol].text(0.98, 0.34, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        
+    if ncol == 0:
+        ax[nrow,ncol].set_ylabel('$B_{mod}$ (m w.e.)')
+    if nrow == nrows-1:
+        ax[nrow,ncol].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[nrow,ncol].text(0.98, 1.02, rgi_reg_dict[reg], size=textsize, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+    
+    
+    ax[nrow,ncol].set_xlim(-6.5,6.5)
+    ax[nrow,ncol].set_ylim(-6.5,6.5)
+    ax[nrow,ncol].xaxis.set_major_locator(MultipleLocator(5))
+    ax[nrow,ncol].xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[nrow,ncol].yaxis.set_major_locator(MultipleLocator(5))
+    ax[nrow,ncol].yaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[nrow,ncol].tick_params(direction='inout', right=True)
+    
+    if nreg%3 == 2:
+        ncol = 0
+        nrow += 1
+    else:
+        ncol += 1
+
+ax[5,2].spines['top'].set_visible(False)
+ax[5,2].spines['right'].set_visible(False)
+ax[5,2].spines['bottom'].set_visible(False)
+ax[5,2].spines['left'].set_visible(False)
+ax[5,2].get_xaxis().set_ticks([])
+ax[5,2].get_yaxis().set_ticks([])
+    
+
+# Save figure
+fig_fn = 'validation_mb_mwea_summer_all-regional.png'
+fig_fp = netcdf_fp_era5 + '../analysis/figures/validation/'
+if not os.path.exists(fig_fp):
+    os.makedirs(fig_fp)
+fig.set_size_inches(6.5,9)
+fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
+
+
+#%% ----- WINTER REGIONAL WGMS COMPARISON -----
+ms = 3
+textsize = 9
+# Validation Figure
+nrows = int(np.ceil(len(regions)/3))
+fig, ax = plt.subplots(nrows, 3, squeeze=False, sharex=False, sharey=False, 
+                       gridspec_kw = {'wspace':0.3, 'hspace':0.45})
+    
+nrow = 0
+ncol = 0
+for nreg, reg in enumerate(regions):
+    
+    print(nreg, reg, nrow, ncol)
+    
+    if reg in ['all']:
+        wgms_ee_df_winter_subset = wgms_ee_df_winter.copy()
+    else:
+        wgms_ee_df_winter_subset = wgms_ee_df_winter.loc[wgms_ee_df_winter.O1Region == reg, :]
+        
+    # --- Winter ---
+    if wgms_ee_df_winter_subset.shape[0] > 0:
+        # Correlation
+        slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_winter_subset['winter_mwe'].values, 
+                                                                 wgms_ee_df_winter_subset['mod_winter_mwe'].values)
+        print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,2), 
+              'intercept = ', np.round(intercept,2), 'p_value = ', np.round(p_value,6))
+        # Mean absolute error
+        mae = np.mean(np.absolute(wgms_ee_df_winter_subset['winter_mwe'].values - wgms_ee_df_winter_subset['mod_winter_mwe'].values))
+        print('  mean absolute error:', np.round(mae,2))
+        # Bias
+        bias = np.mean(wgms_ee_df_winter_subset['mod_winter_mwe'].values - wgms_ee_df_winter_subset['winter_mwe'].values)
+        print('  bias:', np.round(bias,2))
+        
+        # Plot
+        ax[nrow,ncol].plot(wgms_ee_df_winter_subset['winter_mwe'].values, 
+                     wgms_ee_df_winter_subset['mod_winter_mwe'].values,
+                     linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
+        ax[nrow,ncol].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
+        nglac = np.unique(wgms_ee_df_winter_subset.RGIId.values).shape[0]
+        ax[nrow,ncol].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+        ax[nrow,ncol].text(0.04, 0.82, '$n_{obs}$=' + str(wgms_ee_df_winter_subset.shape[0]), size=10, horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+        ax[nrow,ncol].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        ax[nrow,ncol].text(0.98, 0.18, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        ax[nrow,ncol].text(0.98, 0.34, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+    
+    if ncol == 0:
+        ax[nrow,ncol].set_ylabel('$B_{mod}$ (m w.e.)')
+    if nrow == nrows-1:
+        ax[nrow,ncol].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[nrow,ncol].text(0.98, 1.02, rgi_reg_dict[reg], size=textsize, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+    ax[nrow,ncol].set_xlim(-6.5,6.5)
+    ax[nrow,ncol].set_ylim(-6.5,6.5)
+    ax[nrow,ncol].xaxis.set_major_locator(MultipleLocator(5))
+    ax[nrow,ncol].xaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[nrow,ncol].yaxis.set_major_locator(MultipleLocator(5))
+    ax[nrow,ncol].yaxis.set_minor_locator(MultipleLocator(1)) 
+    ax[nrow,ncol].tick_params(direction='inout', right=True)
+    
+    if nreg%3 == 2:
+        ncol = 0
+        nrow += 1
+    else:
+        ncol += 1
+
+ax[5,2].spines['top'].set_visible(False)
+ax[5,2].spines['right'].set_visible(False)
+ax[5,2].spines['bottom'].set_visible(False)
+ax[5,2].spines['left'].set_visible(False)
+ax[5,2].get_xaxis().set_ticks([])
+ax[5,2].get_yaxis().set_ticks([])
+    
+
+# Save figure
+fig_fn = 'validation_mb_mwea_winter_all-regional.png'
+fig_fp = netcdf_fp_era5 + '../analysis/figures/validation/'
+if not os.path.exists(fig_fp):
+    os.makedirs(fig_fp)
+fig.set_size_inches(6.5,9)
+fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)

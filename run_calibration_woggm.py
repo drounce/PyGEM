@@ -513,13 +513,11 @@ def main(list_packed_vars):
     """
     
     # Unpack variables
-    count = list_packed_vars[0]
     glac_no = list_packed_vars[1]
     gcm_name = list_packed_vars[2]
     
     parser = getparser()
     args = parser.parse_args()
-    time_start = time.time()
 
     if args.debug == 1:
         debug = True
@@ -554,9 +552,10 @@ def main(list_packed_vars):
     
     # ===== LOOP THROUGH GLACIERS TO RUN CALIBRATION =====
     for glac in range(main_glac_rgi.shape[0]):
-        print(main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
-#        if debug or glac == 0 or glac == main_glac_rgi.shape[0]:
-#            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+        
+        if debug or glac == 0 or glac == main_glac_rgi.shape[0]:
+            print(gcm_name,':', main_glac_rgi.loc[main_glac_rgi.index.values[glac],'RGIId'])
+
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[glac], :]
         glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
@@ -564,10 +563,14 @@ def main(list_packed_vars):
         # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====        
         try: 
 
-#            if not glacier_rgi_table['TermType'] in [1,5] or pygem_prms.ignore_calving:
-            gdir = single_flowline_glacier_directory(glacier_str, logging_level='CRITICAL')
-#            else:
-#                gdir = single_flowline_glacier_directory_with_calving(glacier_str)
+            if not glacier_rgi_table['TermType'] in [1,5] or pygem_prms.ignore_calving:
+                gdir = single_flowline_glacier_directory(glacier_str, logging_level='CRITICAL')
+                gdir.is_tidewater = False
+            else:
+                # set reset=True to overwrite non-calving directory that may already exist
+                gdir = single_flowline_glacier_directory_with_calving(glacier_str, logging_level='CRITICAL', 
+                                                                      reset=True)
+                gdir.is_tidewater = True
                 
             fls = gdir.read_pickle('inversion_flowlines')
             glacier_area = fls[0].widths_m * fls[0].dx_meter
@@ -582,15 +585,22 @@ def main(list_packed_vars):
 
             # ----- Calibration data -----
             try:
-                
+
                 mbdata_fn = gdir.get_filepath('mb_obs')
                 with open(mbdata_fn, 'rb') as f:
                     gdir.mbdata = pickle.load(f)
+                        
+                # Non-tidewater glaciers
+                if not gdir.is_tidewater:
+                    # Load data
+                    mb_obs_mwea = gdir.mbdata['mb_mwea']
+                    mb_obs_mwea_err = gdir.mbdata['mb_mwea_err']
+                # Tidewater glaciers
+                #  use climatic mass balance since calving_k already calibrated separately
+                else:
+                    mb_obs_mwea = gdir.mbdata['mb_clim_mwea']
+                    mb_obs_mwea_err = gdir.mbdata['mb_clim_mwea_err']
                     
-                # Load data
-                mb_obs_mwea = gdir.mbdata['mb_mwea']
-                mb_obs_mwea_err = gdir.mbdata['mb_mwea_err']
-                
                 # Add time indices consistent with dates_table for mb calculations
                 t1_year = gdir.mbdata['t1_datetime'].year
                 t1_month = gdir.mbdata['t1_datetime'].month
@@ -600,10 +610,11 @@ def main(list_packed_vars):
                 t2_idx = dates_table[(t2_year == dates_table['year']) & (t2_month == dates_table['month'])].index.values[0]
                 # Record indices
                 gdir.mbdata['t1_idx'] = t1_idx
-                gdir.mbdata['t2_idx'] = t2_idx
-                
+                gdir.mbdata['t2_idx'] = t2_idx                    
+                    
                 if debug:
                     print('  mb_data (mwea): ' + str(np.round(mb_obs_mwea,2)) + ' +/- ' + str(np.round(mb_obs_mwea_err,2)))
+                
                      
             except:
                 gdir.mbdata = None
@@ -627,7 +638,6 @@ def main(list_packed_vars):
             #          distributions, and output these sets of parameters and their corresponding mass balances to be
             #          used in the simulations.
             if pygem_prms.option_calibration == 'MCMC':
-
                 # ===== Define functions needed for MCMC method =====
                 def run_MCMC(gdir,
                              kp_disttype=pygem_prms.kp_disttype,
@@ -1099,7 +1109,6 @@ def main(list_packed_vars):
                             tbias_start = tbias_bndhigh
                         elif tbias_start < tbias_bndlow:
                             tbias_start = tbias_bndlow
-                            
                         # ----- Mass balance max loss -----
                         # Maximum mass loss [mwea] (based on consensus ice thickness estimate)
                         # consensus_mass has units of kg
@@ -1712,7 +1721,7 @@ def main(list_packed_vars):
                 # Load sims df
                 sims_fp = pygem_prms.emulator_fp + 'sims/' + glacier_str.split('.')[0].zfill(2) + '/'
                 sims_fn = glacier_str + '-' + str(pygem_prms.emulator_sims) + '_emulator_sims.csv'
-                
+
                 if not os.path.exists(sims_fp + sims_fn) or pygem_prms.overwrite_em_sims:
                     # ----- Temperature bias bounds (ensure reasonable values) -----
                     # Tbias lower bound based on some bins having negative climatic mass balance
@@ -2337,8 +2346,8 @@ if __name__ == '__main__':
             width_initial = fls[0].widths_m / 1000
             glacier_area_initial = width_initial * fls[0].dx / 1000
 #            mbmod = main_vars['mbmod']
-#            if pygem_prms.use_calibrated_modelparams:
-#                modelprms_dict = main_vars['modelprms_dict']
+            if pygem_prms.use_calibrated_modelparams:
+                modelprms_dict = main_vars['modelprms_dict']
 #            model = main_vars['model']
 
 #%%

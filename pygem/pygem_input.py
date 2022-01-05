@@ -152,7 +152,7 @@ output_filepath = main_directory + '/../Output/'
 model_run_date = 'January 30 2021'
 
 # ===== GLACIER SELECTION =====
-rgi_regionsO1 = [11]                 # 1st order region number (RGI V6.0)
+rgi_regionsO1 = [18]                 # 1st order region number (RGI V6.0)
 #rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
 #rgi_regionsO1 = [1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19]
 rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
@@ -170,15 +170,27 @@ glac_no = None
 #glac_no = glac_wo_cal(rgi_regionsO1, prms_fp_sub=main_directory + '/../Output/calibration/')
 #glac_no = glac_fromcsv('/Users/drounce/Documents/HiMAT/calving_data/rgiids_for_will.csv', cn='rgiid')
 #glac_no = ['1.00570','1.15645','11.00897','14.06794','15.03733','18.02342']
-glac_no = ['15.03733']
+#glac_no = ['1.10689']
+#glac_no = ['15.03733']
+glac_no = ['18.02342']
 
+# Half the frontal ablation
+#glac_no = ['19.01721', '19.00418', '19.00169', '19.00156', '19.00029', '19.00746', '19.00707', '19.00748', '19.00113', '19.00562', '19.00160', '19.00432', '19.00417', '19.00103']
+
+
+##%%
+#import pickle
+#with open('/Users/drounce/Documents/HiMAT/oggm_gdirs/per_glacier/RGI60-19/RGI60-19.01/RGI60-19.01721/mb_data.pkl', 'rb') as f:
+#    mb = pickle.load(f)
+#    print(mb)
+##%%
 
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 include_landterm = True                # Switch to include land-terminating glaciers
 include_laketerm = True                # Switch to include lake-terminating glaciers
 include_tidewater = True               # Switch to include tidewater glaciers
-ignore_calving = True                  # Switch to ignore calving and treat tidewater glaciers as land-terminating
+ignore_calving = False                  # Switch to ignore calving and treat tidewater glaciers as land-terminating
 
 oggm_base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl_with_consensus'
 
@@ -197,8 +209,8 @@ if constantarea_years > 0:
     print('\nConstant area years > 0\n')
 
 # Simulation runs (separate so calibration and simulations can be run at same time; also needed for bias adjustments)
-gcm_startyear = 1979            # first year of model run (simulation dataset)
-gcm_endyear = 2019              # last year of model run (simulation dataset)
+gcm_startyear = 2000            # first year of model run (simulation dataset)
+gcm_endyear = 2100              # last year of model run (simulation dataset)
 #gcm_startyear = 2000            # first year of model run (simulation dataset)
 #gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
@@ -224,13 +236,13 @@ if option_synthetic_sim == 1:
 
 #%% SIMULATION OPTIONS
 # Glacier dynamics options ('OGGM', 'MassRedistributionCurves', None)
-#option_dynamics = 'OGGM'
+option_dynamics = 'OGGM'
 #option_dynamics = 'MassRedistributionCurves'
-option_dynamics = None
+#option_dynamics = None
 #print('\n\nTURN BACK ON DYNAMICS!\n\n')
     
 # MCMC options
-sim_iters = 1     # number of simulations
+sim_iters = 50     # number of simulations
 #print('\n\nSWITCH BACK TO 50!\n\n')
 sim_burn = 0        # number of burn-in (if burn-in is done in MCMC sampling, then don't do here)
 
@@ -250,8 +262,9 @@ export_extra_vars = True
 option_bias_adjustment = 1
 
 # OGGM glacier dynamics parameters
-if option_dynamics == 'OGGM':
+if option_dynamics in ['OGGM', 'MassRedistributionCurves']:
     cfl_number = 0.02
+    cfl_number_calving = 0.01
     #glena_reg_fullfn = None
     glena_reg_fullfn = main_directory + '/../Output/calibration/glena_region.csv'
     use_reg_glena = True
@@ -384,29 +397,17 @@ ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 if ddfsnow_iceratio != 0.7:
     print('\n\n  Warning: ddfsnow_iceratio is', ddfsnow_iceratio, '\n\n')
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
-tbias = 0                           # temperature bias [deg C]
+tbias = 5                           # temperature bias [deg C]
 lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
 lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
 tsnow_threshold = 1.0               # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
-frontalablation_k = 2               # frontal ablation rate [yr-1]
+calving_k = 0.7                       # frontal ablation rate [yr-1]
 af = 0.7                            # Bulk flow parameter for frontal ablation (m^-0.5)
 option_frontalablation_k = 1        # Calving option (1: values from HH2015, 
                                     #                 2: calibrate glaciers independently, use transfer fxns for others)
-frontalablation_k0dict = {1:3.4,    # Calving dictionary with values from HH2015
-                          2:0, 3:0.2, 4:0.2, 5:0.5, 6:0.3, 7:0.5, 8:0, 9:0.2, 10:0, 11:0, 12:0, 13:0, 14:0, 15:0, 16:0,
-                          17:6, 18:0, 19:1}
-
-# Calving width dictionary to override RGI elevation bins, which can be highly inaccurate at the calving front
-width_calving_dict_fullfn = main_directory + '/../calving_data/calvingfront_widths.csv'
-if os.path.exists(width_calving_dict_fullfn):
-    width_calving_df = pd.read_csv(width_calving_dict_fullfn)
-    width_calving_dict = dict(zip(width_calving_df.RGIId, width_calving_df.front_width_m))
-else:
-    width_calving_dict = {}
-# Frontal ablation glacier data
-frontalablation_glacier_data_fullfn = (
-        main_directory + '/../calving_data/Northern_hemisphere_calving_flux_Kochtitzky_et_al_for_David_Rounce_without_melt_v3.csv')
-#frontalablation_glacier_data_fullfn = main_directory + '/../calving_data/frontalablation_glacier_data-NoKochtitzky.csv'
+# Frontal ablation calibrated file
+calving_fp = main_directory + '/../calving_data/analysis/'
+calving_fn = 'all-calving_cal_ind.csv'
 
 # Model parameter column names and filepaths
 modelparams_colnames = ['lrgcm', 'lrglac', 'precfactor', 'precgrad', 'ddfsnow', 'ddfice', 'tempsnow', 'tempchange']
@@ -426,6 +427,7 @@ option_surfacetype_initial = 1
 #  option 3 (Need to code) - specify an AAR ratio and apply this to estimate initial conditions
 include_firn = True                 # True: firn included, False: firn is modeled as snow
 include_debris = True               # True: account for debris with melt factors, False: do not account for debris
+#print('\nTURN DEBRIS BACK ON!\n')
 
 # Downscaling model options
 # Reference elevation options for downscaling climate variables
@@ -463,9 +465,9 @@ elif option_refreezing == 'Woodward':
     rf_month = 10                   # refreeze month
 
 # Mass redistribution / Glacier geometry change options
-option_massredistribution = 1       # 1: mass redistribution (Huss and Hock, 2015)
-option_glaciershape = 1             # 1: parabolic (Huss and Hock, 2015), 2: rectangular, 3: triangular
-option_glaciershape_width = 1       # 1: include width, 0: do not include
+#option_massredistribution = 1       # 1: mass redistribution (Huss and Hock, 2015)
+#option_glaciershape = 1             # 1: parabolic (Huss and Hock, 2015), 2: rectangular, 3: triangular
+#option_glaciershape_width = 1       # 1: include width, 0: do not include
 icethickness_advancethreshold = 5   # advancing glacier ice thickness change threshold (5 m in Huss and Hock, 2015)
 terminus_percentage = 20            # glacier (%) considered terminus (20% in HH2015), used to size advancing new bins
     
@@ -702,13 +704,14 @@ mb_binned_fp = main_directory + '/../DEMs/mb_bins_all-20200430/'
 
 # ===== HUGONNET GEODETIC =====
 hugonnet_fp = main_directory + '/../DEMs/Hugonnet2020/'
-#hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
-hugonnet_fn = 'df_pergla_global_20yr-filled-FAcorrected.csv'
-#hugonnet_fn = 'df_pergla_global_20yr.csv'
+hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
+#hugonnet_fn = 'df_pergla_global_20yr-filled-FAcorrected.csv'
 if '-filled' in hugonnet_fn:
     hugonnet_mb_cn = 'mb_mwea'
     hugonnet_mb_err_cn = 'mb_mwea_err'
     hugonnet_rgi_glacno_cn = 'RGIId'
+    hugonnet_mb_clim_cn = 'mb_clim_mwea'
+    hugonnet_mb_clim_err_cn = 'mb_clim_mwea_err'
 else:
     hugonnet_mb_cn = 'dmdtda'
     hugonnet_mb_err_cn = 'err_dmdtda'

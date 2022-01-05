@@ -23,7 +23,7 @@ class CompatGlacDir:
         
         
         
-def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80, logging_level='WORKFLOW'):
+def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, prepro_border=80, logging_level='WORKFLOW'):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     Parameters
@@ -71,7 +71,7 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80, log
     cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
 
     # Check if folder is already processed
-    if not pygem_prms.overwrite_gdirs:
+    if not reset:
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
@@ -131,7 +131,7 @@ def single_flowline_glacier_directory(rgi_id, reset=False, prepro_border=80, log
         return gdir
 
 
-def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_border=80, k_calving=1,
+def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.overwrite_gdirs, prepro_border=80, k_calving=1,
                                                    logging_level='WORKFLOW'):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
@@ -178,7 +178,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
     cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
     
     # Check if folder is already processed
-    if not pygem_prms.overwrite_gdirs:
+    if not reset:
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
@@ -191,7 +191,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
         
     else:
         process_gdir = True
-
+    
     if process_gdir:
         # Download preprocessed data
 #        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40)
@@ -206,7 +206,6 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=False, prepro_b
         if not gdirs[0].is_tidewater:
             raise ValueError('This glacier is not tidewater!')
             
-        
         # Compute all the stuff
         list_tasks = [
             # Consensus ice thickness
