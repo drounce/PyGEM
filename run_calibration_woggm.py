@@ -28,7 +28,6 @@ import salem
 
 # Local libraries
 import class_climate
-#import class_mbdata
 import pygem.pygem_input as pygem_prms
 from pygem.massbalance import PyGEMMassBalance
 #from pygem.glacierdynamics import MassRedistributionCurveModel
@@ -99,6 +98,8 @@ def getparser():
                         help='Boolean for debugging to turn it on or off (default 0 is off)')
     parser.add_argument('-rgi_glac_number', action='store', type=str, default=None,
                         help='rgi glacier number for supercomputer')
+    parser.add_argument('-option_calibration', action='store', type=str, default=pygem_prms.option_calibration,
+                        help='calibration option')
     return parser
 
 
@@ -1201,6 +1202,7 @@ def main(list_packed_vars):
                     mcmc_fail_fp = pygem_prms.output_filepath + 'mcmc_fail/' + glacier_str.split('.')[0].zfill(2) + '/'
                     if not os.path.exists(mcmc_fail_fp):
                         os.makedirs(mcmc_fail_fp, exist_ok=True)
+                    print(mcmc_fail_fp)
                     txt_fn_fail = glacier_str + "-mcmc_fail.txt"
                     with open(mcmc_fail_fp + txt_fn_fail, "w") as text_file:
                         text_file.write(glacier_str + ' failed to complete MCMC')

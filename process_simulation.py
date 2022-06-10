@@ -52,21 +52,25 @@ from oggm import tasks
 #%% ===== Input data =====
 # Script options
 option_find_missing = False             # Checks file transfers and finds missing glaciers
-option_move_files = False
+option_move_files = False               # Moves files from one directory to another
 option_zip_sims = False                 # Zips binned and stats output for each region (gcm/scenario)
 option_process_data = False             # Processes data for regional statistics
-option_process_data_nodebris = False     # Processes data for regional statistics
-option_process_data_wcalving = False     # Processes data for regional statistics replacing tidewater glaciers w calving included
+option_process_data_nodebris = False    # Processes data for regional statistics
+option_process_data_wcalving = False    # Processes data for regional statistics replacing tidewater glaciers w calving included
 option_process_fa_err = False           # Processes frontal ablation error for regional statistics
 option_calving_mbclim_era5 = False      # mbclim of two lowest elevation bins for Will 
-option_multigcm_plots_reg = True        # Multi-GCM plots of various parameters for RGI regions
+option_multigcm_plots_reg = False        # Multi-GCM plots of various parameters for RGI regions
 option_multigcm_plots_ws = False        # Multi-GCM plots of various parameters for watersheds
 option_glacier_cs_plots = False         # Individual glacier cross section plots
-option_debris_comparison = False         # Mutli-GCM comparison of including debris or not
-option_calving_comparison = False        # Multi-GCM comparison of including frontal ablation or not
-option_policy_temp_figs = False          # Policy figures based on temperature deviations 
-option_sensitivity_figs = False          # Mass balance sensitivity figures based on temp/prec deviations
-option_swap_calving_sims = False         # Unzip, swap in tidewater glacier runs with calving on, zip back and save
+option_glacier_cs_plots_NSFANS = False  # Plots for NSF ANS proposal
+option_debris_comparison = False        # Mutli-GCM comparison of including debris or not
+option_calving_comparison = False       # Multi-GCM comparison of including frontal ablation or not
+option_policy_temp_figs = False         # Policy figures based on temperature deviations 
+option_sensitivity_figs = False         # Mass balance sensitivity figures based on temp/prec deviations
+option_swap_calving_sims = False        # Unzip, swap in tidewater glacier runs with calving on, zip back and save
+option_extract_sims = False             # Extract sims to process subregions
+option_export_timeseries = False        # Export csv data for review of paper
+option_extract_area = True              # Export csv of area
 
 regions = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
 #regions = [13]
@@ -84,8 +88,8 @@ gcm_names_ssp119 = ['EC-Earth3', 'EC-Earth3-Veg', 'GFDL-ESM4', 'MRI-ESM2-0']
 #rcps = ['ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
 #rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
 #rcps = ['rcp26', 'rcp45', 'rcp85']
-#rcps = ['rcp26', 'rcp45', 'rcp85', 'ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
-rcps = ['ssp119']
+rcps = ['rcp26', 'rcp45', 'rcp85', 'ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
+#rcps = ['ssp119']
 
 #netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
 #netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations_calving/'
@@ -93,7 +97,7 @@ rcps = ['ssp119']
 #netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations_calving_v4/'
 netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations_calving_v5/'
 #netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations-runoff_fixed/'
-netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations-nodebris/'
+#netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations-nodebris/'
 #netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations_ssp119/'
 
 fig_fp = netcdf_fp_cmip5 + '/../analysis/figures/'
@@ -151,25 +155,27 @@ vn_label_units_dict = {'massbal':'[mwea]',
                        'tempchange':'[$^\circ$C]',                                                               
                        'ddfsnow':'[mwe d$^{-1}$ $^\circ$C$^{-1}$]'}
 rgi_reg_dict = {'all':'Global',
+                'all_no519':'Global, excl. GRL and ANT',
+                'global':'Global',
                 1:'Alaska',
-                2:'W Canada/USA',
+                2:'W Canada & US',
                 3:'Arctic Canada North',
                 4:'Arctic Canada South',
-                5:'Greenland',
+                5:'Greenland Periphery',
                 6:'Iceland',
                 7:'Svalbard',
                 8:'Scandinavia',
                 9:'Russian Arctic',
                 10:'North Asia',
                 11:'Central Europe',
-                12:'Caucasus/Middle East',
+                12:'Caucasus & Middle East',
                 13:'Central Asia',
                 14:'South Asia West',
                 15:'South Asia East',
                 16:'Low Latitudes',
                 17:'Southern Andes',
                 18:'New Zealand',
-                19:'Antarctica/Subantarctic'
+                19:'Antarctic & Subantarctic'
                 }
 # Colors list
 colors_rgb = [(0.00, 0.57, 0.57), (0.71, 0.43, 1.00), (0.86, 0.82, 0.00), (0.00, 0.29, 0.29), (0.00, 0.43, 0.86), 
@@ -300,7 +306,7 @@ def select_groups(grouping, main_glac_rgi_all):
 #%%
 time_start = time.time()
 if option_find_missing:
-    option_best_calving = True  # Option to look at only tidewater glaciers
+    option_best_calving = False  # Option to look at only tidewater glaciers
     
     for reg in regions:
         
@@ -3596,6 +3602,15 @@ if option_multigcm_plots_reg:
     reg_acc_all['all'] = {}
     reg_refreeze_all['all'] = {}
     reg_fa_all['all'] = {}
+    
+    reg_vol_all['all_no519'] = {}
+    reg_vol_all_bwl['all_no519'] = {}
+    reg_area_all['all_no519'] = {}
+    reg_runoff_all['all_no519'] = {}
+    reg_melt_all['all_no519'] = {}
+    reg_acc_all['all_no519'] = {}
+    reg_refreeze_all['all_no519'] = {}
+    reg_fa_all['all_no519'] = {}
     for rcp in rcps:
         reg_vol_all['all'][rcp] = {}
         reg_vol_all_bwl['all'][rcp] = {}
@@ -3605,6 +3620,15 @@ if option_multigcm_plots_reg:
         reg_acc_all['all'][rcp] = {}
         reg_refreeze_all['all'][rcp] = {}
         reg_fa_all['all'][rcp] = {}
+        
+        reg_vol_all['all_no519'][rcp] = {}
+        reg_vol_all_bwl['all_no519'][rcp] = {}
+        reg_area_all['all_no519'][rcp] = {}
+        reg_runoff_all['all_no519'][rcp] = {}
+        reg_melt_all['all_no519'][rcp] = {}
+        reg_acc_all['all_no519'][rcp] = {}
+        reg_refreeze_all['all_no519'][rcp] = {}
+        reg_fa_all['all_no519'][rcp] = {}
         if 'rcp' in rcp:
             gcm_names = gcm_names_rcps
         elif 'ssp' in rcp:
@@ -3621,6 +3645,15 @@ if option_multigcm_plots_reg:
             reg_acc_all['all'][rcp][gcm_name] = None
             reg_refreeze_all['all'][rcp][gcm_name] = None
             reg_fa_all['all'][rcp][gcm_name] = None
+            
+            reg_vol_all['all_no519'][rcp][gcm_name] = None
+            reg_vol_all_bwl['all_no519'][rcp][gcm_name] = None
+            reg_area_all['all_no519'][rcp][gcm_name] = None
+            reg_runoff_all['all_no519'][rcp][gcm_name] = None
+            reg_melt_all['all_no519'][rcp][gcm_name] = None
+            reg_acc_all['all_no519'][rcp][gcm_name] = None
+            reg_refreeze_all['all_no519'][rcp][gcm_name] = None
+            reg_fa_all['all_no519'][rcp][gcm_name] = None
             
     for reg in regions:
     
@@ -3779,6 +3812,17 @@ if option_multigcm_plots_reg:
                     reg_acc_all['all'][rcp][gcm_name] = reg_acc_all[reg][rcp][gcm_name]
                     reg_refreeze_all['all'][rcp][gcm_name] = reg_refreeze_all[reg][rcp][gcm_name]
                     reg_fa_all['all'][rcp][gcm_name] = reg_fa_all[reg][rcp][gcm_name]
+                    
+                    if reg not in [5,19]:
+                        reg_vol_all['all_no519'][rcp][gcm_name] = reg_vol_all[reg][rcp][gcm_name]
+                        reg_vol_all_bwl['all_no519'][rcp][gcm_name] = reg_vol_all_bwl[reg][rcp][gcm_name]
+                        reg_area_all['all_no519'][rcp][gcm_name] = reg_area_all[reg][rcp][gcm_name]
+                        reg_runoff_all['all_no519'][rcp][gcm_name] = reg_runoff_all[reg][rcp][gcm_name]
+                        reg_melt_all['all_no519'][rcp][gcm_name] = reg_melt_all[reg][rcp][gcm_name]
+                        reg_acc_all['all_no519'][rcp][gcm_name] = reg_acc_all[reg][rcp][gcm_name]
+                        reg_refreeze_all['all_no519'][rcp][gcm_name] = reg_refreeze_all[reg][rcp][gcm_name]
+                        reg_fa_all['all_no519'][rcp][gcm_name] = reg_fa_all[reg][rcp][gcm_name]
+                    
                 else:
                     reg_vol_all['all'][rcp][gcm_name] = reg_vol_all['all'][rcp][gcm_name] + reg_vol_all[reg][rcp][gcm_name]
                     reg_vol_all_bwl['all'][rcp][gcm_name] = reg_vol_all_bwl['all'][rcp][gcm_name] + reg_vol_all_bwl[reg][rcp][gcm_name]
@@ -3788,9 +3832,20 @@ if option_multigcm_plots_reg:
                     reg_acc_all['all'][rcp][gcm_name] = reg_acc_all['all'][rcp][gcm_name] + reg_acc_all[reg][rcp][gcm_name]
                     reg_refreeze_all['all'][rcp][gcm_name] = reg_refreeze_all['all'][rcp][gcm_name] + reg_refreeze_all[reg][rcp][gcm_name]
                     reg_fa_all['all'][rcp][gcm_name] = reg_fa_all['all'][rcp][gcm_name] + reg_fa_all[reg][rcp][gcm_name]
+                    
+                    if reg not in [5,19]:
+                        reg_vol_all['all_no519'][rcp][gcm_name] = reg_vol_all['all_no519'][rcp][gcm_name] + reg_vol_all[reg][rcp][gcm_name]
+                        reg_vol_all_bwl['all_no519'][rcp][gcm_name] = reg_vol_all_bwl['all_no519'][rcp][gcm_name] + reg_vol_all_bwl[reg][rcp][gcm_name]
+                        reg_area_all['all_no519'][rcp][gcm_name] = reg_area_all['all_no519'][rcp][gcm_name] + reg_area_all[reg][rcp][gcm_name]
+                        reg_runoff_all['all_no519'][rcp][gcm_name] = reg_runoff_all['all_no519'][rcp][gcm_name] + reg_runoff_all[reg][rcp][gcm_name]
+                        reg_melt_all['all_no519'][rcp][gcm_name] = reg_melt_all['all_no519'][rcp][gcm_name] + reg_melt_all[reg][rcp][gcm_name]
+                        reg_acc_all['all_no519'][rcp][gcm_name] = reg_acc_all['all_no519'][rcp][gcm_name] + reg_acc_all[reg][rcp][gcm_name]
+                        reg_refreeze_all['all_no519'][rcp][gcm_name] = reg_refreeze_all['all_no519'][rcp][gcm_name] + reg_refreeze_all[reg][rcp][gcm_name]
+                        reg_fa_all['all_no519'][rcp][gcm_name] = reg_fa_all['all_no519'][rcp][gcm_name] + reg_fa_all[reg][rcp][gcm_name]
                 
              
     #%%
+    regions.append('all_no519')
     regions.append('all')
     # MULTI-GCM STATISTICS
     ds_multigcm_vol = {}
@@ -3986,8 +4041,8 @@ if option_multigcm_plots_reg:
     
     ncount = 0
     regions_overview = regions
-    if 'all' in regions:
-        regions_overview = [regions[-1]] + regions[0:-1]
+    if 'all' in regions and 'all_no519' in regions:
+        regions_overview = regions[-2:] + regions[0:-2]
     for nreg, reg in enumerate(regions_overview):
         for rcp in rcps:
             # Median and absolute median deviation
@@ -4189,6 +4244,7 @@ if option_multigcm_plots_reg:
     stats_overview_df['slr_Edwards_dif%'] = 100 * stats_overview_df['slr_mmSLE_med'] / stats_overview_df['Edwards_slr_mmsle_mean']
     stats_overview_df.to_csv(csv_fp + 'stats_overview.csv', index=False)
     
+    regions.remove('all_no519')
     #%%
     # ----- FIGURE: ALL MULTI-GCM NORMALIZED VOLUME CHANGE -----
     fig = plt.figure()
@@ -4771,8 +4827,11 @@ if option_multigcm_plots_reg:
     slr_cum_cns = ['Region', 'Scenario', 'med_mmSLE', 'mean_mmSLE', 'std_mmSLE', 'mad_mmSLE']
     slr_cum_df = pd.DataFrame(np.zeros((len(regions)*len(rcps),len(slr_cum_cns))), columns=slr_cum_cns)
     ncount = 0
+    
+    all_slr_cum_df = pd.DataFrame(np.zeros((len(rcps),len(years)-1)), columns=years[:-1])
+    
     for nreg, reg in enumerate(regions):
-        for rcp in rcps:
+        for nrcp, rcp in enumerate(rcps):
             # Median and absolute median deviation
             reg_vol = ds_multigcm_vol[reg][rcp]
             reg_vol_bsl = ds_multigcm_vol_bsl[reg][rcp]
@@ -4798,8 +4857,16 @@ if option_multigcm_plots_reg:
             slr_cum_df.loc[ncount,'std_mmSLE'] = reg_slr_cum_std[-1]
             slr_cum_df.loc[ncount,'mad_mmSLE'] = reg_slr_cum_mad[-1]
             
+            if reg in ['all']:
+                print(reg, rcp)
+                all_slr_cum_df.iloc[nrcp,:] = reg_slr_cum_med
+            
             ncount += 1
     slr_cum_df.to_csv(csv_fp + 'SLR_cum_2100_rel2015.csv', index=False)
+    
+    all_slr_cum_df.index = rcps
+    all_slr_cum_df.to_csv(csv_fp + 'all_SLR_cum_mmSLE_2100_rel2015_timeseries.csv')
+    #%%
             
 #            print(reg, 'SLR (mm SLE):', rcp, np.round(reg_slr_cum_avg[-1],2), '+/-', np.round(reg_slr_cum_var[-1],2))
         
@@ -6606,6 +6673,368 @@ if option_glacier_cs_plots:
             fig_fn = fig_fn.replace('.png','-wdebris.png')
         fig.set_size_inches(4,3)
         fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+        
+#%%
+if option_glacier_cs_plots_NSFANS:
+    glac_nos = ['1.22193']
+
+    netcdf_fp_list = ['/Users/drounce/Documents/HiMAT/Output/simulations-nsfans_control/',
+                      '/Users/drounce/Documents/HiMAT/Output/simulations-nsfans_normal_tadjusted_v2/']
+    
+    fig_fp_multigcm = netcdf_fp_cmip5 + '/../../analysis/figures/ind_glaciers_v2/'
+
+       
+    cs_year = 2000
+    startyear = 2015
+    endyear = 2100
+    years = np.arange(2000,2101+1)
+    
+    startyear_idx = np.where(years == startyear)[0][0]
+    cs_idx = np.where(years == cs_year)[0][0]
+
+    gcm_names_ssps = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
+                      'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
+    rcps = ['ssp245']
+
+    rcps_plot_mad = ['ssp245']
+
+    if not os.path.exists(fig_fp_multigcm):
+        os.makedirs(fig_fp_multigcm, exist_ok=True)
+        
+    glac_name_dict = {'1.15645':'Kennicott',
+                      '1.22193': 'Kahiltna'}
+        
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,1,0.65])
+    ax.patch.set_facecolor('none')
+#    ax2 = fig.add_axes([0,0.67,1,0.35])
+#    ax2.patch.set_facecolor('none')
+    ax3 = fig.add_axes([0.6,0.32,0.37,0.3])
+    ax3.patch.set_facecolor('none')
+    
+    rcp_lines = []
+    rcp_labels = []
+    
+    for nfp, netcdf_fp_cmip5 in enumerate(netcdf_fp_list):
+
+        # Set up processing
+        glac_zbed_all = {}
+        glac_thick_all = {}
+        glac_zsurf_all = {}
+        glac_vol_all = {}
+        glac_multigcm_zbed = {}
+        glac_multigcm_thick = {}
+        glac_multigcm_zsurf = {}
+        glac_multigcm_vol = {}
+        for glac_no in glac_nos:
+    
+            gdir = single_flowline_glacier_directory(glac_no, logging_level='CRITICAL')
+            
+            tasks.init_present_time_glacier(gdir) # adds bins below
+            debris.debris_binned(gdir, fl_str='model_flowlines')  # add debris enhancement factors to flowlines
+            nfls = gdir.read_pickle('model_flowlines')
+            
+            x = np.arange(nfls[0].nx) * nfls[0].dx * nfls[0].map_dx
+    
+            glac_idx = np.nonzero(nfls[0].thick)[0]
+            xmax = np.ceil(x[glac_idx].max()/1000+0.5)*1000
+            
+    #        vol_m3_init = ds_binned.bin_volume_annual[0,:,0].values
+    #        thick_init = ds_binned.bin_thick_annual[0,:,0].values
+    #        widths_m = nfls[0].widths_m
+    #        lengths_m = vol_m3_init / thick_init / widths_m
+                                    
+                                    
+            glac_zbed_all[glac_no] = {}
+            glac_thick_all[glac_no] = {}
+            glac_zsurf_all[glac_no] = {}
+            glac_vol_all[glac_no] = {}
+            
+            for rcp in rcps:
+    #        for rcp in rcps[0:1]:
+                
+                glac_zbed_all[glac_no][rcp] = {}
+                glac_thick_all[glac_no][rcp] = {}
+                glac_zsurf_all[glac_no][rcp] = {}
+                glac_vol_all[glac_no][rcp] = {}
+                
+                if 'rcp' in rcp:
+                    gcm_names = gcm_names_rcps
+                elif 'ssp' in rcp:
+                    gcm_names = gcm_names_ssps
+                    
+                for gcm_name in gcm_names:
+    #            for gcm_name in gcm_names[0:1]:
+    
+                    ds_binned_fp = netcdf_fp_cmip5 + glac_no.split('.')[0].zfill(2) + '/' + gcm_name + '/' + rcp + '/binned/'
+                    for i in os.listdir(ds_binned_fp):
+                        if i.startswith(glac_no):
+                            ds_binned_fn = i
+                    ds_stats_fp = netcdf_fp_cmip5 + glac_no.split('.')[0].zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
+                    for i in os.listdir(ds_stats_fp):
+                        if i.startswith(glac_no):
+                            ds_stats_fn = i
+                    
+                    ds_binned = xr.open_dataset(ds_binned_fp + ds_binned_fn)
+                    ds_stats = xr.open_dataset(ds_stats_fp + ds_stats_fn)
+    
+                    thick = ds_binned.bin_thick_annual[0,:,:].values
+                    zsurf_init = ds_binned.bin_surface_h_initial[0].values
+                    zbed = zsurf_init - thick[:,cs_idx]
+                    vol = ds_stats.glac_volume_annual[0,:].values
+                    
+                    glac_thick_all[glac_no][rcp][gcm_name] = thick
+                    glac_zbed_all[glac_no][rcp][gcm_name] = zbed
+                    glac_zsurf_all[glac_no][rcp][gcm_name] = zbed[:,np.newaxis] + thick
+                    glac_vol_all[glac_no][rcp][gcm_name] = vol
+                    
+                    
+            # MULTI-GCM STATISTICS
+            glac_multigcm_zbed[glac_no] = {}
+            glac_multigcm_thick[glac_no] = {}
+            glac_multigcm_zsurf[glac_no] = {}
+            glac_multigcm_vol[glac_no] = {}
+            for rcp in rcps: 
+                
+                if 'rcp' in rcp:
+                    gcm_names = gcm_names_rcps
+                elif 'ssp' in rcp:
+                    gcm_names = gcm_names_ssps
+                    
+                for ngcm, gcm_name in enumerate(gcm_names):
+                    
+    #                print(rcp, gcm_name)
+        
+                    glac_zbed_gcm = glac_zbed_all[glac_no][rcp][gcm_name]
+                    glac_thick_gcm = glac_thick_all[glac_no][rcp][gcm_name]
+                    glac_zsurf_gcm = glac_zsurf_all[glac_no][rcp][gcm_name]
+                    glac_vol_gcm = glac_vol_all[glac_no][rcp][gcm_name]
+                    
+                    if x.shape[0] > glac_zbed_gcm.shape[0]:
+                        x = x[0:glac_zbed_gcm.shape[0]]
+        
+                    if ngcm == 0:
+                        glac_zbed_gcm_all = glac_zbed_gcm 
+                        glac_thick_gcm_all = glac_thick_gcm[np.newaxis,:,:]
+                        glac_zsurf_gcm_all = glac_zsurf_gcm[np.newaxis,:,:]
+                        glac_vol_gcm_all = glac_vol_gcm[np.newaxis,:]
+                    else:
+                        glac_zbed_gcm_all = np.vstack((glac_zbed_gcm_all, glac_zbed_gcm))
+                        glac_thick_gcm_all = np.vstack((glac_thick_gcm_all, glac_thick_gcm[np.newaxis,:,:]))
+                        glac_zsurf_gcm_all = np.vstack((glac_zsurf_gcm_all, glac_zsurf_gcm[np.newaxis,:,:]))
+                        glac_vol_gcm_all = np.vstack((glac_vol_gcm_all, glac_vol_gcm[np.newaxis,:]))
+                
+                glac_multigcm_zbed[glac_no][rcp] = glac_zbed_gcm_all
+                glac_multigcm_thick[glac_no][rcp] = glac_thick_gcm_all
+                glac_multigcm_zsurf[glac_no][rcp] = glac_zsurf_gcm_all
+                glac_multigcm_vol[glac_no][rcp] = glac_vol_gcm_all
+        
+            #%% ----- FIGURE: VOLUME CHANGE MULTI-GCM -----
+            if nfp == 0:
+                add_zbed = True
+                color = '#76B8E5'
+                label = 'Control'
+            else:
+                add_zbed = False
+                color = '#ED2024'
+                label = '$T_{snow,adjusted}$'
+#                label = 'Rain/snow temp. threshold adjusted'
+            line = Line2D([0,1],[0,1], color=color, linewidth=1)
+            rcp_lines.append(line)
+            rcp_labels.append(label)
+            
+            ymin, ymax, thick_max = None, None, None
+            for rcp in rcps:
+                zbed_med = np.median(glac_multigcm_zbed[glac_no][rcp],axis=0)
+                zbed_std = np.std(glac_multigcm_zbed[glac_no][rcp], axis=0)
+                
+                thick_med = np.median(glac_multigcm_thick[glac_no][rcp],axis=0)
+                thick_std = np.std(glac_multigcm_thick[glac_no][rcp], axis=0)
+                
+                zsurf_med = np.median(glac_multigcm_zsurf[glac_no][rcp],axis=0)
+                zsurf_std = np.std(glac_multigcm_zsurf[glac_no][rcp], axis=0)
+                
+                vol_med = np.median(glac_multigcm_vol[glac_no][rcp],axis=0)
+                vol_std = np.std(glac_multigcm_vol[glac_no][rcp], axis=0)
+                
+                normyear_idx = np.where(years == normyear)[0][0]
+                endyear_idx = np.where(years == endyear)[0][0]
+                
+                
+                if add_zbed:
+                    ax.plot(x/1000, zbed_med[np.arange(len(x))],
+                            color='k', linestyle='-', linewidth=1, zorder=5, label='zbed')
+                    ax.plot(x/1000, zsurf_med[np.arange(len(x)),normyear_idx], 
+                                 color='k', linestyle=':', linewidth=0.5, zorder=4, label=str(normyear))
+#                    ax2.plot(x/1000, thick_med[np.arange(len(x)),normyear_idx], 
+#                             color='k', linestyle=':', linewidth=0.5, zorder=4, label=str(normyear))
+                    add_zbed = False
+                    
+                ax.plot(x/1000, zsurf_med[np.arange(len(x)),endyear_idx], 
+                             color=color, linestyle='-', linewidth=0.5, zorder=4, label=str(endyear))
+                
+#                ax2.plot(x/1000, thick_med[np.arange(len(x)),endyear_idx],
+#                         color=color, linestyle='-', linewidth=0.5, zorder=4, label=str(endyear))
+                
+                ax3.plot(years, vol_med / vol_med[normyear_idx], color=color, 
+                         linewidth=0.5, zorder=4, label=None)
+    
+                if rcp in rcps_plot_mad:
+                    ax3.fill_between(years, 
+                                     (vol_med + vol_std)/vol_med[normyear_idx], 
+                                     (vol_med - vol_std)/vol_med[normyear_idx],
+                                     alpha=0.2, facecolor=color, label=None)
+                
+                # ymin and ymax for bounds
+                if ymin is None:
+                    ymin = np.floor(zbed_med[glac_idx].min()/100)*100
+                    ymax = np.ceil(zsurf_med[:,endyear_idx].max()/100)*100
+                if np.floor(zbed_med.min()/100)*100 < ymin:
+                    ymin = np.floor(zbed_med[glac_idx].min()/100)*100
+                if np.ceil(zsurf_med[glac_idx,endyear_idx].max()/100)*100 > ymax:
+                    ymax = np.ceil(zsurf_med[glac_idx,endyear_idx].max()/100)*100
+                # thickness max for bounds  
+                if thick_max is None:
+                    thick_max = np.ceil(thick_med.max()/10)*10
+                if np.ceil(thick_med.max()/10)*10 > thick_max:
+                    thick_max = np.ceil(thick_med.max()/10)*10
+            
+#            if ymin < 0:
+#                water_idx = np.where(zbed_med < 0)[0]
+#                # Add water level
+#                ax.plot(x[water_idx]/1000, np.zeros(x[water_idx].shape), color='aquamarine', linewidth=1)
+            
+            if xmax/1000 > 25:
+                x_major, x_minor = 10, 2
+            elif xmax/1000 > 15:
+                x_major, x_minor = 5, 1
+            else:
+                x_major, x_minor = 2, 0.5
+            
+            y_major, y_minor = 500,100
+            
+            if thick_max > 200:
+                thick_major, thick_minor = 100, 20
+            else:
+                thick_major, thick_minor = 50, 10
+                
+                
+            # ----- GLACIER SPECIFIC PLOTS -----
+            plot_legend = False
+            add_glac_name = False
+            if glac_no in ['1.22193']:
+                thick_major, thick_minor = 200, 100
+                ymin, ymax = -200, 4800
+                y_major, y_minor = 1000, 200
+                thick_max = 700
+                if nfp==1:
+                    plot_legend = True
+                    add_glac_name = True
+                
+            ax.set_ylim(ymin, ymax)
+            ax.set_xlim(0,xmax/1000)
+#            ax2.set_xlim(0,xmax/1000)
+            ax.xaxis.set_major_locator(MultipleLocator(x_major))
+            ax.xaxis.set_minor_locator(MultipleLocator(x_minor))
+            ax.yaxis.set_major_locator(MultipleLocator(y_major))
+            ax.yaxis.set_minor_locator(MultipleLocator(y_minor)) 
+#            ax2.set_ylim(0,thick_max)
+#            ax2.yaxis.set_major_locator(MultipleLocator(thick_major))
+#    #        ax2.yaxis.set_minor_locator(MultipleLocator(thick_minor))
+#            ax2.yaxis.set_minor_locator(AutoMinorLocator(2))
+#            ax2.get_xaxis().set_visible(False)
+                
+            ax.set_ylabel('Elevation (m a.s.l.)', size=14)
+            ax.set_xlabel('Distance along flowline (km)', size=14)
+            ax.tick_params(which='major', direction='inout', right=False, labelsize=12)
+            ax.tick_params(which='minor', direction='in', right=False, labelsize=12)
+#            ax2.set_ylabel('Ice thickness (m)', labelpad=10)
+#    #        ax2.yaxis.set_label_position('right')
+#    #        ax2.yaxis.tick_right()
+#            ax.tick_params(axis='both', which='major', direction='inout', right=True)
+#            ax.tick_params(axis='both', which='minor', direction='in', right=True)
+#            ax2.tick_params(axis='both', which='major', direction='inout', right=True)
+#            ax2.tick_params(axis='both', which='minor', direction='in', right=True)
+#    #        ax.spines['top'].set_visible(False)
+                    
+            if glac_no in glac_name_dict.keys():
+                glac_name_text = glac_name_dict[glac_no]
+            else:
+                 glac_name_text = glac_no
+            
+            if add_glac_name:
+                ax.text(0.03, 0.98, glac_name_text, size=12, horizontalalignment='left', 
+                        verticalalignment='top', transform=ax.transAxes)
+    #        ax.legend(rcp_lines, rcp_labels, loc=(0.05,0.05), fontsize=10, labelspacing=0.25, handlelength=1, 
+    #                       handletextpad=0.25, borderpad=0, frameon=False)
+            
+            ax3.set_ylabel('Mass (-)', size=14)
+            ax3.set_xlim(normyear, endyear)
+            ax3.xaxis.set_major_locator(MultipleLocator(40))
+            ax3.xaxis.set_minor_locator(MultipleLocator(10))
+            ax3.set_ylim(0,1.1)
+            ax3.yaxis.set_major_locator(MultipleLocator(0.5))
+            ax3.yaxis.set_minor_locator(MultipleLocator(0.1))
+            ax3.tick_params(axis='both', which='major', direction='inout', right=True, labelsize=12)
+            ax3.tick_params(axis='both', which='minor', direction='in', right=True, labelsize=12)
+            vol_norm_gt = vol_med[normyear_idx] * pygem_prms.density_ice / 1e12
+            if vol_norm_gt > 10:
+                vol_norm_gt_str = str(int(np.round(vol_norm_gt,0))) + ' Gt'
+            elif vol_norm_gt > 1:
+                vol_norm_gt_str = str(np.round(vol_norm_gt,1)) + ' Gt'
+            else:
+                vol_norm_gt_str = str(np.round(vol_norm_gt,2)) + ' Gt'
+            if nfp == 0:
+                ax3.text(0.95, 0.95, vol_norm_gt_str, size=12, horizontalalignment='right', 
+                        verticalalignment='top', transform=ax3.transAxes)
+            
+            # Legend
+            if plot_legend:
+#                ax2.legend(rcp_lines, rcp_labels, loc=(0.02,0.45), fontsize=8, labelspacing=0.25, handlelength=1, 
+#                          handletextpad=0.25, borderpad=0, ncol=1, columnspacing=0.5, frameon=False)
+                other_lines = []
+                other_labels = []
+                # add years
+                line = Line2D([0,1],[0,1], color='k', linestyle=':', linewidth=1)
+                other_lines.append(line)
+                other_labels.append(str(normyear))
+                line = Line2D([0,1],[0,1], color='grey', linestyle='-', linewidth=1)
+                other_lines.append(line)
+                other_labels.append(str(endyear))
+                line = Line2D([0,1],[0,1], color='k', linewidth=1)
+                other_lines.append(line)
+                other_labels.append('Bed')
+                
+                line = Line2D([0,1],[0,1], color='k', linestyle=':', linewidth=0)
+                other_lines.append(line)
+                other_labels.append('')
+                
+                for rcp_label in rcp_labels:
+                    other_labels.append(rcp_label)
+                for rcp_line in rcp_lines:
+                    other_lines.append(rcp_line)
+                
+                ax.legend(other_lines, other_labels, loc=(0.02,0.01), fontsize=12, labelspacing=0.25, handlelength=1, 
+                          handletextpad=0.25, borderpad=0, ncol=2, columnspacing=0.5, frameon=False)
+            
+    #        loc=(-1.4,0.2), labels=labels, fontsize=10, ncol=2, columnspacing=0.5, labelspacing=0.25, 
+    #                      handlelength=1, handletextpad=0.25, borderpad=0, frameon=False
+        
+        
+    # Save figure
+    if 'rcp26' in rcps and 'ssp126' in rcps:
+        scenario_str = 'rcps_ssps'
+    elif 'rcp26' in rcps:
+        scenario_str = 'rcps'
+    elif 'ssp126' in rcps:
+        scenario_str = 'ssps'
+    fig_fn = (glac_no + '_profile_' + str(endyear) + '_control_vs_tsnowthreshold.png')
+    fig.set_size_inches(4.5,3)
+    fig.savefig(fig_fp_multigcm + fig_fn, bbox_inches='tight', dpi=300)
+
+    plt.show()
+
+
 #%%   
 if option_debris_comparison:
     
@@ -10228,12 +10657,16 @@ if option_move_files:
 if option_swap_calving_sims:
     
 #    regions = [1, 3, 4, 5, 7, 9, 17, 19]
-    regions = [1]
+    regions = [2]
     
     option_nps_sims = True      # Option to pull out NPS simulations
     if option_nps_sims:
+#        regions = [1]
+#        nps_fp = '/Users/drounce/Documents/HiMAT/NPS_AK/simulations/'
+#        nps_df_fn = '/Users/drounce/Documents/HiMAT/NPS_AK/rgiids_nps.csv'
+        regions = [2]
         nps_fp = '/Users/drounce/Documents/HiMAT/NPS_AK/simulations/'
-        nps_df_fn = '/Users/drounce/Documents/HiMAT/NPS_AK/rgiids_nps.csv'
+        nps_df_fn = '/Users/drounce/Documents/HiMAT/Menounos/rgiids_list.csv'
         nps_df = pd.read_csv(nps_df_fn)
         nps_rcps = ['ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
     
@@ -10246,10 +10679,10 @@ if option_swap_calving_sims:
     gcm_names_ssps = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
                       'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
     gcm_names_ssp119 = ['EC-Earth3', 'EC-Earth3-Veg', 'GFDL-ESM4', 'MRI-ESM2-0']
-    #rcps = ['ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
-    #rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
+    rcps = ['ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
+#    rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
 #    rcps = ['rcp26', 'rcp45', 'rcp85']
-    rcps = ['rcp26', 'rcp45', 'rcp85', 'ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
+#    rcps = ['rcp26', 'rcp45', 'rcp85', 'ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
 
     for reg in regions:
         # Load glaciers
@@ -10307,18 +10740,19 @@ if option_swap_calving_sims:
                 calving_stats_fp = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
                 calving_binned_fp = netcdf_fp_cmip5 + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/binned/'
                 
-                for i in os.listdir(calving_stats_fp):
-                    if i.endswith('all.nc'):
-                        shutil.copy(calving_stats_fp + i, unzip_stats_fp)
-                
-                for i in os.listdir(calving_binned_fp):
-                    if i.endswith('binned.nc'):
-                        shutil.copy(calving_binned_fp + i, unzip_binned_fp)
+                if os.path.exists(calving_stats_fp):
+                    for i in os.listdir(calving_stats_fp):
+                        if i.endswith('all.nc'):
+                            shutil.copy(calving_stats_fp + i, unzip_stats_fp)
+                    
+                    for i in os.listdir(calving_binned_fp):
+                        if i.endswith('binned.nc'):
+                            shutil.copy(calving_binned_fp + i, unzip_binned_fp)
                    
                 
                 # ----- NPS COPY FILES OF INTEREST -----
                 # Pull out glaciers of interest in AK
-                if reg in [1] and option_nps_sims and rcp in nps_rcps:
+                if option_nps_sims and rcp in nps_rcps:
                     if not os.path.exists(nps_fp):
                         os.makedirs(nps_fp, exist_ok=True) 
                     
@@ -10387,3 +10821,419 @@ if option_swap_calving_sims:
                 os.remove(copy_fp + zipped_stats_fn)
                 os.remove(copy_fp + zipped_binned_fn)
                 
+
+
+
+if option_extract_sims:
+    
+#    regions = [1, 3, 4, 5, 7, 9, 17, 19]
+    regions = [2]
+    
+    nps_fp = '/Users/drounce/Documents/HiMAT/Menounos/simulations/'
+    nps_df_fn = '/Users/drounce/Documents/HiMAT/Menounos/rgiids_list.csv'
+    nps_df = pd.read_csv(nps_df_fn)
+    nps_rcps = ['ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
+    
+    netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/spc_backup/simulations_calving_v5/'
+    zipped_fp_cmip5 = '/Volumes/LaCie/globalsims_backup/simulations-cmip5/_zipped/'
+    zipped_fp_cmip6 = '/Volumes/LaCie/globalsims_backup/simulations-cmip6/_zipped/'
+    
+    gcm_names_rcps = ['CanESM2', 'CCSM4', 'CNRM-CM5', 'CSIRO-Mk3-6-0', 'GFDL-CM3', 
+                      'GFDL-ESM2M', 'GISS-E2-R', 'IPSL-CM5A-LR', 'MPI-ESM-LR', 'NorESM1-M']
+    gcm_names_ssps = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
+                      'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
+    gcm_names_ssp119 = ['EC-Earth3', 'EC-Earth3-Veg', 'GFDL-ESM4', 'MRI-ESM2-0']
+    rcps = ['ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
+#    rcps = ['ssp126', 'ssp245', 'ssp370', 'ssp585']
+#    rcps = ['rcp26', 'rcp45', 'rcp85']
+#    rcps = ['rcp26', 'rcp45', 'rcp85', 'ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']
+    
+    for reg in regions:
+        # Load glaciers
+        glacno_list = []
+        
+        for rcp in rcps:
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                if rcp in ['ssp119']:
+                    gcm_names = gcm_names_ssp119
+                else:
+                    gcm_names = gcm_names_ssps
+        
+            for gcm_name in gcm_names:
+                print(reg, rcp, gcm_name)
+                
+                # Filename
+                if rcp in ['rcp26','rcp45','rcp85']:
+                    zipped_fp = zipped_fp_cmip5
+                elif rcp in ['ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']:
+                    zipped_fp = zipped_fp_cmip6
+                zipped_stats_fp = zipped_fp + str(reg).zfill(2) + '/stats/'
+                zipped_stats_fn = gcm_name + '_' + rcp + '_stats.zip'
+                zipped_binned_fp = zipped_fp + str(reg).zfill(2) + '/binned/'
+                zipped_binned_fn = gcm_name + '_' + rcp + '_binned.zip'
+                
+                # Copy file path
+                copy_fp = netcdf_fp_cmip5 + '_copy/' + str(reg).zfill(2) + '/'
+                
+                if not os.path.exists(copy_fp):
+                    os.makedirs(copy_fp, exist_ok=True)                
+                shutil.copy(zipped_stats_fp + zipped_stats_fn, copy_fp)
+                shutil.copy(zipped_binned_fp + zipped_binned_fn, copy_fp)
+                
+                # Unzip filepath
+                unzip_stats_fp = copy_fp + gcm_name + '/' + rcp + '/stats/'
+                if not os.path.exists(unzip_stats_fp):
+                    os.makedirs(unzip_stats_fp)
+                with zipfile.ZipFile(copy_fp + zipped_stats_fn, 'r') as zip_ref:
+                    zip_ref.extractall(unzip_stats_fp)
+                
+                unzip_binned_fp = copy_fp + gcm_name + '/' + rcp + '/binned/'
+                if not os.path.exists(unzip_binned_fp):
+                    os.makedirs(unzip_binned_fp)
+                with zipfile.ZipFile(copy_fp + zipped_binned_fn, 'r') as zip_ref:
+                    zip_ref.extractall(unzip_binned_fp)
+                
+                # Remove zipped file
+                os.remove(copy_fp + zipped_stats_fn)
+                os.remove(copy_fp + zipped_binned_fn)
+                
+
+                # ----- NPS COPY FILES OF INTEREST -----
+                if not os.path.exists(nps_fp):
+                    os.makedirs(nps_fp, exist_ok=True) 
+                
+                nps_fp_stats = nps_fp + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
+                nps_fp_binned = nps_fp + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/binned/'
+                
+                if not os.path.exists(nps_fp_stats):
+                    os.makedirs(nps_fp_stats, exist_ok=True) 
+                if not os.path.exists(nps_fp_binned):
+                    os.makedirs(nps_fp_binned, exist_ok=True) 
+                
+                # List of filenames available
+                copy_stats_fns = []
+                for i in os.listdir(unzip_stats_fp):
+                    if i.endswith('_all.nc'):
+                        copy_stats_fns.append(i)
+                copy_stats_fns = sorted(copy_stats_fns)
+                
+                copy_binned_fns = []
+                for i in os.listdir(unzip_binned_fp):
+                    if i.endswith('_binned.nc'):
+                        copy_binned_fns.append(i)
+                copy_binned_fns = sorted(copy_binned_fns)
+                
+                # RGIIds to copy
+                rgiids = list(nps_df.RGIId)
+                glacno_list = sorted([str(int(x.split('-')[1].split('.')[0])) + '.' + x.split('-')[1].split('.')[1] for x in rgiids])
+                for glacno in glacno_list:
+                    
+                    # Find the binned and stats filenames to copy
+                    glac_copy_binned_fn_list = [x for x in copy_binned_fns if x.startswith(glacno)]
+                    if len(glac_copy_binned_fn_list) > 0:
+                        glac_copy_binned_fn = glac_copy_binned_fn_list[0]
+                        # Copy file
+                        shutil.copy(unzip_binned_fp + glac_copy_binned_fn, nps_fp_binned)
+                        
+                    glac_copy_stats_fn_list = [x for x in copy_stats_fns if x.startswith(glacno)]
+                    if len(glac_copy_stats_fn_list) > 0:
+                        glac_copy_stats_fn = glac_copy_stats_fn_list[0]
+                        # Copy file
+                        shutil.copy(unzip_stats_fp + glac_copy_stats_fn, nps_fp_stats)
+                # ----- END NPS COPYING -----
+                
+                # Remove unzipped netcdf files
+                shutil.rmtree(copy_fp + gcm_name)
+
+                
+#%% ----- EXPORT TIME SERIES OF DATA TO SUPPORT REVIEW PRIOR TO UPLOADING AT NSIDC -----
+if option_export_timeseries:
+    
+    netcdf_fp_cmip5_land = '/Users/drounce/Documents/HiMAT/spc_backup/simulations/'
+    export_fp = netcdf_fp_cmip5 + '_review_data/'
+    
+    
+    if not os.path.exists(export_fp):
+        os.makedirs(export_fp)
+    
+    for reg in regions:
+        
+        for rcp in rcps:
+            
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                if rcp in ['ssp119']:
+                    gcm_names = gcm_names_ssp119
+                else:
+                    gcm_names = gcm_names_ssps
+                
+            for gcm_name in gcm_names:
+                
+                # ----- GCM/RCP PICKLE FILEPATHS AND FILENAMES -----
+                load_bwl = True
+                if '_calving' in netcdf_fp_cmip5 and reg in [2,6,8,10,11,12,13,14,15,16,18]:
+                    pickle_fp_reg =  (netcdf_fp_cmip5_land + '../analysis/pickle/' + str(reg).zfill(2) + 
+                                      '/O1Regions/' + gcm_name + '/' + rcp + '/')
+                    load_bwl = False
+                else:
+                    pickle_fp_reg =  pickle_fp + str(reg).zfill(2) + '/O1Regions/' + gcm_name + '/' + rcp + '/'
+                # Region string prefix
+                reg_rcp_gcm_str = 'R' + str(reg) + '_' + rcp + '_' + gcm_name
+                
+                # Filenames
+                fn_reg_vol_annual = reg_rcp_gcm_str + '_vol_annual.pkl' 
+                fn_reg_vol_annual_bwl = reg_rcp_gcm_str + '_vol_annual_bwl.pkl'
+                fn_reg_area_annual = reg_rcp_gcm_str + '_area_annual.pkl'
+                fn_reg_acc_monthly = reg_rcp_gcm_str + '_acc_monthly.pkl'
+                fn_reg_refreeze_monthly = reg_rcp_gcm_str + '_refreeze_monthly.pkl'
+                fn_reg_melt_monthly = reg_rcp_gcm_str + '_melt_monthly.pkl'
+                fn_reg_frontalablation_monthly = reg_rcp_gcm_str + '_frontalablation_monthly.pkl'
+                
+                # Volume
+                with open(pickle_fp_reg + fn_reg_vol_annual, 'rb') as f:
+                    reg_vol_annual = pickle.load(f)
+                # Volume below sea level
+                if load_bwl:
+                    with open(pickle_fp_reg + fn_reg_vol_annual_bwl, 'rb') as f:
+                        reg_vol_annual_bwl = pickle.load(f)
+                else:
+                    reg_vol_annual_bwl = np.zeros(reg_vol_annual.shape)
+                # Area 
+                with open(pickle_fp_reg + fn_reg_area_annual, 'rb') as f:
+                    reg_area_annual = pickle.load(f)
+                # Mass balance: accumulation
+                with open(pickle_fp_reg + fn_reg_acc_monthly, 'rb') as f:
+                    reg_acc_monthly = pickle.load(f)
+                # Mass balance: refreeze
+                with open(pickle_fp_reg + fn_reg_refreeze_monthly, 'rb') as f:
+                    reg_refreeze_monthly = pickle.load(f)
+                # Mass balance: melt
+                with open(pickle_fp_reg + fn_reg_melt_monthly, 'rb') as f:
+                    reg_melt_monthly = pickle.load(f)
+                # Mass balance: frontal ablation
+                with open(pickle_fp_reg + fn_reg_frontalablation_monthly, 'rb') as f:
+                    reg_frontalablation_monthly = pickle.load(f)
+                
+                # ----- EXPORT THE DATA -----
+                # CSV Filenames
+                csv_fn_reg_vol_annual = reg_rcp_gcm_str + '_vol_annual.csv' 
+                csv_fn_reg_vol_annual_bwl = reg_rcp_gcm_str + '_vol_annual_bwl.csv'
+                csv_fn_reg_area_annual = reg_rcp_gcm_str + '_area_annual.csv'
+                csv_fn_reg_acc_monthly = reg_rcp_gcm_str + '_acc_monthly.csv'
+                csv_fn_reg_refreeze_monthly = reg_rcp_gcm_str + '_refreeze_monthly.csv'
+                csv_fn_reg_melt_monthly = reg_rcp_gcm_str + '_melt_monthly.csv'
+                csv_fn_reg_frontalablation_monthly = reg_rcp_gcm_str + '_frontalablation_monthly.csv'
+                
+                years = np.arange(2000,2102,1)
+                years_4months = years.repeat(12)
+                months_2000_2100 = np.tile(np.arange(1,13,1),int(reg_acc_monthly.shape[0]/12))
+                yearmonths = [str(years_4months[x]) + '-' + str(months_2000_2100[x]) for x in np.arange(0,reg_acc_monthly.shape[0])]
+                
+                def export_array(reg_annual, columns_list, index_list, fp, fn):
+                    """Export np.array to csv"""
+                    if not os.path.exists(fp):
+                        os.makedirs(fp)
+                    reg_annual_df = pd.DataFrame(reg_annual.reshape(1,len(columns_list)), index=index_list, columns=columns_list)
+                    reg_annual_df.to_csv(fp + fn)
+                    
+                export_array(reg_vol_annual, list(years), [reg], export_fp + 'reg_volume_annual/', csv_fn_reg_vol_annual)
+                export_array(reg_vol_annual_bwl, list(years), [reg], export_fp + 'reg_volume_bwl_annual/', csv_fn_reg_vol_annual_bwl)
+                export_array(reg_area_annual, list(years), [reg], export_fp + 'reg_area_annual/', csv_fn_reg_area_annual)
+                export_array(reg_acc_monthly, yearmonths, [reg], export_fp + 'reg_acc_monthly/', csv_fn_reg_acc_monthly)
+                export_array(reg_refreeze_monthly, yearmonths, [reg], export_fp + 'reg_refreeze_monthly/', csv_fn_reg_refreeze_monthly)
+                export_array(reg_melt_monthly, yearmonths, [reg], export_fp + 'reg_melt_monthly/', csv_fn_reg_melt_monthly)
+                export_array(reg_frontalablation_monthly, yearmonths, [reg], export_fp + 'reg_frontalablation_monthly/', csv_fn_reg_frontalablation_monthly)
+
+
+
+#%%
+if option_extract_area:
+    
+#    regions = [1, 3, 4, 5, 7, 9, 17, 19]
+    regions = [8]
+    
+    netcdf_fp_cmip5 = '/Users/drounce/Documents/HiMAT/sims_08/'
+    zipped_fp_cmip6 = '/Volumes/LaCie/globalsims_backup/simulations-cmip6/_zipped/'
+    gcm_names_ssps = ['BCC-CSM2-MR', 'CESM2', 'CESM2-WACCM', 'EC-Earth3', 'EC-Earth3-Veg', 'FGOALS-f3-L', 
+                      'GFDL-ESM4', 'INM-CM4-8', 'INM-CM5-0', 'MPI-ESM1-2-HR', 'MRI-ESM2-0', 'NorESM2-MM']
+    rcps = ['ssp126', 'ssp245', 'ssp585']
+    
+    for reg in regions:
+        # Load glaciers
+        glacno_list = []
+        
+        for rcp in rcps:
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                if rcp in ['ssp119']:
+                    gcm_names = gcm_names_ssp119
+                else:
+                    gcm_names = gcm_names_ssps
+        
+            for gcm_name in gcm_names:
+                print(reg, rcp, gcm_name)
+                
+                # Filename
+                if rcp in ['rcp26','rcp45','rcp85']:
+                    zipped_fp = zipped_fp_cmip5
+                elif rcp in ['ssp119','ssp126', 'ssp245', 'ssp370', 'ssp585']:
+                    zipped_fp = zipped_fp_cmip6
+                zipped_stats_fp = zipped_fp + str(reg).zfill(2) + '/stats/'
+                zipped_stats_fn = gcm_name + '_' + rcp + '_stats.zip'
+                zipped_binned_fp = zipped_fp + str(reg).zfill(2) + '/binned/'
+                zipped_binned_fn = gcm_name + '_' + rcp + '_binned.zip'
+                
+                # Copy file path
+                copy_fp = netcdf_fp_cmip5 + '_copy/' + str(reg).zfill(2) + '/'
+                
+                if not os.path.exists(copy_fp):
+                    os.makedirs(copy_fp, exist_ok=True)                
+                shutil.copy(zipped_stats_fp + zipped_stats_fn, copy_fp)
+                shutil.copy(zipped_binned_fp + zipped_binned_fn, copy_fp)
+                
+                # Unzip filepath
+                unzip_stats_fp = copy_fp + gcm_name + '/' + rcp + '/stats/'
+                if not os.path.exists(unzip_stats_fp):
+                    os.makedirs(unzip_stats_fp)
+                with zipfile.ZipFile(copy_fp + zipped_stats_fn, 'r') as zip_ref:
+                    zip_ref.extractall(unzip_stats_fp)
+                
+                unzip_binned_fp = copy_fp + gcm_name + '/' + rcp + '/binned/'
+                if not os.path.exists(unzip_binned_fp):
+                    os.makedirs(unzip_binned_fp)
+                with zipfile.ZipFile(copy_fp + zipped_binned_fn, 'r') as zip_ref:
+                    zip_ref.extractall(unzip_binned_fp)
+                
+                # Remove zipped file
+                os.remove(copy_fp + zipped_stats_fn)
+                os.remove(copy_fp + zipped_binned_fn)
+        
+        #%%
+        # Glaciers
+        # Load glaciers
+        # All glaciers for fraction and missing
+        main_glac_rgi_all = modelsetup.selectglaciersrgitable(rgi_regionsO1=[reg], 
+                                                              rgi_regionsO2='all', rgi_glac_number='all', 
+                                                              glac_no=None)
+        glacno_list = []
+        glacno_list_gcmrcp_missing = {}
+        for rcp in rcps:
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                if rcp in ['ssp119']:
+                    gcm_names = gcm_names_ssp119
+                else:
+                    gcm_names = gcm_names_ssps
+            for gcm_name in gcm_names:
+                
+                # Filepath where glaciers are stored
+                netcdf_fp = netcdf_fp_cmip5 + '_copy/' + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
+                netcdf_fp_binned = netcdf_fp_cmip5 + '_copy/' + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/binned/'
+                
+                # Load the glaciers
+                glacno_list_gcmrcp = []
+                for i in os.listdir(netcdf_fp):
+                    if i.endswith('.nc'):
+                        glacno_list_gcmrcp.append(i.split('_')[0])
+                glacno_list_gcmrcp = sorted(glacno_list_gcmrcp)
+                
+                print(gcm_name, rcp, 'simulated', len(glacno_list_gcmrcp), 'glaciers')
+                
+                # Check other file too
+                glacno_binned_count = 0
+                for i in os.listdir(netcdf_fp_binned):
+                    if i.endswith('.nc'):
+                        glacno_binned_count += 1
+                print('  count of stats  files:', len(glacno_list_gcmrcp))
+                print('  count of binned files:', glacno_binned_count)
+                
+                # Only include the glaciers that were simulated by all GCM/RCP combinations
+                if len(glacno_list) == 0:
+                    glacno_list = glacno_list_gcmrcp
+                else:
+                    glacno_list = list(set(glacno_list).intersection(glacno_list_gcmrcp))
+                glacno_list = sorted(glacno_list)
+                
+                # Missing glaciers by gcm/rcp
+                glacno_list_gcmrcp_missing[gcm_name + '-' + rcp] = (
+                        sorted(np.setdiff1d(list(main_glac_rgi_all.glacno.values), glacno_list_gcmrcp).tolist()))
+        #%%
+        # CSV for each gcm/rcp
+        for rcp in rcps:
+            
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                if rcp in ['ssp119']:
+                    gcm_names = gcm_names_ssp119
+                else:
+                    gcm_names = gcm_names_ssps
+            
+            reg_area_all = None
+            for gcm_name in gcm_names:
+                
+                 # Filepath where glaciers are stored
+                netcdf_fp = netcdf_fp_cmip5 + '_copy/' + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/stats/'
+                netcdf_fp_binned = netcdf_fp_cmip5 + '_copy/' + str(reg).zfill(2) + '/' + gcm_name + '/' + rcp + '/binned/'
+                
+                # Process data
+                glac_stat_fns = []
+                rgiid_list = []
+                for i in os.listdir(netcdf_fp):
+                    if i.endswith('.nc'):
+                        glac_stat_fns.append(i)
+                        rgiid_list.append(i.split('_')[0])
+                glac_stat_fns = sorted(glac_stat_fns)
+                rgiid_list = sorted(rgiid_list)
+                
+                years = np.arange(2000,2102)
+                reg_area_annual = pd.DataFrame(np.zeros((len(rgiid_list),years.shape[0])), index=rgiid_list, columns=years)
+                for nglac, glac_stat_fn in enumerate(glac_stat_fns):
+                    if nglac%1000==0:
+                        print(reg, rcp, gcm_name, glac_stat_fn.split('_')[0])
+                    ds = xr.open_dataset(netcdf_fp + glac_stat_fn)
+                    reg_area_annual.iloc[nglac,:] = ds.glac_area_annual.values
+                        
+                reg_area_annual_fn = str(reg).zfill(2) + '_' + rcp + '_' + gcm_name + '_glac_area_annual.csv'
+                csv_fp = netcdf_fp_cmip5 + '/_area/'
+                if not os.path.exists(csv_fp):
+                    os.makedirs(csv_fp)
+                reg_area_annual.to_csv(csv_fp + reg_area_annual_fn)
+                
+                
+        #%%
+        # Multi-GCM mean
+        for rcp in rcps:
+            
+            if 'rcp' in rcp:
+                gcm_names = gcm_names_rcps
+            elif 'ssp' in rcp:
+                if rcp in ['ssp119']:
+                    gcm_names = gcm_names_ssp119
+                else:
+                    gcm_names = gcm_names_ssps
+            
+            reg_area_all = None
+            for gcm_name in gcm_names:
+                
+                reg_area_annual_fn = str(reg).zfill(2) + '_' + rcp + '_' + gcm_name + '_glac_area_annual.csv'
+                csv_fp = netcdf_fp_cmip5 + '/_area/'
+                area_df = pd.read_csv(csv_fp + reg_area_annual_fn, index_col=0)
+                
+                if reg_area_all is None:
+                    reg_area_all = area_df.values[np.newaxis,:,:]
+                else:
+                    reg_area_all = np.concatenate((reg_area_all, area_df.values[np.newaxis,:,:]), axis=0)
+                
+            # Mean
+            reg_area_mean = reg_area_all.mean(0)
+            reg_area_df = pd.DataFrame(reg_area_mean, index=glacno_list, columns=years)
+            
+            reg_area_fn = str(reg).zfill(2) + '_multigcm_mean_glac_area_annual_' + rcp + '.csv'
+            reg_area_df.to_csv(csv_fp + reg_area_fn)
+                    

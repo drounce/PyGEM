@@ -1087,82 +1087,22 @@ def main(list_packed_vars):
             fls = gdir.read_pickle('inversion_flowlines')
     
             # Add climate data to glacier directory
+            if pygem_prms.hindcast == True:
+                gcm_temp_adj = gcm_temp_adj[::-1]
+                gcm_tempstd = gcm_tempstd[::-1]
+                gcm_prec_adj= gcm_prec_adj[::-1]
+                gcm_lr = gcm_lr[::-1]
             gdir.historical_climate = {'elev': gcm_elev_adj[glac],
                                        'temp': gcm_temp_adj[glac,:],
                                        'tempstd': gcm_tempstd[glac,:],
                                        'prec': gcm_prec_adj[glac,:],
-                                       'lr': gcm_lr[glac,:]}
+                                       'lr': gcm_lr[glac,:]}            
+            
             gdir.dates_table = dates_table
-    
+            
             glacier_area_km2 = fls[0].widths_m * fls[0].dx_meter / 1e6
             if (fls is not None) and (glacier_area_km2.sum() > 0):
-    #            if pygem_prms.hindcast == 1:
-    #                glacier_gcm_prec = glacier_gcm_prec[::-1]
-    #                glacier_gcm_temp = glacier_gcm_temp[::-1]
-    #                glacier_gcm_lrgcm = glacier_gcm_lrgcm[::-1]
-    #                glacier_gcm_lrglac = glacier_gcm_lrglac[::-1]
                 
-    #                #%%
-    #                import torch
-    #                import gpytorch
-    #                
-    #                class ExactGPModel(gpytorch.models.ExactGP):
-    #                    """ Use the simplest form of GP model, exact inference """
-    #                    def __init__(self, train_x, train_y, likelihood):
-    #                        super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
-    #                        self.mean_module = gpytorch.means.ConstantMean()
-    #                        self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel(ard_num_dims=3))
-    #                
-    #                    def forward(self, x):
-    #                        mean_x = self.mean_module(x)
-    #                        covar_x = self.covar_module(x)
-    #                        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
-    #    
-    #                
-    #                # Emulator filepath
-    #                em_mod_fp = pygem_prms.emulator_fp + 'models/' + glacier_str.split('.')[0].zfill(2) + '/'
-    #                
-    #                # ----- EMULATOR: Mass balance -----
-    #                em_mb_fn = glacier_str + '-emulator-mb_mwea.pth'
-    #                
-    #                # ----- LOAD EMULATOR -----
-    #                # This is required for the supercomputer such that resources aren't stolen from other cpus
-    #                torch.set_num_threads(1)
-    #            
-    #                state_dict = torch.load(em_mod_fp + em_mb_fn)
-    #                
-    #                emulator_extra_fn = em_mb_fn.replace('.pth','_extra.pkl')
-    #                with open(em_mod_fp + emulator_extra_fn, 'rb') as f:
-    #                    emulator_extra_dict = pickle.load(f)
-    #                    
-    #                X_train = emulator_extra_dict['X_train']
-    #                X_mean = emulator_extra_dict['X_mean']
-    #                X_std = emulator_extra_dict['X_std']
-    #                y_train = emulator_extra_dict['y_train']
-    #                y_mean = emulator_extra_dict['y_mean']
-    #                y_std = emulator_extra_dict['y_std']
-    #                
-    #                # initialize likelihood and model
-    #                likelihood = gpytorch.likelihoods.GaussianLikelihood()
-    #                
-    #                # Create a new GP model
-    #                em_model_mb = ExactGPModel(X_train, y_train, likelihood)  
-    #                em_model_mb.load_state_dict(state_dict)
-    #                em_model_mb.eval()
-    #                    
-    #                # Mass balance emulator function
-    #                def run_emulator_mb(modelprms):
-    #                    """ Run the emulator
-    #                    """
-    #                    modelprms_1d_norm = ((np.array([modelprms['tbias'], modelprms['kp'], modelprms['ddfsnow']]) - 
-    #                                          X_mean) / X_std)                    
-    #                    modelprms_2d_norm = modelprms_1d_norm.reshape(1,3)
-    #                    mb_mwea_norm = em_model_mb(
-    #                            torch.tensor(modelprms_2d_norm).to(torch.float)).mean.detach().numpy()[0]
-    #                    mb_mwea = mb_mwea_norm * y_std + y_mean
-    #                    return mb_mwea
-    #                
-    #                #%%
     
                 # Load model parameters
                 if pygem_prms.use_calibrated_modelparams:
@@ -1242,7 +1182,7 @@ def main(list_packed_vars):
                                 calving_k_values[calving_k_values < 0.001] = 0.001
                                 calving_k_values[calving_k_values > 5] = 5
                                 
-                                print(calving_k, np.median(calving_k_values))
+#                                print(calving_k, np.median(calving_k_values))
                             
                             assert abs(np.median(calving_k_values) - calving_k) < 0.001, 'calving_k distribution too far off'
 
@@ -1438,7 +1378,7 @@ def main(list_packed_vars):
                         if debug:
                             graphics.plot_modeloutput_section(ev_model)
                             plt.show()
-                            
+
                         try:
                             _, diag = ev_model.run_until_and_store(nyears)
                             ev_model.mb_model.glac_wide_volume_annual[-1] = diag.volume_m3[-1]
@@ -1752,7 +1692,7 @@ def main(list_packed_vars):
                 if count_exceed_boundary_errors < pygem_prms.sim_iters:
                     
                     # ----- STATS OF ALL VARIABLES -----
-                    if pygem_prms.export_nonessential_data:
+                    if pygem_prms.export_essential_data:
                         # Create empty dataset
                         output_ds_all_stats, encoding = create_xrdataset(glacier_rgi_table, dates_table)
                         # Output statistics
@@ -2059,20 +1999,3 @@ if __name__ == '__main__':
             diag = main_vars['diag']
             if pygem_prms.use_calibrated_modelparams:
                 modelprms_dict = main_vars['modelprms_dict']
-            
-  
-    if args.option_parallels == 0 and debug:
-        print('\nTO-DO LIST:')
-        print(' - add frontal ablation to be removed in mass redistribution curves glacierdynamics')
-        print(' - climate data likely mismatch with OGGM, e.g., prec in m for the month')
-
-
-    #%%
-    # Check volume is consistent
-#    vol_binned = output_ds_binned_stats['bin_volume_annual'].values[0,:,:].sum(0)
-#    vol_annual = output_ds_essential_sims['glac_volume_annual'].values[0,:,:]
-#    glac_area_init = output_ds_all_stats['glac_area_annual'].values[0,0]
-#    mb_monthly_m3we = output_ds_all_stats['glac_massbaltotal_monthly'].values[0,:]
-#    mb_mwea_mean = mb_monthly_m3we.sum() / glac_area_init / (mb_monthly_m3we.shape[0]/12)
-#    print('\n\nmb_mwea_mean:', np.round(mb_mwea_mean,3),'\n\n')
-    

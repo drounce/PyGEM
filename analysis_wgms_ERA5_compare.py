@@ -304,6 +304,13 @@ if wgms_annual_comparison:
             wgms_ee_df_annual.loc[wgms_idx,'mod_annual_mwe_mad_ind'] = mb_mwea_mad_ind
             wgms_ee_df_annual.loc[wgms_idx,'mod_annual_mwe_mad_cor'] = mb_mwea_mad_cor
 
+    #%%
+    # Add termtype
+    termtype_dict = dict(zip(main_glac_rgi.RGIId, main_glac_rgi.TermType))
+    wgms_ee_df_annual['TermType'] = wgms_ee_df_annual.RGIId.map(termtype_dict)
+    
+    #%%
+
     # Difference statistics
     mb_dif_annual = wgms_ee_df_annual['mod_annual_mwe'].values - wgms_ee_df_annual['annual_mwe'].values
     print('  Difference stats: \n    Mean (+/-) std [mwe]:', 
@@ -857,8 +864,8 @@ if wgms_all_comparison:
     
     ax[0,0].set_xlabel('$B_{obs}$ (m w.e.)')
     ax[0,0].set_ylabel('$B_{mod}$ (m w.e.)')
-    ax[0,0].text(0.98, 1.07, 'Annual', size=10, horizontalalignment='right', 
-                 verticalalignment='top', transform=ax[0,0].transAxes)
+    ax[0,0].text(0.98, 1.01, 'Annual', size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,0].transAxes)
     ax[0,0].set_xlim(-6.5,6.5)
     ax[0,0].set_ylim(-6.5,6.5)
     ax[0,0].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
@@ -881,9 +888,6 @@ if wgms_all_comparison:
                  verticalalignment='bottom', transform=ax[0,0].transAxes)
     
     
-    
-    
-    
     # --- Summer ---
     # Correlation
     slope, intercept, r_value, p_value, std_err = linregress(wgms_ee_df_summer['summer_mwe'].values, 
@@ -901,8 +905,8 @@ if wgms_all_comparison:
     ax[0,1].plot(wgms_ee_df_summer['summer_mwe'].values, 
                  wgms_ee_df_summer['mod_summer_mwe'].values,
                  linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
-    ax[0,1].text(0.98, 1.07, 'Summer', size=10, horizontalalignment='right', 
-                 verticalalignment='top', transform=ax[0,1].transAxes)
+    ax[0,1].text(0.98, 1.01, 'Summer', size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,1].transAxes)
     ax[0,1].set_xlim(-6.5,6.5)
     ax[0,1].set_ylim(-6.5,6.5)
     ax[0,1].set_xlabel('$B_{obs}$ (m w.e.)')
@@ -944,8 +948,8 @@ if wgms_all_comparison:
     ax[0,2].plot(wgms_ee_df_winter['winter_mwe'].values, 
                  wgms_ee_df_winter['mod_winter_mwe'].values,
                  linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
-    ax[0,2].text(0.98, 1.07, 'Winter', size=10, horizontalalignment='right', 
-                 verticalalignment='top', transform=ax[0,2].transAxes)
+    ax[0,2].text(0.98, 1.01, 'Winter', size=10, horizontalalignment='right', 
+                 verticalalignment='bottom', transform=ax[0,2].transAxes)
     ax[0,2].set_xlim(-6.5,6.5)
     ax[0,2].set_ylim(-6.5,6.5)
     ax[0,2].set_xlabel('$B_{obs}$ (m w.e.)')
@@ -973,7 +977,7 @@ if wgms_all_comparison:
     fig_fp = netcdf_fp_era5 + '../analysis/figures/validation/'
     if not os.path.exists(fig_fp):
         os.makedirs(fig_fp)
-    fig.set_size_inches(6.5,2.5)
+    fig.set_size_inches(6.5,1.8)
     fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
     
 #%%
@@ -1149,9 +1153,10 @@ for reg in regions:
 ms = 3
 textsize = 9
 # Validation Figure
-nrows = int(np.ceil(len(regions)/3))
-fig, ax = plt.subplots(nrows, 3, squeeze=False, sharex=False, sharey=False, 
-                       gridspec_kw = {'wspace':0.3, 'hspace':0.45})
+ncols = 4
+nrows = int(np.ceil(len(regions)/ncols))
+fig, ax = plt.subplots(nrows, ncols, squeeze=False, sharex=False, sharey=False, 
+                       gridspec_kw = {'wspace':0.55, 'hspace':0.47})
     
 nrow = 0
 ncol = 0
@@ -1181,17 +1186,21 @@ for nreg, reg in enumerate(regions):
     bias = np.mean(wgms_ee_df_annual_subset['mod_annual_mwe'].values - wgms_ee_df_annual_subset['annual_mwe'].values)
     print('  bias:', np.round(bias,2))
     
+    nglac = np.unique(wgms_ee_df_annual_subset.RGIId.values).shape[0]
+    nobs = wgms_ee_df_annual_subset.shape[0]
+    
+    
     # Plot
     ax[nrow,ncol].plot(wgms_ee_df_annual_subset['annual_mwe'].values, 
                  wgms_ee_df_annual_subset['mod_annual_mwe'].values,
                  linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
     ax[nrow,ncol].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
     
-    if ncol == 0:
-        ax[nrow,ncol].set_ylabel('$B_{mod}$ (m w.e.)')
-    if nrow == nrows-1:
-        ax[nrow,ncol].set_xlabel('$B_{obs}$ (m w.e.)')
-    ax[nrow,ncol].text(0.98, 1.02, rgi_reg_dict[reg], size=textsize, horizontalalignment='right', 
+#    if ncol == 0:
+#        ax[nrow,ncol].set_ylabel('$B_{mod}$ (m w.e.)')
+#    if nrow == nrows-1:
+#        ax[nrow,ncol].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[nrow,ncol].text(0.98, 1.01, rgi_reg_dict[reg], size=textsize, horizontalalignment='right', 
                  verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
     ax[nrow,ncol].set_xlim(-6.5,6.5)
     ax[nrow,ncol].set_ylim(-6.5,6.5)
@@ -1199,39 +1208,80 @@ for nreg, reg in enumerate(regions):
     ax[nrow,ncol].xaxis.set_minor_locator(MultipleLocator(1)) 
     ax[nrow,ncol].yaxis.set_major_locator(MultipleLocator(5))
     ax[nrow,ncol].yaxis.set_minor_locator(MultipleLocator(1)) 
-    ax[nrow,ncol].tick_params(direction='inout', right=True)
+    ax[nrow,ncol].tick_params(direction='inout')
     
-    nglac = np.unique(wgms_ee_df_annual_subset.RGIId.values).shape[0]
-    ax[nrow,ncol].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=textsize, horizontalalignment='left', 
+    
+#    ax[nrow,ncol].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=textsize, horizontalalignment='left', 
+#                 verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+#    ax[nrow,ncol].text(0.04, 0.82, '$n_{obs}$=' + str(nobs), size=textsize, horizontalalignment='left', 
+#                 verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+#    ax[nrow,ncol].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=textsize, horizontalalignment='right', 
+#                 verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+#    ax[nrow,ncol].text(0.98, 0.18, '$Bias$=' + str(np.round(bias,2)), size=textsize, horizontalalignment='right', 
+#                 verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+#    ax[nrow,ncol].text(0.98, 0.34, '$R^{2}$=' + str(np.round(r_value**2,2)), size=textsize, horizontalalignment='right', 
+#                 verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+    ax[nrow,ncol].text(0.04, 0.98, str(nglac), size=textsize, horizontalalignment='left', 
                  verticalalignment='top', transform=ax[nrow,ncol].transAxes)
-    ax[nrow,ncol].text(0.04, 0.82, '$n_{obs}$=' + str(wgms_ee_df_annual_subset.shape[0]), size=textsize, horizontalalignment='left', 
+    ax[nrow,ncol].text(0.04, 0.82, str(nobs), size=textsize, horizontalalignment='left', 
                  verticalalignment='top', transform=ax[nrow,ncol].transAxes)
-    ax[nrow,ncol].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=textsize, horizontalalignment='right', 
+    ax[nrow,ncol].text(0.98, 0.02, str(np.round(mae,2)), size=textsize, horizontalalignment='right', 
                  verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
-    ax[nrow,ncol].text(0.98, 0.18, '$Bias$=' + str(np.round(bias,2)), size=textsize, horizontalalignment='right', 
+    ax[nrow,ncol].text(0.98, 0.18, str(np.round(bias,2)), size=textsize, horizontalalignment='right', 
                  verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
-    ax[nrow,ncol].text(0.98, 0.34, '$R^{2}$=' + str(np.round(r_value**2,2)), size=textsize, horizontalalignment='right', 
+    ax[nrow,ncol].text(0.98, 0.34, str(np.round(r_value**2,2)), size=textsize, horizontalalignment='right', 
                  verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
     
-    if nreg%3 == 2:
+    if nreg%ncols == ncols-1:
         ncol = 0
         nrow += 1
     else:
         ncol += 1
 
-ax[5,2].spines['top'].set_visible(False)
-ax[5,2].spines['right'].set_visible(False)
-ax[5,2].spines['bottom'].set_visible(False)
-ax[5,2].spines['left'].set_visible(False)
-ax[5,2].get_xaxis().set_ticks([])
-ax[5,2].get_yaxis().set_ticks([])
+if ncols == 3:
+    ax[5,2].spines['top'].set_visible(False)
+    ax[5,2].spines['right'].set_visible(False)
+    ax[5,2].spines['bottom'].set_visible(False)
+    ax[5,2].spines['left'].set_visible(False)
+    ax[5,2].get_xaxis().set_ticks([])
+    ax[5,2].get_yaxis().set_ticks([])
+elif ncols == 4:
+    for ncol in [2,3]:
+        ax[4,ncol].spines['top'].set_visible(False)
+        ax[4,ncol].spines['right'].set_visible(False)
+        ax[4,ncol].spines['bottom'].set_visible(False)
+        ax[4,ncol].spines['left'].set_visible(False)
+        ax[4,ncol].get_xaxis().set_ticks([])
+        ax[4,ncol].get_yaxis().set_ticks([])
+    
+    ax[4,1].get_xaxis().set_ticks([])
+    ax[4,1].get_yaxis().set_ticks([])
+    ax[4,1].spines['bottom'].set_color('grey')
+    ax[4,1].spines['top'].set_color('grey')
+    ax[4,1].spines['right'].set_color('grey')
+    ax[4,1].spines['left'].set_color('grey')
+    ax[4,1].text(0.04, 0.98, '$n_{glac}$', size=textsize, color='grey', horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.04, 0.82, '$n_{obs}$', size=textsize, color='grey', horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 0.02, '$MAE$', size=textsize, color='grey', horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 0.18, '$Bias$', size=textsize, color='grey', horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 0.34, '$R^{2}$', size=textsize, color='grey', horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 1.01, 'Region', size=textsize, color='grey', horizontalalignment='right', 
+                       verticalalignment='bottom', transform=ax[4,1].transAxes)
+
+fig.text(0.06,0.5,'Modeled $B_{a}$ (m w.e.)', size=12, horizontalalignment='center', verticalalignment='center', rotation=90)
+fig.text(0.5,0.09, 'Observed $B_{a}$ (m w.e.)', size=12, horizontalalignment='center', verticalalignment='center')
 
 # Save figure
 fig_fn = 'validation_mb_mwea_annual_all-regional.png'
 fig_fp = netcdf_fp_era5 + '../analysis/figures/validation/'
 if not os.path.exists(fig_fp):
     os.makedirs(fig_fp)
-fig.set_size_inches(6.5,9)
+fig.set_size_inches(6.5,8)
 fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
 
 
@@ -1240,9 +1290,10 @@ fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
 ms = 3
 textsize = 9
 # Validation Figure
-nrows = int(np.ceil(len(regions)/3))
-fig, ax = plt.subplots(nrows, 3, squeeze=False, sharex=False, sharey=False, 
-                       gridspec_kw = {'wspace':0.3, 'hspace':0.45})
+ncols = 4
+nrows = int(np.ceil(len(regions)/ncols))
+fig, ax = plt.subplots(nrows, ncols, squeeze=False, sharex=False, sharey=False, 
+                       gridspec_kw = {'wspace':0.55, 'hspace':0.47})
     
 nrow = 0
 ncol = 0
@@ -1269,60 +1320,91 @@ for nreg, reg in enumerate(regions):
         bias = np.mean(wgms_ee_df_summer_subset['mod_summer_mwe'].values - wgms_ee_df_summer_subset['summer_mwe'].values)
         print('  bias:', np.round(bias,2))
         
+        nglac = np.unique(wgms_ee_df_summer_subset.RGIId.values).shape[0]
+        nobs = wgms_ee_df_summer_subset.shape[0]
+        
         # Plot
         ax[nrow,ncol].plot(wgms_ee_df_summer_subset['summer_mwe'].values, 
                      wgms_ee_df_summer_subset['mod_summer_mwe'].values,
                      linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
         ax[nrow,ncol].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
         
-        nglac = np.unique(wgms_ee_df_summer_subset.RGIId.values).shape[0]
-        ax[nrow,ncol].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+        ax[nrow,ncol].text(0.04, 0.98, str(nglac), size=textsize, horizontalalignment='left', 
                      verticalalignment='top', transform=ax[nrow,ncol].transAxes)
-        ax[nrow,ncol].text(0.04, 0.82, '$n_{obs}$=' + str(wgms_ee_df_summer_subset.shape[0]), size=10, horizontalalignment='left', 
+        ax[nrow,ncol].text(0.04, 0.82, str(nobs), size=textsize, horizontalalignment='left', 
                      verticalalignment='top', transform=ax[nrow,ncol].transAxes)
-        ax[nrow,ncol].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+        ax[nrow,ncol].text(0.98, 0.02, str(np.round(mae,2)), size=textsize, horizontalalignment='right', 
                      verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
-        ax[nrow,ncol].text(0.98, 0.18, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+        ax[nrow,ncol].text(0.98, 0.18, str(np.round(bias,2)), size=textsize, horizontalalignment='right', 
                      verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
-        ax[nrow,ncol].text(0.98, 0.34, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+        ax[nrow,ncol].text(0.98, 0.34, str(np.round(r_value**2,2)), size=textsize, horizontalalignment='right', 
                      verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
         
-    if ncol == 0:
-        ax[nrow,ncol].set_ylabel('$B_{mod}$ (m w.e.)')
-    if nrow == nrows-1:
-        ax[nrow,ncol].set_xlabel('$B_{obs}$ (m w.e.)')
-    ax[nrow,ncol].text(0.98, 1.02, rgi_reg_dict[reg], size=textsize, horizontalalignment='right', 
+#    if ncol == 0:
+#        ax[nrow,ncol].set_ylabel('$B_{mod}$ (m w.e.)')
+#    if nrow == nrows-1:
+#        ax[nrow,ncol].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[nrow,ncol].text(0.98, 1.01, rgi_reg_dict[reg], size=textsize, horizontalalignment='right', 
                  verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
-    
-    
     ax[nrow,ncol].set_xlim(-6.5,6.5)
     ax[nrow,ncol].set_ylim(-6.5,6.5)
     ax[nrow,ncol].xaxis.set_major_locator(MultipleLocator(5))
     ax[nrow,ncol].xaxis.set_minor_locator(MultipleLocator(1)) 
     ax[nrow,ncol].yaxis.set_major_locator(MultipleLocator(5))
     ax[nrow,ncol].yaxis.set_minor_locator(MultipleLocator(1)) 
-    ax[nrow,ncol].tick_params(direction='inout', right=True)
+    ax[nrow,ncol].tick_params(direction='inout')
     
-    if nreg%3 == 2:
+    if nreg%ncols == ncols-1:
         ncol = 0
         nrow += 1
     else:
         ncol += 1
 
-ax[5,2].spines['top'].set_visible(False)
-ax[5,2].spines['right'].set_visible(False)
-ax[5,2].spines['bottom'].set_visible(False)
-ax[5,2].spines['left'].set_visible(False)
-ax[5,2].get_xaxis().set_ticks([])
-ax[5,2].get_yaxis().set_ticks([])
+if ncols == 3:
+    ax[5,2].spines['top'].set_visible(False)
+    ax[5,2].spines['right'].set_visible(False)
+    ax[5,2].spines['bottom'].set_visible(False)
+    ax[5,2].spines['left'].set_visible(False)
+    ax[5,2].get_xaxis().set_ticks([])
+    ax[5,2].get_yaxis().set_ticks([])
+elif ncols == 4:
+    for ncol in [2,3]:
+        ax[4,ncol].spines['top'].set_visible(False)
+        ax[4,ncol].spines['right'].set_visible(False)
+        ax[4,ncol].spines['bottom'].set_visible(False)
+        ax[4,ncol].spines['left'].set_visible(False)
+        ax[4,ncol].get_xaxis().set_ticks([])
+        ax[4,ncol].get_yaxis().set_ticks([])
     
+    ax[4,1].get_xaxis().set_ticks([])
+    ax[4,1].get_yaxis().set_ticks([])
+    ax[4,1].spines['bottom'].set_color('grey')
+    ax[4,1].spines['top'].set_color('grey')
+    ax[4,1].spines['right'].set_color('grey')
+    ax[4,1].spines['left'].set_color('grey')
+    ax[4,1].text(0.04, 0.98, '$n_{glac}$', size=textsize, color='grey', horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.04, 0.82, '$n_{obs}$', size=textsize, color='grey', horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 0.02, '$MAE$', size=textsize, color='grey', horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 0.18, '$Bias$', size=textsize, color='grey', horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 0.34, '$R^{2}$', size=textsize, color='grey', horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 1.01, 'Region', size=textsize, color='grey', horizontalalignment='right', 
+                       verticalalignment='bottom', transform=ax[4,1].transAxes)
+
+fig.text(0.06,0.5,'Modeled $B_{s}$ (m w.e.)', size=12, horizontalalignment='center', verticalalignment='center', rotation=90)
+fig.text(0.5,0.09, 'Observed $B_{s}$ (m w.e.)', size=12, horizontalalignment='center', verticalalignment='center')
+
 
 # Save figure
 fig_fn = 'validation_mb_mwea_summer_all-regional.png'
 fig_fp = netcdf_fp_era5 + '../analysis/figures/validation/'
 if not os.path.exists(fig_fp):
     os.makedirs(fig_fp)
-fig.set_size_inches(6.5,9)
+fig.set_size_inches(6.5,8)
 fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
 
 
@@ -1330,9 +1412,10 @@ fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)
 ms = 3
 textsize = 9
 # Validation Figure
-nrows = int(np.ceil(len(regions)/3))
-fig, ax = plt.subplots(nrows, 3, squeeze=False, sharex=False, sharey=False, 
-                       gridspec_kw = {'wspace':0.3, 'hspace':0.45})
+ncols = 4
+nrows = int(np.ceil(len(regions)/ncols))
+fig, ax = plt.subplots(nrows, ncols, squeeze=False, sharex=False, sharey=False, 
+                       gridspec_kw = {'wspace':0.55, 'hspace':0.47})
     
 nrow = 0
 ncol = 0
@@ -1359,28 +1442,41 @@ for nreg, reg in enumerate(regions):
         bias = np.mean(wgms_ee_df_winter_subset['mod_winter_mwe'].values - wgms_ee_df_winter_subset['winter_mwe'].values)
         print('  bias:', np.round(bias,2))
         
+        # Number of glaciers and observations
+        nglac = np.unique(wgms_ee_df_winter_subset.RGIId.values).shape[0]
+        nobs = wgms_ee_df_winter_subset.shape[0]
+        
         # Plot
         ax[nrow,ncol].plot(wgms_ee_df_winter_subset['winter_mwe'].values, 
                      wgms_ee_df_winter_subset['mod_winter_mwe'].values,
                      linewidth=0, marker='o', mec='k', mew=mew, mfc='none', ms=ms)
         ax[nrow,ncol].plot([-6.5,6.5],[-6.5,6.5], color='k',lw=0.5)
-        nglac = np.unique(wgms_ee_df_winter_subset.RGIId.values).shape[0]
-        ax[nrow,ncol].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=10, horizontalalignment='left', 
+#        ax[nrow,ncol].text(0.04, 0.98, '$n_{glac}$=' + str(nglac), size=textsize, horizontalalignment='left', 
+#                     verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+#        ax[nrow,ncol].text(0.04, 0.82, '$n_{obs}$=' + str(nobs), size=textsize, horizontalalignment='left', 
+#                     verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+#        ax[nrow,ncol].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=textsize, horizontalalignment='right', 
+#                     verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+#        ax[nrow,ncol].text(0.98, 0.18, '$Bias$=' + str(np.round(bias,2)), size=textsize, horizontalalignment='right', 
+#                     verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+#        ax[nrow,ncol].text(0.98, 0.34, '$R^{2}$=' + str(np.round(r_value**2,2)), size=textsize, horizontalalignment='right', 
+#                     verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        ax[nrow,ncol].text(0.04, 0.98, str(nglac), size=textsize, horizontalalignment='left', 
                      verticalalignment='top', transform=ax[nrow,ncol].transAxes)
-        ax[nrow,ncol].text(0.04, 0.82, '$n_{obs}$=' + str(wgms_ee_df_winter_subset.shape[0]), size=10, horizontalalignment='left', 
+        ax[nrow,ncol].text(0.04, 0.82, str(nobs), size=textsize, horizontalalignment='left', 
                      verticalalignment='top', transform=ax[nrow,ncol].transAxes)
-        ax[nrow,ncol].text(0.98, 0.02, '$MAE$=' + str(np.round(mae,2)), size=10, horizontalalignment='right', 
+        ax[nrow,ncol].text(0.98, 0.02, str(np.round(mae,2)), size=textsize, horizontalalignment='right', 
                      verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
-        ax[nrow,ncol].text(0.98, 0.18, '$Bias$=' + str(np.round(bias,2)), size=10, horizontalalignment='right', 
+        ax[nrow,ncol].text(0.98, 0.18, str(np.round(bias,2)), size=textsize, horizontalalignment='right', 
                      verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
-        ax[nrow,ncol].text(0.98, 0.34, '$R^{2}$=' + str(np.round(r_value**2,2)), size=10, horizontalalignment='right', 
+        ax[nrow,ncol].text(0.98, 0.34, str(np.round(r_value**2,2)), size=textsize, horizontalalignment='right', 
                      verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
     
-    if ncol == 0:
-        ax[nrow,ncol].set_ylabel('$B_{mod}$ (m w.e.)')
-    if nrow == nrows-1:
-        ax[nrow,ncol].set_xlabel('$B_{obs}$ (m w.e.)')
-    ax[nrow,ncol].text(0.98, 1.02, rgi_reg_dict[reg], size=textsize, horizontalalignment='right', 
+#    if ncol == 0:
+#        ax[nrow,ncol].set_ylabel('$B_{mod}$ (m w.e.)')
+#    if nrow == nrows-1:
+#        ax[nrow,ncol].set_xlabel('$B_{obs}$ (m w.e.)')
+    ax[nrow,ncol].text(0.98, 1.01, rgi_reg_dict[reg], size=textsize, horizontalalignment='right', 
                  verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
     ax[nrow,ncol].set_xlim(-6.5,6.5)
     ax[nrow,ncol].set_ylim(-6.5,6.5)
@@ -1388,26 +1484,56 @@ for nreg, reg in enumerate(regions):
     ax[nrow,ncol].xaxis.set_minor_locator(MultipleLocator(1)) 
     ax[nrow,ncol].yaxis.set_major_locator(MultipleLocator(5))
     ax[nrow,ncol].yaxis.set_minor_locator(MultipleLocator(1)) 
-    ax[nrow,ncol].tick_params(direction='inout', right=True)
+    ax[nrow,ncol].tick_params(direction='inout')
     
-    if nreg%3 == 2:
+    if nreg%ncols == ncols-1:
         ncol = 0
         nrow += 1
     else:
         ncol += 1
 
-ax[5,2].spines['top'].set_visible(False)
-ax[5,2].spines['right'].set_visible(False)
-ax[5,2].spines['bottom'].set_visible(False)
-ax[5,2].spines['left'].set_visible(False)
-ax[5,2].get_xaxis().set_ticks([])
-ax[5,2].get_yaxis().set_ticks([])
+if ncols == 3:
+    ax[5,2].spines['top'].set_visible(False)
+    ax[5,2].spines['right'].set_visible(False)
+    ax[5,2].spines['bottom'].set_visible(False)
+    ax[5,2].spines['left'].set_visible(False)
+    ax[5,2].get_xaxis().set_ticks([])
+    ax[5,2].get_yaxis().set_ticks([])
+elif ncols == 4:
+    for ncol in [2,3]:
+        ax[4,ncol].spines['top'].set_visible(False)
+        ax[4,ncol].spines['right'].set_visible(False)
+        ax[4,ncol].spines['bottom'].set_visible(False)
+        ax[4,ncol].spines['left'].set_visible(False)
+        ax[4,ncol].get_xaxis().set_ticks([])
+        ax[4,ncol].get_yaxis().set_ticks([])
     
+    ax[4,1].get_xaxis().set_ticks([])
+    ax[4,1].get_yaxis().set_ticks([])
+    ax[4,1].spines['bottom'].set_color('grey')
+    ax[4,1].spines['top'].set_color('grey')
+    ax[4,1].spines['right'].set_color('grey')
+    ax[4,1].spines['left'].set_color('grey')
+    ax[4,1].text(0.04, 0.98, '$n_{glac}$', size=textsize, color='grey', horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.04, 0.82, '$n_{obs}$', size=textsize, color='grey', horizontalalignment='left', 
+                     verticalalignment='top', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 0.02, '$MAE$', size=textsize, color='grey', horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 0.18, '$Bias$', size=textsize, color='grey', horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 0.34, '$R^{2}$', size=textsize, color='grey', horizontalalignment='right', 
+                     verticalalignment='bottom', transform=ax[4,1].transAxes)
+    ax[4,1].text(0.98, 1.01, 'Region', size=textsize, color='grey', horizontalalignment='right', 
+                       verticalalignment='bottom', transform=ax[4,1].transAxes)
+
+fig.text(0.06,0.5,'Modeled $B_{w}$ (m w.e.)', size=12, horizontalalignment='center', verticalalignment='center', rotation=90)
+fig.text(0.5,0.09, 'Observed $B_{w}$ (m w.e.)', size=12, horizontalalignment='center', verticalalignment='center')
 
 # Save figure
 fig_fn = 'validation_mb_mwea_winter_all-regional.png'
 fig_fp = netcdf_fp_era5 + '../analysis/figures/validation/'
 if not os.path.exists(fig_fp):
     os.makedirs(fig_fp)
-fig.set_size_inches(6.5,9)
+fig.set_size_inches(6.5,8)
 fig.savefig(fig_fp + fig_fn, bbox_inches='tight', dpi=300)

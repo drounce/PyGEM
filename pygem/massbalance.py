@@ -31,7 +31,6 @@ class PyGEMMassBalance(MassBalanceModel):
                  debug=False, debug_refreeze=False,
                  fls=None, fl_id=0,
                  heights=None, repeat_period=False,
-#                       use_refreeze=True
                  hyps_data=pygem_prms.hyps_data,
                  inversion_filter=False,
                  ignore_debris=False
@@ -63,15 +62,14 @@ class PyGEMMassBalance(MassBalanceModel):
         super(PyGEMMassBalance, self).__init__()
         self.valid_bounds = [-1e4, 2e4]  # in m
         self.hemisphere = 'nh'
-#        self.use_refreeze = use_refreeze
 
         # Glacier data
         self.modelprms = modelprms
         self.glacier_rgi_table = glacier_rgi_table
         self.is_tidewater = gdir.is_tidewater
-
+        
         if pygem_prms.hyps_data in ['Farinotti', 'Huss']:
-            self.icethickness_initial = gdir.self.icethickness_initial
+            self.icethickness_initial = gdir.icethickness_initial
             self.width_initial = gdir.width_initial
             self.glacier_area_initial = gdir.glacier_area_initial
             self.heights = gdir.heights
@@ -111,6 +109,7 @@ class PyGEMMassBalance(MassBalanceModel):
 
         # Variables to store (consider storing in xarray)
         nbins = self.glacier_area_initial.shape[0]
+        
         self.nmonths = self.glacier_gcm_temp.shape[0]
         self.nyears = int(self.dates_table.shape[0] / 12)
 
@@ -269,6 +268,28 @@ class PyGEMMassBalance(MassBalanceModel):
                 if pygem_prms.option_temp2bins == 1:
                     # Downscale using gcm and glacier lapse rates
                     #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
+                    
+                    print('----- debug -----')
+                    print('year:', year)
+#                    print('temp shape:', self.glacier_gcm_temp.shape)
+#                    print('lr shape:', self.glacier_gcm_lrgcm.shape)
+#                    print('heights:', heights.shape)
+#                    print('filling:', self.bin_temp[:,12*year:12*(year+1)].shape)
+#                    print('1:', self.glacier_gcm_temp[12*year:12*(year+1)].shape)
+#                    print('2:', self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale])
+#                    print('3:', self.glacier_gcm_elev)
+#                    print('4:', self.glacier_gcm_lrglac[12*year:12*(year+1)].shape)
+#                    print('5:', heights.shape)
+#                    print('6:', self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale].shape)
+                    print(self.bin_temp.shape)
+                    print('1:', self.glacier_gcm_temp[12*year:12*(year+1)].shape)
+                    print('2:', self.glacier_gcm_lrgcm[12*year:12*(year+1)].shape)
+                    print('3:', (self.glacier_gcm_lrgcm[12*year:12*(year+1)] *
+                         (self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale] - self.glacier_gcm_elev)).shape)
+                    print('4:', (self.glacier_gcm_lrglac[12*year:12*(year+1)] * (heights -
+                         self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale])[:, np.newaxis]).shape)
+                    
+                    
                     self.bin_temp[:,12*year:12*(year+1)] = (self.glacier_gcm_temp[12*year:12*(year+1)] +
                          self.glacier_gcm_lrgcm[12*year:12*(year+1)] *
                          (self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale] - self.glacier_gcm_elev) +
@@ -635,10 +656,6 @@ class PyGEMMassBalance(MassBalanceModel):
 ##                    print('surface type present:', self.glac_bin_surfacetype_annual[12:20,year])
 ##                    print('surface type updated:', self.surfacetype[12:20])
 
-        # Example of modularity
-#        if self.use_refreeze:
-#            mb += self._refreeze_term(heights, year)
-
         # Mass balance for each bin [m ice per second]
         seconds_in_year = self.dayspermonth[12*year:12*(year+1)].sum() * 24 * 3600
         mb = (self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)
@@ -903,161 +920,6 @@ class PyGEMMassBalance(MassBalanceModel):
         
         self.glac_wide_volume_change_ignored_annual = vol_change_annual_dif
         
-
-    #%%
-#    def get_annual_frontalablation(self, heights, year=None, flowline=None, fl_id=None,
-#                                   sea_level=0, debug=False):
-#        """NEED TO DETERMINE HOW TO INTEGRATE FRONTAL ABLATION WITH THE FLOWLINE MODEL
-#
-#        Returns annual climatic mass balance
-#
-#        Parameters
-#        ----------
-#        heights : np.array
-#            elevation bins
-#        year : int
-#            year starting with 0 to the number of years in the study
-#
-#        """
-#        print('hack until Fabien provides data')
-#        class Dummy():
-#            pass
-#        flowline = Dummy()
-#        flowline.area = self.glacier_area_t0
-#
-#        # Glacier indices
-#        glac_idx_t0 = flowline.area_km2.nonzero()[0]
-#
-#        # FRONTAL ABLATION
-#        # Glacier bed altitude [masl]
-#        glac_idx_minelev = np.where(self.heights == self.heights[glac_idx_t0].min())[0][0]
-#        glacier_bedelev = (self.heights[glac_idx_minelev] - self.icethickness_initial[glac_idx_minelev])
-#
-#        print('\n-----')
-#        print(self.heights[glac_idx_minelev], self.icethickness_initial[glac_idx_t0], self.glacier_area_t0)
-#        print('-----\n')
-#
-#        print('\nDELETE ME! Switch sea level back to zero\n')
-#        sea_level = 200
-#
-#        if debug and self.glacier_rgi_table['TermType'] != 0:
-#            print('\nyear:', year, '\n sea level:', sea_level, 'bed elev:', np.round(glacier_bedelev, 2))
-#
-#            # If glacier bed below sea level, compute frontal ablation
-#            if glacier_bedelev < sea_level:
-#                # Volume [m3] and bed elevation [masl] of each bin
-#                print('estimate ablation')
-##                glac_bin_volume = glacier_area_t0 * icethickness_t0
-##                glac_bin_bedelev = np.zeros((glacier_area_t0.shape))
-##                glac_bin_bedelev[glac_idx_t0] = heights[glac_idx_t0] - icethickness_initial[glac_idx_t0]
-##
-##                # Option 1: Use Huss and Hock (2015) frontal ablation parameterizations
-##                #  Frontal ablation using width of lowest bin can severely overestimate the actual width of the
-##                #  calving front. Therefore, use estimated calving width from satellite imagery as appropriate.
-##                if pygem_prms.option_frontalablation_k == 1 and frontalablation_k == None:
-##                    # Calculate frontal ablation parameter based on slope of lowest 100 m of glacier
-##                    glac_idx_slope = np.where((heights <= sea_level + 100) &
-##                                              (heights >= heights[glac_idx_t0].min()))[0]
-##                    elev_change = np.abs(heights[glac_idx_slope[0]] - heights[glac_idx_slope[-1]])
-##                    # length of lowest 100 m of glacier
-##                    length_lowest100m = (glacier_area_t0[glac_idx_slope] / width_t0[glac_idx_slope]).sum()
-##                    # slope of lowest 100 m of glacier
-##                    slope_lowest100m = np.rad2deg(np.arctan(elev_change/length_lowest100m))
-##                    # Frontal ablation parameter
-##                    frontalablation_k = frontalablation_k0 * slope_lowest100m
-##
-##                # Calculate frontal ablation
-##                # Bed elevation with respect to sea level
-##                #  negative when bed is below sea level (Oerlemans and Nick, 2005)
-##                waterdepth = sea_level - glacier_bedelev
-##                # Glacier length [m]
-##                length = (glacier_area_t0[width_t0 > 0] / width_t0[width_t0 > 0]).sum()
-##                # Height of calving front [m]
-##                height_calving = np.max([pygem_prms.af*length**0.5,
-##                                         pygem_prms.density_water / pygem_prms.density_ice * waterdepth])
-##                # Width of calving front [m]
-##                if pygem_prms.hyps_data in ['oggm']:
-##                    width_calving = width_t0[np.where(heights == heights[glac_idx_t0].min())[0][0]] * 1000
-##                elif pygem_prms.hyps_data in ['Huss', 'Farinotti']:
-##                    if glacier_rgi_table.RGIId in pygem_prms.width_calving_dict:
-##                        width_calving = np.float64(pygem_prms.width_calving_dict[glacier_rgi_table.RGIId])
-##                    else:
-##                        width_calving = width_t0[glac_idx_t0[0]] * 1000
-##                # Volume loss [m3] due to frontal ablation
-##                frontalablation_volumeloss = (
-##                        np.max([0, (frontalablation_k * waterdepth * height_calving)]) * width_calving)
-##                # Maximum volume loss is volume of bins with their bed elevation below sea level
-##                glac_idx_fa = np.where((glac_bin_bedelev < sea_level) & (glacier_area_t0 > 0))[0]
-##                frontalablation_volumeloss_max = glac_bin_volume[glac_idx_fa].sum()
-##                if frontalablation_volumeloss > frontalablation_volumeloss_max:
-##                    frontalablation_volumeloss = frontalablation_volumeloss_max
-##
-##
-##
-##                if debug:
-##                    print('frontalablation_k:', frontalablation_k)
-##                    print('width calving:', width_calving)
-##                    print('frontalablation_volumeloss [m3]:', frontalablation_volumeloss)
-##                    print('frontalablation_massloss [Gt]:', frontalablation_volumeloss * pygem_prms.density_water /
-##                          pygem_prms.density_ice / 10**9)
-##                    print('frontalalabion_volumeloss_max [Gt]:', frontalablation_volumeloss_max *
-##                          pygem_prms.density_water / pygem_prms.density_ice / 10**9)
-###                        print('glac_idx_fa:', glac_idx_fa)
-###                        print('glac_bin_volume:', glac_bin_volume[0])
-###                        print('glac_idx_fa[bin_count]:', glac_idx_fa[0])
-###                        print('glac_bin_volume[glac_idx_fa[bin_count]]:', glac_bin_volume[glac_idx_fa[0]])
-###                        print('glacier_area_t0[glac_idx_fa[bin_count]]:', glacier_area_t0[glac_idx_fa[0]])
-###                        print('glac_bin_frontalablation:', glac_bin_frontalablation[glac_idx_fa[0], step])
-##
-##                # Frontal ablation [mwe] in each bin
-##                bin_count = 0
-##                while (frontalablation_volumeloss > pygem_prms.tolerance) and (bin_count < len(glac_idx_fa)):
-##                    # Sort heights to ensure it's universal (works with OGGM and Huss)
-##                    heights_calving_sorted = np.argsort(heights[glac_idx_fa])
-##                    calving_bin_idx = heights_calving_sorted[bin_count]
-##                    # Check if entire bin removed or not
-##                    if frontalablation_volumeloss >= glac_bin_volume[glac_idx_fa[calving_bin_idx]]:
-##                        glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] = (
-##                                glac_bin_volume[glac_idx_fa[calving_bin_idx]] /
-##                                glacier_area_t0[glac_idx_fa[calving_bin_idx]]
-##                                * pygem_prms.density_ice / pygem_prms.density_water)
-##                    else:
-##                        glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] = (
-##                                frontalablation_volumeloss / glacier_area_t0[glac_idx_fa[calving_bin_idx]]
-##                                * pygem_prms.density_ice / pygem_prms.density_water)
-##                    frontalablation_volumeloss += (
-##                            -1 * glac_bin_frontalablation[glac_idx_fa[calving_bin_idx],step] * pygem_prms.density_water
-##                            / pygem_prms.density_ice * glacier_area_t0[glac_idx_fa[calving_bin_idx]])
-##
-##                    if debug:
-##                        print('glacier idx:', glac_idx_fa[calving_bin_idx],
-##                              'volume loss:', (glac_bin_frontalablation[glac_idx_fa[calving_bin_idx], step] *
-##                              glacier_area_t0[glac_idx_fa[calving_bin_idx]] * pygem_prms.density_water /
-##                              pygem_prms.density_ice).round(0))
-##                        print('remaining volume loss:', frontalablation_volumeloss, 'tolerance:', pygem_prms.tolerance)
-##
-##                    bin_count += 1
-##
-##                if debug:
-##                    print('frontalablation_volumeloss remaining [m3]:', frontalablation_volumeloss)
-##                    print('ice thickness:', icethickness_t0[glac_idx_fa[0]].round(0),
-##                          'waterdepth:', waterdepth.round(0),
-##                          'height calving front:', height_calving.round(0),
-##                          'width [m]:', (width_calving).round(0))
-#
-#        return 0
-
-
-
-        #%%
-
-#        # Example of how to store variables from within the other functions (ex. mass balance components)
-#        self.diag_df = pd.DataFrame()
-
-#    # Example of what could be done!
-#    def _refreeze_term(self, heights, year):
-#
-#        return 0
 
     # ===== SURFACE TYPE FUNCTIONS =====
     def _surfacetypebinsinitial(self, elev_bins):

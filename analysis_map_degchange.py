@@ -650,24 +650,23 @@ if option_global_vol_remaining_byscenario:
 #        #add_inset(fig,[-179.99,179.99,-89.99,89.99],[0.375, 0.21, 0.25, 0.25],bounds=[-179.99,179.99,-89.99,89.99],shades=False, hillshade = False, main=True, list_shp=shp_buff)
         
         if 19 in regions:
-            poly_aw = np.array([(-158,-79),(-135,-62),(-110,-62),(-50,-62),(-50,-79.25),(-158,-79.25)])
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.4,-0.065,2,2],bounds=[-158, -50, -62.5, -79],
-                      label='Antarctica_West', polygon=poly_aw,shades=True,markup_sub='West & peninsula',sub_pos='mb', col_bounds=col_bounds)
-            
+            poly_aw = np.array([(-158,-79),(-135,-60),(-110,-60),(-50,-60),(-50,-79.25),(-158,-79.25)])
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.4,-0.065,2,2],bounds=[-158, -45, -40, -79],
+                      label='Antarctic_West', polygon=poly_aw,shades=True,markup_sub='West and Peninsula',sub_pos='mb', col_bounds=col_bounds)
             poly_ae = np.array([(135,-81.5),(152,-63.7),(165,-65),(175,-70),(175,-81.25),(135,-81.75)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-0.045,2,2],bounds=[130, 175, -64.5, -81],
-                      label='Antarctica_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
+                      label='Antarctic_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
             
             poly_ac = np.array([(-25,-62),(106,-62),(80,-79.25),(-25,-79.25),(-25,-62)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.52,-0.065,2,2],bounds=[-25, 106, -62.5, -79],
-                      label='Antarctica_Center',polygon=poly_ac,shades=True,markup='Antarctic & Subantarctic',
+                      label='Antarctic_Center',polygon=poly_ac,shades=True,markup='Antarctic and Subantarctic',
                       markpos='right',markadj=0,markup_sub='East 1',sub_pos='mb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.68,-0.18,2,2],bounds=[64, 78, -48, -56],
-                      label='Antarctica_Australes', shades=True,markup_sub='Kerguelen & Heard Islands',sub_pos='lb', col_bounds=col_bounds)
+                      label='Antarctic_Australes', shades=True,markup_sub='Kerguelen and Heard Islands',sub_pos='lb', col_bounds=col_bounds)
             
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.42,-0.165,2,2],bounds=[-40, -23, -51, -60],
-                      label='Antarctica_South_Georgia', shades=True,markup_sub='South Georgia & Central Islands',sub_pos='lt', col_bounds=col_bounds)
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.42,-0.143,2,2],bounds=[-40, -23, -53, -62],
+                      label='Antarctic_South_Georgia', shades=True,markup_sub='South Georgia and Central Islands',sub_pos='lb', col_bounds=col_bounds)
         
         if 16 in regions or 17 in regions:
             add_inset(fig, [-179.99,179.99,-89.99,89.99], [-0.52, -0.225, 2, 2],bounds=[-82,-65,13,-57],label='Andes',
@@ -693,7 +692,7 @@ if option_global_vol_remaining_byscenario:
         if 1 in regions or 2 in regions:
             poly_na = np.array([(-170,72),(-140,72),(-120,63),(-101,35),(-126,35),(-165,55),(-170,72)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.1,-1.22,2,2],bounds=[-177,-105, 36, 70],label='North America',
-                      polygon=poly_na,markup='Alaska & Western\nCanada and USA',markadj=0, col_bounds=col_bounds)
+                      polygon=poly_na,markup='Alaska & Western\nCanada and US',markadj=0, col_bounds=col_bounds)
         
         if 10 in regions:
             
@@ -706,10 +705,10 @@ if option_global_vol_remaining_byscenario:
             only_shade([-0.517,-1.035,2,2],[53,70,62,69.8],label='tmp_NAW')
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.575,-1.109,2,2],bounds=[87,112,68,78.5],
-                      label='North Asia North W',markup_sub='North Siberia',sub_pos='lt', col_bounds=col_bounds)
+                      label='North Asia North W',markup_sub='North Siberia',sub_pos='rb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-1.137,2,2],bounds=[125,148,54,68],polygon=poly_asia_e2,
-                      label='North Asia East 2',markup_sub='Cherskiy &\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
+                      label='North Asia East 2',markup_sub='Cherskiy and\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
             
             poly_asia = np.array([(148,49),(160,64),(178,64),(170,55),(160,49),(148,49)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.823,-1.22,2,2],bounds=[127,179.9,50,64.8],
@@ -717,10 +716,10 @@ if option_global_vol_remaining_byscenario:
         
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.75,-1.01,2,2],bounds=[82,120,45.5,58.9],
-                      label='South Asia North',markup='North Asia',markup_sub='Altay & Sayan',sub_pos='rb',markadj=0, 
+                      label='South Asia North',markup='North Asia',markup_sub='Altay and Sayan',sub_pos='rb',markadj=0, 
                       col_bounds=col_bounds)
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.525,-1.045,2,2],bounds=[53,68,62,68.5],
-                      label='North Asia West',markup_sub='Ural',sub_pos='lt',shades=False, col_bounds=col_bounds)
+                      label='North Asia West',markup_sub='Ural',sub_pos='rb',shades=False, col_bounds=col_bounds)
         
         if 13 in regions or 14 in regions or 15 in regions:
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.685,-1.065,2,2],bounds=[65, 105, 46.5, 25],
@@ -731,8 +730,8 @@ if option_global_vol_remaining_byscenario:
                       label='Europe',markup='Central Europe',markadj=0, col_bounds=col_bounds)
         
         if 12 in regions:
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.66,-0.89,2,2],bounds=[38,54,29,44.75],
-                      label='Middle East',markup='Caucasus',markadj=0, col_bounds=col_bounds)
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.66,-0.896,2,2],bounds=[38,54,29.6,43.6],
+                      label='Middle East',markup='Caucasus and\nMiddle East',markadj=0, col_bounds=col_bounds)
         
         # ----- Circle sizes -----
 #        axleg_background = fig.add_axes([0.001, 0.04, 0.107, 0.2])
@@ -1095,22 +1094,22 @@ if option_global_vol_remaining_byscenario:
         if 19 in regions:
             poly_aw = np.array([(-158,-79),(-135,-62),(-110,-62),(-50,-62),(-50,-79.25),(-158,-79.25)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.4,-0.065,2,2],bounds=[-158, -50, -62.5, -79],
-                      label='Antarctica_West', polygon=poly_aw,shades=True,markup_sub='West & peninsula',sub_pos='mb', col_bounds=col_bounds)
+                      label='Antarctic_West', polygon=poly_aw,shades=True,markup_sub='West and Peninsula',sub_pos='mb', col_bounds=col_bounds)
             
             poly_ae = np.array([(135,-81.5),(152,-63.7),(165,-65),(175,-70),(175,-81.25),(135,-81.75)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-0.045,2,2],bounds=[130, 175, -64.5, -81],
-                      label='Antarctica_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
+                      label='Antarctic_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
             
             poly_ac = np.array([(-25,-62),(106,-62),(80,-79.25),(-25,-79.25),(-25,-62)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.52,-0.065,2,2],bounds=[-25, 106, -62.5, -79],
-                      label='Antarctica_Center',polygon=poly_ac,shades=True,markup='Antarctic & Subantarctic',
+                      label='Antarctic_Center',polygon=poly_ac,shades=True,markup='Antarctic and Subantarctic',
                       markpos='right',markadj=0,markup_sub='East 1',sub_pos='mb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.68,-0.18,2,2],bounds=[64, 78, -48, -56],
-                      label='Antarctica_Australes', shades=True,markup_sub='Kerguelen & Heard Islands',sub_pos='lb', col_bounds=col_bounds)
+                      label='Antarctic_Australes', shades=True,markup_sub='Kerguelen and Heard Islands',sub_pos='lb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.42,-0.165,2,2],bounds=[-40, -23, -51, -60],
-                      label='Antarctica_South_Georgia', shades=True,markup_sub='South Georgia & Central Islands',sub_pos='lt', col_bounds=col_bounds)
+                      label='Antarctic_South_Georgia', shades=True,markup_sub='South Georgia and Central Islands',sub_pos='lt', col_bounds=col_bounds)
         
         if 16 in regions or 17 in regions:
             add_inset(fig, [-179.99,179.99,-89.99,89.99], [-0.52, -0.225, 2, 2],bounds=[-82,-65,13,-57],label='Andes',
@@ -1136,7 +1135,7 @@ if option_global_vol_remaining_byscenario:
         if 1 in regions or 2 in regions:
             poly_na = np.array([(-170,72),(-140,72),(-120,63),(-101,35),(-126,35),(-165,55),(-170,72)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.1,-1.22,2,2],bounds=[-177,-105, 36, 70],label='North America',
-                      polygon=poly_na,markup='Alaska & Western\nCanada and USA',markadj=0, col_bounds=col_bounds)
+                      polygon=poly_na,markup='Alaska & Western\nCanada and US',markadj=0, col_bounds=col_bounds)
         
         if 10 in regions:
             
@@ -1152,7 +1151,7 @@ if option_global_vol_remaining_byscenario:
                       label='North Asia North W',markup_sub='North Siberia',sub_pos='lt', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-1.137,2,2],bounds=[125,148,54,68],polygon=poly_asia_e2,
-                      label='North Asia East 2',markup_sub='Cherskiy &\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
+                      label='North Asia East 2',markup_sub='Cherskiy and\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
             
             poly_asia = np.array([(148,49),(160,64),(178,64),(170,55),(160,49),(148,49)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.823,-1.22,2,2],bounds=[127,179.9,50,64.8],
@@ -1160,7 +1159,7 @@ if option_global_vol_remaining_byscenario:
         
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.75,-1.01,2,2],bounds=[82,120,45.5,58.9],
-                      label='South Asia North',markup='North Asia',markup_sub='Altay & Sayan',sub_pos='rb',markadj=0, 
+                      label='South Asia North',markup='North Asia',markup_sub='Altay and Sayan',sub_pos='rb',markadj=0, 
                       col_bounds=col_bounds)
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.525,-1.045,2,2],bounds=[53,68,62,68.5],
                       label='North Asia West',markup_sub='Ural',sub_pos='lt',shades=False, col_bounds=col_bounds)
@@ -1175,7 +1174,7 @@ if option_global_vol_remaining_byscenario:
         
         if 12 in regions:
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.66,-0.89,2,2],bounds=[38,54,29,44.75],
-                      label='Middle East',markup='Caucasus',markadj=0, col_bounds=col_bounds)
+                      label='Middle East',markup='Caucasus/Middle East',markadj=0, col_bounds=col_bounds)
         
         # ----- Circle sizes -----
 #        axleg_background = fig.add_axes([0.001, 0.04, 0.107, 0.2])
@@ -1245,6 +1244,7 @@ if option_global_vol_remaining_bydeg:
 #    warming_groups_bnds = [0.5]
     
     add_rgi_glaciers = True
+#    add_rgi_glaciers = False
     
     normyear = 2015
     
@@ -1894,29 +1894,28 @@ if option_global_vol_remaining_bydeg:
         ax.spines['geo'].set_linewidth(0)
         
         add_inset(fig,[-179.99,179.99,-89.99,89.99],[0.375, 0.21, 0.25, 0.25],bounds=[-179.99,179.99,-89.99,89.99],shades=False, hillshade = False, main=True, col_bounds=col_bounds,
-                  color_water='lightblue', color_land='white', add_rgi_glaciers=True
+                  color_water='lightblue', color_land='white', add_rgi_glaciers=add_rgi_glaciers
                   )
 #        #add_inset(fig,[-179.99,179.99,-89.99,89.99],[0.375, 0.21, 0.25, 0.25],bounds=[-179.99,179.99,-89.99,89.99],shades=False, hillshade = False, main=True, list_shp=shp_buff)
         
         if 19 in regions:
-            poly_aw = np.array([(-158,-79),(-135,-62),(-110,-62),(-50,-62),(-50,-79.25),(-158,-79.25)])
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.4,-0.065,2,2],bounds=[-158, -50, -62.5, -79],
-                      label='Antarctica_West', polygon=poly_aw,shades=True,markup_sub='West & peninsula',sub_pos='mb', col_bounds=col_bounds)
-            
+            poly_aw = np.array([(-158,-79),(-135,-60),(-110,-60),(-50,-60),(-50,-79.25),(-158,-79.25)])
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.4,-0.065,2,2],bounds=[-158, -45, -40, -79],
+                      label='Antarctic_West', polygon=poly_aw,shades=True,markup_sub='West and Peninsula',sub_pos='mb', col_bounds=col_bounds)
             poly_ae = np.array([(135,-81.5),(152,-63.7),(165,-65),(175,-70),(175,-81.25),(135,-81.75)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-0.045,2,2],bounds=[130, 175, -64.5, -81],
-                      label='Antarctica_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
+                      label='Antarctic_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
             
             poly_ac = np.array([(-25,-62),(106,-62),(80,-79.25),(-25,-79.25),(-25,-62)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.52,-0.065,2,2],bounds=[-25, 106, -62.5, -79],
-                      label='Antarctica_Center',polygon=poly_ac,shades=True,markup='Antarctic & Subantarctic',
+                      label='Antarctic_Center',polygon=poly_ac,shades=True,markup='Antarctic and Subantarctic',
                       markpos='right',markadj=0,markup_sub='East 1',sub_pos='mb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.68,-0.18,2,2],bounds=[64, 78, -48, -56],
-                      label='Antarctica_Australes', shades=True,markup_sub='Kerguelen & Heard Islands',sub_pos='lb', col_bounds=col_bounds)
+                      label='Antarctic_Australes', shades=True,markup_sub='Kerguelen and Heard Islands',sub_pos='lb', col_bounds=col_bounds)
             
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.42,-0.165,2,2],bounds=[-40, -23, -51, -60],
-                      label='Antarctica_South_Georgia', shades=True,markup_sub='South Georgia & Central Islands',sub_pos='lt', col_bounds=col_bounds)
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.42,-0.143,2,2],bounds=[-40, -23, -53, -62],
+                      label='Antarctic_South_Georgia', shades=True,markup_sub='South Georgia and Central Islands',sub_pos='lb', col_bounds=col_bounds)
         
         if 16 in regions or 17 in regions:
             add_inset(fig, [-179.99,179.99,-89.99,89.99], [-0.52, -0.225, 2, 2],bounds=[-82,-65,13,-57],label='Andes',
@@ -1942,7 +1941,7 @@ if option_global_vol_remaining_bydeg:
         if 1 in regions or 2 in regions:
             poly_na = np.array([(-170,72),(-140,72),(-120,63),(-101,35),(-126,35),(-165,55),(-170,72)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.1,-1.22,2,2],bounds=[-177,-105, 36, 70],label='North America',
-                      polygon=poly_na,markup='Alaska & Western\nCanada and USA',markadj=0, col_bounds=col_bounds)
+                      polygon=poly_na,markup='Alaska & Western\nCanada and US',markadj=0, col_bounds=col_bounds)
         
         if 10 in regions:
             
@@ -1955,10 +1954,10 @@ if option_global_vol_remaining_bydeg:
             only_shade([-0.517,-1.035,2,2],[53,70,62,69.8],label='tmp_NAW')
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.575,-1.109,2,2],bounds=[87,112,68,78.5],
-                      label='North Asia North W',markup_sub='North Siberia',sub_pos='lt', col_bounds=col_bounds)
+                      label='North Asia North W',markup_sub='North Siberia',sub_pos='rb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-1.137,2,2],bounds=[125,148,54,68],polygon=poly_asia_e2,
-                      label='North Asia East 2',markup_sub='Cherskiy &\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
+                      label='North Asia East 2',markup_sub='Cherskiy and\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
             
             poly_asia = np.array([(148,49),(160,64),(178,64),(170,55),(160,49),(148,49)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.823,-1.22,2,2],bounds=[127,179.9,50,64.8],
@@ -1966,10 +1965,10 @@ if option_global_vol_remaining_bydeg:
         
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.75,-1.01,2,2],bounds=[82,120,45.5,58.9],
-                      label='South Asia North',markup='North Asia',markup_sub='Altay & Sayan',sub_pos='rb',markadj=0, 
+                      label='South Asia North',markup='North Asia',markup_sub='Altay and Sayan',sub_pos='rb',markadj=0, 
                       col_bounds=col_bounds)
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.525,-1.045,2,2],bounds=[53,68,62,68.5],
-                      label='North Asia West',markup_sub='Ural',sub_pos='lt',shades=False, col_bounds=col_bounds)
+                      label='North Asia West',markup_sub='Ural',sub_pos='rb',shades=False, col_bounds=col_bounds)
         
         if 13 in regions or 14 in regions or 15 in regions:
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.685,-1.065,2,2],bounds=[65, 105, 46.5, 25],
@@ -1980,8 +1979,8 @@ if option_global_vol_remaining_bydeg:
                       label='Europe',markup='Central Europe',markadj=0, col_bounds=col_bounds)
         
         if 12 in regions:
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.66,-0.89,2,2],bounds=[38,54,29,44.75],
-                      label='Middle East',markup='Caucasus',markadj=0, col_bounds=col_bounds)
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.66,-0.896,2,2],bounds=[38,54,29.6,43.6],
+                      label='Middle East',markup='Caucasus and\nMiddle East',markadj=0, col_bounds=col_bounds)
         
         # ----- Circle sizes -----
 #        axleg_background = fig.add_axes([0.001, 0.04, 0.107, 0.2])
@@ -2064,11 +2063,12 @@ if option_global_vol_remaining_bydeg:
         cbar.set_ticklabels(tick_labels)
         cbar.ax.tick_params(labelsize=9, pad=0.3)
         
-        cax.text(-0.135, 0.215, 'Mass at 2100,\nrel. to 2015 (-)', size=10, horizontalalignment='center',
-                verticalalignment='bottom', rotation=90, transform=ax.transAxes)
-#        # Switch if running in Spyder
-#        cax.text(-0.148, 0.205, 'Mass at 2100,\nrel. to 2015 (-)', size=10, horizontalalignment='center',
-#                 verticalalignment='bottom', rotation=90, transform=ax.transAxes)
+        # Use if running in command line
+#        cax.text(-0.135, 0.215, 'Mass at 2100,\nrel. to 2015 (-)', size=10, horizontalalignment='center',
+#                verticalalignment='bottom', rotation=90, transform=ax.transAxes)
+        # Use if running in Spyder
+        cax.text(-0.148, 0.205, 'Mass at 2100,\nrel. to 2015 (-)', size=10, horizontalalignment='center',
+                 verticalalignment='bottom', rotation=90, transform=ax.transAxes)
     
         fig.savefig(fig_fp + 'global_deg_vol_remaining_' + str(warming_group) + 'degC.png',dpi=250,transparent=True)
         
@@ -2323,29 +2323,33 @@ if option_global_vol_remaining_bydeg:
         add_inset(fig,[-179.99,179.99,-89.99,89.99],[0.375, 0.21, 0.25, 0.25],bounds=[-179.99,179.99,-89.99,89.99],shades=False, hillshade = False, main=True, col_bounds=col_bounds)
         #add_inset(fig,[-179.99,179.99,-89.99,89.99],[0.375, 0.21, 0.25, 0.25],bounds=[-179.99,179.99,-89.99,89.99],shades=False, hillshade = False, main=True, list_shp=shp_buff)
         
+#        add_inset(fig,[-179.99,179.99,-89.99,89.99],[0.375, 0.21, 0.25, 0.25],bounds=[-179.99,179.99,-89.99,89.99],shades=False, hillshade = False, main=True, col_bounds=col_bounds,
+#                  color_water='lightblue', color_land='white', add_rgi_glaciers=add_rgi_glaciers
+#                  )
+#        #add_inset(fig,[-179.99,179.99,-89.99,89.99],[0.375, 0.21, 0.25, 0.25],bounds=[-179.99,179.99,-89.99,89.99],shades=False, hillshade = False, main=True, list_shp=shp_buff)
+        
         if 19 in regions:
-            poly_aw = np.array([(-158,-79),(-135,-62),(-110,-62),(-50,-62),(-50,-79.25),(-158,-79.25)])
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.4,-0.065,2,2],bounds=[-158, -50, -62.5, -79],
-                      label='Antarctica_West', polygon=poly_aw,shades=True,markup_sub='West & peninsula',sub_pos='mb', col_bounds=col_bounds)
-            
+            poly_aw = np.array([(-158,-79),(-135,-60),(-110,-60),(-50,-60),(-50,-79.25),(-158,-79.25)])
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.4,-0.065,2,2],bounds=[-158, -45, -40, -79],
+                      label='Antarctic_West', polygon=poly_aw,shades=True,markup_sub='West and Peninsula',sub_pos='mb', col_bounds=col_bounds)
             poly_ae = np.array([(135,-81.5),(152,-63.7),(165,-65),(175,-70),(175,-81.25),(135,-81.75)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-0.045,2,2],bounds=[130, 175, -64.5, -81],
-                      label='Antarctica_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
+                      label='Antarctic_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
             
             poly_ac = np.array([(-25,-62),(106,-62),(80,-79.25),(-25,-79.25),(-25,-62)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.52,-0.065,2,2],bounds=[-25, 106, -62.5, -79],
-                      label='Antarctica_Center',polygon=poly_ac,shades=True,markup='Antarctic & Subantarctic (19)',
+                      label='Antarctic_Center',polygon=poly_ac,shades=True,markup='Antarctic and Subantarctic',
                       markpos='right',markadj=0,markup_sub='East 1',sub_pos='mb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.68,-0.18,2,2],bounds=[64, 78, -48, -56],
-                      label='Antarctica_Australes', shades=True,markup_sub='Kerguelen & Heard Islands',sub_pos='lb', col_bounds=col_bounds)
+                      label='Antarctic_Australes', shades=True,markup_sub='Kerguelen and Heard Islands',sub_pos='lb', col_bounds=col_bounds)
             
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.42,-0.165,2,2],bounds=[-40, -23, -51, -60],
-                      label='Antarctica_South_Georgia', shades=True,markup_sub='South Georgia & Central Islands',sub_pos='lt', col_bounds=col_bounds)
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.42,-0.143,2,2],bounds=[-40, -23, -53, -62],
+                      label='Antarctic_South_Georgia', shades=True,markup_sub='South Georgia and Central Islands',sub_pos='lb', col_bounds=col_bounds)
         
         if 16 in regions or 17 in regions:
             add_inset(fig, [-179.99,179.99,-89.99,89.99], [-0.52, -0.225, 2, 2],bounds=[-82,-65,13,-57],label='Andes',
-                      markup='Low Latitudes (16) &\nSouthern Andes (17)',markadj=0,
+                      markup='Low Latitudes &\nSouthern Andes',markadj=0,
 #                      markup_sub='a',
                       sub_pos='lm2', col_bounds=col_bounds)
             add_inset(fig, [-179.99,179.99,-89.99,89.99], [-0.352, -0.38, 2, 2],bounds=[-100,-95,22,16],label='Mexico',
@@ -2358,16 +2362,16 @@ if option_global_vol_remaining_bydeg:
         if 3 in regions or 4 in regions or 5 in regions or 6 in regions or 7 in regions or 8 in regions or 9 in regions: 
             poly_arctic = np.array([(-105,84.5),(115,84.5),(110,68),(30,68),(18,57),(-70,57),(-100,75),(-105,84.5)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.48,-1.003,2,2],bounds=[-100, 106, 57, 84],label='Arctic West',
-                      polygon=poly_arctic,markup='Arctic (03-09)',markadj=0, col_bounds=col_bounds)
+                      polygon=poly_arctic,markup='Arctic',markadj=0, col_bounds=col_bounds)
             
         if 18 in regions:
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.92,-0.17,2,2],bounds=[164,176,-47,-40],label='New Zealand',
-                      markup='New Zealand (18)',markpos='right',markadj=0, col_bounds=col_bounds)
+                      markup='New Zealand',markpos='right',markadj=0, col_bounds=col_bounds)
         
         if 1 in regions or 2 in regions:
             poly_na = np.array([(-170,72),(-140,72),(-120,63),(-101,35),(-126,35),(-165,55),(-170,72)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.1,-1.22,2,2],bounds=[-177,-105, 36, 70],label='North America',
-                      polygon=poly_na,markup='Alaska (01) & Western\nCanada and USA (02)',markadj=0, col_bounds=col_bounds)
+                      polygon=poly_na,markup='Alaska & Western\nCanada and US',markadj=0, col_bounds=col_bounds)
         
         if 10 in regions:
             
@@ -2380,10 +2384,10 @@ if option_global_vol_remaining_bydeg:
             only_shade([-0.517,-1.035,2,2],[53,70,62,69.8],label='tmp_NAW')
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.575,-1.109,2,2],bounds=[87,112,68,78.5],
-                      label='North Asia North W',markup_sub='North Siberia',sub_pos='lt', col_bounds=col_bounds)
+                      label='North Asia North W',markup_sub='North Siberia',sub_pos='rb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-1.137,2,2],bounds=[125,148,54,68],polygon=poly_asia_e2,
-                      label='North Asia East 2',markup_sub='Cherskiy &\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
+                      label='North Asia East 2',markup_sub='Cherskiy and\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
             
             poly_asia = np.array([(148,49),(160,64),(178,64),(170,55),(160,49),(148,49)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.823,-1.22,2,2],bounds=[127,179.9,50,64.8],
@@ -2391,22 +2395,22 @@ if option_global_vol_remaining_bydeg:
         
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.75,-1.01,2,2],bounds=[82,120,45.5,58.9],
-                      label='South Asia North',markup='North Asia (10)',markup_sub='Altay & Sayan',sub_pos='rb',markadj=0, 
+                      label='South Asia North',markup='North Asia',markup_sub='Altay and Sayan',sub_pos='rb',markadj=0, 
                       col_bounds=col_bounds)
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.525,-1.045,2,2],bounds=[53,68,62,68.5],
-                      label='North Asia West',markup_sub='Ural',sub_pos='lt',shades=False, col_bounds=col_bounds)
+                      label='North Asia West',markup_sub='Ural',sub_pos='rb',shades=False, col_bounds=col_bounds)
         
         if 13 in regions or 14 in regions or 15 in regions:
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.685,-1.065,2,2],bounds=[65, 105, 46.5, 25],
-                      label='HMA',markup='High Mountain Asia (13-15)',markadj=0, col_bounds=col_bounds)
+                      label='HMA',markup='High Mountain Asia',markadj=0, col_bounds=col_bounds)
         
         if 11 in regions:
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.58,-0.982,2,2],bounds=[-4.9,19,38.2,50.5],
-                      label='Europe',markup='Central Europe (11)',markadj=0, col_bounds=col_bounds)
+                      label='Europe',markup='Central Europe',markadj=0, col_bounds=col_bounds)
         
         if 12 in regions:
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.66,-0.89,2,2],bounds=[38,54,29,44.75],
-                      label='Middle East',markup='Caucasus (12)',markadj=0, col_bounds=col_bounds)
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.66,-0.896,2,2],bounds=[38,54,29.6,43.6],
+                      label='Middle East',markup='Caucasus and\nMiddle East',markadj=0, col_bounds=col_bounds)
         
         
         # ----- Circle sizes -----
@@ -2454,9 +2458,10 @@ if option_global_vol_remaining_bydeg:
         cbar.set_ticklabels(tick_labels)
         cbar.ax.tick_params(labelsize=9, pad=0.3)
         
-        cax.text(-0.135, 0.215, 'Mass at 2100,\nrel. to 2015 (-)', size=10, horizontalalignment='center',
-                verticalalignment='bottom', rotation=90, transform=ax.transAxes)
-        # Switch if running in Spyder
+#        # Use if running in command line
+#        cax.text(-0.135, 0.215, 'Mass at 2100,\nrel. to 2015 (-)', size=10, horizontalalignment='center',
+#                verticalalignment='bottom', rotation=90, transform=ax.transAxes)
+        # Use if running in Spyder
         cax.text(-0.148, 0.205, 'Mass at 2100,\nrel. to 2015 (-)', size=10, horizontalalignment='center',
                  verticalalignment='bottom', rotation=90, transform=ax.transAxes)
     
@@ -2713,24 +2718,23 @@ if option_global_vol_remaining_bydeg:
 #        #add_inset(fig,[-179.99,179.99,-89.99,89.99],[0.375, 0.21, 0.25, 0.25],bounds=[-179.99,179.99,-89.99,89.99],shades=False, hillshade = False, main=True, list_shp=shp_buff)
         
         if 19 in regions:
-            poly_aw = np.array([(-158,-79),(-135,-62),(-110,-62),(-50,-62),(-50,-79.25),(-158,-79.25)])
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.4,-0.065,2,2],bounds=[-158, -50, -62.5, -79],
-                      label='Antarctica_West', polygon=poly_aw,shades=True,markup_sub='West & peninsula',sub_pos='mb', col_bounds=col_bounds)
-            
+            poly_aw = np.array([(-158,-79),(-135,-60),(-110,-60),(-50,-60),(-50,-79.25),(-158,-79.25)])
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.4,-0.065,2,2],bounds=[-158, -45, -40, -79],
+                      label='Antarctic_West', polygon=poly_aw,shades=True,markup_sub='West and Peninsula',sub_pos='mb', col_bounds=col_bounds)
             poly_ae = np.array([(135,-81.5),(152,-63.7),(165,-65),(175,-70),(175,-81.25),(135,-81.75)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-0.045,2,2],bounds=[130, 175, -64.5, -81],
-                      label='Antarctica_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
+                      label='Antarctic_East', polygon=poly_ae,shades=True,markup_sub='East 2',sub_pos='mb', col_bounds=col_bounds)
             
             poly_ac = np.array([(-25,-62),(106,-62),(80,-79.25),(-25,-79.25),(-25,-62)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.52,-0.065,2,2],bounds=[-25, 106, -62.5, -79],
-                      label='Antarctica_Center',polygon=poly_ac,shades=True,markup='Antarctic & Subantarctic',
+                      label='Antarctic_Center',polygon=poly_ac,shades=True,markup='Antarctic and Subantarctic',
                       markpos='right',markadj=0,markup_sub='East 1',sub_pos='mb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.68,-0.18,2,2],bounds=[64, 78, -48, -56],
-                      label='Antarctica_Australes', shades=True,markup_sub='Kerguelen & Heard Islands',sub_pos='lb', col_bounds=col_bounds)
+                      label='Antarctic_Australes', shades=True,markup_sub='Kerguelen and Heard Islands',sub_pos='lb', col_bounds=col_bounds)
             
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.42,-0.165,2,2],bounds=[-40, -23, -51, -60],
-                      label='Antarctica_South_Georgia', shades=True,markup_sub='South Georgia & Central Islands',sub_pos='lt', col_bounds=col_bounds)
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.42,-0.143,2,2],bounds=[-40, -23, -53, -62],
+                      label='Antarctic_South_Georgia', shades=True,markup_sub='South Georgia and Central Islands',sub_pos='lb', col_bounds=col_bounds)
         
         if 16 in regions or 17 in regions:
             add_inset(fig, [-179.99,179.99,-89.99,89.99], [-0.52, -0.225, 2, 2],bounds=[-82,-65,13,-57],label='Andes',
@@ -2756,7 +2760,7 @@ if option_global_vol_remaining_bydeg:
         if 1 in regions or 2 in regions:
             poly_na = np.array([(-170,72),(-140,72),(-120,63),(-101,35),(-126,35),(-165,55),(-170,72)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.1,-1.22,2,2],bounds=[-177,-105, 36, 70],label='North America',
-                      polygon=poly_na,markup='Alaska & Western\nCanada and USA',markadj=0, col_bounds=col_bounds)
+                      polygon=poly_na,markup='Alaska & Western\nCanada and US',markadj=0, col_bounds=col_bounds)
         
         if 10 in regions:
             
@@ -2769,10 +2773,10 @@ if option_global_vol_remaining_bydeg:
             only_shade([-0.517,-1.035,2,2],[53,70,62,69.8],label='tmp_NAW')
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.575,-1.109,2,2],bounds=[87,112,68,78.5],
-                      label='North Asia North W',markup_sub='North Siberia',sub_pos='lt', col_bounds=col_bounds)
+                      label='North Asia North W',markup_sub='North Siberia',sub_pos='rb', col_bounds=col_bounds)
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.71,-1.137,2,2],bounds=[125,148,54,68],polygon=poly_asia_e2,
-                      label='North Asia East 2',markup_sub='Cherskiy &\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
+                      label='North Asia East 2',markup_sub='Cherskiy and\nSuntar Khayata',sub_pos='lb',shades=False, col_bounds=col_bounds)
             
             poly_asia = np.array([(148,49),(160,64),(178,64),(170,55),(160,49),(148,49)])
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.823,-1.22,2,2],bounds=[127,179.9,50,64.8],
@@ -2780,10 +2784,10 @@ if option_global_vol_remaining_bydeg:
         
             
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.75,-1.01,2,2],bounds=[82,120,45.5,58.9],
-                      label='South Asia North',markup='North Asia',markup_sub='Altay & Sayan',sub_pos='rb',markadj=0, 
+                      label='South Asia North',markup='North Asia',markup_sub='Altay and Sayan',sub_pos='rb',markadj=0, 
                       col_bounds=col_bounds)
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.525,-1.045,2,2],bounds=[53,68,62,68.5],
-                      label='North Asia West',markup_sub='Ural',sub_pos='lt',shades=False, col_bounds=col_bounds)
+                      label='North Asia West',markup_sub='Ural',sub_pos='rb',shades=False, col_bounds=col_bounds)
         
         if 13 in regions or 14 in regions or 15 in regions:
             add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.685,-1.065,2,2],bounds=[65, 105, 46.5, 25],
@@ -2794,8 +2798,8 @@ if option_global_vol_remaining_bydeg:
                       label='Europe',markup='Central Europe',markadj=0, col_bounds=col_bounds)
         
         if 12 in regions:
-            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.66,-0.89,2,2],bounds=[38,54,29,44.75],
-                      label='Middle East',markup='Caucasus',markadj=0, col_bounds=col_bounds)
+            add_inset(fig,[-179.99,179.99,-89.99,89.99],[-0.66,-0.896,2,2],bounds=[38,54,29.6,43.6],
+                      label='Middle East',markup='Caucasus and\nMiddle East',markadj=0, col_bounds=col_bounds)
         
         # ----- Circle sizes -----
 #        axleg_background = fig.add_axes([0.001, 0.04, 0.107, 0.2])
@@ -2845,10 +2849,11 @@ if option_global_vol_remaining_bydeg:
         cbar.set_ticklabels(tick_labels)
         cbar.ax.tick_params(labelsize=8)
         
-        cax.text(-0.147, 0.19, 'Peak Water Year', size=10, horizontalalignment='center',
-                verticalalignment='bottom', rotation=90, transform=ax.transAxes)
-        # Switch if running in Spyder
-#        cax.text(-0.16, 0.175, 'Peak Water Year', size=10, horizontalalignment='center',
+#        cax.text(-0.147, 0.19, 'Peak Mass Loss Year', size=10, horizontalalignment='center',
 #                verticalalignment='bottom', rotation=90, transform=ax.transAxes)
+        # Switch if running in Spyder
+        cax.text(-0.16, 0.17, 'Peak Mass Loss (yr)', size=8.5, horizontalalignment='center',
+                verticalalignment='bottom', rotation=90, transform=ax.transAxes)
     
         fig.savefig(fig_fp + 'global_deg_peakwater_' + str(warming_group) + 'degC.png',dpi=250,transparent=True)
+        

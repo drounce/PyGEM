@@ -54,18 +54,18 @@ time_start = time.time()
 
 #%% ===== Input data =====
 # Script options
-option_policy_temp_figs = True                  # Policy figures based on temperature deviations 
+option_policy_temp_figs = False                  # Policy figures based on temperature deviations 
 option_calving_comparison_bydeg = False          # Multi-GCM comparison of including frontal ablation or not
 option_glacier_cs_plots_calving_bydeg = False    # Cross sectional plots for calving glaciers based on degrees
 option_tidewater_stats = False                   # Tidewater % by area for each region
 option_tidewater_fa_err = False                  # Processes frontal ablation error for regional statistics
-option_debris_comparison_bydeg = False           # Comparison of including debris or not
+option_debris_comparison_bydeg = True           # Comparison of including debris or not
 option_tidewater_volume_stats = False            # Statistics related to initial mass including and excluding frontal ablation
 option_tidewater_landretreat = False             # Statistics related to number of tidewater glaciers that retreat onto land
 
 
-regions = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
-#regions = [1,3,4,5,7,9,17,19]
+#regions = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+regions = [1,3,4,5,7,9,17,19]
 
 #deg_groups = [1.5,2,2.7,3,4]
 #deg_groups_bnds = [0.25, 0.5, 0.5, 0.5, 0.5]
@@ -129,24 +129,24 @@ vn_label_units_dict = {'massbal':'[mwea]',
 rgi_reg_dict = {'all':'Global',
                 'global':'Global',
                 1:'Alaska',
-                2:'W Canada/USA',
+                2:'W Canada & US',
                 3:'Arctic Canada North',
                 4:'Arctic Canada South',
-                5:'Greenland',
+                5:'Greenland Periphery',
                 6:'Iceland',
                 7:'Svalbard',
                 8:'Scandinavia',
                 9:'Russian Arctic',
                 10:'North Asia',
                 11:'Central Europe',
-                12:'Caucasus/Middle East',
+                12:'Caucasus & Middle East',
                 13:'Central Asia',
                 14:'South Asia West',
                 15:'South Asia East',
                 16:'Low Latitudes',
                 17:'Southern Andes',
                 18:'New Zealand',
-                19:'Antarctica/Subantarctic'
+                19:'Antarctic & Subantarctic'
                 }
 # Colors list
 rcp_colordict = {'rcp26':'#3D52A4', 'rcp45':'#76B8E5', 'rcp60':'#F47A20', 'rcp85':'#ED2024', 
@@ -1436,9 +1436,9 @@ if option_policy_temp_figs:
             ax.yaxis.set_minor_locator(MultipleLocator(0.1)) 
         
         if nax == 0:
-            label_height=1.06
+            label_height=1.07
         else:
-            label_height=1.14
+            label_height=1.16
         ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
                 verticalalignment='top', transform=ax.transAxes)
         ax.tick_params(axis='both', which='major', direction='inout', right=True)
@@ -1598,9 +1598,9 @@ if option_policy_temp_figs:
         ax.yaxis.set_minor_locator(MultipleLocator(0.1))
         
         if nax == 0:
-            label_height=1.06
+            label_height=1.07
         else:
-            label_height=1.15
+            label_height=1.16
         ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
                 verticalalignment='top', transform=ax.transAxes)
         ax.tick_params(axis='both', which='major', direction='inout', right=True)
@@ -1742,9 +1742,9 @@ if option_policy_temp_figs:
         ax.yaxis.set_minor_locator(MultipleLocator(0.1))
         
         if nax == 0:
-            label_height=1.06
+            label_height=1.07
         else:
-            label_height=1.15
+            label_height=1.16
         ax.text(1, label_height, rgi_reg_dict[reg], size=10, horizontalalignment='right', 
                 verticalalignment='top', transform=ax.transAxes)
         ax.tick_params(axis='both', which='major', direction='inout', right=True)
@@ -2592,24 +2592,24 @@ if option_policy_temp_figs:
 
     rgi_reg_fig_dict = {'all':'Global',
                         1:'Alaska',
-                        2:'W Canada/USA',
+                        2:'W Canada\n& US',
                         3:'Arctic Canada\nNorth',
                         4:'Arctic Canada\nSouth',
-                        5:'Greenland',
+                        5:'Greenland Periphery',
                         6:'Iceland',
                         7:'Svalbard',
                         8:'Scandinavia',
                         9:'Russian Arctic',
                         10:'North Asia',
                         11:'Central Europe',
-                        12:'Caucasus\nMiddle East',
+                        12:'Caucasus &\nMiddle East',
                         13:'Central Asia',
                         14:'South Asia\nWest',
                         15:'South Asia\nEast',
                         16:'Low Latitudes',
                         17:'Southern\nAndes',
                         18:'New Zealand',
-                        19:'Antarctica/Subantarctic'
+                        19:'Antarctic & Subantarctic'
                         }
     
 #    rcp_colordict = {'ssp119':'#76B8E5', 'ssp126':'#76B8E5', 'ssp245':'#F1EA8A', 'ssp370':'#F47A20', 'ssp585':'#ED2024'}
@@ -2671,10 +2671,10 @@ if option_policy_temp_figs:
         ax2 = fig.add_axes([0.13,0.59,0.1,0.04], facecolor='none')
         ax3 = fig.add_axes([0.21,0.875,0.1,0.04], facecolor='none')
         ax4 = fig.add_axes([0.265,0.60,0.1,0.04], facecolor='none')
-        ax5 = fig.add_axes([0.33,0.875,0.1,0.04], facecolor='none')
+        ax5 = fig.add_axes([0.34,0.875,0.1,0.04], facecolor='none')
         ax6 = fig.add_axes([0.37,0.64,0.1,0.04], facecolor='none')
-        ax7 = fig.add_axes([0.44,0.875,0.1,0.04], facecolor='none')
-        ax8 = fig.add_axes([0.55,0.875,0.1,0.04], facecolor='none')
+        ax7 = fig.add_axes([0.465,0.875,0.1,0.04], facecolor='none')
+        ax8 = fig.add_axes([0.573,0.875,0.1,0.04], facecolor='none')
         ax9 = fig.add_axes([0.68,0.875,0.1,0.04], facecolor='none')
         ax10 = fig.add_axes([0.8,0.78,0.1,0.04], facecolor='none')
         ax11 = fig.add_axes([0.44,0.55,0.1,0.04], facecolor='none')
@@ -2693,10 +2693,10 @@ if option_policy_temp_figs:
         ax2b = fig.add_axes([0.143,0.628,reg_pie_sizes[2],reg_pie_sizes[2]], facecolor='none')
         ax3b = fig.add_axes([0.205,0.91,reg_pie_sizes[3],reg_pie_sizes[3]], facecolor='none')
         ax4b = fig.add_axes([0.26,0.635,reg_pie_sizes[4],reg_pie_sizes[4]], facecolor='none')
-        ax5b = fig.add_axes([0.315,0.91,reg_pie_sizes[5],reg_pie_sizes[5]], facecolor='none')
+        ax5b = fig.add_axes([0.325,0.91,reg_pie_sizes[5],reg_pie_sizes[5]], facecolor='none')
         ax6b = fig.add_axes([0.38,0.677,reg_pie_sizes[6],reg_pie_sizes[6]], facecolor='none')
-        ax7b = fig.add_axes([0.445,0.91,reg_pie_sizes[7],reg_pie_sizes[7]], facecolor='none')
-        ax8b = fig.add_axes([0.563,0.912,reg_pie_sizes[8],reg_pie_sizes[8]], facecolor='none')
+        ax7b = fig.add_axes([0.47,0.91,reg_pie_sizes[7],reg_pie_sizes[7]], facecolor='none')
+        ax8b = fig.add_axes([0.586,0.912,reg_pie_sizes[8],reg_pie_sizes[8]], facecolor='none')
         ax9b = fig.add_axes([0.68,0.91,reg_pie_sizes[9],reg_pie_sizes[9]], facecolor='none')
         ax10b = fig.add_axes([0.818,0.817,reg_pie_sizes[10],reg_pie_sizes[10]], facecolor='none')
         ax11b = fig.add_axes([0.455,0.587,reg_pie_sizes[11],reg_pie_sizes[11]], facecolor='none')
@@ -2892,15 +2892,16 @@ if option_policy_temp_figs:
                            horizontalalignment='center', transform=ax_background.transAxes)
     
         # Heat maps
-        ax_background.text(0.32,-0.05,'Annual mass balance (m w.e.)', size=10, 
+        ax_background.text(0.31,-0.05,'Annual mass balance (m w.e.)', size=10, 
                            horizontalalignment='center', transform=ax_background.transAxes)
-        ax_heatmap = fig.add_axes([0.185,0.03,0.1,0.06], facecolor='none')
+        ax_heatmap = fig.add_axes([0.17,0.03,0.1,0.06], facecolor='none')
         ax_heatmap.hlines(0.5,2015,2100, color='k', linewidth=0.5, zorder=2)
         ax_heatmap.set_ylim(0,1)
         ax_heatmap.set_xlim(2015,2100)
         ax_heatmap.get_yaxis().set_visible(False)
         ax_heatmap.xaxis.set_major_locator(MultipleLocator(40))
         ax_heatmap.xaxis.set_minor_locator(MultipleLocator(10))
+        ax_heatmap.set_xticks(ticks=[2050, 2100])
         ax_heatmap.tick_params(axis='both', which='major', direction='inout', right=True, top=True)
         ax_heatmap.tick_params(axis='both', which='minor', direction='in', right=True, top=True)
         ax_heatmap.text(0.5,0.71,'1.5\u00B0C', size=8, 
@@ -3621,7 +3622,8 @@ if option_policy_temp_figs:
             ax.yaxis.set_minor_locator(MultipleLocator(0.5))
             
             if ax in [ax1,ax5,ax9,ax13,ax17]:
-                ax.set_ylabel('$\Delta$M/$\Delta$t\n(10$^{3}$ kg m$^{-2}$ yr$^{-1}$)')
+#                ax.set_ylabel('$\Delta$M/$\Delta$t\n(10$^{3}$ kg m$^{-2}$ yr$^{-1}$)')
+                ax.set_ylabel('$\Delta$M/$\Delta$t\n(m w.e. yr$^{-1}$)')
                 
             if nax == 0:
                 label_height=1.06
@@ -5002,8 +5004,9 @@ if option_calving_comparison_bydeg:
             if ax in [ax1, ax4, ax7]:
                 ax.set_ylabel('Mass (rel. to 2015)')
             ax.set_xlim(startyear, endyear)
-            ax.xaxis.set_major_locator(MultipleLocator(40))
+#            ax.xaxis.set_major_locator(MultipleLocator(40))
             ax.xaxis.set_minor_locator(MultipleLocator(10))
+            ax.set_xticks([2050,2100])
             ax.set_ylim(0,1.1)
             ax.yaxis.set_major_locator(MultipleLocator(0.2))
             ax.yaxis.set_minor_locator(MultipleLocator(0.1))
@@ -6176,8 +6179,9 @@ if option_debris_comparison_bydeg:
         if ax in [ax1, ax4, ax7]:
             ax.set_ylabel('Mass (rel. to 2015)')
         ax.set_xlim(startyear, endyear)
-        ax.xaxis.set_major_locator(MultipleLocator(40))
+#        ax.xaxis.set_major_locator(MultipleLocator(40))
         ax.xaxis.set_minor_locator(MultipleLocator(10))
+        ax.set_xticks([2050,2100])
         ax.set_ylim(0,1.1)
         ax.yaxis.set_major_locator(MultipleLocator(0.2))
         ax.yaxis.set_minor_locator(MultipleLocator(0.1))
@@ -6449,8 +6453,9 @@ if option_tidewater_landretreat:
                         verticalalignment='top', transform=ax.transAxes)
             
             ax.set_xlim(2015, 2100)
-            ax.xaxis.set_major_locator(MultipleLocator(40))
+#            ax.xaxis.set_major_locator(MultipleLocator(40))
             ax.xaxis.set_minor_locator(MultipleLocator(10))
+            ax.set_xticks([2050,2100])
             ax.set_ylim(0,100)
             ax.yaxis.set_major_locator(MultipleLocator(20))
             ax.yaxis.set_minor_locator(MultipleLocator(10))
