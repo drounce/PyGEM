@@ -502,13 +502,6 @@ class MassRedistributionCurveModel(FlowlineModel):
                 last_above_wl = np.nonzero((fl.bed_h <= self.water_level) &
                                            (fl.thick > 0))[0][-1]
             
-#            if (fl.bed_h[fl.thick > 0][-1] < self.water_level):
-#                # We do calving only if there is some ice above water level
-#                last_above_wl = np.nonzero((fl.surface_h > self.water_level) &
-#                                           (fl.thick > 0))[0][-1]
-#            else:
-#                last_above_wl = None
-            
             if not last_above_wl is None:
                 if (fl.bed_h[last_above_wl] < self.water_level):
                     # Volume [m3] and bed elevation [masl] of each bin
@@ -592,9 +585,7 @@ class MassRedistributionCurveModel(FlowlineModel):
             print('\nDebugging Mass Redistribution Huss function\n')
             print('glacier volume change:', glacier_volumechange)
             
-        #%%
-        # If volume loss is more than the glacier volume, melt everything and
-        # stop here
+        # If volume loss is more than the glacier volume, melt everything and stop here
         glacier_volume_total = (self.fls[0].section * self.fls[0].dx_meter).sum()
         if (glacier_volume_total + glacier_volumechange) < 0:
             # Set all to zero and return
@@ -602,8 +593,7 @@ class MassRedistributionCurveModel(FlowlineModel):
             return 
             
         # Otherwise, redistribute mass loss/gains across the glacier
-#        if -1 * glacier_volumechange < glacier_volume_total:
-         # Determine where glacier exists            
+        # Determine where glacier exists            
         glac_idx_t0 = self.fls[0].thick.nonzero()[0]
         
         # Compute ice thickness [m ice], glacier area [m2], ice thickness change [m ice] after redistribution
@@ -954,7 +944,3 @@ class MassRedistributionCurveModel(FlowlineModel):
             print(glacier_volumechange_remaining)
 
         return icethickness_change, glacier_volumechange_remaining
-    
-    
-    
-    

@@ -7,16 +7,10 @@ Created on Mon Feb  3 14:00:14 2020
 """
 # External libraries
 import numpy as np
-#import pandas as pd
 # Local libraries
-#from oggm import cfg 
-#from oggm import utils
 from oggm.core.massbalance import MassBalanceModel
 import pygem.pygem_input as pygem_prms
 from pygem.utils._funcs import annualweightedmean_array
-
-#cfg.initialize()
-#cfg.PARAMS['has_internet'] = False
 
 #%%
 class PyGEMMassBalance(MassBalanceModel):
@@ -269,26 +263,8 @@ class PyGEMMassBalance(MassBalanceModel):
                     # Downscale using gcm and glacier lapse rates
                     #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
                     
-                    print('----- debug -----')
-                    print('year:', year)
-#                    print('temp shape:', self.glacier_gcm_temp.shape)
-#                    print('lr shape:', self.glacier_gcm_lrgcm.shape)
-#                    print('heights:', heights.shape)
-#                    print('filling:', self.bin_temp[:,12*year:12*(year+1)].shape)
-#                    print('1:', self.glacier_gcm_temp[12*year:12*(year+1)].shape)
-#                    print('2:', self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale])
-#                    print('3:', self.glacier_gcm_elev)
-#                    print('4:', self.glacier_gcm_lrglac[12*year:12*(year+1)].shape)
-#                    print('5:', heights.shape)
-#                    print('6:', self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale].shape)
-                    print(self.bin_temp.shape)
-                    print('1:', self.glacier_gcm_temp[12*year:12*(year+1)].shape)
-                    print('2:', self.glacier_gcm_lrgcm[12*year:12*(year+1)].shape)
-                    print('3:', (self.glacier_gcm_lrgcm[12*year:12*(year+1)] *
-                         (self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale] - self.glacier_gcm_elev)).shape)
-                    print('4:', (self.glacier_gcm_lrglac[12*year:12*(year+1)] * (heights -
-                         self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale])[:, np.newaxis]).shape)
-                    
+#                    print('----- debug -----')
+#                    print('year:', year)                    
                     
                     self.bin_temp[:,12*year:12*(year+1)] = (self.glacier_gcm_temp[12*year:12*(year+1)] +
                          self.glacier_gcm_lrgcm[12*year:12*(year+1)] *
@@ -599,10 +575,6 @@ class PyGEMMassBalance(MassBalanceModel):
                         refreeze_potential -= self.bin_refreeze[:,step]
                         refreeze_potential[abs(refreeze_potential) < pygem_prms.tolerance] = 0
 
-#                    if step < 12 and self.debug_refreeze:
-#                        print('refreeze bin ' + str(int(glac_idx_t0[0]*10)) + ':',
-#                                np.round(self.bin_refreeze[glac_idx_t0[0],step],3))
-
                     # SNOWPACK REMAINING [m w.e.]
                     self.snowpack_remaining[:,step] = self.bin_snowpack[:,step] - self.bin_meltsnow[:,step]
                     self.snowpack_remaining[abs(self.snowpack_remaining[:,step]) < pygem_prms.tolerance, step] = 0
@@ -663,9 +635,6 @@ class PyGEMMassBalance(MassBalanceModel):
         
         if self.inversion_filter:
             mb = np.minimum.accumulate(mb)
-
-#        debug_startyr = 57
-#        debug_endyr = 61
 
         # Fill in non-glaciated areas - needed for OGGM dynamics to remove small ice flux into next bin
         mb_filled = mb.copy()
@@ -872,10 +841,6 @@ class PyGEMMassBalance(MassBalanceModel):
         chg_idx_posmbmod = vol_change_annual_mbmod_melt.nonzero()[0]
         chg_idx_melt = list(set(chg_idx).intersection(chg_idx_posmbmod))
         
-#        print('change_idx:', chg_idx_melt)
-#        print('vol_change_annual_dif:', vol_change_annual_dif[chg_idx_melt])
-#        print('vol_change_annual_mbmod_melt:', vol_change_annual_mbmod_melt[chg_idx_melt])
-        
         vol_change_annual_melt_reduction[chg_idx_melt] = (
                 1 - vol_change_annual_dif[chg_idx_melt] / vol_change_annual_mbmod_melt[chg_idx_melt])      
         
@@ -883,33 +848,6 @@ class PyGEMMassBalance(MassBalanceModel):
         
         # Glacier-wide melt (m3 w.e.)
         self.glac_wide_melt = self.glac_wide_melt * vol_change_annual_melt_reduction_monthly
-        
-#        # Reduce glacier accumulation by difference if there was no melt
-#        print('Do not need to do this.  Differences should be very small due to rounding error only')
-#        chg_idx_acc = np.setdiff1d(chg_idx,chg_idx_posmbmod)
-#        if len(chg_idx_acc) > 0:
-#            print('change_idx_acc:', chg_idx_acc)
-#            
-#            vol_change_annual_mbmod_acc = (self.glac_wide_acc.reshape(-1,12).sum(1) * 
-#                                           pygem_prms.density_water / pygem_prms.density_ice)
-#            
-#            print('glac_wide_massbaltotal:', self.glac_wide_massbaltotal.reshape(-1,12).sum(1) * 1000 / 900)
-#            print('vol_change_annual_mbmod all:', vol_change_annual_mbmod)
-#            print('vol_change_annual_mbmod:', vol_change_annual_mbmod[chg_idx_acc])
-#            print('vol_change_annual_diag:', vol_change_annual_diag[chg_idx_acc])
-#            print('vol_change_annual_dif:', vol_change_annual_dif[chg_idx_acc])
-#            print('vol_change_annual_mbmod_acc:', vol_change_annual_mbmod_acc[chg_idx_acc])
-#            
-#            vol_change_annual_acc_reduction = np.zeros(vol_change_annual_mbmod.shape)
-#            vol_change_annual_acc_reduction[chg_idx_acc] = (
-#                    vol_change_annual_dif[chg_idx_acc] / vol_change_annual_mbmod_acc[chg_idx_acc])
-#            
-#            print('vol_change_annual_acc_reduction:', vol_change_annual_acc_reduction[chg_idx_acc])
-#            
-#            vol_change_annual_acc_reduction_monthly = np.repeat(vol_change_annual_acc_reduction, 12)
-#            
-#            # Glacier-wide accumulation (m3 w.e.)
-#            self.glac_wide_acc = self.glac_wide_acc * vol_change_annual_acc_reduction_monthly
         
         # Glacier-wide total mass balance (m3 w.e.)
         self.glac_wide_massbaltotal = (self.glac_wide_acc + self.glac_wide_refreeze - self.glac_wide_melt -

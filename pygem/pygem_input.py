@@ -68,7 +68,8 @@ if hindcast == 1:
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('emulator', 'MCMC', 'HH2015', 'HH2015mod')
-option_calibration = 'MCMC'
+#option_calibration = 'MCMC'
+option_calibration = 'emulator'
 
 # Prior distribution (specify filename or set equal to None)
 priors_reg_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
@@ -186,6 +187,10 @@ hugonnet_time1_cn = 't1'
 hugonnet_time2_cn = 't2'
 hugonnet_area_cn = 'area_km2'
 
+# ----- Ice thickness calibration parameter -----
+icethickness_cal_frac_byarea = 0.9  # Regional glacier area fraction that is used to calibrate the ice thickness
+                                    #  e.g., 0.9 means only the largest 90% of glaciers by area will be used to calibrate
+                                    #  glen's a for that region.
 
 #%% ===== SIMULATION AND GLACIER DYNAMICS OPTIONS =====
 # Glacier dynamics scheme (options: 'OGGM', 'MassRedistributionCurves', None)
@@ -346,93 +351,14 @@ rgi_cols_drop = ['GLIMSId','BgnDate','EndDate','Status','Linkages','Name']
 h_consensus_fp = main_directory + '/../IceThickness_Farinotti/composite_thickness_RGI60-all_regions/'
 # Filepath for the hypsometry files
 binsize = 10            # Elevation bin height [m]
-hyps_data = 'OGGM'       # Hypsometry dataset (OGGM; Maussion etal 2019)
-#hyps_data = 'Huss'      # Hypsometry dataset (GlacierMIP; Hock etal 2019)
-#hyps_data = 'Farinotti' # Hyspsometry dataset (Farinotti etal 2019)
+hyps_data = 'OGGM'      # Hypsometry dataset (OGGM; Maussion etal 2019)
+                        # Other options to program are 'Huss' (GlacierMIP; Hock etal 2019) and Farinotti (Farinotti etal 2019) 
 
-# Data from Farinotti et al. (2019): Consensus ice thickness estimates
+# Hypsometry data pre-processed by OGGM
 if hyps_data == 'OGGM':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
     overwrite_gdirs = False
-elif hyps_data in ['Huss', 'Farinotti']:
-    assert True==False, 'Check loading of input data works properly'
-#elif hyps_data == 'Farinotti':
-#    option_shift_elevbins_20m = 0   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
-#    # Dictionary of hypsometry filenames
-#    hyps_filepath = main_directory + '/../IceThickness_Farinotti/output/'
-#    hyps_filedict = {1:  'area_km2_01_Farinotti2019_10m.csv',
-#                     13: 'area_km2_13_Farinotti2019_10m.csv',
-#                     14: 'area_km2_14_Farinotti2019_10m.csv',
-#                     15: 'area_km2_15_Farinotti2019_10m.csv'}
-#    hyps_colsdrop = ['RGIId']
-#    # Thickness data
-#    thickness_filepath = main_directory + '/../IceThickness_Farinotti/output/'
-#    thickness_filedict = {1:  'thickness_m_01_Farinotti2019_10m.csv',
-#                          13: 'thickness_m_13_Farinotti2019_10m.csv',
-#                          14: 'thickness_m_14_Farinotti2019_10m.csv',
-#                          15: 'thickness_m_15_Farinotti2019_10m.csv'}
-#    thickness_colsdrop = ['RGIId']
-#    # Width data
-#    width_filepath = main_directory + '/../IceThickness_Farinotti/output/'
-#    width_filedict = {1:  'width_km_01_Farinotti2019_10m.csv',
-#                      13: 'width_km_13_Farinotti2019_10m.csv',
-#                      14: 'width_km_14_Farinotti2019_10m.csv',
-#                      15: 'width_km_15_Farinotti2019_10m.csv'}
-#    width_colsdrop = ['RGIId']
-## Data from GlacierMIP
-#elif hyps_data == 'Huss':
-#    option_shift_elevbins_20m = 1   # option to shift bins by 20 m (needed since off by 20 m, seem email 5/24/2018)
-#    # Dictionary of hypsometry filenames
-#    # (Files from Matthias Huss should be manually pre-processed to be 'RGI-ID', 'Cont_range', and bins starting at 5)
-#    hyps_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
-#    hyps_filedict = {
-#                    1:  'area_01_Huss_Alaska_10m.csv',
-#                    3:  'area_RGI03_10.csv',
-#                    4:  'area_RGI04_10.csv',
-#                    6:  'area_RGI06_10.csv',
-#                    7:  'area_RGI07_10.csv',
-#                    8:  'area_RGI08_10.csv',
-#                    9:  'area_RGI09_10.csv',
-#                    13: 'area_13_Huss_CentralAsia_10m.csv',
-#                    14: 'area_14_Huss_SouthAsiaWest_10m.csv',
-#                    15: 'area_15_Huss_SouthAsiaEast_10m.csv',
-#                    16: 'area_16_Huss_LowLatitudes_10m.csv',
-#                    17: 'area_17_Huss_SouthernAndes_10m.csv'}
-#    hyps_colsdrop = ['RGI-ID','Cont_range']
-#    # Thickness data
-#    thickness_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
-#    thickness_filedict = {
-#                    1:  'thickness_01_Huss_Alaska_10m.csv',
-#                    3:  'thickness_RGI03_10.csv',
-#                    4:  'thickness_RGI04_10.csv',
-#                    6:  'thickness_RGI06_10.csv',
-#                    7:  'thickness_RGI07_10.csv',
-#                    8:  'thickness_RGI08_10.csv',
-#                    9:  'thickness_RGI09_10.csv',
-#                    13: 'thickness_13_Huss_CentralAsia_10m.csv',
-#                    14: 'thickness_14_Huss_SouthAsiaWest_10m.csv',
-#                    15: 'thickness_15_Huss_SouthAsiaEast_10m.csv',
-#                    16: 'thickness_16_Huss_LowLatitudes_10m.csv',
-#                    17: 'thickness_17_Huss_SouthernAndes_10m.csv'}
-#    thickness_colsdrop = ['RGI-ID','Cont_range']
-#    # Width data
-#    width_filepath = main_directory + '/../IceThickness_Huss/bands_10m_DRR/'
-#    width_filedict = {
-#                    1:  'width_01_Huss_Alaska_10m.csv',
-#                    3:  'width_RGI03_10.csv',
-#                    4:  'width_RGI04_10.csv',
-#                    6:  'width_RGI06_10.csv',
-#                    7:  'width_RGI07_10.csv',
-#                    8:  'width_RGI08_10.csv',
-#                    9:  'width_RGI09_10.csv',
-#                    13: 'width_13_Huss_CentralAsia_10m.csv',
-#                    14: 'width_14_Huss_SouthAsiaWest_10m.csv',
-#                    15: 'width_15_Huss_SouthAsiaEast_10m.csv',
-#                    16: 'width_16_Huss_LowLatitudes_10m.csv',
-#                    17: 'width_17_Huss_SouthernAndes_10m.csv'}
-#    width_colsdrop = ['RGI-ID','Cont_range']
-    
-    
+
 # Debris datasets
 if include_debris:
     debris_fp = main_directory + '/../debris_data/'

@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import median_abs_deviation
 import xarray as xr
+
 # Local libraries
 import class_climate
 import pygem.pygem_input as pygem_prms
@@ -37,10 +38,7 @@ from oggm import graphics
 from oggm import tasks
 from oggm import utils
 from oggm.core import climate
-#print('Switch back to OGGM import of FluxBasedModel')
-#from pygem.glacierdynamics import FluxBasedModel
 from oggm.core.flowline import FluxBasedModel
-from oggm.core.inversion import calving_flux_from_depth
 from oggm.core.inversion import find_inversion_calving_from_any_mb
 
 cfg.PARAMS['hydro_month_nh']=1
