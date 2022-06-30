@@ -940,6 +940,10 @@ def main(list_packed_vars):
         scenario = os.path.basename(args.gcm_list_fn).split('_')[1]
     elif not args.scenario is None:
         scenario = args.scenario
+    if args.debug == 1:
+        debug = True
+    else:
+        debug = False
     if debug:
         if 'scenario' in locals():
             print(scenario)
@@ -960,8 +964,8 @@ def main(list_packed_vars):
     # Climate class
     if gcm_name in ['ERA5', 'ERA-Interim', 'COAWST']:
         gcm = class_climate.GCM(name=gcm_name)
-        if pygem_prms.option_synthetic_sim == 0:
-            assert args.gcm_endyear <= int(time.strftime("%Y")), 'Climate data not available to gcm_endyear'
+        assert args.gcm_endyear <= int(time.strftime("%Y")), ('Climate data not available to ' + 
+                                      str(args.gcm_endyear) + '. Change gcm_endyear or climate data set.')
     else:
         # GCM object
         gcm = class_climate.GCM(name=gcm_name, scenario=scenario)
@@ -980,39 +984,37 @@ def main(list_packed_vars):
                                                    spinupyears=pygem_prms.ref_spinupyears,
                                                    option_wateryear=pygem_prms.ref_wateryear)
     
-    # Select climate data
-    if pygem_prms.option_synthetic_sim == 0:
-        # Air temperature [degC]
-        gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi,
-                                                                      dates_table)
-        if pygem_prms.option_ablation != 2:
-            gcm_tempstd = np.zeros(gcm_temp.shape)
-        elif pygem_prms.option_ablation == 2 and gcm_name in ['ERA5']:
-            gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn,
-                                                                            main_glac_rgi, dates_table)
-        elif pygem_prms.option_ablation == 2 and pygem_prms.ref_gcm_name in ['ERA5']:
-            # Compute temp std based on reference climate data
-            ref_tempstd, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.tempstd_fn, ref_gcm.tempstd_vn,
-                                                                                main_glac_rgi, dates_table_ref)
-            # Monthly average from reference climate data
-            gcm_tempstd = gcmbiasadj.monthly_avg_array_rolled(ref_tempstd, dates_table_ref, dates_table)
-        else:
-            gcm_tempstd = np.zeros(gcm_temp.shape)
+    # Air temperature [degC]
+    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi,
+                                                                  dates_table)
+    if pygem_prms.option_ablation != 2:
+        gcm_tempstd = np.zeros(gcm_temp.shape)
+    elif pygem_prms.option_ablation == 2 and gcm_name in ['ERA5']:
+        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn,
+                                                                        main_glac_rgi, dates_table)
+    elif pygem_prms.option_ablation == 2 and pygem_prms.ref_gcm_name in ['ERA5']:
+        # Compute temp std based on reference climate data
+        ref_tempstd, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.tempstd_fn, ref_gcm.tempstd_vn,
+                                                                            main_glac_rgi, dates_table_ref)
+        # Monthly average from reference climate data
+        gcm_tempstd = gcmbiasadj.monthly_avg_array_rolled(ref_tempstd, dates_table_ref, dates_table)
+    else:
+        gcm_tempstd = np.zeros(gcm_temp.shape)
 
-        # Precipitation [m]
-        gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi,
-                                                                      dates_table)
-        # Elevation [m asl]
-        gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-        # Lapse rate
-        if gcm_name in ['ERA-Interim', 'ERA5']:
-            gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
-        else:
-            # Compute lapse rates based on reference climate data
-            ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi,
-                                                                            dates_table_ref)
-            # Monthly average from reference climate data
-            gcm_lr = gcmbiasadj.monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table)
+    # Precipitation [m]
+    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi,
+                                                                  dates_table)
+    # Elevation [m asl]
+    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
+    # Lapse rate
+    if gcm_name in ['ERA-Interim', 'ERA5']:
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    else:
+        # Compute lapse rates based on reference climate data
+        ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi,
+                                                                        dates_table_ref)
+        # Monthly average from reference climate data
+        gcm_lr = gcmbiasadj.monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table)
 
 
     # ===== BIAS CORRECTIONS =====
@@ -1967,11 +1969,6 @@ if __name__ == '__main__':
             main_glac_icethickness = main_vars['main_glac_icethickness']
             main_glac_width = main_vars['main_glac_width']
         dates_table = main_vars['dates_table']
-        if pygem_prms.option_synthetic_sim == 1:
-            dates_table_synthetic = main_vars['dates_table_synthetic']
-            gcm_temp_tile = main_vars['gcm_temp_tile']
-            gcm_prec_tile = main_vars['gcm_prec_tile']
-            gcm_lr_tile = main_vars['gcm_lr_tile']
         gcm_temp = main_vars['gcm_temp']
         gcm_tempstd = main_vars['gcm_tempstd']
         gcm_prec = main_vars['gcm_prec']
@@ -1982,9 +1979,7 @@ if __name__ == '__main__':
         gcm_elev_adj = main_vars['gcm_elev_adj']
         gcm_temp_lrglac = main_vars['gcm_lr']
         ds_stats = main_vars['output_ds_all_stats']
-#        output_ds_essential_sims = main_vars['output_ds_essential_sims']
         ds_binned = main_vars['output_ds_binned_stats']
-#        modelprms = main_vars['modelprms']
         glacier_rgi_table = main_vars['glacier_rgi_table']
         glacier_str = main_vars['glacier_str']
         if pygem_prms.hyps_data in ['OGGM']:
