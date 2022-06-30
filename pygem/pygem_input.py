@@ -60,7 +60,7 @@ if gcm_spinupyears > 0:
 
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
 hindcast = False                # True: run hindcast simulation, False: do not
-if hindcast == 1:
+if hindcast:
     constantarea_years = 0      # number of years to not let the area or volume change
     gcm_startyear = 1980        # first year of model run (simulation dataset)
     gcm_endyear = 2000          # last year of model run (simulation dataset)
