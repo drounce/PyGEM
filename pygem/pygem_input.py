@@ -55,13 +55,13 @@ gcm_startyear = 2000            # first year of model run (simulation dataset)
 gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_wateryear = 'calendar'      # options for years: 'calendar', 'hydro', 'custom'
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
+constantarea_years = 0          # number of years to not let the area or volume change
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
 
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
 hindcast = False                # True: run hindcast simulation, False: do not
 if hindcast:
-    constantarea_years = 0      # number of years to not let the area or volume change
     gcm_startyear = 1980        # first year of model run (simulation dataset)
     gcm_endyear = 2000          # last year of model run (simulation dataset)
 
