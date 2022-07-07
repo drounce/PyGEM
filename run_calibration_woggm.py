@@ -9,8 +9,6 @@ import time
 # External libraries
 import pandas as pd
 import pickle
-import pymc
-from pymc import deterministic
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
@@ -29,6 +27,9 @@ if pygem_prms.option_calibration in ['emulator', 'MCMC']:
     import torch
     import gpytorch
     import sklearn.model_selection
+if pygem_prms.option_calibration == 'MCMC':
+    import pymc
+    from pymc import deterministic
 
 #%% FUNCTIONS
 def getparser():
