@@ -122,7 +122,10 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
     # Elevation [m asl]
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Lapse rate [degC m-1]
-    gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    if pygem_prms.use_constant_lapserate:
+        gcm_lr = np.zeros(gcm_temp.shape) + pygem_prms.lapserate
+    else:
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
 
     # ===== CALIBRATE ALL THE GLACIERS AT ONCE =====
     output_cns = ['RGIId', 'calving_k', 'calving_thick', 'calving_flux_Gta_inv', 'calving_flux_Gta', 'no_errors', 'oggm_dynamics']

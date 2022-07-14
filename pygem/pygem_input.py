@@ -236,6 +236,7 @@ terminus_percentage = 20            # glacier (%) considered terminus (20% in HH
 
 #%% ===== MODEL PARAMETERS =====
 use_calibrated_modelparams = True   # False: use input values, True: use calibrated model parameters
+use_constant_lapserate = False      # False: use spatially and temporally varying lapse rate, True: use constant value specified below
 if not use_calibrated_modelparams:
     print('\nWARNING: using non-calibrated model parameters\n')
     sim_iters = 1
@@ -246,8 +247,7 @@ ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC
 ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
-lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
-lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
+lapserate = -0.0065                 # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [K m-1]
 tsnow_threshold = 1                 # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
 calving_k = 0.7                     # frontal ablation rate [yr-1]
 
@@ -318,7 +318,8 @@ if ref_gcm_name == 'ERA5':
     assert os.path.exists(era5_fp + era5_temp_fn), 'ERA5 temperature filepath does not exist'
     assert os.path.exists(era5_fp + era5_prec_fn), 'ERA5 precipitation filepath does not exist'
     assert os.path.exists(era5_fp + era5_elev_fn), 'ERA5 elevation data does not exist'
-    assert os.path.exists(era5_fp + era5_lr_fn), 'ERA5 lapse rate data does not exist'
+    if not use_constant_lapserate:
+        assert os.path.exists(era5_fp + era5_lr_fn), 'ERA5 lapse rate data does not exist'
     if option_ablation == 2:
         assert os.path.exists(era5_fp + era5_tempstd_fn), 'ERA5 temperature std filepath does not exist'
 

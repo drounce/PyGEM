@@ -228,8 +228,11 @@ if args.estimate_kp == 1:
                                                                   dates_table)
     # Elevation [m asl]
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-    # Lapse rate
-    gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    # Lapse rate [degC m-1]
+    if pygem_prms.use_constant_lapserate:
+        gcm_lr = np.zeros(gcm_temp.shape) + pygem_prms.lapserate
+    else:
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     
     # ===== PROCESS THE OBSERVATIONS ======
     prec_cn = pygem_prms.ref_gcm_name + '_prec'

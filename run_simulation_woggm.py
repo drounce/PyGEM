@@ -1006,15 +1006,18 @@ def main(list_packed_vars):
                                                                   dates_table)
     # Elevation [m asl]
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
-    # Lapse rate
-    if gcm_name in ['ERA-Interim', 'ERA5']:
-        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    # Lapse rate [degC m-1]
+    if pygem_prms.use_constant_lapserate:
+        gcm_lr = np.zeros(gcm_temp.shape) + pygem_prms.lapserate
     else:
-        # Compute lapse rates based on reference climate data
-        ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi,
-                                                                        dates_table_ref)
-        # Monthly average from reference climate data
-        gcm_lr = gcmbiasadj.monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table)
+        if gcm_name in ['ERA-Interim', 'ERA5']:
+            gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+        else:
+            # Compute lapse rates based on reference climate data
+            ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi,
+                                                                            dates_table_ref)
+            # Monthly average from reference climate data
+            gcm_lr = gcmbiasadj.monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table)
 
 
     # ===== BIAS CORRECTIONS =====

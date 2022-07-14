@@ -346,7 +346,11 @@ def main(list_packed_vars):
     # Elevation [m asl]
     gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi)
     # Lapse rate [degC m-1]
-    gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+    if pygem_prms.use_constant_lapserate:
+        gcm_lr = np.zeros(gcm_temp.shape) + pygem_prms.lapserate
+    else:
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+        
     
     # ===== LOOP THROUGH GLACIERS TO RUN CALIBRATION =====
     for glac in range(main_glac_rgi.shape[0]):
