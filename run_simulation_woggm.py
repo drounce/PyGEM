@@ -1348,7 +1348,7 @@ def main(list_packed_vars):
                     # No ice dynamics options
                     else:
                         nfls = fls
-                        
+
                     # Record initial surface h for overdeepening calculations
                     surface_h_initial = nfls[0].surface_h
                     

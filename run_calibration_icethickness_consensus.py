@@ -267,7 +267,7 @@ for reg in regions:
     if pygem_prms.use_constant_lapserate:
         gcm_lr = np.zeros(gcm_temp.shape) + pygem_prms.lapserate
     else:
-        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi_subset, dates_table)
     
     # ===== RUN MASS BALANCE =====
     # Number of years (for OGGM's run_until_and_store)
