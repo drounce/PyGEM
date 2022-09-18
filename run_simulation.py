@@ -33,6 +33,7 @@ from pygem.shop import debris
 import pygemfxns_gcmbiasadj as gcmbiasadj
 import spc_split_glaciers as split_glaciers
 
+from oggm import __version__ as oggm_version
 from oggm import cfg
 from oggm import graphics
 from oggm import tasks
@@ -91,9 +92,9 @@ def getparser():
                         help='start year for the model run')
     parser.add_argument('-gcm_endyear', action='store', type=int, default=pygem_prms.gcm_endyear,
                         help='start year for the model run')
-    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=4,
+    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=1,
                         help='number of simultaneous processes (cores) to use')
-    parser.add_argument('-option_parallels', action='store', type=int, default=1,
+    parser.add_argument('-option_parallels', action='store', type=int, default=0,
                         help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
@@ -1383,7 +1384,10 @@ def main(list_packed_vars):
                             plt.show()
 
                         try:
-                            _, diag = ev_model.run_until_and_store(nyears)
+                            if int(oggm_version.split('.')[0]) == 1 and int(oggm_version.split('.')[1]) < 6:
+                                _, diag = ev_model.run_until_and_store(nyears)
+                            else:
+                                diag = ev_model.run_until_and_store(nyears)
                             ev_model.mb_model.glac_wide_volume_annual[-1] = diag.volume_m3[-1]
                             ev_model.mb_model.glac_wide_area_annual[-1] = diag.area_m2[-1]
                             
@@ -1436,7 +1440,10 @@ def main(list_packed_vars):
                                                 is_tidewater=gdir.is_tidewater,
                                                 water_level=water_level
                                                 )
-                                _, diag = ev_model.run_until_and_store(nyears)
+                                if int(oggm_version.split('.')[0]) == 1 and int(oggm_version.split('.')[1]) < 6:
+                                    _, diag = ev_model.run_until_and_store(nyears)
+                                else:
+                                    diag = ev_model.run_until_and_store(nyears)
                                 ev_model.mb_model.glac_wide_volume_annual = diag.volume_m3.values
                                 ev_model.mb_model.glac_wide_area_annual = diag.area_m2.values
                 
@@ -1464,7 +1471,10 @@ def main(list_packed_vars):
                                                 is_tidewater=gdir.is_tidewater,
                                                 water_level=water_level
                                                 )
-                                _, diag = ev_model.run_until_and_store(nyears)
+                                if int(oggm_version.split('.')[0]) == 1 and int(oggm_version.split('.')[1]) < 6:
+                                    _, diag = ev_model.run_until_and_store(nyears)
+                                else:
+                                    diag = ev_model.run_until_and_store(nyears)
                                 ev_model.mb_model.glac_wide_volume_annual = diag.volume_m3.values
                                 ev_model.mb_model.glac_wide_area_annual = diag.area_m2.values
                 
@@ -1501,7 +1511,10 @@ def main(list_packed_vars):
                             graphics.plot_modeloutput_section(ev_model)
                            
                         try:
-                            _, diag = ev_model.run_until_and_store(nyears)
+                            if int(oggm_version.split('.')[0]) == 1 and int(oggm_version.split('.')[1]) < 6:
+                                _, diag = ev_model.run_until_and_store(nyears)
+                            else:
+                                diag = ev_model.run_until_and_store(nyears)
 #                            print('shape of volume:', ev_model.mb_model.glac_wide_volume_annual.shape, diag.volume_m3.shape)
                             ev_model.mb_model.glac_wide_volume_annual = diag.volume_m3.values
                             ev_model.mb_model.glac_wide_area_annual = diag.area_m2.values
@@ -1885,7 +1898,7 @@ def main(list_packed_vars):
 
 
 #%% PARALLEL PROCESSING
-if __name__ == '__main__':
+if __name__ == '__main__':    
     time_start = time.time()
     parser = getparser()
     args = parser.parse_args()
