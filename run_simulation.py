@@ -953,7 +953,7 @@ def main(list_packed_vars):
     else:
         debug = False
         
-    log.debug('Scenario:' + scenario)
+#    log.debug('Scenario:' + scenario)
 #    if debug:
 #        if 'scenario' in locals():
 #            print(scenario)
