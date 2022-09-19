@@ -10,9 +10,12 @@
 import argparse
 import collections
 import inspect
+import logging
 import multiprocessing
 import os
+from packaging.version import Version
 import time
+
 # External libraries
 import pandas as pd
 import pickle
@@ -41,6 +44,10 @@ from oggm import utils
 from oggm.core import climate
 from oggm.core.flowline import FluxBasedModel
 from oggm.core.inversion import find_inversion_calving_from_any_mb
+
+# Module logger
+log = logging.getLogger(__name__)
+cfg.set_logging_config(pygem_prms.logging_level)
 
 cfg.PARAMS['hydro_month_nh']=1
 cfg.PARAMS['hydro_month_sh']=1
@@ -945,9 +952,12 @@ def main(list_packed_vars):
         debug = True
     else:
         debug = False
-    if debug:
-        if 'scenario' in locals():
-            print(scenario)
+        
+    log.debug('Scenario:' + scenario)
+#    if debug:
+#        if 'scenario' in locals():
+#            print(scenario)
+            
     if args.debug_spc == 1:
         debug_spc = True
     else:
@@ -1384,7 +1394,7 @@ def main(list_packed_vars):
                             plt.show()
 
                         try:
-                            if int(oggm_version.split('.')[0]) == 1 and int(oggm_version.split('.')[1]) < 6:
+                            if Version(oggm_version) < Version('1.5.3'):
                                 _, diag = ev_model.run_until_and_store(nyears)
                             else:
                                 diag = ev_model.run_until_and_store(nyears)
@@ -1440,7 +1450,7 @@ def main(list_packed_vars):
                                                 is_tidewater=gdir.is_tidewater,
                                                 water_level=water_level
                                                 )
-                                if int(oggm_version.split('.')[0]) == 1 and int(oggm_version.split('.')[1]) < 6:
+                                if Version(oggm_version) < Version('1.5.3'):
                                     _, diag = ev_model.run_until_and_store(nyears)
                                 else:
                                     diag = ev_model.run_until_and_store(nyears)
@@ -1471,7 +1481,7 @@ def main(list_packed_vars):
                                                 is_tidewater=gdir.is_tidewater,
                                                 water_level=water_level
                                                 )
-                                if int(oggm_version.split('.')[0]) == 1 and int(oggm_version.split('.')[1]) < 6:
+                                if Version(oggm_version) < Version('1.5.3'):
                                     _, diag = ev_model.run_until_and_store(nyears)
                                 else:
                                     diag = ev_model.run_until_and_store(nyears)
@@ -1511,7 +1521,7 @@ def main(list_packed_vars):
                             graphics.plot_modeloutput_section(ev_model)
                            
                         try:
-                            if int(oggm_version.split('.')[0]) == 1 and int(oggm_version.split('.')[1]) < 6:
+                            if Version(oggm_version) < Version('1.5.3'):
                                 _, diag = ev_model.run_until_and_store(nyears)
                             else:
                                 diag = ev_model.run_until_and_store(nyears)

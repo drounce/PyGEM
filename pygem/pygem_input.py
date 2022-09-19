@@ -39,6 +39,7 @@ include_tidewater = True               # Switch to include tidewater glaciers
 ignore_calving = False                 # Switch to ignore calving and treat tidewater glaciers as land-terminating
 
 oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/'
+logging_level = 'DEBUG' # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recommended WORKFLOW)
 
 #%% ===== CLIMATE DATA ===== 
 # Reference period runs (reference period refers to the calibration period)
@@ -52,7 +53,7 @@ if ref_spinupyears > 0:
 
 # Simulation runs (refers to period of simulation and needed separately from reference year to account for bias adjustments)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2019              # last year of model run (simulation dataset)
+gcm_endyear = 2100              # last year of model run (simulation dataset)
 gcm_wateryear = 'calendar'      # options for years: 'calendar', 'hydro', 'custom'
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
 constantarea_years = 0          # number of years to not let the area or volume change
