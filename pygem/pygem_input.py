@@ -49,7 +49,7 @@ ref_endyear = 2019                  # last year of model run (reference dataset)
 ref_wateryear = 'calendar'          # options for years: 'calendar', 'hydro', 'custom'
 ref_spinupyears = 0                 # spin up years
 if ref_spinupyears > 0:
-    assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
+    assert 0==1, 'Code needs to be tested to ensure spinup years are correctly accounted for in output files'
 
 # Simulation runs (refers to period of simulation and needed separately from reference year to account for bias adjustments)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
