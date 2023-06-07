@@ -45,7 +45,7 @@ class PyGEMMassBalance(MassBalanceModel):
             option to turn on print statements for development or debugging of code
         debug_refreeze : Boolean
             option to turn on print statements for development/debugging of refreezing code
-        hindcast : int
+        hindcast : Boolean
             switch to run the model in reverse or not (may be irrelevant after converting to OGGM's setup)
         """
         if debug:
@@ -93,7 +93,7 @@ class PyGEMMassBalance(MassBalanceModel):
         self.glacier_gcm_lrgcm = gdir.historical_climate['lr']
         self.glacier_gcm_lrglac = gdir.historical_climate['lr']
 
-        if pygem_prms.hindcast == 1:
+        if pygem_prms.hindcast == True:
             self.glacier_gcm_prec = self.glacier_gcm_prec[::-1]
             self.glacier_gcm_temp = self.glacier_gcm_temp[::-1]
             self.glacier_gcm_lrgcm = self.glacier_gcm_lrgcm[::-1]

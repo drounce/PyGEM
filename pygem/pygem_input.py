@@ -39,9 +39,14 @@ include_laketerm = True                # Switch to include lake-terminating glac
 include_tidewater = True               # Switch to include tidewater glaciers
 ignore_calving = False                 # Switch to ignore calving and treat tidewater glaciers as land-terminating
 
+<<<<<<< HEAD
 #oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/'
 oggm_base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl_with_consensus'
 
+=======
+oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/'
+logging_level = 'DEBUG' # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recommended WORKFLOW)
+>>>>>>> origin/master
 
 #%% ===== CLIMATE DATA ===== 
 # Reference period runs (reference period refers to the calibration period)
@@ -51,20 +56,20 @@ ref_endyear = 2019                  # last year of model run (reference dataset)
 ref_wateryear = 'calendar'          # options for years: 'calendar', 'hydro', 'custom'
 ref_spinupyears = 0                 # spin up years
 if ref_spinupyears > 0:
-    assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
+    assert 0==1, 'Code needs to be tested to ensure spinup years are correctly accounted for in output files'
 
 # Simulation runs (refers to period of simulation and needed separately from reference year to account for bias adjustments)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
 gcm_endyear = 2019              # last year of model run (simulation dataset)
 gcm_wateryear = 'calendar'      # options for years: 'calendar', 'hydro', 'custom'
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
+constantarea_years = 0          # number of years to not let the area or volume change
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
 
 # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
 hindcast = False                # True: run hindcast simulation, False: do not
-if hindcast == 1:
-    constantarea_years = 0      # number of years to not let the area or volume change
+if hindcast:
     gcm_startyear = 1980        # first year of model run (simulation dataset)
     gcm_endyear = 2000          # last year of model run (simulation dataset)
 
@@ -242,6 +247,7 @@ terminus_percentage = 20            # glacier (%) considered terminus (20% in HH
 
 #%% ===== MODEL PARAMETERS =====
 use_calibrated_modelparams = True   # False: use input values, True: use calibrated model parameters
+use_constant_lapserate = False      # False: use spatially and temporally varying lapse rate, True: use constant value specified below
 if not use_calibrated_modelparams:
     print('\nWARNING: using non-calibrated model parameters\n')
     sim_iters = 1
@@ -252,8 +258,7 @@ ddfsnow = 0.0041                    # degree-day factor of snow [m w.e. d-1 degC
 ddfsnow_iceratio = 0.7              # Ratio degree-day factor snow snow to ice
 ddfice = ddfsnow / ddfsnow_iceratio # degree-day factor of ice [m w.e. d-1 degC-1]
 precgrad = 0.0001                   # precipitation gradient on glacier [m-1]
-lrgcm = -0.0065                     # lapse rate from gcm to glacier [K m-1]
-lrglac = -0.0065                    # lapse rate on glacier for bins [K m-1]
+lapserate = -0.0065                 # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [K m-1]
 tsnow_threshold = 1                 # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
 calving_k = 0.7                     # frontal ablation rate [yr-1]
 
@@ -324,7 +329,8 @@ if ref_gcm_name == 'ERA5':
     assert os.path.exists(era5_fp + era5_temp_fn), 'ERA5 temperature filepath does not exist'
     assert os.path.exists(era5_fp + era5_prec_fn), 'ERA5 precipitation filepath does not exist'
     assert os.path.exists(era5_fp + era5_elev_fn), 'ERA5 elevation data does not exist'
-    assert os.path.exists(era5_fp + era5_lr_fn), 'ERA5 lapse rate data does not exist'
+    if not use_constant_lapserate:
+        assert os.path.exists(era5_fp + era5_lr_fn), 'ERA5 lapse rate data does not exist'
     if option_ablation == 2:
         assert os.path.exists(era5_fp + era5_tempstd_fn), 'ERA5 temperature std filepath does not exist'
 
