@@ -424,3 +424,56 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2=None,
     # Development Note: if create another method for selecting glaciers,
     #                   make sure that update way to select glacier
     #                   hypsometry as well.
+
+
+def split_list(lst, n=1, option_ordered=1):
+    """
+    Split list into batches for the supercomputer.
+    
+    Parameters
+    ----------
+    lst : list
+        List that you want to split into separate batches
+    n : int
+        Number of batches to split glaciers into.
+    
+    Returns
+    -------
+    lst_batches : list
+        list of n lists that have sequential values in each list
+    """
+    # If batches is more than list, then there will be one glacier in each batch
+    if option_ordered == 1:
+        if n > len(lst):
+            n = len(lst)
+        n_perlist_low = int(len(lst)/n)
+        n_perlist_high = int(np.ceil(len(lst)/n))
+        lst_copy = lst.copy()
+        count = 0
+        lst_batches = []
+        for x in np.arange(n):
+            count += 1
+            if count <= len(lst) % n:
+                lst_subset = lst_copy[0:n_perlist_high]
+                lst_batches.append(lst_subset)
+                [lst_copy.remove(i) for i in lst_subset]
+            else:
+                lst_subset = lst_copy[0:n_perlist_low]
+                lst_batches.append(lst_subset)
+                [lst_copy.remove(i) for i in lst_subset]
+        
+    else:
+        if n > len(lst):
+            n = len(lst)
+    
+        lst_batches = [[] for x in np.arange(n)]
+        nbatch = 0
+        for count, x in enumerate(lst):
+            if count%n == 0:
+                nbatch = 0
+    
+            lst_batches[nbatch].append(x)
+            
+            nbatch += 1
+
+    return lst_batches    
