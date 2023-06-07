@@ -39,14 +39,9 @@ include_laketerm = True                # Switch to include lake-terminating glac
 include_tidewater = True               # Switch to include tidewater glaciers
 ignore_calving = False                 # Switch to ignore calving and treat tidewater glaciers as land-terminating
 
-<<<<<<< HEAD
-#oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/'
 oggm_base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl_with_consensus'
-
-=======
-oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/'
+#oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/'
 logging_level = 'DEBUG' # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recommended WORKFLOW)
->>>>>>> origin/master
 
 #%% ===== CLIMATE DATA ===== 
 # Reference period runs (reference period refers to the calibration period)
