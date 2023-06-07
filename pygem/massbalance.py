@@ -695,11 +695,15 @@ class PyGEMMassBalance(MassBalanceModel):
         icethickness_t0 = getattr(fls[fl_id], 'thick', None)
         if icethickness_t0 is not None:
             # Mass loss cannot exceed glacier volume
-            mb_max_loss = (-1 * (glacier_area * icethickness_t0).sum() / glacier_area.sum() *
-                           pygem_prms.density_ice / pygem_prms.density_water)
-            # Check annual climatic mass balance (mwea)
-            mb_mwea = ((glacier_area * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() /
-                        glacier_area.sum())    
+            if glacier_area.sum() > 0:
+                mb_max_loss = (-1 * (glacier_area * icethickness_t0).sum() / glacier_area.sum() *
+                               pygem_prms.density_ice / pygem_prms.density_water)
+                # Check annual climatic mass balance (mwea)
+                mb_mwea = ((glacier_area * self.glac_bin_massbalclim[:,12*year:12*(year+1)].sum(1)).sum() /
+                            glacier_area.sum())    
+            else:
+                mb_max_loss = 0
+                mb_mwea = 0
 
         if len(glac_idx) > 0:
             # Quality control for thickness

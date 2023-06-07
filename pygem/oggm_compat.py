@@ -95,7 +95,8 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
 #        try:
         gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=40, 
                                                   prepro_base_url=base_url, prepro_rgi_version='62',
-                                                  use_demo_glaciers=False)
+#                                                  use_demo_glaciers=False
+                                                  )
         # Compute all the stuff
         list_tasks = [
 #                tasks.glacier_masks,
@@ -129,10 +130,13 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
 #            gdir = None
     
         return gdir
+        
 
 
 def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.overwrite_gdirs, prepro_border=80, k_calving=1,
-                                                   logging_level='WORKFLOW'):
+                                                   logging_level='WORKFLOW', 
+#                                                   use_demo_glaciers=False
+                                                   ):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     k_calving is free variable!
@@ -163,6 +167,8 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.over
     # Set multiprocessing to false; otherwise, causes daemonic error due to PyGEM's multiprocessing
     #  - avoids having multiple multiprocessing going on at the same time
     cfg.PARAMS['use_multiprocessing']  = False
+    
+#    cfg.PARAMS['has_internet'] = True
     
     # Avoid erroneous glaciers (e.g., Centerlines too short or other issues)
     cfg.PARAMS['continue_on_error'] = True

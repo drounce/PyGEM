@@ -26,8 +26,9 @@ rgi_glac_number = 'all'
 #rgi_glac_number = glac_num_fromrange(1,48)
 
 glac_no_skip = None
-#glac_no = None
-glac_no = ['15.03733']
+glac_no = None
+glac_no = ['1.00570']
+glac_no = ['18.02397']
 
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
@@ -38,7 +39,9 @@ include_laketerm = True                # Switch to include lake-terminating glac
 include_tidewater = True               # Switch to include tidewater glaciers
 ignore_calving = False                 # Switch to ignore calving and treat tidewater glaciers as land-terminating
 
-oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/'
+#oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/'
+oggm_base_url = 'https://cluster.klima.uni-bremen.de/~fmaussion/gdirs/prepro_l2_202010/elevbands_fl_with_consensus'
+
 
 #%% ===== CLIMATE DATA ===== 
 # Reference period runs (reference period refers to the calibration period)
@@ -52,7 +55,7 @@ if ref_spinupyears > 0:
 
 # Simulation runs (refers to period of simulation and needed separately from reference year to account for bias adjustments)
 gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2100              # last year of model run (simulation dataset)
+gcm_endyear = 2019              # last year of model run (simulation dataset)
 gcm_wateryear = 'calendar'      # options for years: 'calendar', 'hydro', 'custom'
 gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
 if gcm_spinupyears > 0:
@@ -67,9 +70,10 @@ if hindcast == 1:
 
 
 #%% ===== CALIBRATION OPTIONS =====
-# Calibration option ('emulator', 'MCMC', 'HH2015', 'HH2015mod')
-#option_calibration = 'MCMC'
-option_calibration = 'emulator'
+# Calibration option ('emulator', 'MCMC', 'MCMC_fullsim' 'HH2015', 'HH2015mod')
+option_calibration = 'MCMC'
+#option_calibration = 'emulator'
+#option_calibration = 'MCMC_fullsim'
 
 # Prior distribution (specify filename or set equal to None)
 priors_reg_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
@@ -127,7 +131,7 @@ elif option_calibration == 'emulator':
     ftol_opt = 1e-6                 # tolerance for SciPy optimization scheme
     eps_opt = 0.01                  # epsilon (adjust variables for jacobian) for SciPy optimization scheme
     
-elif option_calibration == 'MCMC':
+elif option_calibration in ['MCMC', 'MCMC_fullsim']:
     emulator_fp = output_filepath + 'emulator/'
     emulator_sims = 100
     tbias_step = 1
@@ -137,6 +141,8 @@ elif option_calibration == 'MCMC':
     n_chains = 1                    # number of chains (min 1, max 3)
     mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
     mcmc_burn_no = 200              # number of steps to burn-in (0 records all steps in chain)
+#    mcmc_sample_no = 100          # number of steps (10000 was found to be sufficient in HMA)
+#    mcmc_burn_no = 0              # number of steps to burn-in (0 records all steps in chain)
     mcmc_step = None                # step option (None or 'am')
     thin_interval = 10              # thin interval if need to reduce file size (best to leave at 1 if space allows)
     # Degree-day factor of snow distribution options
@@ -171,8 +177,8 @@ elif option_calibration == 'MCMC':
 # ----- Calibration Dataset -----
 # Hugonnet geodetic mass balance data
 hugonnet_fp = main_directory + '/../DEMs/Hugonnet2020/'
-hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
-#hugonnet_fn = 'df_pergla_global_20yr-filled-FAcorrected.csv'
+#hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
+hugonnet_fn = 'df_pergla_global_20yr-filled-FAcorrected.csv'
 if '-filled' in hugonnet_fn:
     hugonnet_mb_cn = 'mb_mwea'
     hugonnet_mb_err_cn = 'mb_mwea_err'
@@ -198,7 +204,7 @@ option_dynamics = 'OGGM'
     
 # MCMC options
 if option_calibration == 'MCMC':
-    sim_iters = 50                  # number of simulations
+    sim_iters = 1                  # number of simulations
     sim_burn = 0                    # number of burn-in (if burn-in is done in MCMC sampling, then don't do here)
 else:
     sim_iters = 1                   # number of simulations
@@ -210,7 +216,7 @@ sim_stat_cns = ['median', 'mad']
 
 # Output options
 export_essential_data = True        # Export essential data (ex. mass balance components, ElA, etc.)
-export_binned_thickness = True      # Export binned ice thickness
+export_binned_thickness = False      # Export binned ice thickness
 export_binned_area_threshold = 0    # Area threshold for exporting binned ice thickness
 export_extra_vars = True            # Option to export extra variables (temp, prec, melt, acc, etc.)
 

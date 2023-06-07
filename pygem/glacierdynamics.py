@@ -35,7 +35,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                  inplace=False,
                  debug=True,
                  option_areaconstant=False, spinupyears=pygem_prms.ref_spinupyears, 
-                 constantarea_years=pygem_prms.constantarea_years,
+                 constantarea_years=0,
                  **kwargs):
         """ Instanciate the model.
         

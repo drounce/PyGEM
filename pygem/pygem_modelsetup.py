@@ -366,8 +366,12 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2=None,
     glacier_table[rgi_O1Id_colname] = (
             glacier_table['RGIId'].str.split('.').apply(pd.Series).loc[:,1].astype(int))
     glacier_table['rgino_str'] = [x.split('-')[1] for x in glacier_table.RGIId.values]
-    glacier_table[rgi_glacno_float_colname] = (np.array([np.str.split(glacier_table['RGIId'][x],'-')[1]
-                                                    for x in range(glacier_table.shape[0])]).astype(float))
+#    glacier_table[rgi_glacno_float_colname] = (np.array([np.str.split(glacier_table['RGIId'][x],'-')[1]
+#                                                    for x in range(glacier_table.shape[0])]).astype(float))
+    glacier_table[rgi_glacno_float_colname] = (np.array([x.split('-')[1] for x in glacier_table['RGIId']]
+#            [np.str.split(glacier_table['RGIId'][x],'-')[1]
+#                                                    for x in range(glacier_table.shape[0])]
+            ).astype(float))
     # set index name
     glacier_table.index.name = indexname
     # Longitude between 0-360deg (no negative)
