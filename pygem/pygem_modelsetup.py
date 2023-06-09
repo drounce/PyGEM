@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 # Local libraries
-import pygem.pygem_input as pygem_prms
+import pygem_input as pygem_prms
 
 
 def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, 

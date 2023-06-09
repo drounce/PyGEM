@@ -11,7 +11,7 @@ from oggm import cfg
 from oggm.utils import entity_task
 from oggm.core.gis import rasterio_to_gdir
 from oggm.utils import ncDataset
-import pygem.pygem_input as pygem_prms
+import pygem_input as pygem_prms
 
 if not 'consensus_mass' in cfg.BASENAMES:
     cfg.BASENAMES['consensus_mass'] = ('consensus_mass.pkl', 'Glacier mass from consensus ice thickness data')

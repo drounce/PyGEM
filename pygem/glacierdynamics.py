@@ -17,7 +17,7 @@ from oggm import cfg, utils
 from oggm.core.flowline import FlowlineModel
 from oggm.exceptions import InvalidParamsError
 from oggm import __version__
-import pygem.pygem_input as pygem_prms
+import pygem_input as pygem_prms
 
 cfg.initialize()
 
@@ -34,7 +34,7 @@ class MassRedistributionCurveModel(FlowlineModel):
 #                 calving_k=0,
                  inplace=False,
                  debug=True,
-                 option_areaconstant=False, spinupyears=pygem_prms.ref_spinupyears, 
+                 option_areaconstant=False, spinupyears=0, 
                  constantarea_years=0,
                  **kwargs):
         """ Instanciate the model.

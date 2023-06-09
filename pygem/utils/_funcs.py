@@ -3,7 +3,7 @@
 """
 Functions that didn't fit into other modules
 """
-import pygem.pygem_input as pygem_prms
+import pygem_input as pygem_prms
 import numpy as np
 
 

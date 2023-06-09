@@ -9,7 +9,7 @@ Created on Mon Feb  3 14:00:14 2020
 import numpy as np
 # Local libraries
 from oggm.core.massbalance import MassBalanceModel
-import pygem.pygem_input as pygem_prms
+import pygem_input as pygem_prms
 from pygem.utils._funcs import annualweightedmean_array
 
 #%%
