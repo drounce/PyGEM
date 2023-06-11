@@ -10,7 +10,7 @@ Welcome to pygem's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-introduction
+   introduction.rst
 
 Indices and tables
 ==================
