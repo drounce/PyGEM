@@ -1,0 +1,46 @@
+name: oggm_env_wpygem
+channels:
+  - conda-forge
+dependencies:
+  - python >=3.8, <3.10
+  - jupyter
+  - jupyterlab
+  - numpy
+  - scipy
+  - pandas
+  - shapely
+  - matplotlib
+  - Pillow
+  - netcdf4
+  - scikit-image
+  - scikit-learn
+  - configobj
+  - xarray
+  - pytest
+  - dask
+  - bottleneck
+  - pyproj
+  - cartopy
+  - geopandas
+  - rasterio
+  - rioxarray
+  - xarray
+  - seaborn
+  - pytables
+  - salem
+  - motionless
+  - sphinx
+  - sphinx-book-theme>=0.3.3
+  - ipython
+  - numpydoc
+  - seaborn
+  - sphinx-intl
+  - sphinx-reredirects
+  - pip
+  - pip:
+    - joblib
+    - progressbar2
+    - sphinx-togglebutton
+    - git+https://github.com/OGGM/pytest-mpl
+    - oggm
+    - pygem
