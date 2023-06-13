@@ -1,13 +1,13 @@
-# 1. INTRODUCTION
-## 1.1 Purpose
+# INTRODUCTION
+## Purpose
 The Python Glacier Evolution Model (PyGEM) is an open-source glacier evolution model coded in Python that is designed to model the transient evolution of glaciers on regional and global scales. Each glacier is modeled independently using a given time step and elevation bins. The model computes the climatic mass balance (i.e., snow accumulation minus melt plus refreezing) for each elevation bin and each monthly time step. Glacier geometry is updated annually. The model outputs a variety of data including monthly mass balance and its components (accumulation, melt, refreezing, frontal ablation, glacier runoff),  and annual volume, volume below sea level, and area.
 
 PyGEM has a modular framework that allows different schemes to be used for model calibration or model physics (e.g., ablation, accumulation, refreezing, glacier dynamics). The most recent version of PyGEM has been made compatible with the Open Global Glacier Model (OGGM; https://oggm.org/) to both leverage the pre-processing tools (e.g., digital elevation models, glacier characteristics) and their advances with respect to modeling glacier dynamics and ice thickness inversions.
 
-## 1.2 Spatial and Temporal Resolution
+## Spatial and Temporal Resolution
 Each glacier is modeled independently. The model is currently set up to use a monthly timestep and elevation bins. We plan to add options to include daily timesteps in the future. The elevation bins can be specified in pre-processing with OGGM.
 
-## 1.3 Model Inputs
+## Model Inputs
 The minimum data required to run the model is a glacier inventory, glacier characteristics (ice thickness, hypsometry, etc.), climate data, and mass balance data for calibration (Table 1). The model uses glacier outlines provided by the Randolph Glacier Inventory (RGI Consortium 2017; RGI 6.0 contains 215,547 glaciers globally). For debris-covered glaciers, spatially distributed sub-debris melt enhancement factors can be used to account for the enhanced or suppressed melting depending on the debris thickness (Rounce et al. 2021). OGGM is used to select a digital elevation model (DEM) for each glacier and bin the data according to the glacier central flowlines. OGGM can also be used to estimate each glacier’s initial ice thickness or use existing ice thickness estimates available from the [OGGM Shop](https://docs.oggm.org/en/stable/shop.html).
 
 For present-day (2000-2019) model runs, PyGEM currently uses monthly near-surface air temperature and precipitation data from ERA5 (Hersbach et al. 2020). Air temperature lapse rates are estimated using monthly air temperature data from various pressure levels. A second option is available to derive lapse rates from the neighboring pixels; however, this is for glaciers near the coast and therefore is not recommended. Additionally, the monthly temperature standard deviation is required if incorporating sub-monthly temperature variability in ablation (see Section 1.4.1). Note that historical runs (e.g., 1980-2000) are challenging due to the lack of glacier inventories in the past; hence, one can assume the glacier area is constant or run the model in reverse (e.g., 1999, 1998, … , 1980). However, due to nonlinearities associated with the glacier dynamics running if the model is run in reverse and then forward, the glacier areas will be different in 2000 than the initial dataset; hence, caution must be used and the results should be evaluated carefully.
@@ -22,7 +22,7 @@ For future (e.g., 2000-2100) model runs, PyGEM currently uses an ensemble of Gen
 | Frontal ablation data (optional) | 1: Frontal ablation per glacier (Gt yr-1) <br>Used to calibrate marine-terminating glaciers | Osmanoglu et al. (2013; 2014); Minowa et al. (2021); Kochtitzky et al. (2022) |
 | Ice thickness data (optional) | 1: Spatially distributed ice thickness data <br>Used to calibrate creep parameter to match volume of existing ice thickness dataset | Farinotti et al. (2019) |
 
-## 1.4 Model calibration and validation data
+## Model calibration and validation data
 Model parameters need to be calibrated and results should be validated using some form of mass balance (glaciological, geodetic, or gravimetric), glacier runoff, snowline, or equilibrium line altitude data (Table 1). Additional calibration data is required to account for frontal ablation associated with marine-terminating glaciers. We envision the model continuously incorporating new large-scale systematic datasets as they become available. 
 
 The model was originally developed to integrate large-scale systematic glacier-wide mass balance data from 2000-2018 in High Mountain Asia (Shean et al. 2020) and now uses a global dataset from 2000-2019 (Hugonnet et al. 2021). The default frontal ablation data is currently from various datasets spanning 2000 to 2020 from the Northern Hemisphere (Kochtitzky et al. Submitted), South America (Minowa et al. 2021), and Antarctica (Osmanoglu et al. 2013; 2014). For model validation, annual and seasonal glaciological glacier-wide mass balance data from 1979 to 2019 have been used (WGMS 2021). 
