@@ -7,8 +7,8 @@ Welcome to pygem's documentation!
 =================================
    
 .. toctree::
-:maxdepth: 2
-:caption: Contents:
+   :maxdepth: 2
+   :caption: Contents:
 
    mass_balance_parameterizations
 
