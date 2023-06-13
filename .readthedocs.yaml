@@ -1,15 +1,3 @@
-version: 2
-build:
-  os: "ubuntu-20.04"
-  tools:
-    python: "mambaforge-4.10"
-conda:
-  environment: docs/environment.yml
-sphinx:
-  configuration: docs/conf.py
-  fail_on_warning: false
-  
-  
 # .readthedocs.yaml
 # Read the Docs configuration file
 # See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
