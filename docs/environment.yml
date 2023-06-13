@@ -36,7 +36,7 @@ dependencies:
   - seaborn
   - sphinx-intl
   - sphinx-reredirects
-  - spinx-book-theme
+  - sphinx-book-theme
   - pip
   - pip:
     - joblib
