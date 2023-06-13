@@ -11,6 +11,8 @@ Welcome to pygem's documentation!
    :caption: Contents:
 
    introduction.rst
+   pygem.rst
+   mass_balance_parameterizations.md
 
 Indices and tables
 ==================
