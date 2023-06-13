@@ -6,14 +6,12 @@
 Welcome to pygem's documentation!
 =================================
    
-```{toctree}
----
-caption: Episodes
-maxdepth: 1
----
+.. toctree::
+:maxdepth: 2
+:caption: Contents:
 
-mass_balance_parameterizations
-```
+   mass_balance_parameterizations
+
 
 Indices and tables
 ==================
