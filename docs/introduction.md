@@ -17,10 +17,8 @@ For future (e.g., 2000-2100) model runs, PyGEM currently uses an ensemble of Gen
 | Component | Dataset | References |
 | :--- | :--- | :--- |
 |Glacier data | 1: Randolph Glacier Inventory Version 6.0 <br>2: Sub-debris melt factors | RGI Consortium (2017)<br> Rounce et al. (2021) |
-| Climate data | 1: ERA5 monthly air temperature, monthly precipitation, and orography <br>2: ERA5 monthly lapse rates (from pressure level data) and monthly air temperature variance (from ERA5 hourly data) <br>3: CMIP5 or CMIP6 monthly air temperature, monthly precipitation, and orography
- | Hersbach et al. (2020) |
-| Mass balance data | 1: Geodetic glacier-wide mass balance (m w.e. yr-1) <br>2: All other data need to be programmed
- | Hugonnet et al. (2021) |
+| Climate data | 1: ERA5 monthly air temperature, monthly precipitation, and orography <br>2: ERA5 monthly lapse rates (from pressure level data) and monthly air temperature variance (from ERA5 hourly data) <br>3: CMIP5 or CMIP6 monthly air temperature, monthly precipitation, and orography | Hersbach et al. (2020) |
+| Mass balance data | 1: Geodetic glacier-wide mass balance (m w.e. yr-1) <br>2: All other data need to be programmed | Hugonnet et al. (2021) |
 | Frontal ablation data (optional) | 1: Frontal ablation per glacier (Gt yr-1) <br>Used to calibrate marine-terminating glaciers | Osmanoglu et al. (2013; 2014); Minowa et al. (2021); Kochtitzky et al. (2022) |
 | Ice thickness data (optional) | 1: Spatially distributed ice thickness data <br>Used to calibrate creep parameter to match volume of existing ice thickness dataset | Farinotti et al. (2019) |
 
