@@ -19,7 +19,14 @@ release = '0.2.5'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = ['sphinx_book_theme',
-              'myst_parser']
+              'myst_parser',
+              'sphinx.ext.autodoc',
+              'sphinx.ext.autosummary',
+              'sphinx.ext.intersphinx',
+              'numpydoc',
+              'sphinx.ext.viewcode',
+              'sphinx_togglebutton',
+              ]
 
 #templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']

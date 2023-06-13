@@ -42,6 +42,6 @@ dependencies:
     - progressbar2
     - sphinx-togglebutton
     - sphinx-book-theme
-    - git+https://github.com/OGGM/pytest-mpl
+    - myst-parser
     - oggm
     - pygem
