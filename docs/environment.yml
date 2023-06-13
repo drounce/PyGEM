@@ -36,12 +36,12 @@ dependencies:
   - seaborn
   - sphinx-intl
   - sphinx-reredirects
-  - sphinx-book-theme
   - pip
   - pip:
     - joblib
     - progressbar2
     - sphinx-togglebutton
+    - sphinx-book-theme
     - git+https://github.com/OGGM/pytest-mpl
     - oggm
     - pygem
