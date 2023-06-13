@@ -10,6 +10,7 @@ Welcome to pygem's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   introduction
    mass_balance_parameterizations
 
 
