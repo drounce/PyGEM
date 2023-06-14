@@ -44,6 +44,9 @@ html_theme_options = {
     "repository_url": "https://github.com/drounce/PyGEM",
     "use_repository_button": True,
     "show_nav_level":2,
+    
+    "max_depth":3,
+    "navigation_depth":3,
 #    "show_toc_level":2,
 #    'collapse_navigation': True,
 #    'sticky_navigation': True,
