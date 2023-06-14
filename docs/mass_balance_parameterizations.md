@@ -12,9 +12,9 @@ $b_{clim} = a + c + R$
 
 where $a$ is the ablation, $c$ is accumulation, and $R$ is refreezing (all in units of m w.e.). Mass loss is negative and mass gain is positive. Glacier-wide specific climatic mass balance ($B_{clim}$) is then calculated by:
 
+$\sum_{i=1}^{nbins} b_{clim,i} $
 
-
-Below is an overview of each component of the climatic mass balance:
+The model offers alternative methods for calculating the mass balance components and accounting for glacier geometry changes (i.e., representing glacier dynamics). These vary in level of complexity and computational expense. The current options for each component are described below:
 
 .. toctree::
    :maxdepth: 2
