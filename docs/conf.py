@@ -43,8 +43,11 @@ html_static_path = ['_static']
 html_theme_options = {
     "repository_url": "https://github.com/drounce/PyGEM",
     "use_repository_button": True,
-    "show_navbar_depth":2,
-    "show_toc_level":2,
+    "show_nav_level":2,
+#    "show_toc_level":2,
+#    'collapse_navigation': True,
+#    'sticky_navigation': True,
+#    'navigation_depth': 4,
 #    "use_issues_button": True,
 #    "use_edit_page_button": True,
 #    "path_to_docs": "docs",
