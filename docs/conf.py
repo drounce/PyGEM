@@ -37,12 +37,12 @@ myst_enable_extensions = [
     "fieldlist",
     "html_admonition",
     "html_image",
-    "linkify",
-    "replacements",
-    "smartquotes",
-    "strikethrough",
-    "substitution",
-    "tasklist",
+#    "linkify",
+#    "replacements",
+#    "smartquotes",
+#    "strikethrough",
+#    "substitution",
+#    "tasklist",
 ]
 
 #templates_path = ['_templates']
