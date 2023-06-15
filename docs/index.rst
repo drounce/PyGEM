@@ -12,6 +12,9 @@ Welcome to pygem's documentation!
 
    introduction
    mass_balance_parameterizations
+   glacier_dynamics_parameterizations
+   runoff
+   initial_conditions
 
 
 Indices and tables
