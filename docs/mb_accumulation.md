@@ -8,9 +8,9 @@ c = \delta \cdot P_{bin}
 ```
 where 
 ```{math}
-&\delta=1; if T_{bin} \leq T_{snow}-1 \\
-&\delta=0$; if $T_{bin} \geq T_{snow}+1 \\
-&\delta=0.5-(T_{bin}-T_{snow})/2$; if $T_{snow}-1 < T_{bin} < T_{snow}+1
+&\delta=1; \text{ if } T_{bin} \leq T_{snow}-1 \\
+&\delta=0; \text{ if } T_{bin} \geq T_{snow}+1 \\
+&\delta=0.5-(T_{bin}-T_{snow})/2; \text{ if } T_{snow}-1 < T_{bin} < T_{snow}+1
 ```
 where $P_{bin}$ is the monthly precipitation and $\delta$ is the fraction of solid precipitation each month. $T_{snow}$ typically ranges from 0 – 2 $^{\circ}$C (Radić and Hock, 2011; Huss and Hock, 2015) and is typically assumed to be 1$^{\circ}$C.  
 
