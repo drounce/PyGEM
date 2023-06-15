@@ -1,4 +1,4 @@
-# Mass Balance
+# Mass Balance Models
 
 PyGEM computes the climatic mass balance for each elevation bin and timestep, estimates frontal ablation for marine-terminating glaciers at the end of each year (if this process is included), and updates the glacier geometry annually. The convention below follows [Cogley et al. (2011)](https://wgms.ch/downloads/Cogley_etal_2011.pdf). The total glacier-wide mass balance ($\Delta M$) is thus estimated as:
 

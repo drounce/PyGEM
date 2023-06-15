@@ -11,8 +11,8 @@ Welcome to pygem's documentation!
    :caption: Contents:
 
    introduction
-   mass_balance_parameterizations
-   glacier_dynamics_parameterizations
+   mb_parameterizations
+   dynamics_parameterizations
    runoff
    initial_conditions
 
