@@ -2,7 +2,7 @@
 Following [Huss and Hock (2018)](https://www.nature.com/articles/s41558-017-0049-x), glacier runoff ($Q$) is defined as all water that leaves the initial glacierized area, which includes rain ($P_{liquid}$), ablation ($a$), and refreezing ($R$) as follows:
 
 ```{math}
-$$ Q = P_{liquid} + a - R $$
+Q = P_{liquid} + a - R
 ```
 
 In the case of glacier retreat, rain, snow melt, and refreezing are computed for the non-glaciated portion of the initial glacier area and this runoff is referred to as “off-glacier” runoff. No other processes, e.g., evapotranspiration or groundwater recharge, are accounted for in these deglaciated areas. In the case of glacier advance, runoff is computed over the current year’s glacier area, which may exceed the initial glacierized area. Given that most glaciers are retreating, the increase in glacier runoff due to the additional glacier area is considered to be negligible.
