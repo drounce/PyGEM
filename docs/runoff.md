@@ -11,6 +11,12 @@ In the case of glacier retreat, rain, snow melt, and refreezing are computed for
 In the case of glacier advance, runoff is computed over the current year’s glacier area, which may exceed the initial glacierized area. Given that most glaciers are retreating, the increase in glacier runoff due to the additional glacier area is considered to be negligible.
 ```
 
+```{note}
+The model will also compute runoff assuming a moving-gauge, i.e., glacier runoff that is only computed from the glacierized areas. For some users who may want to use their models to compute off-glacier runoff, this is preferable.
+```
+
+
+## Excess meltwater
 Excess meltwater is defined as the runoff caused by glacier mass loss that the glacier does not regain over the duration of the entire simulated period (**Figure 1**). For example, a glacier that melts completely contributes its entire mass as excess meltwater, while a glacier in equilibrium produces no excess meltwater. Since interannual glacier mass change is highly variable, i.e., a glacier can lose, gain, and then lose mass again, excess meltwater is computed retroactively as the last time that the glacier mass is lost.
 
 ```{figure} _static/excess_meltwater_diagram.png
