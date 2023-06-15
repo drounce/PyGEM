@@ -1,0 +1,2 @@
+## OGGM Flowline Model
+PyGEM has been developed to be compatible with OGGM thereby enabling the use of their ice dynamics flowline model ([Maussion et al. 2019](https://gmd.copernicus.org/articles/12/909/2019/)). The model uses a shallow ice approximation with a depth-integrated flowline model to explicitly compute the flux of ice along the glacier centerline. Model details are fully documented in OGGM’s manual found [here](https://docs.oggm.org/en/latest/ice-dynamics.html).
