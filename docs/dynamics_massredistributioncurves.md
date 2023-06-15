@@ -1,13 +1,23 @@
 ## Mass Redistribution Curves
 The mass redistribution curves in PyGEM follow those developed by [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full) based on [Huss et al. (2010)](https://hess.copernicus.org/articles/14/815/2010/hess-14-815-2010.html) but explicitly solve for area and ice thickness changes simultaneously to conserve mass. The approach is only applied to glaciers that have at least three elevation bins. Each year the glacier-wide mass balance is computed (see Mass Balance Section) and the mass is redistributed over the glacier using empirical equations that set the normalized surface elevation change ($\Delta h$) as a function of the glacier’s elevation bins:
-$$\Delta h = (h_{n} + a_{HH2015})^{\gamma} + b_{HH2015} \cdot (h_{n} + a_{HH2015}) + c_{HH2015} $$
+```{math}
+\Delta h = (h_{n} + a_{HH2015})^{\gamma} + b_{HH2015} \cdot (h_{n} + a_{HH2015}) + c_{HH2015}
+```
 where $h_{n}$ is the normalized elevation according to $\frac{z_{max} - z_{bin}}{z_{max} - z_{min}}$ and $a_{HH2015)$, $b_{HH2015)$, $c_{HH2015)$, and $\gamma$ are all calibrated coefficients based on 34 glaciers in the Swiss Alps. These coefficients vary depending on the size of the glacier ([Huss et al., 2010]((https://hess.copernicus.org/articles/14/815/2010/hess-14-815-2010.html))). In order to ensure that mass is conserved, i.e., the integration of the elevation change and glacier area (A) of each bin over all the elevation bins ($nbins$) is equal to the glacier-wide volume change ($\Delta V$), an ice thickness scaling factor ($f_{s,HH2015}$) must be computed:
-$$f_{s,HH2015} = \frac{\Delta V}{\sum_{i=0}^{nbins} A_{i} \cdot \Delta h_{i}} $$
+```{math}
+f_{s,HH2015} = \frac{\Delta V}{\sum_{i=0}^{nbins} A_{i} \cdot \Delta h_{i}}
+```
 The volume change in each elevation bin ($\Delta V_{bin}$) is computed as:
-$$\Delta V_{bin} = f_{s,HH2015} \cdot \Delta h_{bin} \cdot A_{bin} $$
+```{math}
+\Delta V_{bin} = f_{s,HH2015} \cdot \Delta h_{bin} \cdot A_{bin}
+```
 Depending on the bed shape (parabolic, triangular or rectangular) of the glacier, the resulting area, ice thickness ($H$), and width ($W$) can be solved for explicitly based on mass conservation and the use of similar shapes:
-$$H_{bin,t+1} \cdot A_{bin,t+1} = H_{bin,t} \cdot A_{bin,t} + \Delta V_{bin} $$
-$$\frac{H_{bin,t+1}}{H_{bin,t}} \alpha \frac{A_{bin,t+1}}{A_bin,t} $$
+```{math}
+H_{bin,t+1} \cdot A_{bin,t+1} = H_{bin,t} \cdot A_{bin,t} + \Delta V_{bin}
+```
+```{math}
+\frac{H_{bin,t+1}}{H_{bin,t}} \alpha \frac{A_{bin,t+1}}{A_bin,t}
+```
 This is a marked improvement over previous studies that have not explicitly solved for the area and ice thickness changes simultaneously, which can lead to mass loss or gain that is then corrected ([Huss and Hock, 2015](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full)).
 
 ### Glacier retreat
