@@ -1,7 +1,7 @@
 # Glacier Runoff
 Following [Huss and Hock (2018)](https://www.nature.com/articles/s41558-017-0049-x), glacier runoff ($Q$) is defined as all water that leaves the initial glacierized area, which includes rain ($P_{liquid}$), ablation ($a$), and refreezing ($R$) as follows:
 
-```{math}```
+```{math}
 $$ Q = P_{liquid} + a - R $$
 ```
 
