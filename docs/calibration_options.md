@@ -1,6 +1,17 @@
 (calibration_target)=
 # Model Calibration
-Several calibration options exist, which vary with respect to complexity and computational expense. These include the relatively straightforward approach of [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full), which is referred to as ‘HH2015’ to more complex Bayesian approaches from [Rounce et al. (2023)](https://www.science.org/doi/10.1126/science.abo1324) (‘MCMC’). At present, the options all use geodetic glacier-wide mass balance data for each glacier in units of meters of water equivalent (m w.e.) per year ([Hugonnet et al. 2021]((https://www.nature.com/articles/s41586-021-03436-z)). The calibration is done assuming the glacier area remains constant to avoid mass balance-ice thickness circularity issues.
+Several calibration options exist, which vary with respect to complexity and computational expense. These include the relatively straightforward approach of [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full), which is referred to as ‘HH2015’ to more complex Bayesian approaches from [Rounce et al. (2023)](https://www.science.org/doi/10.1126/science.abo1324) (‘MCMC’) ([Table 1](cal_options_table_target). At present, the options all use geodetic glacier-wide mass balance data for each glacier in units of meters of water equivalent (m w.e.) per year ([Hugonnet et al. 2021]((https://www.nature.com/articles/s41586-021-03436-z)). The calibration is done assuming the glacier area remains constant to avoid mass balance-ice thickness circularity issues.
+
+(cal_options_table_target)=
+
+| Calibration option | Overview | Reference |
+| :--- | :--- | :--- |
+| ['HH2015'](HH2015_target) | Finds single set of parameters.<br>Varies in order: $f_{snow}$, $k_{p}$, $T_{bias}$ | [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full) |
+| ['HH2015mod'](HH2015mod_target) | Finds single set of parameters.<br>Varies in order: $k_{p}$, $T_{bias}$ | [Rounce et al. 2020](https://www.cambridge.org/core/journals/journal-of-glaciology/article/quantifying-parameter-uncertainty-in-a-largescale-glacier-evolution-model-using-bayesian-inference-application-to-high-mountain-asia/61D8956E9A6C27CC1A5AEBFCDADC0432) |
+| ['emulator'](emulator_target) | Creates emulator for ['MCMC'](MCMC_target).<br>Finds single set of parameters with emulator following ['HH2015mod'](HH2015mod_target) | [Rounce et al. 2023](https://www.science.org/doi/10.1126/science.abo1324) |
+| ['MCMC'](MCMC_target) | Finds multiple sets of parameters using Bayesian inference with [emulator](emulator_target).<br> Varies $f_{snow}$, $k_{p}$, $T_{bias}$ | [Rounce et al. 2023](https://www.science.org/doi/10.1126/science.abo1324) |
+| ['MCMC_fullsim'](MCMC_target) | Finds multiple sets of parameters using Bayesian inference with full model simulations.<br> Varies $f_{snow}$, $k_{p}$, $T_{bias}$ | [Rounce et al. 2020](https://www.cambridge.org/core/journals/journal-of-glaciology/article/quantifying-parameter-uncertainty-in-a-largescale-glacier-evolution-model-using-bayesian-inference-application-to-high-mountain-asia/61D8956E9A6C27CC1A5AEBFCDADC0432) |
+| [Future options](cal_custom_target) | Stay tuned for new options coming in 2023/2024! | | 
 
 The output of each calibration is a .pkl file that holds a dictionary of the calibration options and the subsequent model parameters.  Thus, the .pkl file will store several calibration options.  Each calibration option is a key to the dictionary. The model parameters are also stored in a dictionary (i.e., a dictionary within a dictionary) with each model parameter being a key to the dictionary that provides access to a list of values for that specific model parameter. The following shows an example of how to print a list of the precipitation factors ($k_{p}$) for the calibration option specified in the input file:
 
@@ -10,17 +21,24 @@ with open(modelprms_fullfn, 'rb') as f:
 print(modelprms_dict[pygem_prms.option_calibration][‘kp’])
 ```
 
-The calibration options are each discussed below.  We recommend using the MCMC calibration option (Rounce et al. [2020a](https://www.cambridge.org/core/journals/journal-of-glaciology/article/quantifying-parameter-uncertainty-in-a-largescale-glacier-evolution-model-using-bayesian-inference-application-to-high-mountain-asia/61D8956E9A6C27CC1A5AEBFCDADC0432), [2020b](https://www.frontiersin.org/articles/10.3389/feart.2019.00331/full), [2023](https://www.science.org/doi/10.1126/science.abo1324)) as this enables the user to quantify the uncertainty associated with the model parameters in the simulations; however, it is very computationally expensive. The methods from [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full) provide a computationally cheap alternative.
+The calibration options are each discussed below.  We recommend using the MCMC calibration option (Rounce et al. [2020a](https://www.cambridge.org/core/journals/journal-of-glaciology/article/quantifying-parameter-uncertainty-in-a-largescale-glacier-evolution-model-using-bayesian-inference-application-to-high-mountain-asia/61D8956E9A6C27CC1A5AEBFCDADC0432), [2020b](https://www.frontiersin.org/articles/10.3389/feart.2019.00331/full), [2023](https://www.science.org/doi/10.1126/science.abo1324)) as this enables the user to quantify the uncertainty associated with the model parameters in the simulations; however, it is very computationally expensive. The methods from [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full) provide a computationally cheap alternative. 
 
+```{note}
+Running these options is performed using **run_calibration.py** (see [Model Workflow](workflow_cal_prms_target)). Additionally, there are two other calibration scripts to calibrate the [ice viscocity model parameter](workflow_cal_glena_target) using the **run_calibration_icethickness_consensus.py** and the [frontal ablation parameter](calibration_frontalablation_target) for marine-terminating glaciers using the **run_calibration_frontalablation.py**.
+```
+
+(HH2015_target)=
 ## HH2015
 The calibration option **‘HH2015’** follows the calibration steps from [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full). Specifically, the precipitation factor is initially adjusted between 0.8-2.0. If agreement between the observed and modeled mass balance is not reached, then the degree-day factor of snow is adjusted between 1.75-4.5 mm d$^{-1}$ K$^{-1}$. Note that the ratio of the degree-day factor of ice to snow is set to 2, so both parameters are adjusted simultaneously. Lastly, if agreement is still not achieved, then the temperature bias is adjusted.
 
+(HH2015mod_target)=
 ## HH2015mod
 The calibration option **‘HH2015mod’** is a modification of the calibration steps from [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full) that are used to generate the prior distributions for the MCMC methods [(Rounce et al. 2020a)](https://www.cambridge.org/core/journals/journal-of-glaciology/article/quantifying-parameter-uncertainty-in-a-largescale-glacier-evolution-model-using-bayesian-inference-application-to-high-mountain-asia/61D8956E9A6C27CC1A5AEBFCDADC0432)
 . Since the MCMC methods used degree-day factors of snow based on previous studies, only the precipitation factor and temperature bias are calibrated. The precipitation factor varies from 0.5-3 and if agreement is not reached between the observed and modeled mass balance, then the temperature bias is varied. Note the limits on the precipitation factor are estimated based on a rough estimate of the precipitation factors needed for the modeled winter mass balance of reference glacier to match the observations.
 
 However, if you plan to use the MCMC methods, you are suggested to use the **‘emulator’** calibration option described below, which follows the same steps, but creates an emulator to run the mass balance simulations for each potential parameter set to reduce the computational expense.
 
+(emulator_target)=
 ## Emulator applying HH2015mod
 The calibration option **‘emulator’** creates an independent emulator for each glacier that is derived by performing 100 present-day simulations based on randomly sampled model parameter sets and then fitting a Gaussian Process to these parameter-response pairs. This model replaces the mass balance model within the MCMC sampler (see Bayesian inference using MCMC below), which tests showed reduces the computational expense by two orders of magnitude. In the event that a single set of model parameters is desired, the emulator is also used to derive a set of model parameters following the same steps as ‘HH2015mod’.
 
@@ -52,6 +70,11 @@ python run_calibration.py
 ```
 In order to reduce the file size, the parameter sets are thinned by a factor of 10. This is reasonable given the correlation between subsequent parameter sets during the Markov Chain, but can be adjusted if thinning is not desired (change value to 1 in the input file).
 
+```{note}
+**'MCMC_fullsim'** is another calibration option that runs full model simulations within the MCMC methods instead of using the emulator. It is computationally very expensive but allows one to assess the emulators impact on the MCMC methods.
+```
+
+(cal_custom_target)=
 ## Customized Calibration Routines
 As new observations become available, we envision the calibration routines will need to change to leverage these observations. The only real limitation in developing a calibration routine is that the dictionary stored as a .pkl file needs to be consistent such that the calibration option is consistent with the run_simulation.py script.
 
@@ -78,3 +101,6 @@ python run_calibration_frontalablation.py   (set option_update_mb_data = True)
 ```{note}
 The run_calibration_frontalablation.py script is hard-coded with True/False options so one must manually go into the script and adjust the options. 
 ```
+
+## Ice Viscocity Parameter
+The ice viscocity parameter will affect the ice thickness inversion and dynamical evolution of the glacier. The ice viscocity parameter is currently calibrated such that the volume of ice at the regional scale is consistent with the regional ice volumes from [Farinotti et al. (2019)](https://www.nature.com/articles/s41561-019-0300-3).
