@@ -5,8 +5,8 @@ PyGEM has a modular framework that allows different schemes to be used for model
 
 ```{note}
 Looking for a quick overview? Check out the [Model Structure and Workflow](model_structure_and_workflow_target).
-Want to read something studies?  Check out our [publications](publications_target)!
-Want to see what PyGEM can do? Check out this [presentation about PyGEM's latest developments](https://www.youtube.com/watch?v=gaGzEIjIJlc)!
+<br>Want to read something studies?  Check out our [publications](publications_target)!
+<br>Want to see what PyGEM can do? Check out this [presentation about PyGEM's latest developments](https://www.youtube.com/watch?v=gaGzEIjIJlc)!
 ```
 
 ## Citing PyGEM
