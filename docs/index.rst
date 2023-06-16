@@ -18,6 +18,7 @@ Welcome to pygem's documentation!
    runoff
    initial_conditions
    limitations
+   Publications
 
 
 Indices and tables

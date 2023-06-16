@@ -22,3 +22,4 @@ The model was originally developed to integrate large-scale systematic glacier-w
 
 ## Spatial and Temporal Resolution
 Each glacier is modeled independently. The model is currently set up to use a monthly timestep and elevation bins. We plan to add options to include daily timesteps in the future. The elevation bins can be specified in pre-processing with OGGM.
+

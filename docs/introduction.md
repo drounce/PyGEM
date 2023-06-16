@@ -5,4 +5,19 @@ PyGEM has a modular framework that allows different schemes to be used for model
 
 ```{note}
 Looking for a quick overview? Check out the [Model Structure and Workflow](model_structure_and_workflow_target).
+Want to read something studies?  Check out our [publications](publications_target)!
+Want to see what PyGEM can do? Check out this [presentation about PyGEM's latest developments](https://www.youtube.com/watch?v=gaGzEIjIJlc)!
 ```
+
+## Citing PyGEM
+The most recent version of PyGEM was published in <em>[Science](https://www.science.org/doi/10.1126/science.abo1324)</em>. Therefore, if using PyGEM, please cite:
+Rounce, D.R., Hock, R., Maussion, F., Hugonnet, R., Kochtitzky, W., Huss, M., Berthier, E., Brinkerhoff, D., Compagno, L., Copland, L., Farinotti, D., Menounos, B., and McNabb, R.W. (2023). “Global glacier change in the 21st century: Every increase in temperature matters”, <em>Science</em>, 379(6627), pp. 78-83, doi:10.1126/science.abo1324.
+
+```{figure} _static/science_cover.jpg
+---
+width: 50%
+---
+```
+
+## Contact
+The PyGEM community is growing! As the community grows, we hope individuals will continue to support one another. For now, if you have questions, we recommend emailing David Rounce (drounce@cmu.edu).
