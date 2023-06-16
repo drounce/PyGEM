@@ -1,3 +1,4 @@
+(mass_redistribution_curves_target)=
 ## Mass Redistribution Curves
 The mass redistribution curves in PyGEM follow those developed by [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full) based on [Huss et al. (2010)](https://hess.copernicus.org/articles/14/815/2010/hess-14-815-2010.html) but explicitly solve for area and ice thickness changes simultaneously to conserve mass. The approach is only applied to glaciers that have at least three elevation bins. Each year the glacier-wide mass balance is computed (see Mass Balance Section) and the mass is redistributed over the glacier using empirical equations that set the normalized surface elevation change ($\Delta h$) as a function of the glacier’s elevation bins:
 ```{math}

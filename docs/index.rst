@@ -11,11 +11,12 @@ Welcome to pygem's documentation!
    :caption: Contents:
 
    introduction
-   model_inputs
    model_structure
+   model_inputs
    mb_parameterizations
    dynamics_parameterizations
    runoff
+   calibration_options
    initial_conditions
    limitations
    Publications
