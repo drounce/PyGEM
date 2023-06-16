@@ -31,8 +31,11 @@ Currently, the model does not have a “required” set of directories. For simp
 
 ## Model code
 The model code itself is heavily commented with the hope that the code is easy to follow and develop further. Broadly speaking, the current steps include:
-* pre-processing any required data
-  - (optional) Run_preprocessing_wgms_mbdata.py -mb_data_removeFA=1 <br> This corrects the geodetic mass balance from Hugonnet et al. (2021) to account for frontal ablation from Kochtitzky et al. (submitted).
+* pre-processing any required data <em>(optional)</em>
+```
+python run_preprocessing_wgms_mbdata.py -mb_data_removeFA=1
+```
+This corrects the geodetic mass balance from [Hugonnet et al. (2021)](https://www.nature.com/articles/s41586-021-03436-z) to account for frontal ablation from Kochtitzky et al. (2022).
 * setting up **pygem_input.py**
 * (optional) **run_calibration_frontalablation.py** <br>This will calibrate the frontal ablation model parameter for marine-terminating glaciers; however, multiple steps are required including the following:
   - **run_calibration_frontalablation.py** using the option to merge_data
