@@ -11,6 +11,7 @@ Welcome to pygem's documentation!
    :caption: Contents:
 
    introduction
+   model_inputs
    model_structure
    mb_parameterizations
    dynamics_parameterizations
