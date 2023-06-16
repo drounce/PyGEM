@@ -1,4 +1,4 @@
-# Quick Overview of Model Structure and Scripts
+# Model Structure and Workflow
 The model is written in Python. The model is currently available as two repositories on github:
 
 1. **PyGEM** ([https://github.com/drounce/PyGEM](https://github.com/drounce/PyGEM)) contains the main model code.  This repository can now be installed in your environment with PyPI ([https://pypi.org/project/pygem/](https://pypi.org/project/pygem/)) using "pip install pygem".
@@ -39,24 +39,24 @@ python run_preprocessing_wgms_mbdata.py -mb_data_removeFA=1
 
 * Setting up **pygem_input.py** <br>This requires the user to state the glaciers/regions to model; model physics, calibration, and simulation options; relative filepaths for relevant datasets; etc.
 * Calibrating frontal ablation parameter <em>(optional)</em> using **run_calibration_frontalablation.py** <br>This will calibrate the frontal ablation model parameter for marine-terminating glaciers; however, multiple steps are required including the following:
-```{note}
-The run_calibration_frontalablation.py script is hard-coded with True/False options so one must manually go into the script and adjust the options. 
-```
 ```
 python run_calibration_frontalablation.py   (set option_merge_data = True)
 python run_calibration_frontalablation.py   (set option_ind_calving_k = True)
 python run_calibration_frontalablation.py   (set option_merge_calving_k = True)
 python run_calibration_frontalablation.py   (set option_update_mb_data = True)
 ```
+```{note}
+The run_calibration_frontalablation.py script is hard-coded with True/False options so one must manually go into the script and adjust the options. 
+```
 * Calibrating the model parameters using **run_calibration.py** <br>This will calibrate model parameters based on the calibration option and mass balance data specified in **pygem_input.py**. If using an option besides the Markov Chain Monte Carlo (MCMC) methods, then run the following:
 ```
 python run_calibration.py
 ```
-If using the Markov Chain Monte Carlo (MCMC) methods, then multiple steps are required. First, set the option_calibration = ‘emulator’ in **pygem_input.py**. This creates an emulator that helps speed up the simulations within the MCMC methods and helps generate an initial calibration to generate the regional priors. The regional priors are then determined by running the following:
+If using the Markov Chain Monte Carlo (MCMC) methods, then multiple steps are required. First, set the <em>option_calibration = ‘emulator’</em> in **pygem_input.py**. This creates an emulator that helps speed up the simulations within the MCMC methods and helps generate an initial calibration to generate the regional priors. The regional priors are then determined by running the following:
 ```
 python run_mcmc_prior.py
 ```
-Once the regional priors are set, the MCMC methods can be performed.  Change the option_calibration = ‘MCMC’ in **pygem_input.py**, then run the following:
+Once the regional priors are set, the MCMC methods can be performed.  Change the <em>option_calibration = ‘MCMC’</em> in **pygem_input.py**, then run the following:
 ```
 python run_calibration.py
 ```
@@ -64,7 +64,7 @@ python run_calibration.py
 ```
 python run_calibration_icethickness_consensus.py
 ```
-* Run model simulations for historical or future climate scenarios. The default will be to run the model with the reference data (e.g., ERA5). <br><em>**Historical simulations**</em> are currently performed without evolving the glacier geometry; thus, option_dynamics = None in **pygem_input.py** and the ref_startyear and ref_endyear will be used to set the length of the simulation. The simulation can then be run using the following:
+* Run model simulations for historical or future climate scenarios. The default will be to run the model with the reference data (e.g., ERA5). <br><em>**Historical simulations**</em> are currently performed without evolving the glacier geometry; thus, <em>option_dynamics = None</em> in **pygem_input.py** and the <em>ref_startyear</em> and <em>ref_endyear</em> will be used to set the length of the simulation. The simulation can then be run using the following:
 ```
 python run_simulation.py
 ```
@@ -73,5 +73,13 @@ python run_simulation.py
 python run_simulation.py -gcm_name='CESM2' -scenario='ssp245'
 ```
 ```{note}
-For future simulations, at a minimum the user should specify the dynamical option (option_dynamics), start year (gcm_startyear), end year (gcm_endyear), bias correction option (option_bias_adjustment).
+For future simulations, at a minimum the user should specify the dynamical option (<em>option_dynamics</em>), start year (<em>gcm_startyear</em>), end year (<em>gcm_endyear</em>), bias correction option (<em>option_bias_adjustment</em>).
+```
+* Post-process the data. <br>There are currently several scripts available to process the datasets (e.g., merge them into regional files, create multi-GCM means and standard deviations for each SSP). While these scripts are well documented in line, they still need to be cleaned up for more widespread use.  An example:
+```
+python process_simulation.py
+```
+* Share your data with beautiful figures. <br>All users will analyze PyGEM in different ways; however, we aim to provide some general scripts to produce publication-quality figures of mass, area, and runoff change such as those within the analysis_Science_figs.py. Figure options and pathways will be hard-coded within these scripts for the present moment. An example:
+```
+python analysis_Science_figs.py
 ```
