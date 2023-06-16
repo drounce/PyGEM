@@ -17,6 +17,7 @@ Welcome to pygem's documentation!
    dynamics_parameterizations
    runoff
    initial_conditions
+   limitations
 
 
 Indices and tables

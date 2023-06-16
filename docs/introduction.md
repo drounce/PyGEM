@@ -2,3 +2,7 @@
 The Python Glacier Evolution Model (PyGEM) is an open-source glacier evolution model coded in Python that is designed to model the transient evolution of glaciers on regional and global scales. Each glacier is modeled independently using a given time step and elevation bins. The model computes the climatic mass balance (i.e., snow accumulation minus melt plus refreezing) for each elevation bin and each monthly time step. Glacier geometry is updated annually. The model outputs a variety of data including monthly mass balance and its components (accumulation, melt, refreezing, frontal ablation, glacier runoff),  and annual volume, volume below sea level, and area.
 
 PyGEM has a modular framework that allows different schemes to be used for model calibration or model physics (e.g., ablation, accumulation, refreezing, glacier dynamics). The most recent version of PyGEM, published in <em>Science</em> [(Rounce et al. 2023)](https://www.science.org/doi/10.1126/science.abo1324), has been made compatible with the Open Global Glacier Model [(OGGM)](https://oggm.org/) to both leverage the pre-processing tools (e.g., digital elevation models, glacier characteristics) and their advances with respect to modeling glacier dynamics and ice thickness inversions.
+
+```{note}
+Looking for a quick overview? Check out the [Model Structure and Workflow](model_structure_and_workflow_target).
+```
