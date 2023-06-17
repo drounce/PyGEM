@@ -22,7 +22,7 @@ Welcome to pygem's documentation!
    install_pygem
    test_pygem
    limitations
-   Publications
+   publications
 
 
 Indices and tables
