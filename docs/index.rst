@@ -18,6 +18,9 @@ Welcome to pygem's documentation!
    runoff
    calibration_options
    initial_conditions
+   model_output
+   install_pygem
+   test_pygem
    limitations
    Publications
 
