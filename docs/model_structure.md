@@ -37,7 +37,7 @@ If you use a different file structure and do not update the file paths in the **
 
 ## Model Workflow
 The model code itself is heavily commented with the hope that the code is easy to follow and develop further. After downloading the required input files and setting up the directory structure (or modifying the **pygem_input.py** with your preferred directory structure) you are ready to run the code! Generally speaking, the workflow includes:
-* [Pre-processed](preprocessing_target) <em>(optional if including more data)</em>
+* [Pre-process data](preprocessing_target) <em>(optional if including more data)</em>
 * [Set up input file](input_workflow_target)
 * [Calibrate frontal ablation parameter](workflow_cal_frontalablation_target) <em>(optional if accounting for frontal ablation with marine-terimating glaciers)</em>
 * [Calibrate mass balance parameters](workflow_cal_prms_target)
