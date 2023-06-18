@@ -58,7 +58,9 @@ python run_preprocessing_wgms_mbdata.py -mb_data_removeFA=1
 
 (input_workflow_target)=
 ### Set up input file
-**pygem_input.py** is the input file where the user can specify the glaciers/regions to model; model physics, calibration, and simulation options; relative filepaths for relevant datasets; etc. For more details, see the [pygem_input Script Overview](pygem_input_overview_target).
+**pygem_input.py** is the input file where the user can specify the glaciers/regions to model; model physics, calibration, and simulation options; relative filepaths for relevant datasets; etc. 
+
+For more details, see the [pygem_input.py Script Overview](pygem_input_overview_target).
 
 
 (workflow_cal_frontalablation_target)=
@@ -135,7 +137,8 @@ python run_simulation.py -gcm_name='CESM2' -scenario='ssp245'
 For future simulations, at a minimum the user should specify the dynamical option (<em>option_dynamics</em>), start year (<em>gcm_startyear</em>), end year (<em>gcm_endyear</em>), bias correction option (<em>option_bias_adjustment</em>).
 ```
 If successful, the script will run without error and output the following:
-* ../Output/simulations/.../.nc
+* ../Output/simulation/\[RGI Order 1 region\]/\[GCM name\]/\[Scenario\]/stats/\[glac_no\]_\[GCM name\]_\[Scenario\]_\[Calibration Option\]_ba\[bias adjustment option\]_\[number of simulations\]_\[start year\]_\[end year\]_all.nc
+* additional netcdf files may be output based on the user specifications in pygem_input.py
 
 For more details, see the [run_simulation.py Script Overview](run_simulation_target).
 

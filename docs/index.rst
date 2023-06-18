@@ -23,6 +23,7 @@ Welcome to pygem's documentation!
    test_pygem
    scripts_overview
    limitations
+   faqs
    publications
 
 
