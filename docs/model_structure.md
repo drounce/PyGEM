@@ -81,7 +81,7 @@ The run_calibration_frontalablation.py script is hard-coded with True/False opti
 ```
 (workflow_cal_prms_target)=
 ### Calibrate mass balance model parameters
-The model parameters (degree-day factor of snow, precipitation factor, and temperature bias) must be calibrated. This is done using **run_calibration.py**. Several options exist (see [Model Calibration](calibration_target) for specific details), but generally speaking the <em>option_calibration</em> will be specified in **pygem_input.py** and then the following is run:
+The model parameters (degree-day factor of snow, precipitation factor, and temperature bias) must be calibrated. This is done using [**run_calibration.py**](run_calibration_target). Several options exist (see [Model Calibration](calibration_target) for specific details), but generally speaking the <em>option_calibration</em> will be specified in **pygem_input.py** and then the following is run:
 ```
 python run_calibration.py
 ```
@@ -106,7 +106,7 @@ If successful, the script will run without error and output the following:
 
 (workflow_sim_target)=
 ### Run model simulation
-If no GCMs are specified in the command line, the default will be to run a model simulation with the reference data (e.g., ERA5). We currently recommend that <br><em>**historical simulations**</em> be performed without evolving the glacier geometry; thus, <em>option_dynamics = None</em> in **pygem_input.py** and the <em>ref_startyear</em> and <em>ref_endyear</em> are used to set the length of the simulation. The simulation can then be run using the following:
+The model simulations are performed using [**run_simulation.py**](run_simulation_target). If no GCMs are specified in the command line, the default will be to run a model simulation with the reference data (e.g., ERA5). We currently recommend that <br><em>**historical simulations**</em> be performed without evolving the glacier geometry; thus, <em>option_dynamics = None</em> in **pygem_input.py** and the <em>ref_startyear</em> and <em>ref_endyear</em> are used to set the length of the simulation. The simulation can then be run using the following:
 ```
 python run_simulation.py
 ```

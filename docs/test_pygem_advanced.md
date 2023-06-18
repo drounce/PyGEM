@@ -9,6 +9,7 @@ Open **pygem_input.py** and check the following (changing as needed):
 * ref_endyear = 2019
 * option_calibration = 'emulator'
 * option_dynamics = None
+
 Then proceed with running the calibration:
 ```
 python run_calibration.py -option_parallels=0
@@ -22,6 +23,7 @@ If successful, the script will run without errors and the following datasets wil
 * ../emulator/sims/15.03733-100_emulator_sims.csv
 * ../emulator/models/‘15.03733-emulator-mb_mwea.pth
 * ../emulator/models/‘15.03733-emulator-mb_mwea_extra.pkl
+
 These contain the calibration data, simulations used to create the emulator, and information needed to recreate the emulator.
 
 ```{note}
@@ -30,6 +32,7 @@ Normally the next step would be to run this for all glaciers in a region and the
 
 Next, run the calibration again using the Bayesian inference. Open the **pygem_input.py** and check/change the following:
 * option_calibration = 'MCMC'
+
 Then proceed with running the calibration:
 ```
 python run_calibration.py -option_parallels=0
@@ -48,12 +51,15 @@ You are now ready to run a simulation. We'll skip the simulation for the referen
 * option_dynamics = 'OGGM'
 * use_reg_glena = False
 * sim_iters = 50
+
 Then proceed with running the simulation, while specifying the GCM and scenario through the command line as follows:
 ```
 python run_simulation.py -option_parallels=0 -gcm_name='CESM2' -scenario='ssp245'
 ```
 If successful, the script will run without errors and the following with be generated: 
 * ../Output/simulation/15/CESM2/ssp245/stats/15.03733_CESM2_ssp245_MCMC_ba1_1sets_2000_2020_all.nc
+
 This is a netcdf file that stores model output from the simulation.
+
 
 CONGRATULATIONS! You are now ready to run PyGEM for your study region!
