@@ -24,7 +24,7 @@ print(modelprms_dict[pygem_prms.option_calibration][‘kp’])
 The calibration options are each discussed below.  We recommend using the MCMC calibration option (Rounce et al. [2020a](https://www.cambridge.org/core/journals/journal-of-glaciology/article/quantifying-parameter-uncertainty-in-a-largescale-glacier-evolution-model-using-bayesian-inference-application-to-high-mountain-asia/61D8956E9A6C27CC1A5AEBFCDADC0432), [2020b](https://www.frontiersin.org/articles/10.3389/feart.2019.00331/full), [2023](https://www.science.org/doi/10.1126/science.abo1324)) as this enables the user to quantify the uncertainty associated with the model parameters in the simulations; however, it is very computationally expensive. The methods from [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full) provide a computationally cheap alternative. 
 
 ```{note}
-Running these options is performed using **run_calibration.py** (see [Model Workflow](workflow_cal_prms_target)). Additionally, there are two other calibration scripts to calibrate the [ice viscocity model parameter](workflow_cal_glena_target) using the **run_calibration_icethickness_consensus.py** and the [frontal ablation parameter](calibration_frontalablation_target) for marine-terminating glaciers using the **run_calibration_frontalablation.py**.
+Running these options is performed using **run_calibration.py** (see [Model Workflow](workflow_cal_prms_target)). Additionally, there are two other calibration scripts to calibrate the [ice viscosity model parameter](workflow_cal_glena_target) using the **run_calibration_icethickness_consensus.py** and the [frontal ablation parameter](calibration_frontalablation_target) for marine-terminating glaciers using the **run_calibration_frontalablation.py**.
 ```
 
 (HH2015_target)=
@@ -102,5 +102,5 @@ python run_calibration_frontalablation.py   (set option_update_mb_data = True)
 The run_calibration_frontalablation.py script is hard-coded with True/False options so one must manually go into the script and adjust the options. 
 ```
 
-## Ice Viscocity Parameter
-The ice viscocity parameter will affect the ice thickness inversion and dynamical evolution of the glacier. The ice viscocity parameter is currently calibrated such that the volume of ice at the regional scale is consistent with the regional ice volumes from [Farinotti et al. (2019)](https://www.nature.com/articles/s41561-019-0300-3).
+## Ice Viscosity Parameter
+The ice viscosity parameter will affect the ice thickness inversion and dynamical evolution of the glacier. The ice viscosity parameter is currently calibrated such that the volume of ice at the regional scale is consistent with the regional ice volumes from [Farinotti et al. (2019)](https://www.nature.com/articles/s41561-019-0300-3).
