@@ -47,6 +47,7 @@ The model code itself is heavily commented with the hope that the code is easy t
 * [Post-process output](workflow_post_target)
 * [Analyze output](workflow_analyze_target)
 
+
 (preprocessing_target)=
 ### Pre-processing 
 We rely heavily on [OGGM's pre-processing modules](https://docs.oggm.org/en/stable/shop.html), which are state-of-the-art. For most people, these glacier directories will be sufficient to get started. However, there are times when we work with different datasets and need to do our own pre-processing. For example, the following script corrects the geodetic mass balance from [Hugonnet et al. (2021)](https://www.nature.com/articles/s41586-021-03436-z) to account for the mass lost below the water level due to frontal ablation from [Kochtitzky et al. (2022)](https://www.nature.com/articles/s41467-022-33231-x).
@@ -54,9 +55,11 @@ We rely heavily on [OGGM's pre-processing modules](https://docs.oggm.org/en/stab
 python run_preprocessing_wgms_mbdata.py -mb_data_removeFA=1
 ```
 
+
 (input_workflow_target)=
 ### Set up input file
 **pygem_input.py** is the input file where the user can specify the glaciers/regions to model; model physics, calibration, and simulation options; relative filepaths for relevant datasets; etc. For more details, see the [pygem_input Script Overview](pygem_input_overview_target).
+
 
 (workflow_cal_frontalablation_target)=
 ### Calibrate frontal ablation parameter
@@ -81,6 +84,12 @@ python run_calibration_frontalablation.py   (set option_update_mb_data = True)
 ```{note}
 The run_calibration_frontalablation.py script is hard-coded with True/False options so one must manually go into the script and adjust the options. 
 ```
+If successful, the script will run without error and output the following:
+* ../calving_data/analysis/all-calving_cal_ind.csv
+* ../DEMs/Hugonnet2020/df_pergla_20yr-filled-FAcorrected.csv
+
+For more details, see the [run_calibration_frontalablation.py Script Overview](run_calibration_fa_overview_target).
+
 (workflow_cal_prms_target)=
 ### Calibrate mass balance model parameters
 The model parameters (degree-day factor of snow, precipitation factor, and temperature bias) must be calibrated for model results to be meaningful. This is done using **run_calibration.py**. Several options exist (see [Model Calibration](calibration_target) for specific details), but generally speaking the <em>option_calibration</em> will be specified in **pygem_input.py** and then the following is run:
@@ -88,12 +97,14 @@ The model parameters (degree-day factor of snow, precipitation factor, and tempe
 python run_calibration.py
 ```
 ```{note}
-The Markov Chain Monte Carlo (MCMC) methods require several steps and additional python packages (i.e., PyMC2 and its dependencies. See [MCMC methods](MCMC_target) for the specific workflow.
+The Markov Chain Monte Carlo (MCMC) methods require several steps and additional python packages (i.e., PyMC2 and its dependencies. See [MCMC methods](MCMC_target) or [Test MCMC methods](test_advanced_target) for the specific workflow.
 ```
 If successful, the script will run without error and output the following:
 * ../Output/calibration/\[RGI Order 1 region\]/\[glac_no\]-model_prms.pkl 
+* additional files will be generated if using the emulator
 
 For more details, see the [run_calibration.py Script Overview](run_calibration_target).
+
 
 (workflow_cal_glena_target)=
 ### Calibrate ice viscosity model parameter
@@ -109,9 +120,10 @@ If successful, the script will run without error and output the following:
 
 For more details, see the [run_calibration_icethickness.py Script Overview](run_calibration_icethickness_overview_target).
 
+
 (workflow_sim_target)=
 ### Run model simulation
-The model simulations are performed using [**run_simulation.py**](run_simulation_target). If no GCMs are specified in the command line, the default will be to run a model simulation with the reference data (e.g., ERA5). We currently recommend that <br><em>**historical simulations**</em> be performed without evolving the glacier geometry; thus, <em>option_dynamics = None</em> in **pygem_input.py** and the <em>ref_startyear</em> and <em>ref_endyear</em> are used to set the length of the simulation. The simulation can then be run using the following:
+Model simulations are performed using run_simulation.py. If no GCMs are specified in the command line, the default will be to run a model simulation with the reference data (e.g., ERA5). We currently recommend that <br><em>**historical simulations**</em> be performed without evolving the glacier geometry; thus, <em>option_dynamics = None</em> in **pygem_input.py** and the <em>ref_startyear</em> and <em>ref_endyear</em> are used to set the length of the simulation. The simulation can then be run using the following:
 ```
 python run_simulation.py
 ```
@@ -122,6 +134,11 @@ python run_simulation.py -gcm_name='CESM2' -scenario='ssp245'
 ```{note}
 For future simulations, at a minimum the user should specify the dynamical option (<em>option_dynamics</em>), start year (<em>gcm_startyear</em>), end year (<em>gcm_endyear</em>), bias correction option (<em>option_bias_adjustment</em>).
 ```
+If successful, the script will run without error and output the following:
+* ../Output/simulations/.../.nc
+
+For more details, see the [run_simulation.py Script Overview](run_simulation_target).
+
 
 (workflow_post_target)=
 ### Post-process output
@@ -129,6 +146,8 @@ There are currently several scripts available to process the datasets (e.g., mer
 ```
 python process_simulation.py
 ```
+
+
 (workflow_analyze_target)=
 ### Analyze output
 All users will analyze PyGEM output in different ways; however, we aim to provide some general scripts to produce publication-quality figures of mass, area, and runoff change such as those within the analysis_Science_figs.py. Figure options and pathways will be hard-coded within these scripts for the present moment. An example:
