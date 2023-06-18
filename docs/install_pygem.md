@@ -3,7 +3,7 @@
 The model is setup in [two repositories](model_structure_and_workflow_target) that are installed via PyPI and github as described below.
 
 ## Setup Conda Environment
-A conda environment is a directory that contains a specific collection of installed packages. The use of environments reduces issues caused by package dependencies. The model is designed to be compatible with OGGM. We therefore get started by follow the [installation instructions from OGGM](https://docs.oggm.org/en/stable/installing-oggm.html).
+A conda environment is a directory that contains a specific collection of installed packages. The use of environments reduces issues caused by package dependencies. The model is designed to be compatible with OGGM. We therefore get started by following the [installation instructions from OGGM](https://docs.oggm.org/en/stable/installing-oggm.html).
 
 Once your conda environment is setup for OGGM, add the core of PyGEM using pip.
 
