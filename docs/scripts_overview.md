@@ -1,0 +1,12 @@
+# Script Details
+The [Model Workflow](model_workflow_target) and [Test Model] sections provide a general overview of the workflows and how to use the scripts. Here we provide more detail of the primary scripts used to run PyGEM (from the [PyGEM-Scripts](https://github.com/drounce/PyGEM-scripts/tree/main) repository. This information can help support your understanding of the inner workings of the code and also provide an overview for developers who may want to fork the codes and create new content. The following scripts are described:
+
+```{toctree}
+---
+caption: Primary Scripts:
+maxdepth: 2
+---
+
+run_calibration_overview
+run_simulation_overview
+```
