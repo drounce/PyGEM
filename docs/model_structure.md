@@ -2,15 +2,15 @@
 # Model Structure and Workflow
 The model is written in Python. The model is currently available as two repositories on github:
 
-1. **PyGEM** ([https://github.com/drounce/PyGEM](https://github.com/drounce/PyGEM)) contains the main model code.  This repository can now be installed in your environment with PyPI ([https://pypi.org/project/pygem/](https://pypi.org/project/pygem/)) using "pip install pygem".
+1. **PyGEM** ([https://github.com/drounce/PyGEM](https://github.com/drounce/PyGEM)) contains the main model code.  This repository can be installed in your environment with PyPI ([https://pypi.org/project/pygem/](https://pypi.org/project/pygem/)) using "pip install pygem".
 
-2. **PyGEM-scripts** ([https://github.com/drounce/PyGEM-scripts](https://github.com/drounce/PyGEM-scripts)) contains general scripts used to run the model (e.g., run_calibration.py, run_simulation.py) as well as the post-processing, analysis scripts (e.g., analyze_simulations.py). To use these files and run the model one must clone the github repository onto your local machine.
+2. **PyGEM-scripts** ([https://github.com/drounce/PyGEM-scripts](https://github.com/drounce/PyGEM-scripts)) contains general scripts used to run the model (e.g., run_calibration.py, run_simulation.py) as well as the post-processing, analysis scripts (e.g., analyze_simulations.py). To use these files and run the model one must clone or fork the github repository onto your local machine.
 
-All input parameters are specified in the pygem_input.py file, which needs to be adjusted according to the specific datasets and model options of each user. The input file is well documented inline and [sample files](https://drive.google.com/drive/folders/13kiU00Zz2swN5OzwXiWIQTj_JLEHnDgZ) are produced to support trial runs.
+All input parameters are specified in the pygem_input.py file, which needs to be adjusted according to the specific datasets and model options of each user. The input file is well documented inline and [sample files](https://drive.google.com/drive/folders/13kiU00Zz2swN5OzwXiWIQTj_JLEHnDgZ) are produced to support trial runs. See the [Install_PyGEM](install_pygem_target) section for more details on installing the model.
 
 (directory_structure_target)=
 ## Directory structure
-Currently, the model does not have a “required” set of directories. For simplicity with github, we highly recommend keeping the forked version of the code in its own directory. Furthermore, since many of the datasets that will be used for regional and global model runs are of considerable size, we encourage users to develop their own organized file structure. The code has been developed to automatically set up all file paths using relative paths from the PyGEM-Scripts directory, which is where the code is run from the command line. For example, a directory with the following subdirectories is recommended (see [sample files](https://drive.google.com/drive/folders/13kiU00Zz2swN5OzwXiWIQTj_JLEHnDgZ)):
+Currently, the model does not have a “required” set of directories. For simplicity with github, we highly recommend keeping the forked version of the code in its own directory. Furthermore, since many of the datasets that will be used for regional and global model runs are of considerable size, we encourage users to develop their own organized file structure. The code has been developed to automatically set up all file paths using relative paths from the PyGEM-Scripts directory, which is where the code is run from the command line. The easiest way to run PyGEM will be to use the same directory structure as the developers (see [sample files](https://drive.google.com/drive/folders/13kiU00Zz2swN5OzwXiWIQTj_JLEHnDgZ)):
 
 * climate_data
   - This directory contains the reference and future climate data
@@ -37,10 +37,10 @@ If you use a different file structure and do not update the file paths in the **
 
 (model_workflow_target)=
 ## Model Workflow
-The model code itself is heavily commented with the hope that the code is easy to follow and develop further. After downloading the required input files and setting up the directory structure (or modifying the **pygem_input.py** with your preferred directory structure) you are ready to run the code! Generally speaking, the workflow includes:
+The model code itself is heavily commented with the hope that the code is easy to follow and develop further. After [installing PyGEM](install_pygem_target), downloading the required [input files](model_inputs_target), and setting up the [directory structure](directory_structure_target) (or modifying the **pygem_input.py** with your preferred directory structure) you are ready to run the code! Generally speaking, the workflow includes:
 * [Pre-process data](preprocessing_target) <em>(optional if including more data)</em>
 * [Set up input file](input_workflow_target)
-* [Calibrate frontal ablation parameter](workflow_cal_frontalablation_target) <em>(optional if accounting for frontal ablation with marine-terimating glaciers)</em>
+* [Calibrate frontal ablation parameter](workflow_cal_frontalablation_target) <em>(optional for marine-terimating glaciers)</em>
 * [Calibrate mass balance parameters](workflow_cal_prms_target)
 * [Calibrate ice viscocity parameter](workflow_cal_glena_target)
 * [Run model simulation](workflow_sim_target)
@@ -53,14 +53,16 @@ We rely heavily on [OGGM's pre-processing modules](https://docs.oggm.org/en/stab
 ```
 python run_preprocessing_wgms_mbdata.py -mb_data_removeFA=1
 ```
+
 (input_workflow_target)=
 ### Set up input file
-**pygem_input.py** is the input file were the user can specify the glaciers/regions to model; model physics, calibration, and simulation options; relative filepaths for relevant datasets; etc.
+**pygem_input.py** is the input file where the user can specify the glaciers/regions to model; model physics, calibration, and simulation options; relative filepaths for relevant datasets; etc. For more details, see the [pygem_input Script Overview](pygem_input_overview_target).
 
 (workflow_cal_frontalablation_target)=
 ### Calibrate frontal ablation parameter
-**Optional Step** If you want to account for frontal ablation associated with marine-terminating glaciers, then the frontal ablation parameter needs to be calibrated. This is done using **run_calibration_frontalablation.py** with the following steps:
-<br>Merge the frontal ablation data together into a single directory:
+**(Optional)** If you want to account for frontal ablation associated with marine-terminating glaciers, then the frontal ablation parameter needs to be calibrated. This is done using **run_calibration_frontalablation.py** with the following steps:
+
+First, merge the frontal ablation data together into a single directory:
 ```
 python run_calibration_frontalablation.py   (set option_merge_data = True)
 ```
@@ -81,28 +83,31 @@ The run_calibration_frontalablation.py script is hard-coded with True/False opti
 ```
 (workflow_cal_prms_target)=
 ### Calibrate mass balance model parameters
-The model parameters (degree-day factor of snow, precipitation factor, and temperature bias) must be calibrated. This is done using [**run_calibration.py**](run_calibration_target). Several options exist (see [Model Calibration](calibration_target) for specific details), but generally speaking the <em>option_calibration</em> will be specified in **pygem_input.py** and then the following is run:
+The model parameters (degree-day factor of snow, precipitation factor, and temperature bias) must be calibrated for model results to be meaningful. This is done using **run_calibration.py**. Several options exist (see [Model Calibration](calibration_target) for specific details), but generally speaking the <em>option_calibration</em> will be specified in **pygem_input.py** and then the following is run:
 ```
 python run_calibration.py
 ```
 ```{note}
 The Markov Chain Monte Carlo (MCMC) methods require several steps and additional python packages (i.e., PyMC2 and its dependencies. See [MCMC methods](MCMC_target) for the specific workflow.
 ```
+If successful, the script will run without error and output the following:
+* ../Output/calibration/\[RGI Order 1 region\]/\[glac_no\]-model_prms.pkl 
+
+For more details, see the [run_calibration.py Script Overview](run_calibration_target).
 
 (workflow_cal_glena_target)=
 ### Calibrate ice viscosity model parameter
-The ice viscocity (glen_a) model parameter is calibrated such that the ice volume estimated using the calibrated mass balance gradients are consistent with the consensus ice volume estimates ([Farinotti et al. 2019]((https://www.nature.com/articles/s41561-019-0300-3))) for each RGI region. This is done by running the following:
+The ice viscocity ("Glen A") model parameter is calibrated such that the ice volume estimated using the calibrated mass balance gradients are consistent with the consensus ice volume estimates ([Farinotti et al. 2019]((https://www.nature.com/articles/s41561-019-0300-3))) for each RGI region. This is done by running the following:
 ```
 python run_calibration_icethickness_consensus.py
 ```
-Considerations:
-* This code is currently not set up to run automatically as it has the regions hard-coded within the script. The reason for this hard-coding is to be able to run the script, while other scripts are running too (e.g., calibration). This should be changed in the future to facilitate automation though.
-* In  pygem_input.py, you need to set option_dynamics=‘OGGM’. Otherwise, you’ll get an assertion error telling you to do so, since you won’t be able to record the output otherwise.
-* While the code runs at the RGI Order 1 region scale, it will only calibrate for the glaciers that have calibration data and run successfully.
-* pygem_input.py has a parameter ‘icethickness_cal_frac_byarea’ that is used to set the fraction of glaciers by area to include in this calibration. The default is 0.9 (i.e., the largest 90% of glaciers by area). This is to reduce computational expense, since the smallest 10% of glaciers by area contribute very little to the regional volume.
-
+```{note}
+This code is hard-coded and thus the user will have to go in and change regions.
+```
 If successful, the script will run without error and output the following:
 * ../Output/calibration/‘glena_region.csv’ 
+
+For more details, see the [run_calibration_icethickness.py Script Overview](run_calibration_icethickness_overview_target).
 
 (workflow_sim_target)=
 ### Run model simulation
