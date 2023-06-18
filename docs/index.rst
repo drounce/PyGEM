@@ -17,6 +17,7 @@ Welcome to pygem's documentation!
    dynamics_parameterizations
    runoff
    calibration_options
+   bias_corrections
    initial_conditions
    model_output
    install_pygem
