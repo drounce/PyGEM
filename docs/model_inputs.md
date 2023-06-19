@@ -26,7 +26,8 @@ A sample of all relevant data to perform a test run of the model is provided [he
 ## Glacier Inventory
 The current model structure of defining the glaciers uses the Randolph Glacier Inventory version 6.0 (RGI Consortium 2017), but theoretically any glacier inventory that uses the same format and provides the same information (e.g., RGIId, Area, Terminus Type, Median elevation) would be applicable. The glacier inventory is formatted as a .csv file. The latest version of the RGI can be downloaded [here](https://www.glims.org/RGI/).
 
-## Glacier Hypsometry
+(input_glacier_data_target)=
+## Glacier Data
 The mass balance model can be run with information concerning glacier hypsometry; however, to account for glacier dynamics, the model requires information concerning the glacier's ice thickness as well. These data are available through the Glacier Model Intercomparison Project (GlacierMIP) (Marzeion et al. 2020) or can be derived workflows from OGGM ([Maussion et al. 2019](https://gmd.copernicus.org/articles/12/909/2019/)). We recommend using pre-processed glacier direcotry from the [OGGM Shop](https://docs.oggm.org/en/stable/shop.html).
 
 There are several options for pre-processed data from OGGM and we recommend you read the documentation in [OGGM Shop](https://docs.oggm.org/en/stable/shop.html). The model is currently configured to use Level 2 data with a border value of 40 m using elevation bands.  OGGM will automatically download the glacier directories based on the link you specify in the input file; however, if you would like to download them in advance (e.g., if your supercomputing environment does not allow you to access the internet within the script), then you may use the following as an example of how you can download these data to your local computer from OGGM’s server:
