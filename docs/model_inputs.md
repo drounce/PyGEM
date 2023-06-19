@@ -7,7 +7,7 @@ For present-day (2000-2019) model runs, PyGEM currently uses monthly near-surfac
 For future (e.g., 2000-2100) model runs, PyGEM currently uses an ensemble of General Circulation Models (GCMs) and Shared Socioeconomic Pathways (SSPs) from the Coupled Model Intercomparison Project Phase 6 (CMIP6). The model can also be run using Representative Concentration Pathways (RCPs) associated with CMIP5. Future simulations are adjusted using additive factors for air temperature and multiplicative factors for precipitation to remove any bias between the GCMs and ERA5 data over the calibration period (2000-2019). Additional bias corrections options will be available in the future.
 
 (model_input_table_target)=
-Table 1. Data requirements for PyGEM. Optional datasets are shown in italics.
+**Table 1.** Data requirements for PyGEM. Optional datasets are shown in italics.
 
 | Component | Dataset | References |
 | :--- | :--- | :--- |
