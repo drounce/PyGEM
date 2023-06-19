@@ -16,15 +16,15 @@ This script is where the user is able to specify the glaciers to model, choose m
 * [Debugging options](input_debugging_options)
 
 ```{note}
-**pygem_input.py** is heavily commented. The overview here is intended to highlight the most frequently used variables.
+**pygem_input.py** is heavily commented, so this information should hopefully be clear when modifying variables within the file itself.
 ```
 (input_model_setup_target)=
 ## Model Setup Directory
 | Variable | Format/Options | Description |
 | :--- | :--- | :--- |
-| main_directory | os.getcwd() | use the PyGEM-Scripts directory for all relative filepaths |
-| output_filepath | str | specify the output filepath; suggest using relative paths |
-| model_run_date | str | specify the date that you want to associate with the model runs <br>(useful for knowing version of model used) |
+| main_directory | os.getcwd() | main directory used for relative filepaths |
+| output_filepath | str | output filepath |
+| model_run_date | str | date associated with model runs <br>(useful for knowing version of model used) |
 
 (input_glacier_selection_target)=
 ## Glacier Selection
@@ -57,7 +57,7 @@ Set glac_no will always overwrite the rgi regions, so if you want to use the rgi
 
 | Variable | Format/Options | Description |
 | :--- | :--- | :--- |
-| oggm_base_url | str | Filepath to OGGM's glacier directories |
+| oggm_base_url | str | filepath to OGGM's server with glacier directories |
 | logging_level | str | logging level for OGGM. Options: DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recommended WORKFLOW) |
 
 
@@ -70,11 +70,11 @@ Set glac_no will always overwrite the rgi regions, so if you want to use the rgi
 | ref_gcm_name | ['ERA5'] | reference climate dataset |
 | ref_startyear | int | first year of model run (reference dataset) |
 | ref_endyear | int | last year of model run (reference dataset) |
-| ref_wateryear | ['calendar', 'hydro', 'custom'] | defining the calendar being used. If using custom, additional details required (see [Model Time Period Details](input_model_time_details_target) |
+| ref_wateryear | ['calendar', 'hydro', 'custom'] | defining the calendar being used. If using custom, additional details required (see [Model Time Period Details](input_model_time_details_target)) |
 | ref_spinupyears | int | number of spin up years (suggest 0) |
 
 **Future climate data**
-<br>Note that this is separate to account for bias corrections between reference and future cliamte data.
+<br>Note that this is separate to account for bias corrections between reference and future climate data.
 
 | Variable | Format/Options | Description |
 | :--- | :--- | :--- |
@@ -98,7 +98,7 @@ Set glac_no will always overwrite the rgi regions, so if you want to use the rgi
 
 | Variable | Format/Options | Description |
 | :--- | :--- | :--- |
-| option_calibration | str | ['emulator', 'MCMC', 'MCMC_fullsim' 'HH2015', 'HH2015mod'] |
+| option_calibration | ['emulator', 'MCMC', 'MCMC_fullsim' 'HH2015', 'HH2015mod'] | calibration option |
 | priors_reg_fullfn | str | filepath to where the prior distributions for the MCMC are stored. Note this is used in the run_calibration.py for MCMC as well as for the run_calibration_frontalablation.py in case preference is to use regional parameters instead of individual parameters. |
 
 **HH2015-specific options**
