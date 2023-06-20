@@ -1,5 +1,5 @@
 (install_pygem_target)=
-# Installing PyGEM
+# Install PyGEM
 The model is stored in two repositories [(see model structure)](model_structure_and_workflow_target) that are installed via PyPI and github as described below.
 
 ## Setup Conda Environment
