@@ -256,7 +256,7 @@ def selectcalibrationdata(main_glac_rgi):
     return main_glac_calmassbal
 
 
-def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2=None, rgi_glac_number=None,
+def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all', rgi_glac_number='all',
                            rgi_fp=pygem_prms.rgi_fp, 
                            rgi_cols_drop=pygem_prms.rgi_cols_drop,
                            rgi_O1Id_colname=pygem_prms.rgi_O1Id_colname,
