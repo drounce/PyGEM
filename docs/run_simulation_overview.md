@@ -29,3 +29,7 @@ print(ds)
 
 ## Special Considerations
 There currently exist a series of try/except statements to ensure model runs are successful. The most common causes of failure are (i) advancing glacier exceeds the "borders" defined in OGGM's pre-processing and (ii) numerical instabilities within OGGM's dynamical model. The latter is more common for tidewater glaciers. If you want to avoid these issues, we suggest removing the try/except statements.
+
+```{warning}
+<em>sim_iters</em> in the <em>pygem_input.py</em> specifies the number of iterations. If using MCMC as the calibration option, this becomes important. If you set <em>sim_iters=1</em>, the simulation will run using the median value of each model parameter. 
+```
