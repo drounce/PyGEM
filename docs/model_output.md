@@ -12,4 +12,21 @@ Various Jupyter Notebooks are available to view results. Some analyses require a
 width: 100%
 ---
 ```
-- Add examples of figures/plots generated (e.g., mass change and cross sections)
+- **analyze_glacier_change_byWatershed.ipynb** <br>This notebook can be used to aggregate glacier mass, area, and runoff into watersheds; specifically, it will create new netcdf files per watershed such that after the initial aggregation, analyses can be performed much more rapidly. The notebook continues to show an example plot of glacier mass, area, and runoff changes for each watershed in an example region:
+```{figure} _static/analyze_glacier_change_watershed11.png
+---
+width: 100%
+---
+```
+```{note}
+This notebook assumes that you have a "dictionary", i.e., a .csv file, that has each glacier of interest and the watershed (or other grouping) name associated with each glacier.
+```
+- **analyze_glacier_change_CrossSection.ipynb** <br>This notebook can be used to plot cross sections of an individual glacier's ice thickness over time for an ensemble of GCMs:
+```{figure} _static/15.03733_profile_2100_ssps.png
+---
+width: 100%
+---
+```
+```{note}
+Want to create a gif of cross sections evolving over time instead? Check out **analyze_glacier_change_CrossSection-gif.ipynb**
+```
