@@ -175,7 +175,9 @@ All users will analyze PyGEM output in different ways. The following is thus not
 * **analyze_glacier_change_CrossSection.ipynb**
   - This notebook shows a cross section of ice thickness change and normalized mass change for a single glacier.
 
-<br>At present, publication-quality figures of mass, area, and runoff change are also provided in case you want to investigate more complex figures. Figure options and pathways are hard-coded within these scripts. An example:
+At present, publication-quality figures of mass, area, and runoff change are also provided in case you want to investigate more complex figures. Figure options and pathways are hard-coded within these scripts. An example:
 ```
 python analysis_Science_figs.py
 ```
+
+For more detail, see [Model Output Section](model_output_overview_target).
