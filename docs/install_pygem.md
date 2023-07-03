@@ -1,5 +1,5 @@
 (install_pygem_target)=
-# Install PyGEM
+# Installing PyGEM
 The model is stored in two repositories [(see model structure)](model_structure_and_workflow_target) that are installed via PyPI and github as described below.
 
 ## Setup Conda Environment
@@ -11,7 +11,18 @@ Once your conda environment is setup for OGGM, add the core of PyGEM using pip.
 pip install pygem
 ```
 
-This will provide you with a conda environment that has the basic functionality to run simple calibration options (e.g., 'HH2015', 'HH2015mod') and simulations. If you want to use the emulators and Bayesian inference, the advanced environment is required. 
+This will provide you with a conda environment that has the basic functionality to run simple calibration options (e.g., 'HH2015', 'HH2015mod') and simulations. If you want to use the emulators and Bayesian inference, the advanced environment is required.
+
+### Developing PyGEM
+Are you interested in developing PyGEM? If so, we recommend uninstalling pygem, forking the [PyGEM's github repository](https://github.com/drounce/PyGEM) and then [cloning the github repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) onto your local machine.
+
+```
+pip uninstall pygem
+git clone https://github.com/drounce/PyGEM.git
+```
+```{warning}
+The directory structure here is important. The cloned <em>PyGEM</em> directory should be on the same level as the <em>PyGEM-scripts</em>.
+```
 
 ### Advanced environment: PyMC2 and PyTorch
 If you want to use the emulators or Bayesian inference associated with PyGEM additional packages are required.
