@@ -834,7 +834,8 @@ class PyGEMMassBalance(MassBalanceModel):
         # Compute difference between volume change 
         vol_change_annual_mbmod = (self.glac_wide_massbaltotal.reshape(-1,12).sum(1) * 
                                    pygem_prms.density_water / pygem_prms.density_ice)
-        vol_change_annual_diag = diag.volume_m3.values[1:] - diag.volume_m3.values[:-1]
+        vol_change_annual_diag = np.zeros(vol_change_annual_mbmod.shape)
+        vol_change_annual_diag[0:diag.volume_m3.values[1:].shape[0]] = diag.volume_m3.values[1:] - diag.volume_m3.values[:-1]
         vol_change_annual_dif = vol_change_annual_diag - vol_change_annual_mbmod
 
         # Reduce glacier melt by the difference
