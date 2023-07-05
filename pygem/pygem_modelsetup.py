@@ -263,7 +263,8 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all'
                            rgi_glacno_float_colname=pygem_prms.rgi_glacno_float_colname,
                            indexname=pygem_prms.indexname,
                            include_landterm=True,include_laketerm=True,include_tidewater=True,
-                           glac_no_skip=pygem_prms.glac_no_skip):
+                           glac_no_skip=pygem_prms.glac_no_skip,
+                           min_glac_area_km2=0):
     """
     Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI
     glacier inventory. This function returns the rgi table associated with all of these glaciers.
@@ -281,22 +282,6 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all'
     (rows = GlacNo, columns = glacier statistics)
     """
     if glac_no is not None:
-        if len(glac_no[0]) == 7:
-            rgi_prefix = 'RGI60-0'
-            rgi_glac_no= [rgi_prefix + s for s in glac_no]
-            rgi_glac_df = pygem_prms.hugonnet_file.loc[pygem_prms.hugonnet_file.RGIId.isin(rgi_glac_no)]
-            glac_no = rgi_glac_df[rgi_glac_df.area >= pygem_prms.glacier_area_filter]
-            glac_no = glac_no.RGIId.tolist()
-            glac_no = [i[7:] for i in glac_no]
-            print(glac_no)
-        elif len(glac_no[0]) == 8:
-            rgi_prefix = 'RGI60-'
-            rgi_glac_no= [rgi_prefix + s for s in glac_no]
-            rgi_glac_df = pygem_prms.hugonnet_file.loc[pygem_prms.hugonnet_file.RGIId.isin(rgi_glac_no)]
-            glac_no = rgi_glac_df[rgi_glac_df.area >= pygem_prms.glacier_area_filter]
-            glac_no = glac_no.RGIId.tolist()
-            glac_no = [i[6:] for i in glac_no]
-            print(glac_no)
         glac_no_byregion = {}
         rgi_regionsO1 = [int(i.split('.')[0]) for i in glac_no]
         rgi_regionsO1 = list(set(rgi_regionsO1))
@@ -413,6 +398,10 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all'
     # Glacier number with no trailing zeros
     glacier_table['glacno'] = [str(int(x.split('-')[1].split('.')[0])) + '.' + x.split('-')[1].split('.')[1]
                                for x in glacier_table.RGIId]
+    
+    # Remove glaciers below threshold
+    glacier_table = glacier_table.loc[glacier_table['Area'] > min_glac_area_km2,:]
+    glacier_table.reset_index(inplace=True, drop=True)
 
     # Remove glaciers that are meant to be skipped
     if glac_no_skip is not None:
