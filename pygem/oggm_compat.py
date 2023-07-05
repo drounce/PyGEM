@@ -36,7 +36,6 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
     -------
     a GlacierDirectory object
     """
-
     if type(rgi_id) != str:
         raise ValueError('We expect rgi_id to be a string')
     if rgi_id.startswith('RGI60-') == False:
@@ -82,9 +81,11 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
     if process_gdir:
         # Start after the prepro task level
         base_url = pygem_prms.oggm_base_url
+
         cfg.PARAMS['has_internet'] = pygem_prms.has_internet
         gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
                                                   prepro_base_url=base_url, prepro_rgi_version='62')
+
         # Compute all the stuff
         list_tasks = [          
             # Consensus ice thickness
@@ -173,6 +174,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.over
     if process_gdir:
         # Start after the prepro task level
         base_url = pygem_prms.oggm_base_url
+
         gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
                                                   prepro_base_url=base_url, prepro_rgi_version='62')
         

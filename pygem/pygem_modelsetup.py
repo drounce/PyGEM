@@ -281,6 +281,22 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all'
     (rows = GlacNo, columns = glacier statistics)
     """
     if glac_no is not None:
+        if len(glac_no[0]) == 7:
+            rgi_prefix = 'RGI60-0'
+            rgi_glac_no= [rgi_prefix + s for s in glac_no]
+            rgi_glac_df = pygem_prms.hugonnet_file.loc[pygem_prms.hugonnet_file.RGIId.isin(rgi_glac_no)]
+            glac_no = rgi_glac_df[rgi_glac_df.area >= pygem_prms.glacier_area_filter]
+            glac_no = glac_no.RGIId.tolist()
+            glac_no = [i[7:] for i in glac_no]
+            print(glac_no)
+        elif len(glac_no[0]) == 8:
+            rgi_prefix = 'RGI60-'
+            rgi_glac_no= [rgi_prefix + s for s in glac_no]
+            rgi_glac_df = pygem_prms.hugonnet_file.loc[pygem_prms.hugonnet_file.RGIId.isin(rgi_glac_no)]
+            glac_no = rgi_glac_df[rgi_glac_df.area >= pygem_prms.glacier_area_filter]
+            glac_no = glac_no.RGIId.tolist()
+            glac_no = [i[6:] for i in glac_no]
+            print(glac_no)
         glac_no_byregion = {}
         rgi_regionsO1 = [int(i.split('.')[0]) for i in glac_no]
         rgi_regionsO1 = list(set(rgi_regionsO1))

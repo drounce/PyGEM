@@ -20,10 +20,13 @@ class GCM():
         name of climate dataset.
     scenario : str
         rcp or ssp scenario (example: 'rcp26' or 'ssp585')
+    realization : str
+        realization from large ensemble (example: '1011.001' or '1301.020')
     """
     def __init__(self, 
                  name=str(),
-                 scenario=str()):
+                 scenario=str(),
+                 realization=None):
         """
         Add variable name and specific properties associated with each gcm.
         """
@@ -33,96 +36,153 @@ class GCM():
         
         # Source of climate data
         self.name = name
-        # Set parameters for ERA5, ERA-Interim, and CMIP5 netcdf files
-        if self.name == 'ERA5':
-            # Variable names
-            self.temp_vn = 't2m'
-            self.tempstd_vn = 't2m_std'
-            self.prec_vn = 'tp'
-            self.elev_vn = 'z'
-            self.lat_vn = 'latitude'
-            self.lon_vn = 'longitude'
-            self.time_vn = 'time'
-            self.lr_vn = 'lapserate'
-            # Variable filenames
-            self.temp_fn = pygem_prms.era5_temp_fn
-            self.tempstd_fn = pygem_prms.era5_tempstd_fn
-            self.prec_fn = pygem_prms.era5_prec_fn
-            self.elev_fn = pygem_prms.era5_elev_fn
-            self.lr_fn = pygem_prms.era5_lr_fn
-            # Variable filepaths
-            self.var_fp = pygem_prms.era5_fp
-            self.fx_fp = pygem_prms.era5_fp
-            # Extra information
-            self.timestep = pygem_prms.timestep
-            self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-            self.rgi_lon_colname=pygem_prms.rgi_lon_colname
-            
-        elif self.name == 'ERA-Interim':
-            # Variable names
-            self.temp_vn = 't2m'
-            self.prec_vn = 'tp'
-            self.elev_vn = 'z'
-            self.lat_vn = 'latitude'
-            self.lon_vn = 'longitude'
-            self.time_vn = 'time'
-            self.lr_vn = 'lapserate'
-            # Variable filenames
-            self.temp_fn = pygem_prms.eraint_temp_fn
-            self.prec_fn = pygem_prms.eraint_prec_fn
-            self.elev_fn = pygem_prms.eraint_elev_fn
-            self.lr_fn = pygem_prms.eraint_lr_fn
-            # Variable filepaths
-            self.var_fp = pygem_prms.eraint_fp
-            self.fx_fp = pygem_prms.eraint_fp
-            # Extra information
-            self.timestep = pygem_prms.timestep
-            self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-            self.rgi_lon_colname=pygem_prms.rgi_lon_colname
-            
-        # Standardized CMIP5 format (GCM/RCP)
-        elif 'rcp' in scenario:
-            # Variable names
-            self.temp_vn = 'tas'
-            self.prec_vn = 'pr'
-            self.elev_vn = 'orog'
-            self.lat_vn = 'lat'
-            self.lon_vn = 'lon'
-            self.time_vn = 'time'
-            # Variable filenames
-            self.temp_fn = self.temp_vn + '_mon_' + name + '_' + scenario + '_r1i1p1_native.nc'
-            self.prec_fn = self.prec_vn + '_mon_' + name + '_' + scenario + '_r1i1p1_native.nc'
-            self.elev_fn = self.elev_vn + '_fx_' + name + '_' + scenario + '_r0i0p0.nc'
-            # Variable filepaths
-            self.var_fp = pygem_prms.cmip5_fp_var_prefix + scenario + pygem_prms.cmip5_fp_var_ending
-            self.fx_fp = pygem_prms.cmip5_fp_fx_prefix + scenario + pygem_prms.cmip5_fp_fx_ending
-            # Extra information
-            self.timestep = pygem_prms.timestep
-            self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-            self.rgi_lon_colname=pygem_prms.rgi_lon_colname
-            self.scenario = scenario
         
-        # Standardized CMIP6 format (GCM/SSP)
-        elif 'ssp' in scenario:
-            # Variable names
-            self.temp_vn = 'tas'
-            self.prec_vn = 'pr'
-            self.elev_vn = 'orog'
-            self.lat_vn = 'lat'
-            self.lon_vn = 'lon'
-            self.time_vn = 'time'
-            # Variable filenames
-            self.temp_fn = name + '_' + scenario + '_r1i1p1f1_' + self.temp_vn + '.nc'
-            self.prec_fn = name + '_' + scenario + '_r1i1p1f1_' + self.prec_vn + '.nc'
-            self.elev_fn = name + '_' + self.elev_vn + '.nc'
-            # Variable filepaths
-            self.var_fp = pygem_prms.cmip6_fp_prefix + name + '/'
-            self.fx_fp = pygem_prms.cmip6_fp_prefix + name + '/'
-            # Extra information
-            self.timestep = pygem_prms.timestep
-            self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-            self.rgi_lon_colname=pygem_prms.rgi_lon_colname
-            self.scenario = scenario
+        # If multiple realizations from each model+scenario are being used,
+        #   then self.realization = realization. 
+        # Otherwise, the realization attribute is not considered for single 
+        #   realization model+scenario simulations.
+        if realization is not None:
+            self.realization = realization
+            
+            # Set parameters for CESM2 Large Ensemble
+            if self.name == 'smbb.f09_g17.LE2':
+                # Standardized CESM2 Large Ensemble format (GCM/SSP)
+                # Variable names
+                self.temp_vn = 'tas'
+                self.prec_vn = 'pr'
+                self.elev_vn = 'orog'
+                self.lat_vn = 'lat'
+                self.lon_vn = 'lon'
+                self.time_vn = 'time'
+                # Variable filenames
+                self.temp_fn = self.temp_vn + '_mon_' + scenario + '_' + name + '-' + realization + '.cam.h0.1980-2100.nc'
+                self.prec_fn = self.prec_vn + '_mon_' + scenario + '_' + name + '-' + realization + '.cam.h0.1980-2100.nc'
+                self.elev_fn = self.elev_vn + '_fx_' + scenario + '_' + name + '.cam.h0.nc'
+                # Variable filepaths
+                self.var_fp = pygem_prms.cesm2_fp_var_prefix + scenario + pygem_prms.cesm2_fp_var_ending
+                self.fx_fp = pygem_prms.cesm2_fp_fx_prefix + scenario + pygem_prms.cesm2_fp_fx_ending
+                # Extra information
+                self.timestep = pygem_prms.timestep
+                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.scenario = scenario
+                
+            # Set parameters for GFDL SPEAR Large Ensemble
+            elif self.name == 'GFDL-SPEAR-MED':
+                # Standardized GFDL SPEAR Large Ensemble format (GCM/SSP)
+                # Variable names
+                self.temp_vn = 'tas'
+                self.prec_vn = 'pr'
+                self.elev_vn = 'zsurf'
+                self.lat_vn = 'lat'
+                self.lon_vn = 'lon'
+                self.time_vn = 'time'
+                # Variable filenames
+                self.temp_fn = self.temp_vn + '_mon_' + scenario + '_' + name + '-' + realization + 'i1p1f1_gr3_1980-2100.nc'
+                self.prec_fn = self.prec_vn + '_mon_' + scenario + '_' + name + '-' + realization + 'i1p1f1_gr3_1980-2100.nc'
+                self.elev_fn = self.elev_vn + '_fx_' + scenario + '_' + name + '.nc'
+                # Variable filepaths
+                self.var_fp = pygem_prms.gfdl_fp_var_prefix + scenario + pygem_prms.gfdl_fp_var_ending
+                self.fx_fp = pygem_prms.gfdl_fp_fx_prefix + scenario + pygem_prms.gfdl_fp_fx_ending
+                # Extra information
+                self.timestep = pygem_prms.timestep
+                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.scenario = scenario
+            
+        else:
+            self.realization = []
+            
+            # Set parameters for ERA5, ERA-Interim, and CMIP5 netcdf files
+            if self.name == 'ERA5':
+                # Variable names
+                self.temp_vn = 't2m'
+                self.tempstd_vn = 't2m_std'
+                self.prec_vn = 'tp'
+                self.elev_vn = 'z'
+                self.lat_vn = 'latitude'
+                self.lon_vn = 'longitude'
+                self.time_vn = 'time'
+                self.lr_vn = 'lapserate'
+                # Variable filenames
+                self.temp_fn = pygem_prms.era5_temp_fn
+                self.tempstd_fn = pygem_prms.era5_tempstd_fn
+                self.prec_fn = pygem_prms.era5_prec_fn
+                self.elev_fn = pygem_prms.era5_elev_fn
+                self.lr_fn = pygem_prms.era5_lr_fn
+                # Variable filepaths
+                self.var_fp = pygem_prms.era5_fp
+                self.fx_fp = pygem_prms.era5_fp
+                # Extra information
+                self.timestep = pygem_prms.timestep
+                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                
+            elif self.name == 'ERA-Interim':
+                # Variable names
+                self.temp_vn = 't2m'
+                self.prec_vn = 'tp'
+                self.elev_vn = 'z'
+                self.lat_vn = 'latitude'
+                self.lon_vn = 'longitude'
+                self.time_vn = 'time'
+                self.lr_vn = 'lapserate'
+                # Variable filenames
+                self.temp_fn = pygem_prms.eraint_temp_fn
+                self.prec_fn = pygem_prms.eraint_prec_fn
+                self.elev_fn = pygem_prms.eraint_elev_fn
+                self.lr_fn = pygem_prms.eraint_lr_fn
+                # Variable filepaths
+                self.var_fp = pygem_prms.eraint_fp
+                self.fx_fp = pygem_prms.eraint_fp
+                # Extra information
+                self.timestep = pygem_prms.timestep
+                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                
+            # Standardized CMIP5 format (GCM/RCP)
+            elif 'rcp' in scenario:
+                # Variable names
+                self.temp_vn = 'tas'
+                self.prec_vn = 'pr'
+                self.elev_vn = 'orog'
+                self.lat_vn = 'lat'
+                self.lon_vn = 'lon'
+                self.time_vn = 'time'
+                # Variable filenames
+                self.temp_fn = self.temp_vn + '_mon_' + name + '_' + scenario + '_r1i1p1_native.nc'
+                self.prec_fn = self.prec_vn + '_mon_' + name + '_' + scenario + '_r1i1p1_native.nc'
+                self.elev_fn = self.elev_vn + '_fx_' + name + '_' + scenario + '_r0i0p0.nc'
+                # Variable filepaths
+                self.var_fp = pygem_prms.cmip5_fp_var_prefix + scenario + pygem_prms.cmip5_fp_var_ending
+                self.fx_fp = pygem_prms.cmip5_fp_fx_prefix + scenario + pygem_prms.cmip5_fp_fx_ending
+                # Extra information
+                self.timestep = pygem_prms.timestep
+                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.scenario = scenario
+            
+            # Standardized CMIP6 format (GCM/SSP)
+            elif 'ssp' in scenario:
+                # Variable names
+                self.temp_vn = 'tas'
+                self.prec_vn = 'pr'
+                self.elev_vn = 'orog'
+                self.lat_vn = 'lat'
+                self.lon_vn = 'lon'
+                self.time_vn = 'time'
+                # Variable filenames
+                self.temp_fn = name + '_' + scenario + '_r1i1p1f1_' + self.temp_vn + '.nc'
+                self.prec_fn = name + '_' + scenario + '_r1i1p1f1_' + self.prec_vn + '.nc'
+                self.elev_fn = name + '_' + self.elev_vn + '.nc'
+                # Variable filepaths
+                self.var_fp = pygem_prms.cmip6_fp_prefix + name + '/'
+                self.fx_fp = pygem_prms.cmip6_fp_prefix + name + '/'
+                # Extra information
+                self.timestep = pygem_prms.timestep
+                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.scenario = scenario
             
             
     def importGCMfxnearestneighbor_xarray(self, filename, vn, main_glac_rgi):
