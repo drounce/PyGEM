@@ -108,8 +108,8 @@ def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_tab
     if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
         bc_temp = gcm_temp
     else:
-        bc_period = (pygem_prms.gcm_bc_startyear - pygem_prms.ref_startyear)*12
-        sim_period = ((pygem_prms.gcm_bc_endyear+1) - pygem_prms.ref_startyear)*12
+        bc_period = (pygem_prms.gcm_startyear - pygem_prms.ref_startyear)*12
+        sim_period = ((pygem_prms.gcm_endyear+1) - pygem_prms.ref_startyear)*12
         bc_temp = gcm_temp[:,bc_period:sim_period]
 
     # Monthly temperature bias adjusted according to monthly average
@@ -195,8 +195,8 @@ def prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_tab
     if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
         bc_prec = gcm_prec
     else:
-        bc_period = (pygem_prms.gcm_bc_startyear - pygem_prms.ref_startyear)*12
-        sim_period = ((pygem_prms.gcm_bc_endyear+1) - pygem_prms.ref_startyear)*12
+        bc_period = (pygem_prms.gcm_startyear - pygem_prms.ref_startyear)*12
+        sim_period = ((pygem_prms.gcm_endyear+1) - pygem_prms.ref_startyear)*12
         bc_prec = gcm_prec[:,bc_period:sim_period]
     
     # Bias adjusted precipitation accounting for differences in monthly mean
@@ -264,8 +264,8 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
         bc_prec = gcm_prec
     else:
-        bc_period = (pygem_prms.gcm_bc_startyear - pygem_prms.ref_startyear)*12
-        sim_period = ((pygem_prms.gcm_bc_endyear+1) - pygem_prms.ref_startyear)*12
+        bc_period = (pygem_prms.gcm_startyear - pygem_prms.ref_startyear)*12
+        sim_period = ((pygem_prms.gcm_endyear+1) - pygem_prms.ref_startyear)*12
         bc_prec = gcm_prec[:,bc_period:sim_period]
     
     # Bias adjusted precipitation accounting for differences in monthly mean
@@ -369,8 +369,8 @@ def temp_biasadj_QDM(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table,
     if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
         bc_temp = gcm_temp
     else:
-        bc_period = (pygem_prms.gcm_bc_startyear - pygem_prms.ref_startyear)*12
-        sim_period = ((pygem_prms.gcm_bc_endyear+1) - pygem_prms.ref_startyear)*12
+        bc_period = (pygem_prms.gcm_startyear - pygem_prms.ref_startyear)*12
+        sim_period = ((pygem_prms.gcm_endyear+1) - pygem_prms.ref_startyear)*12
         bc_temp = gcm_temp[:,bc_period:sim_period]
     
     # create an empty array for the bias-corrected GCM data
@@ -472,8 +472,8 @@ def prec_biasadj_QDM(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table,
     if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
         bc_prec = gcm_prec
     else:
-        bc_period = (pygem_prms.gcm_bc_startyear - pygem_prms.ref_startyear)*12
-        sim_period = ((pygem_prms.gcm_bc_endyear+1) - pygem_prms.ref_startyear)*12
+        bc_period = (pygem_prms.gcm_startyear - pygem_prms.ref_startyear)*12
+        sim_period = ((pygem_prms.gcm_endyear+1) - pygem_prms.ref_startyear)*12
         bc_prec = gcm_prec[:,bc_period:sim_period]
         
     # create an empty array for the bias-corrected GCM data
