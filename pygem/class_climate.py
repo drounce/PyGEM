@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 # Local libraries
-#import pygem.params as pygem_prms
 import pygem_input as pygem_prms
 
 
