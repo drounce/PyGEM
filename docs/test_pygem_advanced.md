@@ -19,10 +19,10 @@ Command line considerations:
 <br>Look at arguments in getparser() function for additional command line options, which include options for running in parallel (i.e., we set option_parallels=0 to turn this option off), debugging, etc.
 ```
 If successful, the script will run without errors and the following datasets will be generated:
-* ../Output/calibration/15.03733-modelprms_dict.pkl
-* ../emulator/sims/15.03733-100_emulator_sims.csv
-* ../emulator/models/‘15.03733-emulator-mb_mwea.pth
-* ../emulator/models/‘15.03733-emulator-mb_mwea_extra.pkl
+* ../Output/calibration/15/15.03733-modelprms_dict.pkl
+* ../emulator/sims/15/15.03733-100_emulator_sims.csv
+* ../emulator/models/15/15.03733-emulator-mb_mwea.pth
+* ../emulator/models/15/15.03733-emulator-mb_mwea_extra.pkl
 
 These contain the calibration data, simulations used to create the emulator, and information needed to recreate the emulator.
 

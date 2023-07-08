@@ -24,7 +24,18 @@ git clone https://github.com/drounce/PyGEM.git
 The directory structure here is important. The cloned <em>PyGEM</em> directory should be on the same level as the <em>PyGEM-scripts</em>.
 ```
 
-### Advanced environment: PyMC2 and PyTorch
+### Advanced environment: GPyTorch (emulator only)
+If you want to use the emulators additional packages are required. The simplest way to construct this environment is to add <em>- gpytorch</em> to the oggm_env.yml. Then create the environment using:
+```
+conda env create -f oggm_env_wemulator.yml
+```
+
+The only way to find out if your package dependencies work is to test it by running the model. Make sure to install PyGEM-Scripts and then [test the model](test_model_target).
+
+**If your environment is not set up properly, errors will arise related to missing modules. We recommend that you work through adding the missing modules and use StackOverflow to identify any additional debugging issues related to potential missing modules or module dependencies.** As of July 2023, adding GPyTorch to OGGM's existing environment was quite simple using the .yml file provided by [OGGM](https://docs.oggm.org/en/stable/installing-oggm.html).
+
+
+### Advanced environment: PyMC2 and GPyTorch
 If you want to use the emulators or Bayesian inference associated with PyGEM additional packages are required.
 
 ```{warning}

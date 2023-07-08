@@ -199,7 +199,6 @@ class PyGEMMassBalance(MassBalanceModel):
         mb : np.array
             mass balance for each bin [m ice per second]
         """
-
         year = int(year)
         if self.repeat_period:
             year = year % (pygem_prms.gcm_endyear - pygem_prms.gcm_startyear)
@@ -242,7 +241,7 @@ class PyGEMMassBalance(MassBalanceModel):
 
         if self.glacier_area_initial.sum() > 0:
 #        if len(glac_idx_t0) > 0:
-
+    
             # Surface type [0=off-glacier, 1=ice, 2=snow, 3=firn, 4=debris]
             if year == 0:
                 self.surfacetype, self.firnline_idx = self._surfacetypebinsinitial(self.heights)
@@ -261,11 +260,7 @@ class PyGEMMassBalance(MassBalanceModel):
                 # AIR TEMPERATURE: Downscale the gcm temperature [deg C] to each bin
                 if pygem_prms.option_temp2bins == 1:
                     # Downscale using gcm and glacier lapse rates
-                    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange
-                    
-#                    print('----- debug -----')
-#                    print('year:', year)                    
-                    
+                    #  T_bin = T_gcm + lr_gcm * (z_ref - z_gcm) + lr_glac * (z_bin - z_ref) + tempchange               
                     self.bin_temp[:,12*year:12*(year+1)] = (self.glacier_gcm_temp[12*year:12*(year+1)] +
                          self.glacier_gcm_lrgcm[12*year:12*(year+1)] *
                          (self.glacier_rgi_table.loc[pygem_prms.option_elev_ref_downscale] - self.glacier_gcm_elev) +
@@ -312,7 +307,7 @@ class PyGEMMassBalance(MassBalanceModel):
                                                            bin_precsnow[glac_idx_t0,month].max()) &
                                                           (bin_precsnow[glac_idx_upper25,month] != 0)], month] = (
                                     0.875 * bin_precsnow[glac_idx_t0,month].max())
-
+                                                                                              
                 # Separate total precipitation into liquid (bin_prec) and solid (bin_acc)
                 if pygem_prms.option_accumulation == 1:
                     # if temperature above threshold, then rain

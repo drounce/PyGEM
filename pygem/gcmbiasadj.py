@@ -49,7 +49,7 @@ def monthly_std_2darray(x):
 
     
 def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table, 
-                        ref_spinupyears=0, gcm_spinupyears=0):
+                        ref_spinupyears=0, gcm_spinupyears=0, debug=False):
     """
     Huss and Hock (2015) temperature bias correction based on mean and interannual variability
     
@@ -138,12 +138,14 @@ def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_tab
             gcm_temp_biasadj[:,gcm_subset_idx_start:gcm_subset_idx_end+1][:,ref_spinupyears*12:])
 
     if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
-        print((np.mean(gcm_temp_biasadj_subset, axis=1) - np.mean(ref_temp[:,ref_spinupyears*12:], axis=1)))
+        if debug:
+            print((np.mean(gcm_temp_biasadj_subset, axis=1) - np.mean(ref_temp[:,ref_spinupyears*12:], axis=1)))
         assert np.max(np.abs(np.mean(gcm_temp_biasadj_subset, axis=1) - 
                              np.mean(ref_temp[:,ref_spinupyears*12:], axis=1))) < 1, (
                 'Error with gcm temperature bias adjustment: mean ref and gcm temps differ by more than 1 degree')
     else:
-        print((np.mean(gcm_temp_biasadj_subset, axis=1) - np.mean(ref_temp[:,ref_spinupyears*12:], axis=1))) 
+        if debug:
+            print((np.mean(gcm_temp_biasadj_subset, axis=1) - np.mean(ref_temp[:,ref_spinupyears*12:], axis=1))) 
         
     return gcm_temp_biasadj, gcm_elev_biasadj
 
@@ -249,6 +251,8 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     ref_prec_nospinup = ref_prec[:,ref_spinupyears*12:]
     gcm_prec_nospinup = gcm_prec_subset[:,gcm_spinupyears*12:]
     
+    print('here:', ref_prec_nospinup.shape, gcm_prec_nospinup.shape)
+    
     # Roll months so they are aligned with simulation months
     roll_amt = -1*(12 - gcm_subset_idx_start%12)
     
@@ -257,6 +261,9 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     ref_prec_monthly_avg = np.roll(monthly_avg_2darray(ref_prec_nospinup), roll_amt, axis=1)
     gcm_prec_monthly_avg = np.roll(monthly_avg_2darray(gcm_prec_nospinup), roll_amt, axis=1)
     bias_adj_prec_monthly = ref_prec_monthly_avg / gcm_prec_monthly_avg
+    
+    print(bias_adj_prec_monthly.shape)
+    print(gcm_prec.shape)
     
     # if/else statement for whether or not the full GCM period is the same as the simulation period  
     #   create GCM subset for applying bias-correction (e.g., 2000-2100),
@@ -267,6 +274,8 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
         bc_period = (pygem_prms.gcm_startyear - pygem_prms.ref_startyear)*12
         sim_period = ((pygem_prms.gcm_endyear+1) - pygem_prms.ref_startyear)*12
         bc_prec = gcm_prec[:,bc_period:sim_period]
+    
+    print(bc_prec.shape)
     
     # Bias adjusted precipitation accounting for differences in monthly mean
     gcm_prec_biasadj_raw = bc_prec * np.tile(bias_adj_prec_monthly, int(bc_prec.shape[1]/12))

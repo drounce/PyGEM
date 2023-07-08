@@ -17,7 +17,7 @@ Command line considerations:
 <br>Look at arguments in getparser() function for additional command line options, which include options for running in parallel (i.e., we set option_parallels=0 to turn this option off), debugging, etc.
 ```
 If successful, the script will run without errors and the following will be generated:
-* ../Output/calibration/15.03733-modelprms_dict.pkl
+* ../Output/calibration/15/15.03733-modelprms_dict.pkl
 
 This is a .pkl file that contains the calibration data.
 
