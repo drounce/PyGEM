@@ -29,31 +29,37 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
     dates_table : pd.DataFrame
         table where each row is a timestep and each column is attributes (date, year, wateryear, etc.) of that timestep
     """
-    # Include spinup time in start year
-    startyear_wspinup = startyear - spinupyears
-    # Convert start year into date depending on option_wateryear
-    if option_wateryear == 'hydro':
-        startdate = str(startyear_wspinup - 1) + '-10-01'
-        enddate = str(endyear) + '-09-30'
-    elif option_wateryear == 'calendar':
-        startdate = str(startyear_wspinup) + '-01-01'
-        enddate = str(endyear) + '-12-31'
-    elif option_wateryear == 'custom':
-        startdate = str(startyear_wspinup) + '-' + pygem_prms.startmonthday
-        enddate = str(endyear) + '-' + pygem_prms.endmonthday
+    # Energy balance takes input date+hour, so extract year
+    if not pygem_prms.run_eb:
+        # Include spinup time in start year
+        startyear_wspinup = startyear - spinupyears
+        # Convert start year into date depending on option_wateryear
+        if option_wateryear == 'hydro':
+            startdate = str(startyear_wspinup - 1) + '-10-01'
+            enddate = str(endyear) + '-09-30'
+        elif option_wateryear == 'calendar':
+            startdate = str(startyear_wspinup) + '-01-01'
+            enddate = str(endyear) + '-12-31'
+        elif option_wateryear == 'custom':
+            startdate = str(startyear_wspinup) + '-' + pygem_prms.startmonthday
+            enddate = str(endyear) + '-' + pygem_prms.endmonthday
+        else:
+            assert True==False, "\n\nError: Select an option_wateryear that exists.\n"
+        # Convert input format into proper datetime format
+        startdate = datetime(*[int(item) for item in startdate.split('-')])
+        enddate = datetime(*[int(item) for item in enddate.split('-')])
+        if pygem_prms.timestep == 'monthly':
+            startdate = startdate.strftime('%Y-%m')
+            enddate = enddate.strftime('%Y-%m')
+        elif pygem_prms.timestep == 'daily':
+            startdate = startdate.strftime('%Y-%m-%d')
+            enddate = enddate.strftime('%Y-%m-%d')
     else:
-        assert True==False, "\n\nError: Select an option_wateryear that exists.\n"
-    # Convert input format into proper datetime format
-    startdate = datetime(*[int(item) for item in startdate.split('-')])
-    enddate = datetime(*[int(item) for item in enddate.split('-')])
-    if pygem_prms.timestep == 'monthly':
-        startdate = startdate.strftime('%Y-%m')
-        enddate = enddate.strftime('%Y-%m')
-    elif pygem_prms.timestep == 'daily':
-        startdate = startdate.strftime('%Y-%m-%d')
-        enddate = enddate.strftime('%Y-%m-%d')
+        startdate = startyear
+        enddate = endyear
+
     # Generate dates_table using date_range function
-    if pygem_prms.timestep == 'monthly':
+    if pygem_prms.timestep == 'monthly' and not pygem_prms.run_eb:
         # Automatically generate dates from start date to end data using a monthly frequency (MS), which generates
         # monthly data using the 1st of each month
         dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS')})
@@ -68,7 +74,7 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
         if pygem_prms.option_leapyear == 0:
             mask1 = (dates_table['daysinmonth'] == 29)
             dates_table.loc[mask1,'daysinmonth'] = 28
-    elif pygem_prms.timestep == 'daily':
+    elif pygem_prms.timestep == 'daily' and not pygem_prms.run_eb:
         # Automatically generate daily (freq = 'D') dates
         dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='D')})
         # Extract attributes for dates_table
@@ -86,6 +92,28 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
             # Next, remove the 29th days from the dates
             mask2 = ((dates_table['month'] == 2) & (dates_table['day'] == 29))
             dates_table.drop(dates_table[mask2].index, inplace=True)
+    elif pygem_prms.run_eb:
+        # Automatically generate hourly (freq = 'h') dates
+        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='h')})
+        # Extract attributes for dates_table
+        dates_table['year'] = dates_table['date'].dt.year
+        dates_table['month'] = dates_table['date'].dt.month
+        dates_table['day'] = dates_table['date'].dt.day
+        dates_table['hour'] = dates_table['date'].dt.hour
+        dates_table['daysinmonth'] = dates_table['date'].dt.daysinmonth
+        dates_table['timestep'] = np.arange(len(dates_table['date']))
+        # Set date as index
+        dates_table.set_index('timestep', inplace=True)
+        # Remove leap year days if user selected this with option_leapyear
+        if pygem_prms.option_leapyear == 0:
+            # First, change 'daysinmonth' number
+            mask1 = dates_table['daysinmonth'] == 29
+            dates_table.loc[mask1,'daysinmonth'] = 28
+            # Next, remove the 29th days from the dates
+            mask2 = ((dates_table['month'] == 2) & (dates_table['day'] == 29))
+            dates_table.drop(dates_table[mask2].index, inplace=True)
+            dates_table['timestep'] = np.arange(len(dates_table['date']))
+            dates_table.set_index('timestep', inplace=True)
     else:
         print("\n\nError: Please select 'daily' or 'monthly' for gcm_timestep. Exiting model run now.\n")
         exit()
@@ -93,9 +121,8 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
     # Water year for northern hemisphere using USGS definition (October 1 - September 30th),
     # e.g., water year for 2000 is from October 1, 1999 - September 30, 2000
     dates_table['wateryear'] = dates_table['year']
-    for step in range(dates_table.shape[0]):
-        if dates_table.loc[step, 'month'] >= 10:
-            dates_table.loc[step, 'wateryear'] = dates_table.loc[step, 'year'] + 1
+    dates_table['wateryear'] = dates_table['wateryear'].where(dates_table['month']<10,dates_table['year']+1,axis=0)
+    
     # Add column for seasons
     # create a season dictionary to assist groupby functions
     seasondict = {}

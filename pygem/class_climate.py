@@ -138,6 +138,40 @@ class GCM():
                 self.timestep = pygem_prms.timestep
                 self.rgi_lat_colname=pygem_prms.rgi_lat_colname
                 self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+
+            if self.name == 'ERA5-hourly' and pygem_prms.run_eb:
+                # Variable names for energy balance
+                self.temp_vn = 't2m'
+                self.dtemp_vn = 'd2m'
+                self.sp_vn = 'sp'
+                self.prec_vn = 'tp'
+                self.elev_vn = 'z'
+                self.tcc_vn = 'tcc'
+                self.surfrad_vn = 'ssrd'
+                self.uwind_vn = 'u10'
+                self.vwind_vn = 'v10'
+                self.lat_vn = 'latitude'
+                self.lon_vn = 'longitude'
+                self.time_vn = 'time'
+                # self.lr_vn = 'lapserate'
+                # Variable filenames
+                self.temp_fn = 'ERA5_temp_hourly.nc'
+                self.dtemp_fn = 'ERA5_dtemp_hourly.nc'
+                self.sp_fn = 'ERA5_sp_hourly.nc'
+                self.tcc_fn = 'ERA5_tcc_hourly.nc'
+                self.surfrad_fn = 'ERA5_SWin_hourly.nc'
+                self.vwind_fn = 'ERA5_vwind_hourly.nc'
+                self.uwind_fn = 'ERA5_uwind_hourly.nc'
+                self.prec_fn = 'ERA5_precip_hourly.nc'
+                self.elev_fn = pygem_prms.era5_elev_fn
+                # self.lr_fn = 'lapserates_hourly.nc' 
+                # Variable filepaths
+                self.var_fp = pygem_prms.era5h_fp
+                self.fx_fp = pygem_prms.era5h_fp
+                # Extra information
+                self.timestep = pygem_prms.timestep
+                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
                 
             # Standardized CMIP5 format (GCM/RCP)
             elif 'rcp' in scenario:
@@ -194,7 +228,7 @@ class GCM():
         ----------
         filename : str
             filename of variable
-        variablename : str
+        vn : str
             variable name
         main_glac_rgi : pandas dataframe
             dataframe containing relevant rgi glacier information
@@ -300,7 +334,7 @@ class GCM():
         assert years_check.min() <= dates_table.year.min(), self.name + ' does not provide data back to ' + str(dates_table.year.min())
         
         # Determine the correct time indices
-        if self.timestep == 'monthly':
+        if self.timestep == 'monthly' and not pygem_prms.run_eb:
             start_idx = (np.where(pd.Series(data[self.time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
                                   dates_table['date'].apply(lambda x: x.strftime('%Y-%m'))[0]))[0][0]
             end_idx = (np.where(pd.Series(data[self.time_vn]).apply(lambda x: x.strftime('%Y-%m')) == 
@@ -319,13 +353,23 @@ class GCM():
             #  dates_table.shape[0] - 1 is used to access the last date
             #  The final indexing [0][0] is used to access the value, which is inside of an array containing extraneous 
             #  information
-        elif self.timestep == 'daily':
+        elif self.timestep == 'daily' and not pygem_prms.run_eb:
             start_idx = (np.where(pd.Series(data[self.time_vn])
                                   .apply(lambda x: x.strftime('%Y-%m-%d')) == dates_table['date']
                                   .apply(lambda x: x.strftime('%Y-%m-%d'))[0]))[0][0]
             end_idx = (np.where(pd.Series(data[self.time_vn])
                                 .apply(lambda x: x.strftime('%Y-%m-%d')) == dates_table['date']
                                 .apply(lambda x: x.strftime('%Y-%m-%d'))[dates_table.shape[0] - 1]))[0][0]
+        elif pygem_prms.run_eb:
+            #format start and end dates to match that of the netcdf time variable
+            #netCDF from ERA5 hourly should be datetime64 (numpy) so this code will just do that rather than check
+            #what the format actually is
+            assert data[self.time_vn].dtype != 'datetime64[sn]', 'check GCM time format'
+            start_formatted = dates_table.loc[0,'date'].to_datetime64()
+            end_formatted = dates_table.loc[dates_table.shape[0]-1,'date'].to_datetime64()
+            start_idx = np.where(data[self.time_vn].values == start_formatted)[0][0]
+            end_idx = np.where(data[self.time_vn].values == end_formatted)[0][0]
+        glac_variable_series = np.zeros((main_glac_rgi.shape[0],end_idx-start_idx+1))
         # Extract the time series
         time_series = pd.Series(data[self.time_vn][start_idx:end_idx+1]) 
         # Find Nearest Neighbor
@@ -338,6 +382,10 @@ class GCM():
                 lon_nearidx = latlon_nearidx[1]
                 glac_variable_series[glac,:] = (
                         data[vn][start_idx:end_idx+1, latlon_nearidx[0], latlon_nearidx[1]].values)
+        elif pygem_prms.run_eb:
+            #this code is for using the data that is already selected to Gulkana; thus nearest neighbor is unnecessary
+            for glac in range(main_glac_rgi.shape[0]):
+                glac_variable_series[glac,:] = data[vn][start_idx:end_idx+1,0,0].values
         else:
             #  argmin() finds the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
             #  extract the position's value as opposed to having an array
@@ -388,10 +436,56 @@ class GCM():
             # Else check the variables units
             else:
                 print('Check units of precipitation from GCM is meters per day.')
-            if self.timestep == 'monthly' and self.name != 'COAWST':
+            if self.timestep == 'monthly' and self.name != 'COAWST' and not pygem_prms.run_eb:
                 # Convert from meters per day to meters per month (COAWST data already 'monthly accumulated precipitation')
                 if 'daysinmonth' in dates_table.columns:
                     glac_variable_series = glac_variable_series * dates_table['daysinmonth'].values[np.newaxis,:]
+        elif vn in ['sp','d2m','tcc','ssrd','u10','v10']:
+            # code in units check for these variables
+            print('!! Not checking units for any EB variables')
+            pass
         elif vn != self.lr_vn:
             print('Check units of air temperature or precipitation')
         return glac_variable_series, time_series
+    
+class AWS():
+    def __init__(self,fp,dates_table):
+        # Variable names for energy balance
+        self.temp_vn = 'temp'
+        self.prec_vn = 'tp'
+        self.wind_vn = 'wind'
+        self.winddir_vn = 'winddir'
+        self.dtemp_vn = 'dtemp'
+        self.rh_vn = 'rh'
+        self.sp_vn = 'sp'
+        self.elev_vn = 'z'
+        self.tcc_vn = 'tcc'
+        self.SWin_vn = 'SWin'
+        self.SWout_vn = 'SWout'
+        self.LWin_vn = 'LWin'
+        self.LWout_vn = 'LWout'
+        # File name
+        self.fn = fp
+        df = pd.read_csv(fp,index_col=0)
+        vars = df.columns
+        ntimesteps = np.shape(dates_table)[0]
+        data_start = pd.to_datetime(df.index.to_numpy()[0])
+        data_end = pd.to_datetime(df.index.to_numpy()[-1])
+        df = df.set_index(pd.date_range(data_start,data_end,freq='H'))
+        df = df.loc[dates_table.date[0]:dates_table.date.to_numpy()[-1]]
+        df = df.interpolate('time')
+        
+        self.temp = df[self.temp_vn].to_numpy()
+        self.dtemp = df[self.dtemp_vn].to_numpy()
+        self.tp = df[self.temp_vn].to_numpy()
+        self.rh = df[self.rh_vn].to_numpy()
+        self.SWin = df[self.SWin_vn].to_numpy()
+        self.SWout = df[self.SWout_vn].to_numpy()
+        self.LWin = df[self.LWin_vn].to_numpy()
+        self.LWout = df[self.LWout_vn].to_numpy()
+        self.wind = df[self.wind_vn].to_numpy()
+        self.winddir = df[self.winddir_vn].to_numpy()
+        self.sp = df[self.sp_vn].to_numpy()
+        self.tcc = df[self.tcc_vn].to_numpy()
+        self.elev = df[self.elev_vn].to_numpy()[0]
+        return
