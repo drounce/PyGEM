@@ -4,7 +4,10 @@ import numpy as np
 import pandas as pd
 import netCDF4
 # Local libraries
-import pygem_input as pygem_prms
+try:
+    import pygem_input as pygem_prms
+except:
+    import pygem.pygem_input as pygem_prms
 from oggm import cfg, utils
 from oggm import workflow
 #from oggm import tasks

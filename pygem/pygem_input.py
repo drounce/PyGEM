@@ -6,46 +6,50 @@ import os
 import numpy as np
 import pandas as pd
 # Local libaries
-#from pygem.utils._funcs_selectglaciers import get_same_glaciers, glac_num_fromrange, glac_fromcsv, glac_wo_cal
+from pygem.utils._funcs_selectglaciers import get_same_glaciers, glac_num_fromrange, glac_fromcsv, glac_wo_cal
 
 
 #%% ===== MODEL SETUP DIRECTORY =====
 main_directory = os.getcwd()
 # Output directory
 output_filepath = main_directory + '/../Output/'
-model_run_date = 'January 30 2021'
+model_run_date = 'July 2 2023'
 
 #%% ===== GLACIER SELECTION =====
-rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
-rgi_regionsO2 = [2]
-#rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
+rgi_regionsO1 = [13]                 # 1st order region number (RGI V6.0)
+rgi_regionsO2 = 'all'               # 2nd order region number (RGI V6.0)
 # RGI glacier number (RGI V6.0)
 #  Three options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
 #                 (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 #                 (3) use one of the functions from  utils._funcs_selectglaciers
 rgi_glac_number = 'all'
-#rgi_glac_number = ['00001']
-#rgi_glac_number = glac_num_fromrange(1,48)
+# rgi_glac_number = glac_num_fromrange(1,10)
 
 glac_no_skip = None
-#glac_no = None
-#glac_no = ['01.00570']
-glac_no = ['08.00213']
+glac_no = None 
+glac_no = ['15.03733'] # Khumbu Glacier
+# glac_no = ['1.10689'] # Columbia Glacier
+# glac_no = ['1.03622'] # LeConte Glacier
 
 if glac_no is not None:
     rgi_regionsO1 = sorted(list(set([int(x.split('.')[0]) for x in glac_no])))
 
+
+min_glac_area_km2 = 0                 # Filter for size of glaciers to include (km2). Set to 0 to include all.
+
 # Types of glaciers to include (True) or exclude (False)
 include_landterm = True                # Switch to include land-terminating glaciers
 include_laketerm = True                # Switch to include lake-terminating glaciers
-include_tidewater = True               # Switch to include tidewater glaciers
-ignore_calving = False                 # Switch to ignore calving and treat tidewater glaciers as land-terminating
+include_tidewater = True               # Switch to include marine-terminating glaciers
+include_calving = True                 # Switch to ignore calving and treat tidewater glaciers as land-terminating
 
-oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/'
-logging_level = 'DEBUG' # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recommended WORKFLOW)
+oggm_base_url = 'https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L1-L2_files/elev_bands/'
+logging_level = 'WORKFLOW'             # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recommended WORKFLOW)
+oggm_border = 240                      # 10, 80, 160, 240 (recommend 240 if expecting glaciers for long runs where glaciers may grow)
 
-#%% ===== CLIMATE DATA ===== 
+#%% ===== CLIMATE DATA AND TIME PERIODS ===== 
 # Reference period runs (reference period refers to the calibration period)
+#   This will typically vary between 1980-present
 ref_gcm_name = 'ERA5'               # reference climate dataset
 ref_startyear = 2000                # first year of model run (reference dataset)
 ref_endyear = 2019                  # last year of model run (reference dataset)
@@ -54,12 +58,13 @@ ref_spinupyears = 0                 # spin up years
 if ref_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to ensure spinup years are correctly accounted for in output files'
 
-# Simulation runs (refers to period of simulation and needed separately from reference year to account for bias adjustments)
-gcm_startyear = 2000            # first year of model run (simulation dataset)
-gcm_endyear = 2019              # last year of model run (simulation dataset)
-gcm_wateryear = 'calendar'      # options for years: 'calendar', 'hydro', 'custom'
-gcm_spinupyears = 0             # spin up years for simulation (output not set up for spinup years at present)
-constantarea_years = 0          # number of years to not let the area or volume change
+# GCM period used for simulation run 
+gcm_startyear = 2000                # first year of model run (simulation dataset)
+gcm_endyear = 2100                  # last year of model run (simulation dataset)
+gcm_wateryear = 'calendar'          # options for years: 'calendar', 'hydro', 'custom'
+gcm_bc_startyear = 1981             # first year used for GCM bias correction
+gcm_spinupyears = 0                 # spin up years for simulation (output not set up for spinup years at present)
+constantarea_years = 0              # number of years to not let the area or volume change
 if gcm_spinupyears > 0:
     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
 
@@ -75,11 +80,9 @@ if run_eb:
     gcm_startyear = 1980
     gcm_endyear = 2020
 
-
 #%% ===== CALIBRATION OPTIONS =====
-# Calibration option ('emulator', 'MCMC', 'HH2015', 'HH2015mod')
-#option_calibration = 'MCMC'
-option_calibration = 'emulator'
+# Calibration option ('emulator', 'MCMC', 'MCMC_fullsim' 'HH2015', 'HH2015mod')
+option_calibration = 'MCMC'
 
 # Prior distribution (specify filename or set equal to None)
 priors_reg_fullfn = main_directory + '/../Output/calibration/priors_region.csv'
@@ -137,7 +140,7 @@ elif option_calibration == 'emulator':
     ftol_opt = 1e-6                 # tolerance for SciPy optimization scheme
     eps_opt = 0.01                  # epsilon (adjust variables for jacobian) for SciPy optimization scheme
     
-elif option_calibration == 'MCMC':
+elif option_calibration in ['MCMC', 'MCMC_fullsim']:
     emulator_fp = output_filepath + 'emulator/'
     emulator_sims = 100
     tbias_step = 1
@@ -145,8 +148,10 @@ elif option_calibration == 'MCMC':
     option_areaconstant = True      # Option to keep area constant or evolve
     # Chain options
     n_chains = 1                    # number of chains (min 1, max 3)
-    mcmc_sample_no = 10000          # number of steps (10000 was found to be sufficient in HMA)
+    mcmc_sample_no = 10000         # number of steps (10000 was found to be sufficient in HMA)
     mcmc_burn_no = 200              # number of steps to burn-in (0 records all steps in chain)
+#    mcmc_sample_no = 100          # number of steps (10000 was found to be sufficient in HMA)
+#    mcmc_burn_no = 0              # number of steps to burn-in (0 records all steps in chain)
     mcmc_step = None                # step option (None or 'am')
     thin_interval = 10              # thin interval if need to reduce file size (best to leave at 1 if space allows)
     # Degree-day factor of snow distribution options
@@ -181,8 +186,8 @@ elif option_calibration == 'MCMC':
 # ----- Calibration Dataset -----
 # Hugonnet geodetic mass balance data
 hugonnet_fp = main_directory + '/../DEMs/Hugonnet2020/'
-hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
-#hugonnet_fn = 'df_pergla_global_20yr-filled-FAcorrected.csv'
+#hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
+hugonnet_fn = 'df_pergla_global_20yr-filled-FAcorrected.csv'
 if '-filled' in hugonnet_fn:
     hugonnet_mb_cn = 'mb_mwea'
     hugonnet_mb_err_cn = 'mb_mwea_err'
@@ -197,6 +202,10 @@ hugonnet_time1_cn = 't1'
 hugonnet_time2_cn = 't2'
 hugonnet_area_cn = 'area_km2'
 
+# ----- Frontal Ablation Dataset -----
+calving_fp = main_directory + '/../calving_data/analysis/'
+calving_fn = 'all-calving_cal_ind.csv'
+
 # ----- Ice thickness calibration parameter -----
 icethickness_cal_frac_byarea = 0.9  # Regional glacier area fraction that is used to calibrate the ice thickness
                                     #  e.g., 0.9 means only the largest 90% of glaciers by area will be used to calibrate
@@ -206,9 +215,16 @@ icethickness_cal_frac_byarea = 0.9  # Regional glacier area fraction that is use
 # Glacier dynamics scheme (options: 'OGGM', 'MassRedistributionCurves', None)
 option_dynamics = 'OGGM'
     
+# Bias adjustment option (options: 0, 1, 2, 3) 
+#  0: no adjustment
+#  1: new prec scheme and temp building on HH2015
+#  2: HH2015 methods
+#  3: quantile delta mapping
+option_bias_adjustment = 1
+
 # MCMC options
 if option_calibration == 'MCMC':
-    sim_iters = 50                  # number of simulations
+    sim_iters = 1                  # number of simulations
     sim_burn = 0                    # number of burn-in (if burn-in is done in MCMC sampling, then don't do here)
 else:
     sim_iters = 1                   # number of simulations
@@ -223,9 +239,6 @@ export_essential_data = True        # Export essential data (ex. mass balance co
 export_binned_thickness = True      # Export binned ice thickness
 export_binned_area_threshold = 0    # Area threshold for exporting binned ice thickness
 export_extra_vars = True            # Option to export extra variables (temp, prec, melt, acc, etc.)
-
-# Bias adjustment option (0: no adjustment, 1: new prec scheme and temp building on HH2015, 2: HH2015 methods)
-option_bias_adjustment = 1
 
 # OGGM glacier dynamics parameters
 if option_dynamics in ['OGGM', 'MassRedistributionCurves']:
@@ -261,10 +274,6 @@ lapserate = -0.0065                 # temperature lapse rate for both gcm to gla
 tsnow_threshold = 1                 # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
 calving_k = 0.7                     # frontal ablation rate [yr-1]
 
-# Frontal ablation calibrated file
-calving_fp = main_directory + '/../calving_data/analysis/'
-calving_fn = 'all-calving_cal_ind.csv'
-
 
 #%% ===== MASS BALANCE MODEL OPTIONS =====
 # Initial surface type options
@@ -294,7 +303,6 @@ option_accumulation = 2             # 1: single threshold, 2: threshold +/- 1 de
 # Ablation model options
 option_ablation = 1                 # 1: monthly temp, 2: superimposed daily temps enabling melt near 0 (HH2015)
 option_ddf_firn = 1                 # 0: ddf_firn = ddf_snow; 1: ddf_firn = mean of ddf_snow and ddf_ice
-ddfdebris = ddfice                  # add options for handling debris-covered glaciers
 
 # Refreezing model option (options: 'Woodward' or 'HH2015')
 #  Woodward refers to Woodward et al. 1997 based on mean annual air temperature
@@ -304,7 +312,6 @@ if option_refreezing == 'Woodward':
     rf_month = 10                   # refreeze month
 elif option_refreezing == 'HH2015':
     rf_layers = 5                   # number of layers for refreezing model (8 is sufficient - Matthias)
-#    rf_layers_max = 8               # number of layers to include for refreeze calculation
     rf_dz = 10/rf_layers            # layer thickness (m)
     rf_dsc = 3                      # number of time steps for numerical stability (3 is sufficient - Matthias)
     rf_meltcrit = 0.002             # critical amount of melt [m w.e.] for initializing refreezing module
@@ -314,7 +321,7 @@ elif option_refreezing == 'HH2015':
     option_rf_limit_meltsnow = 1
     
     
-#%% CLIMATE DATA
+#%% ===== CLIMATE DATA FILEPATHS AND FILENAMES =====
 # ERA5 (default reference climate data)
 if ref_gcm_name == 'ERA5':
     era5_fp = main_directory + '/../climate_data/ERA5/'
@@ -322,7 +329,7 @@ if ref_gcm_name == 'ERA5':
     era5_tempstd_fn = 'ERA5_tempstd_monthly.nc'
     era5_prec_fn = 'ERA5_totalprecip_monthly.nc'
     era5_elev_fn = 'ERA5_geopotential.nc'
-    era5_pressureleveltemp_fn = 'ERA5_pressureleveltemp_monthly.nc'
+    era5_pressureleveltemp_fn = 'ERA5_pressureleveltemp_monthly_2020_2023.nc'
     era5_lr_fn = 'ERA5_lapserates_monthly.nc'
     assert os.path.exists(era5_fp), 'ERA5 filepath does not exist'
     assert os.path.exists(era5_fp + era5_temp_fn), 'ERA5 temperature filepath does not exist'
@@ -363,6 +370,18 @@ cmip5_fp_fx_ending = '_r0i0p0_fx/'
 # CMIP6 (GCM data)
 cmip6_fp_prefix = main_directory + '/../climate_data/cmip6/'
 
+# CESM2 Large Ensemble (GCM data)
+cesm2_fp_var_prefix = main_directory + '/../climate_data/cesm2/'
+cesm2_fp_var_ending = '_mon/'
+cesm2_fp_fx_prefix = main_directory + '/../climate_data/cesm2/'
+cesm2_fp_fx_ending = '_fx/'
+
+# GFDL SPEAR Large Ensemble (GCM data)
+gfdl_fp_var_prefix = main_directory + '/../climate_data/gfdl/'
+gfdl_fp_var_ending = '_mon/'
+gfdl_fp_fx_prefix = main_directory + '/../climate_data/gfdl/'
+gfdl_fp_fx_ending = '_fx/'
+
 
 #%% ===== GLACIER DATA (RGI, ICE THICKNESS, ETC.) =====
 # ----- RGI DATA -----
@@ -390,6 +409,7 @@ hyps_data = 'OGGM'      # Hypsometry dataset (OGGM; Maussion etal 2019)
 if hyps_data == 'OGGM':
     oggm_gdir_fp = main_directory + '/../oggm_gdirs/'
     overwrite_gdirs = False
+    has_internet = True
 
 # Debris datasets
 if include_debris:
@@ -399,7 +419,7 @@ else:
     debris_fp = None
 
 
-#%% MODEL TIME FRAME DATA
+#%% ===== MODEL TIME PERIOD DETAILS =====
 # Models require complete data for each year such that refreezing, scaling, etc. can be calculated
 # Leap year option
 option_leapyear = 0         # 1: include leap year days, 0: exclude leap years so February always has 28 days
@@ -413,215 +433,8 @@ summer_month_start = 5      # first month of summer (for HMA summer is May 1 - S
 option_dates = 1            # 1: use dates from date table (first of each month), 2: dates from climate data
 timestep = 'monthly'        # time step ('monthly' only option at present)
 
-# Seasonal dictionaries for WGMS data that is not provided
-lat_threshold = 75
-# Winter (start/end) and Summer (start/end)
-monthdict = {'northernmost': [9, 5, 6, 8],
-             'north': [10, 4, 5, 9],
-             'south': [4, 9, 10, 3],
-             'southernmost': [3, 10, 11, 2]}
-# Latitude threshold
-# 01 - Alaska - < 75
-# 02 - W Can - < 75
-# 03 - N Can - > 74
-# 04 - S Can - < 74
-# 05 - Greenland - 60 - 80
-# 06 - Iceland - < 75
-# 07 - Svalbard - 70 - 80
-# 08 - Scandinavia - < 70
-# 09 - Russia - 72 - 82
-# 10 - N Asia - 46 - 77
 
-
-#%% CALIBRATION DATASETS
-mb_binned_fp = main_directory + '/../DEMs/mb_bins_all-20200430/'
-
-# ===== HUGONNET GEODETIC =====
-hugonnet_fp = main_directory + '/../DEMs/Hugonnet2020/'
-hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
-#hugonnet_fn = 'df_pergla_global_20yr-filled-FAcorrected.csv'
-if '-filled' in hugonnet_fn:
-    hugonnet_mb_cn = 'mb_mwea'
-    hugonnet_mb_err_cn = 'mb_mwea_err'
-    hugonnet_rgi_glacno_cn = 'RGIId'
-    hugonnet_mb_clim_cn = 'mb_mwea'
-    hugonnet_mb_clim_err_cn = 'mb_mwea_err'
-else:
-    hugonnet_mb_cn = 'dmdtda'
-    hugonnet_mb_err_cn = 'err_dmdtda'
-    hugonnet_rgi_glacno_cn = 'rgiid'
-hugonnet_time1_cn = 't1'
-hugonnet_time2_cn = 't2'
-hugonnet_area_cn = 'area_km2'
-
-# ===== SHEAN GEODETIC =====
-shean_fp = main_directory + '/../DEMs/Shean_2019_0213/'
-shean_fn = 'hma_mb_20190215_0815_std+mean_all_filled_bolch.csv'
-shean_rgi_glacno_cn = 'RGIId'
-shean_mb_cn = 'mb_mwea'
-shean_mb_err_cn = 'mb_mwea_sigma'
-shean_time1_cn = 't1'
-shean_time2_cn = 't2'
-shean_area_cn = 'area_m2'
-
-# ===== BERTHIER GEODETIC =====
-berthier_fp = main_directory + '/../DEMs/Berthier/output/'
-#berthier_fn = 'AK_all_20190913_wextrapolations_1980cheat.csv'
-berthier_fn = 'AK_all_20190913.csv'
-berthier_rgi_glacno_cn = 'RGIId'
-berthier_mb_cn = 'mb_mwea'
-berthier_mb_err_cn = 'mb_mwea_sigma'
-berthier_time1_cn = 't1'
-berthier_time2_cn = 't2'
-berthier_area_cn = 'area_km2'
-
-# ===== BRAUN GEODETIC =====
-braun_fp = main_directory + '/../DEMs/Braun/output/'
-braun_fn = 'braun_AK_all_20190924_wlarsen_mcnabb_best.csv'
-#braun_fn = 'braun_AK_all_20190924_wextrapolations.csv'
-#braun_fn = 'braun_AK_all_20190924.csv'
-braun_rgi_glacno_cn = 'RGIId'
-braun_mb_cn = 'mb_mwea'
-braun_mb_err_cn = 'mb_mwea_sigma'
-braun_time1_cn = 't1'
-braun_time2_cn = 't2'
-braun_area_cn = 'area_km2'
-
-# ===== BRUN GEODETIC =====
-brun_fp = main_directory + '/../DEMs/'
-brun_fn = 'Brun_Nature2017_MB_glacier-wide.csv'
-brun_rgi_glacno_cn = 'GLA_ID'
-brun_mb_cn = 'MB [m w.a a-1]'
-brun_mb_err_cn = 'err. on MB [m w.e a-1]'
-# NEED TO FINISH SETTING UP BRUN WITH CLASS_MBDATA
-
-# ===== MAUER GEODETIC =====
-mauer_fp = main_directory + '/../DEMs/'
-mauer_fn = 'Mauer_geoMB_HMA_1970s_2000_min80pctCov.csv'
-mauer_rgi_glacno_cn = 'RGIId'
-mauer_mb_cn = 'geoMassBal'
-mauer_mb_err_cn = 'geoMassBalSig'
-mauer_time1_cn = 't1'
-mauer_time2_cn = 't2'
-
-# ===== MCNABB GEODETIC =====
-mcnabb_fp = main_directory + '/../DEMs/McNabb_data/wgms_dv/'
-mcnabb_fn = 'McNabb_data_all_preprocessed.csv'
-mcnabb_rgiid_cn = 'RGIId'
-mcnabb_mb_cn = 'mb_mwea'
-mcnabb_mb_err_cn = 'mb_mwea_sigma'
-mcnabb_time1_cn = 'date0'
-mcnabb_time2_cn = 'date1'
-mcnabb_area_cn = 'area'
-
-# ===== LARSEN GEODETIC =====
-larsen_fp = main_directory + '/../DEMs/larsen/'
-larsen_fn = 'larsen2015_supplementdata_wRGIIds_v3.csv'
-larsen_rgiid_cn = 'RGIId'
-larsen_mb_cn = 'mb_mwea'
-larsen_mb_err_cn = 'mb_mwea_sigma'
-larsen_time1_cn = 'date0'
-larsen_time2_cn = 'date1'
-larsen_area_cn = 'area'
-
-# ===== WGMS =====
-wgms_datasets = ['wgms_d', 'wgms_ee']
-#wgms_datasets = ['wgms_d']
-wgms_fp = main_directory + '/../WGMS/DOI-WGMS-FoG-2018-06/'
-wgms_rgi_glacno_cn = 'glacno'
-wgms_obs_type_cn = 'obs_type'
-# WGMS lookup tables information
-wgms_lookup_fn = 'WGMS-FoG-2018-06-AA-GLACIER-ID-LUT.csv'
-rgilookup_fullfn = main_directory + '/../RGI/rgi60/00_rgi60_links/00_rgi60_links.csv'
-rgiv6_fn_prefix = main_directory + '/../RGI/rgi60/00_rgi60_attribs/' + '*'
-rgiv5_fn_prefix = main_directory + '/../RGI/00_rgi50_attribs/' + '*'
-
-# WGMS (d) geodetic mass balance information
-wgms_d_fn = 'WGMS-FoG-2018-06-D-CGE.csv'
-wgms_d_fn_preprocessed = 'wgms_d_rgiv6_preprocessed.csv'
-wgms_d_thickness_chg_cn = 'THICKNESS_CHG'
-wgms_d_thickness_chg_err_cn = 'THICKNESS_CHG_UNC'
-wgms_d_volume_chg_cn = 'VOLUME_CHANGE'
-wgms_d_volume_chg_err_cn = 'VOLUME_CHANGE_UNC'
-wgms_d_z1_cn = 'LOWER_BOUND'
-wgms_d_z2_cn = 'UPPER_BOUND'
-
-# WGMS (e/ee) glaciological mass balance information
-wgms_e_fn = 'WGMS-FoG-2018-06-E-MASS-BALANCE-OVERVIEW.csv'
-wgms_ee_fn = 'WGMS-FoG-2018-06-EE-MASS-BALANCE.csv'
-wgms_ee_fn_preprocessed = 'wgms_ee_rgiv6_preprocessed.csv'
-wgms_ee_mb_cn = 'BALANCE'
-wgms_ee_mb_err_cn = 'BALANCE_UNC'
-wgms_ee_t1_cn = 'YEAR'
-wgms_ee_z1_cn = 'LOWER_BOUND'
-wgms_ee_z2_cn = 'UPPER_BOUND'
-wgms_ee_period_cn = 'period'
-
-# ===== COGLEY DATA =====
-cogley_fp = main_directory + '/../Calibration_datasets/'
-cogley_fn_preprocessed = 'Cogley_Arctic_processed_wInfo.csv'
-cogley_rgi_glacno_cn = 'glacno'
-cogley_mass_chg_cn = 'geo_mass_kgm2a'
-cogley_mass_chg_err_cn = 'geo_mass_unc'
-cogley_z1_cn = 'Zmin'
-cogley_z2_cn = 'Zmax'
-cogley_obs_type_cn = 'obs_type'
-
-# ===== REGIONAL DATA =====
-# Regional data refers to all measurements that have lumped multiple glaciers together
-#  - a dictionary linking the regions to RGIIds is required
-mb_group_fp = main_directory + '/../Calibration_datasets/'
-mb_group_dict_fn = 'mb_group_dict.csv'
-mb_group_data_fn = 'mb_group_data.csv'
-mb_group_t1_cn = 'begin_period'
-mb_group_t2_cn = 'end_period'
-
-#%% REGIONS
-grouping = None
-#grouping = 'himap'
-if grouping == 'watershed':
-    reg_vn = 'watershed'
-    reg_dict_fn = main_directory + '/../qgis_himat/rgi60_HMA_dict_watershed.csv'
-    reg_csv = pd.read_csv(reg_dict_fn)
-    reg_dict = dict(zip(reg_csv.RGIId, reg_csv[reg_vn]))
-elif grouping == 'kaab':
-    reg_vn = 'kaab_name'
-    reg_dict_fn = main_directory + '/../qgis_himat/rgi60_HMA_dict_kaab.csv'
-    reg_csv = pd.read_csv(reg_dict_fn)
-    reg_dict = dict(zip(reg_csv.RGIId, reg_csv[reg_vn]))
-elif grouping == 'himap':
-    reg_vn = 'bolch_name'
-    reg_dict_fn = main_directory + '/../qgis_himat/rgi60_HMA_dict_bolch.csv'
-    reg_csv = pd.read_csv(reg_dict_fn)
-    reg_dict = dict(zip(reg_csv.RGIId, reg_csv[reg_vn]))
-else:
-    reg_dict = {}
-
-
-#%% OUTPUT OPTIONS
-# Output package
-#  option 0 - no netcdf package
-#  option 1 - "raw package" [preferred units: m w.e.]
-#              monthly variables for each bin (temp, prec, acc, refreeze, snowpack, melt, frontalablation,
-#                                              massbal_clim)
-#              annual variables for each bin (area, icethickness, surfacetype)
-#  option 2 - "Glaciologist Package" output [units: m w.e. unless otherwise specified]:
-#              monthly glacier-wide variables (prec, acc, refreeze, melt, frontalablation, massbal_total, runoff,
-#                                              snowline)
-#              annual glacier-wide variables (area, volume, ELA)
-output_package = 2
-output_glacier_attr_vns = ['glacno', 'RGIId_float', 'CenLon', 'CenLat', 'O1Region', 'O2Region', 'Area', 'Zmin', 'Zmax',
-                           'Zmed', 'Slope', 'Aspect', 'Lmax', 'Form', 'TermType', 'Surging']
-time_names = ['time', 'year', 'year_plus1']
-# Output package variables
-output_variables_package2 = ['temp_glac_monthly', 'prec_glac_monthly', 'acc_glac_monthly',
-                            'refreeze_glac_monthly', 'melt_glac_monthly', 'frontalablation_glac_monthly',
-                            'massbaltotal_glac_monthly', 'runoff_glac_monthly', 'snowline_glac_monthly',
-                            'area_glac_annual', 'volume_glac_annual', 'ELA_glac_annual',
-                            'offglac_prec_monthly', 'offglac_refreeze_monthly', 'offglac_melt_monthly',
-                            'offglac_snowpack_monthly', 'offglac_runoff_monthly']
-
-#%% MODEL PROPERTIES
+#%% ===== MODEL CONSTANTS =====
 density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
 density_water = 1000        # Density of water [kg m-3]
 area_ocean = 362.5 * 1e12   # Area of ocean [m2] (Cogley, 2012 from Marzeion et al. 2020)

@@ -6,7 +6,10 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 # Local libraries
-import pygem_input as pygem_prms
+try:
+    import pygem_input as pygem_prms
+except:
+    import pygem.pygem_input as pygem_prms
 
 
 class GCM():
@@ -467,13 +470,14 @@ class AWS():
         # File name
         self.fn = fp
         df = pd.read_csv(fp,index_col=0)
-        vars = df.columns
-        ntimesteps = np.shape(dates_table)[0]
+
         data_start = pd.to_datetime(df.index.to_numpy()[0])
         data_end = pd.to_datetime(df.index.to_numpy()[-1])
+        print(dates_table.date[0], data_start,dates_table.date.to_numpy()[-1], data_end)
+        assert dates_table.date[0] > data_start, 'Check input dates: not in range of AWS data'
+        assert dates_table.date.to_numpy()[-1] < data_end, 'Check input dates: not in range of AWS data'
         df = df.set_index(pd.date_range(data_start,data_end,freq='H'))
         df = df.loc[dates_table.date[0]:dates_table.date.to_numpy()[-1]]
-        df = df.interpolate('time')
         
         self.temp = df[self.temp_vn].to_numpy()
         self.dtemp = df[self.dtemp_vn].to_numpy()
@@ -488,4 +492,5 @@ class AWS():
         self.sp = df[self.sp_vn].to_numpy()
         self.tcc = df[self.tcc_vn].to_numpy()
         self.elev = df[self.elev_vn].to_numpy()[0]
+        
         return

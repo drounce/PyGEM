@@ -5,7 +5,7 @@ import pandas as pd
 from multiprocessing import Pool
 # Internal libraries
 import pygem_eb.input as eb_prms
-import class_climate
+import pygem.class_climate as class_climate
 import pygem_eb.massbalance as mb
 import pygem.pygem_modelsetup as modelsetup
 

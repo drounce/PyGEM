@@ -60,14 +60,17 @@ if climate_input in ['AWS']:
         AWS_fn = main_directory + '/../climate_data/AWS/gulkana1725_hourly.csv'
     elif glac_no ==  ['08.00213']:
         AWS_fn = main_directory + '/../climate_data/AWS/Storglaciaren/SITES_MET_TRS_SGL_dates_15MIN.csv'
+    elif glac_no == ['01.01104']:
+        AWS_fn = main_directory + '/../climate_data/AWS/LemonCreek1285_hourly.csv'
+    # elif glac_no == ['16.02444']:
     assert os.path.exists(AWS_fn)
 # Dates
 dates_from_data = True
 # if dates_from_data:
 # startdate = pd.to_datetime('2013-04-17 16:00')
 # enddate = pd.to_datetime('2013-09-12 12:15')
-startdate = pd.to_datetime('2015-10-01 00:00') # weighing gage installed in 2015
-enddate = pd.to_datetime('2018-10-01 00:00')
+startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
+enddate = pd.to_datetime('2018-05-01 00:00')
 option_leapyear = 1 # 0 to exclude leap years
 # Reference period runs (runs up to present)
 ref_gcm_name = 'ERA5-hourly'        # reference climate dataset
