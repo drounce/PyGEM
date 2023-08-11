@@ -69,7 +69,7 @@ e_func = lambda T_C: 610.94*np.exp(17.625*T_C/(T_C+243.04))  #vapor pressure in 
 #loop through each elevation bin and adjust climate variables by lapse rate/barometric law
 for idx,z in enumerate(eb_prms.bin_elev):
     temp[idx,:] = temp_data + eb_prms.lapserate*(z-elev_data)
-    tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data)) # *eb_prms.kp for GCM******
+    tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data))*2 # *eb_prms.kp for GCM******
     sp[idx,:] = sp_data*np.power((temp_data + eb_prms.lapserate*(z-elev_data)+273.15)/(temp_data+273.15),
                         -eb_prms.gravity*eb_prms.molarmass_air/(eb_prms.R_gas*eb_prms.lapserate))
     if not np.all(np.isnan(rh_data)): # if RH is not empty, get dtemp data from it
@@ -106,14 +106,14 @@ climateds = climateds.assign(bin_rh = (['bin','time'],rh,{'units':'%'}))
 #loop through bins here so EB script is set up for only one bin (1D data)
 if eb_prms.parallel:
     def run_mass_balance(bin):
-        massbal = mb.massBalance(bin,climateds)
+        massbal = mb.massBalance(bin,dates_table)
         massbal.main(climateds)
     processes_pool = Pool(eb_prms.n_bins)
     processes_pool.map(run_mass_balance,range(eb_prms.n_bins))
 else:
     for bin in np.arange(eb_prms.n_bins):
         # initialize variables to store from mass balance
-        massbal = mb.massBalance(bin,climateds)
+        massbal = mb.massBalance(bin,dates_table)
         results = massbal.main(climateds)
         
         if bin<eb_prms.n_bins:

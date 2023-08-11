@@ -3,13 +3,11 @@ import os
 # External libraries
 import numpy as np
 import pandas as pd
-import xarray as xr
 import pygem.oggm_compat as oggm
 
-debug = True
+
 #%% ===== MODEL SETUP DIRECTORY =====
 main_directory = os.getcwd()
-# Set up output idrectory and name for file
 output_filepath = main_directory + '/../Output/'
 output_sim_fp = output_filepath + 'simulations/'
 model_run_date = str(pd.Timestamp.today()).replace('-','_')[0:10]
@@ -54,7 +52,6 @@ logging_level = 'DEBUG' # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recom
 #%% ===== CLIMATE DATA ===== 
 # Specify dataset
 climate_input = 'AWS' # GCM or AWS
-# AWS_fn = 'USER-SPECIFY'
 if climate_input in ['AWS']:
     if glac_no == ['01.00570']:
         AWS_fn = main_directory + '/../climate_data/AWS/gulkana1725_hourly.csv'

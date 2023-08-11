@@ -1,4 +1,3 @@
-import numpy as np
 import pygem_eb.input as eb_prms
 from scipy.optimize import minimize
 

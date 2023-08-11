@@ -5,7 +5,7 @@ import pygem_eb.input as eb_prms
 
 class Layers():
     """
-    Scheme for the multi-layer snowpack model.
+    Layer scheme for the 1D snowpack model.
     """
     def __init__(self,bin_no):
         """
@@ -16,8 +16,15 @@ class Layers():
         bin_no : int
             Bin number
         """
-        Tpds = xr.open_dataset(eb_prms.init_filepath)
+        # Calculate the layer depths based on initial snow, firn and ice depths
+        lheight,ldepth,ltype = self.getLayers(sfi_h0)
+        self.nlayers = len(lheight)
+        self.ltype = ltype
+        self.lheight = lheight
+        self.ldepth = ldepth
+
         # Extract datasets containing pairs of depth,value for temperature and density (elevation independent)
+        Tpds = xr.open_dataset(eb_prms.init_filepath)
         depth_data = Tpds.coords['layer_depth'].values
         temp_data = [[depth_data[i],Tpds['snow_temp'].to_numpy()[i]] for i in range(len(depth_data))]
         density_data = [[depth_data[i],Tpds['snow_density'].to_numpy()[i]] for i in range(len(depth_data))]
@@ -27,14 +34,7 @@ class Layers():
         vars = ['snow_depth','firn_depth','ice_depth']
         sfi_h0 = np.array([Tpds_interp[var].values for var in vars])
 
-        # Calculate the layer depths based on initial snow, firn and ice depths
-        lheight,ldepth,ltype = self.getLayers(sfi_h0)
-        self.nlayers = len(lheight)
-        self.ltype = ltype
-        self.lheight = lheight
-        self.ldepth = ldepth
-
-        # Initialize SNOW layer temperatures based on chosen method and data (snow_temp)
+        # Initialize SNOW layer temperature and density based on chosen method and data (snow_temp)
         snow_idx =  np.where(ltype=='snow')[0]
         snow_ldepth = ldepth[snow_idx] 
         if eb_prms.option_initTemp in ['piecewise']:
@@ -44,7 +44,6 @@ class Layers():
         else:
             assert 1==0, "Choose between 'piecewise' and 'interp' methods for temp initialization"
 
-        # Initialize SNOW layer density based on chosen method and data (snow_density)
         if eb_prms.option_initDensity in ['piecewise']:
             ldensity = self.initProfilesPiecewise(snow_ldepth,density_data,'density')
         elif eb_prms.option_initDensity in ['interp']:
@@ -134,7 +133,7 @@ class Layers():
             total_depth = 0
             layeridx = 0
 
-            # Loop and make exponentially growing layers
+            # Make exponentially growing layers
             while total_depth < sfi_h0[0]:
                 layerh.append(dz_toplayer * np.exp(layeridx*layer_growth))
                 layertype.append('snow')
@@ -182,10 +181,10 @@ class Layers():
         varname : str
             'temp' or 'density': which variable is being calculated
         """
-        #check if inputs are the correct dimensions
+        # Check if inputs are the correct dimensions
         assert np.shape(snow_var) in [(4,2),(3,2)], "! Snow inputs data is improperly formatted"
 
-        #check if a surface value is given; if not, add a row at z=0, T=0C or p=100kg/m3
+        # Check if a surface value is given; if not, add a row at z=0, T=0C or p=100kg/m3
         if np.shape(snow_var) == (3,2):
             assert snow_var[0,0] == 1.0, "! Snow inputs data is improperly formatted"
             if varname in ['temp']:
@@ -276,6 +275,10 @@ class Layers():
         return
     
     def updateLayers(self):
+        """
+        Checks the layer heights against the initial size scheme. If layers have become too small, they are
+        merged with the layer below. If layers have become too large, they are split into two even layers.
+        """
         layer = 0
         layer_split = False
         min_heights = lambda i: eb_prms.dz_toplayer * np.exp((i-1)*eb_prms.layer_growth) / 2
@@ -297,8 +300,13 @@ class Layers():
     
     def updateLayerProperties(self,do=['depth','density','irrwater']):
         """
-        Recalculates nlayers, depths, density, and irreducible water
-        content from DRY density. Can specify to only update certain properties.
+        Recalculates nlayers, depths, density, and irreducible water content from DRY density. 
+        Can specify to only update certain properties.
+
+        Parameters
+        ----------
+        do : list-like
+            List of any combination of depth, density and irrwater to be updated
         """
         self.nlayers = len(self.lheight)
         self.snow_idx =  np.where(np.array(self.ltype)=='snow')[0]
@@ -311,14 +319,17 @@ class Layers():
         return
     
     def updateLayerTypes(self):
-        # Check for changes in layer type (excluding ice layer, which cannot change)
+        """
+        Checks if new firn or ice layers have been created by densification.
+        """
+        # Only snow or ice layers can change type, so need indices of these layers
         snowfirn_idx = np.append(self.snow_idx,np.where(self.ltype == 'firn')[0])
         for layer,dens in enumerate(self.ldensity[snowfirn_idx]):
             # New FIRN layer
             if dens > eb_prms.density_firn and self.ltype[layer] != 'firn':
                 self.ltype[layer] = 'firn'
                 self.ldensity[layer] = eb_prms.density_firn
-                # merge layers if there is firn under the new firn layer
+                # Merge layers if there is firn under the new firn layer
                 if self.ltype[layer+1] in ['firn']: 
                     self.mergeLayers(layer)
                     print('new firn!')
@@ -326,7 +337,7 @@ class Layers():
             if self.ldensity[layer] > eb_prms.density_ice:
                 self.ltype[layer] = 'ice'
                 self.ldensity[layer] = eb_prms.density_ice
-                # merge into ice below
+                # Merge into ice below
                 if self.ltype[layer+1] in ['ice']:
                     self.mergeLayers(layer)
                     print('new ice!')
@@ -334,7 +345,17 @@ class Layers():
     
     def addSnow(self,snowfall,airtemp,new_density=eb_prms.density_fresh_snow):
         """
-        snowfall = fresh snow MASS in kg / m2
+        Adds snowfall to the layer scheme. If the existing top layer is ice, the fresh snow is a new layer,
+        otherwise it is merged with the top layer.
+        
+        Parameters
+        ----------
+        snowfall : float
+            Fresh snow MASS in kg / m2
+        airtemp : float
+            Air temperature in C
+        new_density : float
+            Density to use for the new snow
         """
         if self.ltype[0] in 'ice':
             new_layer = pd.DataFrame([airtemp,0,snowfall/new_density,'snow',snowfall],index=['T','w','h','t','drym'])
@@ -352,6 +373,9 @@ class Layers():
         return
     
     def getIrrWaterCont(self,density=[0]):
+        """
+        Calculates the irreducible water content of the layers.
+        """
         if sum(density) == 0: # if density is not specified, calculate from self
             density = self.ldrymass / self.lheight
         density = density.astype(float)

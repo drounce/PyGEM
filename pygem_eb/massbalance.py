@@ -11,21 +11,21 @@ class massBalance():
     Mass balance scheme which calculates layer and bin mass balance from melt, refreeze and accumulation.
     Contains main() function which executes the core of the model.
     """
-    def __init__(self,bin_idx,climateds):
+    def __init__(self,bin_idx,dates_table):
         """
-        Initializes the layers and surface classes.
+        Initializes the layers and surface classes and model time for the mass balance scheme.
 
         Parameters
         ----------
         bin_idx : int
             Index value of the elevation bin
-        climateds : xr.Dataset
-            Dataset containing elevation-adjusted climate data
+        dates_table : pd.Dataframe
+            Dataframe containing the dates for the model run
         """
         # Set up model time
         self.dt = eb_prms.dt
         self.days_since_snowfall = 0
-        self.time_list = pd.date_range(eb_prms.startdate,eb_prms.enddate,freq=str(self.dt)+'S')
+        self.time_list = dates_table['date']
         self.bin_idx = bin_idx
 
         # Initialize layers and surface classes

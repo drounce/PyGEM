@@ -473,7 +473,6 @@ class AWS():
 
         data_start = pd.to_datetime(df.index.to_numpy()[0])
         data_end = pd.to_datetime(df.index.to_numpy()[-1])
-        print(dates_table.date[0], data_start,dates_table.date.to_numpy()[-1], data_end)
         assert dates_table.date[0] > data_start, 'Check input dates: not in range of AWS data'
         assert dates_table.date.to_numpy()[-1] < data_end, 'Check input dates: not in range of AWS data'
         df = df.set_index(pd.date_range(data_start,data_end,freq='H'))
@@ -481,7 +480,7 @@ class AWS():
         
         self.temp = df[self.temp_vn].to_numpy()
         self.dtemp = df[self.dtemp_vn].to_numpy()
-        self.tp = df[self.temp_vn].to_numpy()
+        self.tp = df[self.prec_vn].to_numpy()
         self.rh = df[self.rh_vn].to_numpy()
         self.SWin = df[self.SWin_vn].to_numpy()
         self.SWout = df[self.SWout_vn].to_numpy()

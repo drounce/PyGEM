@@ -1,4 +1,3 @@
-#import xarray as xr
 import numpy as np
 import pygem_eb.input as eb_prms
 
@@ -56,8 +55,9 @@ class energyBalance():
             self.LWout = self.interpClimate(climateds,time,'LWout')
         # Define additional useful values
         self.tempK = self.tempC + 273.15
-        self.prec =  self.tp / 3600     # tp is hourly total precip, so prec is the rate in m/s
+        self.prec =  self.tp / 3600     # tp is hourly total precip, prec is the rate in m/s
         self.dt = dt
+        self.climateds = climateds
         return
 
     def surfaceEB(self,surftemp,layers,albedo,days_since_snowfall,mode='sum'):
@@ -87,7 +87,7 @@ class energyBalance():
             If mode is 'sum' or 'optim', returns the sum of heat fluxes
             If mode is 'list', returns list in the order of SWin,SWout,LWin,LWout,rain,sensible,latent
         """
-        # SHORTWAVE RADIATION  (Snet_surf)
+        # SHORTWAVE RADIATION  (Snet)
         SWin,SWout = self.getSW(albedo)
         Snet_surf = SWin + SWout
         self.SWin = SWin
@@ -104,7 +104,7 @@ class energyBalance():
         self.rain = Qp
 
         # TURBULENT FLUXES (Qs and Ql)
-        roughness = self.roughness_length(days_since_snowfall,layers.ltype)
+        roughness = self.getRoughnessLength(days_since_snowfall,layers.ltype)
         if eb_prms.method_turbulent in ['MO-similarity']:
             Qs, Ql = self.getTurbulentMO(surftemp,roughness)
         else:
@@ -231,7 +231,7 @@ class energyBalance():
 
         return Qs, Ql
     
-    def roughness_length(self,days_since_snowfall,layertype):
+    def getRoughnessLength(self,days_since_snowfall,layertype):
         """
         Function to determine the roughness length of the surface. This assumes the roughness of snow
         linearly degrades with time in 60 days from that of fresh snow to firn.
@@ -261,21 +261,18 @@ class energyBalance():
             P = 0.61094*np.exp(17.625*T/(T+243.04)) # kPa
         return P*1000
  
-    def interpClimate(self,climateds,time,varname,bin_idx=-1):
+    def interpClimate(self,time,varname,bin_idx=-1):
         """
         Interpolates climate variables from the hourly dataset to get sub-hourly data.
 
         Parameters
         ----------
-        climateds : xr.Dataset
-            Climate dataset containing temperature, precipitation, pressure, wind speed,
-            shortwave radiation, and total cloud cover.
         time : datetime
             Timestamp to interpolate the climate variable.
         varname : str
             Variable name of variable in climateds
         bin_idx : int, default = -1
-            Index number of the bin being run. Unspecified for running a variable that is elevation-independent.
+            Index number of the bin being run. Default -1 for a variable that is elevation-independent.
         """
         climate_before = self.climateds.sel(time=time.floor('H'))
         climate_after = self.climateds.sel(time=time.ceil('H'))
