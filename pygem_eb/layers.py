@@ -16,13 +16,6 @@ class Layers():
         bin_no : int
             Bin number
         """
-        # Calculate the layer depths based on initial snow, firn and ice depths
-        lheight,ldepth,ltype = self.getLayers(sfi_h0)
-        self.nlayers = len(lheight)
-        self.ltype = ltype
-        self.lheight = lheight
-        self.ldepth = ldepth
-
         # Extract datasets containing pairs of depth,value for temperature and density (elevation independent)
         Tpds = xr.open_dataset(eb_prms.init_filepath)
         depth_data = Tpds.coords['layer_depth'].values
@@ -33,6 +26,13 @@ class Layers():
         Tpds_interp = Tpds.interp(bin_elev=eb_prms.bin_elev[bin_no],kwargs={'fill_value':'extrapolate'})
         vars = ['snow_depth','firn_depth','ice_depth']
         sfi_h0 = np.array([Tpds_interp[var].values for var in vars])
+
+        # Calculate the layer depths based on initial snow, firn and ice depths
+        lheight,ldepth,ltype = self.getLayers(sfi_h0)
+        self.nlayers = len(lheight)
+        self.ltype = ltype
+        self.lheight = lheight
+        self.ldepth = ldepth
 
         # Initialize SNOW layer temperature and density based on chosen method and data (snow_temp)
         snow_idx =  np.where(ltype=='snow')[0]
@@ -322,11 +322,11 @@ class Layers():
         """
         Checks if new firn or ice layers have been created by densification.
         """
-        # Only snow or ice layers can change type, so need indices of these layers
-        snowfirn_idx = np.append(self.snow_idx,np.where(self.ltype == 'firn')[0])
-        for layer,dens in enumerate(self.ldensity[snowfirn_idx]):
+        layer = 0
+        while layer < self.nlayers:
+            dens = self.ldensity[layer]
             # New FIRN layer
-            if dens > eb_prms.density_firn and self.ltype[layer] != 'firn':
+            if dens >= eb_prms.density_firn and self.ltype[layer] == 'snow':
                 self.ltype[layer] = 'firn'
                 self.ldensity[layer] = eb_prms.density_firn
                 # Merge layers if there is firn under the new firn layer
@@ -334,13 +334,15 @@ class Layers():
                     self.mergeLayers(layer)
                     print('new firn!')
             # New ICE layer
-            if self.ldensity[layer] > eb_prms.density_ice:
+            elif self.ldensity[layer] >= eb_prms.density_ice and self.ltype[layer] == 'firn':
                 self.ltype[layer] = 'ice'
                 self.ldensity[layer] = eb_prms.density_ice
                 # Merge into ice below
                 if self.ltype[layer+1] in ['ice']:
                     self.mergeLayers(layer)
                     print('new ice!')
+            else:
+                layer += 1
         return
     
     def addSnow(self,snowfall,airtemp,new_density=eb_prms.density_fresh_snow):
@@ -380,10 +382,8 @@ class Layers():
             density = self.ldrymass / self.lheight
         density = density.astype(float)
         density_ice = eb_prms.density_ice
-        try:
-            ice_idx = np.where(self.ltype=='ice')[0][0]
-        except:
-            print(self.ltype)
+        ice_idx = np.where(self.ltype=='ice')[0][0]
+
         porosity = (density_ice - density[:ice_idx])/density_ice
         irrwatercont = 0.0143*np.exp(3.3*porosity)
         irrwatersat = irrwatercont*density[:ice_idx]/porosity # kg m-3, mass of liquid over pore volume

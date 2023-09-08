@@ -136,7 +136,7 @@ class massBalance():
             if (time+pd.Timedelta(hours=1)).is_month_start and time.hour == 23 and time.minute == 0:
                 if eb_prms.debug: # MONTHLY PRINTS
                     melte = np.mean(self.output.meltenergy_output[-720:])
-                    layers.updateLayerProperties
+                    layers.updateLayerProperties()
                     snowdepth = np.sum(layers.lheight[layers.snow_idx])
                     print(time.month_name(),time.year,'for bin no',self.bin_idx)
                     print(f'|    Qm: {melte:.0f} W/m2              Melt: {melt_monthly:.2f} m w.e.  |')
@@ -396,10 +396,10 @@ class massBalance():
                 dRho = (((weight_above*g)/viscosity) + c1*np.exp(-c2*(0.-ltemp[layer]) - c3*np.maximum(0.,ldensity[layer]-density_0)))*ldensity[layer]*self.dt
                 ldensity[layer] += dRho
 
-                layers.ldensity = ldensity
-                layers.lheight[layer] = layers.ldrymass[layer]/layers.ldensity[layer]
-                layers.updateLayerProperties('depth')
-                layers.updateLayerTypes()
+            layers.ldensity = ldensity
+            layers.lheight[layer] = layers.ldrymass[layer]/layers.ldensity[layer]
+            layers.updateLayerProperties('depth')
+            layers.updateLayerTypes()
 
         else:
             # get change in height and recalculate density from resulting compression
@@ -605,8 +605,9 @@ class Output():
         self.layerwater_output.append(layerwater)
         self.layerheight_output.append(layerheight)
         self.layerdensity_output.append(layerdensity)
-    
+
     def storeData(self,bin):
+        print('before')
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
             ds = dataset.load()
             if 'EB' in eb_prms.store_vars:
@@ -633,4 +634,5 @@ class Output():
                 ds['layerdensity'].loc[:,bin,:] = self.layerdensity_output
                 ds['layerwater'].loc[:,bin,:] = self.layerwater_output
         ds.to_netcdf(eb_prms.output_name+'.nc')
+        print('after')
         return

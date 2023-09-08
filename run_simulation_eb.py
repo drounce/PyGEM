@@ -73,9 +73,12 @@ for idx,z in enumerate(eb_prms.bin_elev):
     sp[idx,:] = sp_data*np.power((temp_data + eb_prms.lapserate*(z-elev_data)+273.15)/(temp_data+273.15),
                         -eb_prms.gravity*eb_prms.molarmass_air/(eb_prms.R_gas*eb_prms.lapserate))
     if not np.all(np.isnan(rh_data)): # if RH is not empty, get dtemp data from it
-        dtemp_data = rh_data / 100 * e_func(temp)
-    dtemp[idx,:] = dtemp_data + eb_prms.lapserate_dew*(z-elev_data)-273.15
-    rh = e_func(dtemp) / e_func(temp) * 100
+        dtemp_data = rh_data / 100 * e_func(temp[idx,:])
+        dtemp[idx,:] = dtemp_data + eb_prms.lapserate_dew*(z-elev_data)-273.15
+        rh = np.array([rh_data]*n_bins)
+    else:
+        rh = e_func(dtemp) / e_func(temp) * 100
+
 dates = pd.date_range(eb_prms.startdate,eb_prms.enddate,freq='h')
 
 # ===== SET UP CLIMATE DATASET =====

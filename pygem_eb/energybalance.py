@@ -166,6 +166,8 @@ class energyBalance():
         """
         is_rain = self.tempC > eb_prms.tsnow_threshold
         Qp = is_rain*eb_prms.Cp_water*(self.tempC-surftemp)*self.prec*eb_prms.density_water
+        if hasattr(Qp,'__len__'):
+            Qp = Qp[0]
         return Qp
 
     def getTurbulentMO(self,surf_temp,roughness):
@@ -224,6 +226,7 @@ class energyBalance():
             # qz = (rH2 * 0.622 * (Ew / (p - Ew))) / 100.0
             # q0 = (100.0 * 0.622 * (Ew0 / (p - Ew0))) / 100.0
             Ql = air_dens*Lv*cE*self.wind*(qz-q0)
+            self.qz = qz
 
             count_iters += 1
             if count_iters > 10 or abs(previous_zeta - zeta) < .1:

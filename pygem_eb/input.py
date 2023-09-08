@@ -5,16 +5,17 @@ import numpy as np
 import pandas as pd
 import pygem.oggm_compat as oggm
 
-
+debug=True
 #%% ===== MODEL SETUP DIRECTORY =====
 main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 output_sim_fp = output_filepath + 'simulations/'
 model_run_date = str(pd.Timestamp.today()).replace('-','_')[0:10]
-output_name = output_filepath + 'EB/run_' + model_run_date + '_hourly_00'
-while os.path.exists(output_name+'.nc'):
-    file_number = int(output_name[-1]) + 1
-    output_name = output_name[:-1] + str(file_number)
+output_name = output_filepath + 'EB/run_' + model_run_date + '_hourly_'
+i = '0'
+while os.path.exists(output_name+str(i)+'.nc'):
+    i = int(i) + 1
+output_name = output_name + str(i)
 
 #%% MODEL OPTIONS
 n_bins = 3
@@ -29,7 +30,7 @@ rgi_regionsO2 = [2]                 # 2nd order region number (RGI V6.0)
 #                 (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 #                 (3) use one of the functions from  utils._funcs_selectglaciers
 rgi_glac_number = 'all'
-glac_no = ['01.00570']
+glac_no = ['11.03674']   # ['01.00570']
 # glac_no = ['08.00213']
 
 # Set up bins
@@ -59,15 +60,21 @@ if climate_input in ['AWS']:
         AWS_fn = main_directory + '/../climate_data/AWS/Storglaciaren/SITES_MET_TRS_SGL_dates_15MIN.csv'
     elif glac_no == ['01.01104']:
         AWS_fn = main_directory + '/../climate_data/AWS/LemonCreek1285_hourly.csv'
+    elif glac_no == ['11.03674']:
+        AWS_fn = main_directory + '/../climate_data/AWS/Preprocessed/saintsorlin/saintsorlin_hourly.csv'
     # elif glac_no == ['16.02444']:
     assert os.path.exists(AWS_fn)
 # Dates
-dates_from_data = True
-# if dates_from_data:
-# startdate = pd.to_datetime('2013-04-17 16:00')
-# enddate = pd.to_datetime('2013-09-12 12:15')
-startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
-enddate = pd.to_datetime('2018-05-01 00:00')
+dates_from_data = False
+if dates_from_data:
+    cdf = pd.read_csv(AWS_fn,index_col=0)
+    startdate = pd.to_datetime(cdf.index[0])
+    enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
+else:
+    startdate = pd.to_datetime('2015-05-01 00:00')
+    enddate = pd.to_datetime('2015-06-01 00:00')
+    # startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
+    # enddate = pd.to_datetime('2018-05-01 00:00')
 option_leapyear = 1 # 0 to exclude leap years
 # Reference period runs (runs up to present)
 ref_gcm_name = 'ERA5-hourly'        # reference climate dataset
@@ -90,7 +97,7 @@ gcm_spinupyears = 0             # spin up years for simulation (output not set u
 option_initWater = 'zero_w0'            # 'zero_w0' or 'initial_w0'
 option_initTemp = 'piecewise'           # 'piecewise' or 'interp'
 option_initDensity = 'piecewise'        # 'piecewise' or 'interp'
-startssn = 'endmelt'                    # 'endaccum' or 'endmelt' -- sample density/temp data provided for Gulkana
+startssn = 'endaccum'                    # 'endaccum' or 'endmelt' -- sample density/temp data provided for Gulkana
 init_filepath = main_directory + '/pygem_eb/sample_init_data/startssn_initialTp.nc'.replace('startssn',startssn)
 
 # Simulation options
@@ -113,8 +120,8 @@ BC_freshsnow = 1e6          # concentration of BC in fresh snow. Only used if sw
 dust_freshsnow = 1e6        # concentration of dust in fresh snow. Only used if switch_LAPs is not 2
 
 # Output
-store_data = False          # store data, true or false
-store_vars = ['MB','EB','Temp','Layers']        # Variables to store
+store_data = True          # store data, true or false
+store_vars = ['MB','EB','Temp','Layers']        # Variables to store of the possible set: ['MB','EB','Temp','Layers']
 storage_freq = 'H'          # frequency to store data using pandas offset aliases
 vars_to_store = 'all'       # list of variables to store
 
