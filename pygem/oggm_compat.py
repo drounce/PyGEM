@@ -179,7 +179,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.over
                                                   prepro_base_url=base_url, prepro_rgi_version='62')
         
         if not gdirs[0].is_tidewater:
-            raise ValueError('This glacier is not tidewater!')
+            raise ValueError(f'{rgi_id} is not tidewater!')
             
         # Compute all the stuff
         list_tasks = [
