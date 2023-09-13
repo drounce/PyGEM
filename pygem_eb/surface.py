@@ -1,4 +1,5 @@
 import pygem_eb.input as eb_prms
+import numpy as np
 from scipy.optimize import minimize
 
 class Surface():
@@ -31,6 +32,7 @@ class Surface():
         after significant melt.
         """
         self.getGrainSize()
+        self.getAlbedo()
         return
     
     def getSurfTemp(self,enbal,layers):
@@ -43,12 +45,16 @@ class Surface():
             self.temp = 0
             Qm = Qm_check
             if layers.ltemp[0] < 0: # need to heat surface layer to 0 before it can start melting
+                Qm_check = enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
                 layers.ltemp[0] += Qm_check*eb_prms.dt/(eb_prms.Cp_ice*layers.ldrymass[0])
                 if layers.ltemp[0] > 0:
                     # if temperature rises above zero, leave excess energy in Qm
                     Qm = layers.ltemp[0]*eb_prms.Cp_ice*layers.ldrymass[0]/eb_prms.dt
                     layers.ltemp[0] = 0
                 else:
+                    extrapolate_temp = np.interp(0,layers.ldepth[0:2],layers.ltemp[0:2])
+                    Qm_check = enbal.surfaceEB(extrapolate_temp,layers,self.albedo,self.days_since_snowfall)
+                    # *** This might be a problem area with how surface temperature is being treated
                     Qm = 0
         elif cooling:
             # Energy away from surface: need to change surface temperature to get 0 surface energy flux 
@@ -65,26 +71,37 @@ class Surface():
                 loop = True
                 n_iters = 0
                 while loop:
+                    n_iters += 1
+                    # Initial check of Qm comparing to previous surftemp
                     Qm_check = enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
+                    # Check direction of flux at that temperature and adjust
                     if Qm_check > 0.5:
                         self.temp += 0.25
                     elif Qm_check < -0.5:
                         self.temp -= 0.25
+                    # surftemp cannot go below -60
                     self.temp = max(-60,self.temp)
-                    n_iters += 1
+
+                    # break loop if Qm is ~0 or after 10 iterations
                     if abs(Qm_check) < 0.5 or n_iters > 10:
+                        # if temp is bottoming out at -60, re-solve minimization
                         if self.temp == -60:
                             result = minimize(enbal.surfaceEB,-50,method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
                                 args=(layers,self.albedo,self.days_since_snowfall,'optim'))
                             if result.x > -60:
                                 self.temp = result.x[0]
+                        # set melt to 0 and break loop
                         Qm = 0
                         loop = False
+
+        # Update surface balance terms with new surftemp
+        enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
         self.Qm = Qm
         return
 
     def getAlbedo(self):
         self.albedo = 0.85
+        
         return 
 
     def getGrainSize(self):

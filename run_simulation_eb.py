@@ -119,5 +119,8 @@ else:
         massbal = mb.massBalance(bin,dates_table)
         results = massbal.main(climateds)
         
-        if bin<eb_prms.n_bins:
+        if bin<eb_prms.n_bins-1:
             print('Success: moving onto bin',bin+1)
+        else:
+            massbal.output.addAttrs()
+            print('Success: saving to',eb_prms.output_name+'.nc')

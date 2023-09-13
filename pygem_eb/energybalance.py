@@ -1,5 +1,7 @@
 import numpy as np
 import pygem_eb.input as eb_prms
+# import warnings
+# warnings.filterwarnings("error")
 
 class energyBalance():
     """
@@ -35,10 +37,10 @@ class energyBalance():
             # Elevation-invariant variables
             self.wind = climateds_now['wind'].to_numpy()
             self.tcc = climateds_now['tcc'].to_numpy()
-            self.SWin = climateds_now['SWin'].to_numpy()
-            self.SWout = climateds_now['SWout'].to_numpy()
-            self.LWin = climateds_now['LWin'].to_numpy()
-            self.LWout = climateds_now['LWout'].to_numpy()
+            self.SWin_ds = climateds_now['SWin'].to_numpy()
+            self.SWout_ds = climateds_now['SWout'].to_numpy()
+            self.LWin_ds = climateds_now['LWin'].to_numpy()
+            self.LWout_ds = climateds_now['LWout'].to_numpy()
         else:
             # Timestep is between hours, so interpolate using interpClimate function
             # Bin-dependent variables indexed by bin_idx
@@ -49,15 +51,19 @@ class energyBalance():
             # Elevation-invariant variables
             self.wind = self.interpClimate(climateds,time,'wind')
             self.tcc = self.interpClimate(climateds,time,'tcc')
-            self.SWin = self.interpClimate(climateds,time,'SWin')
-            self.SWout = self.interpClimate(climateds,time,'SWout')
-            self.LWin = self.interpClimate(climateds,time,'LWin')
-            self.LWout = self.interpClimate(climateds,time,'LWout')
+            self.SWin_ds = self.interpClimate(climateds,time,'SWin')
+            self.SWout_ds = self.interpClimate(climateds,time,'SWout')
+            self.LWin_ds = self.interpClimate(climateds,time,'LWin')
+            self.LWout_ds = self.interpClimate(climateds,time,'LWout')
         # Define additional useful values
         self.tempK = self.tempC + 273.15
         self.prec =  self.tp / 3600     # tp is hourly total precip, prec is the rate in m/s
         self.dt = dt
         self.climateds = climateds
+
+        self.nanLWin = True if np.isnan(self.LWin_ds) else False
+        self.nanSWout = True if np.isnan(self.SWout_ds) else False
+        self.nanLWout = True if np.isnan(self.LWout_ds) else False
         return
 
     def surfaceEB(self,surftemp,layers,albedo,days_since_snowfall,mode='sum'):
@@ -131,11 +137,11 @@ class energyBalance():
         Returns the shortwave surface flux and the penetrating shortwave with each layer.
         """
         # sun_pos = solar.get_position(time,glacier_table['CenLon'],glacier_table['CenLat'])
-        SWin = self.SWin/self.dt
-        if np.isnan(self.SWout):
-            SWout = -self.SWin*albedo/self.dt #* (cos(theta))
+        SWin = self.SWin_ds/self.dt
+        if self.nanSWout:
+            SWout = -SWin*albedo #* (cos(theta))
         else:
-            SWout = self.SWout
+            SWout = -self.SWout_ds/self.dt
 
         return SWin,SWout
 
@@ -144,20 +150,20 @@ class energyBalance():
         Scheme following Klok and Oerlemans (2002) for calculating net longwave radiation
         from the air temperature and cloud cover.
         """
-        if np.isnan(self.LWout):
+        if self.nanLWout:
             surftempK = surftemp+273.15
             LWout = -eb_prms.sigma_SB*surftempK**4
         else:
-            LWout = self.LWout
+            LWout = -self.LWout_ds/self.dt
         
-        if np.isnan(self.LWin):
+        if self.nanLWin:
             ezt = self.vapor_pressure(self.tempC)    # vapor pressure in hPa
             Ecs = .23+ .433*(ezt/self.tempK)**(1/8)  # clear-sky emissivity
             Ecl = 0.984                         # cloud emissivity, Klok and Oerlemans, 2002
             Esky = Ecs*(1-self.tcc**2)+Ecl*self.tcc**2    # sky emissivity
             LWin = eb_prms.sigma_SB*(Esky*self.tempK**4)
         else:
-            LWin = self.LWin
+            LWin = self.LWin_ds/self.dt
         return LWin,LWout
     
     def getRain(self,surftemp):
@@ -166,8 +172,6 @@ class energyBalance():
         """
         is_rain = self.tempC > eb_prms.tsnow_threshold
         Qp = is_rain*eb_prms.Cp_water*(self.tempC-surftemp)*self.prec*eb_prms.density_water
-        if hasattr(Qp,'__len__'):
-            Qp = Qp[0]
         return Qp
 
     def getTurbulentMO(self,surf_temp,roughness):
@@ -199,8 +203,12 @@ class energyBalance():
             previous_zeta = zeta
             z = 2 #reference height, 2m
 
-            Lv = np.piecewise(Ql,[(Ql>0)&(surf_temp<=0),(Ql>0)&(surf_temp>0),Ql<0],
-                            [eb_prms.Lv_evap,eb_prms.Lv_sub,eb_prms.Lv_sub])
+            if Ql > 0 and surf_temp <=0:
+                Lv = eb_prms.Lv_evap
+            elif Ql > 0 and surf_temp > 0:
+                Lv = eb_prms.Lv_sub
+            elif Ql <= 0:
+                Lv = eb_prms.Lv_sub
 
             z0 = roughness
             z0t = z0/100    # Roughness length for sensible heat
@@ -209,6 +217,8 @@ class energyBalance():
             # calculate friction velocity using previous heat flux to get Obukhov length (L)
             fric_vel = karman*self.wind/(np.log(z/z0)-PsiM(zeta))
             air_dens = self.sp/eb_prms.R_gas/self.tempK*eb_prms.molarmass_air
+            if Qs == 0:
+                Qs = 1e-5 # Fixes /0 problem
             L = fric_vel**3*(self.tempC+273.15)*air_dens*eb_prms.Cp_air/(karman*eb_prms.gravity*Qs)
             if L<0.3: # DEBAM uses this correction to ensure it isn't over stablizied
                 L = 0.3

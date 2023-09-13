@@ -33,7 +33,7 @@ class massBalance():
         self.surface = eb_surface.Surface(self.layers,self.time_list)
 
         # Initialize output class
-        self.output = Output(self.time_list)
+        self.output = Output(self.time_list,bin_idx)
         return
     
     def main(self,climateds):
@@ -99,8 +99,10 @@ class massBalance():
             runoff,layers_to_remove = self.percolation(layers,layermelt,rain)
 
             # Remove layers that were completely melted and merge/split layers as needed
+            removed = 0
             for layer in layers_to_remove:
-                layers.removeLayer(layer)
+                layers.removeLayer(layer-removed)
+                removed += 1
             layers.updateLayers()
 
             # Recalculate the temperature profile considering conduction
@@ -316,7 +318,7 @@ class massBalance():
         # extra water goes to runoff
         runoff = extra_water / eb_prms.density_water
 
-        return runoff,melted_layers
+        return runoff,np.array(melted_layers)
 
     def refreezing(self,layers):
         """
@@ -397,7 +399,7 @@ class massBalance():
                 ldensity[layer] += dRho
 
             layers.ldensity = ldensity
-            layers.lheight[layer] = layers.ldrymass[layer]/layers.ldensity[layer]
+            layers.lheight = layers.ldrymass/layers.ldensity
             layers.updateLayerProperties('depth')
             layers.updateLayerTypes()
 
@@ -507,9 +509,9 @@ class massBalance():
     #     return
     
 class Output():
-    def __init__(self,time):
+    def __init__(self,time,bin_idx):
         n_bins = eb_prms.n_bins
-        bin_idx = range(n_bins)
+        bin_idxs = range(n_bins)
         zeros = np.zeros([len(time),n_bins,eb_prms.max_nlayers])
 
         # Create variable name dict
@@ -542,13 +544,14 @@ class Output():
                 ),
                 coords=dict(
                     time=(['time'],time),
-                    bin = (['bin'],bin_idx),
+                    bin = (['bin'],bin_idxs),
                     layer=(['layer'],np.arange(eb_prms.max_nlayers))
                     ))
         vars_list = vn_dict[eb_prms.store_vars[0]]
         for var in eb_prms.store_vars[1:]:
             vars_list.extend(vn_dict[var])
-        all_variables[vars_list].to_netcdf(eb_prms.output_name+'.nc')
+        if bin_idx == 0:
+            all_variables[vars_list].to_netcdf(eb_prms.output_name+'.nc')
 
         # Initialize energy balance outputs
         self.SWin_output = []
@@ -577,20 +580,20 @@ class Output():
         return
     
     def storeTimestep(self,massbal,enbal,surface,layers):
-        self.SWin_output.append(enbal.SWin)
-        self.SWout_output.append(enbal.SWout)
-        self.LWin_output.append(enbal.LWin)
-        self.LWout_output.append(enbal.LWout)
-        self.rain_output.append(enbal.rain)
-        self.sensible_output.append(enbal.sens)
-        self.latent_output.append(enbal.lat)
-        self.meltenergy_output.append(surface.Qm)
-        self.melt_output.append(massbal.melt)
-        self.refreeze_output.append(massbal.refreeze)
-        self.runoff_output.append(massbal.runoff)
-        self.accum_output.append(massbal.accum)
-        self.airtemp_output.append(enbal.tempC)
-        self.surftemp_output.append(surface.temp)
+        self.SWin_output.append(float(enbal.SWin))
+        self.SWout_output.append(float(enbal.SWout))
+        self.LWin_output.append(float(enbal.LWin))
+        self.LWout_output.append(float(enbal.LWout))
+        self.rain_output.append(float(enbal.rain))
+        self.sensible_output.append(float(enbal.sens))
+        self.latent_output.append(float(enbal.lat))
+        self.meltenergy_output.append(float(surface.Qm))
+        self.melt_output.append(float(massbal.melt))
+        self.refreeze_output.append(float(massbal.refreeze))
+        self.runoff_output.append(float(massbal.runoff))
+        self.accum_output.append(float(massbal.accum))
+        self.airtemp_output.append(float(enbal.tempC))
+        self.surftemp_output.append(float(surface.temp))
         self.snowdepth_output.append(np.sum(layers.lheight[layers.snow_idx]))
 
         layertemp = [None]*eb_prms.max_nlayers
@@ -607,7 +610,6 @@ class Output():
         self.layerdensity_output.append(layerdensity)
 
     def storeData(self,bin):
-        print('before')
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
             ds = dataset.load()
             if 'EB' in eb_prms.store_vars:
@@ -634,5 +636,20 @@ class Output():
                 ds['layerdensity'].loc[:,bin,:] = self.layerdensity_output
                 ds['layerwater'].loc[:,bin,:] = self.layerwater_output
         ds.to_netcdf(eb_prms.output_name+'.nc')
-        print('after')
+        return
+    
+    def addAttrs(self):
+        with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
+            ds = dataset.load()
+            ds = ds.assign_attrs(input_data=str(eb_prms.climate_input),
+                                 run_start=str(eb_prms.startdate),
+                                 run_end=str(eb_prms.enddate),
+                                 n_bins=str(eb_prms.n_bins),
+                                 model_run_date=str(eb_prms.model_run_date))
+            if len(eb_prms.glac_no) > 1:
+                reg = eb_prms.glac_no[0][0:2]
+                ds = ds.assign_attrs(glacier=f'{len(eb_prms.glac_no)} glaciers in region {reg}')
+            else:
+                ds = ds.assign_attrs(glacier=eb_prms.glac_no[0])
+        ds.to_netcdf(eb_prms.output_name+'.nc')
         return

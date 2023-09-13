@@ -6,19 +6,23 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True
+new_file=False
 #%% ===== MODEL SETUP DIRECTORY =====
 main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 output_sim_fp = output_filepath + 'simulations/'
 model_run_date = str(pd.Timestamp.today()).replace('-','_')[0:10]
 output_name = output_filepath + 'EB/run_' + model_run_date + '_hourly_'
-i = '0'
-while os.path.exists(output_name+str(i)+'.nc'):
-    i = int(i) + 1
-output_name = output_name + str(i)
+if new_file:
+    i = '0'
+    while os.path.exists(output_name+str(i)+'.nc'):
+        i = int(i) + 1
+    output_name = output_name + str(i)
+else:
+    output_name = output_name+'scratch'
 
 #%% MODEL OPTIONS
-n_bins = 3
+n_bins = 1
 parallel = False
 
 #%% ===== GLACIER SELECTION =====
@@ -30,7 +34,7 @@ rgi_regionsO2 = [2]                 # 2nd order region number (RGI V6.0)
 #                 (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
 #                 (3) use one of the functions from  utils._funcs_selectglaciers
 rgi_glac_number = 'all'
-glac_no = ['11.03674']   # ['01.00570']
+glac_no = ['01.16195']   # '01.16195'(south)['01.00570'],'11.03674' (saint sorlin)
 # glac_no = ['08.00213']
 
 # Set up bins
@@ -40,6 +44,8 @@ fls = fls.iloc[np.nonzero(fls['h'].to_numpy())] #filter out zero bins to get onl
 med_idx = np.where(fls['z'].to_numpy()==np.median(fls['z'].to_numpy()))[0]
 bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
 bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
+bin_elev = [2280]
+print(f'{len(bin_elev)} bins at elevations: {bin_elev} [m]')
 
 # Types of glaciers to include (True) or exclude (False)
 include_landterm = True                # Switch to include land-terminating glaciers
@@ -62,8 +68,12 @@ if climate_input in ['AWS']:
         AWS_fn = main_directory + '/../climate_data/AWS/LemonCreek1285_hourly.csv'
     elif glac_no == ['11.03674']:
         AWS_fn = main_directory + '/../climate_data/AWS/Preprocessed/saintsorlin/saintsorlin_hourly.csv'
-    # elif glac_no == ['16.02444']:
+    elif glac_no == ['01.16195']:
+        AWS_fn = main_directory + '/../climate_data/AWS/Preprocessed/south/south2280_hourly_2008.csv'
+    elif glac_no == ['16.02444']:
+        AWS_fn = main_directory + '/../climate_data/AWS/Preprocessed/artesonraju/Artesonraju_hourly.csv'
     assert os.path.exists(AWS_fn)
+
 # Dates
 dates_from_data = False
 if dates_from_data:
@@ -71,8 +81,8 @@ if dates_from_data:
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
 else:
-    startdate = pd.to_datetime('2015-05-01 00:00')
-    enddate = pd.to_datetime('2015-06-01 00:00')
+    startdate = pd.to_datetime('2008-05-05 00:00')
+    enddate = pd.to_datetime('2008-09-13 00:00')
     # startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
     # enddate = pd.to_datetime('2018-05-01 00:00')
 option_leapyear = 1 # 0 to exclude leap years
@@ -98,7 +108,8 @@ option_initWater = 'zero_w0'            # 'zero_w0' or 'initial_w0'
 option_initTemp = 'piecewise'           # 'piecewise' or 'interp'
 option_initDensity = 'piecewise'        # 'piecewise' or 'interp'
 startssn = 'endaccum'                    # 'endaccum' or 'endmelt' -- sample density/temp data provided for Gulkana
-init_filepath = main_directory + '/pygem_eb/sample_init_data/startssn_initialTp.nc'.replace('startssn',startssn)
+# init_filepath = main_directory + '/pygem_eb/sample_init_data/startssn_initialTp.nc'.replace('startssn',startssn)
+init_filepath = main_directory + '/pygem_eb/sample_init_data/01_16195.nc'
 
 # Simulation options
 dt = 3600
@@ -130,7 +141,7 @@ precgrad = 0.0001           # precipitation gradient on glacier [m-1]
 lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [K m-1]
 lapserate_dew = -0.002      # dew point temperature lapse rate [K m-1]
 tsnow_threshold = 1         # Threshold to consider freezing
-kp = 8                      # precipitation factor [-] 
+kp = 1                      # precipitation factor [-] 
 temp_temp = 0               # temperature of temperate ice in Celsius
 #%% MODEL PROPERTIES
 density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)

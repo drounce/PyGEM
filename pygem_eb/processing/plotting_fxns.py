@@ -2,9 +2,79 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.style as style
+import matplotlib as mpl
 
-def plot_avgs(file,nyr):
+vartype = {'surftemp':'Temperature','airtemp':'Temperature',
+           'melt':'MB','runoff':'MB','accum':'MB','refreeze':'MB',
+           'meltenergy':'Flux','SWin':'Flux','SWout':'Flux',
+           'LWin':'Flux','LWout':'Flux','SWnet':'Flux','LWnet':'Flux',
+           'NetRad':'Flux','sensible':'Flux','latent':'Flux','rain':'Flux',
+           'layertemp':'Layers','layerdensity':'Layers','layerwater':'Layers',
+           'layerheight':'Layers','snowdepth':'Snow depth','albedo':'Albedo'}
+
+def simple_plot(ds,time,vars,colors,res='d'):
+    fig,axes = plt.subplots(len(vars),1,figsize=(7,1.5*len(vars)),sharex=True)
+
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
+    ds = ds.sel(time=time)
+    ds = ds.resample(time=res).mean(dim='time')
+    for i,v in enumerate(vars):
+        ic = i-6 if i>5 else i
+        vararray = np.array(v)
+        for var in vararray:
+            if len(vars) > 1:
+                axis = axes[i]
+            else:
+                axis = axes
+            if var in ['melt','runoff','accum','refreeze']:
+                axis.plot(ds.coords['time'],ds[var].cumsum(),color=colors[ic],label=var)
+            elif var in ['SWnet']:
+                axis.plot(ds.coords['time'],ds['SWin']-ds['SWout'],color=colors[ic],label=var)
+            elif var in ['LWnet']:
+                axis.plot(ds.coords['time'],ds['LWin']-ds['LWout'],color=colors[ic],label=var)
+            else:
+                axis.plot(ds.coords['time'],ds[var],color=colors[ic],label=var)
+            ic+=1
+        axis.legend()
+        try:
+            axis.set_ylabel(f'{vartype[var]} [{ds[var].attrs["units"]}]')
+        except:
+            axis.set_ylabel(vartype[var])
+    date_form = mpl.dates.DateFormatter('%d %b')
+    axis.xaxis.set_major_formatter(date_form)
+    fig.suptitle('Minimization Method')
+        
+
+def stacked_eb_barplot(ds,time,colors,res='d'):
+    fig,ax = plt.subplots(figsize=(10,2.5))
+    vars = ['latent','NetRad','sensible','rain'] #'SWnet','LWnet'
+
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
+    ds = ds.resample(time=res).mean(dim='time')
+    bottom=0
+    for i,var in enumerate(np.array(vars)):
+        vardata = ds[var].to_numpy().T[0]
+        if i==0:
+            ax.bar(ds.coords['time'],vardata,label=var)
+        else:
+            bottom = ds[vars[i-1]].to_numpy().T[0]+bottom
+            bottom[np.where(bottom<0)] = 0
+            ax.bar(ds.coords['time'],vardata,bottom=bottom,label=var)
+    # ax.plot(ds.coords['time'],ds['sum'],label='sum',color='black',linewidth=.6)
+    ax.legend()
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_formatter(date_form)
+    ax.set_ylabel('Fluxes (W/m2)')
+    fig.suptitle('Energy Balance Output (South Glacier, 2008)')
+    plt.show()
+
+def plot_avgs(file,nyr,title=False):
     """
     Plots heat fluxes, surface/air temperature, and mass balance terms, averaged monthly and then interannually.
     """
@@ -60,7 +130,10 @@ def plot_avgs(file,nyr):
     axes[0,0].legend(loc='upper right',bbox_to_anchor=(1.25, 1.0))
     axes[1,0].legend()
     axes[2,0].legend()
-    fig.suptitle(f'Gulkana Glacier (ERA5-Hourly)\nMonthly Averages Over {nyr}-yr Run')
+    if not title:
+        fig.suptitle(f'Gulkana Glacier (ERA5-Hourly)\nMonthly Averages Over {nyr}-yr Run')
+    else:
+        fig.suptitle(title)
     fig.supxlabel('Months')
     #plt.gcf().autofmt_xdate()
     plt.show()
@@ -68,13 +141,13 @@ def plot_avgs(file,nyr):
 
 def plot_yrs(file,bin,nyr):
     months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    fig,axes = plt.subplots(nyr,3,sharex=True,sharey='col',figsize=(14,8))
+    fig,axes = plt.subplots(3,nyr,sharey='row',sharex='col',figsize=(14,8))
 
     ds = xr.open_dataset(file)
     varnames_idx = ['SWin','SWout','LWin','LWout','sensible','latent','rain','meltenergy','surftemp','melt','runoff','refreeze','accum','snowdepth']
-    varnames = ['SWnet','LWnet','sensible','latent','rain','meltenergy','surftemp','melt','runoff','refreeze','accum','snowdepth']
+    varnames = ['SWnet','LWnet','sensible','latent','rain','meltenergy','melt','runoff','refreeze','accum','snowdepth']
     heat = ['SWnet','LWnet','sensible','latent','rain','meltenergy']
-    temp = ['surftemp','snowdepth']
+    temp = ['snowdepth']
     mb = ['melt','runoff','refreeze','accum','MB']
 
     df = ds[varnames_idx].isel(bin=bin).to_pandas()
@@ -92,9 +165,11 @@ def plot_yrs(file,bin,nyr):
         
         axis = np.piecewise(var,[var in heat, var in temp, var in mb],[0,1,2])
         for yr in range(nyr):
-            axes[yr,int(axis)].plot(months,monthly_avg[yr,:])
-            axes[yr,int(axis)].set_xlabel(str(1980+yr))
-            axes[yr,int(axis)].set_ylabel(var)
+            axes[int(axis),yr].plot(months,monthly_avg[yr,:],label=var)
+            axes[int(axis),yr].set_xlabel(str(pd.to_datetime(ds.coords['time'].values[0]).year+yr))
+            axes[int(axis),yr].set_ylabel(var)
+            axes[int(axis),0].legend()
+            axes[1,0].set_xlim(0,6)
     return
 
 def plot_avg_layers(file,bin,nyr):
