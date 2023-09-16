@@ -155,6 +155,10 @@ class GCM():
                 # Variable filepaths
                 self.var_fp = pygem_prms.cmip5_fp_var_prefix + scenario + pygem_prms.cmip5_fp_var_ending
                 self.fx_fp = pygem_prms.cmip5_fp_fx_prefix + scenario + pygem_prms.cmip5_fp_fx_ending
+                if not os.path.exists(self.var_fp) and os.path.exists(pygem_prms.cmip5_fp_var_prefix + name + '/'):
+                    self.var_fp = pygem_prms.cmip5_fp_var_prefix + name + '/'
+                if not os.path.exists(self.fx_fp) and os.path.exists(pygem_prms.cmip5_fp_fx_prefix + name + '/'):
+                    self.fx_fp = pygem_prms.cmip5_fp_fx_prefix + name + '/'
                 # Extra information
                 self.timestep = pygem_prms.timestep
                 self.rgi_lat_colname=pygem_prms.rgi_lat_colname
@@ -286,10 +290,10 @@ class GCM():
         """
         # Import netcdf file
         if not os.path.exists(self.var_fp + filename):
-            for realization in realizations:
-                filename_realization = filename.replace('r1i1p1f1','r4i1p1f1')
-                if os.path.exists(self.var_fp + filename_realization):
-                    filename = filename_realization
+            if os.path.exists(self.var_fp + filename.replace('r1i1p1f1','r4i1p1f1')):
+                filename = filename.replace('r1i1p1f1','r4i1p1f1')
+            if os.path.exists(self.var_fp + filename.replace('_native','')):
+                filename = filename.replace('_native','')
             
         data = xr.open_dataset(self.var_fp + filename)
         glac_variable_series = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
