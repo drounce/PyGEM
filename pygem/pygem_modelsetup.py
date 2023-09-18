@@ -55,8 +55,8 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
     # Generate dates_table using date_range function
     if pygem_prms.timestep == 'monthly':
         # Automatically generate dates from start date to end data using a monthly frequency (MS), which generates
-        # monthly data using the 1st of each month
-        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS')})
+        # monthly data using the 1st of each month'
+        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS', unit='s')})
         # Select attributes of DateTimeIndex (dt.year, dt.month, and dt.daysinmonth)
         dates_table['year'] = dates_table['date'].dt.year
         dates_table['month'] = dates_table['date'].dt.month
@@ -431,7 +431,7 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all'
     #                   hypsometry as well.
 
 
-def split_list(lst, n=1, option_ordered=1):
+def split_list(lst, n=1, option_ordered=1, group_thousands=False):
     """
     Split list into batches for the supercomputer.
     
@@ -481,4 +481,29 @@ def split_list(lst, n=1, option_ordered=1):
             
             nbatch += 1
 
-    return lst_batches    
+    if group_thousands:
+        # get unique sets of thousand glaciers (ie. RGIXX.YY)
+        # this may be preferrable when running script that download glacier directories from oggm
+        # otherwise if two batches contain glacier ids from the same set of thousand glaciers,
+        # two downloads from oggm may run simultaneously and cause conflicts
+        sets = [x[:5] for x in lst for lst in lst_batches]
+        sets = list(set(sets))
+        lst_batches_th = []
+        # keep the number of batches, but move items around to not have sets of RGIXX.YY ids in more than one batch
+        for s in sets:
+            merged = [item for sublist in lst_batches for item in sublist if item[:5]==s]
+            lst_batches_th.append(merged)
+        # ensure that number of batches doesn't exceed original number
+        while len(lst_batches_th) > len(lst_batches):
+            # move shortest batch to next shortest batch
+            lengths = np.asarray([len(batch) for batch in lst_batches_th])
+            sorted = lengths.argsort()
+            idx0 = sorted[0]
+            idx1 = sorted[1]
+            
+            lst_batches_th[idx1].extend(lst_batches_th[idx0])
+            del lst_batches_th[idx0]
+
+        lst_batches = lst_batches_th
+
+    return lst_batches
