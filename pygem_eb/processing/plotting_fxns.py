@@ -4,6 +4,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+glac_props = {'01.00570':{'name':'Gulkana',
+                            'AWS_fn':'gulkana1725_hourly.csv'},
+            '01.01104':{'name':'Lemon Creek',
+                            'AWS_fn':'LemonCreek1285_hourly.csv'},
+            '01.16195':{'name':'South',
+                            'AWS_fn':'Preprocessed/south/south2280_hourly_2008_wNR.csv'},
+            '08.00213':{'name':'Storglaciaren',
+                            'AWS_fn':'Storglaciaren/SITES_MET_TRS_SGL_dates_15MIN.csv'},
+            '11.03674':{'name':'Saint-Sorlin',
+                            'AWS_fn':'Preprocessed/saintsorlin/saintsorlin_hourly.csv'},
+            '16.02444':{'name':'Artesonraju',
+                            'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
 vartype = {'surftemp':'Temperature','airtemp':'Temperature',
            'melt':'MB','runoff':'MB','accum':'MB','refreeze':'MB',
            'meltenergy':'Flux','SWin':'Flux','SWout':'Flux',
@@ -11,8 +23,15 @@ vartype = {'surftemp':'Temperature','airtemp':'Temperature',
            'NetRad':'Flux','sensible':'Flux','latent':'Flux','rain':'Flux',
            'layertemp':'Layers','layerdensity':'Layers','layerwater':'Layers',
            'layerheight':'Layers','snowdepth':'Snow depth','albedo':'Albedo'}
+varprops = {'surftemp':{'Temperature'},'airtemp':'Temperature',
+           'melt':'MB','runoff':'MB','accum':'MB','refreeze':'MB',
+           'meltenergy':'Flux','SWin':'Flux','SWout':'Flux',
+           'LWin':'Flux','LWout':'Flux','SWnet':'Flux','LWnet':'Flux',
+           'NetRad':'Flux','sensible':'Flux','latent':'Flux','rain':'Flux',
+           'layertemp':{'label':'Temperature (C)'},'layerdensity':{'label':'Density (kg m-3)'},'layerwater':{'label':'Water Content (kg m-2)'},
+           'layerheight':'Layers','snowdepth':'Snow depth','albedo':'Albedo'}
 
-def simple_plot(ds,time,vars,colors,res='d'):
+def simple_plot(ds,time,vars,colors,res='d',t=''):
     fig,axes = plt.subplots(len(vars),1,figsize=(7,1.5*len(vars)),sharex=True)
 
     if len(time) == 2:
@@ -31,10 +50,6 @@ def simple_plot(ds,time,vars,colors,res='d'):
                 axis = axes
             if var in ['melt','runoff','accum','refreeze']:
                 axis.plot(ds.coords['time'],ds[var].cumsum(),color=colors[ic],label=var)
-            elif var in ['SWnet']:
-                axis.plot(ds.coords['time'],ds['SWin']-ds['SWout'],color=colors[ic],label=var)
-            elif var in ['LWnet']:
-                axis.plot(ds.coords['time'],ds['LWin']-ds['LWout'],color=colors[ic],label=var)
             else:
                 axis.plot(ds.coords['time'],ds[var],color=colors[ic],label=var)
             ic+=1
@@ -45,10 +60,28 @@ def simple_plot(ds,time,vars,colors,res='d'):
             axis.set_ylabel(vartype[var])
     date_form = mpl.dates.DateFormatter('%d %b')
     axis.xaxis.set_major_formatter(date_form)
-    fig.suptitle('Minimization Method')
+    fig.suptitle(t)
         
+def compare_runs(ds1,ds2,time,var,colors,res='d',t=''):
+    fig,ax = plt.subplots(figsize=(8,6))
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq=res)
+    ds1 = ds1.resample(time=res).mean(dim='time')
+    ds2 = ds2.resample(time=res).mean(dim='time')
+    ax.plot(time,ds1[var].sel(time=time),label='ds1')
+    ax.plot(time,ds2[var].sel(time=time),label='ds2')
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_formatter(date_form)
+    ax.set_ylabel(var)
+    ax.legend()
+    fig.suptitle(t)
+    plt.show()
 
-def stacked_eb_barplot(ds,time,colors,res='d'):
+    return
+
+def stacked_eb_barplot(ds,time,colors,res='d',t=''):
     fig,ax = plt.subplots(figsize=(10,2.5))
     vars = ['latent','NetRad','sensible','rain'] #'SWnet','LWnet'
 
@@ -71,7 +104,7 @@ def stacked_eb_barplot(ds,time,colors,res='d'):
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_ylabel('Fluxes (W/m2)')
-    fig.suptitle('Energy Balance Output (South Glacier, 2008)')
+    fig.suptitle(t)
     plt.show()
 
 def plot_avgs(file,nyr,title=False):
@@ -91,8 +124,8 @@ def plot_avgs(file,nyr,title=False):
 
     airtemp = np.zeros((3,12))
     for b in range(3):
-        climatedf = xr.open_dataset('/home/claire/research/Output/EB/climateds.nc').isel(bin=b).to_pandas()
-        monthly = climatedf['bin_temp'].resample('M').mean()
+        climateds = xr.open_dataset('/home/claire/research/Output/EB/climateds.nc').isel(bin=b).to_pandas()
+        monthly = climateds['bin_temp'].resample('M').mean()
         monthly_avg = np.mean(monthly[:(nyr*12)].values.reshape((nyr,12)),axis=0)
         airtemp[b,:] = monthly_avg
 
@@ -172,6 +205,29 @@ def plot_yrs(file,bin,nyr):
             axes[1,0].set_xlim(0,6)
     return
 
+def plot_AWS(df,vars,time,t=''):
+    df = df.set_index(pd.to_datetime(df.index))
+    start = pd.to_datetime(time[0])
+    end = pd.to_datetime(time[-1])
+    df = df.loc[start:end]
+    days = df.resample('d').mean().index
+    hours = np.arange(0,24)
+    d,h = np.meshgrid(days,hours)
+
+    fig,axs = plt.subplots(len(vars),sharex=True)
+    for i,var in enumerate(vars):
+        vardata = df[var].to_numpy().reshape(np.shape(d))
+        pc = axs[i].pcolormesh(d,h,vardata.T, cmap='RdBu_r')
+        fig.colorbar(pc,ax=axs[i])
+        axs[i].set_title(var)
+        axs[i].set_ylabel('Hour')
+        yticks = mpl.ticker.MultipleLocator(6)
+        axs[i].yaxis.set_major_locator(yticks)
+    date_form = mpl.dates.DateFormatter('%d %b')
+    axs[i].xaxis.set_major_formatter(date_form)
+    fig.suptitle(t)
+    plt.show()
+
 def plot_avg_layers(file,bin,nyr):
     """
     Plots layer temperature, density, water content and layer height averaged first across all layers,
@@ -212,12 +268,30 @@ def plot_avg_layers(file,bin,nyr):
     plt.show()
     return
 
-def plot_layers_monthly(file,var,months_to_plot,colors):
+def plot_layers(ds,var,dates):
+    fig,axes = plt.subplots(1,len(dates),sharey=True,sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
+    for i,date in enumerate(dates):
+        for bin in ds.coords['bin'].values:
+            lheight = ds.sel(time=date,bin=bin)['layerheight'].to_numpy()
+            full_bins = np.array([not y for y in np.isnan(lheight)])
+            lheight = lheight[full_bins]
+            lprop = ds.sel(time=date,bin=bin)[var].to_numpy()[full_bins]
+            ldepth = -1*np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
+            if var in ['layerwater']:
+                lprop = lprop[:-1]
+                ldepth = ldepth[:-1]
+            axes[i].plot(lprop,ldepth,label='bin '+str(bin))
+            axes[i].set_title(str(date)[:10])
+    axes[0].legend()
+    fig.supxlabel(varprops[var]['label'])
+    axes[0].set_ylabel('Depth (m)')
+    return
+
+def plot_monthly_layer_avgs(file,var,dates_to_plot,colors):
     ds = xr.open_dataset(file)
-    fig,axes = plt.subplots(1,len(months_to_plot),sharey=True,sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
+    fig,axes = plt.subplots(1,len(dates_to_plot),sharey=True,sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
     df = ds['snowdepth'].to_pandas()
     snowdepth_monthly = df.resample('M').mean()
-
     # for each month, find average snow depth
     # interpolate the variable of interest at new depths, with max depth being the average snow depth of the month
     # take mean of resampled variables

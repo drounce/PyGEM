@@ -41,6 +41,7 @@ class energyBalance():
             self.SWout_ds = climateds_now['SWout'].to_numpy()
             self.LWin_ds = climateds_now['LWin'].to_numpy()
             self.LWout_ds = climateds_now['LWout'].to_numpy()
+            self.NR_ds = climateds_now['NR'].to_numpy()
         else:
             # Timestep is between hours, so interpolate using interpClimate function
             # Bin-dependent variables indexed by bin_idx
@@ -64,6 +65,7 @@ class energyBalance():
         self.nanLWin = True if np.isnan(self.LWin_ds) else False
         self.nanSWout = True if np.isnan(self.SWout_ds) else False
         self.nanLWout = True if np.isnan(self.LWout_ds) else False
+        self.nanNR = True if np.isnan(self.NR_ds) else False
         return
 
     def surfaceEB(self,surftemp,layers,albedo,days_since_snowfall,mode='sum'):
@@ -156,14 +158,17 @@ class energyBalance():
         else:
             LWout = -self.LWout_ds/self.dt
         
-        if self.nanLWin:
+        if self.nanLWin and self.nanNR:
             ezt = self.vapor_pressure(self.tempC)    # vapor pressure in hPa
             Ecs = .23+ .433*(ezt/self.tempK)**(1/8)  # clear-sky emissivity
             Ecl = 0.984                         # cloud emissivity, Klok and Oerlemans, 2002
             Esky = Ecs*(1-self.tcc**2)+Ecl*self.tcc**2    # sky emissivity
             LWin = eb_prms.sigma_SB*(Esky*self.tempK**4)
-        else:
+        elif not self.nanLWin:
             LWin = self.LWin_ds/self.dt
+        elif not self.nanNR:
+            LWin = self.NR_ds/self.dt + LWout - self.SWin + self.SWout
+            
         return LWin,LWout
     
     def getRain(self,surftemp):

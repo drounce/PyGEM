@@ -36,63 +36,73 @@ class Surface():
         return
     
     def getSurfTemp(self,enbal,layers):
-        Qm_check = enbal.surfaceEB(0,layers,self.albedo,self.days_since_snowfall)
-        # If Qm is positive with a surface temperature of 0, the surface is either melting or warming to the melting point.
-        # If Qm is negative with a surface temperature of 0, the surface temperature needs to be lowered to cool the snowpack.
-        cooling = True if Qm_check < 0 else False
-        if not cooling:
-            # Energy toward the surface: either melting or top layer is heated to melting point
-            self.temp = 0
-            Qm = Qm_check
-            if layers.ltemp[0] < 0: # need to heat surface layer to 0 before it can start melting
-                Qm_check = enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
-                layers.ltemp[0] += Qm_check*eb_prms.dt/(eb_prms.Cp_ice*layers.ldrymass[0])
-                if layers.ltemp[0] > 0:
-                    # if temperature rises above zero, leave excess energy in Qm
-                    Qm = layers.ltemp[0]*eb_prms.Cp_ice*layers.ldrymass[0]/eb_prms.dt
-                    layers.ltemp[0] = 0
-                else:
-                    extrapolate_temp = np.interp(0,layers.ldepth[0:2],layers.ltemp[0:2])
-                    Qm_check = enbal.surfaceEB(extrapolate_temp,layers,self.albedo,self.days_since_snowfall)
-                    # *** This might be a problem area with how surface temperature is being treated
-                    Qm = 0
-        elif cooling:
-            # Energy away from surface: need to change surface temperature to get 0 surface energy flux 
-            if eb_prms.method_cooling in ['minimize']:
-                result = minimize(enbal.surfaceEB,self.temp,method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
-                                args=(layers,self.albedo,self.days_since_snowfall,'optim'))
-                Qm = enbal.surfaceEB(result.x[0],layers,self.albedo,self.days_since_snowfall)
-                if not result.success and abs(Qm) > 10:
-                    print('Unsuccessful minimization, Qm = ',Qm)
-                    # assert 1==0, 'Surface temperature was not lowered enough by minimization'
-                else:
-                    self.temp = result.x[0]
-            elif eb_prms.method_cooling in ['iterative']:
-                loop = True
-                n_iters = 0
-                while loop:
-                    n_iters += 1
-                    # Initial check of Qm comparing to previous surftemp
+        """
+        Solves energy balance equation for surface temperature. There are three cases:
+        1) LWout data is input - surftemp is derived from data
+        2) Qm is positive with surftemp = 0. - excess Qm is used to warm layers to melting point or melt layers
+        3) Qm is negative with surftemp = 0. - snowpack is cooling and surftemp is lowered to balance Qm
+                Two methods are available (specified in input.py): fast iterative, or slow minimization
+        """
+        if not enbal.nanLWout:
+            self.temp = np.power(np.abs(enbal.LWout_ds/eb_prms.sigma_SB),1/4)
+        else:
+            Qm_check = enbal.surfaceEB(0,layers,self.albedo,self.days_since_snowfall)
+            # If Qm is positive with a surface temperature of 0, the surface is either melting or warming to the melting point.
+            # If Qm is negative with a surface temperature of 0, the surface temperature needs to be lowered to cool the snowpack.
+            cooling = True if Qm_check < 0 else False
+            if not cooling:
+                # Energy toward the surface: either melting or top layer is heated to melting point
+                self.temp = 0
+                Qm = Qm_check
+                if layers.ltemp[0] < 0: # need to heat surface layer to 0 before it can start melting
                     Qm_check = enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
-                    # Check direction of flux at that temperature and adjust
-                    if Qm_check > 0.5:
-                        self.temp += 0.25
-                    elif Qm_check < -0.5:
-                        self.temp -= 0.25
-                    # surftemp cannot go below -60
-                    self.temp = max(-60,self.temp)
-
-                    # break loop if Qm is ~0 or after 10 iterations
-                    if abs(Qm_check) < 0.5 or n_iters > 10:
-                        # if temp is bottoming out at -60, re-solve minimization
-                        if self.temp == -60:
-                            result = minimize(enbal.surfaceEB,-50,method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
-                                args=(layers,self.albedo,self.days_since_snowfall,'optim'))
-                            if result.x > -60:
-                                self.temp = result.x[0]
-                        # set melt to 0 and break loop
+                    layers.ltemp[0] += Qm_check*eb_prms.dt/(eb_prms.Cp_ice*layers.ldrymass[0])
+                    if layers.ltemp[0] > 0:
+                        # if temperature rises above zero, leave excess energy in Qm
+                        Qm = layers.ltemp[0]*eb_prms.Cp_ice*layers.ldrymass[0]/eb_prms.dt
+                        layers.ltemp[0] = 0
+                    else:
+                        extrapolate_temp = np.interp(0,layers.ldepth[0:2],layers.ltemp[0:2])
+                        Qm_check = enbal.surfaceEB(extrapolate_temp,layers,self.albedo,self.days_since_snowfall)
+                        # *** This might be a problem area with how surface temperature is being treated
                         Qm = 0
-                        loop = False
+            elif cooling:
+                # Energy away from surface: need to change surface temperature to get 0 surface energy flux 
+                if eb_prms.method_cooling in ['minimize']:
+                    result = minimize(enbal.surfaceEB,self.temp,method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
+                                    args=(layers,self.albedo,self.days_since_snowfall,'optim'))
+                    Qm = enbal.surfaceEB(result.x[0],layers,self.albedo,self.days_since_snowfall)
+                    if not result.success and abs(Qm) > 10:
+                        print('Unsuccessful minimization, Qm = ',Qm)
+                        # assert 1==0, 'Surface temperature was not lowered enough by minimization'
+                    else:
+                        self.temp = result.x[0]
+                elif eb_prms.method_cooling in ['iterative']:
+                    loop = True
+                    n_iters = 0
+                    while loop:
+                        n_iters += 1
+                        # Initial check of Qm comparing to previous surftemp
+                        Qm_check = enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
+                        # Check direction of flux at that temperature and adjust
+                        if Qm_check > 0.5:
+                            self.temp += 0.25
+                        elif Qm_check < -0.5:
+                            self.temp -= 0.25
+                        # surftemp cannot go below -60
+                        self.temp = max(-60,self.temp)
+
+                        # break loop if Qm is ~0 or after 10 iterations
+                        if abs(Qm_check) < 0.5 or n_iters > 10:
+                            # if temp is bottoming out at -60, re-solve minimization
+                            if self.temp == -60:
+                                result = minimize(enbal.surfaceEB,-50,method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
+                                    args=(layers,self.albedo,self.days_since_snowfall,'optim'))
+                                if result.x > -60:
+                                    self.temp = result.x[0]
+                            # set melt to 0 and break loop
+                            Qm = 0
+                            loop = False
 
         # Update surface balance terms with new surftemp
         enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)

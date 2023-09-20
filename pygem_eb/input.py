@@ -6,13 +6,36 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True
-new_file=False
+store_data=True
+
+#%% ===== GLACIER SELECTION =====
+rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
+rgi_regionsO2 = [2]                 # 2nd order region number (RGI V6.0)
+rgi_glac_number = 'all'
+glac_no = ['01.16195']   # '01.16195'(south)['01.00570'],'11.03674' (saint sorlin)
+# glac_no = ['08.00213']
+
 #%% ===== MODEL SETUP DIRECTORY =====
+new_file=True
+glac_props = {'01.00570':{'name':'Gulkana',
+                            'AWS_fn':'gulkana1725_hourly.csv'},
+            '01.01104':{'name':'Lemon Creek',
+                            'AWS_fn':'LemonCreek1285_hourly.csv'},
+            '01.16195':{'name':'South',
+                            'AWS_fn':'Preprocessed/south/south2280_hourly_2008_wNR.csv'},
+            '08.00213':{'name':'Storglaciaren',
+                            'AWS_fn':'Storglaciaren/SITES_MET_TRS_SGL_dates_15MIN.csv'},
+            '11.03674':{'name':'Saint-Sorlin',
+                            'AWS_fn':'Preprocessed/saintsorlin/saintsorlin_hourly.csv'},
+            '16.02444':{'name':'Artesonraju',
+                            'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
+
 main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 output_sim_fp = output_filepath + 'simulations/'
 model_run_date = str(pd.Timestamp.today()).replace('-','_')[0:10]
-output_name = output_filepath + 'EB/run_' + model_run_date + '_hourly_'
+glac_name = glac_props[glac_no[0]]['name']
+output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_'
 if new_file:
     i = '0'
     while os.path.exists(output_name+str(i)+'.nc'):
@@ -24,18 +47,6 @@ else:
 #%% MODEL OPTIONS
 n_bins = 1
 parallel = False
-
-#%% ===== GLACIER SELECTION =====
-rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
-rgi_regionsO2 = [2]                 # 2nd order region number (RGI V6.0)
-
-# RGI glacier number (RGI V6.0)
-#  Three options: (1) use glacier numbers for a given region (or 'all'), must have glac_no set to None
-#                 (2) glac_no is not None, e.g., ['1.00001', 13.0001'], overrides rgi_glac_number
-#                 (3) use one of the functions from  utils._funcs_selectglaciers
-rgi_glac_number = 'all'
-glac_no = ['01.16195']   # '01.16195'(south)['01.00570'],'11.03674' (saint sorlin)
-# glac_no = ['08.00213']
 
 # Set up bins
 gdir = oggm.single_flowline_glacier_directory(glac_no[0], logging_level='CRITICAL')
@@ -60,19 +71,10 @@ logging_level = 'DEBUG' # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recom
 # Specify dataset
 climate_input = 'AWS' # GCM or AWS
 if climate_input in ['AWS']:
-    if glac_no == ['01.00570']:
-        AWS_fn = main_directory + '/../climate_data/AWS/gulkana1725_hourly.csv'
-    elif glac_no ==  ['08.00213']:
-        AWS_fn = main_directory + '/../climate_data/AWS/Storglaciaren/SITES_MET_TRS_SGL_dates_15MIN.csv'
-    elif glac_no == ['01.01104']:
-        AWS_fn = main_directory + '/../climate_data/AWS/LemonCreek1285_hourly.csv'
-    elif glac_no == ['11.03674']:
-        AWS_fn = main_directory + '/../climate_data/AWS/Preprocessed/saintsorlin/saintsorlin_hourly.csv'
-    elif glac_no == ['01.16195']:
-        AWS_fn = main_directory + '/../climate_data/AWS/Preprocessed/south/south2280_hourly_2008.csv'
-    elif glac_no == ['16.02444']:
-        AWS_fn = main_directory + '/../climate_data/AWS/Preprocessed/artesonraju/Artesonraju_hourly.csv'
-    assert os.path.exists(AWS_fn)
+    AWS_fp = main_directory + '/../climate_data/AWS/'
+    AWS_fn = AWS_fp+glac_props[glac_no[0]]['AWS_fn']
+    glac_name = glac_props[glac_no[0]]['name']
+    assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
 
 # Dates
 dates_from_data = False
@@ -119,7 +121,7 @@ method_turbulent = 'MO-similarity'  # 'MO-similarity' or *****
 # option_LW
 method_heateq = 'what' # 'Crank-Nicholson': neglects penetrating shortwave
 method_densification = 'Boone'
-method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (hopefully fast?)
+method_cooling = 'minimize' # 'minimize' (slow) or 'iterative' (hopefully fast?)
 surftemp_guess =  -30   # guess for surface temperature of first timestep
 
 # Albedo switches
@@ -131,7 +133,6 @@ BC_freshsnow = 1e6          # concentration of BC in fresh snow. Only used if sw
 dust_freshsnow = 1e6        # concentration of dust in fresh snow. Only used if switch_LAPs is not 2
 
 # Output
-store_data = True          # store data, true or false
 store_vars = ['MB','EB','Temp','Layers']        # Variables to store of the possible set: ['MB','EB','Temp','Layers']
 storage_freq = 'H'          # frequency to store data using pandas offset aliases
 vars_to_store = 'all'       # list of variables to store

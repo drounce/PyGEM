@@ -36,7 +36,7 @@ class massBalance():
         self.output = Output(self.time_list,bin_idx)
         return
     
-    def main(self,climateds):
+    def main(self,args,climateds):
         """
         Runs the time loop and mass balance scheme to solve for melt, refreeze, accumulation and runoff.
 
@@ -164,7 +164,7 @@ class massBalance():
             timeidx += 1
         
         # Completed bin: store data
-        if eb_prms.store_data:
+        if args.store_data:
             self.output.storeData(self.bin_idx)
         return
 
@@ -638,18 +638,18 @@ class Output():
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
     
-    def addAttrs(self):
+    def addAttrs(self,args):
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
             ds = dataset.load()
-            ds = ds.assign_attrs(input_data=str(eb_prms.climate_input),
-                                 run_start=str(eb_prms.startdate),
-                                 run_end=str(eb_prms.enddate),
-                                 n_bins=str(eb_prms.n_bins),
-                                 model_run_date=str(eb_prms.model_run_date))
-            if len(eb_prms.glac_no) > 1:
-                reg = eb_prms.glac_no[0][0:2]
-                ds = ds.assign_attrs(glacier=f'{len(eb_prms.glac_no)} glaciers in region {reg}')
+            ds = ds.assign_attrs(input_data=str(args.climate_input),
+                                 run_start=str(args.startdate),
+                                 run_end=str(args.enddate),
+                                 n_bins=str(args.n_bins),
+                                 model_run_date=str(pd.Timestamp.today()))
+            if len(args.glac_no) > 1:
+                reg = args.glac_no[0][0:2]
+                ds = ds.assign_attrs(glacier=f'{len(args.glac_no)} glaciers in region {reg}')
             else:
-                ds = ds.assign_attrs(glacier=eb_prms.glac_no[0])
+                ds = ds.assign_attrs(glacier=eb_prms.glac_name)
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return

@@ -26,7 +26,7 @@ class Layers():
         Tpds_interp = Tpds.interp(bin_elev=eb_prms.bin_elev[bin_no],kwargs={'fill_value':'extrapolate'})
         vars = ['snow_depth','firn_depth','ice_depth']
         sfi_h0 = np.array([Tpds_interp[var].values for var in vars])
-        sfi_h0[0] = 1.5
+        sfi_h0[0] = 0.41
 
         # Calculate the layer depths based on initial snow, firn and ice depths
         lheight,ldepth,ltype = self.getLayers(sfi_h0)

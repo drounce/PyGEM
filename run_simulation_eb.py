@@ -1,3 +1,4 @@
+import argparse
 # External libraries
 import numpy as np
 import xarray as xr
@@ -9,18 +10,38 @@ import pygem.class_climate as class_climate
 import pygem_eb.massbalance as mb
 import pygem.pygem_modelsetup as modelsetup
 
-# assert eb_prms.glac_no not in ['01.00570'], 'EB model can currently only run Gulkana glacier'
-n_bins = eb_prms.n_bins
+def getparser():
+    parser = argparse.ArgumentParser(description='pygem-eb model runs')
+    # add arguments
+    parser.add_argument('-glac_no', action='store', default=eb_prms.glac_no,
+                        help='',nargs='+')
+    parser.add_argument('-start','--startdate', action='store', type=str, default=eb_prms.startdate,
+                        help='pass str like datetime of model run start')
+    parser.add_argument('-end','--enddate', action='store', type=str, default=eb_prms.enddate,
+                        help='pass str like datetime of model run end')
+    parser.add_argument('-climate_input', action='store', type=str, default=eb_prms.climate_input,
+                        help='pass str-like datetime of model run start')
+    parser.add_argument('-store_data', action='store', type=str, default=eb_prms.store_data,
+                        help='')
+    parser.add_argument('-n_bins',action='store',type=int,default=eb_prms.n_bins,
+                        help='number of elevation bins')
+    return parser
+
+# Initialize arg parser
+parser = getparser()
+args = parser.parse_args()
+
+n_bins = args.n_bins
 # ===== GLACIER AND TIME PERIOD SETUP =====
-glacier_table = modelsetup.selectglaciersrgitable(eb_prms.glac_no,
+glacier_table = modelsetup.selectglaciersrgitable(args.glac_no,
                 rgi_regionsO1=eb_prms.rgi_regionsO1, rgi_regionsO2=eb_prms.rgi_regionsO2,
                 rgi_glac_number=eb_prms.rgi_glac_number, include_landterm=eb_prms.include_landterm,
                 include_laketerm=eb_prms.include_laketerm, include_tidewater=eb_prms.include_tidewater)
 
-dates_table = modelsetup.datesmodelrun(startyear=eb_prms.startdate, endyear=eb_prms.enddate)
+dates_table = modelsetup.datesmodelrun(startyear=args.startdate, endyear=args.enddate)
 
 gcm = class_climate.GCM(name=eb_prms.ref_gcm_name)
-if eb_prms.climate_input in ['GCM']:
+if args.climate_input in ['GCM']:
     # ===== LOAD CLIMATE DATA =====
     tp_data, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, glacier_table,dates_table)
     temp_data, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, glacier_table,dates_table)
@@ -41,7 +62,7 @@ if eb_prms.climate_input in ['GCM']:
     SWin = SWin[0]
     tcc = tcc[0]
     ntimesteps = len(data_hours)
-elif eb_prms.climate_input in ['AWS']:
+elif args.climate_input in ['AWS']:
     aws = class_climate.AWS(eb_prms.AWS_fn,dates_table)
     temp_data = aws.temp
     tp_data = aws.tp
@@ -51,6 +72,7 @@ elif eb_prms.climate_input in ['AWS']:
     SWout = aws.SWout
     LWin = aws.LWin
     LWout = aws.LWout
+    NR = aws.NR
     wind = aws.wind
     winddir = aws.winddir
     tcc = aws.tcc
@@ -79,7 +101,7 @@ for idx,z in enumerate(eb_prms.bin_elev):
     else:
         rh = e_func(dtemp) / e_func(temp) * 100
 
-dates = pd.date_range(eb_prms.startdate,eb_prms.enddate,freq='h')
+dates = pd.date_range(args.startdate,args.enddate,freq='h')
 
 # ===== SET UP CLIMATE DATASET =====
 bin_idx = np.arange(0,n_bins)
@@ -89,6 +111,7 @@ climateds = xr.Dataset(data_vars = dict(
     SWout = (['time'],SWout,{'units':'J m-2'}),
     LWin = (['time'],LWin,{'units':'J m-2'}),
     LWout = (['time'],LWout,{'units':'J m-2'}),
+    NR = (['time'],NR,{'units':'J m-2'}),
     tcc = (['time'],tcc,{'units':'0-1'}),
     wind = (['time'],wind,{'units':'m s-1'}),
     winddir = (['time'],winddir,{'units':'deg'})),
@@ -102,25 +125,23 @@ climateds = climateds.assign(bin_tp = (['bin','time'],tp,{'units':'m'}))
 climateds = climateds.assign(bin_sp = (['bin','time'],sp,{'units':'Pa'}))
 climateds = climateds.assign(bin_rh = (['bin','time'],rh,{'units':'%'}))
 
-# Initialize output class
-
-
 # ===== RUN ENERGY BALANCE =====
 #loop through bins here so EB script is set up for only one bin (1D data)
 if eb_prms.parallel:
     def run_mass_balance(bin):
         massbal = mb.massBalance(bin,dates_table)
-        massbal.main(climateds)
-    processes_pool = Pool(eb_prms.n_bins)
-    processes_pool.map(run_mass_balance,range(eb_prms.n_bins))
+        massbal.main(args,climateds)
+    processes_pool = Pool(args.n_bins)
+    processes_pool.map(run_mass_balance,range(args.n_bins))
 else:
-    for bin in np.arange(eb_prms.n_bins):
+    for bin in np.arange(args.n_bins):
         # initialize variables to store from mass balance
         massbal = mb.massBalance(bin,dates_table)
-        results = massbal.main(climateds)
+        results = massbal.main(args,climateds)
         
-        if bin<eb_prms.n_bins-1:
+        if bin<args.n_bins-1:
             print('Success: moving onto bin',bin+1)
         else:
-            massbal.output.addAttrs()
-            print('Success: saving to',eb_prms.output_name+'.nc')
+            massbal.output.addAttrs(args)
+            if str(args.store_data)=='True':
+                print('Success: saving to',eb_prms.output_name+'.nc')

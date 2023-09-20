@@ -467,6 +467,7 @@ class AWS():
         self.SWout_vn = 'SWout'
         self.LWin_vn = 'LWin'
         self.LWout_vn = 'LWout'
+        self.NR_vn = 'NR'
         # File name
         self.fn = fp
         df = pd.read_csv(fp,index_col=0)
@@ -491,5 +492,11 @@ class AWS():
         self.sp = df[self.sp_vn].to_numpy()
         self.tcc = df[self.tcc_vn].to_numpy()
         self.elev = df[self.elev_vn].to_numpy()[0]
+
+        try:
+            self.NR = df[self.NR_vn].to_numpy()
+        except:
+            self.NR = np.empty_like(self.temp)*np.nan
+            print('***Net radiation still in class_climate script')
         
         return
