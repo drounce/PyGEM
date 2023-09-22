@@ -48,18 +48,19 @@ if args.climate_input in ['GCM']:
     dtemp_data, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.dtemp_fn, gcm.dtemp_vn, glacier_table,dates_table)
     sp_data, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.sp_fn, gcm.sp_vn, glacier_table,dates_table)
     tcc, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.tcc_fn, gcm.tcc_vn, glacier_table,dates_table)
-    SWin, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.surfrad_fn, gcm.surfrad_vn, glacier_table,dates_table) 
+    SWin, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.SWin_fn, gcm.SWin_vn, glacier_table,dates_table) 
+    LWin, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.SWin_fn, gcm.SWin_vn, glacier_table,dates_table) 
     uwind, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.uwind_fn, gcm.uwind_vn, glacier_table,dates_table)                                                      
     vwind, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.vwind_fn, gcm.vwind_vn, glacier_table,dates_table)
     elev_data = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, glacier_table)
     wind = np.sqrt(np.power(uwind[0],2)+np.power(vwind[0],2))
     winddir = np.arctan2(-uwind[0],-vwind[0]) * 180 / np.pi
-    LWin = np.empty(len(data_hours))
-    LWin[:] = np.nan
-    LWout = LWin.copy()
-    SWout = LWin.copy()
-    rh_data = LWin.copy()
+    LWout = np.empty(len(data_hours))
+    LWout[:] = np.nan
+    SWout = LWout.copy()
+    rh_data = LWout.copy()
     SWin = SWin[0]
+    LWin = LWin[0]
     tcc = tcc[0]
     ntimesteps = len(data_hours)
 elif args.climate_input in ['AWS']:
@@ -91,7 +92,10 @@ e_func = lambda T_C: 610.94*np.exp(17.625*T_C/(T_C+243.04))  #vapor pressure in 
 #loop through each elevation bin and adjust climate variables by lapse rate/barometric law
 for idx,z in enumerate(eb_prms.bin_elev):
     temp[idx,:] = temp_data + eb_prms.lapserate*(z-elev_data)
-    tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data))*2 # *eb_prms.kp for GCM******
+    if len(np.array(eb_prms.kp).flatten()) > 1:
+        tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data))*eb_prms.kp[idx]
+    else:
+        tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data)) # *eb_prms.kp for GCM******
     sp[idx,:] = sp_data*np.power((temp_data + eb_prms.lapserate*(z-elev_data)+273.15)/(temp_data+273.15),
                         -eb_prms.gravity*eb_prms.molarmass_air/(eb_prms.R_gas*eb_prms.lapserate))
     if not np.all(np.isnan(rh_data)): # if RH is not empty, get dtemp data from it

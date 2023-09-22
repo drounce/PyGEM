@@ -62,6 +62,9 @@ class Surface():
                         # if temperature rises above zero, leave excess energy in Qm
                         Qm = layers.ltemp[0]*eb_prms.Cp_ice*layers.ldrymass[0]/eb_prms.dt
                         layers.ltemp[0] = 0
+                    elif len(layers.ltype) < 2:
+                        self.temp = 0
+                        Qm = Qm_check
                     else:
                         # *** This might be a problem area with how surface temperature is being treated
                         Qm = 0
