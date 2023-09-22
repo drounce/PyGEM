@@ -12,13 +12,14 @@ store_data=True
 rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
 rgi_regionsO2 = [2]                 # 2nd order region number (RGI V6.0)
 rgi_glac_number = 'all'
-glac_no = ['01.16195']   # '01.16195'(south)['01.00570'],'11.03674' (saint sorlin)
+glac_no = ['11.03674']   # '01.16195'(south)['01.00570'],'11.03674' (saint sorlin)
 # glac_no = ['08.00213']
 
 #%% ===== MODEL SETUP DIRECTORY =====
 new_file=True
 glac_props = {'01.00570':{'name':'Gulkana',
-                            'AWS_fn':'gulkana1725_hourly.csv'},
+                            'AWS_fn':'gulkana1725_hourly.csv',
+                            'init_filepath':''},
             '01.01104':{'name':'Lemon Creek',
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
             '01.16195':{'name':'South',
@@ -43,6 +44,8 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
+glac_no_str = str(glac_no[0]).replace('.','_')
+init_filepath = main_directory + f'/pygem_eb/sample_init_data/{glac_no_str}.nc'
 
 #%% MODEL OPTIONS
 n_bins = 1
@@ -55,8 +58,9 @@ fls = fls.iloc[np.nonzero(fls['h'].to_numpy())] #filter out zero bins to get onl
 med_idx = np.where(fls['z'].to_numpy()==np.median(fls['z'].to_numpy()))[0]
 bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
 bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
-bin_elev = [2280]
+bin_elev = [2720]
 print(f'{len(bin_elev)} bins at elevations: {bin_elev} [m]')
+icelayers = 'multiple'
 
 # Types of glaciers to include (True) or exclude (False)
 include_landterm = True                # Switch to include land-terminating glaciers
@@ -83,8 +87,8 @@ if dates_from_data:
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
 else:
-    startdate = pd.to_datetime('2008-05-05 00:00')
-    enddate = pd.to_datetime('2008-09-13 00:00')
+    startdate = pd.to_datetime('2006-05-05 00:00')
+    enddate = pd.to_datetime('2006-09-13 00:00')
     # startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
     # enddate = pd.to_datetime('2018-05-01 00:00')
 option_leapyear = 1 # 0 to exclude leap years
@@ -111,7 +115,6 @@ option_initTemp = 'piecewise'           # 'piecewise' or 'interp'
 option_initDensity = 'piecewise'        # 'piecewise' or 'interp'
 startssn = 'endaccum'                    # 'endaccum' or 'endmelt' -- sample density/temp data provided for Gulkana
 # init_filepath = main_directory + '/pygem_eb/sample_init_data/startssn_initialTp.nc'.replace('startssn',startssn)
-init_filepath = main_directory + '/pygem_eb/sample_init_data/01_16195.nc'
 
 # Simulation options
 dt = 3600
@@ -121,11 +124,11 @@ method_turbulent = 'MO-similarity'  # 'MO-similarity' or *****
 # option_LW
 method_heateq = 'what' # 'Crank-Nicholson': neglects penetrating shortwave
 method_densification = 'Boone'
-method_cooling = 'minimize' # 'minimize' (slow) or 'iterative' (hopefully fast?)
+method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (hopefully fast?)
 surftemp_guess =  -30   # guess for surface temperature of first timestep
 
 # Albedo switches
-switch_snow = 0             # 0 to turn off fresh snow feedback; 1 to include it
+switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
 switch_melt = 0
 switch_LAPs = 0
 initLAPs = [[0,0],[0,0]]    # initial LAP concentrations. Set to None to use fresh snow values
@@ -173,6 +176,7 @@ layer_growth = 0.6          # rate of exponential growth of bin size (smaller la
 sigma_SB = 5.67037e-8       # Stefan-Boltzmann constant [W m-2 K-4]
 max_nlayers = 20            # maximum number of vertical layers allowed
 max_dz = 1  # max layer height
+albedo_deg_rate = 10
 
 def get_uptime():
     with open('/proc/uptime', 'r') as f:

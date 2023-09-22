@@ -68,15 +68,17 @@ class massBalance():
             # Check if snowfall or rain occurred and update snow timestamp
             rain,snowfall = self.getPrecip(enbal,surface,time)
 
+            # Add fresh snow to layers
+            if snowfall > 0:
+                store_surface = layers.addSnow(snowfall,enbal.tempC)
+                if store_surface:
+                    surface.storeSurface()
+                    
             # Update surface daily
             if time.hour < 1 and time.minute < 1:
                 surface.days_since_snowfall = (time - surface.snow_timestamp)/pd.Timedelta(days=1)
                 self.days_since_snowfall = surface.days_since_snowfall
-                surface.updateSurface()
-
-            # Add fresh snow to layers
-            if snowfall > 0:
-                layers.addSnow(snowfall,enbal.tempC)
+                surface.updateSurface(layers)
 
             # Calculate surface energy balance by updating surface temperature
             surface.getSurfTemp(enbal,layers)
@@ -444,8 +446,8 @@ class massBalance():
         density = layers.ldensity
         old_T = layers.ltemp
         new_T = old_T.copy()
-        if nl > 1: #***** check on weird densities
-            if np.max(density[:-1]) >= 900 or np.min(density) < 0:
+        if len(layers.snow_idx) > 1: #***** check on weird densities
+            if np.max(density[:layers.ice_idx[0]]) >= 900 or np.min(density) < 0:
                 print(density)
                 print('Height',height)
                 print('Dry mass',layers.ldrymass)

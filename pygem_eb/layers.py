@@ -35,42 +35,8 @@ class Layers():
         self.lheight = lheight
         self.ldepth = ldepth
 
-        # Initialize SNOW layer temperature and density based on chosen method and data (snow_temp)
-        snow_idx =  np.where(ltype=='snow')[0]
-        snow_ldepth = ldepth[snow_idx] 
-        if eb_prms.option_initTemp in ['piecewise']:
-            ltemp = self.initProfilesPiecewise(snow_ldepth,temp_data,'temp')
-        elif eb_prms.option_initTemp in ['interp']:
-            ltemp = np.interp(snow_ldepth,temp_data[0,:],temp_data[1,:])
-        else:
-            assert 1==0, "Choose between 'piecewise' and 'interp' methods for temp initialization"
-
-        if eb_prms.option_initDensity in ['piecewise']:
-            ldensity = self.initProfilesPiecewise(snow_ldepth,density_data,'density')
-        elif eb_prms.option_initDensity in ['interp']:
-            ldensity = np.interp(snow_ldepth,density_data[0,:],density_data[1,:])
-        else:
-            assert 1==0, "Choose between 'piecewise' and 'interp' methods for density initialization"
-
-        # Initialize FIRN AND ICE temperature and density
-        # Calculate firn density slope that linearly increases density from the bottom snow bin to the top of the ice layer
-        if sfi_h0[0] > 0 and sfi_h0[1] > 0:
-            pslope = (eb_prms.density_ice - ldensity[-1])/(np.sum(sfi_h0[0:2])-ldepth[snow_idx[-1]])
-        else:
-            pslope = (eb_prms.density_ice - eb_prms.density_firn)/(sfi_h0[1])
-        for idx,type in enumerate(ltype):
-            if type not in ['snow']:
-                ltemp = np.append(ltemp,eb_prms.temp_temp)
-            if type in ['firn']:
-                ldensity = np.append(ldensity,ldensity[snow_idx[-1]] + pslope*(ldepth[idx]-ldepth[snow_idx[-1]]))
-            elif type in ['ice']:
-                ldensity = np.append(ldensity,eb_prms.density_ice)
-
-        # Initialize water content [kg m-2]
-        if eb_prms.option_initWater in ['zero_w0']:
-            lwater = np.zeros(self.nlayers)
-        elif eb_prms.option_initWater in ['initial_w0']:
-            assert 1==0, "Only zero water content method is set up"
+        # Initialize layer temperature and density based on chosen method and data 
+        ltemp,ldensity,lwater = self.getTpw(sfi_h0,temp_data,density_data)
 
         # Define dry (solid) mass of each layer [kg m-2]
         ldrymass = ldensity*lheight
@@ -100,7 +66,6 @@ class Layers():
         self.irrwatercont = irrwatercont
         self.BC = BC
         self.dust = dust
-        self.snow_idx = snow_idx
         print(self.nlayers,'layers initialized for bin',bin_no)
         return 
     
@@ -130,42 +95,88 @@ class Layers():
         layerh = []
         layertype = []
 
-        # Case where there is snow
-        if sfi_h0[0] > 0:
-            total_depth = 0
-            layeridx = 0
-
-            # Make exponentially growing layers
-            while total_depth < sfi_h0[0]:
-                layerh.append(dz_toplayer * np.exp(layeridx*layer_growth))
-                layertype.append('snow')
-                layeridx += 1
-                total_depth = np.sum(layerh)
-            layerh[-1] = layerh[-1] - (total_depth-sfi_h0[0])
-        
-            # Add firn layers
-            if sfi_h0[1] > 0.75:
-                n_firn_layers = int(round(sfi_h0[1],0))
-                layerh.extend([sfi_h0[1]/n_firn_layers]*n_firn_layers)
-                layertype.extend(['firn']*n_firn_layers)
-            elif sfi_h0[1] > 0:
-                layerh.extend([sfi_h0[1]])
-                layertype.extend(['firn'])
-        # Case where there is no snow, but there is firn*****
-        elif sfi_h0[1] > 0:
-            # Add firn layers that are approximately 0.2m deep
-            n_firn_layers = sfi_h0 // 0.2
+        snow_depth = 0
+        layeridx = 0
+        # Make exponentially growing snow layers
+        while snow_depth < sfi_h0[0]:
+            layerh.append(dz_toplayer * np.exp(layeridx*layer_growth))
+            layertype.append('snow')
+            layeridx += 1
+            snow_depth = np.sum(layerh)
+        layerh[-1] = layerh[-1] - (snow_depth-sfi_h0[0])
+    
+        # Add firn layers
+        if sfi_h0[1] > 0.75:
+            n_firn_layers = int(round(sfi_h0[1],0))
             layerh.extend([sfi_h0[1]/n_firn_layers]*n_firn_layers)
             layertype.extend(['firn']*n_firn_layers)
+        elif sfi_h0[1] > 0:
+            layerh.extend([sfi_h0[1]])
+            layertype.extend(['firn'])
 
         # Add ice bin
-        layerh.append(sfi_h0[2])
-        layertype.append('ice')
+        if eb_prms.icelayers == 1:
+            layerh.append(sfi_h0[2])
+            layertype.append('ice')
+        else:
+            ice_depth = 0
+            while ice_depth < sfi_h0[2]:
+                layerh.append(dz_toplayer * np.exp(layeridx*layer_growth))
+                layertype.append('ice')
+                layeridx += 1
+                ice_idx = np.where(np.array(layertype)=='ice')[0]
+                ice_depth += np.sum(np.array(layerh)[ice_idx])
+            ice_idx = np.where(np.array(layertype)=='ice')[0]
+            layerh[-1] = layerh[-1] - (ice_depth-sfi_h0[2])
 
         # Calculate layer depths (mid-points)
         layerz = [np.sum(layerh[:i+1])-(layerh[i]/2) for i in range(len(layerh))]
  
         return np.array(layerh), np.array(layerz), np.array(layertype)
+
+    def getTpw(self,sfi_h0,temp_data,density_data,method=eb_prms.option_initTemp):
+        snow_idx =  np.where(self.ltype=='snow')[0]
+        firn_idx =  np.where(self.ltype=='firn')[0]
+        ice_idx =  np.where(self.ltype=='ice')[0]
+
+        # Initialize temperature profiles from piecewise formulation or interpolating data
+        if eb_prms.option_initTemp in ['piecewise']:
+            ltemp = self.initProfilesPiecewise(self.ldepth,temp_data,'temp')
+        elif eb_prms.option_initTemp in ['interp']:
+            ltemp = np.interp(self.ldepth,temp_data[0,:],temp_data[1,:])
+        else:
+            assert 1==0, "Choose between 'piecewise' and 'interp' methods for temp initialization"
+
+        # Initialize SNOW density profiles  from piecewise formulation or interpolating data
+        if eb_prms.option_initDensity in ['piecewise']:
+            ldensity = self.initProfilesPiecewise(self.ldepth[snow_idx],density_data,'density')
+        elif eb_prms.option_initDensity in ['interp']:
+            ldensity = np.interp(self.ldepth[snow_idx],density_data[0,:],density_data[1,:])
+        else:
+            assert 1==0, "Choose between 'piecewise' and 'interp' methods for density initialization"
+
+        # Calculate firn density slope that linearly increases density from the bottom snow bin to the top of the ice layer
+        if sfi_h0[0] > 0 and sfi_h0[1] > 0:
+            pslope = (eb_prms.density_ice - ldensity[-1])/(self.ldepth[ice_idx[0]]-self.ldepth[snow_idx[-1]])
+        elif sfi_h0[1] > 0:
+            pslope = (eb_prms.density_ice - eb_prms.density_firn)/(sfi_h0[1])
+        # Add firn and ice layer densities
+        for idx,type in enumerate(self.ltype):
+            if type in ['firn']:
+                ldensity = np.append(ldensity,ldensity[snow_idx[-1]] + pslope*(self.ldepth[idx]-self.ldepth[snow_idx[-1]]))
+            elif type in ['ice']:
+                ldensity = np.append(ldensity,eb_prms.density_ice)
+
+        # Initialize water content [kg m-2]
+        if eb_prms.option_initWater in ['zero_w0']:
+            lwater = np.zeros(self.nlayers)
+        elif eb_prms.option_initWater in ['initial_w0']:
+            assert 1==0, "Only zero water content method is set up"
+        
+        self.snow_idx = snow_idx
+        self.firn_idx = firn_idx
+        self.ice_idx = ice_idx
+        return ltemp,ldensity,lwater
     
     def initProfilesPiecewise(self,layerz,snow_var,varname):
         """
@@ -312,6 +323,8 @@ class Layers():
         """
         self.nlayers = len(self.lheight)
         self.snow_idx =  np.where(np.array(self.ltype)=='snow')[0]
+        self.firn_idx =  np.where(self.ltype=='firn')[0]
+        self.ice_idx =  np.where(self.ltype=='ice')[0]
         if 'depth' in do:
             self.ldepth = np.array([np.sum(self.lheight[:i+1])-(self.lheight[i]/2) for i in range(self.nlayers)])
         if 'density' in do:
@@ -361,9 +374,15 @@ class Layers():
         new_density : float
             Density to use for the new snow
         """
+        store_surface = False
         if self.ltype[0] in 'ice':
             new_layer = pd.DataFrame([airtemp,0,snowfall/new_density,'snow',snowfall],index=['T','w','h','t','drym'])
             self.addLayers(new_layer)
+        elif self.ldensity[0] > new_density*3:
+            # large density difference - create a new layer anyway
+            new_layer = pd.DataFrame([airtemp,0,snowfall/new_density,'snow',snowfall],index=['T','w','h','t','drym'])
+            self.addLayers(new_layer)
+            store_surface = True
         else:
             # take weighted average of density and temperature of surface layer and new snow
             new_layermass = self.ldrymass[0] + snowfall
@@ -374,7 +393,7 @@ class Layers():
             if self.lheight[0] > (eb_prms.dz_toplayer * 1.5):
                 self.splitLayer(0)
         self.updateLayerProperties()
-        return
+        return store_surface
     
     def getIrrWaterCont(self,density=[0]):
         """
@@ -384,12 +403,12 @@ class Layers():
             density = self.ldrymass / self.lheight
         density = density.astype(float)
         density_ice = eb_prms.density_ice
-        ice_idx = np.where(self.ltype=='ice')[0][0]
+        ice_idx = np.where(self.ltype=='ice')[0]
 
-        porosity = (density_ice - density[:ice_idx])/density_ice
+        porosity = (density_ice - density[:ice_idx[0]])/density_ice
         irrwatercont = 0.0143*np.exp(3.3*porosity)
-        irrwatersat = irrwatercont*density[:ice_idx]/porosity # kg m-3, mass of liquid over pore volume
-        irrwatercont = irrwatersat*self.lheight[:ice_idx] # kg m-2, mass of liquid in a layer
+        irrwatersat = irrwatercont*density[:ice_idx[0]]/porosity # kg m-3, mass of liquid over pore volume
+        irrwatercont = irrwatersat*self.lheight[:ice_idx[0]] # kg m-2, mass of liquid in a layer
         
-        irrwatercont = np.append(irrwatercont,0) # ice layer cannot hold water
+        irrwatercont = np.append(irrwatercont,np.zeros_like(ice_idx)) # ice layers cannot hold water
         return irrwatercont

@@ -4,6 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+mpl.style.use('seaborn')
+colors = plt.rcParams['axes.prop_cycle'].by_key()['color'] 
 glac_props = {'01.00570':{'name':'Gulkana',
                             'AWS_fn':'gulkana1725_hourly.csv'},
             '01.01104':{'name':'Lemon Creek',
@@ -31,38 +33,46 @@ varprops = {'surftemp':{'Temperature'},'airtemp':'Temperature',
            'layertemp':{'label':'Temperature (C)'},'layerdensity':{'label':'Density (kg m-3)'},'layerwater':{'label':'Water Content (kg m-2)'},
            'layerheight':'Layers','snowdepth':'Snow depth','albedo':'Albedo'}
 
-def simple_plot(ds,time,vars,colors,res='d',t=''):
-    fig,axes = plt.subplots(len(vars),1,figsize=(7,1.5*len(vars)),sharex=True)
+def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
+    h = 1.5 if skinny else 3
+    fig,axes = plt.subplots(len(vars),1,figsize=(7,h*len(vars)),sharex=True,layout='constrained')
 
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq='h')
-    ds = ds.sel(time=time)
-    ds = ds.resample(time=res).mean(dim='time')
+    ds = ds.sel(time=time,bin=bin)
+    ds = ds.resample(time=res).mean(dim='time',keep_attrs='units')
     for i,v in enumerate(vars):
         ic = i-6 if i>5 else i
+        if len(vars) > 1:
+            axis = axes[i]
+        else:
+            axis = axes
         vararray = np.array(v)
         for var in vararray:
-            if len(vars) > 1:
-                axis = axes[i]
-            else:
-                axis = axes
             if var in ['melt','runoff','accum','refreeze']:
                 axis.plot(ds.coords['time'],ds[var].cumsum(),color=colors[ic],label=var)
+            if var in new_y:
+                newaxis = axis.twinx()
+                newaxis.plot(ds.coords['time'],ds[var],color=colors[ic],label=var)
+                newaxis.set_yticks([-.2,0,0.2,0.4,0.6,0.8,1.0],labels=['',0,.2,.4,.6,.8,''])
+                newaxis.grid(False)
+                newaxis.set_ylabel(var)
             else:
                 axis.plot(ds.coords['time'],ds[var],color=colors[ic],label=var)
             ic+=1
-        axis.legend()
-        try:
-            axis.set_ylabel(f'{vartype[var]} [{ds[var].attrs["units"]}]')
-        except:
-            axis.set_ylabel(vartype[var])
+        axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
+        if var != 'albedo':
+            units = ds[var].attrs['units']
+        else:
+            units = ''
+        axis.set_ylabel(f'{vartype[var]} [{units}]')
     date_form = mpl.dates.DateFormatter('%d %b')
     axis.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
         
-def compare_runs(ds1,ds2,time,var,colors,res='d',t=''):
+def compare_runs(ds1,ds2,time,var,res='d',t=''):
     fig,ax = plt.subplots(figsize=(8,6))
     if len(time) == 2:
         start = pd.to_datetime(time[0])
@@ -81,7 +91,7 @@ def compare_runs(ds1,ds2,time,var,colors,res='d',t=''):
 
     return
 
-def stacked_eb_barplot(ds,time,colors,res='d',t=''):
+def stacked_eb_barplot(ds,time,res='d',t=''):
     fig,ax = plt.subplots(figsize=(10,2.5))
     vars = ['latent','NetRad','sensible','rain'] #'SWnet','LWnet'
 
@@ -287,7 +297,7 @@ def plot_layers(ds,var,dates):
     axes[0].set_ylabel('Depth (m)')
     return
 
-def plot_monthly_layer_avgs(file,var,dates_to_plot,colors):
+def plot_monthly_layer_avgs(file,var,dates_to_plot):
     ds = xr.open_dataset(file)
     fig,axes = plt.subplots(1,len(dates_to_plot),sharey=True,sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
     df = ds['snowdepth'].to_pandas()

@@ -22,15 +22,16 @@ class Surface():
         self.temp = eb_prms.surftemp_guess
         self.Qm = 0
         self.days_since_snowfall = 0
-
-        self.snow_timestamp = time[0] # ***** what to set snow timestamp at when we start on bare ice???
+        self.type = layers.ltype[0]
+        self.snow_timestamp = time[0]
         return
     
-    def updateSurface(self):
+    def updateSurface(self,layers):
         """
         Run every timestep to get properties that evolve with time. Keeps track of past surface in the case of fresh snowfall
         after significant melt.
         """
+        self.type = layers.ltype[0]
         self.getGrainSize()
         self.getAlbedo()
         return
@@ -62,8 +63,6 @@ class Surface():
                         Qm = layers.ltemp[0]*eb_prms.Cp_ice*layers.ldrymass[0]/eb_prms.dt
                         layers.ltemp[0] = 0
                     else:
-                        extrapolate_temp = np.interp(0,layers.ldepth[0:2],layers.ltemp[0:2])
-                        Qm_check = enbal.surfaceEB(extrapolate_temp,layers,self.albedo,self.days_since_snowfall)
                         # *** This might be a problem area with how surface temperature is being treated
                         Qm = 0
             elif cooling:
@@ -108,10 +107,21 @@ class Surface():
         enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
         self.Qm = Qm
         return
+    
+    def storeSurface(self):
+        previous = self.days_since_snowfall
+        # need to keep track of the layer that used to be the surface such that if the snowfall melts, albedo resets to the dirty surface
 
     def getAlbedo(self):
-        self.albedo = 0.85
-        
+        if self.type == 'snow':
+            if eb_prms.switch_snow == 0:
+                self.albedo = eb_prms.albedo_fresh_snow
+            else:
+                self.albedo = eb_prms.albedo_firn-(eb_prms.albedo_fresh_snow - eb_prms.albedo_firn)*(np.exp(self.days_since_snowfall/eb_prms.albedo_deg_rate))
+        elif self.type == 'firn':
+            self.albedo = eb_prms.albedo_firn
+        elif self.type == 'ice':
+            self.albedo = eb_prms.albedo_ice
         return 
 
     def getGrainSize(self):
@@ -121,6 +131,7 @@ class Surface():
         if type in 'snow' and amount > 1e-8:
             self.albedo = 0.85
         elif type in 'rain':
-            self.albedo = 0.85
+            _=0
+            # self.albedo = 0.35
         return
 
