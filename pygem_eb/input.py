@@ -12,20 +12,20 @@ store_data=True
 rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
 rgi_regionsO2 = [2]                 # 2nd order region number (RGI V6.0)
 rgi_glac_number = 'all'
-glac_no = ['01.16195']   # '01.16195'(south)['01.00570'],'11.03674' (saint sorlin)
+glac_no = ['01.00570']   # '01.16195'(south)['01.00570'],'11.03674' (saint sorlin)
 # glac_no = ['08.00213']
 
 #%% ===== MODEL SETUP DIRECTORY =====
 new_file=True
 glac_props = {'01.00570':{'name':'Gulkana',
-                            'AWS_fn':'gulkana1725_hourly.csv',
-                            'AWS_elev':1725,
+                            'AWS_fn':'Preprocessed/gulkanaD/gulkanaD_wCNR4_all.csv',
+                            'AWS_elev':1854,
                             'init_filepath':''},
             '01.01104':{'name':'Lemon Creek',
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
             '01.16195':{'name':'South',
                             'AWS_elev':2280,
-                            'AWS_fn':'Preprocessed/south/south2280_hourly_2008.csv'},
+                            'AWS_fn':'Preprocessed/south/south2280_hourly_2008_wNR.csv'},
             '08.00213':{'name':'Storglaciaren',
                             'AWS_fn':'Storglaciaren/SITES_MET_TRS_SGL_dates_15MIN.csv'},
             '11.03674':{'name':'Saint-Sorlin',
@@ -61,7 +61,6 @@ fls = fls.iloc[np.nonzero(fls['h'].to_numpy())] #filter out zero bins to get onl
 med_idx = np.where(fls['z'].to_numpy()==np.median(fls['z'].to_numpy()))[0]
 bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
 bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
-print(f'{len(bin_elev)} bins at elevations: {bin_elev} [m]')
 icelayers = 'multiple'
 
 # Types of glaciers to include (True) or exclude (False)
@@ -82,16 +81,17 @@ if climate_input in ['AWS']:
     glac_name = glac_props[glac_no[0]]['name']
     bin_elev = [int(glac_props[glac_no[0]]['AWS_elev'])]
     assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
+print(f'{len(bin_elev)} bins at elevations: {bin_elev} [m]')
 
 # Dates
-dates_from_data = False
-if dates_from_data:
+dates_from_data = True
+if dates_from_data and climate_input in ['AWS']:
     cdf = pd.read_csv(AWS_fn,index_col=0)
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
 else:
-    startdate = pd.to_datetime('2008-05-05 00:00')
-    enddate = pd.to_datetime('2008-09-13 00:00')
+    startdate = pd.to_datetime('2022-05-01 00:00')
+    enddate = pd.to_datetime('2022-09-01 00:00')
     # startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
     # enddate = pd.to_datetime('2018-05-01 00:00')
 option_leapyear = 1 # 0 to exclude leap years
@@ -114,8 +114,8 @@ gcm_spinupyears = 0             # spin up years for simulation (output not set u
 
 # Initialization
 option_initWater = 'zero_w0'            # 'zero_w0' or 'initial_w0'
-option_initTemp = 'piecewise'           # 'piecewise' or 'interp'
-option_initDensity = 'piecewise'        # 'piecewise' or 'interp'
+option_initTemp = 'interp'           # 'piecewise' or 'interp'
+option_initDensity = 'interp'        # 'piecewise' or 'interp'
 startssn = 'endaccum'                    # 'endaccum' or 'endmelt' -- sample density/temp data provided for Gulkana
 # init_filepath = main_directory + '/pygem_eb/sample_init_data/startssn_initialTp.nc'.replace('startssn',startssn)
 

@@ -167,7 +167,7 @@ class energyBalance():
         elif not self.nanLWin:
             LWin = self.LWin_ds/self.dt
         elif not self.nanNR:
-            LWin = self.NR_ds/self.dt + LWout - self.SWin + self.SWout
+            LWin = self.NR_ds/self.dt - LWout - self.SWin - self.SWout
             
         return LWin,LWout
     
@@ -238,8 +238,6 @@ class energyBalance():
             Ew0 = self.vapor_pressure(surf_temp) # vapor pressure at the surface
             qz = (self.rH/100)*0.622*(Ewz/(self.sp-Ewz))
             q0 = 1.0*0.622*(Ew0/(self.sp-Ew0))
-            # qz = (rH2 * 0.622 * (Ew / (p - Ew))) / 100.0
-            # q0 = (100.0 * 0.622 * (Ew0 / (p - Ew0))) / 100.0
             Ql = air_dens*Lv*cE*self.wind*(qz-q0)
             self.qz = qz
 

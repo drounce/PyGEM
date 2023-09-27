@@ -11,7 +11,7 @@ class massBalance():
     Mass balance scheme which calculates layer and bin mass balance from melt, refreeze and accumulation.
     Contains main() function which executes the core of the model.
     """
-    def __init__(self,bin_idx,dates_table):
+    def __init__(self,bin_idx,dates_table,args):
         """
         Initializes the layers and surface classes and model time for the mass balance scheme.
 
@@ -33,10 +33,11 @@ class massBalance():
         self.surface = eb_surface.Surface(self.layers,self.time_list)
 
         # Initialize output class
-        self.output = Output(self.time_list,bin_idx)
+        self.args = args
+        self.output = Output(self.time_list,bin_idx,args)
         return
     
-    def main(self,args,climateds):
+    def main(self,climateds):
         """
         Runs the time loop and mass balance scheme to solve for melt, refreeze, accumulation and runoff.
 
@@ -85,8 +86,8 @@ class massBalance():
 
             # Calculate subsurface heating/melt from penetrating SW
             if layers.nlayers > 1: 
-                Sin,Sout = enbal.getSW(surface.albedo)
-                subsurf_melt = self.getSubsurfMelt(layers,Sin+Sout)
+                SWin,SWout = enbal.getSW(surface.albedo)
+                subsurf_melt = self.getSubsurfMelt(layers,SWin+SWout)
             else: # If there is bare ice, no subsurface melt occurs
                 subsurf_melt = [0]
 
@@ -142,20 +143,23 @@ class massBalance():
                     melte = np.mean(self.output.meltenergy_output[-720:])
                     layers.updateLayerProperties()
                     snowdepth = np.sum(layers.lheight[layers.snow_idx])
+                    firndepth = np.sum(layers.lheight[layers.firn_idx])
+                    icedepth = np.sum(layers.lheight[layers.ice_idx])
                     print(time.month_name(),time.year,'for bin no',self.bin_idx)
                     print(f'|    Qm: {melte:.0f} W/m2              Melt: {melt_monthly:.2f} m w.e.  |')
                     print(f'| Air temp: {enbal.tempC:.3f} C       Accum: {accum_monthly:.2f} m w.e.   |')
                     print(f'-------------surface temp: {surface.temp:.2f} C-------------')
-                    print(f'|             snow height: {snowdepth:.2f} m             |')
-                    if layers.nlayers > 3:
-                        print(f'|    {layers.nlayers} layers total, only displaying top few  |')
+                    if len(layers.snow_idx) > 0:
+                        print(f'|       snow depth: {snowdepth:.2f} m      {len(layers.snow_idx)} layers      |')
+                    if len(layers.firn_idx) > 0:
+                        print(f'|       firn depth: {firndepth:.2f} m      {len(layers.firn_idx)} layers      |')
+                    print(f'|       ice depth: {icedepth:.2f} m      {len(layers.ice_idx)} layers      |')
                     for l in range(min(3,layers.nlayers)):
                         print(f'--------------------layer {l}---------------------')
                         print(f'     T = {layers.ltemp[l]:.1f} C                 h = {layers.lheight[l]:.3f} m ')
                         print(f'                 p = {layers.ldensity[l]:.0f} kg/m3')
                         print(f'Water Mass : {layers.lwater[l]:.2f} kg/m2   Dry Mass : {layers.ldrymass[l]:.2f} kg/m2')
                     print('================================================')
-                    print(layers.ltype)
                 # Reset monthly values
                 melt_monthly = 0
                 refreeze_monthly = 0
@@ -164,9 +168,9 @@ class massBalance():
             
             # Advance timestep
             timeidx += 1
-        
+    
         # Completed bin: store data
-        if args.store_data:
+        if self.args.store_data:
             self.output.storeData(self.bin_idx)
         return
 
@@ -446,18 +450,12 @@ class massBalance():
         density = layers.ldensity
         old_T = layers.ltemp
         new_T = old_T.copy()
-        if len(layers.snow_idx) > 1: #***** check on weird densities
-            if np.max(density[:layers.ice_idx[0]]) >= 900 or np.min(density) < 0:
-                print(density)
-                print('Height',height)
-                print('Dry mass',layers.ldrymass)
-                print('Water',layers.lwater)
         # conductivity = 2.2*np.power(density/eb_prms.density_ice,1.88)
         conductivity = 0.21e-01 + 0.42e-03 * density + 0.22e-08 * density ** 3
         Cp_ice = eb_prms.Cp_ice
 
         # set boundary conditions
-        new_T[-1] = old_T[-1] # ice is ALWAYS isothermal*****
+        new_T[-1] = old_T[-1] # lowest layer of ice is ALWAYS at 0.*****
 
         if nl > 2:
             # heights of imaginary average bins between layers
@@ -476,6 +474,8 @@ class massBalance():
             surf_cond = up_cond[0]*2/(up_dens[0]*up_height[0])*(surftemp-old_T[0])
             subsurf_cond = dn_cond[0]/(up_dens[0]*up_height[0])*(old_T[0]-old_T[1])
             new_T[0] = old_T[0] + dt_heat/(Cp_ice*height[0])*(surf_cond - subsurf_cond)
+            if new_T[0] > 0: # If top layer of snow is very thin on top of ice, it breaks the temperature
+                new_T[0] = 0 
 
             surf_cond = up_cond/(up_dens*up_height)*(old_T[:-2]-old_T[1:-1])
             subsurf_cond = dn_cond/(dn_dens*dn_height)*(old_T[1:-1]-old_T[2:])
@@ -511,7 +511,7 @@ class massBalance():
     #     return
     
 class Output():
-    def __init__(self,time,bin_idx):
+    def __init__(self,time,bin_idx,args):
         n_bins = eb_prms.n_bins
         bin_idxs = range(n_bins)
         zeros = np.zeros([len(time),n_bins,eb_prms.max_nlayers])
@@ -549,10 +549,12 @@ class Output():
                     bin = (['bin'],bin_idxs),
                     layer=(['layer'],np.arange(eb_prms.max_nlayers))
                     ))
+        # Select variables from the specified input
         vars_list = vn_dict[eb_prms.store_vars[0]]
         for var in eb_prms.store_vars[1:]:
             vars_list.extend(vn_dict[var])
-        if bin_idx == 0:
+        # If on the first bin, create the netcdf file to store output
+        if bin_idx == 0 and args.store_data:
             all_variables[vars_list].to_netcdf(eb_prms.output_name+'.nc')
 
         # Initialize energy balance outputs

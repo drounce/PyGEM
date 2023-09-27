@@ -19,7 +19,7 @@ glac_props = {'01.00570':{'name':'Gulkana',
             '16.02444':{'name':'Artesonraju',
                             'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
 vartype = {'surftemp':'Temperature','airtemp':'Temperature',
-           'melt':'MB','runoff':'MB','accum':'MB','refreeze':'MB',
+           'melt':'Melt','runoff':'MB','accum':'MB','refreeze':'MB',
            'meltenergy':'Flux','SWin':'Flux','SWout':'Flux',
            'LWin':'Flux','LWout':'Flux','SWnet':'Flux','LWnet':'Flux',
            'NetRad':'Flux','sensible':'Flux','latent':'Flux','rain':'Flux',
@@ -33,7 +33,38 @@ varprops = {'surftemp':{'Temperature'},'airtemp':'Temperature',
            'layertemp':{'label':'Temperature (C)'},'layerdensity':{'label':'Density (kg m-3)'},'layerwater':{'label':'Water Content (kg m-2)'},
            'layerheight':'Layers','snowdepth':'Snow depth','albedo':'Albedo'}
 
+def getds(file):
+    ds = xr.open_dataset(file)
+    start = pd.to_datetime(ds.indexes['time'].to_numpy()[0])
+    end = pd.to_datetime(ds.indexes['time'].to_numpy()[-1])
+    ds['SWnet'] = ds['SWin'] + ds['SWout']
+    ds['LWnet'] = ds['LWin'] + ds['LWout']
+    ds['NetRad'] = ds['SWnet'] + ds['LWnet']
+    ds['albedo'] = -ds['SWout'] / ds['SWin']
+    return ds,start,end
+
 def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
+    """
+    Returns a simple timeseries plot of the variables as lumped in the input.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset object containing the model output
+    bin : int
+        Integer value of the bin index to plot
+    vars : list-like
+        List of strings where the variables to be plotted together are nested together
+        e.g. [['airtemp','surftemp'],['SWnet','LWnet','sensible','latent']]
+    time : list-like   
+        Either len-2 list of start date, end date, or a list of datetimes
+    res : str
+        Abbreviated time resolution (e.g. '12h' or 'd')
+    skinny : Bool
+        True or false, defines the height of each panel
+    new_y : list-like
+        List of variables in vars that should be plotted on a new y-axis
+    """
     h = 1.5 if skinny else 3
     fig,axes = plt.subplots(len(vars),1,figsize=(7,h*len(vars)),sharex=True,layout='constrained')
 
@@ -42,7 +73,8 @@ def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq='h')
     ds = ds.sel(time=time,bin=bin)
-    ds = ds.resample(time=res).mean(dim='time',keep_attrs='units')
+    ds_mean = ds.resample(time=res).mean(dim='time',keep_attrs='units')
+    ds_sum = ds.resample(time=res).sum(dim='time',keep_attrs='units')
     for i,v in enumerate(vars):
         ic = i-6 if i>5 else i
         if len(vars) > 1:
@@ -52,36 +84,90 @@ def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
         vararray = np.array(v)
         for var in vararray:
             if var in ['melt','runoff','accum','refreeze']:
-                axis.plot(ds.coords['time'],ds[var].cumsum(),color=colors[ic],label=var)
-            if var in new_y:
+                axis.plot(ds_sum.coords['time'],ds_sum[var].cumsum(),color=colors[ic],label=var)
+            elif var in new_y:
                 newaxis = axis.twinx()
-                newaxis.plot(ds.coords['time'],ds[var],color=colors[ic],label=var)
+                newaxis.plot(ds_mean.coords['time'],ds_mean[var],color=colors[ic],label=var)
                 newaxis.set_yticks([-.2,0,0.2,0.4,0.6,0.8,1.0],labels=['',0,.2,.4,.6,.8,''])
                 newaxis.grid(False)
                 newaxis.set_ylabel(var)
             else:
-                axis.plot(ds.coords['time'],ds[var],color=colors[ic],label=var)
+                axis.plot(ds_mean.coords['time'],ds_mean[var],color=colors[ic],label=var)
             ic+=1
         axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
-        if var != 'albedo':
-            units = ds[var].attrs['units']
+        if var not in ['albedo']:
+            if var in ['NetRad']:
+                units = 'W m-2'
+            else:
+                units = ds[var].attrs['units']
         else:
             units = ''
         axis.set_ylabel(f'{vartype[var]} [{units}]')
     date_form = mpl.dates.DateFormatter('%d %b')
     axis.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
+
+def plot_stake_data(stake_df,ds_list,time,labels,bin,t='Stake Comparison'):
+    """
+    Returns a comparison of melt from the output datasets to stake data
+
+    Parameters
+    ----------
+    stake_df : pd.DataFrame
+        DataFrame object containing stake MB data
+    ds_list : list of xr.Datasets
+        List of model output datasets to plot melt
+    time : list-like   
+        Either len-2 list of start date, end date, or a list of datetimes
+    labels : list of str
+        List of same length as ds_list containing labels to plot
+    """
+    fig,ax = plt.subplots(figsize=(7,5),sharex=True,layout='constrained')
+    stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
+
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
+        days = pd.date_range(start,end,freq='d')
+    stake_df = stake_df.loc[days]
+    for i,ds in enumerate(ds_list):
+        ds = ds.sel(time=time,bin=bin)
+        ax.plot(ds.coords['time'],ds.melt.cumsum(),label=labels[i])
+    ax.plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake')
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_formatter(date_form)
+    ax.legend()
+    ax.set_ylabel('Cumulative Melt (m w.e.)')
+    fig.suptitle(t)
         
-def compare_runs(ds1,ds2,time,var,res='d',t=''):
+def compare_runs(ds_list,labels,time,var,res='d',t=''):
+    """
+    Returns a comparison of different model runs
+
+    Parameters
+    ----------
+    ds_list : list of xr.Datasets
+        List of model output datasets to plot melt
+    labels : list of str
+        List of same length as ds_list containing labels to plot
+    time : list-like   
+        Either len-2 list of start date, end date, or a list of datetimes
+    var : str
+        Variable to plot as named in ds
+    res : str
+        Abbreviated time resolution to plot (e.g. '12h' or 'd')
+    t : str
+        Title of plot
+    """
     fig,ax = plt.subplots(figsize=(8,6))
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq=res)
-    ds1 = ds1.resample(time=res).mean(dim='time')
-    ds2 = ds2.resample(time=res).mean(dim='time')
-    ax.plot(time,ds1[var].sel(time=time),label='ds1')
-    ax.plot(time,ds2[var].sel(time=time),label='ds2')
+    for i,ds in enumerate(ds_list):
+        ds = ds.resample(time=res).mean(dim='time')
+        ax.plot(time,ds[var].sel(time=time),label=labels[i])
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_ylabel(var)
@@ -92,6 +178,20 @@ def compare_runs(ds1,ds2,time,var,res='d',t=''):
     return
 
 def stacked_eb_barplot(ds,time,res='d',t=''):
+    """
+    Returns a barplot where energy fluxes are stacked
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset object containing the model output
+    time : list-like   
+        Either len-2 list of [start date, end date], or a list of datetimes
+    res : str
+        Abbreviated time resolution to plot (e.g. '12h' or 'd')
+    t : str
+        Title of plot
+    """
     fig,ax = plt.subplots(figsize=(10,2.5))
     vars = ['latent','NetRad','sensible','rain'] #'SWnet','LWnet'
 
@@ -109,7 +209,7 @@ def stacked_eb_barplot(ds,time,res='d',t=''):
             bottom = ds[vars[i-1]].to_numpy().T[0]+bottom
             bottom[np.where(bottom<0)] = 0
             ax.bar(ds.coords['time'],vardata,bottom=bottom,label=var)
-    # ax.plot(ds.coords['time'],ds['sum'],label='sum',color='black',linewidth=.6)
+    # ax.plot(ds.coords['time'],ds['meltenergy'],label='melt energy',color='black',linewidth=.6,alpha=0.7)
     ax.legend()
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
@@ -117,32 +217,40 @@ def stacked_eb_barplot(ds,time,res='d',t=''):
     fig.suptitle(t)
     plt.show()
 
-def plot_avgs(file,nyr,title=False):
+def plot_avgs(ds,time,title=False):
     """
     Plots heat fluxes, surface/air temperature, and mass balance terms, averaged monthly and then interannually.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset object containing the model output
+    time : list-like   
+        Either len-2 list of [start date, end date], or a list of datetimes
     """
+    nyr = pd.to_datetime(time[0]).year - pd.to_datetime(np.array(time)[-1]).year
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
     months = np.arange(1,13)
 
     fig,axes = plt.subplots(3,3,sharex=True,sharey='row',figsize=(12,6))
-
-    ds = xr.open_dataset(file)
-    varnames_idx = ['SWin','SWout','LWin','LWout','sensible','latent','rain','meltenergy','surftemp','melt','runoff','refreeze','accum']
+    varnames_idx = ['SWnet','LWnet','sensible','latent','rain','meltenergy','surftemp','melt','runoff','refreeze','accum']
     varnames = ['SWnet','LWnet','sensible','latent','rain','meltenergy','surftemp','melt','runoff','refreeze','accum']
     heat = ['SWnet','LWnet','sensible','latent','rain','meltenergy']
     temp = ['surftemp']
     mb = ['melt','runoff','refreeze','accum','MB']
 
     airtemp = np.zeros((3,12))
-    for b in range(3):
+    for b in range(len(ds.coords['bin'])):
         climateds = xr.open_dataset('/home/claire/research/Output/EB/climateds.nc').isel(bin=b).to_pandas()
         monthly = climateds['bin_temp'].resample('M').mean()
         monthly_avg = np.mean(monthly[:(nyr*12)].values.reshape((nyr,12)),axis=0)
         airtemp[b,:] = monthly_avg
 
-    for bin_no in [0,1,2]:
+    for bin_no in range(len(ds.coords['bin'])):
         df = ds[varnames_idx].isel(bin=bin_no).to_pandas()
-        df['SWnet'] = df['SWin'] + df['SWout']
-        df['LWnet'] = df['LWin'] + df['LWout']
         df['melt'] = df['melt'] * -1
         
         for var in varnames:
@@ -216,18 +324,31 @@ def plot_yrs(file,bin,nyr):
     return
 
 def plot_AWS(df,vars,time,t=''):
+    """
+    Plots heatmap of AWS data in the specified time period
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe containing AWS data as input to the model
+    vars : list
+        List of variable names to plot
+    time : list-like   
+        Either len-2 list of [start date, end date], or a list of datetimes
+    t : str
+        Title of plot
+    """
     df = df.set_index(pd.to_datetime(df.index))
     start = pd.to_datetime(time[0])
     end = pd.to_datetime(time[-1])
-    df = df.loc[start:end]
+    df = df.loc[start:end+pd.Timedelta(hours=23)]
     days = df.resample('d').mean().index
     hours = np.arange(0,24)
-    d,h = np.meshgrid(days,hours)
 
-    fig,axs = plt.subplots(len(vars),sharex=True)
+    fig,axs = plt.subplots(len(vars),sharex=True,layout='constrained')
     for i,var in enumerate(vars):
-        vardata = df[var].to_numpy().reshape(np.shape(d))
-        pc = axs[i].pcolormesh(d,h,vardata.T, cmap='RdBu_r')
+        vardata = df[var].to_numpy().reshape((len(days),24))
+        pc = axs[i].pcolormesh(days,hours,vardata.T, cmap='RdBu_r')
         fig.colorbar(pc,ax=axs[i])
         axs[i].set_title(var)
         axs[i].set_ylabel('Hour')

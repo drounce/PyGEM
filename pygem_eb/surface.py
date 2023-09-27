@@ -44,9 +44,11 @@ class Surface():
         3) Qm is negative with surftemp = 0. - snowpack is cooling and surftemp is lowered to balance Qm
                 Two methods are available (specified in input.py): fast iterative, or slow minimization
         """
-        if not enbal.nanLWout:
-            self.temp = np.power(np.abs(enbal.LWout_ds/eb_prms.sigma_SB),1/4)
-        else:
+        # if not enbal.nanLWout:
+        #     self.temp = np.power(np.abs(enbal.LWout_ds/eb_prms.sigma_SB),1/4)
+        #     Qm = enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
+        # else:
+        if True:
             Qm_check = enbal.surfaceEB(0,layers,self.albedo,self.days_since_snowfall)
             # If Qm is positive with a surface temperature of 0, the surface is either melting or warming to the melting point.
             # If Qm is negative with a surface temperature of 0, the surface temperature needs to be lowered to cool the snowpack.
@@ -105,6 +107,7 @@ class Surface():
                             # set melt to 0 and break loop
                             Qm = 0
                             loop = False
+                Qm = 0
 
         # Update surface balance terms with new surftemp
         enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)

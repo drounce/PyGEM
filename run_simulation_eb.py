@@ -59,6 +59,7 @@ if args.climate_input in ['GCM']:
     LWout[:] = np.nan
     SWout = LWout.copy()
     rh_data = LWout.copy()
+    NR = LWout.copy()
     SWin = SWin[0]
     LWin = LWin[0]
     tcc = tcc[0]
@@ -133,15 +134,15 @@ climateds = climateds.assign(bin_rh = (['bin','time'],rh,{'units':'%'}))
 #loop through bins here so EB script is set up for only one bin (1D data)
 if eb_prms.parallel:
     def run_mass_balance(bin):
-        massbal = mb.massBalance(bin,dates_table)
-        massbal.main(args,climateds)
+        massbal = mb.massBalance(bin,dates_table,args)
+        massbal.main(climateds)
     processes_pool = Pool(args.n_bins)
     processes_pool.map(run_mass_balance,range(args.n_bins))
 else:
     for bin in np.arange(args.n_bins):
         # initialize variables to store from mass balance
-        massbal = mb.massBalance(bin,dates_table)
-        results = massbal.main(args,climateds)
+        massbal = mb.massBalance(bin,dates_table,args)
+        results = massbal.main(climateds)
         
         if bin<args.n_bins-1:
             print('Success: moving onto bin',bin+1)
