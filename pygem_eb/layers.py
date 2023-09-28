@@ -26,7 +26,6 @@ class Layers():
         Tpds_interp = Tpds.interp(bin_elev=eb_prms.bin_elev[bin_no],kwargs={'fill_value':'extrapolate'})
         vars = ['snow_depth','firn_depth','ice_depth']
         sfi_h0 = np.array([Tpds_interp[var].values for var in vars])
-        sfi_h0[0] = 0.41
 
         # Calculate the layer depths based on initial snow, firn and ice depths
         lheight,ldepth,ltype = self.getLayers(sfi_h0)
@@ -139,23 +138,21 @@ class Layers():
         firn_idx =  np.where(self.ltype=='firn')[0]
         ice_idx =  np.where(self.ltype=='ice')[0]
         temp_data = np.array(temp_data)
-        density_data = np.array(density_data)
+        density_data = np.append(np.array([[0,eb_prms.density_fresh_snow]]),density_data).reshape(len(temp_data)+1,2)
 
         # Initialize temperature profiles from piecewise formulation or interpolating data
         if eb_prms.option_initTemp in ['piecewise']:
             ltemp = self.initProfilesPiecewise(self.ldepth,temp_data,'temp')
         elif eb_prms.option_initTemp in ['interp']:
-            ltemp = np.interp(self.ldepth,temp_data[0,:],temp_data[1,:])
+            ltemp = np.interp(self.ldepth,temp_data[:,0],temp_data[:,1])
         else:
             assert 1==0, "Choose between 'piecewise' and 'interp' methods for temp initialization"
-        ltemp[ice_idx] = 0
-        print('FIX ICE TEMPERATURE INITIALIZATION')
 
         # Initialize SNOW density profiles  from piecewise formulation or interpolating data
         if eb_prms.option_initDensity in ['piecewise']:
             ldensity = self.initProfilesPiecewise(self.ldepth[snow_idx],density_data,'density')
         elif eb_prms.option_initDensity in ['interp']:
-            ldensity = np.interp(self.ldepth[snow_idx],density_data[0,:],density_data[1,:])
+            ldensity = np.interp(self.ldepth[snow_idx],density_data[:,0],density_data[:,1])
         else:
             assert 1==0, "Choose between 'piecewise' and 'interp' methods for density initialization"
 

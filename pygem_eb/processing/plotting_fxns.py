@@ -107,6 +107,40 @@ def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
     axis.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
 
+def plot_snow_depth(stake_df,ds_list,time,labels,bin,t='Snow Depth Comparison'):
+    """
+    Returns a comparison of snow depth from the output datasets to stake data
+
+    Parameters
+    ----------
+    stake_df : pd.DataFrame
+        DataFrame object containing stake MB data
+    ds_list : list of xr.Datasets
+        List of model output datasets to plot melt
+    time : list-like   
+        Either len-2 list of start date, end date, or a list of datetimes
+    labels : list of str
+        List of same length as ds_list containing labels to plot
+    """
+    fig,ax = plt.subplots(figsize=(7,5),sharex=True,layout='constrained')
+    stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
+
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
+        days = pd.date_range(start,end,freq='d')
+    stake_df = stake_df.loc[days]
+    for i,ds in enumerate(ds_list):
+        ds = ds.sel(time=time,bin=bin)
+        ax.plot(ds.coords['time'],ds.snowdepth.to_numpy()*100,label=labels[i])
+    ax.plot(stake_df.index,stake_df['snow_depth'].to_numpy(),label='Stake')
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_formatter(date_form)
+    ax.legend()
+    ax.set_ylabel('Snow Depth (cm)')
+    fig.suptitle(t)
+
 def plot_stake_data(stake_df,ds_list,time,labels,bin,t='Stake Comparison'):
     """
     Returns a comparison of melt from the output datasets to stake data

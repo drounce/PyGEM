@@ -147,6 +147,6 @@ else:
         if bin<args.n_bins-1:
             print('Success: moving onto bin',bin+1)
         else:
-            massbal.output.addAttrs(args)
             if str(args.store_data)=='True':
+                massbal.output.addAttrs(args)
                 print('Success: saving to',eb_prms.output_name+'.nc')
