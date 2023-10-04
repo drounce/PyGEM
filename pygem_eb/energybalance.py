@@ -111,6 +111,10 @@ class energyBalance():
         Qp = self.getRain(surftemp)
         self.rain = Qp
 
+        # GROUND FLUX (Qg)
+        Qg = self.getGround(surftemp)
+        self.ground = Qg
+
         # TURBULENT FLUXES (Qs and Ql)
         roughness = self.getRoughnessLength(days_since_snowfall,layers.ltype)
         if eb_prms.method_turbulent in ['MO-similarity']:
@@ -122,14 +126,14 @@ class energyBalance():
         self.lat = Ql
 
         # OUTPUTS
-        Qm = Snet_surf + Lnet + Qp + Qs + Ql
+        Qm = Snet_surf + Lnet + Qp + Qs + Ql + Qg
 
         if mode in ['sum']:
             return Qm
         elif mode in ['optim']:
             return np.abs(Qm)
         elif mode in ['list']:
-            return np.array([SWin,SWout,LWin,LWout,Qp,Qs,Ql])
+            return np.array([SWin,SWout,LWin,LWout,Qp,Qs,Ql,Qg])
         else:
             assert 1==0, 'argument \'mode\' in function surfaceEB should be sum, list or optim'
     
@@ -178,7 +182,15 @@ class energyBalance():
         is_rain = self.tempC > eb_prms.tsnow_threshold
         Qp = is_rain*eb_prms.Cp_water*(self.tempC-surftemp)*self.prec*eb_prms.density_water
         return Qp
-
+    
+    def getGround(self,surftemp):
+        """
+        Calculates amount of energy supplied by heat conduction from the temperate ice.
+        """
+        if eb_prms.method_ground in ['MolgHardy']:
+            Qg = -eb_prms.k_ice * (surftemp - eb_prms.temp_temp) / eb_prms.depth_temp
+        return Qg
+    
     def getTurbulentMO(self,surf_temp,roughness):
         """
         Calculates turbulent fluxes (sensible and latent heat) based on Monin-Obukhov Similarity 

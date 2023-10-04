@@ -120,6 +120,8 @@ class massBalance():
             if time.hour < 1 and time.minute < 1:
                 self.densification(layers,self.dt*24)
 
+            # print(enbal.SWin,enbal.LWin_ds,surface.Qm)
+
             # END MASS BALANCE
             self.runoff = runoff
             self.melt = np.sum(layermelt) / eb_prms.density_water
@@ -342,7 +344,7 @@ class massBalance():
         Cp_ice = eb_prms.Cp_ice
         density_ice = eb_prms.density_ice
         Lh_rf = eb_prms.Lh_rf
-        refreeze = 0
+        refreeze = np.zeros_like(layers.ldrymass)
         for layer, T in enumerate(layers.ltemp):
             if T < 0. and layers.lwater[layer] > 0:
                 # calculate potential for refreeze [J m-2]
@@ -353,8 +355,8 @@ class massBalance():
                 # calculate amount of refreeze in kg m-2
                 dm_ref = np.min([abs(E_temperature),abs(E_water),abs(E_pore)])/Lh_rf     # cannot be negative
 
-                # add refreeze to running sum in m w.e.
-                refreeze += dm_ref /  eb_prms.density_water
+                # add refreeze to array in m w.e.
+                refreeze[layer] = dm_ref /  eb_prms.density_water
 
                 # add refreeze to layer ice mass
                 layers.ldrymass[layer] += dm_ref
@@ -365,7 +367,9 @@ class massBalance():
                 # recalculate layer heights from new mass and update layers
                 layers.lheight[layer] = layers.ldrymass[layer]/layers.ldensity[layer]
                 layers.updateLayerProperties()
-        return refreeze
+        # Update refreeze with new refreeze content
+        layers.lrefreeze += refreeze
+        return np.sum(refreeze)
     
     def densification(self,layers,dt_dens):
         """
@@ -379,8 +383,8 @@ class massBalance():
         dt_dens : float
             Timestep at which densification is applied [s]
         """
-        # only apply to snow and firn layers
-        snowfirn_idx = np.append(layers.snow_idx,np.where(layers.ltype == 'firn')[0])
+        # Only apply to snow and firn layers
+        snowfirn_idx = np.append(layers.snow_idx,layers.firn_idx)
 
         if eb_prms.method_densification in ['Boone']:
             ldensity = layers.ldensity.copy()
@@ -404,6 +408,7 @@ class massBalance():
                 dRho = (((weight_above*g)/viscosity) + c1*np.exp(-c2*(0.-ltemp[layer]) - c3*np.maximum(0.,ldensity[layer]-density_0)))*ldensity[layer]*self.dt
                 ldensity[layer] += dRho
 
+            # Update layer properties
             layers.ldensity = ldensity
             layers.lheight = layers.ldrymass/layers.ldensity
             layers.updateLayerProperties('depth')
@@ -517,7 +522,7 @@ class Output():
         zeros = np.zeros([len(time),n_bins,eb_prms.max_nlayers])
 
         # Create variable name dict
-        vn_dict = {'EB':['SWin','SWout','LWin','LWout','rain','sensible','latent','meltenergy'],
+        vn_dict = {'EB':['SWin','SWout','LWin','LWout','rain','ground','sensible','latent','meltenergy'],
                    'MB':['melt','refreeze','runoff','accum','snowdepth'],
                    'Temp':['airtemp','surftemp'],
                    'Layers':['layertemp','layerdensity','layerwater','layerheight']}
@@ -529,6 +534,7 @@ class Output():
                 LWin = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
                 LWout = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
                 rain = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
+                ground = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
                 sensible = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
                 latent = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
                 meltenergy = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
@@ -563,6 +569,7 @@ class Output():
         self.LWin_output = []
         self.LWout_output = []
         self.rain_output = []
+        self.ground_output = []
         self.sensible_output = []
         self.latent_output = []
         self.meltenergy_output = []
@@ -589,6 +596,7 @@ class Output():
         self.LWin_output.append(float(enbal.LWin))
         self.LWout_output.append(float(enbal.LWout))
         self.rain_output.append(float(enbal.rain))
+        self.ground_output.append(float(enbal.ground))
         self.sensible_output.append(float(enbal.sens))
         self.latent_output.append(float(enbal.lat))
         self.meltenergy_output.append(float(surface.Qm))
@@ -622,6 +630,7 @@ class Output():
                 ds['LWin'].loc[:,bin] = self.LWin_output
                 ds['LWout'].loc[:,bin] = self.LWout_output
                 ds['rain'].loc[:,bin] = self.rain_output
+                ds['ground'].loc[:,bin] = self.ground_output
                 ds['sensible'].loc[:,bin] = self.sensible_output
                 ds['latent'].loc[:,bin] = self.latent_output
                 ds['meltenergy'].loc[:,bin] = self.meltenergy_output
@@ -639,6 +648,16 @@ class Output():
                 ds['layerheight'].loc[:,bin,:] = self.layerheight_output
                 ds['layerdensity'].loc[:,bin,:] = self.layerdensity_output
                 ds['layerwater'].loc[:,bin,:] = self.layerwater_output
+        ds.to_netcdf(eb_prms.output_name+'.nc')
+        return
+    
+    def addVars(self):
+        with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
+            ds = dataset.load()
+            ds['SWnet'] = ds['SWin'] + ds['SWout']
+            ds['LWnet'] = ds['LWin'] + ds['LWout']
+            ds['NetRad'] = ds['SWnet'] + ds['LWnet']
+            ds['albedo'] = -ds['SWout'] / ds['SWin']
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
     

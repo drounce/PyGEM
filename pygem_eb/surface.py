@@ -123,7 +123,8 @@ class Surface():
             if eb_prms.switch_snow == 0:
                 self.albedo = eb_prms.albedo_fresh_snow
             else:
-                self.albedo = eb_prms.albedo_firn-(eb_prms.albedo_fresh_snow - eb_prms.albedo_firn)*(np.exp(self.days_since_snowfall/eb_prms.albedo_deg_rate))
+                snow_albedo = eb_prms.albedo_firn+(eb_prms.albedo_fresh_snow - eb_prms.albedo_firn)*(np.exp(-self.days_since_snowfall/eb_prms.albedo_deg_rate))
+                self.albedo = max(snow_albedo,eb_prms.albedo_firn)
         elif self.type == 'firn':
             self.albedo = eb_prms.albedo_firn
         elif self.type == 'ice':

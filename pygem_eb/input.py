@@ -127,7 +127,8 @@ method_turbulent = 'MO-similarity'  # 'MO-similarity' or *****
 # option_LW
 method_heateq = 'what' # 'Crank-Nicholson': neglects penetrating shortwave
 method_densification = 'Boone'
-method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (hopefully fast?)
+method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (fast)
+method_ground = 'MolgHardy'
 surftemp_guess =  -30   # guess for surface temperature of first timestep
 
 # Albedo switches
@@ -149,7 +150,8 @@ lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and
 lapserate_dew = -0.002      # dew point temperature lapse rate [K m-1]
 tsnow_threshold = 1         # Threshold to consider freezing
 kp = 1                      # precipitation factor [-] 
-temp_temp = 0               # temperature of temperate ice in Celsius
+temp_temp = -3               # temperature of temperate ice in Celsius
+depth_temp = 30
 #%% MODEL PROPERTIES
 density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
 density_firn = 700          # Density threshold for firn
@@ -179,7 +181,8 @@ layer_growth = 0.6          # rate of exponential growth of bin size (smaller la
 sigma_SB = 5.67037e-8       # Stefan-Boltzmann constant [W m-2 K-4]
 max_nlayers = 20            # maximum number of vertical layers allowed
 max_dz = 1  # max layer height
-albedo_deg_rate = 10
+albedo_deg_rate = 30
+wet_snow_C = 4.22e-13 # m3 s-1
 
 def get_uptime():
     with open('/proc/uptime', 'r') as f:
