@@ -122,7 +122,7 @@ def plot_snow_depth(stake_df,ds_list,time,labels,bin,t='Snow Depth Comparison'):
     labels : list of str
         List of same length as ds_list containing labels to plot
     """
-    fig,ax = plt.subplots(figsize=(7,5),sharex=True,layout='constrained')
+    fig,ax = plt.subplots(figsize=(4,6),sharex=True,layout='constrained')
     stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
 
     if len(time) == 2:
@@ -156,7 +156,7 @@ def plot_stake_data(stake_df,ds_list,time,labels,bin,t='Stake Comparison'):
     labels : list of str
         List of same length as ds_list containing labels to plot
     """
-    fig,ax = plt.subplots(figsize=(7,5),sharex=True,layout='constrained')
+    fig,ax = plt.subplots(figsize=(4,6),sharex=True,layout='constrained')
     stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
 
     if len(time) == 2:
@@ -209,6 +209,45 @@ def compare_runs(ds_list,labels,time,var,res='d',t=''):
     fig.suptitle(t)
     plt.show()
 
+    return
+
+def plot_iButtons(ds,bin,dates,path=None,snow_only=True):
+    if not path:
+        path = '/home/claire/research/MB_data/Gulkana/field_data/iButton_2023_all.csv'
+    df = pd.read_csv(path,index_col=0)
+    df = df.set_index(pd.to_datetime(df.index)- pd.Timedelta(hours=8))
+    df = df[pd.to_datetime('04-18-2023 00:00'):]
+    depth_0 = np.array([.1,.4,.8,1.2,1.6,2,2.4,2.8,3.2,3.5])
+
+    fig,axes = plt.subplots(1,len(dates),sharey=True,sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
+    for i,date in enumerate(dates):
+        # Extract layer heights
+        lheight = ds.sel(time=date,bin=bin)['layerheight'].to_numpy()
+        # Index by full bins
+        if snow_only:
+            density = ds.sel(time=date,bin=bin)['layerdensity'].to_numpy()
+            density[np.where(np.isnan(density))[0]] = 1e5
+            full_bins = np.where(density < 700)
+        else:
+            full_bins = np.array([not y for y in np.isnan(lheight)])
+        lheight = lheight[full_bins]
+        # Get property and absolute depth
+        lprop = ds.sel(time=date,bin=bin)['layertemp'].to_numpy()[full_bins]
+        ldepth = -1*np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
+        # Plot output data
+        axes[i].plot(lprop,ldepth,label='Model')
+
+        # Plot iButton data
+        snowdepth = ds.sel(time=date,bin=bin)['snowdepth'].to_numpy()
+        tempdata = df.loc[date].to_numpy()
+        depth = depth_0 + (snowdepth - 3.5)
+        idx = np.where(depth > 0)
+        axes[i].plot(tempdata[idx],-depth[idx],label='iButton')
+
+        axes[i].set_title(str(date)[:10])
+    axes[0].legend()
+    fig.supxlabel('Temperature (C)')
+    axes[0].set_ylabel('Depth (m)')
     return
 
 def stacked_eb_barplot(ds,time,res='d',t=''):
@@ -390,6 +429,28 @@ def plot_AWS(df,vars,time,t=''):
         axs[i].yaxis.set_major_locator(yticks)
     date_form = mpl.dates.DateFormatter('%d %b')
     axs[i].xaxis.set_major_formatter(date_form)
+    fig.suptitle(t)
+    plt.show()
+
+def compare_AWS(df_list,vars,time,labels=None,t='',res='d',y=''):
+    fig,axs = plt.subplots(sharex=True,layout='constrained')
+    linestyles = ['-','--','-.',':']
+    for i,df in enumerate(df_list):
+        df = df.set_index(pd.to_datetime(df.index))
+        df[['SWout','LWout']] = df[['SWout','LWout']] * -1
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[-1])
+        df = df.loc[start:end+pd.Timedelta(hours=23)]
+        df = df.resample(res).mean()
+
+        for var in vars:
+            vardata = df[var].to_numpy()
+            if not np.all(np.isnan(vardata)):
+                axs.plot(df.index,vardata,label=var+': '+labels[i],linestyle=linestyles[i])
+    date_form = mpl.dates.DateFormatter('%d %b')
+    axs.legend()
+    axs.set_ylabel(y)
+    axs.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
     plt.show()
 

@@ -40,9 +40,10 @@ class Layers():
         # Define dry (solid) mass of each layer [kg m-2]
         ldrymass = ldensity*lheight
         self.ldrymass = ldrymass
-        # Define irreducible water content of each layer and set saturated value
+        # Define irreducible water content of each layer and grain size
         irrwatercont = self.getIrrWaterCont(ldensity)
-        # saturated = np.where(watercont == irrwatercont,1,0)
+        grainsize = np.ones_like(ldrymass)*eb_prms.fresh_grainsize
+        grainsize[np.where(self.ltype=='ice')[0]] = 0 # **** ice grain size?
 
         # Initialize BC and dust content
         if eb_prms.switch_LAPs == 0:
@@ -65,6 +66,7 @@ class Layers():
         self.lrefreeze = np.zeros_like(self.ltemp)
         self.lnewsnow = np.zeros_like(self.ltemp)
         self.irrwatercont = irrwatercont
+        self.grainsize = grainsize
         self.ldryBC = BC
         self.ldrydust = dust
         self.lwetBC = 0
@@ -241,6 +243,7 @@ class Layers():
         self.lrefreeze = np.append(0,self.lrefreeze)
         # Only way to add a layer is with new snow, so layer new snow = layer dry mass
         self.lnewsnow = np.append(layers_to_add.loc['drym'].values,self.lnewsnow)
+        self.grainsize = np.append(eb_prms.fresh_grainsize,self.lnewsnow)
         self.updateLayerProperties()
         return
     
@@ -261,6 +264,7 @@ class Layers():
         self.ldrymass = np.delete(self.ldrymass,layer_to_remove)
         self.lrefreeze = np.delete(self.lrefreeze,layer_to_remove)
         self.lnewsnow = np.delete(self.lnewsnow,layer_to_remove)
+        self.grainsize = np.delete(self.grainsize,layer_to_remove)
         self.updateLayerProperties()
         return
     
@@ -273,6 +277,7 @@ class Layers():
             self.nlayers += 1
             self.ltemp = np.insert(self.ltemp,l,self.ltemp[l])
             self.ltype = np.insert(self.ltype,l,self.ltype[l])
+            self.grainsize = np.insert(self.grainsize,l,self.grainsize[l])
 
             self.lwater[l] = self.lwater[l]/2
             self.lwater = np.insert(self.lwater,l,self.lwater[l])
@@ -300,6 +305,7 @@ class Layers():
         self.ldrymass[l+1] = np.sum(self.ldrymass[l:l+2])
         self.lrefreeze[l+1] = np.sum(self.lrefreeze[l:l+2])
         self.lnewsnow[l+1] = np.sum(self.lnewsnow[l:l+2])
+        self.grainsize[l+1] = np.mean(self.grainsize[l:l+2])
         self.removeLayer(l)
         return
     
@@ -413,8 +419,11 @@ class Layers():
         self.updateLayerProperties()
         return store_surface
 
-    def getGrainSize(self,surface):
-        f_liq = self.lwater / (self.lwater + self.drymass)
+    def getGrainSize(self,surftemp):
+        """
+        Snow grain size metamorphism
+        """
+        f_liq = self.lwater / (self.lwater + self.ldrymass)
         
         refreeze = self.lrefreeze
         new_snow = self.lnewsnow
@@ -429,10 +438,10 @@ class Layers():
         # Dry metamorphism
         # Calculate temperature gradient
         dTdz = np.zeros_like(T)
-        dTdz[0] = (surface.temp - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
+        dTdz[0] = (surftemp - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
         dTdz[1:-1] = ((T[:-2]*dz[:-2] + T[1:-1]*dz[1:-1]) / (dz[:-2] + dz[1:-1]) -
                   (T[1:-1]*dz[1:-1] + T[2:]*dz[2:]) / (dz[1:-1] + dz[2:])) / dz[1:-1]
-        dTdz[-1] = dTdz[-2] # Not relevant so assume equal to second to last layer
+        dTdz[-1] = dTdz[-2] # Bottom ice temp gradient -- not used
         dTdz = np.abs(dTdz)
         # get eta, kappa and drdt from lookup tables
         drdry = 0
@@ -440,7 +449,7 @@ class Layers():
         # Wet metamorphism
         drwet = eb_prms.wet_snow_C*f_liq**3/(4*np.pi*self.grainsize**2)
 
-        # Sum
+        # Sum terms
         grainsize = (self.grainsize+drdry+drwet)*f_old + 54.5*f_new + 1500*f_rfz
         return
     

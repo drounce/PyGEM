@@ -12,14 +12,13 @@ store_data=True
 rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
 rgi_regionsO2 = [2]                 # 2nd order region number (RGI V6.0)
 rgi_glac_number = 'all'
-glac_no = ['01.00570']   # '01.16195'(south)['01.00570'],'11.03674' (saint sorlin)
-# glac_no = ['08.00213']
+glac_no = ['01.00570']
 
 #%% ===== MODEL SETUP DIRECTORY =====
 new_file=True
 glac_props = {'01.00570':{'name':'Gulkana',
                             'AWS_fn':'Preprocessed/gulkanaD/gulkanaD_wERA5.csv',
-                            'AWS_elev':1546, # 1854 is AWS (D), B is 1693
+                            'AWS_elev':1693, # 1854 is AWS (D), B is 1693, AB is 1546
                             'init_filepath':''},
             '01.01104':{'name':'Lemon Creek',
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
@@ -142,7 +141,7 @@ dust_freshsnow = 1e6        # concentration of dust in fresh snow. Only used if 
 # Output
 store_vars = ['MB','EB','Temp','Layers']        # Variables to store of the possible set: ['MB','EB','Temp','Layers']
 storage_freq = 'H'          # frequency to store data using pandas offset aliases
-vars_to_store = 'all'       # list of variables to store
+vars_to_store = 'all'       # list of variables to store or 'all'
 
 #%% MODEL PROPERTIES THAT MAY NEED TO BE ADJUSTED
 precgrad = 0.0001           # precipitation gradient on glacier [m-1]
@@ -183,6 +182,7 @@ max_nlayers = 20            # maximum number of vertical layers allowed
 max_dz = 1  # max layer height
 albedo_deg_rate = 30
 wet_snow_C = 4.22e-13 # m3 s-1
+fresh_grainsize = 300
 
 def get_uptime():
     with open('/proc/uptime', 'r') as f:

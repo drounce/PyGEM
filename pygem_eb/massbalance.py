@@ -77,6 +77,7 @@ class massBalance():
                     
             # Update surface daily
             if time.hour < 1 and time.minute < 1:
+                layers.getGrainSize(surface.temp)
                 surface.days_since_snowfall = (time - surface.snow_timestamp)/pd.Timedelta(days=1)
                 self.days_since_snowfall = surface.days_since_snowfall
                 surface.updateSurface(layers)
