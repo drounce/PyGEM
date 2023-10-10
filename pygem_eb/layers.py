@@ -139,7 +139,24 @@ class Layers():
  
         return np.array(layerh), np.array(layerz), np.array(layertype)
 
-    def getTpw(self,sfi_h0,temp_data,density_data,method=eb_prms.option_initTemp):
+    def getTpw(self,sfi_h0,temp_data,density_data):
+        """
+        Initializes the layer temperatures, densities and water content.
+
+        Parameters:
+        -----------
+        sfi_h0 : np.ndarray
+            Array containing depth of snow, firn and ice
+        temp_data : np.ndarray
+            Array containing data paired by (depth, temp)
+        density_data : np.ndarray
+            Array containing data paired by (depth, density)
+        Returns:
+        --------
+        layertemp, layerdensity, layerwater : np.ndarray
+            Arrays containing layer temperature, density and water content.
+                                        [C]      [kg m-3]       [kg m-2]
+        """
         snow_idx =  np.where(self.ltype=='snow')[0]
         firn_idx =  np.where(self.ltype=='firn')[0]
         ice_idx =  np.where(self.ltype=='ice')[0]
@@ -397,12 +414,13 @@ class Layers():
             Density to use for the new snow
         """
         store_surface = False
+
         # Conditions: if any are TRUE, create a new layer
         conds = np.array([self.ltype[0] in 'ice',
                             self.ltype[0] in 'firn',
                             self.ldensity[0] > new_density*3,
                             self.days_since_snowfall > 10])
-        if not np.any(conds):
+        if np.any(conds):
             new_layer = pd.DataFrame([airtemp,0,snowfall/new_density,'snow',snowfall],index=['T','w','h','t','drym'])
             self.addLayers(new_layer)
             store_surface = True
@@ -419,49 +437,81 @@ class Layers():
         self.updateLayerProperties()
         return store_surface
 
-    def getGrainSize(self,surftemp):
+    def getGrainSize(self,surftemp,bins=None,dt=eb_prms.daily_dt):
         """
         Snow grain size metamorphism
         """
-        f_liq = self.lwater / (self.lwater + self.ldrymass)
-        
-        refreeze = self.lrefreeze
-        new_snow = self.lnewsnow
-        old_snow = self.ldrymass - refreeze - new_snow
-        f_old = old_snow / self.ldrymass
-        f_new = new_snow / self.ldrymass
-        f_rfz = refreeze / self.ldrymass
+        if len(self.snow_idx) > 0:
+            if not bins:
+                bins = np.arange(self.nlayers)
+                bins = bins[np.where(self.ldepth < eb_prms.max_pen_depth)[0]]
+            n = len(bins)
+            f_liq = self.lwater[bins] / (self.lwater[bins] + self.ldrymass[bins])
 
-        dz = self.lheight.copy()
-        T = self.ltemp.copy()
+            if surftemp < 100:
+                surftemp += 273.15
+            
+            # Get fractions of refreeze, new snow and old snow
+            refreeze = self.lrefreeze[bins]
+            new_snow = self.lnewsnow[bins]
+            old_snow = self.ldrymass[bins] - refreeze - new_snow
+            f_old = old_snow / self.ldrymass[bins]
+            f_new = new_snow / self.ldrymass[bins]
+            f_rfz = refreeze / self.ldrymass[bins]
 
-        # Dry metamorphism
-        # Calculate temperature gradient
-        dTdz = np.zeros_like(T)
-        dTdz[0] = (surftemp - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
-        dTdz[1:-1] = ((T[:-2]*dz[:-2] + T[1:-1]*dz[1:-1]) / (dz[:-2] + dz[1:-1]) -
-                  (T[1:-1]*dz[1:-1] + T[2:]*dz[2:]) / (dz[1:-1] + dz[2:])) / dz[1:-1]
-        dTdz[-1] = dTdz[-2] # Bottom ice temp gradient -- not used
-        dTdz = np.abs(dTdz)
-        # get eta, kappa and drdt from lookup tables
-        drdry = 0
+            dz = self.lheight.copy()
+            T = self.ltemp.copy() + 273.15
+            p = self.ldensity.copy()[bins]
+            g = self.grainsize.copy()[bins]
 
-        # Wet metamorphism
-        drwet = eb_prms.wet_snow_C*f_liq**3/(4*np.pi*self.grainsize**2)
+            # Dry metamorphism
+            # Calculate temperature gradient
+            dTdz = np.zeros_like(T)
+            dTdz[0] = (surftemp - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
+            dTdz[1:-1] = ((T[:-2]*dz[:-2] + T[1:-1]*dz[1:-1]) / (dz[:-2] + dz[1:-1]) -
+                    (T[1:-1]*dz[1:-1] + T[2:]*dz[2:]) / (dz[1:-1] + dz[2:])) / dz[1:-1]
+            dTdz[-1] = dTdz[-2] # Bottom temp gradient -- not used
+            dTdz = np.abs(dTdz[bins])
 
-        # Sum terms
-        grainsize = (self.grainsize+drdry+drwet)*f_old + 54.5*f_new + 1500*f_rfz
-        return
+            # Force to be within lookup table ranges******
+            p[np.where(p > 400)[0]] = 400
+            dTdz[np.where(dTdz > 300)[0]] = 300
+
+            # Interpolate lookup table at the values of T,dTdz,p
+            ds = xr.open_dataset(eb_prms.grainsize_fp)
+            ds = ds.interp(TVals=T[bins],DTDZVals=dTdz,DENSVals=p)
+            # Extract values
+            diag = np.zeros((n,n,n),dtype=bool)
+            for i in range(n):
+                diag[i,i,i] = True
+            tau = ds.taumat.to_numpy()[diag]
+            kap = ds.kapmat.to_numpy()[diag]
+            dr0 = ds.dr0mat.to_numpy()[diag]
+            drdrydt = dr0*1e-6*np.power(tau/(tau + 1e6*(g - eb_prms.fresh_grainsize)),1/kap)
+            drdry = drdrydt * dt
+
+            # Wet metamorphism
+            drwetdt = eb_prms.wet_snow_C*f_liq**3/(4*np.pi*g**2)
+            drwet = drwetdt * dt
+
+            # Sum terms
+            grainsize = (g+drdry+drwet)*f_old + 54.5*f_new + 1500*f_rfz
+            self.grainsize[bins] = grainsize
+        elif len(self.firn_idx) > 0:
+            self.grainsize[self.firn_idx] = 1000 # ****** FIRN GRAIN SIZE
+        else:
+            self.grainsize = 1500
+        return 
     
-    def getIrrWaterCont(self,density=[0]):
+    def getIrrWaterCont(self,density=None):
         """
         Calculates the irreducible water content of the layers.
         """
-        if sum(density) == 0: # if density is not specified, calculate from self
+        if not np.all(density): # if density is not specified, calculate from self
             density = self.ldrymass / self.lheight
         density = density.astype(float)
         density_ice = eb_prms.density_ice
-        ice_idx = np.where(self.ltype=='ice')[0]
+        ice_idx = self.ice_idx
 
         porosity = (density_ice - density[:ice_idx[0]])/density_ice
         irrwatercont = 0.0143*np.exp(3.3*porosity)
@@ -470,3 +520,10 @@ class Layers():
         
         irrwatercont = np.append(irrwatercont,np.zeros_like(ice_idx)) # ice layers cannot hold water
         return irrwatercont
+    
+class Utils():
+    """
+    Utility functions for layers class.
+    """
+    def __init__(self,bin_no):
+        return

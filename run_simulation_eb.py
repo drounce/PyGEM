@@ -37,7 +37,6 @@ glacier_table = modelsetup.selectglaciersrgitable(args.glac_no,
                 rgi_regionsO1=eb_prms.rgi_regionsO1, rgi_regionsO2=eb_prms.rgi_regionsO2,
                 rgi_glac_number=eb_prms.rgi_glac_number, include_landterm=eb_prms.include_landterm,
                 include_laketerm=eb_prms.include_laketerm, include_tidewater=eb_prms.include_tidewater)
-
 dates_table = modelsetup.datesmodelrun(startyear=args.startdate, endyear=args.enddate)
 
 gcm = class_climate.GCM(name=eb_prms.ref_gcm_name)

@@ -6,7 +6,7 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True
-store_data=True
+store_data=False
 
 #%% ===== GLACIER SELECTION =====
 rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
@@ -111,15 +111,21 @@ gcm_spinupyears = 0             # spin up years for simulation (output not set u
 # if gcm_spinupyears > 0:
 #     assert 0==1, 'Code needs to be tested to enure spinup years are correctly accounted for in output files'
 
+# Filepaths
+# init_filepath = main_directory + '/pygem_eb/sample_init_data/startssn_initialTp.nc'.replace('startssn',startssn)
+grainsize_fp = '~/research/PyGEM-EB/pygem_eb/data/drygrainsize(SSAin=60).nc'
+
 # Initialization
 option_initWater = 'zero_w0'            # 'zero_w0' or 'initial_w0'
 option_initTemp = 'interp'           # 'piecewise' or 'interp'
 option_initDensity = 'interp'        # 'piecewise' or 'interp'
 startssn = 'endaccum'                    # 'endaccum' or 'endmelt' -- sample density/temp data provided for Gulkana
-# init_filepath = main_directory + '/pygem_eb/sample_init_data/startssn_initialTp.nc'.replace('startssn',startssn)
+initial_snowdepth = 2
+initial_firndepth = 0
 
 # Simulation options
 dt = 3600
+daily_dt = 3600*24
 dt_heateq = 3600/5         # Time resolution of heat eq [s], should be integer multiple of 3600s so data can be stored on the hour
 method_turbulent = 'MO-similarity'  # 'MO-similarity' or *****
 # option_SW
@@ -128,7 +134,7 @@ method_heateq = 'what' # 'Crank-Nicholson': neglects penetrating shortwave
 method_densification = 'Boone'
 method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'
-surftemp_guess =  -30   # guess for surface temperature of first timestep
+surftemp_guess =  -10   # guess for surface temperature of first timestep
 
 # Albedo switches
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
@@ -183,6 +189,7 @@ max_dz = 1  # max layer height
 albedo_deg_rate = 30
 wet_snow_C = 4.22e-13 # m3 s-1
 fresh_grainsize = 300
+max_pen_depth = 2           # maximum depth of shortwave penetration [m]
 
 def get_uptime():
     with open('/proc/uptime', 'r') as f:

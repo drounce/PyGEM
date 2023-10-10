@@ -421,8 +421,11 @@ def plot_AWS(df,vars,time,t=''):
     fig,axs = plt.subplots(len(vars),sharex=True,layout='constrained')
     for i,var in enumerate(vars):
         vardata = df[var].to_numpy().reshape((len(days),24))
+        if var in ['SWin','LWin']:
+            vardata = vardata / 3600
         pc = axs[i].pcolormesh(days,hours,vardata.T, cmap='RdBu_r')
-        fig.colorbar(pc,ax=axs[i])
+        ticks = np.linspace(np.ceil(np.min(vardata)),np.floor(np.max(vardata)),3)
+        fig.colorbar(pc,ax=axs[i],ticks=ticks)
         axs[i].set_title(var)
         axs[i].set_ylabel('Hour')
         yticks = mpl.ticker.MultipleLocator(6)
