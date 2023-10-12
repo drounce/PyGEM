@@ -61,6 +61,7 @@ med_idx = np.where(fls['z'].to_numpy()==np.median(fls['z'].to_numpy()))[0]
 bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
 bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
 icelayers = 'multiple'
+bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
 
 # Types of glaciers to include (True) or exclude (False)
 include_landterm = True                # Switch to include land-terminating glaciers
@@ -114,14 +115,16 @@ gcm_spinupyears = 0             # spin up years for simulation (output not set u
 # Filepaths
 # init_filepath = main_directory + '/pygem_eb/sample_init_data/startssn_initialTp.nc'.replace('startssn',startssn)
 grainsize_fp = '~/research/PyGEM-EB/pygem_eb/data/drygrainsize(SSAin=60).nc'
+initial_temp_fp = '~/research/PyGEM-EB/pygem_eb/sample_init_data/gulkanaBtemp.csv'
+initial_density_fp = '~/research/PyGEM-EB/pygem_eb/sample_init_data/gulkanaBdensity.csv'
 
 # Initialization
 option_initWater = 'zero_w0'            # 'zero_w0' or 'initial_w0'
 option_initTemp = 'interp'           # 'piecewise' or 'interp'
 option_initDensity = 'interp'        # 'piecewise' or 'interp'
 startssn = 'endaccum'                    # 'endaccum' or 'endmelt' -- sample density/temp data provided for Gulkana
-initial_snowdepth = 2
-initial_firndepth = 0
+initial_snowdepth = [3.3]*n_bins
+initial_firndepth = [0]*n_bins
 
 # Simulation options
 dt = 3600
@@ -181,7 +184,7 @@ albedo_fresh_snow = 0.85    # albedo of fresh snow [-] (Moelg et al. 2012, TC)
 albedo_firn = 0.55          # albedo of firn [-] (Moelg et al. 2012, TC)
 albedo_ice = 0.3            # albedo of ice [-] (Moelg et al. 2012, TC)
 viscosity_snow = 1          # viscosity of snow Pa-s  
-dz_toplayer = 0.05          # thickness of the uppermost bin [m]
+dz_toplayer = 0.03          # thickness of the uppermost bin [m]
 layer_growth = 0.6          # rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
 sigma_SB = 5.67037e-8       # Stefan-Boltzmann constant [W m-2 K-4]
 max_nlayers = 20            # maximum number of vertical layers allowed

@@ -476,8 +476,8 @@ class AWS():
 
         data_start = pd.to_datetime(df.index.to_numpy()[0])
         data_end = pd.to_datetime(df.index.to_numpy()[-1])
-        assert dates_table.date[0] >= data_start, 'Check input dates: not in range of AWS data'
-        assert dates_table.date.to_numpy()[-1] <= data_end, 'Check input dates: not in range of AWS data'
+        assert dates_table.date[0] >= data_start, 'Check input dates: start date before range of AWS data'
+        assert dates_table.date.to_numpy()[-1] <= data_end, 'Check input dates: end date after range of AWS data'
         df = df.set_index(pd.date_range(data_start,data_end,freq='H'))
         df = df.loc[dates_table.date[0]:dates_table.date.to_numpy()[-1]]
         
@@ -490,15 +490,23 @@ class AWS():
         self.LWin = df[self.LWin_vn].to_numpy()
         self.LWout = df[self.LWout_vn].to_numpy()
         self.wind = df[self.wind_vn].to_numpy()
-        self.winddir = df[self.winddir_vn].to_numpy()
         self.sp = df[self.sp_vn].to_numpy()
-        self.tcc = df[self.tcc_vn].to_numpy()
         self.elev = df[self.elev_vn].to_numpy()[0]
 
-        try:
+        # DATA WHICH MAY NOT BE IN FILE (NOT NEEDED)
+        nans = np.ones_like(self.temp)*np.nan
+        if self.NR_vn in df.columns:
             self.NR = df[self.NR_vn].to_numpy()
-        except:
-            self.NR = np.empty_like(self.temp)*np.nan
-            print('***Net radiation still in class_climate script')
-        
+        else:
+            self.NR = nans
+
+        if self.winddir_vn in df.columns:
+            self.winddir = df[self.winddir_vn].to_numpy()
+        else:
+            self.winddir = nans
+
+        if self.tcc_vn in df.columns:
+            self.tcc = df[self.tcc_vn].to_numpy()
+        else:
+            self.tcc = nans
         return

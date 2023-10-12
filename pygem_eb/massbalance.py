@@ -85,19 +85,15 @@ class massBalance():
 
             # Calculate column melt including the surface
             if surface.Qm > 0:
-                layermelt = self.surfaceMelt(layers,surface,subsurf_melt)
+                layermelt, fully_melted_mass = self.surfaceMelt(layers,surface,subsurf_melt)
             else: # no melt
                 layermelt = subsurf_melt.copy()
                 layermelt[0] = 0
+                fully_melted_mass = 0
 
             # Percolate the meltwater and any liquid precipitation
-            runoff,layers_to_remove = self.percolation(layers,layermelt,rain)
-
-            # Remove layers that were completely melted and merge/split layers as needed
-            removed = 0 # Indexes of layers change as you loop
-            for layer in layers_to_remove:
-                layers.removeLayer(layer-removed)
-                removed += 1 
+            water_in = rain + fully_melted_mass
+            runoff = self.percolation(layers,layermelt,water_in)
             
             # Update layers (height check)
             layers.updateLayers()
@@ -228,9 +224,17 @@ class massBalance():
         else:
             # only surface layer is melting
             layermelt[0] = surface_melt
-        return layermelt
+        fully_melted_mass = np.sum(layermelt[fully_melted])
+
+        # Remove layers that were completely melted 
+        removed = 0 # Indexes of layers change as you loop
+        for layer in fully_melted:
+            layers.removeLayer(layer-removed)
+            layermelt = np.delete(layermelt,layer-removed)
+            removed += 1 
+        return layermelt, fully_melted_mass
         
-    def percolation(self,layers,layermelt,extra_water=0):
+    def percolation(self,layers,layermelt,water_in=0):
         """
         Calculates the liquid water content in each layer by downward percolation and adjusts 
         layer heights.
@@ -241,8 +245,8 @@ class massBalance():
             class object from pygem_eb.layers
         layermelt: np.ndarray
             Array containing melt amount for each layer
-        extra_water : float
-            Additional liquid water input (eg. rainfall) [kg m-2]
+        water_in : float
+            Additional liquid water input (rainfall and fully melted layers) [kg m-2]
 
         Returns
         -------
@@ -251,7 +255,7 @@ class massBalance():
         melted_layers : list
             List of layer indices that were fully melted
         """
-        rainfall = extra_water
+        rainfall = water_in
         melted_layers = []
         # OLD METHOD
         dm = layers.ldrymass.copy()
@@ -286,39 +290,44 @@ class massBalance():
                 layers.updateLayerProperties() 
         # extra water goes to runoff
         runoff = extra_water / eb_prms.density_water
-        layers.lheight = lh
-        layers.lwater = lw
-        layers.ldrymass = dm
+        # layers.lheight = lh
+        # layers.lwater = lw
+        # layers.ldrymass = dm
+        print('old method runoff',runoff)
 
-        # # NEW METHOD
-        # theta_ice = layers.ldrymass / (layers.lheight*eb_prms.density_ice)
-        # theta_liq = layers.lwater / (layers.lheight*eb_prms.density_water)
-        # Sr = 0.033
-        # # flow into layer i
-        # qi = eb_prms.density_water*layers.lheight/eb_prms.dt * (theta_liq - Sr*(1-theta_ice))
-        # for i,q in enumerate(qi):
-        #     if i < len(qi) - 1:
-        #         lim = eb_prms.density_water*(1-theta_ice[i+1]-theta_liq[i+1])*layers.lheight[i+1]/eb_prms.dt
-        #         if q > lim:
-        #             qi[i] = lim
-        # # flow out of layer i
-        # qi_1 = np.append(rainfall,qi[:-1])
-        # excess = 0
-        # for layer,melt in enumerate(layermelt):
-        #     # check if the layer fully melted
-        #     if melt >= dm[layer]:
-        #         melted_layers.append(layer)
-        #         # pass the meltwater to the next layer
-        #         qi[layer+1] += dm[layer]+lw[layer]
-        #     q_in = qi[layer] + excess
-        #     q_out = qi_1[layer]
-        #     layers.lwater[layer] += (q_in - q_out)*eb_prms.dt
-        #     if layers.lwater[layer] > layers.irrwatercont[layer]:
-        #         excess = layers.lwater[layer] - layers.irrwatercont[layer]
-        #         layers.lwater[layer] = layers.irrwatercont[layer]
-        #     else:
-        #         excess = 0
-        # print('new method',qi[-1],layers.lwater)
+        # NEW METHOD
+        theta_ice = layers.ldrymass / (layers.lheight*eb_prms.density_ice)
+        theta_liq = layers.lwater / (layers.lheight*eb_prms.density_water)
+        
+        # add melt to layer water content
+        layers.lwater += layermelt
+        Sr = 0.033
+        # flow into layer i
+        qi = eb_prms.density_water*layers.lheight/eb_prms.dt * (theta_liq - Sr*(1-theta_ice))
+        for i,q in enumerate(qi):
+            if i < len(qi) - 1:
+                lim = eb_prms.density_water*(1-theta_ice[i+1]-theta_liq[i+1])*layers.lheight[i+1]/eb_prms.dt
+                if q > lim:
+                    qi[i] = lim
+        # flow out of layer i
+        qi_1 = np.append(rainfall,qi[:-1])
+        excess = 0
+        for layer,melt in enumerate(layermelt):
+            # check if the layer fully melted
+            if melt >= dm[layer]:
+                melted_layers.append(layer)
+                # pass the meltwater to the next layer
+                qi[layer+1] += dm[layer]+lw[layer]
+            q_in = qi[layer] + excess
+            q_out = qi_1[layer]
+            layers.lwater[layer] += (q_in - q_out)*eb_prms.dt
+            if layers.lwater[layer] > layers.irrwatercont[layer]:
+                excess = layers.lwater[layer] - layers.irrwatercont[layer]
+                layers.lwater[layer] = layers.irrwatercont[layer]
+            else:
+                excess = 0
+        print('new method runoff',qi[-1])
+        print(layers.lwater == lw)
         return runoff,np.array(melted_layers)
 
     def refreezing(self,layers):
@@ -552,8 +561,7 @@ class massBalance():
 
         # Begin prints
         print(f'MONTH COMPLETED: {time.month_name()} {time.year} with +{accum:.2f} and -{melt:.2f} m w.e.')
-        print(f'CURRENT STATE:     Air temp: {airtemp:.2f} C')
-        print(f'                   Melt energy: {melte:.0f} W m-2')
+        print(f'CURRENT STATE: Air temp: {airtemp:.2f} C     Melt energy: {melte:.0f} W m-2')
         print(f'-----------surface temp: {surftemp:.2f} C-----------')
         if len(layers.snow_idx) > 0:
             print(f'|       snow depth: {snowdepth:.2f} m      {len(layers.snow_idx)} layers      |')
