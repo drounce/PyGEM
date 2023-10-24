@@ -1,4 +1,5 @@
 import argparse
+import time
 # External libraries
 import numpy as np
 import xarray as xr
@@ -27,6 +28,8 @@ def getparser():
                         help='number of elevation bins')
     return parser
 
+start_time = time.time()
+
 # Initialize arg parser
 parser = getparser()
 args = parser.parse_args()
@@ -40,6 +43,7 @@ glacier_table = modelsetup.selectglaciersrgitable(args.glac_no,
 dates_table = modelsetup.datesmodelrun(startyear=args.startdate, endyear=args.enddate)
 
 gcm = class_climate.GCM(name=eb_prms.ref_gcm_name)
+nans = np.empty(len(dates_table))*np.nan
 if args.climate_input in ['GCM']:
     # ===== LOAD CLIMATE DATA =====
     tp_data, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, glacier_table,dates_table)
@@ -51,14 +55,19 @@ if args.climate_input in ['GCM']:
     LWin, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.SWin_fn, gcm.SWin_vn, glacier_table,dates_table) 
     uwind, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.uwind_fn, gcm.uwind_vn, glacier_table,dates_table)                                                      
     vwind, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.vwind_fn, gcm.vwind_vn, glacier_table,dates_table)
+    try:
+        depBC, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.depBC_fn, gcm.depBC_vn, glacier_table,dates_table)
+        depdust, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.depdust_fn, gcm.depdust_vn, glacier_table,dates_table)
+    except:
+        depBC = nans.copy()
+        depdust = nans.copy()
     elev_data = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, glacier_table)
     wind = np.sqrt(np.power(uwind[0],2)+np.power(vwind[0],2))
     winddir = np.arctan2(-uwind[0],-vwind[0]) * 180 / np.pi
-    LWout = np.empty(len(data_hours))
-    LWout[:] = np.nan
-    SWout = LWout.copy()
-    rh_data = LWout.copy()
-    NR = LWout.copy()
+    LWout = nans.copy()
+    SWout = nans.copy()
+    rh_data = nans.copy()
+    NR = nans.copy()
     SWin = SWin[0]
     LWin = LWin[0]
     tcc = tcc[0]
@@ -79,6 +88,8 @@ elif args.climate_input in ['AWS']:
     tcc = aws.tcc
     sp_data = aws.sp
     elev_data = aws.elev
+    depBC = nans.copy()
+    depdust = nans.copy()
     ntimesteps = len(temp_data)
 
 #initialize variables to be adjusted
@@ -91,14 +102,18 @@ dtemp = np.zeros((n_bins,ntimesteps))
 e_func = lambda T_C: 610.94*np.exp(17.625*T_C/(T_C+243.04))  #vapor pressure in Pa, T in Celsius
 #loop through each elevation bin and adjust climate variables by lapse rate/barometric law
 for idx,z in enumerate(eb_prms.bin_elev):
+    # correct temperature according to lapserate
     temp[idx,:] = temp_data + eb_prms.lapserate*(z-elev_data)
+    # correct precipitation according to lapserate, precipitation factor
     if len(np.array(eb_prms.kp).flatten()) > 1:
         tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data))*eb_prms.kp[idx]
     else:
         tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data)) # *eb_prms.kp for GCM******
+    # correct surface pressure according to barometric law
     sp[idx,:] = sp_data*np.power((temp_data + eb_prms.lapserate*(z-elev_data)+273.15)/(temp_data+273.15),
                         -eb_prms.gravity*eb_prms.molarmass_air/(eb_prms.R_gas*eb_prms.lapserate))
-    if not np.all(np.isnan(rh_data)): # if RH is not empty, get dtemp data from it
+    # if RH is not empty, get dtemp data from it
+    if not np.all(np.isnan(rh_data)): 
         dtemp_data = rh_data / 100 * e_func(temp[idx,:])
         dtemp[idx,:] = dtemp_data + eb_prms.lapserate_dew*(z-elev_data)-273.15
         rh = np.array([rh_data]*n_bins)
@@ -118,7 +133,9 @@ climateds = xr.Dataset(data_vars = dict(
     NR = (['time'],NR,{'units':'J m-2'}),
     tcc = (['time'],tcc,{'units':'0-1'}),
     wind = (['time'],wind,{'units':'m s-1'}),
-    winddir = (['time'],winddir,{'units':'deg'})),
+    winddir = (['time'],winddir,{'units':'deg'}),
+    depBC = (['time'],depBC,{'units':'kg s-1'}),
+    depdust = (['time'],depdust,{'units':'kg s-1'}),),
     coords = dict(
         bin=(['bin'],bin_idx),
         time=(['time'],dates)
@@ -149,3 +166,6 @@ else:
             if str(args.store_data)=='True':
                 massbal.output.addAttrs(args)
                 print('Success: saving to',eb_prms.output_name+'.nc')
+
+end_time = time.time()
+print('Total Time Elapsed:',end_time-start_time,'s')

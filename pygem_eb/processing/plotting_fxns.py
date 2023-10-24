@@ -32,6 +32,9 @@ varprops = {'surftemp':{'Temperature'},'airtemp':'Temperature',
            'NetRad':'Flux','sensible':'Flux','latent':'Flux','rain':'Flux',
            'layertemp':{'label':'Temperature (C)'},'layerdensity':{'label':'Density (kg m-3)'},'layerwater':{'label':'Water Content (kg m-2)'},
            'layerheight':'Layers','snowdepth':'Snow depth','albedo':'Albedo'}
+varlabels = {'temp':'Temperature','wind':'Wind speed',
+             'rh':'Relative Humidity','SWin':'Shortwave In'}
+varunits = {'temp':'C','wind':'m/s','rh':'%','SWin':'W/m$^2$'}
 
 def getds(file):
     ds = xr.open_dataset(file)
@@ -84,28 +87,33 @@ def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
         vararray = np.array(v)
         for var in vararray:
             if var in ['melt','runoff','accum','refreeze']:
-                axis.plot(ds_sum.coords['time'],ds_sum[var].cumsum(),color=colors[ic],label=var)
-            elif var in new_y:
+                var_to_plot = ds_sum[var].cumsum()
+            else:
+                var_to_plot = ds_mean[var]
+            if var in new_y:
                 newaxis = axis.twinx()
                 newaxis.plot(ds_mean.coords['time'],ds_mean[var],color=colors[ic],label=var)
-                newaxis.set_yticks([-.2,0,0.2,0.4,0.6,0.8,1.0],labels=['',0,.2,.4,.6,.8,''])
                 newaxis.grid(False)
-                newaxis.set_ylabel(var)
+                units = 'C'
+                newaxis.set_ylabel(f'Temperature [{units}]')
+                newaxis.legend(bbox_to_anchor=(1.01,1.1),loc='upper left')
             else:
                 axis.plot(ds_mean.coords['time'],ds_mean[var],color=colors[ic],label=var)
             ic+=1
         axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
         if var not in ['albedo']:
-            if var in ['NetRad']:
+            if var in ['NetRad','SWnet','LWnet']:
                 units = 'W m-2'
             else:
                 units = ds[var].attrs['units']
         else:
             units = ''
         axis.set_ylabel(f'{vartype[var]} [{units}]')
+        axis.set_ylabel('Melt [m w.e.]')
     date_form = mpl.dates.DateFormatter('%d %b')
     axis.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
+    plt.savefig('/home/claire/research/Output/ebfluxcomparison.png',dpi=150)
 
 def plot_snow_depth(stake_df,ds_list,time,labels,bin,t='Snow Depth Comparison'):
     """
@@ -250,7 +258,7 @@ def plot_iButtons(ds,bin,dates,path=None,snow_only=True):
     axes[0].set_ylabel('Depth (m)')
     return
 
-def stacked_eb_barplot(ds,time,res='d',t=''):
+def stacked_eb_barplot(ds,time,res='d',t='',savefig=False):
     """
     Returns a barplot where energy fluxes are stacked
 
@@ -265,29 +273,33 @@ def stacked_eb_barplot(ds,time,res='d',t=''):
     t : str
         Title of plot
     """
-    fig,ax = plt.subplots(figsize=(10,2.5))
-    vars = ['latent','NetRad','sensible','rain'] #'SWnet','LWnet'
+    fig,ax = plt.subplots(figsize=(10,5))
+    vars = ['SWnet','all_but_shortwave'] #'SWnet','LWnet'
+    ds['all_but_shortwave'] = ds['LWnet'] + ds['latent']+ ds['sensible']+ ds['ground']+ ds['rain']
 
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq='h')
+    ds = ds.sel(time=time)
     ds = ds.resample(time=res).mean(dim='time')
     bottom=0
     for i,var in enumerate(np.array(vars)):
         vardata = ds[var].to_numpy().T[0]
         if i==0:
-            ax.bar(ds.coords['time'],vardata,label=var)
+            ax.bar(ds.coords['time'],vardata,label='Net Shortwave')
         else:
             bottom = ds[vars[i-1]].to_numpy().T[0]+bottom
             bottom[np.where(bottom<0)] = 0
-            ax.bar(ds.coords['time'],vardata,bottom=bottom,label=var)
+            ax.bar(ds.coords['time'],vardata,bottom=bottom,label='All Other Fluxes')
     # ax.plot(ds.coords['time'],ds['meltenergy'],label='melt energy',color='black',linewidth=.6,alpha=0.7)
-    ax.legend()
-    date_form = mpl.dates.DateFormatter('%d %b')
+    date_form = mpl.dates.DateFormatter('%d %b %Y')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_ylabel('Fluxes (W/m2)')
+    ax.legend(loc='upper left')
     fig.suptitle(t)
+    if savefig:
+        plt.savefig(savefig,dpi=300)
     plt.show()
 
 def plot_avgs(ds,time,title=False):
@@ -422,11 +434,14 @@ def plot_AWS(df,vars,time,t=''):
     for i,var in enumerate(vars):
         vardata = df[var].to_numpy().reshape((len(days),24))
         if var in ['SWin','LWin']:
-            vardata = vardata / 3600
+            vardata = vardata * 3600
         pc = axs[i].pcolormesh(days,hours,vardata.T, cmap='RdBu_r')
         ticks = np.linspace(np.ceil(np.min(vardata)),np.floor(np.max(vardata)),3)
-        fig.colorbar(pc,ax=axs[i],ticks=ticks)
-        axs[i].set_title(var)
+        if ticks[1]%1 > 0:
+            ticks =  np.linspace(np.ceil(np.min(vardata)),np.floor(np.max(vardata))+1,3)
+        clb = fig.colorbar(pc,ax=axs[i],ticks=ticks.astype(int),aspect=10,pad=0.02)
+        clb.ax.set_title(varunits[var])
+        axs[i].set_title(varlabels[var])
         axs[i].set_ylabel('Hour')
         yticks = mpl.ticker.MultipleLocator(6)
         axs[i].yaxis.set_major_locator(yticks)

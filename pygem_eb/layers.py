@@ -57,12 +57,10 @@ class Layers():
         self.lnewsnow = np.zeros_like(self.ltemp)
         self.irrwatercont = irrwatercont
         self.grainsize = grainsize
-        self.ldryBC = BC
-        self.ldrydust = dust
-        self.lwetBC = 0
-        self.lwetdust = 0
-        print(self.lheight,self.ldensity,self.ldrymass)
-        assert 1==0
+        self.lBC = np.zeros_like(self.ltemp)
+        self.ldust = np.zeros_like(self.ltemp)
+        # print(self.lheight,self.ldensity,self.ldrymass)
+        # assert 1==0
         print(self.nlayers,'layers initialized for bin',bin_no)
         return 
     
@@ -250,7 +248,9 @@ class Layers():
         self.lrefreeze = np.append(0,self.lrefreeze)
         # Only way to add a layer is with new snow, so layer new snow = layer dry mass
         self.lnewsnow = np.append(layers_to_add.loc['drym'].values,self.lnewsnow)
-        self.grainsize = np.append(eb_prms.fresh_grainsize,self.lnewsnow)
+        self.grainsize = np.append(eb_prms.fresh_grainsize,self.grainsize)
+        self.lBC = np.append(eb_prms.BC_freshsnow,self.lBC)
+        self.ldust = np.append(eb_prms.dust_freshsnow,self.ldust)
         self.updateLayerProperties()
         return
     
@@ -272,6 +272,8 @@ class Layers():
         self.lrefreeze = np.delete(self.lrefreeze,layer_to_remove)
         self.lnewsnow = np.delete(self.lnewsnow,layer_to_remove)
         self.grainsize = np.delete(self.grainsize,layer_to_remove)
+        self.lBC = np.delete(self.lBC,layer_to_remove)
+        self.ldust = np.delete(self.ldust,layer_to_remove)
         self.updateLayerProperties()
         return
     
@@ -296,6 +298,10 @@ class Layers():
             self.lrefreeze = np.insert(self.lrefreeze,l,self.lrefreeze[l])
             self.lnewsnow[l] = self.lnewsnow[l]/2
             self.lnewsnow = np.insert(self.lnewsnow,l,self.lnewsnow[l])
+            self.lBC[l] = self.lBC[l]/2
+            self.lBC = np.insert(self.lBC,l,self.lBC[l])
+            self.ldust[l] = self.ldust[l]/2
+            self.ldust = np.insert(self.ldust,l,self.ldust[l])
         self.updateLayerProperties()
         return
 
@@ -313,6 +319,8 @@ class Layers():
         self.lrefreeze[l+1] = np.sum(self.lrefreeze[l:l+2])
         self.lnewsnow[l+1] = np.sum(self.lnewsnow[l:l+2])
         self.grainsize[l+1] = np.mean(self.grainsize[l:l+2])
+        self.lBC[l+1] = np.mean(self.lBC[l:l+2])
+        self.ldust[l+1] = np.mean(self.ldust[l:l+2])
         self.removeLayer(l)
         return
     

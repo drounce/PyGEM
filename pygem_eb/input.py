@@ -137,6 +137,7 @@ method_heateq = 'what' # 'Crank-Nicholson': neglects penetrating shortwave
 method_densification = 'Boone'
 method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'
+method_percolation = 'w_LAPs'
 surftemp_guess =  -10   # guess for surface temperature of first timestep
 
 # Albedo switches
@@ -188,11 +189,16 @@ dz_toplayer = 0.03          # thickness of the uppermost bin [m]
 layer_growth = 0.6          # rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
 sigma_SB = 5.67037e-8       # Stefan-Boltzmann constant [W m-2 K-4]
 max_nlayers = 20            # maximum number of vertical layers allowed
-max_dz = 1  # max layer height
+max_dz = 1                  # max layer height
 albedo_deg_rate = 30
-wet_snow_C = 4.22e-13 # m3 s-1
+wet_snow_C = 4.22e-13       # m3 s-1
 fresh_grainsize = 300
 max_pen_depth = 2           # maximum depth of shortwave penetration [m]
+Sr = 0.033                  # for irreducible water content flow method
+rainBC = 0.0001             # concentration of BC in rain
+raindust = 0.0001           # concentration of dust in rain
+ksp_BC = 0.1
+ksp_dust = 0.015
 
 def get_uptime():
     with open('/proc/uptime', 'r') as f:

@@ -42,7 +42,9 @@ class energyBalance():
             self.LWin_ds = climateds_now['LWin'].to_numpy()
             self.LWout_ds = climateds_now['LWout'].to_numpy()
             self.NR_ds = climateds_now['NR'].to_numpy()
-        else:
+            self.depBC = climateds_now['depBC'].to_numpy()
+            self.depdust = climateds_now['depdust'].to_numpy()
+        else: # DONT NEED THIS UNLESS I EVER DO SUBHOURLY RUNS
             # Timestep is between hours, so interpolate using interpClimate function
             # Bin-dependent variables indexed by bin_idx
             self.tempC = self.interpClimate(climateds,time,'bin_temp',bin_idx)
@@ -258,6 +260,13 @@ class energyBalance():
                 converged = True
 
         return Qs, Ql
+    
+    def getDeposition(self):
+        if not self.depBC:
+            self.depBC = 1e-5
+        if not self.depdust:
+            self.depdust = 1e-5
+        return self.depBC,self.depdust
     
     def getRoughnessLength(self,days_since_snowfall,layertype):
         """
