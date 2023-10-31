@@ -57,8 +57,8 @@ class Layers():
         self.lnewsnow = np.zeros_like(self.ltemp)
         self.irrwatercont = irrwatercont
         self.grainsize = grainsize
-        self.lBC = np.zeros_like(self.ltemp)
-        self.ldust = np.zeros_like(self.ltemp)
+        self.lBC = np.ones_like(self.ltemp) * eb_prms.BC_freshsnow
+        self.ldust = np.ones_like(self.ltemp) * eb_prms.dust_freshsnow
         # print(self.lheight,self.ldensity,self.ldrymass)
         # assert 1==0
         print(self.nlayers,'layers initialized for bin',bin_no)

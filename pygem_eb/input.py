@@ -6,7 +6,7 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True
-store_data=False
+store_data=True
 
 #%% ===== GLACIER SELECTION =====
 rgi_regionsO1 = [1]                 # 1st order region number (RGI V6.0)
@@ -145,8 +145,8 @@ switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
 switch_melt = 0
 switch_LAPs = 0
 initLAPs = [[0,0],[0,0]]    # initial LAP concentrations. Set to None to use fresh snow values
-BC_freshsnow = 1e6          # concentration of BC in fresh snow. Only used if switch_LAPs is not 2
-dust_freshsnow = 1e6        # concentration of dust in fresh snow. Only used if switch_LAPs is not 2
+BC_freshsnow = 1e-7          # concentration of BC in fresh snow [kg m-3]. Only used if switch_LAPs is not 2
+dust_freshsnow = 2e-4        # concentration of dust in fresh snow [kg m-3]. Only used if switch_LAPs is not 2
 
 # Output
 store_vars = ['MB','EB','Temp','Layers']        # Variables to store of the possible set: ['MB','EB','Temp','Layers']
@@ -195,10 +195,10 @@ wet_snow_C = 4.22e-13       # m3 s-1
 fresh_grainsize = 300
 max_pen_depth = 2           # maximum depth of shortwave penetration [m]
 Sr = 0.033                  # for irreducible water content flow method
-rainBC = 0.0001             # concentration of BC in rain
-raindust = 0.0001           # concentration of dust in rain
-ksp_BC = 0.1
-ksp_dust = 0.015
+rainBC = BC_freshsnow             # concentration of BC in rain
+raindust = dust_freshsnow           # concentration of dust in rain
+ksp_BC = 0.1                # meltwater scavenging efficiency of BC (from CLM5)
+ksp_dust = 0.015            # meltwater scavenging efficiency of dust (from CLM5)
 
 def get_uptime():
     with open('/proc/uptime', 'r') as f:

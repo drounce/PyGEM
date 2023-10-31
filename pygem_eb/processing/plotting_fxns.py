@@ -31,6 +31,7 @@ varprops = {'surftemp':{'Temperature'},'airtemp':'Temperature',
            'LWin':'Flux','LWout':'Flux','SWnet':'Flux','LWnet':'Flux',
            'NetRad':'Flux','sensible':'Flux','latent':'Flux','rain':'Flux',
            'layertemp':{'label':'Temperature (C)'},'layerdensity':{'label':'Density (kg m-3)'},'layerwater':{'label':'Water Content (kg m-2)'},
+           'layerBC':{'label':'BC (kg m-3)'},'layerdust':{'label':'Dust (kg m-3)'},
            'layerheight':'Layers','snowdepth':'Snow depth','albedo':'Albedo'}
 varlabels = {'temp':'Temperature','wind':'Wind speed',
              'rh':'Relative Humidity','SWin':'Shortwave In'}

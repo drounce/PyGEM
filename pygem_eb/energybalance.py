@@ -262,9 +262,9 @@ class energyBalance():
         return Qs, Ql
     
     def getDeposition(self):
-        if not self.depBC:
+        if np.isnan(self.depBC):
             self.depBC = 1e-5
-        if not self.depdust:
+        if np.isnan(self.depdust):
             self.depdust = 1e-5
         return self.depBC,self.depdust
     
