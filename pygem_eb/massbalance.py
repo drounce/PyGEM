@@ -829,5 +829,4 @@ class Output():
             else:
                 ds = ds.assign_attrs(glacier=eb_prms.glac_name)
         ds.to_netcdf(eb_prms.output_name+'.nc')
-        print('Added attributes!')
         return

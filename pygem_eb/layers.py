@@ -230,6 +230,8 @@ class Layers():
                        lambda x: slopes[2]*x+intercepts[2]])
         return layer_var
     
+    #### BELOW THIS POINT CAN BE REWRITTEN AS 'UTILS' CLASS FOR ORGANIZATION
+
     def addLayers(self,layers_to_add):
         """
         Adds layers to layers class.
@@ -440,11 +442,11 @@ class Layers():
         Snow grain size metamorphism
         """
         if len(self.snow_idx) > 0:
+            # bins should be a list of indices to calculate grain size on
             if not bins:
                 bins = np.arange(self.nlayers)
                 bins = bins[np.where(self.ldepth < eb_prms.max_pen_depth)[0]]
             n = len(bins)
-            f_liq = self.lwater[bins] / (self.lwater[bins] + self.ldrymass[bins])
             
             # Get fractions of refreeze, new snow and old snow
             refreeze = self.lrefreeze[bins]
@@ -453,6 +455,7 @@ class Layers():
             f_old = old_snow / self.ldrymass[bins]
             f_new = new_snow / self.ldrymass[bins]
             f_rfz = refreeze / self.ldrymass[bins]
+            f_liq = self.lwater[bins] / (self.lwater[bins] + self.ldrymass[bins])
 
             dz = self.lheight.copy()
             T = self.ltemp.copy() + 273.15
