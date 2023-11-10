@@ -138,6 +138,7 @@ method_densification = 'Boone'
 method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'
 method_percolation = 'w_LAPs'
+method_grainsizetable = 'ML'
 surftemp_guess =  -10   # guess for surface temperature of first timestep
 
 # Albedo switches

@@ -7,7 +7,7 @@ class Layers():
     """
     Layer scheme for the 1D snowpack model.
     """
-    def __init__(self,bin_no):
+    def __init__(self,bin_no,utils):
         """
         Initialize the temperature, density and water content profile of the vertical layers.
 
@@ -49,6 +49,11 @@ class Layers():
         else:
             BC = [eb_prms.BC_freshsnow,eb_prms.BC_freshsnow]
             dust = [eb_prms.dust_freshsnow,eb_prms.dust_freshsnow]
+
+        # Initialize RF model for grain size lookups
+        self.tau_rf,_,_ = utils.getGrainSizeModel(initSSA=60,var='taumat')
+        self.kap_rf,_,_ = utils.getGrainSizeModel(initSSA=60,var='kapmat')
+        self.dr0_rf,_,_ = utils.getGrainSizeModel(initSSA=60,var='dr0mat')
         
         self.lheight = lheight
         self.ldepth = ldepth
@@ -457,8 +462,8 @@ class Layers():
             f_rfz = refreeze / self.ldrymass[bins]
             f_liq = self.lwater[bins] / (self.lwater[bins] + self.ldrymass[bins])
 
-            dz = self.lheight.copy()
-            T = self.ltemp.copy() + 273.15
+            dz = self.lheight.copy()[bins]
+            T = self.ltemp.copy()[bins] + 273.15
             surftempK = surftemp + 273.15
             p = self.ldensity.copy()[bins]
             g = self.grainsize.copy()[bins]
@@ -473,19 +478,27 @@ class Layers():
             dTdz = np.abs(dTdz[bins])
 
             # Force to be within lookup table ranges******
-            p[np.where(p > 400)[0]] = 400
-            dTdz[np.where(dTdz > 300)[0]] = 300
+            # p[np.where(p > 400)[0]] = 400
+            # dTdz[np.where(dTdz > 300)[0]] = 300
 
-            # Interpolate lookup table at the values of T,dTdz,p
-            ds = xr.open_dataset(eb_prms.grainsize_fp)
-            ds = ds.interp(TVals=T[bins],DTDZVals=dTdz,DENSVals=p)
-            # Extract values
-            diag = np.zeros((n,n,n),dtype=bool)
-            for i in range(n):
-                diag[i,i,i] = True
-            tau = ds.taumat.to_numpy()[diag]
-            kap = ds.kapmat.to_numpy()[diag]
-            dr0 = ds.dr0mat.to_numpy()[diag]
+            if eb_prms.method_grainsizetable in ['interpolate']:
+                # Interpolate lookup table at the values of T,dTdz,p
+                ds = xr.open_dataset(eb_prms.grainsize_fp)
+                ds = ds.interp(TVals=T[bins],DTDZVals=dTdz,DENSVals=p)
+                # Extract values
+                diag = np.zeros((n,n,n),dtype=bool)
+                for i in range(n):
+                    diag[i,i,i] = True
+                tau = ds.taumat.to_numpy()[diag]
+                kap = ds.kapmat.to_numpy()[diag]
+                dr0 = ds.dr0mat.to_numpy()[diag]
+
+            else:
+                X = np.vstack([T,p,dTdz]).T
+                tau = np.exp(self.tau_rf.predict(X))
+                kap = np.exp(self.kap_rf.predict(X))
+                dr0 = self.dr0_rf.predict(X)
+
             drdrydt = dr0*1e-6*np.power(tau/(tau + 1e6*(g - eb_prms.fresh_grainsize)),1/kap)
             drdry = drdrydt * dt
 

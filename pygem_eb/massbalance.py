@@ -11,7 +11,7 @@ class massBalance():
     Mass balance scheme which calculates layer and bin mass balance from melt, refreeze and accumulation.
     Contains main() function which executes the core of the model.
     """
-    def __init__(self,bin_idx,dates_table,args):
+    def __init__(self,bin_idx,dates_table,args,utils):
         """
         Initializes the layers and surface classes and model time for the mass balance scheme.
 
@@ -29,7 +29,7 @@ class massBalance():
         self.bin_idx = bin_idx
 
         # Initialize layers and surface classes
-        self.layers = eb_layers.Layers(bin_idx)
+        self.layers = eb_layers.Layers(bin_idx,utils)
         self.surface = eb_surface.Surface(self.layers,self.time_list)
 
         # Initialize output class
@@ -266,81 +266,84 @@ class massBalance():
         layermelt = layermelt[snow_firn_idx]
         # ****** neglects subsurface melt if there is not snow or firn
         #  -- this is probably okay?
+        if len(snow_firn_idx) > 0:
+            if eb_prms.method_percolation in 'no_LAP_movement':
+                for layer,melt in enumerate(layermelt):
+                    # remove melt from the dry mass
+                    ldm[layer] -= melt
 
-        if eb_prms.method_percolation in 'no_LAP_movement':
-            for layer,melt in enumerate(layermelt):
-                # remove melt from the dry mass
-                ldm[layer] -= melt
+                    # add melt and extra_water (melt from above) to layer water content
+                    added_water = melt + extra_water
+                    lw[layer] += added_water
 
-                # add melt and extra_water (melt from above) to layer water content
-                added_water = melt + extra_water
-                lw[layer] += added_water
+                    # check if meltwater exceeds the irreducible water content of the layer
+                    layers.updateLayerProperties('irrwater')
+                    if lw[layer] >= layers.irrwatercont[layer]:
+                        # set water content to irr. water content and add the difference to extra_water
+                        extra_water = lw[layer] - layers.irrwatercont[layer]
+                        lw[layer] = layers.irrwatercont[layer]
+                    else: #if not overflowing, extra_water should be set back to 0
+                        extra_water = 0
+                    
+                    # get the change in layer height due to loss of solid mass (volume only considers solid)
+                    lh[layer] -= melt/layers.ldensity[layer]
+                    # need to update layer depths
+                    layers.updateLayerProperties() 
+                # extra water goes to runoff
+                runoff = extra_water / eb_prms.density_water
+                layers.lheight[snow_firn_idx] = lh
+                layers.lwater[snow_firn_idx] = lw
+                layers.ldrymass[snow_firn_idx] = ldm
+                return runoff
+            else:
+                density_water = eb_prms.density_water
+                density_ice = eb_prms.density_ice
+                Sr = eb_prms.Sr
+                dt = eb_prms.dt
+                # add rain water to uppermost bin
+                lw[0] += rainfall*eb_prms.dt
+                # calculate volumetric fractions
+                theta_liq = lw / (lh*density_water)
+                theta_ice = ldm / (lh*density_ice)
+                porosity = 1 - theta_ice
 
-                # check if meltwater exceeds the irreducible water content of the layer
-                layers.updateLayerProperties('irrwater')
-                if lw[layer] >= layers.irrwatercont[layer]:
-                    # set water content to irr. water content and add the difference to extra_water
-                    extra_water = lw[layer] - layers.irrwatercont[layer]
-                    lw[layer] = layers.irrwatercont[layer]
-                else: #if not overflowing, extra_water should be set back to 0
-                    extra_water = 0
-                
-                # get the change in layer height due to loss of solid mass (volume only considers solid)
-                lh[layer] -= melt/layers.ldensity[layer]
-                # need to update layer depths
-                layers.updateLayerProperties() 
-            # extra water goes to runoff
-            runoff = extra_water / eb_prms.density_water
-            layers.lheight[snow_firn_idx] = lh
-            layers.lwater[snow_firn_idx] = lw
-            layers.ldrymass[snow_firn_idx] = ldm
-            return runoff
+                # initialize flow into the top layer
+                qi = 0
+                q_in_store = []
+                q_out_store = []
+                for layer,melt in enumerate(layermelt):
+                    # set flow in equal to flow out of the previous layer
+                    q_in = qi
+
+                    # calculate flow out of layer i (cannot be negative)
+                    flow_out = density_water*lh[layer]/dt * (theta_liq[layer] - Sr*porosity[layer])
+                    qi = max(0,flow_out)
+
+                    # check limit of qi based on underlying layer holding capacity
+                    if layer < len(porosity) - 1:
+                        if porosity[layer] < 0.05 or porosity[layer+1] < 0.05:
+                            lim = 0
+                        else:
+                            lim = density_water*lh[layer+1]/dt * (1-theta_ice[layer+1]-theta_liq[layer+1])
+                            lim = max(0,lim)
+                    else: # no limit on bottom layer (1e5 sufficiently high)
+                        lim = 1e5
+                    q_out = min(qi,lim)
+                    # layer water mass balance
+                    lw[layer] += (q_in - q_out)*dt
+                    q_in_store.append(q_in)
+                    q_out_store.append(q_out)
+                # store new layer heights, water and solid mass
+                layers.lheight[snow_firn_idx] = lh
+                layers.lwater[snow_firn_idx] = lw
+                layers.ldrymass[snow_firn_idx] = ldm
+                runoff = q_out
+                # mass diffusion of LAPs
+                self.diffuseLAPs(layers,q_in_store,q_out_store,rainfall)
         else:
-            density_water = eb_prms.density_water
-            density_ice = eb_prms.density_ice
-            Sr = eb_prms.Sr
-            dt = eb_prms.dt
-            # add rain water to uppermost bin
-            lw[0] += rainfall*eb_prms.dt
-            # calculate volumetric fractions
-            theta_liq = lw / (lh*density_water)
-            theta_ice = ldm / (lh*density_ice)
-            porosity = 1 - theta_ice
-
-            # initialize flow into the top layer
-            qi = 0
-            q_in_store = []
-            q_out_store = []
-            for layer,melt in enumerate(layermelt):
-                # set flow in equal to flow out of the previous layer
-                q_in = qi
-
-                # calculate flow out of layer i (cannot be negative)
-                flow_out = density_water*lh[layer]/dt * (theta_liq[layer] - Sr*porosity[layer])
-                qi = max(0,flow_out)
-
-                # check limit of qi based on underlying layer holding capacity
-                if layer < len(porosity) - 1:
-                    if porosity[layer] < 0.05 or porosity[layer+1] < 0.05:
-                        lim = 0
-                    else:
-                        lim = density_water*lh[layer+1]/dt * (1-theta_ice[layer+1]-theta_liq[layer+1])
-                        lim = max(0,lim)
-                else: # no limit on bottom layer (1e5 sufficiently high)
-                    lim = 1e5
-                q_out = min(qi,lim)
-                # layer water mass balance
-                lw[layer] += (q_in - q_out)*dt
-                q_in_store.append(q_in)
-                q_out_store.append(q_out)
-            # store new layer heights, water and solid mass
-            layers.lheight[snow_firn_idx] = lh
-            layers.lwater[snow_firn_idx] = lw
-            layers.ldrymass[snow_firn_idx] = ldm
-            runoff = q_out
-            # mass diffusion of LAPs
-            self.diffuseLAPs(layers,q_in_store,q_out_store,rainfall)
-            return runoff
+            runoff = rainfall + np.sum(layermelt)
+        
+        return runoff
         
     def diffuseLAPs(self,layers,q_in,q_out,rainfall):
         # constants
@@ -782,7 +785,7 @@ class Output():
                 layerwater_output = pd.DataFrame.from_dict(self.layerwater_output,orient='index')
                 layerBC_output = pd.DataFrame.from_dict(self.layerBC_output,orient='index')
                 layerdust_output = pd.DataFrame.from_dict(self.layerdust_output,orient='index')
-                layergrainsize_output = pd.DataFrame.from_dict(self.layergrainsize_output,orient='index')
+                # layergrainsize_output = pd.DataFrame.from_dict(self.layergrainsize_output,orient='index')
                 
                 if len(layertemp_output.columns) < eb_prms.max_nlayers:
                     n_columns = len(layertemp_output.columns)
@@ -794,14 +797,14 @@ class Output():
                         layerwater_output[str(i)] = nans
                         layerBC_output[str(i)] = nans
                         layerdust_output[str(i)] = nans
-                        layergrainsize_output[str(i)] = nans
+                        # layergrainsize_output[str(i)] = nans
                 ds['layertemp'].loc[:,bin,:] = layertemp_output
                 ds['layerheight'].loc[:,bin,:] = layerheight_output
                 ds['layerdensity'].loc[:,bin,:] = layerdensity_output
                 ds['layerwater'].loc[:,bin,:] = layerwater_output
                 ds['layerBC'].loc[:,bin,:] = layerBC_output
                 ds['layerdust'].loc[:,bin,:] = layerdust_output
-                ds['layergrainsize'].loc[:,bin,:] = layergrainsize_output
+                # ds['layergrainsize'].loc[:,bin,:] = layergrainsize_output
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
     

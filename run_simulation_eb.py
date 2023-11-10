@@ -10,6 +10,7 @@ import pygem_eb.input as eb_prms
 import pygem.class_climate as class_climate
 import pygem_eb.massbalance as mb
 import pygem.pygem_modelsetup as modelsetup
+import pygem_eb.utils as utilities
 
 def getparser():
     parser = argparse.ArgumentParser(description='pygem-eb model runs')
@@ -29,6 +30,7 @@ def getparser():
     return parser
 
 start_time = time.time()
+utils = utilities.Utils()
 
 # Initialize arg parser
 parser = getparser()
@@ -150,14 +152,14 @@ climateds = climateds.assign(bin_rh = (['bin','time'],rh,{'units':'%'}))
 #loop through bins here so EB script is set up for only one bin (1D data)
 if eb_prms.parallel:
     def run_mass_balance(bin):
-        massbal = mb.massBalance(bin,dates_table,args)
+        massbal = mb.massBalance(bin,dates_table,args,utils)
         massbal.main(climateds)
     processes_pool = Pool(args.n_bins)
     processes_pool.map(run_mass_balance,range(args.n_bins))
 else:
     for bin in np.arange(args.n_bins):
         # initialize variables to store from mass balance
-        massbal = mb.massBalance(bin,dates_table,args)
+        massbal = mb.massBalance(bin,dates_table,args,utils)
         results = massbal.main(climateds)
         
         if bin<args.n_bins-1:
