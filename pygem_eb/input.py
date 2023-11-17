@@ -117,6 +117,7 @@ gcm_spinupyears = 0             # spin up years for simulation (output not set u
 grainsize_fp = '~/research/PyGEM-EB/pygem_eb/data/drygrainsize(SSAin=60).nc'
 initial_temp_fp = '~/research/PyGEM-EB/pygem_eb/sample_init_data/gulkanaBtemp.csv'
 initial_density_fp = '~/research/PyGEM-EB/pygem_eb/sample_init_data/gulkanaBdensity.csv'
+snicar_input_fp = '/home/claire/research/PyGEM-EB/biosnicar-py/src/biosnicar/inputs.yaml'
 
 # Initialization
 option_initWater = 'zero_w0'            # 'zero_w0' or 'initial_w0'
@@ -139,6 +140,7 @@ method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'
 method_percolation = 'w_LAPs'
 method_grainsizetable = 'ML'
+method_albedo = 'SNICAR'
 surftemp_guess =  -10   # guess for surface temperature of first timestep
 
 # Albedo switches

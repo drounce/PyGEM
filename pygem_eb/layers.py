@@ -6,6 +6,8 @@ import pygem_eb.input as eb_prms
 class Layers():
     """
     Layer scheme for the 1D snowpack model.
+
+    All mass terms are stored in kg m-2.
     """
     def __init__(self,bin_no,utils):
         """
@@ -16,6 +18,8 @@ class Layers():
         bin_no : int
             Bin number
         """
+        self.utils = utils 
+
         # Load in initial depths of snow, firn and ice
         snow_depth = eb_prms.initial_snowdepth[bin_no]
         firn_depth = eb_prms.initial_firndepth[bin_no]
@@ -64,8 +68,6 @@ class Layers():
         self.grainsize = grainsize
         self.lBC = np.ones_like(self.ltemp) * eb_prms.BC_freshsnow
         self.ldust = np.ones_like(self.ltemp) * eb_prms.dust_freshsnow
-        # print(self.lheight,self.ldensity,self.ldrymass)
-        # assert 1==0
         print(self.nlayers,'layers initialized for bin',bin_no)
         return 
     
@@ -421,11 +423,11 @@ class Layers():
         store_surface = False
 
         # Conditions: if any are TRUE, create a new layer
-        conds = np.array([self.ltype[0] in 'ice',
+        new_layer_conds = np.array([self.ltype[0] in 'ice',
                             self.ltype[0] in 'firn',
                             self.ldensity[0] > new_density*3,
                             self.days_since_snowfall > 10])
-        if np.any(conds):
+        if np.any(new_layer_conds):
             new_layer = pd.DataFrame([airtemp,0,snowfall/new_density,'snow',snowfall],index=['T','w','h','t','drym'])
             self.addLayers(new_layer)
             store_surface = True
@@ -512,7 +514,7 @@ class Layers():
         elif len(self.firn_idx) > 0: # no snow, but there is firn
             self.grainsize[self.firn_idx] = 1000 # ****** FIRN GRAIN SIZE
         else: # no snow or firn, just ice
-            self.grainsize = 1500
+            self.grainsize[self.ice_idx] = 1500
         return 
     
     def getIrrWaterCont(self,density=None):

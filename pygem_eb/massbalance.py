@@ -69,10 +69,11 @@ class massBalance():
                     
             # Update daily properties
             if time.hour < 1 and time.minute < 1: 
-                layers.getGrainSize(surface.temp)
-                surface.days_since_snowfall = (time - surface.snow_timestamp)/pd.Timedelta(days=1)
+                surface.updateSurfaceDaily(layers,time)
                 self.days_since_snowfall = surface.days_since_snowfall
-                surface.updateSurface(layers)
+            
+            # Update albedo
+            surface.getAlbedo(layers)
 
             # Calculate surface energy balance by updating surface temperature
             surface.getSurfTemp(enbal,layers)
@@ -87,7 +88,7 @@ class massBalance():
             # Calculate column melt including the surface
             if surface.Qm > 0:
                 layermelt, fully_melted_mass = self.surfaceMelt(layers,surface,subsurf_melt)
-            else: # no melt
+            else: # No surface melt
                 layermelt = subsurf_melt.copy()
                 layermelt[0] = 0
                 fully_melted_mass = 0
@@ -96,12 +97,12 @@ class massBalance():
             water_in = rain + fully_melted_mass
             runoff = self.percolation(layers,layermelt,water_in)
             
-            # Update layers (height check)
+            # Update layers (checks for tiny or huge layers)
             layers.updateLayers()
 
             # Recalculate the temperature profile considering conduction
             if np.abs(np.sum(layers.ltemp)) != 0.:
-                # If glacier is isothermal, heat is not conducted
+                # If glacier is isothermal, heat is not conducted, so skip
                 layers.ltemp = self.solveHeatEq(layers,surface.temp,eb_prms.dt_heateq)
 
             # Calculate refreeze
@@ -355,6 +356,7 @@ class massBalance():
         lh = layers.lheight[snow_firn_idx]
         lw = layers.lwater[snow_firn_idx]
         ldm = layers.ldrymass[snow_firn_idx]
+
         # lBC/dust is concentration of species in kg m-3
         # mBC/dust is layer mass of species in kg m-2
         # cBC/dust is layer mass mixing ratio in kg kg-1
@@ -373,6 +375,7 @@ class massBalance():
         # outward fluxes are simply flow out * concentration of the layer
         m_BC_out = ksp_BC*q_out*cBC
         m_dust_out = ksp_dust*q_out*cdust
+        # get deposition in top layer
         depBC = np.zeros_like(m_BC_in)
         depdust = np.zeros_like(m_BC_in)
         depBC[0] = self.depBC
@@ -381,8 +384,8 @@ class massBalance():
         # mass balance on each constituent
         dmBC = (m_BC_in - m_BC_out + depBC)*eb_prms.dt
         dmdust = (m_dust_in - m_dust_out + depdust)*eb_prms.dt
-        layers.lBC[snow_firn_idx] += dmBC
-        layers.ldust[snow_firn_idx] += dmdust
+        layers.lBC[snow_firn_idx] += dmBC / lh
+        layers.ldust[snow_firn_idx] += dmdust / lh
         return
     
     def refreezing(self,layers):
@@ -401,7 +404,7 @@ class massBalance():
         Cp_ice = eb_prms.Cp_ice
         density_ice = eb_prms.density_ice
         Lh_rf = eb_prms.Lh_rf
-        refreeze = np.zeros_like(layers.ldrymass)
+        refreeze = np.zeros(layers.nlayers)
         for layer, T in enumerate(layers.ltemp):
             if T < 0. and layers.lwater[layer] > 0:
                 # calculate potential for refreeze [J m-2]
@@ -473,6 +476,7 @@ class massBalance():
             layers.updateLayerProperties('depth')
             layers.updateLayerTypes()
 
+        # DEBAM method - broken
         else:
             # get change in height and recalculate density from resulting compression
             for layer,height in enumerate(layers.lheight[snowfirn_idx]):
@@ -518,7 +522,7 @@ class massBalance():
             precip_type = 'none'
             rain = 0
             snow = 0
-        surface.updatePrecip(precip_type,rain+snow)
+        # surface.updatePrecip(precip_type,rain+snow)
         return rain,snow
       
     def solveHeatEq(self,layers,surftemp,dt_heat=eb_prms.dt_heateq):
@@ -785,7 +789,7 @@ class Output():
                 layerwater_output = pd.DataFrame.from_dict(self.layerwater_output,orient='index')
                 layerBC_output = pd.DataFrame.from_dict(self.layerBC_output,orient='index')
                 layerdust_output = pd.DataFrame.from_dict(self.layerdust_output,orient='index')
-                # layergrainsize_output = pd.DataFrame.from_dict(self.layergrainsize_output,orient='index')
+                layergrainsize_output = pd.DataFrame.from_dict(self.layergrainsize_output,orient='index')
                 
                 if len(layertemp_output.columns) < eb_prms.max_nlayers:
                     n_columns = len(layertemp_output.columns)
@@ -797,14 +801,14 @@ class Output():
                         layerwater_output[str(i)] = nans
                         layerBC_output[str(i)] = nans
                         layerdust_output[str(i)] = nans
-                        # layergrainsize_output[str(i)] = nans
+                        layergrainsize_output[str(i)] = nans
                 ds['layertemp'].loc[:,bin,:] = layertemp_output
                 ds['layerheight'].loc[:,bin,:] = layerheight_output
                 ds['layerdensity'].loc[:,bin,:] = layerdensity_output
                 ds['layerwater'].loc[:,bin,:] = layerwater_output
                 ds['layerBC'].loc[:,bin,:] = layerBC_output
                 ds['layerdust'].loc[:,bin,:] = layerdust_output
-                # ds['layergrainsize'].loc[:,bin,:] = layergrainsize_output
+                ds['layergrainsize'].loc[:,bin,:] = layergrainsize_output
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
     

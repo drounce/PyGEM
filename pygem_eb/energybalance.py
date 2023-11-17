@@ -263,9 +263,9 @@ class energyBalance():
     
     def getDeposition(self):
         if np.isnan(self.depBC):
-            self.depBC = 1e-5
+            self.depBC = 1e-10 # kg m-2 s-1
         if np.isnan(self.depdust):
-            self.depdust = 1e-5
+            self.depdust = 1e-10
         return self.depBC,self.depdust
     
     def getRoughnessLength(self,days_since_snowfall,layertype):

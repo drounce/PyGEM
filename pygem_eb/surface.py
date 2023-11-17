@@ -1,6 +1,11 @@
 import pygem_eb.input as eb_prms
 import numpy as np
+import pandas as pd
 from scipy.optimize import minimize
+import sys, os
+sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/src/')
+import biosnicar as snicar
+import yaml
 
 class Surface():
     """
@@ -26,14 +31,15 @@ class Surface():
         self.snow_timestamp = time[0]
         return
     
-    def updateSurface(self,layers):
+    def updateSurfaceDaily(self,layers,time):
         """
         Run every timestep to get properties that evolve with time. Keeps track of past surface in the case of fresh snowfall
         after significant melt.
         """
         self.type = layers.ltype[0]
         self.getGrainSize()
-        self.getAlbedo()
+        layers.getGrainSize(self.temp)
+        self.days_since_snowfall = (time - self.snow_timestamp)/pd.Timedelta(days=1)
         return
     
     def getSurfTemp(self,enbal,layers):
@@ -118,18 +124,84 @@ class Surface():
         previous = self.days_since_snowfall
         # need to keep track of the layer that used to be the surface such that if the snowfall melts, albedo resets to the dirty surface
 
-    def getAlbedo(self):
-        if self.type == 'snow':
-            if eb_prms.switch_snow == 0:
-                self.albedo = eb_prms.albedo_fresh_snow
-            else:
-                snow_albedo = eb_prms.albedo_firn+(eb_prms.albedo_fresh_snow - eb_prms.albedo_firn)*(np.exp(-self.days_since_snowfall/eb_prms.albedo_deg_rate))
-                self.albedo = max(snow_albedo,eb_prms.albedo_firn)
-        elif self.type == 'firn':
-            self.albedo = eb_prms.albedo_firn
-        elif self.type == 'ice':
-            self.albedo = eb_prms.albedo_ice
+    def getAlbedo(self,layers):
+        if eb_prms.method_albedo in ['SNICAR']:
+            self.albedo = self.runSNICAR(layers)
+        else:
+            if self.type == 'snow':
+                if eb_prms.switch_snow == 0:
+                    self.albedo = eb_prms.albedo_fresh_snow
+                else:
+                    snow_albedo = eb_prms.albedo_firn+(eb_prms.albedo_fresh_snow - eb_prms.albedo_firn)*(np.exp(-self.days_since_snowfall/eb_prms.albedo_deg_rate))
+                    self.albedo = max(snow_albedo,eb_prms.albedo_firn)
+            elif self.type == 'firn':
+                self.albedo = eb_prms.albedo_firn
+            elif self.type == 'ice':
+                self.albedo = eb_prms.albedo_ice
         return 
+    
+    def runSNICAR(self,layers,n_layers=None,max_depth=None):
+        """
+        Runs SNICAR model to retrieve broadband albedo. 
+
+        Parameters
+        ----------
+        layers
+            class object from pygem_eb.layers.py
+        n_layers : int
+            Number of layers to include in the calculation
+            * Specify n_layers OR max_depth *
+        max_depth : float
+            Maximum depth of layers to include in the calculation
+        Returns
+        -------
+        layermelt : np.ndarray
+            Array containing subsurface melt amounts [kg m-2]
+        """
+        # Get layers to include in the calculation
+        assert not n_layers and not max_depth, "Specify one of n_layers or max_depth in runSNICAR"
+        if not n_layers and max_depth:
+            n_layers = np.where(layers.ldepth > max_depth)[0][0] + 1
+        elif n_layers and not max_depth:
+            n_layers = min(layers.nlayers,n_layers)
+        elif not n_layers and not max_depth:
+            # Default case if neither is specified: only includes top 1m
+            n_layers = np.where(layers.ldepth > 1)[0][0] + 1
+        idx = np.arange(n_layers)
+
+        # Unpack layer variables (need to be stored as lists)
+        lheight = np.flip(layers.lheight[idx].astype(float)).tolist()
+        ldensity = np.flip(layers.ldensity[idx].astype(float)).tolist()
+        lgrainsize = np.flip(layers.grainsize[idx].astype(int)).tolist()
+        lBC = np.flip(layers.lBC[idx].astype(float)).tolist()
+        ldust = np.flip(layers.ldust[idx].astype(float)).tolist()
+
+        # Open and edit yaml input file for SNICAR
+        with open(eb_prms.snicar_input_fp) as f:
+            list_doc = yaml.safe_load(f)
+
+        # Update changing layer variables
+        list_doc['IMPURITIES']['BC']['CONC'] = lBC
+        list_doc['IMPURITIES']['DUST']['CONC'] = ldust
+        list_doc['ICE']['DZ'] = lheight
+        list_doc['ICE']['RHO'] = ldensity
+        list_doc['ICE']['RDS'] = lgrainsize
+
+        # Following variables are set to constants, but need to have right number of layers
+        ice_variables = ['LAYER_TYPE','SHP','HEX_SIDE','HEX_LENGTH','SHP_FCTR','WATER','AR','CDOM']
+        for var in ice_variables:
+            list_doc['ICE'][var] = [list_doc['ICE'][var][0]] * n_layers
+
+        # Save SNICAR input file
+        with open(eb_prms.snicar_input_fp, 'w') as f:
+            yaml.dump(list_doc,f)
+        
+        # Get albedo from biosnicar "main.py"
+        with HiddenPrints():
+            self.albedo = snicar.main.get_albedo('adding-doubling',plot=False,validate=False)
+        print('Albedo',self.albedo,'Mean BC',np.mean(lBC))
+        # bba = np.sum(illumination.flx_slr * albedo) / np.sum(illumination.flx_slr)
+        return self.albedo
 
     def getGrainSize(self):
         return 0
@@ -141,4 +213,13 @@ class Surface():
             _=0
             # self.albedo = 0.35
         return
+    
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout
 

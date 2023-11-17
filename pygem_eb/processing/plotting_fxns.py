@@ -513,23 +513,47 @@ def plot_avg_layers(file,bin,nyr):
     plt.show()
     return
 
-def plot_layers(ds,var,dates):
-    fig,axes = plt.subplots(1,len(dates),sharey=True,sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
-    for i,date in enumerate(dates):
+def plot_layers(ds,vars,dates):
+    fig,axes = plt.subplots(len(vars),len(dates),sharey=True,sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
+    for i,var in enumerate(vars):
+        for j,date in enumerate(dates):
+            for bin in ds.coords['bin'].values:
+                lheight = ds.sel(time=date,bin=bin)['layerheight'].to_numpy()
+                full_bins = np.array([not y for y in np.isnan(lheight)])
+                bins = np.where(ds.sel(time=date,bin=bin)['layerdensity']<600)[0]
+                lheight = lheight[bins]
+                lprop = ds.sel(time=date,bin=bin)[var].to_numpy()[bins]
+                ldepth = -1*np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
+                if len(vars) > 1:
+                    axes[i,j].plot(lprop,ldepth,label='bin '+str(bin))
+                    axes[i,j].set_xlabel(var)
+                    axes[0,j].set_title(str(date)[:10])
+                    axes[i,0].legend()
+                    axes[i,0].set_ylabel('Depth (m)')
+                else:
+                    axes[j].plot(lprop,ldepth,label='bin '+str(bin))
+                    axes[j].set_xlabel(var)
+                    axes[j].set_title(str(date)[:10])
+                    axes[0].legend()
+                    axes[0].set_ylabel('Depth (m)')
+        
+    # fig.supxlabel(varprops[var]['label'])
+    return
+
+def plot_top_layer(ds,vars,time):
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
+    fig,axes = plt.subplots(len(vars),sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
+    for i,var in enumerate(vars):
         for bin in ds.coords['bin'].values:
-            lheight = ds.sel(time=date,bin=bin)['layerheight'].to_numpy()
-            full_bins = np.array([not y for y in np.isnan(lheight)])
-            lheight = lheight[full_bins]
-            lprop = ds.sel(time=date,bin=bin)[var].to_numpy()[full_bins]
-            ldepth = -1*np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
-            if var in ['layerwater']:
-                lprop = lprop[:-1]
-                ldepth = ldepth[:-1]
-            axes[i].plot(lprop,ldepth,label='bin '+str(bin))
-            axes[i].set_title(str(date)[:10])
-    axes[0].legend()
-    fig.supxlabel(varprops[var]['label'])
-    axes[0].set_ylabel('Depth (m)')
+            lprop = ds.sel(time=time,bin=bin,layer=0)[var].to_numpy()
+            axes[i].plot(time,lprop,label='bin '+str(bin))
+            axes[i].legend()
+            axes[i].set_ylabel(var)
+    date_form = mpl.dates.DateFormatter('%d %b')
+    axes[i].xaxis.set_major_formatter(date_form)
     return
 
 def plot_monthly_layer_avgs(file,var,dates_to_plot):
