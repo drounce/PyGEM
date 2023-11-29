@@ -93,13 +93,13 @@ def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
                 var_to_plot = ds_mean[var]
             if var in new_y:
                 newaxis = axis.twinx()
-                newaxis.plot(ds_mean.coords['time'],ds_mean[var],color=colors[ic],label=var)
+                newaxis.plot(ds_mean.coords['time'],var_to_plot,color=colors[ic],label=var)
                 newaxis.grid(False)
                 units = 'C'
                 newaxis.set_ylabel(f'Temperature [{units}]')
                 newaxis.legend(bbox_to_anchor=(1.01,1.1),loc='upper left')
             else:
-                axis.plot(ds_mean.coords['time'],ds_mean[var],color=colors[ic],label=var)
+                axis.plot(ds_mean.coords['time'],var_to_plot,color=colors[ic],label=var)
             ic+=1
         axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
         if var not in ['albedo']:

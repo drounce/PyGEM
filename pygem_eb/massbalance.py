@@ -22,6 +22,7 @@ class massBalance():
         dates_table : pd.Dataframe
             Dataframe containing the dates for the model run
         """
+        self.last=0
         # Set up model time
         self.dt = eb_prms.dt
         self.days_since_snowfall = 0
@@ -69,11 +70,11 @@ class massBalance():
                     
             # Update daily properties
             if time.hour < 1 and time.minute < 1: 
-                surface.updateSurfaceDaily(layers,time)
+                surface.updateSurfaceDaily(layers,time,self.args)
                 self.days_since_snowfall = surface.days_since_snowfall
             
-            # Update albedo
-            surface.getAlbedo(layers)
+                # Update albedo
+                surface.getAlbedo(layers,self.args)
 
             # Calculate surface energy balance by updating surface temperature
             surface.getSurfTemp(enbal,layers)
@@ -261,15 +262,16 @@ class massBalance():
         rainfall = water_in
         # Percolation occurs only through snow and firn layers
         snow_firn_idx = np.concatenate([layers.snow_idx,layers.firn_idx])
-        ldm = layers.ldrymass.copy()[snow_firn_idx]
-        lw = layers.lwater.copy()[snow_firn_idx]
-        lh = layers.lheight.copy()[snow_firn_idx]
-        layermelt = layermelt[snow_firn_idx]
-        # ****** neglects subsurface melt if there is not snow or firn
-        #  -- this is probably okay?
         if len(snow_firn_idx) > 0:
-            if eb_prms.method_percolation in 'no_LAP_movement':
-                for layer,melt in enumerate(layermelt):
+            # ****** neglects subsurface melt if there is not snow or firn
+            #  -- this is probably okay?
+            ldm = layers.ldrymass.copy()[snow_firn_idx]
+            lw = layers.lwater.copy()[snow_firn_idx]
+            lh = layers.lheight.copy()[snow_firn_idx]
+            layermelt_sf = layermelt[snow_firn_idx]
+        
+            if eb_prms.method_percolation in ['no_LAPs']:
+                for layer,melt in enumerate(layermelt_sf):
                     # remove melt from the dry mass
                     ldm[layer] -= melt
 
@@ -296,23 +298,23 @@ class massBalance():
                 layers.lwater[snow_firn_idx] = lw
                 layers.ldrymass[snow_firn_idx] = ldm
                 return runoff
-            else:
+            
+            elif eb_prms.method_percolation in ['w_LAPs']:
                 density_water = eb_prms.density_water
                 density_ice = eb_prms.density_ice
                 Sr = eb_prms.Sr
                 dt = eb_prms.dt
-                # add rain water to uppermost bin
-                lw[0] += rainfall*eb_prms.dt
+
                 # calculate volumetric fractions
                 theta_liq = lw / (lh*density_water)
                 theta_ice = ldm / (lh*density_ice)
                 porosity = 1 - theta_ice
 
                 # initialize flow into the top layer
-                qi = 0
+                qi = rainfall / eb_prms.dt
                 q_in_store = []
                 q_out_store = []
-                for layer,melt in enumerate(layermelt):
+                for layer,melt in enumerate(layermelt_sf):
                     # set flow in equal to flow out of the previous layer
                     q_in = qi
 
@@ -321,29 +323,31 @@ class massBalance():
                     qi = max(0,flow_out)
 
                     # check limit of qi based on underlying layer holding capacity
-                    if layer < len(porosity) - 1:
+                    if layer < len(porosity) - 1 and theta_liq[layer] <= 0.3:
                         if porosity[layer] < 0.05 or porosity[layer+1] < 0.05:
+                            # no flow if the layer itself or the lower layer has no pore space
                             lim = 0
                         else:
                             lim = density_water*lh[layer+1]/dt * (1-theta_ice[layer+1]-theta_liq[layer+1])
                             lim = max(0,lim)
-                    else: # no limit on bottom layer (1e5 sufficiently high)
-                        lim = 1e5
+                    else: # no limit on bottom layer (1e6 sufficiently high)
+                        lim = 1e6
                     q_out = min(qi,lim)
-                    # layer water mass balance
-                    lw[layer] += (q_in - q_out)*dt
+
+                    # layer mass balance
+                    lw[layer] += (q_in - q_out)*dt + melt
+                    ldm[layer] -= melt
                     q_in_store.append(q_in)
                     q_out_store.append(q_out)
                 # store new layer heights, water and solid mass
                 layers.lheight[snow_firn_idx] = lh
                 layers.lwater[snow_firn_idx] = lw
                 layers.ldrymass[snow_firn_idx] = ldm
-                runoff = q_out
+                runoff = q_out*dt + np.sum(layermelt[layers.ice_idx])
                 # mass diffusion of LAPs
                 self.diffuseLAPs(layers,q_in_store,q_out_store,rainfall)
         else:
             runoff = rainfall + np.sum(layermelt)
-        
         return runoff
         
     def diffuseLAPs(self,layers,q_in,q_out,rainfall):
@@ -384,8 +388,8 @@ class massBalance():
         # mass balance on each constituent
         dmBC = (m_BC_in - m_BC_out + depBC)*eb_prms.dt
         dmdust = (m_dust_in - m_dust_out + depdust)*eb_prms.dt
-        layers.lBC[snow_firn_idx] += dmBC / lh
-        layers.ldust[snow_firn_idx] += dmdust / lh
+        layers.lBC[snow_firn_idx] = (layers.lBC[snow_firn_idx]*lh + dmBC) / lh
+        layers.ldust[snow_firn_idx] = (layers.ldust[snow_firn_idx]*lh + dmdust) / lh
         return
     
     def refreezing(self,layers):
@@ -506,7 +510,7 @@ class massBalance():
         rain, snowfall : float
             Specific mass of liquid and solid precipitation [kg m-2]
         """
-        if enbal.prec > 1e-8 and enbal.tempC <= eb_prms.tsnow_threshold: 
+        if enbal.prec > 1e-14 and enbal.tempC <= eb_prms.tsnow_threshold: 
             # there is precipitation and it falls as snow--set fresh snow timestamp
             surface.snow_timestamp = time
             rain = 0
@@ -822,14 +826,19 @@ class Output():
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
     
-    def addAttrs(self,args):
+    def addAttrs(self,args,time_elapsed):
+        time_elapsed = str(time_elapsed) + ' s'
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
             ds = dataset.load()
             ds = ds.assign_attrs(input_data=str(args.climate_input),
                                  run_start=str(args.startdate),
                                  run_end=str(args.enddate),
                                  n_bins=str(args.n_bins),
-                                 model_run_date=str(pd.Timestamp.today()))
+                                 model_run_date=str(pd.Timestamp.today()),
+                                 switch_melt=str(args.switch_melt),
+                                 switch_snow=str(args.switch_snow),
+                                 switch_LAPs=str(args.switch_LAPs),
+                                 time_elapsed=time_elapsed)
             if len(args.glac_no) > 1:
                 reg = args.glac_no[0][0:2]
                 ds = ds.assign_attrs(glacier=f'{len(args.glac_no)} glaciers in region {reg}')

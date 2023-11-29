@@ -55,9 +55,10 @@ class Layers():
             dust = [eb_prms.dust_freshsnow,eb_prms.dust_freshsnow]
 
         # Initialize RF model for grain size lookups
-        self.tau_rf,_,_ = utils.getGrainSizeModel(initSSA=60,var='taumat')
-        self.kap_rf,_,_ = utils.getGrainSizeModel(initSSA=60,var='kapmat')
-        self.dr0_rf,_,_ = utils.getGrainSizeModel(initSSA=60,var='dr0mat')
+        if eb_prms.method_grainsizetable in ['ML']:
+            self.tau_rf,_,_ = utils.getGrainSizeModel(initSSA=60,var='taumat')
+            self.kap_rf,_,_ = utils.getGrainSizeModel(initSSA=60,var='kapmat')
+            self.dr0_rf,_,_ = utils.getGrainSizeModel(initSSA=60,var='dr0mat')
         
         self.lheight = lheight
         self.ldepth = ldepth
@@ -237,7 +238,7 @@ class Layers():
                        lambda x: slopes[2]*x+intercepts[2]])
         return layer_var
     
-    #### BELOW THIS POINT CAN BE REWRITTEN AS 'UTILS' CLASS FOR ORGANIZATION
+    # ========= UTILITY FUNCTIONS ==========
 
     def addLayers(self,layers_to_add):
         """
@@ -425,8 +426,8 @@ class Layers():
         # Conditions: if any are TRUE, create a new layer
         new_layer_conds = np.array([self.ltype[0] in 'ice',
                             self.ltype[0] in 'firn',
-                            self.ldensity[0] > new_density*3,
-                            self.days_since_snowfall > 10])
+                            self.ldensity[0] > new_density*3])
+                            # ,surface.days_since_snowfall > 10])
         if np.any(new_layer_conds):
             new_layer = pd.DataFrame([airtemp,0,snowfall/new_density,'snow',snowfall],index=['T','w','h','t','drym'])
             self.addLayers(new_layer)
@@ -495,7 +496,7 @@ class Layers():
                 kap = ds.kapmat.to_numpy()[diag]
                 dr0 = ds.dr0mat.to_numpy()[diag]
 
-            else:
+            elif eb_prms.method_grainsizetable in ['ML']:
                 X = np.vstack([T,p,dTdz]).T
                 tau = np.exp(self.tau_rf.predict(X))
                 kap = np.exp(self.kap_rf.predict(X))
@@ -534,10 +535,3 @@ class Layers():
         
         irrwatercont = np.append(irrwatercont,np.zeros_like(ice_idx)) # ice layers cannot hold water
         return irrwatercont
-    
-class Utils():
-    """
-    Utility functions for layers class.
-    """
-    def __init__(self,bin_no):
-        return

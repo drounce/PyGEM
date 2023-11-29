@@ -31,14 +31,14 @@ class Surface():
         self.snow_timestamp = time[0]
         return
     
-    def updateSurfaceDaily(self,layers,time):
+    def updateSurfaceDaily(self,layers,time,args):
         """
         Run every timestep to get properties that evolve with time. Keeps track of past surface in the case of fresh snowfall
         after significant melt.
         """
         self.type = layers.ltype[0]
-        self.getGrainSize()
-        layers.getGrainSize(self.temp)
+        if args.switch_melt == 2:
+            layers.getGrainSize(self.temp)
         self.days_since_snowfall = (time - self.snow_timestamp)/pd.Timedelta(days=1)
         return
     
@@ -124,23 +124,34 @@ class Surface():
         previous = self.days_since_snowfall
         # need to keep track of the layer that used to be the surface such that if the snowfall melts, albedo resets to the dirty surface
 
-    def getAlbedo(self,layers):
-        if eb_prms.method_albedo in ['SNICAR']:
-            self.albedo = self.runSNICAR(layers)
-        else:
+    def getAlbedo(self,layers,args):
+        sfi_albedo = {'snow':eb_prms.albedo_fresh_snow,'firn':eb_prms.albedo_firn,
+                               'ice':eb_prms.albedo_ice}
+        if args.switch_melt == 0:
+            if args.switch_LAPs == 0:
+                # SURFACE TYPE ONLY
+                self.albedo = sfi_albedo[self.type]
+            elif args.switch_LAPs == 1:
+                # LAPs ON, GRAIN SIZE OFF
+                self.albedo = self.runSNICAR(layers,override_grainsize=True)
+        elif args.switch_melt == 1:
+            # BASIC DEGRADATION RATE
             if self.type == 'snow':
-                if eb_prms.switch_snow == 0:
-                    self.albedo = eb_prms.albedo_fresh_snow
-                else:
-                    snow_albedo = eb_prms.albedo_firn+(eb_prms.albedo_fresh_snow - eb_prms.albedo_firn)*(np.exp(-self.days_since_snowfall/eb_prms.albedo_deg_rate))
-                    self.albedo = max(snow_albedo,eb_prms.albedo_firn)
-            elif self.type == 'firn':
-                self.albedo = eb_prms.albedo_firn
-            elif self.type == 'ice':
-                self.albedo = eb_prms.albedo_ice
+                snow_albedo = eb_prms.albedo_firn+(eb_prms.albedo_fresh_snow - eb_prms.albedo_firn)*(np.exp(-self.days_since_snowfall/eb_prms.albedo_deg_rate))
+                self.albedo = max(snow_albedo,eb_prms.albedo_firn)
+            else:
+                self.albedo = sfi_albedo[self.type]
+        elif args.switch_melt == 2:
+            if args.switch_LAPs == 0:
+                # LAPs OFF, GRAIN SIZE ON
+                self.albedo = self.runSNICAR(layers,override_LAPs=True)
+            elif args.switch_LAPs == 1:
+                # LAPs ON, GRAIN SIZE ON
+                self.albedo = self.runSNICAR(layers)
+            
         return 
     
-    def runSNICAR(self,layers,n_layers=None,max_depth=None):
+    def runSNICAR(self,layers,n_layers=None,max_depth=None,override_grainsize=None,override_LAPs=None):
         """
         Runs SNICAR model to retrieve broadband albedo. 
 
@@ -173,8 +184,13 @@ class Surface():
         lheight = np.flip(layers.lheight[idx].astype(float)).tolist()
         ldensity = np.flip(layers.ldensity[idx].astype(float)).tolist()
         lgrainsize = np.flip(layers.grainsize[idx].astype(int)).tolist()
+        if override_grainsize:
+            lgrainsize = [eb_prms.constant_grainsize for i in idx]
         lBC = np.flip(layers.lBC[idx].astype(float)).tolist()
         ldust = np.flip(layers.ldust[idx].astype(float)).tolist()
+        if override_LAPs:
+            lBC = [eb_prms.BC_freshsnow for i in idx]
+            ldust = [eb_prms.dust_freshsnow for i in idx]
 
         # Open and edit yaml input file for SNICAR
         with open(eb_prms.snicar_input_fp) as f:
@@ -202,9 +218,6 @@ class Surface():
         print('Albedo',self.albedo,'Mean BC',np.mean(lBC))
         # bba = np.sum(illumination.flx_slr * albedo) / np.sum(illumination.flx_slr)
         return self.albedo
-
-    def getGrainSize(self):
-        return 0
     
     def updatePrecip(self,type,amount):
         if type in 'snow' and amount > 1e-8:

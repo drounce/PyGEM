@@ -27,6 +27,12 @@ def getparser():
                         help='')
     parser.add_argument('-n_bins',action='store',type=int,default=eb_prms.n_bins,
                         help='number of elevation bins')
+    parser.add_argument('-switch_LAPs',action='store', type=str, default=eb_prms.switch_LAPs,
+                        help='')
+    parser.add_argument('-switch_melt',action='store', type=str, default=eb_prms.switch_melt,
+                        help='')
+    parser.add_argument('-switch_snow',action='store', type=str, default=eb_prms.switch_snow,
+                        help='')
     return parser
 
 start_time = time.time()
@@ -166,8 +172,9 @@ else:
             print('Success: moving onto bin',bin+1)
         else:
             if str(args.store_data)=='True':
-                massbal.output.addAttrs(args)
-                print('Success: saving to',eb_prms.output_name+'.nc')
+                end_time = time.time()
+                time_elapsed = end_time-start_time
+                print('Total Time Elapsed:',time_elapsed,'s')
 
-end_time = time.time()
-print('Total Time Elapsed:',end_time-start_time,'s')
+                massbal.output.addAttrs(args,time_elapsed)
+                print('Success: saving to',eb_prms.output_name+'.nc')

@@ -18,7 +18,8 @@ glac_no = ['01.00570']
 new_file=True
 glac_props = {'01.00570':{'name':'Gulkana',
                             'AWS_fn':'Preprocessed/gulkanaD/gulkanaD_wERA5.csv',
-                            'AWS_elev':1693, # 1854 is AWS (D), B is 1693, AB is 1546
+                            # 'AWS_elev':1854,
+                            'AWS_elev':1693, # 1854 is D, B is 1693, AB is 1546
                             'init_filepath':''},
             '01.01104':{'name':'Lemon Creek',
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
@@ -31,6 +32,7 @@ glac_props = {'01.00570':{'name':'Gulkana',
                             'AWS_elev':2720,
                             'AWS_fn':'Preprocessed/saintsorlin/saintsorlin_hourly.csv'},
             '16.02444':{'name':'Artesonraju',
+                            'AWS_elev':4797,
                             'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
 
 main_directory = os.getcwd()
@@ -124,7 +126,7 @@ option_initWater = 'zero_w0'            # 'zero_w0' or 'initial_w0'
 option_initTemp = 'interp'           # 'piecewise' or 'interp'
 option_initDensity = 'interp'        # 'piecewise' or 'interp'
 startssn = 'endaccum'                    # 'endaccum' or 'endmelt' -- sample density/temp data provided for Gulkana
-initial_snowdepth = [3.3]*n_bins
+initial_snowdepth = [2.2]*n_bins
 initial_firndepth = [0]*n_bins
 
 # Simulation options
@@ -135,18 +137,18 @@ method_turbulent = 'MO-similarity'  # 'MO-similarity' or *****
 # option_SW
 # option_LW
 method_heateq = 'what' # 'Crank-Nicholson': neglects penetrating shortwave
-method_densification = 'Boone'
+method_densification = 'Boone'  # 'Boone' (other doesn't work)
 method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'
-method_percolation = 'w_LAPs'
-method_grainsizetable = 'ML'
-method_albedo = 'SNICAR'
+method_percolation = 'w_LAPs'   # 'w_LAPs' or 'no_LAPs'
+method_grainsizetable = 'ML'    # 'interpolate' (slow) or 'ML' (fast)
+method_albedo = 'SNICAR'        # 'SNICAR' or not
 surftemp_guess =  -10   # guess for surface temperature of first timestep
 
 # Albedo switches
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
-switch_melt = 0
-switch_LAPs = 0
+switch_melt = 0             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
+switch_LAPs = 0             # 0 to turn off LAPs; 1 to turn on
 initLAPs = [[0,0],[0,0]]    # initial LAP concentrations. Set to None to use fresh snow values
 BC_freshsnow = 1e-7          # concentration of BC in fresh snow [kg m-3]. Only used if switch_LAPs is not 2
 dust_freshsnow = 2e-4        # concentration of dust in fresh snow [kg m-3]. Only used if switch_LAPs is not 2
@@ -160,7 +162,7 @@ vars_to_store = 'all'       # list of variables to store or 'all'
 precgrad = 0.0001           # precipitation gradient on glacier [m-1]
 lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [K m-1]
 lapserate_dew = -0.002      # dew point temperature lapse rate [K m-1]
-tsnow_threshold = 1         # Threshold to consider freezing
+tsnow_threshold = 0         # Threshold to consider freezing
 kp = 1                      # precipitation factor [-] 
 temp_temp = -3               # temperature of temperate ice in Celsius
 depth_temp = 30
@@ -193,9 +195,10 @@ layer_growth = 0.6          # rate of exponential growth of bin size (smaller la
 sigma_SB = 5.67037e-8       # Stefan-Boltzmann constant [W m-2 K-4]
 max_nlayers = 20            # maximum number of vertical layers allowed
 max_dz = 1                  # max layer height
-albedo_deg_rate = 30
+albedo_deg_rate = 15
 wet_snow_C = 4.22e-13       # m3 s-1
 fresh_grainsize = 300
+constant_grainsize = 800    # um
 max_pen_depth = 2           # maximum depth of shortwave penetration [m]
 Sr = 0.033                  # for irreducible water content flow method
 rainBC = BC_freshsnow             # concentration of BC in rain
