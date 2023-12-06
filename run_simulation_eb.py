@@ -176,5 +176,6 @@ else:
                 time_elapsed = end_time-start_time
                 print('Total Time Elapsed:',time_elapsed,'s')
 
+                massbal.output.addVars()
                 massbal.output.addAttrs(args,time_elapsed)
                 print('Success: saving to',eb_prms.output_name+'.nc')

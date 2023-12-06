@@ -66,7 +66,8 @@ class Layers():
         self.lrefreeze = np.zeros_like(self.ltemp)
         self.lnewsnow = np.zeros_like(self.ltemp)
         self.irrwatercont = irrwatercont
-        self.grainsize = grainsize
+        self.grainsize = self.ldensity.copy() # **** easy way to initialize grain size
+        self.grainsize[np.where(self.grainsize<300)[0]] = 300
         self.lBC = np.ones_like(self.ltemp) * eb_prms.BC_freshsnow
         self.ldust = np.ones_like(self.ltemp) * eb_prms.dust_freshsnow
         print(self.nlayers,'layers initialized for bin',bin_no)
@@ -407,7 +408,7 @@ class Layers():
                 layer += 1
         return
     
-    def addSnow(self,snowfall,airtemp,new_density=eb_prms.density_fresh_snow):
+    def addSnow(self,snowfall,enbal):
         """
         Adds snowfall to the layer scheme. If the existing top layer is ice, the fresh snow is a new layer,
         otherwise it is merged with the top layer.
@@ -416,12 +417,15 @@ class Layers():
         ----------
         snowfall : float
             Fresh snow MASS in kg / m2
-        airtemp : float
-            Air temperature in C
-        new_density : float
-            Density to use for the new snow
+        enbal
+            class object from pygem_eb.energybalance
         """
         store_surface = False
+
+        if eb_prms.constant_snowfall_density:
+            new_density = eb_prms.density_fresh_snow
+        else:
+            new_density = max(109*6*(enbal.tempC-0.)+26*enbal.wind**0.5,50) # from CROCUS ***** CITE
 
         # Conditions: if any are TRUE, create a new layer
         new_layer_conds = np.array([self.ltype[0] in 'ice',
@@ -429,7 +433,7 @@ class Layers():
                             self.ldensity[0] > new_density*3])
                             # ,surface.days_since_snowfall > 10])
         if np.any(new_layer_conds):
-            new_layer = pd.DataFrame([airtemp,0,snowfall/new_density,'snow',snowfall],index=['T','w','h','t','drym'])
+            new_layer = pd.DataFrame([enbal.tempC,0,snowfall/new_density,'snow',snowfall],index=['T','w','h','t','drym'])
             self.addLayers(new_layer)
             store_surface = True
         else:
@@ -437,7 +441,8 @@ class Layers():
             new_layermass = self.ldrymass[0] + snowfall
             self.lnewsnow[0] = snowfall
             self.ldensity[0] = (self.ldensity[0]*self.ldrymass[0] + new_density*snowfall)/(new_layermass)
-            self.ltemp[0] = (self.ltemp[0]*self.ldrymass[0] + airtemp*snowfall)/(new_layermass)
+            self.ltemp[0] = (self.ltemp[0]*self.ldrymass[0] + enbal.tempC*snowfall)/(new_layermass)
+            self.grainsize[0] = (self.grainsize[0]*self.ldrymass[0] + eb_prms.fresh_grainsize*snowfall)/(new_layermass)
             self.ldrymass[0] = new_layermass
             self.lheight[0] += snowfall/new_density
             if self.lheight[0] > (eb_prms.dz_toplayer * 1.5):
@@ -452,8 +457,7 @@ class Layers():
         if len(self.snow_idx) > 0:
             # bins should be a list of indices to calculate grain size on
             if not bins:
-                bins = np.arange(self.nlayers)
-                bins = bins[np.where(self.ldepth < eb_prms.max_pen_depth)[0]]
+                bins = self.snow_idx
             n = len(bins)
             
             # Get fractions of refreeze, new snow and old snow
@@ -474,15 +478,23 @@ class Layers():
             # Dry metamorphism
             # Calculate temperature gradient
             dTdz = np.zeros_like(T)
-            dTdz[0] = (surftempK - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
-            dTdz[1:-1] = ((T[:-2]*dz[:-2] + T[1:-1]*dz[1:-1]) / (dz[:-2] + dz[1:-1]) -
-                    (T[1:-1]*dz[1:-1] + T[2:]*dz[2:]) / (dz[1:-1] + dz[2:])) / dz[1:-1]
-            dTdz[-1] = dTdz[-2] # Bottom temp gradient -- not used
+            if len(bins) > 2:
+                dTdz[0] = (surftempK - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
+                dTdz[1:-1] = ((T[:-2]*dz[:-2] + T[1:-1]*dz[1:-1]) / (dz[:-2] + dz[1:-1]) -
+                        (T[1:-1]*dz[1:-1] + T[2:]*dz[2:]) / (dz[1:-1] + dz[2:])) / dz[1:-1]
+                dTdz[-1] = dTdz[-2] # Bottom temp gradient -- not used
+            elif len(bins) == 2: # Use top ice layer for temp gradient
+                T_2layer = np.array([surftempK,T[0],T[1],self.ltemp[2]+273.15])
+                depth_2layer = np.array([0,self.ldepth[0],self.ldepth[1],self.ldepth[2]])
+                dTdz = (T_2layer[0:2] - T_2layer[2:]) / (depth_2layer[0:2] - depth_2layer[2:])
+            else: # Single bin
+                dTdz = (self.ltemp[2]+273.15-surftempK) / self.ldepth[2]
+                dTdz = np.array([dTdz])
             dTdz = np.abs(dTdz[bins])
 
             # Force to be within lookup table ranges******
             # p[np.where(p > 400)[0]] = 400
-            # dTdz[np.where(dTdz > 300)[0]] = 300
+            dTdz[np.where(dTdz > 300)[0]] = 300
 
             if eb_prms.method_grainsizetable in ['interpolate']:
                 # Interpolate lookup table at the values of T,dTdz,p
@@ -502,20 +514,31 @@ class Layers():
                 kap = np.exp(self.kap_rf.predict(X))
                 dr0 = self.dr0_rf.predict(X)
 
-            drdrydt = dr0*1e-6*np.power(tau/(tau + 1e6*(g - eb_prms.fresh_grainsize)),1/kap)
-            drdry = drdrydt * dt
+            if min(g)<eb_prms.fresh_grainsize:
+                drdrydt = dr0*1e-6*np.power(tau/(tau + 1.0),1/kap)
+            else:
+                drdrydt = dr0*1e-6*np.power(tau/(tau + 1e6*(g - eb_prms.fresh_grainsize)),1/kap)
+            drdry = drdrydt * dt * 10**6 # convert m to um
 
             # Wet metamorphism
             drwetdt = eb_prms.wet_snow_C*f_liq**3/(4*np.pi*g**2)
-            drwet = drwetdt * dt
+            drwet = drwetdt * dt * 10**6 # convert m to um
 
-            # Sum terms
-            grainsize = (g+drdry+drwet)*f_old + 54.5*f_new + 1500*f_rfz
+            # Get old grain size
+            aged_grainsize = g+drdry+drwet
+            aged_grainsize[np.where(aged_grainsize > 1500)[0]] = 1500 
+            #**** THIS STATEMENT IS BECAUSE SEOMTIMES YOU GET CRAZY HIGH GRAIN SIZE WITH BIG TEMP GRADIENTS
+
+            # Sum contributions of old snow, new snow and refreeze
+            grainsize = aged_grainsize*f_old + 54.5*f_new + 1500*f_rfz
             self.grainsize[bins] = grainsize
+            self.grainsize[self.firn_idx] = 2000
+            self.grainsize[self.ice_idx] = 5000
         elif len(self.firn_idx) > 0: # no snow, but there is firn
-            self.grainsize[self.firn_idx] = 1000 # ****** FIRN GRAIN SIZE
+            self.grainsize[self.firn_idx] = 2000 # ****** FIRN GRAIN SIZE
+            self.grainsize[self.ice_idx] = 5000
         else: # no snow or firn, just ice
-            self.grainsize[self.ice_idx] = 1500
+            self.grainsize[self.ice_idx] = 5000
         return 
     
     def getIrrWaterCont(self,density=None):

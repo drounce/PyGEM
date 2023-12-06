@@ -18,36 +18,48 @@ glac_props = {'01.00570':{'name':'Gulkana',
                             'AWS_fn':'Preprocessed/saintsorlin/saintsorlin_hourly.csv'},
             '16.02444':{'name':'Artesonraju',
                             'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
-vartype = {'surftemp':'Temperature','airtemp':'Temperature',
-           'melt':'Melt','runoff':'MB','accum':'MB','refreeze':'MB',
-           'meltenergy':'Flux','SWin':'Flux','SWout':'Flux',
-           'LWin':'Flux','LWout':'Flux','SWnet':'Flux','LWnet':'Flux',
-           'NetRad':'Flux','sensible':'Flux','latent':'Flux','rain':'Flux',
-           'layertemp':'Layers','layerdensity':'Layers','layerwater':'Layers',
-           'layerheight':'Layers','snowdepth':'Snow depth','albedo':'Albedo'}
-varprops = {'surftemp':{'Temperature'},'airtemp':'Temperature',
-           'melt':'MB','runoff':'MB','accum':'MB','refreeze':'MB',
-           'meltenergy':'Flux','SWin':'Flux','SWout':'Flux',
-           'LWin':'Flux','LWout':'Flux','SWnet':'Flux','LWnet':'Flux',
-           'NetRad':'Flux','sensible':'Flux','latent':'Flux','rain':'Flux',
-           'layertemp':{'label':'Temperature (C)'},'layerdensity':{'label':'Density (kg m-3)'},'layerwater':{'label':'Water Content (kg m-2)'},
-           'layerBC':{'label':'BC (kg m-3)'},'layerdust':{'label':'Dust (kg m-3)'},
-           'layerheight':'Layers','snowdepth':'Snow depth','albedo':'Albedo'}
-varlabels = {'temp':'Temperature','wind':'Wind speed',
-             'rh':'Relative Humidity','SWin':'Shortwave In'}
-varunits = {'temp':'C','wind':'m/s','rh':'%','SWin':'W/m$^2$'}
+
+varprops = {'surftemp':{'label':'Surface temp (C)','type':'Temperature'},
+            'airtemp':{'label':'Air temp (C)','type':'Temperature'},
+           'melt':{'label':'Cum. Melt (m w.e.)','type':'MB'},
+           'runoff':{'label':'Runoff (m w.e.)','type':'MB'},
+           'accum':{'label':'Accumulation (m w.e.)','type':'MB'},
+           'refreeze':{'label':'Refreeze (m w.e.)','type':'MB'},
+           'meltenergy':{'label':'Melt Energy ($W m^{-2}$)','type':'Flux'},
+           'SWin':{'label':'Shortwave In ($W m^{-2}$)','type':'Flux'},
+           'SWout':{'label':'Shortwave Out ($W m^{-2}$)','type':'Flux'},
+           'LWin':{'label':'Longwave In ($W m^{-2}$)','type':'Flux'},
+           'LWout':{'label':'Longwave Out ($W m^{-2}$)','type':'Flux'},
+           'SWnet':{'label':'Net Shortwave ($W m^{-2}$)','type':'Flux'},
+           'LWnet':{'label':'Net Longwave ($W m^{-2}$)','type':'Flux'},
+           'NetRad':{'label':'Net Radiation ($W m^{-2}$)','type':'Flux'},
+           'sensible':{'label':'Sensible Heat ($W m^{-2}$)','type':'Flux'},
+           'latent':{'label':'Latent Heat ($W m^{-2}$)','type':'Flux'},
+           'rain':{'label':'Rain Energy ($W m^{-2}$)','type':'Flux'},
+           'layertemp':{'label':'Layer temp (C)','type':'Layers'},
+           'layerdensity':{'label':'Density ($kg m^{-2}$)','type':'Layers'},
+           'layerwater':{'label':'Water Content ($kg m^{-2}$)','type':'Layers'},
+           'layerBC':{'label':'BC ($kg m^{-3}$)','type':'Layers'},
+           'layerdust':{'label':'Dust ($kg m^{-3}$)','type':'Layers'},
+           'layergrainsize':{'label':'Grian size (um)','type':'Layers'},
+           'layerheight':{'label':'Layer height (m)','type':'Layers'},
+           'snowdepth':{'label':'Snow depth (m)','type':'MB'},
+           'albedo':{'label':'Albedo','type':'Albedo'},}
+AWS_vars = {'temp':{'label':'Temperature','units':'C'},
+             'wind':{'label':'Wind Speed','units':'$m s^{-1}$'},
+             'rh':{'label':'Relative Humidity','units':'%'},
+            'SWin':{'label':'Shortwave In','units':'$W m^{-2}$'},
+             'LWin':{'label':'Longwave In','units':'$W m^{-2}$'},
+             'sp':{'label':'Surface Pressure','units':'Pa'}}
 
 def getds(file):
     ds = xr.open_dataset(file)
     start = pd.to_datetime(ds.indexes['time'].to_numpy()[0])
     end = pd.to_datetime(ds.indexes['time'].to_numpy()[-1])
-    ds['SWnet'] = ds['SWin'] + ds['SWout']
-    ds['LWnet'] = ds['LWin'] + ds['LWout']
-    ds['NetRad'] = ds['SWnet'] + ds['LWnet']
-    ds['albedo'] = -ds['SWout'] / ds['SWin']
     return ds,start,end
 
-def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
+def simple_plot(ds,bin,time,vars,res='d',t='',
+                skinny=True,save_fig=False,new_y=['None']):
     """
     Returns a simple timeseries plot of the variables as lumped in the input.
 
@@ -64,8 +76,12 @@ def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
         Either len-2 list of start date, end date, or a list of datetimes
     res : str
         Abbreviated time resolution (e.g. '12h' or 'd')
+    t : str
+        Title for the figure
     skinny : Bool
         True or false, defines the height of each panel
+    save_fig : Bool
+        True or false, save the figure or not
     new_y : list-like
         List of variables in vars that should be plotted on a new y-axis
     """
@@ -91,30 +107,24 @@ def simple_plot(ds,bin,time,vars,res='d',t='',skinny=True,new_y=['None']):
                 var_to_plot = ds_sum[var].cumsum()
             else:
                 var_to_plot = ds_mean[var]
+
             if var in new_y:
                 newaxis = axis.twinx()
                 newaxis.plot(ds_mean.coords['time'],var_to_plot,color=colors[ic],label=var)
                 newaxis.grid(False)
                 units = 'C'
-                newaxis.set_ylabel(f'Temperature [{units}]')
+                newaxis.set_ylabel({varprops[var]['label']})
                 newaxis.legend(bbox_to_anchor=(1.01,1.1),loc='upper left')
             else:
                 axis.plot(ds_mean.coords['time'],var_to_plot,color=colors[ic],label=var)
+                axis.set_ylabel(varprops[var]['label'])
             ic+=1
         axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
-        if var not in ['albedo']:
-            if var in ['NetRad','SWnet','LWnet']:
-                units = 'W m-2'
-            else:
-                units = ds[var].attrs['units']
-        else:
-            units = ''
-        axis.set_ylabel(f'{vartype[var]} [{units}]')
-        axis.set_ylabel('Melt [m w.e.]')
     date_form = mpl.dates.DateFormatter('%d %b')
     axis.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
-    plt.savefig('/home/claire/research/Output/ebfluxcomparison.png',dpi=150)
+    if save_fig:
+        plt.savefig('/home/claire/research/Output/ebfluxcomparison.png',dpi=150)
 
 def plot_snow_depth(stake_df,ds_list,time,labels,bin,t='Snow Depth Comparison'):
     """
@@ -441,8 +451,8 @@ def plot_AWS(df,vars,time,t=''):
         if ticks[1]%1 > 0:
             ticks =  np.linspace(np.ceil(np.min(vardata)),np.floor(np.max(vardata))+1,3)
         clb = fig.colorbar(pc,ax=axs[i],ticks=ticks.astype(int),aspect=10,pad=0.02)
-        clb.ax.set_title(varunits[var])
-        axs[i].set_title(varlabels[var])
+        clb.ax.set_title(AWS_vars[var]['units'])
+        axs[i].set_title(AWS_vars[var]['label'])
         axs[i].set_ylabel('Hour')
         yticks = mpl.ticker.MultipleLocator(6)
         axs[i].yaxis.set_major_locator(yticks)
@@ -540,7 +550,7 @@ def plot_layers(ds,vars,dates):
     # fig.supxlabel(varprops[var]['label'])
     return
 
-def plot_top_layer(ds,vars,time):
+def plot_single_layer(ds,layer,vars,time):
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
@@ -548,10 +558,14 @@ def plot_top_layer(ds,vars,time):
     fig,axes = plt.subplots(len(vars),sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
     for i,var in enumerate(vars):
         for bin in ds.coords['bin'].values:
-            lprop = ds.sel(time=time,bin=bin,layer=0)[var].to_numpy()
-            axes[i].plot(time,lprop,label='bin '+str(bin))
+            if 'layer' in var:
+                lprop = ds.sel(time=time,bin=bin,layer=layer)[var].to_numpy()
+                axes[i].plot(time,lprop,label='bin '+str(bin))
+            else:
+                lprop = ds.sel(time=time,bin=bin)[var].to_numpy()
+                axes[i].plot(time,lprop,label='bin '+str(bin))
             axes[i].legend()
-            axes[i].set_ylabel(var)
+            axes[i].set_ylabel(varprops[var]['label'])
     date_form = mpl.dates.DateFormatter('%d %b')
     axes[i].xaxis.set_major_formatter(date_form)
     return

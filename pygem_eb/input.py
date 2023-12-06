@@ -19,7 +19,7 @@ new_file=True
 glac_props = {'01.00570':{'name':'Gulkana',
                             'AWS_fn':'Preprocessed/gulkanaD/gulkanaD_wERA5.csv',
                             # 'AWS_elev':1854,
-                            'AWS_elev':1693, # 1854 is D, B is 1693, AB is 1546
+                            'AWS_elev':1546, # 1854 is D, B is 1693, AB is 1546
                             'init_filepath':''},
             '01.01104':{'name':'Lemon Creek',
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
@@ -137,17 +137,18 @@ method_turbulent = 'MO-similarity'  # 'MO-similarity' or *****
 # option_SW
 # option_LW
 method_heateq = 'what' # 'Crank-Nicholson': neglects penetrating shortwave
-method_densification = 'Boone'  # 'Boone' (other doesn't work)
+method_densification = 'Boone'  # 'Boone', 'off'
 method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'
 method_percolation = 'w_LAPs'   # 'w_LAPs' or 'no_LAPs'
 method_grainsizetable = 'ML'    # 'interpolate' (slow) or 'ML' (fast)
 method_albedo = 'SNICAR'        # 'SNICAR' or not
 surftemp_guess =  -10   # guess for surface temperature of first timestep
+constant_snowfall_density = False # False to adjust new snow density by wind, air temp
 
 # Albedo switches
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
-switch_melt = 0             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
+switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
 switch_LAPs = 0             # 0 to turn off LAPs; 1 to turn on
 initLAPs = [[0,0],[0,0]]    # initial LAP concentrations. Set to None to use fresh snow values
 BC_freshsnow = 1e-7          # concentration of BC in fresh snow [kg m-3]. Only used if switch_LAPs is not 2
@@ -189,7 +190,7 @@ density_std = 1.225         # air density at sea level [kg m^-3]
 albedo_fresh_snow = 0.85    # albedo of fresh snow [-] (Moelg et al. 2012, TC)
 albedo_firn = 0.55          # albedo of firn [-] (Moelg et al. 2012, TC)
 albedo_ice = 0.3            # albedo of ice [-] (Moelg et al. 2012, TC)
-viscosity_snow = 1          # viscosity of snow Pa-s  
+viscosity_snow = 3.7e7      # viscosity of snow Pa-s  
 dz_toplayer = 0.03          # thickness of the uppermost bin [m]
 layer_growth = 0.6          # rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
 sigma_SB = 5.67037e-8       # Stefan-Boltzmann constant [W m-2 K-4]
@@ -197,21 +198,10 @@ max_nlayers = 20            # maximum number of vertical layers allowed
 max_dz = 1                  # max layer height
 albedo_deg_rate = 15
 wet_snow_C = 4.22e-13       # m3 s-1
-fresh_grainsize = 300
+fresh_grainsize = 54.5
 constant_grainsize = 800    # um
-max_pen_depth = 2           # maximum depth of shortwave penetration [m]
 Sr = 0.033                  # for irreducible water content flow method
 rainBC = BC_freshsnow             # concentration of BC in rain
 raindust = dust_freshsnow           # concentration of dust in rain
 ksp_BC = 0.1                # meltwater scavenging efficiency of BC (from CLM5)
 ksp_dust = 0.015            # meltwater scavenging efficiency of dust (from CLM5)
-
-def get_uptime():
-    with open('/proc/uptime', 'r') as f:
-        uptime_seconds = float(f.readline().split()[0])
-
-    return uptime_seconds
-
-def interpzh(fls,n_bins,bin_elev):
-    print(fls['h'][0],fls['h'][np.where(fls['z']==np.median(fls['z']))[0]],fls['h'][len(fls.index)-1])
-    print(fls['h'])

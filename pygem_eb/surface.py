@@ -4,7 +4,6 @@ import pandas as pd
 from scipy.optimize import minimize
 import sys, os
 sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/src/')
-import biosnicar as snicar
 import yaml
 
 class Surface():
@@ -37,7 +36,7 @@ class Surface():
         after significant melt.
         """
         self.type = layers.ltype[0]
-        if args.switch_melt == 2:
+        if args.switch_melt == 2 and layers.nlayers > 2:
             layers.getGrainSize(self.temp)
         self.days_since_snowfall = (time - self.snow_timestamp)/pd.Timedelta(days=1)
         return
@@ -45,29 +44,31 @@ class Surface():
     def getSurfTemp(self,enbal,layers):
         """
         Solves energy balance equation for surface temperature. There are three cases:
-        1) LWout data is input - surftemp is derived from data
-        2) Qm is positive with surftemp = 0. - excess Qm is used to warm layers to melting point or melt layers
-        3) Qm is negative with surftemp = 0. - snowpack is cooling and surftemp is lowered to balance Qm
+        (1) LWout data is input - surftemp is derived from data
+        (2) Qm is positive with surftemp = 0. - excess Qm is used to warm layers to melting point or melt layers
+        (3) Qm is negative with surftemp = 0. - snowpack is cooling and surftemp is lowered to balance Qm
                 Two methods are available (specified in input.py): fast iterative, or slow minimization
         """
-        # if not enbal.nanLWout:
-        #     self.temp = np.power(np.abs(enbal.LWout_ds/eb_prms.sigma_SB),1/4)
-        #     Qm = enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
-        # else:
-        if True:
+        if not enbal.nanLWout:
+            # CASE (1)
+            self.temp = np.power(np.abs(enbal.LWout_ds/eb_prms.sigma_SB),1/4)
+            Qm = enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
+        else:
             Qm_check = enbal.surfaceEB(0,layers,self.albedo,self.days_since_snowfall)
             # If Qm is positive with a surface temperature of 0, the surface is either melting or warming to the melting point.
             # If Qm is negative with a surface temperature of 0, the surface temperature needs to be lowered to cool the snowpack.
             cooling = True if Qm_check < 0 else False
             if not cooling:
-                # Energy toward the surface: either melting or top layer is heated to melting point
+                # CASE (2): Energy toward the surface: either melting
+                #            or top layer is heated to melting point
                 self.temp = 0
                 Qm = Qm_check
                 if layers.ltemp[0] < 0: # need to heat surface layer to 0 before it can start melting
                     Qm_check = enbal.surfaceEB(self.temp,layers,self.albedo,self.days_since_snowfall)
-                    layers.ltemp[0] += Qm_check*eb_prms.dt/(eb_prms.Cp_ice*layers.ldrymass[0])
+                    temp_change = Qm_check*eb_prms.dt/(eb_prms.Cp_ice*layers.ldrymass[0])
+                    layers.ltemp[0] += temp_change
                     if layers.ltemp[0] > 0:
-                        # if temperature rises above zero, leave excess energy in Qm
+                        # if temperature rises above zero, leave excess energy in the next layer down
                         Qm = layers.ltemp[0]*eb_prms.Cp_ice*layers.ldrymass[0]/eb_prms.dt
                         layers.ltemp[0] = 0
                     elif len(layers.ltype) < 2:
@@ -77,7 +78,8 @@ class Surface():
                         # *** This might be a problem area with how surface temperature is being treated
                         Qm = 0
             elif cooling:
-                # Energy away from surface: need to change surface temperature to get 0 surface energy flux 
+                # CASE (3) Energy away from surface: need to change 
+                #          surface temperature to get 0 surface energy flux 
                 if eb_prms.method_cooling in ['minimize']:
                     result = minimize(enbal.surfaceEB,self.temp,method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
                                     args=(layers,self.albedo,self.days_since_snowfall,'optim'))
@@ -169,6 +171,8 @@ class Surface():
         layermelt : np.ndarray
             Array containing subsurface melt amounts [kg m-2]
         """
+        import biosnicar as snicar
+
         # Get layers to include in the calculation
         assert not n_layers and not max_depth, "Specify one of n_layers or max_depth in runSNICAR"
         if not n_layers and max_depth:
@@ -183,7 +187,9 @@ class Surface():
         # Unpack layer variables (need to be stored as lists)
         lheight = np.flip(layers.lheight[idx].astype(float)).tolist()
         ldensity = np.flip(layers.ldensity[idx].astype(float)).tolist()
-        lgrainsize = np.flip(layers.grainsize[idx].astype(int)).tolist()
+        lgrainsize = np.flip(layers.grainsize[idx].astype(int))
+        lgrainsize[np.where(lgrainsize>1500)[0]] = np.round(lgrainsize[np.where(lgrainsize>1500)[0]]/500) * 500
+        lgrainsize = lgrainsize.tolist()
         if override_grainsize:
             lgrainsize = [eb_prms.constant_grainsize for i in idx]
         lBC = np.flip(layers.lBC[idx].astype(float)).tolist()
@@ -215,7 +221,7 @@ class Surface():
         # Get albedo from biosnicar "main.py"
         with HiddenPrints():
             self.albedo = snicar.main.get_albedo('adding-doubling',plot=False,validate=False)
-        print('Albedo',self.albedo,'Mean BC',np.mean(lBC))
+        # print('Albedo',self.albedo,'Mean BC',np.mean(lBC))
         # bba = np.sum(illumination.flx_slr * albedo) / np.sum(illumination.flx_slr)
         return self.albedo
     
