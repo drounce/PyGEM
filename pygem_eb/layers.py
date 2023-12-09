@@ -129,8 +129,7 @@ class Layers():
                 layertype.append('ice')
                 layeridx += 1
                 ice_idx = np.where(np.array(layertype)=='ice')[0]
-                ice_depth += np.sum(np.array(layerh)[ice_idx])
-            ice_idx = np.where(np.array(layertype)=='ice')[0]
+                ice_depth = np.sum(np.array(layerh)[ice_idx])
             layerh[-1] = layerh[-1] - (ice_depth-sfi_depth[2])
 
         # Calculate layer depths (mid-points)

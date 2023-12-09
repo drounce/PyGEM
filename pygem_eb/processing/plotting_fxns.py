@@ -19,37 +19,37 @@ glac_props = {'01.00570':{'name':'Gulkana',
             '16.02444':{'name':'Artesonraju',
                             'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
 
-varprops = {'surftemp':{'label':'Surface temp (C)','type':'Temperature'},
-            'airtemp':{'label':'Air temp (C)','type':'Temperature'},
-           'melt':{'label':'Cum. Melt (m w.e.)','type':'MB'},
-           'runoff':{'label':'Runoff (m w.e.)','type':'MB'},
-           'accum':{'label':'Accumulation (m w.e.)','type':'MB'},
-           'refreeze':{'label':'Refreeze (m w.e.)','type':'MB'},
-           'meltenergy':{'label':'Melt Energy ($W m^{-2}$)','type':'Flux'},
-           'SWin':{'label':'Shortwave In ($W m^{-2}$)','type':'Flux'},
-           'SWout':{'label':'Shortwave Out ($W m^{-2}$)','type':'Flux'},
-           'LWin':{'label':'Longwave In ($W m^{-2}$)','type':'Flux'},
-           'LWout':{'label':'Longwave Out ($W m^{-2}$)','type':'Flux'},
-           'SWnet':{'label':'Net Shortwave ($W m^{-2}$)','type':'Flux'},
-           'LWnet':{'label':'Net Longwave ($W m^{-2}$)','type':'Flux'},
-           'NetRad':{'label':'Net Radiation ($W m^{-2}$)','type':'Flux'},
-           'sensible':{'label':'Sensible Heat ($W m^{-2}$)','type':'Flux'},
-           'latent':{'label':'Latent Heat ($W m^{-2}$)','type':'Flux'},
-           'rain':{'label':'Rain Energy ($W m^{-2}$)','type':'Flux'},
-           'layertemp':{'label':'Layer temp (C)','type':'Layers'},
-           'layerdensity':{'label':'Density ($kg m^{-2}$)','type':'Layers'},
-           'layerwater':{'label':'Water Content ($kg m^{-2}$)','type':'Layers'},
-           'layerBC':{'label':'BC ($kg m^{-3}$)','type':'Layers'},
-           'layerdust':{'label':'Dust ($kg m^{-3}$)','type':'Layers'},
-           'layergrainsize':{'label':'Grian size (um)','type':'Layers'},
-           'layerheight':{'label':'Layer height (m)','type':'Layers'},
-           'snowdepth':{'label':'Snow depth (m)','type':'MB'},
-           'albedo':{'label':'Albedo','type':'Albedo'},}
+varprops = {'surftemp':{'label':'Surface temp','type':'Temperature','units':'C'},
+            'airtemp':{'label':'Air temp','type':'Temperature','units':'C'},
+           'melt':{'label':'Cum. Melt','type':'MB','units':'m w.e.'},
+           'runoff':{'label':'Cum. Runoff','type':'MB','units':'m w.e.'},
+           'accum':{'label':'Cum. Accumulation','type':'MB','units':'m w.e.'},
+           'refreeze':{'label':'Cum. Refreeze','type':'MB','units':'m w.e.'},
+           'meltenergy':{'label':'Melt Energy','type':'Flux','units':'W m$^{-2}$'},
+           'SWin':{'label':'Shortwave In','type':'Flux','units':'W m$^{-2}$'},
+           'SWout':{'label':'Shortwave Out','type':'Flux','units':'W m$^{-2}$'},
+           'LWin':{'label':'Longwave In','type':'Flux','units':'W m$^{-2}$'},
+           'LWout':{'label':'Longwave Out','type':'Flux','units':'W m$^{-2}$'},
+           'SWnet':{'label':'Net Shortwave','type':'Flux','units':'W m$^{-2}$'},
+           'LWnet':{'label':'Net Longwave','type':'Flux','units':'W m$^{-2}$'},
+           'NetRad':{'label':'Net Radiation','type':'Flux','units':'W m$^{-2}$'},
+           'sensible':{'label':'Sensible Heat','type':'Flux','units':'W m$^{-2}$'},
+           'latent':{'label':'Latent Heat','type':'Flux','units':'W m$^{-2}$'},
+           'rain':{'label':'Rain Energy','type':'Flux','units':'W m$^{-2}$'},
+           'layertemp':{'label':'Layer temp','type':'Layers','units':'C'},
+           'layerdensity':{'label':'Density','type':'Layers','units':'kg m$^{-3}$'},
+           'layerwater':{'label':'Water Content','type':'Layers','units':'kg m$^{-2}$'},
+           'layerBC':{'label':'BC Concentration','type':'Layers','units':'kg m$^{-3}$'},
+           'layerdust':{'label':'Dust Concentration','type':'Layers','units':'kg m$^{-3}$'},
+           'layergrainsize':{'label':'Grain size','type':'Layers','units':'um'},
+           'layerheight':{'label':'Layer height','type':'Layers','units':'m'},
+           'snowdepth':{'label':'Snow depth','type':'MB','units':'m'},
+           'albedo':{'label':'Albedo','type':'Albedo','units':''},}
 AWS_vars = {'temp':{'label':'Temperature','units':'C'},
-             'wind':{'label':'Wind Speed','units':'$m s^{-1}$'},
+             'wind':{'label':'Wind Speed','units':'m s$^{-1}$'},
              'rh':{'label':'Relative Humidity','units':'%'},
-            'SWin':{'label':'Shortwave In','units':'$W m^{-2}$'},
-             'LWin':{'label':'Longwave In','units':'$W m^{-2}$'},
+            'SWin':{'label':'Shortwave In','units':'W m$^{-2}$'},
+             'LWin':{'label':'Longwave In','units':'W m$^{-2}$'},
              'sp':{'label':'Surface Pressure','units':'Pa'}}
 
 def getds(file):
@@ -125,6 +125,25 @@ def simple_plot(ds,bin,time,vars,res='d',t='',
     fig.suptitle(t)
     if save_fig:
         plt.savefig('/home/claire/research/Output/ebfluxcomparison.png',dpi=150)
+
+def plot_stake_accumulation(stake_df,time):
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='d')
+    time = pd.to_datetime(stake_df['Date'])
+    snow_depth = stake_df['snow_depth'].to_numpy() / 100
+    previous_depth = snow_depth[0]
+    accum = []
+    for depth in snow_depth:
+        if depth > previous_depth:
+            accum.append((depth - previous_depth)*100)
+        else:
+            accum.append(0)
+    fig,ax = plt.subplots(layout='constrained')
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_formatter(date_form)
+    ax.plot(time,accum)
 
 def plot_snow_depth(stake_df,ds_list,time,labels,bin,t='Snow Depth Comparison'):
     """
@@ -550,22 +569,28 @@ def plot_layers(ds,vars,dates):
     # fig.supxlabel(varprops[var]['label'])
     return
 
-def plot_single_layer(ds,layer,vars,time):
+def plot_single_layer(ds,layer,vars,time,cumMB=False):
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq='h')
-    fig,axes = plt.subplots(len(vars),sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
+    fig,axes = plt.subplots(len(vars),sharex=True,figsize=(8,1.2*len(vars)),layout='constrained')
     for i,var in enumerate(vars):
         for bin in ds.coords['bin'].values:
             if 'layer' in var:
                 lprop = ds.sel(time=time,bin=bin,layer=layer)[var].to_numpy()
                 axes[i].plot(time,lprop,label='bin '+str(bin))
             else:
-                lprop = ds.sel(time=time,bin=bin)[var].to_numpy()
+                if var in ['melt','runoff','accum','refreeze'] and cumMB:
+                    lprop = ds.sel(time=time,bin=bin)[var].cumsum().to_numpy()
+                else:
+                    lprop = ds.sel(time=time,bin=bin)[var].to_numpy()
                 axes[i].plot(time,lprop,label='bin '+str(bin))
             axes[i].legend()
-            axes[i].set_ylabel(varprops[var]['label'])
+            axes[i].set_title(varprops[var]['label'])
+            if 'Cum.' in varprops[var]['label'] and not cumMB:
+                axes[i].set_title(varprops[var]['label'][5:])
+            axes[i].set_ylabel(varprops[var]['units'])
     date_form = mpl.dates.DateFormatter('%d %b')
     axes[i].xaxis.set_major_formatter(date_form)
     return

@@ -137,7 +137,7 @@ method_turbulent = 'MO-similarity'  # 'MO-similarity' or *****
 # option_SW
 # option_LW
 method_heateq = 'what' # 'Crank-Nicholson': neglects penetrating shortwave
-method_densification = 'Boone'  # 'Boone', 'off'
+method_densification = 'off'  # 'Boone', 'off'
 method_cooling = 'iterative' # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'
 method_percolation = 'w_LAPs'   # 'w_LAPs' or 'no_LAPs'
@@ -148,11 +148,12 @@ constant_snowfall_density = False # False to adjust new snow density by wind, ai
 
 # Albedo switches
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
-switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
-switch_LAPs = 0             # 0 to turn off LAPs; 1 to turn on
+switch_melt = 0             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
+switch_LAPs = 1             # 0 to turn off LAPs; 1 to turn on
 initLAPs = [[0,0],[0,0]]    # initial LAP concentrations. Set to None to use fresh snow values
 BC_freshsnow = 1e-7          # concentration of BC in fresh snow [kg m-3]. Only used if switch_LAPs is not 2
 dust_freshsnow = 2e-4        # concentration of dust in fresh snow [kg m-3]. Only used if switch_LAPs is not 2
+# 1 kg m-3 = 1e6 ppb
 
 # Output
 store_vars = ['MB','EB','Temp','Layers']        # Variables to store of the possible set: ['MB','EB','Temp','Layers']

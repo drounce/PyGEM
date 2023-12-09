@@ -185,18 +185,19 @@ class Surface():
         idx = np.arange(n_layers)
 
         # Unpack layer variables (need to be stored as lists)
-        lheight = np.flip(layers.lheight[idx].astype(float)).tolist()
-        ldensity = np.flip(layers.ldensity[idx].astype(float)).tolist()
-        lgrainsize = np.flip(layers.grainsize[idx].astype(int))
+        lheight = layers.lheight[idx].astype(float).tolist()
+        ldensity = layers.ldensity[idx].astype(float).tolist()
+        lgrainsize = layers.grainsize[idx].astype(int)
+        # Grain size files are every 1um till 1500um, then every 500
         lgrainsize[np.where(lgrainsize>1500)[0]] = np.round(lgrainsize[np.where(lgrainsize>1500)[0]]/500) * 500
         lgrainsize = lgrainsize.tolist()
         if override_grainsize:
             lgrainsize = [eb_prms.constant_grainsize for i in idx]
-        lBC = np.flip(layers.lBC[idx].astype(float)).tolist()
-        ldust = np.flip(layers.ldust[idx].astype(float)).tolist()
+        lBC = (layers.lBC[idx].astype(float) * 1e6).tolist()
+        ldust = layers.ldust[idx].astype(float) * 1e6
         if override_LAPs:
-            lBC = [eb_prms.BC_freshsnow for i in idx]
-            ldust = [eb_prms.dust_freshsnow for i in idx]
+            lBC = [eb_prms.BC_freshsnow*1e6 for _ in idx]
+            ldust = np.array([eb_prms.dust_freshsnow*1e6 for _ in idx])
 
         # Open and edit yaml input file for SNICAR
         with open(eb_prms.snicar_input_fp) as f:
@@ -204,7 +205,11 @@ class Surface():
 
         # Update changing layer variables
         list_doc['IMPURITIES']['BC']['CONC'] = lBC
-        list_doc['IMPURITIES']['DUST']['CONC'] = ldust
+        list_doc['IMPURITIES']['DUST1']['CONC'] = (ldust * 0.1).tolist()
+        list_doc['IMPURITIES']['DUST2']['CONC'] = (ldust * 0.2).tolist()
+        list_doc['IMPURITIES']['DUST3']['CONC'] = (ldust * 0.4).tolist()
+        list_doc['IMPURITIES']['DUST4']['CONC'] = (ldust * 0.2).tolist()
+        list_doc['IMPURITIES']['DUST5']['CONC'] = (ldust * 0.1).tolist()
         list_doc['ICE']['DZ'] = lheight
         list_doc['ICE']['RHO'] = ldensity
         list_doc['ICE']['RDS'] = lgrainsize
@@ -238,7 +243,7 @@ class HiddenPrints:
         self._original_stdout = sys.stdout
         sys.stdout = open(os.devnull, 'w')
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self,exc_type, exc_val, exc_tb):
         sys.stdout.close()
         sys.stdout = self._original_stdout
-
+        return

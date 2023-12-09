@@ -55,6 +55,7 @@ class massBalance():
         # ===== ENTER TIME LOOP =====
         for time in self.time_list:
             # BEGIN MASS BALANCE
+            self.time = time
             # Initiate the energy balance to unpack climate data
             enbal = eb.energyBalance(climateds,time,self.bin_idx,dt)
             self.depBC,self.depdust = enbal.getDeposition()
@@ -105,11 +106,10 @@ class massBalance():
             if np.abs(np.sum(layers.ltemp)) != 0.:
                 # If glacier is isothermal, heat is not conducted, so skip
                 layers.ltemp = self.solveHeatEq(layers,surface.temp,eb_prms.dt_heateq)
+            assert np.min(layers.ltemp) >= -50, 'after heat eq'
 
             # Calculate refreeze
             refreeze = self.refreezing(layers)
-            if layers.ldensity[0] < 50:
-                print('AFTER REFREEZE',layers.ldensity[0])
 
             # Run densification daily
             if time.hour + time.minute < 1:
@@ -350,12 +350,14 @@ class massBalance():
                 layers.ldrymass[snow_firn_idx] = ldm
                 runoff = q_out*dt + np.sum(layermelt[layers.ice_idx])
                 # mass diffusion of LAPs
-                self.diffuseLAPs(layers,q_in_store,q_out_store,rainfall)
+                if self.args.switch_LAPs == 1:
+                    self.diffuseLAPs(layers,q_in_store,q_out_store,rainfall)
         else:
             runoff = rainfall + np.sum(layermelt)
         return runoff
         
     def diffuseLAPs(self,layers,q_in,q_out,rainfall):
+        print(f'{self.time} before layer {layers.lBC[0]:.3e}')
         # constants
         ksp_BC = eb_prms.ksp_BC
         ksp_dust = eb_prms.ksp_dust
@@ -393,8 +395,11 @@ class massBalance():
         # mass balance on each constituent
         dmBC = (m_BC_in - m_BC_out + depBC)*eb_prms.dt
         dmdust = (m_dust_in - m_dust_out + depdust)*eb_prms.dt
-        layers.lBC[snow_firn_idx] = (layers.lBC[snow_firn_idx]*lh + dmBC) / lh
-        layers.ldust[snow_firn_idx] = (layers.ldust[snow_firn_idx]*lh + dmdust) / lh
+        mBC += dmBC
+        mdust += dmdust
+        layers.lBC[snow_firn_idx] = mBC / lh
+        layers.ldust[snow_firn_idx] = mdust / lh
+        print(f'{self.time} layer {layers.lBC[0]:.3e} in {m_BC_in[0]:.3e}, out {m_BC_out[0]:.3e} dep {depBC[0]:.3e}')
         return
     
     def refreezing(self,layers):
@@ -446,7 +451,7 @@ class massBalance():
 
         # update layers (density and depth)
         layers.updateLayerProperties()
-        assert layers.ldensity[0] >= 50
+        assert layers.ldensity[0] >= 30
         
         # Update refreeze with new refreeze content
         layers.lrefreeze += refreeze
@@ -592,8 +597,9 @@ class massBalance():
             surf_cond = up_cond[0]*2/(up_dens[0]*up_height[0])*(surftemp-old_T[0])
             subsurf_cond = dn_cond[0]/(up_dens[0]*up_height[0])*(old_T[0]-old_T[1])
             new_T[0] = old_T[0] + dt_heat/(Cp_ice*height[0])*(surf_cond - subsurf_cond)
-            if new_T[0] > 0: # If top layer of snow is very thin on top of ice, it breaks the temperature
-                new_T[0] = 0 
+            if new_T[0] > 0 or new_T[0] < -50: 
+            # If top layer of snow is very thin on top of ice, it can break this calculation
+                new_T[0] = np.mean([surftemp,old_T[1]])
 
             surf_cond = up_cond/(up_dens*up_height)*(old_T[:-2]-old_T[1:-1])
             subsurf_cond = dn_cond/(dn_dens*dn_height)*(old_T[1:-1]-old_T[2:])
@@ -608,25 +614,6 @@ class massBalance():
             new_T[0] = 0
 
         return new_T
-    
-    # def getMassBal(self,running_values,surftemp,enbal,month):
-    #     if surftemp < 0:
-    #         sublimation = min(enbal.lat/(eb_prms.density_water * eb_prms.Lv_sub), 0)*self.dt
-    #         deposition = max(enbal.lat/(eb_prms.density_water * eb_prms.Lv_sub), 0)*self.dt
-    #         evaporation = 0
-    #         condensation = 0
-    #     else:
-    #         sublimation = 0
-    #         deposition = 0
-    #         evaporation = min(enbal.lat/(eb_prms.density_water * eb_prms.Lv_evap), 0)*self.dt
-    #         condensation = max(enbal.lat/(eb_prms.density_water * eb_prms.Lv_evap), 0)*self.dt
-    #     melt,runoff,refreeze,accum = running_values.loc[['melt','runoff','refreeze','accum']][0]
-    #     self.monthly_output.loc[month] = [melt,runoff,refreeze,accum,0]
-
-    #     # calculate total mass balance
-    #     MB = accum + refreeze - melt + deposition - evaporation - sublimation
-    #     self.monthly_output.loc[month]['MB'] = MB
-    #     return
 
     def current_state(self,time,layers,surftemp,airtemp,albedo):
         melte = np.mean(self.output.meltenergy_output[-720:])
@@ -734,6 +721,7 @@ class Output():
         self.refreeze_output = []
         self.runoff_output = []
         self.accum_output = []
+        self.snowdepth_output = []
         self.airtemp_output = []
         self.surftemp_output = []
 
@@ -742,7 +730,6 @@ class Output():
         self.layerwater_output = dict()
         self.layerdensity_output = dict()
         self.layerheight_output = dict()
-        self.snowdepth_output = []
         self.layerBC_output = dict()
         self.layerdust_output = dict()
         self.layergrainsize_output = dict()
