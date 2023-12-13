@@ -39,8 +39,8 @@ varprops = {'surftemp':{'label':'Surface temp','type':'Temperature','units':'C'}
            'layertemp':{'label':'Layer temp','type':'Layers','units':'C'},
            'layerdensity':{'label':'Density','type':'Layers','units':'kg m$^{-3}$'},
            'layerwater':{'label':'Water Content','type':'Layers','units':'kg m$^{-2}$'},
-           'layerBC':{'label':'BC Concentration','type':'Layers','units':'kg m$^{-3}$'},
-           'layerdust':{'label':'Dust Concentration','type':'Layers','units':'kg m$^{-3}$'},
+           'layerBC':{'label':'BC Concentration','type':'Layers','units':'ppb'},
+           'layerdust':{'label':'Dust Concentration','type':'Layers','units':'ppm'},
            'layergrainsize':{'label':'Grain size','type':'Layers','units':'um'},
            'layerheight':{'label':'Layer height','type':'Layers','units':'m'},
            'snowdepth':{'label':'Snow depth','type':'MB','units':'m'},
@@ -126,26 +126,7 @@ def simple_plot(ds,bin,time,vars,res='d',t='',
     if save_fig:
         plt.savefig('/home/claire/research/Output/ebfluxcomparison.png',dpi=150)
 
-def plot_stake_accumulation(stake_df,time):
-    if len(time) == 2:
-        start = pd.to_datetime(time[0])
-        end = pd.to_datetime(time[1])
-        time = pd.date_range(start,end,freq='d')
-    time = pd.to_datetime(stake_df['Date'])
-    snow_depth = stake_df['snow_depth'].to_numpy() / 100
-    previous_depth = snow_depth[0]
-    accum = []
-    for depth in snow_depth:
-        if depth > previous_depth:
-            accum.append((depth - previous_depth)*100)
-        else:
-            accum.append(0)
-    fig,ax = plt.subplots(layout='constrained')
-    date_form = mpl.dates.DateFormatter('%d %b')
-    ax.xaxis.set_major_formatter(date_form)
-    ax.plot(time,accum)
-
-def plot_snow_depth(stake_df,ds_list,time,labels,bin,t='Snow Depth Comparison'):
+def plot_stake_snowdepth(stake_df,ds_list,time,labels,bin=0,t='Snow Depth Comparison'):
     """
     Returns a comparison of snow depth from the output datasets to stake data
 
@@ -172,14 +153,14 @@ def plot_snow_depth(stake_df,ds_list,time,labels,bin,t='Snow Depth Comparison'):
     for i,ds in enumerate(ds_list):
         ds = ds.sel(time=time,bin=bin)
         ax.plot(ds.coords['time'],ds.snowdepth.to_numpy()*100,label=labels[i])
-    ax.plot(stake_df.index,stake_df['snow_depth'].to_numpy(),label='Stake')
+    ax.plot(stake_df.index,stake_df['snow_depth'].to_numpy(),label='Stake',linestyle='--')
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.legend()
     ax.set_ylabel('Snow Depth (cm)')
     fig.suptitle(t)
 
-def plot_stake_data(stake_df,ds_list,time,labels,bin,t='Stake Comparison'):
+def plot_stake_ablation(stake_df,ds_list,time,labels,bin=0,t='Stake Comparison'):
     """
     Returns a comparison of melt from the output datasets to stake data
 
@@ -206,14 +187,58 @@ def plot_stake_data(stake_df,ds_list,time,labels,bin,t='Stake Comparison'):
     for i,ds in enumerate(ds_list):
         ds = ds.sel(time=time,bin=bin)
         ax.plot(ds.coords['time'],ds.melt.cumsum(),label=labels[i])
-    ax.plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake')
+    ax.plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.legend()
     ax.set_ylabel('Cumulative Melt (m w.e.)')
     fig.suptitle(t)
+
+def plot_stake_accumulation(stake_df,ds_list,time,labels,bin=0,t=''):
+    """
+    Returns a comparison of accumulation from the output datasets to stake data
+
+    Parameters
+    ----------
+    stake_df : pd.DataFrame
+        DataFrame object containing stake MB data
+    ds_list : list of xr.Datasets
+        List of model output datasets to plot melt
+    time : list-like   
+        Either len-2 list of start date, end date, or a list of datetimes
+    labels : list of str
+        List of same length as ds_list containing labels to plot
+    """
+
+    fig,ax = plt.subplots(figsize=(4,6),sharex=True,layout='constrained')
+    stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
+
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
+        days = pd.date_range(start,end,freq='d')
+    stake_df = stake_df.loc[days]
+    for i,ds in enumerate(ds_list):
+        ds = ds.sel(time=time,bin=bin)
+        ax.plot(ds.coords['time'],ds.accum,label=labels[i])
+    snow_depth = stake_df['snow_depth'].to_numpy() / 100
+    previous_depth = snow_depth[0]
+    accum = []
+    for depth in snow_depth:
+        if depth > previous_depth:
+            accum.append((depth - previous_depth)/100)
+        else:
+            accum.append(0)
+    ax.plot(stake_df.index,accum,label='Stake',linestyle='--')
+
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_formatter(date_form)
+    ax.legend()
+    ax.set_ylabel('Accumulation (m w.e.)')
+    fig.suptitle(t)
         
-def compare_runs(ds_list,labels,time,var,res='d',t=''):
+def compare_runs(ds_list,time,labels,var,res='d',t=''):
     """
     Returns a comparison of different model runs
 
@@ -232,7 +257,7 @@ def compare_runs(ds_list,labels,time,var,res='d',t=''):
     t : str
         Title of plot
     """
-    fig,ax = plt.subplots(figsize=(8,6))
+    fig,ax = plt.subplots(figsize=(6,3))
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
@@ -569,7 +594,7 @@ def plot_layers(ds,vars,dates):
     # fig.supxlabel(varprops[var]['label'])
     return
 
-def plot_single_layer(ds,layer,vars,time,cumMB=False):
+def plot_single_layer(ds,layer,vars,time,cumMB=False,t=''):
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
@@ -593,6 +618,7 @@ def plot_single_layer(ds,layer,vars,time,cumMB=False):
             axes[i].set_ylabel(varprops[var]['units'])
     date_form = mpl.dates.DateFormatter('%d %b')
     axes[i].xaxis.set_major_formatter(date_form)
+    fig.suptitle(t)
     return
 
 def plot_monthly_layer_avgs(file,var,dates_to_plot):

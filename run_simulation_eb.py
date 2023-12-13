@@ -12,6 +12,7 @@ import pygem_eb.massbalance as mb
 import pygem.pygem_modelsetup as modelsetup
 import pygem_eb.utils as utilities
 
+# ===== INITIALIZE UTILITIES =====
 def getparser():
     parser = argparse.ArgumentParser(description='pygem-eb model runs')
     # add arguments
@@ -23,26 +24,25 @@ def getparser():
                         help='pass str like datetime of model run end')
     parser.add_argument('-climate_input', action='store', type=str, default=eb_prms.climate_input,
                         help='pass str-like datetime of model run start')
-    parser.add_argument('-store_data', action='store', type=str, default=eb_prms.store_data,
+    parser.add_argument('-store_data', action='store_true', default=eb_prms.store_data,
                         help='')
     parser.add_argument('-n_bins',action='store',type=int,default=eb_prms.n_bins,
                         help='number of elevation bins')
-    parser.add_argument('-switch_LAPs',action='store', type=str, default=eb_prms.switch_LAPs,
+    parser.add_argument('-switch_LAPs',action='store', type=int, default=eb_prms.switch_LAPs,
                         help='')
-    parser.add_argument('-switch_melt',action='store', type=str, default=eb_prms.switch_melt,
+    parser.add_argument('-switch_melt',action='store', type=int, default=eb_prms.switch_melt,
                         help='')
-    parser.add_argument('-switch_snow',action='store', type=str, default=eb_prms.switch_snow,
+    parser.add_argument('-switch_snow',action='store', type=int, default=eb_prms.switch_snow,
                         help='')
     return parser
 
+# Start timer and initialize argparse and utility functions
 start_time = time.time()
-utils = utilities.Utils()
-
-# Initialize arg parser
 parser = getparser()
 args = parser.parse_args()
-
 n_bins = args.n_bins
+utils = utilities.Utils(args)
+
 # ===== GLACIER AND TIME PERIOD SETUP =====
 glacier_table = modelsetup.selectglaciersrgitable(args.glac_no,
                 rgi_regionsO1=eb_prms.rgi_regionsO1, rgi_regionsO2=eb_prms.rgi_regionsO2,
@@ -100,40 +100,15 @@ elif args.climate_input in ['AWS']:
     depdust = nans.copy()
     ntimesteps = len(temp_data)
 
-#initialize variables to be adjusted
-temp = np.zeros((n_bins,ntimesteps))
-tp = np.zeros((n_bins,ntimesteps))
-sp = np.zeros((n_bins,ntimesteps))
-dtemp = np.zeros((n_bins,ntimesteps))
-
-# define function to calculate vapor pressure (needed for RH)
-e_func = lambda T_C: 610.94*np.exp(17.625*T_C/(T_C+243.04))  #vapor pressure in Pa, T in Celsius
-#loop through each elevation bin and adjust climate variables by lapse rate/barometric law
-for idx,z in enumerate(eb_prms.bin_elev):
-    # correct temperature according to lapserate
-    temp[idx,:] = temp_data + eb_prms.lapserate*(z-elev_data)
-    # correct precipitation according to lapserate, precipitation factor
-    if len(np.array(eb_prms.kp).flatten()) > 1:
-        tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data))*eb_prms.kp[idx]
-    else:
-        tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data)) # *eb_prms.kp for GCM******
-    # correct surface pressure according to barometric law
-    sp[idx,:] = sp_data*np.power((temp_data + eb_prms.lapserate*(z-elev_data)+273.15)/(temp_data+273.15),
-                        -eb_prms.gravity*eb_prms.molarmass_air/(eb_prms.R_gas*eb_prms.lapserate))
-    # if RH is not empty, get dtemp data from it
-    if not np.all(np.isnan(rh_data)): 
-        dtemp_data = rh_data / 100 * e_func(temp[idx,:])
-        dtemp[idx,:] = dtemp_data + eb_prms.lapserate_dew*(z-elev_data)-273.15
-        rh = np.array([rh_data]*n_bins)
-    else:
-        rh = e_func(dtemp) / e_func(temp) * 100
-
+# Adjust elevation-dependant climate variables
+temp,tp,sp,dtemp,rh = utils.getBinnedClimate(temp_data, tp_data, sp_data, dtemp_data, rh_data,
+                                        ntimesteps, elev_data)
 dates = pd.date_range(args.startdate,args.enddate,freq='h')
 
 # ===== SET UP CLIMATE DATASET =====
 bin_idx = np.arange(0,n_bins)
 climateds = xr.Dataset(data_vars = dict(
-    bin_elev = (['bin'],eb_prms.bin_elev,{'units':'m'}),
+    bin_elev = (['bin'],eb_prms.bin_elev,{'units':'m a.s.l.'}),
     SWin = (['time'],SWin,{'units':'J m-2'}),
     SWout = (['time'],SWout,{'units':'J m-2'}),
     LWin = (['time'],LWin,{'units':'J m-2'}),
@@ -155,7 +130,6 @@ climateds = climateds.assign(bin_sp = (['bin','time'],sp,{'units':'Pa'}))
 climateds = climateds.assign(bin_rh = (['bin','time'],rh,{'units':'%'}))
 
 # ===== RUN ENERGY BALANCE =====
-#loop through bins here so EB script is set up for only one bin (1D data)
 if eb_prms.parallel:
     def run_mass_balance(bin):
         massbal = mb.massBalance(bin,dates_table,args,utils)
@@ -164,18 +138,20 @@ if eb_prms.parallel:
     processes_pool.map(run_mass_balance,range(args.n_bins))
 else:
     for bin in np.arange(args.n_bins):
-        # initialize variables to store from mass balance
         massbal = mb.massBalance(bin,dates_table,args,utils)
-        results = massbal.main(climateds)
+        massbal.main(climateds)
         
         if bin<args.n_bins-1:
             print('Success: moving onto bin',bin+1)
-        else:
-            if str(args.store_data)=='True':
-                end_time = time.time()
-                time_elapsed = end_time-start_time
-                print('Total Time Elapsed:',time_elapsed,'s')
 
-                massbal.output.addVars()
-                massbal.output.addAttrs(args,time_elapsed)
-                print('Success: saving to',eb_prms.output_name+'.nc')
+# ===== END ENERGY BALANCE =====
+# Print final model time
+end_time = time.time()
+time_elapsed = end_time-start_time
+print(f'Total Time Elapsed: {time_elapsed:.1f} s')
+
+# Store metadata in netcdf and save result
+if args.store_data:
+    massbal.output.addVars()
+    massbal.output.addAttrs(args,time_elapsed)
+    print('Success: saving to',eb_prms.output_name+'.nc')

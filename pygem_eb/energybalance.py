@@ -239,8 +239,7 @@ class energyBalance():
             if Qs == 0:
                 Qs = 1e-5 # Fixes /0 problem
             L = fric_vel**3*(self.tempC+273.15)*air_dens*eb_prms.Cp_air/(karman*eb_prms.gravity*Qs)
-            if L<0.3: # DEBAM uses this correction to ensure it isn't over stablizied
-                L = 0.3
+            L = max(L,0.3)  # DEBAM uses this correction to ensure it isn't over stablizied
             zeta = z/L
                 
             cD = karman**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
@@ -261,12 +260,15 @@ class energyBalance():
 
         return Qs, Ql
     
-    def getDeposition(self):
+    def getDryDeposition(self, layers):
         if np.isnan(self.depBC):
-            self.depBC = 1e-10 # kg m-2 s-1
+            self.depBC = 1e-13 # kg m-2 s-1
         if np.isnan(self.depdust):
-            self.depdust = 1e-10
-        return self.depBC,self.depdust
+            self.depdust = 1e-13 # kg m-2 s-1
+
+        layers.lBC[0] += self.depBC * self.dt
+        layers.ldust[0] += self.depdust * self.dt
+        return 
     
     def getRoughnessLength(self,days_since_snowfall,layertype):
         """
@@ -280,20 +282,29 @@ class energyBalance():
         layertype : np.ndarray
             List of layer types to determine surface roughness
         """
-        roughness_fresh_snow = 0.24                     # surface roughness length for fresh snow [mm] (Moelg et al. 2012, TC)
-        roughness_ice = 1.7                             # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
-        roughness_firn = 4.0                            # surface roughness length for aged snow [mm] (Moelg et al. 2012, TC)
-        aging_factor_roughness = 0.06267                # effect of ageing on roughness length: 60 days from 0.24 to 4.0 => 0.06267
+        # CONSTANTS
+        ROUGHNESS_FRESH_SNOW = eb_prms.roughness_fresh_snow
+        ROUGHNESS_FIRN = eb_prms.roughness_firn
+        ROUGHNESS_ICE = eb_prms.roughness_ice
+        AGING_ROUGHNESS = eb_prms.aging_factor_roughness
 
         if layertype[0] in ['snow']:
-            sigma = min(roughness_fresh_snow + aging_factor_roughness * days_since_snowfall, roughness_firn)
+            sigma = min(ROUGHNESS_FRESH_SNOW + AGING_ROUGHNESS * days_since_snowfall, ROUGHNESS_FIRN)
         elif layertype[0] in ['firn']:
-            sigma = roughness_firn
+            sigma = ROUGHNESS_FIRN
         elif layertype[0] in ['ice']:
-            sigma = roughness_ice
+            sigma = ROUGHNESS_ICE
         return sigma/1000
     
     def vapor_pressure(self,T,method = 'ARM'):
+        """
+        Returns vapor pressure in Pa from temperature in Celsius
+
+        Parameters
+        ----------
+        T : float
+            Temperature in C
+        """
         if method in ['ARM']:
             P = 0.61094*np.exp(17.625*T/(T+243.04)) # kPa
         return P*1000
