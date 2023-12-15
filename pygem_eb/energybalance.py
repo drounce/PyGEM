@@ -190,7 +190,7 @@ class energyBalance():
         Calculates amount of energy supplied by heat conduction from the temperate ice.
         """
         if eb_prms.method_ground in ['MolgHardy']:
-            Qg = -eb_prms.k_ice * (surftemp - eb_prms.temp_temp) / eb_prms.depth_temp
+            Qg = -eb_prms.k_ice * (surftemp - eb_prms.temp_temp) / eb_prms.temp_depth
         return Qg
     
     def getTurbulentMO(self,surf_temp,roughness):
@@ -262,7 +262,7 @@ class energyBalance():
     
     def getDryDeposition(self, layers):
         if np.isnan(self.depBC):
-            self.depBC = 1e-13 # kg m-2 s-1
+            self.depBC = 1e-14 # kg m-2 s-1
         if np.isnan(self.depdust):
             self.depdust = 1e-13 # kg m-2 s-1
 

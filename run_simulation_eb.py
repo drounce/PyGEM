@@ -26,6 +26,10 @@ def getparser():
                         help='pass str-like datetime of model run start')
     parser.add_argument('-store_data', action='store_true', default=eb_prms.store_data,
                         help='')
+    parser.add_argument('-new_file', action='store_true', default=eb_prms.store_data,
+                        help='')
+    parser.add_argument('-debug', action='store_true', default=eb_prms.store_data,
+                        help='')
     parser.add_argument('-n_bins',action='store',type=int,default=eb_prms.n_bins,
                         help='number of elevation bins')
     parser.add_argument('-switch_LAPs',action='store', type=int, default=eb_prms.switch_LAPs,
@@ -118,16 +122,19 @@ climateds = xr.Dataset(data_vars = dict(
     wind = (['time'],wind,{'units':'m s-1'}),
     winddir = (['time'],winddir,{'units':'deg'}),
     depBC = (['time'],depBC,{'units':'kg s-1'}),
-    depdust = (['time'],depdust,{'units':'kg s-1'}),),
+    depdust = (['time'],depdust,{'units':'kg s-1'}),
+    # wetdepBC1, wetdepBC2, drydepBC1, drydepBC2,
+    # wetdepDU1, wetdepDU2, wetdepDU3, wetdepDU4, wetdepDU5,
+    # drydepDU1, drydepDU2, drydepDU3, drydepDU4, drydepDU5,
+    bin_temp = (['bin','time'],temp,{'units':'C'}),
+    bin_tp = (['bin','time'],tp,{'units':'m'}),
+    bin_sp = (['bin','time'],sp,{'units':'Pa'}),
+    bin_rh = (['bin','time'],rh,{'units':'%'})
+    ),
     coords = dict(
         bin=(['bin'],bin_idx),
         time=(['time'],dates)
         ))
-
-climateds = climateds.assign(bin_temp = (['bin','time'],temp,{'units':'C'}))
-climateds = climateds.assign(bin_tp = (['bin','time'],tp,{'units':'m'}))
-climateds = climateds.assign(bin_sp = (['bin','time'],sp,{'units':'Pa'}))
-climateds = climateds.assign(bin_rh = (['bin','time'],rh,{'units':'%'}))
 
 # ===== RUN ENERGY BALANCE =====
 if eb_prms.parallel:
@@ -145,7 +152,7 @@ else:
             print('Success: moving onto bin',bin+1)
 
 # ===== END ENERGY BALANCE =====
-# Print final model time
+# Get final model run time
 end_time = time.time()
 time_elapsed = end_time-start_time
 print(f'Total Time Elapsed: {time_elapsed:.1f} s')

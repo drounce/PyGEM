@@ -63,6 +63,7 @@ class Layers():
         self.updateLayerProperties()
         self.lrefreeze = np.zeros_like(self.ltemp)   # LAYER MASS OF REFREEZE [kg m-2]
         self.lnewsnow = np.zeros_like(self.ltemp)    # LAYER MASS OF NEW SNOW [kg m-2]
+        self.delayed_snow = 0 # Initiate bucket for 'delayed snow' (to avoid making tiny layers)
 
         print(f'{self.nlayers} layers initialized for bin {bin_no}')
         return 
@@ -400,7 +401,7 @@ class Layers():
                 layer += 1
         return
     
-    def addSnow(self,snowfall,enbal):
+    def addSnow(self,snowfall,enbal,surface,time):
         """
         Adds snowfall to the layer scheme. If the existing top layer is ice, the fresh snow is a new layer,
         otherwise it is merged with the top layer.
@@ -413,20 +414,42 @@ class Layers():
             class object from pygem_eb.energybalance
         """
         store_surface = False
+        snowfall += self.delayed_snow
 
-        if eb_prms.constant_snowfall_density:
-            new_density = eb_prms.density_fresh_snow
-        else:
-            new_density = max(109*6*(enbal.tempC-0.)+26*enbal.wind**0.5,50) # from CROCUS ***** CITE
+        if eb_prms.switch_snow == 0:
+            # Snow falls with the same properties as the current top layer
+            # **** What to do when top layer is ice?
+            new_density = self.ldensity[0]
+            new_height = snowfall/new_density
+            new_grainsize = self.grainsize[0]
+            new_BC = self.lBC[0]/self.lheight[0]*new_height
+            new_dust = self.ldust[0]/self.lheight[0]*new_height
+            new_snow = 0
+        elif eb_prms.switch_snow == 1:
+            if eb_prms.constant_snowfall_density:
+                new_density = eb_prms.density_fresh_snow
+            else:
+                new_density = max(109*6*(enbal.tempC-0.)+26*enbal.wind**0.5,50) # from CROCUS ***** CITE
+            new_grainsize = eb_prms.fresh_grainsize
+            new_height = snowfall/new_density
+            new_BC = eb_prms.BC_freshsnow*new_height
+            new_dust = eb_prms.dust_freshsnow*new_height
+            new_snow = snowfall
+            surface.fresh_snow_timestamp = time
 
         # Conditions: if any are TRUE, create a new layer
         new_layer_conds = np.array([self.ltype[0] in 'ice',
                             self.ltype[0] in 'firn',
                             self.ldensity[0] > new_density*3])
         if np.any(new_layer_conds):
-            new_layer = pd.DataFrame([enbal.tempC,0,snowfall/new_density,'snow',snowfall],
-                                     index=['T','w','h','t','m'])
-            self.addLayers(new_layer)
+            if snowfall/new_density > 1e-4:
+                new_layer = pd.DataFrame([enbal.tempC,0,snowfall/new_density,'snow',snowfall,
+                                      new_grainsize,new_BC,new_dust,new_snow],
+                                     index=['T','w','h','t','m','g','BC','dust','new'])
+                self.addLayers(new_layer)
+                self.delayed_snow = 0
+            else:
+                self.delayed_snow = snowfall
             store_surface = True
         else:
             # take weighted average of density and temperature of surface layer and new snow
@@ -531,7 +554,7 @@ class Layers():
             self.grainsize[self.firn_idx] = 2000
             self.grainsize[self.ice_idx] = 5000
         elif len(self.firn_idx) > 0: # no snow, but there is firn
-            self.grainsize[self.firn_idx] = 2000 # ****** FIRN GRAIN SIZE
+            self.grainsize[self.firn_idx] = 2000 # **** FIRN GRAIN SIZE
             self.grainsize[self.ice_idx] = 5000
         else: # no snow or firn, just ice
             self.grainsize[self.ice_idx] = 5000

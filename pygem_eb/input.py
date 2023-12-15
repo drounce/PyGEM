@@ -106,20 +106,22 @@ dt = 3600                   # Model timestep [s]
 dt_heateq = 3600/5          # Time resolution of heat eq [s], should be integer multiple of 3600s so data can be stored on the hour
 
 # METHODS
-method_turbulent = 'MO-similarity'   # 'MO-similarity' 
-method_heateq = 'Crank-Nicholson'    # 'Crank-Nicholson'
-method_densification = 'off'         # 'Boone', 'off', 'DEBAM' (broken)
-method_cooling = 'iterative'         # 'minimize' (slow) or 'iterative' (fast)
-method_ground = 'MolgHardy'          # 'MolgHardy'
-method_percolation = 'w_LAPs'        # 'w_LAPs' or 'no_LAPs'
-method_grainsizetable = 'ML'         # 'interpolate' (slow) or 'ML' (fast)
+method_turbulent = 'MO-similarity'      # 'MO-similarity' 
+method_heateq = 'Crank-Nicholson'       # 'Crank-Nicholson'
+method_densification = 'off'            # 'Boone', 'off', 'DEBAM' (broken)
+method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast)
+method_ground = 'MolgHardy'             # 'MolgHardy'
+method_percolation = 'w_LAPs'           # 'w_LAPs' or 'no_LAPs'
+method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'
+method_grainsizetable = 'ML'            # 'interpolate' (slow) or 'ML' (fast)
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False
+constant_conductivity = False
 
 # ALBEDO SWITCHES
-switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
-switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
+switch_snow = 0             # 0 to turn off fresh snow feedback; 1 to include it
+switch_melt = 1             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
 switch_LAPs = 1             # 0 to turn off LAPs; 1 to turn on
 BC_freshsnow = 1e-7         # concentration of BC in fresh snow [kg m-3]
 dust_freshsnow = 2e-4       # concentration of dust in fresh snow [kg m-3]
@@ -132,7 +134,7 @@ lapserate_dew = -0.002      # dew point temperature lapse rate [C m-1]
 tsnow_threshold = 0         # Threshold to consider freezing [C]
 kp = 1                      # precipitation factor [-] 
 temp_temp = -3              # temperature of temperate ice in Celsius
-depth_temp = 100            # depth where ice becomes temperate
+temp_depth = 100            # depth where ice becomes temperate
 albedo_fresh_snow = 0.85    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)
 albedo_firn = 0.55          # Albedo of firn [-]
 albedo_ice = 0.3            # Albedo of ice [-] 
@@ -147,9 +149,9 @@ density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
 density_firn = 700          # Density threshold for firn
 density_water = 1000        # Density of water [kg m-3]
 density_fresh_snow = 100    # ** For assuming constant density of fresh snowfall [kg m-3]
-k_ice = 2.33                # Thermal conductivity of ice [J s-1 K-1 m-1] recall (W = J s-1)
-k_air = 0.023               # Thermal conductivity of air [J s-1 K-1 m-1] (Mellor, 1997)
-Lh_rf = 333550              # Latent heat of fusion [J kg-1]
+k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1] recall (W = J s-1)
+k_air = 0.023               # Thermal conductivity of air [W K-1 m-1] (Mellor, 1997)
+Lh_rf = 333550              # Latent heat of fusion of ice [J kg-1]
 gravity = 9.81              # Gravity [m s-2]
 pressure_std = 101325       # Standard pressure [Pa]
 temp_std = 288.15           # Standard temperature [K]

@@ -60,11 +60,11 @@ class massBalance():
             enbal = eb.energyBalance(climateds,time,self.bin_idx,dt)
 
             # Get rain and snowfall amounts [kg m-2]
-            rain,snowfall = self.getPrecip(enbal,surface,time)
+            rain,snowfall = self.getPrecip(enbal)
 
             # Add fresh snow to layers
             if snowfall > 0:
-                store_surface = layers.addSnow(snowfall,enbal)
+                store_surface = layers.addSnow(snowfall,enbal,surface,time)
                 if store_surface: # ****Store surface might not be necessary
                     surface.storeSurface()
             # Add dry deposited BC and dust to layers
@@ -89,25 +89,27 @@ class massBalance():
 
             # Calculate column melt including the surface
             if surface.Qm > 0:
-                layermelt, fully_melted_mass = self.meltSubsurface(layers,subsurf_melt)
+                layermelt, melted_layers = self.meltSubsurface(layers,subsurf_melt)
             else: # No surface melt
                 layermelt = subsurf_melt.copy()
                 layermelt[0] = 0
-                fully_melted_mass = 0
+                melted_layers = 0
+            self.melted_layers = melted_layers
 
             # Percolate the meltwater and any liquid precipitation if there are snow or firn layers
-            water_in = rain + fully_melted_mass
             if len(np.concatenate([layers.snow_idx,layers.firn_idx])) > 0:
-                runoff = self.percolation(layers,layermelt,water_in)
+                runoff = self.percolation(layers,layermelt,rain)
             else:
-                runoff = water_in + np.sum(layermelt)
+                runoff = rain + np.sum(layermelt)
             
             # Update layers (checks for tiny or huge layers)
             layers.updateLayers()
+            if layers.lheight[0] < 1e-3:
+                print('update layers still tiny!!',layers.lheight[0])
 
             # Recalculate the temperature profile considering conduction, unless glacier is isothermal
             if np.abs(np.sum(layers.ltemp)) != 0.:
-                layers.ltemp = self.solveHeatEq(layers,surface.stemp,eb_prms.dt_heateq)
+                self.solveHeatEq(layers,surface.stemp)
 
             # Calculate refreeze
             refreeze = self.refreezing(layers)
@@ -242,7 +244,14 @@ class massBalance():
             # only surface layer is melting
             layermelt[0] = surface_melt
             fully_melted = []
-        fully_melted_mass = np.sum(layermelt[fully_melted])
+        
+        class MeltedLayers():
+            def __init__(self):
+                self.mass = layermelt[fully_melted]
+                self.BC = layers.lBC[fully_melted]
+                self.dust = layers.ldust[fully_melted]
+
+        fully_melted_mass = MeltedLayers()
 
         # Remove layers that were completely melted 
         removed = 0 # Indexes of layers change as you loop
@@ -284,6 +293,9 @@ class massBalance():
         lw = layers.lwater.copy()[snow_firn_idx]
         lh = layers.lheight.copy()[snow_firn_idx]
         layermelt_sf = layermelt[snow_firn_idx]
+
+        if self.melted_layers != 0:
+            water_in += np.sum(self.melted_layers.mass)
 
         if eb_prms.method_percolation in ['no_LAPs']:
             for layer,melt in enumerate(layermelt_sf):
@@ -370,6 +382,7 @@ class massBalance():
         PARTITION_COEF_DUST = eb_prms.ksp_dust
         RAIN_CONC_BC = eb_prms.rainBC
         RAIN_CONC_DUST = eb_prms.raindust
+        DENSITY_WATER = eb_prms.density_water
         dt = eb_prms.dt
 
         # LAYERS IN
@@ -384,11 +397,20 @@ class massBalance():
         cBC = mBC / (lw + ldm)
         cdust = mdust / (lw + ldm)
 
+        # get mass of LAPs into the top layer
+        m_BC_in_top = rainfall*DENSITY_WATER*RAIN_CONC_BC
+        m_dust_in_top = rainfall*DENSITY_WATER*RAIN_CONC_DUST
+        if self.melted_layers != 0:
+            m_BC_in_top += np.sum(self.melted_layers.BC)
+            m_dust_in_top += np.sum(self.melted_layers.dust)
+        m_BC_in_top *= PARTITION_COEF_BC
+        m_dust_in_top *= PARTITION_COEF_DUST
+
         # inward fluxes depend on previous layer or rainfall for top layer
         m_BC_in = PARTITION_COEF_BC*q_out[:-1]*cBC[:-1]
         m_dust_in = PARTITION_COEF_DUST*q_out[:-1]*cdust[:-1]
-        m_BC_in = np.append(PARTITION_COEF_BC*rainfall*RAIN_CONC_BC,m_BC_in)
-        m_dust_in = np.append(PARTITION_COEF_DUST*rainfall*RAIN_CONC_DUST,m_dust_in)
+        m_BC_in = np.append(m_BC_in_top,m_BC_in)
+        m_dust_in = np.append(m_dust_in_top,m_dust_in)
         # outward fluxes are simply flow out * concentration of the layer
         m_BC_out = PARTITION_COEF_BC*q_out*cBC
         m_dust_out = PARTITION_COEF_DUST*q_out*cdust
@@ -523,7 +545,7 @@ class massBalance():
 
         return
     
-    def getPrecip(self,enbal,surface,time):
+    def getPrecip(self,enbal):
         """
         Determines whether rain or snowfall occurred and outputs amounts.
 
@@ -541,8 +563,7 @@ class massBalance():
             Specific mass of liquid and solid precipitation [kg m-2]
         """
         if enbal.tempC <= eb_prms.tsnow_threshold: 
-            # there is precipitation and it falls as snow--set fresh snow timestamp
-            surface.snow_timestamp = time
+            # precip falls as snow
             rain = 0
             snow = enbal.prec*eb_prms.density_water*self.dt # kg m-2
         else:
@@ -570,20 +591,36 @@ class massBalance():
             Array of new layer temperatures
         """
         # CONSTANTS
-        HEAT_CAPACITY_ICE = eb_prms.Cp_ice
+        CP_ICE = eb_prms.Cp_ice
+        DENSITY_ICE = eb_prms.density_ice
+        TEMP_TEMP = eb_prms.temp_temp
+        TEMP_DEPTH = eb_prms.temp_depth
+
+        # set temperature ice and get diffusing layer indices
+        temperate_idx = np.where(layers.ldepth > TEMP_DEPTH)[0]
+        diffusing_idx = np.arange(temperate_idx[0])
+        layers.ltemp[temperate_idx] = TEMP_TEMP
 
         # LAYERS IN
-        nl = layers.nlayers
-        lh = layers.lheight.copy()
-        lp = layers.ldensity.copy()
-        lT_old = layers.ltemp.copy()
-        lT = layers.ltemp.copy()
-        # lcond = 2.2*np.power(density/eb_prms.density_ice,1.88)
-        lcond = 0.21e-01 + 0.42e-03 * lp + 0.22e-08 * lp ** 3
-        Cp_ice = eb_prms.Cp_ice
+        nl = len(diffusing_idx)
+        lh = layers.lheight[diffusing_idx]
+        lp = layers.ldensity[diffusing_idx]
+        lT_old = layers.ltemp[diffusing_idx]
+        lT = layers.ltemp[diffusing_idx]
 
-        # set boundary conditions
-        lT[-1] = lT_old[-1] # lowest layer of ice is ALWAYS at 0.*****
+        # get conductivity 
+        if eb_prms.constant_conductivity:
+            lcond = np.ones(nl)*eb_prms.k_ice
+        elif eb_prms.method_conductivity in ['VanDusen']:
+            lcond = 0.21e-01 + 0.42e-03*lp + 0.22e-08*lp**3
+        elif eb_prms.method_conductivity in ['Sturm']:
+            lcond = 0.0138 - 1.01e-3*lp + 3.233e-6*lp**2
+        elif eb_prms.method_conductivity in ['Douville']:
+            lcond = 2.2*np.power(lp/DENSITY_ICE,1.88)
+        elif eb_prms.method_conductivity in ['Jansson']:
+            lcond = 0.02093 + 0.7953e-3*lp + 1.512e-12*lp**4
+        elif eb_prms.method_conductivity in ['OstinAndersson']:
+            lcond = -8.71e-3 + 0.439e-3*lp + 1.05e-6*lp**2
 
         if nl > 2:
             # heights of imaginary average bins between layers
@@ -601,21 +638,23 @@ class massBalance():
             # find temperature of top layer from surftemp boundary condition
             surf_cond = up_cond[0]*2/(up_dens[0]*up_height[0])*(surftemp-lT_old[0])
             subsurf_cond = dn_cond[0]/(up_dens[0]*up_height[0])*(lT_old[0]-lT_old[1])
-            lT[0] = lT_old[0] + dt_heat/(Cp_ice*lh[0])*(surf_cond - subsurf_cond)
+            lT[0] = lT_old[0] + dt_heat/(CP_ICE*lh[0])*(surf_cond - subsurf_cond)
             if lT[0] > 0 or lT[0] < -50: 
             # If top layer of snow is very thin on top of ice, it can break this calculation
                 lT[0] = np.mean([surftemp,lT_old[1]])
 
             surf_cond = up_cond/(up_dens*up_height)*(lT_old[:-2]-lT_old[1:-1])
             subsurf_cond = dn_cond/(dn_dens*dn_height)*(lT_old[1:-1]-lT_old[2:])
-            lT[1:-1] = lT_old[1:-1] + dt_heat/(Cp_ice*lh[1:-1])*(surf_cond - subsurf_cond)
+            lT[1:-1] = lT_old[1:-1] + dt_heat/(CP_ICE*lh[1:-1])*(surf_cond - subsurf_cond)
 
         elif nl > 1:
             lT = np.array([surftemp/2,0])
         else:
             lT = np.array([0])
 
-        return lT
+        # LAYERS OUT
+        layers.ltemp[diffusing_idx] = lT
+        return 
 
     def current_state(self,time,airtemp):
         layers = self.layers
