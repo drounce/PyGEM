@@ -50,6 +50,8 @@ class massBalance():
         layers = self.layers
         surface = self.surface
         dt = self.dt
+        print('PRECIPITATION GRADIENT',eb_prms.precgrad)
+        print('LAPSE RATE',eb_prms.lapserate)
 
         # ===== ENTER TIME LOOP =====
         for time in self.time_list:
@@ -64,7 +66,7 @@ class massBalance():
 
             # Add fresh snow to layers
             if snowfall > 0:
-                store_surface = layers.addSnow(snowfall,enbal,surface,time)
+                store_surface = layers.addSnow(snowfall,enbal,surface,self.args,time)
                 if store_surface: # ****Store surface might not be necessary
                     surface.storeSurface()
             # Add dry deposited BC and dust to layers
@@ -89,16 +91,15 @@ class massBalance():
 
             # Calculate column melt including the surface
             if surface.Qm > 0:
-                layermelt, melted_layers = self.meltSubsurface(layers,subsurf_melt)
+                layermelt, self.melted_layers = self.meltSubsurface(layers,subsurf_melt)
             else: # No surface melt
                 layermelt = subsurf_melt.copy()
                 layermelt[0] = 0
-                melted_layers = 0
-            self.melted_layers = melted_layers
+                self.melted_layers = 0
 
             # Percolate the meltwater and any liquid precipitation if there are snow or firn layers
             if len(np.concatenate([layers.snow_idx,layers.firn_idx])) > 0:
-                runoff = self.percolation(layers,layermelt,rain)
+                runoff = self.percolation(enbal,layers,layermelt,rain)
             else:
                 runoff = rain + np.sum(layermelt)
             
@@ -248,8 +249,8 @@ class massBalance():
         class MeltedLayers():
             def __init__(self):
                 self.mass = layermelt[fully_melted]
-                self.BC = layers.lBC[fully_melted]
-                self.dust = layers.ldust[fully_melted]
+                self.BC = layers.lBC[:,fully_melted]
+                self.dust = layers.ldust[:,fully_melted]
 
         fully_melted_mass = MeltedLayers()
 
@@ -261,12 +262,14 @@ class massBalance():
             removed += 1 
         return layermelt, fully_melted_mass
         
-    def percolation(self,layers,layermelt,water_in=0):
+    def percolation(self,enbal,layers,layermelt,water_in=0):
         """
         Calculates the liquid water content in each layer by downward percolation and applies melt.
 
         Parameters
         ----------
+        enbal
+            class object from pygem_eb.energybalance
         layers
             class object from pygem_eb.layers
         layermelt: np.ndarray
@@ -373,10 +376,10 @@ class massBalance():
 
             # Diffuse LAPs 
             if self.args.switch_LAPs == 1:
-                self.diffuseLAPs(layers,np.array(q_out_store),water_in/dt)
+                self.diffuseLAPs(layers,np.array(q_out_store),enbal)
         return runoff
         
-    def diffuseLAPs(self,layers,q_out,rainfall):
+    def diffuseLAPs(self,layers,q_out,enbal):
         # CONSTANTS
         PARTITION_COEF_BC = eb_prms.ksp_BC
         PARTITION_COEF_DUST = eb_prms.ksp_dust
@@ -391,26 +394,28 @@ class massBalance():
         ldm = layers.ldrymass[snow_firn_idx]
 
         # mBC/mdust is layer mass of species in kg m-2
-        mBC = layers.lBC[snow_firn_idx]
-        mdust = layers.ldust[snow_firn_idx]
+        mBC = layers.lBC[:,snow_firn_idx]
+        mdust = layers.ldust[:,snow_firn_idx]
         # cBC/cdust is layer mass mixing ratio in kg kg-1
         cBC = mBC / (lw + ldm)
         cdust = mdust / (lw + ldm)
 
-        # get mass of LAPs into the top layer
-        m_BC_in_top = rainfall*DENSITY_WATER*RAIN_CONC_BC
-        m_dust_in_top = rainfall*DENSITY_WATER*RAIN_CONC_DUST
+        # get wet deposition into top layer
+        m_BC_in_top = np.array([enbal.bc1wet,enbal.bc2wet])
+        m_dust_in_top = np.array([enbal.du1wet,enbal.du2wet,
+                                  enbal.du3wet,enbal.du4wet,enbal.du5wet])
+        # rainfall*DENSITY_WATER*RAIN_CONC_DUST
         if self.melted_layers != 0:
-            m_BC_in_top += np.sum(self.melted_layers.BC)
-            m_dust_in_top += np.sum(self.melted_layers.dust)
+            m_BC_in_top += np.sum(self.melted_layers.BC) / dt
+            m_dust_in_top += np.sum(self.melted_layers.dust) / dt
         m_BC_in_top *= PARTITION_COEF_BC
         m_dust_in_top *= PARTITION_COEF_DUST
 
-        # inward fluxes depend on previous layer or rainfall for top layer
-        m_BC_in = PARTITION_COEF_BC*q_out[:-1]*cBC[:-1]
-        m_dust_in = PARTITION_COEF_DUST*q_out[:-1]*cdust[:-1]
-        m_BC_in = np.append(m_BC_in_top,m_BC_in)
-        m_dust_in = np.append(m_dust_in_top,m_dust_in)
+        # inward fluxes = outward fluxes from previous layer
+        m_BC_in = PARTITION_COEF_BC*q_out[:-1]*cBC[:,:-1]
+        m_dust_in = PARTITION_COEF_DUST*q_out[:-1]*cdust[:,:-1]
+        m_BC_in = np.append(m_BC_in_top.reshape(-1,1),m_BC_in,axis=1)
+        m_dust_in = np.append(m_dust_in_top.reshape(-1,1),m_dust_in,axis=1)
         # outward fluxes are simply flow out * concentration of the layer
         m_BC_out = PARTITION_COEF_BC*q_out*cBC
         m_dust_out = PARTITION_COEF_DUST*q_out*cdust
@@ -420,8 +425,8 @@ class massBalance():
         dmdust = (m_dust_in - m_dust_out)*dt
         mBC += dmBC.astype(float)
         mdust += dmdust.astype(float)
-        layers.lBC[snow_firn_idx] = mBC
-        layers.ldust[snow_firn_idx] = mdust
+        layers.lBC[:,snow_firn_idx] = mBC
+        layers.ldust[:,snow_firn_idx] = mdust
         return
     
     def refreezing(self,layers):
@@ -596,7 +601,7 @@ class massBalance():
         TEMP_TEMP = eb_prms.temp_temp
         TEMP_DEPTH = eb_prms.temp_depth
 
-        # set temperature ice and get diffusing layer indices
+        # set temperate ice and heat-diffusing layer indices
         temperate_idx = np.where(layers.ldepth > TEMP_DEPTH)[0]
         diffusing_idx = np.arange(temperate_idx[0])
         layers.ltemp[temperate_idx] = TEMP_TEMP
@@ -803,8 +808,8 @@ class Output():
         self.layerwater_output[step] = layers.lwater
         self.layerheight_output[step] = layers.lheight
         self.layerdensity_output[step] = layers.ldensity
-        self.layerBC_output[step] = layers.lBC / layers.lheight * 1e6
-        self.layerdust_output[step] = layers.ldust / layers.lheight * 1e3
+        self.layerBC_output[step] = layers.lBC[0,:] / layers.lheight * 1e6
+        self.layerdust_output[step] = layers.ldust[0,:] / layers.lheight * 1e3
         self.layergrainsize_output[step] = layers.grainsize
 
     def storeData(self,bin):    
@@ -859,7 +864,7 @@ class Output():
                 ds['layerdust'].loc[:,bin,:] = layerdust_output
                 ds['layergrainsize'].loc[:,bin,:] = layergrainsize_output
         ds.to_netcdf(eb_prms.output_name+'.nc')
-        return
+        return ds
     
     def addVars(self):
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
@@ -890,3 +895,10 @@ class Output():
                 ds = ds.assign_attrs(glacier=eb_prms.glac_name)
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
+    
+    def addNewAttrs(self,new_attrs):
+        with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
+            ds = dataset.load()
+            ds = ds.assign_attrs(new_attrs)
+        ds.to_netcdf(eb_prms.output_name+'.nc')
+        return ds

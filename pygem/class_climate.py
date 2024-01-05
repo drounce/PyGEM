@@ -470,6 +470,20 @@ class AWS():
         self.LWin_vn = 'LWin'
         self.LWout_vn = 'LWout'
         self.NR_vn = 'NR'
+        self.bc1dry_vn = 'bc1dry'
+        self.bc2dry_vn = 'bc2dry'
+        self.bc1wet_vn = 'bc1wet'
+        self.bc2wet_vn = 'bc2wet'
+        self.du1dry_vn = 'du1dry'
+        self.du2dry_vn = 'du2dry'
+        self.du3dry_vn = 'du3dry'
+        self.du4dry_vn = 'du4dry'
+        self.du5dry_vn = 'du5dry'
+        self.du1wet_vn = 'du1wet'
+        self.du2wet_vn = 'du2wet'
+        self.du3wet_vn = 'du3wet'
+        self.du4wet_vn = 'du4wet'
+        self.du5wet_vn = 'du5wet'
         # File name
         self.fn = fp
         df = pd.read_csv(fp,index_col=0)
@@ -492,6 +506,20 @@ class AWS():
         self.wind = df[self.wind_vn].to_numpy()
         self.sp = df[self.sp_vn].to_numpy()
         self.elev = df[self.elev_vn].to_numpy()[0]
+        self.bc1dry = df[self.bc1dry_vn].to_numpy()
+        self.bc2dry = df[self.bc2dry_vn].to_numpy()
+        self.bc1wet = df[self.bc1wet_vn].to_numpy()
+        self.bc2wet = df[self.bc2wet_vn].to_numpy()
+        self.du1dry = df[self.du1dry_vn].to_numpy()
+        self.du2dry = df[self.du2dry_vn].to_numpy()
+        self.du3dry = df[self.du3dry_vn].to_numpy()
+        self.du4dry = df[self.du4dry_vn].to_numpy()
+        self.du5dry = df[self.du5dry_vn].to_numpy()
+        self.du1wet = df[self.du1wet_vn].to_numpy()
+        self.du2wet = df[self.du2wet_vn].to_numpy()
+        self.du3wet = df[self.du3wet_vn].to_numpy()
+        self.du4wet = df[self.du4wet_vn].to_numpy()
+        self.du5wet = df[self.du5wet_vn].to_numpy()
 
         # DATA WHICH MAY NOT BE IN FILE (NOT NEEDED)
         nans = np.ones_like(self.temp)*np.nan

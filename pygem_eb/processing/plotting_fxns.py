@@ -151,8 +151,9 @@ def plot_stake_snowdepth(stake_df,ds_list,time,labels,bin=0,t='Snow Depth Compar
         days = pd.date_range(start,end,freq='d')
     stake_df = stake_df.loc[days]
     for i,ds in enumerate(ds_list):
+        c = plt.cm.tab20(i)
         ds = ds.sel(time=time,bin=bin)
-        ax.plot(ds.coords['time'],ds.snowdepth.to_numpy()*100,label=labels[i])
+        ax.plot(ds.coords['time'],ds.snowdepth.to_numpy()*100,label=labels[i],color=c)
     ax.plot(stake_df.index,stake_df['snow_depth'].to_numpy(),label='Stake',linestyle='--')
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
@@ -185,8 +186,9 @@ def plot_stake_ablation(stake_df,ds_list,time,labels,bin=0,t='Stake Comparison')
         days = pd.date_range(start,end,freq='d')
     stake_df = stake_df.loc[days]
     for i,ds in enumerate(ds_list):
+        c = plt.cm.tab20(i)
         ds = ds.sel(time=time,bin=bin)
-        ax.plot(ds.coords['time'],ds.melt.cumsum(),label=labels[i])
+        ax.plot(ds.coords['time'],ds.melt.cumsum(),label=labels[i],color=c)
     ax.plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
@@ -263,8 +265,9 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq=res)
     for i,ds in enumerate(ds_list):
+        c = plt.cm.tab20(i)
         ds = ds.resample(time=res).mean(dim='time')
-        ax.plot(time,ds[var].sel(time=time),label=labels[i])
+        ax.plot(time,ds[var].sel(time=time),label=labels[i],color=c)
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_ylabel(var)

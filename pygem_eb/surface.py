@@ -165,12 +165,9 @@ class Surface():
                     self.albedo = self.runSNICAR(layers,override_grainsize=True)
             elif args.switch_melt == 1:
                 # BASIC DEGRADATION RATE
-                if self.stype == 'snow':
-                    age = self.days_since_snowfall
-                    snow_albedo = ALBEDO_FIRN+(ALBEDO_FRESH_SNOW-ALBEDO_FIRN)*(np.exp(-age/DEG_RATE))
-                    self.albedo = max(snow_albedo,eb_prms.albedo_firn)
-                else:
-                    self.albedo = self.albedo_dict[self.stype]
+                age = self.days_since_snowfall
+                aged_albedo = ALBEDO_FIRN+(ALBEDO_FRESH_SNOW-ALBEDO_FIRN)*(np.exp(-age/DEG_RATE))
+                self.albedo = max(aged_albedo,ALBEDO_FIRN)
             elif args.switch_melt == 2:
                 if args.switch_LAPs == 0:
                     # LAPs OFF, GRAIN SIZE ON
@@ -207,6 +204,7 @@ class Surface():
             Array containing subsurface melt amounts [kg m-2]
         """
         import biosnicar as snicar
+
         # CONSTANTS
         GRAINSIZE = eb_prms.constant_grainsize
 
@@ -233,25 +231,41 @@ class Surface():
             lgrainsize = [GRAINSIZE for _ in idx]
 
         # LAPs need to be a concentration in ppb
-        BC_conc = layers.lBC[idx] / layers.lheight[idx] * 1e6
-        dust_conc = layers.ldust[idx] / layers.lheight[idx] * 1e6
-        lBC = (BC_conc.astype(float)).tolist()
-        ldust = dust_conc.astype(float)
+        BC1 = layers.lBC[0,idx] / layers.lheight[idx] * 1e6
+        BC2 = layers.lBC[1,idx] / layers.lheight[idx] * 1e6
+        dust1 = layers.ldust[0,idx] / layers.lheight[idx] * 1e6
+        dust2 = layers.ldust[1,idx] / layers.lheight[idx] * 1e6
+        dust3 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6
+        dust4 = layers.ldust[3,idx] / layers.lheight[idx] * 1e6
+        dust5 = layers.ldust[4,idx] / layers.lheight[idx] * 1e6
+        lBC1 = (BC1.astype(float)).tolist()
+        lBC2 = (BC2.astype(float)).tolist()
+        ldust1 = (dust1.astype(float)).tolist()
+        ldust2 = (dust2.astype(float)).tolist()
+        ldust3 = (dust3.astype(float)).tolist()
+        ldust4 = (dust4.astype(float)).tolist()
+        ldust5 = (dust5.astype(float)).tolist()
         if override_LAPs:
-            lBC = [eb_prms.BC_freshsnow*1e6 for _ in idx]
-            ldust = np.array([eb_prms.dust_freshsnow*1e6 for _ in idx])
+            lBC1 = [eb_prms.BC_freshsnow*1e6 for _ in idx]
+            ldust1 = np.array([eb_prms.dust_freshsnow*1e6 for _ in idx]).tolist()
+            lBC1 = lBC1.copy()
+            ldust2 = ldust1.copy()
+            ldust3 = ldust1.copy()
+            ldust4 = ldust1.copy()
+            ldust5 = ldust1.copy()
 
         # Open and edit yaml input file for SNICAR
         with open(eb_prms.snicar_input_fp) as f:
             list_doc = yaml.safe_load(f)
 
         # Update changing layer variables
-        list_doc['IMPURITIES']['BC']['CONC'] = lBC
-        list_doc['IMPURITIES']['DUST1']['CONC'] = (ldust * 0.1).tolist()
-        list_doc['IMPURITIES']['DUST2']['CONC'] = (ldust * 0.2).tolist()
-        list_doc['IMPURITIES']['DUST3']['CONC'] = (ldust * 0.4).tolist()
-        list_doc['IMPURITIES']['DUST4']['CONC'] = (ldust * 0.2).tolist()
-        list_doc['IMPURITIES']['DUST5']['CONC'] = (ldust * 0.1).tolist()
+        list_doc['IMPURITIES']['BC1']['CONC'] = lBC1
+        list_doc['IMPURITIES']['BC2']['CONC'] = lBC2
+        list_doc['IMPURITIES']['DUST1']['CONC'] = ldust1
+        list_doc['IMPURITIES']['DUST2']['CONC'] = ldust2
+        list_doc['IMPURITIES']['DUST3']['CONC'] = ldust3
+        list_doc['IMPURITIES']['DUST4']['CONC'] = ldust4
+        list_doc['IMPURITIES']['DUST5']['CONC'] = ldust5
         list_doc['ICE']['DZ'] = lheight
         list_doc['ICE']['RHO'] = ldensity
         list_doc['ICE']['RDS'] = lgrainsize

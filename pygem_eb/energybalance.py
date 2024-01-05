@@ -42,8 +42,20 @@ class energyBalance():
             self.LWin_ds = climateds_now['LWin'].to_numpy()
             self.LWout_ds = climateds_now['LWout'].to_numpy()
             self.NR_ds = climateds_now['NR'].to_numpy()
-            self.depBC = climateds_now['depBC'].to_numpy()
-            self.depdust = climateds_now['depdust'].to_numpy()
+            self.bc1dry = climateds_now['bc1dry'].to_numpy()
+            self.bc2dry = climateds_now['bc2dry'].to_numpy()
+            self.bc1wet = climateds_now['bc1wet'].to_numpy()
+            self.bc2wet = climateds_now['bc2wet'].to_numpy()
+            self.du1dry = climateds_now['du1dry'].to_numpy()
+            self.du2dry = climateds_now['du2dry'].to_numpy()
+            self.du3dry = climateds_now['du3dry'].to_numpy()
+            self.du4dry = climateds_now['du4dry'].to_numpy()
+            self.du5dry = climateds_now['du5dry'].to_numpy()
+            self.du1wet = climateds_now['du1wet'].to_numpy()
+            self.du2wet = climateds_now['du2wet'].to_numpy()
+            self.du3wet = climateds_now['du3wet'].to_numpy()
+            self.du4wet = climateds_now['du4wet'].to_numpy()
+            self.du5wet = climateds_now['du5wet'].to_numpy()
         else: # DONT NEED THIS UNLESS I EVER DO SUBHOURLY RUNS
             # Timestep is between hours, so interpolate using interpClimate function
             # Bin-dependent variables indexed by bin_idx
@@ -193,14 +205,14 @@ class energyBalance():
             Qg = -eb_prms.k_ice * (surftemp - eb_prms.temp_temp) / eb_prms.temp_depth
         return Qg
     
-    def getTurbulentMO(self,surf_temp,roughness):
+    def getTurbulentMO(self,surftemp,roughness):
         """
         Calculates turbulent fluxes (sensible and latent heat) based on Monin-Obukhov Similarity 
         Theory, requiring iteration.
 
         Parameters
         ----------
-        surf_temp : float
+        surftemp : float
             Surface temperature of snowpack/ice [C]
         roughness : float
             Surface roughness [m]
@@ -222,9 +234,9 @@ class energyBalance():
             previous_zeta = zeta
             z = 2 #reference height, 2m
 
-            if Ql > 0 and surf_temp <=0:
+            if Ql > 0 and surftemp <=0:
                 Lv = eb_prms.Lv_evap
-            elif Ql > 0 and surf_temp > 0:
+            elif Ql > 0 and surftemp > 0:
                 Lv = eb_prms.Lv_sub
             elif Ql <= 0:
                 Lv = eb_prms.Lv_sub
@@ -245,10 +257,10 @@ class energyBalance():
             cD = karman**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
             cH = karman*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
             cE = karman*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
-            Qs = air_dens*eb_prms.Cp_air*cH*self.wind*(self.tempC-surf_temp)
+            Qs = air_dens*eb_prms.Cp_air*cH*self.wind*(self.tempC-surftemp)
 
             Ewz = self.vapor_pressure(self.tempC)  # vapor pressure at 2m
-            Ew0 = self.vapor_pressure(surf_temp) # vapor pressure at the surface
+            Ew0 = self.vapor_pressure(surftemp) # vapor pressure at the surface
             qz = (self.rH/100)*0.622*(Ewz/(self.sp-Ewz))
             q0 = 1.0*0.622*(Ew0/(self.sp-Ew0))
             Ql = air_dens*Lv*cE*self.wind*(qz-q0)
@@ -261,13 +273,23 @@ class energyBalance():
         return Qs, Ql
     
     def getDryDeposition(self, layers):
-        if np.isnan(self.depBC):
-            self.depBC = 1e-14 # kg m-2 s-1
-        if np.isnan(self.depdust):
-            self.depdust = 1e-13 # kg m-2 s-1
+        if np.isnan(self.bc1dry):
+            self.bc1dry = 1e-14 # kg m-2 s-1
+            self.bc2dry = 0
+        if np.isnan(self.du1dry):
+            self.du1dry = 1e-13 # kg m-2 s-1
+            self.du2dry = 1e-14
+            self.du3dry = 1e-14
+            self.du4dry = 1e-14
+            self.du5dry = 1e-14
 
-        layers.lBC[0] += self.depBC * self.dt
-        layers.ldust[0] += self.depdust * self.dt
+        layers.lBC[0,0] += self.bc1dry * self.dt
+        layers.lBC[1,0] += self.bc2dry * self.dt
+        layers.ldust[0,0] += self.du1dry * self.dt
+        layers.ldust[1,0] += self.du2dry * self.dt
+        layers.ldust[2,0] += self.du3dry * self.dt
+        layers.ldust[3,0] += self.du4dry * self.dt
+        layers.ldust[4,0] += self.du5dry * self.dt
         return 
     
     def getRoughnessLength(self,days_since_snowfall,layertype):

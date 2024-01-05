@@ -43,9 +43,9 @@ class Layers():
         self.ldrymass = ldensity*lheight    # LAYER DRY (SOLID) MASS [kg m-2]
         self.lwater = lwater                # LAYER WATER CONTENT [kg m-2]
 
-        # Initialize LAPs (black carbon and dust)
-        self.lBC = np.ones(self.nlayers)*eb_prms.BC_freshsnow*lheight     # BC MASS [kg m-2]
-        self.ldust = np.ones(self.nlayers)*eb_prms.dust_freshsnow*lheight # DUST MASS [kg m-2]
+        # Initialize LAPs (black carbon and dust) - rows are "bins"
+        self.lBC = np.ones((2,self.nlayers))*eb_prms.BC_freshsnow*lheight     # BC MASS [kg m-2]
+        self.ldust = np.ones((5,self.nlayers))*eb_prms.dust_freshsnow*lheight # DUST MASS [kg m-2]
 
         # Grain size initial timestep can copy density
         self.grainsize = self.ldensity.copy()   # LAYER GRAIN SIZE [um]
@@ -253,8 +253,10 @@ class Layers():
         # Only way to add a layer is with new snow, so layer new snow = layer dry mass
         self.lnewsnow = np.append(layers_to_add.loc['m'].values,self.lnewsnow)
         self.grainsize = np.append(eb_prms.fresh_grainsize,self.grainsize)
-        self.lBC = np.append(eb_prms.BC_freshsnow*self.lheight[0],self.lBC)
-        self.ldust = np.append(eb_prms.dust_freshsnow*self.lheight[0],self.ldust)
+        new_layer_BC = np.ones((2,1))* eb_prms.BC_freshsnow*self.lheight[0]
+        self.lBC = np.append(new_layer_BC,self.lBC,axis=1)
+        new_layer_dust = np.ones((5,1))* eb_prms.dust_freshsnow*self.lheight[0]
+        self.ldust = np.append(new_layer_dust,self.ldust,axis=1)
         self.updateLayerProperties()
         return
     
@@ -276,8 +278,8 @@ class Layers():
         self.lrefreeze = np.delete(self.lrefreeze,layer_to_remove)
         self.lnewsnow = np.delete(self.lnewsnow,layer_to_remove)
         self.grainsize = np.delete(self.grainsize,layer_to_remove)
-        self.lBC = np.delete(self.lBC,layer_to_remove)
-        self.ldust = np.delete(self.ldust,layer_to_remove)
+        self.lBC = np.delete(self.lBC,layer_to_remove,axis=1)
+        self.ldust = np.delete(self.ldust,layer_to_remove,axis=1)
         self.updateLayerProperties()
         return
     
@@ -302,10 +304,10 @@ class Layers():
             self.lrefreeze = np.insert(self.lrefreeze,l,self.lrefreeze[l])
             self.lnewsnow[l] = self.lnewsnow[l]/2
             self.lnewsnow = np.insert(self.lnewsnow,l,self.lnewsnow[l])
-            self.lBC[l] = self.lBC[l]/2
-            self.lBC = np.insert(self.lBC,l,self.lBC[l])
-            self.ldust[l] = self.ldust[l]/2
-            self.ldust = np.insert(self.ldust,l,self.ldust[l])
+            self.lBC[:,l] = self.lBC[:,l]/2
+            self.lBC = np.insert(self.lBC,l,self.lBC[:,l],axis=1)
+            self.ldust[:,l] = self.ldust[:,l]/2
+            self.ldust = np.insert(self.ldust,l,self.ldust[:,l],axis=1)
         self.updateLayerProperties()
         return
 
@@ -323,8 +325,8 @@ class Layers():
         self.lrefreeze[l+1] = np.sum(self.lrefreeze[l:l+2])
         self.lnewsnow[l+1] = np.sum(self.lnewsnow[l:l+2])
         self.grainsize[l+1] = np.mean(self.grainsize[l:l+2])
-        self.lBC[l+1] = np.sum(self.lBC[l:l+2])
-        self.ldust[l+1] = np.sum(self.ldust[l:l+2])
+        self.lBC[:,l+1] = np.sum(self.lBC[:,l:l+2],axis=1)
+        self.ldust[:,l+1] = np.sum(self.ldust[:,l:l+2],axis=1)
         self.removeLayer(l)
         return
     
@@ -401,7 +403,7 @@ class Layers():
                 layer += 1
         return
     
-    def addSnow(self,snowfall,enbal,surface,time):
+    def addSnow(self,snowfall,enbal,surface,args,timestamp):
         """
         Adds snowfall to the layer scheme. If the existing top layer is ice, the fresh snow is a new layer,
         otherwise it is merged with the top layer.
@@ -416,16 +418,16 @@ class Layers():
         store_surface = False
         snowfall += self.delayed_snow
 
-        if eb_prms.switch_snow == 0:
+        if args.switch_snow == 0:
             # Snow falls with the same properties as the current top layer
             # **** What to do when top layer is ice?
             new_density = self.ldensity[0]
             new_height = snowfall/new_density
             new_grainsize = self.grainsize[0]
-            new_BC = self.lBC[0]/self.lheight[0]*new_height
-            new_dust = self.ldust[0]/self.lheight[0]*new_height
+            new_BC = self.lBC[:,0]/self.lheight[0]*new_height
+            new_dust = self.ldust[:,0]/self.lheight[0]*new_height
             new_snow = 0
-        elif eb_prms.switch_snow == 1:
+        elif args.switch_snow == 1:
             if eb_prms.constant_snowfall_density:
                 new_density = eb_prms.density_fresh_snow
             else:
@@ -435,7 +437,7 @@ class Layers():
             new_BC = eb_prms.BC_freshsnow*new_height
             new_dust = eb_prms.dust_freshsnow*new_height
             new_snow = snowfall
-            surface.fresh_snow_timestamp = time
+            surface.snow_timestamp = timestamp
 
         # Conditions: if any are TRUE, create a new layer
         new_layer_conds = np.array([self.ltype[0] in 'ice',
@@ -454,12 +456,14 @@ class Layers():
         else:
             # take weighted average of density and temperature of surface layer and new snow
             new_layermass = self.ldrymass[0] + snowfall
-            self.lnewsnow[0] = snowfall
+            self.lnewsnow[0] = snowfall if eb_prms.switch_snow == 1 else 0
             self.ldensity[0] = (self.ldensity[0]*self.ldrymass[0] + new_density*snowfall)/(new_layermass)
             self.ltemp[0] = (self.ltemp[0]*self.ldrymass[0] + enbal.tempC*snowfall)/(new_layermass)
-            self.grainsize[0] = (self.grainsize[0]*self.ldrymass[0] + eb_prms.fresh_grainsize*snowfall)/(new_layermass)
+            self.grainsize[0] = (self.grainsize[0]*self.ldrymass[0] + new_grainsize*snowfall)/(new_layermass)
             self.ldrymass[0] = new_layermass
             self.lheight[0] += snowfall/new_density
+            self.lBC[:,0] = self.lBC[:,0] + new_BC
+            self.ldust[:,0] = self.ldust[:,0] + new_dust
             if self.lheight[0] > (eb_prms.dz_toplayer * 1.5):
                 self.splitLayer(0)
         self.updateLayerProperties()

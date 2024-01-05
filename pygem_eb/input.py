@@ -6,8 +6,8 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True          # Print monthly outputs?
-store_data=False    # Save file?
-new_file=True       # Write to scratch file?
+store_data=True     # Save file?
+new_file=False       # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
 glac_no = ['01.00570']
@@ -18,7 +18,7 @@ storage_freq = 'H'      # Frequency to store data using pandas offset aliases
 
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
-                            'AWS_fn':'Preprocessed/gulkanaD/gulkanaD_wERA5.csv',
+                            'AWS_fn':'Preprocessed/gulkanaD/gulkana_merra2.csv', # gulkanaD_wERA5.csv
                             # 'AWS_elev':1854,
                             'AWS_elev':1546, # 1854 is D, B is 1693, AB is 1546
                             'init_filepath':''},
@@ -35,12 +35,16 @@ glac_props = {'01.00570':{'name':'Gulkana',
             '16.02444':{'name':'Artesonraju',
                             'AWS_elev':4797,
                             'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
-gdir = oggm.single_flowline_glacier_directory(glac_no[0], logging_level='CRITICAL')
+gdir = oggm.single_flowline_glacier_directory(glac_no[0], logging_level='CRITICAL',has_internet=False)
 all_fls = oggm.get_glacier_zwh(gdir)
 fls = all_fls.iloc[np.nonzero(all_fls['h'].to_numpy())] # remove empty bins
 bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
 bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
 bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
+
+# FORCE MANUAL BECAUSE OGGM ISNT WORKING******
+# bin_elev = np.array([1546])
+# bin_ice_depth = np.array([200])
 
 # ========== DIRECTORIES AND FILEPATHS ========== 
 main_directory = os.getcwd()
@@ -120,33 +124,47 @@ constant_snowfall_density = False
 constant_conductivity = False
 
 # ALBEDO SWITCHES
-switch_snow = 0             # 0 to turn off fresh snow feedback; 1 to include it
-switch_melt = 1             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
+switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
+switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
 switch_LAPs = 1             # 0 to turn off LAPs; 1 to turn on
 BC_freshsnow = 1e-7         # concentration of BC in fresh snow [kg m-3]
 dust_freshsnow = 2e-4       # concentration of dust in fresh snow [kg m-3]
 # 1 kg m-3 = 1e6 ppb
 
 # ========== PARAMETERS ==========
-precgrad = 0.0001           # precipitation gradient on glacier [m-1]
-lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
-lapserate_dew = -0.002      # dew point temperature lapse rate [C m-1]
-tsnow_threshold = 0         # Threshold to consider freezing [C]
-kp = 1                      # precipitation factor [-] 
-temp_temp = -3              # temperature of temperate ice in Celsius
-temp_depth = 100            # depth where ice becomes temperate
-albedo_fresh_snow = 0.85    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)
-albedo_firn = 0.55          # Albedo of firn [-]
-albedo_ice = 0.3            # Albedo of ice [-] 
-roughness_fresh_snow = 0.24           # surface roughness length for fresh snow [mm] (Moelg et al. 2012, TC)
-roughness_ice = 1.7                   # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
-roughness_firn = 4.0                  # surface roughness length for aged snow [mm] (Moelg et al. 2012, TC)
-aging_factor_roughness = 0.06267      # effect of ageing on roughness length: 60 days from 0.24 to 4.0 => 0.06267
+params = {'precgrad':0.0001,
+          'lapserate':-0.0065,
+          'lapserate_dew':-0.002,
+          'tsnow_threshold':0,
+          'kp':1,
+          'temp_temp':-3,
+          'temp_depth':100,
+          'albedo_fresh_snow':0.85,
+          'albedo_firn':0.55,
+          'albedo_ice':0.3,
+          'roughness_fresh_snow':0.24,
+          'roughness_firn':4,
+          'roughness_ice':1.7,
+          'density_firn':700}
+
+precgrad = params['precgrad']           # precipitation gradient on glacier [m-1]
+lapserate = params['lapserate']         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
+lapserate_dew = params['lapserate_dew'] # dew point temperature lapse rate [C m-1]
+tsnow_threshold = params['tsnow_threshold']   # Threshold to consider freezing [C]
+kp = params['kp']                      # precipitation factor [-] 
+temp_temp = params['temp_temp']        # temperature of temperate ice in Celsius
+temp_depth = params['temp_depth']      # depth where ice becomes temperate
+albedo_fresh_snow = params['albedo_fresh_snow']    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)
+albedo_firn = params['albedo_firn']                # Albedo of firn [-]
+albedo_ice = params['albedo_ice']                  # Albedo of ice [-] 
+roughness_fresh_snow = params['roughness_fresh_snow']     # surface roughness length for fresh snow [mm] (Moelg et al. 2012, TC)
+roughness_ice = params['roughness_ice']                   # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
+roughness_firn = params['roughness_firn']                 # surface roughness length for aged snow [mm] (Moelg et al. 2012, TC)
+density_firn = params['density_firn']               # Density threshold for firn
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]
 density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
-density_firn = 700          # Density threshold for firn
 density_water = 1000        # Density of water [kg m-3]
 density_fresh_snow = 100    # ** For assuming constant density of fresh snowfall [kg m-3]
 k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1] recall (W = J s-1)
@@ -179,6 +197,8 @@ rainBC = BC_freshsnow       # concentration of BC in rain
 raindust = dust_freshsnow   # concentration of dust in rain
 ksp_BC = 0.1                # meltwater scavenging efficiency of BC (from CLM5)
 ksp_dust = 0.015            # meltwater scavenging efficiency of dust (from CLM5)
+aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
+
 
 # ========== OTHER PYGEM INPUTS ========== 
 rgi_regionsO1 = [1]
