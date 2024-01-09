@@ -209,13 +209,19 @@ class PyGEMMassBalance(MassBalanceModel):
         glacier_area_initial = self.glacier_area_initial
         fl_widths_m = getattr(fl, 'widths_m', None)
         fl_section = getattr(fl,'section',None)
+
         # Ice thickness (average)
         if fl_section is not None and fl_widths_m is not None:
             icethickness_t0 = np.zeros(fl_section.shape)
             icethickness_t0[fl_widths_m > 0] = fl_section[fl_widths_m > 0] / fl_widths_m[fl_widths_m > 0]
         else:
             icethickness_t0 = None
-
+        print('******************** attributes of the flowline at the time t0 ******************** ')
+        print('glacier_area_initial is:',glacier_area_initial)
+        print('glacier_area_t0 is:',glacier_area_t0)
+        print('the fl_widths_m at t0 is:',fl_widths_m)
+        print('the fl_section area at t0 is:',fl_section)
+        print('the ice thickness at t0 is:',icethickness_t0)
         # Quality control: ensure you only have glacier area where there is ice
         if icethickness_t0 is not None:
             glacier_area_t0[icethickness_t0 == 0] = 0
