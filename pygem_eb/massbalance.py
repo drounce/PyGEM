@@ -50,8 +50,6 @@ class massBalance():
         layers = self.layers
         surface = self.surface
         dt = self.dt
-        print('PRECIPITATION GRADIENT',eb_prms.precgrad)
-        print('LAPSE RATE',eb_prms.lapserate)
 
         # ===== ENTER TIME LOOP =====
         for time in self.time_list:
@@ -60,6 +58,11 @@ class massBalance():
 
             # Initiate the energy balance to unpack climate data
             enbal = eb.energyBalance(climateds,time,self.bin_idx,dt)
+
+            # Update layers (checks for tiny or huge layers)
+            layers.updateLayers()
+            if layers.lheight[0] < 1e-3:
+                print('update layers still tiny!!',layers.lheight[0])
 
             # Get rain and snowfall amounts [kg m-2]
             rain,snowfall = self.getPrecip(enbal)
@@ -102,11 +105,6 @@ class massBalance():
                 runoff = self.percolation(enbal,layers,layermelt,rain)
             else:
                 runoff = rain + np.sum(layermelt)
-            
-            # Update layers (checks for tiny or huge layers)
-            layers.updateLayers()
-            if layers.lheight[0] < 1e-3:
-                print('update layers still tiny!!',layers.lheight[0])
 
             # Recalculate the temperature profile considering conduction, unless glacier is isothermal
             if np.abs(np.sum(layers.ltemp)) != 0.:
@@ -401,9 +399,9 @@ class massBalance():
         cdust = mdust / (lw + ldm)
 
         # get wet deposition into top layer
-        m_BC_in_top = np.array([enbal.bc1wet,enbal.bc2wet])
-        m_dust_in_top = np.array([enbal.du1wet,enbal.du2wet,
-                                  enbal.du3wet,enbal.du4wet,enbal.du5wet])
+        m_BC_in_top = np.array([enbal.bc1wet,enbal.bc1wet]) #********
+        m_dust_in_top = np.array([enbal.du3wet,enbal.du3wet,
+                                  enbal.du3wet,enbal.du3wet,enbal.du3wet])
         # rainfall*DENSITY_WATER*RAIN_CONC_DUST
         if self.melted_layers != 0:
             m_BC_in_top += np.sum(self.melted_layers.BC) / dt

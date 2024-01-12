@@ -142,6 +142,57 @@ class GCM():
                 self.rgi_lat_colname=pygem_prms.rgi_lat_colname
                 self.rgi_lon_colname=pygem_prms.rgi_lon_colname
 
+            if self.name == 'MERRA2' and pygem_prms.run_eb:
+                # Variable names for energy balance
+                self.temp_vn = 't2m'
+                self.dtemp_vn = 'd2m'
+                self.sp_vn = 'sp'
+                self.prec_vn = 'tp'
+                self.elev_vn = 'z'
+                self.tcc_vn = 'tcc'
+                self.SWin_vn = 'ssrd'
+                self.LWin_vn = 'strd'
+                self.uwind_vn = 'u10'
+                self.vwind_vn = 'v10'
+                self.lat_vn = 'latitude'
+                self.lon_vn = 'longitude'
+                self.time_vn = 'time'
+                self.bc1dry_vn = 'bc1dry'
+                self.bc2dry_vn = 'bc2dry'
+                self.bc1wet_vn = 'bc1wet'
+                self.bc2wet_vn = 'bc2wet'
+                self.du1dry_vn = 'du1dry'
+                self.du2dry_vn = 'du2dry'
+                self.du3dry_vn = 'du3dry'
+                self.du4dry_vn = 'du4dry'
+                self.du5dry_vn = 'du5dry'
+                self.du1wet_vn = 'du1wet'
+                self.du2wet_vn = 'du2wet'
+                self.du3wet_vn = 'du3wet'
+                self.du4wet_vn = 'du4wet'
+                self.du5wet_vn = 'du5wet'
+                # self.lr_vn = 'lapserate'
+                # Variable filenames
+                self.temp_fn = 'ERA5_temp_hourly.nc'
+                self.dtemp_fn = 'ERA5_dtemp_hourly.nc'
+                self.sp_fn = 'ERA5_sp_hourly.nc'
+                self.tcc_fn = 'ERA5_tcc_hourly.nc'
+                self.LWin_fn = 'ERA5_LWin_hourly.nc'
+                self.SWin_fn = 'ERA5_SWin_hourly.nc'
+                self.vwind_fn = 'ERA5_vwind_hourly.nc'
+                self.uwind_fn = 'ERA5_uwind_hourly.nc'
+                self.prec_fn = 'ERA5_precip_hourly.nc'
+                self.elev_fn = pygem_prms.era5_elev_fn
+                self.adg_fn = 'MERRA2_adg'
+                # self.lr_fn = 'lapserates_hourly.nc' 
+                # Variable filepaths
+                self.var_fp = pygem_prms.era5h_fp
+                self.fx_fp = pygem_prms.era5h_fp
+                # Extra information
+                self.timestep = pygem_prms.timestep
+                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+
             if self.name == 'ERA5-hourly' and pygem_prms.run_eb:
                 # Variable names for energy balance
                 self.temp_vn = 't2m'

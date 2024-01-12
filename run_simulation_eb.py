@@ -26,9 +26,9 @@ def getparser():
                         help='pass str-like datetime of model run start')
     parser.add_argument('-store_data', action='store_true', default=eb_prms.store_data,
                         help='')
-    parser.add_argument('-new_file', action='store_true', default=eb_prms.store_data,
+    parser.add_argument('-new_file', action='store_true', default=eb_prms.new_file,
                         help='')
-    parser.add_argument('-debug', action='store_true', default=eb_prms.store_data,
+    parser.add_argument('-debug', action='store_true', default=eb_prms.debug,
                         help='')
     parser.add_argument('-n_bins',action='store',type=int,default=eb_prms.n_bins,
                         help='number of elevation bins')

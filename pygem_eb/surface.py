@@ -232,7 +232,7 @@ class Surface():
 
         # LAPs need to be a concentration in ppb
         BC1 = layers.lBC[0,idx] / layers.lheight[idx] * 1e6
-        BC2 = layers.lBC[1,idx] / layers.lheight[idx] * 1e6
+        BC2 = layers.lBC[1,idx] / layers.lheight[idx] * 1e6 
         dust1 = layers.ldust[0,idx] / layers.lheight[idx] * 1e6
         dust2 = layers.ldust[1,idx] / layers.lheight[idx] * 1e6
         dust3 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6

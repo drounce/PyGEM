@@ -7,7 +7,7 @@ import pygem.oggm_compat as oggm
 
 debug=True          # Print monthly outputs?
 store_data=True     # Save file?
-new_file=False       # Write to scratch file?
+new_file=True       # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
 glac_no = ['01.00570']
@@ -62,6 +62,7 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
+output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_noLAPbins'
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
@@ -132,43 +133,28 @@ dust_freshsnow = 2e-4       # concentration of dust in fresh snow [kg m-3]
 # 1 kg m-3 = 1e6 ppb
 
 # ========== PARAMETERS ==========
-params = {'precgrad':0.0001,
-          'lapserate':-0.0065,
-          'lapserate_dew':-0.002,
-          'tsnow_threshold':0,
-          'kp':1,
-          'temp_temp':-3,
-          'temp_depth':100,
-          'albedo_fresh_snow':0.85,
-          'albedo_firn':0.55,
-          'albedo_ice':0.3,
-          'roughness_fresh_snow':0.24,
-          'roughness_firn':4,
-          'roughness_ice':1.7,
-          'density_firn':700}
-
-precgrad = params['precgrad']           # precipitation gradient on glacier [m-1]
-lapserate = params['lapserate']         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
-lapserate_dew = params['lapserate_dew'] # dew point temperature lapse rate [C m-1]
-tsnow_threshold = params['tsnow_threshold']   # Threshold to consider freezing [C]
-kp = params['kp']                      # precipitation factor [-] 
-temp_temp = params['temp_temp']        # temperature of temperate ice in Celsius
-temp_depth = params['temp_depth']      # depth where ice becomes temperate
-albedo_fresh_snow = params['albedo_fresh_snow']    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)
-albedo_firn = params['albedo_firn']                # Albedo of firn [-]
-albedo_ice = params['albedo_ice']                  # Albedo of ice [-] 
-roughness_fresh_snow = params['roughness_fresh_snow']     # surface roughness length for fresh snow [mm] (Moelg et al. 2012, TC)
-roughness_ice = params['roughness_ice']                   # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
-roughness_firn = params['roughness_firn']                 # surface roughness length for aged snow [mm] (Moelg et al. 2012, TC)
-density_firn = params['density_firn']               # Density threshold for firn
+precgrad = 0.0001           # precipitation gradient on glacier [m-1]
+lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
+tsnow_threshold = 0         # Threshold below which snowfall occurs [C]
+kp = 1                      # precipitation factor [-] 
+fresh_grainsize = 54.5      # Grainsize of fresh snow [um]
+albedo_ice = 0.3            # Albedo of ice [-] 
+roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
+ksp_BC = 0.1                # meltwater scavenging efficiency of BC (from CLM5)
+ksp_dust = 0.015            # meltwater scavenging efficiency of dust (from CLM5)
+dz_toplayer = 0.03          # Thickness of the uppermost bin [m]
+layer_growth = 0.6          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
+k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]
 density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
 density_water = 1000        # Density of water [kg m-3]
 density_fresh_snow = 100    # ** For assuming constant density of fresh snowfall [kg m-3]
-k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1] recall (W = J s-1)
+density_firn = 700          # Density threshold for firn
+# k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 k_air = 0.023               # Thermal conductivity of air [W K-1 m-1] (Mellor, 1997)
+lapserate_dew = -0.002       # dew point temperature lapse rate [C m-1]
 Lh_rf = 333550              # Latent heat of fusion of ice [J kg-1]
 gravity = 9.81              # Gravity [m s-2]
 pressure_std = 101325       # Standard pressure [Pa]
@@ -183,22 +169,25 @@ Lv_sub = 2.849e6            # latent heat of sublimation [J kg-1]
 karman = 0.4                # von Karman's constant
 density_std = 1.225         # Air density at sea level [kg m-3]
 viscosity_snow = 3.7e7      # Viscosity of snow [Pa-s] 
-dz_toplayer = 0.03          # Thickness of the uppermost bin [m]
-layer_growth = 0.6          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
+# dz_toplayer = 0.03          # Thickness of the uppermost bin [m]
+# layer_growth = 0.6          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
 sigma_SB = 5.67037e-8       # Stefan-Boltzmann constant [W m-2 K-4]
 max_nlayers = 20            # Maximum number of vertical layers allowed
 max_dz = 1                  # Max layer height
 albedo_deg_rate = 15        # Rate of exponential decay of albedo
 wet_snow_C = 4.22e-13       # Constant for wet snow metamorphosis [m3 s-1]
-fresh_grainsize = 54.5      # Grainsize of fresh snow [um]
+# fresh_grainsize = 54.5      # Grainsize of fresh snow [um]
 constant_grainsize = 1000   # Grainsize to treat as constant if switch_melt is 0 [um]
 Sr = 0.033                  # for irreducible water content flow method
 rainBC = BC_freshsnow       # concentration of BC in rain
 raindust = dust_freshsnow   # concentration of dust in rain
-ksp_BC = 0.1                # meltwater scavenging efficiency of BC (from CLM5)
-ksp_dust = 0.015            # meltwater scavenging efficiency of dust (from CLM5)
 aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
-
+temp_temp = -3              # temperature of temperate ice [C]
+temp_depth = 100            # depth of temperate ice [m]
+albedo_fresh_snow = 0.85    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)
+albedo_firn = 0.55          # Albedo of firn [-]
+roughness_fresh_snow = 0.24 # surface roughness length for fresh snow [mm] (Moelg et al. 2012, TC)
+roughness_firn = 4          # surface roughness length for firn [mm] (Moelg et al. 2012, TC)
 
 # ========== OTHER PYGEM INPUTS ========== 
 rgi_regionsO1 = [1]
@@ -215,7 +204,7 @@ logging_level = 'DEBUG' # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recom
 option_leapyear = 1 # 0 to exclude leap years
 
 # Reference period runs (runs up to present)
-ref_gcm_name = 'ERA5-hourly'        # reference climate dataset
+ref_gcm_name = 'MERRA2'        # reference climate dataset ('ERA5-hourly' or 'MERRA2')
 ref_startyear = 1980                # first year of model run (reference dataset)
 ref_endyear = 2019                  # last year of model run (reference dataset)
 ref_wateryear = 'calendar'          # options for years: 'calendar', 'hydro', 'custom'

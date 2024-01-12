@@ -3,6 +3,7 @@ import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from sklearn.metrics import mean_squared_error
 
 mpl.style.use('seaborn')
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color'] 
@@ -265,17 +266,94 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq=res)
     for i,ds in enumerate(ds_list):
-        c = plt.cm.tab20(i)
-        ds = ds.resample(time=res).mean(dim='time')
-        ax.plot(time,ds[var].sel(time=time),label=labels[i],color=c)
+        c = plt.cm.Dark2(i)
+        if var in ['melt','runoff','refreeze','accum','MB']:
+            ds_resampled = ds.resample(time=res).sum()
+            ax.plot(time,ds_resampled[var].sel(time=time).cumsum(),label=labels[i],color=c,linewidth=0.8)
+        else:
+            ds_resampled = ds.resample(time=res).mean()
+            ax.plot(time,ds_resampled[var].sel(time=time),label=labels[i],color=c,linewidth=0.8)
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_ylabel(var)
     ax.legend()
     fig.suptitle(t)
     plt.show()
-
     return
+
+def panel_MB_compare(ds_list,time,sens_fn,stake_df,res='d',t=''):
+    """
+    Returns a comparison of different model runs
+
+    Parameters
+    ----------
+    ds_list : list of xr.Datasets
+        List of model output datasets to plot melt
+    labels : list of str
+        List of same length as ds_list containing labels to plot
+    time : list-like   
+        Either len-2 list of start date, end date, or a list of datetimes
+    var : str
+        List of vars to plot as named in ds
+    res : str
+        Abbreviated time resolution to plot (e.g. '12h' or 'd')
+    t : str
+        Title of plot
+    """
+    w = 2 # width of each plot
+    n = int(np.ceil(len(ds_list)/2))
+    n = 2 if n == 1 else n
+
+    sens_out = np.load(sens_fn,allow_pickle=True).item()
+    titles = [i.split('=')[0] for i in list(sens_out.keys())]
+    labels = [i.split('=')[1]+': '+str(sens_out[i])[0:5] for i in list(sens_out.keys())]
+
+    fig,ax = plt.subplots(1,n,sharex=True,figsize=(w*n,6),layout='constrained')
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq=res)
+    stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
+    stake_df = stake_df.loc[time]
+
+    plot_idx = 0
+    c_iter = iter(plt.cm.Dark2(np.linspace(0,1,8)))
+    for i,ds in enumerate(ds_list):
+        try:
+            c = next(c_iter)
+        except:
+            c_iter = iter([plt.cm.Dark2(i) for i in range(8)])
+            c = next(c_iter)
+        # get cumulative daily melt array
+        daily_melt_MODEL = ds.resample(time='d').sum().sel(time=time)
+        daily_cum_melt_MODEL = daily_melt_MODEL['melt'].cumsum().to_numpy()
+
+        # plot daily melt
+        ax[plot_idx].plot(time,daily_cum_melt_MODEL,label=labels[i],color=c,linewidth=0.8)
+        ax[plot_idx].set_title(titles[plot_idx])
+        ax[plot_idx].legend()
+        if i % 2 != 0:
+            ax[plot_idx].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
+            plot_idx += 1
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax[plot_idx-1].xaxis.set_major_formatter(date_form)
+    fig.suptitle(t)
+    plt.show()
+    return
+
+def build_RMSEs(ds_list,stake_df,time,labels,fn='sensitivity.npy'):
+    # get stake data into right format
+    stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
+    stake_df = stake_df.loc[time[0]:time[1]]
+    daily_cum_melt_DATA = np.cumsum(stake_df['melt'].to_numpy())
+    sens_out = {}
+    for i,ds in enumerate(ds_list):
+        daily_melt_MODEL = ds.resample(time='d').sum().sel(bin=0)
+        daily_cum_melt_MODEL = daily_melt_MODEL['melt'].cumsum().to_numpy()
+        melt_mse = mean_squared_error(daily_cum_melt_DATA,daily_cum_melt_MODEL)
+        melt_rmse = np.mean(melt_mse)
+        sens_out[labels[i]] = melt_rmse
+    np.save(fn,sens_out)
 
 def plot_iButtons(ds,bin,dates,path=None,snow_only=True):
     if not path:
@@ -597,13 +675,15 @@ def plot_layers(ds,vars,dates):
     # fig.supxlabel(varprops[var]['label'])
     return
 
-def plot_single_layer(ds,layer,vars,time,cumMB=False,t=''):
+def plot_single_layer(ds,layer,vars,time,cumMB=False,t='',vline=None):
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq='h')
     fig,axes = plt.subplots(len(vars),sharex=True,figsize=(8,1.2*len(vars)),layout='constrained')
     for i,var in enumerate(vars):
+        if vline:
+            axes[i].axvline(vline,c='r',linewidth=0.6)
         for bin in ds.coords['bin'].values:
             if 'layer' in var:
                 lprop = ds.sel(time=time,bin=bin,layer=layer)[var].to_numpy()
