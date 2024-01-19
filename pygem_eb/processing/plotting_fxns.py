@@ -308,7 +308,10 @@ def panel_MB_compare(ds_list,time,sens_fn,stake_df,res='d',t=''):
     titles = [i.split('=')[0] for i in list(sens_out.keys())]
     labels = [i.split('=')[1]+': '+str(sens_out[i])[0:5] for i in list(sens_out.keys())]
 
-    fig,ax = plt.subplots(1,n,sharex=True,figsize=(w*n,6),layout='constrained')
+    if n < 6:
+        fig,ax = plt.subplots(1,n,sharex=True,figsize=(w*n,6),layout='constrained')
+    else:
+        fig,ax = plt.subplots(2,int(n/2),sharex=True,figsize=(w*n/2,6),layout='constrained')
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
@@ -317,26 +320,48 @@ def panel_MB_compare(ds_list,time,sens_fn,stake_df,res='d',t=''):
     stake_df = stake_df.loc[time]
 
     plot_idx = 0
+    row = 0
     c_iter = iter(plt.cm.Dark2(np.linspace(0,1,8)))
+    date_form = mpl.dates.DateFormatter('%d %b')
     for i,ds in enumerate(ds_list):
         try:
             c = next(c_iter)
         except:
             c_iter = iter([plt.cm.Dark2(i) for i in range(8)])
             c = next(c_iter)
+
         # get cumulative daily melt array
         daily_melt_MODEL = ds.resample(time='d').sum().sel(time=time)
         daily_cum_melt_MODEL = daily_melt_MODEL['melt'].cumsum().to_numpy()
+        
+        if i % 2 == 0:
+            if n < 6:
+                ax[plot_idx].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
+            else:
+                try:
+                    ax[row,plot_idx].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
+                except:
+                    ax[row+1,plot_idx-int(n/2)].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
 
         # plot daily melt
-        ax[plot_idx].plot(time,daily_cum_melt_MODEL,label=labels[i],color=c,linewidth=0.8)
-        ax[plot_idx].set_title(titles[plot_idx])
-        ax[plot_idx].legend()
+        if n < 6:
+            ax[plot_idx].plot(time,daily_cum_melt_MODEL,label=labels[i],color=c,linewidth=0.8)
+            ax[plot_idx].set_title(titles[i])
+            ax[plot_idx].xaxis.set_major_formatter(date_form)
+            ax[plot_idx].legend()
+        else:
+            try:
+                ax[row,plot_idx].plot(time,daily_cum_melt_MODEL)
+                ax[row,plot_idx].xaxis.set_major_formatter(date_form)
+            except:
+                row += 1
+                plot_idx -= int(n/2)
+            ax[row,plot_idx].plot(time,daily_cum_melt_MODEL,label=labels[i],color=c,linewidth=0.8)
+            ax[row,plot_idx].set_title(titles[i])
+            ax[row,plot_idx].xaxis.set_major_formatter(date_form)
+            ax[row,plot_idx].legend()
         if i % 2 != 0:
-            ax[plot_idx].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
             plot_idx += 1
-    date_form = mpl.dates.DateFormatter('%d %b')
-    ax[plot_idx-1].xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
     plt.show()
     return
@@ -355,38 +380,38 @@ def build_RMSEs(ds_list,stake_df,time,labels,fn='sensitivity.npy'):
         sens_out[labels[i]] = melt_rmse
     np.save(fn,sens_out)
 
-def plot_iButtons(ds,bin,dates,path=None,snow_only=True):
+def plot_iButtons(ds,bin,dates,path=None):
     if not path:
         path = '/home/claire/research/MB_data/Gulkana/field_data/iButton_2023_all.csv'
     df = pd.read_csv(path,index_col=0)
     df = df.set_index(pd.to_datetime(df.index)- pd.Timedelta(hours=8))
     df = df[pd.to_datetime('04-18-2023 00:00'):]
-    depth_0 = np.array([.1,.4,.8,1.2,1.6,2,2.4,2.8,3.2,3.5])
+    depth_0 = 3.5 - np.array([.1,.4,.8,1.2,1.6,2,2.4,2.8,3.2,3.5])
 
     fig,axes = plt.subplots(1,len(dates),sharey=True,sharex=True,figsize=(8,4)) #,sharex=True,sharey='row'
     for i,date in enumerate(dates):
         # Extract layer heights
         lheight = ds.sel(time=date,bin=bin)['layerheight'].to_numpy()
-        # Index by full bins
-        if snow_only:
-            density = ds.sel(time=date,bin=bin)['layerdensity'].to_numpy()
-            density[np.where(np.isnan(density))[0]] = 1e5
-            full_bins = np.where(density < 700)
-        else:
-            full_bins = np.array([not y for y in np.isnan(lheight)])
+        # Index snow bins
+        density = ds.sel(time=date,bin=bin)['layerdensity'].to_numpy()
+        density[np.where(np.isnan(density))[0]] = 1e5
+        full_bins = np.where(density < 700)
+        
+        # full_bins = np.array([not y for y in np.isnan(lheight)])
         lheight = lheight[full_bins]
+        icedepth = np.sum(lheight) + lheight[-1] / 2
         # Get property and absolute depth
         lprop = ds.sel(time=date,bin=bin)['layertemp'].to_numpy()[full_bins]
-        ldepth = -1*np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
+        ldepth = np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
+        height_above_ice = icedepth - ldepth
         # Plot output data
-        axes[i].plot(lprop,ldepth,label='Model')
+        axes[i].plot(lprop,height_above_ice,label='Model')
 
         # Plot iButton data
         snowdepth = ds.sel(time=date,bin=bin)['snowdepth'].to_numpy()
         tempdata = df.loc[date].to_numpy()
-        depth = depth_0 + (snowdepth - 3.5)
-        idx = np.where(depth > 0)
-        axes[i].plot(tempdata[idx],-depth[idx],label='iButton')
+        idx = np.where(depth_0 < snowdepth)
+        axes[i].plot(tempdata[idx],depth_0[idx],label='iButton')
 
         axes[i].set_title(str(date)[:10])
     axes[0].legend()

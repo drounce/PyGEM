@@ -38,11 +38,11 @@ def getparser():
                         help='')
     parser.add_argument('-switch_snow',action='store', type=int, default=eb_prms.switch_snow,
                         help='')
+    parser.add_argument("-f", "--fff", help="a dummy argument to fool ipython", default="1")
     return parser
 
-def run_model(new_attrs):
-    # Start timer and initialize argparse and utility functions
-    start_time = time.time()
+def initialize_model(debug=True):
+    # Initialize argparse and utility functions
     parser = getparser()
     args = parser.parse_args()
     n_bins = args.n_bins
@@ -157,6 +157,12 @@ def run_model(new_attrs):
             bin=(['bin'],bin_idx),
             time=(['time'],dates)
             ))
+    
+    return climateds,dates_table,utils,args
+
+def run_model(climateds,dates_table,utils,args,new_attrs):
+    # Start timer
+    start_time = time.time()
 
     # ===== RUN ENERGY BALANCE =====
     if eb_prms.parallel:
@@ -188,4 +194,5 @@ def run_model(new_attrs):
     
     return ds_out
 
-out = run_model({'Params?':'False'})
+climateds,dates_table,utils,args = initialize_model()
+out = run_model(climateds,dates_table,utils,args,{'Params?':'False'})

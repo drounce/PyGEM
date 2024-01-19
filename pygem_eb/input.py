@@ -62,7 +62,7 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
-output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_noLAPbins'
+# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_base'
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
@@ -126,7 +126,7 @@ constant_conductivity = False
 
 # ALBEDO SWITCHES
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
-switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
+switch_melt = 1             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
 switch_LAPs = 1             # 0 to turn off LAPs; 1 to turn on
 BC_freshsnow = 1e-7         # concentration of BC in fresh snow [kg m-3]
 dust_freshsnow = 2e-4       # concentration of dust in fresh snow [kg m-3]
@@ -145,6 +145,9 @@ ksp_dust = 0.015            # meltwater scavenging efficiency of dust (from CLM5
 dz_toplayer = 0.03          # Thickness of the uppermost bin [m]
 layer_growth = 0.6          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
 k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
+aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
+albedo_TOD = 0              # Time of day to calculate albedo [hr]
+initSSA = 100                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]
@@ -181,7 +184,6 @@ constant_grainsize = 1000   # Grainsize to treat as constant if switch_melt is 0
 Sr = 0.033                  # for irreducible water content flow method
 rainBC = BC_freshsnow       # concentration of BC in rain
 raindust = dust_freshsnow   # concentration of dust in rain
-aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 temp_temp = -3              # temperature of temperate ice [C]
 temp_depth = 100            # depth of temperate ice [m]
 albedo_fresh_snow = 0.85    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)

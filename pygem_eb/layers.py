@@ -30,7 +30,7 @@ class Layers():
         initial_sfi = np.array([snow_depth,firn_depth,ice_depth])
 
         # Calculate the layer depths based on initial snow, firn and ice depths
-        lheight,ldepth,ltype,nlayers = self.getLayers(initial_sfi)
+        lheight,ldepth,ltype,nlayers = self.makeLayers(initial_sfi)
         self.nlayers = nlayers              # NUMBER OF LAYERS
         self.ltype = ltype                  # LAYER TYPE (snow, firn, or ice)
         self.lheight = lheight              # LAYER HEIGHT (dz) [m]
@@ -55,9 +55,9 @@ class Layers():
 
         # Initialize RF model for grain size lookups
         if eb_prms.method_grainsizetable in ['ML']:
-            self.tau_rf,_,_ = utils.getGrainSizeModel(initSSA=80,var='taumat')
-            self.kap_rf,_,_ = utils.getGrainSizeModel(initSSA=80,var='kapmat')
-            self.dr0_rf,_,_ = utils.getGrainSizeModel(initSSA=80,var='dr0mat')
+            self.tau_rf,_,_ = utils.getGrainSizeModel(initSSA=eb_prms.initSSA,var='taumat')
+            self.kap_rf,_,_ = utils.getGrainSizeModel(initSSA=eb_prms.initSSA,var='kapmat')
+            self.dr0_rf,_,_ = utils.getGrainSizeModel(initSSA=eb_prms.initSSA,var='dr0mat')
         
         # Additional layer properties
         self.updateLayerProperties()
@@ -68,7 +68,7 @@ class Layers():
         print(f'{self.nlayers} layers initialized for bin {bin_no}')
         return 
     
-    def getLayers(self,initial_sfi):
+    def makeLayers(self,initial_sfi):
         """
         Initializes layer depths based on an exponential growth function with prescribed rate 
         of growth and initial layer heights (from pygem_input). 
@@ -251,11 +251,11 @@ class Layers():
         self.ldrymass = np.append(layers_to_add.loc['m'].values,self.ldrymass)
         self.lrefreeze = np.append(0,self.lrefreeze)
         # Only way to add a layer is with new snow, so layer new snow = layer dry mass
-        self.lnewsnow = np.append(layers_to_add.loc['m'].values,self.lnewsnow)
-        self.grainsize = np.append(eb_prms.fresh_grainsize,self.grainsize)
-        new_layer_BC = np.ones((2,1))* eb_prms.BC_freshsnow*self.lheight[0]
+        self.lnewsnow = np.append(layers_to_add.loc['new'].values,self.lnewsnow)
+        self.grainsize = np.append(layers_to_add.loc['g'].values,self.grainsize)
+        new_layer_BC = np.ones((2,1))*layers_to_add.loc['BC'].values*self.lheight[0]
         self.lBC = np.append(new_layer_BC,self.lBC,axis=1)
-        new_layer_dust = np.ones((5,1))* eb_prms.dust_freshsnow*self.lheight[0]
+        new_layer_dust = np.ones((5,1))*layers_to_add.loc['dust'].values*self.lheight[0]
         self.ldust = np.append(new_layer_dust,self.ldust,axis=1)
         self.updateLayerProperties()
         return

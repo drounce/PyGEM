@@ -80,6 +80,7 @@ class massBalance():
                 surface.updateSurfaceDaily(layers,time)
                 self.days_since_snowfall = surface.days_since_snowfall
                 layers.lnewsnow = np.zeros(layers.nlayers)
+            if time.hour == eb_prms.albedo_TOD:
                 surface.getAlbedo(layers)
 
             # Calculate surface energy balance by updating surface temperature
@@ -399,9 +400,11 @@ class massBalance():
         cdust = mdust / (lw + ldm)
 
         # get wet deposition into top layer
-        m_BC_in_top = np.array([enbal.bc1wet,enbal.bc1wet]) #********
-        m_dust_in_top = np.array([enbal.du3wet,enbal.du3wet,
-                                  enbal.du3wet,enbal.du3wet,enbal.du3wet])
+        m_BC_in_top = np.array([enbal.bc1wet,enbal.bc2wet]) 
+        m_dust_in_top = np.array([enbal.du1wet,enbal.du2wet,
+                                  enbal.du3wet,enbal.du4wet,enbal.du5wet])
+        # m_dust_in_top = np.array([enbal.du3wet,enbal.du3wet,
+        #                           enbal.du3wet,enbal.du3wet,enbal.du3wet])
         # rainfall*DENSITY_WATER*RAIN_CONC_DUST
         if self.melted_layers != 0:
             m_BC_in_top += np.sum(self.melted_layers.BC) / dt
