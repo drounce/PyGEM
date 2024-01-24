@@ -191,6 +191,9 @@ def run_model(climateds,dates_table,utils,args,new_attrs):
         massbal.output.addAttrs(args,time_elapsed)
         ds_out = massbal.output.addNewAttrs(new_attrs)
         print('Success: saving to',eb_prms.output_name+'.nc')
+    else:
+        print('Success: data was not saved')
+        ds_out = None
     
     return ds_out
 

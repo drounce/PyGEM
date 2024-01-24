@@ -270,6 +270,9 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
         if var in ['melt','runoff','refreeze','accum','MB']:
             ds_resampled = ds.resample(time=res).sum()
             ax.plot(time,ds_resampled[var].sel(time=time).cumsum(),label=labels[i],color=c,linewidth=0.8)
+        elif 'layer' in var:
+            ds_resampled = ds.resample(time=res).mean()
+            ax.plot(time,ds_resampled[var].sel(time=time,layer=0),label=labels[i],color=c,linewidth=0.8)
         else:
             ds_resampled = ds.resample(time=res).mean()
             ax.plot(time,ds_resampled[var].sel(time=time),label=labels[i],color=c,linewidth=0.8)
@@ -281,7 +284,7 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
     plt.show()
     return
 
-def panel_MB_compare(ds_list,time,sens_fn,stake_df,res='d',t=''):
+def panel_MB_compare(ds_list,time,labels,stake_df,rows=2,t=''):
     """
     Returns a comparison of different model runs
 
@@ -295,8 +298,6 @@ def panel_MB_compare(ds_list,time,sens_fn,stake_df,res='d',t=''):
         Either len-2 list of start date, end date, or a list of datetimes
     var : str
         List of vars to plot as named in ds
-    res : str
-        Abbreviated time resolution to plot (e.g. '12h' or 'd')
     t : str
         Title of plot
     """
@@ -304,26 +305,36 @@ def panel_MB_compare(ds_list,time,sens_fn,stake_df,res='d',t=''):
     n = int(np.ceil(len(ds_list)/2))
     n = 2 if n == 1 else n
 
-    sens_out = np.load(sens_fn,allow_pickle=True).item()
-    titles = [i.split('=')[0] for i in list(sens_out.keys())]
-    labels = [i.split('=')[1]+': '+str(sens_out[i])[0:5] for i in list(sens_out.keys())]
-
-    if n < 6:
-        fig,ax = plt.subplots(1,n,sharex=True,figsize=(w*n,6),layout='constrained')
-    else:
-        fig,ax = plt.subplots(2,int(n/2),sharex=True,figsize=(w*n/2,6),layout='constrained')
+    # Initialize plots
+    fig,ax = plt.subplots(rows,int(n/rows),sharex=True,sharey=True,
+                              figsize=(w*n/rows,6),layout='constrained')
+    ax = ax.flatten()
+    
+    # Initialize time and comparison dataset
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
-        time = pd.date_range(start,end,freq=res)
+        time = pd.date_range(start,end,freq='d')
     stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
     stake_df = stake_df.loc[time]
+    daily_cum_melt_DATA = np.cumsum(stake_df['melt'].to_numpy())
 
-    plot_idx = 0
-    row = 0
     c_iter = iter(plt.cm.Dark2(np.linspace(0,1,8)))
-    date_form = mpl.dates.DateFormatter('%d %b')
+    date_form = mpl.dates.DateFormatter('%b')
+    plot_idx = 0
     for i,ds in enumerate(ds_list):
+        # get variable and value for labeling
+        var,val = labels[i].split('=')
+
+        # get RMSE
+        daily_melt_MODEL = ds.resample(time='d').sum().sel(bin=0)
+        daily_cum_melt_MODEL = daily_melt_MODEL['melt'].cumsum().to_numpy()
+        # melt_mse = mean_squared_error(daily_cum_melt_DATA,daily_cum_melt_MODEL)
+        # melt_rmse = np.mean(melt_mse)
+        diff = np.sum(daily_cum_melt_MODEL - daily_cum_melt_DATA)
+        label = f'{val}: {diff:.3f}'
+
+        # get color (loops itself)
         try:
             c = next(c_iter)
         except:
@@ -334,32 +345,119 @@ def panel_MB_compare(ds_list,time,sens_fn,stake_df,res='d',t=''):
         daily_melt_MODEL = ds.resample(time='d').sum().sel(time=time)
         daily_cum_melt_MODEL = daily_melt_MODEL['melt'].cumsum().to_numpy()
         
+        # plot stake_df once per plot
         if i % 2 == 0:
-            if n < 6:
-                ax[plot_idx].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
-            else:
-                try:
-                    ax[row,plot_idx].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
-                except:
-                    ax[row+1,plot_idx-int(n/2)].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
+            ax[plot_idx].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
 
         # plot daily melt
-        if n < 6:
-            ax[plot_idx].plot(time,daily_cum_melt_MODEL,label=labels[i],color=c,linewidth=0.8)
-            ax[plot_idx].set_title(titles[i])
-            ax[plot_idx].xaxis.set_major_formatter(date_form)
-            ax[plot_idx].legend()
-        else:
-            try:
-                ax[row,plot_idx].plot(time,daily_cum_melt_MODEL)
-                ax[row,plot_idx].xaxis.set_major_formatter(date_form)
-            except:
-                row += 1
-                plot_idx -= int(n/2)
-            ax[row,plot_idx].plot(time,daily_cum_melt_MODEL,label=labels[i],color=c,linewidth=0.8)
-            ax[row,plot_idx].set_title(titles[i])
-            ax[row,plot_idx].xaxis.set_major_formatter(date_form)
-            ax[row,plot_idx].legend()
+        ax[plot_idx].plot(time,daily_cum_melt_MODEL,label=label,color=c,linewidth=0.8)
+        ax[plot_idx].set_title(var)
+        ax[plot_idx].set_ylabel('Cumulative Melt (m w.e.)')
+        ax[plot_idx].xaxis.set_major_formatter(date_form)
+        ax[plot_idx].legend()
+
+        if i % 2 != 0:
+            plot_idx += 1
+    fig.suptitle(t)
+    plt.show()
+    return
+
+def panel_temp_compare(ds_list,time,labels,temp_df,rows=2,t=''):
+    """
+    Returns a comparison of different model runs
+
+    Parameters
+    ----------
+    ds_list : list of xr.Datasets
+        List of model output datasets to plot melt
+    labels : list of str
+        List of same length as ds_list containing labels to plot
+    time : list-like   
+        Either len-2 list of start date, end date, or a list of datetimes
+    t : str
+        Title of plot
+    """
+    w = 2 # width of each plot
+    n = int(np.ceil(len(ds_list)/2))
+    n = 2 if n == 1 else n
+
+    # Initialize plots
+    fig,ax = plt.subplots(rows,int(n/rows),sharex=True,figsize=(w*n/rows,6),layout='constrained')
+    ax = ax.flatten()
+
+    # Initialize time and comparison dataset
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
+    temp_df = temp_df.set_index(pd.to_datetime(temp_df['Datetime']))
+    temp_df = temp_df.drop(columns='Datetime')
+    height_DATA = 3.5 - np.array([.1,.4,.8,1.2,1.6,2,2.4,2.8,3.2,3.49])
+
+    c_iter = iter(plt.cm.Dark2(np.linspace(0,1,8)))
+    date_form = mpl.dates.DateFormatter('%d %b')
+    plot_idx = 0
+    for i,ds in enumerate(ds_list):
+        # get variable and value for labeling
+        var,val = labels[i].split('=')
+
+        # Need to interpolate data for comparison to model depths -- loop through timesteps
+        all_MODEL = np.array([])
+        all_DATA = np.array([])
+        all_TIME = np.array([])
+        plot_MODEL = np.array([])
+        plot_DATA = np.array([])
+        for hour in time:
+            # Extract layer heights
+            lheight = ds.sel(time=hour,bin=0)['layerheight'].to_numpy()
+            # Index snow bins
+            density = ds.sel(time=hour,bin=0)['layerdensity'].to_numpy()
+            density[np.where(np.isnan(density))[0]] = 1e5
+            full_bins = np.where(density < 700)[0]
+            if len(full_bins) < 1:
+                break
+            lheight = lheight[full_bins]
+            icedepth = np.sum(lheight) + lheight[-1] / 2
+
+            # Get property and absolute depth
+            temp_MODEL = ds.sel(time=hour,bin=0)['layertemp'].to_numpy()[full_bins]
+            ldepth = np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
+            height_above_ice = icedepth - ldepth
+
+            # Interpolate temperature data to model heights
+            temp_at_iButtons = temp_df.loc[hour].to_numpy().astype(float)
+            temp_DATA = np.interp(height_above_ice,height_DATA,temp_at_iButtons)
+            all_MODEL = np.append(all_MODEL,temp_MODEL)
+            all_DATA = np.append(all_DATA,temp_DATA)
+            all_TIME = np.append(all_TIME,hour)
+
+            # Extract mean snow column temperature to plot
+            temp_no_above_0 = temp_df.mask(temp_df>=0.2,None).loc[hour].to_numpy().astype(float)
+            plot_MODEL = np.append(plot_MODEL,np.average(temp_MODEL,weights=lheight))
+            plot_DATA = np.append(plot_DATA,np.mean(temp_no_above_0))
+        temp_mse = mean_squared_error(all_DATA,all_MODEL)
+        temp_rmse = np.mean(temp_mse)
+        label = f'{val}: {temp_rmse:.3f}'
+
+        # get color (loops itself)
+        try:
+            c = next(c_iter)
+        except:
+            c_iter = iter([plt.cm.Dark2(i) for i in range(8)])
+            c = next(c_iter)
+
+        # plot temp_df once per plot
+        if i % 2 == 0:
+            ax[plot_idx].plot(all_TIME,plot_DATA,label='iButtons',linestyle='--')
+
+        # plot daily melt
+        time = pd.date_range(time[0],end,freq='h')
+        ax[plot_idx].plot(all_TIME,plot_MODEL,label=label,color=c,linewidth=0.8)
+        ax[plot_idx].set_title(var)
+        ax[plot_idx].xaxis.set_major_formatter(date_form)
+        ax[plot_idx].set_ylabel('Average Snow Temperature (C)')
+        ax[plot_idx].legend()
+
         if i % 2 != 0:
             plot_idx += 1
     fig.suptitle(t)

@@ -49,7 +49,8 @@ class Layers():
 
         # Grain size initial timestep can copy density
         self.grainsize = self.ldensity.copy()   # LAYER GRAIN SIZE [um]
-        self.grainsize[np.where(self.grainsize<300)[0]] = 300
+        self.grainsize[0:3] = np.array([eb_prms.fresh_grainsize,60,70])
+        self.grainsize[np.where(self.grainsize>300)[0]] = 300
         self.grainsize[np.where(self.ltype == 'firn')[0]] = 1000
         self.grainsize[np.where(self.ltype == 'ice')[0]] = 1800
 
@@ -513,16 +514,18 @@ class Layers():
             else: # Single bin
                 dTdz = (self.ltemp[2]+273.15-surftempK) / self.ldepth[2]
                 dTdz = np.array([dTdz])
-            dTdz = np.abs(dTdz[bins])
+            dTdz = np.ones_like(dTdz[bins]) * np.mean(np.abs(dTdz[bins]))
 
             # Force to be within lookup table ranges******
-            # p[np.where(p > 400)[0]] = 400
+            p[np.where(p > 400)[0]] = 400
             dTdz[np.where(dTdz > 300)[0]] = 300
 
             if eb_prms.method_grainsizetable in ['interpolate']:
                 # Interpolate lookup table at the values of T,dTdz,p
                 ds = xr.open_dataset(eb_prms.grainsize_fp)
-                ds = ds.interp(TVals=T[bins],DTDZVals=dTdz,DENSVals=p)
+                ds = ds.interp(TVals=T[bins].astype(float),
+                               DTDZVals=dTdz.astype(float),
+                               DENSVals=p.astype(float))
                 # Extract values
                 diag = np.zeros((n,n,n),dtype=bool)
                 for i in range(n):
@@ -537,21 +540,27 @@ class Layers():
                 kap = np.exp(self.kap_rf.predict(X))
                 dr0 = self.dr0_rf.predict(X)
 
-            if min(g)<eb_prms.fresh_grainsize:
+            if min(g) < FRESH_GRAINSIZE:
                 drdrydt = dr0*1e-6*np.power(tau/(tau + 1.0),1/kap)
             else:
                 drdrydt = dr0*1e-6*np.power(tau/(tau + 1e6*(g - FRESH_GRAINSIZE)),1/kap)
             drdry = drdrydt * dt * 10**6 # convert m to um
+            # drdry[np.where(drdry > 1)[0]] = 1
+            drdry = 0.5
 
             # Wet metamorphism
             drwetdt = WET_C*f_liq**3/(4*np.pi*g**2)
             drwet = drwetdt * dt * 10**6 # convert m to um
 
-            # Get old grain size
-            aged_grainsize = g+drdry+drwet
-            aged_grainsize[np.where(aged_grainsize > 1500)[0]] = 1500 
-            #**** THIS STATEMENT IS BECAUSE SEOMTIMES YOU GET CRAZY HIGH GRAIN SIZE WITH BIG TEMP GRADIENTS
-
+            # Get change in grain size due to aging
+            dr = drdry + drwet
+            # if len(np.where(dr>100)[0])>2:
+            #     print('fast evolution',dr)
+            #     print('fast evolution T',T,'p',p,'dTdz',dTdz)
+            # # Grain size cannot evolve by more than 30 um per hour by aging
+            # dr[np.where(dr > 100)[0]] = 100 
+            aged_grainsize = g + dr
+           
             # Sum contributions of old snow, new snow and refreeze
             grainsize = aged_grainsize*f_old + 54.5*f_new + 1500*f_rfz
             self.grainsize[bins] = grainsize
@@ -562,6 +571,7 @@ class Layers():
             self.grainsize[self.ice_idx] = 5000
         else: # no snow or firn, just ice
             self.grainsize[self.ice_idx] = 5000
+        print('grainsize',self.grainsize)
         return 
     
     def getIrrWaterCont(self,density=None):

@@ -340,7 +340,7 @@ if ref_gcm_name == 'ERA5':
     if option_ablation == 2:
         assert os.path.exists(era5_fp + era5_tempstd_fn), 'ERA5 temperature std filepath does not exist'
 
-if run_eb:
+if run_eb and ref_gcm_name == 'ERA5':
     era5h_fp = main_directory + '/../climate_data/ERA5/ERA5_hourly/'
     era5h_temp_fn = 'ERA5_temp_hourly.nc'
     era5h_dtempfn = 'ERA5_dtemp_hourly.nc'
@@ -360,6 +360,8 @@ if run_eb:
     assert os.path.exists(era5h_fp + era5h_sp_fn), 'ERA5 pressure filepath does not exist'
     assert os.path.exists(era5h_fp + era5h_tcc_fn), 'ERA5 cloud cover filepath does not exist'
     assert os.path.exists(era5h_fp + era5h_surfrad_fn), 'ERA5 surf radiation data does not exist'
+elif run_eb and ref_gcm_name == 'MERRA2':
+    merra2_fp = main_directory + '/../climate_data/MERRA2/'
 
 # CMIP5 (GCM data)
 cmip5_fp_var_prefix = main_directory + '/../climate_data/cmip5/'

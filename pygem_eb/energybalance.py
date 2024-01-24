@@ -284,7 +284,7 @@ class energyBalance():
             self.du5dry = 1e-13
 
         layers.lBC[0,0] += self.bc1dry * self.dt
-        layers.lBC[1,0] += self.bc1dry * self.dt
+        layers.lBC[1,0] += self.bc2dry * self.dt
         layers.ldust[0,0] += self.du1dry * self.dt
         layers.ldust[1,0] += self.du2dry * self.dt
         layers.ldust[2,0] += self.du3dry * self.dt

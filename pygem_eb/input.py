@@ -6,7 +6,7 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True          # Print monthly outputs?
-store_data=True     # Save file?
+store_data=False     # Save file?
 new_file=True       # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
@@ -118,7 +118,7 @@ method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_percolation = 'w_LAPs'           # 'w_LAPs' or 'no_LAPs'
 method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'
-method_grainsizetable = 'ML'            # 'interpolate' (slow) or 'ML' (fast)
+method_grainsizetable = 'interpolate'            # 'interpolate' (slow) or 'ML' (fast)
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False
@@ -126,7 +126,7 @@ constant_conductivity = False
 
 # ALBEDO SWITCHES
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
-switch_melt = 1             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
+switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
 switch_LAPs = 1             # 0 to turn off LAPs; 1 to turn on
 BC_freshsnow = 1e-7         # concentration of BC in fresh snow [kg m-3]
 dust_freshsnow = 2e-4       # concentration of dust in fresh snow [kg m-3]
@@ -147,7 +147,7 @@ layer_growth = 0.6          # Rate of exponential growth of bin size (smaller la
 k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 albedo_TOD = 0              # Time of day to calculate albedo [hr]
-initSSA = 100                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
+initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]

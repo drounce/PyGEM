@@ -231,13 +231,20 @@ class Surface():
             lgrainsize = [GRAINSIZE for _ in idx]
 
         # LAPs need to be a concentration in ppb
-        BC1 = layers.lBC[0,idx] / layers.lheight[idx] * 1e6
-        BC2 = layers.lBC[1,idx] / layers.lheight[idx] * 1e6 
-        dust1 = layers.ldust[0,idx] / layers.lheight[idx] * 1e6
-        dust2 = layers.ldust[1,idx] / layers.lheight[idx] * 1e6
-        dust3 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6
-        dust4 = layers.ldust[3,idx] / layers.lheight[idx] * 1e6
-        dust5 = layers.ldust[4,idx] / layers.lheight[idx] * 1e6
+        # BC1 = layers.lBC[0,idx] / layers.lheight[idx] * 1e6
+        # BC2 = layers.lBC[1,idx] / layers.lheight[idx] * 1e6
+        # dust1 = layers.ldust[0,idx] / layers.lheight[idx] * 1e6 
+        # dust2 = layers.ldust[1,idx] / layers.lheight[idx] * 1e6
+        # dust3 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6
+        # dust4 = layers.ldust[3,idx] / layers.lheight[idx] * 1e6
+        # dust5 = layers.ldust[4,idx] / layers.lheight[idx] * 1e6
+        BC1 = layers.lBC[0,idx] / layers.lheight[idx] * 1e6 # ******
+        BC2 = layers.lBC[0,idx] / layers.lheight[idx] * 1e6 
+        dust1 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.25
+        dust2 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.5
+        dust3 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.4
+        dust4 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.5
+        dust5 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.25
         lBC1 = (BC1.astype(float)).tolist()
         lBC2 = (BC2.astype(float)).tolist()
         ldust1 = (dust1.astype(float)).tolist()
@@ -282,7 +289,6 @@ class Surface():
         # Get albedo from biosnicar "main.py"
         with HiddenPrints():
             albedo = snicar.main.get_albedo('adding-doubling',plot=False,validate=False)
-
         # I adjusted SNICAR code to return bba rather than spectral albedo
         # if I want to undo that change so it runs on base SNICAR, need to get bba from spectral
         # bba = np.sum(illumination.flx_slr * albedo) / np.sum(illumination.flx_slr)
