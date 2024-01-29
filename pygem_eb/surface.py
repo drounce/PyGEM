@@ -4,6 +4,7 @@ import pandas as pd
 from scipy.optimize import minimize
 import sys, os
 sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/src/')
+sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/src/biosnicar')
 import yaml
 
 class Surface():
@@ -203,7 +204,8 @@ class Surface():
         layermelt : np.ndarray
             Array containing subsurface melt amounts [kg m-2]
         """
-        import biosnicar as snicar
+        with HiddenPrints():
+            from biosnicar import main
 
         # CONSTANTS
         GRAINSIZE = eb_prms.constant_grainsize
@@ -288,7 +290,7 @@ class Surface():
         
         # Get albedo from biosnicar "main.py"
         with HiddenPrints():
-            albedo = snicar.main.get_albedo('adding-doubling',plot=False,validate=False)
+            albedo = main.get_albedo('adding-doubling',plot=False,validate=False)
         # I adjusted SNICAR code to return bba rather than spectral albedo
         # if I want to undo that change so it runs on base SNICAR, need to get bba from spectral
         # bba = np.sum(illumination.flx_slr * albedo) / np.sum(illumination.flx_slr)

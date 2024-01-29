@@ -27,7 +27,7 @@ rgi_glac_number = 'all'
 
 glac_no_skip = None
 glac_no = None 
-glac_no = ['15.03733'] # Khumbu Glacier
+glac_no = ['01.00570'] # Gulkana Glacier
 # glac_no = ['1.10689'] # Columbia Glacier
 # glac_no = ['1.03622'] # LeConte Glacier
 
@@ -76,9 +76,13 @@ if hindcast:
 
 # Option to run energy balance model (hourly timestep, imports separate dataset from reference ERA5)
 run_eb = True
-if run_eb:
+if run_eb and ref_gcm_name == 'ERA5-hourly':
     gcm_startyear = 1980
     gcm_endyear = 2020
+
+if run_eb and ref_gcm_name == 'MERRA2':
+    gcm_startyear = 2000
+    gcm_endyear = 2022
 
 #%% ===== CALIBRATION OPTIONS =====
 # Calibration option ('emulator', 'MCMC', 'MCMC_fullsim' 'HH2015', 'HH2015mod')
@@ -360,7 +364,8 @@ if run_eb and ref_gcm_name == 'ERA5':
     assert os.path.exists(era5h_fp + era5h_sp_fn), 'ERA5 pressure filepath does not exist'
     assert os.path.exists(era5h_fp + era5h_tcc_fn), 'ERA5 cloud cover filepath does not exist'
     assert os.path.exists(era5h_fp + era5h_surfrad_fn), 'ERA5 surf radiation data does not exist'
-elif run_eb and ref_gcm_name == 'MERRA2':
+
+if run_eb: # and ref_gcm_name == 'MERRA2'
     merra2_fp = main_directory + '/../climate_data/MERRA2/'
 
 # CMIP5 (GCM data)

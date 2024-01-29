@@ -532,7 +532,7 @@ class AWS():
         data_end = pd.to_datetime(df.index.to_numpy()[-1])
         assert dates_table.date[0] >= data_start, 'Check input dates: start date before range of AWS data'
         assert dates_table.date.to_numpy()[-1] <= data_end, 'Check input dates: end date after range of AWS data'
-        df = df.set_index(pd.date_range(data_start,data_end,freq='H'))
+        df = df.set_index(pd.date_range(data_start,data_end,freq='h'))
         df = df.loc[dates_table.date[0]:dates_table.date.to_numpy()[-1]]
         
         self.temp = df[self.temp_vn].to_numpy()

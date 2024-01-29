@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from sklearn.metrics import mean_squared_error
 
-mpl.style.use('seaborn')
+mpl.style.use('seaborn-v0_8')
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color'] 
 glac_props = {'01.00570':{'name':'Gulkana',
                             'AWS_fn':'gulkana1725_hourly.csv'},
@@ -152,7 +152,7 @@ def plot_stake_snowdepth(stake_df,ds_list,time,labels,bin=0,t='Snow Depth Compar
         days = pd.date_range(start,end,freq='d')
     stake_df = stake_df.loc[days]
     for i,ds in enumerate(ds_list):
-        c = plt.cm.tab20(i)
+        c = plt.cm.Dark2(i)
         ds = ds.sel(time=time,bin=bin)
         ax.plot(ds.coords['time'],ds.snowdepth.to_numpy()*100,label=labels[i],color=c)
     ax.plot(stake_df.index,stake_df['snow_depth'].to_numpy(),label='Stake',linestyle='--')
@@ -187,11 +187,12 @@ def plot_stake_ablation(stake_df,ds_list,time,labels,bin=0,t='Stake Comparison')
         days = pd.date_range(start,end,freq='d')
     stake_df = stake_df.loc[days]
     for i,ds in enumerate(ds_list):
-        c = plt.cm.tab20(i)
+        c = plt.cm.Dark2(i)
         ds = ds.sel(time=time,bin=bin)
         ax.plot(ds.coords['time'],ds.melt.cumsum(),label=labels[i],color=c)
-    ax.plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
+    ax.plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--',c='black')
     date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_locator(mpl.dates.MonthLocator())
     ax.xaxis.set_major_formatter(date_form)
     ax.legend()
     ax.set_ylabel('Cumulative Melt (m w.e.)')
@@ -223,8 +224,9 @@ def plot_stake_accumulation(stake_df,ds_list,time,labels,bin=0,t=''):
         days = pd.date_range(start,end,freq='d')
     stake_df = stake_df.loc[days]
     for i,ds in enumerate(ds_list):
+        c = plt.cm.Dark2(i)
         ds = ds.sel(time=time,bin=bin)
-        ax.plot(ds.coords['time'],ds.accum,label=labels[i])
+        ax.plot(ds.coords['time'],ds.accum,color=c,label=labels[i])
     snow_depth = stake_df['snow_depth'].to_numpy() / 100
     previous_depth = snow_depth[0]
     accum = []
@@ -269,13 +271,13 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
         c = plt.cm.Dark2(i)
         if var in ['melt','runoff','refreeze','accum','MB']:
             ds_resampled = ds.resample(time=res).sum()
-            ax.plot(time,ds_resampled[var].sel(time=time).cumsum(),label=labels[i],color=c,linewidth=0.8)
+            ax.plot(time,ds_resampled[var].sel(time=time).cumsum(),label=labels[i],color=c)
         elif 'layer' in var:
             ds_resampled = ds.resample(time=res).mean()
-            ax.plot(time,ds_resampled[var].sel(time=time,layer=0),label=labels[i],color=c,linewidth=0.8)
+            ax.plot(time,ds_resampled[var].sel(time=time,layer=0),label=labels[i],color=c)
         else:
             ds_resampled = ds.resample(time=res).mean()
-            ax.plot(time,ds_resampled[var].sel(time=time),label=labels[i],color=c,linewidth=0.8)
+            ax.plot(time,ds_resampled[var].sel(time=time),label=labels[i],color=c)
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_ylabel(var)
@@ -284,7 +286,7 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
     plt.show()
     return
 
-def panel_MB_compare(ds_list,time,labels,stake_df,rows=2,t=''):
+def panel_MB_compare(ds_list,time,labels,units,stake_df,rows=2,t=''):
     """
     Returns a comparison of different model runs
 
@@ -308,6 +310,8 @@ def panel_MB_compare(ds_list,time,labels,stake_df,rows=2,t=''):
     # Initialize plots
     fig,ax = plt.subplots(rows,int(n/rows),sharex=True,sharey=True,
                               figsize=(w*n/rows,6),layout='constrained')
+    for j in range(rows):
+        ax[j,0].set_ylabel('Cumulative Melt (m w.e.)')
     ax = ax.flatten()
     
     # Initialize time and comparison dataset
@@ -320,19 +324,19 @@ def panel_MB_compare(ds_list,time,labels,stake_df,rows=2,t=''):
     daily_cum_melt_DATA = np.cumsum(stake_df['melt'].to_numpy())
 
     c_iter = iter(plt.cm.Dark2(np.linspace(0,1,8)))
-    date_form = mpl.dates.DateFormatter('%b')
+    date_form = mpl.dates.DateFormatter('%d %b')
     plot_idx = 0
     for i,ds in enumerate(ds_list):
         # get variable and value for labeling
         var,val = labels[i].split('=')
 
         # get RMSE
-        daily_melt_MODEL = ds.resample(time='d').sum().sel(bin=0)
+        daily_melt_MODEL = ds.resample(time='d').sum().sel(bin=0,time=time)
         daily_cum_melt_MODEL = daily_melt_MODEL['melt'].cumsum().to_numpy()
         # melt_mse = mean_squared_error(daily_cum_melt_DATA,daily_cum_melt_MODEL)
         # melt_rmse = np.mean(melt_mse)
-        diff = np.sum(daily_cum_melt_MODEL - daily_cum_melt_DATA)
-        label = f'{val}: {diff:.3f}'
+        diff = daily_cum_melt_MODEL[-1] - daily_cum_melt_DATA[-1]
+        label = f'{val}{units[i]}: {diff:.3f} m w.e.'
 
         # get color (loops itself)
         try:
@@ -341,23 +345,20 @@ def panel_MB_compare(ds_list,time,labels,stake_df,rows=2,t=''):
             c_iter = iter([plt.cm.Dark2(i) for i in range(8)])
             c = next(c_iter)
 
-        # get cumulative daily melt array
-        daily_melt_MODEL = ds.resample(time='d').sum().sel(time=time)
-        daily_cum_melt_MODEL = daily_melt_MODEL['melt'].cumsum().to_numpy()
-        
         # plot stake_df once per plot
         if i % 2 == 0:
-            ax[plot_idx].plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--')
+            ax[plot_idx].plot(stake_df.index,daily_cum_melt_DATA,label='Stake',linestyle='--')
 
         # plot daily melt
         ax[plot_idx].plot(time,daily_cum_melt_MODEL,label=label,color=c,linewidth=0.8)
         ax[plot_idx].set_title(var)
-        ax[plot_idx].set_ylabel('Cumulative Melt (m w.e.)')
+        ax[plot_idx].xaxis.set_major_locator(mpl.dates.MonthLocator())
         ax[plot_idx].xaxis.set_major_formatter(date_form)
-        ax[plot_idx].legend()
+        ax[plot_idx].legend(fontsize=8)
 
         if i % 2 != 0:
             plot_idx += 1
+    fig.autofmt_xdate()
     fig.suptitle(t)
     plt.show()
     return

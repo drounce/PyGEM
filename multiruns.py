@@ -12,21 +12,22 @@ import run_simulation_eb as sim
 #%% LOAD IN PARAMETERS
 # Initiate options for parameters to test
 param_options = {
-          'lapserate':{'options':[-0.003,-0.01],'value':-0.0065},
-          'tsnow_threshold':{'options':[0,2],'value':0},
-          'precgrad':{'options':[5e-6,5e-4],'value':0.0001},
-          'kp':{'options':[0.5,5],'value':1},
-          'albedo_ice':{'options':[0.2,0.4],'value':0.3},
-          'roughness_ice':{'options':[0.5,3],'value':1.7},
-          'k_ice':{'options':[1.5,3],'value':2.33},
-          'ksp_BC':{'options':[0.01,0.8],'value':0.1},
-          'ksp_dust':{'options':[0.001,0.08],'value':0.015},
-          'dz_toplayer':{'options':[0.01,0.05],'value':0.03},
-          'layer_growth':{'options':[0.6,0.9],'value':0.6},
-          'fresh_grainsize':{'options':[30,100],'value':54.5},
-          'aging_factor_roughness':{'options':[0.04,0.08],'value':0.06267},
-          'albedo_TOD':{'options':[8,16],'value':0},
-          'initSSA':{'options':[60,100],'value':80}
+          'lapserate':{'options':[-0.003,-0.01],'value':-0.0065,'units':'K m-1'},
+          'tsnow_threshold':{'options':[0,2],'value':0,'units':'C'},
+          'precgrad':{'options':[5e-6,5e-4],'value':0.0001,'units':''},
+          'kp':{'options':[0.5,5],'value':1,'units':''},
+          'albedo_ice':{'options':[0.2,0.4],'value':0.3,'units':''},
+          'roughness_ice':{'options':[0.5,3],'value':1.7,'units':'mm'},
+          'k_ice':{'options':[1.5,3],'value':2.33,'units':'W K-1 m-1'},
+          'ksp_BC':{'options':[0.01,0.8],'value':0.1,'units':'kg kg-1'},
+          'ksp_dust':{'options':[0.001,0.08],'value':0.015,'units':'kg kg-1'},
+          'dz_toplayer':{'options':[0.01,0.05],'value':0.03,'units':'m'},
+          'layer_growth':{'options':[0.6,0.9],'value':0.6,'units':''},
+          'fresh_grainsize':{'options':[30,100],'value':54.5,'units':'um'},
+          'aging_factor_roughness':{'options':[0.04,0.08],'value':0.06267,'units':'mm d-1'},
+          'albedo_TOD':{'options':[8,16],'value':0,'units':'hrs'},
+          'initSSA':{'options':[60,100],'value':80,'units':'m2 kg-1'},
+          'dry_metamorphism_rate':{'options':[1e-5,6e-5],'value':3.5e-5,'units':'um s-1'}
     # NOTHING BELOW HERE HAS A BIG IMPACT ON MASS BALANCE -- SET CONSTANT
     # MIGHT BE GOOD TO DOUBLE CHECK FIRN DATA ON A BIN THAT HAS FIRN
         #   'initSSA':{'options':[80,100],'value':100}
@@ -59,21 +60,22 @@ for param in list(param_options.keys()):
         # update parameter to adjust
         params = param_options.copy()
         params[param]['value'] = current_value
-        # eb_prms.precgrad = params['precgrad']['value']           # precipitation gradient on glacier [m-1]
-        # eb_prms.lapserate = params['lapserate']['value']         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
-        # eb_prms.tsnow_threshold = params['tsnow_threshold']['value']   # Threshold to consider freezing [C]
-        # eb_prms.kp = params['kp']['value']                      # precipitation factor [-] 
-        # eb_prms.albedo_ice = params['albedo_ice']['value']                  # Albedo of ice [-] 
-        # eb_prms.roughness_ice = params['roughness_ice']['value']   
-        # eb_prms.k_ice = params['k_ice']['value']                # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
-        # eb_prms.ksp_BC = params['ksp_BC']['value']
-        # eb_prms.ksp_dust = params['ksp_dust']['value']
-        # eb_prms.dz_toplayer = params['dz_toplayer']['value']
-        # eb_prms.layer_growth = params['layer_growth']['value']
+        eb_prms.precgrad = params['precgrad']['value']           # precipitation gradient on glacier [m-1]
+        eb_prms.lapserate = params['lapserate']['value']         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
+        eb_prms.tsnow_threshold = params['tsnow_threshold']['value']   # Threshold to consider freezing [C]
+        eb_prms.kp = params['kp']['value']                      # precipitation factor [-] 
+        eb_prms.albedo_ice = params['albedo_ice']['value']                  # Albedo of ice [-] 
+        eb_prms.roughness_ice = params['roughness_ice']['value']   
+        eb_prms.k_ice = params['k_ice']['value']                # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
+        eb_prms.ksp_BC = params['ksp_BC']['value']
+        eb_prms.ksp_dust = params['ksp_dust']['value']
+        eb_prms.dz_toplayer = params['dz_toplayer']['value']
+        eb_prms.layer_growth = params['layer_growth']['value']
         eb_prms.fresh_grainsize = params['fresh_grainsize']['value']
         eb_prms.aging_factor_roughness = params['aging_factor_roughness']['value']
         eb_prms.albedo_TOD = params['albedo_TOD']['value']
         eb_prms.initSSA = params['initSSA']['value']
+        eb_prms.dry_metamorphism_rate = params['dry_metamorphism_rate']['value']
 
         climateds,dates_table,utils,args = sim.initialize_model()
         ds_run = sim.run_model(climateds,dates_table,utils,args,{'Params?':'True'})

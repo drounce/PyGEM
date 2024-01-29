@@ -6,7 +6,7 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True          # Print monthly outputs?
-store_data=False     # Save file?
+store_data=True     # Save file?
 new_file=True       # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
@@ -35,16 +35,18 @@ glac_props = {'01.00570':{'name':'Gulkana',
             '16.02444':{'name':'Artesonraju',
                             'AWS_elev':4797,
                             'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
-gdir = oggm.single_flowline_glacier_directory(glac_no[0], logging_level='CRITICAL',has_internet=False)
-all_fls = oggm.get_glacier_zwh(gdir)
-fls = all_fls.iloc[np.nonzero(all_fls['h'].to_numpy())] # remove empty bins
-bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
-bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
-bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
 
-# FORCE MANUAL BECAUSE OGGM ISNT WORKING******
-# bin_elev = np.array([1546])
-# bin_ice_depth = np.array([200])
+dynamics = False
+if dynamics:
+    gdir = oggm.single_flowline_glacier_directory(glac_no[0], logging_level='CRITICAL') #,has_internet=False
+    all_fls = oggm.get_glacier_zwh(gdir)
+    fls = all_fls.iloc[np.nonzero(all_fls['h'].to_numpy())] # remove empty bins
+    bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
+    bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
+    bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
+else:
+    bin_elev = np.array([1546])
+    bin_ice_depth = np.array([200])
 
 # ========== DIRECTORIES AND FILEPATHS ========== 
 main_directory = os.getcwd()
@@ -90,6 +92,8 @@ if dates_from_data and climate_input in ['AWS']:
 else:
     startdate = pd.to_datetime('2023-04-21 00:00')
     enddate = pd.to_datetime('2023-08-09 00:00')
+    # startdate = pd.to_datetime('2019-04-21 00:00')
+    # enddate = pd.to_datetime('2019-08-09 00:00')
     # startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
     # enddate = pd.to_datetime('2018-05-01 00:00')
 n_months = np.round((enddate-startdate)/pd.Timedelta(days=30))
@@ -121,13 +125,14 @@ method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','
 method_grainsizetable = 'interpolate'            # 'interpolate' (slow) or 'ML' (fast)
 
 # CONSTANT SWITCHES
-constant_snowfall_density = False
-constant_conductivity = False
+constant_snowfall_density = False       # False or density in kg m-3
+constant_conductivity = False           # False or conductivity in W K-1 m-1
 
 # ALBEDO SWITCHES
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
 switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
-switch_LAPs = 1             # 0 to turn off LAPs; 1 to turn on
+switch_LAPs = 0             # 0 to turn off LAPs; 1 to turn on
+output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_{switch_snow}{switch_melt}{switch_LAPs}'
 BC_freshsnow = 1e-7         # concentration of BC in fresh snow [kg m-3]
 dust_freshsnow = 2e-4       # concentration of dust in fresh snow [kg m-3]
 # 1 kg m-3 = 1e6 ppb
@@ -148,6 +153,7 @@ k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 albedo_TOD = 0              # Time of day to calculate albedo [hr]
 initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
+dry_metamorphism_rate = 3.5e-5 # Dry metamorphism grain size growth rate [um s-1]
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]

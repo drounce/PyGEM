@@ -520,46 +520,41 @@ class Layers():
             p[np.where(p > 400)[0]] = 400
             dTdz[np.where(dTdz > 300)[0]] = 300
 
-            if eb_prms.method_grainsizetable in ['interpolate']:
-                # Interpolate lookup table at the values of T,dTdz,p
-                ds = xr.open_dataset(eb_prms.grainsize_fp)
-                ds = ds.interp(TVals=T[bins].astype(float),
-                               DTDZVals=dTdz.astype(float),
-                               DENSVals=p.astype(float))
-                # Extract values
-                diag = np.zeros((n,n,n),dtype=bool)
-                for i in range(n):
-                    diag[i,i,i] = True
-                tau = ds.taumat.to_numpy()[diag]
-                kap = ds.kapmat.to_numpy()[diag]
-                dr0 = ds.dr0mat.to_numpy()[diag]
+            # if eb_prms.method_grainsizetable in ['interpolate']:
+            #     # Interpolate lookup table at the values of T,dTdz,p
+            #     ds = xr.open_dataset(eb_prms.grainsize_fp)
+            #     ds = ds.interp(TVals=T[bins].astype(float),
+            #                    DTDZVals=dTdz.astype(float),
+            #                    DENSVals=p.astype(float))
+            #     # Extract values
+            #     diag = np.zeros((n,n,n),dtype=bool)
+            #     for i in range(n):
+            #         diag[i,i,i] = True
+            #     tau = ds.taumat.to_numpy()[diag]
+            #     kap = ds.kapmat.to_numpy()[diag]
+            #     dr0 = ds.dr0mat.to_numpy()[diag]
 
-            elif eb_prms.method_grainsizetable in ['ML']:
-                X = np.vstack([T,p,dTdz]).T
-                tau = np.exp(self.tau_rf.predict(X))
-                kap = np.exp(self.kap_rf.predict(X))
-                dr0 = self.dr0_rf.predict(X)
+            # elif eb_prms.method_grainsizetable in ['ML']:
+            #     X = np.vstack([T,p,dTdz]).T
+            #     tau = np.exp(self.tau_rf.predict(X))
+            #     kap = np.exp(self.kap_rf.predict(X))
+            #     dr0 = self.dr0_rf.predict(X)
 
-            if min(g) < FRESH_GRAINSIZE:
-                drdrydt = dr0*1e-6*np.power(tau/(tau + 1.0),1/kap)
-            else:
-                drdrydt = dr0*1e-6*np.power(tau/(tau + 1e6*(g - FRESH_GRAINSIZE)),1/kap)
-            drdry = drdrydt * dt * 10**6 # convert m to um
-            # drdry[np.where(drdry > 1)[0]] = 1
-            drdry = 0.5
+            # if min(g) < FRESH_GRAINSIZE:
+            #     drdrydt = dr0*1e-6*np.power(tau/(tau + 1.0),1/kap)
+            # else:
+            #     drdrydt = dr0*1e-6*np.power(tau/(tau + 1e6*(g - FRESH_GRAINSIZE)),1/kap)
+            # drdry = drdrydt * dt * 10**6 # convert m to um
+
+            # Dry metamorphism is constant
+            drdry = eb_prms.dry_metamorphism_rate * dt # um
 
             # Wet metamorphism
             drwetdt = WET_C*f_liq**3/(4*np.pi*g**2)
             drwet = drwetdt * dt * 10**6 # convert m to um
 
             # Get change in grain size due to aging
-            dr = drdry + drwet
-            # if len(np.where(dr>100)[0])>2:
-            #     print('fast evolution',dr)
-            #     print('fast evolution T',T,'p',p,'dTdz',dTdz)
-            # # Grain size cannot evolve by more than 30 um per hour by aging
-            # dr[np.where(dr > 100)[0]] = 100 
-            aged_grainsize = g + dr
+            aged_grainsize = g + drdry + drwet
            
             # Sum contributions of old snow, new snow and refreeze
             grainsize = aged_grainsize*f_old + 54.5*f_new + 1500*f_rfz
@@ -571,7 +566,7 @@ class Layers():
             self.grainsize[self.ice_idx] = 5000
         else: # no snow or firn, just ice
             self.grainsize[self.ice_idx] = 5000
-        print('grainsize',self.grainsize)
+        
         return 
     
     def getIrrWaterCont(self,density=None):
