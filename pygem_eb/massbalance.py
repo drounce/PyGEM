@@ -31,7 +31,7 @@ class massBalance():
         # Initialize layers and surface classes
         self.args = args
         self.layers = eb_layers.Layers(bin_idx,utils)
-        self.surface = eb_surface.Surface(self.layers,self.time_list,args)
+        self.surface = eb_surface.Surface(self.layers,self.time_list,args,utils)
 
         # Initialize output class
         self.output = Output(self.time_list,bin_idx,args)
@@ -59,10 +59,12 @@ class massBalance():
             # Initiate the energy balance to unpack climate data
             enbal = eb.energyBalance(climateds,time,self.bin_idx,dt)
 
+            # bc_ppb = layers.lBC[0] /layers.lheight[0] * 1e6
+            # dust_ppm = layers.ldust[0] /layers.lheight[0] * 1e3
+            # print(time,'BC (ppb)',bc_ppb,'dust (ppm)',dust_ppm,'albedo',surface.albedo)
+            
             # Update layers (checks for tiny or huge layers)
             layers.updateLayers()
-            if layers.lheight[0] < 1e-3:
-                print('update layers still tiny!!',layers.lheight[0])
 
             # Get rain and snowfall amounts [kg m-2]
             rain,snowfall = self.getPrecip(enbal)
@@ -76,12 +78,12 @@ class massBalance():
             enbal.getDryDeposition(layers)
 
             # Update daily properties
-            if time.hour + time.minute < 1: 
+            if time.hour < 1: 
                 surface.updateSurfaceDaily(layers,time)
                 self.days_since_snowfall = surface.days_since_snowfall
                 layers.lnewsnow = np.zeros(layers.nlayers)
             if time.hour == eb_prms.albedo_TOD:
-                surface.getAlbedo(layers)
+                surface.getAlbedo(layers,time)
 
             # Calculate surface energy balance by updating surface temperature
             surface.getSurfTemp(enbal,layers)
@@ -128,7 +130,7 @@ class massBalance():
             self.output.storeTimestep(self,enbal,surface,layers,time)   
 
             # Debugging: print current state and monthly melt at the end of each month
-            if time.is_month_start and time.hour + time.minute == 0 and eb_prms.debug:
+            if time.is_month_start and time.hour == 0 and eb_prms.debug:
                 self.current_state(time,enbal.tempC)
 
             # Advance timestep
@@ -248,8 +250,8 @@ class massBalance():
         class MeltedLayers():
             def __init__(self):
                 self.mass = layermelt[fully_melted]
-                self.BC = layers.lBC[:,fully_melted]
-                self.dust = layers.ldust[:,fully_melted]
+                self.BC = layers.lBC[fully_melted]
+                self.dust = layers.ldust[fully_melted]
 
         fully_melted_mass = MeltedLayers()
 
@@ -393,18 +395,15 @@ class massBalance():
         ldm = layers.ldrymass[snow_firn_idx]
 
         # mBC/mdust is layer mass of species in kg m-2
-        mBC = layers.lBC[:,snow_firn_idx]
-        mdust = layers.ldust[:,snow_firn_idx]
+        mBC = layers.lBC[snow_firn_idx]
+        mdust = layers.ldust[snow_firn_idx]
         # cBC/cdust is layer mass mixing ratio in kg kg-1
         cBC = mBC / (lw + ldm)
         cdust = mdust / (lw + ldm)
 
         # get wet deposition into top layer
-        m_BC_in_top = np.array([enbal.bc1wet,enbal.bc1wet]) 
-        # m_dust_in_top = np.array([enbal.du1wet,enbal.du2wet,
-        #                           enbal.du3wet,enbal.du4wet,enbal.du5wet])
-        m_dust_in_top = np.array([enbal.du3wet,enbal.du3wet,
-                                  enbal.du3wet,enbal.du3wet,enbal.du3wet])
+        m_BC_in_top = np.array([enbal.bcwet])
+        m_dust_in_top = np.array([enbal.dustwet])
         # rainfall*DENSITY_WATER*RAIN_CONC_DUST
         if self.melted_layers != 0:
             m_BC_in_top += np.sum(self.melted_layers.BC) / dt
@@ -413,10 +412,10 @@ class massBalance():
         m_dust_in_top *= PARTITION_COEF_DUST
 
         # inward fluxes = outward fluxes from previous layer
-        m_BC_in = PARTITION_COEF_BC*q_out[:-1]*cBC[:,:-1]
-        m_dust_in = PARTITION_COEF_DUST*q_out[:-1]*cdust[:,:-1]
-        m_BC_in = np.append(m_BC_in_top.reshape(-1,1),m_BC_in,axis=1)
-        m_dust_in = np.append(m_dust_in_top.reshape(-1,1),m_dust_in,axis=1)
+        m_BC_in = PARTITION_COEF_BC*q_out[:-1]*cBC[:-1]
+        m_dust_in = PARTITION_COEF_DUST*q_out[:-1]*cdust[:-1]
+        m_BC_in = np.append(m_BC_in_top,m_BC_in)
+        m_dust_in = np.append(m_dust_in_top,m_dust_in)
         # outward fluxes are simply flow out * concentration of the layer
         m_BC_out = PARTITION_COEF_BC*q_out*cBC
         m_dust_out = PARTITION_COEF_DUST*q_out*cdust
@@ -426,8 +425,8 @@ class massBalance():
         dmdust = (m_dust_in - m_dust_out)*dt
         mBC += dmBC.astype(float)
         mdust += dmdust.astype(float)
-        layers.lBC[:,snow_firn_idx] = mBC
-        layers.ldust[:,snow_firn_idx] = mdust
+        layers.lBC[snow_firn_idx] = mBC
+        layers.ldust[snow_firn_idx] = mdust
         return
     
     def refreezing(self,layers):
@@ -571,10 +570,10 @@ class massBalance():
         if enbal.tempC <= eb_prms.tsnow_threshold: 
             # precip falls as snow
             rain = 0
-            snow = enbal.prec*eb_prms.density_water*self.dt # kg m-2
+            snow = enbal.tp*eb_prms.density_water # kg m-2
         else:
             # precipitation falls as rain
-            rain = enbal.prec*eb_prms.density_water*self.dt  # kg m-2
+            rain = enbal.tp*eb_prms.density_water # kg m-2
             snow = 0
         return rain,snow
       
@@ -809,8 +808,8 @@ class Output():
         self.layerwater_output[step] = layers.lwater
         self.layerheight_output[step] = layers.lheight
         self.layerdensity_output[step] = layers.ldensity
-        self.layerBC_output[step] = layers.lBC[0,:] / layers.lheight * 1e6
-        self.layerdust_output[step] = layers.ldust[0,:] / layers.lheight * 1e3
+        self.layerBC_output[step] = layers.lBC / layers.lheight * 1e6
+        self.layerdust_output[step] = layers.ldust / layers.lheight * 1e3
         self.layergrainsize_output[step] = layers.grainsize
 
     def storeData(self,bin):    

@@ -269,15 +269,24 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
         time = pd.date_range(start,end,freq=res)
     for i,ds in enumerate(ds_list):
         c = plt.cm.Dark2(i)
-        if var in ['melt','runoff','refreeze','accum','MB']:
-            ds_resampled = ds.resample(time=res).sum()
-            ax.plot(time,ds_resampled[var].sel(time=time).cumsum(),label=labels[i],color=c)
-        elif 'layer' in var:
-            ds_resampled = ds.resample(time=res).mean()
-            ax.plot(time,ds_resampled[var].sel(time=time,layer=0),label=labels[i],color=c)
+        if res != 'h':
+            if var in ['melt','runoff','refreeze','accum','MB']:
+                ds_resampled = ds.resample(time=res).sum()
+                to_plot = ds_resampled[var].sel(time=time).cumsum()
+            elif 'layer' in var:
+                ds_resampled = ds.resample(time=res).mean()
+                to_plot = ds_resampled[var].sel(time=time,layer=0)
+            else:
+                ds_resampled = ds.resample(time=res).mean()
+                to_plot = ds_resampled[var].sel(time=time)
         else:
-            ds_resampled = ds.resample(time=res).mean()
-            ax.plot(time,ds_resampled[var].sel(time=time),label=labels[i],color=c)
+            if var in ['melt','runoff','refreeze','accum','MB']:
+                to_plot = ds[var].sel(time=time).cumsum()
+            elif 'layer' in var:
+                to_plot = ds[var].sel(time=time,layer=0)
+            else:
+                to_plot = ds[var].sel(time=time)
+        ax.plot(time,to_plot,label=labels[i],color=c)
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_ylabel(var)

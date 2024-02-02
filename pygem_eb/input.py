@@ -6,7 +6,7 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True          # Print monthly outputs?
-store_data=True     # Save file?
+store_data=True    # Save file?
 new_file=True       # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
@@ -45,7 +45,7 @@ if dynamics:
     bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
     bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
 else:
-    bin_elev = np.array([1546])
+    bin_elev = np.array(glac_props[glac_no[0]]['AWS_elev'])
     bin_ice_depth = np.array([200])
 
 # ========== DIRECTORIES AND FILEPATHS ========== 
@@ -64,7 +64,7 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
-# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_base'
+output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_albedo_TOD_12'
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
@@ -75,7 +75,8 @@ initial_density_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBdensit
 snicar_input_fp = main_directory + '/biosnicar-py/src/biosnicar/inputs.yaml'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
-climate_input = 'AWS' # GCM or AWS
+climate_input = 'AWS' # 'GCM' or 'AWS'
+ref_gcm_name = 'MERRA2' # 'ERA5-hourly' or 'MERRA2'
 if climate_input in ['AWS']:
     AWS_fp = main_directory + '/../climate_data/AWS/'
     AWS_fn = AWS_fp+glac_props[glac_no[0]]['AWS_fn']
@@ -83,6 +84,12 @@ if climate_input in ['AWS']:
     n_bins = 1
     bin_elev = [int(glac_props[glac_no[0]]['AWS_elev'])]
     assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
+    wind_ref_height = 2
+elif climate_input in ['GCM']:
+    if ref_gcm_name in ['ERA5-hourly']:
+        wind_ref_height = 10
+    else:
+        wind_ref_height = 2
 
 dates_from_data = False
 if dates_from_data and climate_input in ['AWS']:
@@ -92,8 +99,8 @@ if dates_from_data and climate_input in ['AWS']:
 else:
     startdate = pd.to_datetime('2023-04-21 00:00')
     enddate = pd.to_datetime('2023-08-09 00:00')
-    # startdate = pd.to_datetime('2019-04-21 00:00')
-    # enddate = pd.to_datetime('2019-08-09 00:00')
+    # startdate = pd.to_datetime('2019-04-21 00:30')
+    # enddate = pd.to_datetime('2019-08-09 00:30')
     # startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
     # enddate = pd.to_datetime('2018-05-01 00:00')
 n_months = np.round((enddate-startdate)/pd.Timedelta(days=30))
@@ -122,7 +129,7 @@ method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_percolation = 'w_LAPs'           # 'w_LAPs' or 'no_LAPs'
 method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'
-method_grainsizetable = 'interpolate'            # 'interpolate' (slow) or 'ML' (fast)
+method_grainsizetable = 'interpolate'   # 'interpolate' (slow) or 'ML' (fast)
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
@@ -131,8 +138,8 @@ constant_conductivity = False           # False or conductivity in W K-1 m-1
 # ALBEDO SWITCHES
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
 switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
-switch_LAPs = 0             # 0 to turn off LAPs; 1 to turn on
-output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_{switch_snow}{switch_melt}{switch_LAPs}'
+switch_LAPs = 1             # 0 to turn off LAPs; 1 to turn on
+# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_{switch_snow}{switch_melt}{switch_LAPs}'
 BC_freshsnow = 1e-7         # concentration of BC in fresh snow [kg m-3]
 dust_freshsnow = 2e-4       # concentration of dust in fresh snow [kg m-3]
 # 1 kg m-3 = 1e6 ppb
@@ -151,7 +158,7 @@ dz_toplayer = 0.03          # Thickness of the uppermost bin [m]
 layer_growth = 0.6          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
 k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
-albedo_TOD = 0              # Time of day to calculate albedo [hr]
+albedo_TOD = 12             # Time of day to calculate albedo [hr]
 initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
 dry_metamorphism_rate = 3.5e-5 # Dry metamorphism grain size growth rate [um s-1]
 
@@ -161,9 +168,8 @@ density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
 density_water = 1000        # Density of water [kg m-3]
 density_fresh_snow = 100    # ** For assuming constant density of fresh snowfall [kg m-3]
 density_firn = 700          # Density threshold for firn
-# k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
+# k_ice = 2.33              # Thermal conductivity of ice [W K-1 m-1]
 k_air = 0.023               # Thermal conductivity of air [W K-1 m-1] (Mellor, 1997)
-lapserate_dew = -0.002       # dew point temperature lapse rate [C m-1]
 Lh_rf = 333550              # Latent heat of fusion of ice [J kg-1]
 gravity = 9.81              # Gravity [m s-2]
 pressure_std = 101325       # Standard pressure [Pa]
@@ -212,7 +218,6 @@ logging_level = 'DEBUG' # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recom
 option_leapyear = 1 # 0 to exclude leap years
 
 # Reference period runs (runs up to present)
-ref_gcm_name = 'MERRA2'        # reference climate dataset ('ERA5-hourly' or 'MERRA2')
 ref_startyear = 1980                # first year of model run (reference dataset)
 ref_endyear = 2019                  # last year of model run (reference dataset)
 ref_wateryear = 'calendar'          # options for years: 'calendar', 'hydro', 'custom'

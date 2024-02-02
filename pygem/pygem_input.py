@@ -26,7 +26,7 @@ rgi_glac_number = 'all'
 # rgi_glac_number = glac_num_fromrange(1,10)
 
 glac_no_skip = None
-glac_no = None 
+# glac_no = None 
 glac_no = ['01.00570'] # Gulkana Glacier
 # glac_no = ['1.10689'] # Columbia Glacier
 # glac_no = ['1.03622'] # LeConte Glacier

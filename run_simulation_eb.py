@@ -46,7 +46,6 @@ def initialize_model(debug=True):
     parser = getparser()
     args = parser.parse_args()
     n_bins = args.n_bins
-    utils = utilities.Utils(args)
 
     # ===== GLACIER AND TIME PERIOD SETUP =====
     glacier_table = modelsetup.selectglaciersrgitable(args.glac_no,
@@ -54,43 +53,58 @@ def initialize_model(debug=True):
                     rgi_glac_number=eb_prms.rgi_glac_number, include_landterm=eb_prms.include_landterm,
                     include_laketerm=eb_prms.include_laketerm, include_tidewater=eb_prms.include_tidewater)
     dates_table = modelsetup.datesmodelrun(startyear=args.startdate, endyear=args.enddate)
+    utils = utilities.Utils(args,glacier_table)
 
     gcm = class_climate.GCM(name=eb_prms.ref_gcm_name)
     nans = np.empty(len(dates_table))*np.nan
     if args.climate_input in ['GCM']:
+        all_vars = list(gcm.var_dict.keys())
+        if eb_prms.ref_gcm_name in ['MERRA2']:
+            cenlat = glacier_table['CenLat'].to_numpy()
+            cenlon = glacier_table['CenLon'].to_numpy()
+            lat_file = str(int(np.floor(cenlat/10)*10))
+            lon_file = str(int(np.floor(cenlon/10)*10))
+            for var in all_vars:
+                if var not in ['time','lat','lon']:
+                    gcm.var_dict[var]['fn'] = gcm.var_dict[var]['fn'].replace('LAT',lat_file).replace('LON',lon_file)
         # ===== LOAD CLIMATE DATA =====
-        tp_data, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, glacier_table,dates_table)
-        temp_data, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, glacier_table,dates_table)
-        dtemp_data, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.dtemp_fn, gcm.dtemp_vn, glacier_table,dates_table)
-        sp_data, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.sp_fn, gcm.sp_vn, glacier_table,dates_table)
-        tcc, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.tcc_fn, gcm.tcc_vn, glacier_table,dates_table)
-        SWin, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.SWin_fn, gcm.SWin_vn, glacier_table,dates_table) 
-        LWin, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.SWin_fn, gcm.SWin_vn, glacier_table,dates_table) 
-        uwind, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.uwind_fn, gcm.uwind_vn, glacier_table,dates_table)                                                      
-        vwind, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.vwind_fn, gcm.vwind_vn, glacier_table,dates_table)
-        try:
-            depBC, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.depBC_fn, gcm.depBC_vn, glacier_table,dates_table)
-            depdust, data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.depdust_fn, gcm.depdust_vn, glacier_table,dates_table)
-        except:
-            depBC = nans.copy()
-            depdust = nans.copy()
-        elev_data = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, glacier_table)
+        all_data = {}
+        for var in all_vars:
+            if var not in ['time','lat','lon','elev','bcwet','bcdry','dustwet','dustdry']:
+                data,data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.var_dict[var]['fn'],
+                                                                     gcm.var_dict[var]['vn'],
+                                                                     glacier_table,dates_table)
+                if var in ['SWin','LWin','tcc','rh']:
+                    data = data[0]
+            elif var == 'elev':
+                data = gcm.importGCMfxnearestneighbor_xarray(gcm.var_dict[var]['fn'], gcm.var_dict[var]['vn'], glacier_table)
+            all_data[var] = data
+        temp_data = all_data['temp']
+        tp_data = all_data['prec']
+        sp_data = all_data['sp']
+        elev_data = all_data['elev']
+        rh = all_data['rh']
+        uwind = all_data['uwind']
+        vwind = all_data['vwind']
+        SWin = all_data['SWin']
+        LWin = all_data['LWin']
+        tcc = all_data['tcc']
         wind = np.sqrt(np.power(uwind[0],2)+np.power(vwind[0],2))
         winddir = np.arctan2(-uwind[0],-vwind[0]) * 180 / np.pi
         LWout = nans.copy()
         SWout = nans.copy()
-        rh_data = nans.copy()
         NR = nans.copy()
-        SWin = SWin[0]
-        LWin = LWin[0]
-        tcc = tcc[0]
+        # **** REMOVE
+        bcwet = nans.copy()
+        bcdry = nans.copy()
+        dustwet = nans.copy()
+        dustdry = nans.copy()
         ntimesteps = len(data_hours)
     elif args.climate_input in ['AWS']:
         aws = class_climate.AWS(eb_prms.AWS_fn,dates_table)
         temp_data = aws.temp
         tp_data = aws.tp
-        dtemp_data = aws.dtemp
-        rh_data = aws.rh
+        rh = aws.rh
         SWin = aws.SWin
         SWout = aws.SWout
         LWin = aws.LWin
@@ -101,24 +115,14 @@ def initialize_model(debug=True):
         tcc = aws.tcc
         sp_data = aws.sp
         elev_data = aws.elev
-        bc1dry = aws.bc1dry
-        bc2dry = aws.bc2dry
-        bc1wet = aws.bc1wet
-        bc2wet = aws.bc2wet
-        du1dry = aws.du1dry
-        du2dry = aws.du2dry
-        du3dry = aws.du3dry
-        du4dry = aws.du4dry
-        du5dry = aws.du5dry
-        du1wet = aws.du1wet
-        du2wet = aws.du2wet
-        du3wet = aws.du3wet
-        du4wet = aws.du4wet
-        du5wet = aws.du5wet
+        bcdry = aws.bcdry
+        bcwet = aws.bcwet
+        dustdry = aws.dustdry
+        dustwet = aws.dustwet
         ntimesteps = len(temp_data)
 
     # Adjust elevation-dependant climate variables
-    temp,tp,sp,dtemp,rh = utils.getBinnedClimate(temp_data, tp_data, sp_data, dtemp_data, rh_data,
+    temp,tp,sp = utils.getBinnedClimate(temp_data, tp_data, sp_data,
                                             ntimesteps, elev_data)
     dates = pd.date_range(args.startdate,args.enddate,freq='h')
 
@@ -132,26 +136,16 @@ def initialize_model(debug=True):
         LWout = (['time'],LWout,{'units':'J m-2'}),
         NR = (['time'],NR,{'units':'J m-2'}),
         tcc = (['time'],tcc,{'units':'0-1'}),
+        rh = (['time'],rh,{'units':'%'}),
         wind = (['time'],wind,{'units':'m s-1'}),
         winddir = (['time'],winddir,{'units':'deg'}),
-        bc1dry = (['time'],bc1dry,{'units':'kg m-2 s-1'}),
-        bc2dry = (['time'],bc2dry,{'units':'kg m-2 s-1'}),
-        bc1wet = (['time'],bc1wet,{'units':'kg m-2 s-1'}),
-        bc2wet = (['time'],bc2wet,{'units':'kg m-2 s-1'}),
-        du1dry = (['time'],du1dry,{'units':'kg m-2 s-1'}),
-        du2dry = (['time'],du2dry,{'units':'kg m-2 s-1'}),
-        du3dry = (['time'],du3dry,{'units':'kg m-2 s-1'}),
-        du4dry = (['time'],du4dry,{'units':'kg m-2 s-1'}),
-        du5dry = (['time'],du5dry,{'units':'kg m-2 s-1'}),
-        du1wet = (['time'],du1wet,{'units':'kg m-2 s-1'}),
-        du2wet = (['time'],du2wet,{'units':'kg m-2 s-1'}),
-        du3wet = (['time'],du3wet,{'units':'kg m-2 s-1'}),
-        du4wet = (['time'],du4wet,{'units':'kg m-2 s-1'}),
-        du5wet = (['time'],du5wet,{'units':'kg m-2 s-1'}),
+        bcdry = (['time'],bcdry,{'units':'kg m-2 s-1'}),
+        bcwet = (['time'],bcwet,{'units':'kg m-2 s-1'}),
+        dustdry = (['time'],dustdry,{'units':'kg m-2 s-1'}),
+        dustwet = (['time'],dustwet,{'units':'kg m-2 s-1'}),
         bin_temp = (['bin','time'],temp,{'units':'C'}),
         bin_tp = (['bin','time'],tp,{'units':'m'}),
-        bin_sp = (['bin','time'],sp,{'units':'Pa'}),
-        bin_rh = (['bin','time'],rh,{'units':'%'})
+        bin_sp = (['bin','time'],sp,{'units':'Pa'})
         ),
         coords = dict(
             bin=(['bin'],bin_idx),

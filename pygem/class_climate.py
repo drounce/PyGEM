@@ -142,81 +142,115 @@ class GCM():
                 self.rgi_lat_colname=pygem_prms.rgi_lat_colname
                 self.rgi_lon_colname=pygem_prms.rgi_lon_colname
 
-            if self.name == 'MERRA2' and pygem_prms.run_eb:
-                # Variable names for energy balance
-                self.temp_vn = 'T2M'
-                self.qv_vn = 'QV2M'
-                self.sp_vn = 'PS'
-                self.prec_vn = 'PRECTOTCORR'
-                self.elev_vn = 'PHIS'
-                self.tcc_vn = 'CLDTOT'
-                self.SWin_vn = 'SWGDN'
-                self.LWin_vn = 'LWGAB'
-                self.uwind_vn = 'U2M'
-                self.vwind_vn = 'V2M'
-                self.lat_vn = 'lat'
-                self.lon_vn = 'lon'
-                self.time_vn = 'time'
-                self.bcdry_vn = ''
-                self.bcwet_vn = ''
-                self.dustdry_vn = ''
-                self.dustwet_vn = ''
-                # self.lr_vn = 'lapserate'
-                # Variable filenames
-                self.temp_fn = 'T2M/MERRA2_T2M_LAT_LON.nc'
-                self.qv_fn = 'WV2M/MERRA2_QV2M_LAT_LON.nc'
-                self.sp_fn = 'PS/MERRA2_PS_LAT_LON.nc'
-                self.tcc_fn = 'CLDTOT/MERRA2_CLDTOT_LAT_LON.nc'
-                self.LWin_fn = 'LWGAB/MERRA2_LWGAB_LAT_LON.nc'
-                self.SWin_fn = 'CWGDM/MERRA2_SWGDN_LAT_LON.nc'
-                self.vwind_fn = 'V2M/MERRA2_V2M_LAT_LON.nc'
-                self.uwind_fn = 'U2M/MERRA2_U2M_LAT_LON.nc'
-                self.prec_fn = 'PRECTOTCORR/MERRA2_PRECTOTCORR_LAT_LON.nc'
-                self.elev_fn = 'MERRA2constants.nc4'
-                # self.lr_fn = 'lapserates_hourly.nc' 
-                # Variable filepaths
-                self.var_fp = pygem_prms.merra2_fp
-                self.fx_fp = pygem_prms.merra2_fp
-                # Extra information
-                self.timestep = pygem_prms.timestep
-                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+            if pygem_prms.run_eb:
+                self.var_dict = {'temp':{'fn':[],'vn':[]},
+                                 'rh':{'fn':[],'vn':[]},
+                                 'sp':{'fn':[],'vn':[]},
+                                 'prec':{'fn':[],'vn':[]},
+                                 'tcc':{'fn':[],'vn':[]},
+                                 'SWin':{'fn':[],'vn':[]},
+                                 'LWin':{'fn':[],'vn':[]},
+                                 'uwind':{'fn':[],'vn':[]},
+                                 'vwind':{'fn':[],'vn':[]},
+                                 'bcdry':{'fn':[],'vn':[]},
+                                 'bcwet':{'fn':[],'vn':[]},
+                                 'dustdry':{'fn':[],'vn':[]},
+                                 'dustwet':{'fn':[],'vn':[]},
+                                 'elev':{'fn':[],'vn':[]}}
+                if self.name == 'MERRA2':
+                    # Variable names for energy balance
+                    self.var_dict['temp']['vn'] = 'T2M'
+                    self.var_dict['rh']['vn'] = 'RH'
+                    self.var_dict['sp']['vn'] = 'PS'
+                    self.var_dict['prec']['vn'] = 'PRECTOTCORR'
+                    self.var_dict['elev']['vn'] = 'PHIS'
+                    self.var_dict['tcc']['vn'] = 'CLDTOT'
+                    self.var_dict['SWin']['vn'] = 'SWGDN'
+                    self.var_dict['LWin']['vn'] = 'LWGAB'
+                    self.var_dict['uwind']['vn'] = 'U2M'
+                    self.var_dict['vwind']['vn'] = 'V2M'
+                    self.var_dict['bcwet']['vn'] = ''
+                    self.var_dict['bcdry']['vn'] = ''
+                    self.var_dict['dustwet']['vn'] = ''
+                    self.var_dict['dustdry']['vn'] = ''
+                    self.time_vn = 'time'
+                    self.lat_vn = 'lat'
+                    self.lon_vn = 'lon'
+                    self.elev_vn = self.var_dict['elev']['vn']
+                    # self.lr_vn = 'lapserate'
+                    # Variable filenames
+                    self.var_dict['temp']['fn'] = 'T2M/MERRA2_T2M_LAT_LON.nc'
+                    self.var_dict['rh']['fn'] = 'RH2M/MERRA2_RH2M_LAT_LON.nc'
+                    self.var_dict['sp']['fn'] = 'PS/MERRA2_PS_LAT_LON.nc'
+                    self.var_dict['tcc']['fn'] = 'CLDTOT/MERRA2_CLDTOT_LAT_LON.nc'
+                    self.var_dict['LWin']['fn'] = 'LWGAB/MERRA2_LWGAB_LAT_LON.nc'
+                    self.var_dict['SWin']['fn'] = 'SWGDN/MERRA2_SWGDN_LAT_LON.nc'
+                    self.var_dict['vwind']['fn'] = 'V2M/MERRA2_V2M_LAT_LON.nc'
+                    self.var_dict['uwind']['fn'] = 'U2M/MERRA2_U2M_LAT_LON.nc'
+                    self.var_dict['prec']['fn'] = 'PRECTOTCORR/MERRA2_PRECTOTCORR_LAT_LON.nc'
+                    self.var_dict['elev']['fn'] = 'MERRA2constants.nc4'
+                    self.var_dict['bcwet']['fn'] = ''
+                    self.var_dict['bcdry']['fn'] = ''
+                    self.var_dict['dustwet']['fn'] = ''
+                    self.var_dict['dustdry']['fn'] = ''
+                    # self.lr_fn = 'lapserates_hourly.nc' 
+                    # Variable filepaths
+                    self.var_fp = pygem_prms.merra2_fp
+                    self.fx_fp = pygem_prms.merra2_fp
+                    # Extra information
+                    self.timestep = pygem_prms.timestep
+                    self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                    self.rgi_lon_colname=pygem_prms.rgi_lon_colname
 
-            if self.name == 'ERA5-hourly' and pygem_prms.run_eb:
-                # Variable names for energy balance
-                self.temp_vn = 't2m'
-                self.dtemp_vn = 'd2m'
-                self.sp_vn = 'sp'
-                self.prec_vn = 'tp'
-                self.elev_vn = 'z'
-                self.tcc_vn = 'tcc'
-                self.SWin_vn = 'ssrd'
-                self.LWin_vn = 'strd'
-                self.uwind_vn = 'u10'
-                self.vwind_vn = 'v10'
-                self.lat_vn = 'latitude'
-                self.lon_vn = 'longitude'
-                self.time_vn = 'time'
-                # self.lr_vn = 'lapserate'
-                # Variable filenames
-                self.temp_fn = 'ERA5_temp_hourly.nc'
-                self.dtemp_fn = 'ERA5_dtemp_hourly.nc'
-                self.sp_fn = 'ERA5_sp_hourly.nc'
-                self.tcc_fn = 'ERA5_tcc_hourly.nc'
-                self.LWin_fn = 'ERA5_LWin_hourly.nc'
-                self.SWin_fn = 'ERA5_SWin_hourly.nc'
-                self.vwind_fn = 'ERA5_vwind_hourly.nc'
-                self.uwind_fn = 'ERA5_uwind_hourly.nc'
-                self.prec_fn = 'ERA5_precip_hourly.nc'
-                self.elev_fn = pygem_prms.era5_elev_fn
-                # self.lr_fn = 'lapserates_hourly.nc' 
-                # Variable filepaths
-                self.var_fp = pygem_prms.era5h_fp
-                self.fx_fp = pygem_prms.era5h_fp
-                # Extra information
-                self.timestep = pygem_prms.timestep
-                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                if self.name == 'ERA5-hourly':
+                    # Variable names for energy balance
+                    self.var_dict = {'temp':{},'rh':{},'sp':{},'prec':{},
+                                    'tcc':{},'SWin':{},'LWin':{},'uwind':{},'vwind':{},
+                                    'bcdry':{},'bcwet':{},'dustdry':{},'dustwet':{},
+                                    'lat':{},'lon':{},'time':{},'elev':{}}
+                    self.var_dict['temp']['vn'] = 't2m'
+                    self.var_dict['rh']['vn'] = 'd2m'
+                    self.var_dict['sp']['vn'] = 'sp'
+                    self.var_dict['prec']['vn'] = 'prec'
+                    self.var_dict['elev']['vn'] = 'z'
+                    self.var_dict['tcc']['vn'] = 'tcc'
+                    self.var_dict['SWin']['vn'] = 'ssrd'
+                    self.var_dict['LWin']['vn'] = 'strd'
+                    self.var_dict['uwind']['vn'] = 'u10'
+                    self.var_dict['vwind']['vn'] = 'v10'
+                    self.var_dict['bcwet']['vn'] = ''
+                    self.var_dict['bcdry']['vn'] = ''
+                    self.var_dict['dustwet']['vn'] = ''
+                    self.var_dict['dustdry']['vn'] = ''
+                    self.time_vn = 'time'
+                    self.lat_vn = 'latitude'
+                    self.lon_vn = 'longitude'
+                    self.elev_vn = self.var_dict['elev']['vn']
+                    # self.lr_vn = 'lapserate'
+                    # Variable filenames
+                    # Variable filenames
+                    self.var_dict['temp']['fn'] = 'ERA5_temp_hourly.nc'
+                    self.var_dict['rh']['fn'] = 'ERA5_rh_hourly.nc'
+                    self.var_dict['sp']['fn'] = 'ERA5_sp_hourly.nc'
+                    self.var_dict['tcc']['fn'] = 'ERA5_tcc_hourly.nc'
+                    self.var_dict['LWin']['fn'] = 'ERA5_LWin_hourly.nc'
+                    self.var_dict['SWin']['fn'] = 'ERA5_SWin_hourly.nc'
+                    self.var_dict['vwind']['fn'] = 'ERA5_vwind_hourly.nc'
+                    self.var_dict['uwind']['fn'] = 'ERA5_uwind_hourly.nc'
+                    self.var_dict['prec']['fn'] = 'ERA5_precip_hourly.nc'
+                    self.var_dict['elev']['fn'] = pygem_prms.era5_elev_fn
+                    self.var_dict['bcwet']['fn'] = ''
+                    self.var_dict['bcdry']['fn'] = ''
+                    self.var_dict['dustwet']['fn'] = ''
+                    self.var_dict['dustdry']['fn'] = ''
+                    # self.lr_fn = 'lapserates_hourly.nc' 
+                    # Variable filepaths
+                    self.var_fp = pygem_prms.era5h_fp
+                    self.fx_fp = pygem_prms.era5h_fp
+                    # Extra information
+                    self.timestep = pygem_prms.timestep
+                    self.rgi_lat_colname=pygem_prms.rgi_lat_colname
+                    self.rgi_lon_colname=pygem_prms.rgi_lon_colname
                 
             # Standardized CMIP5 format (GCM/RCP)
             elif 'rcp' in scenario:
@@ -285,6 +319,8 @@ class GCM():
         """
         # Import netcdf file
         data = xr.open_dataset(self.fx_fp + filename)
+        if np.all(main_glac_rgi[self.rgi_lon_colname] > 180) and 'MERRA2' in filename: #*****
+            main_glac_rgi[self.rgi_lon_colname] = main_glac_rgi[self.rgi_lon_colname] - 360
         glac_variable = np.zeros(main_glac_rgi.shape[0])
         # If time dimension included, then set the time index (required for ERA Interim, but not for CMIP5 or COAWST)
         if 'time' in data[vn].coords:
@@ -306,7 +342,7 @@ class GCM():
                                   data.variables[self.lat_vn][:].values).argmin(axis=1))
             lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 
                                   data.variables[self.lon_vn][:].values).argmin(axis=1))
-            
+
             latlon_nearidx = list(zip(lat_nearidx, lon_nearidx))
             latlon_nearidx_unique = list(set(latlon_nearidx))
         
@@ -316,13 +352,12 @@ class GCM():
                     glac_variable_dict[latlon] = data[vn][time_idx, latlon[0], latlon[1]].values
                 except:
                     glac_variable_dict[latlon] = data[vn][latlon[0], latlon[1]].values
-            
-            glac_variable = np.array([glac_variable_dict[x] for x in latlon_nearidx])    
-            
+            glac_variable = np.array([glac_variable_dict[x] for x in latlon_nearidx])             
         # Correct units if necessary (CMIP5 already in m a.s.l., ERA Interim is geopotential [m2 s-2])
         if vn == self.elev_vn:
+            poss_elev_units = ['m**2 s**-2','m+2 s-2']
             # If the variable has units associated with geopotential, then convert to m.a.s.l (ERA Interim)
-            if 'units' in data[vn].attrs and (data[vn].attrs['units'] == 'm**2 s**-2'):  
+            if 'units' in data[vn].attrs and (data[vn].attrs['units'] in poss_elev_units):  
                 # Convert m2 s-2 to m by dividing by gravity (ERA Interim states to use 9.80665)
                 glac_variable = glac_variable / 9.80665
             # Elseif units already in m.a.s.l., then continue
@@ -331,7 +366,6 @@ class GCM():
             # Otherwise, provide warning
             else:
                 print('Check units of elevation from GCM is m.')
-                
         return glac_variable
 
     
@@ -371,6 +405,8 @@ class GCM():
                     filename = filename_realization
             
         data = xr.open_dataset(self.var_fp + filename)
+        if np.all(main_glac_rgi[self.rgi_lon_colname] > 180) and 'MERRA2' in filename: #*****
+            main_glac_rgi[self.rgi_lon_colname] = main_glac_rgi[self.rgi_lon_colname] - 360
         glac_variable_series = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
         
         # Check GCM provides required years of data
@@ -427,10 +463,6 @@ class GCM():
                 lon_nearidx = latlon_nearidx[1]
                 glac_variable_series[glac,:] = (
                         data[vn][start_idx:end_idx+1, latlon_nearidx[0], latlon_nearidx[1]].values)
-        elif pygem_prms.run_eb:
-            #this code is for using the data that is already selected to Gulkana; thus nearest neighbor is unnecessary
-            for glac in range(main_glac_rgi.shape[0]):
-                glac_variable_series[glac,:] = data[vn][start_idx:end_idx+1,0,0].values
         else:
             #  argmin() finds the minimum distance between the glacier lat/lon and the GCM pixel; .values is used to 
             #  extract the position's value as opposed to having an array
@@ -455,7 +487,7 @@ class GCM():
 
         # Perform corrections to the data if necessary
         # Surface air temperature corrections
-        if vn in ['tas', 't2m', 'T2']:
+        if vn in ['tas', 't2m', 'T2','T2M']:
             if 'units' in data[vn].attrs and data[vn].attrs['units'] == 'K':
                 # Convert from K to deg C
                 glac_variable_series = glac_variable_series - 273.15
@@ -466,14 +498,18 @@ class GCM():
                 print('Check units of air temperature standard deviation from GCM is degrees C or K')
         # Precipitation corrections
         # If the variable is precipitation
-        elif vn in ['pr', 'tp', 'TOTPRECIP']:
+        elif vn in ['pr', 'tp', 'TOTPRECIP','PRECTOTCORR']:
             # If the variable has units and those units are meters (ERA Interim)
             if 'units' in data[vn].attrs and data[vn].attrs['units'] == 'm':
                 pass
             # Elseif the variable has units and those units are kg m-2 s-1 (CMIP5/CMIP6)
             elif 'units' in data[vn].attrs and data[vn].attrs['units'] == 'kg m-2 s-1':  
-                # Convert from kg m-2 s-1 to m day-1
-                glac_variable_series = glac_variable_series/1000*3600*24
+                if pygem_prms.run_eb:
+                    # Convert from kg m-2 s-1 to m hr-1
+                    glac_variable_series = glac_variable_series*3600/1000
+                else:
+                    # Convert from kg m-2 s-1 to m day-1
+                    glac_variable_series = glac_variable_series/1000*3600*24
                 #   (1 kg m-2 s-1) * (1 m3/1000 kg) * (3600 s / hr) * (24 hr / day) = (m day-1)
             # Elseif the variable has units and those units are mm (COAWST)
             elif 'units' in data[vn].attrs and data[vn].attrs['units'] == 'mm':
@@ -485,46 +521,18 @@ class GCM():
                 # Convert from meters per day to meters per month (COAWST data already 'monthly accumulated precipitation')
                 if 'daysinmonth' in dates_table.columns:
                     glac_variable_series = glac_variable_series * dates_table['daysinmonth'].values[np.newaxis,:]
-        elif vn in ['sp','d2m','tcc','ssrd','u10','v10']:
+        elif vn in ['sp','d2m','tcc','ssrd','u10','v10',]:
             # code in units check for these variables
             print('!! Not checking units for any EB variables')
             pass
-        elif vn != self.lr_vn:
-            print('Check units of air temperature or precipitation')
+        else:
+            print('!! Not checking units for any EB variables')
+            # print('Check units of air temperature or precipitation')******
         return glac_variable_series, time_series
     
 class AWS():
     def __init__(self,fp,dates_table):
-        # Variable names for energy balance
-        self.temp_vn = 'temp'
-        self.prec_vn = 'tp'
-        self.wind_vn = 'wind'
-        self.winddir_vn = 'winddir'
-        self.dtemp_vn = 'dtemp'
-        self.rh_vn = 'rh'
-        self.sp_vn = 'sp'
-        self.elev_vn = 'z'
-        self.tcc_vn = 'tcc'
-        self.SWin_vn = 'SWin'
-        self.SWout_vn = 'SWout'
-        self.LWin_vn = 'LWin'
-        self.LWout_vn = 'LWout'
-        self.NR_vn = 'NR'
-        self.bc1dry_vn = 'bc1dry'
-        self.bc2dry_vn = 'bc2dry'
-        self.bc1wet_vn = 'bc1wet'
-        self.bc2wet_vn = 'bc2wet'
-        self.du1dry_vn = 'du1dry'
-        self.du2dry_vn = 'du2dry'
-        self.du3dry_vn = 'du3dry'
-        self.du4dry_vn = 'du4dry'
-        self.du5dry_vn = 'du5dry'
-        self.du1wet_vn = 'du1wet'
-        self.du2wet_vn = 'du2wet'
-        self.du3wet_vn = 'du3wet'
-        self.du4wet_vn = 'du4wet'
-        self.du5wet_vn = 'du5wet'
-        # File name
+        # Load file
         self.fn = fp
         df = pd.read_csv(fp,index_col=0)
 
@@ -535,46 +543,35 @@ class AWS():
         df = df.set_index(pd.date_range(data_start,data_end,freq='h'))
         df = df.loc[dates_table.date[0]:dates_table.date.to_numpy()[-1]]
         
-        self.temp = df[self.temp_vn].to_numpy()
-        self.dtemp = df[self.dtemp_vn].to_numpy()
-        self.tp = df[self.prec_vn].to_numpy()
-        self.rh = df[self.rh_vn].to_numpy()
-        self.SWin = df[self.SWin_vn].to_numpy()
-        self.SWout = df[self.SWout_vn].to_numpy()
-        self.LWin = df[self.LWin_vn].to_numpy()
-        self.LWout = df[self.LWout_vn].to_numpy()
-        self.wind = df[self.wind_vn].to_numpy()
-        self.sp = df[self.sp_vn].to_numpy()
-        self.elev = df[self.elev_vn].to_numpy()[0]
-        self.bc1dry = df[self.bc1dry_vn].to_numpy()
-        self.bc2dry = df[self.bc2dry_vn].to_numpy()
-        self.bc1wet = df[self.bc1wet_vn].to_numpy()
-        self.bc2wet = df[self.bc2wet_vn].to_numpy()
-        self.du1dry = df[self.du1dry_vn].to_numpy()
-        self.du2dry = df[self.du2dry_vn].to_numpy()
-        self.du3dry = df[self.du3dry_vn].to_numpy()
-        self.du4dry = df[self.du4dry_vn].to_numpy()
-        self.du5dry = df[self.du5dry_vn].to_numpy()
-        self.du1wet = df[self.du1wet_vn].to_numpy()
-        self.du2wet = df[self.du2wet_vn].to_numpy()
-        self.du3wet = df[self.du3wet_vn].to_numpy()
-        self.du4wet = df[self.du4wet_vn].to_numpy()
-        self.du5wet = df[self.du5wet_vn].to_numpy()
+        self.temp = df['temp'].to_numpy()
+        self.tp = df['tp'].to_numpy()
+        self.rh = df['rh'].to_numpy()
+        self.SWin = df['SWin'].to_numpy()
+        self.SWout = df['SWout'].to_numpy()
+        self.LWin = df['LWin'].to_numpy()
+        self.LWout = df['LWout'].to_numpy()
+        self.wind = df['wind'].to_numpy()
+        self.sp = df['sp'].to_numpy()
+        self.elev = df['z'].to_numpy()[0]
+        self.bcdry = df['bc1dry'].to_numpy()
+        self.bcwet = df['bc1wet'].to_numpy()
+        self.dustdry = df['du1dry'].to_numpy()
+        self.dustwet = df['du1wet'].to_numpy()
 
         # DATA WHICH MAY NOT BE IN FILE (NOT NEEDED)
         nans = np.ones_like(self.temp)*np.nan
-        if self.NR_vn in df.columns:
-            self.NR = df[self.NR_vn].to_numpy()
+        if 'NR' in df.columns:
+            self.NR = df['winddir'].to_numpy()
         else:
             self.NR = nans
 
-        if self.winddir_vn in df.columns:
-            self.winddir = df[self.winddir_vn].to_numpy()
+        if 'winddir' in df.columns:
+            self.winddir = df['winddir'].to_numpy()
         else:
             self.winddir = nans
 
-        if self.tcc_vn in df.columns:
-            self.tcc = df[self.tcc_vn].to_numpy()
+        if 'tcc' in df.columns:
+            self.tcc = df['tcc'].to_numpy()
         else:
             self.tcc = nans
         return

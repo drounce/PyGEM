@@ -1,4 +1,3 @@
-import torch
 import numpy as np
 import xarray as xr
 from sklearn.ensemble import RandomForestRegressor
@@ -9,11 +8,13 @@ class Utils():
     """
     Utility functions.
     """
-    def __init__(self, args):
+    def __init__(self, args,glacier_table):
         self.args = args
+        self.lat = glacier_table['CenLat'].values
+        self.lon = glacier_table['CenLon'].values
         return
 
-    def getBinnedClimate(self, temp_data, tp_data, sp_data, dtemp_data, rh_data, 
+    def getBinnedClimate(self, temp_data, tp_data, sp_data,
                          n_timesteps, elev_data, bin_elev = eb_prms.bin_elev):
         """
         Adjusts elevation-dependent climate variables (temperature, precip,
@@ -26,7 +27,6 @@ class Utils():
         temp = np.zeros((n_bins,n_timesteps))
         tp = np.zeros((n_bins,n_timesteps))
         sp = np.zeros((n_bins,n_timesteps))
-        dtemp = np.zeros((n_bins,n_timesteps))
         
         #Loop through each elevation bin and adjust climate variables
         for idx,z in enumerate(bin_elev):
@@ -45,19 +45,8 @@ class Utils():
             # SURFACE PRESSURE: correct according to barometric law
             sp[idx,:] = sp_data*np.power((temp_data + eb_prms.lapserate*(z-elev_data)+273.15)/(temp_data+273.15),
                                 -eb_prms.gravity*eb_prms.molarmass_air/(eb_prms.R_gas*eb_prms.lapserate))
-            
-            # RH / DTEMP: if RH is not empty, get dtemp data from it; or vice versa
-            rh_empty = np.all(np.isnan(rh_data))
-            dtemp_empty = np.all(np.isnan(dtemp_data))
-            assert rh_empty or dtemp_empty, 'Input either dewpoint temperature or humidity data'
-            if not rh_empty: 
-                vap_data = rh_data / 100 * self.getVaporPressure(temp[idx,:])
-                dtemp_data = self.getDewTemp(vap_data)
-                dtemp[idx,:] = dtemp_data + eb_prms.lapserate_dew*(z-elev_data)
-                rh = np.array([rh_data]*n_bins)
-            elif not dtemp_empty:
-                rh = self.getVaporPressure(dtemp_data) / self.getVaporPressure(temp) * 100
-        return temp, tp, sp, dtemp, rh
+        
+        return temp, tp, sp
     
     def getVaporPressure(self,tempC):
         """
@@ -122,4 +111,3 @@ class Utils():
         N = len(y)
         RMSE = np.sqrt(np.sum(np.square(pred-y))/N)
         return RMSE
-        

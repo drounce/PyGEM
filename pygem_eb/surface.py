@@ -6,14 +6,16 @@ import sys, os
 sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/src/')
 sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/src/biosnicar')
 import yaml
+import suncalc
 
 class Surface():
     """
     Surface scheme that tracks the accumulation of LAPs and calculates albedo based on several switches.
     """ 
-    def __init__(self,layers,time,args):
+    def __init__(self,layers,time,args,utils):
         # Add args to surface class
         self.args = args
+        self.utils = utils
 
         # Set initial albedo based on surface type
         self.albedo_dict = {'snow':eb_prms.albedo_fresh_snow,'firn':eb_prms.albedo_firn,
@@ -139,7 +141,7 @@ class Surface():
         # need to keep track of the layer that used to be the surface such 
         # that if the snowfall melts, albedo resets to the dirty surface
 
-    def getAlbedo(self,layers):
+    def getAlbedo(self,layers,time):
         """
         Checks switches and gets albedo from corresponding method. If LAPs or grain size
         are tracked, albedo comes from SNICAR, otherwise it is parameterized by surface
@@ -163,7 +165,7 @@ class Surface():
                     self.albedo = self.albedo_dict[self.stype]
                 elif args.switch_LAPs == 1:
                     # LAPs ON, GRAIN SIZE OFF
-                    self.albedo = self.runSNICAR(layers,override_grainsize=True)
+                    self.albedo = self.runSNICAR(layers,time,override_grainsize=True)
             elif args.switch_melt == 1:
                 # BASIC DEGRADATION RATE
                 age = self.days_since_snowfall
@@ -172,15 +174,15 @@ class Surface():
             elif args.switch_melt == 2:
                 if args.switch_LAPs == 0:
                     # LAPs OFF, GRAIN SIZE ON
-                    self.albedo = self.runSNICAR(layers,override_LAPs=True)
+                    self.albedo = self.runSNICAR(layers,time,override_LAPs=True)
                 elif args.switch_LAPs == 1:
                     # LAPs ON, GRAIN SIZE ON
-                    self.albedo = self.runSNICAR(layers)
+                    self.albedo = self.runSNICAR(layers,time)
         else:
             self.albedo = self.albedo_dict[self.stype]
         return 
     
-    def runSNICAR(self,layers,n_layers=None,max_depth=None,
+    def runSNICAR(self,layers,time,n_layers=None,max_depth=None,
                   override_grainsize=False,override_LAPs=False):
         """
         Runs SNICAR model to retrieve broadband albedo. 
@@ -232,21 +234,14 @@ class Surface():
         if override_grainsize:
             lgrainsize = [GRAINSIZE for _ in idx]
 
-        # LAPs need to be a concentration in ppb
-        # BC1 = layers.lBC[0,idx] / layers.lheight[idx] * 1e6
-        # BC2 = layers.lBC[1,idx] / layers.lheight[idx] * 1e6
-        # dust1 = layers.ldust[0,idx] / layers.lheight[idx] * 1e6 
-        # dust2 = layers.ldust[1,idx] / layers.lheight[idx] * 1e6
-        # dust3 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6
-        # dust4 = layers.ldust[3,idx] / layers.lheight[idx] * 1e6
-        # dust5 = layers.ldust[4,idx] / layers.lheight[idx] * 1e6
-        BC1 = layers.lBC[0,idx] / layers.lheight[idx] * 1e6 # ******
-        BC2 = layers.lBC[0,idx] / layers.lheight[idx] * 1e6 
-        dust1 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.25
-        dust2 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.5
-        dust3 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.4
-        dust4 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.5
-        dust5 = layers.ldust[2,idx] / layers.lheight[idx] * 1e6 * 0.25
+        # Convert LAPs from mass to concentration in ppb
+        BC1 = layers.lBC[idx] / layers.lheight[idx] * 1e6 
+        BC2 = layers.lBC[idx] / layers.lheight[idx] * 1e6 
+        dust1 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.1
+        dust2 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.2
+        dust3 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.4
+        dust4 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.2
+        dust5 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.1
         lBC1 = (BC1.astype(float)).tolist()
         lBC2 = (BC2.astype(float)).tolist()
         ldust1 = (dust1.astype(float)).tolist()
@@ -257,7 +252,7 @@ class Surface():
         if override_LAPs:
             lBC1 = [eb_prms.BC_freshsnow*1e6 for _ in idx]
             ldust1 = np.array([eb_prms.dust_freshsnow*1e6 for _ in idx]).tolist()
-            lBC1 = lBC1.copy()
+            lBC2 = lBC1.copy()
             ldust2 = ldust1.copy()
             ldust3 = ldust1.copy()
             ldust4 = ldust1.copy()
@@ -283,6 +278,12 @@ class Surface():
         ice_variables = ['LAYER_TYPE','SHP','HEX_SIDE','HEX_LENGTH','SHP_FCTR','WATER','AR','CDOM']
         for var in ice_variables:
             list_doc['ICE'][var] = [list_doc['ICE'][var][0]] * n_layers
+
+        # Solar zenith angle
+        altitude_angle = suncalc.get_position(time,self.utils.lat,self.utils.lon)['altitude']
+        zenith = 180/np.pi * (np.pi/2 - altitude_angle) if altitude_angle > 0 else 89
+        # zenith = np.round(zenith / 10) * 10
+        list_doc['RTM']['SOLZEN'] = int(zenith)
 
         # Save SNICAR input file
         with open(eb_prms.snicar_input_fp, 'w') as f:
