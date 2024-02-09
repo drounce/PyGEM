@@ -553,10 +553,10 @@ class AWS():
         self.wind = df['wind'].to_numpy()
         self.sp = df['sp'].to_numpy()
         self.elev = df['z'].to_numpy()[0]
-        self.bcdry = df['bc1dry'].to_numpy()
-        self.bcwet = df['bc1wet'].to_numpy()
-        self.dustdry = df['du1dry'].to_numpy()
-        self.dustwet = df['du1wet'].to_numpy()
+        self.bcdry = df['bc2dry'].to_numpy()
+        self.bcwet = df['bc2wet'].to_numpy()
+        self.dustdry = df['du3dry'].to_numpy()
+        self.dustwet = df['du3wet'].to_numpy()
 
         # DATA WHICH MAY NOT BE IN FILE (NOT NEEDED)
         nans = np.ones_like(self.temp)*np.nan

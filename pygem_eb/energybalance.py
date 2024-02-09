@@ -193,6 +193,8 @@ class energyBalance():
         """
         if eb_prms.method_ground in ['MolgHardy']:
             Qg = -eb_prms.k_ice * (surftemp - eb_prms.temp_temp) / eb_prms.temp_depth
+        else:
+            assert 1==0, 'Ground flux method not accepted; choose from [\'MolgHardy\']'
         return Qg
     
     def getTurbulentMO(self,surftemp,roughness):
@@ -207,6 +209,19 @@ class energyBalance():
         roughness : float
             Surface roughness [m]
         """
+        # CONSTANTS
+        KARMAN = eb_prms.karman
+        GRAVITY = eb_prms.gravity
+        R_GAS = eb_prms.R_gas
+        MM_AIR = eb_prms.molarmass_air
+        CP_AIR = eb_prms.Cp_air
+
+        # ROUGHNESS LENGTHS
+        z0 = roughness
+        z0t = z0/100    # Roughness length for sensible heat
+        z0q = z0/10     # Roughness length for moisture
+
+        # UNIVERSAL FUNCTIONS
         chi = lambda zeta: abs(1-16*zeta)**(1/4)
         PsiM = lambda zeta: np.piecewise(zeta,[zeta<0,(zeta>=0)&(zeta<=1),zeta>1],
                             [2*np.log((1+chi(zeta))/2)+np.log((1+chi(zeta)**2)/2)-2*np.arctan(chi(zeta))+np.pi/2,
@@ -214,20 +229,33 @@ class energyBalance():
         PsiT = lambda zeta: np.piecewise(zeta,[zeta<0,(zeta>=0)&(zeta<=1),zeta>1],
                             [np.log((1+chi(zeta)**2)/2), -5*zeta, -4*(1+np.log(zeta))-zeta])
         
+        # ADJUST WIND SPEED
+        z = 2 # reference height in m
         if eb_prms.wind_ref_height != 2:
-            # 
-            # wind speed is 10m in ERA5, so need to adjust
-            wind *= np.log(2/roughness) / np.log(10/roughness)
+            wind *= np.log(2/roughness) / np.log(eb_prms.wind_ref_height/roughness)
 
-        Qs = 1000 #initial guess
-        Ql = 1000
-        converged = False
-        zeta = 0.1
+        # Transform humidity into mixing ratio (q), get air density from PV=nRT
+        Ewz = self.vapor_pressure(self.tempC)  # vapor pressure at 2m
+        Ew0 = self.vapor_pressure(surftemp) # vapor pressure at the surface
+        qz = (self.rH/100)*0.622*(Ewz/(self.sp-Ewz))
+        q0 = 1.0*0.622*(Ew0/(self.sp-Ew0))
+        density_air = self.sp/R_GAS/self.tempK*MM_AIR
+
+        # INITIATE LOOP
+        loop = True
+        zeta = 1e-5 # initial guess, neutral stratification (close to 0 to avoid log issues)
+
+        # Use initial guess to calculate coefficients and fluxes
+        L = z / zeta
+        cD = KARMAN**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
+        cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
+        cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
+        Qs = density_air*CP_AIR*cH*self.wind*(self.tempC-surftemp)
+        Ql = density_air*eb_prms.Lv_evap*cE*self.wind*(qz-q0)
+        
         count_iters = 0
-        karman = eb_prms.karman
-        while not converged:
+        while loop:
             previous_zeta = zeta
-            z = 2 #reference height, 2m
 
             if Ql > 0 and surftemp <=0:
                 Lv = eb_prms.Lv_evap
@@ -236,33 +264,25 @@ class energyBalance():
             elif Ql <= 0:
                 Lv = eb_prms.Lv_sub
 
-            z0 = roughness
-            z0t = z0/100    # Roughness length for sensible heat
-            z0q = z0/10     # Roughness length for moisture
-
-            # calculate friction velocity using previous heat flux to get Obukhov length (L)
-            fric_vel = karman*self.wind/(np.log(z/z0)-PsiM(zeta))
-            air_dens = self.sp/eb_prms.R_gas/self.tempK*eb_prms.molarmass_air
-            if Qs == 0:
-                Qs = 1e-5 # Fixes /0 problem
-            L = fric_vel**3*(self.tempC+273.15)*air_dens*eb_prms.Cp_air/(karman*eb_prms.gravity*Qs)
+            # Calculate friction velocity using previous heat flux to get Obukhov length (L)
+            fric_vel = KARMAN*self.wind/(np.log(z/z0)-PsiM(zeta))
+            Qs = 1e-5 if Qs == 0 else Qs # divide by 0 issue
+            L = fric_vel**3*(self.tempC+273.15)*density_air*CP_AIR/(KARMAN*GRAVITY*Qs)
             L = max(L,0.3)  # DEBAM uses this correction to ensure it isn't over stablizied
             zeta = z/L
                 
-            cD = karman**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
-            cH = karman*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
-            cE = karman*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
-            Qs = air_dens*eb_prms.Cp_air*cH*self.wind*(self.tempC-surftemp)
+            # Calculate 
+            cD = KARMAN**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
+            cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
+            cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
 
-            Ewz = self.vapor_pressure(self.tempC)  # vapor pressure at 2m
-            Ew0 = self.vapor_pressure(surftemp) # vapor pressure at the surface
-            qz = (self.rH/100)*0.622*(Ewz/(self.sp-Ewz))
-            q0 = 1.0*0.622*(Ew0/(self.sp-Ew0))
-            Ql = air_dens*Lv*cE*self.wind*(qz-q0)
+            # Calculate fluxes
+            Qs = density_air*CP_AIR*cH*self.wind*(self.tempC-surftemp)
+            Ql = density_air*Lv*cE*self.wind*(qz-q0)
 
             count_iters += 1
             if count_iters > 10 or abs(previous_zeta - zeta) < .1:
-                converged = True
+                loop = False
 
         return Qs, Ql
     
@@ -272,8 +292,8 @@ class energyBalance():
         if np.isnan(self.dustdry):
             self.dustdry = 1e-13 # kg m-2 s-1
 
-        layers.lBC[0] += self.bcdry * self.dt
-        layers.ldust[0] += self.dustdry * self.dt 
+        layers.lBC[0] += self.bcdry * self.dt * eb_prms.ratio_BC2_BCtot
+        layers.ldust[0] += self.dustdry * self.dt * eb_prms.ratio_DU3_DUtot
         return 
     
     def getRoughnessLength(self,days_since_snowfall,layertype):

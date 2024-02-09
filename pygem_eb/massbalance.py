@@ -59,10 +59,6 @@ class massBalance():
             # Initiate the energy balance to unpack climate data
             enbal = eb.energyBalance(climateds,time,self.bin_idx,dt)
 
-            # bc_ppb = layers.lBC[0] /layers.lheight[0] * 1e6
-            # dust_ppm = layers.ldust[0] /layers.lheight[0] * 1e3
-            # print(time,'BC (ppb)',bc_ppb,'dust (ppm)',dust_ppm,'albedo',surface.albedo)
-            
             # Update layers (checks for tiny or huge layers)
             layers.updateLayers()
 
@@ -71,15 +67,14 @@ class massBalance():
 
             # Add fresh snow to layers
             if snowfall > 0:
-                store_surface = layers.addSnow(snowfall,enbal,surface,self.args,time)
-                if store_surface: # ****Store surface might not be necessary
-                    surface.storeSurface()
+                layers.addSnow(snowfall,enbal,surface,self.args,time)
+                    
             # Add dry deposited BC and dust to layers
             enbal.getDryDeposition(layers)
 
             # Update daily properties
-            if time.hour < 1: 
-                surface.updateSurfaceDaily(layers,time)
+            if time.hour == 0: 
+                surface.updateSurfaceDaily(layers,enbal.tempC,time)
                 self.days_since_snowfall = surface.days_since_snowfall
                 layers.lnewsnow = np.zeros(layers.nlayers)
             if time.hour == eb_prms.albedo_TOD:
@@ -91,13 +86,13 @@ class massBalance():
             # Calculate subsurface heating from penetrating SW
             if layers.nlayers > 1: 
                 SWin,SWout = enbal.getSW(surface.albedo)
-                subsurf_melt = self.heatSubsurface(layers,SWin+SWout)
+                subsurf_melt = self.penetratingSW(layers,SWin+SWout)
             else: # If there is only one layer, no subsurface melt occurs
                 subsurf_melt = [0]
 
             # Calculate column melt including the surface
             if surface.Qm > 0:
-                layermelt, self.melted_layers = self.meltSubsurface(layers,subsurf_melt)
+                layermelt, self.melted_layers = self.meltLayers(layers,subsurf_melt)
             else: # No surface melt
                 layermelt = subsurf_melt.copy()
                 layermelt[0] = 0
@@ -117,7 +112,7 @@ class massBalance():
             refreeze = self.refreezing(layers)
 
             # Run densification daily
-            if time.hour + time.minute < 1:
+            if time.hour == 0:
                 self.densification(layers,eb_prms.daily_dt)
 
             # END MASS BALANCE
@@ -141,7 +136,7 @@ class massBalance():
             self.output.storeData(self.bin_idx)
         return
 
-    def heatSubsurface(self,layers,surface_SW):
+    def penetratingSW(self,layers,surface_SW):
         """
         Calculates melt in subsurface layers (excluding layer 0) due to penetrating shortwave radiation.
 
@@ -196,7 +191,7 @@ class massBalance():
         layers.ltemp = lT
         return layermelt
 
-    def meltSubsurface(self,layers,subsurf_melt):
+    def meltLayers(self,layers,subsurf_melt):
         """
         For cases when bins are melting. Can melt multiple surface bins at once if Qm is
         sufficiently high. Otherwise, adds the surface layer melt to the array containing
@@ -302,6 +297,7 @@ class massBalance():
             water_in += np.sum(self.melted_layers.mass)
 
         if eb_prms.method_percolation in ['no_LAPs']:
+            # MIGHT BE BROKEN???
             for layer,melt in enumerate(layermelt_sf):
                 # remove melt from the dry mass
                 ldm[layer] -= melt
@@ -384,9 +380,6 @@ class massBalance():
         # CONSTANTS
         PARTITION_COEF_BC = eb_prms.ksp_BC
         PARTITION_COEF_DUST = eb_prms.ksp_dust
-        RAIN_CONC_BC = eb_prms.rainBC
-        RAIN_CONC_DUST = eb_prms.raindust
-        DENSITY_WATER = eb_prms.density_water
         dt = eb_prms.dt
 
         # LAYERS IN
@@ -403,8 +396,7 @@ class massBalance():
 
         # get wet deposition into top layer
         m_BC_in_top = np.array([enbal.bcwet])
-        m_dust_in_top = np.array([enbal.dustwet])
-        # rainfall*DENSITY_WATER*RAIN_CONC_DUST
+        m_dust_in_top = np.array([enbal.dustwet]) * eb_prms.ratio_DU3_DUtot
         if self.melted_layers != 0:
             m_BC_in_top += np.sum(self.melted_layers.BC) / dt
             m_dust_in_top += np.sum(self.melted_layers.dust) / dt
@@ -416,7 +408,8 @@ class massBalance():
         m_dust_in = PARTITION_COEF_DUST*q_out[:-1]*cdust[:-1]
         m_BC_in = np.append(m_BC_in_top,m_BC_in)
         m_dust_in = np.append(m_dust_in_top,m_dust_in)
-        # outward fluxes are simply flow out * concentration of the layer
+
+        # outward fluxes are simply (flow out)*(concentration of the layer)
         m_BC_out = PARTITION_COEF_BC*q_out*cBC
         m_dust_out = PARTITION_COEF_DUST*q_out*cdust
 

@@ -13,13 +13,14 @@ class Surface():
     Surface scheme that tracks the accumulation of LAPs and calculates albedo based on several switches.
     """ 
     def __init__(self,layers,time,args,utils):
-        # Add args to surface class
+        # Add args and utils to surface class
         self.args = args
         self.utils = utils
 
         # Set initial albedo based on surface type
-        self.albedo_dict = {'snow':eb_prms.albedo_fresh_snow,'firn':eb_prms.albedo_firn,
-                                    'ice':eb_prms.albedo_ice}
+        self.albedo_dict = {'snow':eb_prms.albedo_fresh_snow,
+                            'firn':eb_prms.albedo_firn,
+                            'ice':eb_prms.albedo_ice}
         self.stype = layers.ltype[0]
         self.albedo = self.albedo_dict[self.stype]
 
@@ -29,7 +30,7 @@ class Surface():
         self.snow_timestamp = time[0]
         return
     
-    def updateSurfaceDaily(self,layers,time):
+    def updateSurfaceDaily(self,layers,airtemp,time):
         """
         Run every timestep to get albedo-related properties that evolve with time
 
@@ -42,7 +43,7 @@ class Surface():
         """
         self.stype = layers.ltype[0]
         if self.args.switch_melt == 2 and layers.nlayers > 2:
-            layers.getGrainSize(self.stemp)
+            layers.getGrainSize(airtemp)
         self.days_since_snowfall = (time - self.snow_timestamp)/pd.Timedelta(days=1)
         return
     
@@ -135,11 +136,6 @@ class Surface():
         enbal.surfaceEB(self.stemp,layers,self.albedo,self.days_since_snowfall)
         self.Qm = Qm
         return
-    
-    def storeSurface(self):
-        previous = self.days_since_snowfall
-        # need to keep track of the layer that used to be the surface such 
-        # that if the snowfall melts, albedo resets to the dirty surface
 
     def getAlbedo(self,layers,time):
         """
@@ -197,7 +193,7 @@ class Surface():
         max_depth : float
             Maximum depth of layers to include in the calculation
         override_grainsize : Bool
-            If True, use constant grainsize specified in input.py
+            If True, use constant average grainsize specified in input.py
         override_LAPs: Bool
             If True, use constant LAP concentrations specified in input.py
 
@@ -210,7 +206,7 @@ class Surface():
             from biosnicar import main
 
         # CONSTANTS
-        GRAINSIZE = eb_prms.constant_grainsize
+        GRAINSIZE = eb_prms.average_grainsize
 
         # Get layers to include in the calculation
         assert not n_layers and not max_depth, "Specify one of n_layers or max_depth in runSNICAR"
@@ -235,24 +231,21 @@ class Surface():
             lgrainsize = [GRAINSIZE for _ in idx]
 
         # Convert LAPs from mass to concentration in ppb
-        BC1 = layers.lBC[idx] / layers.lheight[idx] * 1e6 
-        BC2 = layers.lBC[idx] / layers.lheight[idx] * 1e6 
-        dust1 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.1
-        dust2 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.2
-        dust3 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.4
-        dust4 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.2
-        dust5 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.1
-        lBC1 = (BC1.astype(float)).tolist()
-        lBC2 = (BC2.astype(float)).tolist()
+        BC = layers.lBC[idx] / layers.lheight[idx] * 1e6
+        dust1 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.047047
+        dust2 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.255962
+        dust3 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.446868
+        dust4 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.228723
+        dust5 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.0177942
+        lBC = (BC.astype(float)).tolist()
         ldust1 = (dust1.astype(float)).tolist()
         ldust2 = (dust2.astype(float)).tolist()
         ldust3 = (dust3.astype(float)).tolist()
         ldust4 = (dust4.astype(float)).tolist()
         ldust5 = (dust5.astype(float)).tolist()
         if override_LAPs:
-            lBC1 = [eb_prms.BC_freshsnow*1e6 for _ in idx]
+            lBC = [eb_prms.BC_freshsnow*1e6 for _ in idx]
             ldust1 = np.array([eb_prms.dust_freshsnow*1e6 for _ in idx]).tolist()
-            lBC2 = lBC1.copy()
             ldust2 = ldust1.copy()
             ldust3 = ldust1.copy()
             ldust4 = ldust1.copy()
@@ -263,8 +256,7 @@ class Surface():
             list_doc = yaml.safe_load(f)
 
         # Update changing layer variables
-        list_doc['IMPURITIES']['BC1']['CONC'] = lBC1
-        list_doc['IMPURITIES']['BC2']['CONC'] = lBC2
+        list_doc['IMPURITIES']['BC']['CONC'] = lBC
         list_doc['IMPURITIES']['DUST1']['CONC'] = ldust1
         list_doc['IMPURITIES']['DUST2']['CONC'] = ldust2
         list_doc['IMPURITIES']['DUST3']['CONC'] = ldust3

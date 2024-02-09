@@ -474,7 +474,11 @@ def panel_temp_compare(ds_list,time,labels,temp_df,rows=2,t=''):
     plt.show()
     return
 
-def build_RMSEs(ds_list,stake_df,time,labels,fn='sensitivity.npy'):
+def build_RMSEs(ds_list,stake_df,time,labels,save='sensitivity.npy'):
+    """
+    save : str or False
+        Filepath to save .npy file
+    """
     # get stake data into right format
     stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
     stake_df = stake_df.loc[time[0]:time[1]]
@@ -486,7 +490,9 @@ def build_RMSEs(ds_list,stake_df,time,labels,fn='sensitivity.npy'):
         melt_mse = mean_squared_error(daily_cum_melt_DATA,daily_cum_melt_MODEL)
         melt_rmse = np.mean(melt_mse)
         sens_out[labels[i]] = melt_rmse
-    np.save(fn,sens_out)
+    if save:
+        np.save(save,sens_out)
+    return sens_out
 
 def plot_iButtons(ds,bin,dates,path=None):
     if not path:

@@ -49,7 +49,7 @@ class Layers():
 
         # Grain size initial timestep can copy density
         self.grainsize = self.ldensity.copy()   # LAYER GRAIN SIZE [um]
-        self.grainsize[0:3] = np.array([eb_prms.fresh_grainsize,60,70])
+        self.grainsize[0:3] = np.array([54.5,60,70]) # ***** HARD CODED GRAIN SIZES
         self.grainsize[np.where(self.grainsize>300)[0]] = 300
         self.grainsize[np.where(self.ltype == 'firn')[0]] = 1000
         self.grainsize[np.where(self.ltype == 'ice')[0]] = 1800
@@ -416,7 +416,6 @@ class Layers():
         enbal
             class object from pygem_eb.energybalance
         """
-        store_surface = False
         snowfall += self.delayed_snow
 
         if args.switch_snow == 0:
@@ -433,7 +432,12 @@ class Layers():
                 new_density = eb_prms.constant_snowfall_density
             else:
                 new_density = max(109*6*(enbal.tempC-0.)+26*enbal.wind**0.5,50) # from CROCUS ***** CITE
-            new_grainsize = eb_prms.fresh_grainsize
+            if eb_prms.constant_freshgrainsize:
+                new_grainsize = eb_prms.constant_freshgrainsize
+            else:
+                airtemp = enbal.tempC
+                new_grainsize = np.piecewise(airtemp,[airtemp<=-30,-30<airtemp<0,airtemp>=0],
+                                       [54.5,54.5+5*(airtemp+30),204.5])
             new_height = snowfall/new_density
             new_BC = eb_prms.BC_freshsnow*new_height
             new_dust = eb_prms.dust_freshsnow*new_height
@@ -445,15 +449,15 @@ class Layers():
                             self.ltype[0] in 'firn',
                             self.ldensity[0] > new_density*3])
         if np.any(new_layer_conds):
-            if snowfall/new_density > 1e-5:
+            if snowfall/new_density > 1e-4:
                 new_layer = pd.DataFrame([enbal.tempC,0,snowfall/new_density,'snow',snowfall,
                                       new_grainsize,new_BC,new_dust,new_snow],
                                      index=['T','w','h','t','m','g','BC','dust','new'])
                 self.addLayers(new_layer)
                 self.delayed_snow = 0
-            else:
+            else: # If only a tiny amount of snow falls, delay it till the next timestep
+                # Avoids computational issues with making a miniscule layer
                 self.delayed_snow = snowfall
-            store_surface = True
         else:
             # take weighted average of density and temperature of surface layer and new snow
             new_layermass = self.ldrymass[0] + snowfall
@@ -468,15 +472,24 @@ class Layers():
             if self.lheight[0] > (eb_prms.dz_toplayer * 1.5):
                 self.splitLayer(0)
         self.updateLayerProperties()
-        return store_surface
+        return 
 
-    def getGrainSize(self,surftemp,bins=None,dt=eb_prms.daily_dt):
+    def getGrainSize(self,airtemp,bins=None,dt=eb_prms.daily_dt):
         """
         Snow grain size metamorphism
         """
         # CONSTANTS
+        DRY_METAMORPHISM_RATE = eb_prms.dry_metamorphism_rate
         WET_C = eb_prms.wet_snow_C
-        FRESH_GRAINSIZE = eb_prms.fresh_grainsize
+        GRAVITY = eb_prms.gravity
+        PI = np.pi
+        RFZ_GRAINSIZE = eb_prms.rfz_grainsize
+
+        if eb_prms.constant_freshgrainsize:
+            FRESH_GRAINSIZE = eb_prms.constant_freshgrainsize
+        else:
+            FRESH_GRAINSIZE = np.piecewise(airtemp,[airtemp<=-30,-30<airtemp<0,airtemp>=0],
+                                       [54.5,54.5+5*(airtemp+30),204.5])
 
         if len(self.snow_idx) > 0:
             # bins should be a list of indices to calculate grain size on
@@ -493,32 +506,32 @@ class Layers():
             f_rfz = refreeze / self.ldrymass[bins]
             f_liq = self.lwater[bins] / (self.lwater[bins] + self.ldrymass[bins])
 
-            dz = self.lheight.copy()[bins]
-            T = self.ltemp.copy()[bins] + 273.15
-            surftempK = surftemp + 273.15
-            p = self.ldensity.copy()[bins]
+            # dz = self.lheight.copy()[bins]
+            # T = self.ltemp.copy()[bins] + 273.15
+            # surftempK = surftemp + 273.15
+            # p = self.ldensity.copy()[bins]
             g = self.grainsize.copy()[bins]
 
-            # Dry metamorphism
-            # Calculate temperature gradient
-            dTdz = np.zeros_like(T)
-            if len(bins) > 2:
-                dTdz[0] = (surftempK - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
-                dTdz[1:-1] = ((T[:-2]*dz[:-2] + T[1:-1]*dz[1:-1]) / (dz[:-2] + dz[1:-1]) -
-                        (T[1:-1]*dz[1:-1] + T[2:]*dz[2:]) / (dz[1:-1] + dz[2:])) / dz[1:-1]
-                dTdz[-1] = dTdz[-2] # Bottom temp gradient -- not used
-            elif len(bins) == 2: # Use top ice layer for temp gradient
-                T_2layer = np.array([surftempK,T[0],T[1],self.ltemp[2]+273.15])
-                depth_2layer = np.array([0,self.ldepth[0],self.ldepth[1],self.ldepth[2]])
-                dTdz = (T_2layer[0:2] - T_2layer[2:]) / (depth_2layer[0:2] - depth_2layer[2:])
-            else: # Single bin
-                dTdz = (self.ltemp[2]+273.15-surftempK) / self.ldepth[2]
-                dTdz = np.array([dTdz])
-            dTdz = np.ones_like(dTdz[bins]) * np.mean(np.abs(dTdz[bins]))
+            # # Dry metamorphism
+            # # Calculate temperature gradient
+            # dTdz = np.zeros_like(T)
+            # if len(bins) > 2:
+            #     dTdz[0] = (surftempK - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
+            #     dTdz[1:-1] = ((T[:-2]*dz[:-2] + T[1:-1]*dz[1:-1]) / (dz[:-2] + dz[1:-1]) -
+            #             (T[1:-1]*dz[1:-1] + T[2:]*dz[2:]) / (dz[1:-1] + dz[2:])) / dz[1:-1]
+            #     dTdz[-1] = dTdz[-2] # Bottom temp gradient -- not used
+            # elif len(bins) == 2: # Use top ice layer for temp gradient
+            #     T_2layer = np.array([surftempK,T[0],T[1],self.ltemp[2]+273.15])
+            #     depth_2layer = np.array([0,self.ldepth[0],self.ldepth[1],self.ldepth[2]])
+            #     dTdz = (T_2layer[0:2] - T_2layer[2:]) / (depth_2layer[0:2] - depth_2layer[2:])
+            # else: # Single bin
+            #     dTdz = (self.ltemp[2]+273.15-surftempK) / self.ldepth[2]
+            #     dTdz = np.array([dTdz])
+            # dTdz = np.ones_like(dTdz[bins]) * np.mean(np.abs(dTdz[bins]))
 
-            # Force to be within lookup table ranges******
-            p[np.where(p > 400)[0]] = 400
-            dTdz[np.where(dTdz > 300)[0]] = 300
+            # # Force to be within lookup table ranges******
+            # p[np.where(p > 400)[0]] = 400
+            # dTdz[np.where(dTdz > 300)[0]] = 300
 
             # if eb_prms.method_grainsizetable in ['interpolate']:
             #     # Interpolate lookup table at the values of T,dTdz,p
@@ -547,17 +560,17 @@ class Layers():
             # drdry = drdrydt * dt * 10**6 # convert m to um
 
             # Dry metamorphism is constant
-            drdry = eb_prms.dry_metamorphism_rate * dt # um
+            drdry = DRY_METAMORPHISM_RATE * dt # um
 
             # Wet metamorphism
-            drwetdt = WET_C*f_liq**3/(4*np.pi*g**2)
+            drwetdt = WET_C*f_liq**3/(4*PI*GRAVITY**2)
             drwet = drwetdt * dt * 10**6 # convert m to um
 
             # Get change in grain size due to aging
             aged_grainsize = g + drdry + drwet
            
             # Sum contributions of old snow, new snow and refreeze
-            grainsize = aged_grainsize*f_old + 54.5*f_new + 1500*f_rfz
+            grainsize = aged_grainsize*f_old + FRESH_GRAINSIZE*f_new + RFZ_GRAINSIZE*f_rfz
             self.grainsize[bins] = grainsize
             self.grainsize[self.firn_idx] = 2000
             self.grainsize[self.ice_idx] = 5000

@@ -23,7 +23,7 @@ def getparser():
     parser.add_argument('-end','--enddate', action='store', type=str, default=eb_prms.enddate,
                         help='pass str like datetime of model run end')
     parser.add_argument('-climate_input', action='store', type=str, default=eb_prms.climate_input,
-                        help='pass str-like datetime of model run start')
+                        help='pass str of AWS or GCM')
     parser.add_argument('-store_data', action='store_true', default=eb_prms.store_data,
                         help='')
     parser.add_argument('-new_file', action='store_true', default=eb_prms.new_file,
@@ -94,11 +94,12 @@ def initialize_model(debug=True):
         LWout = nans.copy()
         SWout = nans.copy()
         NR = nans.copy()
-        # **** REMOVE
+        # **** REMOVE BELOW
         bcwet = nans.copy()
         bcdry = nans.copy()
         dustwet = nans.copy()
         dustdry = nans.copy()
+        # ***** REMOVE ABOVE
         ntimesteps = len(data_hours)
     elif args.climate_input in ['AWS']:
         aws = class_climate.AWS(eb_prms.AWS_fn,dates_table)
@@ -193,3 +194,6 @@ def run_model(climateds,dates_table,utils,args,new_attrs):
 
 climateds,dates_table,utils,args = initialize_model()
 out = run_model(climateds,dates_table,utils,args,{'Params?':'False'})
+if out:
+    # Get final mass balance
+    print(f'Total Mass Loss: {out.melt.sum():.3f} m w.e.')

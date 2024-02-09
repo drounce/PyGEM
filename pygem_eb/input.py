@@ -64,7 +64,7 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
-output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_albedo_TOD_12'
+# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_minimization'
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
@@ -125,7 +125,7 @@ dt_heateq = 3600/5          # Time resolution of heat eq [s], should be integer 
 method_turbulent = 'MO-similarity'      # 'MO-similarity' 
 method_heateq = 'Crank-Nicholson'       # 'Crank-Nicholson'
 method_densification = 'off'            # 'Boone', 'off', 'DEBAM' (broken)
-method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast)
+method_cooling = 'minimize'            # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_percolation = 'w_LAPs'           # 'w_LAPs' or 'no_LAPs'
 method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'
@@ -134,6 +134,7 @@ method_grainsizetable = 'interpolate'   # 'interpolate' (slow) or 'ML' (fast)
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
 constant_conductivity = False           # False or conductivity in W K-1 m-1
+constant_freshgrainsize = 54.5         # False or grain size in um (54.5 is standard)
 
 # ALBEDO SWITCHES
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
@@ -149,7 +150,6 @@ precgrad = 0.0001           # precipitation gradient on glacier [m-1]
 lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
 tsnow_threshold = 0         # Threshold below which snowfall occurs [C]
 kp = 1                      # precipitation factor [-] 
-fresh_grainsize = 54.5      # Grainsize of fresh snow [um]
 albedo_ice = 0.3            # Albedo of ice [-] 
 roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
 ksp_BC = 0.1                # meltwater scavenging efficiency of BC (from CLM5)
@@ -191,8 +191,8 @@ max_nlayers = 20            # Maximum number of vertical layers allowed
 max_dz = 1                  # Max layer height
 albedo_deg_rate = 15        # Rate of exponential decay of albedo
 wet_snow_C = 4.22e-13       # Constant for wet snow metamorphosis [m3 s-1]
-# fresh_grainsize = 54.5      # Grainsize of fresh snow [um]
-constant_grainsize = 1000   # Grainsize to treat as constant if switch_melt is 0 [um]
+average_grainsize = 1000    # Grainsize to treat as constant if switch_melt is 0 [um]
+rfz_grainsize = 1500        # Grainsize of refrozen snow [um]
 Sr = 0.033                  # for irreducible water content flow method
 rainBC = BC_freshsnow       # concentration of BC in rain
 raindust = dust_freshsnow   # concentration of dust in rain
@@ -202,6 +202,8 @@ albedo_fresh_snow = 0.85    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)
 albedo_firn = 0.55          # Albedo of firn [-]
 roughness_fresh_snow = 0.24 # surface roughness length for fresh snow [mm] (Moelg et al. 2012, TC)
 roughness_firn = 4          # surface roughness length for firn [mm] (Moelg et al. 2012, TC)
+ratio_BC2_BCtot = 2.08      # Ratio to transform BC bin 2 deposition to total BC
+ratio_DU3_DUtot = 3         # Ratio to transform dust bin 3 deposition to total dust
 
 # ========== OTHER PYGEM INPUTS ========== 
 rgi_regionsO1 = [1]
