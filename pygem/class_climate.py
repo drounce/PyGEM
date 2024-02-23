@@ -156,11 +156,14 @@ class GCM():
                                  'bcwet':{'fn':[],'vn':[]},
                                  'dustdry':{'fn':[],'vn':[]},
                                  'dustwet':{'fn':[],'vn':[]},
-                                 'elev':{'fn':[],'vn':[]}}
+                                 'elev':{'fn':[],'vn':[]},
+                                 'lat':{'fn':[],'vn':[]},
+                                 'lon':{'fn':[],'vn':[]},
+                                 'time':{'fn':[],'vn':[]}}
                 if self.name == 'MERRA2':
                     # Variable names for energy balance
                     self.var_dict['temp']['vn'] = 'T2M'
-                    self.var_dict['rh']['vn'] = 'RH'
+                    self.var_dict['rh']['vn'] = 'RH2M'
                     self.var_dict['sp']['vn'] = 'PS'
                     self.var_dict['prec']['vn'] = 'PRECTOTCORR'
                     self.var_dict['elev']['vn'] = 'PHIS'
@@ -169,10 +172,10 @@ class GCM():
                     self.var_dict['LWin']['vn'] = 'LWGAB'
                     self.var_dict['uwind']['vn'] = 'U2M'
                     self.var_dict['vwind']['vn'] = 'V2M'
-                    self.var_dict['bcwet']['vn'] = ''
-                    self.var_dict['bcdry']['vn'] = ''
-                    self.var_dict['dustwet']['vn'] = ''
-                    self.var_dict['dustdry']['vn'] = ''
+                    self.var_dict['bcwet']['vn'] = 'BCWT002'
+                    self.var_dict['bcdry']['vn'] = 'BCDP002'
+                    self.var_dict['dustwet']['vn'] = 'DUWT003'
+                    self.var_dict['dustdry']['vn'] = 'DUDP003'
                     self.time_vn = 'time'
                     self.lat_vn = 'lat'
                     self.lon_vn = 'lon'
@@ -189,10 +192,10 @@ class GCM():
                     self.var_dict['uwind']['fn'] = 'U2M/MERRA2_U2M_LAT_LON.nc'
                     self.var_dict['prec']['fn'] = 'PRECTOTCORR/MERRA2_PRECTOTCORR_LAT_LON.nc'
                     self.var_dict['elev']['fn'] = 'MERRA2constants.nc4'
-                    self.var_dict['bcwet']['fn'] = ''
-                    self.var_dict['bcdry']['fn'] = ''
-                    self.var_dict['dustwet']['fn'] = ''
-                    self.var_dict['dustdry']['fn'] = ''
+                    self.var_dict['bcwet']['fn'] = 'BCWT002/MERRA2_BCWT002_LAT_LON.nc'
+                    self.var_dict['bcdry']['fn'] = 'BCDP002/MERRA2_BCDP002_LAT_LON.nc'
+                    self.var_dict['dustwet']['fn'] = 'DUWT003/MERRA2_DUWT003_LAT_LON.nc'
+                    self.var_dict['dustdry']['fn'] = 'DUDP003/MERRA2_DUDP003_LAT_LON.nc'
                     # self.lr_fn = 'lapserates_hourly.nc' 
                     # Variable filepaths
                     self.var_fp = pygem_prms.merra2_fp
@@ -204,24 +207,20 @@ class GCM():
 
                 if self.name == 'ERA5-hourly':
                     # Variable names for energy balance
-                    self.var_dict = {'temp':{},'rh':{},'sp':{},'prec':{},
-                                    'tcc':{},'SWin':{},'LWin':{},'uwind':{},'vwind':{},
-                                    'bcdry':{},'bcwet':{},'dustdry':{},'dustwet':{},
-                                    'lat':{},'lon':{},'time':{},'elev':{}}
                     self.var_dict['temp']['vn'] = 't2m'
-                    self.var_dict['rh']['vn'] = 'd2m'
+                    self.var_dict['rh']['vn'] = 'rh'
                     self.var_dict['sp']['vn'] = 'sp'
-                    self.var_dict['prec']['vn'] = 'prec'
+                    self.var_dict['prec']['vn'] = 'tp'
                     self.var_dict['elev']['vn'] = 'z'
                     self.var_dict['tcc']['vn'] = 'tcc'
                     self.var_dict['SWin']['vn'] = 'ssrd'
                     self.var_dict['LWin']['vn'] = 'strd'
                     self.var_dict['uwind']['vn'] = 'u10'
                     self.var_dict['vwind']['vn'] = 'v10'
-                    self.var_dict['bcwet']['vn'] = ''
-                    self.var_dict['bcdry']['vn'] = ''
-                    self.var_dict['dustwet']['vn'] = ''
-                    self.var_dict['dustdry']['vn'] = ''
+                    self.var_dict['bcwet']['vn'] = 'BCWT002'
+                    self.var_dict['bcdry']['vn'] = 'BCDP002'
+                    self.var_dict['dustwet']['vn'] = 'DUWT003'
+                    self.var_dict['dustdry']['vn'] = 'DUDP003'
                     self.time_vn = 'time'
                     self.lat_vn = 'latitude'
                     self.lon_vn = 'longitude'
@@ -239,10 +238,10 @@ class GCM():
                     self.var_dict['uwind']['fn'] = 'ERA5_uwind_hourly.nc'
                     self.var_dict['prec']['fn'] = 'ERA5_precip_hourly.nc'
                     self.var_dict['elev']['fn'] = pygem_prms.era5_elev_fn
-                    self.var_dict['bcwet']['fn'] = ''
-                    self.var_dict['bcdry']['fn'] = ''
-                    self.var_dict['dustwet']['fn'] = ''
-                    self.var_dict['dustdry']['fn'] = ''
+                    self.var_dict['bcwet']['fn'] = 'BCWT002/MERRA2_BCWT002_LAT_LON.nc'
+                    self.var_dict['bcdry']['fn'] = 'BCDP002/MERRA2_BCDP002_LAT_LON.nc'
+                    self.var_dict['dustwet']['fn'] = 'DUWT003/MERRA2_DUWT003_LAT_LON.nc'
+                    self.var_dict['dustdry']['fn'] = 'DUDP003/MERRA2_DUDP003_LAT_LON.nc'
                     # self.lr_fn = 'lapserates_hourly.nc' 
                     # Variable filepaths
                     self.var_fp = pygem_prms.era5h_fp
@@ -521,13 +520,11 @@ class GCM():
                 # Convert from meters per day to meters per month (COAWST data already 'monthly accumulated precipitation')
                 if 'daysinmonth' in dates_table.columns:
                     glac_variable_series = glac_variable_series * dates_table['daysinmonth'].values[np.newaxis,:]
-        elif vn in ['sp','d2m','tcc','ssrd','u10','v10',]:
-            # code in units check for these variables
-            print('!! Not checking units for any EB variables')
-            pass
         else:
-            print('!! Not checking units for any EB variables')
-            # print('Check units of air temperature or precipitation')******
+            try:
+                print('Check variable units: ',vn,data[vn].attrs['units'])
+            except:
+                print(vn,'has no units')
         return glac_variable_series, time_series
     
 class AWS():

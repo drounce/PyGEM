@@ -6,34 +6,35 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True          # Print monthly outputs?
-store_data=True    # Save file?
+store_data=False    # Save file?
 new_file=True       # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
 glac_no = ['01.00570']
 n_bins = 1              # Number of elevation bins
 parallel = False        # Run parallel processing?
-store_vars = ['MB','EB','Temp','Layers']  # Variables to store of the possible set: ['MB','EB','Temp','Layers']
-storage_freq = 'H'      # Frequency to store data using pandas offset aliases
 
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
                             'AWS_fn':'Preprocessed/gulkanaD/gulkana_merra2.csv', # gulkanaD_wERA5.csv
                             # 'AWS_elev':1854,
-                            'AWS_elev':1546, # 1854 is D, B is 1693, AB is 1546
+                            'site_elev':1546, # 1854 is D, B is 1693, AB is 1546
                             'init_filepath':''},
             '01.01104':{'name':'Lemon Creek',
+                            'site_elev':1285,
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
+            '01.00709':{'name':'Mendenhall',
+                            'site_elev':1316},
             '01.16195':{'name':'South',
-                            'AWS_elev':2280,
+                            'site_elev':2280,
                             'AWS_fn':'Preprocessed/south/south2280_hourly_2008_wNR.csv'},
             '08.00213':{'name':'Storglaciaren',
                             'AWS_fn':'Storglaciaren/SITES_MET_TRS_SGL_dates_15MIN.csv'},
             '11.03674':{'name':'Saint-Sorlin',
-                            'AWS_elev':2720,
+                            'site_elev':2720,
                             'AWS_fn':'Preprocessed/saintsorlin/saintsorlin_hourly.csv'},
             '16.02444':{'name':'Artesonraju',
-                            'AWS_elev':4797,
+                            'site_elev':4797,
                             'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
 
 dynamics = False
@@ -45,7 +46,7 @@ if dynamics:
     bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
     bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
 else:
-    bin_elev = np.array(glac_props[glac_no[0]]['AWS_elev'])
+    bin_elev = np.array([glac_props[glac_no[0]]['site_elev']])
     bin_ice_depth = np.array([200])
 
 # ========== DIRECTORIES AND FILEPATHS ========== 
@@ -64,11 +65,10 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
-# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_minimization'
+output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_era5'
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
-init_filepath = main_directory + f'/pygem_eb/sample_init_data/{glac_no_str}.nc'
 grainsize_fp = main_directory + '/pygem_eb/data/drygrainsize(SSAin=60).nc'
 initial_temp_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBtemp.csv'
 initial_density_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBdensity.csv'
@@ -82,7 +82,7 @@ if climate_input in ['AWS']:
     AWS_fn = AWS_fp+glac_props[glac_no[0]]['AWS_fn']
     glac_name = glac_props[glac_no[0]]['name']
     n_bins = 1
-    bin_elev = [int(glac_props[glac_no[0]]['AWS_elev'])]
+    bin_elev = [int(glac_props[glac_no[0]]['site_elev'])]
     assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
     wind_ref_height = 2
 elif climate_input in ['GCM']:
@@ -91,16 +91,19 @@ elif climate_input in ['GCM']:
     else:
         wind_ref_height = 2
 
-dates_from_data = False
+dates_from_data = True
 if dates_from_data and climate_input in ['AWS']:
     cdf = pd.read_csv(AWS_fn,index_col=0)
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
 else:
-    startdate = pd.to_datetime('2023-04-21 00:00')
-    enddate = pd.to_datetime('2023-08-09 00:00')
-    # startdate = pd.to_datetime('2019-04-21 00:30')
-    # enddate = pd.to_datetime('2019-08-09 00:30')
+    startdate = pd.to_datetime('2013-04-21 00:30')
+    enddate = pd.to_datetime('2013-08-09 00:30')
+    if ref_gcm_name == 'MERRA2':
+        assert startdate.minute == 30
+        assert enddate.minute == 30
+    # startdate = pd.to_datetime('2016-05-11 00:30')
+    # enddate = pd.to_datetime('2016-07-18 00:30')
     # startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
     # enddate = pd.to_datetime('2018-05-01 00:00')
 n_months = np.round((enddate-startdate)/pd.Timedelta(days=30))
@@ -108,14 +111,17 @@ print(f'Running {n_bins} bin(s) at {bin_elev} m a.s.l. for {n_months} months sta
 
 #  ========== MODEL OPTIONS ========== 
 # INITIALIATION
-initialize_water = 'zero_w0'      # 'zero_w0' or 'initial_w0'
-initialize_temp = 'interp'        # 'piecewise' or 'interp'
-initialize_dens = 'interp'        # 'piecewise' or 'interp'
-surftemp_guess =  -10             # guess for surface temperature of first timestep
-startssn = 'endaccum'             # 'endaccum' or 'endmelt' -- sample density/temp data provided for Gulkana
-initial_snowdepth = [2.2]*n_bins
-initial_firndepth = [0]*n_bins
-icelayers = 'multiple'
+initialize_water = 'zero_w0'        # 'zero_w0' or 'initial_w0'
+initialize_temp = 'interp'          # 'piecewise' or 'interp'
+initialize_dens = 'interp'          # 'piecewise' or 'interp'
+surftemp_guess =  -10               # guess for surface temperature of first timestep
+initial_snowdepth = [2.2]*n_bins    # initial depth of snow; array of length n_bins
+initial_firndepth = [0]*n_bins      # initial depth of firn; array of length n_bins
+icelayers = 'multiple'              # 'single' or 'multiple'
+
+# OUTPUT
+store_vars = ['MB','EB','Temp','Layers']  # Variables to store of the possible set: ['MB','EB','Temp','Layers']
+storage_freq = 'H'      # Frequency to store data using pandas offset aliases
 
 # TIMESTEP
 dt = 3600                   # Model timestep [s]
@@ -124,12 +130,11 @@ dt_heateq = 3600/5          # Time resolution of heat eq [s], should be integer 
 # METHODS
 method_turbulent = 'MO-similarity'      # 'MO-similarity' 
 method_heateq = 'Crank-Nicholson'       # 'Crank-Nicholson'
-method_densification = 'off'            # 'Boone', 'off', 'DEBAM' (broken)
-method_cooling = 'minimize'            # 'minimize' (slow) or 'iterative' (fast)
+method_densification = 'off'            # 'Boone', 'off', or 'DEBAM' (broken)
+method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_percolation = 'w_LAPs'           # 'w_LAPs' or 'no_LAPs'
 method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'
-method_grainsizetable = 'interpolate'   # 'interpolate' (slow) or 'ML' (fast)
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
@@ -141,16 +146,32 @@ switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
 switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
 switch_LAPs = 1             # 0 to turn off LAPs; 1 to turn on
 # output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_{switch_snow}{switch_melt}{switch_LAPs}'
-BC_freshsnow = 1e-7         # concentration of BC in fresh snow [kg m-3]
-dust_freshsnow = 2e-4       # concentration of dust in fresh snow [kg m-3]
+BC_freshsnow = 9e-7         # concentration of BC in fresh snow [kg m-3]
+dust_freshsnow = 6e-4       # concentration of dust in fresh snow [kg m-3]
 # 1 kg m-3 = 1e6 ppb
+
+# ALBEDO BANDS
+wvs = np.round(np.arange(0.2,5,0.01),2) # 480 bands used by SNICAR
+# band_limits = [[0.2,0.8],[0.8,1.5],[1.5,4.99]]
+band_limits = [[0.2,4.99]]
+band_indices = {}
+for i,band in enumerate(band_limits):
+    idx_start = np.where(wvs == band[0])[0][0]
+    idx_end = np.where(wvs==band[1])[0][0]
+    idx_list = np.arange(idx_start,idx_end)
+    band_indices['Band '+str(i)] = idx_list
+for i in np.arange(0,480):
+    band_indices['Band '+str(i)] = np.array([i])
+# solar_coef = np.array([0.71,0.23,0.08])
+# solar_coef = np.array([1])
+# assert len(solar_coef) == len(band_indices), 'Check size of albedo band inputs is consistent'
 
 # ========== PARAMETERS ==========
 precgrad = 0.0001           # precipitation gradient on glacier [m-1]
 lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
 tsnow_threshold = 0         # Threshold below which snowfall occurs [C]
 kp = 1                      # precipitation factor [-] 
-albedo_ice = 0.3            # Albedo of ice [-] 
+albedo_ice = 0.2            # Albedo of ice [-] 
 roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
 ksp_BC = 0.1                # meltwater scavenging efficiency of BC (from CLM5)
 ksp_dust = 0.015            # meltwater scavenging efficiency of dust (from CLM5)
@@ -158,7 +179,7 @@ dz_toplayer = 0.03          # Thickness of the uppermost bin [m]
 layer_growth = 0.6          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
 k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
-albedo_TOD = 12             # Time of day to calculate albedo [hr]
+albedo_TOD = [10,2]            # Time of day to calculate albedo [hr]
 initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
 dry_metamorphism_rate = 3.5e-5 # Dry metamorphism grain size growth rate [um s-1]
 
@@ -204,6 +225,12 @@ roughness_fresh_snow = 0.24 # surface roughness length for fresh snow [mm] (Moel
 roughness_firn = 4          # surface roughness length for firn [mm] (Moelg et al. 2012, TC)
 ratio_BC2_BCtot = 2.08      # Ratio to transform BC bin 2 deposition to total BC
 ratio_DU3_DUtot = 3         # Ratio to transform dust bin 3 deposition to total dust
+ratio_DU_bin1 = 0.0834444   # Ratio to transform total dust to SNICAR Bin 1 (0.05-0.5um)
+ratio_DU_bin2 = 0.19784     # " SNICAR Bin 2 (0.5-1.25um)
+ratio_DU_bin3 = 0.481675    # " SNICAR Bin 3 (1.25-2.5um)
+ratio_DU_bin4 = 0.203786    # " SNICAR Bin 4 (2.5-5um)
+ratio_DU_bin5 = 0.034       # " SNICAR Bin 5 (5-50um)
+diffuse_cloud_limit = 0.6
 
 # ========== OTHER PYGEM INPUTS ========== 
 rgi_regionsO1 = [1]

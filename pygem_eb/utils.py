@@ -35,7 +35,7 @@ class Utils():
 
             # PRECIP: correct according to lapserate, precipitation factor
             if self.args.climate_input in ['GCM']:
-                if len(np.array(eb_prms.kp).flatten()) > 1:
+                if '__iter__' in dir(eb_prms.kp):
                     tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data))*eb_prms.kp[idx]
                 else:
                     tp[idx,:] = tp_data*(1+eb_prms.precgrad*(z-elev_data))*eb_prms.kp
@@ -56,11 +56,12 @@ class Utils():
     
     def getDewTemp(self,vap):
         """
-        Returns air temperature in C from vapor pressure in Pa
+        Returns dewpoint air temperature in C from vapor pressure in Pa
         """
         return 243.04*np.log(vap/610.94)/(17.625-np.log(vap/610.94))
 
     def getGrainSizeModel(self,initSSA,var):
+        # UNUSED
         path = '/home/claire/research/PyGEM-EB/pygem_eb/data/'
         fn = 'drygrainsize(SSAin=##).nc'.replace('##',str(initSSA))
         ds = xr.open_dataset(path+fn)
@@ -105,7 +106,6 @@ class Utils():
         valloss = self.RMSE(y_val,rf.predict(X_val))
 
         return rf,trainloss,valloss
-
         
     def RMSE(self,y,pred):
         N = len(y)

@@ -1,3 +1,9 @@
+"""
+Energy balance class for PyGEM Energy Balance
+
+@author: cvwilson
+"""
+
 import numpy as np
 import pygem_eb.input as eb_prms
 # import warnings
@@ -5,8 +11,9 @@ import pygem_eb.input as eb_prms
 
 class energyBalance():
     """
-    Energy balance scheme that calculates the surface energy balance and penetrating shortwave radiation. 
-    This class is updated within MassBalance every timestep, so it stores the current climate data and 
+    Energy balance scheme that calculates the surface energy balance
+    and penetrating shortwave radiation. This class is updated within
+    MassBalance every timestep, so it stores the current climate data and 
     surface fluxes.
     """ 
     def __init__(self,climateds,time,bin_idx,dt):
@@ -86,38 +93,39 @@ class energyBalance():
             Albedo of the surface
         days_since_snowfall : int
             Number of days since fresh snowfall
-        method_turbulent : str, default: 'MO-similarity'
-            'MO-similarity', 'bulk-aerodynamic', or 'Richardson': determines method for calculating 
-            turbulent fluxes
+        method_turbulent : str
+            'MO-similarity', 'bulk-aerodynamic', or 'Richardson': 
+            determines method for calculating turbulent fluxes
         mode : str, default: 'sum'
             'sum' to return sum of heat fluxes, 'list' to return separate fluxes,
-            'optim' to return absolute value of heat fluxes (necessary for BFGS optimization)
+            'optim' to return absolute value of heat fluxes (needed for BFGS optimization)
 
         Returns
         -------
         Qm : float OR np.ndarray
             If mode is 'sum' or 'optim', returns the sum of heat fluxes
-            If mode is 'list', returns list in the order of SWin,SWout,LWin,LWout,rain,sensible,latent
+            If mode is 'list', returns list in the order of 
+                    [SWin, SWout, LWin, LWout, sensible, latent, rain, ground]
         """
         # SHORTWAVE RADIATION  (Snet)
         SWin,SWout = self.getSW(albedo)
         Snet_surf = SWin + SWout
         self.SWin = SWin
-        self.SWout = SWout
+        self.SWout = SWout[0] if '__iter__' in dir(SWout) else SWout
                     
         # LONGWAVE RADIATION (Lnet)
         LWin,LWout = self.getLW(surftemp)
         Lnet = LWin + LWout
         self.LWin = LWin
-        self.LWout = LWout
+        self.LWout = LWout[0] if '__iter__' in dir(LWout) else LWout
 
         # RAIN FLUX (Qp)
         Qp = self.getRain(surftemp)
-        self.rain = Qp
+        self.rain = Qp[0] if '__iter__' in dir(Qp) else Qp
 
         # GROUND FLUX (Qg)
         Qg = self.getGround(surftemp)
-        self.ground = Qg
+        self.ground = Qg[0] if '__iter__' in dir(Qg) else Qg
 
         # TURBULENT FLUXES (Qs and Ql)
         roughness = self.getRoughnessLength(days_since_snowfall,layers.ltype)
@@ -126,8 +134,8 @@ class energyBalance():
         else:
             print('Only MO similarity method is set up for turbulent fluxes')
             Qs, Ql = self.getTurbulentMO(surftemp,roughness)
-        self.sens = Qs
-        self.lat = Ql
+        self.sens = Qs[0] if '__iter__' in dir(Qs) else Qs
+        self.lat = Ql[0] if '__iter__' in dir(Qs) else Ql
 
         # OUTPUTS
         Qm = Snet_surf + Lnet + Qp + Qs + Ql + Qg
@@ -137,19 +145,27 @@ class energyBalance():
         elif mode in ['optim']:
             return np.abs(Qm)
         elif mode in ['list']:
-            return np.array([SWin,SWout,LWin,LWout,Qp,Qs,Ql,Qg])
+            return np.array([SWin,SWout,LWin,LWout,Qs,Ql,Qp,Qg])
         else:
             assert 1==0, 'argument \'mode\' in function surfaceEB should be sum, list or optim'
     
-    def getSW(self,albedo):
+    def getSW(self,surface):
         """
-        Simplest parameterization for shortwave radiation which just adjusts it by modeled albedo.
-        Returns the shortwave surface flux and the penetrating shortwave with each layer.
+        Simplest parameterization for shortwave radiation which
+        adjusts it by modeled spectral albedo. Returns the shortwave
+        surface flux and the penetrating shortwave for each layer.
+        
+        Parameters
+        ----------
+        surface
+            class object from surface.py
         """
-        # sun_pos = solar.get_position(time,glacier_table['CenLon'],glacier_table['CenLat'])
+        albedo = surface.albedo
+        spectral_weights = surface.spectral_weights
+        assert np.abs(1-np.sum(spectral_weights)) < 1e-5, 'Solar weights dont sum to 1'
         SWin = self.SWin_ds/self.dt
         if self.nanSWout:
-            SWout = -SWin*albedo #* (cos(theta))
+            SWout = -np.sum(SWin*spectral_weights*albedo)
         else:
             SWout = -self.SWout_ds/self.dt
 
@@ -157,8 +173,14 @@ class energyBalance():
 
     def getLW(self,surftemp):
         """
-        Scheme following Klok and Oerlemans (2002) for calculating net longwave radiation
+        If not input in climate data, scheme follows Klok and 
+        Oerlemans (2002) for calculating net longwave radiation 
         from the air temperature and cloud cover.
+        
+        Parameters
+        ----------
+        surftemp : float
+            Surface temperature of snowpack/ice [C]
         """
         if self.nanLWout:
             surftempK = surftemp+273.15
@@ -169,7 +191,7 @@ class energyBalance():
         if self.nanLWin and self.nanNR:
             ezt = self.vapor_pressure(self.tempC)    # vapor pressure in hPa
             Ecs = .23+ .433*(ezt/self.tempK)**(1/8)  # clear-sky emissivity
-            Ecl = 0.984                         # cloud emissivity, Klok and Oerlemans, 2002
+            Ecl = 0.984               # cloud emissivity, Klok and Oerlemans, 2002
             Esky = Ecs*(1-self.tcc**2)+Ecl*self.tcc**2    # sky emissivity
             LWin = eb_prms.sigma_SB*(Esky*self.tempK**4)
         elif not self.nanLWin:
@@ -182,14 +204,29 @@ class energyBalance():
     def getRain(self,surftemp):
         """
         Calculates amount of energy supplied by precipitation that falls as rain.
+        
+        Parameters
+        ----------
+        surftemp : float
+            Surface temperature of snowpack/ice [C]
         """
-        is_rain = self.tempC > eb_prms.tsnow_threshold
-        Qp = is_rain*eb_prms.Cp_water*(self.tempC-surftemp)*self.prec*eb_prms.density_water
+        # CONSTANTS
+        TEMP_THRESHOLD = eb_prms.tsnow_threshold
+        DENSITY_WATER = eb_prms.density_water
+        CP_WATER = eb_prms.Cp_water
+        
+        is_rain = self.tempC > TEMP_THRESHOLD
+        Qp = is_rain*(self.tempC-surftemp)*self.prec*DENSITY_WATER*CP_WATER
         return Qp
     
     def getGround(self,surftemp):
         """
         Calculates amount of energy supplied by heat conduction from the temperate ice.
+        
+        Parameters
+        ----------
+        surftemp : float
+            Surface temperature of snowpack/ice [C]
         """
         if eb_prms.method_ground in ['MolgHardy']:
             Qg = -eb_prms.k_ice * (surftemp - eb_prms.temp_temp) / eb_prms.temp_depth
@@ -199,8 +236,8 @@ class energyBalance():
     
     def getTurbulentMO(self,surftemp,roughness):
         """
-        Calculates turbulent fluxes (sensible and latent heat) based on Monin-Obukhov Similarity 
-        Theory, requiring iteration.
+        Calculates turbulent fluxes (sensible and latent heat) based on 
+        Monin-Obukhov Similarity Theory, requiring iteration.
 
         Parameters
         ----------

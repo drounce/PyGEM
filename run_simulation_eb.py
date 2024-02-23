@@ -18,27 +18,30 @@ def getparser():
     # add arguments
     parser.add_argument('-glac_no', action='store', default=eb_prms.glac_no,
                         help='',nargs='+')
-    parser.add_argument('-start','--startdate', action='store', type=str, default=eb_prms.startdate,
+    parser.add_argument('-start','--startdate', action='store', type=str, 
+                        default=eb_prms.startdate,
                         help='pass str like datetime of model run start')
-    parser.add_argument('-end','--enddate', action='store', type=str, default=eb_prms.enddate,
+    parser.add_argument('-end','--enddate', action='store', type=str,
+                        default=eb_prms.enddate,
                         help='pass str like datetime of model run end')
-    parser.add_argument('-climate_input', action='store', type=str, default=eb_prms.climate_input,
+    parser.add_argument('-climate_input', action='store', type=str,
+                        default=eb_prms.climate_input,
                         help='pass str of AWS or GCM')
-    parser.add_argument('-store_data', action='store_true', default=eb_prms.store_data,
-                        help='')
-    parser.add_argument('-new_file', action='store_true', default=eb_prms.new_file,
-                        help='')
-    parser.add_argument('-debug', action='store_true', default=eb_prms.debug,
-                        help='')
-    parser.add_argument('-n_bins',action='store',type=int,default=eb_prms.n_bins,
-                        help='number of elevation bins')
-    parser.add_argument('-switch_LAPs',action='store', type=int, default=eb_prms.switch_LAPs,
-                        help='')
-    parser.add_argument('-switch_melt',action='store', type=int, default=eb_prms.switch_melt,
-                        help='')
-    parser.add_argument('-switch_snow',action='store', type=int, default=eb_prms.switch_snow,
-                        help='')
-    parser.add_argument("-f", "--fff", help="a dummy argument to fool ipython", default="1")
+    parser.add_argument('-store_data', action='store_true', 
+                        default=eb_prms.store_data, help='')
+    parser.add_argument('-new_file', action='store_true',
+                        default=eb_prms.new_file, help='')
+    parser.add_argument('-debug', action='store_true', 
+                        default=eb_prms.debug, help='')
+    parser.add_argument('-n_bins',action='store',type=int,
+                        default=eb_prms.n_bins, help='number of elevation bins')
+    parser.add_argument('-switch_LAPs',action='store', type=int,
+                        default=eb_prms.switch_LAPs, help='')
+    parser.add_argument('-switch_melt',action='store', type=int, 
+                        default=eb_prms.switch_melt, help='')
+    parser.add_argument('-switch_snow',action='store', type=int,
+                        default=eb_prms.switch_snow, help='')
+    parser.add_argument('-f', '--fff', help='dummy arg to fool ipython', default='1')
     return parser
 
 def initialize_model(debug=True):
@@ -49,9 +52,12 @@ def initialize_model(debug=True):
 
     # ===== GLACIER AND TIME PERIOD SETUP =====
     glacier_table = modelsetup.selectglaciersrgitable(args.glac_no,
-                    rgi_regionsO1=eb_prms.rgi_regionsO1, rgi_regionsO2=eb_prms.rgi_regionsO2,
-                    rgi_glac_number=eb_prms.rgi_glac_number, include_landterm=eb_prms.include_landterm,
-                    include_laketerm=eb_prms.include_laketerm, include_tidewater=eb_prms.include_tidewater)
+                    rgi_regionsO1=eb_prms.rgi_regionsO1,
+                    rgi_regionsO2=eb_prms.rgi_regionsO2,
+                    rgi_glac_number=eb_prms.rgi_glac_number,
+                    include_landterm=eb_prms.include_landterm,
+                    include_laketerm=eb_prms.include_laketerm,
+                    include_tidewater=eb_prms.include_tidewater)
     dates_table = modelsetup.datesmodelrun(startyear=args.startdate, endyear=args.enddate)
     utils = utilities.Utils(args,glacier_table)
 
@@ -62,22 +68,25 @@ def initialize_model(debug=True):
         if eb_prms.ref_gcm_name in ['MERRA2']:
             cenlat = glacier_table['CenLat'].to_numpy()
             cenlon = glacier_table['CenLon'].to_numpy()
-            lat_file = str(int(np.floor(cenlat/10)*10))
-            lon_file = str(int(np.floor(cenlon/10)*10))
+            file_lat = str(int(np.floor(cenlat/10)*10))
+            file_lon = str(int(np.floor(cenlon/10)*10))
             for var in all_vars:
-                if var not in ['time','lat','lon']:
-                    gcm.var_dict[var]['fn'] = gcm.var_dict[var]['fn'].replace('LAT',lat_file).replace('LON',lon_file)
+                fn = gcm.var_dict[var]['fn'].replace('LAT',file_lat).replace('LON',file_lon)
+                gcm.var_dict[var]['fn'] = fn
         # ===== LOAD CLIMATE DATA =====
         all_data = {}
         for var in all_vars:
-            if var not in ['time','lat','lon','elev','bcwet','bcdry','dustwet','dustdry']:
+            if var not in ['time','lat','lon','elev']:
                 data,data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.var_dict[var]['fn'],
                                                                      gcm.var_dict[var]['vn'],
                                                                      glacier_table,dates_table)
-                if var in ['SWin','LWin','tcc','rh']:
+                if var in ['SWin','LWin','tcc','rh','bcdry','bcwet','dustdry','dustwet']:
                     data = data[0]
+                if eb_prms.ref_gcm_name in ['MERRA2'] and var in ['SWin','LWin']:
+                    data = data * 3600
             elif var == 'elev':
-                data = gcm.importGCMfxnearestneighbor_xarray(gcm.var_dict[var]['fn'], gcm.var_dict[var]['vn'], glacier_table)
+                data = gcm.importGCMfxnearestneighbor_xarray(
+                    gcm.var_dict[var]['fn'], gcm.var_dict[var]['vn'], glacier_table)
             all_data[var] = data
         temp_data = all_data['temp']
         tp_data = all_data['prec']
@@ -89,17 +98,15 @@ def initialize_model(debug=True):
         SWin = all_data['SWin']
         LWin = all_data['LWin']
         tcc = all_data['tcc']
+        bcdry = all_data['bcdry']
+        bcwet = all_data['bcwet']
+        dustdry = all_data['dustdry']
+        dustwet = all_data['dustwet']
         wind = np.sqrt(np.power(uwind[0],2)+np.power(vwind[0],2))
         winddir = np.arctan2(-uwind[0],-vwind[0]) * 180 / np.pi
         LWout = nans.copy()
         SWout = nans.copy()
         NR = nans.copy()
-        # **** REMOVE BELOW
-        bcwet = nans.copy()
-        bcdry = nans.copy()
-        dustwet = nans.copy()
-        dustdry = nans.copy()
-        # ***** REMOVE ABOVE
         ntimesteps = len(data_hours)
     elif args.climate_input in ['AWS']:
         aws = class_climate.AWS(eb_prms.AWS_fn,dates_table)
@@ -136,7 +143,7 @@ def initialize_model(debug=True):
         LWin = (['time'],LWin,{'units':'J m-2'}),
         LWout = (['time'],LWout,{'units':'J m-2'}),
         NR = (['time'],NR,{'units':'J m-2'}),
-        tcc = (['time'],tcc,{'units':'0-1'}),
+        tcc = (['time'],tcc,{'units':'1'}),
         rh = (['time'],rh,{'units':'%'}),
         wind = (['time'],wind,{'units':'m s-1'}),
         winddir = (['time'],winddir,{'units':'deg'}),

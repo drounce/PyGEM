@@ -1,3 +1,9 @@
+"""
+Surface class for PyGEM Energy Balance
+
+@author: cvwilson
+"""
+
 import pygem_eb.input as eb_prms
 import numpy as np
 import pandas as pd
@@ -10,7 +16,8 @@ import suncalc
 
 class Surface():
     """
-    Surface scheme that tracks the accumulation of LAPs and calculates albedo based on several switches.
+    Surface scheme that tracks the accumulation of LAPs and calculates 
+    albedo based on several switches.
     """ 
     def __init__(self,layers,time,args,utils):
         # Add args and utils to surface class
@@ -23,6 +30,8 @@ class Surface():
                             'ice':eb_prms.albedo_ice}
         self.stype = layers.ltype[0]
         self.albedo = self.albedo_dict[self.stype]
+        self.spectral_weights = np.array([1])
+        self.BBA = self.albedo_dict[self.stype]
 
         # Initialize surface properties
         self.stemp = eb_prms.surftemp_guess
@@ -37,7 +46,7 @@ class Surface():
         Parameters
         ----------
         layers
-            class object from layers.py
+            class object from pygem_eb.layers
         time : pd.Datetime
             current timestep
         """
@@ -49,18 +58,24 @@ class Surface():
     
     def getSurfTemp(self,enbal,layers):
         """
-        Solves energy balance equation for surface temperature. There are three cases:
-        (1) LWout data is input - surftemp is derived from data
-        (2) Qm is positive with surftemp = 0. - excess Qm is used to warm layers to melting point or melt layers
-        (3) Qm is negative with surftemp = 0. - snowpack is cooling and surftemp is lowered to balance Qm
-                Two methods are available (specified in input.py): fast iterative, or slow minimization
+        Solves energy balance equation for surface temperature. 
+        Qm = SWnet + LWnet + Qs + Ql + Qp + Qg
+        
+        There are three cases:
+        (1) LWout data is input : surftemp is derived from data
+        (2) Qm is positive with surftemp = 0. : excess Qm is used to warm layers to the
+                    melting point or melt layers, depending on layer temperatures
+        (3) Qm is negative with surftemp = 0. : snowpack is cooling and surftemp is lowered
+                    to balance Qm. Two methods are available (specified in input.py): 
+                        - iterative (fast)
+                        - minimization (slow) 
         
         Parameters
         ----------
         enbal
-            class object from energybalance.py
+            class object from pygem_eb.energybalance
         layers
-            class object from layers.py
+            class object from pygem_eb.layers
         """
         # CONSTANTS
         STEFAN_BOLTZMANN = eb_prms.sigma_SB
@@ -68,38 +83,40 @@ class Surface():
         dt = eb_prms.dt
 
         if not enbal.nanLWout:
-            # CASE (1)
+            # CASE (1): surftemp from LW data
             self.stemp = np.power(np.abs(enbal.LWout_ds/STEFAN_BOLTZMANN),1/4)
-            Qm = enbal.surfaceEB(self.stemp,layers,self.albedo,self.days_since_snowfall)
+            Qm = enbal.surfaceEB(self.stemp,layers,self,self.days_since_snowfall)
         else:
-            Qm_check = enbal.surfaceEB(0,layers,self.albedo,self.days_since_snowfall)
-            # If Qm is positive with a surface temperature of 0, the surface is either melting or warming to the melting point.
-            # If Qm is negative with a surface temperature of 0, the surface temperature needs to be lowered to cool the snowpack.
+            Qm_check = enbal.surfaceEB(0,layers,self,self.days_since_snowfall)
+            # If Qm>0 with surftemp=0, the surface is melting or warming.
+            # If Qm<0 with surftemp=0, the surface is cooling.
             cooling = True if Qm_check < 0 else False
             if not cooling:
-                # CASE (2): Energy toward the surface: either melting or top layer is heated to melting point
+                # CASE (2): Energy toward the surface
                 self.stemp = 0
                 Qm = Qm_check
-                if layers.ltemp[0] < 0: # need to heat surface layer to 0 before it can start melting
-                    Qm_check = enbal.surfaceEB(self.stemp,layers,self.albedo,self.days_since_snowfall)
+                if layers.ltemp[0] < 0.: # need to heat surface layer to 0.
+                    Qm_check = enbal.surfaceEB(self.stemp,layers,self,
+                                               self.days_since_snowfall)
                     temp_change = Qm_check*dt/(HEAT_CAPACITY_ICE*layers.ldrymass[0])
                     layers.ltemp[0] += temp_change
-                    if layers.ltemp[0] > 0:
-                        # if temperature rises above zero, leave excess energy in the next layer down
+
+                    # temp change can raise layer above melting point
+                    if layers.ltemp[0] > 0.:
+                        # leave excess energy in the melt energy
                         Qm = layers.ltemp[0]*HEAT_CAPACITY_ICE*layers.ldrymass[0]/dt
-                        layers.ltemp[0] = 0
-                    elif len(layers.ltype) < 2:
-                        self.stemp = 0
-                        Qm = Qm_check
+                        layers.ltemp[0] = 0.
+                    # elif layers.nlayers < 2:
+                    #     Qm = Qm_check # don't remember why I had this
                     else:
-                        # *** This might be a problem area with how surface temperature is being treated
                         Qm = 0
             elif cooling:
-                # CASE (3) Energy away from surface: need to change surface temperature to get 0 surface energy flux 
+                # CASE (3): Energy away from surface
                 if eb_prms.method_cooling in ['minimize']:
-                    result = minimize(enbal.surfaceEB,self.stemp,method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
-                                    args=(layers,self.albedo,self.days_since_snowfall,'optim'))
-                    Qm = enbal.surfaceEB(result.x[0],layers,self.albedo,self.days_since_snowfall)
+                    result = minimize(enbal.surfaceEB,self.stemp,
+                                      method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
+                                      args=(layers,self,self.days_since_snowfall,'optim'))
+                    Qm = enbal.surfaceEB(result.x[0],layers,self,self.days_since_snowfall)
                     if not result.success and abs(Qm) > 10:
                         print('Unsuccessful minimization, Qm = ',Qm)
                     else:
@@ -111,7 +128,8 @@ class Surface():
                     while loop:
                         n_iters += 1
                         # Initial check of Qm comparing to previous surftemp
-                        Qm_check = enbal.surfaceEB(self.stemp,layers,self.albedo,self.days_since_snowfall)
+                        Qm_check = enbal.surfaceEB(self.stemp,layers,self,
+                                                   self.days_since_snowfall)
                         # Check direction of flux at that temperature and adjust
                         if Qm_check > 0.5:
                             self.stemp += 0.25
@@ -124,8 +142,10 @@ class Surface():
                         if abs(Qm_check) < 0.5 or n_iters > 10:
                             # if temp is still bottoming out at -60, resolve minimization
                             if self.stemp == -60:
-                                result = minimize(enbal.surfaceEB,-50,method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
-                                    args=(layers,self.albedo,self.days_since_snowfall,'optim'))
+                                result = minimize(enbal.surfaceEB,-50,method='L-BFGS-B',
+                                                    bounds=((-60,0),),tol=1e-3,
+                                                    args=(layers,self,
+                                                          self.days_since_snowfall,'optim'))
                                 if result.x > -60:
                                     self.stemp = result.x[0]
                             break
@@ -133,8 +153,9 @@ class Surface():
                 Qm = 0
 
         # Update surface balance terms with new surftemp
-        enbal.surfaceEB(self.stemp,layers,self.albedo,self.days_since_snowfall)
+        enbal.surfaceEB(self.stemp,layers,self,self.days_since_snowfall)
         self.Qm = Qm
+        self.tcc = enbal.tcc
         return
 
     def getAlbedo(self,layers,time):
@@ -146,7 +167,7 @@ class Surface():
         Parameters
         ----------
         layers
-            class object from layers.py
+            class object from pygem_eb.layers
         """
         # CONSTANTS
         ALBEDO_FIRN = eb_prms.albedo_firn
@@ -161,24 +182,29 @@ class Surface():
                     self.albedo = self.albedo_dict[self.stype]
                 elif args.switch_LAPs == 1:
                     # LAPs ON, GRAIN SIZE OFF
-                    self.albedo = self.runSNICAR(layers,time,override_grainsize=True)
+                    albedo,sw = self.runSNICAR(layers,time,override_grainsize=True)
+                    self.albedo = albedo
+                    self.spectral_weights = sw
             elif args.switch_melt == 1:
                 # BASIC DEGRADATION RATE
                 age = self.days_since_snowfall
-                aged_albedo = ALBEDO_FIRN+(ALBEDO_FRESH_SNOW-ALBEDO_FIRN)*(np.exp(-age/DEG_RATE))
-                self.albedo = max(aged_albedo,ALBEDO_FIRN)
+                albedo_aging = (ALBEDO_FRESH_SNOW - ALBEDO_FIRN)*(np.exp(-age/DEG_RATE))
+                self.albedo = max(ALBEDO_FIRN + albedo_aging,ALBEDO_FIRN)
             elif args.switch_melt == 2:
                 if args.switch_LAPs == 0:
                     # LAPs OFF, GRAIN SIZE ON
-                    self.albedo = self.runSNICAR(layers,time,override_LAPs=True)
+                    albedo,sw = self.runSNICAR(layers,time,override_LAPs=True)
+                    self.albedo = albedo
+                    self.spectral_weights = sw
                 elif args.switch_LAPs == 1:
                     # LAPs ON, GRAIN SIZE ON
-                    self.albedo = self.runSNICAR(layers,time)
+                    self.albedo,self.spectral_weights = self.runSNICAR(layers,time)
         else:
             self.albedo = self.albedo_dict[self.stype]
+            self.BBA = self.albedo
         return 
     
-    def runSNICAR(self,layers,time,n_layers=None,max_depth=None,
+    def runSNICAR(self,layers,time,nlayers=None,max_depth=None,
                   override_grainsize=False,override_LAPs=False):
         """
         Runs SNICAR model to retrieve broadband albedo. 
@@ -186,12 +212,12 @@ class Surface():
         Parameters
         ----------
         layers
-            class object from pygem_eb.layers.py
-        n_layers : int
+            class object from pygem_eb.layers
+        nlayers : int
             Number of layers to include in the calculation
-            * Specify n_layers OR max_depth *
         max_depth : float
             Maximum depth of layers to include in the calculation
+            ** Specify nlayers OR max_depth **
         override_grainsize : Bool
             If True, use constant average grainsize specified in input.py
         override_LAPs: Bool
@@ -199,50 +225,58 @@ class Surface():
 
         Returns
         -------
-        layermelt : np.ndarray
-            Array containing subsurface melt amounts [kg m-2]
+        albedo : np.ndarray
+            Array containing spectral albedo
+        spectral_weights : np.ndarray
+            Array containing weights of each spectral band
         """
         with HiddenPrints():
             from biosnicar import main
 
         # CONSTANTS
-        GRAINSIZE = eb_prms.average_grainsize
+        AVG_GRAINSIZE = eb_prms.average_grainsize
+        DIFFUSE_CLOUD_LIMIT = eb_prms.diffuse_cloud_limit
 
         # Get layers to include in the calculation
-        assert not n_layers and not max_depth, "Specify one of n_layers or max_depth in runSNICAR"
-        if not n_layers and max_depth:
-            n_layers = np.where(layers.ldepth > max_depth)[0][0] + 1
-        elif n_layers and not max_depth:
-            n_layers = min(layers.nlayers,n_layers)
-        elif not n_layers and not max_depth:
+        assert not nlayers and not max_depth, 'Specify one of nlayers or max_depth in runSNICAR'
+        if not nlayers and max_depth:
+            nlayers = np.where(layers.ldepth > max_depth)[0][0] + 1
+        elif nlayers and not max_depth:
+            nlayers = min(layers.nlayers,nlayers)
+        elif not nlayers and not max_depth:
             # Default case if neither is specified: only includes top 1m
-            n_layers = np.where(layers.ldepth > 1)[0][0] + 1
-        idx = np.arange(n_layers)
+            nlayers = np.where(layers.ldepth > 1)[0][0] + 1
+        idx = np.arange(nlayers)
 
         # Unpack layer variables (need to be stored as lists)
         lheight = layers.lheight[idx].astype(float).tolist()
         ldensity = layers.ldensity[idx].astype(float).tolist()
+        lgrainsize = layers.grainsize[idx].astype(int)
 
         # Grain size files are every 1um till 1500um, then every 500
-        lgrainsize = layers.grainsize[idx].astype(int)
-        lgrainsize[np.where(lgrainsize>1500)[0]] = np.round(lgrainsize[np.where(lgrainsize>1500)[0]]/500) * 500
+        idx_1500 = np.where(lgrainsize>1500)[0]
+        lgrainsize[idx_1500] = np.round(lgrainsize[idx_1500]/500) * 500
         lgrainsize = lgrainsize.tolist()
-        if override_grainsize:
-            lgrainsize = [GRAINSIZE for _ in idx]
 
         # Convert LAPs from mass to concentration in ppb
         BC = layers.lBC[idx] / layers.lheight[idx] * 1e6
-        dust1 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.047047
-        dust2 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.255962
-        dust3 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.446868
-        dust4 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.228723
-        dust5 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * 0.0177942
+        dust1 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * eb_prms.ratio_DU_bin1
+        dust2 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * eb_prms.ratio_DU_bin2
+        dust3 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * eb_prms.ratio_DU_bin3
+        dust4 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * eb_prms.ratio_DU_bin4
+        dust5 = layers.ldust[idx] / layers.lheight[idx] * 1e6 * eb_prms.ratio_DU_bin5
+
+        # Convert arrays to lists for making input file
         lBC = (BC.astype(float)).tolist()
         ldust1 = (dust1.astype(float)).tolist()
         ldust2 = (dust2.astype(float)).tolist()
         ldust3 = (dust3.astype(float)).tolist()
         ldust4 = (dust4.astype(float)).tolist()
         ldust5 = (dust5.astype(float)).tolist()
+
+        # Override options for switch runs
+        if override_grainsize:
+            lgrainsize = [AVG_GRAINSIZE for _ in idx]
         if override_LAPs:
             lBC = [eb_prms.BC_freshsnow*1e6 for _ in idx]
             ldust1 = np.array([eb_prms.dust_freshsnow*1e6 for _ in idx]).tolist()
@@ -266,16 +300,20 @@ class Surface():
         list_doc['ICE']['RHO'] = ldensity
         list_doc['ICE']['RDS'] = lgrainsize
 
-        # The following variables are set to constants, but need to have right number of layers
-        ice_variables = ['LAYER_TYPE','SHP','HEX_SIDE','HEX_LENGTH','SHP_FCTR','WATER','AR','CDOM']
+        # The following variables are constants for the n layers
+        ice_variables = ['LAYER_TYPE','SHP','HEX_SIDE','HEX_LENGTH',
+                         'SHP_FCTR','WATER','AR','CDOM']
         for var in ice_variables:
-            list_doc['ICE'][var] = [list_doc['ICE'][var][0]] * n_layers
+            list_doc['ICE'][var] = [list_doc['ICE'][var][0]] * nlayers
 
         # Solar zenith angle
-        altitude_angle = suncalc.get_position(time,self.utils.lat,self.utils.lon)['altitude']
+        lat = self.utils.lat
+        lon = self.utils.lon
+        altitude_angle = suncalc.get_position(time,lat,lon)['altitude']
         zenith = 180/np.pi * (np.pi/2 - altitude_angle) if altitude_angle > 0 else 89
         # zenith = np.round(zenith / 10) * 10
         list_doc['RTM']['SOLZEN'] = int(zenith)
+        list_doc['RTM']['DIRECT'] = 0 if self.tcc > DIFFUSE_CLOUD_LIMIT else 1
 
         # Save SNICAR input file
         with open(eb_prms.snicar_input_fp, 'w') as f:
@@ -283,13 +321,21 @@ class Surface():
         
         # Get albedo from biosnicar "main.py"
         with HiddenPrints():
-            albedo = main.get_albedo('adding-doubling',plot=False,validate=False)
-        # I adjusted SNICAR code to return bba rather than spectral albedo
-        # if I want to undo that change so it runs on base SNICAR, need to get bba from spectral
-        # bba = np.sum(illumination.flx_slr * albedo) / np.sum(illumination.flx_slr)
-        return albedo
+            albedo,spectral_weights = main.get_albedo('adding-doubling',plot=False,validate=False)
+        # I adjusted SNICAR code to return spectral albedo and spectral weights
+            
+        # band_albedo = []
+        # Calculate albedo in the specified bands
+        # for idx in eb_prms.band_indices.values():
+        #     band_albedo.append(np.sum(solar[idx]*albedo[idx]) / np.sum(solar[idx]))
+        self.BBA = np.sum(albedo * spectral_weights) / np.sum(spectral_weights)
+
+        return albedo,spectral_weights
     
 class HiddenPrints:
+    """
+    Class to hide prints when running SNICAR
+    """
     def __enter__(self):
         self._original_stdout = sys.stdout
         sys.stdout = open(os.devnull, 'w')

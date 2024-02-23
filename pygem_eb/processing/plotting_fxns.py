@@ -189,11 +189,17 @@ def plot_stake_ablation(stake_df,ds_list,time,labels,bin=0,t='Stake Comparison')
     for i,ds in enumerate(ds_list):
         c = plt.cm.Dark2(i)
         ds = ds.sel(time=time,bin=bin)
-        ax.plot(ds.coords['time'],ds.melt.cumsum(),label=labels[i],color=c)
+        melt = ds.melt.cumsum().to_numpy()
+        rfz = ds.refreeze.cumsum().to_numpy()
+        ax.plot(ds.coords['time'],melt-rfz,label=labels[i],color=c)
+
     ax.plot(stake_df.index,np.cumsum(stake_df['melt'].to_numpy()),label='Stake',linestyle='--',c='black')
-    date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_locator(mpl.dates.MonthLocator())
+
+    import matplotlib as mpl
+    date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
+    
     ax.legend()
     ax.set_ylabel('Cumulative Melt (m w.e.)')
     fig.suptitle(t)
@@ -813,6 +819,79 @@ def plot_layers(ds,vars,dates):
         
     # fig.supxlabel(varprops[var]['label'])
     return
+
+def visualize_layers(ds,bin,time,var,force_layers=False,
+                     t='Visualization of Snow Layers'):
+    """
+    force_layers:
+        Three options: - False, takes all snow layers
+        - List of integers to select those layer indices
+        - Depth in m 
+    """
+    assert 'layer' in var, 'choose layer variable'
+    plt.style.use('bmh')
+
+    diff = time[1] - time[0]
+    # diff = diff - pd.Timedelta(diff) / 3
+    # max_conc = np.max(ds.sel(time=time,bin=bin)['layerBC'].dropna(dim='layer').to_numpy())
+    if var in ['layerBC','layerdust']:
+        max_val = 10 
+    elif var in ['layerdensity']:
+        max_val = 500
+    elif var in ['layerwater']:
+        max_val = .06
+
+    # Custom color function based on concentrations
+    def get_color(value):
+        value = min(1,value)
+        grayscale_value = (1-value) * 255  # Scale concentration to grayscale range
+        return f'#{int(grayscale_value):02x}{int(grayscale_value):02x}{int(grayscale_value):02x}'  # Grayscale format
+
+    fig,ax = plt.subplots(figsize=(8,4),sharey=True)
+    for step in time:
+        depth = ds.sel(time=step,bin=bin)['layerheight'].to_numpy()
+        vardata = ds.sel(time=step,bin=bin)[var].to_numpy()
+        dens = ds.sel(time=step,bin=bin)['layerdensity'].to_numpy()
+        if not force_layers:
+            layers_to_plot = np.where(dens < 600)[0]
+        else:
+            if '__iter__' in dir(force_layers):
+                layers_to_plot = force_layers
+            else:
+                layers_to_plot = np.where(np.cumsum(depth) < force_layers)[0]
+        depth = np.flip(depth[layers_to_plot])
+        vardata = np.flip(vardata[layers_to_plot]) / max_val
+        if var in ['layerwater']:
+            vardata = vardata / depth / 1000
+
+        bottom = 0
+        for [dep,data] in zip(depth,vardata):
+            ax.bar(step,dep, bottom=bottom, width=diff, color=get_color(data),linewidth=0.5,edgecolor='black')
+            bottom += dep  # Update bottom for the next set of bars
+
+    # Customize plot
+    plt.ylabel('Depth (m)')
+    plt.title(t)
+    plt.xticks(time)
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_formatter(date_form)
+    if len(time) > 8:
+        plt.xticks(pd.date_range(time[0],time[len(time)-1],periods=5))
+    plt.grid(False)
+
+    # Add legend
+    handles = [plt.Rectangle((0,0),1,1, color=get_color(c)) for c in np.linspace(0,1,5)]
+    units = {'layerBC':'ppb','layerdust':'ppm',
+             'layerdensity':'kg m-3','layerwater':'(mass fraction)'}
+    if var not in ['layerwater']:
+        labels = [f'{i:.1f} {units[var]}' for i in np.linspace(0,1,5)*max_val]
+    else:
+        labels = [f'{i:.3f} {units[var]}' for i in np.linspace(0,1,5)*max_val]
+    plt.legend(handles, labels, loc='best')
+
+    # Show plot
+    plt.tight_layout()
+    plt.show()
 
 def plot_single_layer(ds,layer,vars,time,cumMB=False,t='',vline=None):
     if len(time) == 2:

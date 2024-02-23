@@ -8,12 +8,14 @@ import pygem_eb.surface as eb_surface
 
 class massBalance():
     """
-    Mass balance scheme which calculates layer and bin mass balance from melt, 
-    refreeze and accumulation. main() executes the core of the model.
+    Mass balance scheme which calculates layer and bin mass balance 
+    from melt, refreeze and accumulation. main() executes the core 
+    of the model.
     """
     def __init__(self,bin_idx,dates_table,args,utils):
         """
-        Initializes the layers and surface classes and model time for the mass balance scheme.
+        Initializes the layers and surface classes and model 
+        time for the mass balance scheme.
 
         Parameters
         ----------
@@ -39,7 +41,8 @@ class massBalance():
     
     def main(self,climateds):
         """
-        Runs the time loop and mass balance scheme to solve for melt, refreeze, accumulation and runoff.
+        Runs the time loop and mass balance scheme to solve for melt, refreeze, 
+        accumulation and runoff.
 
         Parameters
         ----------
@@ -50,6 +53,7 @@ class massBalance():
         layers = self.layers
         surface = self.surface
         dt = self.dt
+        running_precip = 0
 
         # ===== ENTER TIME LOOP =====
         for time in self.time_list:
@@ -64,6 +68,7 @@ class massBalance():
 
             # Get rain and snowfall amounts [kg m-2]
             rain,snowfall = self.getPrecip(enbal)
+            running_precip += enbal.tp
 
             # Add fresh snow to layers
             if snowfall > 0:
@@ -77,7 +82,7 @@ class massBalance():
                 surface.updateSurfaceDaily(layers,enbal.tempC,time)
                 self.days_since_snowfall = surface.days_since_snowfall
                 layers.lnewsnow = np.zeros(layers.nlayers)
-            if time.hour == eb_prms.albedo_TOD:
+            if time.hour in eb_prms.albedo_TOD:
                 surface.getAlbedo(layers,time)
 
             # Calculate surface energy balance by updating surface temperature
@@ -85,7 +90,7 @@ class massBalance():
 
             # Calculate subsurface heating from penetrating SW
             if layers.nlayers > 1: 
-                SWin,SWout = enbal.getSW(surface.albedo)
+                SWin,SWout = enbal.getSW(surface)
                 subsurf_melt = self.penetratingSW(layers,SWin+SWout)
             else: # If there is only one layer, no subsurface melt occurs
                 subsurf_melt = [0]
@@ -98,13 +103,10 @@ class massBalance():
                 layermelt[0] = 0
                 self.melted_layers = 0
 
-            # Percolate the meltwater and any liquid precipitation if there are snow or firn layers
-            if len(np.concatenate([layers.snow_idx,layers.firn_idx])) > 0:
-                runoff = self.percolation(enbal,layers,layermelt,rain)
-            else:
-                runoff = rain + np.sum(layermelt)
+            # Percolate the meltwater and any liquid precipitation
+            runoff = self.percolation(enbal,layers,layermelt,rain)
 
-            # Recalculate the temperature profile considering conduction, unless glacier is isothermal
+            # Recalculate the temperature profile considering conduction
             if np.abs(np.sum(layers.ltemp)) != 0.:
                 self.solveHeatEq(layers,surface.stemp)
 
@@ -138,7 +140,8 @@ class massBalance():
 
     def penetratingSW(self,layers,surface_SW):
         """
-        Calculates melt in subsurface layers (excluding layer 0) due to penetrating shortwave radiation.
+        Calculates melt in subsurface layers (excluding layer 0) 
+        due to penetrating shortwave radiation.
 
         Parameters
         ----------
@@ -193,10 +196,11 @@ class massBalance():
 
     def meltLayers(self,layers,subsurf_melt):
         """
-        For cases when bins are melting. Can melt multiple surface bins at once if Qm is
-        sufficiently high. Otherwise, adds the surface layer melt to the array containing
-        subsurface melt to return the total layer melt. (This function does NOT REMOVE MASS
-        from layers. That is done in percolation.)
+        For cases when bins are melting. Can melt multiple surface bins
+        at once if Qm is sufficiently high. Otherwise, adds the surface
+        layer melt to the array containing subsurface melt to return the
+        total layer melt. (This function does NOT REMOVE MELTED MASS from 
+        layers. That is done in percolation().)
 
         Parameters
         ----------
@@ -217,17 +221,21 @@ class massBalance():
 
         # LAYERS IN
         ldm = layers.ldrymass.copy()
-        layermelt = subsurf_melt.copy()         # mass of melt due to penetrating SW [kg m-2]
-        surface_melt = self.surface.Qm*self.dt/LH_RF       # mass of melt due to SEB [kg m-2]
+        layermelt = subsurf_melt.copy()       # mass of melt due to penetrating SW [kg m-2]
+        surface_melt = self.surface.Qm*self.dt/LH_RF     # mass of melt due to SEB [kg m-2]
 
         if surface_melt > ldm[0]:
-            # melt by surface energy balance completely melts surface layer, so check if it melts further layers
+            # melt by surface energy balance completely melts surface layer
+            # check if it melts further layers
             fully_melted = np.where(np.cumsum(ldm) <= surface_melt)[0]
 
-            # calculate how much additional melt will occur in the first layer that's not fully melted
+            # calculate how much additional melt will occur in the first layer 
+            # that's not fully melted
             newsurface_melt = surface_melt - np.sum(ldm[fully_melted])
             newsurface_idx = fully_melted[-1] + 1
-            # it's possible to fully melt that layer too when combined with penetrating SW melt:
+
+            # it's possible to fully melt that layer too when combined with 
+            # penetrating SW melt:
             if newsurface_melt + layermelt[newsurface_idx] > ldm[newsurface_idx]:
                 fully_melted = np.append(fully_melted,newsurface_idx)
                 # push new surface to the next layer down
@@ -260,7 +268,8 @@ class massBalance():
         
     def percolation(self,enbal,layers,layermelt,water_in=0):
         """
-        Calculates the liquid water content in each layer by downward percolation and applies melt.
+        Calculates the liquid water content in each layer by downward
+        percolation and applies melt.
 
         Parameters
         ----------
@@ -296,84 +305,95 @@ class massBalance():
         if self.melted_layers != 0:
             water_in += np.sum(self.melted_layers.mass)
 
-        if eb_prms.method_percolation in ['no_LAPs']:
-            # MIGHT BE BROKEN???
-            for layer,melt in enumerate(layermelt_sf):
-                # remove melt from the dry mass
-                ldm[layer] -= melt
-                lh[layer] -= melt / layers.ldensity[layer]
+        if len(snow_firn_idx) > 1:
+            # if eb_prms.method_percolation in ['no_LAPs']:
+            #     # MIGHT BE BROKEN???
+            #     for layer,melt in enumerate(layermelt_sf):
+            #         # remove melt from the dry mass
+            #         ldm[layer] -= melt
+            #         lh[layer] -= melt / layers.ldensity[layer]
 
-                # add melt and extra_water (melt from above) to layer water content
-                added_water = melt + extra_water
-                lw[layer] += added_water
+            #         # add melt and extra_water (melt from above) to layer water content
+            #         added_water = melt + extra_water
+            #         lw[layer] += added_water
 
-                # check if meltwater exceeds the irreducible water content of the layer
-                layers.updateLayerProperties('irrwater')
-                if lw[layer] >= layers.irrwatercont[layer]:
-                    # set water content to irr. water content and add the difference to extra_water
-                    extra_water = lw[layer] - layers.irrwatercont[layer]
-                    lw[layer] = layers.irrwatercont[layer]
-                else: #if not overflowing, extra_water should be set back to 0
-                    extra_water = 0
-                
-                # get the change in layer height due to loss of solid mass (volume only considers solid)
-                lh[layer] -= melt/layers.ldensity[layer]
-                # need to update layer depths
-                layers.updateLayerProperties() 
-            # extra water goes to runoff
-            runoff = extra_water / DENSITY_WATER
-            # LAYERS OUT
-            layers.lheight[snow_firn_idx] = lh
-            layers.lwater[snow_firn_idx] = lw
-            layers.ldrymass[snow_firn_idx] = ldm
-            return runoff
-        
-        elif eb_prms.method_percolation in ['w_LAPs']:
-            # Calculate volumetric fractions
-            theta_liq = lw / (lh*DENSITY_WATER)
-            theta_ice = ldm / (lh*DENSITY_ICE)
-            porosity = 1 - theta_ice
+            #         # check if meltwater exceeds the irreducible water content of the layer
+            #         layers.updateLayerProperties('irrwater')
+            #         if lw[layer] >= layers.irrwatercont[layer]:
+            #             # set water content to irr. water content and add the difference to extra_water
+            #             extra_water = lw[layer] - layers.irrwatercont[layer]
+            #             lw[layer] = layers.irrwatercont[layer]
+            #         else: #if not overflowing, extra_water should be set back to 0
+            #             extra_water = 0
+                    
+            #         # get the change in layer height due to loss of solid mass (volume only considers solid)
+            #         lh[layer] -= melt/layers.ldensity[layer]
+            #         # need to update layer depths
+            #         layers.updateLayerProperties() 
+            #     # extra water goes to runoff
+            #     runoff = extra_water / DENSITY_WATER
+            #     # LAYERS OUT
+            #     layers.lheight[snow_firn_idx] = lh
+            #     layers.lwater[snow_firn_idx] = lw
+            #     layers.ldrymass[snow_firn_idx] = ldm
+            #     return runoff
+            
+            # if eb_prms.method_percolation in ['w_LAPs']:
+            if True:
+                # Calculate volumetric fractions (theta)
+                theta_liq = lw / (lh*DENSITY_WATER)
+                theta_ice = ldm / (lh*DENSITY_ICE)
+                porosity = 1 - theta_ice
 
-            # initialize flow into the top layer
-            qi = water_in / dt
-            q_in_store = []
-            q_out_store = []
-            for layer,melt in enumerate(layermelt_sf):
-                # set flow in equal to flow out of the previous layer
-                q_in = qi
+                # initialize flow into the top layer
+                qi = water_in / dt
+                q_in_store = []
+                q_out_store = []
+                for layer,melt in enumerate(layermelt_sf):
+                    # set flow in equal to flow out of the previous layer
+                    q_in = qi
 
-                # calculate flow out of layer i (cannot be negative)
-                flow_out = DENSITY_WATER*lh[layer]/dt * (theta_liq[layer]-FRAC_IRREDUC*porosity[layer])
-                qi = max(0,flow_out)
+                    # calculate flow out of layer i (cannot be negative)
+                    flow_out = DENSITY_WATER*lh[layer]/dt * (
+                        theta_liq[layer]-FRAC_IRREDUC*porosity[layer])
+                    qi = max(0,flow_out)
 
-                # check limit of qi based on underlying layer holding capacity
-                if layer < len(porosity) - 1 and theta_liq[layer] <= 0.3:
-                    if porosity[layer] < 0.05 or porosity[layer+1] < 0.05:
-                        # no flow if the layer itself or the lower layer has no pore space
-                        lim = 0
-                    else:
-                        lim = DENSITY_WATER*lh[layer+1]/dt * (1-theta_ice[layer+1]-theta_liq[layer+1])
-                        lim = max(0,lim)
-                else: # no limit on bottom layer (1e6 sufficiently high)
-                    lim = 1e6
-                q_out = min(qi,lim)
+                    # check limit of qi based on underlying layer holding capacity
+                    if layer < len(porosity) - 1 and theta_liq[layer] <= 0.3:
+                        if porosity[layer] < 0.05 or porosity[layer+1] < 0.05:
+                            # no flow if the layer itself or the lower layer has no pore space
+                            lim = 0
+                        else:
+                            next = layer+1
+                            lim = DENSITY_WATER*lh[next]/dt * (1-theta_ice[next]-theta_liq[next])
+                            lim = max(0,lim)
+                    else: # no limit on bottom layer (1e6 sufficiently high)
+                        lim = 1e6
+                    q_out = min(qi,lim)
 
-                # layer mass balance
-                lw[layer] += (q_in - q_out)*dt + melt
-                ldm[layer] -= melt
-                lh[layer] -= melt / layers.ldensity[layer]
-                q_in_store.append(q_in)
-                q_out_store.append(q_out)
+                    # layer mass balance
+                    lw[layer] += (q_in - q_out)*dt + melt
+                    ldm[layer] -= melt
+                    lh[layer] -= melt / layers.ldensity[layer]
+                    q_in_store.append(q_in)
+                    q_out_store.append(q_out)
 
-            # LAYERS OUT
-            layers.lheight[snow_firn_idx] = lh
-            layers.lwater[snow_firn_idx] = lw
-            layers.ldrymass[snow_firn_idx] = ldm
-            runoff = q_out*dt + np.sum(layermelt[layers.ice_idx])
+                # LAYERS OUT
+                layers.lheight[snow_firn_idx] = lh
+                layers.lwater[snow_firn_idx] = lw
+                layers.ldrymass[snow_firn_idx] = ldm
+                runoff = q_out*dt + np.sum(layermelt[layers.ice_idx])
 
-            # Diffuse LAPs 
-            if self.args.switch_LAPs == 1:
-                self.diffuseLAPs(layers,np.array(q_out_store),enbal)
+                # Diffuse LAPs 
+                if self.args.switch_LAPs == 1:
+                    self.diffuseLAPs(layers,np.array(q_out_store),enbal)
+            
+        else:
+            # No percolation, but need to move melt to runoff
+            layers.ldrymass -= layermelt
+            layers.lheight -= layermelt / DENSITY_ICE
+            runoff = water_in + np.sum(layermelt)
+
         return runoff
         
     def diffuseLAPs(self,layers,q_out,enbal):
@@ -395,7 +415,7 @@ class massBalance():
         cdust = mdust / (lw + ldm)
 
         # get wet deposition into top layer
-        m_BC_in_top = np.array([enbal.bcwet])
+        m_BC_in_top = np.array([enbal.bcwet]) 
         m_dust_in_top = np.array([enbal.dustwet]) * eb_prms.ratio_DU3_DUtot
         if self.melted_layers != 0:
             m_BC_in_top += np.sum(self.melted_layers.BC) / dt
@@ -424,7 +444,8 @@ class massBalance():
     
     def refreezing(self,layers):
         """
-        Calculates refreeze in layers due to temperatures below freezing with liquid water content.
+        Calculates refreeze in layers due to temperatures below freezing
+        with liquid water content.
 
         Parameters:
         -----------
@@ -451,12 +472,12 @@ class massBalance():
         for layer, T in enumerate(lT):
             if T < 0. and lw[layer] > 0:
                 # calculate potential for refreeze [J m-2]
-                E_temperature = np.abs(T)*ldm[layer]*HEAT_CAPACITY_ICE  # cold content available 
+                E_cold = np.abs(T)*ldm[layer]*HEAT_CAPACITY_ICE  # cold content available 
                 E_water = lw[layer]*LH_RF  # amount of water to freeze
                 E_pore = (DENSITY_ICE*lh[layer]-ldm[layer])*LH_RF # pore space available
 
                 # calculate amount of refreeze in kg m-2
-                dm_ref = np.min([abs(E_temperature),abs(E_water),abs(E_pore)])/LH_RF     # cannot be negative
+                dm_ref = np.min([abs(E_cold),abs(E_water),abs(E_pore)])/LH_RF
 
                 # add refreeze to array in m w.e.
                 refreeze[layer] = dm_ref / DENSITY_WATER
@@ -464,9 +485,9 @@ class massBalance():
                 # add refreeze to layer ice mass
                 ldm[layer] += dm_ref
                 # update layer temperature from latent heat
-                lT[layer] = -(E_temperature-dm_ref*LH_RF)/HEAT_CAPACITY_ICE/layers.ldrymass[layer]
+                lT[layer] = -(E_cold-dm_ref*LH_RF)/(HEAT_CAPACITY_ICE*ldm[layer])
                 # update water content
-                lw[layer] = max(0,layers.lwater[layer]-dm_ref) # cannot be negative
+                lw[layer] = max(0,layers.lwater[layer]-dm_ref)
         
         # LAYERS OUT
         layers.ltemp = lT
@@ -482,7 +503,7 @@ class massBalance():
     def densification(self,layers,dt_dens):
         """
         Calculates densification of layers due to compression from overlying mass.
-        Method Boone follows COSIPY. Other method doesn't work.
+        Method Boone follows COSIPY.
 
         Parameters:
         -----------
@@ -657,7 +678,7 @@ class massBalance():
     def current_state(self,time,airtemp):
         layers = self.layers
         surftemp = self.surface.stemp
-        albedo = self.surface.albedo
+        albedo = self.surface.BBA
         melte = np.mean(self.output.meltenergy_output[-720:])
         melt = np.sum(self.output.melt_output[-720:])
         accum = np.sum(self.output.accum_output[-720:])
@@ -788,7 +809,7 @@ class Output():
         self.sensible_output.append(float(enbal.sens))
         self.latent_output.append(float(enbal.lat))
         self.meltenergy_output.append(float(surface.Qm))
-        self.albedo_output.append(float(surface.albedo))
+        self.albedo_output.append(float(surface.BBA))
         self.melt_output.append(float(massbal.melt))
         self.refreeze_output.append(float(massbal.refreeze))
         self.runoff_output.append(float(massbal.runoff))
