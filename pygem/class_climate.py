@@ -157,9 +157,9 @@ class GCM():
                                  'dustdry':{'fn':[],'vn':[]},
                                  'dustwet':{'fn':[],'vn':[]},
                                  'elev':{'fn':[],'vn':[]},
-                                 'lat':{'fn':[],'vn':[]},
-                                 'lon':{'fn':[],'vn':[]},
-                                 'time':{'fn':[],'vn':[]}}
+                                 'lat':{'fn':'','vn':''},
+                                 'lon':{'fn':'','vn':''},
+                                 'time':{'fn':'','vn':''}}
                 if self.name == 'MERRA2':
                     # Variable names for energy balance
                     self.var_dict['temp']['vn'] = 'T2M'
@@ -532,6 +532,7 @@ class AWS():
         # Load file
         self.fn = fp
         df = pd.read_csv(fp,index_col=0)
+        df = df.set_index(pd.to_datetime(df['Datetime']))
 
         data_start = pd.to_datetime(df.index.to_numpy()[0])
         data_end = pd.to_datetime(df.index.to_numpy()[-1])
@@ -550,10 +551,10 @@ class AWS():
         self.wind = df['wind'].to_numpy()
         self.sp = df['sp'].to_numpy()
         self.elev = df['z'].to_numpy()[0]
-        self.bcdry = df['bc2dry'].to_numpy()
-        self.bcwet = df['bc2wet'].to_numpy()
-        self.dustdry = df['du3dry'].to_numpy()
-        self.dustwet = df['du3wet'].to_numpy()
+        self.bcdry = df['bcdry'].to_numpy()
+        self.bcwet = df['bcwet'].to_numpy()
+        self.dustdry = df['dudry'].to_numpy()
+        self.dustwet = df['duwet'].to_numpy()
 
         # DATA WHICH MAY NOT BE IN FILE (NOT NEEDED)
         nans = np.ones_like(self.temp)*np.nan

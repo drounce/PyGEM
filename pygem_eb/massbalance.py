@@ -682,6 +682,7 @@ class massBalance():
         melte = np.mean(self.output.meltenergy_output[-720:])
         melt = np.sum(self.output.melt_output[-720:])
         accum = np.sum(self.output.accum_output[-720:])
+        ended_month = (time - pd.Timedelta(days=1)).month_name()
 
         layers.updateLayerProperties()
         snowdepth = np.sum(layers.lheight[layers.snow_idx])
@@ -689,7 +690,7 @@ class massBalance():
         icedepth = np.sum(layers.lheight[layers.ice_idx])
 
         # Begin prints
-        print(f'MONTH COMPLETED: {time.month_name()} {time.year} with +{accum:.2f} and -{melt:.2f} m w.e.')
+        print(f'MONTH COMPLETED: {ended_month} {time.year} with +{accum:.2f} and -{melt:.2f} m w.e.')
         print(f'Currently {airtemp:.2f} C with {melte:.0f} W m-2 melt energy')
         print(f'----------surface albedo: {albedo:.3f} -----------')
         print(f'-----------surface temp: {surftemp:.2f} C-----------')

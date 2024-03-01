@@ -72,6 +72,8 @@ class energyBalance():
         self.prec =  self.tp / 3600     # tp is hourly total precip, prec is the rate in m/s
         self.dt = dt
         self.climateds = climateds
+        self.time = time
+        self.rH = 100 if self.rH > 100 else self.rH
 
         self.nanLWin = True if np.isnan(self.LWin_ds) else False
         self.nanSWout = True if np.isnan(self.SWout_ds) else False

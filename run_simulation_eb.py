@@ -44,14 +44,25 @@ def getparser():
     parser.add_argument('-f', '--fff', help='dummy arg to fool ipython', default='1')
     return parser
 
-def initialize_model(debug=True):
-    # Initialize argparse and utility functions
-    parser = getparser()
-    args = parser.parse_args()
+def initialize_model(glac_no,args,debug=True):
+    """
+    Loads glacier table and climate dataset for one glacier to initialize
+    the model inputs.
+
+    Parameters
+    ==========
+    glac_no : str
+        RGI glacier ID
+    
+    Returns
+    -------
+    climateds
+
+    """
     n_bins = args.n_bins
 
     # ===== GLACIER AND TIME PERIOD SETUP =====
-    glacier_table = modelsetup.selectglaciersrgitable(args.glac_no,
+    glacier_table = modelsetup.selectglaciersrgitable(np.array([glac_no]),
                     rgi_regionsO1=eb_prms.rgi_regionsO1,
                     rgi_regionsO2=eb_prms.rgi_regionsO2,
                     rgi_glac_number=eb_prms.rgi_glac_number,
@@ -66,8 +77,8 @@ def initialize_model(debug=True):
     if args.climate_input in ['GCM']:
         all_vars = list(gcm.var_dict.keys())
         if eb_prms.ref_gcm_name in ['MERRA2']:
-            cenlat = glacier_table['CenLat'].to_numpy()
-            cenlon = glacier_table['CenLon'].to_numpy()
+            cenlat = glacier_table['CenLat'].to_numpy()[0]
+            cenlon = glacier_table['CenLon'].to_numpy()[0]
             file_lat = str(int(np.floor(cenlat/10)*10))
             file_lon = str(int(np.floor(cenlon/10)*10))
             for var in all_vars:
@@ -77,9 +88,10 @@ def initialize_model(debug=True):
         all_data = {}
         for var in all_vars:
             if var not in ['time','lat','lon','elev']:
-                data,data_hours = gcm.importGCMvarnearestneighbor_xarray(gcm.var_dict[var]['fn'],
-                                                                     gcm.var_dict[var]['vn'],
-                                                                     glacier_table,dates_table)
+                data,data_hours = gcm.importGCMvarnearestneighbor_xarray(
+                    gcm.var_dict[var]['fn'],gcm.var_dict[var]['vn'],
+                    glacier_table,dates_table)
+                
                 if var in ['SWin','LWin','tcc','rh','bcdry','bcwet','dustdry','dustwet']:
                     data = data[0]
                 if eb_prms.ref_gcm_name in ['MERRA2'] and var in ['SWin','LWin']:
@@ -160,7 +172,7 @@ def initialize_model(debug=True):
             time=(['time'],dates)
             ))
     
-    return climateds,dates_table,utils,args
+    return climateds,dates_table,utils
 
 def run_model(climateds,dates_table,utils,args,new_attrs):
     # Start timer
@@ -199,8 +211,11 @@ def run_model(climateds,dates_table,utils,args,new_attrs):
     
     return ds_out
 
-climateds,dates_table,utils,args = initialize_model()
-out = run_model(climateds,dates_table,utils,args,{'Params?':'False'})
-if out:
-    # Get final mass balance
-    print(f'Total Mass Loss: {out.melt.sum():.3f} m w.e.')
+parser = getparser()
+args = parser.parse_args()
+for gn in args.glac_no:
+    climateds,dates_table,utils = initialize_model(gn,args)
+    out = run_model(climateds,dates_table,utils,args,{'kp':'0.7','tsnow_threshold':'-3'})
+    if out:
+        # Get final mass balance
+        print(f'Total Mass Loss: {out.melt.sum():.3f} m w.e.')

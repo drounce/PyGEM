@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 import pygem.oggm_compat as oggm
 
-debug=True          # Print monthly outputs?
-store_data=False    # Save file?
-new_file=True       # Write to scratch file?
+debug=True           # Print monthly outputs?
+store_data=False      # Save file?
+new_file=True        # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
 glac_no = ['01.00570']
@@ -16,9 +16,10 @@ parallel = False        # Run parallel processing?
 
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
+                        #   'AWS_fn':'Preprocessed/gulkana/gulkana_all_merra2.csv',
                             'AWS_fn':'Preprocessed/gulkanaD/gulkana_merra2.csv', # gulkanaD_wERA5.csv
                             # 'AWS_elev':1854,
-                            'site_elev':1546, # 1854 is D, B is 1693, AB is 1546
+                            'site_elev':1693, # 1854 is D, B is 1693, AB is 1546
                             'init_filepath':''},
             '01.01104':{'name':'Lemon Creek',
                             'site_elev':1285,
@@ -65,7 +66,7 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
-output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_era5'
+# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_BASE'
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
@@ -75,7 +76,7 @@ initial_density_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBdensit
 snicar_input_fp = main_directory + '/biosnicar-py/src/biosnicar/inputs.yaml'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
-climate_input = 'AWS' # 'GCM' or 'AWS'
+climate_input = 'GCM' # 'GCM' or 'AWS'
 ref_gcm_name = 'MERRA2' # 'ERA5-hourly' or 'MERRA2'
 if climate_input in ['AWS']:
     AWS_fp = main_directory + '/../climate_data/AWS/'
@@ -94,18 +95,22 @@ elif climate_input in ['GCM']:
 dates_from_data = True
 if dates_from_data and climate_input in ['AWS']:
     cdf = pd.read_csv(AWS_fn,index_col=0)
+    cdf = cdf.set_index(pd.to_datetime(cdf['Datetime']))
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
 else:
-    startdate = pd.to_datetime('2013-04-21 00:30')
-    enddate = pd.to_datetime('2013-08-09 00:30')
-    if ref_gcm_name == 'MERRA2':
-        assert startdate.minute == 30
-        assert enddate.minute == 30
-    # startdate = pd.to_datetime('2016-05-11 00:30')
+    startdate = pd.to_datetime('2000-04-21 00:30') 
+    enddate = pd.to_datetime('2010-08-20 00:30')
+    # startdate = pd.to_datetime('2023-04-21 00:30')    # Gulkana AWS dates
+    # enddate = pd.to_datetime('2023-08-09 00:30')
+    # startdate = pd.to_datetime('2016-05-11 00:30') # JIF sample dates
     # enddate = pd.to_datetime('2016-07-18 00:30')
     # startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
     # enddate = pd.to_datetime('2018-05-01 00:00')
+    if ref_gcm_name == 'MERRA2':
+        assert startdate.minute == 30
+        assert enddate.minute == 30
+    
 n_months = np.round((enddate-startdate)/pd.Timedelta(days=30))
 print(f'Running {n_bins} bin(s) at {bin_elev} m a.s.l. for {n_months} months starting in {startdate.month_name()}, {startdate.year}')
 
@@ -170,7 +175,7 @@ for i in np.arange(0,480):
 precgrad = 0.0001           # precipitation gradient on glacier [m-1]
 lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
 tsnow_threshold = 0         # Threshold below which snowfall occurs [C]
-kp = 1                      # precipitation factor [-] 
+kp = 0.8                      # precipitation factor [-] 
 albedo_ice = 0.2            # Albedo of ice [-] 
 roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
 ksp_BC = 0.1                # meltwater scavenging efficiency of BC (from CLM5)
@@ -208,7 +213,7 @@ viscosity_snow = 3.7e7      # Viscosity of snow [Pa-s]
 # dz_toplayer = 0.03          # Thickness of the uppermost bin [m]
 # layer_growth = 0.6          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
 sigma_SB = 5.67037e-8       # Stefan-Boltzmann constant [W m-2 K-4]
-max_nlayers = 20            # Maximum number of vertical layers allowed
+max_nlayers = 30            # Maximum number of vertical layers allowed
 max_dz = 1                  # Max layer height
 albedo_deg_rate = 15        # Rate of exponential decay of albedo
 wet_snow_C = 4.22e-13       # Constant for wet snow metamorphosis [m3 s-1]
