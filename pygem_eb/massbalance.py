@@ -29,6 +29,7 @@ class massBalance():
         self.days_since_snowfall = 0
         self.time_list = dates_table['date']
         self.bin_idx = bin_idx
+        self.elev = eb_prms.bin_elev[bin_idx]
 
         # Initialize layers and surface classes
         self.args = args
@@ -53,7 +54,6 @@ class massBalance():
         layers = self.layers
         surface = self.surface
         dt = self.dt
-        running_precip = 0
 
         # ===== ENTER TIME LOOP =====
         for time in self.time_list:
@@ -68,12 +68,11 @@ class massBalance():
 
             # Get rain and snowfall amounts [kg m-2]
             rain,snowfall = self.getPrecip(enbal)
-            running_precip += enbal.tp
 
             # Add fresh snow to layers
             if snowfall > 0:
                 layers.addSnow(snowfall,enbal,surface,self.args,time)
-                    
+
             # Add dry deposited BC and dust to layers
             enbal.getDryDeposition(layers)
 
@@ -102,8 +101,9 @@ class massBalance():
                 layermelt = subsurf_melt.copy()
                 layermelt[0] = 0
                 self.melted_layers = 0
-
+                       
             # Percolate the meltwater and any liquid precipitation
+            # Includes aqueous LAPs
             runoff = self.percolation(enbal,layers,layermelt,rain)
 
             # Recalculate the temperature profile considering conduction
@@ -136,6 +136,9 @@ class massBalance():
         # Completed bin: store data
         if self.args.store_data:
             self.output.storeData(self.bin_idx)
+
+        if eb_prms.store_bands:
+            surface.albedo_df.to_csv(eb_prms.albedo_out_fp.replace('.csv',f'_{self.elev}.csv'))
         return
 
     def penetratingSW(self,layers,surface_SW):
@@ -302,6 +305,7 @@ class massBalance():
         lh = layers.lheight.copy()[snow_firn_idx]
         layermelt_sf = layermelt[snow_firn_idx]
 
+        rain_bool = water_in > 0
         if self.melted_layers != 0:
             water_in += np.sum(self.melted_layers.mass)
 
@@ -386,7 +390,7 @@ class massBalance():
 
                 # Diffuse LAPs 
                 if self.args.switch_LAPs == 1:
-                    self.diffuseLAPs(layers,np.array(q_out_store),enbal)
+                    self.diffuseLAPs(layers,np.array(q_out_store),enbal,rain_bool)
             
         else:
             # No percolation, but need to move melt to runoff
@@ -396,7 +400,7 @@ class massBalance():
 
         return runoff
         
-    def diffuseLAPs(self,layers,q_out,enbal):
+    def diffuseLAPs(self,layers,q_out,enbal,rain_bool):
         # CONSTANTS
         PARTITION_COEF_BC = eb_prms.ksp_BC
         PARTITION_COEF_DUST = eb_prms.ksp_dust
@@ -410,16 +414,22 @@ class massBalance():
         # mBC/mdust is layer mass of species in kg m-2
         mBC = layers.lBC[snow_firn_idx]
         mdust = layers.ldust[snow_firn_idx]
+
+        # get wet deposition into top layer
+        if rain_bool:
+            mBC[0] += enbal.bcwet * dt
+            mdust[0] += enbal.dustwet * eb_prms.ratio_DU3_DUtot * dt
+
         # cBC/cdust is layer mass mixing ratio in kg kg-1
         cBC = mBC / (lw + ldm)
         cdust = mdust / (lw + ldm)
 
-        # get wet deposition into top layer
-        m_BC_in_top = np.array([enbal.bcwet]) 
-        m_dust_in_top = np.array([enbal.dustwet]) * eb_prms.ratio_DU3_DUtot
         if self.melted_layers != 0:
-            m_BC_in_top += np.sum(self.melted_layers.BC) / dt
-            m_dust_in_top += np.sum(self.melted_layers.dust) / dt
+            m_BC_in_top = np.array(np.sum(self.melted_layers.BC) / dt)
+            m_dust_in_top = np.array(np.sum(self.melted_layers.dust) / dt)
+        else:
+            m_BC_in_top = np.array([0],dtype=float) 
+            m_dust_in_top = np.array([0],dtype=float)
         m_BC_in_top *= PARTITION_COEF_BC
         m_dust_in_top *= PARTITION_COEF_DUST
 
@@ -718,6 +728,7 @@ class Output():
         n_bins = eb_prms.n_bins
         bin_idxs = range(n_bins)
         self.n_timesteps = len(time)
+        self.n_bins = n_bins
         zeros = np.zeros([self.n_timesteps,n_bins,eb_prms.max_nlayers])
 
         # Create variable name dict
@@ -781,13 +792,13 @@ class Output():
         self.albedo_output = []
 
         # Initialize mass balance outputs
-        self.melt_output = []
-        self.refreeze_output = []
-        self.runoff_output = []
-        self.accum_output = []
-        self.snowdepth_output = []
-        self.airtemp_output = []
-        self.surftemp_output = []
+        self.snowdepth_output = []  # depth of snow [m]
+        self.melt_output = []       # melt by timestep [m w.e.]
+        self.refreeze_output = []   # refreeze by timestep [m w.e.]
+        self.accum_output = []      # accumulation by timestep [m w.e.]
+        self.runoff_output = []     # runoff by timestep [m w.e.]
+        self.airtemp_output = []    # downscaled air temperature [C]
+        self.surftemp_output = []   # surface temperature [C]
 
         # Initialize layer outputs
         self.layertemp_output = dict()
@@ -884,9 +895,22 @@ class Output():
     def addVars(self):
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
             ds = dataset.load()
-            ds['SWnet'] = ds['SWin'] + ds['SWout']
-            ds['LWnet'] = ds['LWin'] + ds['LWout']
-            ds['NetRad'] = ds['SWnet'] + ds['LWnet']
+
+            # add surface height change
+            height = ds.layerheight.sum(dim='layer')
+            diff = height.diff(dim='time')
+            dh = np.append(np.array([0]*self.n_bins),diff.values)
+            if dh.shape == (len(ds.time),):
+                dh = np.array([dh]).reshape(-1,1)
+            ds['dh'] = (['time','bin'],dh,{'units':'m'})
+
+            # add summed radiation terms
+            SWnet = ds['SWin'] + ds['SWout']
+            LWnet = ds['LWin'] + ds['LWout']
+            NetRad = SWnet + LWnet
+            ds['SWnet'] = (['time','bin'],SWnet.values,{'units':'W m-2'})
+            ds['LWnet'] = (['time','bin'],LWnet.values,{'units':'W m-2'})
+            ds['NetRad'] = (['time','bin'],NetRad.values,{'units':'W m-2'})
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
     

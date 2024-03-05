@@ -185,13 +185,12 @@ def run_model(climateds,dates_table,utils,args,new_attrs):
             massbal.main(climateds)
         processes_pool = Pool(args.n_bins)
         processes_pool.map(run_mass_balance,range(args.n_bins))
-    else:
-        for bin in np.arange(args.n_bins):
-            massbal = mb.massBalance(bin,dates_table,args,utils)
-            massbal.main(climateds)
-            
-            if bin<args.n_bins-1:
-                print('Success: moving onto bin',bin+1)
+    for bin in np.arange(args.n_bins):
+        massbal = mb.massBalance(bin,dates_table,args,utils)
+        massbal.main(climateds)
+        
+        if bin<args.n_bins-1:
+            print('Success: moving onto bin',bin+1)
 
     # ===== END ENERGY BALANCE =====
     # Get final model run time
@@ -215,7 +214,7 @@ parser = getparser()
 args = parser.parse_args()
 for gn in args.glac_no:
     climateds,dates_table,utils = initialize_model(gn,args)
-    out = run_model(climateds,dates_table,utils,args,{'kp':'0.7','tsnow_threshold':'-3'})
+    out = run_model(climateds,dates_table,utils,args,{'Run By':'Campfire'})
     if out:
         # Get final mass balance
         print(f'Total Mass Loss: {out.melt.sum():.3f} m w.e.')

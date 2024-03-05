@@ -463,8 +463,8 @@ class Layers():
                                     [airtemp<=-30,-30<airtemp<0,airtemp>=0],
                                     [54.5,54.5+5*(airtemp+30),204.5])
             new_height = snowfall/new_density
-            new_BC = eb_prms.BC_freshsnow*new_height
-            new_dust = eb_prms.dust_freshsnow*new_height
+            new_BC = enbal.bcwet * enbal.dt
+            new_dust = enbal.dustwet * enbal.dt
             new_snow = snowfall
             surface.snow_timestamp = timestamp
 

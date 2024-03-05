@@ -11,7 +11,6 @@ new_file=True        # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
 glac_no = ['01.00570']
-n_bins = 1              # Number of elevation bins
 parallel = False        # Run parallel processing?
 
 # ========== GLACIER INFO ========== 
@@ -19,7 +18,7 @@ glac_props = {'01.00570':{'name':'Gulkana',
                         #   'AWS_fn':'Preprocessed/gulkana/gulkana_all_merra2.csv',
                             'AWS_fn':'Preprocessed/gulkanaD/gulkana_merra2.csv', # gulkanaD_wERA5.csv
                             # 'AWS_elev':1854,
-                            'site_elev':1693, # 1854 is D, B is 1693, AB is 1546
+                            'site_elev':1546, # 1854 is D, B is 1693, AB is 1546
                             'init_filepath':''},
             '01.01104':{'name':'Lemon Creek',
                             'site_elev':1285,
@@ -49,6 +48,9 @@ if dynamics:
 else:
     bin_elev = np.array([glac_props[glac_no[0]]['site_elev']])
     bin_ice_depth = np.array([200])
+bin_elev = np.array([1270,1385,1470,1585,1680,1779])
+bin_ice_depth = np.ones(len(bin_elev)) * 200
+n_bins = len(bin_elev)
 
 # ========== DIRECTORIES AND FILEPATHS ========== 
 main_directory = os.getcwd()
@@ -66,7 +68,7 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
-# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_BASE'
+# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_washdrydep'
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
@@ -99,8 +101,8 @@ if dates_from_data and climate_input in ['AWS']:
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
 else:
-    startdate = pd.to_datetime('2000-04-21 00:30') 
-    enddate = pd.to_datetime('2010-08-20 00:30')
+    startdate = pd.to_datetime('2009-04-20 00:30') 
+    enddate = pd.to_datetime('2009-09-08 00:30')
     # startdate = pd.to_datetime('2023-04-21 00:30')    # Gulkana AWS dates
     # enddate = pd.to_datetime('2023-08-09 00:30')
     # startdate = pd.to_datetime('2016-05-11 00:30') # JIF sample dates
@@ -123,6 +125,9 @@ surftemp_guess =  -10               # guess for surface temperature of first tim
 initial_snowdepth = [2.2]*n_bins    # initial depth of snow; array of length n_bins
 initial_firndepth = [0]*n_bins      # initial depth of firn; array of length n_bins
 icelayers = 'multiple'              # 'single' or 'multiple'
+
+initial_snowdepth = np.linspace(2.2,4.5,6)
+initial_firndepth = np.array([0,0,0,0,0,1])
 
 # OUTPUT
 store_vars = ['MB','EB','Temp','Layers']  # Variables to store of the possible set: ['MB','EB','Temp','Layers']
@@ -160,13 +165,15 @@ wvs = np.round(np.arange(0.2,5,0.01),2) # 480 bands used by SNICAR
 # band_limits = [[0.2,0.8],[0.8,1.5],[1.5,4.99]]
 band_limits = [[0.2,4.99]]
 band_indices = {}
-for i,band in enumerate(band_limits):
-    idx_start = np.where(wvs == band[0])[0][0]
-    idx_end = np.where(wvs==band[1])[0][0]
-    idx_list = np.arange(idx_start,idx_end)
-    band_indices['Band '+str(i)] = idx_list
+# for i,band in enumerate(band_limits):
+#     idx_start = np.where(wvs == band[0])[0][0]
+#     idx_end = np.where(wvs == band[1])[0][0]
+#     idx_list = np.arange(idx_start,idx_end)
+#     band_indices['Band '+str(i)] = idx_list
 for i in np.arange(0,480):
     band_indices['Band '+str(i)] = np.array([i])
+store_bands = True
+albedo_out_fp = main_directory + '/../Output/EB/albedo.csv'
 # solar_coef = np.array([0.71,0.23,0.08])
 # solar_coef = np.array([1])
 # assert len(solar_coef) == len(band_indices), 'Check size of albedo band inputs is consistent'
@@ -178,10 +185,10 @@ tsnow_threshold = 0         # Threshold below which snowfall occurs [C]
 kp = 0.8                      # precipitation factor [-] 
 albedo_ice = 0.2            # Albedo of ice [-] 
 roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
-ksp_BC = 0.1                # meltwater scavenging efficiency of BC (from CLM5)
-ksp_dust = 0.015            # meltwater scavenging efficiency of dust (from CLM5)
-dz_toplayer = 0.03          # Thickness of the uppermost bin [m]
-layer_growth = 0.6          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
+ksp_BC = 0.2                # 0.1 meltwater scavenging efficiency of BC (from CLM5)
+ksp_dust = 0.015            # 0.015 meltwater scavenging efficiency of dust (from CLM5)
+dz_toplayer = 0.05          # Thickness of the uppermost bin [m]
+layer_growth = 0.4          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.3-.6
 k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 albedo_TOD = [10,2]            # Time of day to calculate albedo [hr]

@@ -37,6 +37,11 @@ class Surface():
         self.stemp = eb_prms.surftemp_guess
         self.days_since_snowfall = 0
         self.snow_timestamp = time[0]
+
+        # Output albedo?
+        if eb_prms.store_bands:
+            bands = np.arange(0,480).astype(str)
+            self.albedo_df = pd.DataFrame(np.zeros((0,480)),columns=bands)
         return
     
     def updateSurfaceDaily(self,layers,airtemp,time):
@@ -202,6 +207,11 @@ class Surface():
         else:
             self.albedo = self.albedo_dict[self.stype]
             self.BBA = self.albedo
+
+        if eb_prms.store_bands:
+            if '__iter__' not in dir(self.albedo):
+                self.albedo = np.ones(480) * self.albedo
+            self.albedo_df.loc[time] = self.albedo.copy()
         return 
     
     def runSNICAR(self,layers,time,nlayers=None,max_depth=None,
