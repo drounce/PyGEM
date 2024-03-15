@@ -37,6 +37,7 @@ varprops = {'surftemp':{'label':'Surface temp','type':'Temperature','units':'C'}
            'sensible':{'label':'Sensible Heat','type':'Flux','units':'W m$^{-2}$'},
            'latent':{'label':'Latent Heat','type':'Flux','units':'W m$^{-2}$'},
            'rain':{'label':'Rain Energy','type':'Flux','units':'W m$^{-2}$'},
+           'ground':{'label':'Ground Energy','type':'Flux','units':'W m$^{-2}$'},
            'layertemp':{'label':'Layer temp','type':'Layers','units':'C'},
            'layerdensity':{'label':'Density','type':'Layers','units':'kg m$^{-3}$'},
            'layerwater':{'label':'Water Content','type':'Layers','units':'kg m$^{-2}$'},
@@ -45,6 +46,7 @@ varprops = {'surftemp':{'label':'Surface temp','type':'Temperature','units':'C'}
            'layergrainsize':{'label':'Grain size','type':'Layers','units':'um'},
            'layerheight':{'label':'Layer height','type':'Layers','units':'m'},
            'snowdepth':{'label':'Snow depth','type':'MB','units':'m'},
+           'dh':{'label':'Surface height change','type':'MB','units':'m$'},
            'albedo':{'label':'Albedo','type':'Albedo','units':''},}
 AWS_vars = {'temp':{'label':'Temperature','units':'C'},
              'wind':{'label':'Wind Speed','units':'m s$^{-1}$'},
@@ -96,35 +98,82 @@ def simple_plot(ds,bin,time,vars,res='d',t='',
     ds = ds.sel(time=time,bin=bin)
     ds_mean = ds.resample(time=res).mean(dim='time',keep_attrs='units')
     ds_sum = ds.resample(time=res).sum(dim='time',keep_attrs='units')
+    c_iter = iter([plt.cm.Dark2(i) for i in range(8)])
     for i,v in enumerate(vars):
-        ic = i-6 if i>5 else i
         if len(vars) > 1:
             axis = axes[i]
         else:
             axis = axes
+
         vararray = np.array(v)
         for var in vararray:
-            if var in ['melt','runoff','accum','refreeze']:
+            try:
+                c = next(c_iter)
+            except:
+                c_iter = iter([plt.cm.Dark2(i) for i in range(8)])
+                c = next(c_iter)
+        
+            if var in ['melt','runoff','accum','refreeze','dh']:
                 var_to_plot = ds_sum[var].cumsum()
+            elif 'layer' in var:
+                var_to_plot = ds_mean[var].isel(layer=0)
             else:
                 var_to_plot = ds_mean[var]
 
             if var in new_y:
                 newaxis = axis.twinx()
-                newaxis.plot(ds_mean.coords['time'],var_to_plot,color=colors[ic],label=var)
+                newaxis.plot(ds_mean.coords['time'],var_to_plot,color=c,label=var)
                 newaxis.grid(False)
                 newaxis.set_ylabel({varprops[var]['label']})
                 newaxis.legend(bbox_to_anchor=(1.01,1.1),loc='upper left')
             else:
-                axis.plot(ds_mean.coords['time'],var_to_plot,color=colors[ic],label=var)
+                axis.plot(ds_mean.coords['time'],var_to_plot,color=c,label=var)
                 axis.set_ylabel(varprops[var]['label'])
-            ic+=1
+
         axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
     date_form = mpl.dates.DateFormatter('%d %b')
     axis.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
     if save_fig:
         plt.savefig('/home/claire/research/Output/ebfluxcomparison.png',dpi=150)
+
+def plot_stake_dh(stake_df,ds_list,time,labels,bin=0,t='Surface Height Change Comparison'):
+    """
+    Returns a comparison of snow depth from the output datasets to stake data
+
+    Parameters
+    ----------
+    stake_df : pd.DataFrame
+        DataFrame object containing stake MB data
+    ds_list : list of xr.Datasets
+        List of model output datasets to plot melt
+    time : list-like   
+        Either len-2 list of start date, end date, or a list of datetimes
+    labels : list of str
+        List of same length as ds_list containing labels to plot
+    """
+    plt.style.use('bmh')
+    fig,ax = plt.subplots(figsize=(4,6),sharex=True,layout='constrained')
+    stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
+
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
+        days = pd.date_range(start,end,freq='d')
+
+    stake_df = stake_df.loc[days-pd.Timedelta(minutes=30)]
+    for i,ds in enumerate(ds_list):
+        c = plt.cm.Dark2(i)
+        ds = ds.sel(time=time,bin=bin)
+        dh = ds.dh.cumsum().to_numpy() - ds.dh.to_numpy()[0]
+        ax.plot(ds.coords['time'],dh,label=labels[i],color=c)
+    ax.plot(stake_df.index,stake_df['CMB'].to_numpy(),label='Stake',linestyle='--',color='black')
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_formatter(date_form)
+    ax.legend()
+    ax.set_ylabel('Surface Height Change [m]')
+    fig.suptitle(t)
 
 def plot_stake_snowdepth(stake_df,ds_list,time,labels,bin=0,t='Snow Depth Comparison'):
     """
@@ -186,7 +235,7 @@ def plot_stake_ablation(stake_df,ds_list,time,labels,bin=0,t='Stake Comparison')
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq='h')
         days = pd.date_range(start,end,freq='d')
-    stake_df = stake_df.loc[days]
+    stake_df = stake_df.loc[days - pd.Timedelta(minutes=30)]
     for i,ds in enumerate(ds_list):
         c = plt.cm.Dark2(i)
         ds = ds.sel(time=time,bin=bin)
@@ -309,7 +358,7 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
     plt.show()
     return
 
-def panel_MB_compare(ds_list,time,labels,units,stake_df,rows=2,t=''):
+def panel_dh_compare(ds_list,time,labels,units,stake_df,rows=2,t='',bin=0):
     """
     Returns a comparison of different model runs
 
@@ -334,7 +383,7 @@ def panel_MB_compare(ds_list,time,labels,units,stake_df,rows=2,t=''):
     fig,ax = plt.subplots(rows,int(n/rows),sharex=True,sharey=True,
                               figsize=(w*n/rows,6),layout='constrained')
     for j in range(rows):
-        ax[j,0].set_ylabel('Cumulative Melt (m w.e.)')
+        ax[j,0].set_ylabel('Surface Height Change (m)')
     ax = ax.flatten()
     
     # Initialize time and comparison dataset
@@ -347,7 +396,7 @@ def panel_MB_compare(ds_list,time,labels,units,stake_df,rows=2,t=''):
             end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq='d')
     stake_df = stake_df.loc[time]
-    daily_cum_melt_DATA = np.cumsum(stake_df['melt'].to_numpy())
+    daily_cum_dh_DATA = stake_df['CMB'].to_numpy()
 
     c_iter = iter(plt.cm.Dark2(np.linspace(0,1,8)))
     date_form = mpl.dates.DateFormatter('%d %b')
@@ -357,12 +406,12 @@ def panel_MB_compare(ds_list,time,labels,units,stake_df,rows=2,t=''):
         var,val = labels[i].split('=')
 
         # get RMSE
-        daily_melt_MODEL = ds.resample(time='d').sum().sel(bin=0,time=time)
-        daily_cum_melt_MODEL = daily_melt_MODEL['melt'].cumsum().to_numpy()
+        daily_dh_MODEL = ds.resample(time='d').sum().sel(bin=bin,time=time)
+        daily_cum_dh_MODEL = daily_dh_MODEL['dh'].cumsum().to_numpy()
         # melt_mse = mean_squared_error(daily_cum_melt_DATA,daily_cum_melt_MODEL)
         # melt_rmse = np.mean(melt_mse)
-        diff = daily_cum_melt_MODEL[-1] - daily_cum_melt_DATA[-1]
-        label = f'{val}{units[i]}: {diff:.3f} m w.e.'
+        diff = daily_cum_dh_MODEL[-1] - daily_cum_dh_DATA[-1]
+        label = f'{val}{units[i]}: {diff:.2f} m'
 
         # get color (loops itself)
         try:
@@ -373,10 +422,10 @@ def panel_MB_compare(ds_list,time,labels,units,stake_df,rows=2,t=''):
 
         # plot stake_df once per plot
         if i % 2 == 0:
-            ax[plot_idx].plot(stake_df.index,daily_cum_melt_DATA,label='Stake',linestyle='--')
+            ax[plot_idx].plot(stake_df.index,daily_cum_dh_DATA,label='Stake',linestyle='--')
 
         # plot daily melt
-        ax[plot_idx].plot(time,daily_cum_melt_MODEL,label=label,color=c,linewidth=0.8)
+        ax[plot_idx].plot(time,daily_cum_dh_MODEL,label=label,color=c,linewidth=0.8)
         ax[plot_idx].set_title(var)
         ax[plot_idx].xaxis.set_major_locator(mpl.dates.MonthLocator())
         ax[plot_idx].xaxis.set_major_formatter(date_form)
@@ -834,8 +883,8 @@ def plot_layers(ds,vars,dates):
     # fig.supxlabel(varprops[var]['label'])
     return
 
-def visualize_layers(ds,bin,time,var,force_layers=False,
-                     t='Visualization of Snow Layers'):
+def visualize_layers(ds,bin,dates,var,force_layers=False,
+                     t='Visualization of Snow Layers',plot_firn=True):
     """
     force_layers:
         Three options:
@@ -846,18 +895,19 @@ def visualize_layers(ds,bin,time,var,force_layers=False,
     assert 'layer' in var, 'choose layer variable'
     plt.style.use('bmh')
 
-    diff = time[1] - time[0]
+    diff = dates[1] - dates[0]
     # diff = diff - pd.Timedelta(diff) / 3
     # max_conc = np.max(ds.sel(time=time,bin=bin)['layerBC'].dropna(dim='layer').to_numpy())
     if var in ['layerBC','layerdust']:
         max_val = 50 
     elif var in ['layerdensity']:
-        max_val = 500
+        max_val = 800 if plot_firn else 500
     elif var in ['layerwater']:
-        max_val = .06
+        max_val = 6
     elif var in ['layertemp']:
         max_val = 0
-        minval = -10
+        min_val = -10
+    dens_lim = 890 if plot_firn else 600
 
     # Custom color function based on concentrations
     def get_color(value,color='bw'):
@@ -867,18 +917,18 @@ def visualize_layers(ds,bin,time,var,force_layers=False,
             grayscale_value = (1-value) * 255  # Scale concentration to grayscale range
             color = f'#{int(grayscale_value):02x}{int(grayscale_value):02x}{int(grayscale_value):02x}'  # Grayscale format
         else:
-            value = max(minval, min(max_val, value))
-            normalized_value = (value - minval) / -minval
-            color = plt.cm.plasma(normalized_value)
+            value = max(min_val, min(max_val, value))
+            normalized_value = (value - min_val) / -min_val
+            color = plt.cm.viridis(normalized_value)
         return color
 
     fig,ax = plt.subplots(figsize=(8,4),sharey=True)
-    for step in time:
+    for step in dates:
         depth = ds.sel(time=step,bin=bin)['layerheight'].to_numpy()
         vardata = ds.sel(time=step,bin=bin)[var].to_numpy()
         dens = ds.sel(time=step,bin=bin)['layerdensity'].to_numpy()
         if not force_layers:
-            layers_to_plot = np.where(dens < 600)[0]
+            layers_to_plot = np.where(dens < dens_lim)[0]
         else:
             if '__iter__' in dir(force_layers):
                 layers_to_plot = force_layers
@@ -887,7 +937,7 @@ def visualize_layers(ds,bin,time,var,force_layers=False,
         depth = np.flip(depth[layers_to_plot])
         vardata = np.flip(vardata[layers_to_plot])
         if var in ['layerwater']:
-            vardata = vardata / depth / 1000
+            vardata = vardata / depth / 1000 * 100
 
         bottom = 0
         ctype = 'plasma' if var == 'layertemp' else 'bw'
@@ -897,55 +947,54 @@ def visualize_layers(ds,bin,time,var,force_layers=False,
 
     # Customize plot
     plt.ylabel('Depth (m)')
-    plt.title(t)
-    plt.xticks(time)
+    plt.title(t+f' (Bin {bin})')
+    plt.xticks(dates)
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
-    if len(time) > 8:
-        plt.xticks(pd.date_range(time[0],time[len(time)-1],periods=5))
+    if len(dates) > 8:
+        plt.xticks(pd.date_range(dates[0],dates[len(dates)-1],periods=5))
     plt.grid(False)
 
     # Add legend
     units = {'layerBC':'ppb','layerdust':'ppm','layertemp':'C',
-             'layerdensity':'kg m-3','layerwater':'(mass fraction)'}
-    if var not in ['layerwater']:
+             'layerdensity':'kg m-3','layerwater':'mass %'}
+    if var not in ['layertemp']:
         handles = [plt.Rectangle((0,0),1,1, color=get_color(c,ctype)) for c in np.linspace(0,1,5)*max_val]
         labels = [f'{i:.1f} {units[var]}' for i in np.linspace(0,1,5)*max_val]
-        if var in ['layertemp']:
-            handles = [plt.Rectangle((0,0),1,1, color=get_color(c,ctype)) for c in np.linspace(0,1,5)]
-            handles = [plt.Rectangle((0,0),1,1, color=get_color(c,ctype)) for c in np.linspace(minval,0,5)]
-            labels = [f'{i:.1f} {units[var]}' for i in np.linspace(minval,0,5)]
     else:
-        labels = [f'{i:.3f} {units[var]}' for i in np.linspace(0,1,5)*max_val]
+        handles = [plt.Rectangle((0,0),1,1, color=get_color(c,ctype)) for c in np.linspace(min_val,0,5)]
+        labels = [f'{i:.1f} {units[var]}' for i in np.linspace(min_val,0,5)]
     plt.legend(handles, labels, loc='best')
 
     # Show plot
     plt.tight_layout()
     plt.show()
 
-def plot_single_layer(ds,layer,vars,time,cumMB=False,t='',vline=None,res='h'):
+def plot_single_layer(ds,layer,vars,time,cumMB=False,t='',vline=None,res='h',resample=False):
     if len(time) == 2:
         start = pd.to_datetime(time[0])
         end = pd.to_datetime(time[1])
         time = pd.date_range(start,end,freq=res)
-        time = time - pd.Timedelta(minutes=30)
+    
     fig,axes = plt.subplots(len(vars),sharex=True,figsize=(8,1.2*len(vars)),layout='constrained')
+    if len(vars) == 1:
+        axes = np.array([axes])
+
     for i,var in enumerate(vars):
         if vline:
             axes[i].axvline(vline,c='r',linewidth=0.6)
         for bin in ds.coords['bin'].values:
             if 'layer' in var:
-                dsvar = ds.resample(time=res).mean()
+                dsvar = ds.resample(time=res).mean() if resample else ds
                 lprop = dsvar.sel(time=time,bin=bin,layer=layer)[var].to_numpy()
-                axes[i].plot(time,lprop,label='bin '+str(bin))
             else:
                 if var in ['melt','runoff','accum','refreeze'] and cumMB:
-                    dsvar = ds.resample(time=res).sum()
+                    dsvar = ds.resample(time=res).sum() if resample else ds
                     lprop = dsvar.sel(time=time,bin=bin)[var].cumsum().to_numpy()
                 else:
-                    dsvar = ds.resample(time=res).sum()
+                    dsvar = ds.resample(time=res).sum() if resample else ds
                     lprop = dsvar.sel(time=time,bin=bin)[var].to_numpy()
-                axes[i].plot(time,lprop,label='bin '+str(bin))
+            axes[i].plot(time,lprop,label='bin '+str(bin))
             axes[i].legend()
             axes[i].set_title(varprops[var]['label'])
             if 'Cum.' in varprops[var]['label'] and not cumMB:
@@ -957,6 +1006,7 @@ def plot_single_layer(ds,layer,vars,time,cumMB=False,t='',vline=None,res='h'):
         date_form = mpl.dates.DateFormatter('%d %b')
     axes[i].xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
+    plt.show()
     return
 
 def plot_monthly_layer_avgs(file,var,dates_to_plot):

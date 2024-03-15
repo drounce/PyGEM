@@ -213,12 +213,24 @@ class energyBalance():
             Surface temperature of snowpack/ice [C]
         """
         # CONSTANTS
-        TEMP_THRESHOLD = eb_prms.tsnow_threshold
+        SNOW_THRESHOLD_LOW = eb_prms.snow_threshold_low
+        SNOW_THRESHOLD_HIGH = eb_prms.snow_threshold_high
         DENSITY_WATER = eb_prms.density_water
         CP_WATER = eb_prms.Cp_water
+
+        # Define rain vs snow scaling
+        rain_scale = np.arange(0,1,20)
+        temp_scale = np.arange(SNOW_THRESHOLD_LOW,SNOW_THRESHOLD_HIGH,20)
         
-        is_rain = self.tempC > TEMP_THRESHOLD
-        Qp = is_rain*(self.tempC-surftemp)*self.prec*DENSITY_WATER*CP_WATER
+        # Get fraction of precip that is rain
+        if self.tempC < SNOW_THRESHOLD_LOW:
+            frac_rain = 0
+        elif SNOW_THRESHOLD_LOW < self.tempC < SNOW_THRESHOLD_HIGH:
+            frac_rain = np.interp(self.tempC,temp_scale,rain_scale)
+        else:
+            frac_rain = 1
+
+        Qp = (self.tempC-surftemp)*self.prec*frac_rain*DENSITY_WATER*CP_WATER
         return Qp
     
     def getGround(self,surftemp):
@@ -240,6 +252,7 @@ class energyBalance():
         """
         Calculates turbulent fluxes (sensible and latent heat) based on 
         Monin-Obukhov Similarity Theory, requiring iteration.
+        Follows COSIPY.
 
         Parameters
         ----------
@@ -351,10 +364,10 @@ class energyBalance():
         ROUGHNESS_FRESH_SNOW = eb_prms.roughness_fresh_snow
         ROUGHNESS_FIRN = eb_prms.roughness_firn
         ROUGHNESS_ICE = eb_prms.roughness_ice
-        AGING_ROUGHNESS = eb_prms.aging_factor_roughness
+        AGING_RATE = eb_prms.roughness_aging_rate
 
         if layertype[0] in ['snow']:
-            sigma = min(ROUGHNESS_FRESH_SNOW + AGING_ROUGHNESS * days_since_snowfall, ROUGHNESS_FIRN)
+            sigma = min(ROUGHNESS_FRESH_SNOW + AGING_RATE * days_since_snowfall, ROUGHNESS_FIRN)
         elif layertype[0] in ['firn']:
             sigma = ROUGHNESS_FIRN
         elif layertype[0] in ['ice']:

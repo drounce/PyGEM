@@ -6,19 +6,20 @@ import pandas as pd
 import pygem.oggm_compat as oggm
 
 debug=True           # Print monthly outputs?
-store_data=False      # Save file?
+store_data=True      # Save file?
 new_file=True        # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
 glac_no = ['01.00570']
 parallel = False        # Run parallel processing?
+n_bins = 1
 
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
                         #   'AWS_fn':'Preprocessed/gulkana/gulkana_all_merra2.csv',
                             'AWS_fn':'Preprocessed/gulkanaD/gulkana_merra2.csv', # gulkanaD_wERA5.csv
                             # 'AWS_elev':1854,
-                            'site_elev':1546, # 1854 is D, B is 1693, AB is 1546
+                            'site_elev':1693, # 1854 is D, B is 1693, AB is 1546
                             'init_filepath':''},
             '01.01104':{'name':'Lemon Creek',
                             'site_elev':1285,
@@ -48,11 +49,13 @@ if dynamics:
 else:
     bin_elev = np.array([glac_props[glac_no[0]]['site_elev']])
     bin_ice_depth = np.array([200])
-bin_elev = np.array([1270,1385,1470,1585,1680,1779])
+# bin_elev = np.array([1270,1385,1470,1585,1680,1779]) # From Takeuchi 2009
+# bin_elev = np.array([1526,1693,1854])
 bin_ice_depth = np.ones(len(bin_elev)) * 200
-n_bins = len(bin_elev)
+assert len(bin_elev) == n_bins, 'Check n_bins in input'
 
 # ========== DIRECTORIES AND FILEPATHS ========== 
+machine = 'Torch'
 main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 output_sim_fp = output_filepath + 'simulations/'
@@ -68,7 +71,7 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
-# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_washdrydep'
+output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_BASE'
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
@@ -101,8 +104,8 @@ if dates_from_data and climate_input in ['AWS']:
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
 else:
-    startdate = pd.to_datetime('2009-04-20 00:30') 
-    enddate = pd.to_datetime('2009-09-08 00:30')
+    startdate = pd.to_datetime('2000-04-20 00:30') 
+    enddate = pd.to_datetime('2023-08-20 00:30')
     # startdate = pd.to_datetime('2023-04-21 00:30')    # Gulkana AWS dates
     # enddate = pd.to_datetime('2023-08-09 00:30')
     # startdate = pd.to_datetime('2016-05-11 00:30') # JIF sample dates
@@ -122,12 +125,14 @@ initialize_water = 'zero_w0'        # 'zero_w0' or 'initial_w0'
 initialize_temp = 'interp'          # 'piecewise' or 'interp'
 initialize_dens = 'interp'          # 'piecewise' or 'interp'
 surftemp_guess =  -10               # guess for surface temperature of first timestep
-initial_snowdepth = [2.2]*n_bins    # initial depth of snow; array of length n_bins
+initial_snowdepth = [2.18]*n_bins    # initial depth of snow; array of length n_bins
 initial_firndepth = [0]*n_bins      # initial depth of firn; array of length n_bins
 icelayers = 'multiple'              # 'single' or 'multiple'
 
-initial_snowdepth = np.linspace(2.2,4.5,6)
-initial_firndepth = np.array([0,0,0,0,0,1])
+initial_snowdepth = np.linspace(2.2,4.5,n_bins)
+initial_firndepth = np.zeros(n_bins)
+if n_bins > 2:
+    initial_firndepth[-1] = 1
 
 # OUTPUT
 store_vars = ['MB','EB','Temp','Layers']  # Variables to store of the possible set: ['MB','EB','Temp','Layers']
@@ -140,7 +145,7 @@ dt_heateq = 3600/5          # Time resolution of heat eq [s], should be integer 
 # METHODS
 method_turbulent = 'MO-similarity'      # 'MO-similarity' 
 method_heateq = 'Crank-Nicholson'       # 'Crank-Nicholson'
-method_densification = 'off'            # 'Boone', 'off', or 'DEBAM' (broken)
+method_densification = 'DEBAM'          # 'Boone', or 'DEBAM'
 method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_percolation = 'w_LAPs'           # 'w_LAPs' or 'no_LAPs'
@@ -149,16 +154,23 @@ method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
 constant_conductivity = False           # False or conductivity in W K-1 m-1
-constant_freshgrainsize = 54.5         # False or grain size in um (54.5 is standard)
+constant_freshgrainsize = False         # False or grain size in um (54.5 is standard)
 
 # ALBEDO SWITCHES
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
 switch_melt = 2             # 0 to turn off melt feedback; 1 for simple degradation; 2 for grain size evolution
 switch_LAPs = 1             # 0 to turn off LAPs; 1 to turn on
+if switch_snow + switch_melt + switch_LAPs < 4:
+    snow_on = 'ON' if switch_snow == 1 else 'OFF'
+    melt_on = 'ON' if switch_melt == 2 else 'OFF'
+    LAPs_on = 'ON' if switch_LAPs == 1 else 'OFF'
+    if switch_melt == 1:
+        LAPs_on = melt_on = 'ON (DECAY)'
+    print(f'SWITCH RUN WITH SNOW {snow_on}, MELT {melt_on} and LAPs {LAPs_on}')
 # output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_{switch_snow}{switch_melt}{switch_LAPs}'
 BC_freshsnow = 9e-7         # concentration of BC in fresh snow [kg m-3]
 dust_freshsnow = 6e-4       # concentration of dust in fresh snow [kg m-3]
-# 1 kg m-3 = 1e6 ppb
+# 1 kg m-3 = 1e6 ppb = ng g-1 = ug L-1
 
 # ALBEDO BANDS
 wvs = np.round(np.arange(0.2,5,0.01),2) # 480 bands used by SNICAR
@@ -181,19 +193,21 @@ albedo_out_fp = main_directory + '/../Output/EB/albedo.csv'
 # ========== PARAMETERS ==========
 precgrad = 0.0001           # precipitation gradient on glacier [m-1]
 lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
-tsnow_threshold = 0         # Threshold below which snowfall occurs [C]
-kp = 0.8                      # precipitation factor [-] 
-albedo_ice = 0.2            # Albedo of ice [-] 
+snow_threshold_single = 0   # threshold below which snowfall occurs [C]
+snow_threshold_low = 0      # lower threshold for linear snow-rain scaling [C]
+snow_threshold_high = 1     # upper threshold for linear snow-rain scaling [C]
+kp = 1.6                    # precipitation factor [-] 
+albedo_ice = 0.2            # albedo of ice [-] 
 roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
 ksp_BC = 0.2                # 0.1 meltwater scavenging efficiency of BC (from CLM5)
 ksp_dust = 0.015            # 0.015 meltwater scavenging efficiency of dust (from CLM5)
-dz_toplayer = 0.05          # Thickness of the uppermost bin [m]
+dz_toplayer = 0.02          # Thickness of the uppermost bin [m]
 layer_growth = 0.4          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.3-.6
 k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
-aging_factor_roughness = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
-albedo_TOD = [10,2]            # Time of day to calculate albedo [hr]
+roughness_aging_rate = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
+albedo_TOD = [12]            # Time of day to calculate albedo [hr]
 initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
-dry_metamorphism_rate = 3.5e-5 # Dry metamorphism grain size growth rate [um s-1]
+dry_metamorphism_rate = 1e-4 # Dry metamorphism grain size growth rate [um s-1]
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]
@@ -242,7 +256,7 @@ ratio_DU_bin2 = 0.19784     # " SNICAR Bin 2 (0.5-1.25um)
 ratio_DU_bin3 = 0.481675    # " SNICAR Bin 3 (1.25-2.5um)
 ratio_DU_bin4 = 0.203786    # " SNICAR Bin 4 (2.5-5um)
 ratio_DU_bin5 = 0.034       # " SNICAR Bin 5 (5-50um)
-diffuse_cloud_limit = 0.6
+diffuse_cloud_limit = 0.6   # Threshold to consider cloudy vs clear-sky in SNICAR
 
 # ========== OTHER PYGEM INPUTS ========== 
 rgi_regionsO1 = [1]

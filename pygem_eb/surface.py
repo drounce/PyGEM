@@ -24,21 +24,21 @@ class Surface():
         self.args = args
         self.utils = utils
 
-        # Set initial albedo based on surface type
-        self.albedo_dict = {'snow':eb_prms.albedo_fresh_snow,
-                            'firn':eb_prms.albedo_firn,
-                            'ice':eb_prms.albedo_ice}
-        self.stype = layers.ltype[0]
-        self.albedo = self.albedo_dict[self.stype]
-        self.spectral_weights = np.array([1])
-        self.BBA = self.albedo_dict[self.stype]
-
         # Initialize surface properties
         self.stemp = eb_prms.surftemp_guess
         self.days_since_snowfall = 0
         self.snow_timestamp = time[0]
+        self.stype = layers.ltype[0]
 
-        # Output albedo?
+        # Set initial albedo based on surface type
+        self.albedo_dict = {'snow':eb_prms.albedo_fresh_snow,
+                            'firn':eb_prms.albedo_firn,
+                            'ice':eb_prms.albedo_ice}
+        self.bba = self.albedo_dict[self.stype]
+        self.albedo = self.bba
+        self.spectral_weights = np.ones(1)
+
+        # Output spectral albedo 
         if eb_prms.store_bands:
             bands = np.arange(0,480).astype(str)
             self.albedo_df = pd.DataFrame(np.zeros((0,480)),columns=bands)
@@ -46,7 +46,8 @@ class Surface():
     
     def updateSurfaceDaily(self,layers,airtemp,time):
         """
-        Run every timestep to get albedo-related properties that evolve with time
+        Updates daily-evolving surface properties (grain size,
+        surface type and days since snowfall)
 
         Parameters
         ----------
@@ -68,10 +69,12 @@ class Surface():
         
         There are three cases:
         (1) LWout data is input : surftemp is derived from data
-        (2) Qm is positive with surftemp = 0. : excess Qm is used to warm layers to the
-                    melting point or melt layers, depending on layer temperatures
-        (3) Qm is negative with surftemp = 0. : snowpack is cooling and surftemp is lowered
-                    to balance Qm. Two methods are available (specified in input.py): 
+        (2) Qm is positive with surftemp = 0. : excess Qm is used 
+                to warm layers to the melting point or melt layers,
+                depending on layer temperatures
+        (3) Qm is negative with surftemp = 0. : snowpack is cooling
+                and surftemp is lowered to balance Qm. Two methods 
+                are available (specified in input.py): 
                         - iterative (fast)
                         - minimization (slow) 
         
@@ -206,7 +209,7 @@ class Surface():
                     self.albedo,self.spectral_weights = self.runSNICAR(layers,time)
         else:
             self.albedo = self.albedo_dict[self.stype]
-            self.BBA = self.albedo
+            self.bba = self.albedo
 
         if eb_prms.store_bands:
             if '__iter__' not in dir(self.albedo):
@@ -338,7 +341,7 @@ class Surface():
         # Calculate albedo in the specified bands
         # for idx in eb_prms.band_indices.values():
         #     band_albedo.append(np.sum(solar[idx]*albedo[idx]) / np.sum(solar[idx]))
-        self.BBA = np.sum(albedo * spectral_weights) / np.sum(spectral_weights)
+        self.bba = np.sum(albedo * spectral_weights) / np.sum(spectral_weights)
 
         return albedo,spectral_weights
     

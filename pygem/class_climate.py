@@ -227,7 +227,6 @@ class GCM():
                     self.elev_vn = self.var_dict['elev']['vn']
                     # self.lr_vn = 'lapserate'
                     # Variable filenames
-                    # Variable filenames
                     self.var_dict['temp']['fn'] = 'ERA5_temp_hourly.nc'
                     self.var_dict['rh']['fn'] = 'ERA5_rh_hourly.nc'
                     self.var_dict['sp']['fn'] = 'ERA5_sp_hourly.nc'
@@ -236,7 +235,7 @@ class GCM():
                     self.var_dict['SWin']['fn'] = 'ERA5_SWin_hourly.nc'
                     self.var_dict['vwind']['fn'] = 'ERA5_vwind_hourly.nc'
                     self.var_dict['uwind']['fn'] = 'ERA5_uwind_hourly.nc'
-                    self.var_dict['prec']['fn'] = 'ERA5_precip_hourly.nc'
+                    self.var_dict['prec']['fn'] = 'ERA5_tp_hourly.nc'
                     self.var_dict['elev']['fn'] = pygem_prms.era5_elev_fn
                     self.var_dict['bcwet']['fn'] = 'BCWT002/MERRA2_BCWT002_LAT_LON.nc'
                     self.var_dict['bcdry']['fn'] = 'BCDP002/MERRA2_BCDP002_LAT_LON.nc'
@@ -336,7 +335,7 @@ class GCM():
                 glac_variable[glac] = (
                         data[vn][latlon_nearidx[0], latlon_nearidx[1]].values)
         else:
-            #  argmin() finds the minimum distance between the glacier lat/lon and the GCM pixel
+            # argmin() finds the minimum distance between the glacier lat/lon and the GCM pixel
             lat_nearidx = (np.abs(main_glac_rgi[self.rgi_lat_colname].values[:,np.newaxis] - 
                                   data.variables[self.lat_vn][:].values).argmin(axis=1))
             lon_nearidx = (np.abs(main_glac_rgi[self.rgi_lon_colname].values[:,np.newaxis] - 

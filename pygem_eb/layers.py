@@ -432,7 +432,7 @@ class Layers():
         Parameters
         ----------
         snowfall : float
-            Fresh snow MASS in kg / m2
+            Fresh snow mass in kg / m2
         enbal
             class object from pygem_eb.energybalance
         """
@@ -473,15 +473,15 @@ class Layers():
                             self.ltype[0] in 'firn',
                             self.ldensity[0] > new_density*3])
         if np.any(new_layer_conds):
-            if snowfall/new_density > 1e-4:
+            if snowfall/new_density < 1e-4:
+                # Delay small amounts of snowfall: avoids computational issues
+                self.delayed_snow = snowfall
+            else:
                 new_layer = pd.DataFrame([enbal.tempC,0,snowfall/new_density,'snow',snowfall,
                                       new_grainsize,new_BC,new_dust,new_snow],
                                      index=['T','w','h','t','m','g','BC','dust','new'])
                 self.addLayers(new_layer)
                 self.delayed_snow = 0
-            else: # If only a tiny amount of snow falls, delay it till the next timestep
-                # Avoids computational issues with making a miniscule layer
-                self.delayed_snow = snowfall
         else:
             # take weighted average of density and temperature of surface layer and new snow
             self.delayed_snow = 0
@@ -499,7 +499,7 @@ class Layers():
         self.updateLayerProperties()
         return 
 
-    def getGrainSize(self,airtemp,bins=None,dt=eb_prms.daily_dt):
+    def getGrainSize(self,airtemp,bins=None):
         """
         Snow grain size metamorphism
         """
@@ -509,6 +509,7 @@ class Layers():
         GRAVITY = eb_prms.gravity
         PI = np.pi
         RFZ_GRAINSIZE = eb_prms.rfz_grainsize
+        dt = eb_prms.daily_dt
 
         if eb_prms.constant_freshgrainsize:
             FRESH_GRAINSIZE = eb_prms.constant_freshgrainsize

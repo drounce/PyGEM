@@ -214,7 +214,7 @@ parser = getparser()
 args = parser.parse_args()
 for gn in args.glac_no:
     climateds,dates_table,utils = initialize_model(gn,args)
-    out = run_model(climateds,dates_table,utils,args,{'Run By':'Campfire'})
+    out = run_model(climateds,dates_table,utils,args,{'Run By':eb_prms.machine})
     if out:
         # Get final mass balance
         print(f'Total Mass Loss: {out.melt.sum():.3f} m w.e.')
