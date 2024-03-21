@@ -418,6 +418,7 @@ class massBalance():
         # CONSTANTS
         PARTITION_COEF_BC = eb_prms.ksp_BC
         PARTITION_COEF_DUST = eb_prms.ksp_dust
+        DEP_FACTOR = eb_prms.dep_factor
         dt = eb_prms.dt
 
         # LAYERS IN
@@ -431,7 +432,7 @@ class massBalance():
 
         # get wet deposition into top layer if it's raining
         if rain_bool:
-            mBC[0] += enbal.bcwet * dt
+            mBC[0] += enbal.bcwet * dt * DEP_FACTOR
             mdust[0] += enbal.dustwet * eb_prms.ratio_DU3_DUtot * dt
 
         # cBC/cdust is layer mass mixing ratio in kg kg-1

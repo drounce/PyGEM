@@ -344,11 +344,11 @@ if ref_gcm_name == 'ERA5':
     if option_ablation == 2:
         assert os.path.exists(era5_fp + era5_tempstd_fn), 'ERA5 temperature std filepath does not exist'
 
-if run_eb and ref_gcm_name == 'ERA5':
+if run_eb and 'ERA5' in ref_gcm_name:
     era5h_fp = main_directory + '/../climate_data/ERA5/ERA5_hourly/'
     era5h_temp_fn = 'ERA5_temp_hourly.nc'
     era5h_dtempfn = 'ERA5_dtemp_hourly.nc'
-    era5h_prec_fn = 'ERA5_precip_hourly.nc'
+    era5h_prec_fn = 'ERA5_tp_hourly.nc'
     era5h_elev_fn = 'ERA5_geopotential.nc'
     era5h_uwind_fn = 'ERA5_uwind_hourly.nc'
     era5h_vwind_fn = 'ERA5_vwind_hourly.nc'

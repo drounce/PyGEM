@@ -165,12 +165,17 @@ class energyBalance():
         albedo = surface.albedo
         spectral_weights = surface.spectral_weights
         assert np.abs(1-np.sum(spectral_weights)) < 1e-5, 'Solar weights dont sum to 1'
+        
         SWin = self.SWin_ds/self.dt
         if self.nanSWout:
             SWout = -np.sum(SWin*spectral_weights*albedo)
         else:
             SWout = -self.SWout_ds/self.dt
-
+        
+        # Islope = surface.shading_df.loc[self.time,'dirirrslope']
+        # shade = surface.shading_df.loc[self.time,'shaded']
+        # if shade == 1:
+        #     SWin = 
         return SWin,SWout
 
     def getLW(self,surftemp):
@@ -339,13 +344,16 @@ class energyBalance():
         return Qs, Ql
     
     def getDryDeposition(self, layers):
+        DEP_FACTOR = eb_prms.dep_factor
+        BC_RATIO = eb_prms.ratio_BC2_BCtot
+        DUST_RATIO = eb_prms.ratio_DU3_DUtot
         if np.isnan(self.bcdry):
             self.bcdry = 1e-14 # kg m-2 s-1
         if np.isnan(self.dustdry):
             self.dustdry = 1e-13 # kg m-2 s-1
 
-        layers.lBC[0] += self.bcdry * self.dt * eb_prms.ratio_BC2_BCtot
-        layers.ldust[0] += self.dustdry * self.dt * eb_prms.ratio_DU3_DUtot
+        layers.lBC[0] += self.bcdry * self.dt * BC_RATIO * DEP_FACTOR
+        layers.ldust[0] += self.dustdry * self.dt * DUST_RATIO
         return 
     
     def getRoughnessLength(self,days_since_snowfall,layertype):

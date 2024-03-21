@@ -23,6 +23,8 @@ class Surface():
         # Add args and utils to surface class
         self.args = args
         self.utils = utils
+        shading_df = pd.read_csv(eb_prms.shading_fp,index_col=0)
+        shading_df.index = pd.to_datetime(shading_df.index)
 
         # Initialize surface properties
         self.stemp = eb_prms.surftemp_guess
@@ -322,7 +324,8 @@ class Surface():
         # Solar zenith angle
         lat = self.utils.lat
         lon = self.utils.lon
-        altitude_angle = suncalc.get_position(time,lat,lon)['altitude']
+        time_UTC = time - eb_prms.timezone
+        altitude_angle = suncalc.get_position(time_UTC,lon,lat)['altitude']
         zenith = 180/np.pi * (np.pi/2 - altitude_angle) if altitude_angle > 0 else 89
         # zenith = np.round(zenith / 10) * 10
         list_doc['RTM']['SOLZEN'] = int(zenith)
@@ -335,7 +338,7 @@ class Surface():
         # Get albedo from biosnicar "main.py"
         with HiddenPrints():
             albedo,spectral_weights = main.get_albedo('adding-doubling',plot=False,validate=False)
-        # I adjusted SNICAR code to return spectral albedo and spectral weights
+        # I adjusted SNICAR code to return spectral albedo and spectral weights for viewing purposes
             
         # band_albedo = []
         # Calculate albedo in the specified bands

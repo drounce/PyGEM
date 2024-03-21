@@ -13,6 +13,7 @@ new_file=True        # Write to scratch file?
 glac_no = ['01.00570']
 parallel = False        # Run parallel processing?
 n_bins = 1
+timezone = pd.Timedelta(hours=-9)           # GMT time zone
 
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
@@ -71,7 +72,7 @@ if new_file:
     output_name = output_name + str(i)
 else:
     output_name = output_name+'scratch'
-output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_BASE'
+# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_BCred4'
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
@@ -79,6 +80,7 @@ grainsize_fp = main_directory + '/pygem_eb/data/drygrainsize(SSAin=60).nc'
 initial_temp_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBtemp.csv'
 initial_density_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBdensity.csv'
 snicar_input_fp = main_directory + '/biosnicar-py/src/biosnicar/inputs.yaml'
+shading_fp = '/home/claire/GulkanaDEM/Out/gulkana_centerpoint.csv'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
 climate_input = 'GCM' # 'GCM' or 'AWS'
@@ -104,7 +106,7 @@ if dates_from_data and climate_input in ['AWS']:
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
 else:
-    startdate = pd.to_datetime('2000-04-20 00:30') 
+    startdate = pd.to_datetime('2023-04-20 00:30') 
     enddate = pd.to_datetime('2023-08-20 00:30')
     # startdate = pd.to_datetime('2023-04-21 00:30')    # Gulkana AWS dates
     # enddate = pd.to_datetime('2023-08-09 00:30')
@@ -193,21 +195,21 @@ albedo_out_fp = main_directory + '/../Output/EB/albedo.csv'
 # ========== PARAMETERS ==========
 precgrad = 0.0001           # precipitation gradient on glacier [m-1]
 lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
-snow_threshold_single = 0   # threshold below which snowfall occurs [C]
 snow_threshold_low = 0      # lower threshold for linear snow-rain scaling [C]
 snow_threshold_high = 1     # upper threshold for linear snow-rain scaling [C]
-kp = 1.6                    # precipitation factor [-] 
+kp = 0.8                    # precipitation factor [-] 
 albedo_ice = 0.2            # albedo of ice [-] 
 roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
-ksp_BC = 0.2                # 0.1 meltwater scavenging efficiency of BC (from CLM5)
+ksp_BC = 0.2                # 0.1-0.2 meltwater scavenging efficiency of BC (from CLM5)
 ksp_dust = 0.015            # 0.015 meltwater scavenging efficiency of dust (from CLM5)
-dz_toplayer = 0.02          # Thickness of the uppermost bin [m]
+dz_toplayer = 0.05          # Thickness of the uppermost bin [m]
 layer_growth = 0.4          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.3-.6
 k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 roughness_aging_rate = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 albedo_TOD = [12]            # Time of day to calculate albedo [hr]
 initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
 dry_metamorphism_rate = 1e-4 # Dry metamorphism grain size growth rate [um s-1]
+dep_factor = 0.3
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]
