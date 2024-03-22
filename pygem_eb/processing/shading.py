@@ -5,35 +5,50 @@ import rioxarray as rxr
 import xarray as xr
 import pandas as pd
 import suncalc
+import geopandas as gpd
 from pyproj import Transformer
 from numpy import pi, cos, sin, arctan
 
 # =================== INPUTS ===================
 # model options
-plot_horizon = False   # plot horizon search?
-plot_result = ['sun_elev','horizon_elev','shaded','dirirrslope']  # 'dirirr','dirirrslope','shaded' or False to plot result
-store_result = True     # store .csv output file?
-angle_step = 10         # step to calculate horizon angle in degrees
-search_length = 5000    # distance to search from center point (m)
+plot_horizon = True         # plot horizon search?
+store_plot_horizon = True   # save .png horizon plot?
+# ['sun_az','sun_elev','horizon_elev','shaded','dirirrslope','dirirr']
+# plot_result = False         # plot results? False or list from ^
+plot_result = ['sun_elev','dirirr','shaded','sun_az','dirirrslope','horizon_elev']
+store_plot_result = True    # store .png result plot?
+store_result = False        # store .csv output file?
+angle_step = 5             # step to calculate horizon angle in degrees
+search_length = 5000        # distance to search from center point (m)
 
 # site information
-lat = 63.260281         # latitude of point of interest
-lon = -145.425720       # longitude of point of interest
+# lat = 63.260281         # latitude of point of interest
+# lon = -145.425720       # longitude of point of interest
+site = 'D'
+latlon_df = pd.read_csv('/home/claire/GulkanaDEM/gulkana_sites.csv',index_col=0)
+lat = latlon_df.loc[site]['lat']
+lon = latlon_df.loc[site]['lon']
 timezone = pd.Timedelta(hours=-9)   # time zone of location
-site_name = 'GulkanaCenter'
+site_name = 'Gulkana' + site
 min_elev = 1200         # rough estimate of lower elevation bound of DEM
 max_elev = 2000         # rough estimate of upper elevation bound of DEM
 
 # =================== FILEPATHS ===================
 fp = '/home/claire/research/'
+# in: need DEM, slope and aspect
 # dem_fp = fp + '../GulkanaDEM/Gulkana_DEM_20m.tif'
 # aspect_fp = fp + '../GulkanaDEM/Gulkana_Aspect_20m.tif'
 # slope_fp = fp + '../GulkanaDEM/Gulkana_Slope_20m.tif'
-dem_fp = fp + '../GulkanaDEM/2m/Gulkana_USGS_DEM_smooth.tif'
-aspect_fp = fp + '../GulkanaDEM/2m/Gulkana_USGS_aspect_from_smooth_DEM.tif'
-slope_fp = fp + '../GulkanaDEM/2m/Gulkana_USGS_slope_from_smooth_DEM.tif'
+dem_fp = fp + '../GulkanaDEM/2m/Gulkana_2m_DEM.tif'
+aspect_fp = fp + '../GulkanaDEM/2m/Gulkana_2m_aspect.tif'
+slope_fp = fp + '../GulkanaDEM/2m/Gulkana_2m_slope.tif'
+# optional shapefile
+shp_fp = fp + '../GulkanaDEM/Gulkana.shp'
 
+# out
 out_fp = fp + '../GulkanaDEM/Out/gulkana_centerpoint.csv'
+out_image_fp = fp + f'../GulkanaDEM/Outputs/{site_name}.png'
+out_horizon_fp = fp + f'../GulkanaDEM/Outputs/{site_name}_horizon.png'
 
 # =================== SETUP ===================
 # open files
@@ -42,16 +57,27 @@ aspect = rxr.open_rasterio(aspect_fp).isel(band=0)
 slope = rxr.open_rasterio(slope_fp).isel(band=0)
 dem_res = dem.rio.resolution()[0]
 
+# ensure same coordinates
+shapefile = gpd.read_file(shp_fp).set_crs(epsg=4326)
+shapefile = shapefile.to_crs(dem.rio.crs)
+
 # filter nans
 dem = dem.where(dem > 0)
-aspect = aspect.where(dem > 0)
-slope = slope.where(dem > 0)
+aspect = aspect.where(aspect > 0)
+slope = slope.where(slope > 0)
 
 # get UTM coordinates from lat/lon
 transformer = Transformer.from_crs('EPSG:4326', dem.rio.crs, always_xy=True)
 xx, yy = transformer.transform(lon, lat)
 # get elevation of point from grid
 point_elev = dem.sel(x=xx, y=yy, method="nearest").values
+
+# get slope and aspect at point of interest
+asp_deg = aspect.sel(x=xx, y=yy, method="nearest").values # slope azimuth angle (aspect)
+asp = asp_deg * pi/180 + pi # aspect DEM treats 0 as north, we need as south
+slp_deg = slope.sel(x=xx, y=yy, method="nearest").values # slope angle
+slp = slp_deg * pi/180  # angles in radians
+print(f'{site_name} point aspect: {asp_deg:.1f} o     slope: {slp_deg:.2f} o')
 
 # =================== CONSTANTS ===================
 I0 = 1368       # solar constant in W m-2
@@ -148,19 +174,17 @@ def find_horizon(elev,xs,ys,buffer = 30):
 # =================== MODEL RUN ===================
 # plot DEM as background
 if plot_horizon:
-    plt.imshow(dem,cmap='viridis',alpha=0.8)
-    legend = plt.colorbar()
-    legend.ax.set_ylabel('Elevation (m)', rotation=270, fontsize=14, labelpad=20)
-    plt.axis('equal') 
+    fig,ax = plt.subplots(figsize=(6,6))
+    dem.plot(ax=ax,cmap='viridis')
+    shapefile.plot(ax=ax,color='none',edgecolor='black',linewidth=1.5)
+    plt.axis('equal')
 
 # loop through angles
 angles = np.arange(0,360,angle_step)
 horizons = {}
 for ang in angles:
     # set up dict to store
-    horizons[ang] = {'horizon_elang':[],'hz_x':[],'hz_y':[],
-                     'elev_arr':[],'elang_arr':[],
-                     'xs':[],'ys':[]}
+    horizons[ang] = {'horizon_elev':[],'hz_x':[],'hz_y':[]}
     
     # get line in the direction of choice
     xs, ys = select_coordinates(ang,dem_res,search_length)
@@ -177,13 +201,9 @@ for ang in angles:
     
     # find the horizon
     hz_ang,hz_x,hz_y,all_angles = find_horizon(elev,xs,ys)
-    horizons[ang]['horizon_elang'] = hz_ang
+    horizons[ang]['horizon_elev'] = hz_ang
     horizons[ang]['hz_x'] = hz_x
     horizons[ang]['hz_y'] = hz_y
-    horizons[ang]['elev_arr'] = elev
-    horizons[ang]['elang_arr'] = all_angles
-    horizons[ang]['xs'] = xs
-    horizons[ang]['ys'] = ys
 
     # visualize elevations 
     if plot_horizon:
@@ -191,25 +211,28 @@ for ang in angles:
         cmap = plt.cm.viridis
         scalar_map = mpl.cm.ScalarMappable(norm=norm,cmap=cmap)
         colors = scalar_map.to_rgba(elev)
-        sc = plt.scatter(xs,ys,color=colors,s=5)
+        plt.scatter(xs,ys,color=colors,s=5,marker='.',alpha=0.8)
         plt.scatter(hz_x,hz_y,color='red',marker='x',s=50)
 
 # calculate sky-view factor
-horizon_elev = np.array([horizons[ang]['horizon_elang'] for ang in angles])
+horizon_elev = np.array([horizons[ang]['horizon_elev'] for ang in angles])
 angle_step_rad = angle_step * pi/180
 sky_view = np.sum(cos(horizon_elev)**2 * angle_step_rad) / (2*pi)
 
 # scatter center point and plot
 if plot_horizon:
-    plt.scatter(xx,yy,color='yellow')
-    plt.title(f'{site_name} Sky-view Factor = {sky_view:.3f}')
+    plt.scatter(xx,yy,marker='*',color='orange')
+    plt.title(f'{site_name} Horizon Search \n Sky-view Factor = {sky_view:.3f}')
     plt.ylabel('Northing')
     plt.xlabel('Easting')
-    plt.show()
+    if store_plot_horizon:
+        plt.savefig(out_horizon_fp)
+    else:
+        plt.show()
 
 # loop through hours of the year and store data
 store_vars = ['dirirr','dirirrslope','shaded','sun_elev','horizon_elev','sun_az']
-year_hours = pd.date_range('2000-01-01 00:00','2000-12-31 23:00',freq='h')
+year_hours = pd.date_range('2024-01-01 00:00','2024-12-31 23:00',freq='h')
 df = pd.DataFrame(data = np.ones((8784,len(store_vars))),
                   columns=store_vars,index=year_hours)
 for time in year_hours:
@@ -224,13 +247,10 @@ for time in year_hours:
     # calculate direct clear-sky irradiance (not slope corrected)
     I = I0 * (r_m/r)**2 * PSI**(P/P0/np.cos(Z)) * np.cos(Z)
 
-    # get sun and slope angles
+    # get sun elevation and azimuth angle
     sunpos = suncalc.get_position(time_UTC,lon,lat)
     sun_elev = sunpos['altitude']       # solar elevation angle
     sun_az = sunpos['azimuth']          # solar azimuth angle
-    asp_north = aspect.sel(x=xx, y=yy, method="nearest").values * pi/180   # slope azimuth angle (aspect)
-    asp = asp_north # + pi # aspect DEM treats 0 as north, we need as south
-    slp = slope.sel(x=xx, y=yy, method="nearest").values * pi/180    # slope angle
 
     # incident angle calculation
     cosTHETA = cos(slp)*cos(Z) + sin(slp)*sin(Z)*cos(sun_az - asp)
@@ -261,26 +281,30 @@ if plot_result:
     axes = axes.flatten()
     days = np.arange(366)
     hours = np.arange(0,24)
-    labels = {'dirirr':'direct flat-surface irradiance [W m-2]',
-              'dirirrslope':'direct slope-corrected irradiance [W m-2]',
-              'shaded':'shading [1 = shaded]',
-              'sun_elev':'sun elevation angle [$\circ$]',
-              'horizon_elev':'horizon elevation angle [[$\circ$]',
-              'sun_az':'sun azimuth angle [$\circ$]'}
+    varprops = {'dirirr':{'label':'direct flat-surface irradiance [W m-2]','cmap':'plasma'},
+              'dirirrslope':{'label':'direct slope-corrected irradiance [W m-2]','cmap':'plasma'},
+              'shaded':{'label':'shading [black = shaded]','cmap':'binary'},
+              'sun_elev':{'label':'sun elevation angle [$\circ$]','cmap':'Spectral_r'},
+              'horizon_elev':{'label':'horizon elevation angle [[$\circ$]','cmap':'YlOrRd'},
+              'sun_az':{'label':'sun azimuth angle [$\circ$]','cmap':'twilight'}}
     for i,var in enumerate(plot_result):
         ax = axes[i]
         vardata = df[var].to_numpy().reshape((len(days),len(hours)))
-        label = labels[var]
-        cmap = 'twilight' if var == 'sun_az' else 'plasma'
+        label = varprops[var]['label']
+        cmap = varprops[var]['cmap']
         pc = ax.pcolormesh(days,hours,vardata.T, cmap=cmap)
-        clb = fig.colorbar(pc,ax=ax,aspect=10,pad=0.02)
-        clb.set_label(var,loc='top')
+        if var != 'shaded':
+            clb = fig.colorbar(pc,ax=ax,aspect=10,pad=0.02)
+            clb.set_label(var,loc='top')
         ax.set_ylabel('Hour of day')
         ax.set_xlabel('Day of year')
         site_name = site_name if site_name else f'{lat:.2f},{lon:.2f}'
         ax.set_title(label)
     fig.suptitle(f'Annual plots for {site_name} \n Sky-view factor: {sky_view:.3f}')
-    plt.show()
+    if store_plot_result:
+        plt.savefig(out_image_fp,dpi=150)
+    else: 
+        plt.show()
 
 if store_result:
     df[['dirirrslope','shaded']].to_csv(out_fp)
