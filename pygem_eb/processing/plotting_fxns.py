@@ -333,7 +333,7 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
     for i,ds in enumerate(ds_list):
         c = plt.cm.Dark2(i)
         if res != 'h':
-            if var in ['melt','runoff','refreeze','accum','MB']:
+            if var in ['melt','runoff','refreeze','accum','MB','dh']:
                 ds_resampled = ds.resample(time=res).sum()
                 to_plot = ds_resampled[var].sel(time=time).cumsum()
             elif 'layer' in var:

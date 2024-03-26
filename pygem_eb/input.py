@@ -209,7 +209,7 @@ roughness_aging_rate = 0.06267 # effect of aging on roughness length: 60 days fr
 albedo_TOD = [12]            # Time of day to calculate albedo [hr]
 initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
 dry_metamorphism_rate = 1e-4 # Dry metamorphism grain size growth rate [um s-1]
-dep_factor = 0.3
+dep_factor = 0.5
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]
@@ -249,6 +249,7 @@ temp_temp = -3              # temperature of temperate ice [C]
 temp_depth = 100            # depth of temperate ice [m]
 albedo_fresh_snow = 0.85    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)
 albedo_firn = 0.55          # Albedo of firn [-]
+albedo_ground = 0.3         # Albedo of ground [-]
 roughness_fresh_snow = 0.24 # surface roughness length for fresh snow [mm] (Moelg et al. 2012, TC)
 roughness_firn = 4          # surface roughness length for firn [mm] (Moelg et al. 2012, TC)
 ratio_BC2_BCtot = 2.08      # Ratio to transform BC bin 2 deposition to total BC
@@ -259,6 +260,7 @@ ratio_DU_bin3 = 0.481675    # " SNICAR Bin 3 (1.25-2.5um)
 ratio_DU_bin4 = 0.203786    # " SNICAR Bin 4 (2.5-5um)
 ratio_DU_bin5 = 0.034       # " SNICAR Bin 5 (5-50um)
 diffuse_cloud_limit = 0.6   # Threshold to consider cloudy vs clear-sky in SNICAR
+sky_view = 0.953
 
 # ========== OTHER PYGEM INPUTS ========== 
 rgi_regionsO1 = [1]

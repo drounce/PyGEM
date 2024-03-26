@@ -23,8 +23,6 @@ class Surface():
         # Add args and utils to surface class
         self.args = args
         self.utils = utils
-        shading_df = pd.read_csv(eb_prms.shading_fp,index_col=0)
-        shading_df.index = pd.to_datetime(shading_df.index)
 
         # Initialize surface properties
         self.stemp = eb_prms.surftemp_guess
@@ -39,6 +37,12 @@ class Surface():
         self.bba = self.albedo_dict[self.stype]
         self.albedo = self.bba
         self.spectral_weights = np.ones(1)
+
+        # Get shading df and initialize surrounding albedo
+        self.shading_df = pd.read_csv(eb_prms.shading_fp,index_col=0)
+        self.shading_df.index = pd.to_datetime(self.shading_df.index)
+        self.albedo_surr = eb_prms.albedo_ground
+        self.max_snow = np.sum(layers.lheight[layers.snow_idx])
 
         # Output spectral albedo 
         if eb_prms.store_bands:
@@ -62,6 +66,7 @@ class Surface():
         if self.args.switch_melt == 2 and layers.nlayers > 2:
             layers.getGrainSize(airtemp)
         self.days_since_snowfall = (time - self.snow_timestamp)/pd.Timedelta(days=1)
+        self.getSurrAlbedo(layers,time)
         return
     
     def getSurfTemp(self,enbal,layers):
@@ -348,6 +353,22 @@ class Surface():
 
         return albedo,spectral_weights
     
+    def getSurrAlbedo(self,layers,time):
+        ALBEDO_GROUND = eb_prms.albedo_ground
+        ALBEDO_SNOW = eb_prms.albedo_fresh_snow
+        # reset max snowdepth yearly
+        if time.month + time.day + time.hour < 1:
+            self.max_snow = 0
+        # check if max_snow has been exceeded
+        current_snow = np.sum(layers.lheight[layers.snow_idx])
+        self.max_snow = max(current_snow, self.max_snow)
+        # scale surrounding albedo based on snowdepth
+        albedo_surr = np.interp(current_snow,
+                                np.array([0, self.max_snow]),
+                                np.array([ALBEDO_GROUND,ALBEDO_SNOW]))
+        self.albedo_surr = albedo_surr
+        return
+
 class HiddenPrints:
     """
     Class to hide prints when running SNICAR

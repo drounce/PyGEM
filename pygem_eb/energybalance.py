@@ -3,7 +3,7 @@ Energy balance class for PyGEM Energy Balance
 
 @author: cvwilson
 """
-
+import pandas as pd
 import numpy as np
 import pygem_eb.input as eb_prms
 # import warnings
@@ -162,20 +162,26 @@ class energyBalance():
         surface
             class object from surface.py
         """
+        SKY_VIEW = eb_prms.sky_view
         albedo = surface.albedo
         spectral_weights = surface.spectral_weights
         assert np.abs(1-np.sum(spectral_weights)) < 1e-5, 'Solar weights dont sum to 1'
         
-        SWin = self.SWin_ds/self.dt
+        # get sky (diffuse+direct) and terrain (diffuse) SWin
+        SWin_sky = self.SWin_ds/self.dt
+        SWin_terrain = SWin_sky*(1-SKY_VIEW)*surface.albedo_surr
+
+        # correct for shade
+        time_str = str(self.time).replace(str(self.time.year),'2000')
+        time_2000 = pd.to_datetime(time_str.replace(':30',':00'))
+        shade = bool(surface.shading_df.loc[time_2000,'shaded'])
+        SWin = SWin_sky + SWin_terrain if shade else SWin_terrain
+
+        # get reflected radiation
         if self.nanSWout:
-            SWout = -np.sum(SWin*spectral_weights*albedo)
+            SWout = -np.sum(SWin_sky*spectral_weights*albedo)
         else:
             SWout = -self.SWout_ds/self.dt
-        
-        # Islope = surface.shading_df.loc[self.time,'dirirrslope']
-        # shade = surface.shading_df.loc[self.time,'shaded']
-        # if shade == 1:
-        #     SWin = 
         return SWin,SWout
 
     def getLW(self,surftemp):
