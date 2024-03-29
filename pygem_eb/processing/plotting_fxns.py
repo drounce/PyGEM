@@ -29,6 +29,8 @@ varprops = {'surftemp':{'label':'Surface temp','type':'Temperature','units':'C'}
            'meltenergy':{'label':'Melt Energy','type':'Flux','units':'W m$^{-2}$'},
            'SWin':{'label':'Shortwave In','type':'Flux','units':'W m$^{-2}$'},
            'SWout':{'label':'Shortwave Out','type':'Flux','units':'W m$^{-2}$'},
+           'SWin_sky':{'label':'Sky Shortwave In','type':'Flux','units':'W m$^{-2}$'},
+           'SWin_terr':{'label':'Terrain Shortwave In','type':'Flux','units':'W m$^{-2}$'},
            'LWin':{'label':'Longwave In','type':'Flux','units':'W m$^{-2}$'},
            'LWout':{'label':'Longwave Out','type':'Flux','units':'W m$^{-2}$'},
            'SWnet':{'label':'Net Shortwave','type':'Flux','units':'W m$^{-2}$'},
@@ -130,7 +132,7 @@ def simple_plot(ds,bin,time,vars,res='d',t='',
                 axis.plot(ds_mean.coords['time'],var_to_plot,color=c,label=var)
                 axis.set_ylabel(varprops[var]['label'])
 
-        axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
+        axis.legend(bbox_to_anchor=(1.01,1),temploc='upper left')
     date_form = mpl.dates.DateFormatter('%d %b')
     axis.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
@@ -349,13 +351,12 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
                 to_plot = ds[var].sel(time=time,layer=0)
             else:
                 to_plot = ds[var].sel(time=time)
-        ax.plot(time,to_plot,label=labels[i],color=c)
+        ax.plot(time,to_plot,label=labels[i],color=c,alpha=0.6,linewidth=0.8)
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_ylabel(var)
-    ax.legend()
+    # ax.legend()
     fig.suptitle(t)
-    plt.show()
     return
 
 def panel_dh_compare(ds_list,time,labels,units,stake_df,rows=2,t='',bin=0):

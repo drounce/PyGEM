@@ -38,12 +38,16 @@ timezone = pd.Timedelta(hours=-9)   # time zone of location
 glacier_name = 'Gulkana'            # name of glacier for labeling
 
 # model options
-plot = ['result']           # False or list from ['result','search','horizon']
-store = ['result','result_plot']          # False or list from ['result','result_plot','search_plot','horizon_plot']
+plot = ['result','search']           # False or list from ['result','search','horizon']
+store = ['result','result_plot','search_plot']          # False or list from ['result','result_plot','search_plot','horizon_plot']
 result_vars = ['dirirrslope','shaded']
-get_diffuse = True
+get_shade = True
+get_direct = True
+get_diffuse = False
+assert get_shade or get_direct or get_diffuse, 'Why are you running this?'
 
 # model parameters
+time_freq = '30min'            # timestep in offset alias notation
 angle_step = 5              # step to calculate horizon angle (degrees)
 search_length = 5000        # distance to search from center point (m)
 sub_dt = 10                 # timestep to calculate solar corrections (minutes)
@@ -70,7 +74,6 @@ if args.site_by == 'id':
 fp = '/home/claire/'
 # in
 dem_fp = fp + 'GulkanaDEM/Gulkana_DEM_20m.tif'
-# dem_fp = fp + 'GulkanaDEM/McCone/McCone_7km_1200-2500m_50m_surface.tif'
 aspect_fp = fp + 'GulkanaDEM/Gulkana_Aspect_20m.tif'
 slope_fp = fp + 'GulkanaDEM/Gulkana_Slope_20m.tif'
 # optional shapefile for visualizing
@@ -79,7 +82,8 @@ shp_fp = fp + 'GulkanaDEM/Gulkana.shp'
 solar_fp = fp + 'research/climate_data/AWS/CNR4/cnr4_2023.csv'
 
 # out
-out_fp = fp + f'GulkanaDEM/Out/{args.site_name}.csv'
+shade_fp = fp + f'GulkanaDEM/Out/{args.site_name}_shade.csv'
+irr_fp = fp + f'GulkanaDEM/Out/{args.site_name}_irr.csv'
 out_image_fp = fp + f'GulkanaDEM/Outputs/{args.site_name}.png'
 out_horizon_fp = fp + f'GulkanaDEM/Outputs/{args.site_name}_horizon.png'
 
@@ -117,7 +121,10 @@ point_elev = dem.sel(x=xx, y=yy, method='nearest').values
 # get slope and aspect at point of interest
 asp = aspect.sel(x=xx, y=yy, method='nearest').values * pi/180
 slp = slope.sel(x=xx, y=yy, method='nearest').values * pi/180
-print(f'{args.site_name} point aspect: {asp*180/pi:.1f} o     slope: {slp*180/pi:.2f} o')
+print(f'{args.site_name} point stats:')
+print(f'        elevation: {point_elev:.0f} m a.s.l.')
+print(f'        aspect: {asp*180/pi:.1f} o')
+print(f'        slope: {slp*180/pi:.2f} o')
 
 # =================== CONSTANTS ===================
 I0 = 1368       # solar constant in W m-2
@@ -269,8 +276,9 @@ if 'search' in args.plot:
 # =================== IRRADIANCE ===================
 # loop through hours of the year and store data
 store_vars = ['dirirr','dirirrslope','shaded','corr_factor','sun_elev','horizon_elev','sun_az']
-year_hours = pd.date_range('2024-01-01 00:00','2024-12-31 23:00',freq='h')
-df = pd.DataFrame(data = np.ones((8784,len(store_vars))),
+year_hours = pd.date_range('2024-01-01 00:00','2024-12-31 23:00',freq=time_freq)
+timestep_min = (year_hours[1] - year_hours[0]).total_seconds()/60
+df = pd.DataFrame(data = np.ones((len(year_hours),len(store_vars))),
                   columns=store_vars,index=year_hours)
 for time in year_hours:
     # loop to get sub-hourly values and average
@@ -278,7 +286,7 @@ for time in year_hours:
     period_dict = {}
     for var in sub_vars:
         period_dict[var] = np.array([])
-    for minutes in np.arange(0,60,sub_dt):
+    for minutes in np.arange(0,timestep_min,sub_dt):
         # calculate time-dependent variables
         time_UTC = time - timezone + pd.Timedelta(minutes = minutes)
         P = pressure(point_elev)
@@ -330,20 +338,22 @@ for time in year_hours:
         mean_I = 0
         mean_corr_factor = 0
     median_shaded = int(np.median(period_dict['shaded']))
-
+    
     # store data
     df.loc[time,'shaded'] = median_shaded
     df.loc[time,'dirirrslope'] = mean_I
     df.loc[time,'corr_factor'] = mean_corr_factor
-    try:
+    if len(I) > 0:
         df.loc[time,'dirirr'] = np.mean(I)
-    except:
+    else:
         df.loc[time,'dirirr'] = np.nan
 
     # unnecessary, just for plotting
     df.loc[time,'sun_az'] = sun_az * 180/pi
     df.loc[time,'horizon_elev'] = horizon_elev[idx] * 180/pi
     df.loc[time,'sun_elev'] = sun_elev * 180/pi
+    if median_shaded:
+        df.loc[time,'horizon_elev'] = np.nan
 
 # variable properties for plotting
 varprops = {'dirirr':{'label':'direct flat-surface irradiance [W m-2]','cmap':'plasma'},
@@ -372,7 +382,8 @@ if 'result' in args.plot:
         ax = axes[i]
 
         # reshape and plot data
-        vardata = df[var].to_numpy().reshape((len(days),len(hours)))
+        df_plot = df.resample('h').mean()
+        vardata = df_plot[var].to_numpy().reshape((len(days),len(hours)))
         pc = ax.pcolormesh(days,hours,vardata.T, cmap=cmap)
 
         # add colorbar ('shaded' is binary)
@@ -404,7 +415,13 @@ if 'horizon' in args.plot:
         plt.show()
 
 if 'result' in args.store:
-    df[['dirirrslope','shaded']].to_csv(out_fp)
+    vars = []
+    if get_shade:
+        df['shaded'].astype(bool).to_csv(shade_fp,
+                                         header=f'skyview={sky_view}')
+    if get_direct:
+        df['dirirrslope'].astype(bool).to_csv(irr_fp,
+                                         header=f'skyview={sky_view}')
 
 # =================== DIFFUSE ===================
 if get_diffuse:

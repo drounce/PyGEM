@@ -47,12 +47,19 @@ if dynamics:
     bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
     bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
     bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
+elif glac_no == ['01.00570']:
+    # Gulkana runs have specific sites with associated elevation / shading
+    site = 'AB'
+    gulkana_site_elev = {'AU':1442,'AB':1542,'B':1682,'D':1843}
+    bin_elev = np.array([gulkana_site_elev[site]])
+    bin_ice_depth = np.ones(len(bin_elev)) * 200
 else:
+    print('Taking AWS elevation')
     bin_elev = np.array([glac_props[glac_no[0]]['site_elev']])
-    bin_ice_depth = np.array([200])
+    bin_ice_depth = np.ones(len(bin_elev)) * 200
 # bin_elev = np.array([1270,1385,1470,1585,1680,1779]) # From Takeuchi 2009
 # bin_elev = np.array([1526,1693,1854])
-bin_ice_depth = np.ones(len(bin_elev)) * 200
+# bin_ice_depth = np.ones(len(bin_elev)) * 200
 assert len(bin_elev) == n_bins, 'Check n_bins in input'
 
 # ========== DIRECTORIES AND FILEPATHS ========== 
@@ -80,7 +87,7 @@ grainsize_fp = main_directory + '/pygem_eb/data/drygrainsize(SSAin=60).nc'
 initial_temp_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBtemp.csv'
 initial_density_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBdensity.csv'
 snicar_input_fp = main_directory + '/biosnicar-py/src/biosnicar/inputs.yaml'
-shading_fp = '/home/claire/GulkanaDEM/Out/gulkana_centerpoint.csv'
+shading_fp = f'/home/claire/GulkanaDEM/Out/Gulkana{site}_shade.csv'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
 climate_input = 'GCM' # 'GCM' or 'AWS'

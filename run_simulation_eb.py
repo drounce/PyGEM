@@ -69,11 +69,14 @@ def initialize_model(glac_no,args,debug=True):
                     include_landterm=eb_prms.include_landterm,
                     include_laketerm=eb_prms.include_laketerm,
                     include_tidewater=eb_prms.include_tidewater)
-    dates_table = modelsetup.datesmodelrun(startyear=args.startdate, endyear=args.enddate)
+    start_UTC = args.startdate - eb_prms.timezone
+    end_UTC = args.enddate - eb_prms.timezone
+    dates_UTC = modelsetup.datesmodelrun(startyear=start_UTC, endyear=end_UTC)
+    dates = pd.date_range(args.startdate,args.enddate,freq='h')
     utils = utilities.Utils(args,glacier_table)
 
     gcm = class_climate.GCM(name=eb_prms.ref_gcm_name)
-    nans = np.empty(len(dates_table))*np.nan
+    nans = np.empty(len(dates_UTC))*np.nan
     if args.climate_input in ['GCM']:
         all_vars = list(gcm.var_dict.keys())
         if eb_prms.ref_gcm_name in ['MERRA2']:
@@ -90,7 +93,7 @@ def initialize_model(glac_no,args,debug=True):
             if var not in ['time','lat','lon','elev']:
                 data,data_hours = gcm.importGCMvarnearestneighbor_xarray(
                     gcm.var_dict[var]['fn'],gcm.var_dict[var]['vn'],
-                    glacier_table,dates_table)
+                    glacier_table,dates_UTC)
                 
                 if var in ['SWin','LWin','tcc','rh','bcdry','bcwet','dustdry','dustwet']:
                     data = data[0]
@@ -121,7 +124,7 @@ def initialize_model(glac_no,args,debug=True):
         NR = nans.copy()
         ntimesteps = len(data_hours)
     elif args.climate_input in ['AWS']:
-        aws = class_climate.AWS(eb_prms.AWS_fn,dates_table)
+        aws = class_climate.AWS(eb_prms.AWS_fn,dates)
         temp_data = aws.temp
         tp_data = aws.tp
         rh = aws.rh
@@ -144,7 +147,6 @@ def initialize_model(glac_no,args,debug=True):
     # Adjust elevation-dependant climate variables
     temp,tp,sp = utils.getBinnedClimate(temp_data, tp_data, sp_data,
                                             ntimesteps, elev_data)
-    dates = pd.date_range(args.startdate,args.enddate,freq='h')
 
     # ===== SET UP CLIMATE DATASET =====
     bin_idx = np.arange(0,n_bins)
@@ -171,22 +173,21 @@ def initialize_model(glac_no,args,debug=True):
             bin=(['bin'],bin_idx),
             time=(['time'],dates)
             ))
-    
-    return climateds,dates_table,utils
+    return climateds,dates,utils
 
-def run_model(climateds,dates_table,utils,args,new_attrs):
+def run_model(climateds,dates,utils,args,new_attrs):
     # Start timer
     start_time = time.time()
 
     # ===== RUN ENERGY BALANCE =====
     if eb_prms.parallel:
         def run_mass_balance(bin):
-            massbal = mb.massBalance(bin,dates_table,args,utils)
+            massbal = mb.massBalance(bin,dates,args,utils)
             massbal.main(climateds)
         processes_pool = Pool(args.n_bins)
         processes_pool.map(run_mass_balance,range(args.n_bins))
     for bin in np.arange(args.n_bins):
-        massbal = mb.massBalance(bin,dates_table,args,utils)
+        massbal = mb.massBalance(bin,dates,args,utils)
         massbal.main(climateds)
         
         if bin<args.n_bins-1:
@@ -213,8 +214,8 @@ def run_model(climateds,dates_table,utils,args,new_attrs):
 parser = getparser()
 args = parser.parse_args()
 for gn in args.glac_no:
-    climateds,dates_table,utils = initialize_model(gn,args)
-    out = run_model(climateds,dates_table,utils,args,{'Run By':eb_prms.machine})
+    climateds,dates,utils = initialize_model(gn,args)
+    out = run_model(climateds,dates,utils,args,{'Run By':eb_prms.machine})
     if out:
         # Get final mass balance
         print(f'Total Mass Loss: {out.melt.sum():.3f} m w.e.')

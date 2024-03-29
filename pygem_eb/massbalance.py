@@ -12,7 +12,7 @@ class massBalance():
     from melt, refreeze and accumulation. main() executes the core 
     of the model.
     """
-    def __init__(self,bin_idx,dates_table,args,utils):
+    def __init__(self,bin_idx,dates,args,utils):
         """
         Initializes the layers and surface classes and model 
         time for the mass balance scheme.
@@ -21,13 +21,13 @@ class massBalance():
         ----------
         bin_idx : int
             Index value of the elevation bin
-        dates_table : pd.Dataframe
-            Dataframe containing the dates for the model run
+        dates : array-like (pd.datetime)
+            List of local time dates
         """
         # Set up model time and bin
         self.dt = eb_prms.dt
         self.days_since_snowfall = 0
-        self.time_list = dates_table['date']
+        self.time_list = dates
         self.bin_idx = bin_idx
         self.elev = eb_prms.bin_elev[bin_idx]
 
@@ -763,7 +763,8 @@ class Output():
 
         # Create variable name dict
         vn_dict = {'EB':['SWin','SWout','LWin','LWout','rain','ground',
-                         'sensible','latent','meltenergy','albedo'],
+                         'sensible','latent','meltenergy','albedo',
+                         'SWin_sky','SWin_terr'],
                    'MB':['melt','refreeze','runoff','accum','snowdepth'],
                    'Temp':['airtemp','surftemp'],
                    'Layers':['layertemp','layerdensity','layerwater','layerheight',
@@ -773,6 +774,8 @@ class Output():
         all_variables = xr.Dataset(data_vars = dict(
                 SWin = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
                 SWout = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
+                SWin_sky = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
+                SWin_terr = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
                 LWin = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
                 LWout = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
                 rain = (['time','bin'],zeros[:,:,0],{'units':'W m-2'}),
@@ -814,6 +817,8 @@ class Output():
         self.SWout_output = []      # outgoing shortwave [W m-2]
         self.LWin_output = []       # incoming longwave [W m-2]
         self.LWout_output = []      # outgoing longwave [W m-2]
+        self.SWin_sky_output = []   # incoming sky shortwave [W m-2]
+        self.SWin_terr_output = []  # incoming terrain shortwave [W m-2]
         self.rain_output = []       # rain energy [W m-2]
         self.ground_output = []     # ground energy [W m-2]
         self.sensible_output = []   # sensible energy [W m-2]
@@ -846,6 +851,8 @@ class Output():
         self.SWout_output.append(float(enbal.SWout))
         self.LWin_output.append(float(enbal.LWin))
         self.LWout_output.append(float(enbal.LWout))
+        self.SWin_sky_output.append(float(enbal.SWin_sky))
+        self.SWin_terr_output.append(float(enbal.SWin_terr))
         self.rain_output.append(float(enbal.rain))
         self.ground_output.append(float(enbal.ground))
         self.sensible_output.append(float(enbal.sens))
@@ -876,6 +883,8 @@ class Output():
                 ds['SWout'].loc[:,bin] = self.SWout_output
                 ds['LWin'].loc[:,bin] = self.LWin_output
                 ds['LWout'].loc[:,bin] = self.LWout_output
+                ds['SWin_sky'].loc[:,bin] = self.SWin_sky_output
+                ds['SWin_terr'].loc[:,bin] = self.SWin_terr_output
                 ds['rain'].loc[:,bin] = self.rain_output
                 ds['ground'].loc[:,bin] = self.ground_output
                 ds['sensible'].loc[:,bin] = self.sensible_output

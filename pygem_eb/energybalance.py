@@ -25,7 +25,7 @@ class energyBalance():
         climateds : xr.Dataset
             Climate dataset containing temperature, precipitation, pressure, wind speed,
             shortwave radiation, and total cloud cover.
-        time : datetime
+        local_time : datetime
             Time to index the climate dataset.
         bin_idx : int
             Index number of the bin being run
@@ -172,16 +172,23 @@ class energyBalance():
         SWin_terrain = SWin_sky*(1-SKY_VIEW)*surface.albedo_surr
 
         # correct for shade
-        time_str = str(self.time).replace(str(self.time.year),'2000')
-        time_2000 = pd.to_datetime(time_str.replace(':30',':00'))
-        shade = bool(surface.shading_df.loc[time_2000,'shaded'])
-        SWin = SWin_sky + SWin_terrain if shade else SWin_terrain
+        time_str = str(self.time).replace(str(self.time.year),'2024')
+        time_2024 = pd.to_datetime(time_str)
+        self.shade = bool(surface.shading_df.loc[time_2024,'shaded'])
+        SWin = SWin_terrain if self.shade else SWin_terrain + SWin_sky
+        # self.SWin_sky = SWin_sky
+        # SWin = SWin_sky
+        # self.SWin_terr = 0
 
         # get reflected radiation
         if self.nanSWout:
             SWout = -np.sum(SWin_sky*spectral_weights*albedo)
         else:
             SWout = -self.SWout_ds/self.dt
+
+        # store sky and terrain portions
+        self.SWin_sky = np.nan if self.shade else SWin_sky
+        self.SWin_terr = SWin_terrain
         return SWin,SWout
 
     def getLW(self,surftemp):
