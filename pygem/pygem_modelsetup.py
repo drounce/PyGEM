@@ -264,7 +264,8 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all'
                            indexname=pygem_prms.indexname,
                            include_landterm=True,include_laketerm=True,include_tidewater=True,
                            glac_no_skip=pygem_prms.glac_no_skip,
-                           min_glac_area_km2=0):
+                           min_glac_area_km2=0,
+                           debug=False):
     """
     Select all glaciers to be used in the model run according to the regions and glacier numbers defined by the RGI
     glacier inventory. This function returns the rgi table associated with all of these glaciers.
@@ -315,14 +316,16 @@ def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all'
         
         # Populate glacer_table with the glaciers of interest
         if rgi_regionsO2 == 'all' and rgi_glac_number == 'all':
-            print("All glaciers within region(s) %s are included in this model run." % (region))
+            if debug:
+                print("All glaciers within region(s) %s are included in this model run." % (region))
             if glacier_table.empty:
                 glacier_table = csv_regionO1
             else:
                 glacier_table = pd.concat([glacier_table, csv_regionO1], axis=0)
         elif rgi_regionsO2 != 'all' and rgi_glac_number == 'all':
-            print("All glaciers within subregion(s) %s in region %s are included in this model run." %
-                  (rgi_regionsO2, region))
+            if debug:
+                print("All glaciers within subregion(s) %s in region %s are included in this model run." %
+                    (rgi_regionsO2, region))
             for regionO2 in rgi_regionsO2:
                 if glacier_table.empty:
                     glacier_table = csv_regionO1.loc[csv_regionO1['O2Region'] == regionO2]
@@ -493,8 +496,9 @@ def split_list(lst, n=1, option_ordered=1, group_thousands=False):
         for s in sets:
             merged = [item for sublist in lst_batches for item in sublist if item[:5]==s]
             lst_batches_th.append(merged)
+        
         # ensure that number of batches doesn't exceed original number
-        while len(lst_batches_th) > len(lst_batches):
+        while len(lst_batches_th) > n:
             # move shortest batch to next shortest batch
             lengths = np.asarray([len(batch) for batch in lst_batches_th])
             sorted = lengths.argsort()

@@ -5,10 +5,12 @@ Updated Mar 29 2024
 
 @author: btobers mrweathers drounce
 
-PyGEM classes and subclasses for glacier simulation outputs
+PyGEM classes and subclasses for model output datasets
 
-The two main parent classes are 'single_glacier' and 'compiled_regional'
+For glacier simulations:
+The two main parent classes are single_glacier(object) and compiled_regional(object)
 Both of these have several subclasses which will inherit the necessary parent information
+
 """
 import pygem_input as pygem_prms
 from dataclasses import dataclass
@@ -19,6 +21,13 @@ import cftime
 import os
 import collections
 from datetime import datetime
+
+### model settings parent class ###
+# this class will hold a dictionary of all calibration/simuation settings so that they are stored with any outputs
+class model_settings_dict(object):
+    def __init__(self):
+
+
 
 ### single glacier output parent class ###
 @dataclass
