@@ -14,20 +14,14 @@ Both of these have several subclasses which will inherit the necessary parent in
 """
 import pygem_input as pygem_prms
 from dataclasses import dataclass
+from scipy.stats import median_abs_deviation
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import xarray as xr
 import cftime
 import os
 import collections
-from datetime import datetime
-
-### model settings parent class ###
-# this class will hold a dictionary of all calibration/simuation settings so that they are stored with any outputs
-class model_settings_dict(object):
-    def __init__(self):
-
-
 
 ### single glacier output parent class ###
 @dataclass
@@ -40,13 +34,55 @@ class single_glacier:
     wateryear : bool
     pygem_version : float
     user_info : dict
+    outdir : str
+    gcm_name : str
+    scenario : str
+    realization : str
+    calib_opt : int
+    sim_iters : int
+    modelprms : dict
+    ba_opt : int
+    gcm_bc_startyr : int
+    gcm_startyr : int
+    gcm_endyr: int
 
     def __post_init__(self):
         self.glac_values = np.array([self.glacier_rgi_table.name])
-        self.get_time_vals()
+        self.glacier_str = '{0:0.5f}'.format(self.glacier_rgi_table['RGIId_float'])
+        self.reg_str  = str(self.glacier_rgi_table.O1Region).zfill(2)
+        self.set_fn()
+        self.set_time_vals()
+        self.model_params_record()
         self.init_dicts()
 
-    def get_time_vals(self):
+    def set_fn(self, fn=None):
+        if fn:
+            self.outfn = fn
+        else:
+            self.outfn = self.glacier_str + '_' + self.gcm_name + '_'
+            if self.scenario:
+                self.outfn += f'{self.scenario}_'
+            if self.realization:
+                self.outfn += f'{self.realization}_'
+            if self.calib_opt:
+                self.outfn += f'{self.calib_opt}_'
+            else:
+                self.outfn += f'kp + {self.modelprms["kp"]} + _ddfsnow + {self.modelprms["ddfsnow"]} + _tbias + {self.modelprms["tbias"]}'
+            if self.gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
+                self.outfn += f'ba{self.ba_opt}_'
+                yr0 = self.gcm_bc_startyr
+            else:
+                self.outfn += 'ba0_'
+                yr0 = self.gcm_startyr
+            if self.calib_opt:
+                self.outfn += 'SETS_'
+            self.outfn += f'{yr0}_'
+            self.outfn += f'{self.gcm_endyr}_'
+
+    def get_fn(self):
+        return self.outfn
+
+    def set_time_vals(self):
         if self.wateryear == 'hydro':
             self.year_type = 'water year'
             self.annual_columns = np.unique(self.dates_table['wateryear'].values)[0:int(self.dates_table.shape[0]/12)]
@@ -60,6 +96,9 @@ class single_glacier:
         # append additional year to self.year_values to account for mass and area at end of period
         self.year_values = self.annual_columns[pygem_prms.gcm_spinupyears:self.annual_columns.shape[0]]
         self.year_values = np.concatenate((self.year_values, np.array([self.annual_columns[-1] + 1])))
+
+    def model_params_record(self):
+        pass
 
     def init_dicts(self):
         # Boilerplate coordinate and attribute dictionaries - these will be the same for both glacier-wide and binned outputs
@@ -141,18 +180,15 @@ class single_glacier:
     
         self.output_xr_ds.attrs = {'source': f'PyGEMv{self.pygem_version}',
                         'institution': self.user_info['institution'],
-                        'history': f'Created by {pygem_prms.user_info["name"]} ({self.user_info["email"]}) on ' + datetime.today().strftime('%Y-%m-%d'),
+                        'history': f'Created by {self.user_info["name"]} ({self.user_info["email"]}) on ' + datetime.today().strftime('%Y-%m-%d'),
                         'references': 'doi:10.3389/feart.2019.00331 and doi:10.1017/jog.2019.91'}
 
     def get_xr_ds(self):
         return self.output_xr_ds
     
-    def save_xr_ds(self, out_path, netcdf_fn):
-        # Create filepath if it does not exist
-        if os.path.exists(out_path) == False:
-            os.makedirs(out_path, exist_ok=True)
+    def save_xr_ds(self, netcdf_fn):
         # export netcdf
-        self.output_xr_ds.to_netcdf(out_path + netcdf_fn, encoding=self.encoding) 
+        self.output_xr_ds.to_netcdf(self.outdir + netcdf_fn, encoding=self.encoding) 
         # close datasets
         self.output_xr_ds.close()
 
@@ -162,13 +198,21 @@ class glacierwide_stats(single_glacier):
     """
     Single glacier-wide statistics dataset
     """
-    sim_iters : int
     extra_vars : bool
 
     def __post_init__(self):
         super().__post_init__()         # call parent class __post_init__ (get glacier values, time stamps, and instantiate output dictionaries that will form netcdf file output)
+        self.set_outdir()
         self.update_dicts()             # add required fields to output dictionary
-        self.create_xr_ds()
+
+    def set_outdir(self):
+        # prepare for export
+        self.outdir += self.reg_str + '/' + self.gcm_name + '/'
+        if self.gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
+            self.outdir += self.scenario + '/'
+        self.outdir += 'stats/'
+        # Create filepath if it does not exist
+        os.makedirs(self.outdir, exist_ok=True)
 
     def update_dicts(self):
         # update coordinate and attribute dictionaries
@@ -453,14 +497,22 @@ class binned_stats(single_glacier):
     """
     Single glacier binned dataset
     """
-    sim_iters : int
     nbins : int
 
     def __post_init__(self):
         super().__post_init__()                         # call parent class __post_init__ (get glacier values, time stamps, and instantiate output dictionaries that will form netcdf file output)
         self.bin_values = np.arange(self.nbins)         # bin indices
+        self.set_outdir()
         self.update_dicts()                             # add required fields to output dictionary
-        self.create_xr_ds()
+
+    def set_outdir(self):
+        # prepare for export
+        self.outdir += self.reg_str + '/' + self.gcm_name + '/'
+        if self.gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
+            self.outdir += self.scenario + '/'
+        self.outdir += 'binned/'
+        # Create filepath if it does not exist
+        os.makedirs(self.outdir, exist_ok=True)
 
     def update_dicts(self):
         # update coordinate and attribute dictionaries
@@ -557,3 +609,43 @@ class regional_monthly_massbal(compiled_regional):
     """
     compiled regional monthly climatic mass balance
     """
+
+
+def calc_stats_array(data, stats_cns=['median', 'mad']):
+    """
+    Calculate stats for a given variable
+
+    Parameters
+    ----------
+    vn : str
+        variable name
+    ds : xarray dataset
+        dataset of output with all ensemble simulations
+
+    Returns
+    -------
+    stats : np.array
+        Statistics related to a given variable
+    """
+    stats = None
+    if 'mean' in stats_cns:
+        if stats is None:
+            stats = np.nanmean(data,axis=1)[:,np.newaxis]
+    if 'std' in stats_cns:
+        stats = np.append(stats, np.nanstd(data,axis=1)[:,np.newaxis], axis=1)
+    if '2.5%' in stats_cns:
+        stats = np.append(stats, np.nanpercentile(data, 2.5, axis=1)[:,np.newaxis], axis=1)
+    if '25%' in stats_cns:
+        stats = np.append(stats, np.nanpercentile(data, 25, axis=1)[:,np.newaxis], axis=1)
+    if 'median' in stats_cns:
+        if stats is None:
+            stats = np.nanmedian(data, axis=1)[:,np.newaxis]
+        else:
+            stats = np.append(stats, np.nanmedian(data, axis=1)[:,np.newaxis], axis=1)
+    if '75%' in stats_cns:
+        stats = np.append(stats, np.nanpercentile(data, 75, axis=1)[:,np.newaxis], axis=1)
+    if '97.5%' in stats_cns:
+        stats = np.append(stats, np.nanpercentile(data, 97.5, axis=1)[:,np.newaxis], axis=1)
+    if 'mad' in stats_cns:
+        stats = np.append(stats, median_abs_deviation(data, axis=1, nan_policy='omit')[:,np.newaxis], axis=1)
+    return stats
