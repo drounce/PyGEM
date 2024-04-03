@@ -496,7 +496,6 @@ def split_list(lst, n=1, option_ordered=1, group_thousands=False):
         for s in sets:
             merged = [item for sublist in lst_batches for item in sublist if item[:5]==s]
             lst_batches_th.append(merged)
-        
         # ensure that number of batches doesn't exceed original number
         while len(lst_batches_th) > n:
             # move shortest batch to next shortest batch
