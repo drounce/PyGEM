@@ -527,7 +527,7 @@ class GCM():
         return glac_variable_series, time_series
     
 class AWS():
-    def __init__(self,fp,dates_table):
+    def __init__(self,fp,dates):
         # Load file
         self.fn = fp
         df = pd.read_csv(fp,index_col=0)
@@ -535,10 +535,10 @@ class AWS():
 
         data_start = pd.to_datetime(df.index.to_numpy()[0])
         data_end = pd.to_datetime(df.index.to_numpy()[-1])
-        assert dates_table.date[0] >= data_start, 'Check input dates: start date before range of AWS data'
-        assert dates_table.date.to_numpy()[-1] <= data_end, 'Check input dates: end date after range of AWS data'
+        assert dates[0] >= data_start, 'Check input dates: start date before range of AWS data'
+        assert dates[len(dates)-1] <= data_end, 'Check input dates: end date after range of AWS data'
         df = df.set_index(pd.date_range(data_start,data_end,freq='h'))
-        df = df.loc[dates_table.date[0]:dates_table.date.to_numpy()[-1]]
+        df = df.loc[dates]
         
         self.temp = df['temp'].to_numpy()
         self.tp = df['tp'].to_numpy()
