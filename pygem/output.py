@@ -19,9 +19,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import xarray as xr
-import cftime
-import os
-import collections
+import os, types, json, cftime, collections
 
 ### single glacier output parent class ###
 @dataclass
@@ -31,25 +29,21 @@ class single_glacier:
     """
     glacier_rgi_table : pd.DataFrame
     dates_table : pd.DataFrame
-    wateryear : bool
     pygem_version : float
-    user_info : dict
-    outdir : str
     gcm_name : str
     scenario : str
     realization : str
-    calib_opt : int
     sim_iters : int
     modelprms : dict
-    ba_opt : int
-    gcm_bc_startyr : int
-    gcm_startyr : int
-    gcm_endyr: int
+    gcm_bc_startyear : int
+    gcm_startyear : int
+    gcm_endyear: int
 
     def __post_init__(self):
         self.glac_values = np.array([self.glacier_rgi_table.name])
         self.glacier_str = '{0:0.5f}'.format(self.glacier_rgi_table['RGIId_float'])
         self.reg_str  = str(self.glacier_rgi_table.O1Region).zfill(2)
+        self.outdir = pygem_prms.output_sim_fp
         self.set_fn()
         self.set_time_vals()
         self.model_params_record()
@@ -64,32 +58,32 @@ class single_glacier:
                 self.outfn += f'{self.scenario}_'
             if self.realization:
                 self.outfn += f'{self.realization}_'
-            if self.calib_opt:
-                self.outfn += f'{self.calib_opt}_'
+            if pygem_prms.option_calibration:
+                self.outfn += f'{pygem_prms.option_calibration}_'
             else:
-                self.outfn += f'kp + {self.modelprms["kp"]} + _ddfsnow + {self.modelprms["ddfsnow"]} + _tbias + {self.modelprms["tbias"]}'
+                self.outfn += f'kp{self.modelprms["kp"]}_ddfsnow{self.modelprms["ddfsnow"]}_tbias{self.modelprms["tbias"]}_'
             if self.gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
-                self.outfn += f'ba{self.ba_opt}_'
-                yr0 = self.gcm_bc_startyr
+                self.outfn += f'ba{pygem_prms.option_bias_adjustment}_'
+                yr0 = self.gcm_bc_startyear
             else:
                 self.outfn += 'ba0_'
-                yr0 = self.gcm_startyr
-            if self.calib_opt:
+                yr0 = self.gcm_startyear
+            if pygem_prms.option_calibration:
                 self.outfn += 'SETS_'
             self.outfn += f'{yr0}_'
-            self.outfn += f'{self.gcm_endyr}_'
+            self.outfn += f'{self.gcm_endyear}_'
 
     def get_fn(self):
         return self.outfn
 
     def set_time_vals(self):
-        if self.wateryear == 'hydro':
+        if pygem_prms.gcm_wateryear == 'hydro':
             self.year_type = 'water year'
             self.annual_columns = np.unique(self.dates_table['wateryear'].values)[0:int(self.dates_table.shape[0]/12)]
-        elif self.wateryear == 'calendar':
+        elif pygem_prms.gcm_wateryear == 'calendar':
             self.year_type = 'calendar year'
             self.annual_columns = np.unique(self.dates_table['year'].values)[0:int(self.dates_table.shape[0]/12)]
-        elif self.wateryear == 'custom':
+        elif pygem_prms.gcm_wateryear == 'custom':
             self.year_type = 'custom year'
         self.time_values = self.dates_table.loc[pygem_prms.gcm_spinupyears*12:self.dates_table.shape[0]+1,'date'].tolist()
         self.time_values = [cftime.DatetimeNoLeap(x.year, x.month, x.day) for x in self.time_values]
@@ -98,7 +92,22 @@ class single_glacier:
         self.year_values = np.concatenate((self.year_values, np.array([self.annual_columns[-1] + 1])))
 
     def model_params_record(self):
-        pass
+        substrings = ['user_info', 'rgi', 'glac_n', 'fp', 'fn', 'filepath', 'directory','url','logging','overwrite','hugonnet']  # substrings to look for in pygem_prms that don't necessarily need to store
+        # get all locally defined variables from the pygem_prms, excluding imports, functions, and classes
+        self.mdl_params_dict = {
+            var: value 
+            for var, value in vars(pygem_prms).items() 
+            if not var.startswith('__') and 
+            not isinstance(value, (types.ModuleType, types.FunctionType, type)) and 
+            not any(substring.lower() in var.lower() for substring in substrings)
+        }
+        # overwrite variables that are possibly different from pygem_input
+        self.mdl_params_dict['gcm_bc_startyear'] = self.gcm_bc_startyear
+        self.mdl_params_dict['gcm_startyear'] = self.gcm_startyear
+        self.mdl_params_dict['gcm_endyear'] = self.gcm_endyear
+        self.mdl_params_dict['gcm_name'] = self.gcm_name
+        self.mdl_params_dict['realization'] = self.realization
+        self.mdl_params_dict['scenario'] = self.scenario
 
     def init_dicts(self):
         # Boilerplate coordinate and attribute dictionaries - these will be the same for both glacier-wide and binned outputs
@@ -179,9 +188,10 @@ class single_glacier:
         self.output_xr_ds['Area'].values = np.array([self.glacier_rgi_table.Area * 1e6])
     
         self.output_xr_ds.attrs = {'source': f'PyGEMv{self.pygem_version}',
-                        'institution': self.user_info['institution'],
-                        'history': f'Created by {self.user_info["name"]} ({self.user_info["email"]}) on ' + datetime.today().strftime('%Y-%m-%d'),
-                        'references': 'doi:10.3389/feart.2019.00331 and doi:10.1017/jog.2019.91'}
+                        'institution': pygem_prms.user_info['institution'],
+                        'history': f'Created by {pygem_prms.user_info["name"]} ({pygem_prms.user_info["email"]}) on ' + datetime.today().strftime('%Y-%m-%d'),
+                        'references': 'doi:10.3389/feart.2019.00331 and doi:10.1017/jog.2019.91',
+                        'model_parameters':json.dumps(self.mdl_params_dict)}
 
     def get_xr_ds(self):
         return self.output_xr_ds
@@ -198,7 +208,6 @@ class glacierwide_stats(single_glacier):
     """
     Single glacier-wide statistics dataset
     """
-    extra_vars : bool
 
     def __post_init__(self):
         super().__post_init__()         # call parent class __post_init__ (get glacier values, time stamps, and instantiate output dictionaries that will form netcdf file output)
@@ -302,7 +311,7 @@ class glacierwide_stats(single_glacier):
                                                         'temporal_resolution': 'monthly',
                                                         'comment': 'off-glacier runoff from area where glacier no longer exists'}
             
-        if self.extra_vars:
+        if pygem_prms.export_extra_vars:
             self.output_coords_dict['glac_prec_monthly'] = collections.OrderedDict([('glac', self.glac_values), 
                                                                             ('time',  self.time_values)])
             self.output_attrs_dict['glac_prec_monthly'] = {
