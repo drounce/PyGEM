@@ -182,6 +182,7 @@ class energyBalance():
 
         # get reflected radiation
         if self.nanSWout:
+            albedo = albedo[0] if len(spectral_weights) < 2 else albedo
             SWout = -np.sum(SWin_sky*spectral_weights*albedo)
         else:
             SWout = -self.SWout_ds/self.dt

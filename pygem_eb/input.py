@@ -39,31 +39,43 @@ glac_props = {'01.00570':{'name':'Gulkana',
                             'site_elev':4797,
                             'AWS_fn':'Preprocessed/artesonraju/Artesonraju_hourly.csv'}}
 
-dynamics = False
-if dynamics:
-    gdir = oggm.single_flowline_glacier_directory(glac_no[0], logging_level='CRITICAL') #,has_internet=False
-    all_fls = oggm.get_glacier_zwh(gdir)
-    fls = all_fls.iloc[np.nonzero(all_fls['h'].to_numpy())] # remove empty bins
-    bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
-    bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
-    bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
-elif glac_no == ['01.00570']:
-    # Gulkana runs have specific sites with associated elevation / shading
-    site = 'AB'
-    gulkana_site_elev = {'AU':1442,'AB':1542,'B':1682,'D':1843}
-    bin_elev = np.array([gulkana_site_elev[site]])
-    bin_ice_depth = np.ones(len(bin_elev)) * 200
-else:
-    print('Taking AWS elevation')
-    bin_elev = np.array([glac_props[glac_no[0]]['site_elev']])
-    bin_ice_depth = np.ones(len(bin_elev)) * 200
+# WAYS OF MAKING BIN_ELEV
+# dynamics = False
+# if dynamics:
+#     gdir = oggm.single_flowline_glacier_directory(glac_no[0], logging_level='CRITICAL') #,has_internet=False
+#     all_fls = oggm.get_glacier_zwh(gdir)
+#     fls = all_fls.iloc[np.nonzero(all_fls['h'].to_numpy())] # remove empty bins
+#     bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
+#     bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
+#     bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
+# else:
+#     print('Taking AWS elevation')
+#     bin_elev = np.array([glac_props[glac_no[0]]['site_elev']])
+#     bin_ice_depth = np.ones(len(bin_elev)) * 200
 # bin_elev = np.array([1270,1385,1470,1585,1680,1779]) # From Takeuchi 2009
 # bin_elev = np.array([1526,1693,1854])
 # bin_ice_depth = np.ones(len(bin_elev)) * 200
+if glac_no == ['01.00570']:
+    # Gulkana runs have specific sites with associated elevation / shading
+    site = 'B'
+    site_fp = os.path.join(os.getcwd(),'pygem_eb/data/site_constants.csv')
+    site_df = pd.read_csv(site_fp,index_col='site')
+    bin_elev = [site_df.loc[site]['elevation']]
+    kp = site_df.loc[site]['kp']
+    sky_view = site_df.loc[site]['sky_view']
+    bin_ice_depth = np.ones(len(bin_elev)) * 200
+    initial_snowdepth = [site_df.loc[site]['snowdepth']]
+    initial_firndepth = [site_df.loc[site]['firndepth']]
+
+start_snow = False  # initialize with snow
+if not start_snow: # layers will be isothermal ice
+    initial_snowdepth = np.array([0] * n_bins).ravel()
+
+
 assert len(bin_elev) == n_bins, 'Check n_bins in input'
 
 # ========== DIRECTORIES AND FILEPATHS ========== 
-machine = 'Torch'
+machine = 'Campfire'
 main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 output_sim_fp = output_filepath + 'simulations/'
@@ -133,7 +145,7 @@ print(f'Running {n_bins} bin(s) at {bin_elev} m a.s.l. for {n_months} months sta
 initialize_water = 'zero_w0'        # 'zero_w0' or 'initial_w0'
 initialize_temp = 'interp'          # 'piecewise' or 'interp'
 initialize_dens = 'interp'          # 'piecewise' or 'interp'
-surftemp_guess =  -10               # guess for surface temperature of first timestep
+surftemp_guess =  -10                 # guess for surface temperature of first timestep
 initial_snowdepth = [2.18]*n_bins    # initial depth of snow; array of length n_bins
 initial_firndepth = [0]*n_bins      # initial depth of firn; array of length n_bins
 icelayers = 'multiple'              # 'single' or 'multiple'
@@ -162,7 +174,7 @@ method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
-constant_conductivity = False           # False or conductivity in W K-1 m-1
+constant_conductivity = True            # False or conductivity in W K-1 m-1
 constant_freshgrainsize = False         # False or grain size in um (54.5 is standard)
 
 # ALBEDO SWITCHES
@@ -204,7 +216,6 @@ precgrad = 0.0001           # precipitation gradient on glacier [m-1]
 lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
 snow_threshold_low = 0      # lower threshold for linear snow-rain scaling [C]
 snow_threshold_high = 1     # upper threshold for linear snow-rain scaling [C]
-kp = 0.8                    # precipitation factor [-] 
 albedo_ice = 0.2            # albedo of ice [-] 
 roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
 ksp_BC = 0.2                # 0.1-0.2 meltwater scavenging efficiency of BC (from CLM5)
@@ -214,9 +225,12 @@ layer_growth = 0.4          # Rate of exponential growth of bin size (smaller la
 k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 roughness_aging_rate = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 albedo_TOD = [12]            # Time of day to calculate albedo [hr]
-initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
+initSSA = 80                 # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
 dry_metamorphism_rate = 1e-4 # Dry metamorphism grain size growth rate [um s-1]
 dep_factor = 0.5
+if glac_no != ['01.00570']:
+    kp = 0.8                    # precipitation factor [-] 
+    sky_view = 0.953            # sky-view factor [-]
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]
@@ -267,7 +281,6 @@ ratio_DU_bin3 = 0.481675    # " SNICAR Bin 3 (1.25-2.5um)
 ratio_DU_bin4 = 0.203786    # " SNICAR Bin 4 (2.5-5um)
 ratio_DU_bin5 = 0.034       # " SNICAR Bin 5 (5-50um)
 diffuse_cloud_limit = 0.6   # Threshold to consider cloudy vs clear-sky in SNICAR
-sky_view = 0.953
 
 # ========== OTHER PYGEM INPUTS ========== 
 rgi_regionsO1 = [1]
