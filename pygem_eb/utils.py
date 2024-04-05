@@ -1,8 +1,8 @@
 import numpy as np
 import xarray as xr
+import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 import pygem_eb.input as eb_prms
-
 
 class Utils():
     """
@@ -48,6 +48,14 @@ class Utils():
         
         return temp, tp, sp
     
+    def adjust_temp_bias(self,climateds):
+        diff_df = pd.read_csv(eb_prms.temp_bias_fp)
+        for month in diff_df.index:
+            diff = diff_df.loc[month]['diff']
+            idx = np.where(climateds.coords['time'].dt.month.values == month)[0]
+            climateds['bin_temp'][{'time':idx}] = climateds['bin_temp'][{'time':idx}] + diff
+        return climateds
+
     def getVaporPressure(self,tempC):
         """
         Returns vapor pressure in Pa from air temperature in Celsius

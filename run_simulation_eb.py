@@ -173,6 +173,11 @@ def initialize_model(glac_no,args,debug=True):
             bin=(['bin'],bin_idx),
             time=(['time'],dates)
             ))
+    
+    # adjust MERRA-2 temperature bias (varies by month of the year)
+    if eb_prms.climate_input == 'GCM' and eb_prms.ref_gcm_name == 'MERRA2':
+        climateds = utils.adjust_temp_bias(climateds)
+
     return climateds,dates,utils
 
 def run_model(climateds,dates,utils,args,new_attrs):

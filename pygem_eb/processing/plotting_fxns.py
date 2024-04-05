@@ -43,13 +43,13 @@ varprops = {'surftemp':{'label':'Surface temp','type':'Temperature','units':'C'}
            'layertemp':{'label':'Layer temp','type':'Layers','units':'C'},
            'layerdensity':{'label':'Density','type':'Layers','units':'kg m$^{-3}$'},
            'layerwater':{'label':'Water Content','type':'Layers','units':'kg m$^{-2}$'},
-           'layerBC':{'label':'BC Concentration','type':'Layers','units':'ppb'},
-           'layerdust':{'label':'Dust Concentration','type':'Layers','units':'ppm'},
+           'layerBC':{'label':'BC Conc.','type':'Layers','units':'ppb'},
+           'layerdust':{'label':'Dust Conc.','type':'Layers','units':'ppm'},
            'layergrainsize':{'label':'Grain size','type':'Layers','units':'um'},
            'layerheight':{'label':'Layer height','type':'Layers','units':'m'},
            'snowdepth':{'label':'Snow depth','type':'MB','units':'m'},
            'dh':{'label':'Surface height change','type':'MB','units':'m$'},
-           'albedo':{'label':'Albedo','type':'Albedo','units':''},}
+           'albedo':{'label':'Albedo','type':'Albedo','units':'-'},}
 AWS_vars = {'temp':{'label':'Temperature','units':'C'},
              'wind':{'label':'Wind Speed','units':'m s$^{-1}$'},
              'rh':{'label':'Relative Humidity','units':'%'},

@@ -50,7 +50,7 @@ class Surface():
             self.albedo_df = pd.DataFrame(np.zeros((0,480)),columns=bands)
         return
     
-    def updateSurfaceDaily(self,layers,airtemp,time):
+    def updateSurfaceDaily(self,layers,airtemp,surftemp,time):
         """
         Updates daily-evolving surface properties (grain size,
         surface type and days since snowfall)
@@ -64,7 +64,7 @@ class Surface():
         """
         self.stype = layers.ltype[0]
         if self.args.switch_melt == 2 and layers.nlayers > 2:
-            layers.getGrainSize(airtemp)
+            layers.getGrainSize(airtemp,surftemp)
         self.days_since_snowfall = (time - self.snow_timestamp)/pd.Timedelta(days=1)
         self.getSurrAlbedo(layers,time)
         return

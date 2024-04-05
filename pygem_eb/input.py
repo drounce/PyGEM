@@ -3,6 +3,7 @@ import os
 # External libraries
 import numpy as np
 import pandas as pd
+import xarray as xr
 import pygem.oggm_compat as oggm
 
 debug=True           # Print monthly outputs?
@@ -57,7 +58,7 @@ glac_props = {'01.00570':{'name':'Gulkana',
 # bin_ice_depth = np.ones(len(bin_elev)) * 200
 if glac_no == ['01.00570']:
     # Gulkana runs have specific sites with associated elevation / shading
-    site = 'B'
+    site = 'AB'
     site_fp = os.path.join(os.getcwd(),'pygem_eb/data/site_constants.csv')
     site_df = pd.read_csv(site_fp,index_col='site')
     bin_elev = [site_df.loc[site]['elevation']]
@@ -67,10 +68,9 @@ if glac_no == ['01.00570']:
     initial_snowdepth = [site_df.loc[site]['snowdepth']]
     initial_firndepth = [site_df.loc[site]['firndepth']]
 
-start_snow = False  # initialize with snow
+start_snow = True  # initialize with snow
 if not start_snow: # layers will be isothermal ice
     initial_snowdepth = np.array([0] * n_bins).ravel()
-
 
 assert len(bin_elev) == n_bins, 'Check n_bins in input'
 
@@ -100,6 +100,7 @@ initial_temp_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBtemp.csv'
 initial_density_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBdensity.csv'
 snicar_input_fp = main_directory + '/biosnicar-py/src/biosnicar/inputs.yaml'
 shading_fp = f'/home/claire/GulkanaDEM/Out/Gulkana{site}_shade.csv'
+temp_bias_fp = main_directory + '/pygem_eb/data/Gulkana_MERRA2_temp_diff.csv'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
 climate_input = 'GCM' # 'GCM' or 'AWS'
@@ -171,11 +172,12 @@ method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_percolation = 'w_LAPs'           # 'w_LAPs' or 'no_LAPs'
 method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'
+method_grainsizetable = 'interpolate'
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
-constant_conductivity = True            # False or conductivity in W K-1 m-1
-constant_freshgrainsize = False         # False or grain size in um (54.5 is standard)
+constant_conductivity = 2.33            # False or conductivity in W K-1 m-1
+constant_freshgrainsize = 54.5          # False or grain size in um (54.5 is standard)
 
 # ALBEDO SWITCHES
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
@@ -210,6 +212,7 @@ albedo_out_fp = main_directory + '/../Output/EB/albedo.csv'
 # solar_coef = np.array([0.71,0.23,0.08])
 # solar_coef = np.array([1])
 # assert len(solar_coef) == len(band_indices), 'Check size of albedo band inputs is consistent'
+grainsize_ds = xr.open_dataset(grainsize_fp)
 
 # ========== PARAMETERS ==========
 precgrad = 0.0001           # precipitation gradient on glacier [m-1]
@@ -231,6 +234,7 @@ dep_factor = 0.5
 if glac_no != ['01.00570']:
     kp = 0.8                    # precipitation factor [-] 
     sky_view = 0.953            # sky-view factor [-]
+kp = 0.8
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]

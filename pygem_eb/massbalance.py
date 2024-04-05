@@ -78,7 +78,7 @@ class massBalance():
 
             # Update daily properties
             if time.hour == 0: 
-                surface.updateSurfaceDaily(layers,enbal.tempC,time)
+                surface.updateSurfaceDaily(layers,enbal.tempC,surface.stemp,time)
                 self.days_since_snowfall = surface.days_since_snowfall
                 layers.lnewsnow = np.zeros(layers.nlayers)
             if time.hour in eb_prms.albedo_TOD:
