@@ -132,7 +132,7 @@ def simple_plot(ds,bin,time,vars,res='d',t='',
                 axis.plot(ds_mean.coords['time'],var_to_plot,color=c,label=var)
                 axis.set_ylabel(varprops[var]['label'])
 
-        axis.legend(bbox_to_anchor=(1.01,1),temploc='upper left')
+        axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
     date_form = mpl.dates.DateFormatter('%d %b')
     axis.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)

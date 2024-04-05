@@ -35,7 +35,7 @@ class Surface():
                             'firn':eb_prms.albedo_firn,
                             'ice':eb_prms.albedo_ice}
         self.bba = self.albedo_dict[self.stype]
-        self.albedo = self.bba
+        self.albedo = [self.bba]
         self.spectral_weights = np.ones(1)
 
         # Get shading df and initialize surrounding albedo
