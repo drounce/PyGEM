@@ -22,6 +22,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
+dynamic = ["license", "dependencies"]
 
 [project.urls]
 "Homepage" = "https://github.com/drounce/PyGEM"

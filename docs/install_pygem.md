@@ -6,7 +6,6 @@ The model is stored in two repositories [(see model structure)](model_structure_
 A conda environment is a directory that contains a specific collection of installed packages. The use of environments reduces issues caused by package dependencies. The model is designed to be compatible with OGGM. We therefore get started by following the [installation instructions from OGGM](https://docs.oggm.org/en/stable/installing-oggm.html).
 
 Once your conda environment is setup for OGGM, add the core of PyGEM using pip.
-
 ```
 pip install pygem
 ```
@@ -14,14 +13,16 @@ pip install pygem
 This will provide you with a conda environment that has the basic functionality to run simple calibration options (e.g., 'HH2015', 'HH2015mod') and simulations. If you want to use the emulators and Bayesian inference, the advanced environment is required.
 
 ### Developing PyGEM
-Are you interested in developing PyGEM? If so, we recommend uninstalling pygem, forking the [PyGEM's github repository](https://github.com/drounce/PyGEM) and then [cloning the github repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) onto your local machine.
+Are you interested in developing PyGEM? If so, we recommend forking the [PyGEM's github repository](https://github.com/PyGEM-Community/PyGEM) and then [cloning the github repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) onto your local machine.
 
+Note, if PyGEM was already installed via PyPI, first uninstall:
 ```
 pip uninstall pygem
-git clone https://github.com/drounce/PyGEM.git
+````
+
+You can then use pip to install your locally cloned fork of PyGEM in 'editable' mode like so:
 ```
-```{warning}
-The directory structure here is important. The cloned <em>PyGEM</em> directory should be on the same level as the <em>PyGEM-scripts</em>.
+pip install -e /path/to/your/PyGEM/clone
 ```
 
 ### Advanced environment: GPyTorch (emulator only)
@@ -64,7 +65,7 @@ The only way to find out if your package dependencies work is to test it by runn
 
 
 ## Install PyGEM-Scripts
-The scripts that are used to run PyGEM are located in the [PyGEM-Scripts repository](https://github.com/drounce/PyGEM-scripts) on github. To run the model, you can either (i) clone the repository or (ii) fork the repository to develop/add your own scripts. For instructions, follow github’s instructions on [cloning](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) or [forking a repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo). Once the repository is installed on your local machine, you can run the model from this directory.
+The scripts that are used to run PyGEM are located in the [PyGEM-Scripts repository](https://github.com/PyGEM-Community/PyGEM-scripts) on github. To run the model, you can either (i) clone the repository or (ii) fork the repository to develop/add your own scripts. For instructions, follow github’s instructions on [cloning](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) or [forking a repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo). Once the repository is installed on your local machine, you can run the model from this directory.
 
 ```{note}
 Be sure that your [directory structure](directory_structure_target) is setup properly before you try running the model!
