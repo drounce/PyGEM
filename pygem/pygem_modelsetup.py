@@ -56,7 +56,7 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
     if pygem_prms.timestep == 'monthly':
         # Automatically generate dates from start date to end data using a monthly frequency (MS), which generates
         # monthly data using the 1st of each month'
-        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS', unit='s')})
+        dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS')})
         # Select attributes of DateTimeIndex (dt.year, dt.month, and dt.daysinmonth)
         dates_table['year'] = dates_table['date'].dt.year
         dates_table['month'] = dates_table['date'].dt.month
