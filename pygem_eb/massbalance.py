@@ -538,8 +538,10 @@ class massBalance():
         """
         # CONSTANTS
         GRAVITY = eb_prms.gravity
+        R = eb_prms.R_gas
         VISCOSITY_SNOW = eb_prms.viscosity_snow
         DENSITY_FRESH_SNOW = eb_prms.density_fresh_snow
+        DENSITY_ICE = eb_prms.density_ice
         dt = eb_prms.daily_dt
 
         # LAYERS IN
@@ -572,17 +574,26 @@ class massBalance():
             layers.lheight = ldm / lp
             layers.updateLayerProperties('depth')
 
-        # DEBAM method
-        elif eb_prms.method_densification in ['DEBAM']:
-            # get change in height and recalculate density from resulting compression
-            for layer,height in enumerate(lh[snowfirn_idx]):
-                weight_above = eb_prms.gravity*np.sum(ldm[:layer]+lw[:layer])
-                dh = height*weight_above/VISCOSITY_SNOW/dt
-                lh[layer] -= dh
+        # Herron Langway (1980) method
+        elif eb_prms.method_densification in ['HerronLangway']:
+            # yearly accumulation is the maximum layer snow mass in mm w.e. yr-1
+            a = layers.max_snow / (dt*365) # kg m-2 = mm w.e.
+            k = np.zeros_like(lp)
+            b = np.zeros_like(lp)
+            for layer,density in enumerate(lp[snowfirn_idx]):
+                lTK = lT[layer] + 273.15
+                if density < 550:
+                    b[layer] = 1
+                    k[layer] = 11*np.exp(-10160/(R*lTK))
+                else:
+                    b[layer] = 0.5
+                    k[layer] = 575*np.exp(-21400/(R*lTK))
+            dRho = k*a**b*(DENSITY_ICE - lp)/DENSITY_ICE*dt
+            lp += dRho
 
             # LAYERS OUT
-            layers.ldensity = ldm / lh
-            layers.lheight = lh
+            layers.ldensity = lp
+            layers.lheight = ldm / lp
             layers.updateLayerProperties('depth')
 
         # Check if new firn or ice layers were created

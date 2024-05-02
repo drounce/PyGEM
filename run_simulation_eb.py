@@ -12,8 +12,11 @@ import pygem_eb.massbalance as mb
 import pygem.pygem_modelsetup as modelsetup
 import pygem_eb.utils as utilities
 
+# Start timer
+start_time = time.time()
+
 # ===== INITIALIZE UTILITIES =====
-def getparser():
+def get_args():
     parser = argparse.ArgumentParser(description='pygem-eb model runs')
     # add arguments
     parser.add_argument('-glac_no', action='store', default=eb_prms.glac_no,
@@ -42,7 +45,8 @@ def getparser():
     parser.add_argument('-switch_snow',action='store', type=int,
                         default=eb_prms.switch_snow, help='')
     parser.add_argument('-f', '--fff', help='dummy arg to fool ipython', default='1')
-    return parser
+    args = parser.parse_args()
+    return args
 
 def initialize_model(glac_no,args,debug=True):
     """
@@ -181,9 +185,6 @@ def initialize_model(glac_no,args,debug=True):
     return climateds,dates,utils
 
 def run_model(climateds,dates,utils,args,new_attrs):
-    # Start timer
-    start_time = time.time()
-
     # ===== RUN ENERGY BALANCE =====
     if eb_prms.parallel:
         def run_mass_balance(bin):
@@ -216,8 +217,7 @@ def run_model(climateds,dates,utils,args,new_attrs):
     
     return ds_out
 
-parser = getparser()
-args = parser.parse_args()
+args = get_args()
 for gn in args.glac_no:
     climateds,dates,utils = initialize_model(gn,args)
     out = run_model(climateds,dates,utils,args,{'Run By':eb_prms.machine})

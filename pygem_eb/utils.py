@@ -49,11 +49,11 @@ class Utils():
         return temp, tp, sp
     
     def adjust_temp_bias(self,climateds):
-        diff_df = pd.read_csv(eb_prms.temp_bias_fp)
-        for month in diff_df.index:
-            diff = diff_df.loc[month]['diff']
+        bias_df = pd.read_csv(eb_prms.temp_bias_fp)
+        for month in bias_df.index:
+            bias = bias_df.loc[month]['bias']
             idx = np.where(climateds.coords['time'].dt.month.values == month)[0]
-            climateds['bin_temp'][{'time':idx}] = climateds['bin_temp'][{'time':idx}] + diff
+            climateds['bin_temp'][{'time':idx}] = climateds['bin_temp'][{'time':idx}] + bias
         return climateds
 
     def getVaporPressure(self,tempC):

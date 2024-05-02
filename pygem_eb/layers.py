@@ -73,7 +73,8 @@ class Layers():
         self.lrefreeze = np.zeros_like(self.ltemp)   # LAYER MASS OF REFREEZE [kg m-2]
         self.lnewsnow = np.zeros_like(self.ltemp)    # LAYER MASS OF NEW SNOW [kg m-2]
         self.delayed_snow = 0 # Initiate bucket for 'delayed snow' 
-
+        self.max_snow = np.sum(self.ldrymass[self.snow_idx])
+        
         print(f'{self.nlayers} layers initialized for bin {bin_no}')
         return 
     
@@ -114,7 +115,8 @@ class Layers():
             ltype.append('snow')
             layer += 1
             current_depth = np.sum(lheight)
-        lheight[-1] = lheight[-1] - (current_depth-snow_height)
+        if snow_height > 0:
+            lheight[-1] = lheight[-1] - (current_depth-snow_height)
     
         # Add firn layers
         if firn_height > 0.75:
@@ -554,7 +556,7 @@ class Layers():
                 dTdz = (self.ltemp[2]+273.15-surftempK) / self.ldepth[2]
                 dTdz = np.array([dTdz])
             # dTdz = np.ones_like(dTdz[bins]) * np.mean(np.abs(dTdz[bins]))
-            dTdz = np.abs(dTdz[bins])
+            dTdz = np.abs(dTdz)
 
             # Force to be within lookup table ranges******
             p[np.where(p > 400)[0]] = 400
@@ -564,7 +566,7 @@ class Layers():
             if eb_prms.method_grainsizetable in ['interpolate']:
                 # Interpolate lookup table at the values of T,dTdz,p
                 ds = eb_prms.grainsize_ds.copy(deep=True)
-                ds = ds.interp(TVals=T[bins].astype(float),
+                ds = ds.interp(TVals=T.astype(float),
                                DTDZVals=dTdz.astype(float),
                                DENSVals=p.astype(float))
                 # Extract values

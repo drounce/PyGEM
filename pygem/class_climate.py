@@ -531,7 +531,7 @@ class AWS():
         # Load file
         self.fn = fp
         df = pd.read_csv(fp,index_col=0)
-        df = df.set_index(pd.to_datetime(df['Datetime']))
+        df = df.set_index(pd.to_datetime(df.index))
 
         data_start = pd.to_datetime(df.index.to_numpy()[0])
         data_end = pd.to_datetime(df.index.to_numpy()[-1])

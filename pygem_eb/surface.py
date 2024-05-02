@@ -42,7 +42,6 @@ class Surface():
         self.shading_df = pd.read_csv(eb_prms.shading_fp,index_col=0)
         self.shading_df.index = pd.to_datetime(self.shading_df.index)
         self.albedo_surr = eb_prms.albedo_fresh_snow
-        self.max_snow = np.sum(layers.lheight[layers.snow_idx])
 
         # Output spectral albedo 
         if eb_prms.store_bands:
@@ -110,9 +109,11 @@ class Surface():
                 # CASE (2): Energy toward the surface
                 self.stemp = 0
                 Qm = Qm_check
-                if layers.ltemp[0] < 0.: # need to heat surface layer to 0.
+                if layers.ltemp[0] < 0.: 
+                    # need to heat surface layer to 0.
                     Qm_check = enbal.surfaceEB(self.stemp,layers,self,
                                                self.days_since_snowfall)
+                    # warm top layer
                     temp_change = Qm_check*dt/(HEAT_CAPACITY_ICE*layers.ldrymass[0])
                     layers.ltemp[0] += temp_change
 
@@ -121,23 +122,25 @@ class Surface():
                         # leave excess energy in the melt energy
                         Qm = layers.ltemp[0]*HEAT_CAPACITY_ICE*layers.ldrymass[0]/dt
                         layers.ltemp[0] = 0.
-                    # elif layers.nlayers < 2:
-                    #     Qm = Qm_check # don't remember why I had this
                     else:
                         Qm = 0
+
             elif cooling:
                 # CASE (3): Energy away from surface
                 if eb_prms.method_cooling in ['minimize']:
+                    # Run minimization on EB function
                     result = minimize(enbal.surfaceEB,self.stemp,
                                       method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
                                       args=(layers,self,self.days_since_snowfall,'optim'))
                     Qm = enbal.surfaceEB(result.x[0],layers,self,self.days_since_snowfall)
+                    # Check success and print warning 
                     if not result.success and abs(Qm) > 10:
                         print('Unsuccessful minimization, Qm = ',Qm)
                     else:
                         self.stemp = result.x[0]
 
                 elif eb_prms.method_cooling in ['iterative']:
+                    # Loop to iteratively calculate surftemp
                     loop = True
                     n_iters = 0
                     while loop:
@@ -171,6 +174,7 @@ class Surface():
         enbal.surfaceEB(self.stemp,layers,self,self.days_since_snowfall)
         self.Qm = Qm
         self.tcc = enbal.tcc
+
         return
 
     def getAlbedo(self,layers,time):
@@ -358,13 +362,13 @@ class Surface():
         ALBEDO_SNOW = eb_prms.albedo_fresh_snow
         # reset max snowdepth yearly
         if time.month + time.day + time.hour < 1:
-            self.max_snow = 0
+            layers.max_snow = 0
         # check if max_snow has been exceeded
-        current_snow = np.sum(layers.lheight[layers.snow_idx])
-        self.max_snow = max(current_snow, self.max_snow)
+        current_snow = np.sum(layers.ldrymass[layers.snow_idx])
+        layers.max_snow = max(current_snow, layers.max_snow)
         # scale surrounding albedo based on snowdepth
         albedo_surr = np.interp(current_snow,
-                                np.array([0, self.max_snow]),
+                                np.array([0, layers.max_snow]),
                                 np.array([ALBEDO_GROUND,ALBEDO_SNOW]))
         self.albedo_surr = albedo_surr
         return

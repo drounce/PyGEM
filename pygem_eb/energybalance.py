@@ -131,11 +131,7 @@ class energyBalance():
 
         # TURBULENT FLUXES (Qs and Ql)
         roughness = self.getRoughnessLength(days_since_snowfall,layers.ltype)
-        if eb_prms.method_turbulent in ['MO-similarity']:
-            Qs, Ql = self.getTurbulentMO(surftemp,roughness)
-        else:
-            print('Only MO similarity method is set up for turbulent fluxes')
-            Qs, Ql = self.getTurbulentMO(surftemp,roughness)
+        Qs, Ql = self.getTurbulent(surftemp,roughness)
         self.sens = Qs[0] if '__iter__' in dir(Qs) else Qs
         self.lat = Ql[0] if '__iter__' in dir(Qs) else Ql
 
@@ -183,7 +179,7 @@ class energyBalance():
         # get reflected radiation
         if self.nanSWout:
             albedo = albedo[0] if len(spectral_weights) < 2 else albedo
-            SWout = -np.sum(SWin_sky*spectral_weights*albedo)
+            SWout = -np.sum(SWin*spectral_weights*albedo)
         else:
             SWout = -self.SWout_ds/self.dt
 
@@ -267,10 +263,11 @@ class energyBalance():
             assert 1==0, 'Ground flux method not accepted; choose from [\'MolgHardy\']'
         return Qg
     
-    def getTurbulentMO(self,surftemp,roughness):
+    def getTurbulent(self,surftemp,roughness):
         """
         Calculates turbulent fluxes (sensible and latent heat) based on 
-        Monin-Obukhov Similarity Theory, requiring iteration.
+        Monin-Obukhov Similarity Theory or Bulk Richardson number, 
+        both requiring iteration.
         Follows COSIPY.
 
         Parameters
@@ -288,8 +285,8 @@ class energyBalance():
         CP_AIR = eb_prms.Cp_air
 
         # ROUGHNESS LENGTHS
-        z0 = roughness
-        z0t = z0/100    # Roughness length for sensible heat
+        z0 = roughness  # Roughness length for momentum
+        z0t = z0/100    # Roughness length for heat
         z0q = z0/10     # Roughness length for moisture
 
         # UNIVERSAL FUNCTIONS
@@ -299,11 +296,13 @@ class energyBalance():
                             -5*zeta, -4*(1+np.log(zeta))-zeta])
         PsiT = lambda zeta: np.piecewise(zeta,[zeta<0,(zeta>=0)&(zeta<=1),zeta>1],
                             [np.log((1+chi(zeta)**2)/2), -5*zeta, -4*(1+np.log(zeta))-zeta])
-        
+        PsiRich = lambda Ri: np.piecewise(Ri,[Ri<0.01,(Ri<=0.01)&(Ri<=0.2),Ri>0.2],
+                            [1,(1-5*Ri)**2,0])
+
         # ADJUST WIND SPEED
         z = 2 # reference height in m
         if eb_prms.wind_ref_height != 2:
-            wind *= np.log(2/roughness) / np.log(eb_prms.wind_ref_height/roughness)
+            self.wind *= np.log(2/roughness) / np.log(eb_prms.wind_ref_height/roughness)
 
         # Transform humidity into mixing ratio (q), get air density from PV=nRT
         Ewz = self.vapor_pressure(self.tempC)  # vapor pressure at 2m
@@ -317,10 +316,16 @@ class energyBalance():
         zeta = 1e-5 # initial guess, neutral stratification (close to 0 to avoid log issues)
 
         # Use initial guess to calculate coefficients and fluxes
-        L = z / zeta
-        cD = KARMAN**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
-        cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
-        cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
+        if eb_prms.method_turbulent in ['MO-similarity']:
+            L = z / zeta
+            cD = KARMAN**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
+            cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
+            cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
+        elif eb_prms.method_turbulent in ['BulkRichardson']:
+            RICHARDSON = GRAVITY/self.tempK*(self.tempC-surftemp)*(z-z0t)/self.wind**2
+            PSI = PsiRich(RICHARDSON)
+            cH = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0t))
+            cE = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0q))
         Qs = density_air*CP_AIR*cH*self.wind*(self.tempC-surftemp)
         Ql = density_air*eb_prms.Lv_evap*cE*self.wind*(qz-q0)
         
@@ -338,14 +343,20 @@ class energyBalance():
             # Calculate friction velocity using previous heat flux to get Obukhov length (L)
             fric_vel = KARMAN*self.wind/(np.log(z/z0)-PsiM(zeta))
             Qs = 1e-5 if Qs == 0 else Qs # divide by 0 issue
-            L = fric_vel**3*(self.tempC+273.15)*density_air*CP_AIR/(KARMAN*GRAVITY*Qs)
+            L = fric_vel**3*(self.tempK)*density_air*CP_AIR/(KARMAN*GRAVITY*Qs)
             L = max(L,0.3)  # DEBAM uses this correction to ensure it isn't over stablizied
             zeta = z/L
                 
-            # Calculate 
-            cD = KARMAN**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
-            cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
-            cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
+            # Calculate stability factors
+            if eb_prms.method_turbulent in ['MO-similarity']:
+                cD = KARMAN**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
+                cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
+                cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
+            elif eb_prms.method_turbulent in ['BulkRichardson']:
+                RICHARDSON = GRAVITY/self.tempK*(self.tempC-surftemp)*(z-z0)/self.wind**2
+                PSI = PsiRich(RICHARDSON)
+                cH = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0t))
+                cE = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0q))
 
             # Calculate fluxes
             Qs = density_air*CP_AIR*cH*self.wind*(self.tempC-surftemp)
@@ -354,7 +365,7 @@ class energyBalance():
             count_iters += 1
             if count_iters > 10 or abs(previous_zeta - zeta) < .1:
                 loop = False
-
+        # print(self.time,Qs,Ql)
         return Qs, Ql
     
     def getDryDeposition(self, layers):

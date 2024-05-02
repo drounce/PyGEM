@@ -7,7 +7,7 @@ import xarray as xr
 import pygem.oggm_compat as oggm
 
 debug=True           # Print monthly outputs?
-store_data=True      # Save file?
+store_data=False      # Save file?
 new_file=True        # Write to scratch file?
 
 # ========== USER OPTIONS ========== 
@@ -19,7 +19,7 @@ timezone = pd.Timedelta(hours=-9)           # GMT time zone
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
                         #   'AWS_fn':'Preprocessed/gulkana/gulkana_all_merra2.csv',
-                            'AWS_fn':'Preprocessed/gulkanaD/gulkana_merra2.csv', # gulkanaD_wERA5.csv
+                            'AWS_fn':'Preprocessed/gulkana_2023.csv', # ulkanaD/gulkana_merra2.csv', # gulkanaD_wERA5.csv
                             # 'AWS_elev':1854,
                             'site_elev':1693, # 1854 is D, B is 1693, AB is 1546
                             'init_filepath':''},
@@ -49,10 +49,7 @@ glac_props = {'01.00570':{'name':'Gulkana',
 #     bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
 #     bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
 #     bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
-# else:
-#     print('Taking AWS elevation')
-#     bin_elev = np.array([glac_props[glac_no[0]]['site_elev']])
-#     bin_ice_depth = np.ones(len(bin_elev)) * 200
+
 # bin_elev = np.array([1270,1385,1470,1585,1680,1779]) # From Takeuchi 2009
 # bin_elev = np.array([1526,1693,1854])
 # bin_ice_depth = np.ones(len(bin_elev)) * 200
@@ -68,14 +65,10 @@ if glac_no == ['01.00570']:
     initial_snowdepth = [site_df.loc[site]['snowdepth']]
     initial_firndepth = [site_df.loc[site]['firndepth']]
 
-start_snow = True  # initialize with snow
-if not start_snow: # layers will be isothermal ice
-    initial_snowdepth = np.array([0] * n_bins).ravel()
-
 assert len(bin_elev) == n_bins, 'Check n_bins in input'
 
 # ========== DIRECTORIES AND FILEPATHS ========== 
-machine = 'Campfire'
+machine = 'Torch'
 main_directory = os.getcwd()
 output_filepath = main_directory + '/../Output/'
 output_sim_fp = output_filepath + 'simulations/'
@@ -100,7 +93,7 @@ initial_temp_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBtemp.csv'
 initial_density_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBdensity.csv'
 snicar_input_fp = main_directory + '/biosnicar-py/src/biosnicar/inputs.yaml'
 shading_fp = f'/home/claire/GulkanaDEM/Out/Gulkana{site}_shade.csv'
-temp_bias_fp = main_directory + '/pygem_eb/data/Gulkana_MERRA2_temp_diff.csv'
+temp_bias_fp = main_directory + '/pygem_eb/data/Gulkana_MERRA2_temp_bias.csv'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
 climate_input = 'GCM' # 'GCM' or 'AWS'
@@ -110,7 +103,6 @@ if climate_input in ['AWS']:
     AWS_fn = AWS_fp+glac_props[glac_no[0]]['AWS_fn']
     glac_name = glac_props[glac_no[0]]['name']
     n_bins = 1
-    bin_elev = [int(glac_props[glac_no[0]]['site_elev'])]
     assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
     wind_ref_height = 2
 elif climate_input in ['GCM']:
@@ -122,11 +114,13 @@ elif climate_input in ['GCM']:
 dates_from_data = True
 if dates_from_data and climate_input in ['AWS']:
     cdf = pd.read_csv(AWS_fn,index_col=0)
-    cdf = cdf.set_index(pd.to_datetime(cdf['Datetime']))
+    cdf = cdf.set_index(pd.to_datetime(cdf.index))
+    if glac_no != ['01.00570']:
+        bin_elev = cdf['z'][0]
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
 else:
-    startdate = pd.to_datetime('2023-04-20 00:30') 
+    startdate = pd.to_datetime('2023-04-21 00:30') 
     enddate = pd.to_datetime('2023-08-20 00:30')
     # startdate = pd.to_datetime('2023-04-21 00:30')    # Gulkana AWS dates
     # enddate = pd.to_datetime('2023-08-09 00:30')
@@ -156,6 +150,11 @@ initial_firndepth = np.zeros(n_bins)
 if n_bins > 2:
     initial_firndepth[-1] = 1
 
+start_snow = True  # initialize with snow
+if not start_snow: # layers will be isothermal ice
+    initial_snowdepth = np.array([0] * n_bins).ravel()
+    startdate = pd.to_datetime('2023-07-08 00:30') 
+
 # OUTPUT
 store_vars = ['MB','EB','Temp','Layers']  # Variables to store of the possible set: ['MB','EB','Temp','Layers']
 storage_freq = 'H'      # Frequency to store data using pandas offset aliases
@@ -165,9 +164,9 @@ dt = 3600                   # Model timestep [s]
 dt_heateq = 3600/5          # Time resolution of heat eq [s], should be integer multiple of 3600s so data can be stored on the hour
 
 # METHODS
-method_turbulent = 'MO-similarity'      # 'MO-similarity' 
+method_turbulent = 'MO-similarity'     # 'MO-similarity' or 'BulkRichardson' 
 method_heateq = 'Crank-Nicholson'       # 'Crank-Nicholson'
-method_densification = 'DEBAM'          # 'Boone', or 'DEBAM'
+method_densification = 'HerronLangway'  # 'Boone' (maybe broken?) or 'HerronLangway'
 method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_percolation = 'w_LAPs'           # 'w_LAPs' or 'no_LAPs'
@@ -207,7 +206,7 @@ band_indices = {}
 #     band_indices['Band '+str(i)] = idx_list
 for i in np.arange(0,480):
     band_indices['Band '+str(i)] = np.array([i])
-store_bands = True
+store_bands = False
 albedo_out_fp = main_directory + '/../Output/EB/albedo.csv'
 # solar_coef = np.array([0.71,0.23,0.08])
 # solar_coef = np.array([1])

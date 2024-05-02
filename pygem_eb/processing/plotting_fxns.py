@@ -63,7 +63,7 @@ def getds(file):
     end = pd.to_datetime(ds.indexes['time'].to_numpy()[-1])
     return ds,start,end
 
-def simple_plot(ds,bin,time,vars,res='d',t='',
+def simple_plot(ds,bin,time,vars,res='d',t='',cumMB=True,
                 skinny=True,save_fig=False,new_y=['None']):
     """
     Returns a simple timeseries plot of the variables as lumped in the input.
@@ -115,7 +115,7 @@ def simple_plot(ds,bin,time,vars,res='d',t='',
                 c_iter = iter([plt.cm.Dark2(i) for i in range(8)])
                 c = next(c_iter)
         
-            if var in ['melt','runoff','accum','refreeze','dh']:
+            if var in ['melt','runoff','accum','refreeze','dh'] and cumMB:
                 var_to_plot = ds_sum[var].cumsum()
             elif 'layer' in var:
                 var_to_plot = ds_mean[var].isel(layer=0)
@@ -139,7 +139,44 @@ def simple_plot(ds,bin,time,vars,res='d',t='',
     if save_fig:
         plt.savefig('/home/claire/research/Output/ebfluxcomparison.png',dpi=150)
 
-def plot_stake_dh(stake_df,ds_list,time,labels,bin=0,t='Surface Height Change Comparison'):
+def plot_hours(ds,bin,time,vars,skinny=True,t='Hourly EB Outputs'):
+    h = 1.5 if skinny else 3
+    fig,axes = plt.subplots(len(vars),1,figsize=(7,h*len(vars)),sharex=True,layout='constrained')
+    ds['hour'] = (['time'],pd.to_datetime(ds['time'].values).hour)
+
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        time = pd.date_range(start,end,freq='h')
+    ds = ds.sel(time=time,bin=bin)
+    c_iter = iter([plt.cm.Dark2(i) for i in range(8)])
+    for i,v in enumerate(vars):
+        if len(vars) > 1:
+            axis = axes[i]
+        else:
+            axis = axes
+        vararray = np.array(v)
+        for var in vararray:
+            try:
+                c = next(c_iter)
+            except:
+                c_iter = iter([plt.cm.Dark2(i) for i in range(8)])
+                c = next(c_iter)
+        
+            var_hourly = []
+            for hour in np.arange(24):
+                ds_hour = ds.where(ds['hour'] == hour,drop=True)
+                if 'layer' in var:
+                    vardata = ds_hour.isel(layer=0)[var].to_numpy()
+                else:
+                    vardata = ds_hour[var].to_numpy()
+                hourly_mean = np.mean(vardata)
+                var_hourly.append(hourly_mean)
+            axis.plot(np.arange(24),var_hourly,label=var)
+            axis.legend()
+    fig.suptitle(t)
+
+def dh_vs_stake(stake_df,ds_list,time,labels=['Model'],bin=0,t='Surface Height Change Comparison'):
     """
     Returns a comparison of snow depth from the output datasets to stake data
 
@@ -177,7 +214,7 @@ def plot_stake_dh(stake_df,ds_list,time,labels,bin=0,t='Surface Height Change Co
     ax.set_ylabel('Surface Height Change [m]')
     fig.suptitle(t)
 
-def plot_stake_snowdepth(stake_df,ds_list,time,labels,bin=0,t='Snow Depth Comparison'):
+def snowdepth_vs_stake(stake_df,ds_list,time,labels,bin=0,t='Snow Depth Comparison'):
     """
     Returns a comparison of snow depth from the output datasets to stake data
 
@@ -337,12 +374,13 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
         if res != 'h':
             if var in ['melt','runoff','refreeze','accum','MB','dh']:
                 ds_resampled = ds.resample(time=res).sum()
+
                 to_plot = ds_resampled[var].sel(time=time).cumsum()
             elif 'layer' in var:
                 ds_resampled = ds.resample(time=res).mean()
                 to_plot = ds_resampled[var].sel(time=time,layer=0)
             else:
-                ds_resampled = ds.resample(time=res).mean()
+                ds_resampled = ds.resample(time='d').mean()
                 to_plot = ds_resampled[var].sel(time=time)
         else:
             if var in ['melt','runoff','refreeze','accum','MB']:
@@ -355,7 +393,7 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_ylabel(var)
-    # ax.legend()
+    ax.legend()
     fig.suptitle(t)
     return
 
@@ -438,6 +476,83 @@ def panel_dh_compare(ds_list,time,labels,units,stake_df,rows=2,t='',bin=0):
     fig.suptitle(t)
     plt.show()
     return
+
+def temp_vs_iButton(ds,temp_df,time,bin,plot_heights=[0.05,0.5],
+                    t='Modeled and measured snow temperatures'):
+    # define height above ice of iButtons initially
+    h0 = 3.5 - np.array([.1,.4,.8,1.2,1.6,2,2.4,2.8,3.2,3.49])
+    melt_out = pd.to_datetime(['2023-05-20 05:30:00','2023-05-23 14:30:00',
+                            '2023-06-11 10:30:00','2023-06-28 15:30:00',
+                            '2023-07-03 09:30:00','2023-07-11 17:30:00',
+                            '2023-07-18 12:30:00','2023-07-20 10:30:00',
+                            '2023-07-25 18:30:00','2023-07-28 15:30:00'])
+    if len(time) == 2:
+        start = pd.to_datetime(time[0])
+        end = pd.to_datetime(time[1])
+        end = min(pd.to_datetime('2023-05-23 00:00'),end)
+        time = pd.date_range(start,end,freq='h')
+    ds = ds.sel(time=time,bin=bin)
+    df = temp_df.resample('30min').interpolate().loc[time]
+
+    store = {'measured':[],'modeled':[],'measure_plot':[],'model_plot':[]}
+    for hour in time:
+        # get temperatures of buried iButtons
+        buried = np.where(melt_out > hour)[0]
+        temp_measure = np.flip(df.loc[hour].to_numpy()[buried])
+        height_measure = np.flip(h0[buried])
+        
+        # get modeled temperatures
+        # index snow layers
+        dens_model = ds.sel(time=hour)['layerdensity'].to_numpy()
+        dens_model[np.where(np.isnan(dens_model))[0]] = 1e5
+        snow = np.where(dens_model < 700)[0]
+        # include one extra layer for interpolating (will index out when stored)
+        snow = np.append(snow,snow[-1]+1).ravel()
+        # get height above ice
+        lheight = ds.sel(time=hour)['layerheight'].to_numpy()[snow]
+        icedepth = np.sum(lheight[:-1]) + lheight[-2] / 2
+        # get property and absolute depth
+        ldepth = np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
+        temp_model = np.flip(ds.sel(time=hour)['layertemp'].to_numpy()[snow])
+        height_model = np.flip(icedepth - ldepth)
+        
+        # interpolate measured temperatures to model heights
+        temp_measure_interp = np.interp(height_model[:-1],height_measure,temp_measure)
+        
+        # store x height above the ice for plotting
+        temp_measure_plot = np.interp(plot_heights,height_measure,temp_measure)
+        temp_model_plot = np.interp(plot_heights,height_model,temp_model)
+
+        # store
+        store['measured'].append(temp_measure_interp)
+        store['modeled'].append(temp_model[1:])
+        store['measure_plot'].append(temp_measure_plot)
+        store['model_plot'].append(temp_model_plot)
+    # get RMSE
+    def flatten(xss):
+        return np.array([x for xs in xss for x in xs])
+    measured = flatten(store['measured'])
+    modeled = flatten(store['modeled'])
+    mse = mean_squared_error(measured,modeled)
+    rmse = np.sqrt(mse)
+
+    # get plotting data
+    measure_plot = np.array(store['measure_plot'])
+    model_plot = np.array(store['model_plot'])
+
+    # plot
+    fig,axes = plt.subplots(len(plot_heights),figsize=(6,2.5*len(plot_heights)),
+                        layout='constrained',sharex=True,sharey=True)
+    date_form = mpl.dates.DateFormatter('%d %b')
+    for i,ax in enumerate(axes):
+        ax.set_title(f'Height = {plot_heights[i]} m')
+        ax.set_xlabel('Temperature (C)')
+        ax.set_ylabel('Height above \n ice surface (m)')
+        ax.plot(time,measure_plot[:,i],label='Measured')
+        ax.plot(time,model_plot[:,i],label='Modeled')
+        ax.xaxis.set_major_formatter(date_form)
+    axes[0].legend()
+    fig.suptitle(t+f'\n RMSE = {rmse:.3f}')
 
 def panel_temp_compare(ds_list,time,labels,temp_df,rows=2,t=''):
     """
