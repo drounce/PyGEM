@@ -55,6 +55,35 @@ class Utils():
             idx = np.where(climateds.coords['time'].dt.month.values == month)[0]
             climateds['bin_temp'][{'time':idx}] = climateds['bin_temp'][{'time':idx}] + bias
         return climateds
+    
+    def check_units(self,var,ds):
+        model_units = {'temp':'C','uwind':'m s-1','vwind':'m s-1',
+                       'rh':'%','sp':'Pa','tp':'m s-1','elev':'m',
+                       'SWin':'J m-2', 'LWin':'J m-2', 'tcc':'1',
+                       'bcdry':'kg m-2 s-1', 'bcwet':'kg m-2 s-1',
+                       'dustdry':'kg m-2 s-1', 'dustwet':'kg m-2 s-1'}
+        vn = list(ds.keys())[0]
+        units_in =  ds[vn].attrs['units']
+        units_out = model_units[var]
+        if units_in != units_out:
+            if var == 'temp' and units_in == 'K':
+                ds[vn] = ds[vn] - 273.15
+            elif var == 'rh' and units_in == '1':
+                ds[vn] = ds[vn] * 100
+            elif var == 'tp' and units_in == 'kg m-2 s-1':
+                ds[vn] = ds[vn] / 1000 * 3600
+            elif var == 'SWin' and units_in == 'W m-2':
+                ds[vn] = ds[vn] * 3600
+            elif var == 'LWin' and units_in == 'W m-2':
+                ds[vn] = ds[vn] * 3600
+            elif var == 'elev' and units_in == 'm+2 s-2':
+                ds[vn] = ds[vn] / eb_prms.gravity
+            else:
+                print(f'WARNING: units did not match for {var} but were not updated')
+                print(f'Previously {units_in}; should be {units_out}')
+                print('Make a manual change in utils.py')
+                quit()
+        return ds
 
     def getVaporPressure(self,tempC):
         """

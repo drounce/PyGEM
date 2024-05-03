@@ -123,7 +123,7 @@ class GCM():
             elif self.name == 'ERA-Interim':
                 # Variable names
                 self.temp_vn = 't2m'
-                self.prec_vn = 'tp'
+                self.tp_vn = 'tp'
                 self.elev_vn = 'z'
                 self.lat_vn = 'latitude'
                 self.lon_vn = 'longitude'
@@ -131,7 +131,7 @@ class GCM():
                 self.lr_vn = 'lapserate'
                 # Variable filenames
                 self.temp_fn = pygem_prms.eraint_temp_fn
-                self.prec_fn = pygem_prms.eraint_prec_fn
+                self.tp_fn = pygem_prms.eraint_prec_fn
                 self.elev_fn = pygem_prms.eraint_elev_fn
                 self.lr_fn = pygem_prms.eraint_lr_fn
                 # Variable filepaths
@@ -146,7 +146,7 @@ class GCM():
                 self.var_dict = {'temp':{'fn':[],'vn':[]},
                                  'rh':{'fn':[],'vn':[]},
                                  'sp':{'fn':[],'vn':[]},
-                                 'prec':{'fn':[],'vn':[]},
+                                 'tp':{'fn':[],'vn':[]},
                                  'tcc':{'fn':[],'vn':[]},
                                  'SWin':{'fn':[],'vn':[]},
                                  'LWin':{'fn':[],'vn':[]},
@@ -165,7 +165,7 @@ class GCM():
                     self.var_dict['temp']['vn'] = 'T2M'
                     self.var_dict['rh']['vn'] = 'RH2M'
                     self.var_dict['sp']['vn'] = 'PS'
-                    self.var_dict['prec']['vn'] = 'PRECTOTCORR'
+                    self.var_dict['tp']['vn'] = 'PRECTOTCORR'
                     self.var_dict['elev']['vn'] = 'PHIS'
                     self.var_dict['tcc']['vn'] = 'CLDTOT'
                     self.var_dict['SWin']['vn'] = 'SWGDN'
@@ -190,7 +190,7 @@ class GCM():
                     self.var_dict['SWin']['fn'] = 'SWGDN/MERRA2_SWGDN_LAT_LON.nc'
                     self.var_dict['vwind']['fn'] = 'V2M/MERRA2_V2M_LAT_LON.nc'
                     self.var_dict['uwind']['fn'] = 'U2M/MERRA2_U2M_LAT_LON.nc'
-                    self.var_dict['prec']['fn'] = 'PRECTOTCORR/MERRA2_PRECTOTCORR_LAT_LON.nc'
+                    self.var_dict['tp']['fn'] = 'PRECTOTCORR/MERRA2_PRECTOTCORR_LAT_LON.nc'
                     self.var_dict['elev']['fn'] = 'MERRA2constants.nc4'
                     self.var_dict['bcwet']['fn'] = 'BCWT002/MERRA2_BCWT002_LAT_LON.nc'
                     self.var_dict['bcdry']['fn'] = 'BCDP002/MERRA2_BCDP002_LAT_LON.nc'
@@ -210,7 +210,7 @@ class GCM():
                     self.var_dict['temp']['vn'] = 't2m'
                     self.var_dict['rh']['vn'] = 'rh'
                     self.var_dict['sp']['vn'] = 'sp'
-                    self.var_dict['prec']['vn'] = 'tp'
+                    self.var_dict['tp']['vn'] = 'tp'
                     self.var_dict['elev']['vn'] = 'z'
                     self.var_dict['tcc']['vn'] = 'tcc'
                     self.var_dict['SWin']['vn'] = 'ssrd'
@@ -235,7 +235,7 @@ class GCM():
                     self.var_dict['SWin']['fn'] = 'ERA5_SWin_hourly.nc'
                     self.var_dict['vwind']['fn'] = 'ERA5_vwind_hourly.nc'
                     self.var_dict['uwind']['fn'] = 'ERA5_uwind_hourly.nc'
-                    self.var_dict['prec']['fn'] = 'ERA5_tp_hourly.nc'
+                    self.var_dict['tp']['fn'] = 'ERA5_tp_hourly.nc'
                     self.var_dict['elev']['fn'] = pygem_prms.era5_elev_fn
                     self.var_dict['bcwet']['fn'] = 'BCWT002/MERRA2_BCWT002_LAT_LON.nc'
                     self.var_dict['bcdry']['fn'] = 'BCDP002/MERRA2_BCDP002_LAT_LON.nc'

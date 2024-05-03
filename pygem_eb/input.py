@@ -14,7 +14,7 @@ new_file=True        # Write to scratch file?
 glac_no = ['01.00570']
 parallel = False        # Run parallel processing?
 n_bins = 1
-timezone = pd.Timedelta(hours=-9)           # GMT time zone
+timezone = pd.Timedelta(hours=-8)           # GMT time zone
 
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
@@ -96,7 +96,7 @@ shading_fp = f'/home/claire/GulkanaDEM/Out/Gulkana{site}_shade.csv'
 temp_bias_fp = main_directory + '/pygem_eb/data/Gulkana_MERRA2_temp_bias.csv'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
-climate_input = 'GCM' # 'GCM' or 'AWS'
+climate_input = 'AWS' # 'GCM' or 'AWS'
 ref_gcm_name = 'MERRA2' # 'ERA5-hourly' or 'MERRA2'
 if climate_input in ['AWS']:
     AWS_fp = main_directory + '/../climate_data/AWS/'

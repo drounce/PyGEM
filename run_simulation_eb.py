@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from multiprocessing import Pool
+import threading
 # Internal libraries
 import pygem_eb.input as eb_prms
 import pygem.class_climate as class_climate
@@ -75,13 +76,16 @@ def initialize_model(glac_no,args,debug=True):
                     include_tidewater=eb_prms.include_tidewater)
     start_UTC = args.startdate - eb_prms.timezone
     end_UTC = args.enddate - eb_prms.timezone
-    dates_UTC = modelsetup.datesmodelrun(startyear=start_UTC, endyear=end_UTC)
+    # dates_UTC = modelsetup.datesmodelrun(startyear=start_UTC, endyear=end_UTC)
     dates = pd.date_range(args.startdate,args.enddate,freq='h')
+    dates_UTC = dates - eb_prms.timezone
     utils = utilities.Utils(args,glacier_table)
 
     gcm = class_climate.GCM(name=eb_prms.ref_gcm_name)
     nans = np.empty(len(dates_UTC))*np.nan
     if args.climate_input in ['GCM']:
+        # Update filenames for MERRA-2 (need block lat/lon)
+        base_fp = eb_prms.main_directory + '/../climate_data/MERRA2/'
         all_vars = list(gcm.var_dict.keys())
         if eb_prms.ref_gcm_name in ['MERRA2']:
             cenlat = glacier_table['CenLat'].to_numpy()[0]
@@ -90,25 +94,52 @@ def initialize_model(glac_no,args,debug=True):
             file_lon = str(int(np.floor(cenlon/10)*10))
             for var in all_vars:
                 fn = gcm.var_dict[var]['fn'].replace('LAT',file_lat).replace('LON',file_lon)
-                gcm.var_dict[var]['fn'] = fn
+                gcm.var_dict[var]['fn'] = base_fp + fn
+
         # ===== LOAD CLIMATE DATA =====
-        all_data = {}
-        for var in all_vars:
-            if var not in ['time','lat','lon','elev']:
-                data,data_hours = gcm.importGCMvarnearestneighbor_xarray(
-                    gcm.var_dict[var]['fn'],gcm.var_dict[var]['vn'],
-                    glacier_table,dates_UTC)
+        # Define worker function for threading
+        def access_cell(fn, var, result_dict):
+            vn = gcm.var_dict[var]['vn']
+            # Open the NetCDF file and access data
+            ds = xr.open_dataset(fn)
+            if var != 'elev':
+                ds = ds.sel(time=dates_UTC)
+            ds = utils.check_units(var,ds)
+            data = ds.sel(lat=cenlat, lon=cenlon, method='nearest')[vn].values
+            # Append the result to the result dictionary
+            result_dict[var] = data
+            # Close the NetCDF file
+            ds.close()
+        
+        # for var in all_vars:
+        #     if var not in ['time','lat','lon','elev']:
+        #         data,data_hours = gcm.importGCMvarnearestneighbor_xarray(
+        #             gcm.var_dict[var]['fn'],gcm.var_dict[var]['vn'],
+        #             glacier_table,dates_UTC)
                 
-                if var in ['SWin','LWin','tcc','rh','bcdry','bcwet','dustdry','dustwet']:
-                    data = data[0]
-                if eb_prms.ref_gcm_name in ['MERRA2'] and var in ['SWin','LWin']:
-                    data = data * 3600
-            elif var == 'elev':
-                data = gcm.importGCMfxnearestneighbor_xarray(
-                    gcm.var_dict[var]['fn'], gcm.var_dict[var]['vn'], glacier_table)
-            all_data[var] = data
+        #         if var in ['SWin','LWin','tcc','rh','bcdry','bcwet','dustdry','dustwet']:
+        #             data = data[0]
+        #         if eb_prms.ref_gcm_name in ['MERRA2'] and var in ['SWin','LWin']:
+        #             data = data * 3600
+        #     elif var == 'elev':
+        #         data = gcm.importGCMfxnearestneighbor_xarray(
+        #             gcm.var_dict[var]['fn'], gcm.var_dict[var]['vn'], glacier_table)
+        all_data = {}
+        threads = []
+        # loop through vars to initiate threads
+        for var in all_vars:
+            if var not in ['lat','lon','time']:
+                fn = gcm.var_dict[var]['fn']
+                thread = threading.Thread(target=access_cell,
+                                        args=(fn, var, all_data))
+                thread.start()
+                threads.append(thread)
+        # join threads
+        for thread in threads:
+            thread.join()
+        # unpack result
         temp_data = all_data['temp']
-        tp_data = all_data['prec']
+        tp_data = all_data['tp']
         sp_data = all_data['sp']
         elev_data = all_data['elev']
         rh = all_data['rh']
@@ -121,12 +152,12 @@ def initialize_model(glac_no,args,debug=True):
         bcwet = all_data['bcwet']
         dustdry = all_data['dustdry']
         dustwet = all_data['dustwet']
-        wind = np.sqrt(np.power(uwind[0],2)+np.power(vwind[0],2))
-        winddir = np.arctan2(-uwind[0],-vwind[0]) * 180 / np.pi
+        wind = np.sqrt(np.power(uwind,2)+np.power(vwind,2))
+        winddir = np.arctan2(-uwind,-vwind) * 180 / np.pi
         LWout = nans.copy()
         SWout = nans.copy()
         NR = nans.copy()
-        ntimesteps = len(data_hours)
+        ntimesteps = len(dates)
     elif args.climate_input in ['AWS']:
         aws = class_climate.AWS(eb_prms.AWS_fn,dates)
         temp_data = aws.temp
@@ -181,7 +212,9 @@ def initialize_model(glac_no,args,debug=True):
     # adjust MERRA-2 temperature bias (varies by month of the year)
     if eb_prms.climate_input == 'GCM' and eb_prms.ref_gcm_name == 'MERRA2':
         climateds = utils.adjust_temp_bias(climateds)
-
+        
+    climateds.to_netcdf('/home/claire/research/Output/test_AWS.nc')
+    print('SAVED')
     return climateds,dates,utils
 
 def run_model(climateds,dates,utils,args,new_attrs):
