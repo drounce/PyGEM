@@ -12,7 +12,7 @@ Requirements: - DEM, slope and aspect rasters surrounding glacier
 4. Calculate sky-view factor
 5. Calculate direct clear-sky slope-corrected irradiance and
                            shading for each hour of the year
-6. Store .csv of Islope and shade 
+6. Store .csv of Icorr and shade 
         Optional: plot results
 7. Optional: calculate diffuse fraction from measured solar
 
@@ -32,23 +32,23 @@ from numpy import pi, cos, sin, arctan
 
 # =================== INPUTS ===================
 site_by = 'id'                      # method to choose lat/lon ('id' or 'latlon')
-site = 'D'                         # name of site for indexing .csv OR
+site = 'D'                          # name of site for indexing .csv OR
 lat,lon = [63.3,-143.3]             # site lat/lon
 timezone = pd.Timedelta(hours=-9)   # time zone of location
 glacier_name = 'Gulkana'            # name of glacier for labeling
 
 # model options
-run_model = False
-plot = ['result','search']           # False or list from ['result','search','horizon']
-store = ['result','result_plot','search_plot']          # False or list from ['result','result_plot','search_plot','horizon_plot']
-result_vars = ['dirirrslope','shaded']
+run_model = True                     # set to False if running the model in another script
+plot = ['result','search']           # list from ['result','search','horizon']
+store = ['result','result_plot','search_plot']   # list from ['result','result_plot','search_plot','horizon_plot']
+result_vars = ['dirirrslope','shaded']      # variables to include in plot
 get_shade = True
 get_direct = True
-get_diffuse = False
+get_diffuse = False # doesn't work yet
 assert get_shade or get_direct or get_diffuse, 'Why are you running this?'
 
 # model parameters
-time_freq = '30min'            # timestep in offset alias notation
+time_freq = '30min'         # timestep in offset alias notation
 angle_step = 5              # step to calculate horizon angle (degrees)
 search_length = 5000        # distance to search from center point (m)
 sub_dt = 10                 # timestep to calculate solar corrections (minutes)
@@ -96,8 +96,16 @@ varprops = {'dirirr':{'label':'direct flat-surface irradiance [W m-2]','cmap':'p
             'sun_az':{'label':'sun azimuth angle [$\circ$]','cmap':'twilight'}}
 
 class Shading():
+    """
+    Shading model which finds the horizon angle at every
+    azimuth and determines whether a given point is in 
+    the sun or shade for every hour (or user-defined dt)
+    of the year.
+    """
     def __init__(self,args):
-        """Initializes shading model"""
+        """
+        Initializes shading model.
+        """
         if args.site_by == 'id':
             # get site lat and lon    
             latlon_df = pd.read_csv('~/GulkanaDEM/gulkana_sites.csv',index_col=0)
@@ -157,20 +165,29 @@ class Shading():
         return
     
     def main(self):
+        """
+        Executes functions to find the horizon, 
+        irradiance and shade along with plots.
+        """
         args = self.args
-        # find horizon
+
+        # find the horizon in every direction
         self.find_horizon()
-        # plot centerpoint / horizon points
+        # horizon angle search
         if 'search' in args.plot:
             self.plot_search()
-        # get hourly dataframe of irradiance
-        df = self.irradiance()
-
+        # horizon angle vs azimuth
         if 'horizon' in args.plot:
             self.plot_horizon()
 
+        # get hourly dataframe of solar irradiance
+        df = self.irradiance(time_freq)
+        # pcolormesh plot of results
+        if 'result' in args.plot:
+            self.plot_result(df)
+
+        # store results
         if 'result' in args.store:
-            vars = []
             if get_shade:
                 df['shaded'].astype(bool).to_csv(shade_fp,
                                                 header=f'skyview={self.sky_view}')
@@ -178,6 +195,7 @@ class Shading():
                 df['dirirrslope'].astype(bool).to_csv(irr_fp,
                                                 header=f'skyview={self.sky_view}')
 
+        # get diffuse fraction from incoming solar data
         if get_diffuse:
             self.diffuse(df)
 
@@ -320,8 +338,13 @@ class Shading():
         self.horizon_elev = horizon_elev
         return
 
-    def irradiance(self):
-        """Calculates irradiance"""
+    def irradiance(self,time_freq='30min'):
+        """
+        Calculates potential clear-sky slope-corrected irradiance in W m-2
+        (Icorr) at the input time frequency. This is the maximum amount of 
+        direct sunlight the surface can receive. The effect of aspect and
+        shading are included (Icorr = 0 when the point is in the shade.)
+        """
         args = self.args
 
         # loop through hours of the year and store data
@@ -332,7 +355,7 @@ class Shading():
                         columns=store_vars,index=year_hours)
         for time in year_hours:
             # loop to get sub-hourly values and average
-            sub_vars = ['shaded','Islope','I','corr_factor','zenith']
+            sub_vars = ['shaded','Icorr','I','corr_factor','zenith']
             period_dict = {}
             for var in sub_vars:
                 period_dict[var] = np.array([])
@@ -365,23 +388,22 @@ class Shading():
 
                 # incident angle calculation
                 cosTHETA = cos(self.slp)*cos(Z) + sin(self.slp)*sin(Z)*cos(sun_az - self.asp)
-                corr_factor = min(cosTHETA/cos(Z),5) * (shaded-1)*-1
-                Islope = I * corr_factor
+                Icorr = I * min(cosTHETA/cos(Z),5) * (shaded-1)*-1
                 period_dict['corr_factor'] = np.append(period_dict['corr_factor'],corr_factor)
-                period_dict['Islope'] = np.append(period_dict['Islope'],Islope)
+                period_dict['Icorr'] = np.append(period_dict['Icorr'],Icorr)
 
             # extract sub-hourly-timestep arrays
             I = period_dict['I'][~np.isnan(period_dict['I'])]
-            Islope = period_dict['Islope']
+            Icorr = period_dict['Icorr']
             cosZ = cos(period_dict['zenith'])
             corrf = period_dict['corr_factor']
-            dt = np.ones(len(Islope)) * sub_dt
+            dt = np.ones(len(Icorr)) * sub_dt
 
             # find hourly means (avoid nans)
-            if ~np.any(np.isnan(Islope)):
-                mean_I = np.sum(Islope*cosZ*corrf*dt) / np.sum(dt)
-                if np.sum(Islope*cosZ) > 0:
-                    mean_corr_factor = np.sum(Islope*cosZ*corrf) / np.sum(Islope*cosZ)
+            if ~np.any(np.isnan(Icorr)):
+                mean_I = np.sum(Icorr*cosZ*corrf*dt) / np.sum(dt)
+                if np.sum(Icorr*cosZ) > 0:
+                    mean_corr_factor = np.sum(Icorr*cosZ*corrf) / np.sum(Icorr*cosZ)
                 else:
                     mean_corr_factor = 5
             else:
@@ -404,13 +426,14 @@ class Shading():
             df.loc[time,'sun_elev'] = sun_elev * 180/pi
             if median_shaded:
                 df.loc[time,'horizon_elev'] = np.nan
-
-        if 'result' in args.plot:
-            self.plot_result(df)
         
         return df
 
     def diffuse(self,df):
+        """
+        Loads a dataset of measured incoming shortwave radiation
+        to 
+        """
         # load solar dataset
         solar_df = pd.read_csv(solar_fp,index_col=0)
         solar_df.index = pd.to_datetime(solar_df.index) + pd.Timedelta(days=365,hours=9)
@@ -427,14 +450,6 @@ class Shading():
                     measured_list.append(measured)
                     modeled_list.append(modeled)
                     print(measured,modeled)
-
-        # plot
-        mean_frac = np.mean(measured / modeled)
-        plt.figure(figsize=(8,5))
-        plt.scatter(measured,modeled)
-        plt.plot([0,np.max(measured)],[0,np.max(measured)])
-        plt.title(f'Mean diffuse fraction: {mean_frac}')
-        plt.savefig(fp + 'GulkanaDEM/Outputs/diffuseD.png',dpi=150)
 
     def plot_search(self):
         plt.scatter(self.xx,self.yy,marker='*',color='orange')
@@ -500,7 +515,7 @@ class Shading():
         else:
             plt.show()
 
+# RUN MODEL
 if run_model:
-    # run model
     model = Shading(args)
     model.main()

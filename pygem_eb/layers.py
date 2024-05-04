@@ -15,7 +15,7 @@ class Layers():
 
     All mass terms are stored in kg m-2.
     """
-    def __init__(self,bin_no,utils):
+    def __init__(self,bin_no,climate):
         """
         Initialize the layer properties (temperature, density, water content, LAPs, etc.)
 
@@ -23,11 +23,11 @@ class Layers():
         ----------
         bin_no : int
             Bin number
-        utils
-            class object from pygem_eb.utils
+        climate
+            class object from pygem_eb.climate
         """
-        # Add utils to layers class
-        self.utils = utils 
+        # Add climate to layers class
+        self.climate = climate 
 
         # Load in initial depths of snow, firn and ice
         snow_depth = eb_prms.initial_snowdepth[bin_no]
@@ -64,9 +64,9 @@ class Layers():
 
         # Initialize RF model for grain size lookups
         # if eb_prms.method_grainsizetable in ['ML']:
-        #     self.tau_rf,_,_ = utils.getGrainSizeModel(initSSA=eb_prms.initSSA,var='taumat')
-        #     self.kap_rf,_,_ = utils.getGrainSizeModel(initSSA=eb_prms.initSSA,var='kapmat')
-        #     self.dr0_rf,_,_ = utils.getGrainSizeModel(initSSA=eb_prms.initSSA,var='dr0mat')
+        #     self.tau_rf,_,_ = climate.getGrainSizeModel(initSSA=eb_prms.initSSA,var='taumat')
+        #     self.kap_rf,_,_ = climate.getGrainSizeModel(initSSA=eb_prms.initSSA,var='kapmat')
+        #     self.dr0_rf,_,_ = climate.getGrainSizeModel(initSSA=eb_prms.initSSA,var='dr0mat')
         
         # Additional layer properties
         self.updateLayerProperties()

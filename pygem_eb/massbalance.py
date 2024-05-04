@@ -12,7 +12,7 @@ class massBalance():
     from melt, refreeze and accumulation. main() executes the core 
     of the model.
     """
-    def __init__(self,bin_idx,dates,args,utils):
+    def __init__(self,bin_idx,args,climate):
         """
         Initializes the layers and surface classes and model 
         time for the mass balance scheme.
@@ -27,30 +27,27 @@ class massBalance():
         # Set up model time and bin
         self.dt = eb_prms.dt
         self.days_since_snowfall = 0
-        self.time_list = dates
+        self.time_list = climate.dates
         self.bin_idx = bin_idx
         self.elev = eb_prms.bin_elev[bin_idx]
 
-        # Initialize layers and surface classes
+        # Initialize climate, layers and surface classes
         self.args = args
-        self.layers = eb_layers.Layers(bin_idx,utils)
-        self.surface = eb_surface.Surface(self.layers,self.time_list,args,utils)
+        self.climate = climate
+        self.layers = eb_layers.Layers(bin_idx,climate)
+        self.surface = eb_surface.Surface(self.layers,self.time_list,args,climate)
 
         # Initialize output class
         self.output = Output(self.time_list,bin_idx,args)
         return
     
-    def main(self,climateds):
+    def main(self):
         """
         Runs the time loop and mass balance scheme to solve for melt, refreeze, 
         accumulation and runoff.
-
-        Parameters
-        ----------
-        climateds : xr.Dataset
-            Dataset containing elevation-adjusted climate data
         """
         # Get classes and time
+        climateds = self.climate.cds
         layers = self.layers
         surface = self.surface
         dt = self.dt
@@ -975,7 +972,7 @@ class Output():
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
     
-    def addAttrs(self,args,time_elapsed):
+    def addAttrs(self,args,time_elapsed,climate):
         """
         Adds informational attributes to the output dataset.
 
@@ -991,10 +988,26 @@ class Output():
         for elev in eb_prms.bin_elev:
             bin_elev += str(elev)+' '
         bin_elev += ']'
-        input_data = eb_prms.ref_gcm_name if args.climate_input == 'GCM' else args.climate_input
+
+        # get information on variable source
+        reanalysis_vars = eb_prms.reanalysis+': '
+        props = eb_prms.glac_props[eb_prms.glac_no[0]]
+        if eb_prms.use_AWS:
+            measured = climate.measured_vars
+            AWS_vars = props['name']+' '+str(props['site_elev'])+' '
+            for v in measured:
+                AWS_vars += v +','
+            re_vars = [e for e in climate.all_vars if e not in measured]
+            for v in re_vars:
+                reanalysis_vars += ', ' + v
+        else:
+            reanalysis_vars += ', all'
+            AWS_vars = 'none'
+        
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
             ds = dataset.load()
-            ds = ds.assign_attrs(input_data=input_data,
+            ds = ds.assign_attrs(from_AWS=AWS_vars,
+                                 from_reanalysis=reanalysis_vars,
                                  run_start=str(args.startdate),
                                  run_end=str(args.enddate),
                                  n_bins=str(args.n_bins),

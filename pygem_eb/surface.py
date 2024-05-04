@@ -19,10 +19,10 @@ class Surface():
     Surface scheme that tracks the accumulation of LAPs and calculates 
     albedo based on several switches.
     """ 
-    def __init__(self,layers,time,args,utils):
-        # Add args and utils to surface class
+    def __init__(self,layers,time,args,climate):
+        # Add args and climate to surface class
         self.args = args
-        self.utils = utils
+        self.climate = climate
 
         # Initialize surface properties
         self.stemp = eb_prms.surftemp_guess
@@ -331,8 +331,8 @@ class Surface():
             list_doc['ICE'][var] = [list_doc['ICE'][var][0]] * nlayers
 
         # Solar zenith angle
-        lat = self.utils.lat
-        lon = self.utils.lon
+        lat = self.climate.lat
+        lon = self.climate.lon
         time_UTC = time - eb_prms.timezone
         altitude_angle = suncalc.get_position(time_UTC,lon,lat)['altitude']
         zenith = 180/np.pi * (np.pi/2 - altitude_angle) if altitude_angle > 0 else 89

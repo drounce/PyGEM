@@ -15,14 +15,12 @@ glac_no = ['01.00570']
 parallel = False        # Run parallel processing?
 n_bins = 1
 timezone = pd.Timedelta(hours=-8)           # GMT time zone
+use_AWS = True          # Use AWS data? (or just reanalysis)
 
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
-                        #   'AWS_fn':'Preprocessed/gulkana/gulkana_all_merra2.csv',
-                            'AWS_fn':'Preprocessed/gulkana_2023.csv', # ulkanaD/gulkana_merra2.csv', # gulkanaD_wERA5.csv
-                            # 'AWS_elev':1854,
-                            'site_elev':1693, # 1854 is D, B is 1693, AB is 1546
-                            'init_filepath':''},
+                            'site_elev':1693,
+                            'AWS_fn':'Preprocessed/gulkana_2023.csv'}, 
             '01.01104':{'name':'Lemon Creek',
                             'site_elev':1285,
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
@@ -56,7 +54,7 @@ glac_props = {'01.00570':{'name':'Gulkana',
 if glac_no == ['01.00570']:
     # Gulkana runs have specific sites with associated elevation / shading
     site = 'AB'
-    site_fp = os.path.join(os.getcwd(),'pygem_eb/data/site_constants.csv')
+    site_fp = os.path.join(os.getcwd(),'pygem_eb/sample_data/gulkana/site_constants.csv')
     site_df = pd.read_csv(site_fp,index_col='site')
     bin_elev = [site_df.loc[site]['elevation']]
     kp = site_df.loc[site]['kp']
@@ -75,7 +73,7 @@ output_sim_fp = output_filepath + 'simulations/'
 model_run_date = str(pd.Timestamp.today()).replace('-','_')[0:10]
 glac_name = glac_props[glac_no[0]]['name']
 
-# Define output filepath
+# Find new filepath 
 output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_'
 if new_file:
     i = '0'
@@ -88,31 +86,26 @@ else:
 
 # Define input filepaths
 glac_no_str = str(glac_no[0]).replace('.','_')
-grainsize_fp = main_directory + '/pygem_eb/data/drygrainsize(SSAin=60).nc'
-initial_temp_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBtemp.csv'
-initial_density_fp = main_directory + '/pygem_eb/sample_init_data/gulkanaBdensity.csv'
+grainsize_fp = main_directory + '/pygem_eb/sample_data/grainsize/drygrainsize(SSAin=60).nc'
+initial_temp_fp = main_directory + '/pygem_eb/sample_data/gulkanaBtemp.csv'
+initial_density_fp = main_directory + '/pygem_eb/sample_data/gulkanaBdensity.csv'
 snicar_input_fp = main_directory + '/biosnicar-py/src/biosnicar/inputs.yaml'
 shading_fp = f'/home/claire/GulkanaDEM/Out/Gulkana{site}_shade.csv'
-temp_bias_fp = main_directory + '/pygem_eb/data/Gulkana_MERRA2_temp_bias.csv'
+temp_bias_fp = main_directory + '/pygem_eb/sample_data/gulkana/Gulkana_MERRA2_temp_bias.csv'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
-climate_input = 'AWS' # 'GCM' or 'AWS'
-ref_gcm_name = 'MERRA2' # 'ERA5-hourly' or 'MERRA2'
-if climate_input in ['AWS']:
-    AWS_fp = main_directory + '/../climate_data/AWS/'
-    AWS_fn = AWS_fp+glac_props[glac_no[0]]['AWS_fn']
-    glac_name = glac_props[glac_no[0]]['name']
-    n_bins = 1
-    assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
+reanalysis = 'MERRA2' # 'ERA5-hourly' or 'MERRA2'
+AWS_fp = main_directory + '/../climate_data/AWS/'
+AWS_fn = AWS_fp+glac_props[glac_no[0]]['AWS_fn']
+glac_name = glac_props[glac_no[0]]['name']
+assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
+if reanalysis in ['ERA5-hourly']:
+    wind_ref_height = 10
+else:
     wind_ref_height = 2
-elif climate_input in ['GCM']:
-    if ref_gcm_name in ['ERA5-hourly']:
-        wind_ref_height = 10
-    else:
-        wind_ref_height = 2
 
 dates_from_data = True
-if dates_from_data and climate_input in ['AWS']:
+if dates_from_data:
     cdf = pd.read_csv(AWS_fn,index_col=0)
     cdf = cdf.set_index(pd.to_datetime(cdf.index))
     if glac_no != ['01.00570']:
@@ -126,9 +119,7 @@ else:
     # enddate = pd.to_datetime('2023-08-09 00:30')
     # startdate = pd.to_datetime('2016-05-11 00:30') # JIF sample dates
     # enddate = pd.to_datetime('2016-07-18 00:30')
-    # startdate = pd.to_datetime('2016-10-01 00:00') # weighing gage installed in 2015
-    # enddate = pd.to_datetime('2018-05-01 00:00')
-    if ref_gcm_name == 'MERRA2':
+    if reanalysis == 'MERRA2':
         assert startdate.minute == 30
         assert enddate.minute == 30
     
@@ -140,24 +131,18 @@ print(f'Running {n_bins} bin(s) at {bin_elev} m a.s.l. for {n_months} months sta
 initialize_water = 'zero_w0'        # 'zero_w0' or 'initial_w0'
 initialize_temp = 'interp'          # 'piecewise' or 'interp'
 initialize_dens = 'interp'          # 'piecewise' or 'interp'
-surftemp_guess =  -10                 # guess for surface temperature of first timestep
-initial_snowdepth = [2.18]*n_bins    # initial depth of snow; array of length n_bins
+surftemp_guess =  -10               # guess for surface temperature of first timestep
+initial_snowdepth = [2.18]*n_bins   # initial depth of snow; array of length n_bins
 initial_firndepth = [0]*n_bins      # initial depth of firn; array of length n_bins
 icelayers = 'multiple'              # 'single' or 'multiple'
-
-initial_snowdepth = np.linspace(2.2,4.5,n_bins)
-initial_firndepth = np.zeros(n_bins)
-if n_bins > 2:
-    initial_firndepth[-1] = 1
-
-start_snow = True  # initialize with snow
-if not start_snow: # layers will be isothermal ice
+if 6 < startdate.month < 9:         # initialize without snow
     initial_snowdepth = np.array([0] * n_bins).ravel()
-    startdate = pd.to_datetime('2023-07-08 00:30') 
 
 # OUTPUT
 store_vars = ['MB','EB','Temp','Layers']  # Variables to store of the possible set: ['MB','EB','Temp','Layers']
 storage_freq = 'H'      # Frequency to store data using pandas offset aliases
+store_bands = False     # Store spectral albedo .csv
+store_climate = False   # Store climate dataset .nc
 
 # TIMESTEP
 dt = 3600                   # Model timestep [s]
@@ -189,28 +174,14 @@ if switch_snow + switch_melt + switch_LAPs < 4:
     if switch_melt == 1:
         LAPs_on = melt_on = 'ON (DECAY)'
     print(f'SWITCH RUN WITH SNOW {snow_on}, MELT {melt_on} and LAPs {LAPs_on}')
-# output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_{switch_snow}{switch_melt}{switch_LAPs}'
-BC_freshsnow = 9e-7         # concentration of BC in fresh snow [kg m-3]
-dust_freshsnow = 6e-4       # concentration of dust in fresh snow [kg m-3]
-# 1 kg m-3 = 1e6 ppb = ng g-1 = ug L-1
+    output_name = f'{output_filepath}EB/{glac_name}_{model_run_date}_{switch_snow}{switch_melt}{switch_LAPs}'
 
 # ALBEDO BANDS
 wvs = np.round(np.arange(0.2,5,0.01),2) # 480 bands used by SNICAR
-# band_limits = [[0.2,0.8],[0.8,1.5],[1.5,4.99]]
-band_limits = [[0.2,4.99]]
 band_indices = {}
-# for i,band in enumerate(band_limits):
-#     idx_start = np.where(wvs == band[0])[0][0]
-#     idx_end = np.where(wvs == band[1])[0][0]
-#     idx_list = np.arange(idx_start,idx_end)
-#     band_indices['Band '+str(i)] = idx_list
 for i in np.arange(0,480):
     band_indices['Band '+str(i)] = np.array([i])
-store_bands = False
 albedo_out_fp = main_directory + '/../Output/EB/albedo.csv'
-# solar_coef = np.array([0.71,0.23,0.08])
-# solar_coef = np.array([1])
-# assert len(solar_coef) == len(band_indices), 'Check size of albedo band inputs is consistent'
 grainsize_ds = xr.open_dataset(grainsize_fp)
 
 # ========== PARAMETERS ==========
@@ -233,7 +204,10 @@ dep_factor = 0.5
 if glac_no != ['01.00570']:
     kp = 0.8                    # precipitation factor [-] 
     sky_view = 0.953            # sky-view factor [-]
-kp = 0.8
+kp = 1
+BC_freshsnow = 9e-7         # concentration of BC in fresh snow [kg m-3]
+dust_freshsnow = 6e-4       # concentration of dust in fresh snow [kg m-3]
+# 1 kg m-3 = 1e6 ppb = ng g-1 = ug L-1
 
 # ========== CONSTANTS ===========
 daily_dt = 3600*24          # Seconds in a day [s]
@@ -257,8 +231,6 @@ Lv_sub = 2.849e6            # latent heat of sublimation [J kg-1]
 karman = 0.4                # von Karman's constant
 density_std = 1.225         # Air density at sea level [kg m-3]
 viscosity_snow = 3.7e7      # Viscosity of snow [Pa-s] 
-# dz_toplayer = 0.03          # Thickness of the uppermost bin [m]
-# layer_growth = 0.6          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.2-.6
 sigma_SB = 5.67037e-8       # Stefan-Boltzmann constant [W m-2 K-4]
 max_nlayers = 30            # Maximum number of vertical layers allowed
 max_dz = 1                  # Max layer height
