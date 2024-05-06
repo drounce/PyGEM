@@ -49,7 +49,7 @@ class Surface():
             self.albedo_df = pd.DataFrame(np.zeros((0,480)),columns=bands)
         return
     
-    def updateSurfaceDaily(self,layers,airtemp,surftemp,time):
+    def daily_updates(self,layers,airtemp,surftemp,time):
         """
         Updates daily-evolving surface properties (grain size,
         surface type and days since snowfall)
@@ -63,12 +63,12 @@ class Surface():
         """
         self.stype = layers.ltype[0]
         if self.args.switch_melt == 2 and layers.nlayers > 2:
-            layers.getGrainSize(airtemp,surftemp)
+            layers.get_grain_size(airtemp,surftemp)
         self.days_since_snowfall = (time - self.snow_timestamp)/pd.Timedelta(days=1)
-        self.getSurrAlbedo(layers,time)
+        self.get_surr_albedo(layers,time)
         return
     
-    def getSurfTemp(self,enbal,layers):
+    def get_surftemp(self,enbal,layers):
         """
         Solves energy balance equation for surface temperature. 
         Qm = SWnet + LWnet + Qs + Ql + Qp + Qg
@@ -99,9 +99,9 @@ class Surface():
         if not enbal.nanLWout:
             # CASE (1): surftemp from LW data
             self.stemp = np.power(np.abs(enbal.LWout_ds/STEFAN_BOLTZMANN),1/4)
-            Qm = enbal.surfaceEB(self.stemp,layers,self,self.days_since_snowfall)
+            Qm = enbal.surface_EB(self.stemp,layers,self,self.days_since_snowfall)
         else:
-            Qm_check = enbal.surfaceEB(0,layers,self,self.days_since_snowfall)
+            Qm_check = enbal.surface_EB(0,layers,self,self.days_since_snowfall)
             # If Qm>0 with surftemp=0, the surface is melting or warming.
             # If Qm<0 with surftemp=0, the surface is cooling.
             cooling = True if Qm_check < 0 else False
@@ -111,7 +111,7 @@ class Surface():
                 Qm = Qm_check
                 if layers.ltemp[0] < 0.: 
                     # need to heat surface layer to 0.
-                    Qm_check = enbal.surfaceEB(self.stemp,layers,self,
+                    Qm_check = enbal.surface_EB(self.stemp,layers,self,
                                                self.days_since_snowfall)
                     # warm top layer
                     temp_change = Qm_check*dt/(HEAT_CAPACITY_ICE*layers.ldrymass[0])
@@ -129,10 +129,10 @@ class Surface():
                 # CASE (3): Energy away from surface
                 if eb_prms.method_cooling in ['minimize']:
                     # Run minimization on EB function
-                    result = minimize(enbal.surfaceEB,self.stemp,
+                    result = minimize(enbal.surface_EB,self.stemp,
                                       method='L-BFGS-B',bounds=((-60,0),),tol=1e-3,
                                       args=(layers,self,self.days_since_snowfall,'optim'))
-                    Qm = enbal.surfaceEB(result.x[0],layers,self,self.days_since_snowfall)
+                    Qm = enbal.surface_EB(result.x[0],layers,self,self.days_since_snowfall)
                     # Check success and print warning 
                     if not result.success and abs(Qm) > 10:
                         print('Unsuccessful minimization, Qm = ',Qm)
@@ -146,7 +146,7 @@ class Surface():
                     while loop:
                         n_iters += 1
                         # Initial check of Qm comparing to previous surftemp
-                        Qm_check = enbal.surfaceEB(self.stemp,layers,self,
+                        Qm_check = enbal.surface_EB(self.stemp,layers,self,
                                                    self.days_since_snowfall)
                         # Check direction of flux at that temperature and adjust
                         if Qm_check > 0.5:
@@ -160,7 +160,7 @@ class Surface():
                         if abs(Qm_check) < 0.5 or n_iters > 10:
                             # if temp is still bottoming out at -60, resolve minimization
                             if self.stemp == -60:
-                                result = minimize(enbal.surfaceEB,-50,method='L-BFGS-B',
+                                result = minimize(enbal.surface_EB,-50,method='L-BFGS-B',
                                                     bounds=((-60,0),),tol=1e-3,
                                                     args=(layers,self,
                                                           self.days_since_snowfall,'optim'))
@@ -171,13 +171,13 @@ class Surface():
                 Qm = 0
 
         # Update surface balance terms with new surftemp
-        enbal.surfaceEB(self.stemp,layers,self,self.days_since_snowfall)
+        enbal.surface_EB(self.stemp,layers,self,self.days_since_snowfall)
         self.Qm = Qm
         self.tcc = enbal.tcc
 
         return
 
-    def getAlbedo(self,layers,time):
+    def get_albedo(self,layers,time):
         """
         Checks switches and gets albedo from corresponding method. If LAPs or grain size
         are tracked, albedo comes from SNICAR, otherwise it is parameterized by surface
@@ -201,7 +201,7 @@ class Surface():
                     self.albedo = self.albedo_dict[self.stype]
                 elif args.switch_LAPs == 1:
                     # LAPs ON, GRAIN SIZE OFF
-                    albedo,sw = self.runSNICAR(layers,time,override_grainsize=True)
+                    albedo,sw = self.run_SNICAR(layers,time,override_grainsize=True)
                     self.albedo = albedo
                     self.spectral_weights = sw
             elif args.switch_melt == 1:
@@ -212,12 +212,12 @@ class Surface():
             elif args.switch_melt == 2:
                 if args.switch_LAPs == 0:
                     # LAPs OFF, GRAIN SIZE ON
-                    albedo,sw = self.runSNICAR(layers,time,override_LAPs=True)
+                    albedo,sw = self.run_SNICAR(layers,time,override_LAPs=True)
                     self.albedo = albedo
                     self.spectral_weights = sw
                 elif args.switch_LAPs == 1:
                     # LAPs ON, GRAIN SIZE ON
-                    self.albedo,self.spectral_weights = self.runSNICAR(layers,time)
+                    self.albedo,self.spectral_weights = self.run_SNICAR(layers,time)
         else:
             self.albedo = self.albedo_dict[self.stype]
             self.bba = self.albedo
@@ -228,7 +228,7 @@ class Surface():
             self.albedo_df.loc[time] = self.albedo.copy()
         return 
     
-    def runSNICAR(self,layers,time,nlayers=None,max_depth=None,
+    def run_SNICAR(self,layers,time,nlayers=None,max_depth=None,
                   override_grainsize=False,override_LAPs=False):
         """
         Runs SNICAR model to retrieve broadband albedo. 
@@ -357,7 +357,7 @@ class Surface():
 
         return albedo,spectral_weights
     
-    def getSurrAlbedo(self,layers,time):
+    def get_surr_albedo(self,layers,time):
         ALBEDO_GROUND = eb_prms.albedo_ground
         ALBEDO_SNOW = eb_prms.albedo_fresh_snow
         # reset max snowdepth yearly

@@ -119,10 +119,14 @@ class Climate():
         dates = self.dates_UTC
         lat = self.lat
         lon = self.lon
+        
+        # get reanalysis data geopotential
         z_fp = self.reanalysis_fp + self.var_dict['elev']['fn']
-        zds = xr.open_dataarray(z_fp).sel(lat=lat,lon=lon,method='nearest')
-        geopotential = zds.isel(time=0).values
-        self.reanalysis_elev = geopotential / eb_prms.gravity
+        z_vn = self.var_dict['elev']['vn']
+        zds = xr.open_dataset(z_fp).sel(lat=lat,lon=lon,method='nearest')
+        zds = self.check_units('elev',zds)
+        self.reanalysis_elev = zds.isel(time=0)[z_vn].values
+        assert self.reanalysis_elev < 8000
 
         # define worker function for threading
         def access_cell(fn, var, result_dict):

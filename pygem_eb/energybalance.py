@@ -54,19 +54,19 @@ class energyBalance():
             self.dustdry = climateds_now['dustdry'].to_numpy()
             self.dustwet = climateds_now['dustwet'].to_numpy()
         else: # DONT NEED THIS UNLESS I EVER DO SUBHOURLY RUNS
-            # Timestep is between hours, so interpolate using interpClimate function
+            # Timestep is between hours, so interpolate using interp_climate function
             # Bin-dependent variables indexed by bin_idx
-            self.tempC = self.interpClimate(climateds,time,'bin_temp',bin_idx)
-            self.tp = self.interpClimate(climateds,time,'bin_tp',bin_idx)
-            self.sp = self.interpClimate(climateds,time,'bin_sp',bin_idx)
-            self.rH = self.interpClimate(climateds,time,'bin_rh',bin_idx)
+            self.tempC = self.interp_climate(climateds,time,'bin_temp',bin_idx)
+            self.tp = self.interp_climate(climateds,time,'bin_tp',bin_idx)
+            self.sp = self.interp_climate(climateds,time,'bin_sp',bin_idx)
+            self.rH = self.interp_climate(climateds,time,'bin_rh',bin_idx)
             # Elevation-invariant variables
-            self.wind = self.interpClimate(climateds,time,'wind')
-            self.tcc = self.interpClimate(climateds,time,'tcc')
-            self.SWin_ds = self.interpClimate(climateds,time,'SWin')
-            self.SWout_ds = self.interpClimate(climateds,time,'SWout')
-            self.LWin_ds = self.interpClimate(climateds,time,'LWin')
-            self.LWout_ds = self.interpClimate(climateds,time,'LWout')
+            self.wind = self.interp_climate(climateds,time,'wind')
+            self.tcc = self.interp_climate(climateds,time,'tcc')
+            self.SWin_ds = self.interp_climate(climateds,time,'SWin')
+            self.SWout_ds = self.interp_climate(climateds,time,'SWout')
+            self.LWin_ds = self.interp_climate(climateds,time,'LWin')
+            self.LWout_ds = self.interp_climate(climateds,time,'LWout')
         # Define additional useful values
         self.tempK = self.tempC + 273.15
         self.prec =  self.tp / 3600     # tp is hourly total precip, prec is the rate in m/s
@@ -81,7 +81,7 @@ class energyBalance():
         self.nanNR = True if np.isnan(self.NR_ds) else False
         return
 
-    def surfaceEB(self,surftemp,layers,albedo,days_since_snowfall,mode='sum'):
+    def surface_EB(self,surftemp,layers,albedo,days_since_snowfall,mode='sum'):
         """
         Calculates the surface heat fluxes for the current timestep.
 
@@ -110,28 +110,28 @@ class energyBalance():
                     [SWin, SWout, LWin, LWout, sensible, latent, rain, ground]
         """
         # SHORTWAVE RADIATION  (Snet)
-        SWin,SWout = self.getSW(albedo)
+        SWin,SWout = self.get_SW(albedo)
         Snet_surf = SWin + SWout
         self.SWin = SWin
         self.SWout = SWout[0] if '__iter__' in dir(SWout) else SWout
                     
         # LONGWAVE RADIATION (Lnet)
-        LWin,LWout = self.getLW(surftemp)
+        LWin,LWout = self.get_LW(surftemp)
         Lnet = LWin + LWout
         self.LWin = LWin
         self.LWout = LWout[0] if '__iter__' in dir(LWout) else LWout
 
         # RAIN FLUX (Qp)
-        Qp = self.getRain(surftemp)
+        Qp = self.get_rain(surftemp)
         self.rain = Qp[0] if '__iter__' in dir(Qp) else Qp
 
         # GROUND FLUX (Qg)
-        Qg = self.getGround(surftemp)
+        Qg = self.get_ground(surftemp)
         self.ground = Qg[0] if '__iter__' in dir(Qg) else Qg
 
         # TURBULENT FLUXES (Qs and Ql)
-        roughness = self.getRoughnessLength(days_since_snowfall,layers.ltype)
-        Qs, Ql = self.getTurbulent(surftemp,roughness)
+        roughness = self.get_roughness(days_since_snowfall,layers.ltype)
+        Qs, Ql = self.get_turbulent(surftemp,roughness)
         self.sens = Qs[0] if '__iter__' in dir(Qs) else Qs
         self.lat = Ql[0] if '__iter__' in dir(Qs) else Ql
 
@@ -147,7 +147,7 @@ class energyBalance():
         else:
             assert 1==0, 'argument \'mode\' in function surfaceEB should be sum, list or optim'
     
-    def getSW(self,surface):
+    def get_SW(self,surface):
         """
         Simplest parameterization for shortwave radiation which
         adjusts it by modeled spectral albedo. Returns the shortwave
@@ -172,9 +172,6 @@ class energyBalance():
         time_2024 = pd.to_datetime(time_str)
         self.shade = bool(surface.shading_df.loc[time_2024,'shaded'])
         SWin = SWin_terrain if self.shade else SWin_terrain + SWin_sky
-        # self.SWin_sky = SWin_sky
-        # SWin = SWin_sky
-        # self.SWin_terr = 0
 
         # get reflected radiation
         if self.nanSWout:
@@ -188,7 +185,7 @@ class energyBalance():
         self.SWin_terr = SWin_terrain
         return SWin,SWout
 
-    def getLW(self,surftemp):
+    def get_LW(self,surftemp):
         """
         If not input in climate data, scheme follows Klok and 
         Oerlemans (2002) for calculating net longwave radiation 
@@ -218,7 +215,7 @@ class energyBalance():
             
         return LWin,LWout
     
-    def getRain(self,surftemp):
+    def get_rain(self,surftemp):
         """
         Calculates amount of energy supplied by precipitation that falls as rain.
         
@@ -248,7 +245,7 @@ class energyBalance():
         Qp = (self.tempC-surftemp)*self.prec*frac_rain*DENSITY_WATER*CP_WATER
         return Qp
     
-    def getGround(self,surftemp):
+    def get_ground(self,surftemp):
         """
         Calculates amount of energy supplied by heat conduction from the temperate ice.
         
@@ -263,7 +260,7 @@ class energyBalance():
             assert 1==0, 'Ground flux method not accepted; choose from [\'MolgHardy\']'
         return Qg
     
-    def getTurbulent(self,surftemp,roughness):
+    def get_turbulent(self,surftemp,roughness):
         """
         Calculates turbulent fluxes (sensible and latent heat) based on 
         Monin-Obukhov Similarity Theory or Bulk Richardson number, 
@@ -311,16 +308,17 @@ class energyBalance():
         q0 = 1.0*0.622*(Ew0/(self.sp-Ew0))
         density_air = self.sp/R_GAS/self.tempK*MM_AIR
 
-        # INITIATE LOOP
+        # Initiate loop with neutral stratification
         loop = True
-        zeta = 1e-5 # initial guess, neutral stratification (close to 0 to avoid log issues)
+        PsiT0 = 0
+        PsiM0 = 0
+        previous_zeta = 0
 
         # Use initial guess to calculate coefficients and fluxes
         if eb_prms.method_turbulent in ['MO-similarity']:
-            L = z / zeta
-            cD = KARMAN**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
-            cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
-            cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
+            cD = KARMAN**2/(np.log(z/z0)-PsiM0-PsiM0)**2
+            cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT0-PsiT0))
+            cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT0-PsiT0))
         elif eb_prms.method_turbulent in ['BulkRichardson']:
             RICHARDSON = GRAVITY/self.tempK*(self.tempC-surftemp)*(z-z0t)/self.wind**2
             PSI = PsiRich(RICHARDSON)
@@ -331,8 +329,6 @@ class energyBalance():
         
         count_iters = 0
         while loop:
-            previous_zeta = zeta
-
             if Ql > 0 and surftemp <=0:
                 Lv = eb_prms.Lv_evap
             elif Ql > 0 and surftemp > 0:
@@ -341,7 +337,8 @@ class energyBalance():
                 Lv = eb_prms.Lv_sub
 
             # Calculate friction velocity using previous heat flux to get Obukhov length (L)
-            fric_vel = KARMAN*self.wind/(np.log(z/z0)-PsiM(zeta))
+            Psi = PsiM0 if count_iters < 1 else PsiM(zeta)
+            fric_vel = KARMAN*self.wind/(np.log(z/z0)-Psi)
             Qs = 1e-5 if Qs == 0 else Qs # divide by 0 issue
             L = fric_vel**3*(self.tempK)*density_air*CP_AIR/(KARMAN*GRAVITY*Qs)
             L = max(L,0.3)  # DEBAM uses this correction to ensure it isn't over stablizied
@@ -368,7 +365,7 @@ class energyBalance():
         # print(self.time,Qs,Ql)
         return Qs, Ql
     
-    def getDryDeposition(self, layers):
+    def get_dry_deposition(self, layers):
         DEP_FACTOR = eb_prms.dep_factor
         BC_RATIO = eb_prms.ratio_BC2_BCtot
         DUST_RATIO = eb_prms.ratio_DU3_DUtot
@@ -381,7 +378,7 @@ class energyBalance():
         layers.ldust[0] += self.dustdry * self.dt * DUST_RATIO
         return 
     
-    def getRoughnessLength(self,days_since_snowfall,layertype):
+    def get_roughness(self,days_since_snowfall,layertype):
         """
         Function to determine the roughness length of the surface. This assumes the roughness of snow
         linearly degrades with time in 60 days from that of fresh snow to firn.
@@ -420,7 +417,7 @@ class energyBalance():
             P = 0.61094*np.exp(17.625*T/(T+243.04)) # kPa
         return P*1000
  
-    def interpClimate(self,time,varname,bin_idx=-1):
+    def interp_climate(self,time,varname,bin_idx=-1):
         """
         Interpolates climate variables from the hourly dataset to get sub-hourly data.
 

@@ -160,7 +160,7 @@ method_grainsizetable = 'interpolate'
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
-constant_conductivity = 2.33            # False or conductivity in W K-1 m-1
+constant_conductivity = k_ice = 5               # False or conductivity in W K-1 m-1 (2.33)
 constant_freshgrainsize = 54.5          # False or grain size in um (54.5 is standard)
 
 # ALBEDO SWITCHES
@@ -195,7 +195,6 @@ ksp_BC = 0.2                # 0.1-0.2 meltwater scavenging efficiency of BC (fro
 ksp_dust = 0.015            # 0.015 meltwater scavenging efficiency of dust (from CLM5)
 dz_toplayer = 0.05          # Thickness of the uppermost bin [m]
 layer_growth = 0.4          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.3-.6
-k_ice = 2.33                # Thermal conductivity of ice [W K-1 m-1]
 roughness_aging_rate = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 albedo_TOD = [12]            # Time of day to calculate albedo [hr]
 initSSA = 80                 # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
@@ -241,7 +240,7 @@ rfz_grainsize = 1500        # Grainsize of refrozen snow [um]
 Sr = 0.033                  # for irreducible water content flow method
 rainBC = BC_freshsnow       # concentration of BC in rain
 raindust = dust_freshsnow   # concentration of dust in rain
-temp_temp = -3              # temperature of temperate ice [C]
+temp_temp = 0               # temperature of temperate ice [C]
 temp_depth = 100            # depth of temperate ice [m]
 albedo_fresh_snow = 0.85    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)
 albedo_firn = 0.55          # Albedo of firn [-]

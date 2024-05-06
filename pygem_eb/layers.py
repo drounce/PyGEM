@@ -36,14 +36,14 @@ class Layers():
         initial_sfi = np.array([snow_depth,firn_depth,ice_depth])
 
         # Calculate the layer depths based on initial snow, firn and ice depths
-        lheight,ldepth,ltype,nlayers = self.makeLayers(initial_sfi)
+        lheight,ldepth,ltype,nlayers = self.make_layers(initial_sfi)
         self.nlayers = nlayers              # NUMBER OF LAYERS
         self.ltype = ltype                  # LAYER TYPE (snow, firn, or ice)
         self.lheight = lheight              # LAYER HEIGHT (dz) [m]
         self.ldepth = ldepth                # LAYER DEPTH (midlayer) [m]
 
         # Initialize layer temperature, density, water content
-        ltemp,ldensity,lwater = self.getTpw(initial_sfi)
+        ltemp,ldensity,lwater = self.get_Tpw(initial_sfi)
         self.ltemp = ltemp                  # LAYER TEMPERATURE [C]
         self.ldensity = ldensity            # LAYER DENSITY [kg m-3]
         self.ldrymass = ldensity*lheight    # LAYER DRY (SOLID) MASS [kg m-2]
@@ -69,16 +69,18 @@ class Layers():
         #     self.dr0_rf,_,_ = climate.getGrainSizeModel(initSSA=eb_prms.initSSA,var='dr0mat')
         
         # Additional layer properties
-        self.updateLayerProperties()
+        self.update_layer_props()
         self.lrefreeze = np.zeros_like(self.ltemp)   # LAYER MASS OF REFREEZE [kg m-2]
         self.lnewsnow = np.zeros_like(self.ltemp)    # LAYER MASS OF NEW SNOW [kg m-2]
-        self.delayed_snow = 0 # Initiate bucket for 'delayed snow' 
+        
+        # Initiate bucket for 'delayed snow' and max snow mass
+        self.delayed_snow = 0
         self.max_snow = np.sum(self.ldrymass[self.snow_idx])
         
         print(f'{self.nlayers} layers initialized for bin {bin_no}')
         return 
     
-    def makeLayers(self,initial_sfi):
+    def make_layers(self,initial_sfi):
         """
         Initializes layer depths based on an exponential growth function 
         with prescribed rate of growth and initial layer height. 
@@ -147,7 +149,7 @@ class Layers():
         ldepth = [np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(nlayers)]
         return np.array(lheight), np.array(ldepth), np.array(ltype), nlayers
 
-    def getTpw(self,initial_sfi):
+    def get_Tpw(self,initial_sfi):
         """
         Initializes the layer temperatures, densities and water content.
 
@@ -171,7 +173,7 @@ class Layers():
 
         # Initialize temperature profiles from piecewise formulation or interpolating data
         if eb_prms.initialize_temp in ['piecewise']:
-            ltemp = self.initPiecewise(self.ldepth,temp_data,'temp')
+            ltemp = self.init_piecewise(self.ldepth,temp_data,'temp')
         elif eb_prms.initialize_temp in ['interp']:
             ltemp = np.interp(self.ldepth,temp_data[:,0],temp_data[:,1])
         else:
@@ -179,7 +181,7 @@ class Layers():
 
         # Initialize SNOW density profiles from piecewise formulation or interpolating data
         if eb_prms.initialize_dens in ['piecewise']:
-            ldensity = self.initPiecewise(self.ldepth[snow_idx],density_data,'density')
+            ldensity = self.init_piecewise(self.ldepth[snow_idx],density_data,'density')
         elif eb_prms.initialize_dens in ['interp']:
             ldensity = np.interp(self.ldepth[snow_idx],density_data[:,0],density_data[:,1])
         else:
@@ -207,7 +209,7 @@ class Layers():
 
         return ltemp,ldensity,lwater
     
-    def initPiecewise(self,ldepth,snow_var,varname):
+    def init_piecewise(self,ldepth,snow_var,varname):
         """
         Based on the DEBAM scheme for temperature and density that assumes linear
         changes with depth in three piecewise sections.
@@ -252,7 +254,7 @@ class Layers():
         return layer_var
     
     # ========= UTILITY FUNCTIONS ==========
-    def addLayers(self,layers_to_add):
+    def add_layers(self,layers_to_add):
         """
         Adds layers to layers class.
 
@@ -275,10 +277,10 @@ class Layers():
         self.lBC = np.append(new_layer_BC,self.lBC)
         new_layer_dust = layers_to_add.loc['dust'].values*self.lheight[0]
         self.ldust = np.append(new_layer_dust,self.ldust)
-        self.updateLayerProperties()
+        self.update_layer_props()
         return
     
-    def removeLayer(self,layer_to_remove):
+    def remove_layer(self,layer_to_remove):
         """
         Removes a single layer from layers class.
 
@@ -298,10 +300,10 @@ class Layers():
         self.grainsize = np.delete(self.grainsize,layer_to_remove)
         self.lBC = np.delete(self.lBC,layer_to_remove)
         self.ldust = np.delete(self.ldust,layer_to_remove)
-        self.updateLayerProperties()
+        self.update_layer_props()
         return
     
-    def splitLayer(self,layer_to_split):
+    def split_layer(self,layer_to_split):
         """
         Splits a single layer into two layers with half the height, mass, and water content.
         """
@@ -326,10 +328,10 @@ class Layers():
             self.lBC = np.insert(self.lBC,l,self.lBC[l])
             self.ldust[l] = self.ldust[l]/2
             self.ldust = np.insert(self.ldust,l,self.ldust[l])
-        self.updateLayerProperties()
+        self.update_layer_props()
         return
 
-    def mergeLayers(self,layer_to_merge):
+    def merge_layers(self,layer_to_merge):
         """
         Merges two layers, summing height, mass and water content and 
         averaging other properties. The layer merged will be the index
@@ -346,16 +348,19 @@ class Layers():
         self.grainsize[l+1] = np.mean(self.grainsize[l:l+2])
         self.lBC[l+1] = np.sum(self.lBC[l:l+2])
         self.ldust[l+1] = np.sum(self.ldust[l:l+2])
-        self.removeLayer(l)
+        self.remove_layer(l)
         return
     
-    def updateLayers(self):
+    def update_layers(self):
         """
         Checks the layer heights against the initial size scheme. If layers have become
         too small, they are merged with the layer below. If layers have become too large,
         they are split into two identical layers of half the size.
         """
-        DZ0 = eb_prms.dz_toplayer
+        if self.ltype[0] in ['snow','firn']:
+            DZ0 = eb_prms.dz_toplayer
+        else:
+            DZ0 = 0.3
         layer = 0
         min_heights = lambda i: DZ0 * np.exp((i-1)*eb_prms.layer_growth)/2
         max_heights = lambda i: DZ0 * np.exp((i-1)*eb_prms.layer_growth)*2
@@ -365,16 +370,16 @@ class Layers():
             if self.ltype[layer] in ['snow','firn']:
                 if dz < min_heights(layer) and self.ltype[layer]==self.ltype[layer+1]:
                     # Layer too small. Merge if it is the same type as the layer underneath
-                    self.mergeLayers(layer)
+                    self.merge_layers(layer)
                 elif dz > max_heights(layer):
                     # Layer too big. Split into two equal size layers
-                    self.splitLayer(layer)
+                    self.split_layer(layer)
                     layer_split = True
             if not layer_split:
                 layer += 1
         return
     
-    def updateLayerProperties(self,do=['depth','density']):
+    def update_layer_props(self,do=['depth','density']):
         """
         Recalculates nlayers, depths, density, and irreducible water content from density. 
         Can specify to only update certain properties.
@@ -396,7 +401,7 @@ class Layers():
             self.ldensity = self.ldrymass / self.lheight
         return
     
-    def updateLayerTypes(self):
+    def update_layer_types(self):
         """
         Checks if new firn or ice layers have been created by densification.
         """
@@ -412,7 +417,7 @@ class Layers():
                 self.ltype[layer] = 'firn'
                 # Merge layers if there is firn under the new firn layer
                 if self.ltype[layer+1] in ['firn']: 
-                    self.mergeLayers(layer)
+                    self.merge_layers(layer)
                     print('new firn!')
             # New ICE layer
             elif dens >= DENSITY_ICE and self.ltype[layer] == 'firn':
@@ -420,13 +425,13 @@ class Layers():
                 self.ldensity[layer] = DENSITY_ICE
                 # Merge into ice below
                 if self.ltype[layer+1] in ['ice']:
-                    self.mergeLayers(layer)
+                    self.merge_layers(layer)
                     print('new ice!')
             else:
                 layer += 1
         return
     
-    def addSnow(self,snowfall,enbal,surface,args,timestamp):
+    def add_snow(self,snowfall,enbal,surface,args,timestamp):
         """
         Adds snowfall to the layer scheme. If the existing top layer is ice, 
         the fresh snow is a new layer, otherwise it is merged with the top layer.
@@ -439,6 +444,8 @@ class Layers():
             class object from pygem_eb.energybalance
         """
         snowfall += self.delayed_snow
+        if snowfall == 0.:
+            return
 
         if args.switch_snow == 0:
             # Snow falls with the same properties as the current top layer
@@ -497,11 +504,11 @@ class Layers():
             self.lBC[0] = self.lBC[0] + new_BC
             self.ldust[0] = self.ldust[0] + new_dust
             if self.lheight[0] > (eb_prms.dz_toplayer * 2):
-                self.splitLayer(0)
-        self.updateLayerProperties()
+                self.split_layer(0)
+        self.update_layer_props()
         return 
 
-    def getGrainSize(self,airtemp,surftemp,bins=None):
+    def get_grain_size(self,airtemp,surftemp,bins=None):
         """
         Snow grain size metamorphism
         """
@@ -610,21 +617,3 @@ class Layers():
             self.grainsize[self.ice_idx] = 5000
         
         return 
-    
-    # def getIrrWaterCont(self,density=None):
-    #     """
-    #     Calculates the irreducible water content of the layers.
-    #     """
-    #     if not np.all(density):
-    #         density = self.ldrymass / self.lheight
-    #     density = density.astype(float)
-    #     DENSITY_ICE = eb_prms.density_ice
-    #     ice_idx = self.ice_idx
-
-    #     porosity = (DENSITY_ICE - density[:ice_idx[0]])/DENSITY_ICE
-    #     irrwaterfrac = 0.0143*np.exp(3.3*porosity)
-    #     irrwatersat = irrwaterfrac*density[:ice_idx[0]]/porosity # kg m-3, mass of liquid over pore volume
-    #     irrwatercont = irrwatersat*self.lheight[:ice_idx[0]] # kg m-2, mass of liquid in a layer
-        
-    #     irrwatercont = np.append(irrwatercont,np.zeros_like(ice_idx)) # ice layers cannot hold water
-    #     return irrwatercont

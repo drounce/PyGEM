@@ -60,16 +60,11 @@ def initialize_model(glac_no,args,debug=True):
     Returns
     -------
     climate
-
+        Class object from climate.py
     """
     # ===== GLACIER AND TIME PERIOD SETUP =====
     glacier_table = modelsetup.selectglaciersrgitable(np.array([glac_no]),
-                    rgi_regionsO1=eb_prms.rgi_regionsO1,
-                    rgi_regionsO2=eb_prms.rgi_regionsO2,
-                    rgi_glac_number=eb_prms.rgi_glac_number,
-                    include_landterm=eb_prms.include_landterm,
-                    include_laketerm=eb_prms.include_laketerm,
-                    include_tidewater=eb_prms.include_tidewater)
+                    rgi_regionsO1=eb_prms.rgi_regionsO1)
     climate = climutils.Climate(args,glacier_table)
 
     # Load in available AWS data
@@ -82,7 +77,20 @@ def initialize_model(glac_no,args,debug=True):
 
     return climate
 
-def run_model(climate,args,new_attrs):
+def run_model(climate,args,store_attrs=None):
+    """
+    Executes model functions in parallel or series and
+    stores output data.
+
+    Parameters
+    ==========
+    climate
+        Class object with climate data from initialize_model
+    args
+        Command line arguments from get_args
+    add_attrs : dict
+        Dictionary of additional metadata to store in the .nc
+    """
     # ===== RUN ENERGY BALANCE =====
     if eb_prms.parallel:
         def run_mass_balance(bin):
@@ -105,9 +113,9 @@ def run_model(climate,args,new_attrs):
 
     # Store metadata in netcdf and save result
     if args.store_data:
-        massbal.output.addVars()
-        massbal.output.addAttrs(args,time_elapsed,climate)
-        ds_out = massbal.output.addNewAttrs(new_attrs)
+        massbal.output.add_vars()
+        massbal.output.add_basic_attrs(args,time_elapsed,climate)
+        ds_out = massbal.output.add_attrs(store_attrs)
         print('Success: saving to',eb_prms.output_name+'.nc')
     else:
         print('Success: data was not saved')
@@ -118,7 +126,7 @@ def run_model(climate,args,new_attrs):
 args = get_args()
 for gn in args.glac_no:
     climate = initialize_model(gn,args)
-    out = run_model(climate,args,{'Run By':eb_prms.machine})
+    out = run_model(climate,args)
     if out:
         # Get final mass balance
         print(f'Total Mass Loss: {out.melt.sum():.3f} m w.e.')

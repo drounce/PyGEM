@@ -60,51 +60,44 @@ class massBalance():
             # Initiate the energy balance to unpack climate data
             enbal = eb.energyBalance(climateds,time,self.bin_idx,dt)
 
-            # Update layers (checks for tiny or huge layers)
-            layers.updateLayers()
+            # Check and update layer sizes
+            layers.update_layers()
 
             # Get rain and snowfall amounts [kg m-2]
-            rain,snowfall = self.getPrecip(enbal)
+            rain,snowfall = self.get_precip(enbal)
 
             # Add fresh snow to layers
-            if snowfall > 0:
-                layers.addSnow(snowfall,enbal,surface,self.args,time)
+            layers.add_snow(snowfall,enbal,surface,self.args,time)
 
             # Add dry deposited BC and dust to layers
-            enbal.getDryDeposition(layers)
+            enbal.get_dry_deposition(layers)
 
             # Update daily properties
             if time.hour == 0: 
-                surface.updateSurfaceDaily(layers,enbal.tempC,surface.stemp,time)
+                surface.daily_updates(layers,enbal.tempC,surface.stemp,time)
                 self.days_since_snowfall = surface.days_since_snowfall
                 layers.lnewsnow = np.zeros(layers.nlayers)
             if time.hour in eb_prms.albedo_TOD:
-                surface.getAlbedo(layers,time)
+                surface.get_albedo(layers,time)
 
             # Calculate surface energy balance by updating surface temperature
-            surface.getSurfTemp(enbal,layers)
+            surface.get_surftemp(enbal,layers)
+
+            # Update snow/ice mass from latent heat fluxes (sublimation etc)
+            
 
             # Calculate subsurface heating from penetrating SW
-            if layers.nlayers > 1: 
-                SWin,SWout = enbal.getSW(surface)
-                subsurf_melt = self.penetratingSW(layers,SWin+SWout)
-            else: # If there is only one layer, no subsurface melt occurs
-                subsurf_melt = [0]
+            SWin,SWout = enbal.get_SW(surface)
+            subsurf_melt = self.penetrating_SW(layers,SWin+SWout)
 
             # Calculate column melt including the surface
-            if surface.Qm > 0:
-                layermelt, self.melted_layers = self.meltLayers(layers,subsurf_melt)
-            else: # No surface melt
-                layermelt = subsurf_melt.copy()
-                layermelt[0] = 0
-                self.melted_layers = 0
+            layermelt = self.melt_layers(layers,subsurf_melt)
                        
             # Percolate the meltwater, rain and LAPs
             runoff = self.percolation(enbal,layers,layermelt,rain)
 
             # Recalculate the temperature profile considering conduction
-            if np.abs(np.sum(layers.ltemp)) != 0.:
-                self.solveHeatEq(layers,surface.stemp)
+            self.solve_heat_eq(layers,surface.stemp)
 
             # Calculate refreeze
             refreeze = self.refreezing(layers)
@@ -120,7 +113,7 @@ class massBalance():
             self.accum = snowfall / eb_prms.density_water
 
             # Store timestep data
-            self.output.storeTimestep(self,enbal,surface,layers,time)   
+            self.output.store_timestep(self,enbal,surface,layers,time)   
 
             # Debugging: print current state and monthly melt at the end of each month
             if time.is_month_start and time.hour == 0 and eb_prms.debug:
@@ -131,13 +124,13 @@ class massBalance():
 
         # Completed bin: store data
         if self.args.store_data:
-            self.output.storeData(self.bin_idx)
+            self.output.store_data(self.bin_idx)
 
         if eb_prms.store_bands:
             surface.albedo_df.to_csv(eb_prms.albedo_out_fp.replace('.csv',f'_{self.elev}.csv'))
         return
 
-    def penetratingSW(self,layers,surface_SW):
+    def penetrating_SW(self,layers,surface_SW):
         """
         Calculates melt in subsurface layers (excluding layer 0) 
         due to penetrating shortwave radiation.
@@ -152,6 +145,9 @@ class massBalance():
         layermelt : np.ndarray
             Array containing subsurface melt amounts [kg m-2]
         """
+        if layers.nlayers == 1: 
+            return [0.]
+        
         # CONSTANTS
         HEAT_CAPACITY_ICE = eb_prms.Cp_ice
         LH_RF = eb_prms.Lh_rf
@@ -193,7 +189,7 @@ class massBalance():
         layers.ltemp = lT
         return layermelt
 
-    def meltLayers(self,layers,subsurf_melt):
+    def melt_layers(self,layers,subsurf_melt):
         """
         For cases when bins are melting. Can melt multiple surface bins
         at once if Qm is sufficiently high. Otherwise, adds the surface
@@ -215,6 +211,12 @@ class massBalance():
             Array containing layer melt amounts [kg m-2]
         
         """
+        if self.surface.Qm <= 0:
+            layermelt = subsurf_melt.copy()
+            layermelt[0] = 0
+            self.melted_layers = 0
+            return layermelt
+        
         # CONSTANTS
         LH_RF = eb_prms.Lh_rf
 
@@ -255,15 +257,15 @@ class massBalance():
                 self.BC = layers.lBC[fully_melted]
                 self.dust = layers.ldust[fully_melted]
 
-        fully_melted_mass = MeltedLayers()
+        self.melted_layers = MeltedLayers()
 
         # Remove layers that were completely melted 
         removed = 0 # Indexes of layers change as you loop
         for layer in fully_melted:
-            layers.removeLayer(layer-removed)
+            layers.remove_layer(layer-removed)
             layermelt = np.delete(layermelt,layer-removed)
             removed += 1 
-        return layermelt, fully_melted_mass
+        return layermelt
         
     def percolation(self,enbal,layers,layermelt,water_in=0):
         """
@@ -386,7 +388,7 @@ class massBalance():
 
                 # Diffuse LAPs 
                 if self.args.switch_LAPs == 1:
-                    self.diffuseLAPs(layers,np.array(q_out_store),enbal,rain_bool)
+                    self.diffuse_LAPs(layers,np.array(q_out_store),enbal,rain_bool)
             
         else:
             # No percolation, but need to move melt to runoff
@@ -396,7 +398,7 @@ class massBalance():
 
         return runoff
         
-    def diffuseLAPs(self,layers,q_out,enbal,rain_bool):
+    def diffuse_LAPs(self,layers,q_out,enbal,rain_bool):
         """
         Diffuses LAPs vertically through the snow and firn layers based on
         inter-layer water fluxes from percolation.
@@ -518,7 +520,7 @@ class massBalance():
         layers.lwater = lw
         layers.ldrymass = ldm
         layers.lheight = lh
-        layers.updateLayerProperties()
+        layers.update_layer_props()
         
         # Update refreeze with new refreeze content
         layers.lrefreeze += refreeze
@@ -569,7 +571,7 @@ class massBalance():
             # LAYERS OUT
             layers.ldensity = lp
             layers.lheight = ldm / lp
-            layers.updateLayerProperties('depth')
+            layers.update_layer_props('depth')
 
         # Herron Langway (1980) method
         elif eb_prms.method_densification in ['HerronLangway']:
@@ -591,13 +593,13 @@ class massBalance():
             # LAYERS OUT
             layers.ldensity = lp
             layers.lheight = ldm / lp
-            layers.updateLayerProperties('depth')
+            layers.update_layer_props('depth')
 
         # Check if new firn or ice layers were created
-        layers.updateLayerTypes()
+        layers.update_layer_types()
         return
     
-    def getPrecip(self,enbal):
+    def get_precip(self,enbal):
         """
         Determines whether rain or snowfall occurred and outputs amounts.
 
@@ -639,7 +641,7 @@ class massBalance():
             snow = 0
         return rain,snow  # kg m-2
       
-    def solveHeatEq(self,layers,surftemp,dt_heat=eb_prms.dt_heateq):
+    def solve_heat_eq(self,layers,surftemp,dt_heat=eb_prms.dt_heateq):
         """
         Resolves the temperature profile from conduction of heat using 
         Forward-in-Time-Central-in-Space (FTCS) scheme
@@ -657,6 +659,9 @@ class massBalance():
         new_T : np.ndarray
             Array of new layer temperatures
         """
+        if np.sum(layers.ltemp) == 0.:
+            return
+        
         # CONSTANTS
         CP_ICE = eb_prms.Cp_ice
         DENSITY_ICE = eb_prms.density_ice
@@ -732,7 +737,7 @@ class massBalance():
         accum = np.sum(self.output.accum_output[-720:])
         ended_month = (time - pd.Timedelta(days=1)).month_name()
 
-        layers.updateLayerProperties()
+        layers.update_layer_props()
         snowdepth = np.sum(layers.lheight[layers.snow_idx])
         firndepth = np.sum(layers.lheight[layers.firn_idx])
         icedepth = np.sum(layers.lheight[layers.ice_idx])
@@ -853,7 +858,7 @@ class Output():
         self.layergrainsize_output = dict() # layer grain size [um]
         return
     
-    def storeTimestep(self,massbal,enbal,surface,layers,step):
+    def store_timestep(self,massbal,enbal,surface,layers,step):
         step = str(step)
         self.SWin_output.append(float(enbal.SWin))
         self.SWout_output.append(float(enbal.SWout))
@@ -883,7 +888,7 @@ class Output():
         self.layerdust_output[step] = layers.ldust / layers.lheight * 1e3
         self.layergrainsize_output[step] = layers.grainsize
 
-    def storeData(self,bin):    
+    def store_data(self,bin):    
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
             ds = dataset.load()
             if 'EB' in eb_prms.store_vars:
@@ -939,7 +944,7 @@ class Output():
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return ds
     
-    def addVars(self):
+    def add_vars(self):
         """
         Adds additional variables to the output dataset.
         
@@ -972,42 +977,37 @@ class Output():
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
     
-    def addAttrs(self,args,time_elapsed,climate):
+    def add_basic_attrs(self,args,time_elapsed,climate):
         """
         Adds informational attributes to the output dataset.
 
         time_elapsed
         run_start and run_end
-        input dataset (GCM or AWS)
+        from_AWS and from_reanalysis list of variables
         n_bins and bin_elev
         model_run_date
         switch_melt, switch_LAPs, switch_snow
         """
         time_elapsed = str(time_elapsed) + ' s'
-        bin_elev = '['
-        for elev in eb_prms.bin_elev:
-            bin_elev += str(elev)+' '
-        bin_elev += ']'
+        bin_elev = ' '.join(eb_prms.bin_elev)
 
-        # get information on variable source
-        reanalysis_vars = eb_prms.reanalysis+': '
+        # get information on variable sources
+        re_str = eb_prms.reanalysis+': '
         props = eb_prms.glac_props[eb_prms.glac_no[0]]
         if eb_prms.use_AWS:
             measured = climate.measured_vars
-            AWS_vars = props['name']+' '+str(props['site_elev'])+' '
-            for v in measured:
-                AWS_vars += v +','
+            AWS_str = props['name']+' '+str(props['site_elev'])+': '
+            AWS_str += ', '.join(measured)
             re_vars = [e for e in climate.all_vars if e not in measured]
-            for v in re_vars:
-                reanalysis_vars += ', ' + v
+            re_str += ', '.join(re_vars)
         else:
-            reanalysis_vars += ', all'
-            AWS_vars = 'none'
+            re_str += 'all'
+            AWS_str = 'none'
         
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
             ds = dataset.load()
-            ds = ds.assign_attrs(from_AWS=AWS_vars,
-                                 from_reanalysis=reanalysis_vars,
+            ds = ds.assign_attrs(from_AWS=AWS_str,
+                                 from_reanalysis=re_str,
                                  run_start=str(args.startdate),
                                  run_end=str(args.enddate),
                                  n_bins=str(args.n_bins),
@@ -1016,7 +1016,8 @@ class Output():
                                  switch_melt=str(args.switch_melt),
                                  switch_snow=str(args.switch_snow),
                                  switch_LAPs=str(args.switch_LAPs),
-                                 time_elapsed=time_elapsed)
+                                 time_elapsed=time_elapsed,
+                                 run_by=eb_prms.machine)
             if len(args.glac_no) > 1:
                 reg = args.glac_no[0][0:2]
                 ds = ds.assign_attrs(glacier=f'{len(args.glac_no)} glaciers in region {reg}')
@@ -1025,12 +1026,14 @@ class Output():
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return
     
-    def addNewAttrs(self,new_attrs):
+    def add_attrs(self,new_attrs):
         """
-        A space to add new attributes as a dict to the output dataset.
+        Adds new attributes as a dict to the output dataset
         """
         with xr.open_dataset(eb_prms.output_name+'.nc') as dataset:
             ds = dataset.load()
+            if not new_attrs:
+                return ds
             ds = ds.assign_attrs(new_attrs)
         ds.to_netcdf(eb_prms.output_name+'.nc')
         return ds

@@ -40,7 +40,7 @@ varprops = {'surftemp':{'label':'Surface temp','type':'Temperature','units':'C'}
            'latent':{'label':'Latent Heat','type':'Flux','units':'W m$^{-2}$'},
            'rain':{'label':'Rain Energy','type':'Flux','units':'W m$^{-2}$'},
            'ground':{'label':'Ground Energy','type':'Flux','units':'W m$^{-2}$'},
-           'layertemp':{'label':'Layer temp','type':'Layers','units':'C'},
+           'layertemp':{'label':'Layer temp.','type':'Layers','units':'C'},
            'layerdensity':{'label':'Density','type':'Layers','units':'kg m$^{-3}$'},
            'layerwater':{'label':'Water Content','type':'Layers','units':'kg m$^{-2}$'},
            'layerBC':{'label':'BC Conc.','type':'Layers','units':'ppb'},
@@ -1000,7 +1000,8 @@ def plot_layers(ds,vars,dates):
     return
 
 def visualize_layers(ds,bin,dates,var,force_layers=False,
-                     t='Visualization of Snow Layers',plot_firn=True):
+                     t='Visualization of Snow ',
+                     plot_firn=True,plot_ice=False):
     """
     force_layers:
         Three options:
@@ -1024,6 +1025,7 @@ def visualize_layers(ds,bin,dates,var,force_layers=False,
         max_val = 0
         min_val = -10
     dens_lim = 890 if plot_firn else 600
+    dens_lim = 1000 if plot_ice else dens_lim
 
     # Custom color function based on concentrations
     def get_color(value,color='bw'):
@@ -1039,31 +1041,41 @@ def visualize_layers(ds,bin,dates,var,force_layers=False,
         return color
 
     fig,ax = plt.subplots(figsize=(8,4),sharey=True)
+    if plot_ice:
+        ax.set_yscale('log')
     for step in dates:
-        depth = ds.sel(time=step,bin=bin)['layerheight'].to_numpy()
+        height = ds.sel(time=step,bin=bin)['layerheight'].to_numpy()
         vardata = ds.sel(time=step,bin=bin)[var].to_numpy()
         dens = ds.sel(time=step,bin=bin)['layerdensity'].to_numpy()
-        if not force_layers:
+        try:
+            _ = not force_layers
             layers_to_plot = np.where(dens < dens_lim)[0]
-        else:
+        except:
             if '__iter__' in dir(force_layers):
                 layers_to_plot = force_layers
             else:
-                layers_to_plot = np.where(np.cumsum(depth) < force_layers)[0]
-        depth = np.flip(depth[layers_to_plot])
+                layers_to_plot = np.where(np.cumsum(height) < force_layers)[0]
+        if plot_ice:
+            layers_to_plot = np.arange(len(vardata))
+        # flip order so they stack bottom to top
+        height = np.flip(height[layers_to_plot])
         vardata = np.flip(vardata[layers_to_plot])
         if var in ['layerwater']:
-            vardata = vardata / depth / 1000 * 100
+            vardata = vardata / height / 1000 * 100
+        if plot_ice:
+            height = np.log(height)
 
         bottom = 0
         ctype = 'plasma' if var == 'layertemp' else 'bw'
-        for [dep,data] in zip(depth,vardata):
-            ax.bar(step,dep, bottom=bottom, width=diff, color=get_color(data,ctype),linewidth=0.5,edgecolor='black')
-            bottom += dep  # Update bottom for the next set of bars
+        for [dh,data] in zip(height,vardata):
+            if np.isnan(dh):
+                continue
+            ax.bar(step,dh, bottom=bottom, width=diff, color=get_color(data,ctype),linewidth=0.5,edgecolor='black')
+            bottom += dh  # Update bottom for the next set of bars
 
     # Customize plot
     plt.ylabel('Depth (m)')
-    plt.title(t+f' (Bin {bin})')
+    plt.title(t+varprops[var]['label'])
     plt.xticks(dates)
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
