@@ -101,7 +101,7 @@ class Climate():
             data = df[var]
             # adjust elevation-dependent variables
             if var in ['temp','tp','sp']:
-                data = self.getBinnedClimate(data, var, self.AWS_elev)
+                data = self.bin_adjust(data, var, self.AWS_elev)
                 varname = 'bin_' + var
             else:
                 varname = var
@@ -130,16 +130,17 @@ class Climate():
 
         # define worker function for threading
         def access_cell(fn, var, result_dict):
-            vn = self.var_dict[var]['vn']
-            # open individual datafile
+            # open and check units of climate data
             ds = xr.open_dataset(fn)
             if var != 'elev':
                 ds = ds.sel(time=dates)
             ds = self.check_units(var,ds)
+            # index by lat and lon
+            vn = self.var_dict[var]['vn']
             data = ds.sel(lat=lat, lon=lon, method='nearest')[vn].values
             # adjust elevation-dependent variables
             if var in ['temp','tp','sp']:
-                data = self.getBinnedClimate(data, var, self.reanalysis_elev)
+                data = self.bin_adjust(data, var, self.reanalysis_elev)
             # store result
             result_dict[var] = data
             ds.close()
@@ -179,7 +180,7 @@ class Climate():
             self.cds[varname].values = all_data[var]
         return
 
-    def getBinnedClimate(self, data, var, elev_data):
+    def bin_adjust(self, data, var, elev_data):
         """
         Adjusts elevation-dependent climate variables (temperature, precip,
         surface pressure).

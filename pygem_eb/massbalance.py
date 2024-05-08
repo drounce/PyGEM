@@ -989,7 +989,7 @@ class Output():
         switch_melt, switch_LAPs, switch_snow
         """
         time_elapsed = str(time_elapsed) + ' s'
-        bin_elev = ' '.join(eb_prms.bin_elev)
+        bin_elev = ', '.join([str(z) for z in eb_prms.bin_elev])
 
         # get information on variable sources
         re_str = eb_prms.reanalysis+': '

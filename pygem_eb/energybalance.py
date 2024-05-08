@@ -286,15 +286,10 @@ class energyBalance():
         z0t = z0/100    # Roughness length for heat
         z0q = z0/10     # Roughness length for moisture
 
-        # UNIVERSAL FUNCTIONS
-        chi = lambda zeta: abs(1-16*zeta)**(1/4)
-        PsiM = lambda zeta: np.piecewise(zeta,[zeta<0,(zeta>=0)&(zeta<=1),zeta>1],
-                            [2*np.log((1+chi(zeta))/2)+np.log((1+chi(zeta)**2)/2)-2*np.arctan(chi(zeta))+np.pi/2,
-                            -5*zeta, -4*(1+np.log(zeta))-zeta])
-        PsiT = lambda zeta: np.piecewise(zeta,[zeta<0,(zeta>=0)&(zeta<=1),zeta>1],
-                            [np.log((1+chi(zeta)**2)/2), -5*zeta, -4*(1+np.log(zeta))-zeta])
-        PsiRich = lambda Ri: np.piecewise(Ri,[Ri<0.01,(Ri<=0.01)&(Ri<=0.2),Ri>0.2],
-                            [1,(1-5*Ri)**2,0])
+        # # SLOPE (not currently using)
+        # if eb_prms.glac_no == ['01.00570']:
+        #     slope = eb_prms.slope
+        #     cos_slope = np.cos(np.radians(slope))
 
         # ADJUST WIND SPEED
         z = 2 # reference height in m
@@ -308,61 +303,75 @@ class energyBalance():
         q0 = 1.0*0.622*(Ew0/(self.sp-Ew0))
         density_air = self.sp/R_GAS/self.tempK*MM_AIR
 
-        # Initiate loop with neutral stratification
+        # Latent heat term depends on direction of heat exchange
+        if surftemp == 0. and (qz-q0) > 0:
+            Lv = eb_prms.Lv_evap
+        else:
+            Lv = eb_prms.Lv_sub 
+
+        # Initiate loop
         loop = True
-        PsiT0 = 0
-        PsiM0 = 0
-        previous_zeta = 0
-
-        # Use initial guess to calculate coefficients and fluxes
-        if eb_prms.method_turbulent in ['MO-similarity']:
-            cD = KARMAN**2/(np.log(z/z0)-PsiM0-PsiM0)**2
-            cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT0-PsiT0))
-            cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT0-PsiT0))
-        elif eb_prms.method_turbulent in ['BulkRichardson']:
-            RICHARDSON = GRAVITY/self.tempK*(self.tempC-surftemp)*(z-z0t)/self.wind**2
-            PSI = PsiRich(RICHARDSON)
-            cH = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0t))
-            cE = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0q))
-        Qs = density_air*CP_AIR*cH*self.wind*(self.tempC-surftemp)
-        Ql = density_air*eb_prms.Lv_evap*cE*self.wind*(qz-q0)
-        
-        count_iters = 0
+        counter = 0
+        L = 0
+        Qs_last = np.inf
         while loop:
-            if Ql > 0 and surftemp <=0:
-                Lv = eb_prms.Lv_evap
-            elif Ql > 0 and surftemp > 0:
-                Lv = eb_prms.Lv_sub
-            elif Ql <= 0:
-                Lv = eb_prms.Lv_sub
+            # calculate stability terms
+            fric_vel = KARMAN*self.wind / (np.log(z/z0)-self.PhiM(z,L))
+            cD = KARMAN**2/np.square(np.log(z/z0) - self.PhiM(z,L) - self.PhiM(z0,L))
+            csT = KARMAN*np.sqrt(cD) / (np.log(z/z0t) - self.PhiT(z,L) - self.PhiT(z0,L))
+            csQ = KARMAN*np.sqrt(cD) / (np.log(z/z0q) - self.PhiT(z,L) - self.PhiT(z0,L))
 
-            # Calculate friction velocity using previous heat flux to get Obukhov length (L)
-            Psi = PsiM0 if count_iters < 1 else PsiM(zeta)
-            fric_vel = KARMAN*self.wind/(np.log(z/z0)-Psi)
-            Qs = 1e-5 if Qs == 0 else Qs # divide by 0 issue
+            # calculate fluxes
+            Qs = density_air*CP_AIR*csT*self.wind*(self.tempC - surftemp)
+            Ql = density_air*Lv*csQ*self.wind*(qz-q0)
+
+            # recalculate L
             L = fric_vel**3*(self.tempK)*density_air*CP_AIR/(KARMAN*GRAVITY*Qs)
-            L = max(L,0.3)  # DEBAM uses this correction to ensure it isn't over stablizied
-            zeta = z/L
-                
-            # Calculate stability factors
-            if eb_prms.method_turbulent in ['MO-similarity']:
-                cD = KARMAN**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
-                cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
-                cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
-            elif eb_prms.method_turbulent in ['BulkRichardson']:
-                RICHARDSON = GRAVITY/self.tempK*(self.tempC-surftemp)*(z-z0)/self.wind**2
-                PSI = PsiRich(RICHARDSON)
-                cH = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0t))
-                cE = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0q))
 
-            # Calculate fluxes
-            Qs = density_air*CP_AIR*cH*self.wind*(self.tempC-surftemp)
-            Ql = density_air*Lv*cE*self.wind*(qz-q0)
-
-            count_iters += 1
-            if count_iters > 10 or abs(previous_zeta - zeta) < .1:
+            # check convergence
+            counter += 1
+            diff = np.abs(Qs_last-Qs)
+            if counter > 10 or diff < 1e-1:
                 loop = False
+                if counter> 10:
+                    print('didnt converge')
+
+            Qs_last = Qs
+        
+        # counter = 0
+        # L = 0
+        # while loop:
+        #     # Calculate friction velocity using previous heat flux to get Obukhov length (L)
+        #     Psi = PsiM0 if counter < 1 else PsiM(zeta)
+        #     fric_vel = KARMAN*self.wind/(np.log(z/z0)-Psi)
+        #     Qs = 1e-5 if Qs == 0 else Qs # divide by 0 issue
+        #     L = fric_vel**3*(self.tempK)*density_air*CP_AIR/(KARMAN*GRAVITY*Qs)
+        #     L = max(L,0.3)  # DEBAM uses this correction to ensure it isn't over stablizied
+        #     zeta = z/L
+                
+        #     # Calculate stability factors
+        #     if eb_prms.method_turbulent in ['MO-similarity']:
+        #         cD = KARMAN**2/(np.log(z/z0)-PsiM(zeta)-PsiM(z0/L))**2
+        #         cH = KARMAN*cD**(1/2)/((np.log(z/z0t)-PsiT(zeta)-PsiT(z0t/L)))
+        #         cE = KARMAN*cD**(1/2)/((np.log(z/z0q)-PsiT(zeta)-PsiT(z0q/L)))
+        #     elif eb_prms.method_turbulent in ['BulkRichardson']:
+        #         RICHARDSON = GRAVITY/self.tempK*(self.tempC-surftemp)*(z-z0)/self.wind**2
+        #         PSI = PsiRich(RICHARDSON)
+        #         cH = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0t))
+        #         cE = KARMAN**2*PSI/(np.log(z/z0)*np.log(z/z0q))
+
+        #     # Calculate fluxes
+        #     Qs = density_air*CP_AIR*cH*self.wind*(self.tempC-surftemp)
+        #     Ql = density_air*Lv*cE*self.wind*(qz-q0)
+
+        #     counter += 1
+        #     if counter > 10 or abs(previous_zeta - zeta) < .1:
+        #         loop = False
+        #         if counter > 10:
+        #             print('didnt converge')
         # print(self.time,Qs,Ql)
+        # if self.time.hour == 12 and self.time > pd.to_datetime('06-15-2023'):
+        #         print(self.time,'wind',self.wind,'temp',self.tempC-surftemp,'cH',cH,'rho',density_air)
         return Qs, Ql
     
     def get_dry_deposition(self, layers):
@@ -415,28 +424,42 @@ class energyBalance():
         """
         if method in ['ARM']:
             P = 0.61094*np.exp(17.625*T/(T+243.04)) # kPa
+        elif method in ['Sonntag']:
+            # follows COSIPY
+            T += 273.15
+            if T > 273.15:  # over water
+                P = 0.6112*np.exp(17.67*(T-273.15)/(T-29.66))
+            else: # over ice
+                P = 0.6112*np.exp(22.46*(T-273.15)/(T-0.55))
         return P*1000
  
-    def interp_climate(self,time,varname,bin_idx=-1):
-        """
-        Interpolates climate variables from the hourly dataset to get sub-hourly data.
-
-        Parameters
-        ----------
-        time : datetime
-            Timestamp to interpolate the climate variable.
-        varname : str
-            Variable name of variable in climateds
-        bin_idx : int, default = -1
-            Index number of the bin being run. Default -1 for a variable that is elevation-independent.
-        """
-        climate_before = self.climateds.sel(time=time.floor('H'))
-        climate_after = self.climateds.sel(time=time.ceil('H'))
-        if bin_idx == -1:
-            before = climate_before[varname].to_numpy()
-            after = climate_after[varname].to_numpy()
+    def stable_PhiM(self,z,L):
+        zeta = z/L
+        if zeta > 1.:
+            phim = -4*(1+np.log(zeta)) - zeta
+        elif zeta > 0.:
+            phim = -5*zeta
         else:
-            before = climate_before[varname].to_numpy()[bin_idx]
-            after = climate_after[varname].to_numpy()[bin_idx]
-        return before+(after-before)*(time.minute/60)
+            phim = 0
+        return phim
+
+    def PhiM(self,z,L):
+        if L < 0:
+            X = np.power((1-16*z/L),0.25)
+            phim = 2*np.log((1+X)/2) + np.log((1+X**2)/2) - 2*np.arctan(X) + np.pi/2
+        elif L > 0: # stable
+            phim = self.stable_PhiM(z, L)
+        else:
+            phim = 0.0
+        return phim
+
+    def PhiT(self,z,L):
+        if L < 0:
+            X = np.power((1-19.3*z/L),0.25)
+            phit = 2*np.log((1+X**2)/2)
+        elif L > 0: # stable
+            phit = self.stable_PhiM(z, L)
+        else:
+            phit = 0.0
+        return phit
     

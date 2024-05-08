@@ -58,6 +58,8 @@ if glac_no == ['01.00570']:
     site_df = pd.read_csv(site_fp,index_col='site')
     bin_elev = [site_df.loc[site]['elevation']]
     kp = site_df.loc[site]['kp']
+    slope = site_df.loc[site]['slope']
+    aspect = site_df.loc[site]['aspect']
     sky_view = site_df.loc[site]['sky_view']
     bin_ice_depth = np.ones(len(bin_elev)) * 200
     initial_snowdepth = [site_df.loc[site]['snowdepth']]
