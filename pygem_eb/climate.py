@@ -37,6 +37,8 @@ class Climate():
         self.get_vardict()
         self.all_vars = ['temp','tp','rh','wind','sp','SWin',
                             'LWin','bcwet','bcdry','dustwet','dustdry']
+        if not self.args.use_AWS:
+            self.measured_vars = []
 
         # create empty dataset
         nans = np.ones(n_time)*np.nan
@@ -85,7 +87,11 @@ class Climate():
         data_end = pd.to_datetime(df.index.to_numpy()[-1])
         assert self.dates[0] >= data_start, 'Check input dates: start date before range of AWS data'
         assert self.dates[len(self.dates)-1] <= data_end, 'Check input dates: end date after range of AWS data'
-        df = df.loc[self.dates]
+        
+        # reindex in case of MERRA-2 half-hour timesteps
+        new_index = pd.DatetimeIndex(self.dates)
+        index_joined = df.index.join(new_index, how='outer')
+        df = df.reindex(index=index_joined).interpolate().reindex(new_index)
 
         # get AWS elevation
         self.AWS_elev = df.iloc[0]['z']
@@ -105,7 +111,7 @@ class Climate():
                 varname = 'bin_' + var
             else:
                 varname = var
-            self.cds[varname].values = data
+            self.cds[varname].values = data.astype(float)
 
         # figure out which data is still needed from reanalysis
         need_vars = [e for e in self.all_vars if e not in AWS_vars]
@@ -119,6 +125,7 @@ class Climate():
         dates = self.dates_UTC
         lat = self.lat
         lon = self.lon
+        self.need_vars = vars
         
         # get reanalysis data geopotential
         z_fp = self.reanalysis_fp + self.var_dict['elev']['fn']
@@ -126,7 +133,6 @@ class Climate():
         zds = xr.open_dataset(z_fp).sel(lat=lat,lon=lon,method='nearest')
         zds = self.check_units('elev',zds)
         self.reanalysis_elev = zds.isel(time=0)[z_vn].values
-        assert self.reanalysis_elev < 8000
 
         # define worker function for threading
         def access_cell(fn, var, result_dict):
@@ -140,7 +146,9 @@ class Climate():
             data = ds.sel(lat=lat, lon=lon, method='nearest')[vn].values
             # adjust elevation-dependent variables
             if var in ['temp','tp','sp']:
-                data = self.bin_adjust(data, var, self.reanalysis_elev)
+                data = self.bin_adjust(data.ravel(), var, self.reanalysis_elev)
+            else:
+                data = data.ravel()
             # store result
             result_dict[var] = data
             ds.close()
@@ -224,7 +232,7 @@ class Climate():
             self.cds['winddir'].values = winddir
 
         # adjust MERRA-2 temperature bias (varies by month of the year)
-        temp_filled = True if ~eb_prms.use_AWS else 'temp' in self.need_vars
+        temp_filled = True if not eb_prms.use_AWS else 'temp' in self.need_vars
         if eb_prms.reanalysis == 'MERRA2' and temp_filled:
             self.adjust_temp_bias()
 

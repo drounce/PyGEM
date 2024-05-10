@@ -489,7 +489,7 @@ class Layers():
                 new_layer = pd.DataFrame([enbal.tempC,0,snowfall/new_density,'snow',snowfall,
                                       new_grainsize,new_BC,new_dust,new_snow],
                                      index=['T','w','h','t','m','g','BC','dust','new'])
-                self.addLayers(new_layer)
+                self.add_layers(new_layer)
                 self.delayed_snow = 0
         else:
             # take weighted average of density and temperature of surface layer and new snow
@@ -566,9 +566,10 @@ class Layers():
             dTdz = np.abs(dTdz)
 
             # Force to be within lookup table ranges******
+            p[np.where(p < 50)[0]] = 50
             p[np.where(p > 400)[0]] = 400
             dTdz[np.where(dTdz > 300)[0]] = 300
-            T[np.where(T > 273.15)] = 273.15
+            T[np.where(T > 273.15)[0]] = 273.15
 
             if eb_prms.method_grainsizetable in ['interpolate']:
                 # Interpolate lookup table at the values of T,dTdz,p
@@ -583,6 +584,8 @@ class Layers():
                 tau = ds.taumat.to_numpy()[diag]
                 kap = ds.kapmat.to_numpy()[diag]
                 dr0 = ds.dr0mat.to_numpy()[diag]
+                if np.any(np.isnan(tau)):
+                    print(ds,p,dTdz,T)
 
             # elif eb_prms.method_grainsizetable in ['ML']:
             #     X = np.vstack([T,p,dTdz]).T
@@ -596,7 +599,7 @@ class Layers():
                 drdry = dr0*np.power(tau/(tau + 1e6*(g - FRESH_GRAINSIZE)),1/kap)
 
             # Dry metamorphism is constant
-            # drdry = DRY_METAMORPHISM_RATE * dt # um
+            drdry = DRY_METAMORPHISM_RATE * dt # um
 
             # Wet metamorphism
             drwetdt = WET_C*f_liq**3/(4*PI*GRAVITY**2)

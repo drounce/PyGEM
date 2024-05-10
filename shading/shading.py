@@ -31,19 +31,21 @@ from pyproj import Transformer
 from numpy import pi, cos, sin, arctan
 
 # =================== INPUTS ===================
-site_by = 'id'                      # method to choose lat/lon ('id' or 'latlon')
-site = 'D'                          # name of site for indexing .csv OR
-lat,lon = [63.3,-143.3]             # site lat/lon
-timezone = pd.Timedelta(hours=-9)   # time zone of location
-glacier_name = 'Gulkana'            # name of glacier for labeling
+site_by = 'latlon'                  # method to choose lat/lon ('id' or 'latlon')
+site = 'AWS'                          # name of site for indexing .csv OR specify lat/lon
+lat,lon = [60.8155986,-139.1236350] # site lat/lon
+timezone = pd.Timedelta(hours=-7)   # time zone of location
+glacier_name = 'South'            # name of glacier for labeling
 
-# model options
-run_model = True                     # set to False if running the model in another script
+# storage options
 plot = ['result','search']           # list from ['result','search','horizon']
 store = ['result','result_plot','search_plot']   # list from ['result','result_plot','search_plot','horizon_plot']
 result_vars = ['dirirrslope','shaded']      # variables to include in plot
-get_shade = True
-get_direct = True
+
+# model options 
+run_model = True    # set to False if importing shading.py in another script
+get_shade = True    # run shade model?
+get_direct = True   # run slope-corrected irradiance model?
 get_diffuse = False # doesn't work yet
 assert get_shade or get_direct or get_diffuse, 'Why are you running this?'
 
@@ -67,19 +69,19 @@ args = parser.parse_args()
 # =================== FILEPATHS ===================
 fp = '/home/claire/'
 # in
-dem_fp = fp + 'GulkanaDEM/Gulkana_DEM_20m.tif'
-aspect_fp = fp + 'GulkanaDEM/Gulkana_Aspect_20m.tif'
-slope_fp = fp + 'GulkanaDEM/Gulkana_Slope_20m.tif'
+dem_fp = fp + 'shading_data/in/south/south_dem.tif'
+aspect_fp = fp + 'shading_data/in/south/south_aspect.tif'
+slope_fp = fp + 'shading_data/in/south/south_slope.tif'
 # optional shapefile for visualizing
-shp_fp = fp + 'GulkanaDEM/Gulkana.shp'
+shp_fp = fp + 'shading_data/in/shapefile/south_shapefile.shp'
 # optional solar radiation file for diffuse fraction
 solar_fp = fp + 'research/climate_data/AWS/CNR4/cnr4_2023.csv'
 
 # out
-shade_fp = fp + f'GulkanaDEM/Out/{args.site_name}_shade.csv'
-irr_fp = fp + f'GulkanaDEM/Out/{args.site_name}_irr.csv'
-out_image_fp = fp + f'GulkanaDEM/Outputs/{args.site_name}.png'
-out_horizon_fp = fp + f'GulkanaDEM/Outputs/{args.site_name}_horizon.png'
+shade_fp = fp + f'shading_data/out/{args.site_name}_shade.csv'
+irr_fp = fp + f'shading_data/out/{args.site_name}_irr.csv'
+out_image_fp = fp + f'shading_data/plots/{args.site_name}.png'
+out_horizon_fp = fp + f'shading_data/plots/{args.site_name}_horizon.png'
 
 # =================== CONSTANTS ===================
 I0 = 1368       # solar constant in W m-2
@@ -108,7 +110,7 @@ class Shading():
         """
         if args.site_by == 'id':
             # get site lat and lon    
-            latlon_df = pd.read_csv('~/GulkanaDEM/gulkana_sites.csv',index_col=0)
+            latlon_df = pd.read_csv('~/shading_data/in/gulkana/gulkana_sites.csv',index_col=0)
             args.lat = latlon_df.loc[args.site]['lat']    # latitude of point of interest
             args.lon = latlon_df.loc[args.site]['lon']    # longitude of point of interest
             args.site_name = glacier_name + args.site
@@ -134,7 +136,7 @@ class Shading():
         self.max_elev = int(np.round(np.max(dem.values)/100,0)*100)
 
         # get UTM coordinates from lat/lon
-        transformer = Transformer.from_crs('EPSG:4326', dem.rio.crs) #, always_xy=True)
+        transformer = Transformer.from_crs('EPSG:4326', dem.rio.crs, always_xy=True)
         xx, yy = transformer.transform(args.lon, args.lat)
         # check point is in bounds
         bounds = np.array(dem.rio.bounds())
@@ -389,7 +391,7 @@ class Shading():
                 # incident angle calculation
                 cosTHETA = cos(self.slp)*cos(Z) + sin(self.slp)*sin(Z)*cos(sun_az - self.asp)
                 Icorr = I * min(cosTHETA/cos(Z),5) * (shaded-1)*-1
-                period_dict['corr_factor'] = np.append(period_dict['corr_factor'],corr_factor)
+                period_dict['corr_factor'] = np.append(period_dict['corr_factor'],min(cosTHETA/cos(Z),5))
                 period_dict['Icorr'] = np.append(period_dict['Icorr'],Icorr)
 
             # extract sub-hourly-timestep arrays

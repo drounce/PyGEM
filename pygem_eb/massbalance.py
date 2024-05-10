@@ -47,7 +47,6 @@ class massBalance():
         accumulation and runoff.
         """
         # Get classes and time
-        climateds = self.climate.cds
         layers = self.layers
         surface = self.surface
         dt = self.dt
@@ -56,9 +55,10 @@ class massBalance():
         for time in self.time_list:
             # BEGIN MASS BALANCE
             self.time = time
+            T = layers.ltemp + 273.15
 
             # Initiate the energy balance to unpack climate data
-            enbal = eb.energyBalance(climateds,time,self.bin_idx,dt)
+            enbal = eb.energyBalance(self.climate,time,self.bin_idx,dt)
 
             # Check and update layer sizes
             layers.update_layers()
@@ -85,20 +85,18 @@ class massBalance():
 
             # Update snow/ice mass from latent heat fluxes (sublimation etc)
             
-
             # Calculate subsurface heating from penetrating SW
             SWin,SWout = enbal.get_SW(surface)
             subsurf_melt = self.penetrating_SW(layers,SWin+SWout)
-
+            
             # Calculate column melt including the surface
             layermelt = self.melt_layers(layers,subsurf_melt)
-                       
+            
             # Percolate the meltwater, rain and LAPs
             runoff = self.percolation(enbal,layers,layermelt,rain)
-
+            
             # Recalculate the temperature profile considering conduction
             self.solve_heat_eq(layers,surface.stemp)
-
             # Calculate refreeze
             refreeze = self.refreezing(layers)
 
@@ -511,7 +509,7 @@ class massBalance():
                 # add refreeze to layer ice mass
                 ldm[layer] += dm_ref
                 # update layer temperature from latent heat
-                lT[layer] = -(E_cold-dm_ref*LH_RF)/(HEAT_CAPACITY_ICE*ldm[layer])
+                lT[layer] = min(0,-(E_cold-dm_ref*LH_RF)/(HEAT_CAPACITY_ICE*ldm[layer]))
                 # update water content
                 lw[layer] = max(0,layers.lwater[layer]-dm_ref)
         
@@ -994,7 +992,7 @@ class Output():
         # get information on variable sources
         re_str = eb_prms.reanalysis+': '
         props = eb_prms.glac_props[eb_prms.glac_no[0]]
-        if eb_prms.use_AWS:
+        if args.use_AWS:
             measured = climate.measured_vars
             AWS_str = props['name']+' '+str(props['site_elev'])+': '
             AWS_str += ', '.join(measured)

@@ -15,7 +15,7 @@ glac_no = ['01.00570']
 parallel = False        # Run parallel processing?
 n_bins = 1
 timezone = pd.Timedelta(hours=-8)           # GMT time zone
-use_AWS = True          # Use AWS data? (or just reanalysis)
+use_AWS = False          # Use AWS data? (or just reanalysis)
 
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
@@ -28,7 +28,7 @@ glac_props = {'01.00570':{'name':'Gulkana',
                             'site_elev':1316},
             '01.16195':{'name':'South',
                             'site_elev':2280,
-                            'AWS_fn':'Preprocessed/south/south2280_hourly_2008_wNR.csv'},
+                            'AWS_fn':'Preprocessed/south/south2280_2008.csv'},
             '08.00213':{'name':'Storglaciaren',
                             'AWS_fn':'Storglaciaren/SITES_MET_TRS_SGL_dates_15MIN.csv'},
             '11.03674':{'name':'Saint-Sorlin',
@@ -61,9 +61,13 @@ if glac_no == ['01.00570']:
     slope = site_df.loc[site]['slope']
     aspect = site_df.loc[site]['aspect']
     sky_view = site_df.loc[site]['sky_view']
-    bin_ice_depth = np.ones(len(bin_elev)) * 200
     initial_snowdepth = [site_df.loc[site]['snowdepth']]
     initial_firndepth = [site_df.loc[site]['firndepth']]
+elif glac_no == ['01.16195']:
+    sky_view = 0.936
+    bin_elev = [2280]
+    site = 'AWS'
+bin_ice_depth = np.ones(len(bin_elev)) * 200
 
 assert len(bin_elev) == n_bins, 'Check n_bins in input'
 
@@ -92,7 +96,7 @@ grainsize_fp = main_directory + '/pygem_eb/sample_data/grainsize/drygrainsize(SS
 initial_temp_fp = main_directory + '/pygem_eb/sample_data/gulkanaBtemp.csv'
 initial_density_fp = main_directory + '/pygem_eb/sample_data/gulkanaBdensity.csv'
 snicar_input_fp = main_directory + '/biosnicar-py/src/biosnicar/inputs.yaml'
-shading_fp = f'/home/claire/GulkanaDEM/Out/Gulkana{site}_shade.csv'
+shading_fp = f'/home/claire/shading_data/out/South{site}_shade.csv'
 temp_bias_fp = main_directory + '/pygem_eb/sample_data/gulkana/Gulkana_MERRA2_temp_bias.csv'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
@@ -111,19 +115,21 @@ if dates_from_data:
     cdf = pd.read_csv(AWS_fn,index_col=0)
     cdf = cdf.set_index(pd.to_datetime(cdf.index))
     if glac_no != ['01.00570']:
-        bin_elev = cdf['z'][0]
+        bin_elev = np.array([cdf['z'].iloc[0]])
     startdate = pd.to_datetime(cdf.index[0])
     enddate = pd.to_datetime(cdf.index.to_numpy()[-1])
+    if reanalysis == 'MERRA2':
+        startdate += pd.Timedelta(minutes=30)
+        enddate -= pd.Timedelta(minutes=30)
 else:
-    startdate = pd.to_datetime('2023-04-21 00:30') 
-    enddate = pd.to_datetime('2023-08-20 00:30')
+    startdate = pd.to_datetime('2008-05-04 18:30') 
+    enddate = pd.to_datetime('2008-09-14 00:30')
     # startdate = pd.to_datetime('2023-04-21 00:30')    # Gulkana AWS dates
     # enddate = pd.to_datetime('2023-08-09 00:30')
+    # startdate = pd.to_datetime('2008-05-04 18:30')    # South dates
+    # enddate = pd.to_datetime('2008-09-14 00:30')
     # startdate = pd.to_datetime('2016-05-11 00:30') # JIF sample dates
     # enddate = pd.to_datetime('2016-07-18 00:30')
-    if reanalysis == 'MERRA2':
-        assert startdate.minute == 30
-        assert enddate.minute == 30
     
 n_months = np.round((enddate-startdate)/pd.Timedelta(days=30))
 print(f'Running {n_bins} bin(s) at {bin_elev} m a.s.l. for {n_months} months starting in {startdate.month_name()}, {startdate.year}')
@@ -200,7 +206,7 @@ layer_growth = 0.4          # Rate of exponential growth of bin size (smaller la
 roughness_aging_rate = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 albedo_TOD = [12]            # Time of day to calculate albedo [hr]
 initSSA = 80                 # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
-dry_metamorphism_rate = 1e-4 # Dry metamorphism grain size growth rate [um s-1]
+dry_metamorphism_rate = 1.5e-3 # Dry metamorphism grain size growth rate [um s-1] (1e-4 seems reasonable)
 dep_factor = 0.5
 if glac_no != ['01.00570']:
     kp = 0.8                    # precipitation factor [-] 
@@ -244,7 +250,7 @@ rainBC = BC_freshsnow       # concentration of BC in rain
 raindust = dust_freshsnow   # concentration of dust in rain
 temp_temp = 0               # temperature of temperate ice [C]
 temp_depth = 100            # depth of temperate ice [m]
-albedo_fresh_snow = 0.85    # Albedo of fresh snow [-] (Moelg et al. 2012, TC)
+albedo_fresh_snow = 0.9     # Albedo of fresh snow [-] (Moelg et al. 2012, TC - 0.85)
 albedo_firn = 0.55          # Albedo of firn [-]
 albedo_ground = 0.3         # Albedo of ground [-]
 roughness_fresh_snow = 0.24 # surface roughness length for fresh snow [mm] (Moelg et al. 2012, TC)

@@ -361,20 +361,17 @@ def compare_runs(ds_list,time,labels,var,res='d',t=''):
         Title of plot
     """
     fig,ax = plt.subplots(figsize=(6,3))
-    if len(time) == 2:
-        if pd.to_datetime(time[0]).minute == 30:
-            start = pd.to_datetime(time[0] - pd.Timedelta(minutes=30))
-            end = pd.to_datetime(time[1] - pd.Timedelta(minutes=30))
-        else:
-            start = pd.to_datetime(time[0])
-            end = pd.to_datetime(time[1])
+    start = pd.to_datetime(time[0])
+    end = pd.to_datetime(time[1])
+    if len(time) == 2 and res != 'd':
         time = pd.date_range(start,end,freq=res)
+    else:
+        time = pd.date_range(start,end,normalize=True)
     for i,ds in enumerate(ds_list):
         c = plt.cm.Dark2(i)
         if res != 'h':
             if var in ['melt','runoff','refreeze','accum','MB','dh']:
                 ds_resampled = ds.resample(time=res).sum()
-
                 to_plot = ds_resampled[var].sel(time=time).cumsum()
             elif 'layer' in var:
                 ds_resampled = ds.resample(time=res).mean()
@@ -731,7 +728,7 @@ def stacked_eb_barplot(ds,time,res='d',t='',savefig=False):
         Title of plot
     """
     fig,ax = plt.subplots(figsize=(10,5))
-    vars = ['SWnet','all_but_shortwave'] #'SWnet','LWnet'
+    vars = ['latent','NetRad','sensible','rain']
     ds['all_but_shortwave'] = ds['LWnet'] + ds['latent']+ ds['sensible']+ ds['ground']+ ds['rain']
 
     if len(time) == 2:
@@ -999,7 +996,7 @@ def plot_layers(ds,vars,dates):
     # fig.supxlabel(varprops[var]['label'])
     return
 
-def visualize_layers(ds,bin,dates,var,force_layers=False,
+def visualize_layers(ds,bin,dates,vars,force_layers=False,
                      t='Visualization of Snow ',
                      plot_firn=True,plot_ice=False):
     """
@@ -1009,93 +1006,86 @@ def visualize_layers(ds,bin,dates,var,force_layers=False,
         - List of integers to select those layer indices
         - Depth in m 
     """
-    assert 'layer' in var, 'choose layer variable'
     plt.style.use('bmh')
 
     diff = dates[1] - dates[0]
-    # diff = diff - pd.Timedelta(diff) / 3
-    # max_conc = np.max(ds.sel(time=time,bin=bin)['layerBC'].dropna(dim='layer').to_numpy())
-    if var in ['layerBC','layerdust']:
-        max_val = 50 
-    elif var in ['layerdensity']:
-        max_val = 800 if plot_firn else 500
-    elif var in ['layerwater']:
-        max_val = 6
-    elif var in ['layertemp']:
-        max_val = 0
-        min_val = -10
-    dens_lim = 890 if plot_firn else 600
-    dens_lim = 1000 if plot_ice else dens_lim
 
     # Custom color function based on concentrations
-    def get_color(value,color='bw'):
-        if color == 'bw':
-            value = value / max_val
-            value = min(1,value)
-            grayscale_value = (1-value) * 255  # Scale concentration to grayscale range
-            color = f'#{int(grayscale_value):02x}{int(grayscale_value):02x}{int(grayscale_value):02x}'  # Grayscale format
-        else:
-            value = max(min_val, min(max_val, value))
-            normalized_value = (value - min_val) / -min_val
-            color = plt.cm.viridis(normalized_value)
-        return color
+    def get_color(value,bounds,color):
+        min_val = bounds[0]
+        max_val = bounds[1]
+        # value = max(min_val, min(max_val, value))
+        norm = mpl.colors.Normalize(vmin=min_val,vmax=max_val)
+        cmap = mpl.cm.get_cmap(color)
+        c = cmap(norm(value))
+        return c
 
-    fig,ax = plt.subplots(figsize=(8,4),sharey=True)
-    if plot_ice:
-        ax.set_yscale('log')
-    for step in dates:
-        height = ds.sel(time=step,bin=bin)['layerheight'].to_numpy()
-        vardata = ds.sel(time=step,bin=bin)[var].to_numpy()
-        dens = ds.sel(time=step,bin=bin)['layerdensity'].to_numpy()
-        try:
-            _ = not force_layers
-            layers_to_plot = np.where(dens < dens_lim)[0]
-        except:
-            if '__iter__' in dir(force_layers):
-                layers_to_plot = force_layers
-            else:
-                layers_to_plot = np.where(np.cumsum(height) < force_layers)[0]
+    fig,axes = plt.subplots(len(vars),figsize=(8,2*len(vars)),sharex=True,layout='constrained')
+    for i,var in enumerate(vars):
+        if var in ['layerBC','layerdust']:
+            bounds = [0,50]
+        elif var in ['layerdensity']:
+            bounds = [50,800] if plot_firn else [0,500]
+        elif var in ['layerwater']:
+            bounds = [0,6]
+        elif var in ['layertemp']:
+            bounds = [-10,0]
+        dens_lim = 890 if plot_firn else 600
+        dens_lim = 1000 if plot_ice else dens_lim
+        assert 'layer' in var, 'choose layer variable'
+        ax = axes[i]
         if plot_ice:
-            layers_to_plot = np.arange(len(vardata))
-        # flip order so they stack bottom to top
-        height = np.flip(height[layers_to_plot])
-        vardata = np.flip(vardata[layers_to_plot])
-        if var in ['layerwater']:
-            vardata = vardata / height / 1000 * 100
-        if plot_ice:
-            height = np.log(height)
+            ax.set_yscale('log')
+        for step in dates:
+            height = ds.sel(time=step,bin=bin)['layerheight'].to_numpy()
+            vardata = ds.sel(time=step,bin=bin)[var].to_numpy()
+            dens = ds.sel(time=step,bin=bin)['layerdensity'].to_numpy()
+            try:
+                _ = not force_layers
+                layers_to_plot = np.where(dens < dens_lim)[0]
+            except:
+                if '__iter__' in dir(force_layers):
+                    layers_to_plot = force_layers
+                else:
+                    layers_to_plot = np.where(np.cumsum(height) < force_layers)[0]
+            if plot_ice:
+                layers_to_plot = np.arange(len(vardata))
+            # flip order so they stack bottom to top
+            height = np.flip(height[layers_to_plot])
+            vardata = np.flip(vardata[layers_to_plot])
+            if var in ['layerwater']:
+                vardata = vardata / height / 1000 * 100
+            if plot_ice:
+                height = np.log(height)
 
-        bottom = 0
-        ctype = 'plasma' if var == 'layertemp' else 'bw'
-        for [dh,data] in zip(height,vardata):
-            if np.isnan(dh):
-                continue
-            ax.bar(step,dh, bottom=bottom, width=diff, color=get_color(data,ctype),linewidth=0.5,edgecolor='black')
-            bottom += dh  # Update bottom for the next set of bars
-
-    # Customize plot
-    plt.ylabel('Depth (m)')
-    plt.title(t+varprops[var]['label'])
-    plt.xticks(dates)
+            bottom = 0
+            ctypes = {'layerBC':'Oranges','layerdust':'Oranges','layertemp':'viridis',
+                'layerdensity':'Greens','layerwater':'Blues'}
+            ctype = ctypes[var]
+            for [dh,data] in zip(height,vardata):
+                if np.isnan(dh):
+                    continue
+                ax.bar(step,dh, bottom=bottom, width=diff, color=get_color(data,bounds,ctype),linewidth=0.5,edgecolor='black')
+                bottom += dh  # Update bottom for the next set of bars
+        ylabel = 'Log height above bedrock' if plot_ice else 'Height above ice (m)'
+        ax.set_ylabel(ylabel)
+        # Add colorbar
+        units = {'layerBC':'ppb','layerdust':'ppm','layertemp':'C',
+                'layerdensity':'kg m-3','layerwater':'mass %'}
+        sm = mpl.cm.ScalarMappable(cmap=ctype,norm=plt.Normalize(bounds[0],bounds[1]))
+        leg = plt.colorbar(sm,ax=ax)
+        leg.set_label(varprops[var]['label']+' '+units[var])
+        ax.grid(False)
+    # Customize plot     
+    fig.suptitle(t,fontsize=14)
+    ax.set_xticks(dates)
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
     if len(dates) > 8:
-        plt.xticks(pd.date_range(dates[0],dates[len(dates)-1],periods=5))
-    plt.grid(False)
-
-    # Add legend
-    units = {'layerBC':'ppb','layerdust':'ppm','layertemp':'C',
-             'layerdensity':'kg m-3','layerwater':'mass %'}
-    if var not in ['layertemp']:
-        handles = [plt.Rectangle((0,0),1,1, color=get_color(c,ctype)) for c in np.linspace(0,1,5)*max_val]
-        labels = [f'{i:.1f} {units[var]}' for i in np.linspace(0,1,5)*max_val]
-    else:
-        handles = [plt.Rectangle((0,0),1,1, color=get_color(c,ctype)) for c in np.linspace(min_val,0,5)]
-        labels = [f'{i:.1f} {units[var]}' for i in np.linspace(min_val,0,5)]
-    plt.legend(handles, labels, loc='best')
+        ax.set_xticks(pd.date_range(dates[0],dates[len(dates)-1],periods=7))
 
     # Show plot
-    plt.tight_layout()
+    plt.savefig('/home/claire/research/visualize.png',dpi=150)
     plt.show()
 
 def plot_single_layer(ds,layer,vars,time,cumMB=False,t='',vline=None,res='h',resample=False):

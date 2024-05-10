@@ -16,7 +16,7 @@ class energyBalance():
     MassBalance every timestep, so it stores the current climate data and 
     surface fluxes.
     """ 
-    def __init__(self,climateds,time,bin_idx,dt):
+    def __init__(self,climate,time,bin_idx,dt):
         """
         Loads in the climate data at a given timestep to use in the surface energy balance.
 
@@ -33,48 +33,35 @@ class energyBalance():
             Resolution for the time loop [s]
         """
         # Unpack climate variables
-        if time.minute == 0 or time.minute == 30: #******
-            # Timestamp is on the hour, no processing needed, just extract the values
-            climateds_now = climateds.sel(time=time)
-            # Bin-dependent variables indexed by bin_idx
-            self.tempC = climateds_now['bin_temp'].to_numpy()[bin_idx]
-            self.tp = climateds_now['bin_tp'].to_numpy()[bin_idx]
-            self.sp = climateds_now['bin_sp'].to_numpy()[bin_idx]
-            # Elevation-invariant variables
-            self.rH = climateds_now['rh'].to_numpy()
-            self.wind = climateds_now['wind'].to_numpy()
-            self.tcc = climateds_now['tcc'].to_numpy()
-            self.SWin_ds = climateds_now['SWin'].to_numpy()
-            self.SWout_ds = climateds_now['SWout'].to_numpy()
-            self.LWin_ds = climateds_now['LWin'].to_numpy()
-            self.LWout_ds = climateds_now['LWout'].to_numpy()
-            self.NR_ds = climateds_now['NR'].to_numpy()
-            self.bcdry = climateds_now['bcdry'].to_numpy()
-            self.bcwet = climateds_now['bcwet'].to_numpy()
-            self.dustdry = climateds_now['dustdry'].to_numpy()
-            self.dustwet = climateds_now['dustwet'].to_numpy()
-        else: # DONT NEED THIS UNLESS I EVER DO SUBHOURLY RUNS
-            # Timestep is between hours, so interpolate using interp_climate function
-            # Bin-dependent variables indexed by bin_idx
-            self.tempC = self.interp_climate(climateds,time,'bin_temp',bin_idx)
-            self.tp = self.interp_climate(climateds,time,'bin_tp',bin_idx)
-            self.sp = self.interp_climate(climateds,time,'bin_sp',bin_idx)
-            self.rH = self.interp_climate(climateds,time,'bin_rh',bin_idx)
-            # Elevation-invariant variables
-            self.wind = self.interp_climate(climateds,time,'wind')
-            self.tcc = self.interp_climate(climateds,time,'tcc')
-            self.SWin_ds = self.interp_climate(climateds,time,'SWin')
-            self.SWout_ds = self.interp_climate(climateds,time,'SWout')
-            self.LWin_ds = self.interp_climate(climateds,time,'LWin')
-            self.LWout_ds = self.interp_climate(climateds,time,'LWout')
+        climateds_now = climate.cds.sel(time=time)
+        # Bin-dependent variables indexed by bin_idx
+        self.tempC = climateds_now['bin_temp'].to_numpy()[bin_idx]
+        self.tp = climateds_now['bin_tp'].to_numpy()[bin_idx]
+        self.sp = climateds_now['bin_sp'].to_numpy()[bin_idx]
+        # Elevation-invariant variables
+        self.rH = climateds_now['rh'].to_numpy()
+        self.wind = climateds_now['wind'].to_numpy()
+        self.tcc = climateds_now['tcc'].to_numpy()
+        self.SWin_ds = climateds_now['SWin'].to_numpy()
+        self.SWout_ds = climateds_now['SWout'].to_numpy()
+        self.LWin_ds = climateds_now['LWin'].to_numpy()
+        self.LWout_ds = climateds_now['LWout'].to_numpy()
+        self.NR_ds = climateds_now['NR'].to_numpy()
+        self.bcdry = climateds_now['bcdry'].to_numpy()
+        self.bcwet = climateds_now['bcwet'].to_numpy()
+        self.dustdry = climateds_now['dustdry'].to_numpy()
+        self.dustwet = climateds_now['dustwet'].to_numpy()
+
         # Define additional useful values
         self.tempK = self.tempC + 273.15
         self.prec =  self.tp / 3600     # tp is hourly total precip, prec is the rate in m/s
         self.dt = dt
-        self.climateds = climateds
+        self.climateds = climate.cds
         self.time = time
         self.rH = 100 if self.rH > 100 else self.rH
 
+        # Radiation terms
+        self.measured_SWin = 'SWin' in climate.measured_vars
         self.nanLWin = True if np.isnan(self.LWin_ds) else False
         self.nanSWout = True if np.isnan(self.SWout_ds) else False
         self.nanLWout = True if np.isnan(self.LWout_ds) else False
@@ -163,15 +150,24 @@ class energyBalance():
         spectral_weights = surface.spectral_weights
         assert np.abs(1-np.sum(spectral_weights)) < 1e-5, 'Solar weights dont sum to 1'
         
-        # get sky (diffuse+direct) and terrain (diffuse) SWin
-        SWin_sky = self.SWin_ds/self.dt
-        SWin_terrain = SWin_sky*(1-SKY_VIEW)*surface.albedo_surr
+        # SWin needs to be corrected for shade, unless measured
+        if self.measured_SWin:
+            SWin = self.SWin_ds/self.dt
+            self.SWin_sky = self.SWin_terr = np.nan
+        else:
+            # get sky (diffuse+direct) and terrain (diffuse) SWin
+            SWin_sky = self.SWin_ds/self.dt
+            SWin_terrain = SWin_sky*(1-SKY_VIEW)*surface.albedo_surr
 
-        # correct for shade
-        time_str = str(self.time).replace(str(self.time.year),'2024')
-        time_2024 = pd.to_datetime(time_str)
-        self.shade = bool(surface.shading_df.loc[time_2024,'shaded'])
-        SWin = SWin_terrain if self.shade else SWin_terrain + SWin_sky
+            # correct for shade
+            time_str = str(self.time).replace(str(self.time.year),'2024')
+            time_2024 = pd.to_datetime(time_str)
+            self.shade = bool(surface.shading_df.loc[time_2024,'shaded'])
+            SWin = SWin_terrain if self.shade else SWin_terrain + SWin_sky
+
+            # store sky and terrain portions
+            self.SWin_sky = np.nan if self.shade else SWin_sky
+            self.SWin_terr = SWin_terrain
 
         # get reflected radiation
         if self.nanSWout:
@@ -179,10 +175,8 @@ class energyBalance():
             SWout = -np.sum(SWin*spectral_weights*albedo)
         else:
             SWout = -self.SWout_ds/self.dt
-
-        # store sky and terrain portions
-        self.SWin_sky = np.nan if self.shade else SWin_sky
-        self.SWin_terr = SWin_terrain
+            if SWin > 0:
+                surface.bba = -SWout / SWin
         return SWin,SWout
 
     def get_LW(self,surftemp):

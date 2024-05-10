@@ -68,7 +68,7 @@ def initialize_model(glac_no,args,debug=True):
     climate = climutils.Climate(args,glacier_table)
 
     # Load in available AWS data
-    if eb_prms.use_AWS:
+    if args.use_AWS:
         need_vars = climate.get_AWS(eb_prms.AWS_fn)
         climate.get_reanalysis(need_vars)
     else:
