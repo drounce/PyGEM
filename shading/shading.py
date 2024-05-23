@@ -31,11 +31,11 @@ from pyproj import Transformer
 from numpy import pi, cos, sin, arctan
 
 # =================== INPUTS ===================
-site_by = 'latlon'                  # method to choose lat/lon ('id' or 'latlon')
-site = 'AWS'                          # name of site for indexing .csv OR specify lat/lon
+site_by = 'id'                  # method to choose lat/lon ('id' or 'latlon')
+site = 'AB'                         # name of site for indexing .csv OR specify lat/lon
 lat,lon = [60.8155986,-139.1236350] # site lat/lon
 timezone = pd.Timedelta(hours=-7)   # time zone of location
-glacier_name = 'South'            # name of glacier for labeling
+glacier_name = 'Gulkana'            # name of glacier for labeling
 
 # storage options
 plot = ['result','search']           # list from ['result','search','horizon']
@@ -60,28 +60,30 @@ parser = argparse.ArgumentParser(description='pygem-eb shading model')
 parser.add_argument('-latitude','--lat',action='store',default=lat)
 parser.add_argument('-longitude','--lon',action='store',default=lon)
 parser.add_argument('-site',action='store',default=site)
-parser.add_argument('-site_name',action='store',default=glacier_name+site)
+parser.add_argument('-site_name',action='store',default=glacier_name)
 parser.add_argument('-site_by',action='store',default=site_by)
 parser.add_argument('-plot',action='store',default=plot)
 parser.add_argument('-store',action='store',default=store)
 args = parser.parse_args()
+args.site_name += args.site
 
 # =================== FILEPATHS ===================
-fp = '/home/claire/'
+fp = '/home/claire/research/PyGEM-EB/shading/'
 # in
-dem_fp = fp + 'shading_data/in/south/south_dem.tif'
-aspect_fp = fp + 'shading_data/in/south/south_aspect.tif'
-slope_fp = fp + 'shading_data/in/south/south_slope.tif'
+site_fp = 'in/gulkana/gulkana_sites.csv' # if choosing lat/lon by site
+dem_fp = 'in/gulkana/Gulkana_DEM_20m.tif'
+aspect_fp = 'in/gulkana/Gulkana_Aspect_20m.tif'
+slope_fp = 'in/gulkana/Gulkana_Slope_20m.tif'
 # optional shapefile for visualizing
-shp_fp = fp + 'shading_data/in/shapefile/south_shapefile.shp'
+shp_fp = 'in/shapefile/Gulkana.shp'
 # optional solar radiation file for diffuse fraction
-solar_fp = fp + 'research/climate_data/AWS/CNR4/cnr4_2023.csv'
+solar_fp = '/home/claire/research/climate_data/AWS/CNR4/cnr4_2023.csv'
 
 # out
-shade_fp = fp + f'shading_data/out/{args.site_name}_shade.csv'
-irr_fp = fp + f'shading_data/out/{args.site_name}_irr.csv'
-out_image_fp = fp + f'shading_data/plots/{args.site_name}.png'
-out_horizon_fp = fp + f'shading_data/plots/{args.site_name}_horizon.png'
+shade_fp = fp + f'out/{args.site_name}_shade.csv'
+irr_fp = fp + f'out/{args.site_name}_irr.csv'
+out_image_fp = fp + f'plots/{args.site_name}.png'
+out_horizon_fp = fp + f'plots/{args.site_name}_horizon.png'
 
 # =================== CONSTANTS ===================
 I0 = 1368       # solar constant in W m-2
@@ -110,7 +112,7 @@ class Shading():
         """
         if args.site_by == 'id':
             # get site lat and lon    
-            latlon_df = pd.read_csv('~/shading_data/in/gulkana/gulkana_sites.csv',index_col=0)
+            latlon_df = pd.read_csv(site_fp,index_col=0)
             args.lat = latlon_df.loc[args.site]['lat']    # latitude of point of interest
             args.lon = latlon_df.loc[args.site]['lon']    # longitude of point of interest
             args.site_name = glacier_name + args.site

@@ -5,7 +5,6 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from multiprocessing import Pool
-import threading
 # Internal libraries
 import pygem_eb.input as eb_prms
 import pygem_eb.massbalance as mb
@@ -62,12 +61,13 @@ def initialize_model(glac_no,args,debug=True):
     climate
         Class object from climate.py
     """
-    # ===== GLACIER AND TIME PERIOD SETUP =====
+    # ===== GET GLACIER CLIMATE =====
+    # get glacier properties and initialize the climate class
     glacier_table = modelsetup.selectglaciersrgitable(np.array([glac_no]),
                     rgi_regionsO1=eb_prms.rgi_regionsO1)
     climate = climutils.Climate(args,glacier_table)
 
-    # Load in available AWS data
+    # load in available AWS data
     if args.use_AWS:
         need_vars = climate.get_AWS(eb_prms.AWS_fn)
         climate.get_reanalysis(need_vars)

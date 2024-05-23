@@ -175,7 +175,8 @@ class energyBalance():
             SWout = -np.sum(SWin*spectral_weights*albedo)
         else:
             SWout = -self.SWout_ds/self.dt
-            if SWin > 0:
+            # store albedo
+            if -SWout < SWin and SWin > 0:
                 surface.bba = -SWout / SWin
         return SWin,SWout
 

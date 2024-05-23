@@ -130,19 +130,14 @@ class Layers():
             ltype.extend(['firn'])
 
         # Add ice layers
-        if eb_prms.icelayers == 'single':
-            lheight.append(ice_height)
+        current_depth = 0
+        while current_depth < ice_height:
+            lheight.append(dz_toplayer * np.exp(layer*layer_growth))
             ltype.append('ice')
-        else:
-            current_depth = 0
-            # Make exponentially growing ice layers
-            while current_depth < ice_height:
-                lheight.append(dz_toplayer * np.exp(layer*layer_growth))
-                ltype.append('ice')
-                layer += 1
-                ice_idx = np.where(np.array(ltype)=='ice')[0]
-                current_depth = np.sum(np.array(lheight)[ice_idx])
-            lheight[-1] = lheight[-1] - (current_depth-ice_height)
+            layer += 1
+            ice_idx = np.where(np.array(ltype)=='ice')[0]
+            current_depth = np.sum(np.array(lheight)[ice_idx])
+        lheight[-1] = lheight[-1] - (current_depth-ice_height)
         
         # Get depth of layers (distance from surface to midpoint of layer) [m]
         nlayers = len(lheight)
@@ -513,7 +508,6 @@ class Layers():
         Snow grain size metamorphism
         """
         # CONSTANTS
-        DRY_METAMORPHISM_RATE = eb_prms.dry_metamorphism_rate
         WET_C = eb_prms.wet_snow_C
         GRAVITY = eb_prms.gravity
         PI = np.pi
@@ -548,58 +542,59 @@ class Layers():
             g = self.grainsize.copy()[bins]
 
             # Dry metamorphism
-            # Calculate temperature gradient
-            dTdz = np.zeros_like(T)
-            if len(bins) > 2:
-                dTdz[0] = (surftempK - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
-                dTdz[1:-1] = ((T[:-2]*dz[:-2] + T[1:-1]*dz[1:-1]) / (dz[:-2] + dz[1:-1]) -
-                        (T[1:-1]*dz[1:-1] + T[2:]*dz[2:]) / (dz[1:-1] + dz[2:])) / dz[1:-1]
-                dTdz[-1] = dTdz[-2] # Bottom temp gradient -- not used
-            elif len(bins) == 2: # Use top ice layer for temp gradient
-                T_2layer = np.array([surftempK,T[0],T[1],self.ltemp[2]+273.15])
-                depth_2layer = np.array([0,self.ldepth[0],self.ldepth[1],self.ldepth[2]])
-                dTdz = (T_2layer[0:2] - T_2layer[2:]) / (depth_2layer[0:2] - depth_2layer[2:])
-            else: # Single bin
-                dTdz = (self.ltemp[2]+273.15-surftempK) / self.ldepth[2]
-                dTdz = np.array([dTdz])
-            # dTdz = np.ones_like(dTdz[bins]) * np.mean(np.abs(dTdz[bins]))
-            dTdz = np.abs(dTdz)
-
-            # Force to be within lookup table ranges******
-            p[np.where(p < 50)[0]] = 50
-            p[np.where(p > 400)[0]] = 400
-            dTdz[np.where(dTdz > 300)[0]] = 300
-            T[np.where(T > 273.15)[0]] = 273.15
-
-            if eb_prms.method_grainsizetable in ['interpolate']:
-                # Interpolate lookup table at the values of T,dTdz,p
-                ds = eb_prms.grainsize_ds.copy(deep=True)
-                ds = ds.interp(TVals=T.astype(float),
-                               DTDZVals=dTdz.astype(float),
-                               DENSVals=p.astype(float))
-                # Extract values
-                diag = np.zeros((n,n,n),dtype=bool)
-                for i in range(n):
-                    diag[i,i,i] = True
-                tau = ds.taumat.to_numpy()[diag]
-                kap = ds.kapmat.to_numpy()[diag]
-                dr0 = ds.dr0mat.to_numpy()[diag]
-                if np.any(np.isnan(tau)):
-                    print(ds,p,dTdz,T)
-
-            # elif eb_prms.method_grainsizetable in ['ML']:
-            #     X = np.vstack([T,p,dTdz]).T
-            #     tau = np.exp(self.tau_rf.predict(X))
-            #     kap = np.exp(self.kap_rf.predict(X))
-            #     dr0 = self.dr0_rf.predict(X)
-
-            if np.any(g < FRESH_GRAINSIZE):
-                drdry = dr0*np.power(tau/(tau + 1.0),1/kap)
+            if eb_prms.constant_drdry:
+                drdry = eb_prms.constant_drdry * dt # um
             else:
-                drdry = dr0*np.power(tau/(tau + 1e6*(g - FRESH_GRAINSIZE)),1/kap)
+                # Calculate temperature gradient
+                dTdz = np.zeros_like(T)
+                if len(bins) > 2:
+                    dTdz[0] = (surftempK - (T[0]*dz[0]+T[1]*dz[1]) / (dz[0]+dz[1]))/dz[0]
+                    dTdz[1:-1] = ((T[:-2]*dz[:-2] + T[1:-1]*dz[1:-1]) / (dz[:-2] + dz[1:-1]) -
+                            (T[1:-1]*dz[1:-1] + T[2:]*dz[2:]) / (dz[1:-1] + dz[2:])) / dz[1:-1]
+                    dTdz[-1] = dTdz[-2] # Bottom temp gradient -- not used
+                elif len(bins) == 2: # Use top ice layer for temp gradient
+                    T_2layer = np.array([surftempK,T[0],T[1],self.ltemp[2]+273.15])
+                    depth_2layer = np.array([0,self.ldepth[0],self.ldepth[1],self.ldepth[2]])
+                    dTdz = (T_2layer[0:2] - T_2layer[2:]) / (depth_2layer[0:2] - depth_2layer[2:])
+                else: # Single bin
+                    dTdz = (self.ltemp[2]+273.15-surftempK) / self.ldepth[2]
+                    dTdz = np.array([dTdz])
+                # dTdz = np.ones_like(dTdz[bins]) * np.mean(np.abs(dTdz[bins]))
+                dTdz = np.abs(dTdz)
 
-            # Dry metamorphism is constant
-            drdry = DRY_METAMORPHISM_RATE * dt # um
+                # Force to be within lookup table ranges
+                p[np.where(p < 50)[0]] = 50
+                p[np.where(p > 400)[0]] = 400
+                dTdz[np.where(dTdz > 300)[0]] = 300
+                T[np.where(T > 273.15)[0]] = 273.15
+
+                if eb_prms.method_grainsizetable in ['interpolate']:
+                    # Interpolate lookup table at the values of T,dTdz,p
+                    ds = eb_prms.grainsize_ds.copy(deep=True)
+                    ds = ds.interp(TVals=T.astype(float),
+                                DTDZVals=dTdz.astype(float),
+                                DENSVals=p.astype(float))
+                    # Extract values
+                    diag = np.zeros((n,n,n),dtype=bool)
+                    for i in range(n):
+                        diag[i,i,i] = True
+                    tau = ds.taumat.to_numpy()[diag]
+                    kap = ds.kapmat.to_numpy()[diag]
+                    dr0 = ds.dr0mat.to_numpy()[diag]
+                    if np.any(np.isnan(tau)):
+                        print(ds,tau)
+                        assert 1==0
+
+                # elif eb_prms.method_grainsizetable in ['ML']:
+                #     X = np.vstack([T,p,dTdz]).T
+                #     tau = np.exp(self.tau_rf.predict(X))
+                #     kap = np.exp(self.kap_rf.predict(X))
+                #     dr0 = self.dr0_rf.predict(X)
+
+                if np.any(g < FRESH_GRAINSIZE):
+                    drdry = dr0*np.power(tau/(tau + 1.0),1/kap)
+                else:
+                    drdry = dr0*np.power(tau/(tau + 1e6*(g - FRESH_GRAINSIZE)),1/kap)
 
             # Wet metamorphism
             drwetdt = WET_C*f_liq**3/(4*PI*GRAVITY**2)

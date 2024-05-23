@@ -174,6 +174,7 @@ def plot_hours(ds,bin,time,vars,skinny=True,t='Hourly EB Outputs'):
                 var_hourly.append(hourly_mean)
             axis.plot(np.arange(24),var_hourly,label=var)
             axis.legend()
+    axis.set_xlabel('Hour of Day')
     fig.suptitle(t)
 
 def dh_vs_stake(stake_df,ds_list,time,labels=['Model'],bin=0,t='Surface Height Change Comparison'):
@@ -250,6 +251,35 @@ def snowdepth_vs_stake(stake_df,ds_list,time,labels,bin=0,t='Snow Depth Comparis
     ax.legend()
     ax.set_ylabel('Snow Depth (cm)')
     fig.suptitle(t)
+
+def albedo_vs_CNR4(cnr4_df,ds_list,time,labels=['Model'],bin=0,t='Albedo Comparison'):
+    
+    fig,ax = plt.subplots(figsize=(4,6),sharex=True,layout='constrained')
+    cnr4_df = cnr4_df.set_index(pd.to_datetime(cnr4_df['Datetime']))
+
+    if len(time) == 2:
+        startdate = pd.to_datetime(time[0])
+        enddate = pd.to_datetime(time[1]) - pd.Timedelta(days=1)
+        start = str(startdate.date()) + ' 12:30:00'
+        end = str(enddate.date()) + ' 12:30:00'
+        time = pd.date_range(start,end,freq='d')
+        start = str(startdate.date()) + ' 12:00:00'
+        end = str(enddate.date()) + ' 12:00:00'
+        days = pd.date_range(start,end,freq='d')
+    cnr4_df = cnr4_df.loc[days]
+    cnr4_df['albedo'] = cnr4_df['sw_up_Avg'] / cnr4_df['sw_down_Avg']
+    cnr4_df['albedo'] = cnr4_df['albedo'].mask(cnr4_df['albedo']>1,1)
+    for i,ds in enumerate(ds_list):
+        c = plt.cm.Dark2(i)
+        ds = ds.sel(time=time,bin=bin)
+        ax.plot(ds.coords['time'],ds['albedo'],label=labels[i],color=c)
+    ax.plot(cnr4_df.index,cnr4_df['albedo'].to_numpy(),label='CNR4',linestyle='--',color='black')
+    date_form = mpl.dates.DateFormatter('%d %b')
+    ax.xaxis.set_major_formatter(date_form)
+    ax.legend()
+    ax.set_ylabel('Snow Depth (cm)')
+    fig.suptitle(t)
+    
 
 def plot_stake_ablation(stake_df,ds_list,time,labels,bin=0,t='Stake Comparison'):
     """
@@ -1074,7 +1104,7 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
                 'layerdensity':'kg m-3','layerwater':'mass %'}
         sm = mpl.cm.ScalarMappable(cmap=ctype,norm=plt.Normalize(bounds[0],bounds[1]))
         leg = plt.colorbar(sm,ax=ax)
-        leg.set_label(varprops[var]['label']+' '+units[var])
+        leg.set_label(varprops[var]['label']+' ('+units[var]+')')
         ax.grid(False)
     # Customize plot     
     fig.suptitle(t,fontsize=14)

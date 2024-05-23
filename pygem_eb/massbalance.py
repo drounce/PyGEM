@@ -55,7 +55,6 @@ class massBalance():
         for time in self.time_list:
             # BEGIN MASS BALANCE
             self.time = time
-            T = layers.ltemp + 273.15
 
             # Initiate the energy balance to unpack climate data
             enbal = eb.energyBalance(self.climate,time,self.bin_idx,dt)
@@ -83,8 +82,6 @@ class massBalance():
             # Calculate surface energy balance by updating surface temperature
             surface.get_surftemp(enbal,layers)
 
-            # Update snow/ice mass from latent heat fluxes (sublimation etc)
-            
             # Calculate subsurface heating from penetrating SW
             SWin,SWout = enbal.get_SW(surface)
             subsurf_melt = self.penetrating_SW(layers,SWin+SWout)
@@ -103,6 +100,9 @@ class massBalance():
             # Run densification daily
             if time.hour == 0:
                 self.densification(layers)
+
+            # Update snow/ice mass from latent heat fluxes (sublimation etc)
+            # (***Currently neglected)
 
             # END MASS BALANCE
             self.runoff = runoff
@@ -306,87 +306,53 @@ class massBalance():
             water_in += np.sum(self.melted_layers.mass)
 
         if len(snow_firn_idx) > 1:
-            # if eb_prms.method_percolation in ['no_LAPs']:
-            #     # MIGHT BE BROKEN???
-            #     for layer,melt in enumerate(layermelt_sf):
-            #         # remove melt from the dry mass
-            #         ldm[layer] -= melt
-            #         lh[layer] -= melt / layers.ldensity[layer]
+            # Calculate volumetric fractions (theta)
+            theta_liq = lw / (lh*DENSITY_WATER)
+            theta_ice = ldm / (lh*DENSITY_ICE)
+            porosity = 1 - theta_ice
 
-            #         # add melt and extra_water (melt from above) to layer water content
-            #         added_water = melt + extra_water
-            #         lw[layer] += added_water
+            # initialize flow into the top layer
+            qi = water_in / dt
+            q_in_store = []
+            q_out_store = []
+            for layer,melt in enumerate(layermelt_sf):
+                # set flow in equal to flow out of the previous layer
+                q_in = qi
 
-            #         # check if meltwater exceeds the irreducible water content of the layer
-            #         layers.updateLayerProperties('irrwater')
-            #         if lw[layer] >= layers.irrwatercont[layer]:
-            #             # set water content to irr. water content and add the difference to extra_water
-            #             extra_water = lw[layer] - layers.irrwatercont[layer]
-            #             lw[layer] = layers.irrwatercont[layer]
-            #         else: #if not overflowing, extra_water should be set back to 0
-            #             extra_water = 0
-                    
-            #         # get the change in layer height due to loss of solid mass (volume only considers solid)
-            #         lh[layer] -= melt/layers.ldensity[layer]
-            #         # need to update layer depths
-            #         layers.updateLayerProperties() 
-            #     # extra water goes to runoff
-            #     runoff = extra_water / DENSITY_WATER
-            #     # LAYERS OUT
-            #     layers.lheight[snow_firn_idx] = lh
-            #     layers.lwater[snow_firn_idx] = lw
-            #     layers.ldrymass[snow_firn_idx] = ldm
-            #     return runoff
-            
-            # if eb_prms.method_percolation in ['w_LAPs']:
-            if True:
-                # Calculate volumetric fractions (theta)
-                theta_liq = lw / (lh*DENSITY_WATER)
-                theta_ice = ldm / (lh*DENSITY_ICE)
-                porosity = 1 - theta_ice
+                # calculate flow out of layer i (cannot be negative)
+                flow_out = DENSITY_WATER*lh[layer]/dt * (
+                    theta_liq[layer]-FRAC_IRREDUC*porosity[layer])
+                qi = max(0,flow_out)
 
-                # initialize flow into the top layer
-                qi = water_in / dt
-                q_in_store = []
-                q_out_store = []
-                for layer,melt in enumerate(layermelt_sf):
-                    # set flow in equal to flow out of the previous layer
-                    q_in = qi
+                # check limit of qi based on underlying layer holding capacity
+                if layer < len(porosity) - 1 and theta_liq[layer] <= 0.3:
+                    if porosity[layer] < 0.05 or porosity[layer+1] < 0.05:
+                        # no flow if the layer itself or the lower layer has no pore space
+                        lim = 0
+                    else:
+                        next = layer+1
+                        lim = DENSITY_WATER*lh[next]/dt * (1-theta_ice[next]-theta_liq[next])
+                        lim = max(0,lim)
+                else: # no limit on bottom layer (1e6 sufficiently high)
+                    lim = 1e6
+                q_out = min(qi,lim)
 
-                    # calculate flow out of layer i (cannot be negative)
-                    flow_out = DENSITY_WATER*lh[layer]/dt * (
-                        theta_liq[layer]-FRAC_IRREDUC*porosity[layer])
-                    qi = max(0,flow_out)
+                # layer mass balance
+                lw[layer] += (q_in - q_out)*dt + melt
+                ldm[layer] -= melt
+                lh[layer] -= melt / layers.ldensity[layer]
+                q_in_store.append(q_in)
+                q_out_store.append(q_out)
 
-                    # check limit of qi based on underlying layer holding capacity
-                    if layer < len(porosity) - 1 and theta_liq[layer] <= 0.3:
-                        if porosity[layer] < 0.05 or porosity[layer+1] < 0.05:
-                            # no flow if the layer itself or the lower layer has no pore space
-                            lim = 0
-                        else:
-                            next = layer+1
-                            lim = DENSITY_WATER*lh[next]/dt * (1-theta_ice[next]-theta_liq[next])
-                            lim = max(0,lim)
-                    else: # no limit on bottom layer (1e6 sufficiently high)
-                        lim = 1e6
-                    q_out = min(qi,lim)
+            # LAYERS OUT
+            layers.lheight[snow_firn_idx] = lh
+            layers.lwater[snow_firn_idx] = lw
+            layers.ldrymass[snow_firn_idx] = ldm
+            runoff = q_out*dt + np.sum(layermelt[layers.ice_idx])
 
-                    # layer mass balance
-                    lw[layer] += (q_in - q_out)*dt + melt
-                    ldm[layer] -= melt
-                    lh[layer] -= melt / layers.ldensity[layer]
-                    q_in_store.append(q_in)
-                    q_out_store.append(q_out)
-
-                # LAYERS OUT
-                layers.lheight[snow_firn_idx] = lh
-                layers.lwater[snow_firn_idx] = lw
-                layers.ldrymass[snow_firn_idx] = ldm
-                runoff = q_out*dt + np.sum(layermelt[layers.ice_idx])
-
-                # Diffuse LAPs 
-                if self.args.switch_LAPs == 1:
-                    self.diffuse_LAPs(layers,np.array(q_out_store),enbal,rain_bool)
+            # Diffuse LAPs 
+            if self.args.switch_LAPs == 1:
+                self.diffuse_LAPs(layers,np.array(q_out_store),enbal,rain_bool)
             
         else:
             # No percolation, but need to move melt to runoff
