@@ -594,6 +594,8 @@ class massBalance():
             # precip falls as snow
             rain = 0
             snow = enbal.tp*DENSITY_WATER
+            if 4 < self.time.month < 10: # kp adjusts only winter snowfall
+                snow /= eb_prms.kp
         elif SNOW_THRESHOLD_LOW < enbal.tempC < SNOW_THRESHOLD_HIGH:
             # mix of rain and snow
             fraction_rain = np.interp(enbal.tempC,temp_scale,rain_scale)

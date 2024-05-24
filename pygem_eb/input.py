@@ -20,7 +20,7 @@ use_AWS = False          # Use AWS data? (or just reanalysis)
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
                             'site_elev':1693,
-                            'AWS_fn':'Preprocessed/gulkana_2023.csv'}, 
+                            'AWS_fn':'Preprocessed/gulkana_20yrs.csv'}, 
             '01.01104':{'name':'Lemon Creek',
                             'site_elev':1285,
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
@@ -53,12 +53,11 @@ glac_props = {'01.00570':{'name':'Gulkana',
 # bin_ice_depth = np.ones(len(bin_elev)) * 200
 if glac_no == ['01.00570']:
     # Gulkana runs have specific sites with associated elevation / shading
-    site = 'AB'
+    site = 'B'
     site_fp = os.path.join(os.getcwd(),'pygem_eb/sample_data/gulkana/site_constants.csv')
     site_df = pd.read_csv(site_fp,index_col='site')
     bin_elev = [site_df.loc[site]['elevation']]
-    # kp = site_df.loc[site]['kp']
-    kp = 1
+    kp = site_df.loc[site]['kp']
     slope = site_df.loc[site]['slope']
     aspect = site_df.loc[site]['aspect']
     sky_view = site_df.loc[site]['sky_view']
@@ -116,7 +115,7 @@ if reanalysis in ['ERA5-hourly']:
 else:
     wind_ref_height = 2
 
-dates_from_data = True
+dates_from_data = False
 if dates_from_data:
     cdf = pd.read_csv(AWS_fn,index_col=0)
     cdf = cdf.set_index(pd.to_datetime(cdf.index))
@@ -128,8 +127,8 @@ if dates_from_data:
         startdate += pd.Timedelta(minutes=30)
         enddate -= pd.Timedelta(minutes=30)
 else:
-    startdate = pd.to_datetime('2008-05-04 18:30') 
-    enddate = pd.to_datetime('2008-09-14 00:30')
+    startdate = pd.to_datetime('2000-04-20 00:30') 
+    enddate = pd.to_datetime('2019-04-20 23:30')
     # startdate = pd.to_datetime('2023-04-21 00:30')    # Gulkana AWS dates
     # enddate = pd.to_datetime('2023-08-09 00:30')
     # startdate = pd.to_datetime('2008-05-04 18:30')    # South dates
@@ -162,17 +161,17 @@ dt_heateq = 3600/5          # Time resolution of heat eq [s], should be integer 
 # METHODS
 method_turbulent = 'MO-similarity'      # 'MO-similarity' or 'BulkRichardson' 
 method_heateq = 'Crank-Nicholson'       # 'Crank-Nicholson'
-method_densification = 'HerronLangway'  # 'Boone' (maybe broken?) or 'HerronLangway'
+method_densification = 'Boone'          # 'Boone'  or 'HerronLangway'
 method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'
-method_grainsizetable = 'interpolate'
+# method_grainsizetable = 'interpolate' # unused
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
-constant_conductivity = k_ice = 2.33    # False or conductivity in W K-1 m-1
+constant_conductivity = k_ice = False   # False or conductivity in W K-1 m-1
 constant_freshgrainsize = 54.5          # False or grain size in um (54.5 is standard)
-constant_drdry = 5e-4                  # False or dry metamorphism grain size growth rate [um s-1] (1e-4 seems reasonable)
+constant_drdry = 5e-4                   # False or dry metamorphism grain size growth rate [um s-1] (1e-4 seems reasonable)
 
 # ALBEDO SWITCHES
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
@@ -195,20 +194,22 @@ for i in np.arange(0,480):
 grainsize_ds = xr.open_dataset(grainsize_fp)
 
 # ========== PARAMETERS ==========
-precgrad = 0.0001           # precipitation gradient on glacier [m-1]
-lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
+# play with
 snow_threshold_low = 0      # lower threshold for linear snow-rain scaling [C]
 snow_threshold_high = 1     # upper threshold for linear snow-rain scaling [C]
-albedo_ice = 0.3            # albedo of ice [-] 
+albedo_ice = 0.2            # albedo of ice [-] 
+dz_toplayer = 0.05          # Thickness of the uppermost bin [m]
+layer_growth = 0.4          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.3-.6
+# leave
+precgrad = 0.0001           # precipitation gradient on glacier [m-1]
+lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
 roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
 ksp_BC = 0.2                # 0.1-0.2 meltwater scavenging efficiency of BC (from CLM5)
 ksp_dust = 0.015            # 0.015 meltwater scavenging efficiency of dust (from CLM5)
-dz_toplayer = 0.05          # Thickness of the uppermost bin [m]
-layer_growth = 0.4          # Rate of exponential growth of bin size (smaller layer growth = more layers) recommend 0.3-.6
-roughness_aging_rate = 0.06267 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
+roughness_aging_rate = 0.1 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 albedo_TOD = [12]            # List of time(s) of day to calculate albedo [hr] 
 initSSA = 80                 # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
-dep_factor = 0.5
+dep_factor = 0.5            # multiplicative factor to adjust MERRA-2 deposition
 BC_freshsnow = 9e-7         # concentration of BC in fresh snow [kg m-3]
 dust_freshsnow = 6e-4       # concentration of dust in fresh snow [kg m-3]
 # 1 kg m-3 = 1e6 ppb = ng g-1 = ug L-1
@@ -217,7 +218,6 @@ dust_freshsnow = 6e-4       # concentration of dust in fresh snow [kg m-3]
 daily_dt = 3600*24          # Seconds in a day [s]
 density_ice = 900           # Density of ice [kg m-3] (or Gt / 1000 km3)
 density_water = 1000        # Density of water [kg m-3]
-density_fresh_snow = 100    # ** For assuming constant density of fresh snowfall [kg m-3]
 density_firn = 700          # Density threshold for firn
 k_air = 0.023               # Thermal conductivity of air [W K-1 m-1] (Mellor, 1997)
 Lh_rf = 333550              # Latent heat of fusion of ice [J kg-1]

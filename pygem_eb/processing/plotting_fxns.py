@@ -1095,7 +1095,7 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
             for [dh,data] in zip(height,vardata):
                 if np.isnan(dh):
                     continue
-                ax.bar(step,dh, bottom=bottom, width=diff, color=get_color(data,bounds,ctype),linewidth=0.5,edgecolor='black')
+                ax.bar(step,dh, bottom=bottom, width=diff, color=get_color(data,bounds,ctype),linewidth=0.5,edgecolor='none')
                 bottom += dh  # Update bottom for the next set of bars
         ylabel = 'Log height above bedrock' if plot_ice else 'Height above ice (m)'
         ax.set_ylabel(ylabel)

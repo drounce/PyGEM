@@ -309,29 +309,50 @@ class energyBalance():
         counter = 0
         L = 0
         Qs_last = np.inf
-        while loop:
-            # calculate stability terms
-            fric_vel = KARMAN*self.wind / (np.log(z/z0)-self.PhiM(z,L))
-            cD = KARMAN**2/np.square(np.log(z/z0) - self.PhiM(z,L) - self.PhiM(z0,L))
-            csT = KARMAN*np.sqrt(cD) / (np.log(z/z0t) - self.PhiT(z,L) - self.PhiT(z0,L))
-            csQ = KARMAN*np.sqrt(cD) / (np.log(z/z0q) - self.PhiT(z,L) - self.PhiT(z0,L))
+        if eb_prms.method_turbulent in ['MO-similarity']:
+            while loop:
+                # calculate stability terms
+                fric_vel = KARMAN*self.wind / (np.log(z/z0)-self.PhiM(z,L))
+                cD = KARMAN**2/np.square(np.log(z/z0) - self.PhiM(z,L) - self.PhiM(z0,L))
+                csT = KARMAN*np.sqrt(cD) / (np.log(z/z0t) - self.PhiT(z,L) - self.PhiT(z0,L))
+                csQ = KARMAN*np.sqrt(cD) / (np.log(z/z0q) - self.PhiT(z,L) - self.PhiT(z0,L))
+                
+                # calculate fluxes
+                Qs = density_air*CP_AIR*csT*self.wind*(self.tempC - surftemp)
+                Ql = density_air*Lv*csQ*self.wind*(qz-q0)
 
+                # recalculate L
+                L = fric_vel**3*(self.tempK)*density_air*CP_AIR/(KARMAN*GRAVITY*Qs)
+                L = max(L,0.3) # DEBAM uses this limit to prevent over-stabilization
+
+                # check convergence
+                counter += 1
+                diff = np.abs(Qs_last-Qs)
+                if counter > 10 or diff < 1e-1:
+                    loop = False
+                    if counter> 10:
+                        print('didnt converge')
+
+                Qs_last = Qs
+        elif eb_prms.method_turbulent in ['BulkRichardson']:   
+            if self.wind != 0:
+                RICHARDSON = GRAVITY/self.tempK*(self.tempC-surftemp)*(z-z0)/self.wind**2
+            else:
+                RICHARDSON = 0
+            csT = KARMAN**2/(np.log(z/z0) * np.log(z/z0t))
+            csQ = KARMAN**2/(np.log(z/z0) * np.log(z/z0q))
+            if RICHARDSON <= 0.01:
+                phi = 1
+            elif 0.01 < RICHARDSON <= 0.2:
+                phi = np.square(1-5*RICHARDSON)
+            else:
+                phi = 0
+            
             # calculate fluxes
-            Qs = density_air*CP_AIR*csT*self.wind*(self.tempC - surftemp)
-            Ql = density_air*Lv*csQ*self.wind*(qz-q0)
-
-            # recalculate L
-            L = fric_vel**3*(self.tempK)*density_air*CP_AIR/(KARMAN*GRAVITY*Qs)
-
-            # check convergence
-            counter += 1
-            diff = np.abs(Qs_last-Qs)
-            if counter > 10 or diff < 1e-1:
-                loop = False
-                if counter> 10:
-                    print('didnt converge')
-
-            Qs_last = Qs
+            Qs = density_air*CP_AIR*csT*phi*self.wind*(self.tempC - surftemp)
+            Ql = density_air*Lv*csQ*phi*self.wind*(qz-q0)
+        else:
+            assert 1==0, 'Choose turbulent method from MO-similarity or BulkRichardson'
         
         # counter = 0
         # L = 0

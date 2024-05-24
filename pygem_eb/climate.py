@@ -96,7 +96,7 @@ class Climate():
         self.AWS_elev = df.iloc[0]['z']
 
         # get the available variables
-        all_AWS_vars = ['temp','tp','rh','wind','sp','SWin','SWout',
+        all_AWS_vars = ['temp','tp','rh','wind','sp','SWin','SWout','NR',
                     'LWin','LWout','bcwet','bcdry','dustwet','dustdry']
         AWS_vars = df.columns
         self.measured_vars = list(set(all_AWS_vars) & set(AWS_vars))
@@ -114,6 +114,8 @@ class Climate():
 
         # figure out which data is still needed from reanalysis
         need_vars = [e for e in self.all_vars if e not in AWS_vars]
+        if 'NR' in self.measured_vars:
+            need_vars.remove('LWin')
         return need_vars
     
     def get_reanalysis(self,vars):
@@ -231,15 +233,22 @@ class Climate():
             self.cds['winddir'].values = winddir
 
         # adjust MERRA-2 temperature bias (varies by month of the year)
-        temp_filled = True if not eb_prms.use_AWS else 'temp' in self.need_vars
+        temp_filled = True if not self.args.use_AWS else 'temp' in self.need_vars
         if eb_prms.reanalysis == 'MERRA2' and temp_filled:
             self.adjust_temp_bias()
 
         # check all variables are there
+        failed = []
         for var in self.all_vars:
             varname = 'bin_'+var if var in ['temp','tp','sp'] else var
             data = self.cds[varname].values
-            assert ~np.all(np.isnan(data)), f'{var} failed'
+            if np.all(np.isnan(data)):
+                failed.append(var)
+        if 'LWin' in failed and 'NR' in self.measured_vars:
+            failed.drop('LWin')
+        if len(failed) > 0:
+            print('Missing data:',failed)
+            quit()
 
         if eb_prms.store_climate:
             name = eb_prms.glac_name

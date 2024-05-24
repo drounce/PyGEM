@@ -32,9 +32,9 @@ from numpy import pi, cos, sin, arctan
 
 # =================== INPUTS ===================
 site_by = 'id'                  # method to choose lat/lon ('id' or 'latlon')
-site = 'AB'                         # name of site for indexing .csv OR specify lat/lon
+site = 'B'                         # name of site for indexing .csv OR specify lat/lon
 lat,lon = [60.8155986,-139.1236350] # site lat/lon
-timezone = pd.Timedelta(hours=-7)   # time zone of location
+timezone = pd.Timedelta(hours=-8)   # time zone of location
 glacier_name = 'Gulkana'            # name of glacier for labeling
 
 # storage options
@@ -68,22 +68,24 @@ args = parser.parse_args()
 args.site_name += args.site
 
 # =================== FILEPATHS ===================
-fp = '/home/claire/research/PyGEM-EB/shading/'
 # in
 site_fp = 'in/gulkana/gulkana_sites.csv' # if choosing lat/lon by site
 dem_fp = 'in/gulkana/Gulkana_DEM_20m.tif'
 aspect_fp = 'in/gulkana/Gulkana_Aspect_20m.tif'
 slope_fp = 'in/gulkana/Gulkana_Slope_20m.tif'
+# dem_fp = 'in/south/south_dem.tif'
+# aspect_fp = 'in/south/south_aspect.tif'
+# slope_fp = 'in/south/south_slope.tif'
 # optional shapefile for visualizing
 shp_fp = 'in/shapefile/Gulkana.shp'
 # optional solar radiation file for diffuse fraction
-solar_fp = '/home/claire/research/climate_data/AWS/CNR4/cnr4_2023.csv'
+# solar_fp = '/home/claire/research/climate_data/AWS/CNR4/cnr4_2023.csv'
 
 # out
-shade_fp = fp + f'out/{args.site_name}_shade.csv'
-irr_fp = fp + f'out/{args.site_name}_irr.csv'
-out_image_fp = fp + f'plots/{args.site_name}.png'
-out_horizon_fp = fp + f'plots/{args.site_name}_horizon.png'
+shade_fp = f'out/{args.site_name}_shade.csv'
+irr_fp = f'out/{args.site_name}_irr.csv'
+out_image_fp = f'plots/{args.site_name}.png'
+out_horizon_fp = f'plots/{args.site_name}_horizon.png'
 
 # =================== CONSTANTS ===================
 I0 = 1368       # solar constant in W m-2
@@ -353,7 +355,7 @@ class Shading():
 
         # loop through hours of the year and store data
         store_vars = ['dirirr','dirirrslope','shaded','corr_factor','sun_elev','horizon_elev','sun_az']
-        year_hours = pd.date_range('2024-01-01 00:00','2024-12-31 23:00',freq=time_freq)
+        year_hours = pd.date_range('2024-01-01 00:00','2024-12-31 23:55',freq=time_freq)
         timestep_min = (year_hours[1] - year_hours[0]).total_seconds()/60
         df = pd.DataFrame(data = np.ones((len(year_hours),len(store_vars))),
                         columns=store_vars,index=year_hours)
