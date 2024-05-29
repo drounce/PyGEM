@@ -221,6 +221,8 @@ class Surface():
         else:
             self.albedo = self.albedo_dict[self.stype]
             self.bba = self.albedo
+        if '__iter__' not in dir(self.albedo):
+            self.albedo = [self.albedo]
 
         if eb_prms.store_bands:
             if '__iter__' not in dir(self.albedo):

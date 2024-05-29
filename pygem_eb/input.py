@@ -20,7 +20,7 @@ use_AWS = False          # Use AWS data? (or just reanalysis)
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
                             'site_elev':1693,
-                            'AWS_fn':'Preprocessed/gulkana_20yrs.csv'}, 
+                            'AWS_fn':'Preprocessed/gulkana_2023.csv'}, 
             '01.01104':{'name':'Lemon Creek',
                             'site_elev':1285,
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
@@ -115,7 +115,7 @@ if reanalysis in ['ERA5-hourly']:
 else:
     wind_ref_height = 2
 
-dates_from_data = False
+dates_from_data = True
 if dates_from_data:
     cdf = pd.read_csv(AWS_fn,index_col=0)
     cdf = cdf.set_index(pd.to_datetime(cdf.index))
@@ -127,10 +127,10 @@ if dates_from_data:
         startdate += pd.Timedelta(minutes=30)
         enddate -= pd.Timedelta(minutes=30)
 else:
-    startdate = pd.to_datetime('2000-04-20 00:30') 
-    enddate = pd.to_datetime('2019-04-20 23:30')
-    # startdate = pd.to_datetime('2023-04-21 00:30')    # Gulkana AWS dates
-    # enddate = pd.to_datetime('2023-08-09 00:30')
+    # startdate = pd.to_datetime('2000-04-20 00:30') 
+    # enddate = pd.to_datetime('2019-04-20 23:30')
+    startdate = pd.to_datetime('2022-08-20 00:30')    # Gulkana AWS dates
+    enddate = pd.to_datetime('2023-08-09 00:30')
     # startdate = pd.to_datetime('2008-05-04 18:30')    # South dates
     # enddate = pd.to_datetime('2008-09-14 00:30')
     # startdate = pd.to_datetime('2016-05-11 00:30') # JIF sample dates
@@ -169,7 +169,7 @@ method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
-constant_conductivity = k_ice = False   # False or conductivity in W K-1 m-1
+constant_conductivity = k_ice = 1       # False or conductivity in W K-1 m-1
 constant_freshgrainsize = 54.5          # False or grain size in um (54.5 is standard)
 constant_drdry = 5e-4                   # False or dry metamorphism grain size growth rate [um s-1] (1e-4 seems reasonable)
 

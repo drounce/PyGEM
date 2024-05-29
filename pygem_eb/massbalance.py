@@ -503,7 +503,8 @@ class massBalance():
         GRAVITY = eb_prms.gravity
         R = eb_prms.R_gas
         VISCOSITY_SNOW = eb_prms.viscosity_snow
-        DENSITY_FRESH_SNOW = eb_prms.density_fresh_snow
+        rho = eb_prms.constant_snowfall_density
+        DENSITY_FRESH_SNOW = rho if rho else 50
         DENSITY_ICE = eb_prms.density_ice
         dt = eb_prms.daily_dt
 

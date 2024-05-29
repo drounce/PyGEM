@@ -40,11 +40,11 @@ varprops = {'surftemp':{'label':'Surface temp','type':'Temperature','units':'C'}
            'latent':{'label':'Latent Heat','type':'Flux','units':'W m$^{-2}$'},
            'rain':{'label':'Rain Energy','type':'Flux','units':'W m$^{-2}$'},
            'ground':{'label':'Ground Energy','type':'Flux','units':'W m$^{-2}$'},
-           'layertemp':{'label':'Layer temp.','type':'Layers','units':'C'},
+           'layertemp':{'label':'Temperature','type':'Layers','units':'C'},
            'layerdensity':{'label':'Density','type':'Layers','units':'kg m$^{-3}$'},
-           'layerwater':{'label':'Water Content','type':'Layers','units':'kg m$^{-2}$'},
-           'layerBC':{'label':'BC Conc.','type':'Layers','units':'ppb'},
-           'layerdust':{'label':'Dust Conc.','type':'Layers','units':'ppm'},
+           'layerwater':{'label':'Water content','type':'Layers','units':'kg m$^{-2}$'},
+           'layerBC':{'label':'Black carbon','type':'Layers','units':'ppb'},
+           'layerdust':{'label':'Dust','type':'Layers','units':'ppm'},
            'layergrainsize':{'label':'Grain size','type':'Layers','units':'um'},
            'layerheight':{'label':'Layer height','type':'Layers','units':'m'},
            'snowdepth':{'label':'Snow depth','type':'MB','units':'m'},
@@ -131,6 +131,7 @@ def simple_plot(ds,bin,time,vars,res='d',t='',cumMB=True,
             else:
                 axis.plot(ds_mean.coords['time'],var_to_plot,color=c,label=var)
                 axis.set_ylabel(varprops[var]['label'])
+            print(np.mean(var_to_plot))
 
         axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
     date_form = mpl.dates.DateFormatter('%d %b')
@@ -192,7 +193,7 @@ def dh_vs_stake(stake_df,ds_list,time,labels=['Model'],bin=0,t='Surface Height C
     labels : list of str
         List of same length as ds_list containing labels to plot
     """
-    plt.style.use('bmh')
+    # plt.style.use('bmh')
     fig,ax = plt.subplots(figsize=(4,6),sharex=True,layout='constrained')
     stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
 
@@ -211,6 +212,7 @@ def dh_vs_stake(stake_df,ds_list,time,labels=['Model'],bin=0,t='Surface Height C
     ax.plot(stake_df.index,stake_df['CMB'].to_numpy(),label='Stake',linestyle='--',color='black')
     date_form = mpl.dates.DateFormatter('%d %b')
     ax.xaxis.set_major_formatter(date_form)
+    ax.set_xticks(pd.date_range(start,end,periods=5))
     ax.legend()
     ax.set_ylabel('Surface Height Change [m]')
     fig.suptitle(t)
@@ -568,18 +570,17 @@ def temp_vs_iButton(ds,temp_df,time,bin,plot_heights=[0.05,0.5],
     model_plot = np.array(store['model_plot'])
 
     # plot
-    fig,axes = plt.subplots(len(plot_heights),figsize=(6,2.5*len(plot_heights)),
+    fig,axes = plt.subplots(len(plot_heights),figsize=(6,1.5*len(plot_heights)),
                         layout='constrained',sharex=True,sharey=True)
     date_form = mpl.dates.DateFormatter('%d %b')
     for i,ax in enumerate(axes):
-        ax.set_title(f'Height = {plot_heights[i]} m')
-        ax.set_xlabel('Temperature (C)')
-        ax.set_ylabel('Height above \n ice surface (m)')
+        ax.set_title(f'Height = {plot_heights[i]} m above ice')
         ax.plot(time,measure_plot[:,i],label='Measured')
         ax.plot(time,model_plot[:,i],label='Modeled')
         ax.xaxis.set_major_formatter(date_form)
+    fig.supylabel('Temperature (C)')
     axes[0].legend()
-    fig.suptitle(t+f'\n RMSE = {rmse:.3f}')
+    fig.suptitle(t) #+f'\n RMSE = {rmse:.3f}')
 
 def panel_temp_compare(ds_list,time,labels,temp_df,rows=2,t=''):
     """
@@ -1036,7 +1037,8 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
         - List of integers to select those layer indices
         - Depth in m 
     """
-    plt.style.use('bmh')
+    # plt.style.use('bmh')
+    mpl.style.use('seaborn-v0_8-whitegrid')
 
     diff = dates[1] - dates[0]
 
@@ -1050,22 +1052,25 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
         c = cmap(norm(value))
         return c
 
-    fig,axes = plt.subplots(len(vars),figsize=(8,2*len(vars)),sharex=True,layout='constrained')
+    fig,axes = plt.subplots(len(vars),figsize=(5,1.7*len(vars)),sharex=True,layout='constrained')
     for i,var in enumerate(vars):
         if var in ['layerBC','layerdust']:
-            bounds = [0,50]
+            bounds = [-8,50]
         elif var in ['layerdensity']:
             bounds = [50,800] if plot_firn else [0,500]
         elif var in ['layerwater']:
-            bounds = [0,6]
+            bounds = [-1,6]
         elif var in ['layertemp']:
-            bounds = [-10,0]
+            bounds = [-14,0]
         dens_lim = 890 if plot_firn else 600
         dens_lim = 1000 if plot_ice else dens_lim
         assert 'layer' in var, 'choose layer variable'
         ax = axes[i]
         if plot_ice:
             ax.set_yscale('log')
+        first = False
+        last = False
+        max_snowdepth = 0
         for step in dates:
             height = ds.sel(time=step,bin=bin)['layerheight'].to_numpy()
             vardata = ds.sel(time=step,bin=bin)[var].to_numpy()
@@ -1092,27 +1097,40 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
             ctypes = {'layerBC':'Oranges','layerdust':'Oranges','layertemp':'viridis',
                 'layerdensity':'Greens','layerwater':'Blues'}
             ctype = ctypes[var]
+            if np.sum(height) < 0.05 and first and not last and step.month<9:
+                last = step
             for [dh,data] in zip(height,vardata):
                 if np.isnan(dh):
                     continue
-                ax.bar(step,dh, bottom=bottom, width=diff, color=get_color(data,bounds,ctype),linewidth=0.5,edgecolor='none')
+                elif not first:
+                    first = step
+                color = get_color(data,bounds,ctype)
+                ax.bar(step,dh, bottom=bottom, width=diff, color=color,linewidth=0.5,edgecolor='none')
                 bottom += dh  # Update bottom for the next set of bars
-        ylabel = 'Log height above bedrock' if plot_ice else 'Height above ice (m)'
-        ax.set_ylabel(ylabel)
+            max_snowdepth = max(max_snowdepth,np.sum(height))
         # Add colorbar
-        units = {'layerBC':'ppb','layerdust':'ppm','layertemp':'C',
-                'layerdensity':'kg m-3','layerwater':'mass %'}
+        units = {'layerBC':'ppb','layerdust':'ppm','layertemp':'$^{\circ}$C',
+                'layerdensity':'kg m$^{-3}$','layerwater':'%'}
         sm = mpl.cm.ScalarMappable(cmap=ctype,norm=plt.Normalize(bounds[0],bounds[1]))
-        leg = plt.colorbar(sm,ax=ax)
-        leg.set_label(varprops[var]['label']+' ('+units[var]+')')
-        ax.grid(False)
+        leg = plt.colorbar(sm,ax=ax,aspect=7)
+        leg.ax.tick_params(labelsize=9)
+        # leg.set_label(units[var],loc='top',rotation=0)
+        ax.yaxis.set_label_position('right')
+        ax.yaxis.set_label_coords(1.1,0)
+        label = varprops[var]['label']+' ('+units[var]+')'
+        ax.set_ylabel(label,fontsize=10)
+        ax.grid(axis='y')
     # Customize plot     
-    fig.suptitle(t,fontsize=14)
+    ylabel = 'Log height above bedrock' if plot_ice else 'Height above ice (m)'
+    fig.supylabel(ylabel,)
+    fig.suptitle(t,fontsize=12)
+    melt_out = last.strftime('%b %d')
+    axes[0].set_title(f'Max snowdepth of {max_snowdepth:.2f}m melted out on {melt_out}',fontsize=10)
     ax.set_xticks(dates)
-    date_form = mpl.dates.DateFormatter('%d %b')
+    date_form = mpl.dates.DateFormatter('%d-%b')
     ax.xaxis.set_major_formatter(date_form)
-    if len(dates) > 8:
-        ax.set_xticks(pd.date_range(dates[0],dates[len(dates)-1],periods=7))
+    ax.set_xticks(pd.date_range(dates[0],dates[len(dates)-1],freq='2MS'))
+    ax.set_xlim([dates[0],dates[len(dates)-1]])
 
     # Show plot
     plt.savefig('/home/claire/research/visualize.png',dpi=150)
