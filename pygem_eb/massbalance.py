@@ -514,7 +514,6 @@ class massBalance():
         lT = layers.ltemp.copy()
         ldm = layers.ldrymass.copy()
         lw = layers.lwater.copy()
-        lh = layers.lheight.copy()
 
         if eb_prms.method_densification in ['Boone']:
             # EMPIRICAL PARAMETERS
@@ -524,13 +523,15 @@ class massBalance():
             c4 = 0.081
             c5 = 0.018
 
-            for layer,height in enumerate(lh[snowfirn_idx]):
+            for layer in snowfirn_idx:
                 weight_above = GRAVITY*np.sum(ldm[:layer]+lw[:layer])
                 viscosity = VISCOSITY_SNOW * np.exp(c4*(0.-lT[layer])+c5*lp[layer])
 
                 # get change in density and recalculate height 
-                dRho = (((weight_above*GRAVITY)/viscosity) + c1*np.exp(-c2*(0.-lT[layer]) 
-                                - c3*np.maximum(0.,lp[layer]-DENSITY_FRESH_SNOW)))*lp[layer]*dt
+                mass_term = (weight_above*GRAVITY)/viscosity
+                temp_term = -c2*(0.-lT[layer])
+                dens_term = -c3*max(0,lp[layer]-DENSITY_FRESH_SNOW)
+                dRho = (mass_term+c1*np.exp(temp_term+dens_term))*lp[layer]*dt
                 lp[layer] += dRho
 
             # LAYERS OUT

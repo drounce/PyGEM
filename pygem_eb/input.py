@@ -68,7 +68,7 @@ else:
     sky_view = 0.936
     bin_elev = [2280]
     kp = 1
-    site = 'AWS'  #if use_AWS else ''
+    site = 'AWS'
     initial_snowdepth = [2.18]*n_bins   # initial depth of snow; array of length n_bins
     initial_firndepth = [0]*n_bins      # initial depth of firn; array of length n_bins
 bin_ice_depth = np.ones(len(bin_elev)) * 200
@@ -106,16 +106,19 @@ albedo_out_fp = main_directory + '/../Output/EB/albedo.csv'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
 reanalysis = 'MERRA2' # 'ERA5-hourly' or 'MERRA2'
+temp_bias_adjust = True # adjust MERRA-2 temperatures according to bias?
+MERRA2_filetag = False    # False or string to follow 'MERRA2_VAR_' in MERRA2 filename
 AWS_fp = main_directory + '/../climate_data/AWS/'
 AWS_fn = AWS_fp+glac_props[glac_no[0]]['AWS_fn']
 glac_name = glac_props[glac_no[0]]['name']
-assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
 if reanalysis in ['ERA5-hourly']:
     wind_ref_height = 10
 else:
     wind_ref_height = 2
+if use_AWS:
+    assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
 
-dates_from_data = True
+dates_from_data = False
 if dates_from_data:
     cdf = pd.read_csv(AWS_fn,index_col=0)
     cdf = cdf.set_index(pd.to_datetime(cdf.index))
@@ -129,7 +132,7 @@ if dates_from_data:
 else:
     # startdate = pd.to_datetime('2000-04-20 00:30') 
     # enddate = pd.to_datetime('2019-04-20 23:30')
-    startdate = pd.to_datetime('2022-08-20 00:30')    # Gulkana AWS dates
+    startdate = pd.to_datetime('2023-04-20 00:30')    # Gulkana AWS dates
     enddate = pd.to_datetime('2023-08-09 00:30')
     # startdate = pd.to_datetime('2008-05-04 18:30')    # South dates
     # enddate = pd.to_datetime('2008-09-14 00:30')
@@ -161,7 +164,7 @@ dt_heateq = 3600/5          # Time resolution of heat eq [s], should be integer 
 # METHODS
 method_turbulent = 'MO-similarity'      # 'MO-similarity' or 'BulkRichardson' 
 method_heateq = 'Crank-Nicholson'       # 'Crank-Nicholson'
-method_densification = 'Boone'          # 'Boone'  or 'HerronLangway'
+method_densification = 'HerronLangway'          # 'Boone'  or 'HerronLangway'
 method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'

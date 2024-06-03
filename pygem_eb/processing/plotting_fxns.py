@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from sklearn.metrics import mean_squared_error
 
-mpl.style.use('seaborn-v0_8')
+mpl.style.use('seaborn-v0_8-white')
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color'] 
 glac_props = {'01.00570':{'name':'Gulkana',
                             'AWS_fn':'gulkana1725_hourly.csv'},
@@ -86,7 +86,7 @@ def simple_plot(ds,bin,time,vars,res='d',t='',cumMB=True,
     skinny : Bool
         True or false, defines the height of each panel
     save_fig : Bool
-        True or false, save the figure or not
+        False or filepath to save the image
     new_y : list-like
         List of variables in vars that should be plotted on a new y-axis
     """
@@ -131,14 +131,13 @@ def simple_plot(ds,bin,time,vars,res='d',t='',cumMB=True,
             else:
                 axis.plot(ds_mean.coords['time'],var_to_plot,color=c,label=var)
                 axis.set_ylabel(varprops[var]['label'])
-            print(np.mean(var_to_plot))
 
         axis.legend(bbox_to_anchor=(1.01,1),loc='upper left')
     date_form = mpl.dates.DateFormatter('%d %b')
     axis.xaxis.set_major_formatter(date_form)
     fig.suptitle(t)
     if save_fig:
-        plt.savefig('/home/claire/research/Output/ebfluxcomparison.png',dpi=150)
+        plt.savefig(save_fig,dpi=150)
 
 def plot_hours(ds,bin,time,vars,skinny=True,t='Hourly EB Outputs'):
     h = 1.5 if skinny else 3
@@ -194,7 +193,7 @@ def dh_vs_stake(stake_df,ds_list,time,labels=['Model'],bin=0,t='Surface Height C
         List of same length as ds_list containing labels to plot
     """
     # plt.style.use('bmh')
-    fig,ax = plt.subplots(figsize=(4,6),sharex=True,layout='constrained')
+    fig,ax = plt.subplots(figsize=(4,5.5),sharex=True,layout='constrained')
     stake_df = stake_df.set_index(pd.to_datetime(stake_df['Date']))
 
     if len(time) == 2:
@@ -206,15 +205,18 @@ def dh_vs_stake(stake_df,ds_list,time,labels=['Model'],bin=0,t='Surface Height C
     stake_df = stake_df.loc[days-pd.Timedelta(minutes=30)]
     for i,ds in enumerate(ds_list):
         c = plt.cm.Dark2(i)
-        ds = ds.sel(time=time,bin=bin)
+        ds = ds.sel(time=time,bin=bin).resample(time='d').sum()
         dh = ds.dh.cumsum().to_numpy() - ds.dh.to_numpy()[0]
         ax.plot(ds.coords['time'],dh,label=labels[i],color=c)
     ax.plot(stake_df.index,stake_df['CMB'].to_numpy(),label='Stake',linestyle='--',color='black')
-    date_form = mpl.dates.DateFormatter('%d %b')
+    date_form = mpl.dates.DateFormatter('%b %d')
     ax.xaxis.set_major_formatter(date_form)
     ax.set_xticks(pd.date_range(start,end,periods=5))
-    ax.legend()
-    ax.set_ylabel('Surface Height Change [m]')
+    ax.set_xlim(start,end)
+    ax.tick_params(labelsize=12,length=5,width=1)
+    ax.legend(fontsize=12,loc='upper right')
+    ax.grid(False)
+    ax.set_ylabel('Surface Height Change (m)',fontsize=14)
     fig.suptitle(t)
 
 def snowdepth_vs_stake(stake_df,ds_list,time,labels,bin=0,t='Snow Depth Comparison'):
@@ -506,8 +508,11 @@ def panel_dh_compare(ds_list,time,labels,units,stake_df,rows=2,t='',bin=0):
     plt.show()
     return
 
-def temp_vs_iButton(ds,temp_df,time,bin,plot_heights=[0.05,0.5],
-                    t='Modeled and measured snow temperatures'):
+def temp_vs_iButton(dslist,temp_df,time,bin,plot_heights=[0.05,0.5],
+                    t='Modeled and measured snow temperatures',labels=['Model'],
+                    ax_titles=False):
+    if not ax_titles:
+        ax_titles = np.array(plot_heights).astype(str)
     # define height above ice of iButtons initially
     h0 = 3.5 - np.array([.1,.4,.8,1.2,1.6,2,2.4,2.8,3.2,3.49])
     melt_out = pd.to_datetime(['2023-05-20 05:30:00','2023-05-23 14:30:00',
@@ -520,66 +525,74 @@ def temp_vs_iButton(ds,temp_df,time,bin,plot_heights=[0.05,0.5],
         end = pd.to_datetime(time[1])
         end = min(pd.to_datetime('2023-05-23 00:00'),end)
         time = pd.date_range(start,end,freq='h')
-    ds = ds.sel(time=time,bin=bin)
     df = temp_df.resample('30min').interpolate().loc[time]
 
-    store = {'measured':[],'modeled':[],'measure_plot':[],'model_plot':[]}
-    for hour in time:
-        # get temperatures of buried iButtons
-        buried = np.where(melt_out > hour)[0]
-        temp_measure = np.flip(df.loc[hour].to_numpy()[buried])
-        height_measure = np.flip(h0[buried])
-        
-        # get modeled temperatures
-        # index snow layers
-        dens_model = ds.sel(time=hour)['layerdensity'].to_numpy()
-        dens_model[np.where(np.isnan(dens_model))[0]] = 1e5
-        snow = np.where(dens_model < 700)[0]
-        # include one extra layer for interpolating (will index out when stored)
-        snow = np.append(snow,snow[-1]+1).ravel()
-        # get height above ice
-        lheight = ds.sel(time=hour)['layerheight'].to_numpy()[snow]
-        icedepth = np.sum(lheight[:-1]) + lheight[-2] / 2
-        # get property and absolute depth
-        ldepth = np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
-        temp_model = np.flip(ds.sel(time=hour)['layertemp'].to_numpy()[snow])
-        height_model = np.flip(icedepth - ldepth)
-        
-        # interpolate measured temperatures to model heights
-        temp_measure_interp = np.interp(height_model[:-1],height_measure,temp_measure)
-        
-        # store x height above the ice for plotting
-        temp_measure_plot = np.interp(plot_heights,height_measure,temp_measure)
-        temp_model_plot = np.interp(plot_heights,height_model,temp_model)
-
-        # store
-        store['measured'].append(temp_measure_interp)
-        store['modeled'].append(temp_model[1:])
-        store['measure_plot'].append(temp_measure_plot)
-        store['model_plot'].append(temp_model_plot)
-    # get RMSE
-    def flatten(xss):
-        return np.array([x for xs in xss for x in xs])
-    measured = flatten(store['measured'])
-    modeled = flatten(store['modeled'])
-    mse = mean_squared_error(measured,modeled)
-    rmse = np.sqrt(mse)
-
-    # get plotting data
-    measure_plot = np.array(store['measure_plot'])
-    model_plot = np.array(store['model_plot'])
-
-    # plot
     fig,axes = plt.subplots(len(plot_heights),figsize=(6,1.5*len(plot_heights)),
-                        layout='constrained',sharex=True,sharey=True)
-    date_form = mpl.dates.DateFormatter('%d %b')
-    for i,ax in enumerate(axes):
-        ax.set_title(f'Height = {plot_heights[i]} m above ice')
-        ax.plot(time,measure_plot[:,i],label='Measured')
-        ax.plot(time,model_plot[:,i],label='Modeled')
-        ax.xaxis.set_major_formatter(date_form)
-    fig.supylabel('Temperature (C)')
-    axes[0].legend()
+                            layout='constrained',sharex=True,sharey=True,dpi=200)
+
+    for j,ds in enumerate(dslist):
+        store = {'measured':[],'modeled':[],'measure_plot':[],'model_plot':[]}
+        c = plt.cm.Dark2(j)
+        ds = ds.sel(time=time,bin=bin)
+        for hour in time:
+            # get temperatures of buried iButtons
+            buried = np.where(melt_out > hour)[0]
+            temp_measure = np.flip(df.loc[hour].to_numpy()[buried])
+            height_measure = np.flip(h0[buried])
+            
+            # get modeled temperatures
+            # index snow layers
+            dens_model = ds.sel(time=hour)['layerdensity'].to_numpy()
+            dens_model[np.where(np.isnan(dens_model))[0]] = 1e5
+            snow = np.where(dens_model < 700)[0]
+            # include one extra layer for interpolating (will index out when stored)
+            snow = np.append(snow,snow[-1]+1).ravel()
+            # get height above ice
+            lheight = ds.sel(time=hour)['layerheight'].to_numpy()[snow]
+            icedepth = np.sum(lheight[:-1]) + lheight[-2] / 2
+            # get property and absolute depth
+            ldepth = np.array([np.sum(lheight[:i+1])-(lheight[i]/2) for i in range(len(lheight))])
+            temp_model = np.flip(ds.sel(time=hour)['layertemp'].to_numpy()[snow])
+            height_model = np.flip(icedepth - ldepth)
+            
+            # interpolate measured temperatures to model heights
+            temp_measure_interp = np.interp(height_model[:-1],height_measure,temp_measure)
+            
+            # store x height above the ice for plotting
+            temp_measure_plot = np.interp(plot_heights,height_measure,temp_measure)
+            temp_model_plot = np.interp(plot_heights,height_model,temp_model)
+
+            # store
+            store['measured'].append(temp_measure_interp)
+            store['modeled'].append(temp_model[1:])
+            store['measure_plot'].append(temp_measure_plot)
+            store['model_plot'].append(temp_model_plot)
+        # get RMSE
+        def flatten(xss):
+            return np.array([x for xs in xss for x in xs])
+        measured = flatten(store['measured'])
+        modeled = flatten(store['modeled'])
+        mse = mean_squared_error(measured,modeled)
+        rmse = np.sqrt(mse)
+
+        # get plotting data
+        measure_plot = np.array(store['measure_plot'])
+        model_plot = np.array(store['model_plot'])
+
+        # plot
+        date_form = mpl.dates.DateFormatter('%b %d')
+        for i,ax in enumerate(axes):
+            ax.set_title(ax_titles[i],loc='right')
+            if j == 0:
+                ax.plot(time,measure_plot[:,i],color='black',linestyle='--',label='iButtons')
+            ax.plot(time,model_plot[:,i],label=labels[j],color=c)
+            ax.xaxis.set_major_formatter(date_form)
+            ax.grid(False)
+            ax.tick_params(length=5,labelsize=11)
+    fig.supylabel('Snow Temperature (C)',fontsize=14)
+    ax.set_xticks(pd.date_range(start,end,freq='W'))
+    ax.set_xlim(start,end)
+    axes[0].legend(fontsize=12,loc='lower right')
     fig.suptitle(t) #+f'\n RMSE = {rmse:.3f}')
 
 def panel_temp_compare(ds_list,time,labels,temp_df,rows=2,t=''):
@@ -994,7 +1007,7 @@ def plot_avg_layers(file,bin,nyr):
         idx = idxs[ax]
         axes[idx[0],idx[1]].plot(days,snowdaily,label=var)
         axes[idx[0],idx[1]].set_title(var+'   '+ds[var].attrs['units'])
-    axes[1,0].set_title('water content    m w .e')
+    # axes[1,0].set_title('water content    m w .e')
     plt.gcf().autofmt_xdate()
     # plt.savefig('/home/claire/research/Output/EB/subsurfplot.png')
     plt.show()
@@ -1038,7 +1051,7 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
         - Depth in m 
     """
     # plt.style.use('bmh')
-    mpl.style.use('seaborn-v0_8-whitegrid')
+    # mpl.style.use('seaborn-v0_8-whitegrid')
 
     diff = dates[1] - dates[0]
 
@@ -1120,12 +1133,13 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
         label = varprops[var]['label']+' ('+units[var]+')'
         ax.set_ylabel(label,fontsize=10)
         ax.grid(axis='y')
+        ax.tick_params(length=5)
     # Customize plot     
     ylabel = 'Log height above bedrock' if plot_ice else 'Height above ice (m)'
     fig.supylabel(ylabel,)
-    fig.suptitle(t,fontsize=12)
-    melt_out = last.strftime('%b %d')
-    axes[0].set_title(f'Max snowdepth of {max_snowdepth:.2f}m melted out on {melt_out}',fontsize=10)
+    fig.suptitle(t,fontsize=14)
+    # melt_out = last.strftime('%b %d')
+    # axes[0].set_title(f'Max snowdepth of {max_snowdepth:.2f}m melted out on {melt_out}',fontsize=10)
     ax.set_xticks(dates)
     date_form = mpl.dates.DateFormatter('%d-%b')
     ax.xaxis.set_major_formatter(date_form)
@@ -1133,8 +1147,7 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
     ax.set_xlim([dates[0],dates[len(dates)-1]])
 
     # Show plot
-    plt.savefig('/home/claire/research/visualize.png',dpi=150)
-    plt.show()
+    # plt.show()
 
 def plot_single_layer(ds,layer,vars,time,cumMB=False,t='',vline=None,res='h',resample=False):
     if len(time) == 2:

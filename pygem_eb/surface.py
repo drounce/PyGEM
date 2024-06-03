@@ -10,7 +10,6 @@ import pandas as pd
 from scipy.optimize import minimize
 import sys, os
 sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/src/')
-sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/src/biosnicar')
 import yaml
 import suncalc
 

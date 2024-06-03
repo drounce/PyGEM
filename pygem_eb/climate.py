@@ -234,7 +234,7 @@ class Climate():
 
         # adjust MERRA-2 temperature bias (varies by month of the year)
         temp_filled = True if not self.args.use_AWS else 'temp' in self.need_vars
-        if eb_prms.reanalysis == 'MERRA2' and temp_filled:
+        if eb_prms.temp_bias_adjust and temp_filled:
             self.adjust_temp_bias()
 
         # check all variables are there
@@ -326,6 +326,7 @@ class Climate():
             self.reanalysis_fp += 'MERRA2/'
             flat = str(int(np.floor(self.lat/10)*10))
             flon = str(int(np.floor(self.lon/10)*10))
+            tag = eb_prms.MERRA2_filetag if eb_prms.MERRA2_filetag else f'{flat}_{flon}'
             self.var_dict['temp']['vn'] = 'T2M'
             self.var_dict['rh']['vn'] = 'RH2M'
             self.var_dict['sp']['vn'] = 'PS'
@@ -345,21 +346,22 @@ class Climate():
             self.lon_vn = 'lon'
             self.elev_vn = self.var_dict['elev']['vn']
             # Variable filenames
-            self.var_dict['temp']['fn'] = f'T2M/MERRA2_T2M_{flat}_{flon}.nc'
-            self.var_dict['rh']['fn'] = f'RH2M/MERRA2_RH2M_{flat}_{flon}.nc'
-            self.var_dict['sp']['fn'] = f'PS/MERRA2_PS_{flat}_{flon}.nc'
-            self.var_dict['tcc']['fn'] = f'CLDTOT/MERRA2_CLDTOT_{flat}_{flon}.nc'
-            self.var_dict['LWin']['fn'] = f'LWGAB/MERRA2_LWGAB_{flat}_{flon}.nc'
-            self.var_dict['SWin']['fn'] = f'SWGDN/MERRA2_SWGDN_{flat}_{flon}.nc'
-            self.var_dict['vwind']['fn'] = f'V2M/MERRA2_V2M_{flat}_{flon}.nc'
-            self.var_dict['uwind']['fn'] = f'U2M/MERRA2_U2M_{flat}_{flon}.nc'
-            self.var_dict['tp']['fn'] = f'PRECTOTCORR/MERRA2_PRECTOTCORR_{flat}_{flon}.nc'
+            self.var_dict['temp']['fn'] = f'T2M/MERRA2_T2M_{tag}.nc'
+            self.var_dict['rh']['fn'] = f'RH2M/MERRA2_RH2M_{tag}.nc'
+            self.var_dict['sp']['fn'] = f'PS/MERRA2_PS_{tag}.nc'
+            self.var_dict['tcc']['fn'] = f'CLDTOT/MERRA2_CLDTOT_{tag}.nc'
+            self.var_dict['LWin']['fn'] = f'LWGAB/MERRA2_LWGAB_{tag}.nc'
+            self.var_dict['SWin']['fn'] = f'SWGDN/MERRA2_SWGDN_{tag}.nc'
+            self.var_dict['vwind']['fn'] = f'V2M/MERRA2_V2M_{tag}.nc'
+            self.var_dict['uwind']['fn'] = f'U2M/MERRA2_U2M_{tag}.nc'
+            self.var_dict['tp']['fn'] = f'PRECTOTCORR/MERRA2_PRECTOTCORR_{tag}.nc'
             self.var_dict['elev']['fn'] = f'MERRA2constants.nc4'
-            self.var_dict['bcwet']['fn'] = f'BCWT002/MERRA2_BCWT002_{flat}_{flon}.nc'
-            self.var_dict['bcdry']['fn'] = f'BCDP002/MERRA2_BCDP002_{flat}_{flon}.nc'
-            self.var_dict['dustwet']['fn'] = f'DUWT003/MERRA2_DUWT003_{flat}_{flon}.nc'
-            self.var_dict['dustdry']['fn'] = f'DUDP003/MERRA2_DUDP003_{flat}_{flon}.nc'
+            self.var_dict['bcwet']['fn'] = f'BCWT002/MERRA2_BCWT002_{tag}.nc'
+            self.var_dict['bcdry']['fn'] = f'BCDP002/MERRA2_BCDP002_{tag}.nc'
+            self.var_dict['dustwet']['fn'] = f'DUWT003/MERRA2_DUWT003_{tag}.nc'
+            self.var_dict['dustdry']['fn'] = f'DUDP003/MERRA2_DUDP003_{tag}.nc'
         elif eb_prms.reanalysis == 'ERA5':
+            assert 1==0, 'Model is currently set up to run MERRA-2'
             self.reanalysis_fp += 'ERA5/'
             # Variable names for energy balance
             self.var_dict['temp']['vn'] = 't2m'

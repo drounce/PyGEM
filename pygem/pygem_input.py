@@ -50,7 +50,7 @@ oggm_border = 240                      # 10, 80, 160, 240 (recommend 240 if expe
 #%% ===== CLIMATE DATA AND TIME PERIODS ===== 
 # Reference period runs (reference period refers to the calibration period)
 #   This will typically vary between 1980-present
-ref_gcm_name = 'ERA5'               # reference climate dataset
+ref_gcm_name = 'MERRA2'               # reference climate dataset
 ref_startyear = 2000                # first year of model run (reference dataset)
 ref_endyear = 2019                  # last year of model run (reference dataset)
 ref_wateryear = 'calendar'          # options for years: 'calendar', 'hydro', 'custom'
@@ -217,7 +217,7 @@ icethickness_cal_frac_byarea = 0.9  # Regional glacier area fraction that is use
 
 #%% ===== SIMULATION AND GLACIER DYNAMICS OPTIONS =====
 # Glacier dynamics scheme (options: 'OGGM', 'MassRedistributionCurves', None)
-option_dynamics = 'OGGM'
+option_dynamics = None
     
 # Bias adjustment option (options: 0, 1, 2, 3) 
 #  0: no adjustment
