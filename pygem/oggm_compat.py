@@ -18,7 +18,7 @@ class CompatGlacDir:
         self.rgiid = rgiid
            
 def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, prepro_border=pygem_prms.oggm_border, 
-                                      logging_level=pygem_prms.logging_level, has_internet=pygem_prms.has_internet):
+                                      logging_level=pygem_prms.logging_level, has_internet=pygem_prms.has_internet, working_dir=pygem_prms.oggm_gdir_fp):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     Parameters
@@ -63,7 +63,7 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
     cfg.PARAMS['dl_verify'] = True
     cfg.PARAMS['use_multiple_flowlines'] = False
     # temporary directory for testing (deleted on computer restart)
-    cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
+    cfg.PATHS['working_dir'] = working_dir
 
     # Check if folder is already processed
     if not reset:
@@ -110,7 +110,8 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
 def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.overwrite_gdirs, 
                                                    prepro_border=pygem_prms.oggm_border, k_calving=1,
                                                    logging_level=pygem_prms.logging_level, 
-                                                   has_internet=pygem_prms.has_internet):
+                                                   has_internet=pygem_prms.has_internet,
+                                                   working_dir=pygem_prms.oggm_gdir_fp):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     k_calving is free variable!
@@ -156,7 +157,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.over
     cfg.PARAMS['dl_verify'] = True
     cfg.PARAMS['use_multiple_flowlines'] = False
     # temporary directory for testing (deleted on computer restart)
-    cfg.PATHS['working_dir'] = pygem_prms.oggm_gdir_fp
+    cfg.PATHS['working_dir'] = working_dir
     
     # Check if folder is already processed
     if not reset:
