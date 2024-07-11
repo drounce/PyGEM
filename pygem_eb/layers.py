@@ -441,6 +441,8 @@ class Layers():
         snowfall += self.delayed_snow
         if snowfall == 0.:
             return
+        
+        initial_mass = np.sum(self.ldrymass + self.lwater)
 
         if args.switch_snow == 0:
             # Snow falls with the same properties as the current top layer
@@ -480,6 +482,7 @@ class Layers():
             if snowfall/new_density < 1e-4:
                 # Delay small amounts of snowfall: avoids computational issues
                 self.delayed_snow = snowfall
+                return
             else:
                 new_layer = pd.DataFrame([enbal.tempC,0,snowfall/new_density,'snow',snowfall,
                                       new_grainsize,new_BC,new_dust,new_snow],
@@ -500,6 +503,11 @@ class Layers():
             self.ldust[0] = self.ldust[0] + new_dust
             if self.lheight[0] > (eb_prms.dz_toplayer * 2):
                 self.split_layer(0)
+    
+        # CHECK MASS CONSERVATION
+        change = np.sum(self.ldrymass + self.lwater) - initial_mass
+        assert np.abs(change - snowfall) < eb_prms.mb_threshold
+
         self.update_layer_props()
         return 
 
@@ -521,7 +529,7 @@ class Layers():
                                        [54.5,54.5+5*(airtemp+30),204.5])
 
         if len(self.snow_idx) > 0:
-            # bins should be a list of indices to calculate grain size on
+            # bins is a list of indices to calculate grain size on
             if not bins:
                 bins = self.snow_idx
             n = len(bins)

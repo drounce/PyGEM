@@ -20,7 +20,7 @@ use_AWS = False          # Use AWS data? (or just reanalysis)
 # ========== GLACIER INFO ========== 
 glac_props = {'01.00570':{'name':'Gulkana',
                             'site_elev':1693,
-                            'AWS_fn':'Preprocessed/gulkana_2023.csv'}, 
+                            'AWS_fn':'Preprocessed/gulkanaB24.csv'}, 
             '01.01104':{'name':'Lemon Creek',
                             'site_elev':1285,
                             'AWS_fn':'LemonCreek1285_hourly.csv'},
@@ -47,10 +47,10 @@ glac_props = {'01.00570':{'name':'Gulkana',
 #     bin_indices = np.linspace(len(fls.index)-1,0,n_bins,dtype=int)
 #     bin_elev = fls.iloc[bin_indices]['z'].to_numpy()
 #     bin_ice_depth = fls.iloc[bin_indices]['h'].to_numpy()
-
 # bin_elev = np.array([1270,1385,1470,1585,1680,1779]) # From Takeuchi 2009
 # bin_elev = np.array([1526,1693,1854])
 # bin_ice_depth = np.ones(len(bin_elev)) * 200
+
 if glac_no == ['01.00570']:
     # Gulkana runs have specific sites with associated elevation / shading
     site = 'B'
@@ -105,16 +105,13 @@ temp_bias_fp = main_directory + '/pygem_eb/sample_data/gulkana/Gulkana_MERRA2_te
 albedo_out_fp = main_directory + '/../Output/EB/albedo.csv'
 
 # ========== CLIMATE AND TIME INPUTS ========== 
-reanalysis = 'MERRA2' # 'ERA5-hourly' or 'MERRA2'
+reanalysis = 'MERRA2' # 'MERRA2' (or 'ERA5-hourly' -- BROKEN)
 temp_bias_adjust = True # adjust MERRA-2 temperatures according to bias?
 MERRA2_filetag = False    # False or string to follow 'MERRA2_VAR_' in MERRA2 filename
 AWS_fp = main_directory + '/../climate_data/AWS/'
 AWS_fn = AWS_fp+glac_props[glac_no[0]]['AWS_fn']
 glac_name = glac_props[glac_no[0]]['name']
-if reanalysis in ['ERA5-hourly']:
-    wind_ref_height = 10
-else:
-    wind_ref_height = 2
+wind_ref_height = 10 if reanalysis in ['ERA5-hourly'] else 2
 if use_AWS:
     assert os.path.exists(AWS_fn), 'Check AWS filepath or glac_no in input.py'
 
@@ -130,10 +127,10 @@ if dates_from_data:
         startdate += pd.Timedelta(minutes=30)
         enddate -= pd.Timedelta(minutes=30)
 else:
-    # startdate = pd.to_datetime('2000-04-20 00:30') 
-    # enddate = pd.to_datetime('2019-04-20 23:30')
-    startdate = pd.to_datetime('2023-04-20 00:30')    # Gulkana AWS dates
-    enddate = pd.to_datetime('2023-08-09 00:30')
+    startdate = pd.to_datetime('2004-04-20 00:30') 
+    enddate = pd.to_datetime('2004-08-20 23:30')
+    # startdate = pd.to_datetime('2004-04-20 00:30')    # Gulkana AWS dates
+    # enddate = pd.to_datetime('2004-08-10 00:30')
     # startdate = pd.to_datetime('2008-05-04 18:30')    # South dates
     # enddate = pd.to_datetime('2008-09-14 00:30')
     # startdate = pd.to_datetime('2016-05-11 00:30') # JIF sample dates
@@ -153,7 +150,6 @@ if 6 < startdate.month < 9:         # initialize without snow
 
 # OUTPUT
 store_vars = ['MB','EB','Temp','Layers']  # Variables to store of the possible set: ['MB','EB','Temp','Layers']
-storage_freq = 'H'      # Frequency to store data using pandas offset aliases
 store_bands = False     # Store spectral albedo .csv
 store_climate = False   # Store climate dataset .nc
 
@@ -164,7 +160,7 @@ dt_heateq = 3600/5          # Time resolution of heat eq [s], should be integer 
 # METHODS
 method_turbulent = 'MO-similarity'      # 'MO-similarity' or 'BulkRichardson' 
 method_heateq = 'Crank-Nicholson'       # 'Crank-Nicholson'
-method_densification = 'HerronLangway'          # 'Boone'  or 'HerronLangway'
+method_densification = 'Boone'          # 'Boone'  or 'HerronLangway'
 method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'
@@ -210,8 +206,8 @@ roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al
 ksp_BC = 0.2                # 0.1-0.2 meltwater scavenging efficiency of BC (from CLM5)
 ksp_dust = 0.015            # 0.015 meltwater scavenging efficiency of dust (from CLM5)
 roughness_aging_rate = 0.1 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
-albedo_TOD = [12]            # List of time(s) of day to calculate albedo [hr] 
-initSSA = 80                 # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
+albedo_TOD = [12]           # List of time(s) of day to calculate albedo [hr] 
+initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
 dep_factor = 0.5            # multiplicative factor to adjust MERRA-2 deposition
 BC_freshsnow = 9e-7         # concentration of BC in fresh snow [kg m-3]
 dust_freshsnow = 6e-4       # concentration of dust in fresh snow [kg m-3]
@@ -262,6 +258,7 @@ ratio_DU_bin3 = 0.481675    # " SNICAR Bin 3 (1.25-2.5um)
 ratio_DU_bin4 = 0.203786    # " SNICAR Bin 4 (2.5-5um)
 ratio_DU_bin5 = 0.034       # " SNICAR Bin 5 (5-50um)
 diffuse_cloud_limit = 0.6   # Threshold to consider cloudy vs clear-sky in SNICAR
+mb_threshold = 1e-3         # Threshold to consider not conserving mass
 
 # ========== OTHER PYGEM INPUTS ========== 
 rgi_regionsO1 = [1]

@@ -330,8 +330,8 @@ class energyBalance():
                 diff = np.abs(Qs_last-Qs)
                 if counter > 10 or diff < 1e-1:
                     loop = False
-                    if counter> 10:
-                        print('didnt converge')
+                    if diff > 1:
+                        print('Turbulent fluxes didnt converge; Qs still changing by',diff)
 
                 Qs_last = Qs
         elif eb_prms.method_turbulent in ['BulkRichardson']:   

@@ -1075,6 +1075,8 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
             bounds = [-1,6]
         elif var in ['layertemp']:
             bounds = [-14,0]
+        elif var in ['layergrainsize']:
+            bounds = [50,5000]
         dens_lim = 890 if plot_firn else 600
         dens_lim = 1000 if plot_ice else dens_lim
         assert 'layer' in var, 'choose layer variable'
@@ -1108,7 +1110,7 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
 
             bottom = 0
             ctypes = {'layerBC':'Oranges','layerdust':'Oranges','layertemp':'viridis',
-                'layerdensity':'Greens','layerwater':'Blues'}
+                'layerdensity':'Greens','layerwater':'Blues','layergrainsize':'Purples'}
             ctype = ctypes[var]
             if np.sum(height) < 0.05 and first and not last and step.month<9:
                 last = step
@@ -1123,7 +1125,7 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
             max_snowdepth = max(max_snowdepth,np.sum(height))
         # Add colorbar
         units = {'layerBC':'ppb','layerdust':'ppm','layertemp':'$^{\circ}$C',
-                'layerdensity':'kg m$^{-3}$','layerwater':'%'}
+                'layerdensity':'kg m$^{-3}$','layerwater':'%','layergrainsize':'um'}
         sm = mpl.cm.ScalarMappable(cmap=ctype,norm=plt.Normalize(bounds[0],bounds[1]))
         leg = plt.colorbar(sm,ax=ax,aspect=7)
         leg.ax.tick_params(labelsize=9)
@@ -1145,6 +1147,11 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
     ax.xaxis.set_major_formatter(date_form)
     ax.set_xticks(pd.date_range(dates[0],dates[len(dates)-1],freq='2MS'))
     ax.set_xlim([dates[0],dates[len(dates)-1]])
+
+    if dates[-1] - dates[1] < pd.Timedelta(days=5):
+        date_form = mpl.dates.DateFormatter('%d-%b %H')
+        ax.xaxis.set_major_formatter(date_form)
+        ax.set_xticks(pd.date_range(dates[0],dates[len(dates)-1],5))
 
     # Show plot
     # plt.show()

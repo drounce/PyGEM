@@ -147,6 +147,7 @@ class Surface():
                         # Initial check of Qm comparing to previous surftemp
                         Qm_check = enbal.surface_EB(self.stemp,layers,self,
                                                    self.days_since_snowfall)
+                        
                         # Check direction of flux at that temperature and adjust
                         if Qm_check > 0.5:
                             self.stemp += 0.25
@@ -187,12 +188,16 @@ class Surface():
         layers
             class object from pygem_eb.layers
         """
+        args = self.args
+
         # CONSTANTS
         ALBEDO_FIRN = eb_prms.albedo_firn
         ALBEDO_FRESH_SNOW = eb_prms.albedo_fresh_snow
         DEG_RATE = eb_prms.albedo_deg_rate
+        
+        # Update surface type
+        self.stype = layers.ltype[0]
 
-        args = self.args
         if self.stype == 'snow':
             if args.switch_melt == 0:
                 if args.switch_LAPs == 0:
@@ -263,14 +268,15 @@ class Surface():
         DIFFUSE_CLOUD_LIMIT = eb_prms.diffuse_cloud_limit
 
         # Get layers to include in the calculation
-        assert not nlayers and not max_depth, 'Specify one of nlayers or max_depth in runSNICAR'
         if not nlayers and max_depth:
             nlayers = np.where(layers.ldepth > max_depth)[0][0] + 1
         elif nlayers and not max_depth:
             nlayers = min(layers.nlayers,nlayers)
         elif not nlayers and not max_depth:
-            # Default case if neither is specified: only includes top 1m
+            # Default case if neither is specified: only includes top 1m or non-ice layers
             nlayers = np.where(layers.ldepth > 1)[0][0] + 1
+            if layers.ldensity[nlayers-1] > eb_prms.density_firn:
+                nlayers = np.where(layers.ltype != 'ice')[0][-1] + 1
         idx = np.arange(nlayers)
 
         # Unpack layer variables (need to be stored as lists)
@@ -349,13 +355,12 @@ class Surface():
         with HiddenPrints():
             albedo,spectral_weights = main.get_albedo('adding-doubling',plot=False,validate=False)
         # I adjusted SNICAR code to return spectral albedo and spectral weights for viewing purposes
-            
+        
         # band_albedo = []
         # Calculate albedo in the specified bands
         # for idx in eb_prms.band_indices.values():
         #     band_albedo.append(np.sum(solar[idx]*albedo[idx]) / np.sum(solar[idx]))
         self.bba = np.sum(albedo * spectral_weights) / np.sum(spectral_weights)
-
         return albedo,spectral_weights
     
     def get_surr_albedo(self,layers,time):

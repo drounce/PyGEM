@@ -254,6 +254,7 @@ class Climate():
             name = eb_prms.glac_name
             out_fp = eb_prms.output_name.replace(name,name+'_climate')
             self.cds.to_netcdf(out_fp+'.nc')
+            print('Climate dataset saved to ',out_fp+'.nc')
         return
     
     def check_units(self,var,ds):
