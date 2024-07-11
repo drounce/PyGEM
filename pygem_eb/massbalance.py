@@ -42,7 +42,7 @@ class massBalance():
 
         # Initialize mass balance check variables
         self.initial_mass = np.sum(self.layers.ldrymass)
-        self.delay_time = self.time_list[-1] + pd.Timedelta(days=1)
+        self.delay_time = self.time_list[0] - pd.Timedelta(days=1)
         return
     
     def main(self):
@@ -768,11 +768,13 @@ class massBalance():
         current_mass = np.sum(self.layers.ldrymass + self.layers.lwater)
         diff = current_mass - self.initial_mass
         
+        # account for delayed snow in mass conservation check
         if self.layers.delayed_snow > 0:
             self.delay_time = self.time
             self.delayed_snow = self.layers.delayed_snow
         
-        if self.delay_time - self.time <= pd.Timedelta(hours=1):
+        # delayed snow affects the timestep of delay and one hour after
+        if self.time - self.delay_time <= pd.Timedelta(hours=1):
             check = np.abs(diff - mass_in + mass_out) - self.delayed_snow < eb_prms.mb_threshold
         else:
             check = np.abs(diff - mass_in + mass_out) < eb_prms.mb_threshold
