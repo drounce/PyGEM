@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 import sys, os
-sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/src/')
+sys.path.append('/home/claire/research/PyGEM-EB/biosnicar-py/')
 import yaml
 import suncalc
 
@@ -261,7 +261,7 @@ class Surface():
             Array containing weights of each spectral band
         """
         with HiddenPrints():
-            from biosnicar import main
+            from biosnicar import get_albedo
 
         # CONSTANTS
         AVG_GRAINSIZE = eb_prms.average_grainsize
@@ -289,7 +289,7 @@ class Surface():
         lgrainsize[idx_1500] = np.round(lgrainsize[idx_1500]/500) * 500
         if len(np.where(lgrainsize<0)[0])>0:
             print(lgrainsize)
-            print('need to fix negative grain size issue')
+            print('Claire needs to fix a negative grain size issue, dont worry about it')
             lgrainsize[np.where(lgrainsize<0)[0]] = 1500
         lgrainsize = lgrainsize.tolist()
 
@@ -355,9 +355,9 @@ class Surface():
         with open(eb_prms.snicar_input_fp, 'w') as f:
             yaml.dump(list_doc,f)
         
-        # Get albedo from biosnicar "main.py"
+        # Get albedo from biosnicar
         with HiddenPrints():
-            albedo,spectral_weights = main.get_albedo('adding-doubling',plot=False,validate=False)
+            albedo,spectral_weights = get_albedo.get('adding-doubling',plot=False,validate=False)
         # I adjusted SNICAR code to return spectral albedo and spectral weights for viewing purposes
         
         # band_albedo = []

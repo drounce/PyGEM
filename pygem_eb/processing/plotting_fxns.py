@@ -1124,8 +1124,8 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
                 ax.bar(step,dh, bottom=bottom, width=diff, color=color,linewidth=0.5,edgecolor='none')
                 bottom += dh  # Update bottom for the next set of bars
             max_snowdepth = max(max_snowdepth,np.sum(height))
-            if np.abs(step.day_of_year-244) < 6:
-                ax.axvline(step,lw=0.7,color='red')
+            # if np.abs(step.day_of_year-244) < 6:
+            #     ax.axvline(step,lw=0.7,color='red')
         # Add colorbar
         units = {'layerBC':'ppb','layerdust':'ppm','layertemp':'$^{\circ}$C',
                 'layerdensity':'kg m$^{-3}$','layerwater':'%','layergrainsize':'um'}
