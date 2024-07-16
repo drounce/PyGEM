@@ -63,9 +63,6 @@ class massBalance():
             # Initiate the energy balance to unpack climate data
             enbal = eb.energyBalance(self.climate,time,self.bin_idx,dt)
 
-            # Check and update layer sizes
-            layers.update_layers()
-
             # Get rain and snowfall amounts [kg m-2]
             rain,snowfall = self.get_precip(enbal)
 
@@ -108,6 +105,9 @@ class massBalance():
 
             # Update snow/ice mass from latent heat fluxes (sublimation etc)
             # (***Currently neglected)
+
+            # Check and update layer sizes
+            layers.check_layers(time)
 
             # Check mass conserves
             self.check_mass_conservation(snowfall+rain, runoff)
@@ -548,17 +548,17 @@ class massBalance():
 
         if eb_prms.method_densification in ['Boone']:
             # EMPIRICAL PARAMETERS
-            c1 = 2.7e-6
-            c2 = 0.042
-            c3 = 0.046
-            c4 = 0.081
-            c5 = 0.018
+            c1 = 2.7e-6     # s-1 (2.7e-6) --> 2.7e-4
+            c2 = 0.042      # K-1 (0.042)
+            c3 = 0.046      # m3 kg-1 (0.046)
+            c4 = 0.081      # K-1 (0.081)
+            c5 = 0.018       # m3 kg-1 (0.018) --> 0.07
 
             for layer in snowfirn_idx:
                 weight_above = GRAVITY*np.sum(ldm[:layer]+lw[:layer])
-                viscosity = VISCOSITY_SNOW * np.exp(c4*(0.-lT[layer])+c5*lp[layer])
+                viscosity = VISCOSITY_SNOW*np.exp(c4*(0.-lT[layer])+c5*lp[layer])
 
-                # get change in density and recalculate height 
+                # get change in density
                 mass_term = (weight_above*GRAVITY)/viscosity
                 temp_term = -c2*(0.-lT[layer])
                 dens_term = -c3*max(0,lp[layer]-DENSITY_FRESH_SNOW)
@@ -586,6 +586,26 @@ class massBalance():
                     k[layer] = 575*np.exp(-21400/(R*lTK))
             dRho = k*a**b*(DENSITY_ICE - lp)/DENSITY_ICE*dt
             lp += dRho
+
+            # LAYERS OUT
+            layers.ldensity = lp
+            layers.lheight = ldm / lp
+            layers.update_layer_props('depth')
+
+        # Kojima (1967) method (JULES)
+        elif eb_prms.method_densification in ['Kojima']:
+            NU_0 = 1e7      # Pa s
+            RHO_0 = 50      # kg m-3
+            k_S = 4000      # K
+            T_m = 0. + 273.15
+            for layer in snowfirn_idx:
+                weight_above = GRAVITY*np.sum(ldm[:layer]+lw[:layer])
+
+                # get change in density
+                T_K = lT[layer] + 273.15
+                exp_term = np.exp(k_S/T_m - k_S/T_K - lp[layer]/RHO_0)
+                dRho = lp[layer]*weight_above/NU_0*exp_term
+                lp[layer] += dRho
 
             # LAYERS OUT
             layers.ldensity = lp
@@ -764,9 +784,15 @@ class massBalance():
         return
     
     def check_mass_conservation(self,mass_in,mass_out):
-        # Current mass of the bin
+        """
+        Checks mass was conserved within the last timestep
+        mass_in:    sum of precipitation (kg m-2)
+        mass_out:   sum of runoff (kg m-2)
+        """
+        # difference in mass since the last timestep
         current_mass = np.sum(self.layers.ldrymass + self.layers.lwater)
         diff = current_mass - self.initial_mass
+        out_in = mass_out - mass_in
         
         # account for delayed snow in mass conservation check
         if self.layers.delayed_snow > 0:
@@ -775,10 +801,12 @@ class massBalance():
         
         # delayed snow affects the timestep of delay and one hour after
         if self.time - self.delay_time <= pd.Timedelta(hours=1):
-            check = np.abs(diff - mass_in + mass_out) - self.delayed_snow < eb_prms.mb_threshold
+            check = np.abs(diff + out_in) - self.delayed_snow < eb_prms.mb_threshold
         else:
-            check = np.abs(diff - mass_in + mass_out) < eb_prms.mb_threshold
+            check = np.abs(diff + out_in) < eb_prms.mb_threshold
         assert check, f'Timestep {self.time} failed mass conservation'
+        
+        # new initial mass
         self.initial_mass = current_mass
         return
 

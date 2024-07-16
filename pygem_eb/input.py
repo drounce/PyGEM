@@ -53,7 +53,7 @@ glac_props = {'01.00570':{'name':'Gulkana',
 
 if glac_no == ['01.00570']:
     # Gulkana runs have specific sites with associated elevation / shading
-    site = 'B'
+    site = 'AB'
     site_fp = os.path.join(os.getcwd(),'pygem_eb/sample_data/gulkana/site_constants.csv')
     site_df = pd.read_csv(site_fp,index_col='site')
     bin_elev = [site_df.loc[site]['elevation']]
@@ -127,10 +127,10 @@ if dates_from_data:
         startdate += pd.Timedelta(minutes=30)
         enddate -= pd.Timedelta(minutes=30)
 else:
-    startdate = pd.to_datetime('2004-04-20 00:30') 
-    enddate = pd.to_datetime('2004-08-20 23:30')
-    # startdate = pd.to_datetime('2004-04-20 00:30')    # Gulkana AWS dates
-    # enddate = pd.to_datetime('2004-08-10 00:30')
+    # startdate = pd.to_datetime('2000-05-01 00:30') 
+    # enddate = pd.to_datetime('2002-07-31 23:30')
+    startdate = pd.to_datetime('2023-04-20 00:30')    # Gulkana AWS dates
+    enddate = pd.to_datetime('2023-08-10 00:30')
     # startdate = pd.to_datetime('2008-05-04 18:30')    # South dates
     # enddate = pd.to_datetime('2008-09-14 00:30')
     # startdate = pd.to_datetime('2016-05-11 00:30') # JIF sample dates
@@ -142,7 +142,7 @@ print(f'Running {n_bins} bin(s) at {bin_elev} m a.s.l. for {n_months} months sta
 #  ========== MODEL OPTIONS ========== 
 # INITIALIATION
 initialize_water = 'zero_w0'        # 'zero_w0' or 'initial_w0'
-initialize_temp = 'interp'          # 'piecewise' or 'interp'
+initialize_temp = 'interp'          # 'piecewise', 'interp' or 'ripe' (all temps=0)
 initialize_dens = 'interp'          # 'piecewise' or 'interp'
 surftemp_guess =  -10               # guess for surface temperature of first timestep
 if 6 < startdate.month < 9:         # initialize without snow
@@ -160,7 +160,7 @@ dt_heateq = 3600/5          # Time resolution of heat eq [s], should be integer 
 # METHODS
 method_turbulent = 'MO-similarity'      # 'MO-similarity' or 'BulkRichardson' 
 method_heateq = 'Crank-Nicholson'       # 'Crank-Nicholson'
-method_densification = 'Boone'          # 'Boone'  or 'HerronLangway'
+method_densification = 'Boone'          # 'Boone', 'HerronLangway', 'Kojima'
 method_cooling = 'iterative'            # 'minimize' (slow) or 'iterative' (fast)
 method_ground = 'MolgHardy'             # 'MolgHardy'
 method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','Douville','Jansson'
@@ -168,9 +168,9 @@ method_conductivity = 'OstinAndersson'  # 'OstinAndersson', 'VanDusen','Sturm','
 
 # CONSTANT SWITCHES
 constant_snowfall_density = False       # False or density in kg m-3
-constant_conductivity = k_ice = 1       # False or conductivity in W K-1 m-1
-constant_freshgrainsize = 54.5          # False or grain size in um (54.5 is standard)
-constant_drdry = 5e-4                   # False or dry metamorphism grain size growth rate [um s-1] (1e-4 seems reasonable)
+constant_conductivity = k_ice = 2.33       # False or conductivity in W K-1 m-1
+constant_freshgrainsize = False          # False or grain size in um (54.5 is standard)
+constant_drdry = 1e-4                  # False or dry metamorphism grain size growth rate [um s-1] (1e-4 seems reasonable)
 
 # ALBEDO SWITCHES
 switch_snow = 1             # 0 to turn off fresh snow feedback; 1 to include it
@@ -203,9 +203,9 @@ layer_growth = 0.4          # Rate of exponential growth of bin size (smaller la
 precgrad = 0.0001           # precipitation gradient on glacier [m-1]
 lapserate = -0.0065         # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [C m-1]
 roughness_ice = 1.7         # surface roughness length for ice [mm] (Moelg et al. 2012, TC)
-ksp_BC = 0.2                # 0.1-0.2 meltwater scavenging efficiency of BC (from CLM5)
+ksp_BC = 0.5                  # 0.1-0.2 meltwater scavenging efficiency of BC (from CLM5)
 ksp_dust = 0.015            # 0.015 meltwater scavenging efficiency of dust (from CLM5)
-roughness_aging_rate = 0.1 # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
+roughness_aging_rate = 0.1  # effect of aging on roughness length: 60 days from 0.24 to 4.0 => 0.06267
 albedo_TOD = [12]           # List of time(s) of day to calculate albedo [hr] 
 initSSA = 80                # initial estimate of Specific Surface Area of fresh snowfall (interpolation tables)
 dep_factor = 0.5            # multiplicative factor to adjust MERRA-2 deposition

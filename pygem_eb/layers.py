@@ -73,7 +73,7 @@ class Layers():
         self.lrefreeze = np.zeros_like(self.ltemp)   # LAYER MASS OF REFREEZE [kg m-2]
         self.lnewsnow = np.zeros_like(self.ltemp)    # LAYER MASS OF NEW SNOW [kg m-2]
         
-        # Initiate bucket for 'delayed snow' and max snow mass
+        # Initialize bucket for 'delayed snow' and running max snow mass
         self.delayed_snow = 0
         self.max_snow = np.sum(self.ldrymass[self.snow_idx])
         
@@ -171,8 +171,10 @@ class Layers():
             ltemp = self.init_piecewise(self.ldepth,temp_data,'temp')
         elif eb_prms.initialize_temp in ['interp']:
             ltemp = np.interp(self.ldepth,temp_data[:,0],temp_data[:,1])
+        elif eb_prms.initialize_temp in ['ripe']:
+            ltemp = np.ones(self.nlayers)*0
         else:
-            assert 1==0, 'Choose between piecewise and interp methods for temp init'
+            assert 1==0, 'Choose between piecewise, interp or ripe for temp init'
 
         # Initialize SNOW density profiles from piecewise formulation or interpolating data
         if eb_prms.initialize_dens in ['piecewise']:
@@ -180,26 +182,25 @@ class Layers():
         elif eb_prms.initialize_dens in ['interp']:
             ldensity = np.interp(self.ldepth[snow_idx],density_data[:,0],density_data[:,1])
         else:
-            assert 1==0, 'Choose between piecewise and interp methods for density init'
+            assert 1==0, 'Choose between piecewise and interp for density init'
 
         # Calculate firn density slope that linearly increases density
         # from the bottom snow layer to top ice layer
-        if initial_sfi[0] > 0 and initial_sfi[1] > 0:
+        if initial_sfi[0] > 0 and initial_sfi[1] > 0: # snow and firn
             pslope = (eb_prms.density_ice - ldensity[-1]) / (
                 self.ldepth[ice_idx[0]]-self.ldepth[snow_idx[-1]])
-        elif initial_sfi[1] > 0:
+        elif initial_sfi[1] > 0: # firn and no snow
             pslope = (eb_prms.density_ice - eb_prms.density_firn)/(initial_sfi[1])
         # Add firn and ice layer densities
         for (type,depth) in zip(self.ltype,self.ldepth):
             if type in ['firn']:
-                ldensity = np.append(
-                    ldensity,
+                ldensity = np.append(ldensity,
                     ldensity[snow_idx[-1]] + pslope*(depth-self.ldepth[snow_idx[-1]]))
             elif type in ['ice']:
                 ldensity = np.append(ldensity,eb_prms.density_ice)
 
         # Initialize water content [kg m-2]
-        assert eb_prms.initialize_water in ['zero_w0'], "Only zero water content method is set up"
+        assert eb_prms.initialize_water in ['zero_w0'], 'Only zero water content method is set up'
         lwater = np.zeros(self.nlayers)
 
         return ltemp,ldensity,lwater
@@ -256,7 +257,9 @@ class Layers():
         Parameters
         ----------
         layers_to_add : pd.Dataframe
-            Contains temperature 'T', water content 'w', height 'h', type 't', dry mass 'drym'
+            Contains temperature 'T', water content 'w', height 'h', 
+            type 't', dry mass 'm', mass of new snow 'new',
+            grain size 'g', and impurities 'BC' and 'dust'
         """
         self.nlayers += len(layers_to_add.loc['T'].values)
         self.ltemp = np.append(layers_to_add.loc['T'].values,self.ltemp)
@@ -264,8 +267,7 @@ class Layers():
         self.lheight = np.append(layers_to_add.loc['h'].values,self.lheight)
         self.ltype = np.append(layers_to_add.loc['t'].values,self.ltype)
         self.ldrymass = np.append(layers_to_add.loc['m'].values,self.ldrymass)
-        self.lrefreeze = np.append(0,self.lrefreeze)
-        # Only way to add a layer is with new snow, so layer new snow = layer dry mass
+        self.lrefreeze = np.append(0,self.lrefreeze) # new layers start with 0 refreeze
         self.lnewsnow = np.append(layers_to_add.loc['new'].values,self.lnewsnow)
         self.grainsize = np.append(layers_to_add.loc['g'].values,self.grainsize)
         new_layer_BC = layers_to_add.loc['BC'].values*self.lheight[0]
@@ -346,7 +348,7 @@ class Layers():
         self.remove_layer(l)
         return
     
-    def update_layers(self):
+    def check_layers(self,time):
         """
         Checks the layer heights against the initial size scheme. If layers have become
         too small, they are merged with the layer below. If layers have become too large,
@@ -359,10 +361,11 @@ class Layers():
         layer = 0
         min_heights = lambda i: DZ0 * np.exp((i-1)*eb_prms.layer_growth)/2
         max_heights = lambda i: DZ0 * np.exp((i-1)*eb_prms.layer_growth)*2
+        firn_min_height,firn_max_height = [0.5,2.5]
         while layer < self.nlayers:
             layer_split = False
             dz = self.lheight[layer]
-            if self.ltype[layer] in ['snow','firn']:
+            if self.ltype[layer] in ['snow']:
                 if dz < min_heights(layer) and self.ltype[layer]==self.ltype[layer+1]:
                     # Layer too small. Merge if it is the same type as the layer underneath
                     self.merge_layers(layer)
@@ -370,8 +373,23 @@ class Layers():
                     # Layer too big. Split into two equal size layers
                     self.split_layer(layer)
                     layer_split = True
+            elif self.ltype[layer] in ['firn']:
+                if dz < firn_min_height:
+                    self.merge_layers(layer)
+                elif dz > firn_max_height:
+                    self.split_layer(layer)
+                    layer_split = True
             if not layer_split:
                 layer += 1
+        # if time.day_of_year == 0 and time.hour == 0:
+        #     begin_winter = False
+        if time.day_of_year == 244 and time.hour == 0:
+            # conditions for first snowfall of winter: merge snow into single firn layer
+            merge_count = max(0,len(self.snow_idx) - 2)
+            for _ in range(merge_count):
+                self.merge_layers(0)
+                self.ltype[0] = 'firn'
+            print(merge_count+1,'layers merged into firn')
         return
     
     def update_layer_props(self,do=['depth','density']):
@@ -428,8 +446,10 @@ class Layers():
     
     def add_snow(self,snowfall,enbal,surface,args,timestamp):
         """
-        Adds snowfall to the layer scheme. If the existing top layer is ice, 
-        the fresh snow is a new layer, otherwise it is merged with the top layer.
+        Adds snowfall to the layer scheme. If the existing top layer
+        has a large enough difference in density (eg. firn or ice), 
+        the fresh snow is a new layer, otherwise it is merged with
+        the top snow layer.
         
         Parameters
         ----------
@@ -551,7 +571,8 @@ class Layers():
 
             # Dry metamorphism
             if eb_prms.constant_drdry:
-                drdry = eb_prms.constant_drdry * dt # um
+                drdry = np.ones(len(bins))*eb_prms.constant_drdry * dt # um
+                drdry[np.where(g>RFZ_GRAINSIZE)[0]] = 0
             else:
                 # Calculate temperature gradient
                 dTdz = np.zeros_like(T)
@@ -567,7 +588,6 @@ class Layers():
                 else: # Single bin
                     dTdz = (self.ltemp[2]+273.15-surftempK) / self.ldepth[2]
                     dTdz = np.array([dTdz])
-                # dTdz = np.ones_like(dTdz[bins]) * np.mean(np.abs(dTdz[bins]))
                 dTdz = np.abs(dTdz)
 
                 # Force to be within lookup table ranges
@@ -576,7 +596,7 @@ class Layers():
                 dTdz[np.where(dTdz > 300)[0]] = 300
                 T[np.where(T > 273.15)[0]] = 273.15
 
-                if eb_prms.method_grainsizetable in ['interpolate']:
+                if True: # eb_prms.method_grainsizetable in ['interpolate']:
                     # Interpolate lookup table at the values of T,dTdz,p
                     ds = eb_prms.grainsize_ds.copy(deep=True)
                     ds = ds.interp(TVals=T.astype(float),
@@ -589,9 +609,6 @@ class Layers():
                     tau = ds.taumat.to_numpy()[diag]
                     kap = ds.kapmat.to_numpy()[diag]
                     dr0 = ds.dr0mat.to_numpy()[diag]
-                    if np.any(np.isnan(tau)):
-                        print(ds,tau)
-                        assert 1==0
 
                 # elif eb_prms.method_grainsizetable in ['ML']:
                 #     X = np.vstack([T,p,dTdz]).T
@@ -599,14 +616,16 @@ class Layers():
                 #     kap = np.exp(self.kap_rf.predict(X))
                 #     dr0 = self.dr0_rf.predict(X)
 
+                # Dry metamorphism
                 if np.any(g < FRESH_GRAINSIZE):
-                    drdry = dr0*np.power(tau/(tau + 1.0),1/kap)
+                    drdrydt = dr0*np.power(tau/(tau + 1.0),1/kap)/3600
                 else:
-                    drdry = dr0*np.power(tau/(tau + 1e6*(g - FRESH_GRAINSIZE)),1/kap)
+                    drdrydt = dr0*np.power(tau/(tau + 1e6*(g - FRESH_GRAINSIZE)),1/kap)/3600
+                drdry = drdrydt * dt
 
             # Wet metamorphism
-            drwetdt = WET_C*f_liq**3/(4*PI*GRAVITY**2)
-            drwet = drwetdt * dt * 10**6 # convert m to um
+            drwetdt = WET_C*f_liq**3/(4*PI*(g/1e6)**2)
+            drwet = drwetdt * dt * 1e6
 
             # Get change in grain size due to aging
             aged_grainsize = g + drdry + drwet
@@ -614,10 +633,10 @@ class Layers():
             # Sum contributions of old snow, new snow and refreeze
             grainsize = aged_grainsize*f_old + FRESH_GRAINSIZE*f_new + RFZ_GRAINSIZE*f_rfz
             self.grainsize[bins] = grainsize
-            self.grainsize[self.firn_idx] = 2000
+            self.grainsize[self.firn_idx] = 2000 # **** FIRN GRAIN SIZE?
             self.grainsize[self.ice_idx] = 5000
         elif len(self.firn_idx) > 0: # no snow, but there is firn
-            self.grainsize[self.firn_idx] = 2000 # **** FIRN GRAIN SIZE
+            self.grainsize[self.firn_idx] = 2000
             self.grainsize[self.ice_idx] = 5000
         else: # no snow or firn, just ice
             self.grainsize[self.ice_idx] = 5000

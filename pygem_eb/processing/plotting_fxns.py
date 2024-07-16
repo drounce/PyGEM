@@ -1042,7 +1042,7 @@ def plot_layers(ds,vars,dates):
 
 def visualize_layers(ds,bin,dates,vars,force_layers=False,
                      t='Visualization of Snow ',
-                     plot_firn=True,plot_ice=False):
+                     plot_firn=True,plot_ice=False,ylim=False):
     """
     force_layers:
         Three options:
@@ -1067,8 +1067,10 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
 
     fig,axes = plt.subplots(len(vars),figsize=(5,1.7*len(vars)),sharex=True,layout='constrained')
     for i,var in enumerate(vars):
-        if var in ['layerBC','layerdust']:
-            bounds = [-8,50]
+        if var in ['layerBC']:
+            bounds = [-2,30]
+        if var in ['layerdust']:
+            bounds = [-5,50]
         elif var in ['layerdensity']:
             bounds = [50,800] if plot_firn else [0,500]
         elif var in ['layerwater']:
@@ -1076,13 +1078,13 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
         elif var in ['layertemp']:
             bounds = [-14,0]
         elif var in ['layergrainsize']:
-            bounds = [50,5000]
+            bounds = [50,1500]
         dens_lim = 890 if plot_firn else 600
         dens_lim = 1000 if plot_ice else dens_lim
         assert 'layer' in var, 'choose layer variable'
         ax = axes[i]
-        if plot_ice:
-            ax.set_yscale('log')
+        # if plot_ice:
+        #     ax.set_yscale('log')
         first = False
         last = False
         max_snowdepth = 0
@@ -1090,10 +1092,9 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
             height = ds.sel(time=step,bin=bin)['layerheight'].to_numpy()
             vardata = ds.sel(time=step,bin=bin)[var].to_numpy()
             dens = ds.sel(time=step,bin=bin)['layerdensity'].to_numpy()
-            try:
-                _ = not force_layers
+            if type(force_layers) == bool:
                 layers_to_plot = np.where(dens < dens_lim)[0]
-            except:
+            else:
                 if '__iter__' in dir(force_layers):
                     layers_to_plot = force_layers
                 else:
@@ -1105,11 +1106,11 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
             vardata = np.flip(vardata[layers_to_plot])
             if var in ['layerwater']:
                 vardata = vardata / height / 1000 * 100
-            if plot_ice:
-                height = np.log(height)
+            # if plot_ice:
+            #     height = np.log(height)
 
             bottom = 0
-            ctypes = {'layerBC':'Oranges','layerdust':'Oranges','layertemp':'viridis',
+            ctypes = {'layerBC':'Greys','layerdust':'Oranges','layertemp':'viridis',
                 'layerdensity':'Greens','layerwater':'Blues','layergrainsize':'Purples'}
             ctype = ctypes[var]
             if np.sum(height) < 0.05 and first and not last and step.month<9:
@@ -1123,6 +1124,8 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
                 ax.bar(step,dh, bottom=bottom, width=diff, color=color,linewidth=0.5,edgecolor='none')
                 bottom += dh  # Update bottom for the next set of bars
             max_snowdepth = max(max_snowdepth,np.sum(height))
+            if np.abs(step.day_of_year-244) < 6:
+                ax.axvline(step,lw=0.7,color='red')
         # Add colorbar
         units = {'layerBC':'ppb','layerdust':'ppm','layertemp':'$^{\circ}$C',
                 'layerdensity':'kg m$^{-3}$','layerwater':'%','layergrainsize':'um'}
@@ -1136,8 +1139,12 @@ def visualize_layers(ds,bin,dates,vars,force_layers=False,
         ax.set_ylabel(label,fontsize=10)
         ax.grid(axis='y')
         ax.tick_params(length=5)
+        if ylim:
+            ax.set_ylim(ylim)
+        snowdepth = ds.sel(time=dates,bin=bin)
+        # ax.plot(snowdepth.time,snowdepth.snowdepth,'k--')
     # Customize plot     
-    ylabel = 'Log height above bedrock' if plot_ice else 'Height above ice (m)'
+    ylabel = 'Height above ice (m)'
     fig.supylabel(ylabel,)
     fig.suptitle(t,fontsize=14)
     # melt_out = last.strftime('%b %d')
