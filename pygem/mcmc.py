@@ -5,6 +5,7 @@ import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import pygem_input as pygem_prms
+torch.set_default_dtype(torch.float64)
 
 # z-normalization functions
 def z_normalize(params, means, std_devs):
