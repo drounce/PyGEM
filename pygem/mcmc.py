@@ -88,7 +88,7 @@ def log_truncated_normal(x, **kwargs):
     return torch.log(pdf) - torch.log(normalization)
 
 # mapper dictionary - maps to appropriate log probability density function for given distribution `type`
-function_map = {
+log_prob_fxn_map = {
     'normal': log_normal_density,
     'gamma': log_gamma_density,
     'truncated_normal': log_truncated_normal
@@ -130,7 +130,7 @@ class mbPosterior:
         for i, (key, params) in enumerate(self.prior_params.items()):
             params_copy = params.copy()
             prior_type = params_copy.pop('type')
-            function_to_call = function_map[prior_type]
+            function_to_call = log_prob_fxn_map[prior_type]
             log_prior.append(function_to_call(m[i], **params_copy))
         log_prior = torch.stack(log_prior).sum()
         return log_prior
@@ -152,7 +152,7 @@ class mbPosterior:
         self.get_mb_pred(m)
         return self.log_prior(m) + self.log_likelihood() + self.log_potential(m), self.mb_pred
 
-# Metropolis-Hastings Markoc chain Monte Carlo class
+# Metropolis-Hastings Markov chain Monte Carlo class
 class Metropolis:
     def __init__(self, means, stds):
         # Initialize chains
@@ -211,7 +211,12 @@ class Metropolis:
                     self.mb_chain.append(mb_0)
                     self.mb_primes.append(mb_prime)
 
-        return torch.tensor(self.P_chain), torch.vstack(self.m_chain), torch.tensor(self.mb_chain), torch.vstack(self.m_primes), torch.tensor(self.mb_primes), torch.vstack(self.steps)
+        return torch.tensor(self.P_chain), \
+                torch.vstack(self.m_chain), \
+                torch.tensor(self.mb_chain), \
+                torch.vstack(self.m_primes), \
+                torch.tensor(self.mb_primes), \
+                torch.vstack(self.steps)
     
 ### some other useful functions ###
 
