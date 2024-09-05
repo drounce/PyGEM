@@ -1,5 +1,5 @@
 """Markov chain Monte Carlo methods"""
-
+import sys
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -28,14 +28,25 @@ def log_normal_density(x, **kwargs):
         Log probability density at the given input tensor x.
     """
     for key, value in kwargs.items():
-        kwargs[key] = torch.tensor([value])
+        if isinstance(value, torch.Tensor):
+            pass
+        elif isinstance(value, float):
+            kwargs[key] = torch.tensor([value])
+        else:
+            kwargs[key] = torch.tensor(value)
     mu, sigma = kwargs['mu'], kwargs['sigma']
 
-    return (
-        -0.5*np.log(2*np.pi) -                      # constant term
-        torch.log(sigma) -                          # logarithm of the determinant of the covariance matrix
-        0.5*(((x-mu)/sigma)**2)                     # exponential term
-    )
+    # flatten arrays and get dimensionality
+    x = x.flatten()
+    mu = mu.flatten()
+    k = mu.shape[-1]
+
+    return torch.tensor([
+                        -k/2.*torch.log(torch.tensor(2*np.pi)) - 
+                        torch.log(sigma).nansum() -
+                        0.5*(((x-mu)/sigma)**2).nansum()
+                        ])
+
 
 def log_gamma_density(x, **kwargs):
     """
@@ -96,14 +107,14 @@ log_prob_fxn_map = {
 
 # mass balance posterior class
 class mbPosterior:
-    def __init__(self, mb_obs, sigma_obs, priors, mb_func, mb_args=None, potential_fxns=None, **kwargs):
-        self.mb_obs = mb_obs
-        self.sigma_obs = sigma_obs
+    def __init__(self, obs, priors, mb_func, mb_args=None, potential_fxns=None, **kwargs):
+        # obs will be passed as a list, where each item is a tuple with the first element being the mean observation, and the second being the standard deviation
+        self.obs = obs
         self.prior_params = priors
         self.mb_func = mb_func
         self.mb_args = mb_args
         self.potential_functions = potential_fxns if potential_fxns is not None else []
-        self.mb_pred = None
+        self.preds = None
 
         # get mean and std for each parameter type
         self.means = torch.tensor([params['mu'] if 'mu' in params else 0 for params in priors.values()])
@@ -119,10 +130,11 @@ class mbPosterior:
     def get_mb_pred(self, m):
         if self.mb_args:
             self.update_modelprms(m)
-
-            self.mb_pred = self.mb_func(*self.mb_args)
+            self.preds = self.mb_func(*self.mb_args)
         else:
-            self.mb_pred = self.mb_func([*m])
+            self.preds = self.mb_func([*m])
+        if not isinstance(self.preds, tuple):
+            self.preds = [self.preds]
 
     # get total log prior density
     def log_prior(self, m):
@@ -137,20 +149,23 @@ class mbPosterior:
 
     # get log likelihood
     def log_likelihood(self):
-        return log_normal_density(self.mb_obs, **{'mu': self.mb_pred, 'sigma': self.sigma_obs})
+        log_likehood = 0
+        for i, pred in enumerate(self.preds):
+            log_likehood+=log_normal_density(self.obs[i][0], **{'mu': pred, 'sigma': self.obs[i][1]})
+        return log_likehood
     
     # get log potential (sum up as any declared potential functions)
     def log_potential(self, m):
         log_potential = 0
         for potential_function in self.potential_functions:
-            log_potential += potential_function(*m, **{'massbal':self.mb_pred})
+            log_potential += potential_function(*m, **{'massbal':self.preds[0]})
         return log_potential
 
     # get log posterior (sum of log prior, log likelihood and log potential)
     def log_posterior(self, m):
         # anytime log_posterior is called for a new step, calculate the predicted mass balance
         self.get_mb_pred(m)
-        return self.log_prior(m) + self.log_likelihood() + self.log_potential(m), self.mb_pred
+        return self.log_prior(m) + self.log_likelihood() + self.log_potential(m), self.preds[0]
 
 # Metropolis-Hastings Markov chain Monte Carlo class
 class Metropolis:
@@ -164,6 +179,7 @@ class Metropolis:
         self.mb_primes = []
         self.means = means
         self.stds = stds
+
 
     def sample(self, m_0, log_posterior, h=0.1, n_samples=1000, burnin=0, thin_factor=1, progress_bar=False):
         # Compute initial unscaled log-posterior

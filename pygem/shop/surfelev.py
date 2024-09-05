@@ -15,17 +15,23 @@ import pygem_input as pygem_prms
 def get_rgi7id(rgi6id='', debug=False):
     """
     return RGI version 7 glacier id for a given RGI version 6 id
+
+    THIS METHOD DOES NOT WORK - NOT ALL GLACIERS ARE IN THE LINKS FILE - NEED TO FIND A DIFFERENT APPROACH
     """
     rgi6id = rgi6id.split('.')[0].zfill(2) + '.' + rgi6id.split('.')[1]
     # get appropriate RGI7 Id from PyGEM RGI6 Id
     rgi7_6_df = pd.read_csv(pygem_prms.rgi_fp + '/RGI2000-v7.0-G-01_alaska-rgi6_links.csv')
     rgi7_6_df['rgi7_id'] = rgi7_6_df['rgi7_id'].str.split('RGI2000-v7.0-G-').str[1]
     rgi7_6_df['rgi6_id'] = rgi7_6_df['rgi6_id'].str.split('RGI60-').str[1]
-    rgi7id = rgi7_6_df.loc[lambda rgi7_6_df: rgi7_6_df['rgi6_id'] == rgi6id,'rgi7_id'].tolist()[0]
-    if debug:
-        print(f'RGI6:{rgi6id} -> RGI7:{rgi7id}')
-    return rgi7id
-
+    rgi7id = rgi7_6_df.loc[lambda rgi7_6_df: rgi7_6_df['rgi6_id'] == rgi6id,'rgi7_id'].tolist()
+    if len(rgi7id)==1:
+        if debug:
+            print(f'RGI6:{rgi6id} -> RGI7:{rgi7id[0]}')
+        return rgi7id[0]
+    elif len(rgi7id)==0:
+        raise IndexError(f'No matching RGI7Id for {rgi6id}')
+    elif len(rgi7id)>1:
+        raise IndexError(f'More than one matching RGI7Id for {rgi6id}')
 
 def date_check(dt_obj):
     """
@@ -125,6 +131,10 @@ def get_oib_diffs(oib_dict, aggregate=None, debug=False):
                 np.asarray(oib_dict[ssn][list(oib_dict[ssn].keys())[0]]['bin_vals']['bin_stop_vec'])) / 2
     bin_area = oib_dict['aad_dict']['hist_bin_areas_m2']
 
+    bin_edges = oib_dict[ssn][list(oib_dict[ssn].keys())[0]]['bin_vals']['bin_start_vec']
+    bin_edges.append(oib_dict[ssn][list(oib_dict[ssn].keys())[0]]['bin_vals']['bin_stop_vec'][-1])
+    bin_edges = np.asarray(bin_edges)
+
     if aggregate:
         # aggregate both model and obs to 100 m bins
         nbins = int(np.ceil((bin_centers[-1] - bin_centers[0]) // aggregate))
@@ -133,158 +143,6 @@ def get_oib_diffs(oib_dict, aggregate=None, debug=False):
             y = np.column_stack([stats.binned_statistic(x=bin_centers, values=x, statistic=np.nanmean, bins=nbins)[0] for x in diffs_stacked.T])
             bin_edges = stats.binned_statistic(x=bin_centers, values=diffs_stacked[:,0], statistic=np.nanmean, bins=nbins)[1]
             bin_area  = stats.binned_statistic(x=bin_centers, values=bin_area, statistic=np.nanmean, bins=bin_edges)[0]
-            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
             diffs_stacked = y
 
-    return bin_centers, bin_area, diffs_stacked, pd.Series(oib_dates)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # Module logger
-# log = logging.getLogger(__name__)
-
-# @entity_task(log, writes=['consensus_mass'])
-# def consensus_gridded(gdir, h_consensus_fp=pygem_prms.h_consensus_fp, add_mass=True, add_to_gridded=True):
-#     """Bin consensus ice thickness and add total glacier mass to the given glacier directory
-    
-#     Updates the 'inversion_flowlines' save file and creates new consensus_mass.pkl
-    
-#     Parameters
-#     ----------
-#     gdir : :py:class:`oggm.GlacierDirectory`
-#         where to write the data
-#     """
-#     # If binned mb data exists, then write to glacier directory
-#     h_fn = h_consensus_fp + 'RGI60-' + gdir.rgi_region + '/' + gdir.rgi_id + '_thickness.tif'
-#     assert os.path.exists(h_fn), 'Error: h_consensus_fullfn for ' + gdir.rgi_id + ' does not exist.'
-        
-#     # open consensus ice thickness estimate
-#     h_dr = rasterio.open(h_fn, 'r', driver='GTiff')
-#     h = h_dr.read(1).astype(rasterio.float32)
-    
-#     # Glacier mass [kg]
-#     glacier_mass_raw = (h * h_dr.res[0] * h_dr.res[1]).sum() * pygem_prms.density_ice
-# #    print(glacier_mass_raw)
-
-#     if add_mass:
-#         # Pickle data
-#         consensus_fn = gdir.get_filepath('consensus_mass')
-#         with open(consensus_fn, 'wb') as f:
-#             pickle.dump(glacier_mass_raw, f)
-        
-    
-#     if add_to_gridded:
-#         rasterio_to_gdir(gdir, h_fn, 'consensus_h', resampling='bilinear')
-#         output_fn = gdir.get_filepath('consensus_h')
-#         # append the debris data to the gridded dataset
-#         with rasterio.open(output_fn) as src:
-#             grids_file = gdir.get_filepath('gridded_data')
-#             with ncDataset(grids_file, 'a') as nc:
-#                 # Mask values
-#                 glacier_mask = nc['glacier_mask'][:] 
-#                 data = src.read(1) * glacier_mask
-#                 # Pixel area
-#                 pixel_m2 = abs(gdir.grid.dx * gdir.grid.dy)
-#                 # Glacier mass [kg] reprojoected (may lose or gain mass depending on resampling algorithm)
-#                 glacier_mass_reprojected = (data * pixel_m2).sum() * pygem_prms.density_ice
-#                 # Scale data to ensure conservation of mass during reprojection
-#                 data_scaled = data * glacier_mass_raw / glacier_mass_reprojected
-# #                glacier_mass = (data_scaled * pixel_m2).sum() * pygem_prms.density_ice
-# #                print(glacier_mass)
-                
-#                 # Write data
-#                 vn = 'consensus_h'
-#                 if vn in nc.variables:
-#                     v = nc.variables[vn]
-#                 else:
-#                     v = nc.createVariable(vn, 'f8', ('y', 'x', ), zlib=True)
-#                 v.units = 'm'
-#                 v.long_name = 'Consensus ice thicknness'
-#                 v[:] = data_scaled
-    
-
-# @entity_task(log, writes=['inversion_flowlines'])
-# def consensus_binned(gdir):
-#     """Bin consensus ice thickness ice estimates.
-    
-#     Updates the 'inversion_flowlines' save file.
-    
-#     Parameters
-#     ----------
-#     gdir : :py:class:`oggm.GlacierDirectory`
-#         where to write the data
-#     """
-#     flowlines = gdir.read_pickle('inversion_flowlines')
-#     fl = flowlines[0]
-    
-#     assert len(flowlines) == 1, 'Error: binning debris data set up only for single flowlines at present'
-    
-#     # Add binned debris thickness and enhancement factors to flowlines
-#     ds = xr.open_dataset(gdir.get_filepath('gridded_data'))
-#     glacier_mask = ds['glacier_mask'].values
-#     topo = ds['topo_smoothed'].values
-#     h = ds['consensus_h'].values
-
-#     # Only bin on-glacier values
-#     idx_glac = np.where(glacier_mask == 1)
-#     topo_onglac = topo[idx_glac]
-#     h_onglac = h[idx_glac]
-
-#     # Bin edges        
-#     nbins = len(fl.dis_on_line)
-#     z_center = (fl.surface_h[0:-1] + fl.surface_h[1:]) / 2
-#     z_bin_edges = np.concatenate((np.array([topo[idx_glac].max() + 1]), 
-#                                   z_center, 
-#                                   np.array([topo[idx_glac].min() - 1])))
-#     # Loop over bins and calculate the mean debris thickness and enhancement factor for each bin
-#     h_binned = np.zeros(nbins) 
-#     for nbin in np.arange(0,len(z_bin_edges)-1):
-#         bin_max = z_bin_edges[nbin]
-#         bin_min = z_bin_edges[nbin+1]
-#         bin_idx = np.where((topo_onglac < bin_max) & (topo_onglac >= bin_min))
-#         try:
-#             h_binned[nbin] = h_onglac[bin_idx].mean()
-#         except:
-#             h_binned[nbin] = 0
-            
-#     fl.consensus_h = h_binned
-    
-#     # Overwrite pickle
-#     gdir.write_pickle(flowlines, 'inversion_flowlines')
-        
+    return bin_edges, bin_area, diffs_stacked, pd.Series(oib_dates)
