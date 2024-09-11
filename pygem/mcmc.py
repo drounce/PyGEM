@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import pygem_input as pygem_prms
 torch.set_default_dtype(torch.float64)
 
@@ -46,7 +47,6 @@ def log_normal_density(x, **kwargs):
                         torch.log(sigma).nansum() -
                         0.5*(((x-mu)/sigma)**2).nansum()
                         ])
-
 
 def log_gamma_density(x, **kwargs):
     """
@@ -165,7 +165,7 @@ class mbPosterior:
     def log_posterior(self, m):
         # anytime log_posterior is called for a new step, calculate the predicted mass balance
         self.get_mb_pred(m)
-        return self.log_prior(m) + self.log_likelihood() + self.log_potential(m), self.preds[0]
+        return self.log_prior(m) + self.log_likelihood() + self.log_potential(m), self.preds
 
 # Metropolis-Hastings Markov chain Monte Carlo class
 class Metropolis:
@@ -175,15 +175,17 @@ class Metropolis:
         self.P_chain = []
         self.m_chain = []
         self.m_primes = []
-        self.mb_chain = []
-        self.mb_primes = []
+        self.preds_chain = {}
+        self.preds_primes = {}
+        self.naccept = 0
+        self.ar = []
         self.means = means
         self.stds = stds
 
 
     def sample(self, m_0, log_posterior, h=0.1, n_samples=1000, burnin=0, thin_factor=1, progress_bar=False):
         # Compute initial unscaled log-posterior
-        P_0, mb_0 = log_posterior(inverse_z_normalize(m_0, self.means, self.stds))
+        P_0, pred_0 = log_posterior(inverse_z_normalize(m_0, self.means, self.stds))
 
         n = len(m_0)
 
@@ -202,7 +204,7 @@ class Metropolis:
             self.steps.append(step)
 
             # Compute new unscaled log-posterior
-            P_1, mb_prime = log_posterior(inverse_z_normalize(m_prime, self.means, self.stds))
+            P_1, pred_1 = log_posterior(inverse_z_normalize(m_prime, self.means, self.stds))
 
             # Compute logarithm of probability ratio
             log_ratio = P_1 - P_0
@@ -215,7 +217,9 @@ class Metropolis:
             if ratio>torch.rand(1):
                 m_0 = m_prime
                 P_0 = P_1
-                mb_0 = mb_prime
+                pred_0 = pred_1
+                # update naccept
+                self.naccept += 1
 
             # Only append to the chain if we're past burn-in.
             if i>burnin:
@@ -224,21 +228,22 @@ class Metropolis:
                     self.P_chain.append(P_0)
                     self.m_chain.append(m_0)
                     self.m_primes.append(m_prime)
-                    self.mb_chain.append(mb_0)
-                    self.mb_primes.append(mb_prime)
+                    self.ar.append(self.naccept / i)
+                    for j in range(len(pred_1)):
+                        if j not in self.preds_chain.keys():
+                            self.preds_chain[j]=[]
+                            self.preds_primes[j]=[]
+                        self.preds_chain[j].append(pred_0[j])
+                        self.preds_primes[j].append(pred_1[j])
 
-        return torch.tensor(self.P_chain), \
-                torch.vstack(self.m_chain), \
-                torch.tensor(self.mb_chain), \
+        return torch.vstack(self.m_chain), \
+                self.preds_chain, \
                 torch.vstack(self.m_primes), \
-                torch.tensor(self.mb_primes), \
-                torch.vstack(self.steps)
+                self.preds_primes, \
+                torch.vstack(self.steps), \
+                self.ar
     
 ### some other useful functions ###
-
-# acceptance rate, calculated as rolloing average of probability
-def acceptance_rate(P_chain, window_size=100):
-    return np.convolve(P_chain, np.ones(window_size)/window_size, mode='valid')
 
 def effective_n(x):
     """
@@ -285,12 +290,14 @@ def effective_n(x):
         return None
 
 
-def plot_chain(m_primes, m_chain, P_chain, title, ms=1, fontsize=8):
+def plot_chain(m_primes, m_chain, ar, title, ms=1, fontsize=8):
+    plt.rcParams["font.family"] = "arial"
+    plt.rcParams['font.size'] = fontsize
+    plt.rcParams['legend.fontsize'] = 6
     # Plot the trace of the parameters
     fig, axes = plt.subplots(5, 1, figsize=(6, 8), sharex=True)
     m_chain = m_chain.detach().numpy()
     m_primes = m_primes.detach().numpy()
-    P_chain = P_chain.detach().numpy()
 
     # get n_eff
     neff = [effective_n(arr) for arr in m_chain.T]
@@ -323,8 +330,8 @@ def plot_chain(m_primes, m_chain, P_chain, title, ms=1, fontsize=8):
     l3 = axes[3].legend(loc='upper right',handlelength=0, borderaxespad=0, fontsize=fontsize)
     axes[3].set_ylabel(r'$\dot{{b}}$', fontsize=fontsize)
 
-    axes[4].plot(np.exp(P_chain),'tab:orange', lw=1)
-    axes[4].plot(acceptance_rate(np.exp(P_chain)), 'k', label='moving avg.', lw=1)
+    axes[4].plot(ar,'tab:orange', lw=1)
+    axes[4].plot(np.convolve(ar, np.ones(100)/100, mode='valid'), 'k', label='moving avg.', lw=1)
     l4 = axes[4].legend(loc='upper right',handlelength=0, borderaxespad=0, fontsize=fontsize)
     axes[4].set_ylabel(r'$AR$', fontsize=fontsize)
 
@@ -351,5 +358,45 @@ def plot_chain(m_primes, m_chain, P_chain, title, ms=1, fontsize=8):
 
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.1, wspace=0)
+    plt.show()
+    return
+
+
+def plot_preds(xs, ys_obs, ys_pred, labels, title, ms=1, fontsize=8):
+    plt.rcParams["font.family"] = "arial"
+    plt.rcParams['font.size'] = fontsize
+    plt.rcParams['legend.fontsize'] = 6
+    ys_pred = np.stack(ys_pred)
+    ys_pred_med = np.median(ys_pred, axis=0)
+    ys_pred_5pct = np.percentile(ys_pred, q=5, axis=0)
+    ys_pred_95pct = np.percentile(ys_pred, q=95, axis=0)
+    fig, axes = plt.subplots(1, 2, figsize=(6, 4), sharex=True, sharey=True)
+    colormap = cm.get_cmap('rainbow')
+    color_indices = np.linspace(0, 1, ys_obs[0].shape[1])
+    colors = [colormap(index) for index in color_indices]
+
+    for i in range(ys_obs[0].shape[1]):
+        # mask nans
+        mask = ~np.isnan(ys_pred_med[:,i])
+        axes[0].plot(xs, ys_obs[0][:,i], c=colors[i], label=labels[i])
+        axes[0].fill_between(xs, 
+                             ys_obs[0][:,i]-ys_obs[1],
+                             ys_obs[0][:,i]+ys_obs[1],
+                             color=colors[i],
+                             alpha=.5)
+        axes[1].plot(xs[mask], ys_pred_med[:,i][mask], c=colors[i], label=labels[i])
+        axes[1].fill_between(xs[mask], 
+                             ys_pred_5pct[:,i][mask],
+                             ys_pred_95pct[:,i][mask],
+                             color=colors[i],
+                             alpha=.5)
+        axes[1].legend(handlelength=1,fancybox=False, borderaxespad=0, fontsize=fontsize)
+
+    fig.text(0.5, .98, title, va='center',ha='center', fontsize=fontsize)
+    fig.text(0.5, 0.025, r'Elevation (m)', va='center',ha='center', fontsize=fontsize)
+    fig.text(0.025, 0.5, r'Elevation Change (m)', va='center',ha='center', rotation=90, fontsize=fontsize)
+
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0, wspace=0.1, top=0.95, bottom=0.125, left=0.10, right=0.95)
     plt.show()
     return

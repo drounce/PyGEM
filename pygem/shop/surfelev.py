@@ -16,14 +16,13 @@ def get_rgi7id(rgi6id='', debug=False):
     """
     return RGI version 7 glacier id for a given RGI version 6 id
 
-    THIS METHOD DOES NOT WORK - NOT ALL GLACIERS ARE IN THE LINKS FILE - NEED TO FIND A DIFFERENT APPROACH
     """
     rgi6id = rgi6id.split('.')[0].zfill(2) + '.' + rgi6id.split('.')[1]
     # get appropriate RGI7 Id from PyGEM RGI6 Id
-    rgi7_6_df = pd.read_csv(pygem_prms.rgi_fp + '/RGI2000-v7.0-G-01_alaska-rgi6_links.csv')
-    rgi7_6_df['rgi7_id'] = rgi7_6_df['rgi7_id'].str.split('RGI2000-v7.0-G-').str[1]
-    rgi7_6_df['rgi6_id'] = rgi7_6_df['rgi6_id'].str.split('RGI60-').str[1]
-    rgi7id = rgi7_6_df.loc[lambda rgi7_6_df: rgi7_6_df['rgi6_id'] == rgi6id,'rgi7_id'].tolist()
+    rgi7_6_df = pd.read_csv(pygem_prms.oib_fp + '../rgi7id_to_rgi6id.csv')
+    rgi7_6_df['rgi7id'] = rgi7_6_df['rgi7id'].str.split('RGI2000-v7.0-G-').str[1]
+    rgi7_6_df['rgi6id'] = rgi7_6_df['rgi6id'].str.split('RGI60-').str[1]
+    rgi7id = rgi7_6_df.loc[lambda rgi7_6_df: rgi7_6_df['rgi6id'] == rgi6id,'rgi7id'].tolist()
     if len(rgi7id)==1:
         if debug:
             print(f'RGI6:{rgi6id} -> RGI7:{rgi7id[0]}')
