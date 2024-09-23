@@ -32,6 +32,7 @@ def get_rgi7id(rgi6id='', debug=False):
     elif len(rgi7id)>1:
         raise IndexError(f'More than one matching RGI7Id for {rgi6id}')
 
+
 def date_check(dt_obj):
     """
     if survey date in given month <daysinmonth/2 assign it to beginning of month, else assign to beginning of next month (for consistency with monthly PyGEM timesteps)
@@ -102,6 +103,7 @@ def get_oib_diffs(oib_dict, aggregate=None, debug=False):
     """
     seasons = list(set(oib_dict.keys()).intersection(['march','may','august']))
     cop30_diffs_list = [] # instantiate list to hold median binned survey differences from cop30
+    sigmas_list = [] # also list to hold iqr
     oib_dates = [] # instantiate list to hold survey dates
     for ssn in seasons:
         for yr in list(oib_dict[ssn].keys()):
@@ -113,18 +115,22 @@ def get_oib_diffs(oib_dict, aggregate=None, debug=False):
             diffs = np.asarray(oib_dict[ssn][yr]['bin_vals']['bin_median_diffs_vec'])
             diffs = oib_filter_on_pixel_count(diffs, 15)
             cop30_diffs_list.append(diffs)
+            sigmas_list.append(np.asarray(oib_dict[ssn][yr]['bin_vals']['bin_interquartile_range_diffs_vec']))  # take binned interquartile range diffs as sigma_obs
     # sort by survey dates
     inds = np.argsort(oib_dates).tolist()
     oib_dates = [oib_dates[i] for i in inds]
     cop30_diffs_list = [cop30_diffs_list[i] for i in inds]
+    sigmas_list = [sigmas_list[i] for i in inds]
     # filter missing ice at terminus based on last survey
-    terminus_mask = oib_terminus_mask(oib_dates[-1], cop30_diffs_list[-1], debug=False)    
+    terminus_mask = oib_terminus_mask(oib_dates[-1], cop30_diffs_list[-1], debug=False)
     if debug:
         print(f'OIB survey dates:\n{", ".join([str(dt.year)+"-"+str(dt.month)+"-"+str(dt.day) for dt in oib_dates])}')
-    # do double differencing
+    # stack diffs
     diffs_stacked = np.column_stack(cop30_diffs_list)
+    sigmas_stacked = np.column_stack(sigmas_list)
     # apply terminus mask across all surveys
     diffs_stacked[terminus_mask,:] = np.nan
+    sigmas_stacked[terminus_mask,:] = np.nan    
     # get bin centers
     bin_centers = (np.asarray(oib_dict[ssn][list(oib_dict[ssn].keys())[0]]['bin_vals']['bin_start_vec']) + 
                 np.asarray(oib_dict[ssn][list(oib_dict[ssn].keys())[0]]['bin_vals']['bin_stop_vec'])) / 2
@@ -141,7 +147,9 @@ def get_oib_diffs(oib_dict, aggregate=None, debug=False):
             warnings.filterwarnings('ignore')
             y = np.column_stack([stats.binned_statistic(x=bin_centers, values=x, statistic=np.nanmean, bins=nbins)[0] for x in diffs_stacked.T])
             bin_edges = stats.binned_statistic(x=bin_centers, values=diffs_stacked[:,0], statistic=np.nanmean, bins=nbins)[1]
+            s = np.column_stack([stats.binned_statistic(x=bin_centers, values=x, statistic=np.nanmean, bins=bin_edges)[0] for x in sigmas_stacked.T])
             bin_area  = stats.binned_statistic(x=bin_centers, values=bin_area, statistic=np.nanmean, bins=bin_edges)[0]
             diffs_stacked = y
+            sigmas_stacked = s
 
-    return bin_edges, bin_area, diffs_stacked, pd.Series(oib_dates)
+    return bin_edges, bin_area, diffs_stacked, sigmas_stacked, pd.Series(oib_dates)

@@ -40,6 +40,7 @@ def log_normal_density(x, **kwargs):
     # flatten arrays and get dimensionality
     x = x.flatten()
     mu = mu.flatten()
+    sigma = sigma.flatten()
     k = mu.shape[-1]
 
     return torch.tensor([
