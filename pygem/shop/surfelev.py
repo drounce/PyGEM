@@ -11,7 +11,6 @@ from scipy import signal, stats
 import matplotlib.pyplot as plt
 import pygem_input as pygem_prms
 
-
 def get_rgi7id(rgi6id='', debug=False):
     """
     return RGI version 7 glacier id for a given RGI version 6 id
@@ -67,8 +66,7 @@ def oib_filter_on_pixel_count(arr, pctl = 15):
     arr=arr.astype(float)
     arr[arr==0] = np.nan
     mask = arr < np.nanpercentile(arr,pctl)
-    arr[mask] = np.nan
-    return arr
+    return mask
 
 
 def oib_terminus_mask(survey_date, cop30_diffs, debug=False):
@@ -103,7 +101,7 @@ def get_oib_diffs(oib_dict, aggregate=None, debug=False):
     """
     seasons = list(set(oib_dict.keys()).intersection(['march','may','august']))
     cop30_diffs_list = [] # instantiate list to hold median binned survey differences from cop30
-    sigmas_list = [] # also list to hold iqr
+    sigmas_list = [] # also list to hold sigma_obs
     oib_dates = [] # instantiate list to hold survey dates
     for ssn in seasons:
         for yr in list(oib_dict[ssn].keys()):
@@ -113,9 +111,13 @@ def get_oib_diffs(oib_dict, aggregate=None, debug=False):
             oib_dates.append(date_check(dt_obj))
             # get survey data and filter by pixel count
             diffs = np.asarray(oib_dict[ssn][yr]['bin_vals']['bin_median_diffs_vec'])
-            diffs = oib_filter_on_pixel_count(diffs, 15)
+            counts = np.asarray(oib_dict[ssn][yr]['bin_vals']['bin_count_vec'])
+            mask = oib_filter_on_pixel_count(counts, 15)
+            diffs[mask] = np.nan
             cop30_diffs_list.append(diffs)
-            sigmas_list.append(np.asarray(oib_dict[ssn][yr]['bin_vals']['bin_interquartile_range_diffs_vec']))  # take binned interquartile range diffs as sigma_obs
+            sigmas = 2*np.asarray(oib_dict[ssn][yr]['bin_vals']['bin_interquartile_range_diffs_vec']) # take 2x binned interquartile range diffs as sigma_obs
+            sigmas[mask] = np.nan
+            sigmas_list.append(sigmas)
     # sort by survey dates
     inds = np.argsort(oib_dates).tolist()
     oib_dates = [oib_dates[i] for i in inds]

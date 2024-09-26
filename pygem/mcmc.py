@@ -291,7 +291,7 @@ def effective_n(x):
         return None
 
 
-def plot_chain(m_primes, m_chain, ar, title, ms=1, fontsize=8):
+def plot_chain(m_primes, m_chain, ar, title, ms=1, fontsize=8, fpath=None):
     plt.rcParams["font.family"] = "arial"
     plt.rcParams['font.size'] = fontsize
     plt.rcParams['legend.fontsize'] = 6
@@ -360,4 +360,26 @@ def plot_chain(m_primes, m_chain, ar, title, ms=1, fontsize=8):
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.1, wspace=0)
     plt.show()
+    if fpath:
+        fig.savefig(fpath, dpi=400)
+    return
+
+
+def plot_1t1(obs, preds, title, ms=2, fontsize=8, fpath=None):
+    plt.rcParams["font.family"] = "arial"
+    plt.rcParams['font.size'] = fontsize
+    plt.rcParams['legend.fontsize'] = 6
+    # Plot the trace of the parameters
+    fig, axes = plt.subplots(1, 1, figsize=(3, 3))
+    for pred in preds:
+        axes.errorbar(obs[0].flatten(), pred.flatten(), xerr=obs[1].flatten(), linestyle='none', ms=ms, marker='o', elinewidth=.5, capsize=1, c='tab:blue', zorder=1)
+    axes.plot([np.nanmin(obs[0]) ,np.nanmax(obs[0])], [np.nanmin(obs[0]) ,np.nanmax(obs[0])], 'k', lw=1, zorder=0)
+    axes.set_xlabel('obs', fontsize=fontsize)
+    axes.set_ylabel('preds', fontsize=fontsize)
+    axes.set_title(title, fontsize=fontsize)
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0.1, wspace=0)
+    plt.show()
+    if fpath:
+        fig.savefig(fpath, dpi=400)
     return
