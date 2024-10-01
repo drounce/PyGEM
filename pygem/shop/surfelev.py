@@ -18,7 +18,7 @@ def get_rgi7id(rgi6id='', debug=False):
     """
     rgi6id = rgi6id.split('.')[0].zfill(2) + '.' + rgi6id.split('.')[1]
     # get appropriate RGI7 Id from PyGEM RGI6 Id
-    rgi7_6_df = pd.read_csv(pygem_prms.oib_fp + '../rgi7id_to_rgi6id.csv')
+    rgi7_6_df = pd.read_csv(pygem_prms.oib_fp + '../oibak_rgi6_rgi7_ids.csv')
     rgi7_6_df['rgi7id'] = rgi7_6_df['rgi7id'].str.split('RGI2000-v7.0-G-').str[1]
     rgi7_6_df['rgi6id'] = rgi7_6_df['rgi6id'].str.split('RGI60-').str[1]
     rgi7id = rgi7_6_df.loc[lambda rgi7_6_df: rgi7_6_df['rgi6id'] == rgi6id,'rgi7id'].tolist()
