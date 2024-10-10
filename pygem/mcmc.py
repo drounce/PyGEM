@@ -109,7 +109,7 @@ log_prob_fxn_map = {
 # mass balance posterior class
 class mbPosterior:
     def __init__(self, obs, priors, mb_func, mb_args=None, potential_fxns=None, **kwargs):
-        # obs will be passed as a list, where each item is a tuple with the first element being the mean observation, and the second being the standard deviation
+        # obs will be passed as a list, where each item is a tuple with the first element being the mean observation, and the second being the variance
         self.obs = obs
         self.prior_params = priors
         self.mb_func = mb_func
@@ -179,30 +179,59 @@ class Metropolis:
         self.preds_chain = {}
         self.preds_primes = {}
         self.naccept = 0
-        self.ar = []
+        self.acceptance = []
+        self.n_rm = 0
         self.means = means
         self.stds = stds
+        self.trimmed = False
 
+    def get_constant_prefix(self, threshold=100):
+        n_rm = 0
+        # Convert to NumPy array if it's not already
+        list_of_arrays = np.array(self.m_chain)
+        # Start by checking the first `threshold` elements
+        if np.all(list_of_arrays[:threshold] == list_of_arrays[0]):
+            n_rm = 99
+            # Find the index where the constant value changes
+            for i in range(threshold, len(list_of_arrays)):
+                if not np.array_equal(list_of_arrays[i], list_of_arrays[0]):
+                    break
+                else:
+                    n_rm += 1
+        return n_rm
+    
+    def rm_constant_prefix(self, n_rm):
+        self.P_chain = self.P_chain[n_rm:]
+        self.m_chain = self.m_chain[n_rm:]
+        self.m_primes = self.m_primes[n_rm:]
+        self.steps = self.steps[n_rm:]
+        self.acceptance = self.acceptance[n_rm:]
+        for j in self.preds_primes.keys():
+            self.preds_primes[j] = self.preds_primes[j][n_rm:]
+            self.preds_chain[j] = self.preds_chain[j][n_rm:]
+        return
 
-    def sample(self, m_0, log_posterior, h=0.1, n_samples=1000, burnin=0, thin_factor=1, progress_bar=False):
+    def sample(self, m_0, log_posterior, n_samples=1000, h=0.1, h_decayrate=0.9, burnin=0, thin_factor=1, trim=True, progress_bar=False):
         # Compute initial unscaled log-posterior
         P_0, pred_0 = log_posterior(inverse_z_normalize(m_0, self.means, self.stds))
 
         n = len(m_0)
 
-        # Draw samples
-        iterable = range(n_samples)
-        if progress_bar:
-            iterable = tqdm(iterable)
+        # store target step size and bump up to allow for dec
+        if h_decayrate:
+            h_target = h
+            h*=2
 
-        for i in iterable:
+        # Create a tqdm progress bar if enabled
+        pbar = tqdm(total=n_samples) if progress_bar else None
+
+        i=0
+        # Draw samples
+        while i < n_samples:
             # Propose new value according to
             # proposal distribution Q(m) = N(m_0,h)
             step = torch.randn(n)*h
             m_prime = m_0 + step
-
-            # record step
-            self.steps.append(step)
 
             # Compute new unscaled log-posterior
             P_1, pred_1 = log_posterior(inverse_z_normalize(m_prime, self.means, self.stds))
@@ -226,10 +255,11 @@ class Metropolis:
             if i>burnin:
                 # Only append every j-th sample to the chain
                 if i%thin_factor==0:
+                    self.steps.append(step)
                     self.P_chain.append(P_0)
                     self.m_chain.append(m_0)
                     self.m_primes.append(m_prime)
-                    self.ar.append(self.naccept / i)
+                    self.acceptance.append(self.naccept / (i + (thin_factor*self.n_rm)))
                     for j in range(len(pred_1)):
                         if j not in self.preds_chain.keys():
                             self.preds_chain[j]=[]
@@ -237,12 +267,39 @@ class Metropolis:
                         self.preds_chain[j].append(pred_0[j])
                         self.preds_primes[j].append(pred_1[j])
 
+            # Exponentially decay step size towards target_h
+            if h_decayrate:
+                h = h * h_decayrate + h_target * (1 - h_decayrate)
+
+            if trim:
+                # trim off any initial steps that are stagnant
+                if i == (n_samples-1):
+                    self.n_rm = self.get_constant_prefix()
+                    if self.n_rm > 0:
+                        if self.n_rm > (len(self.m_chain))*.8:
+                            raise ValueError(f'ValueError: {round(self.n_rm/len(self.m_chain)*100)}% of the MCMC chain is constant.')
+                        else:
+                            self.rm_constant_prefix(self.n_rm)
+                            i-=int((self.n_rm-1)*thin_factor)
+                            self.trim = False
+
+            # increment iterator
+            i+=1
+
+            # update progress bar
+            if pbar:
+                pbar.update(1)
+
+        # Close the progress bar if it was used
+        if pbar:
+            pbar.close()
+
         return torch.vstack(self.m_chain), \
                 self.preds_chain, \
                 torch.vstack(self.m_primes), \
                 self.preds_primes, \
                 torch.vstack(self.steps), \
-                self.ar
+                self.acceptance
     
 ### some other useful functions ###
 
@@ -291,7 +348,7 @@ def effective_n(x):
         return None
 
 
-def plot_chain(m_primes, m_chain, ar, title, ms=1, fontsize=8, fpath=None):
+def plot_chain(m_primes, m_chain, mb_obs, ar, title, ms=1, fontsize=8, fpath=None):
     plt.rcParams["font.family"] = "arial"
     plt.rcParams['font.size'] = fontsize
     plt.rcParams['legend.fontsize'] = 6
@@ -325,6 +382,8 @@ def plot_chain(m_primes, m_chain, ar, title, ms=1, fontsize=8, fpath=None):
     l2 = axes[2].legend(loc='upper right',handlelength=0, borderaxespad=0, fontsize=fontsize)
     axes[2].set_ylabel(r'$fsnow$', fontsize=fontsize)
 
+    axes[3].fill_between(np.arange(len(ar)),mb_obs[0]-(2*mb_obs[1]),mb_obs[0]+(2*mb_obs[1]),color='grey',alpha=.3)
+    axes[3].fill_between(np.arange(len(ar)),mb_obs[0]-mb_obs[1],mb_obs[0]+mb_obs[1],color='grey',alpha=.3)
     axes[3].plot(m_primes[:, 3],'.',ms=ms, c='tab:blue')
     axes[3].plot(m_chain[:, 3],'.',ms=ms, c='tab:orange')
     axes[3].plot([],[],label=f'mean={np.mean(m_chain[:, 3]):.3f}\nstd={np.std(m_chain[:, 3]):.3f}')
@@ -333,7 +392,7 @@ def plot_chain(m_primes, m_chain, ar, title, ms=1, fontsize=8, fpath=None):
 
     axes[4].plot(ar,'tab:orange', lw=1)
     axes[4].plot(np.convolve(ar, np.ones(100)/100, mode='valid'), 'k', label='moving avg.', lw=1)
-    l4 = axes[4].legend(loc='upper right',handlelength=0, borderaxespad=0, fontsize=fontsize)
+    l4 = axes[4].legend(loc='upper right',handlelength=.5, borderaxespad=0, fontsize=fontsize)
     axes[4].set_ylabel(r'$AR$', fontsize=fontsize)
 
     for i, ax in enumerate(axes):
