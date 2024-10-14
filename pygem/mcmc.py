@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import pygem_input as pygem_prms
 torch.set_default_dtype(torch.float64)
+plt.rcParams["font.family"] = "arial"
+plt.rcParams['font.size'] = 8
+plt.rcParams['legend.fontsize'] = 6
 
 # z-normalization functions
 def z_normalize(params, means, std_devs):
@@ -348,10 +351,7 @@ def effective_n(x):
         return None
 
 
-def plot_chain(m_primes, m_chain, mb_obs, ar, title, ms=1, fontsize=8, fpath=None):
-    plt.rcParams["font.family"] = "arial"
-    plt.rcParams['font.size'] = fontsize
-    plt.rcParams['legend.fontsize'] = 6
+def plot_chain(m_primes, m_chain, mb_obs, ar, title, ms=1, fontsize=8, show=False, fpath=None):
     # Plot the trace of the parameters
     fig, axes = plt.subplots(5, 1, figsize=(6, 8), sharex=True)
     m_chain = m_chain.detach().numpy()
@@ -415,19 +415,17 @@ def plot_chain(m_primes, m_chain, mb_obs, ar, title, ms=1, fontsize=8, fpath=Non
     axes[4].add_artist(l4)
     axes[0].set_xlim([0, m_chain.shape[0]])
     axes[0].set_title(title, fontsize=fontsize)
-
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.1, wspace=0)
-    plt.show()
     if fpath:
         fig.savefig(fpath, dpi=400)
+    if show:
+        plt.show(block=True)  # wait until the figure is closed
+    plt.close(fig)
     return
 
 
-def plot_1t1(obs, preds, title, ms=2, fontsize=8, fpath=None):
-    plt.rcParams["font.family"] = "arial"
-    plt.rcParams['font.size'] = fontsize
-    plt.rcParams['legend.fontsize'] = 6
+def plot_1t1(obs, preds, title, ms=2, fontsize=8, show=False, fpath=None):
     # Plot the trace of the parameters
     fig, axes = plt.subplots(1, 1, figsize=(3, 3))
     for pred in preds:
@@ -438,7 +436,9 @@ def plot_1t1(obs, preds, title, ms=2, fontsize=8, fpath=None):
     axes.set_title(title, fontsize=fontsize)
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.1, wspace=0)
-    plt.show()
     if fpath:
         fig.savefig(fpath, dpi=400)
+    if show:
+        plt.show(block=True)  # wait until the figure is closed
+    plt.close(fig)
     return
