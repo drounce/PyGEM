@@ -186,7 +186,6 @@ class Metropolis:
         self.n_rm = 0
         self.means = means
         self.stds = stds
-        self.trimmed = False
 
     def get_constant_prefix(self, threshold=100):
         n_rm = 0
@@ -274,17 +273,14 @@ class Metropolis:
             if h_decayrate:
                 h = h * h_decayrate + h_target * (1 - h_decayrate)
 
-            if trim:
-                # trim off any initial steps that are stagnant
-                if i == (n_samples-1):
-                    self.n_rm = self.get_constant_prefix()
-                    if self.n_rm > 0:
-                        if self.n_rm > (len(self.m_chain))*.8:
-                            raise ValueError(f'ValueError: {round(self.n_rm/len(self.m_chain)*100)}% of the MCMC chain is constant.')
-                        else:
-                            self.rm_constant_prefix(self.n_rm)
-                            i-=int((self.n_rm-1)*thin_factor)
-                            self.trim = False
+            # trim off any initial steps that are stagnant
+            if (i == (n_samples-1)) and (trim):
+                self.n_rm = self.get_constant_prefix()
+                if self.n_rm > 0:
+                    if self.n_rm < (len(self.m_chain))*.8:
+                        self.rm_constant_prefix(self.n_rm)  # remove the appropriate number of samples
+                        i-=int((self.n_rm-1)*thin_factor)   # back track the iterator
+                    trim = False                            # set trim to False as to only perform one time
 
             # increment iterator
             i+=1
