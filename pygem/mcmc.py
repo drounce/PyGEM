@@ -189,17 +189,18 @@ class Metropolis:
 
     def get_constant_prefix(self, threshold=100):
         n_rm = 0
-        # Convert to NumPy array if it's not already
-        list_of_arrays = np.array(self.m_chain)
-        # Start by checking the first `threshold` elements
-        if np.all(list_of_arrays[:threshold] == list_of_arrays[0]):
-            n_rm = 99
-            # Find the index where the constant value changes
-            for i in range(threshold, len(list_of_arrays)):
-                if not np.array_equal(list_of_arrays[i], list_of_arrays[0]):
-                    break
-                else:
-                    n_rm += 1
+        if threshold>0:
+            # Convert to NumPy array if it's not already
+            list_of_arrays = np.array(self.m_chain)
+            # Start by checking the first `threshold` elements
+            if np.all(list_of_arrays[:threshold] == list_of_arrays[0]):
+                n_rm = threshold-1
+                # Find the index where the constant value changes
+                for i in range(threshold, len(list_of_arrays)):
+                    if not np.array_equal(list_of_arrays[i], list_of_arrays[0]):
+                        break
+                    else:
+                        n_rm += 1
         return n_rm
     
     def rm_constant_prefix(self, n_rm):
@@ -266,7 +267,7 @@ class Metropolis:
 
             # trim off any initial steps that are stagnant
             if (i == (n_samples-1)) and (trim):
-                self.n_rm = self.get_constant_prefix()
+                self.n_rm = self.get_constant_prefix(threshold=int(n_samples/thin_factor*.1))
                 if self.n_rm > 0:
                     if self.n_rm < (len(self.m_chain))*.8:
                         self.rm_constant_prefix(self.n_rm)  # remove the appropriate number of samples
