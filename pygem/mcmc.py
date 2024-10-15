@@ -213,16 +213,11 @@ class Metropolis:
             self.preds_chain[j] = self.preds_chain[j][n_rm:]
         return
 
-    def sample(self, m_0, log_posterior, n_samples=1000, h=0.1, h_decayrate=0.9, burnin=0, thin_factor=1, trim=True, progress_bar=False):
+    def sample(self, m_0, log_posterior, n_samples=1000, h=0.1, burnin=0, thin_factor=1, trim=True, progress_bar=False):
         # Compute initial unscaled log-posterior
         P_0, pred_0 = log_posterior(inverse_z_normalize(m_0, self.means, self.stds))
 
         n = len(m_0)
-
-        # store target step size and bump up to allow for dec
-        if h_decayrate:
-            h_target = h
-            h*=2
 
         # Create a tqdm progress bar if enabled
         pbar = tqdm(total=n_samples) if progress_bar else None
@@ -268,10 +263,6 @@ class Metropolis:
                             self.preds_primes[j]=[]
                         self.preds_chain[j].append(pred_0[j])
                         self.preds_primes[j].append(pred_1[j])
-
-            # Exponentially decay step size towards target_h
-            if h_decayrate:
-                h = h * h_decayrate + h_target * (1 - h_decayrate)
 
             # trim off any initial steps that are stagnant
             if (i == (n_samples-1)) and (trim):
@@ -388,7 +379,7 @@ def plot_chain(m_primes, m_chain, mb_obs, ar, title, ms=1, fontsize=8, show=Fals
 
     axes[4].plot(ar,'tab:orange', lw=1)
     axes[4].plot(np.convolve(ar, np.ones(100)/100, mode='valid'), 'k', label='moving avg.', lw=1)
-    l4 = axes[4].legend(loc='upper right',handlelength=.5, borderaxespad=0, fontsize=fontsize)
+    l4 = axes[4].legend(loc='upper left',handlelength=.5, borderaxespad=0, fontsize=fontsize)
     axes[4].set_ylabel(r'$AR$', fontsize=fontsize)
 
     for i, ax in enumerate(axes):
@@ -398,11 +389,11 @@ def plot_chain(m_primes, m_chain, mb_obs, ar, title, ms=1, fontsize=8, show=Fals
         if i==4:
             continue
         ax.plot([],[],label=f'n_eff={neff[i]}')
+        hands, ls = ax.get_legend_handles_labels()
         if i==0:
-            hands, ls = ax.get_legend_handles_labels()
             ax.legend(handles=[hands[1],hands[2],hands[3]], labels=[ls[1],ls[2],ls[3]], loc='upper left', borderaxespad=0, handlelength=0, fontsize=fontsize)
         else:
-            ax.legend(loc='upper left', borderaxespad=0, handlelength=0, fontsize=fontsize)
+            ax.legend(handles=[hands[-1]], labels=[ls[-1]], loc='upper left', borderaxespad=0, handlelength=0, fontsize=fontsize)
 
     axes[0].add_artist(l0)
     axes[1].add_artist(l1)

@@ -207,7 +207,7 @@ class single_glacier:
         self.output_xr_ds.attrs = {'source': f'PyGEMv{self.pygem_version}',
                         'institution': pygem_prms.user_info['institution'],
                         'history': f'Created by {pygem_prms.user_info["name"]} ({pygem_prms.user_info["email"]}) on ' + datetime.today().strftime('%Y-%m-%d'),
-                        'references': 'doi:10.3389/feart.2019.00331 and doi:10.1017/jog.2019.91',
+                        'references': 'doi:10.1126/science.abo1324',
                         'model_parameters':json.dumps(self.mdl_params_dict)}
 
     # return dataset
