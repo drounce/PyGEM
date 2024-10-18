@@ -416,13 +416,16 @@ def plot_chain(m_primes, m_chain, mb_obs, ar, title, ms=1, fontsize=8, show=Fals
 def plot_1t1_hist(obs, preds, title, fontsize=8, show=False, fpath=None):
     # Plot the trace of the parameters
     fig, axes = plt.subplots(1, 1, figsize=(3, 2))
-    diffs = np.concatenate([pred.flatten().numpy() - obs[0].flatten().numpy() for pred in preds])
+    # subtract obs from preds to get residuals
+    diffs = np.concatenate([pred.flatten() - obs[0].flatten().numpy() for pred in preds])
+    # mask nans to avoid error in np.histogram()
+    diffs = diffs[~np.isnan(diffs)]
     # Calculate histogram counts and bin edges
     counts, bin_edges = np.histogram(diffs, bins=20)
     pct = counts / counts.sum() * 100
     bin_width = bin_edges[1] - bin_edges[0]
     axes.bar(bin_edges[:-1], pct, width=bin_width, edgecolor='black', color='gray', align='edge')
-    axes.set_xlabel('pred - obs', fontsize=fontsize)
+    axes.set_xlabel('residuals (pred - obs)', fontsize=fontsize)
     axes.set_ylabel('count (%)', fontsize=fontsize)
     axes.set_title(title, fontsize=fontsize)
     plt.tight_layout()
