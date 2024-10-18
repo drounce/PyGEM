@@ -413,14 +413,17 @@ def plot_chain(m_primes, m_chain, mb_obs, ar, title, ms=1, fontsize=8, show=Fals
     return
 
 
-def plot_1t1(obs, preds, title, ms=2, fontsize=8, show=False, fpath=None):
+def plot_1t1_hist(obs, preds, title, fontsize=8, show=False, fpath=None):
     # Plot the trace of the parameters
-    fig, axes = plt.subplots(1, 1, figsize=(3, 3))
-    for pred in preds:
-        axes.errorbar(obs[0].flatten(), pred.flatten(), xerr=obs[1].flatten(), linestyle='none', ms=ms, marker='o', elinewidth=.5, capsize=1, c='tab:blue', zorder=1)
-    axes.plot([np.nanmin(obs[0]) ,np.nanmax(obs[0])], [np.nanmin(obs[0]) ,np.nanmax(obs[0])], 'k', lw=1, zorder=0)
-    axes.set_xlabel('obs', fontsize=fontsize)
-    axes.set_ylabel('preds', fontsize=fontsize)
+    fig, axes = plt.subplots(1, 1, figsize=(3, 2))
+    diffs = np.concatenate([pred.flatten().numpy() - obs[0].flatten().numpy() for pred in preds])
+    # Calculate histogram counts and bin edges
+    counts, bin_edges = np.histogram(diffs, bins=20)
+    pct = counts / counts.sum() * 100
+    bin_width = bin_edges[1] - bin_edges[0]
+    axes.bar(bin_edges[:-1], pct, width=bin_width, edgecolor='black', color='gray', align='edge')
+    axes.set_xlabel('pred - obs', fontsize=fontsize)
+    axes.set_ylabel('count (%)', fontsize=fontsize)
     axes.set_title(title, fontsize=fontsize)
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.1, wspace=0)
