@@ -10,7 +10,7 @@ requires = [
 
 [project]
 name = "pygem"
-version = "0.2.5"
+version = "0.3.0"
 authors = [
   { name="David Rounce", email="drounce@cmu.edu" },
 ]
