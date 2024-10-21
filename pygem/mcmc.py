@@ -413,7 +413,7 @@ def plot_chain(m_primes, m_chain, mb_obs, ar, title, ms=1, fontsize=8, show=Fals
     return
 
 
-def plot_1t1_hist(obs, preds, title, fontsize=8, show=False, fpath=None):
+def plot_resid_hist(obs, preds, title, fontsize=8, show=False, fpath=None):
     # Plot the trace of the parameters
     fig, axes = plt.subplots(1, 1, figsize=(3, 2))
     # subtract obs from preds to get residuals
