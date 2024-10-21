@@ -207,7 +207,7 @@ class single_glacier:
         self.output_xr_ds.attrs = {'source': f'PyGEMv{self.pygem_version}',
                         'institution': pygem_prms.user_info['institution'],
                         'history': f'Created by {pygem_prms.user_info["name"]} ({pygem_prms.user_info["email"]}) on ' + datetime.today().strftime('%Y-%m-%d'),
-                        'references': 'doi:10.3389/feart.2019.00331 and doi:10.1017/jog.2019.91',
+                        'references': 'doi:10.1126/science.abo1324',
                         'model_parameters':json.dumps(self.mdl_params_dict)}
 
     # return dataset
@@ -526,6 +526,7 @@ class binned_stats(single_glacier):
     Single glacier binned dataset
     """
     nbins : int
+    binned_components : bool
 
     def __post_init__(self):
         super().__post_init__()                         # call parent class __post_init__ (get glacier values, time stamps, and instantiate output dictionaries that will form netcdf file output)
@@ -553,6 +554,13 @@ class binned_stats(single_glacier):
         self.output_attrs_dict['bin_surface_h_initial'] = {
                                                         'long_name': 'initial binned surface elevation',
                                                         'units': 'm above sea level'}
+        self.output_coords_dict['bin_area_annual'] = (
+                collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
+        self.output_attrs_dict['bin_area_annual'] = {
+                                                        'long_name': 'binned glacier area',
+                                                        'units': 'm2',
+                                                        'temporal_resolution': 'annual',
+                                                        'comment': 'binned area at start of the year'}        
         self.output_coords_dict['bin_mass_annual'] = (
                 collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
         self.output_attrs_dict['bin_mass_annual'] = {
@@ -581,30 +589,51 @@ class binned_stats(single_glacier):
                                                         'units': 'm',
                                                         'temporal_resolution': 'monthly',
                                                         'comment': 'monthly climatic mass balance from the PyGEM mass balance module'}
+        if self.binned_components:
+            self.output_coords_dict['bin_accumulation_monthly'] = (
+                    collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('time',  self.time_values)]))
+            self.output_attrs_dict['bin_accumulation_monthly'] = {
+                                                            'long_name': 'binned monthly accumulation, in water equivalent',
+                                                            'units': 'm',
+                                                            'temporal_resolution': 'monthly',
+                                                            'comment': 'monthly accumulation from the PyGEM mass balance module'}
+            self.output_coords_dict['bin_melt_monthly'] = (
+                    collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('time',  self.time_values)]))
+            self.output_attrs_dict['bin_melt_monthly'] = {
+                                                            'long_name': 'binned monthly melt, in water equivalent',
+                                                            'units': 'm',
+                                                            'temporal_resolution': 'monthly',
+                                                            'comment': 'monthly melt from the PyGEM mass balance module'}
+            self.output_coords_dict['bin_refreeze_monthly'] = (
+                collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('time',  self.time_values)]))
+            self.output_attrs_dict['bin_refreeze_monthly'] = {
+                                                            'long_name': 'binned monthly refreeze, in water equivalent',
+                                                            'units': 'm',
+                                                            'temporal_resolution': 'monthly',
+                                                            'comment': 'monthly refreeze from the PyGEM mass balance module'}
         
         if self.sim_iters > 1:
-                self.output_coords_dict['bin_mass_annual_mad'] = (
-                collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
-                self.output_attrs_dict['bin_mass_annual_mad'] = {
-                                                        'long_name': 'binned ice mass median absolute deviation',
-                                                        'units': 'kg',
-                                                        'temporal_resolution': 'annual',
-                                                        'comment': 'mass of ice based on area and ice thickness at start of the year'}
-                self.output_coords_dict['bin_thick_annual_mad'] = (
-                collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
-                self.output_attrs_dict['bin_thick_annual_mad'] = {
-                                                        'long_name': 'binned ice thickness median absolute deviation',
-                                                        'units': 'm',
-                                                        'temporal_resolution': 'annual',
-                                                        'comment': 'thickness of ice at start of the year'}
-                self.output_coords_dict['bin_massbalclim_annual_mad'] = (
-                collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
-                self.output_attrs_dict['bin_massbalclim_annual_mad'] = {
-                                                        'long_name': 'binned climatic mass balance, in water equivalent, median absolute deviation',
-                                                        'units': 'm',
-                                                        'temporal_resolution': 'annual',
-                                                        'comment': 'climatic mass balance is computed before dynamics so can theoretically exceed ice thickness'}
-
+            self.output_coords_dict['bin_mass_annual_mad'] = (
+            collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
+            self.output_attrs_dict['bin_mass_annual_mad'] = {
+                                                    'long_name': 'binned ice mass median absolute deviation',
+                                                    'units': 'kg',
+                                                    'temporal_resolution': 'annual',
+                                                    'comment': 'mass of ice based on area and ice thickness at start of the year'}
+            self.output_coords_dict['bin_thick_annual_mad'] = (
+            collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
+            self.output_attrs_dict['bin_thick_annual_mad'] = {
+                                                    'long_name': 'binned ice thickness median absolute deviation',
+                                                    'units': 'm',
+                                                    'temporal_resolution': 'annual',
+                                                    'comment': 'thickness of ice at start of the year'}
+            self.output_coords_dict['bin_massbalclim_annual_mad'] = (
+            collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
+            self.output_attrs_dict['bin_massbalclim_annual_mad'] = {
+                                                    'long_name': 'binned climatic mass balance, in water equivalent, median absolute deviation',
+                                                    'units': 'm',
+                                                    'temporal_resolution': 'annual',
+                                                    'comment': 'climatic mass balance is computed before dynamics so can theoretically exceed ice thickness'}
                 
 
 ### compiled regional output parent class ###
