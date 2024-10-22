@@ -85,11 +85,11 @@ def log_truncated_normal(x, **kwargs):
     """
     for key, value in kwargs.items():
         kwargs[key] = torch.tensor([value])
-    mu, sigma, a, b = kwargs['mu'], kwargs['sigma'], kwargs['a'], kwargs['b']
+    mu, sigma, lo, hi = kwargs['mu'], kwargs['sigma'], kwargs['low'], kwargs['high']
     # Standardize
     standard_x = (x - mu) / sigma
-    standard_a = (a - mu) / sigma
-    standard_b = (b - mu) / sigma
+    standard_a = (lo - mu) / sigma
+    standard_b = (hi - mu) / sigma
     
     # PDF of the standard normal distribution
     pdf = torch.exp(-0.5 * standard_x**2) / np.sqrt(2 * torch.pi)
@@ -106,7 +106,7 @@ def log_truncated_normal(x, **kwargs):
 log_prob_fxn_map = {
     'normal': log_normal_density,
     'gamma': log_gamma_density,
-    'truncated_normal': log_truncated_normal
+    'truncnormal': log_truncated_normal
 }
 
 # mass balance posterior class
@@ -114,15 +114,32 @@ class mbPosterior:
     def __init__(self, obs, priors, mb_func, mb_args=None, potential_fxns=None, **kwargs):
         # obs will be passed as a list, where each item is a tuple with the first element being the mean observation, and the second being the variance
         self.obs = obs
-        self.prior_params = priors
+        self.priors = priors
         self.mb_func = mb_func
         self.mb_args = mb_args
         self.potential_functions = potential_fxns if potential_fxns is not None else []
         self.preds = None
+        self.check_priors()
 
         # get mean and std for each parameter type
         self.means = torch.tensor([params['mu'] if 'mu' in params else 0 for params in priors.values()])
         self.stds = torch.tensor([params['sigma'] if 'sigma' in params else 1 for params in priors.values()])
+    
+    # check priors. remove any subkeys that have a `None` value, and ensure that we have a mean and standard deviation for and gamma distributions
+    def check_priors(self):
+        for k in list(self.priors.keys()):
+            keys_rm = []  # List to hold keys to remove
+            for i, value in self.priors[k].items():
+                if value is None:
+                    keys_rm.append(i)  # Add key to remove list
+            # Remove the keys outside of the iteration
+            for i in keys_rm:
+                del self.priors[k][i]
+
+        for k in self.priors.keys():
+            if self.priors[k]['type'] == 'gamma' and 'mu' not in self.priors[k].keys():
+                self.priors[k]['mu'] = self.priors[k]['alpha'] / self.priors[k]['beta']
+                self.priors[k]['sigma'] = float(np.sqrt(self.priors[k]['alpha']) / self.priors[k]['beta'])
 
     # update modelprms for evaluation
     def update_modelprms(self, m):
@@ -143,7 +160,7 @@ class mbPosterior:
     # get total log prior density
     def log_prior(self, m):
         log_prior = []
-        for i, (key, params) in enumerate(self.prior_params.items()):
+        for i, (key, params) in enumerate(self.priors.items()):
             params_copy = params.copy()
             prior_type = params_copy.pop('type')
             function_to_call = log_prob_fxn_map[prior_type]
