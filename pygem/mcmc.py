@@ -1,5 +1,6 @@
 """Markov chain Monte Carlo methods"""
 import sys
+import copy
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -31,13 +32,6 @@ def log_normal_density(x, **kwargs):
     Returns:
         Log probability density at the given input tensor x.
     """
-    for key, value in kwargs.items():
-        if isinstance(value, torch.Tensor):
-            pass
-        elif isinstance(value, float):
-            kwargs[key] = torch.tensor([value])
-        else:
-            kwargs[key] = torch.tensor(value)
     mu, sigma = kwargs['mu'], kwargs['sigma']
 
     # flatten arrays and get dimensionality
@@ -64,8 +58,6 @@ def log_gamma_density(x, **kwargs):
     Returns:
         Log probability density at the given input tensor x.
     """
-    for key, value in kwargs.items():
-        kwargs[key] = torch.tensor([value])
     alpha, beta = kwargs['alpha'], kwargs['beta']   # shape, scale
     return alpha * torch.log(beta) + (alpha - 1) * torch.log(x) - beta * x - torch.lgamma(alpha)
 
@@ -83,8 +75,6 @@ def log_truncated_normal(x, **kwargs):
     Returns:
         Log probability density at the given input tensor x.
     """
-    for key, value in kwargs.items():
-        kwargs[key] = torch.tensor([value])
     mu, sigma, lo, hi = kwargs['mu'], kwargs['sigma'], kwargs['low'], kwargs['high']
     # Standardize
     standard_x = (x - mu) / sigma
@@ -114,7 +104,7 @@ class mbPosterior:
     def __init__(self, obs, priors, mb_func, mb_args=None, potential_fxns=None, **kwargs):
         # obs will be passed as a list, where each item is a tuple with the first element being the mean observation, and the second being the variance
         self.obs = obs
-        self.priors = priors
+        self.priors = copy.deepcopy(priors)
         self.mb_func = mb_func
         self.mb_args = mb_args
         self.potential_functions = potential_fxns if potential_fxns is not None else []
@@ -122,8 +112,8 @@ class mbPosterior:
         self.check_priors()
 
         # get mean and std for each parameter type
-        self.means = torch.tensor([params['mu'] if 'mu' in params else 0 for params in priors.values()])
-        self.stds = torch.tensor([params['sigma'] if 'sigma' in params else 1 for params in priors.values()])
+        self.means = torch.tensor([params['mu'] for params in self.priors.values()])
+        self.stds = torch.tensor([params['sigma'] for params in self.priors.values()])
     
     # check priors. remove any subkeys that have a `None` value, and ensure that we have a mean and standard deviation for and gamma distributions
     def check_priors(self):
@@ -132,6 +122,11 @@ class mbPosterior:
             for i, value in self.priors[k].items():
                 if value is None:
                     keys_rm.append(i)  # Add key to remove list
+                # ensure torch tensor objects
+                elif isinstance(value,str) and 'inf' in value:
+                    self.priors[k][i] = torch.tensor([float(value)])
+                elif isinstance(value,float):
+                    self.priors[k][i] = torch.tensor([self.priors[k][i]])
             # Remove the keys outside of the iteration
             for i in keys_rm:
                 del self.priors[k][i]
@@ -156,6 +151,7 @@ class mbPosterior:
             self.preds = self.mb_func([*m])
         if not isinstance(self.preds, tuple):
             self.preds = [self.preds]
+        self.preds = [torch.tensor(item) for item in self.preds]    # make all preds torch.tensor() objects
 
     # get total log prior density
     def log_prior(self, m):
@@ -204,31 +200,39 @@ class Metropolis:
         self.means = means
         self.stds = stds
 
-    def get_constant_prefix(self, threshold=100):
-        n_rm = 0
-        if threshold>0:
-            # Convert to NumPy array if it's not already
-            list_of_arrays = np.array(self.m_chain)
-            # Start by checking the first `threshold` elements
-            if np.all(list_of_arrays[:threshold] == list_of_arrays[0]):
-                n_rm = threshold-1
-                # Find the index where the constant value changes
-                for i in range(threshold, len(list_of_arrays)):
-                    if not np.array_equal(list_of_arrays[i], list_of_arrays[0]):
-                        break
-                    else:
-                        n_rm += 1
-        return n_rm
+    def get_n_rm(self, tol=.1):
+        """
+        get the number of samples from the beginning of the chain where the sampler is stuck
+        Parameters:
+        tol: float representing the tolerance in z-normalized space
+        """
+        n_params = len(self.m_chain[0])
+        n_rms = []
+        for i in range(n_params):
+            vals = [val[i] for val in self.m_chain]
+            first_value = vals[0]
+            count = 0
+            for value in vals:
+                if abs(value - first_value) <= tol:
+                    count += 1
+                else:
+                    break  # Stop counting when we find a value outside the tolerance
+            n_rms.append(count)
+        self.n_rm = max(n_rms)
+        return
     
-    def rm_constant_prefix(self, n_rm):
-        self.P_chain = self.P_chain[n_rm:]
-        self.m_chain = self.m_chain[n_rm:]
-        self.m_primes = self.m_primes[n_rm:]
-        self.steps = self.steps[n_rm:]
-        self.acceptance = self.acceptance[n_rm:]
+    def rm_stuck_samples(self):
+        """
+        remove stuck samples at the beginning of the chain
+        """
+        self.P_chain = self.P_chain[self.n_rm:]
+        self.m_chain = self.m_chain[self.n_rm:]
+        self.m_primes = self.m_primes[self.n_rm:]
+        self.steps = self.steps[self.n_rm:]
+        self.acceptance = self.acceptance[self.n_rm:]
         for j in self.preds_primes.keys():
-            self.preds_primes[j] = self.preds_primes[j][n_rm:]
-            self.preds_chain[j] = self.preds_chain[j][n_rm:]
+            self.preds_primes[j] = self.preds_primes[j][self.n_rm:]
+            self.preds_chain[j] = self.preds_chain[j][self.n_rm:]
         return
 
     def sample(self, m_0, log_posterior, n_samples=1000, h=0.1, burnin=0, thin_factor=1, trim=True, progress_bar=False):
@@ -284,10 +288,10 @@ class Metropolis:
 
             # trim off any initial steps that are stagnant
             if (i == (n_samples-1)) and (trim):
-                self.n_rm = self.get_constant_prefix(threshold=int(n_samples/thin_factor*.1))
+                self.get_n_rm()
                 if self.n_rm > 0:
-                    if self.n_rm < (len(self.m_chain))*.8:
-                        self.rm_constant_prefix(self.n_rm)  # remove the appropriate number of samples
+                    if self.n_rm < len(self.m_chain) - 1:
+                        self.rm_stuck_samples()
                         i-=int((self.n_rm-1)*thin_factor)   # back track the iterator
                     trim = False                            # set trim to False as to only perform one time
 
