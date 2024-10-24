@@ -7,11 +7,12 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 # Local libraries
-import pygem_input as pygem_prms
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
-
-def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, 
-                  spinupyears=pygem_prms.ref_spinupyears, option_wateryear=pygem_prms.ref_wateryear):
+def datesmodelrun(startyear=pygem_prms['climate']['ref_startyear'], endyear=pygem_prms['climate']['ref_endyear'], 
+                  spinupyears=pygem_prms['climate']['ref_spinupyears'], option_wateryear=pygem_prms['climate']['ref_wateryear']):
     """
     Create table of year, month, day, water year, season and number of days in the month.
 
@@ -39,21 +40,21 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
         startdate = str(startyear_wspinup) + '-01-01'
         enddate = str(endyear) + '-12-31'
     elif option_wateryear == 'custom':
-        startdate = str(startyear_wspinup) + '-' + pygem_prms.startmonthday
-        enddate = str(endyear) + '-' + pygem_prms.endmonthday
+        startdate = str(startyear_wspinup) + '-' + pygem_prms['time']['startmonthday']
+        enddate = str(endyear) + '-' + pygem_prms['time']['endmonthday']
     else:
         assert True==False, "\n\nError: Select an option_wateryear that exists.\n"
     # Convert input format into proper datetime format
     startdate = datetime(*[int(item) for item in startdate.split('-')])
     enddate = datetime(*[int(item) for item in enddate.split('-')])
-    if pygem_prms.timestep == 'monthly':
+    if pygem_prms['time']['timestep'] == 'monthly':
         startdate = startdate.strftime('%Y-%m')
         enddate = enddate.strftime('%Y-%m')
-    elif pygem_prms.timestep == 'daily':
+    elif pygem_prms['time']['timestep'] == 'daily':
         startdate = startdate.strftime('%Y-%m-%d')
         enddate = enddate.strftime('%Y-%m-%d')
     # Generate dates_table using date_range function
-    if pygem_prms.timestep == 'monthly':
+    if pygem_prms['time']['timestep'] == 'monthly':
         # Automatically generate dates from start date to end data using a monthly frequency (MS), which generates
         # monthly data using the 1st of each month'
         dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='MS', unit='s')})
@@ -65,10 +66,10 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
         # Set date as index
         dates_table.set_index('timestep', inplace=True)
         # Remove leap year days if user selected this with option_leapyear
-        if pygem_prms.option_leapyear == 0:
+        if pygem_prms['time']['option_leapyear'] == 0:
             mask1 = (dates_table['daysinmonth'] == 29)
             dates_table.loc[mask1,'daysinmonth'] = 28
-    elif pygem_prms.timestep == 'daily':
+    elif pygem_prms['time']['timestep'] == 'daily':
         # Automatically generate daily (freq = 'D') dates
         dates_table = pd.DataFrame({'date' : pd.date_range(startdate, enddate, freq='D')})
         # Extract attributes for dates_table
@@ -79,7 +80,7 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
         # Set date as index
         dates_table.set_index('date', inplace=True)
         # Remove leap year days if user selected this with option_leapyear
-        if pygem_prms.option_leapyear == 0:
+        if pygem_prms['time']['option_leapyear'] == 0:
             # First, change 'daysinmonth' number
             mask1 = dates_table['daysinmonth'] == 29
             dates_table.loc[mask1,'daysinmonth'] = 28
@@ -102,7 +103,7 @@ def datesmodelrun(startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_end
     month_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     season_list = []
     for i in range(len(month_list)):
-        if (month_list[i] >= pygem_prms.summer_month_start and month_list[i] < pygem_prms.winter_month_start):
+        if (month_list[i] >= pygem_prms['time']['summer_month_start'] and month_list[i] < pygem_prms['time']['winter_month_start']):
             season_list.append('summer')
             seasondict[month_list[i]] = season_list[i]
         else:
@@ -158,7 +159,7 @@ def hypsometrystats(hyps_table, thickness_table):
     return glac_volume, glac_hyps_mean
 
 
-def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=pygem_prms.indexname, option_shift_elevbins_20m=True):
+def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=pygem_prms['rgi']['indexname'], option_shift_elevbins_20m=True):
     """Use the dictionary specified by the user to extract the desired variable.
     The files must be in the proper units (ice thickness [m], area [km2], width [km]) and should be pre-processed.
 
@@ -224,46 +225,46 @@ def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=py
     return glac_table_copy
 
 
-def selectcalibrationdata(main_glac_rgi):
-    """
-    Select geodetic mass balance of all glaciers in the model run that have a geodetic mass balance.  The geodetic mass
-    balances are stored in a csv file.
-    """
-    # Import .csv file
-    rgi_region = int(main_glac_rgi.loc[main_glac_rgi.index.values[0],'RGIId'].split('-')[1].split('.')[0])
-    ds = pd.read_csv(pygem_prms.cal_mb_filepath + pygem_prms.cal_mb_filedict[rgi_region])
-    main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],4))
-    ds[pygem_prms.rgi_O1Id_colname] = ((ds[pygem_prms.cal_rgi_colname] % 1) * 10**5).round(0).astype(int)
-    ds_subset = ds[[pygem_prms.rgi_O1Id_colname, pygem_prms.massbal_colname, pygem_prms.massbal_uncertainty_colname,
-                    pygem_prms.massbal_time1, pygem_prms.massbal_time2]].values
-    rgi_O1Id = main_glac_rgi[pygem_prms.rgi_O1Id_colname].values
-    for glac in range(rgi_O1Id.shape[0]):
-        try:
-            # Grab the mass balance based on the RGIId Order 1 glacier number
-            main_glac_calmassbal[glac,:] = ds_subset[np.where(np.in1d(ds_subset[:,0],rgi_O1Id[glac])==True)[0][0],1:]
-            #  np.in1d searches if there is a match in the first array with the second array provided and returns an
-            #   array with same length as first array and True/False values. np.where then used to identify the index
-            #   where there is a match, which is then used to select the massbalance value
-            #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
-            #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
-        except:
-            # If there is no mass balance data available for the glacier, then set as NaN
-            main_glac_calmassbal[glac,:] = np.empty(4)
-            main_glac_calmassbal[glac,:] = np.nan
-    main_glac_calmassbal = pd.DataFrame(main_glac_calmassbal,
-                                        columns=[pygem_prms.massbal_colname, pygem_prms.massbal_uncertainty_colname,
-                                                 pygem_prms.massbal_time1, pygem_prms.massbal_time2])
-    return main_glac_calmassbal
+# def selectcalibrationdata(main_glac_rgi):
+#     """
+#     Select geodetic mass balance of all glaciers in the model run that have a geodetic mass balance.  The geodetic mass
+#     balances are stored in a csv file.
+#     """
+#     # Import .csv file
+#     rgi_region = int(main_glac_rgi.loc[main_glac_rgi.index.values[0],'RGIId'].split('-')[1].split('.')[0])
+#     ds = pd.read_csv(pygem_prms.cal_mb_filepath + pygem_prms.cal_mb_filedict[rgi_region])
+#     main_glac_calmassbal = np.zeros((main_glac_rgi.shape[0],4))
+#     ds[pygem_prms['rgi']['rgi_O1Id_colname']] = ((ds[pygem_prms.cal_rgi_colname] % 1) * 10**5).round(0).astype(int)
+#     ds_subset = ds[[pygem_prms['rgi']['rgi_O1Id_colname'], pygem_prms.massbal_colname, pygem_prms.massbal_uncertainty_colname,
+#                     pygem_prms.massbal_time1, pygem_prms.massbal_time2]].values
+#     rgi_O1Id = main_glac_rgi[pygem_prms['rgi']['rgi_O1Id_colname']].values
+#     for glac in range(rgi_O1Id.shape[0]):
+#         try:
+#             # Grab the mass balance based on the RGIId Order 1 glacier number
+#             main_glac_calmassbal[glac,:] = ds_subset[np.where(np.in1d(ds_subset[:,0],rgi_O1Id[glac])==True)[0][0],1:]
+#             #  np.in1d searches if there is a match in the first array with the second array provided and returns an
+#             #   array with same length as first array and True/False values. np.where then used to identify the index
+#             #   where there is a match, which is then used to select the massbalance value
+#             #  Use of numpy arrays for indexing and this matching approach is much faster than looping through; however,
+#             #   need the for loop because np.in1d does not order the values that match; hence, need to do it 1 at a time
+#         except:
+#             # If there is no mass balance data available for the glacier, then set as NaN
+#             main_glac_calmassbal[glac,:] = np.empty(4)
+#             main_glac_calmassbal[glac,:] = np.nan
+#     main_glac_calmassbal = pd.DataFrame(main_glac_calmassbal,
+#                                         columns=[pygem_prms.massbal_colname, pygem_prms.massbal_uncertainty_colname,
+#                                                  pygem_prms.massbal_time1, pygem_prms.massbal_time2])
+#     return main_glac_calmassbal
 
 
 def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all', rgi_glac_number='all',
-                           rgi_fp=pygem_prms.rgi_fp, 
-                           rgi_cols_drop=pygem_prms.rgi_cols_drop,
-                           rgi_O1Id_colname=pygem_prms.rgi_O1Id_colname,
-                           rgi_glacno_float_colname=pygem_prms.rgi_glacno_float_colname,
-                           indexname=pygem_prms.indexname,
+                           rgi_fp=pygem_prms['rgi']['rgi_relpath'], 
+                           rgi_cols_drop=pygem_prms['rgi']['rgi_cols_drop'],
+                           rgi_O1Id_colname=pygem_prms['rgi']['rgi_O1Id_colname'],
+                           rgi_glacno_float_colname=pygem_prms['rgi']['rgi_glacno_float_colname'],
+                           indexname=pygem_prms['rgi']['indexname'],
                            include_landterm=True,include_laketerm=True,include_tidewater=True,
-                           glac_no_skip=pygem_prms.glac_no_skip,
+                           glac_no_skip=pygem_prms['setup']['glac_no_skip'],
                            min_glac_area_km2=0,
                            debug=False):
     """

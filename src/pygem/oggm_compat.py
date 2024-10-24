@@ -3,8 +3,6 @@
 import numpy as np
 import pandas as pd
 import netCDF4
-# Local libraries
-import pygem_input as pygem_prms
 from oggm import cfg, utils
 from oggm import workflow
 #from oggm import tasks
@@ -12,13 +10,18 @@ from oggm.cfg import SEC_IN_YEAR
 from oggm.core.massbalance import MassBalanceModel
 #from oggm.shop import rgitopo
 from pygem.shop import debris, mbdata, icethickness
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 class CompatGlacDir:
     def __init__(self, rgiid):
         self.rgiid = rgiid
            
-def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, prepro_border=pygem_prms.oggm_border, 
-                                      logging_level=pygem_prms.logging_level, has_internet=pygem_prms.has_internet, working_dir=pygem_prms.oggm_gdir_fp):
+def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrite_gdirs'], prepro_border=pygem_prms['oggm']['border'], 
+                                      logging_level= pygem_prms['oggm']['logging_level'], has_internet= pygem_prms['oggm']['has_internet'], 
+                                      working_dir=pygem_prms['path'] + pygem_prms['oggm']['oggm_gdir_relpath']):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     Parameters
@@ -80,9 +83,9 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
     
     if process_gdir:
         # Start after the prepro task level
-        base_url = pygem_prms.oggm_base_url
+        base_url = pygem_prms['oggm']['base_url']
 
-        cfg.PARAMS['has_internet'] = pygem_prms.has_internet
+        cfg.PARAMS['has_internet'] =  pygem_prms['oggm']['has_internet']
         gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
                                                   prepro_base_url=base_url, prepro_rgi_version='62')
 
@@ -94,7 +97,7 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
             mbdata.mb_df_to_gdir]
         
         # Debris tasks
-        if pygem_prms.include_debris:
+        if pygem_prms['mbmod']['include_debris']:
             list_tasks.append(debris.debris_to_gdir)
             list_tasks.append(debris.debris_binned)
             
@@ -107,11 +110,11 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
         
 
 
-def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.overwrite_gdirs, 
-                                                   prepro_border=pygem_prms.oggm_border, k_calving=1,
-                                                   logging_level=pygem_prms.logging_level, 
-                                                   has_internet=pygem_prms.has_internet,
-                                                   working_dir=pygem_prms.oggm_gdir_fp):
+def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['oggm']['overwrite_gdirs'], 
+                                                   prepro_border=pygem_prms['oggm']['border'], k_calving=1,
+                                                   logging_level= pygem_prms['oggm']['logging_level'], 
+                                                   has_internet= pygem_prms['oggm']['has_internet'],
+                                                   working_dir=pygem_prms['path'] + pygem_prms['oggm']['oggm_gdir_relpath']):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     k_calving is free variable!
@@ -174,7 +177,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.over
     
     if process_gdir:
         # Start after the prepro task level
-        base_url = pygem_prms.oggm_base_url
+        base_url = pygem_prms['oggm']['base_url']
 
         gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
                                                   prepro_base_url=base_url, prepro_rgi_version='62')

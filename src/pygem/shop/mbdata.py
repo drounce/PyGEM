@@ -14,8 +14,11 @@ from oggm import cfg
 from oggm.utils import entity_task
 #from oggm.core.gis import rasterio_to_gdir
 #from oggm.utils import ncDataset
-import pygem_input as pygem_prms
 import pygem.pygem_modelsetup as modelsetup
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 """
 TO-DO LIST:

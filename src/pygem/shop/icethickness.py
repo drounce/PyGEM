@@ -11,7 +11,10 @@ from oggm import cfg
 from oggm.utils import entity_task
 from oggm.core.gis import rasterio_to_gdir
 from oggm.utils import ncDataset
-import pygem_input as pygem_prms
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 if not 'consensus_mass' in cfg.BASENAMES:
     cfg.BASENAMES['consensus_mass'] = ('consensus_mass.pkl', 'Glacier mass from consensus ice thickness data')
@@ -22,7 +25,7 @@ if not 'consensus_h' in cfg.BASENAMES:
 log = logging.getLogger(__name__)
 
 @entity_task(log, writes=['consensus_mass'])
-def consensus_gridded(gdir, h_consensus_fp=pygem_prms.h_consensus_fp, add_mass=True, add_to_gridded=True):
+def consensus_gridded(gdir, h_consensus_fp=pygem_prms['calib']['data']['icethickness']['h_consensus_relpath'], add_mass=True, add_to_gridded=True):
     """Bin consensus ice thickness and add total glacier mass to the given glacier directory
     
     Updates the 'inversion_flowlines' save file and creates new consensus_mass.pkl
@@ -41,7 +44,7 @@ def consensus_gridded(gdir, h_consensus_fp=pygem_prms.h_consensus_fp, add_mass=T
     h = h_dr.read(1).astype(rasterio.float32)
     
     # Glacier mass [kg]
-    glacier_mass_raw = (h * h_dr.res[0] * h_dr.res[1]).sum() * pygem_prms.density_ice
+    glacier_mass_raw = (h * h_dr.res[0] * h_dr.res[1]).sum() * pygem_prms['constants']['density_ice']
 #    print(glacier_mass_raw)
 
     if add_mass:
@@ -64,10 +67,10 @@ def consensus_gridded(gdir, h_consensus_fp=pygem_prms.h_consensus_fp, add_mass=T
                 # Pixel area
                 pixel_m2 = abs(gdir.grid.dx * gdir.grid.dy)
                 # Glacier mass [kg] reprojoected (may lose or gain mass depending on resampling algorithm)
-                glacier_mass_reprojected = (data * pixel_m2).sum() * pygem_prms.density_ice
+                glacier_mass_reprojected = (data * pixel_m2).sum() * pygem_prms['constants']['density_ice']
                 # Scale data to ensure conservation of mass during reprojection
                 data_scaled = data * glacier_mass_raw / glacier_mass_reprojected
-#                glacier_mass = (data_scaled * pixel_m2).sum() * pygem_prms.density_ice
+#                glacier_mass = (data_scaled * pixel_m2).sum() * pygem_prms['constants']['density_ice']
 #                print(glacier_mass)
                 
                 # Write data

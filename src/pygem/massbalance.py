@@ -9,8 +9,11 @@ Created on Mon Feb  3 14:00:14 2020
 import numpy as np
 # Local libraries
 from oggm.core.massbalance import MassBalanceModel
-import pygem_input as pygem_prms
 from pygem.utils._funcs import annualweightedmean_array
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 #%%
 class PyGEMMassBalance(MassBalanceModel):
@@ -21,11 +24,11 @@ class PyGEMMassBalance(MassBalanceModel):
     This class implements the MassBalanceModel interface so that the dynamical model can use it.
     """
     def __init__(self, gdir, modelprms, glacier_rgi_table,
-                 option_areaconstant=False, hindcast=pygem_prms.hindcast, frontalablation_k=None,
+                 option_areaconstant=False, hindcast=pygem_prms['climate']['hindcast'], frontalablation_k=None,
                  debug=False, debug_refreeze=False,
                  fls=None, fl_id=0,
                  heights=None, repeat_period=False,
-                 hyps_data=pygem_prms.hyps_data,
+                 hyps_data=pygem_prms['mbmod']['hyps_data'],
                  inversion_filter=False,
                  ignore_debris=False
                        ):
@@ -981,8 +984,8 @@ class PyGEMMassBalance(MassBalanceModel):
         return surfacetype, firnline_idx
 
 
-    def _surfacetypeDDFdict(self, modelprms, include_firn=pygem_prms.include_firn,
-                            option_ddf_firn=pygem_prms.option_ddf_firn):
+    def _surfacetypeDDFdict(self, modelprms, include_firn=pygem_prms['mbmod']['include_firn'],
+                            option_ddf_firn=pygem_prms['mbmod']['option_ddf_firn']):
         """
         Create a dictionary of surface type and its respective DDF.
 

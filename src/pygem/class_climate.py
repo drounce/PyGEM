@@ -6,8 +6,9 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 # Local libraries
-import pygem_input as pygem_prms
-
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 class GCM():
     """

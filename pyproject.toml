@@ -1,28 +1,49 @@
-[build-system]
-build-backend = 'setuptools.build_meta'
-requires = [
-    "setuptools>=61",
-    "setuptools_scm[toml]>=7.0",
-    "wheel",
-]
-
-[tool.setuptools_scm]
-
 [project]
 name = "pygem"
-version = "0.3.0"
-authors = [
-  { name="David Rounce", email="drounce@cmu.edu" },
-]
-description = "Python Glacier Evolution Model for large-scale glacier modeling"
+version = "0.3.1"
+description = "Python Glacier Evolution Model (PyGEM)"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9,<3.13"
+license = {file = "LICENSE.txt"}
+authors = [
+     {name = "David Rounce", email = "drounce@cmu.edu"},
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dynamic = ["license", "dependencies"]
+dependencies = [
+    "pyyaml",
+    "oggm",
+    "salem",
+    "tables",
+    "geopandas",
+    "xarray",
+    "pandas",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "rasterio",
+    "pyproj",
+    "torch",
+    "gpytorch",
+    "scikit-learn",
+    "tqdm"
+]
 
 [project.urls]
-"Homepage" = "https://github.com/drounce/PyGEM"
+documentation = "https://pygem.readthedocs.io/"
+repository = "https://github.com/drounce/PyGEM"
+
+[project.scripts]
+run_calibration = "pygem.bin.run.run_calibration:main"
+run_simulation = "pygem.bin.run.run_simulation:main"
+
+[tool.setuptools.packages.find]
+namespaces = true
+where = ["src"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

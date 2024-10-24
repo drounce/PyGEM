@@ -6,7 +6,11 @@ import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-import pygem_input as pygem_prms
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
+
 torch.set_default_dtype(torch.float64)
 plt.rcParams["font.family"] = "arial"
 plt.rcParams['font.size'] = 8

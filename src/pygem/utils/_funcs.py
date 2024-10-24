@@ -3,9 +3,11 @@
 """
 Functions that didn't fit into other modules
 """
-import pygem_input as pygem_prms
 import numpy as np
-
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 def annualweightedmean_array(var, dates_table):
     """

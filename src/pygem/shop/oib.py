@@ -9,7 +9,10 @@ import numpy as np
 import pandas as pd
 from scipy import signal, stats
 import matplotlib.pyplot as plt
-import pygem_input as pygem_prms
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file\
 
 def _get_rgi7id(rgi6id='', debug=False):
     """

@@ -12,7 +12,6 @@ The two main parent classes are single_glacier(object) and compiled_regional(obj
 Both of these have several subclasses which will inherit the necessary parent information
 
 """
-import pygem_input as pygem_prms
 from dataclasses import dataclass
 from scipy.stats import median_abs_deviation
 from datetime import datetime
@@ -20,6 +19,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import os, types, json, cftime, collections
+# Local libraries
+import pygem_params as pygem_prms
 
 ### single glacier output parent class ###
 @dataclass
