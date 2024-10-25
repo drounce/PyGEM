@@ -5,7 +5,7 @@
 # boolean options are either `true` or `false`
 # exponential values are formatted as `##.#e+#` (mest be decimal point before `e`, with either `+` or `-` following)
 # infintiy values are either `.inf` or `-.inf`
-# `null` indicates `None`
+# `null` is imported to Python as `None`
 #######################################################
 
 # ===== USER INFO =====
