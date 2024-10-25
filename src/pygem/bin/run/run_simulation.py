@@ -109,7 +109,7 @@ def getparser():
                         help='Randoph Glacier Inventory region (can take multiple, e.g. `-run_region01 1 2 3`)', nargs='+')
     parser.add_argument('-rgi_region02', type=str, default=pygem_prms['setup']['rgi_region02'], nargs='+',
                         help='Randoph Glacier Inventory subregion (either `all` or multiple spaced integers,  e.g. `-run_region02 1 2 3`)')
-    parser.add_argument('-rgi_glac_number', action='store', type=str, default=pygem_prms['setup']['glac_no'], nargs='+',
+    parser.add_argument('-rgi_glac_number', action='store', type=float, default=pygem_prms['setup']['glac_no'], nargs='+',
                         help='Randoph Glacier Inventory glacier number (can take multiple)')
     parser.add_argument('-ref_gcm_name', action='store', type=str, default=pygem_prms['climate']['ref_gcm_name'],
                         help='reference gcm name')
@@ -1070,7 +1070,6 @@ def run(list_packed_vars):
 
                 # ===== Export Results =====
                 if count_exceed_boundary_errors < nsims:
-
                     # ----- STATS OF ALL VARIABLES -----
                     if pygem_prms['out']['export_essential_data']:
                         # Output statistics
@@ -1086,8 +1085,9 @@ def run(list_packed_vars):
                                                     modelprms = modelprms,
                                                     gcm_bc_startyear = args.gcm_bc_startyear,
                                                     gcm_startyear = args.gcm_startyear,
-                                                    gcm_endyear = args.gcm_endyear)
-
+                                                    gcm_endyear = args.gcm_endyear,
+                                                    option_calibration = args.option_calibration,
+                                                    option_bias_adjustment = args.option_bias_adjustment)
                             for n_iter in range(nsims):
                                 # pass model params for iteration and update output dataset model params
                                 output_stats.set_modelprms({key: modelprms_all[key][n_iter] for key in modelprms_all})
@@ -1133,7 +1133,9 @@ def run(list_packed_vars):
                                                 modelprms = modelprms,
                                                 gcm_bc_startyear = args.gcm_bc_startyear,
                                                 gcm_startyear = args.gcm_startyear,
-                                                gcm_endyear = args.gcm_endyear)
+                                                gcm_endyear = args.gcm_endyear,
+                                                option_calibration = args.option_calibration,
+                                                option_bias_adjustment = args.option_bias_adjustment)
                         # create and return xarray dataset
                         output_stats.create_xr_ds()
                         output_ds_all_stats = output_stats.get_xr_ds()
@@ -1241,8 +1243,9 @@ def run(list_packed_vars):
                                                     modelprms = modelprms,
                                                     gcm_bc_startyear = args.gcm_bc_startyear,
                                                     gcm_startyear = args.gcm_startyear,
-                                                    gcm_endyear = args.gcm_endyear)
-
+                                                    gcm_endyear = args.gcm_endyear,
+                                                    option_calibration = args.option_calibration,
+                                                    option_bias_adjustment = args.option_bias_adjustment)
                             for n_iter in range(nsims):
                                 # pass model params for iteration and update output dataset model params
                                 output_binned.set_modelprms({key: modelprms_all[key][n_iter] for key in modelprms_all})
@@ -1278,7 +1281,9 @@ def run(list_packed_vars):
                                                 modelprms = modelprms,
                                                 gcm_bc_startyear = args.gcm_bc_startyear,
                                                 gcm_startyear = args.gcm_startyear,
-                                                gcm_endyear = args.gcm_endyear)
+                                                gcm_endyear = args.gcm_endyear,
+                                                option_calibration = args.option_calibration,
+                                                option_bias_adjustment = args.option_bias_adjustment)
                         # create and return xarray dataset
                         output_binned.create_xr_ds()
                         output_ds_binned_stats = output_binned.get_xr_ds()
@@ -1314,7 +1319,6 @@ def run(list_packed_vars):
                         # export merged netcdf glacierwide stats
                         output_binned.save_xr_ds(output_binned.get_fn().replace('SETS',f'{nsims}sets') + 'binned.nc')
 
-        
         except Exception as err:
             # LOG FAILURE
             fail_fp = pygem_prms['root'] + '/Output/simulations/failed/' + reg_str + '/' + gcm_name + '/'
