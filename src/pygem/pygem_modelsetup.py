@@ -258,7 +258,7 @@ def import_Husstable(rgi_table, filepath, filedict, drop_col_names, indexname=py
 
 
 def selectglaciersrgitable(glac_no=None, rgi_regionsO1=None, rgi_regionsO2='all', rgi_glac_number='all',
-                           rgi_fp=pygem_prms['rgi']['rgi_relpath'], 
+                           rgi_fp=pygem_prms['root'] + pygem_prms['rgi']['rgi_relpath'], 
                            rgi_cols_drop=pygem_prms['rgi']['rgi_cols_drop'],
                            rgi_O1Id_colname=pygem_prms['rgi']['rgi_O1Id_colname'],
                            rgi_glacno_float_colname=pygem_prms['rgi']['rgi_glacno_float_colname'],

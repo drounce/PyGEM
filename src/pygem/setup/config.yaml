@@ -1,4 +1,12 @@
-﻿# Python Glacier Evolution Model configuration file
+﻿#######################################################
+## Python Glacier Evolution Model configuration file ##
+#######################################################
+# some useful info: 
+# boolean options are either `true` or `false`
+# exponential values are formatted as `##.#e+#` (mest be decimal point before `e`, with either `+` or `-` following)
+# infintiy values are either `.inf` or `-.inf`
+# `null` indicates `None`
+#######################################################
 
 # ===== USER INFO =====
 user:
@@ -7,13 +15,13 @@ user:
   email: drounce@cmu.edu
 
 # ===== PyGEM root data path =====
-path: /path/to/pygem/data/                        # note, all other paths are assumed relative to this (inputs and outputs)
+root: /Users/btober/Documents/pygem_data/                        # note, all other paths are assumed relative to this (inputs and outputs)
 
 # ===== GLACIER SELECTION =====
 setup:
   rgi_region01:
     - 1
-  rgi_region01: all
+  rgi_region02: all
   rgi_glac_number: all
   glac_no_skip: null
   glac_no: null
@@ -30,7 +38,7 @@ oggm:
   logging_level: WORKFLOW                         # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recommended WORKFLOW)
   border: 80                                      # 10, 80, 160, 240 (recommend 240 if expecting glaciers for long runs where glaciers may grow)
   oggm_gdir_relpath: /OGGM/gdirs/
-  overwrite_gdirs: f
+  overwrite_gdirs: false
   has_internet: true
 
 # ===== CLIMATE DATA AND TIME PERIODS ===== 
@@ -56,7 +64,7 @@ climate:
 # ===== CALIBRATION OPTIONS =====
 calib:
   option_calibration: MCMC                        # calibration option ('emulator', 'MCMC' 'HH2015', 'HH2015mod', 'null')
-  priors_reg_fn: priors_region.csv                # Prior distribution (specify filename or set to null)
+  priors_reg_fn: priors_region.csv                # Prior distribution (specify filename, relative to `path`/Output/calibration/, or set to null)
 
   # HH2015 params
   HH2015_params: 
@@ -87,7 +95,7 @@ calib:
   # emulator params
   emulator_params:
     emulator_sims: 100                            # Number of simulations to develop the emulator
-    overwrite_em_sims: false                      # Overwrite emulator simulations
+    overwrite_em_sims: true                      # Overwrite emulator simulations
     opt_hh2015_mod: true                          # Option to also perform the HH2015_mod calibration using the emulator
     tbias_step: 0.5                               # tbias step size
     tbias_init: 0                                 # tbias initial value
@@ -104,7 +112,7 @@ calib:
     ddfsnow_mu: 0.0041                            # ddfsnow mean
     ddfsnow_sigma: 0.0015                         # ddfsnow standard deviation
     ddfsnow_bndlow: 0                             # ddfsnow lower bound
-    ddfsnow_bndhigh: np.inf                       # ddfsnow upper bound
+    ddfsnow_bndhigh: .inf                         # ddfsnow upper bound
     method_opt: SLSQP                             # SciPy optimization scheme ('SLSQP' or 'L-BFGS-B')
     params2opt:                                   # parameters to optimize
       - tbias
@@ -131,7 +139,7 @@ calib:
     ddfsnow_mu: 0.0041                            # ddfsnow mean
     ddfsnow_sigma: 0.0015                         # ddfsnow standard deviation
     ddfsnow_bndlow: 0                             # ddfsnow lower bound
-    ddfsnow_bndhigh: inf                          # ddfsnow upper bound
+    ddfsnow_bndhigh: .inf                         # ddfsnow upper bound
     # Precipitation factor distribution options
     kp_disttype: gamma                            # distribution type ('gamma' (recommended), 'lognormal', 'uniform')
     # tbias and kp priors - won't be used if priors_reg_fn is null
@@ -339,14 +347,14 @@ time:
 constants:
   density_ice: 900                                # Density of ice [kg m-3] (or Gt / 1000 km3)
   density_water: 1000                             # Density of water [kg m-3]
-  area_ocean: 362.5e12                            # Area of ocean [m2] (Cogley, 2012 from Marzeion et al. 2020)
+  area_ocean: 362.5e+12                            # Area of ocean [m2] (Cogley, 2012 from Marzeion et al. 2020)
   k_ice: 2.33                                     # Thermal conductivity of ice [J s-1 K-1 m-1] recall (W = J s-1)
   k_air: 0.023                                    # Thermal conductivity of air [J s-1 K-1 m-1] (Mellor, 1997)
   #k_air: 0.001                                   # Thermal conductivity of air [J s-1 K-1 m-1]
   ch_ice: 1890000                                 # Volumetric heat capacity of ice [J K-1 m-3] (density=900, heat_capacity=2100 J K-1 kg-1)
   ch_air: 1297                                    # Volumetric Heat capacity of air [J K-1 m-3] (density=1.29, heat_capacity=1005 J K-1 kg-1)
   Lh_rf: 333550                                   # Latent heat of fusion [J kg-1]
-  tolerance: 1e-12                                # Model tolerance (used to remove low values caused by rounding errors)
+  tolerance: 1.0e-12                                # Model tolerance (used to remove low values caused by rounding errors)
   gravity: 9.81                                   # Gravity [m s-2]
   pressure_std: 101325                            # Standard pressure [Pa]
   temp_std: 288.15                                # Standard temperature [K]

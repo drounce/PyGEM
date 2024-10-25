@@ -31,7 +31,7 @@ class GCM():
         Add variable name and specific properties associated with each gcm.
         """
         
-        if pygem_prms.rgi_lon_colname not in ['CenLon_360']:
+        if pygem_prms['rgi']['rgi_lon_colname'] not in ['CenLon_360']:
             assert 1==0, 'Longitude does not use 360 degrees. Check how negative values are handled!'
         
         # Source of climate data
@@ -59,12 +59,12 @@ class GCM():
                 self.prec_fn = self.prec_vn + '_mon_' + scenario + '_' + name + '-' + realization + '.cam.h0.1980-2100.nc'
                 self.elev_fn = self.elev_vn + '_fx_' + scenario + '_' + name + '.cam.h0.nc'
                 # Variable filepaths
-                self.var_fp = pygem_prms.cesm2_fp_var_prefix + scenario + pygem_prms.cesm2_fp_var_ending
-                self.fx_fp = pygem_prms.cesm2_fp_fx_prefix + scenario + pygem_prms.cesm2_fp_fx_ending
+                self.var_fp = pygem_prms['root'] + pygem_prms['climate_paths']['cesm2_relpath'] + scenario + pygem_prms['climate_paths']['cesm2_fp_var_ending']
+                self.fx_fp = pygem_prms['root'] + pygem_prms['climate_paths']['cesm2_relpath'] + scenario + pygem_prms['climate_paths']['cesm2_fp_fx_ending']
                 # Extra information
-                self.timestep = pygem_prms.timestep
-                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.timestep = pygem_prms['time']['timestep']
+                self.rgi_lat_colname=pygem_prms['rgi']['rgi_lat_colname']
+                self.rgi_lon_colname=pygem_prms['rgi']['rgi_lon_colname']
                 self.scenario = scenario
                 
             # Set parameters for GFDL SPEAR Large Ensemble
@@ -82,12 +82,12 @@ class GCM():
                 self.prec_fn = self.prec_vn + '_mon_' + scenario + '_' + name + '-' + realization + 'i1p1f1_gr3_1980-2100.nc'
                 self.elev_fn = self.elev_vn + '_fx_' + scenario + '_' + name + '.nc'
                 # Variable filepaths
-                self.var_fp = pygem_prms.gfdl_fp_var_prefix + scenario + pygem_prms.gfdl_fp_var_ending
-                self.fx_fp = pygem_prms.gfdl_fp_fx_prefix + scenario + pygem_prms.gfdl_fp_fx_ending
+                self.var_fp = pygem_prms['root'] + pygem_prms['climate_paths']['gfdl_relpath'] + scenario + pygem_prms['climate_paths']['gfdl_fp_var_ending']
+                self.fx_fp = pygem_prms['root'] + pygem_prms['climate_paths']['gfdl_relpath'] + scenario + pygem_prms['climate_paths']['gfdl_fp_fx_ending']
                 # Extra information
-                self.timestep = pygem_prms.timestep
-                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.timestep = pygem_prms['time']['timestep']
+                self.rgi_lat_colname=pygem_prms['rgi']['rgi_lat_colname']
+                self.rgi_lon_colname=pygem_prms['rgi']['rgi_lon_colname']
                 self.scenario = scenario
             
         else:
@@ -105,18 +105,18 @@ class GCM():
                 self.time_vn = 'time'
                 self.lr_vn = 'lapserate'
                 # Variable filenames
-                self.temp_fn = pygem_prms.era5_temp_fn
-                self.tempstd_fn = pygem_prms.era5_tempstd_fn
-                self.prec_fn = pygem_prms.era5_prec_fn
-                self.elev_fn = pygem_prms.era5_elev_fn
-                self.lr_fn = pygem_prms.era5_lr_fn
+                self.temp_fn = pygem_prms['climate_paths']['era5_temp_fn']
+                self.tempstd_fn = pygem_prms['climate_paths']['era5_tempstd_fn']
+                self.prec_fn = pygem_prms['climate_paths']['era5_prec_fn']
+                self.elev_fn = pygem_prms['climate_paths']['era5_elev_fn']
+                self.lr_fn = pygem_prms['climate_paths']['era5_lr_fn']
                 # Variable filepaths
-                self.var_fp = pygem_prms.era5_fp
-                self.fx_fp = pygem_prms.era5_fp
+                self.var_fp = pygem_prms['root'] + pygem_prms['climate_paths']['era5_relpath']
+                self.fx_fp = pygem_prms['root'] + pygem_prms['climate_paths']['era5_relpath']
                 # Extra information
-                self.timestep = pygem_prms.timestep
-                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.timestep = pygem_prms['time']['timestep']
+                self.rgi_lat_colname=pygem_prms['rgi']['rgi_lat_colname']
+                self.rgi_lon_colname=pygem_prms['rgi']['rgi_lon_colname']
                 
             elif self.name == 'ERA-Interim':
                 # Variable names
@@ -128,17 +128,17 @@ class GCM():
                 self.time_vn = 'time'
                 self.lr_vn = 'lapserate'
                 # Variable filenames
-                self.temp_fn = pygem_prms.eraint_temp_fn
-                self.prec_fn = pygem_prms.eraint_prec_fn
-                self.elev_fn = pygem_prms.eraint_elev_fn
-                self.lr_fn = pygem_prms.eraint_lr_fn
+                self.temp_fn = pygem_prms['climate_paths']['eraint_temp_fn']
+                self.prec_fn = pygem_prms['climate_paths']['eraint_prec_fn']
+                self.elev_fn = pygem_prms['climate_paths']['eraint_elev_fn']
+                self.lr_fn = pygem_prms['climate_paths']['eraint_lr_fn']
                 # Variable filepaths
-                self.var_fp = pygem_prms.eraint_fp
-                self.fx_fp = pygem_prms.eraint_fp
+                self.var_fp = pygem_prms['root'] + pygem_prms['climate_paths']['eraint_relpath']
+                self.fx_fp = pygem_prms['root'] + pygem_prms['climate_paths']['eraint_relpath']
                 # Extra information
-                self.timestep = pygem_prms.timestep
-                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.timestep = pygem_prms['time']['timestep']
+                self.rgi_lat_colname=pygem_prms['rgi']['rgi_lat_colname']
+                self.rgi_lon_colname=pygem_prms['rgi']['rgi_lon_colname']
                 
             # Standardized CMIP5 format (GCM/RCP)
             elif 'rcp' in scenario:
@@ -154,16 +154,16 @@ class GCM():
                 self.prec_fn = self.prec_vn + '_mon_' + name + '_' + scenario + '_r1i1p1_native.nc'
                 self.elev_fn = self.elev_vn + '_fx_' + name + '_' + scenario + '_r0i0p0.nc'
                 # Variable filepaths
-                self.var_fp = pygem_prms.cmip5_fp_var_prefix + scenario + pygem_prms.cmip5_fp_var_ending
-                self.fx_fp = pygem_prms.cmip5_fp_fx_prefix + scenario + pygem_prms.cmip5_fp_fx_ending
-                if not os.path.exists(self.var_fp) and os.path.exists(pygem_prms.cmip5_fp_var_prefix + name + '/'):
-                    self.var_fp = pygem_prms.cmip5_fp_var_prefix + name + '/'
-                if not os.path.exists(self.fx_fp) and os.path.exists(pygem_prms.cmip5_fp_fx_prefix + name + '/'):
-                    self.fx_fp = pygem_prms.cmip5_fp_fx_prefix + name + '/'
+                self.var_fp = pygem_prms['root'] + pygem_prms['climate_paths']['cmip5_relpath'] + scenario + pygem_prms['climate_paths']['cmip5_fp_var_ending']
+                self.fx_fp = pygem_prms['root'] + pygem_prms['climate_paths']['cmip5_relpath'] + scenario + pygem_prms['climate_paths']['cmip5_fp_fx_ending']
+                if not os.path.exists(self.var_fp) and os.path.exists(pygem_prms['climate_paths']['cmip5_relpath'] + name + '/'):
+                    self.var_fp = pygem_prms['root'] + pygem_prms['climate_paths']['cmip5_relpath'] + name + '/'
+                if not os.path.exists(self.fx_fp) and os.path.exists(pygem_prms['climate_paths']['cmip5_relpath'] + name + '/'):
+                    self.fx_fp = pygem_prms['root'] + pygem_prms['climate_paths']['cmip5_relpath'] + name + '/'
                 # Extra information
-                self.timestep = pygem_prms.timestep
-                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.timestep = pygem_prms['time']['timestep']
+                self.rgi_lat_colname=pygem_prms['rgi']['rgi_lat_colname']
+                self.rgi_lon_colname=pygem_prms['rgi']['rgi_lon_colname']
                 self.scenario = scenario
             
             # Standardized CMIP6 format (GCM/SSP)
@@ -180,12 +180,12 @@ class GCM():
                 self.prec_fn = name + '_' + scenario + '_r1i1p1f1_' + self.prec_vn + '.nc'
                 self.elev_fn = name + '_' + self.elev_vn + '.nc'
                 # Variable filepaths
-                self.var_fp = pygem_prms.cmip6_fp_prefix + name + '/'
-                self.fx_fp = pygem_prms.cmip6_fp_prefix + name + '/'
+                self.var_fp = pygem_prms['climate_paths']['cmip6_relpath'] + name + '/'
+                self.fx_fp = pygem_prms['climate_paths']['cmip6_relpath'] + name + '/'
                 # Extra information
-                self.timestep = pygem_prms.timestep
-                self.rgi_lat_colname=pygem_prms.rgi_lat_colname
-                self.rgi_lon_colname=pygem_prms.rgi_lon_colname
+                self.timestep = pygem_prms['time']['timestep']
+                self.rgi_lat_colname=pygem_prms['rgi']['rgi_lat_colname']
+                self.rgi_lon_colname=pygem_prms['rgi']['rgi_lon_colname']
                 self.scenario = scenario
             
             

@@ -21,7 +21,7 @@ class CompatGlacDir:
            
 def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrite_gdirs'], prepro_border=pygem_prms['oggm']['border'], 
                                       logging_level= pygem_prms['oggm']['logging_level'], has_internet= pygem_prms['oggm']['has_internet'], 
-                                      working_dir=pygem_prms['path'] + pygem_prms['oggm']['oggm_gdir_relpath']):
+                                      working_dir=pygem_prms['root'] + pygem_prms['oggm']['oggm_gdir_relpath']):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     Parameters
@@ -114,7 +114,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['ogg
                                                    prepro_border=pygem_prms['oggm']['border'], k_calving=1,
                                                    logging_level= pygem_prms['oggm']['logging_level'], 
                                                    has_internet= pygem_prms['oggm']['has_internet'],
-                                                   working_dir=pygem_prms['path'] + pygem_prms['oggm']['oggm_gdir_relpath']):
+                                                   working_dir=pygem_prms['root'] + pygem_prms['oggm']['oggm_gdir_relpath']):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     k_calving is free variable!

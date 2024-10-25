@@ -26,7 +26,7 @@ def annualweightedmean_array(var, dates_table):
     var_annual : np.ndarray
         Annual weighted mean of variable
     """        
-    if pygem_prms.timestep == 'monthly':
+    if pygem_prms['time']['timestep'] == 'monthly':
         dayspermonth = dates_table['daysinmonth'].values.reshape(-1,12)
         #  creates matrix (rows-years, columns-months) of the number of days per month
         daysperyear = dayspermonth.sum(axis=1)
@@ -43,7 +43,7 @@ def annualweightedmean_array(var, dates_table):
         # If averaging a single year, then reshape so it returns a 1d array
         if var_annual.shape[1] == 1:
             var_annual = var_annual.reshape(var_annual.shape[0])
-    elif pygem_prms.timestep == 'daily':
+    elif pygem_prms['time']['timestep'] == 'daily':
         print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
               'Exiting the model run.\n')
         exit()
