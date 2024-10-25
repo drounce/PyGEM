@@ -19,8 +19,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import os, types, json, cftime, collections
-# Local libraries
-import pygem_params as pygem_prms
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 ### single glacier output parent class ###
 @dataclass
@@ -34,7 +35,7 @@ class single_glacier:
     gcm_name : str
     scenario : str
     realization : str
-    sim_iters : int
+    nsims : int
     modelprms : dict
     gcm_bc_startyear : int
     gcm_startyear : int
@@ -44,7 +45,7 @@ class single_glacier:
         self.glac_values = np.array([self.glacier_rgi_table.name])
         self.glacier_str = '{0:0.5f}'.format(self.glacier_rgi_table['RGIId_float'])
         self.reg_str  = str(self.glacier_rgi_table.O1Region).zfill(2)
-        self.outdir = pygem_prms.output_sim_fp
+        self.outdir = pygem_prms['root'] + '/Output/simulations/'
         self.set_fn()
         self.set_time_vals()
         self.model_params_record()
@@ -287,7 +288,7 @@ class glacierwide_stats(single_glacier):
                                                         'units': 'm3',
                                                         'temporal_resolution': 'monthly',
                                                         'comment': 'off-glacier runoff from area where glacier no longer exists'}
-        if self.sim_iters > 1:
+        if self.nsims > 1:
             self.output_coords_dict['glac_runoff_monthly_mad'] = collections.OrderedDict([('glac', self.glac_values), 
                                                                                     ('time',  self.time_values)])
             self.output_attrs_dict['glac_runoff_monthly_mad'] = {
@@ -425,7 +426,7 @@ class glacierwide_stats(single_glacier):
                                                         'temporal_resolution': 'monthly',
                                                         'comment': 'snow remaining accounting for new accumulation, melt, and refreeze'}
 
-            if self.sim_iters > 1:
+            if self.nsims > 1:
                 self.output_coords_dict['glac_prec_monthly_mad'] = collections.OrderedDict([('glac', self.glac_values), 
                                                                                     ('time',  self.time_values)])
                 self.output_attrs_dict['glac_prec_monthly_mad'] =  {
@@ -613,7 +614,7 @@ class binned_stats(single_glacier):
                                                             'temporal_resolution': 'monthly',
                                                             'comment': 'monthly refreeze from the PyGEM mass balance module'}
         
-        if self.sim_iters > 1:
+        if self.nsims > 1:
             self.output_coords_dict['bin_mass_annual_mad'] = (
             collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
             self.output_attrs_dict['bin_mass_annual_mad'] = {
@@ -669,7 +670,7 @@ class regional_monthly_massbal(compiled_regional):
     """
 
 
-def calc_stats_array(data, stats_cns=['median', 'mad']):
+def calc_stats_array(data, stats_cns=pygem_prms['sim']['sim_stats']):
     """
     Calculate stats for a given variable
 

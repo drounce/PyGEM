@@ -56,12 +56,14 @@ def getparser():
     ----------
     ref_gcm_name (optional) : str
         reference gcm name
-    num_simultaneous_processes (optional) : int
+    ncores (optional) : int
         number of cores to use in parallels
     rgi_glac_number_fn : str
         filename of .json file containing a list of glacier numbers which is used to run batches on the supercomputer
     rgi_glac_number : str
-        rgi glacier number to run for supercomputer
+        rgi glacier number to run
+    option_calibration : str
+        calibration option ("emulator", "MCMC", "HH2015", "HH2015mod", "None")
     progress_bar : bool
         Switch for turning the progress bar on or off (default = False)
     debug : bool
@@ -71,25 +73,34 @@ def getparser():
     -------
     Object containing arguments and their respective values.
     """
-    parser = argparse.ArgumentParser(description="run calibration in parallel")
+    parser = argparse.ArgumentParser(description="Run PyGEM calibration")
     # add arguments
+    parser.add_argument('-rgi_region01', type=int, default=pygem_prms['setup']['rgi_region01'],
+                        help='Randoph Glacier Inventory region (can take multiple, e.g. `-run_region01 1 2 3`)', nargs='+')
+    parser.add_argument('-rgi_region02', type=str, default=pygem_prms['setup']['rgi_region02'], nargs='+',
+                        help='Randoph Glacier Inventory subregion (either `all` or multiple spaced integers,  e.g. `-run_region02 1 2 3`)')
     parser.add_argument('-ref_gcm_name', action='store', type=str, default=pygem_prms['climate']['ref_gcm_name'],
                         help='reference gcm name')
+    parser.add_argument('-ref_startyear', action='store', type=int, default=pygem_prms['climate']['ref_startyear'],
+                        help='reference period starting year for calibration (typically 2000)')
+    parser.add_argument('-ref_endyear', action='store', type=int, default=pygem_prms['climate']['ref_endyear'],
+                        help='reference period ending year for calibration (typically 2019)')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc'),
     parser.add_argument('-rgi_glac_number', action='store', type=str, default=pygem_prms['setup']['glac_no'], nargs='+',
-                        help='rgi glacier number for supercomputer')
-    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=1,
+                        help='Randoph Glacier Inventory glacier number (can take multiple)')
+    parser.add_argument('-ncores', action='store', type=int, default=1,
                         help='number of simultaneous processes (cores) to use (default is 1, ie. no parallelization)')
     parser.add_argument('-option_calibration', action='store', type=str, default=pygem_prms['calib']['option_calibration'],
                         help='calibration option ("emulator", "MCMC", "HH2015", "HH2015mod", "None")')
     # flags
+    parser.add_argument('-option_ordered', action='store_true',
+                        help='Flag to keep glacier lists ordered (default is off)')
     parser.add_argument('-p', '--progress_bar', action='store_true',
                         help='Flag to show progress bar')
     parser.add_argument('-v', '--debug', action='store_true',
                         help='Flag for debugging')
     return parser
-
 
 def safe_float(value):
     try:
@@ -544,7 +555,7 @@ def run(list_packed_vars):
 
     # ===== TIME PERIOD =====
     dates_table = modelsetup.datesmodelrun(
-            startyear=pygem_prms['climate']['ref_startyear'], endyear=pygem_prms['climate']['ref_endyear'], spinupyears=pygem_prms['climate']['ref_spinupyears'],
+            startyear=args.ref_startyear, endyear=args.ref_endyear, spinupyears=pygem_prms['climate']['ref_spinupyears'],
             option_wateryear=pygem_prms['climate']['ref_wateryear'])
 
     # ===== LOAD CLIMATE DATA =====
@@ -582,7 +593,7 @@ def run(list_packed_vars):
                 gdir.is_tidewater = False
             else:
                 # set reset=True to overwrite non-calving directory that may already exist
-                gdir = single_flowline_glacier_directory_with_calving(glacier_str, reset=False)
+                gdir = single_flowline_glacier_directory_with_calving(glacier_str)
                 gdir.is_tidewater = True
                 
             fls = gdir.read_pickle('inversion_flowlines')
@@ -1448,7 +1459,7 @@ def run(list_packed_vars):
                         else:
                             initial_guesses = torch.tensor(get_initials(priors))
                         if debug:
-                            print(f"{glacier_str} chain {n_chain} initials:\t'tbias': {initial_guesses[0]:.2f}, 'kp': {initial_guesses[1]:.2f}, 'ddfsnow': {initial_guesses[2]:.4f}")
+                            print(f"{glacier_str} chain {n_chain} initials:\ttbias: {initial_guesses[0]:.2f}, kp: {initial_guesses[1]:.2f}, ddfsnow: {initial_guesses[2]:.4f}")
                         initial_guesses_z = mcmc.z_normalize(initial_guesses, mb.means, mb.stds)
 
                         # instantiate sampler
@@ -1488,7 +1499,7 @@ def run(list_packed_vars):
                             if pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
                                 fp += 'dh/' 
                             os.makedirs(fp, exist_ok=True)
-                            if args.num_simultaneous_processes > 1:
+                            if args.ncores > 1:
                                 show=False
                             else:
                                 show=True
@@ -2050,7 +2061,7 @@ def run(list_packed_vars):
                     text_file.write(glacier_str + ' had no flowlines or mb_data.')                    
 
     # Global variables for Spyder development
-    if args.num_simultaneous_processes == 1:
+    if args.ncores == 1:
         global main_vars
         main_vars = inspect.currentframe().f_locals
 
@@ -2064,25 +2075,26 @@ def main():
     # RGI glacier number
     if args.rgi_glac_number:
         glac_no = args.rgi_glac_number
+        # format appropriately
+        glac_no = [f"{g:.5f}" if g >= 10 else f"0{g:.5f}" for g in glac_no]
     elif args.rgi_glac_number_fn is not None:
         with open(args.rgi_glac_number_fn, 'r') as f:
             glac_no = json.load(f)
     else:
         main_glac_rgi_all = modelsetup.selectglaciersrgitable(
-                rgi_regionsO1=pygem_prms['rgi']['rgi_regionsO1'], rgi_regionsO2=pygem_prms['rgi']['rgi_regionsO2'],
-                rgi_glac_number=pygem_prms['rgi']['rgi_glac_number'], include_landterm=pygem_prms['setup']['include_landterm'],
-                include_laketerm=pygem_prms['setup']['include_laketerm'], include_tidewater=pygem_prms['setup']['include_tidewater'], 
-                min_glac_area_km2=pygem_prms['setup']['min_glac_area_km2'])
+                rgi_regionsO1=args.rgi_region01, rgi_regionsO2=args.rgi_region02,
+                include_landterm=pygem_prms['setup']['include_landterm'], include_laketerm=pygem_prms['setup']['include_laketerm'],
+                include_tidewater=pygem_prms['setup']['include_tidewater'], min_glac_area_km2=pygem_prms['setup']['min_glac_area_km2'])
         glac_no = list(main_glac_rgi_all['rgino_str'].values)
 
     # Number of cores for parallel processing
-    if args.num_simultaneous_processes > 1:
-        num_cores = int(np.min([len(glac_no), args.num_simultaneous_processes]))
+    if args.ncores > 1:
+        num_cores = int(np.min([len(glac_no), args.ncores]))
     else:
         num_cores = 1
 
     # Glacier number lists to pass for parallel processing
-    glac_no_lsts = modelsetup.split_list(glac_no, n=num_cores)
+    glac_no_lsts = modelsetup.split_list(glac_no, n=num_cores, option_ordered=args.option_ordered)
 
     # Read GCM names from argument parser
     gcm_name = args.ref_gcm_name

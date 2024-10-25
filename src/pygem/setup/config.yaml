@@ -6,6 +6,10 @@
 # exponential values are formatted as `##.#e+#` (mest be decimal point before `e`, with either `+` or `-` following)
 # infintiy values are either `.inf` or `-.inf`
 # `null` is imported to Python as `None`
+# lists are indicated as:
+#                           - item1
+#                           - item2
+#                           - item3
 #######################################################
 
 # ===== USER INFO =====
@@ -22,10 +26,9 @@ setup:
   rgi_region01:
     - 1
   rgi_region02: all
-  rgi_glac_number: all
-  glac_no_skip: null
-  glac_no: null
-  min_glac_area_km2: 0
+  glac_no_skip: null                              # optionally specify rgi glacier numbers to skip
+  glac_no: null                                   # either `null` or a list of rgi glacier numbers, including the region # (e.g., 1.00570)
+  min_glac_area_km2: 0                            # glacies below the specified are threshold will be excluded
   # Types of glaciers to include (true) or exclude (false)
   include_landterm: true                          # Switch to include land-terminating glaciers
   include_laketerm: true                          # Switch to include lake-terminating glaciers
@@ -194,7 +197,7 @@ sim:
                                                   # 1: new prec scheme and temp building on HH2015
                                                   # 2: HH2015 methods
                                                   # 3: quantile delta mapping
-  sim_iters: 1                                    # number of simulations (note, bull default to 1 if ['calib']['option_calibration'] != 'MCMC')
+  nsims: 1                                        # number of simulations (note, defaults to 1 if ['calib']['option_calibration'] != 'MCMC')
   sim_stats:                                      # Output statistics of simulations (options include any of the following 'mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%', 'mad')
     - median
     - mad
