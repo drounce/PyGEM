@@ -137,7 +137,7 @@ def getparser():
                         help='start year for the model run')
     parser.add_argument('-mcmc_burn_pct', action='store', type=int, default=0,
                         help='percent of MCMC chain to burn off from beginning (defaults to 0, assuming that burn in was performed in calibration)')
-    parser.add_argument('-ncores', action='store', type=int, default=4,
+    parser.add_argument('-ncores', action='store', type=int, default=1,
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-batch_number', action='store', type=int, default=None,
                         help='Batch number used to differentiate output on supercomputer')

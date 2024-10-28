@@ -6,7 +6,7 @@ from collections import OrderedDict
 import os
 import sys
 import time
-
+import json
 # External libraries
 import pandas as pd
 import pickle
@@ -14,12 +14,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import brentq
 
-# Local libraries
-try:
-    import pygem
-except:
-    sys.path.append(os.getcwd() + '/../PyGEM/')
-import pygem_input as pygem_prms
+# pygem imports
+import pygem
+import pygem.setup.config as config
+# Check for config
+config.ensure_config()  # This will ensure the config file is created
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 from pygem import class_climate
 from pygem.massbalance import PyGEMMassBalance
 from pygem.oggm_compat import single_flowline_glacier_directory
@@ -29,15 +30,6 @@ from oggm import cfg
 from oggm import tasks
 from oggm.core import climate
 
-   
-#%% ----- MANUAL INPUT DATA -----
-regions = [12]
-
-print('setting glacier dynamic model parameters here')
-fs = 0                 # keep this set at 0
-a_multiplier = 1       # calibrate this based on ice thickness data or the consensus estimates
-a_multiplier_bndlow = 0.1
-a_multiplier_bndhigh = 10
 
 #%% FUNCTIONS
 def getparser():
@@ -48,21 +40,15 @@ def getparser():
     ----------
     ref_gcm_name (optional) : str
         reference gcm name
-    num_simultaneous_processes (optional) : int
-        number of cores to use in parallels
-    option_parallels (optional) : int
-        switch to use parallels or not
     rgi_glac_number_fn : str
         filename of .pkl file containing a list of glacier numbers which is used to run batches on the supercomputer
     rgi_glac_number : str
         rgi glacier number to run for supercomputer
-    option_ordered : int
+    option_ordered : bool (default: False)
         option to keep glaciers ordered or to grab every n value for the batch
         (the latter helps make sure run times on each core are similar as it removes any timing differences caused by
          regional variations)
-    progress_bar : int
-        Switch for turning the progress bar on or off (default = 0 (off))
-    debug : int
+    debug : bool (defauls: False)
         Switch for turning debug printing on or off (default = 0 (off))
 
     Returns
@@ -71,22 +57,32 @@ def getparser():
     """
     parser = argparse.ArgumentParser(description="run calibration in parallel")
     # add arguments
-    parser.add_argument('-ref_gcm_name', action='store', type=str, default=pygem_prms.ref_gcm_name,
+    parser.add_argument('-rgi_region01', type=int, default=pygem_prms['setup']['rgi_region01'],
+                        help='Randoph Glacier Inventory region (can take multiple, e.g. `-run_region01 1 2 3`)', nargs='+')
+    parser.add_argument('-ref_gcm_name', action='store', type=str, default=pygem_prms['climate']['ref_gcm_name'],
                         help='reference gcm name')
-    parser.add_argument('-num_simultaneous_processes', action='store', type=int, default=4,
-                        help='number of simultaneous processes (cores) to use')
-    parser.add_argument('-option_parallels', action='store', type=int, default=1,
-                        help='Switch to use or not use parallels (1 - use parallels, 0 - do not)')
+    parser.add_argument('-ref_startyear', action='store', type=int, default=pygem_prms['climate']['ref_startyear'],
+                        help='reference period starting year for calibration (typically 2000)')
+    parser.add_argument('-ref_endyear', action='store', type=int, default=pygem_prms['climate']['ref_endyear'],
+                        help='reference period ending year for calibration (typically 2019)')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
-    parser.add_argument('-option_ordered', action='store', type=int, default=1,
-                        help='switch to keep lists ordered or not')
-    parser.add_argument('-progress_bar', action='store', type=int, default=0,
-                        help='Boolean for the progress bar to turn it on or off (default 0 is off)')
-    parser.add_argument('-debug', action='store', type=int, default=0,
-                        help='Boolean for debugging to turn it on or off (default 0 is off)')
-    parser.add_argument('-rgi_glac_number', action='store', type=str, default=None,
-                        help='rgi glacier number for supercomputer')
+    parser.add_argument('-rgi_glac_number', action='store', type=float, default=pygem_prms['setup']['glac_no'], nargs='+',
+                        help='Randoph Glacier Inventory glacier number (can take multiple)')
+    parser.add_argument('-fs', action='store', type=float, default=pygem_prms['out']['fs'],
+                        help='Sliding parameter')
+    parser.add_argument('-a_multiplier', action='store', type=float, default=pygem_prms['out']['glen_a_multiplier'],
+                        help="Glen’s creep parameter A multiplier")
+    parser.add_argument('-a_multiplier_bndlow', action='store', type=float, default=0.1,
+                        help="Glen’s creep parameter A multiplier, low bound (default 0.1)")
+    parser.add_argument('-a_multiplier_bndhigh', action='store', type=float, default=10,
+                        help="Glen’s creep parameter A multiplier, upper bound (default 10)")
+
+    # flags
+    parser.add_argument('-option_ordered', action='store_true',
+                        help='Flag to keep glacier lists ordered (default is off)')
+    parser.add_argument('-v', '--debug', action='store_true',
+                        help='Flag for debugging')
     return parser
 
 
@@ -172,7 +168,7 @@ def plot_nfls_section(nfls):
               frameon=False)
     plt.show()
 
-def reg_vol_comparison(gdirs, mbmods, a_multiplier=1, fs=0, debug=False):
+def reg_vol_comparison(gdirs, mbmods, nyears, a_multiplier=1, fs=0, debug=False):
     """ Calculate the modeled volume [km3] and consensus volume [km3] for the given set of glaciers """
     
     reg_vol_km3_consensus = 0
@@ -194,7 +190,7 @@ def reg_vol_comparison(gdirs, mbmods, a_multiplier=1, fs=0, debug=False):
         if os.path.exists(gdir.get_filepath('consensus_mass')):
             consensus_fn = gdir.get_filepath('consensus_mass')
             with open(consensus_fn, 'rb') as f:
-                consensus_km3 = pickle.load(f) / pygem_prms.density_ice / 1e9
+                consensus_km3 = pickle.load(f) / pygem_prms['constants']['density_ice'] / 1e9
             
             reg_vol_km3_consensus += consensus_km3
             reg_vol_km3_modeled += nfls[0].volume_km3
@@ -208,219 +204,215 @@ def reg_vol_comparison(gdirs, mbmods, a_multiplier=1, fs=0, debug=False):
 
     
 #%%
-parser = getparser()
-args = parser.parse_args()
-time_start = time.time()
+def main():
+    parser = getparser()
+    args = parser.parse_args()
+    time_start = time.time()
 
-if args.debug == 1:
-    debug = True
-else:
-    debug = False
+    if args.debug == 1:
+        debug = True
+    else:
+        debug = False
 
-# Check that input file set up properly to record results of successful calibration
-try:
-    os.path.exists(pygem_prms.glena_reg_fullfn)
-except:
-    assert True==False, "pygem_prms.glena_reg_fullfn is not specified in input file. You may need to set option_dynamics='OGGM'"
-
-# Calibrate each region
-for reg in regions:
-    
-    print('Region:', reg)
-    
-    # ===== LOAD GLACIERS =====
-    main_glac_rgi_all = modelsetup.selectglaciersrgitable(
-                rgi_regionsO1=[reg], rgi_regionsO2='all', rgi_glac_number='all', 
-                include_landterm=True,include_laketerm=True, include_tidewater=True)
+    # Calibrate each region
+    for reg in args.rgi_regionsO1:
         
-    
-    main_glac_rgi_all = main_glac_rgi_all.sort_values('Area', ascending=False)
-    main_glac_rgi_all.reset_index(inplace=True, drop=True)
-    main_glac_rgi_all['Area_cum'] = np.cumsum(main_glac_rgi_all['Area'])
-    main_glac_rgi_all['Area_cum_frac'] = main_glac_rgi_all['Area_cum'] / main_glac_rgi_all.Area.sum()
-    
-    glac_idx = np.where(main_glac_rgi_all.Area_cum_frac > pygem_prms.icethickness_cal_frac_byarea)[0][0]
-    main_glac_rgi_subset = main_glac_rgi_all.loc[0:glac_idx, :]
-    main_glac_rgi_subset = main_glac_rgi_subset.sort_values('O1Index', ascending=True)
-    main_glac_rgi_subset.reset_index(inplace=True, drop=True)
-    
-    
-    print('But only the largest 90% of the glaciers by area, which includes', main_glac_rgi_subset.shape[0], 'glaciers.')
-    
-    # ===== TIME PERIOD =====
-    dates_table = modelsetup.datesmodelrun(
-            startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, spinupyears=pygem_prms.ref_spinupyears,
-            option_wateryear=pygem_prms.ref_wateryear)
-    
-    # ===== LOAD CLIMATE DATA =====
-    # Climate class
-    gcm_name = pygem_prms.ref_gcm_name
-    assert gcm_name in ['ERA5', 'ERA-Interim'], 'Error: Calibration not set up for ' + gcm_name
-    gcm = class_climate.GCM(name=gcm_name)
-    # Air temperature [degC]
-    gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi_subset, dates_table)
-    if pygem_prms.option_ablation == 2 and gcm_name in ['ERA5']:
-        gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn,
-                                                                        main_glac_rgi_subset, dates_table)
-    else:
-        gcm_tempstd = np.zeros(gcm_temp.shape)
-    # Precipitation [m]
-    gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi_subset, dates_table)
-    # Elevation [m asl]
-    gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_subset)
-    # Lapse rate [degC m-1]
-    gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi_subset, dates_table)
-    
-    # ===== RUN MASS BALANCE =====
-    # Number of years (for OGGM's run_until_and_store)
-    if pygem_prms.timestep == 'monthly':
-        nyears = int(dates_table.shape[0]/12)
-    else:
-        assert True==False, 'Adjust nyears for non-monthly timestep'
-    
-    reg_vol_km3_consensus = 0
-    reg_vol_km3_modeled = 0
-    mbmods = []
-    gdirs = []
-    for glac in range(main_glac_rgi_subset.shape[0]):
-        # Select subsets of data
-        glacier_rgi_table = main_glac_rgi_subset.loc[main_glac_rgi_subset.index.values[glac], :]
-        glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
+        print('Region:', reg)
         
-        if glac%1000 == 0:
-            print(glacier_str)
-    
-        # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====
-        try:
-            gdir = single_flowline_glacier_directory(glacier_str, logging_level='CRITICAL')
+        # ===== LOAD GLACIERS =====
+        main_glac_rgi_all = modelsetup.selectglaciersrgitable(
+                    rgi_regionsO1=[reg], rgi_regionsO2='all', rgi_glac_number='all', 
+                    include_landterm=True,include_laketerm=True, include_tidewater=True)
             
-            # Flowlines
-            fls = gdir.read_pickle('inversion_flowlines')
-            
-            # Add climate data to glacier directory
-            gdir.historical_climate = {'elev': gcm_elev[glac],
-                                        'temp': gcm_temp[glac,:],
-                                        'tempstd': gcm_tempstd[glac,:],
-                                        'prec': gcm_prec[glac,:],
-                                        'lr': gcm_lr[glac,:]}
-            gdir.dates_table = dates_table
         
-            glacier_area_km2 = fls[0].widths_m * fls[0].dx_meter / 1e6
-            if (fls is not None) and (glacier_area_km2.sum() > 0):
+        main_glac_rgi_all = main_glac_rgi_all.sort_values('Area', ascending=False)
+        main_glac_rgi_all.reset_index(inplace=True, drop=True)
+        main_glac_rgi_all['Area_cum'] = np.cumsum(main_glac_rgi_all['Area'])
+        main_glac_rgi_all['Area_cum_frac'] = main_glac_rgi_all['Area_cum'] / main_glac_rgi_all.Area.sum()
         
-                modelprms_fn = glacier_str + '-modelprms_dict.pkl'
-                modelprms_fp = pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) + '/'
-                modelprms_fullfn = modelprms_fp + modelprms_fn
-                assert os.path.exists(modelprms_fullfn), glacier_str + ' calibrated parameters do not exist.'            
-                with open(modelprms_fullfn, 'rb') as f:
-                    modelprms_dict = pickle.load(f)
-                
-                assert 'emulator' in modelprms_dict, ('Error: ' + glacier_str + ' emulator not in modelprms_dict')
-                modelprms_all = modelprms_dict['emulator']
+        glac_idx = np.where(main_glac_rgi_all.Area_cum_frac > pygem_prms['calib']['icethickness_cal_frac_byarea'])[0][0]
+        main_glac_rgi_subset = main_glac_rgi_all.loc[0:glac_idx, :]
+        main_glac_rgi_subset = main_glac_rgi_subset.sort_values('O1Index', ascending=True)
+        main_glac_rgi_subset.reset_index(inplace=True, drop=True)
         
-                # Loop through model parameters
-                modelprms = {'kp': modelprms_all['kp'][0],
-                              'tbias': modelprms_all['tbias'][0],
-                              'ddfsnow': modelprms_all['ddfsnow'][0],
-                              'ddfice': modelprms_all['ddfice'][0],
-                              'tsnow_threshold': modelprms_all['tsnow_threshold'][0],
-                              'precgrad': modelprms_all['precgrad'][0]}
-                
-                # ----- ICE THICKNESS INVERSION using OGGM -----
-                # Apply inversion_filter on mass balance with debris to avoid negative flux
-                if pygem_prms.include_debris:
-                    inversion_filter = True
-                else:
-                    inversion_filter = False
-                        
-                # Perform inversion based on PyGEM MB
-                mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
-                                              hindcast=pygem_prms.hindcast,
-                                              debug=pygem_prms.debug_mb,
-                                              debug_refreeze=pygem_prms.debug_refreeze,
-                                              fls=fls, option_areaconstant=True,
-                                              inversion_filter=inversion_filter)
+        print(f'But only the largest {int(100*pygem_prms['calib']['icethickness_cal_frac_byarea'])}% of the glaciers by area, which includes', main_glac_rgi_subset.shape[0], 'glaciers.')
         
-        #        if debug:
-        #            h, w = gdir.get_inversion_flowline_hw()
-        #            mb_t0 = (mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls) * cfg.SEC_IN_YEAR * 
-        #                     pygem_prms.density_ice / pygem_prms.density_water) 
-        #            plt.plot(mb_t0, h, '.')
-        #            plt.ylabel('Elevation')
-        #            plt.xlabel('Mass balance (mwea)')
-        #            plt.show()
-                
-                mbmods.append(mbmod_inv)
-                gdirs.append(gdir)
-        except:
-            print(glacier_str + ' failed - likely no gdir')
-            
-    print('\n\n------\nModel setup time:', time.time()-time_start, 's')
-                     
-    # ===== CHECK BOUNDS =====
-    reg_vol_km3_mod, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods, a_multiplier=a_multiplier, fs=fs, 
-                                                          debug=False)
-    # Lower bound
-    reg_vol_km3_mod_bndlow, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods, 
-                                                                 a_multiplier=a_multiplier_bndlow, fs=fs, 
-                                                                 debug=False)
-    # Higher bound
-    reg_vol_km3_mod_bndhigh, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods,
-                                                                  a_multiplier=a_multiplier_bndhigh, fs=fs, 
-                                                                  debug=False)
-    
-    print('Region:', reg)
-    print('Consensus [km3]    :', reg_vol_km3_con)
-    print('Model [km3]        :', reg_vol_km3_mod)
-    print('Model bndlow [km3] :', reg_vol_km3_mod_bndlow)
-    print('Model bndhigh [km3]:', reg_vol_km3_mod_bndhigh)
-    
-    # ===== OPTIMIZATION =====
-    # Check consensus is within bounds
-    if reg_vol_km3_con < reg_vol_km3_mod_bndhigh:
-        a_multiplier_opt = a_multiplier_bndhigh
-    elif reg_vol_km3_con > reg_vol_km3_mod_bndlow:
-        a_multiplier_opt = a_multiplier_bndhigh
-    # If so, then find optimal glens_a_multiplier
-    else:
-        def to_minimize(a_multiplier):
-            """Objective function to minimize"""
-            reg_vol_km3_mod, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods, a_multiplier=a_multiplier, fs=fs, 
-                                                                  debug=False)
-            return reg_vol_km3_mod - reg_vol_km3_con
-        # Brentq minimization
-        a_multiplier_opt, r = brentq(to_minimize, a_multiplier_bndlow, a_multiplier_bndhigh, rtol=1e-2,
-                                         full_output=True)
-        # Re-run to get estimates
-        reg_vol_km3_mod, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods, a_multiplier=a_multiplier_opt, fs=fs, 
-                                                              debug=False)
+        # ===== TIME PERIOD =====
+        dates_table = modelsetup.datesmodelrun(
+                startyear=args.ref_startyear, endyear=args.ref_endyear, spinupyears=pygem_prms['climate']['ref_spinupyears'],
+                option_wateryear=pygem_prms['climate']['ref_wateryear'])
         
-        print('\n\nOptimized:\n  glens_a_multiplier:', np.round(a_multiplier_opt,3))
-        print('  Consensus [km3]:', reg_vol_km3_con)
-        print('  Model [km3]    :', reg_vol_km3_mod)
-            
-    # ===== EXPORT RESULTS =====
-    glena_cns = ['O1Region', 'count', 'glens_a_multiplier', 'fs', 'reg_vol_km3_consensus', 'reg_vol_km3_modeled']
-    glena_df_single = pd.DataFrame(np.zeros((1,len(glena_cns))), columns=glena_cns)
-    glena_df_single.loc[0,:] = [reg, main_glac_rgi_subset.shape[0], a_multiplier_opt, fs, reg_vol_km3_con, reg_vol_km3_mod]
-    
-    if os.path.exists(pygem_prms.glena_reg_fullfn):
-        glena_df = pd.read_csv(pygem_prms.glena_reg_fullfn)
-        
-        # Add or overwrite existing file
-        glena_idx = np.where((glena_df.O1Region == reg))[0]
-        if len(glena_idx) > 0:
-            glena_df.loc[glena_idx,:] = glena_df_single.values
+        # ===== LOAD CLIMATE DATA =====
+        # Climate class
+        gcm_name = args.ref_gcm_name
+        assert gcm_name in ['ERA5', 'ERA-Interim'], 'Error: Calibration not set up for ' + gcm_name
+        gcm = class_climate.GCM(name=gcm_name)
+        # Air temperature [degC]
+        gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi_subset, dates_table)
+        if pygem_prms['mbmod']['option_ablation'] == 2 and gcm_name in ['ERA5']:
+            gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn,
+                                                                            main_glac_rgi_subset, dates_table)
         else:
-            glena_df = pd.concat([glena_df, glena_df_single], axis=0)
+            gcm_tempstd = np.zeros(gcm_temp.shape)
+        # Precipitation [m]
+        gcm_prec, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.prec_fn, gcm.prec_vn, main_glac_rgi_subset, dates_table)
+        # Elevation [m asl]
+        gcm_elev = gcm.importGCMfxnearestneighbor_xarray(gcm.elev_fn, gcm.elev_vn, main_glac_rgi_subset)
+        # Lapse rate [degC m-1]
+        gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi_subset, dates_table)
+        
+        # ===== RUN MASS BALANCE =====
+        # Number of years (for OGGM's run_until_and_store)
+        if pygem_prms['time']['timestep'] == 'monthly':
+            nyears = int(dates_table.shape[0]/12)
+        else:
+            assert True==False, 'Adjust nyears for non-monthly timestep'
+        
+        reg_vol_km3_consensus = 0
+        reg_vol_km3_modeled = 0
+        mbmods = []
+        gdirs = []
+        for glac in range(main_glac_rgi_subset.shape[0]):
+            # Select subsets of data
+            glacier_rgi_table = main_glac_rgi_subset.loc[main_glac_rgi_subset.index.values[glac], :]
+            glacier_str = '{0:0.5f}'.format(glacier_rgi_table['RGIId_float'])
             
-    else:
-        glena_df = glena_df_single
+            if glac%1000 == 0:
+                print(glacier_str)
         
-    glena_df = glena_df.sort_values('O1Region', ascending=True)
-    glena_df.reset_index(inplace=True, drop=True)
-    glena_df.to_csv(pygem_prms.glena_reg_fullfn, index=False)
+            # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====
+            try:
+                gdir = single_flowline_glacier_directory(glacier_str)
+                
+                # Flowlines
+                fls = gdir.read_pickle('inversion_flowlines')
+                
+                # Add climate data to glacier directory
+                gdir.historical_climate = {'elev': gcm_elev[glac],
+                                            'temp': gcm_temp[glac,:],
+                                            'tempstd': gcm_tempstd[glac,:],
+                                            'prec': gcm_prec[glac,:],
+                                            'lr': gcm_lr[glac,:]}
+                gdir.dates_table = dates_table
+            
+                glacier_area_km2 = fls[0].widths_m * fls[0].dx_meter / 1e6
+                if (fls is not None) and (glacier_area_km2.sum() > 0):
+            
+                    modelprms_fn = glacier_str + '-modelprms_dict.json'
+                    modelprms_fp = pygem_prms['root'] + '/Output/calibration/' + glacier_str.split('.')[0].zfill(2) + '/'
+                    modelprms_fullfn = modelprms_fp + modelprms_fn
+                    assert os.path.exists(modelprms_fullfn), glacier_str + ' calibrated parameters do not exist.'            
+                    with open(modelprms_fullfn, 'r') as f:
+                        modelprms_dict = json.load(f)
+                    
+                    assert 'emulator' in modelprms_dict, ('Error: ' + glacier_str + ' emulator not in modelprms_dict')
+                    modelprms_all = modelprms_dict['emulator']
+            
+                    # Loop through model parameters
+                    modelprms = {'kp': modelprms_all['kp'][0],
+                                'tbias': modelprms_all['tbias'][0],
+                                'ddfsnow': modelprms_all['ddfsnow'][0],
+                                'ddfice': modelprms_all['ddfice'][0],
+                                'tsnow_threshold': modelprms_all['tsnow_threshold'][0],
+                                'precgrad': modelprms_all['precgrad'][0]}
+                    
+                    # ----- ICE THICKNESS INVERSION using OGGM -----
+                    # Apply inversion_filter on mass balance with debris to avoid negative flux
+                    if pygem_prms['mbmod']['include_debris']:
+                        inversion_filter = True
+                    else:
+                        inversion_filter = False
+                            
+                    # Perform inversion based on PyGEM MB
+                    mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
+                                                fls=fls, option_areaconstant=True,
+                                                inversion_filter=inversion_filter)
+            
+            #        if debug:
+            #            h, w = gdir.get_inversion_flowline_hw()
+            #            mb_t0 = (mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls) * cfg.SEC_IN_YEAR * 
+            #                     pygem_prms['constants']['density_ice'] / pygem_prms['constants']['density_water']) 
+            #            plt.plot(mb_t0, h, '.')
+            #            plt.ylabel('Elevation')
+            #            plt.xlabel('Mass balance (mwea)')
+            #            plt.show()
+                    
+                    mbmods.append(mbmod_inv)
+                    gdirs.append(gdir)
+            except:
+                print(glacier_str + ' failed - likely no gdir')
+                
+        print('\n\n------\nModel setup time:', time.time()-time_start, 's')
+                        
+        # ===== CHECK BOUNDS =====
+        reg_vol_km3_mod, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods, nyears, a_multiplier=args.a_multiplier, fs=args.fs,
+                                                            debug=debug)
+        # Lower bound
+        reg_vol_km3_mod_bndlow, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods, nyears,
+                                                                    a_multiplier=args.a_multiplier_bndlow, fs=args.fs, 
+                                                                    debug=debug)
+        # Higher bound
+        reg_vol_km3_mod_bndhigh, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods, nyears,
+                                                                    a_multiplier=args.a_multiplier_bndhigh, fs=args.fs, 
+                                                                    debug=debug)
+        
+        print('Region:', reg)
+        print('Consensus [km3]    :', reg_vol_km3_con)
+        print('Model [km3]        :', reg_vol_km3_mod)
+        print('Model bndlow [km3] :', reg_vol_km3_mod_bndlow)
+        print('Model bndhigh [km3]:', reg_vol_km3_mod_bndhigh)
+        
+        # ===== OPTIMIZATION =====
+        # Check consensus is within bounds
+        if reg_vol_km3_con < reg_vol_km3_mod_bndhigh:
+            a_multiplier_opt = args.a_multiplier_bndhigh
+        elif reg_vol_km3_con > reg_vol_km3_mod_bndlow:
+            a_multiplier_opt = args.a_multiplier_bndhigh
+        # If so, then find optimal glens_a_multiplier
+        else:
+            def to_minimize(a_multiplier):
+                """Objective function to minimize"""
+                reg_vol_km3_mod, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods, nyears, a_multiplier=a_multiplier, fs=args.fs, 
+                                                                    debug=debug)
+                return reg_vol_km3_mod - reg_vol_km3_con
+            # Brentq minimization
+            a_multiplier_opt, r = brentq(to_minimize, args.a_multiplier_bndlow, args.a_multiplier_bndhigh, rtol=1e-2,
+                                            full_output=True)
+            # Re-run to get estimates
+            reg_vol_km3_mod, reg_vol_km3_con = reg_vol_comparison(gdirs, mbmods, nyears, a_multiplier=a_multiplier_opt, fs=args.fs, 
+                                                                debug=debug)
+            
+            print('\n\nOptimized:\n  glens_a_multiplier:', np.round(a_multiplier_opt,3))
+            print('  Consensus [km3]:', reg_vol_km3_con)
+            print('  Model [km3]    :', reg_vol_km3_mod)
+                
+        # ===== EXPORT RESULTS =====
+        glena_cns = ['O1Region', 'count', 'glens_a_multiplier', 'fs', 'reg_vol_km3_consensus', 'reg_vol_km3_modeled']
+        glena_df_single = pd.DataFrame(np.zeros((1,len(glena_cns))), columns=glena_cns)
+        glena_df_single.loc[0,:] = [reg, main_glac_rgi_subset.shape[0], a_multiplier_opt, args.fs, reg_vol_km3_con, reg_vol_km3_mod]
+
+        try:
+            glena_df = pd.read_csv(f"{pygem_prms['root']}/{pygem_prms['out']['glena_reg_relpath']}")
+            
+            # Add or overwrite existing file
+            glena_idx = np.where((glena_df.O1Region == reg))[0]
+            if len(glena_idx) > 0:
+                glena_df.loc[glena_idx,:] = glena_df_single.values
+            else:
+                glena_df = pd.concat([glena_df, glena_df_single], axis=0)
+                
+        except FileNotFoundError:
+            glena_df = glena_df_single
+        
+        except Exception as err:
+            print(f'Error saving results: {err}')
+            
+        glena_df = glena_df.sort_values('O1Region', ascending=True)
+        glena_df.reset_index(inplace=True, drop=True)
+        glena_df.to_csv(f"{pygem_prms['root']}/{pygem_prms['out']['glena_reg_relpath']}", index=False)
     
     
-print('\n\n------\nTotal processing time:', time.time()-time_start, 's')
-        
+    print('\n\n------\nTotal processing time:', time.time()-time_start, 's')
+
+if __name__ == "__main__":
+    main()    
