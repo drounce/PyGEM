@@ -37,6 +37,8 @@ documentation = "https://pygem.readthedocs.io/"
 repository = "https://github.com/drounce/PyGEM"
 
 [project.scripts]
+run_calibration_icethickness_consensus = "pygem.bin.run.run_calibration_icethickness_consensus:main"
+run_calibration_frontalablation = "pygem.bin.run.run_calibration_frontalablation:main"
 run_calibration = "pygem.bin.run.run_calibration:main"
 run_simulation = "pygem.bin.run.run_simulation:main"
 
