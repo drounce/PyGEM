@@ -288,11 +288,13 @@ def run(list_packed_vars):
             # Temperature bias correction
             gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp,
                                                                         dates_table_ref, dates_table_full,
+                                                                        args.gcm_startyear, args.gcm_bc_startyear,
                                                                         ref_spinupyears=pygem_prms['climate']['ref_spinupyears'],
                                                                         gcm_spinupyears=pygem_prms['climate']['gcm_spinupyears'])
             # Precipitation bias correction
             gcm_prec_adj, gcm_elev_adj = gcmbiasadj.prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec,
                                                                       dates_table_ref, dates_table_full,
+                                                                      args.gcm_startyear, args.gcm_bc_startyear,
                                                                       ref_spinupyears=pygem_prms['climate']['ref_spinupyears'],
                                                                       gcm_spinupyears=pygem_prms['climate']['gcm_spinupyears'])
         # OPTION 2: Adjust temp and prec using Huss and Hock (2015)
@@ -300,6 +302,7 @@ def run(list_packed_vars):
             # Temperature bias correction
             gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp,
                                                                         dates_table_ref, dates_table_full,
+                                                                        args.gcm_startyear, args.gcm_bc_startyear,
                                                                         ref_spinupyears=pygem_prms['climate']['ref_spinupyears'],
                                                                         gcm_spinupyears=pygem_prms['climate']['gcm_spinupyears'])
             # Precipitation bias correction
@@ -312,6 +315,7 @@ def run(list_packed_vars):
             # Temperature bias correction
             gcm_temp_adj, gcm_elev_adj = gcmbiasadj.temp_biasadj_QDM(ref_temp, ref_elev, gcm_temp,
                                                                       dates_table_ref, dates_table_full,
+                                                                      args.gcm_startyear, args.gcm_bc_startyear,
                                                                       ref_spinupyears=pygem_prms['climate']['ref_spinupyears'],
                                                                       gcm_spinupyears=pygem_prms['climate']['gcm_spinupyears'])
 
@@ -319,6 +323,7 @@ def run(list_packed_vars):
             # Precipitation bias correction
             gcm_prec_adj, gcm_elev_adj = gcmbiasadj.prec_biasadj_QDM(ref_prec, ref_elev, gcm_prec,
                                                                       dates_table_ref, dates_table_full,
+                                                                      args.gcm_startyear, args.gcm_bc_startyear,
                                                                       ref_spinupyears=pygem_prms['climate']['ref_spinupyears'],
                                                                       gcm_spinupyears=pygem_prms['climate']['gcm_spinupyears'])
     
@@ -363,7 +368,7 @@ def run(list_packed_vars):
         ref_lr, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.lr_fn, ref_gcm.lr_vn, main_glac_rgi,
                                                                         dates_table_ref)
         # Monthly average from reference climate data
-        gcm_lr = gcmbiasadj.monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table_full)
+        gcm_lr = gcmbiasadj.monthly_avg_array_rolled(ref_lr, dates_table_ref, dates_table_full, args.gcm_startyear, args.gcm_bc_startyear)
         
     
     # ===== RUN MASS BALANCE =====

@@ -180,8 +180,8 @@ class GCM():
                 self.prec_fn = name + '_' + scenario + '_r1i1p1f1_' + self.prec_vn + '.nc'
                 self.elev_fn = name + '_' + self.elev_vn + '.nc'
                 # Variable filepaths
-                self.var_fp = pygem_prms['climate_paths']['cmip6_relpath'] + name + '/'
-                self.fx_fp = pygem_prms['climate_paths']['cmip6_relpath'] + name + '/'
+                self.var_fp = pygem_prms['root'] + pygem_prms['climate_paths']['cmip6_relpath'] + name + '/'
+                self.fx_fp = pygem_prms['root'] + pygem_prms['climate_paths']['cmip6_relpath'] + name + '/'
                 # Extra information
                 self.timestep = pygem_prms['time']['timestep']
                 self.rgi_lat_colname=pygem_prms['rgi']['rgi_lat_colname']

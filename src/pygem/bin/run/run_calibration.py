@@ -87,7 +87,7 @@ def getparser():
                         help='reference period ending year for calibration (typically 2019)')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc'),
-    parser.add_argument('-rgi_glac_number', action='store', type=str, default=pygem_prms['setup']['glac_no'], nargs='+',
+    parser.add_argument('-rgi_glac_number', action='store', type=float, default=pygem_prms['setup']['glac_no'], nargs='+',
                         help='Randoph Glacier Inventory glacier number (can take multiple)')
     parser.add_argument('-ncores', action='store', type=int, default=1,
                         help='number of simultaneous processes (cores) to use (default is 1, ie. no parallelization)')

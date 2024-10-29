@@ -4,24 +4,24 @@ Calibrate frontal ablation parameters for tidewater glaciers
 @author: davidrounce
 """
 # Built-in libraries
-#import argparse
+import argparse
 import os
 import pickle
 import sys
-
+import time
+import json
 # External libraries
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import linregress
 import xarray as xr
-
-# Local libraries
-try:
-    import pygem
-except:
-    sys.path.append(os.getcwd() + '/../PyGEM/')
-import pygem_input as pygem_prms
+# pygem imports
+import pygem.setup.config as config
+# Check for config
+config.ensure_config()  # This will ensure the config file is created
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 import pygem.pygem_modelsetup as modelsetup
 from pygem.massbalance import PyGEMMassBalance
 from pygem.glacierdynamics import MassRedistributionCurveModel
@@ -41,22 +41,70 @@ else:
     from oggm.core.climate import apparent_mb_from_any_mb # Older Version of OGGM
 
 
+
+#%% FUNCTIONS
+def getparser():
+    """
+    Use argparse to add arguments from the command line
+    """
+    parser = argparse.ArgumentParser(description="run calibration in parallel")
+    # add arguments
+    parser.add_argument('-rgi_region01', type=int, default=pygem_prms['setup']['rgi_region01'],
+                        help='Randoph Glacier Inventory region (can take multiple, e.g. `-run_region01 1 2 3`)', nargs='+')
+    parser.add_argument('-ref_gcm_name', action='store', type=str, default=pygem_prms['climate']['ref_gcm_name'],
+                        help='reference gcm name')
+    parser.add_argument('-ref_startyear', action='store', type=int, default=pygem_prms['climate']['ref_startyear'],
+                        help='reference period starting year for calibration (typically 2000)')
+    parser.add_argument('-ref_endyear', action='store', type=int, default=pygem_prms['climate']['ref_endyear'],
+                        help='reference period ending year for calibration (typically 2019)')
+
+
+    # flags
+    parser.add_argument('-v', '--debug', action='store_true',
+                        help='flag for debugging')
+    parser.add_argument('-option_merge_data', action='store_true',
+                       help='flag to merge frontal ablation datasets and add mbclim data')
+    parser.add_argument('-option_ind_calving_k', action='store_true',
+                       help='flag to calibrate individual glaciers')
+    parser.add_argument('-option_reg_calving_k', action='store_true',
+                       help='flag to calibrate all glaciers regionally')
+    parser.add_argument('-drop_ind_glaciers', action='store_true',
+                       help='flag for region 9 to decide if using individual glacier data or only regional data (used with option_reg_calving_k)')
+    parser.add_argument('-option_merge_calving_k', action='store_true',
+                       help='flag to merge all regions together')
+    parser.add_argument('-option_update_mb_data', action='store_true',
+                       help='flag to update gdirs with the new mass balance data')
+    parser.add_argument('-option_plot_calving_k', action='store_true',
+                       help='flag to make plots of the calibration performance')
+    parser.add_argument('-option_scrap', action='store_true',
+                       help='flag to run scrap (test) calculations')
+    parser.add_argument('-overwrite', action='store_true',
+                       help='flag to overwrite previous calving calibration files')
+    return parser
+
+def mwea_to_gta(mwea, area_m2):
+    return mwea * pygem_prms['constants']['density_water'] * area_m2 / 1e12
+
+def gta_to_mwea(gta, area_m2):
+    return gta * 1e12 / pygem_prms['constants']['density_water'] / area_m2
+
+
 #%% ----- MANUAL INPUT DATA -----
-regions = [1,3,4,5,7,9,17,19]
-#regions = [19]
+def main():
+    parser = getparser()
+    args = parser.parse_args()
+    time_start = time.time()
 
-overwrite = False
-output_fp = pygem_prms.main_directory + '/../calving_data/analysis/'
+    if args.debug == 1:
+        debug = True
+    else:
+        debug = False
 
-option_merge_data = False        # Merge frontal ablation datasets and add mbclim data
-option_ind_calving_k = False    # Calibrate individual glaciers
-option_reg_calving_k = False    # Calibrate all glaciers regionally
-if option_reg_calving_k:
-    drop_ind_glaciers = False # For region 9 decide if using individual glacier data or regional data
-option_merge_calving_k = False   # Merge all regions together
-option_update_mb_data = False   # Update gdirs with the new mass balance data
-option_plot_calving_k = True    # Plots of the calibration performance
-option_scrap = False             # Scrap calculations
+
+output_fp = pygem_prms['root'] + 'calving_data/analysis/'
+
+if args.option_reg_calving_k:
+    args.drop_ind_glaciers = False # For region 9 decide if using individual glacier data or regional data
 
 frontal_ablation_Gta_cn = 'fa_gta_obs'
 frontal_ablation_Gta_unc_cn = 'fa_gta_obs_unc'
@@ -78,64 +126,10 @@ debug_reg_calving_fxn = True
 prms_from_reg_priors=False
 prms_from_glac_cal=True
 
-##%% ----- Argument Parser -----
-#def getparser():
-#    """
-#    Use argparse to add arguments from the command line
-#
-#    Parameters
-#    ----------
-#    option_merge_data : int
-#        boolean switch to merge frontal ablation datasets and add mbclim data
-#    option_ind_calving_k : int
-#        boolean switch to calibrate individual glaciers
-#    option_reg_calving_k : int
-#        boolean switch to calibrate all glaciers regionally
-#    drop_ind_glaciers : int
-#        boolean switch for region 9 to decide if using individual glacier data or only regional data (used with option_reg_calving_k)
-#    option_merge_calving_k : int
-#        boolean switch to merge all regions together
-#    option_update_mb_data : int
-#        boolean switch to update gdirs with the new mass balance data
-#    option_plot_calving_k : int    
-#        boolean switch to make plots of the calibration performance
-#    option_scrap : int
-#        boolean switch to run scrap (test) calculations
-#
-#    Returns
-#    -------
-#    Object containing arguments and their respective values.
-#    """
-#    parser = argparse.ArgumentParser(description="run simulations from gcm list in parallel")
-#    # add arguments
-#    parser.add_argument('-option_merge_data', action='store', type=int, default=0,
-#                        help='boolean switch to merge frontal ablation datasets and add mbclim data (default 0 is off)')
-#    parser.add_argument('-option_ind_calving_k', action='store', type=int, default=0,
-#                        help='boolean switch to calibrate individual glaciers (default 0 is off)')
-#    parser.add_argument('-option_reg_calving_k', action='store', type=int, default=0,
-#                        help='boolean switch to calibrate all glaciers regionally (default 0 is off)')
-#    parser.add_argument('-drop_ind_glaciers', action='store', type=int, default=0,
-#                        help='boolean switch for region 9 to decide if using individual glacier data or only regional data (used with option_reg_calving_k) (default 0 is off)')
-#    parser.add_argument('-option_merge_calving_k', action='store', type=int, default=0,
-#                        help='boolean switch to merge all regions together (default 0 is off)')
-#    parser.add_argument('-option_update_mb_data', action='store', type=int, default=0,
-#                        help='boolean switch to update gdirs with the new mass balance data (default 0 is off)')
-#    parser.add_argument('-option_plot_calving_k', action='store', type=int, default=0,
-#                        help='boolean switch to make plots of the calibration performance (default 0 is off)')
-#    parser.add_argument('-option_scrap', action='store', type=int, default=0,
-#                        help='boolean switch to run scrap (test) calculations (default 0 is off)')
-#    return parser
 
-
-
-#%% ----- CONVERSION FUNCTIONS -----
-def mwea_to_gta(mwea, area_m2):
-    return mwea * pygem_prms.density_water * area_m2 / 1e12
-def gta_to_mwea(gta, area_m2):
-    return gta * 1e12 / pygem_prms.density_water / area_m2
 
 #%% ----- CALIBRATE FRONTAL ABLATION -----
-def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
+def reg_calving_flux(main_glac_rgi, calving_k, args, fa_glac_data_reg=None,
                      frontal_ablation_Gta_cn=None,
                      prms_from_reg_priors=False, prms_from_glac_cal=False, ignore_nan=True, debug=False,
                      invert_standard=invert_standard,
@@ -161,17 +155,17 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
     """    
     # ===== TIME PERIOD =====
     dates_table = modelsetup.datesmodelrun(
-            startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, spinupyears=pygem_prms.ref_spinupyears,
-            option_wateryear=pygem_prms.ref_wateryear)
+            startyear=args.ref_startyear, endyear=args.ref_endyear, spinupyears=pygem_prms['climate']['ref_spinupyears'],
+            option_wateryear=pygem_prms['climate']['ref_wateryear'])
 
     # ===== LOAD CLIMATE DATA =====
     # Climate class
-    assert pygem_prms.ref_gcm_name in ['ERA5', 'ERA-Interim'], (
-            'Error: Calibration not set up for ' + pygem_prms.ref_gcm_name)
-    gcm = class_climate.GCM(name=pygem_prms.ref_gcm_name)
+    assert args.ref_gcm_name in ['ERA5', 'ERA-Interim'], (
+            'Error: Calibration not set up for ' + args.ref_gcm_name)
+    gcm = class_climate.GCM(name=args.ref_gcm_name)
     # Air temperature [degC]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi, dates_table)
-    if pygem_prms.option_ablation == 2 and pygem_prms.ref_gcm_name in ['ERA5']:
+    if pygem_prms['mbmod']['option_ablation'] == 2 and args.ref_gcm_name in ['ERA5']:
         gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn,
                                                                         main_glac_rgi, dates_table)
     else:
@@ -234,70 +228,67 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
             tbias_value = None
             # Use most likely parameters from initial calibration to force the mass balance gradient for the inversion
             if prms_from_reg_priors:
-                if pygem_prms.priors_reg_fullfn is not None:
+                if pygem_prms['calib']['priors_reg_fn'] is not None:
                     # Load priors
-                    priors_df = pd.read_csv(pygem_prms.priors_reg_fullfn)
+                    priors_df = pd.read_csv(pygem_prms['root'] + '/Output/calibration/' + pygem_prms['calib']['priors_reg_fn'])
                     priors_idx = np.where((priors_df.O1Region == glacier_rgi_table['O1Region']) & 
                                           (priors_df.O2Region == glacier_rgi_table['O2Region']))[0][0]
                     kp_value = priors_df.loc[priors_idx,'kp_med']
                     tbias_value = priors_df.loc[priors_idx,'tbias_med']
             # Use the calibrated model parameters (although they were calibrated without accounting for calving)
             elif prms_from_glac_cal:
-                modelprms_fn = glacier_str + '-modelprms_dict.pkl'
-                modelprms_fp = (pygem_prms.output_filepath + 'calibration/' + glacier_str.split('.')[0].zfill(2) 
+                modelprms_fn = glacier_str + '-modelprms_dict.json'
+                modelprms_fp = (pygem_prms['root'] + '/Output/calibration/' + glacier_str.split('.')[0].zfill(2) 
                                 + '/')
                 assert os.path.exists(modelprms_fp + modelprms_fn), 'modelprms_dict file does not exist'
-                with open(modelprms_fp + modelprms_fn, 'rb') as f:
-                    modelprms_dict = pickle.load(f)
+                with open(modelprms_fp + modelprms_fn, 'r') as f:
+                    modelprms_dict = json.load(f)
                 modelprms_em = modelprms_dict['emulator']
                 kp_value = modelprms_em['kp'][0]
                 tbias_value = modelprms_em['tbias'][0]
                 
             # Otherwise use input parameters
             if kp_value is None:
-                kp_value = pygem_prms.kp
+                kp_value = args.kp
             if tbias_value is None:
-                tbias_value = pygem_prms.tbias
+                tbias_value = args.tbias
             
             # Set model parameters
             modelprms = {'kp': kp_value,
                          'tbias': tbias_value,
-                         'ddfsnow': pygem_prms.ddfsnow,
-                         'ddfice': pygem_prms.ddfice,
-                         'tsnow_threshold': pygem_prms.tsnow_threshold,
-                         'precgrad': pygem_prms.precgrad}                
+                         'ddfsnow': pygem_prms['mod']['ddfsnow'],
+                         'ddfice': pygem_prms['mod']['ddfsnow'] / pygem_prms['mod']['ddfsnow_iceratio'],
+                         'tsnow_threshold': pygem_prms['mod']['tsnow_threshold'],
+                         'precgrad': pygem_prms['mod']['precgrad']}            
                 
             # Calving and dynamic parameters
             cfg.PARAMS['calving_k'] = calving_k
             cfg.PARAMS['inversion_calving_k'] = cfg.PARAMS['calving_k']
             
-            if pygem_prms.use_reg_glena:
-                glena_df = pd.read_csv(pygem_prms.glena_reg_fullfn)
+            if pygem_prms['out']['use_reg_glena']:
+                glena_df = pd.read_csv(pygem_prms['root'] + pygem_prms['out']['glena_reg_relpath'])
                 glena_idx = np.where(glena_df.O1Region == glacier_rgi_table.O1Region)[0][0]
                 glen_a_multiplier = glena_df.loc[glena_idx,'glens_a_multiplier']
                 fs = glena_df.loc[glena_idx,'fs']
             else:
-                fs = pygem_prms.fs
-                glen_a_multiplier = pygem_prms.glen_a_multiplier
+                fs = pygem_prms['out']['fs']
+                glen_a_multiplier = pygem_prms['out']['glen_a_multiplier']
             
             # CFL number (may use different values for calving to prevent errors)
-            if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms.include_calving:
-                cfg.PARAMS['cfl_number'] = pygem_prms.cfl_number
+            if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_calving']:
+                cfg.PARAMS['cfl_number'] = pygem_prms['out']['cfl_number']
             else:
-                cfg.PARAMS['cfl_number'] = pygem_prms.cfl_number_calving
+                cfg.PARAMS['cfl_number'] = pygem_prms['out']['cfl_number_calving']
             
             # ----- Mass balance model for ice thickness inversion using OGGM -----
             mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
-                                         hindcast=pygem_prms.hindcast,
-                                         debug=pygem_prms.debug_mb,
-                                         debug_refreeze=pygem_prms.debug_refreeze,
                                          fls=fls, option_areaconstant=False,
                                          inversion_filter=False)
             h, w = gdir.get_inversion_flowline_hw()
             
 #            if debug:
 #                mb_t0 = (mbmod_inv.get_annual_mb(h, year=0, fl_id=0, fls=fls) * cfg.SEC_IN_YEAR * 
-#                         pygem_prms.density_ice / pygem_prms.density_water) 
+#                         pygem_prms['constants']['density_ice'] / pygem_prms['constants']['density_water']) 
 #                plt.plot(mb_t0, h, '.')
 #                plt.ylabel('Elevation')
 #                plt.xlabel('Mass balance (mwea)')
@@ -305,7 +296,7 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
             
             # ----- CALVING -----
             # Number of years (for OGGM's run_until_and_store)
-            if pygem_prms.timestep == 'monthly':
+            if pygem_prms['time']['timestep'] == 'monthly':
                 nyears = int(dates_table.shape[0]/12)
             else:
                 assert True==False, 'Adjust nyears for non-monthly timestep'
@@ -328,9 +319,6 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
             nfls = gdir.read_pickle('model_flowlines')
             # Mass balance model
             mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
-                                     hindcast=pygem_prms.hindcast,
-                                     debug=pygem_prms.debug_mb,
-                                     debug_refreeze=pygem_prms.debug_refreeze,
                                      fls=nfls, option_areaconstant=True)
             # Water Level
             # Check that water level is within given bounds
@@ -359,7 +347,7 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
 #                        print('\n\ndiag.calving_m3:', diag.calving_m3.values)
 #                        print('calving_m3_since_y0:', ev_model.calving_m3_since_y0)
                     calving_m3_annual = ((diag.calving_m3.values[1:] - diag.calving_m3.values[0:-1]) * 
-                                         pygem_prms.density_ice / pygem_prms.density_water)
+                                         pygem_prms['constants']['density_ice'] / pygem_prms['constants']['density_water'])
                     for n in np.arange(calving_m3_annual.shape[0]):
                         ev_model.mb_model.glac_wide_frontalablation[12*n+11] = calving_m3_annual[n]
 
@@ -372,14 +360,14 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
 #                        print('avg frontal ablation [Gta]:', 
 #                              np.round(ev_model.mb_model.glac_wide_frontalablation.sum() / 1e9 / nyears,4))
 #                        print('avg frontal ablation [Gta]:', 
-#                              np.round(ev_model.calving_m3_since_y0 * pygem_prms.density_ice / 1e12 / nyears,4))
+#                              np.round(ev_model.calving_m3_since_y0 * pygem_prms['constants']['density_ice'] / 1e12 / nyears,4))
                         
                     # Output of calving
                     out_calving_forward = {}
                     # calving flux (km3 ice/yr)
                     out_calving_forward['calving_flux'] = calving_m3_annual.sum() / nyears / 1e9
                     # calving flux (Gt/yr)
-                    calving_flux_Gta = out_calving_forward['calving_flux'] * pygem_prms.density_ice / pygem_prms.density_water
+                    calving_flux_Gta = out_calving_forward['calving_flux'] * pygem_prms['constants']['density_ice'] / pygem_prms['constants']['density_water']
                     
                     # calving front thickness at start of simulation
                     thick = nfls[0].thick
@@ -420,21 +408,21 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
                     ev_model.mb_model.glac_wide_massbaltotal = (
                             ev_model.mb_model.glac_wide_massbaltotal - ev_model.mb_model.glac_wide_frontalablation)
 
-                    calving_flux_km3a = (ev_model.mb_model.glac_wide_frontalablation.sum() * pygem_prms.density_water / 
-                                         pygem_prms.density_ice / nyears / 1e9)
+                    calving_flux_km3a = (ev_model.mb_model.glac_wide_frontalablation.sum() * pygem_prms['constants']['density_water'] / 
+                                         pygem_prms['constants']['density_ice'] / nyears / 1e9)
 
 #                    if debug:
 #                        print('avg frontal ablation [Gta]:', 
 #                              np.round(ev_model.mb_model.glac_wide_frontalablation.sum() / 1e9 / nyears,4))
 #                        print('avg frontal ablation [Gta]:', 
-#                              np.round(ev_model.calving_m3_since_y0 * pygem_prms.density_ice / 1e12 / nyears,4))
+#                              np.round(ev_model.calving_m3_since_y0 * pygem_prms['constants']['density_ice'] / 1e12 / nyears,4))
                     
                     # Output of calving
                     out_calving_forward = {}
                     # calving flux (km3 ice/yr)
                     out_calving_forward['calving_flux'] = calving_flux_km3a
                     # calving flux (Gt/yr)
-                    calving_flux_Gta = out_calving_forward['calving_flux'] * pygem_prms.density_ice / pygem_prms.density_water
+                    calving_flux_Gta = out_calving_forward['calving_flux'] * pygem_prms['constants']['density_ice'] / pygem_prms['constants']['density_water']
                     # calving front thickness at start of simulation
                     thick = nfls[0].thick
                     last_idx = np.nonzero(thick)[0][-1]
@@ -463,7 +451,7 @@ def reg_calving_flux(main_glac_rgi, calving_k, fa_glac_data_reg=None,
                 height_asl[mbmod.heights<0] = 0
                 mb_mwea_fa_asl_geo_correction = ((bin_area_lost * height_asl[bin_last_idx:]).sum() / 
                                         mbmod.glac_wide_area_annual[0] *
-                                        pygem_prms.density_ice / pygem_prms.density_water / nyears)
+                                        pygem_prms['constants']['density_ice'] / pygem_prms['constants']['density_water'] / nyears)
                 mb_mwea_fa_asl_geo_correction_max = 0.3*gta_to_mwea(calving_flux_Gta, glacier_rgi_table['Area']*1e6)
                 if mb_mwea_fa_asl_geo_correction > mb_mwea_fa_asl_geo_correction_max:
                     mb_mwea_fa_asl_geo_correction = mb_mwea_fa_asl_geo_correction_max
@@ -731,8 +719,8 @@ def run_opt_fa(main_glac_rgi_ind, calving_k, calving_k_bndlow, calving_k_bndhigh
 
 
 #%%
-if option_merge_data:
-    calving_fp = pygem_prms.main_directory + '/../calving_data/'
+if args.option_merge_data:
+    calving_fp = pygem_prms['root'] + '/calving_data/'
     calving_fn1 = 'Northern_hemisphere_calving_flux_Kochtitzky_et_al_for_David_Rounce_with_melt_v14-wromainMB.csv'
     calving_fn2 = 'frontalablation_glacier_data_minowa2021.csv'
     calving_fn3 = 'frontalablation_glacier_data_osmanoglu.csv'
@@ -747,7 +735,7 @@ if option_merge_data:
     fa_glac_data3 = pd.read_csv(calving_fp + calving_fn3)
     
     # Process datasets
-    mb_data_df = pd.read_csv(pygem_prms.hugonnet_fp + pygem_prms.hugonnet_fn)
+    mb_data_df = pd.read_csv(pygem_prms['root'] + '/' + pygem_prms['calib']['data']['hugonnet']['hugonnet_relpath'])
     mb_data_df['mb_mwea_romain'] = mb_data_df['mb_mwea'].copy() 
     mb_data_df['mb_mwea_err_romain'] = mb_data_df['mb_mwea_err'].copy() 
 
@@ -848,13 +836,13 @@ if option_merge_data:
 #            mb_idx = rgiids_mb_data.index(rgiid)
 #        
 #            # Mass balance
-#            mb_mwea = mb_data_df.loc[mb_idx,pygem_prms.hugonnet_mb_cn]
-#            mb_mwea_err = mb_data_df.loc[mb_idx,pygem_prms.hugonnet_mb_err_cn]
+#            mb_mwea = mb_data_df.loc[mb_idx,pygem_prms['calib']['data']['hugonnet']['hugonnet_mb_cn']]
+#            mb_mwea_err = mb_data_df.loc[mb_idx,pygem_prms['calib']['data']['hugonnet']['hugonnet_mb_err_cn']]
 #            area_m2 = mb_data_df.loc[mb_idx,'area'] * 1e6
 #            mb_gta = mwea_to_gta(mb_mwea, area_m2)
 #            fa_data_process.loc[nglac,'Romain_mwea_mbtot'] = mb_mwea
 #            fa_data_process.loc[nglac,'Romain_gta_mbtot'] = mb_gta
-##                fa_data_process.loc[nglac,'Romain_mwea_mbtot_err'] = mb_data_df.loc[mb_idx,pygem_prms.hugonnet_mb_err_cn]
+##                fa_data_process.loc[nglac,'Romain_mwea_mbtot_err'] = mb_data_df.loc[mb_idx,pygem_prms['calib']['data']['hugonnet']['hugonnet_mb_err_cn']]
 #        
 #            # Frontal Ablation (gta)
 #            fa_gta = fa_data_process.loc[nglac,'fa_gta_obs']
@@ -894,7 +882,7 @@ if option_merge_data:
     
                     
 #%%
-if option_reg_calving_k:
+if args.option_reg_calving_k:
     # Load calving glacier data
     fa_glac_data = pd.read_csv(pygem_prms.frontalablation_glacier_data_fullfn)
     
@@ -1085,12 +1073,12 @@ if option_reg_calving_k:
         output_df['area_km2'] = output_df['RGIId'].map(rgi_area_dict)
         
         if cfl_number is None:
-            output_df['cfl_number'] = pygem_prms.cfl_number
+            output_df['cfl_number'] = pygem_prms['out']['cfl_number']
         else:
             output_df['cfl_number'] = cfl_number
         
         
-        output_fp = pygem_prms.main_directory + '/../calving_data/analysis/'
+        output_fp = pygem_prms['root'] + '/calving_data/analysis/'
         if not os.path.exists(output_fp):
             os.makedirs(output_fp)
         output_fn = str(reg) + '-calving_cal_reg.csv'
@@ -1167,14 +1155,14 @@ if option_reg_calving_k:
 
 
 #%% ===== INDIVIDUAL CALIBRATION =========================================================================================        
-if option_ind_calving_k:
+if args.option_ind_calving_k:
     
     # Load calving glacier data
-    calving_fp = pygem_prms.main_directory + '/../calving_data/'
+    calving_fp = pygem_prms['root'] + '/calving_data/'
     calving_fn = 'Northern_hemisphere_calving_flux_Kochtitzky_et_al_for_David_Rounce_with_melt_v14-wromainMB-w17_19.csv'
     fa_glac_data = pd.read_csv(calving_fp + calving_fn)
     hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
-    mb_data = pd.read_csv(pygem_prms.hugonnet_fp + hugonnet_fn)
+    mb_data = pd.read_csv(f"{pygem_prms['root']}/{pygem_prms['calib']['data']['hugonnet']['hugonnet_relpath']}")
     
     fa_glac_data['O1Region'] = [int(x.split('-')[1].split('.')[0]) for x in fa_glac_data.RGIId.values]
     
@@ -1233,7 +1221,7 @@ if option_ind_calving_k:
         print('mb_clim_min:', np.round(mb_data_reg.mb_mwea.min(),2))
         print('mb_clim_max:', np.round(mb_clim_reg_max,2))
             
-        if not os.path.exists(output_fp + output_fn) or overwrite:
+        if not os.path.exists(output_fp + output_fn) or args.overwrite:
 
             output_cns = ['RGIId', 'calving_k', 'calving_k_nmad', 'calving_thick', 'calving_flux_Gta', 'fa_gta_obs', 'fa_gta_obs_unc', 'fa_gta_max', 
                           'calving_flux_Gta_bndlow', 'calving_flux_Gta_bndhigh', 'no_errors', 'oggm_dynamics', 
@@ -1622,7 +1610,7 @@ if option_ind_calving_k:
             
             print(reg, len(glac_no_missing), main_glac_rgi_missing.Area.sum(), glac_no_missing)
             
-            if not os.path.exists(output_fp + output_fn_missing) or overwrite:
+            if not os.path.exists(output_fp + output_fn_missing) or args.overwrite:
     
                 # Add regions for median subsets
                 output_df_all['O1Region'] = [int(x.split('-')[1].split('.')[0]) for x in output_df_all.RGIId]
@@ -1878,7 +1866,7 @@ if option_ind_calving_k:
             
             print(reg, len(glac_no_missing), main_glac_rgi_missing.Area.sum(), glac_no_missing)
             
-            if not os.path.exists(output_fp + output_fn_missing) or overwrite:
+            if not os.path.exists(output_fp + output_fn_missing) or args.overwrite:
                 
                 # Add regions for median subsets
                 output_df_all['O1Region'] = [int(x.split('-')[1].split('.')[0]) for x in output_df_all.RGIId]
@@ -2290,7 +2278,7 @@ if option_ind_calving_k:
 
 
 #%% ----- MERGE CALIBRATED CALVING DATASETS -----
-if option_merge_calving_k:
+if args.option_merge_calving_k:
     
     for nreg, reg in enumerate(regions):
         
@@ -2329,17 +2317,16 @@ if option_merge_calving_k:
 
 
 #%% ----- UPDATE MASS BALANCE DATA WITH FRONTAL ABLATION ESTIMATES -----
-if option_update_mb_data:
-    
+if args.option_update_mb_data:
     # Load calving glacier data (already quality controlled during calibration)
-    calving_fp = pygem_prms.main_directory + '/../calving_data/analysis/'
+    calving_fp = pygem_prms['root'] + '/calving_data/'
     calving_fn = 'all-calving_cal_ind.csv'
     assert os.path.exists(calving_fp + calving_fn), 'Calibrated frontal ablation output dataset does not exist'
     fa_glac_data = pd.read_csv(calving_fp + calving_fn)
 
     # Load mass balance data
     hugonnet_fn = 'df_pergla_global_20yr-filled.csv'
-    mb_data = pd.read_csv(pygem_prms.hugonnet_fp + hugonnet_fn)
+    mb_data = pd.read_csv(f"{pygem_prms['root']}/{pygem_prms['calib']['data']['hugonnet']['hugonnet_relpath']}")
     mb_rgiids = list(mb_data.RGIId)
 
     # Record prior data
@@ -2364,7 +2351,7 @@ if option_update_mb_data:
                   'mb_romain:', np.round(mb_data.loc[mb_idx,'mb_romain_mwea'],2))
 
     # Export the updated dataset
-    mb_data.to_csv(pygem_prms.hugonnet_fp + hugonnet_fn.replace('.csv','-facorrected.csv'), index=False)
+    mb_data.to_csv(f"{pygem_prms['root']}/{pygem_prms['calib']['data']['hugonnet']['hugonnet_relpath']}".replace('.csv','-facorrected.csv'), index=False)
 
     # Update gdirs
 #    rgiids = ['RGI60-' + x for x in pygem_prms.glac_no]
@@ -2380,13 +2367,12 @@ if option_update_mb_data:
             glacier_str = rgiid.split('-')[1]
     
             gdir = single_flowline_glacier_directory_with_calving(glacier_str, 
-                                                                  logging_level='CRITICAL',
                                                                   reset=True
                                                                   )
 
 
 #%%
-if option_plot_calving_k:
+if args.option_plot_calving_k:
     
     rgi_reg_dict = {'all':'Global',
                     'global':'Global',
@@ -2557,7 +2543,7 @@ if option_plot_calving_k:
 
 
 #%%     
-if option_scrap:
+if args.option_scrap:
     # GCMs and RCP scenarios
     regions = [19]
 #    gcm_names = ['BCC-CSM2-MR']

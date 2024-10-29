@@ -162,9 +162,9 @@ calib:
   
   # calibration datasets
   data:
-    # hugonett geodetic mass balance
-    hugonett:
-      hugonett_relpath: /DEMs/Hugonett2020/df_pergla_global_20yr-filled-FAcorrected.csv   # relative to main data path
+    # hugonnet geodetic mass balance
+    hugonnet:
+      hugonnet_relpath: /DEMs/Hugonnet2020/df_pergla_global_20yr-filled-FAcorrected.csv   # relative to main data path
       hugonnet_mb_cn: mb_mwea
       hugonnet_mb_err_cn: mb_mwea_err
       hugonnet_rgi_glacno_cn: RGIId
