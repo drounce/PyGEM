@@ -1,3 +1,10 @@
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+"""
 # Built-in libaries
 import argparse
 import os

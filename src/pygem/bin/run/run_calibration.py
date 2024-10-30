@@ -1,4 +1,12 @@
-"""Run model calibration."""
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+Run model calibration
+"""
 
 # Built-in libraries
 import argparse
@@ -23,10 +31,10 @@ import sklearn.model_selection
 
 # pygem imports
 import pygem.setup.config as config
-# Check for config
-config.ensure_config()  # This will ensure the config file is created
-# Read the config
-pygem_prms = config.read_config()  # This reads the configuration file
+# check for config
+config.ensure_config()
+# read the config
+pygem_prms = config.read_config()
 from pygem import mcmc
 from pygem import class_climate
 from pygem.massbalance import PyGEMMassBalance

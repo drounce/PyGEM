@@ -19,7 +19,7 @@ user:
   email: drounce@cmu.edu
 
 # ===== PyGEM root data path =====
-root: /Users/btober/Documents/pygem_data/                        # note, all other paths are assumed relative to this (inputs and outputs)
+root: /path/to/pygem/data/                        # note, all other paths are assumed relative to this (inputs and outputs)
 
 # ===== GLACIER SELECTION =====
 setup:

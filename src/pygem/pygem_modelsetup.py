@@ -1,4 +1,12 @@
-""" List of functions used to set up different aspects of the model """
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
+
+List of functions used to set up different aspects of the model
+"""
 
 # Built-in libaries
 import os

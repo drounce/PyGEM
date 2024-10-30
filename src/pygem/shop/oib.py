@@ -1,6 +1,11 @@
 """
-set of functions to handle binned NASA Operation IceBridge surface elevation data
-bstober 20240830
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2024 Brandon Tober <btober@cmu.edu>, David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+Load NASA Operation IceBridge data
 """
 
 import os, glob, json, pickle, datetime, warnings

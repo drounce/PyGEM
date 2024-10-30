@@ -1,4 +1,12 @@
-"""Run bias adjustments a given climate dataset"""
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+Run bias adjustments a given climate dataset
+"""
 
 # Built-in libraries
 import os

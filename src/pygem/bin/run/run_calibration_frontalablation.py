@@ -1,7 +1,11 @@
 """
-Calibrate frontal ablation parameters for tidewater glaciers
+Python Glacier Evolution Model (PyGEM)
 
-@author: davidrounce
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+Calibrate frontal ablation parameters for tidewater glaciers
 """
 # Built-in libraries
 import argparse

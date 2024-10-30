@@ -1,6 +1,10 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
 Functions that didn't fit into other modules
 """
 import numpy as np

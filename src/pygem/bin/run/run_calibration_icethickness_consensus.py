@@ -1,4 +1,12 @@
-"""Find the optimal values of glens_a_multiplier to match the consensus ice thickness estimates """
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+Find the optimal values of glens_a_multiplier to match the consensus ice thickness estimates 
+"""
 
 # Built-in libraries
 import argparse
@@ -28,7 +36,7 @@ import pygem.pygem_modelsetup as modelsetup
 
 from oggm import cfg
 from oggm import tasks
-from oggm.core import climate
+from oggm.core.massbalance import apparent_mb_from_any_mb
 
 
 #%% FUNCTIONS
@@ -179,7 +187,7 @@ def reg_vol_comparison(gdirs, mbmods, nyears, a_multiplier=1, fs=0, debug=False)
         mbmod_inv = mbmods[nglac]
         
         # Arbitrariliy shift the MB profile up (or down) until mass balance is zero (equilibrium for inversion)
-        climate.apparent_mb_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears))
+        apparent_mb_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears))
     
         tasks.prepare_for_inversion(gdir)
         tasks.mass_conservation_inversion(gdir, glen_a=cfg.PARAMS['glen_a']*a_multiplier, fs=fs)
@@ -215,7 +223,7 @@ def main():
         debug = False
 
     # Calibrate each region
-    for reg in args.rgi_regionsO1:
+    for reg in args.rgi_region01:
         
         print('Region:', reg)
         
@@ -409,7 +417,8 @@ def main():
             
         glena_df = glena_df.sort_values('O1Region', ascending=True)
         glena_df.reset_index(inplace=True, drop=True)
-        glena_df.to_csv(f"{pygem_prms['root']}/{pygem_prms['out']['glena_reg_relpath']}", index=False)
+        print(glen_df)
+        # glena_df.to_csv(f"{pygem_prms['root']}/{pygem_prms['out']['glena_reg_relpath']}", index=False)
     
     
     print('\n\n------\nTotal processing time:', time.time()-time_start, 's')

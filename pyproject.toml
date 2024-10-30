@@ -29,7 +29,8 @@ dependencies = [
     "torch",
     "gpytorch",
     "scikit-learn",
-    "tqdm"
+    "tqdm",
+    "jupyter"
 ]
 
 [project.urls]

@@ -1,4 +1,12 @@
-"""Run a model simulation."""
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+Run a model simulation
+"""
 # Default climate data is ERA-Interim; specify CMIP5 by specifying a filename to the argument:
 #    (Command line) python run_simulation_list_multiprocess.py -gcm_list_fn=C:\...\gcm_rcpXX_filenames.txt
 #      - Default is running ERA-Interim in parallel with five processors.
@@ -24,13 +32,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import median_abs_deviation
 import xarray as xr
+
 # pygem imports
 import pygem
 import pygem.setup.config as config
-# Check for config
-config.ensure_config()  # This will ensure the config file is created
-# Read the config
-pygem_prms = config.read_config()  # This reads the configuration file
+# check for config
+config.ensure_config()
+# read the config
+pygem_prms = config.read_config()
 import pygem.gcmbiasadj as gcmbiasadj
 import pygem.pygem_modelsetup as modelsetup
 from pygem.massbalance import PyGEMMassBalance
