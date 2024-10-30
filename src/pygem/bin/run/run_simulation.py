@@ -52,15 +52,11 @@ from pygem import output
 from pygem.output import calc_stats_array
 # oggm imports
 import oggm
-oggm_version = float(oggm.__version__[0:3])
 from oggm import cfg
 from oggm import graphics
 from oggm import tasks
 from oggm import utils
-if oggm_version > 1.301:
-    from oggm.core.massbalance import apparent_mb_from_any_mb # Newer Version of OGGM
-else:
-    from oggm.core.climate import apparent_mb_from_any_mb # Older Version of OGGM
+from oggm.core.massbalance import apparent_mb_from_any_mb
 from oggm.core.flowline import FluxBasedModel, SemiImplicitModel
 from oggm.core.inversion import find_inversion_calving_from_any_mb
 

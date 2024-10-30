@@ -21,11 +21,13 @@ from oggm import cfg
 from oggm.utils import entity_task
 #from oggm.core.gis import rasterio_to_gdir
 #from oggm.utils import ncDataset
-import pygem.pygem_modelsetup as modelsetup
-# Local libraries
+# pygem imports
 import pygem.setup.config as config
-# Read the config
-pygem_prms = config.read_config()  # This reads the configuration file
+# check for config
+config.ensure_config()
+# read the config
+pygem_prms = config.read_config()
+import pygem.pygem_modelsetup as modelsetup
 
 """
 TO-DO LIST:
@@ -65,19 +67,20 @@ def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
         where to write the data
     """
     if mb_dataset in ['Hugonnet2020']:
-        mbdata_fp = pygem_prms.hugonnet_fp
-        mbdata_fn = pygem_prms.hugonnet_fn
-        rgiid_cn = pygem_prms.hugonnet_rgi_glacno_cn
-        mb_cn = pygem_prms.hugonnet_mb_cn
-        mberr_cn = pygem_prms.hugonnet_mb_err_cn
-        mb_clim_cn = pygem_prms.hugonnet_mb_clim_cn
-        mberr_clim_cn = pygem_prms.hugonnet_mb_clim_err_cn
-        t1_cn = pygem_prms.hugonnet_time1_cn
-        t2_cn = pygem_prms.hugonnet_time2_cn
+        hugonnet_prms = pygem_prms['calib']['data']['hugonnet']
+        hugonnet_fp = f"{pygem_prms['root']}/{hugonnet_prms['hugonnet_relpath']}"
+        hugonnet_prms = pygem_prms['calib']['data']['hugonnet']
+        mbdata_fp = f"{pygem_prms['root']}/{hugonnet_prms['hugonnet_relpath']}"
+        rgiid_cn = hugonnet_prms['hugonnet_rgi_glacno_cn']
+        mb_cn = hugonnet_prms['hugonnet_mb_cn']
+        mberr_cn = hugonnet_prms['hugonnet_mb_err_cn']
+        mb_clim_cn = hugonnet_prms['hugonnet_mb_clim_cn']
+        mberr_clim_cn = hugonnet_prms['hugonnet_mb_clim_err_cn']
+        t1_cn = hugonnet_prms['hugonnet_time1_cn']
+        t2_cn = hugonnet_prms['hugonnet_time2_cn']
+    assert os.path.exists(mbdata_fp), "Error: mb dataset does not exist."
     
-    assert os.path.exists(mbdata_fp + mbdata_fn), "Error: mb dataset does not exist."
-    
-    mb_df = pd.read_csv(mbdata_fp + mbdata_fn)
+    mb_df = pd.read_csv(mbdata_fp)
     mb_df_rgiids = list(mb_df[rgiid_cn])
 
     if gdir.rgi_id in mb_df_rgiids:
@@ -289,7 +292,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     if args.hugonnet2020_subset == 1:
-        mbdata_fullfn = pygem_prms.hugonnet_fp + 'df_pergla_global_10yr_20yr.csv'
+        hugonnet_prms = pygem_prms['calib']['data']['hugonnet']
+        hugonnet_fp = f"{pygem_prms['root']}/{hugonnet_prms['hugonnet_relpath']}"
+        mbdata_path = os.path.abspath(os.path.dirname(hugonnet_fp))
+        mbdata_fullfn = mbdata_path + '/df_pergla_global_10yr_20yr.csv'
         mb_df = pd.read_csv(mbdata_fullfn)
         # Pre-process Hugonnet2020 data to easier format of data we want
         df_20yr = mb_df[mb_df['period'] == '2000-01-01_2020-01-01'].copy()
@@ -299,5 +305,5 @@ if __name__ == '__main__':
         df_20yr['t2'] = [x.split('_')[1] for x in df_20yr['period'].values]
         
         # Export results
-        df_20yr_fn = 'df_pergla_global_20yr.csv'
-        df_20yr.to_csv(pygem_prms.hugonnet_fp + df_20yr_fn, index=False)
+        df_20yr_fn = '/df_pergla_global_20yr.csv'
+        df_20yr.to_csv(mbdata_path + df_20yr_fn, index=False)

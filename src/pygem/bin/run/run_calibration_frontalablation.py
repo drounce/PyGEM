@@ -22,10 +22,10 @@ from scipy.stats import linregress
 import xarray as xr
 # pygem imports
 import pygem.setup.config as config
-# Check for config
-config.ensure_config()  # This will ensure the config file is created
-# Read the config
-pygem_prms = config.read_config()  # This reads the configuration file
+# check for config
+config.ensure_config()
+# read the config
+pygem_prms = config.read_config()
 import pygem.pygem_modelsetup as modelsetup
 from pygem.massbalance import PyGEMMassBalance
 from pygem.glacierdynamics import MassRedistributionCurveModel
@@ -34,17 +34,11 @@ from pygem.shop import debris
 from pygem import class_climate
 
 import oggm
-oggm_version = float(oggm.__version__[0:3])
 from oggm import utils, cfg
 from oggm import tasks
 from oggm.core.flowline import FluxBasedModel
 from oggm.core.inversion import find_inversion_calving_from_any_mb
-if oggm_version > 1.301:
-    from oggm.core.massbalance import apparent_mb_from_any_mb # Newer Version of OGGM
-else:
-    from oggm.core.climate import apparent_mb_from_any_mb # Older Version of OGGM
-
-
+from oggm.core.massbalance import apparent_mb_from_any_mb
 
 #%% FUNCTIONS
 def getparser():
