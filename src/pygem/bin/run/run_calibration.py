@@ -1308,28 +1308,37 @@ def run(list_packed_vars):
                     mb_total_minelev = (Acc_minelev - Melt_minelev).sum()
                 
                     return mb_total_minelev
-                
-                def get_initials(priors):
+
+                def get_priors(priors):
+                # define distribution based on priors
+                    dists = []
                     for param in ['tbias','kp','ddfsnow']:
-                        # sample a value based on the selected prior
                         if priors[param]['type'] == 'normal':
-                            sample = stats.norm.rvs(loc=priors[param]['mu'], scale=priors[param]['sigma'])
+                            dist = stats.norm(loc=priors[param]['mu'], scale=priors[param]['sigma'])
                         elif priors[param]['type'] == 'uniform':
-                            sample = stats.uniform.rvs(low=priors[param]['low'], high=priors[param]['high'])
+                            dist = stats.uniform(low=priors[param]['low'], high=priors[param]['high'])
                         elif priors[param]['type'] == 'gamma':
-                            sample = stats.gamma.rvs(a=priors[param]['alpha'], scale=1/priors[param]['beta'])
+                            dist = stats.gamma(a=priors[param]['alpha'], scale=1/priors[param]['beta'])
                         elif priors[param]['type'] == 'truncnormal':
-                            sample = stats.truncnorm.rvs(a=(priors[param]['low']-priors[param]['mu'])/priors[param]['sigma'], 
+                            dist = stats.truncnorm(a=(priors[param]['low']-priors[param]['mu'])/priors[param]['sigma'], 
                                                         b=(priors[param]['high']-priors[param]['mu'])/priors[param]['sigma'], 
                                                         loc=priors[param]['mu'], scale=priors[param]['sigma'])
-                        sample=float(sample)
-                        if param=='tbias':
-                            tbias_init = sample
-                        elif param=='kp':
-                            kp_init = sample
-                        elif param=='ddfsnow':
-                            ddfsnow_init = sample
-                    return tbias_init, kp_init, ddfsnow_init
+                        dists.append(dist)
+                    return dists
+
+                def get_initials(dists, threshold=.01):
+                    # sample priors - ensure that probability of each sample > .01
+                    initials = None
+                    while initials is None:
+                        # sample from each distribution
+                        xs = [dist.rvs() for dist in dists]
+                        # calculate densities for each sample
+                        ps = [dist.pdf(x) for dist, x in zip(dists, xs)]
+
+                        # Check if all densities are greater than the threshold
+                        if all(p > threshold for p in ps):
+                            initials = xs
+                    return initials
                 
                 def mb_max(*args, **kwargs):
                     """ Model parameters cannot completely melt the glacier (psuedo-likelihood fxn) """
@@ -1398,6 +1407,8 @@ def run(list_packed_vars):
                             'kp':       {'type':pygem_prms['calib']['MCMC_params']['kp_disttype'], 'alpha':float(kp_gamma_alpha), 'beta':float(kp_gamma_beta), 'low':safe_float(getattr(pygem_prms,'kp_bndlow',None)), 'high':safe_float(getattr(pygem_prms,'kp_bndhigh',None))},
                             'ddfsnow':  {'type':pygem_prms['calib']['MCMC_params']['ddfsnow_disttype'], 'mu':pygem_prms['calib']['MCMC_params']['ddfsnow_mu'], 'sigma':pygem_prms['calib']['MCMC_params']['ddfsnow_sigma'] ,'low':float(pygem_prms['calib']['MCMC_params']['ddfsnow_bndlow']), 'high':float(pygem_prms['calib']['MCMC_params']['ddfsnow_bndhigh'])},
                             }
+                # define distributions from priors for sampling initials
+                prior_dists = get_priors(priors)
                 # ------------------
 
                 # -----------------------------------
@@ -1462,10 +1473,10 @@ def run(list_packed_vars):
                     while n_chain < pygem_prms['calib']['MCMC_params']['n_chains']:
                         # compile initial guesses and standardize by standard deviations
                         if n_chain == 0:
-                            # initial_guesses = torch.tensor((3.05,0.47,0.0012))    # this will get stuck for 1.03794
+                        #     # initial_guesses = torch.tensor((3.05,0.47,0.0012))    # this will get stuck for 1.03794
                             initial_guesses = torch.tensor((tbias_mu, kp_gamma_alpha / kp_gamma_beta, pygem_prms['calib']['MCMC_params']['ddfsnow_mu']))
                         else:
-                            initial_guesses = torch.tensor(get_initials(priors))
+                            initial_guesses = torch.tensor(get_initials(prior_dists))
                         if debug:
                             print(f"{glacier_str} chain {n_chain} initials:\ttbias: {initial_guesses[0]:.2f}, kp: {initial_guesses[1]:.2f}, ddfsnow: {initial_guesses[2]:.4f}")
                         initial_guesses_z = mcmc.z_normalize(initial_guesses, mb.means, mb.stds)

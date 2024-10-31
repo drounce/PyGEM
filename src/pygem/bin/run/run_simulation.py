@@ -125,7 +125,7 @@ def getparser():
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-gcm_list_fn', action='store', type=str, default=pygem_prms['climate']['ref_gcm_name'],
-                        help='text file full of commands to run')
+                        help='text file full of commands to run (ex. CanESM2 or CESM2)')
     parser.add_argument('-gcm_name', action='store', type=str, default=None,
                         help='GCM name used for model run')
     parser.add_argument('-scenario', action='store', type=str, default=None,
@@ -713,10 +713,7 @@ def run(list_packed_vars):
                             plt.show()
 
                         try:                        
-                            if oggm_version > 1.301:
-                                diag = ev_model.run_until_and_store(nyears)
-                            else:
-                                _, diag = ev_model.run_until_and_store(nyears)
+                            diag = ev_model.run_until_and_store(nyears)
                             ev_model.mb_model.glac_wide_volume_annual[-1] = diag.volume_m3[-1]
                             ev_model.mb_model.glac_wide_area_annual[-1] = diag.area_m2[-1]
                             
