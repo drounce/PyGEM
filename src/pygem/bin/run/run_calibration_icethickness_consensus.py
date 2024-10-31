@@ -21,7 +21,6 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import brentq
-
 # pygem imports
 import pygem
 import pygem.setup.config as config
@@ -33,7 +32,7 @@ from pygem import class_climate
 from pygem.massbalance import PyGEMMassBalance
 from pygem.oggm_compat import single_flowline_glacier_directory
 import pygem.pygem_modelsetup as modelsetup
-
+# oggm imports
 from oggm import cfg
 from oggm import tasks
 from oggm.core.massbalance import apparent_mb_from_any_mb
@@ -289,8 +288,7 @@ def main():
                 print(glacier_str)
         
             # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====
-            # try:
-            for fuck in ['bananas']:
+            try:
                 gdir = single_flowline_glacier_directory(glacier_str)
                 
                 # Flowlines
@@ -348,8 +346,8 @@ def main():
                     
                     mbmods.append(mbmod_inv)
                     gdirs.append(gdir)
-            # except:
-            #     print(glacier_str + ' failed - likely no gdir')
+            except:
+                print(glacier_str + ' failed - likely no gdir')
                 
         print('\n\n------\nModel setup time:', time.time()-time_start, 's')
                         
@@ -399,7 +397,7 @@ def main():
         glena_cns = ['O1Region', 'count', 'glens_a_multiplier', 'fs', 'reg_vol_km3_consensus', 'reg_vol_km3_modeled']
         glena_df_single = pd.DataFrame(np.zeros((1,len(glena_cns))), columns=glena_cns)
         glena_df_single.loc[0,:] = [reg, main_glac_rgi_subset.shape[0], a_multiplier_opt, args.fs, reg_vol_km3_con, reg_vol_km3_mod]
-        print(glena_df_single)
+
         try:
             glena_df = pd.read_csv(f"{pygem_prms['root']}/{pygem_prms['out']['glena_reg_relpath']}")
             
@@ -418,9 +416,7 @@ def main():
             
         glena_df = glena_df.sort_values('O1Region', ascending=True)
         glena_df.reset_index(inplace=True, drop=True)
-        print(glen_df)
-        # glena_df.to_csv(f"{pygem_prms['root']}/{pygem_prms['out']['glena_reg_relpath']}", index=False)
-    
+        glena_df.to_csv(f"{pygem_prms['root']}/{pygem_prms['out']['glena_reg_relpath']}", index=False)    
     
     print('\n\n------\nTotal processing time:', time.time()-time_start, 's')
 

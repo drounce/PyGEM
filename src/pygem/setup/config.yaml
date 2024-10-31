@@ -214,7 +214,7 @@ out:
   # OGGM glacier dynamics parameters
   cfl_number: 0.02
   cfl_number_calving: 0.01
-  glena_reg_relpath: /calibration/glena_region.csv
+  glena_reg_relpath: /Output/calibration/glena_region.csv
   use_reg_glena: true
   # glens_a multiplier if not using regionally calibrated glens_a
   fs: 0
