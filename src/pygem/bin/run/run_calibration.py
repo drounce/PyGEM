@@ -101,6 +101,8 @@ def getparser():
                         help='number of simultaneous processes (cores) to use (default is 1, ie. no parallelization)')
     parser.add_argument('-option_calibration', action='store', type=str, default=pygem_prms['calib']['option_calibration'],
                         help='calibration option ("emulator", "MCMC", "HH2015", "HH2015mod", "None")')
+    parser.add_argument('-nchains',action='store',type=int,default=pygem_prms['calib']['MCMC_params']['n_chains'],
+                        help='number of chains in MCMC calibration')
     # flags
     parser.add_argument('-option_ordered', action='store_true',
                         help='Flag to keep glacier lists ordered (default is off)')
@@ -1470,7 +1472,7 @@ def run(list_packed_vars):
                     ### loop over chains, adjust initial guesses accordingly. done in a while loop as to repeat a chain up to one time if it remained stuck throughout ###
                     n_chain=0
                     repeat=False
-                    while n_chain < pygem_prms['calib']['MCMC_params']['n_chains']:
+                    while n_chain < args.nchains:
                         # compile initial guesses and standardize by standard deviations
                         if n_chain == 0:
                         #     # initial_guesses = torch.tensor((3.05,0.47,0.0012))    # this will get stuck for 1.03794

@@ -296,7 +296,7 @@ class Metropolis:
                 if self.n_rm > 0:
                     if self.n_rm < len(self.m_chain) - 1:
                         self.rm_stuck_samples()
-                        i-=int((self.n_rm-1)*thin_factor)   # back track the iterator
+                        i-=int((self.n_rm)*thin_factor)   # back track the iterator
                     trim = False                            # set trim to False as to only perform one time
 
             # increment iterator
