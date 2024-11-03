@@ -144,7 +144,7 @@ class mbPosterior:
     def update_modelprms(self, m):
         for i, k in enumerate(['tbias','kp','ddfsnow']):
             self.mb_args[1][k] = float(m[i])
-        self.mb_args[1]['ddfice'] = self.mb_args[1]['ddfsnow'] / pygem_prms.ddfsnow_iceratio 
+        self.mb_args[1]['ddfice'] = self.mb_args[1]['ddfsnow'] / pygem_prms['mod']['ddfsnow_iceratio'] 
 
     # get mb_pred
     def get_mb_pred(self, m):
@@ -335,6 +335,8 @@ def effective_n(x):
     effective_n : int
         effective sample size
     """
+    if len(set(x)) == 1:
+        return 1
     try:
         # detrend trace using mean to be consistent with statistics
         # definition of autocorrelation

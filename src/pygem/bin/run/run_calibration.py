@@ -161,7 +161,7 @@ def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
         return mb_mwea
 
 
-def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplier=None, fs=None, time_inds=None, bin_edges=None, debug=False):
+def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplier=None, fs=None, diff_inds_map=None, bin_edges=None, debug=False):
     """
     Run the ice thickness inversion and mass balance model to get binned annual ice thickness evolution
     Convert to monthly thickness by assuming that the flux divergence is constant throughout the year
@@ -227,6 +227,8 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
         ev_model.run_until_and_store(nyears)
         mb_mwea = mbmod.glac_wide_massbaltotal[gdir.mbdata['t1_idx']:gdir.mbdata['t2_idx']+1].sum() / mbmod.glac_wide_area_annual[0] / nyears
 
+    # if there is an issue evaluating the dynamics model for a given parameter set in MCMC calibration, 
+    # return -inf for mb_mwea and binned_dh, so MCMC calibration won't accept given parameters
     except RuntimeError:
         return -np.inf, -np.inf
 
@@ -246,11 +248,10 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
     # get annual climatic mass balance from monthly climatic mass balance - requires reshaping monthly binned values and summing every 12 months
     bin_massbalclim_annual = mbmod.glac_bin_massbalclim.reshape(mbmod.glac_bin_massbalclim.shape[0],mbmod.glac_bin_massbalclim.shape[1]//12,-1).sum(2)
 
-    # bin_thick_annual = bin_thick_annual[:,:-1]
     # get change in thickness from previous year for each elevation bin
     delta_thick_annual = np.diff(mbmod.glac_bin_icethickness_annual, axis=-1)
 
-    # get annual binned flux divergence as annual binned climatic mass balance (-) annual binned ice thickness
+    # get annual binned flux divergence in m ice as annual binned climatic mass balance minus annual binned ice thickness
     # account for density contrast (convert climatic mass balance in m w.e. to m ice)
     flux_div_annual =   (
                 (bin_massbalclim_annual * 
@@ -258,7 +259,7 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
                 pygem_prms['constants']['density_water'])) - 
                 delta_thick_annual)
 
-    # we'll assume the flux divergence is constant througohut the year (is this a good assumption?)
+    # we'll assume the flux divergence is constant throughout the year (is this a good assumption?)
     # ie. take annual values and divide by 12 - repeat monthly values across 12 months
     flux_div_monthly = np.repeat(flux_div_annual / 12, 12, axis=1)
 
@@ -273,14 +274,14 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
     # get binned monthly thickness = running thickness change + initial thickness
     running_delta_thick_monthly = np.cumsum(delta_thick_monthly, axis=-1)
     bin_thick =  running_delta_thick_monthly + mbmod.glac_bin_icethickness_annual[:,0][:,np.newaxis]
-    # only retain specified time steps
-    bin_thick = bin_thick[:,time_inds]
 
     # aggregate model bin thicknesses as desired
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore')
-        y_pred = np.column_stack([stats.binned_statistic(x=nfls[0].surface_h, values=x, statistic=np.nanmean, bins=bin_edges)[0] for x in bin_thick.T])
-    binned_dh = np.diff(y_pred,axis=1)
+        bin_thick = np.column_stack([stats.binned_statistic(x=nfls[0].surface_h, values=x, statistic=np.nanmean, bins=bin_edges)[0] for x in bin_thick.T])
+    
+    # difference each set of inds in diff_inds_map
+    binned_dh = np.column_stack([bin_thick[:,tup[1]] - bin_thick[:,tup[0]] for tup in diff_inds_map])
 
     return mb_mwea, binned_dh
 
@@ -691,41 +692,35 @@ def run(list_packed_vars):
         # oib deltah data
         if args.option_calibration == 'MCMC' and pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
             try:
-                # get rgi7id to load oib data
-                rgi7id = oib._get_rgi7id(glacier_str, debug=debug)
-                if rgi7id:
-                    oib_dict = oib._load(rgi7id)
-                    # get oib diffs
-                    bin_centers, bin_area, bin_diffs, bin_sigmas, dates = oib._get_diffs(oib_dict=oib_dict, filter_count_pctl=pygem_prms['calib']['data']['oib']['oib_filter_pctl'])
-                    # mask terminus
-                    term_mask = oib._terminus_mask(dates, np.where(np.asarray(bin_area) != 0)[0][0], bin_diffs, debug=False)
-                    bin_diffs[term_mask,:] = np.nan
-                    bin_sigmas[term_mask,:] = np.nan
-                    # rebin so can be compared to PyGEM (bins are originally spaced at 10 m)
-                    bin_edges, bin_area, bin_diffs, bin_sigmas = oib._rebin(bin_centers, bin_area, bin_diffs, bin_sigmas, agg=pygem_prms['calib']['data']['oib']['oib_rebin'])
+            # for fuck in ['bananas']:
+                icebridge = oib.oib(rgi6id=glacier_str)
+                icebridge._rgi6torgi7id(debug=debug)
+                if icebridge.rgi7id:
+                    icebridge._load()
+                    icebridge._parsediffs(filter_count_pctl=pygem_prms['calib']['data']['oib']['oib_filter_pctl'])
+                    icebridge._terminus_mask()
+                    icebridge._rebin(agg=pygem_prms['calib']['data']['oib']['oib_rebin'])
                     # only retain diffs for survey dates within model timespan
-                    _, oib_inds, pygem_inds = np.intersect1d(dates, gdir.dates_table.date.to_numpy(), return_indices=True)
-                    bin_diffs = bin_diffs[:,oib_inds]
-                    bin_sigmas = bin_sigmas[:,oib_inds]
-                    dates = dates[oib_inds]
+                    _, oib_inds, pygem_inds = np.intersect1d(list(icebridge.oib_diffs.keys()), gdir.dates_table.date.to_numpy(), return_indices=True)
+                    # filter dictionary to retain only the diffs during times that fall within PyGEM calibration period
+                    icebridge.oib_diffs = {key: icebridge.oib_diffs[key] for i, key in enumerate(icebridge.oib_diffs) if i in oib_inds}
                     if debug:
-                        print(f'OIB survey dates:\n{", ".join([str(dt.year)+"-"+str(dt.month)+"-"+str(dt.day) for dt in dates])}')
+                        print(f'OIB survey dates:\n{", ".join([str(dt.year)+"-"+str(dt.month)+"-"+str(dt.day) for dt in list(icebridge.oib_diffs.keys())])}')
                     # must be at least two surveys
-                    if bin_diffs.shape[1] < 2:
+                    if len(icebridge.oib_diffs) < 2:
                         raise ValueError("Must be at least two individual OIB surveys to difference.")
-
                     # double difference to remove the COP30 signal from the relative OIB surface elevation changes
-                    dbldiffs = np.diff(bin_diffs,axis=1)
-                    # take mean sigma_obs from each set of consecutive surveys
-                    sigmas = (bin_sigmas[:, :-1] + bin_sigmas[:, 1:]) / 2
-                    gdir.deltah = {
-                                    'timestamps': dates,
-                                    'bin_edges':bin_edges,
-                                    'bin_area':bin_area,
-                                    'dh':dbldiffs,
-                                    'sigma':sigmas
-                                }
-                    
+                    icebridge._dbl_diff()
+                    # return icebridge.dbl_diffs as gdir object
+                    gdir.deltah = icebridge._get_dbldiffs()
+                    # store bin_edges and bin_area
+                    gdir.deltah['bin_edges'] = icebridge._get_edges()
+                    gdir.deltah['bin_area'] = icebridge._get_area()
+                    # create a dictionary that maps datetime values in gdir.dates_table to their indices
+                    index_map = {value: idx for idx, value in enumerate(gdir.dates_table.date.tolist())}
+                    # map each element in the gdir.deltah['dates'] to its index in gdir.dates_table - these inds will be used to difference model results in MCMC calib.
+                    gdir.deltah['model_inds_map'] = [(index_map[val1], index_map[val2]) for val1, val2 in gdir.deltah['dates']]
+
                     # get glen_a, as dynamics will need to be on to get thickness changes
                     if pygem_prms['out']['use_reg_glena']:
                         glena_df = pd.read_csv(pygem_prms['root'] + pygem_prms['out']['glena_reg_relpath'])                    
@@ -1442,7 +1437,7 @@ def run(list_packed_vars):
                                 fls, 
                                 glen_a_multiplier, 
                                 fs, 
-                                pygem_inds, 
+                                gdir.deltah['model_inds_map'], 
                                 gdir.deltah['bin_edges'])
                     # append deltah obs and undto obs list
                     obs.append((torch.tensor(gdir.deltah['dh']),torch.tensor([10])))
@@ -1474,9 +1469,10 @@ def run(list_packed_vars):
                     repeat=False
                     while n_chain < args.nchains:
                         # compile initial guesses and standardize by standard deviations
+                        # for 0th chain, take mean from regional priors
                         if n_chain == 0:
-                        #     # initial_guesses = torch.tensor((3.05,0.47,0.0012))    # this will get stuck for 1.03794
                             initial_guesses = torch.tensor((tbias_mu, kp_gamma_alpha / kp_gamma_beta, pygem_prms['calib']['MCMC_params']['ddfsnow_mu']))
+                        # for all chains > 0, randomly sample from regional priors
                         else:
                             initial_guesses = torch.tensor(get_initials(prior_dists))
                         if debug:
@@ -1497,7 +1493,7 @@ def run(list_packed_vars):
 
                         # Check condition at the end
                         if (m_chain_z[:, 0] == m_chain_z[0, 0]).all():
-                            if not repeat:
+                            if not repeat and n_chain!=0:
                                 repeat = True
                                 continue
 
@@ -1554,9 +1550,9 @@ def run(list_packed_vars):
                     modelprms_export['priors'] = priors
                     if pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
                         modelprms_export['dh']['x'] = ((gdir.deltah['bin_edges'][:-1] + gdir.deltah['bin_edges'][1:]) / 2).tolist()
-                        modelprms_export['dh']['area'] = gdir.deltah['bin_area']
+                        modelprms_export['dh']['area'] = gdir.deltah['bin_area'].tolist()
                         modelprms_export['dh']['obs'] = [ob.flatten().tolist() for ob in obs[1]]
-                        modelprms_export['dh']['date'] = gdir.deltah['timestamps']
+                        modelprms_export['dh']['dates'] = [(dt1.strftime("%Y-%m-%d"), dt2.strftime("%Y-%m-%d")) for dt1, dt2 in gdir.deltah['dates']]
 
                     modelprms_fn = glacier_str + '-modelprms_dict.json'
                     modelprms_fp = [(pygem_prms['root'] + f'/Output/calibration/' + glacier_str.split('.')[0].zfill(2) 
