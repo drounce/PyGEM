@@ -104,8 +104,10 @@ def getparser():
     parser.add_argument('-nchains',action='store',type=int,default=pygem_prms['calib']['MCMC_params']['n_chains'],
                         help='number of chains in MCMC calibration')
     # flags
+    parser.add_argument('-oib', action='store_true', default=pygem_prms['calib']['MCMC_params']['option_calib_binned_dh'],
+                        help='Flag to calibrate against Operation IceBridge data')
     parser.add_argument('-option_ordered', action='store_true',
-                        help='Flag to keep glacier lists ordered (default is off)')
+                        help='Flag to keep glacier lists ordered (default is false)')
     parser.add_argument('-p', '--progress_bar', action='store_true',
                         help='Flag to show progress bar')
     parser.add_argument('-v', '--debug', action='store_true',
@@ -690,7 +692,7 @@ def run(list_packed_vars):
             assert os.path.exists(gdir.get_filepath('mb_obs')), 'Mass balance data missing. Check dataset and column names'
 
         # oib deltah data
-        if args.option_calibration == 'MCMC' and pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
+        if args.option_calibration == 'MCMC' and args.oib:
             try:
             # for fuck in ['bananas']:
                 icebridge = oib.oib(rgi6id=glacier_str)
@@ -1429,7 +1431,7 @@ def run(list_packed_vars):
                 obs = [(torch.tensor([mb_obs_mwea]),torch.tensor([mb_obs_mwea_err]))]
 
                 # if running full model (no emulator), or calibrating against binned \delta h, several arguments are needed
-                if pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
+                if args.oib:
                     mbfxn = get_binned_dh                                   # returns (mb_mwea, binned_dh)
                     mbargs = (gdir,                                         # arguments for get_binned_dh()
                                 modelprms, 
@@ -1513,7 +1515,7 @@ def run(list_packed_vars):
                             # plot chain
                             fp = (pygem_prms['root'] + f'/Output/calibration/' + glacier_str.split('.')[0].zfill(2) 
                                     + '/fig/')
-                            if pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
+                            if args.oib:
                                 fp += 'dh/' 
                             os.makedirs(fp, exist_ok=True)
                             if args.ncores > 1:
@@ -1533,7 +1535,7 @@ def run(list_packed_vars):
                                                                   pygem_prms['mod']['ddfsnow_iceratio']).tolist()
                         modelprms_export['mb_mwea'][chain_str] = m_chain[:,3].tolist()
                         modelprms_export['ar'][chain_str] = ar
-                        if pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
+                        if args.oib:
                             if 'dh' not in modelprms_export.keys():
                                 modelprms_export['dh'] = {} # add key to export \delta h predictions
                             dh_preds = [preds.flatten().tolist() for preds in pred_chain[1]]
@@ -1548,7 +1550,7 @@ def run(list_packed_vars):
                     modelprms_export['mb_obs_mwea'] = [float(mb_obs_mwea)]
                     modelprms_export['mb_obs_mwea_err'] = [float(mb_obs_mwea_err)]
                     modelprms_export['priors'] = priors
-                    if pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
+                    if args.oib:
                         modelprms_export['dh']['x'] = ((gdir.deltah['bin_edges'][:-1] + gdir.deltah['bin_edges'][1:]) / 2).tolist()
                         modelprms_export['dh']['area'] = gdir.deltah['bin_area'].tolist()
                         modelprms_export['dh']['obs'] = [ob.flatten().tolist() for ob in obs[1]]
@@ -1557,7 +1559,7 @@ def run(list_packed_vars):
                     modelprms_fn = glacier_str + '-modelprms_dict.json'
                     modelprms_fp = [(pygem_prms['root'] + f'/Output/calibration/' + glacier_str.split('.')[0].zfill(2) 
                                     + '/')]
-                    if pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
+                    if args.oib:
                         modelprms_fp[0] += 'dh/'
                     # if not using emulator (running full model), save output in ./calibration/ and ./calibration-fullsim/
                     if not pygem_prms['calib']['MCMC_params']['option_use_emulator']:
@@ -2072,7 +2074,7 @@ def run(list_packed_vars):
                 os.makedirs(fail_fp, exist_ok=True)
             txt_fn_fail = glacier_str + "-cal_fail.txt"
             with open(fail_fp + txt_fn_fail, "w") as text_file:
-                if args.option_calibration=='MCMC' and pygem_prms['calib']['MCMC_params']['option_calib_binned_dh']:
+                if args.option_calibration=='MCMC' and args.oib:
                     text_file.write(glacier_str + ' had no compatible surface elevation data.')
                 else:
                     text_file.write(glacier_str + ' had no flowlines or mb_data.')                    
