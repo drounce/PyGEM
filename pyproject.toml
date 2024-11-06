@@ -1,53 +1,43 @@
-[project]
+[tool.poetry]
 name = "pygem"
 version = "0.3.1"
 description = "Python Glacier Evolution Model (PyGEM)"
+authors = ["David Rounce <drounce@cmu.edu>,Brandon Tober <btober@cmu.edu>"]
+license = "MIT License"
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
-license = {file = "LICENSE.txt"}
-authors = [
-     {name = "David Rounce", email = "drounce@cmu.edu"},
-]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
-dependencies = [
-    "pyyaml",
-    "oggm",
-    "salem",
-    "tables",
-    "geopandas",
-    "xarray",
-    "pandas",
-    "numpy",
-    "scipy",
-    "matplotlib",
-    "rasterio",
-    "pyproj",
-    "torch",
-    "gpytorch",
-    "scikit-learn",
-    "tqdm",
-    "jupyter"
-]
 
-[project.urls]
+[tool.poetry.urls]
 documentation = "https://pygem.readthedocs.io/"
 repository = "https://github.com/drounce/PyGEM"
 
-[project.scripts]
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+PyYAML = "^6.0.2"
+oggm = "^1.6.2"
+salem = "^0.3.11"
+tables = "^3.10.1"
+geopandas = "^1.0.1"
+xarray = "^2024.10.0"
+pandas = "^2.2.3"
+numpy = "^2.1.3"
+scipy = "^1.14.1"
+matplotlib = "^3.9.2"
+rasterio = "^1.4.2"
+pyproj = "^3.7.0"
+torch = "^2.5.1"
+gpytorch = "^1.13"
+scikit-learn = "^1.5.2"
+tqdm = "^4.66.6"
+jupyter = "^1.1.1"
+arviz = "^0.20.0"
+
+[tool.poetry.scripts]
 run_calibration_icethickness_consensus = "pygem.bin.run.run_calibration_icethickness_consensus:main"
 run_calibration_frontalablation = "pygem.bin.run.run_calibration_frontalablation:main"
 run_calibration = "pygem.bin.run.run_calibration:main"
 run_simulation = "pygem.bin.run.run_simulation:main"
 download_pygem_notebooks = "pygem.bin.op.copy_analyses:main"
 
-[tool.setuptools.packages.find]
-namespaces = true
-where = ["src"]
-
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
