@@ -188,6 +188,8 @@ def run(list_packed_vars):
     # Unpack variables
     parser = getparser()
     args = parser.parse_args()
+    # ensure option_calibration was passed appropraite value
+    args.option_calibration = None if args.option_calibration == "None" or args.option_calibration == "null" else args.option_calibration
     count = list_packed_vars[0]
     glac_no = list_packed_vars[1]
     gcm_name = list_packed_vars[2]
