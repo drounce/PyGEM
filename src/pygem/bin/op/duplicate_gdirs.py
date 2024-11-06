@@ -22,7 +22,7 @@ def main():
         reg = reg.zfill(2)
         thous = id[:2]
         
-        root = pygem_prms['root'] + '/' + pygem_prms['oggm_gdir_relpath']
+        root = pygem_prms['root'] + '/' + pygem_prms['oggm']['oggm_gdir_relpath']
         sfix = '/per_glacier/' + f'RGI60-{reg}/' + f'RGI60-{reg}.{thous}/'
 
         for n in range(num_copies):
