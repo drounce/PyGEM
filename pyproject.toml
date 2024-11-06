@@ -41,6 +41,7 @@ run_calibration = "pygem.bin.run.run_calibration:main"
 run_simulation = "pygem.bin.run.run_simulation:main"
 download_pygem_notebooks = "pygem.bin.op.copy_analyses:main"
 duplicate_gdirs = "pygem.bin.op.duplicate_gdirs:main"
+process_bin_monthly_thickness = "pygem.bin.postproc.process_bin_monthly_thickness:main"
 
 [build-system]
 requires = ["poetry-core"]
