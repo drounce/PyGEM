@@ -27,7 +27,7 @@ def main():
 
         for n in range(num_copies):
             nroot = root.replace('gdirs',f'gdirs_{n+1}')
-            # duplicate strucutre
+            # duplicate structure
             os.makedirs(nroot + sfix + f'RGI60-{reg}.{id}', exist_ok=True)
             # copy directory data
             shutil.copytree(root + sfix + f'RGI60-{reg}.{id}', nroot + sfix + f'RGI60-{reg}.{id}', dirs_exist_ok=True)

@@ -5,6 +5,9 @@ description = "Python Glacier Evolution Model (PyGEM)"
 authors = ["David Rounce <drounce@cmu.edu>,Brandon Tober <btober@cmu.edu>"]
 license = "MIT License"
 readme = "README.md"
+packages = [
+    { include = "pygem", from = "src" }
+]
 
 [tool.poetry.urls]
 documentation = "https://pygem.readthedocs.io/"
