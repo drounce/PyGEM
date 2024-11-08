@@ -37,7 +37,8 @@ class single_glacier:
     realization : str
     nsims : int
     modelprms : dict
-    gcm_bc_startyear : int
+    ref_startyear : int
+    ref_endyear : int
     gcm_startyear : int
     gcm_endyear: int
     option_calibration: str
@@ -66,13 +67,11 @@ class single_glacier:
             self.outfn += f'kp{self.modelprms["kp"]}_ddfsnow{self.modelprms["ddfsnow"]}_tbias{self.modelprms["tbias"]}_'
         if self.gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
             self.outfn += f'ba{self.option_bias_adjustment}_'
-            yr0 = self.gcm_bc_startyear
         else:
             self.outfn += 'ba0_'
-            yr0 = self.gcm_startyear
         if self.option_calibration:
             self.outfn += 'SETS_'
-        self.outfn += f'{yr0}_'
+        self.outfn += f'{self.gcm_startyear}_'
         self.outfn += f'{self.gcm_endyear}_'
 
     # return output dataset filename
@@ -106,7 +105,8 @@ class single_glacier:
         # get all locally defined variables from the pygem_prms, excluding imports, functions, and classes
         self.mdl_params_dict = {}
         # overwrite variables that are possibly different from pygem_input
-        self.mdl_params_dict['gcm_bc_startyear'] = self.gcm_bc_startyear
+        self.mdl_params_dict['ref_startyear'] = self.ref_startyear
+        self.mdl_params_dict['ref_endyear'] = self.ref_endyear
         self.mdl_params_dict['gcm_startyear'] = self.gcm_startyear
         self.mdl_params_dict['gcm_endyear'] = self.gcm_endyear
         self.mdl_params_dict['gcm_name'] = self.gcm_name
