@@ -12,8 +12,9 @@ from oggm.core.massbalance import MassBalanceModel
 from pygem.shop import debris, mbdata, icethickness
 # Local libraries
 import pygem.setup.config as config
-# Read the config
-pygem_prms = config.read_config()  # This reads the configuration file
+# read config
+pygem_prms = config.read_config()
+
 
 class CompatGlacDir:
     def __init__(self, rgiid):

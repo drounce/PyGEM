@@ -8,7 +8,7 @@ Distrubted under the MIT lisence
 NASA Operation IceBridge data and processing class
 """
 
-import os, glob, json, pickle, datetime, warnings, sys
+import re, os, glob, json, pickle, datetime, warnings, sys
 import numpy as np
 import pandas as pd
 from scipy import signal, stats
@@ -26,20 +26,26 @@ class oib:
         self.rgi7_6_df['rgi6id'] = self.rgi7_6_df['rgi6id'].str.split('RGI60-').str[1]
         self.rgi6id = rgi6id
         self.rgi7id = rgi7id
+        self.name = None
         # instatntiate dictionary to hold all data - store the data by survey date, with each key containing a tuple with the binned differences and uncertainties (diffs, sigma)
         self.oib_diffs = {}
         self.dbl_diffs = {}
         self.bin_edges = None
+        self.bin_centers = None
         self.bin_area = None
     
     def _get_diffs(self):
         return self.oib_diffs
     def _get_dbldiffs(self):
         return self.dbl_diffs
+    def _get_centers(self):
+        return self.bin_centers
     def _get_edges(self):
         return self.bin_edges
     def _get_area(self):
         return self.bin_area
+    def _get_name(self):
+        return self.name
 
     def _rgi6torgi7id(self, debug=False):
         """
@@ -82,11 +88,10 @@ class oib:
         if survey date in given month <daysinmonth/2 assign it to beginning of month, else assign to beginning of next month (for consistency with monthly PyGEM timesteps)
         """
         dim = pd.Series(dt_obj).dt.daysinmonth.iloc[0]
-        # if dt_obj.day < dim // 2:
-        #     dt_obj_ = datetime.datetime(year=dt_obj.year, month=dt_obj.month, day=1)
-        # else:
-        #     dt_obj_ = datetime.datetime(year=dt_obj.year, month=dt_obj.month+1, day=1)
-        dt_obj_ = datetime.datetime(year=dt_obj.year, month=dt_obj.month, day=1)
+        if dt_obj.day < dim // 2:
+            dt_obj_ = datetime.datetime(year=dt_obj.year, month=dt_obj.month, day=1)
+        else:
+            dt_obj_ = datetime.datetime(year=dt_obj.year, month=dt_obj.month+1, day=1)
         return dt_obj_
 
 
@@ -102,6 +107,7 @@ class oib:
         # load diffstats file
         with open(oib_fpath, 'rb') as f:
             self.oib_dict = json.load(f)
+            self.name = split_by_uppercase(self.oib_dict['glacier_shortname'])
 
 
     def _parsediffs(self, filter_count_pctl=10, debug=False):
@@ -149,6 +155,8 @@ class oib:
         diffs = [tup[0] for tup in self.oib_diffs.values()]
         # only look above bins with area>0
         lowest_bin = np.where(np.asarray(self.bin_area) != 0)[0][0]
+        idx = None
+        mask = []
         try:
             for i in inds:
                 tmp = diffs[i][lowest_bin:lowest_bin+50]
@@ -168,7 +176,8 @@ class oib:
                 cmap=plt.cm.rainbow(np.linspace(0, 1, len(inds)))
                 for i in inds[::-1]:
                     plt.plot(diffs[i],label=f'{survey_dates[i].year}:{survey_dates[i].month}:{survey_dates[i].day}',c=cmap[i])
-                plt.axvline(idx,c='k',ls=':')
+                if idx:
+                    plt.axvline(idx,c='k',ls=':')
                 plt.legend(loc='upper right')
                 plt.show()
 
@@ -197,10 +206,11 @@ class oib:
                     s = stats.binned_statistic(x=self.bin_centers, values=tup[1], statistic=np.nanmean, bins=self.bin_edges)[0]
                     self.oib_diffs[k] = (y,s)
                 self.bin_area  = stats.binned_statistic(x=self.bin_centers, values=self.bin_area, statistic=np.nanmean, bins=self.bin_edges)[0]
-        
+            self.bin_centers = ((self.bin_edges[:-1] + self.bin_edges[1:]) / 2)
+
 
     # double difference all oib diffs from the same season 1+ year apart
-    def _dbl_diff(self, months=[3,5,8]):
+    def _dbl_diff(self, months=np.arange(13)):
         # prepopulate dbl_diffs dictionary object will structure with dates, dh, sigma
         # where dates is a tuple for each double differenced array in the format of (date1,date2),
         # where date1's cop30 differences were subtracted from date2's to get the dh values for that time span,
@@ -224,8 +234,15 @@ class oib:
                     self.dbl_diffs['dh'].append(self.oib_diffs[date2][0] - self.oib_diffs[date1][0])
                     self.dbl_diffs['sigma'].append((self.oib_diffs[date2][1] + self.oib_diffs[date1][1]) / 2)
         # column stack dh and sigmas into single 2d array
-        self.dbl_diffs['dh'] = np.column_stack(self.dbl_diffs['dh'])
-        self.dbl_diffs['sigma'] = np.column_stack(self.dbl_diffs['sigma'])
+        if len(self.dbl_diffs['dh'])>0:
+            self.dbl_diffs['dh'] = np.column_stack(self.dbl_diffs['dh'])
+            self.dbl_diffs['sigma'] = np.column_stack(self.dbl_diffs['sigma'])
+        else:
+            self.dbl_diffs['dh'] = np.nan
+        # check if deltah is all nan
+        if np.isnan(self.dbl_diffs['dh']).all():
+            self.dbl_diffs['dh'] = None
+            self.dbl_diffs['sigma'] = None
 
 
 def _filter_on_pixel_count(arr, pctl = 15):
@@ -236,3 +253,8 @@ def _filter_on_pixel_count(arr, pctl = 15):
     arr[arr==0] = np.nan
     mask = arr < np.nanpercentile(arr,pctl)
     return mask
+
+
+def split_by_uppercase(text):
+    # Add space before each uppercase letter (except at the start of the string)
+    return re.sub(r"(?<!^)(?=[A-Z])", " ", text)

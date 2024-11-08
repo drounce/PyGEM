@@ -168,16 +168,6 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
     Run the ice thickness inversion and mass balance model to get binned annual ice thickness evolution
     Convert to monthly thickness by assuming that the flux divergence is constant throughout the year
     """
-
-
-
-    ####dynamical spinup
-    # tasks.run_dynamic_spinup(gdir,
-    #                      spinup_start_yr=spinup_start_yr,  # When to start the spinup
-    #                      minimise_for='area',  # what target to match at the RGI date
-    #                      output_filesuffix='_spinup_dynamic_area',  # Where to write the output
-    #                      ye=2020,  # When the simulation should stop
-    #                      );
     nyears = int(gdir.dates_table.shape[0]/12) # number of years from dates table
     # perform OGGM ice thickness inversion
     # Perform inversion based on PyGEM MB using reference directory
@@ -694,7 +684,7 @@ def run(list_packed_vars):
         # oib deltah data
         if args.option_calibration == 'MCMC' and args.oib:
             try:
-            # for fuck in ['bananas']:
+            # for foo in ['bar']:
                 icebridge = oib.oib(rgi6id=glacier_str)
                 icebridge._rgi6torgi7id(debug=debug)
                 if icebridge.rgi7id:
@@ -715,6 +705,9 @@ def run(list_packed_vars):
                     icebridge._dbl_diff()
                     # return icebridge.dbl_diffs as gdir object
                     gdir.deltah = icebridge._get_dbldiffs()
+                    # ensure data to calibrate against
+                    if gdir.deltah['dh'] is None:
+                        raise ValueError("No valid OIB data to calibrate against.")
                     # store bin_edges and bin_area
                     gdir.deltah['bin_edges'] = icebridge._get_edges()
                     gdir.deltah['bin_area'] = icebridge._get_area()
@@ -738,8 +731,7 @@ def run(list_packed_vars):
             except Exception as err:
                 fls = None  # set fls to None as to not proceed with calibration
                 if debug:
-                    print(f'Error loading OIB data')
-
+                    print(f'Error loading OIB data: {err}')
 
         # ----- CALIBRATION OPTIONS ------
         if (fls is not None) and (gdir.mbdata is not None) and (glacier_area.sum() > 0):
