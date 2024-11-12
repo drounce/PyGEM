@@ -25,6 +25,8 @@ def getparser():
     """
     parser = argparse.ArgumentParser(description="process monthly ice thickness for PyGEM simulation")
     # add arguments
+    parser.add_argument('-simpath', action='store', type=str, nargs='+',
+                        help='path to PyGEM binned simulation (can take multiple)')
     parser.add_argument('-binned_simdir', action='store', type=str, default=None,
                         help='directory with binned simulations for which to process monthly thickness')
     parser.add_argument('-ncores', action='store', type=int, default=1,
@@ -241,7 +243,7 @@ def run(simpath):
 
         # append to existing binned netcdf
         output_ds_binned.to_netcdf(simpath, mode='a', encoding=encoding_binned, engine='netcdf4')
-
+        print(output_ds_binned)
         # close datasets
         output_ds_binned.close()
 
@@ -252,14 +254,25 @@ def main():
     time_start = time.time()
     args = getparser().parse_args()
 
+    simpath = None
     if args.binned_simdir:
         # get list of sims
-        simlist = glob.glob(args.binned_simdir+'*.nc')
+        simpath = glob.glob(args.binned_simdir+'*.nc')
+    else:
+        if args.simpath:
+            simpath = args.simpath
+    print(simpath,os.path.isfile(simpath[0]))
+    if simpath:
+        # number of cores for parallel processing
+        if args.ncores > 1:
+            ncores = int(np.min([len(simpath), args.ncores]))
+        else:
+            ncores = 1
 
         # Parallel processing
         print('Processing with ' + str(args.ncores) + ' cores...')
         with multiprocessing.Pool(args.ncores) as p:
-            p.map(run,simlist)
+            p.map(run,simpath)
 
     print('Total processing time:', time.time()-time_start, 's')
     
