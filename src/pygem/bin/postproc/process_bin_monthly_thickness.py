@@ -243,7 +243,7 @@ def run(simpath):
 
         # append to existing binned netcdf
         output_ds_binned.to_netcdf(simpath, mode='a', encoding=encoding_binned, engine='netcdf4')
-        print(output_ds_binned)
+
         # close datasets
         output_ds_binned.close()
 
@@ -261,7 +261,7 @@ def main():
     else:
         if args.simpath:
             simpath = args.simpath
-    print(simpath,os.path.isfile(simpath[0]))
+
     if simpath:
         # number of cores for parallel processing
         if args.ncores > 1:
