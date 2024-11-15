@@ -17,8 +17,13 @@ import numpy as np
 import pygem
 from datetime import datetime
 
-# Local libraries
-import pygem_input as pygem_prms
+# pygem imports
+import pygem
+import pygem.setup.config as config
+# check for config
+config.ensure_config()
+# read the config
+pygem_prms = config.read_config()
 import pygem.pygem_modelsetup as modelsetup
 
 
@@ -47,7 +52,7 @@ rgi_reg_dict = {'all':'Global',
                 }
 
 
-def main(reg, simpath, gcm, scenario, bias_adj, gcm_startyear, gcm_endyear, vars):
+def main(reg, simpath, gcm, scenario, calibration, bias_adj, gcm_startyear, gcm_endyear, vars):
 
     # #%% ----- PROCESS DATASETS FOR INDIVIDUAL GLACIERS AND ELEVATION BINS -----
     comppath = simpath + 'compile/'
@@ -91,12 +96,12 @@ def main(reg, simpath, gcm, scenario, bias_adj, gcm_startyear, gcm_endyear, vars
         for gcm in gcms:
             if scenario:
                 if scenario in os.listdir(base_dir + '/' + gcm):
-                    fn = glob.glob(base_dir + gcm  + "/" + scenario  + "/stats/" + '*.nc')[0]
+                    fn = glob.glob(base_dir + gcm  + "/" + scenario  + "/stats/" + f'*{gcm}_{scenario}_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc')[0]
                 else:
                     # remove the gcm from our gcm list if the desired scenario is not contained
                     gcms.remove(gcm)
             else:
-                fn = glob.glob(base_dir + gcm  + "/stats/" + '*.nc')[0]
+                fn = glob.glob(base_dir + gcm  + "/stats/" + f'*{gcm}_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc')[0]
             ds_glac = xr.open_dataset(fn)
             year_values = ds_glac.year.values
             time_values = ds_glac.time.values
@@ -154,7 +159,7 @@ def main(reg, simpath, gcm, scenario, bias_adj, gcm_startyear, gcm_endyear, vars
             else:
                 sim_dir = base_dir + gcm  + '/stats/'
 
-            fps = glob.glob(sim_dir + '*_ba' + str(bias_adj) + '_*' + str(gcm_startyear) + '_' + str(gcm_endyear) + '_all.nc')
+            fps = glob.glob(sim_dir + f'*_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc')
 
             # during 0th batch, print the regional stats of glaciers and area successfully simulated for all regional glaciers for given gcm scenario
             if nbatch==0:
@@ -306,9 +311,9 @@ def main(reg, simpath, gcm, scenario, bias_adj, gcm_startyear, gcm_endyear, vars
         cenlat_list = list(main_glac_rgi_batch.CenLat.values)
         attrs_dict = {'Region':str(reg) + ' - ' + rgi_reg_dict[reg],
                                     'source': f'PyGEMv{pygem.__version__}',
-                                    'institution': 'Carnegie Mellon University',
-                                    'history': f'Created by {pygem_prms.user_info["name"]} ({pygem_prms.user_info["email"]}) on ' + datetime.today().strftime('%Y-%m-%d'),
-                                    'references': 'doi:10.3389/feart.2019.00331 and doi:10.1017/jog.2019.91',
+                                    'institution': pygem_prms['user']['institution'],
+                                    'history': f"Created by {pygem_prms['user']['name']} ({pygem_prms['user']['email']}) on " + datetime.today().strftime('%Y-%m-%d'),
+                                    'references': 'doi:10.1126/science.abo1324',
                                     'Conventions': 'CF-1.9',
                                     'featureType': 'timeSeries'}
 
@@ -648,13 +653,24 @@ if __name__=='__main__':
     description="""description: program for compiling regional stats from the python glacier evolution model (PyGEM)\n\nexample call: $python compile_simulations -rgi_region=<##> -scenario=<SCENARIO> -simpath=</path/to/sims/> -gcm_startyear=<YYYY> -gcm_endyear=<YYYY>""",
     formatter_class=argparse.RawTextHelpFormatter)
     requiredNamed = parser.add_argument_group('required named arguments')
-    requiredNamed.add_argument('-rgi_region01', type=int, help='Randoph Glacier Inventory 01 regions list', nargs='+', required=True)
-    parser.add_argument('-gcm_name', type=str, default=None, help='GCM name to compile results from (ex. ERA5 or CESM2)')
-    parser.add_argument('-scenario', type=str, default=None, help='rcp or ssp scenario used for model run (ex. rcp26 or ssp585)')
-    parser.add_argument('-gcm_startyear', type=int, default=pygem_prms.gcm_bc_startyear, help='Global Climate Model start year for simulations (ex. 2000)')
-    parser.add_argument('-gcm_endyear', type=int, default=pygem_prms.gcm_endyear, help='Global Circulation Model end year for simulations (ex. 2100)')
-    parser.add_argument('-sim_path', type=str, default=pygem_prms.output_filepath + '/simulations/', help='PyGEM simulations filepath')
-    parser.add_argument('-bias_adj', type=int, default=pygem_prms.option_bias_adjustment, help='bias adjustment type (ex. 1)')
+    requiredNamed.add_argument('-rgi_region01', type=int, default=pygem_prms['setup']['rgi_region01'],
+                        help='Randoph Glacier Inventory region (can take multiple, e.g. `-run_region01 1 2 3`)', nargs='+')
+    parser.add_argument('-gcm_name', type=str, default=None, 
+                        help='GCM name to compile results from (ex. ERA5 or CESM2)')
+    parser.add_argument('-scenario', action='store', type=str, default=None,
+                        help='rcp or ssp scenario used for model run (ex. rcp26 or ssp585)')
+    parser.add_argument('-gcm_startyear', action='store', type=int, default=pygem_prms['climate']['gcm_startyear'],
+                        help='start year for the model run')
+    parser.add_argument('-gcm_endyear', action='store', type=int, default=pygem_prms['climate']['gcm_endyear'],
+                        help='start year for the model run')
+    parser.add_argument('-sim_path', type=str, default=pygem_prms['root'] + '/Output/simulations/', 
+                        help='PyGEM simulations filepath')
+    parser.add_argument('-option_calibration', action='store', type=str, default=pygem_prms['calib']['option_calibration'],
+                        help='calibration option ("emulator", "MCMC", "HH2015", "HH2015mod", "None")')
+    parser.add_argument('-option_bias_adjustment', action='store', type=int, default=pygem_prms['sim']['option_bias_adjustment'],
+                        help='Bias adjustment option (options: `0`, `1`, `2`, `3`. 0: no adjustment, \
+                                    1: new prec scheme and temp building on HH2015, \
+                                    2: HH2015 methods, 3: quantile delta mapping)')
     parser.add_argument('-vars',type=str, help='comm delimited list of PyGEM variables to compile (ex. "monthly_mass","annual_area")', 
                         choices=['glac_runoff_monthly','offglac_runoff_monthly','glac_acc_monthly','glac_melt_monthly','glac_refreeze_monthly','glac_frontalablation_monthly','glac_massbaltotal_monthly','glac_prec_monthly','glac_mass_monthly','glac_mass_annual','glac_area_annual'],
                         nargs='+')
@@ -664,6 +680,7 @@ if __name__=='__main__':
     region = args.rgi_region01
     gcm = args.gcm_name
     scenario = args.scenario
+    calib = args.option_calibration
     bias_adj = args.bias_adj
     gcm_startyear = args.gcm_startyear
     gcm_endyear = args.gcm_endyear
@@ -672,13 +689,12 @@ if __name__=='__main__':
     if gcm in ['ERA5', 'ERA-Interim', 'COAWST']:
         scenario = None
         bias_adj = 0
-        gcm_startyear = pygem_prms.gcm_startyear
 
     if scenario:
         gcm = None
 
     if not simpath:
-        simpath = pygem_prms.output_filepath + 'simulations/'
+        simpath = pygem_prms['root'] + '/Output/simulations/'
 
     if not os.path.exists(simpath + 'compile/'):
         os.makedirs(simpath + 'compile/')
@@ -690,7 +706,14 @@ if __name__=='__main__':
         vars = ['glac_runoff_monthly','offglac_runoff_monthly','glac_acc_monthly','glac_melt_monthly','glac_refreeze_monthly','glac_frontalablation_monthly','glac_massbaltotal_monthly','glac_prec_monthly','glac_mass_monthly','glac_mass_annual','glac_area_annual']
 
     for reg in region:
-        main(reg, simpath, gcm, scenario, bias_adj, gcm_startyear, gcm_endyear, vars)
+        main(reg=reg,
+             simpath=simpath,
+             gcm=gcm,
+             scenario=scenario,
+             bias_adj=bias_adj,
+             gcm_startyear=gcm_startyear,
+             gcm_endyear=gcm_endyear,
+             vars=vars)
 
     end = time.time()
     print(f'Total runtime: {np.round(end - start,2)} seconds')
