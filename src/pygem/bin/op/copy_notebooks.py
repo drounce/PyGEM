@@ -4,6 +4,8 @@ Python Glacier Evolution Model (PyGEM)
 copyright © 2024 Brandon Tober <btober@cmu.edu> David Rounce <drounce@cmu.edu>
 
 Distrubted under the MIT lisence
+
+copy example PyGEM jupyter notebooks
 """
 import os
 import shutil
@@ -26,10 +28,10 @@ def copy_analyses(dest_dir,src_dir):
     os.makedirs(src_dir, exist_ok=True)  # Ensure the base directory exists
     try:
         shutil.copytree(src_dir, dest_dir)  # Copy the file
-        print(f"Copied example PyGEM notebooks:")
+        print(f"Installed example PyGEM notebooks:")
         print_file_tree(dest_dir)
     except FileExistsError:
-        print(f'Failed to copy PyGEM example notebooks, directory already exists: {dest_dir}')
+        print(f'Failed to install PyGEM example notebooks, directory already exists: {dest_dir}')
     return
 
 def main():

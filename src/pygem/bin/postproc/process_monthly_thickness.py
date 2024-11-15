@@ -1,5 +1,12 @@
-""" derive binned monthly ice thickness and mass from PyGEM simulation """
+"""
+Python Glacier Evolution Model (PyGEM)
 
+copyright © 2024 Brandon Tober <btober@cmu.edu> David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+derive binned monthly ice thickness and mass from PyGEM simulation
+"""
 # Built-in libraries
 import argparse
 import collections

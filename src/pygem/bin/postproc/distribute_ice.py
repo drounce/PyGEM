@@ -1,5 +1,10 @@
-""" distribute ice from PyGEM simulation using OGGM's distribute_2d functionality """
+"""
+Python Glacier Evolution Model (PyGEM)
 
+copyright © 2024 Brandon Tober <btober@cmu.edu> David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+"""
 # Built-in libraries
 import argparse
 import collections

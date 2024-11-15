@@ -1,11 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Tue Sep  5 09:26:39 2023
+Python Glacier Evolution Model (PyGEM)
 
-@author: mweather btobers drounce
+copyright © 2024 Brandon Tober <btober@cmu.edu> David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+compile individual glacier simulations to the regional level
 """
-
 # imports
 import os
 import glob
