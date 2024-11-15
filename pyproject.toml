@@ -44,6 +44,7 @@ duplicate_gdirs = "pygem.bin.op.duplicate_gdirs:main"
 process_monthly_thickness = "pygem.bin.postproc.process_monthly_thickness:main"
 process_monthly_mass = "pygem.bin.postproc.process_monthly_mass:main"
 distribute_ice = "pygem.bin.postproc.distribute_ice:main"
+compile_simulations = "pygem.bin.postproc.compile_simulations:main"
 
 [build-system]
 requires = ["poetry-core"]
