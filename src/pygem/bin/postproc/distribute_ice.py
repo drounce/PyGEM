@@ -1,4 +1,4 @@
-""" redistribute ice from PyGEM simulation using OGGM's distribute_2d functionality """
+""" distribute ice from PyGEM simulation using OGGM's distribute_2d functionality """
 
 # Built-in libraries
 import argparse
@@ -32,7 +32,7 @@ def getparser():
     """
     Use argparse to add arguments from the command line
     """
-    parser = argparse.ArgumentParser(description="redistrube PyGEM simulated ice thickness to a 2D grid")
+    parser = argparse.ArgumentParser(description="distrube PyGEM simulated ice thickness to a 2D grid")
     # add arguments
     parser.add_argument('-simpath', action='store', type=str, nargs='+',
                         help='path to PyGEM binned simulation (can take multiple)')

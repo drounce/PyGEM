@@ -1,7 +1,7 @@
 import argparse
 import os
 import shutil
-# Local libraries
+# pygem imports
 import pygem.setup.config as config
 # read config
 pygem_prms = config.read_config()
