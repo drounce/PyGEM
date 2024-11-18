@@ -44,7 +44,7 @@ def run(reg, simpath, gcm, scenario, calib_opt, bias_adj, gcm_startyear, gcm_end
         sim_dir = base_dir + gcm  + '/stats/'
 
     # check if gcm has given scenario
-    assert os.path.isdir(sim_dir)
+    assert os.path.isdir(sim_dir),  f'Error: simulation path not found, {sim_dir}'
 
     # instantiate list of galcnos that are not in sim_dir
     failed_glacnos = []
@@ -57,7 +57,7 @@ def run(reg, simpath, gcm, scenario, calib_opt, bias_adj, gcm_startyear, gcm_end
 
     # print stats of successfully simualated glaciers
     main_glac_rgi = main_glac_rgi_all.loc[main_glac_rgi_all.apply(lambda x: x.rgino_str in glacno_ran, axis=1)]
-    print(f'{gcm}, {scenario} glaciers successfully simulated:\n  - {main_glac_rgi.shape[0]} of {main_glac_rgi_all.shape[0]} glaciers ({np.round(main_glac_rgi.shape[0]/main_glac_rgi_all.shape[0]*100,3)}%)')
+    print(f'{gcm} {str(scenario).replace('None','')} glaciers successfully simulated:\n  - {main_glac_rgi.shape[0]} of {main_glac_rgi_all.shape[0]} glaciers ({np.round(main_glac_rgi.shape[0]/main_glac_rgi_all.shape[0]*100,3)}%)')
     print(f'  - {np.round(main_glac_rgi.Area.sum(),0)} km2 of {np.round(main_glac_rgi_all.Area.sum(),0)} km2 ({np.round(main_glac_rgi.Area.sum()/main_glac_rgi_all.Area.sum()*100,3)}%)')
 
     glacno_ran = ['{0:0.5f}'.format(float(x)) for x in glacno_ran]
@@ -103,7 +103,7 @@ def main():
     region = args.rgi_region01
     scenario = args.scenario
     gcm_name = args.gcm_name
-    bias_adj = args.bias_adj
+    bias_adj = args.option_bias_adjustment
     simpath = pygem_prms['root']+'/Output/simulations/'
 
     if gcm_name in ['ERA5', 'ERA-Interim', 'COAWST']:
@@ -118,15 +118,15 @@ def main():
         sys.exit(1)
 
     for reg in region:
-        failed_glacs = run(reg, simpath, args.gcm_name, scenario, args.calib_opt, bias_adj, args.gcm_startyear, args.gcm_endyear)
+        failed_glacs = run(reg, simpath, args.gcm_name, scenario, args.option_calibration, bias_adj, args.gcm_startyear, args.gcm_endyear)
         if len(failed_glacs)>0:
             if args.outdir:
                 fout = os.path.join(args.outdir, f'R{str(reg).zfill(2)}_{args.gcm_name}_{scenario}_{args.gcm_startyear}_{args.gcm_endyear}_failed_rgiids.json').replace('None_','')
                 with open(fout, 'w') as f:
                     json.dump(failed_glacs, f)
-                    print(f'List of failed glaciers for {gcm_name} {scenario.replace('None','')} exported to: {fout}')
+                    print(f'List of failed glaciers for {gcm_name} {str(scenario).replace('None','')} exported to: {fout}')
             if args.verbose:
-                print(f'Failed glaciers for RGI region R{str(reg).zfill(2)} {args.gcm_name} {scenario.replace('None','')} {args.gcm_startyear}:{args.gcm_endyear}:\n')
+                print(f'Failed glaciers for RGI region R{str(reg).zfill(2)} {args.gcm_name} {str(scenario).replace('None','')} {args.gcm_startyear}-{args.gcm_endyear}:')
                 print(failed_glacs)
 
         else: 
