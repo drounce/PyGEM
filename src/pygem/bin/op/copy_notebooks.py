@@ -9,6 +9,9 @@ copy example PyGEM jupyter notebooks
 """
 import os
 import shutil
+# set up config.yaml
+import pygem.setup.config as config
+config.ensure_config()
 
 def print_file_tree(start_path, indent=""):
     print(os.path.abspath(start_path))
@@ -28,11 +31,9 @@ def copy_analyses(dest_dir,src_dir):
     os.makedirs(src_dir, exist_ok=True)  # Ensure the base directory exists
     try:
         shutil.copytree(src_dir, dest_dir)  # Copy the file
-        print(f"Installed example PyGEM notebooks:")
-        print_file_tree(dest_dir)
+        return 1
     except FileExistsError:
-        print(f'Failed to install PyGEM example notebooks, directory already exists: {dest_dir}')
-    return
+        return 0
 
 def main():
     # Define the base directory and the path to the analyses
@@ -41,7 +42,11 @@ def main():
 
     package_dir = os.path.dirname(__file__)  # Get the directory of the current script
     source_analyses_dir = os.path.abspath(os.path.join(package_dir, '../../../../example_notebooks'))  # Path to copy notebooks
-    copy_analyses(dest_analyses_dir,source_analyses_dir)
+    if copy_analyses(dest_analyses_dir,source_analyses_dir):
+        print(f"Installed example PyGEM notebooks:")
+    else:
+        print(f'Example notebooks already exist: {dest_analyses_dir}')
+    print_file_tree(basedir)
 
 if __name__ == "__main__":
     main()
