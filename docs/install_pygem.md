@@ -31,21 +31,21 @@ Following PyPI installation, download a series of example demonstration notebook
 download_notebooks
 ```
 
-After doing so, you may find a set of Jupyter notebooks in `~/PyGEM/example_notebooks/` which can be referenced and utilized for demonstrational purposes on how to run the Python Glacier Evolution Model and perform several analyses.
+After doing so, you may find a set of Jupyter notebooks in ***~/PyGEM/example_notebooks/*** which can be referenced and utilized for demonstrational purposes on how to run the Python Glacier Evolution Model and perform several analyses.
 
 ### Configuration file
 ***Note, this step is not required, as PyGEM's configuration file will be initialized by default the first time any PyGEM project script is run.***
 
-The first time a PyGEM script is run, a configuration file will be initialized within `~/PyGEM/`. The preceding step will initialze this configuration file. If skipped, users may manually initialize their configuration file in python like so (note, first enter `python` from the command line with your pygem conda environment activated):
+The first time a PyGEM script is run, a configuration file will be initialized within ***~/PyGEM/***. The preceding step will initialze this configuration file. If skipped, users may manually initialize their configuration file in python like so (note, first enter `python` from the command line with your pygem conda environment activated):
 ```
 import pygem.setup.config as config
 config.ensure_config()
 ```
 
-The configuration file can now be found at `~/PyGEM/config.yaml`
+The configuration file can now be found at ***~/PyGEM/config.yaml***
 
 
-### Developing PyGEM
+# Developing PyGEM
 Are you interested in contributing to the development of PyGEM? If so, we recommend forking the [PyGEM's github repository](https://github.com/PyGEM-Community/PyGEM) and then [cloning the github repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) onto your local machine.
 
 Note, if PyGEM was already installed via PyPI, first uninstall:
