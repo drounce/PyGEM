@@ -205,10 +205,9 @@ sim:
 out:
   # export options (booleans)
   export_all_simiters: false                      # Exprort individual simulation results (false exports median and MAD from all sim_iters)
-  export_essential_data: true                     # Export essential data (ex. mass balance components, ElA, etc.)
   export_extra_vars: true                         # Option to export extra variables (temp, prec, melt, acc, etc.)
-  export_binned_data: true                        # Export binned ice thickness
-  export_binned_components: true                  # Export binned mass balance components (accumulation, melt, refreeze)
+  export_binned_data: false                       # Export binned ice thickness
+  export_binned_components: false                 # Export binned mass balance components (accumulation, melt, refreeze)
   export_binned_area_threshold: 0                 # Area threshold for exporting binned ice thickness
   # OGGM glacier dynamics parameters
   cfl_number: 0.02
