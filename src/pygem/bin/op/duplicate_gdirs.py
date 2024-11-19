@@ -37,7 +37,7 @@ def main():
         sfix = '/per_glacier/' + f'RGI60-{reg}/' + f'RGI60-{reg}.{thous}/'
 
         for n in range(num_copies):
-            nroot = root.replace('gdirs',f'gdirs_{n+1}')
+            nroot = os.path.abspath(root.replace('gdirs',f'gdirs_{n+1}'))
             # duplicate structure
             os.makedirs(nroot + sfix + f'RGI60-{reg}.{id}', exist_ok=True)
             # copy directory data
