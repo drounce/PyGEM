@@ -12,7 +12,9 @@ import os
 import shutil
 # pygem imports
 import pygem.setup.config as config
-# read config
+# check for config
+config.ensure_config()
+# read the config
 pygem_prms = config.read_config()
 
 def main():
