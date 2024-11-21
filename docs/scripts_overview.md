@@ -8,7 +8,6 @@ caption: Primary Scripts:
 maxdepth: 1
 ---
 
-pygem_input_overview
 run_calibration_frontalablation_overview
 run_calibration_overview
 run_calibration_icethickness_overview

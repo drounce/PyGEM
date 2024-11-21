@@ -1,33 +1,41 @@
-(pygem_input_overview_target)=
-# pygem_input.py
-This script is where the user is able to specify the glaciers to model, choose model parameterizations and calibration options, specify relative filepaths and filenames for the model to function, and specify other model details and constants. The script is loosely organized to have the most frequently changed items at the top of the file, while also separating the file into organized chunks. The general organization is:
+(pygem_config_overview_target)=
+# Configuration
+PyGEM's configuration file (***~/PyGEM/config.yaml***) is where the user is able to specify the glaciers to model, choose model parameterizations and calibration options, specify relative filepaths and filenames for the model to function, and specify other model details and constants. The configuration settings are loaded to PyGEM as a dictionary object.
 
-* [Model setup directory](input_model_setup_target)
-* [Glacier selection](input_glacier_selection_target)
-* [Climate data and time periods](input_climate_data_time_target)
-* [Calibration options](input_cal_options_target)
-* [Simulation and glacier dynamics options](input_sim_dyn_options_target)
-* [Model parameters](input_model_prms_target)
-* [Mass balance model options](input_mb_model_options_target)
-* [Climate data filepaths and filenames](input_climate_data_files_target)
-* [Glacier data](input_glacier_data_target)
-* [Model time period details](input_model_time_details_target)
-* [Model constants](input_model_constants_target)
-* [Debugging options](input_debugging_options)
+```{warning}
+The only configuration setting a user must modify before running PyGEM is the **root** data path.
+```
+The configuration is loosely organized to have the most frequently changed items at the top of the file, while also separating the file into organized chunks/keys. The general organization (by dictionary primary key) is:
+* [user](input_user_info_target): user information
+* [setup](input_glacier_selection_target): glacier selection
+* [oggm](input_oggm_target): OGGM settings
+* [climate](input_climate_data_time_target): climate data and time periods
+* [calib](input_cal_options_target): calibration options
+* [sim](input_sim_dyn_options_target): simulation options
+* [mb](input_mb_model_options_target): mass balance model options
+* [rgi](input_glacier_data_target): RGI glacier data
+* [time](input_model_time_details_target): model time period details
+* [constants](input_model_constants_target): model constants
+* [debug](input_debugging_options): debugging options
 
 ```{note}
-**pygem_input.py** is heavily commented, so this information should hopefully be clear when modifying variables within the file itself.
+**config.yaml** is heavily commented, so this information should hopefully be clear when modifying variables within the file itself.
 ```
-(input_model_setup_target)=
-## Model Setup Directory
+
+(input_user_info_target)=
+## user
+User information settings.
 | Variable | Format/Options | Description |
 | :--- | :--- | :--- |
-| main_directory | os.getcwd() | main directory used for relative filepaths |
-| output_filepath | str | output filepath |
-| model_run_date | str | date associated with model runs <br>(useful for knowing version of model used) |
+| name | str | user's name |
+| institution | str | user's institution |
+| email | str | user's email address |
+```{note}
+The user information is strictly for bookkeeping purposes. This information is stored within each model output file.
+```
 
 (input_glacier_selection_target)=
-## Glacier Selection
+## setup
 Several options exist to specify the glaciers, but they generally fall into specifying based on the RGI regions or glacier numbers. Additional options exist to include/exclude certain types of glaciers for detailed studies.
 
 **Specify glaciers**

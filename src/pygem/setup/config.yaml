@@ -1,6 +1,6 @@
-﻿#######################################################
-## Python Glacier Evolution Model configuration file ##
-#######################################################
+﻿#########################################################
+### Python Glacier Evolution Model configuration file ###
+#########################################################
 # some useful info: 
 # boolean options are either `true` or `false`
 # exponential values are formatted as `##.#e+#` (mest be decimal point before `e`, with either `+` or `-` following)
@@ -10,16 +10,16 @@
 #                           - item1
 #                           - item2
 #                           - item3
-#######################################################
+#########################################################
+
+# ===== ROOT PATH =====
+root: /path/to/pygem/data/                        # note, this parameter must be modfied as to point to the appropriate location. all other paths are assumed relative to this (inputs and outputs).
 
 # ===== USER INFO =====
 user:
   name: David Rounce
   institution: Carnegie Mellon University, Pittsburgh PA
   email: drounce@cmu.edu
-
-# ===== PyGEM root data path =====
-root: /path/to/pygem/data/                        # note, all other paths are assumed relative to this (inputs and outputs)
 
 # ===== GLACIER SELECTION =====
 setup:
@@ -40,7 +40,7 @@ oggm:
   base_url: https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L1-L2_files/elev_bands/
   logging_level: WORKFLOW                         # DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recommended WORKFLOW)
   border: 80                                      # 10, 80, 160, 240 (recommend 240 if expecting glaciers for long runs where glaciers may grow)
-  oggm_gdir_relpath: /OGGM/gdirs/
+  oggm_gdir_relpath: /oggm_gdirs/
   overwrite_gdirs: false
   has_internet: true
 
@@ -62,6 +62,30 @@ climate:
   gcm_spinupyears: 0                              # spin up years for simulation (output not set up for spinup years at present)
   # Hindcast option (flips array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct)
   hindcast: false                                 # true: run hindcast simulation, false: do not
+  # ===== CLIMATE DATA FILEPATHS AND FILENAMES =====
+  paths:
+    # ERA4 (default reference climate data)
+    era5_relpath: /climate_data/ERA5/
+    era5_temp_fn: ERA5_temp_monthly_1940_2023.nc
+    era5_tempstd_fn: ERA5_tempstd_monthly.nc
+    era5_prec_fn: ERA5_totalprecip_monthly_1940_2023.nc
+    era5_elev_fn: ERA5_geopotential.nc
+    era5_pressureleveltemp_fn: ERA5_pressureleveltemp_monthly_2020_2023.nc
+    era5_lr_fn: ERA5_lapserates_monthly_1940_2023.nc
+    # CMIP5 (GCM data)
+    cmip5_relpath: /climate_data/cmip5/
+    cmip5_fp_var_ending: _r1i1p1_monNG/
+    cmip5_fp_fx_ending: _r0i0p0_fx/
+    # CMIP6 (GCM data)
+    cmip6_relpath: /climate_data/cmip6/
+    # CESM2 Large Ensemble (GCM data)
+    cesm2_relpath: /climate_data/cesm2/
+    cesm2_fp_var_ending: _mon/
+    cesm2_fp_fx_ending: _fx/
+    # GFDL SPEAR Large Ensemble (GCM data)
+    gfdl_relpath: /climate_data/gfdl/
+    gfdl_fp_var_ending: _mon/
+    gfdl_fp_fx_ending: _fx/
 
 # ===== CALIBRATION OPTIONS =====
 calib:
@@ -200,44 +224,40 @@ sim:
   sim_stats:                                      # Output statistics of simulations (options include any of the following 'mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%', 'mad')
     - median
     - mad
-
-# ===== OUTPUT OPTIONS =====
-out:
-  # export options (booleans)
-  export_all_simiters: false                      # Exprort individual simulation results (false exports median and MAD from all sim_iters)
-  export_extra_vars: true                         # Option to export extra variables (temp, prec, melt, acc, etc.)
-  export_binned_data: false                       # Export binned ice thickness
-  export_binned_components: false                 # Export binned mass balance components (accumulation, melt, refreeze)
-  export_binned_area_threshold: 0                 # Area threshold for exporting binned ice thickness
-  # OGGM glacier dynamics parameters
-  cfl_number: 0.02
-  cfl_number_calving: 0.01
-  glena_reg_relpath: /Output/calibration/glena_region.csv
-  use_reg_glena: true
-  # glens_a multiplier if not using regionally calibrated glens_a
-  fs: 0
-  glen_a_multiplier: 1
+  # ===== OUTPUT OPTIONS =====
+  out:
+    # export options (booleans)
+    export_all_simiters: false                      # Exprort individual simulation results (false exports median and MAD from all sim_iters)
+    export_extra_vars: true                         # Option to export extra variables (temp, prec, melt, acc, etc.)
+    export_binned_data: false                       # Export binned ice thickness
+    export_binned_components: false                 # Export binned mass balance components (accumulation, melt, refreeze)
+    export_binned_area_threshold: 0                 # Area threshold for exporting binned ice thickness
+  # ===== OGGM DYNAMICS =====
+  oggm_dynamics:
+    cfl_number: 0.02
+    cfl_number_calving: 0.01
+    glena_reg_relpath: /Output/calibration/glena_region.csv
+    use_reg_glena: true
+    # glens_a multiplier if not using regionally calibrated glens_a
+    fs: 0
+    glen_a_multiplier: 1
   # Mass redistribution / Glacier geometry change options
   icethickness_advancethreshold: 5                # advancing glacier ice thickness change threshold (5 m in Huss and Hock, 2015)
   terminus_percentage: 20                         # glacier (%) considered terminus (20% in HH2015), used to size advancing new bins
-
-# ===== MODEL PARAMETERS =====
-mod:
-  use_constant_lapserate: false                   # false: use spatially and temporally varying lapse rate, true: use constant value specified below
-  kp: 1                                           # precipitation factor [-] (referred to as k_p in Radic etal 2013; c_prec in HH2015)
-  tbias: 5                                        # temperature bias [deg C]
-  ddfsnow: 0.0041                                 # degree-day factor of snow [m w.e. d-1 degC-1]
-  ddfsnow_iceratio: 0.7                           # Ratio degree-day factor snow snow to ice (Note, ddfice = ddfsnow / ddfsnow_iceratio)
-  precgrad: 0.0001                                # precipitation gradient on glacier [m-1]
-  lapserate: -0.0065                              # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [K m-1]
-  tsnow_threshold: 1                              # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
-  calving_k: 0.7                                  # frontal ablation rate [yr-1]
+  # ===== MODEL PARAMETERS =====
+  params:
+    use_constant_lapserate: false                   # false: use spatially and temporally varying lapse rate, true: use constant value specified below
+    kp: 1                                           # precipitation factor [-] (referred to as k_p in Radic etal 2013; c_prec in HH2015)
+    tbias: 5                                        # temperature bias [deg C]
+    ddfsnow: 0.0041                                 # degree-day factor of snow [m w.e. d-1 degC-1]
+    ddfsnow_iceratio: 0.7                           # Ratio degree-day factor snow snow to ice (Note, ddfice = ddfsnow / ddfsnow_iceratio)
+    precgrad: 0.0001                                # precipitation gradient on glacier [m-1]
+    lapserate: -0.0065                              # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [K m-1]
+    tsnow_threshold: 1                              # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
+    calving_k: 0.7                                  # frontal ablation rate [yr-1]
 
 # ===== MASS BALANCE MODEL OPTIONS =====
-mbmod:
-  # hypsometry
-  hyps_data: OGGM                             # Hypsometry dataset (OGGM; Maussion etal 2019)
-                                              # Other options to program are 'Huss' (GlacierMIP; Hock etal 2019) and Farinotti (Farinotti etal 2019)
+mb:
   # Initial surface type options
   option_surfacetype_initial: 1
   #  option 1 (default) - use median elevation to classify snow/firn above the median and ice below.
@@ -284,32 +304,7 @@ mbmod:
     rf_dens_bot: 650                              # snow density at bottom refreezing layer (kg m-3)
     option_rf_limit_meltsnow: 1
 
-# ===== CLIMATE DATA FILEPATHS AND FILENAMES =====
-climate_paths:
-  # ERA4 (default reference climate data)
-  era5_relpath: /climate_data/ERA5/
-  era5_temp_fn: ERA5_temp_monthly_1940_2023.nc
-  era5_tempstd_fn: ERA5_tempstd_monthly.nc
-  era5_prec_fn: ERA5_totalprecip_monthly_1940_2023.nc
-  era5_elev_fn: ERA5_geopotential.nc
-  era5_pressureleveltemp_fn: ERA5_pressureleveltemp_monthly_2020_2023.nc
-  era5_lr_fn: ERA5_lapserates_monthly_1940_2023.nc
-  # CMIP5 (GCM data)
-  cmip5_relpath: /climate_data/cmip5/
-  cmip5_fp_var_ending: _r1i1p1_monNG/
-  cmip5_fp_fx_ending: _r0i0p0_fx/
-  # CMIP6 (GCM data)
-  cmip6_relpath: /climate_data/cmip6/
-  # CESM2 Large Ensemble (GCM data)
-  cesm2_relpath: /climate_data/cesm2/
-  cesm2_fp_var_ending: _mon/
-  cesm2_fp_fx_ending: _fx/
-  # GFDL SPEAR Large Ensemble (GCM data)
-  gfdl_relpath: /climate_data/gfdl/
-  gfdl_fp_var_ending: _mon/
-  gfdl_fp_fx_ending: _fx/
-
-#  ===== GLACIER DATA (RGI, ICE THICKNESS, ETC.) =====
+#  ===== RGI GLACIER DATA =====
 rgi:
   # Filepath for RGI files
   rgi_relpath: /RGI/rgi60/00_rgi60_attribs/

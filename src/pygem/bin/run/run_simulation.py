@@ -144,11 +144,11 @@ def getparser():
                         help='number of simultaneous processes (cores) to use')
     parser.add_argument('-batch_number', action='store', type=int, default=None,
                         help='Batch number used to differentiate output on supercomputer')
-    parser.add_argument('-kp', action='store', type=float, default=pygem_prms['mod']['kp'],
+    parser.add_argument('-kp', action='store', type=float, default=pygem_prms['sim']['params']['kp'],
                         help='Precipitation bias')
-    parser.add_argument('-tbias', action='store', type=float, default=pygem_prms['mod']['tbias'],
+    parser.add_argument('-tbias', action='store', type=float, default=pygem_prms['sim']['params']['tbias'],
                         help='Temperature bias')
-    parser.add_argument('-ddfsnow', action='store', type=float, default=pygem_prms['mod']['ddfsnow'],
+    parser.add_argument('-ddfsnow', action='store', type=float, default=pygem_prms['sim']['params']['ddfsnow'],
                         help='Degree-day factor of snow')
     parser.add_argument('-oggm_working_dir', action='store', type=str, default=f"{pygem_prms['root']}/{pygem_prms['oggm']['oggm_gdir_relpath']}",
                         help='Specify OGGM working dir - useful if performing a grid search and have duplicated glacier directories')
@@ -164,13 +164,13 @@ def getparser():
                         help='number of simulations (note, defaults to 1 if `option_calibration` != `MCMC`)')
     # flags
     parser.add_argument('-export_all_simiters', action='store_true',
-                        help='Flag to export data from all simulations', default=pygem_prms['out']['export_all_simiters'])  
+                        help='Flag to export data from all simulations', default=pygem_prms['sim']['out']['export_all_simiters'])  
     parser.add_argument('-export_extra_vars', action='store_true',
-                        help='Flag to export extra variables (temp, prec, melt, acc, etc.)', default=pygem_prms['out']['export_extra_vars'])    
+                        help='Flag to export extra variables (temp, prec, melt, acc, etc.)', default=pygem_prms['sim']['out']['export_extra_vars'])    
     parser.add_argument('-export_binned_data', action='store_true',
-                        help='Flag to export binned data', default=pygem_prms['out']['export_binned_data'])
+                        help='Flag to export binned data', default=pygem_prms['sim']['out']['export_binned_data'])
     parser.add_argument('-export_binned_components', action='store_true',
-                        help='Flag to export binned mass balance components (melt, accumulation, refreeze)', default=pygem_prms['out']['export_binned_components'])
+                        help='Flag to export binned mass balance components (melt, accumulation, refreeze)', default=pygem_prms['sim']['out']['export_binned_components'])
     parser.add_argument('-option_ordered', action='store_true',
                         help='Flag to keep glacier lists ordered (default is off)')
     parser.add_argument('-v', '--debug', action='store_true',
@@ -517,10 +517,10 @@ def run(list_packed_vars):
                     modelprms_all = {'kp': [args.kp],
                                       'tbias': [args.tbias],
                                       'ddfsnow': [args.ddfsnow],
-                                      'ddfice': [args.ddfsnow / pygem_prms['mod']['ddfsnow_iceratio']],
-                                      'tsnow_threshold': [pygem_prms['mod']['tsnow_threshold']],
-                                      'precgrad': [pygem_prms['mod']['precgrad']]}
-                    calving_k = np.zeros(nsims) + pygem_prms['mod']['calving_k']
+                                      'ddfice': [args.ddfsnow / pygem_prms['sim']['params']['ddfsnow_iceratio']],
+                                      'tsnow_threshold': [pygem_prms['sim']['params']['tsnow_threshold']],
+                                      'precgrad': [pygem_prms['sim']['params']['precgrad']]}
+                    calving_k = np.zeros(nsims) + pygem_prms['sim']['params']['calving_k']
                     calving_k_values = calving_k
                     
                 if debug and gdir.is_tidewater:
@@ -532,16 +532,16 @@ def run(list_packed_vars):
 
                     # CFL number (may use different values for calving to prevent errors)
                     if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_calving']:
-                        cfg.PARAMS['cfl_number'] = pygem_prms['out']['cfl_number']
+                        cfg.PARAMS['cfl_number'] = ['sim']['oggm_dynamics']['cfl_number']
                     else:
-                        cfg.PARAMS['cfl_number'] = pygem_prms['out']['cfl_number_calving']
+                        cfg.PARAMS['cfl_number'] = ['sim']['oggm_dynamics']['cfl_number_calving']
 
                     
                     if debug:
                         print('cfl number:', cfg.PARAMS['cfl_number'])
                         
-                    if pygem_prms['out']['use_reg_glena']:
-                        glena_df = pd.read_csv(f"{pygem_prms['root']}/{pygem_prms['out']['glena_reg_relpath']}")                    
+                    if ['sim']['oggm_dynamics']['use_reg_glena']:
+                        glena_df = pd.read_csv(f"{pygem_prms['root']}/{['sim']['oggm_dynamics']['glena_reg_relpath']}")                    
                         glena_O1regions = [int(x) for x in glena_df.O1Region.values]
                         assert glacier_rgi_table.O1Region in glena_O1regions, glacier_str + ' O1 region not in glena_df'
                         glena_idx = np.where(glena_O1regions == glacier_rgi_table.O1Region)[0][0]
@@ -549,8 +549,8 @@ def run(list_packed_vars):
                         fs = glena_df.loc[glena_idx,'fs']
                     else:
                         args.option_dynamics = None
-                        fs = pygem_prms['out']['fs']
-                        glen_a_multiplier = pygem_prms['out']['glen_a_multiplier']
+                        fs = ['sim']['oggm_dynamics']['fs']
+                        glen_a_multiplier = ['sim']['oggm_dynamics']['glen_a_multiplier']
     
                 # Time attributes and values
                 if pygem_prms['climate']['gcm_wateryear'] == 'hydro':
@@ -1216,7 +1216,7 @@ def run(list_packed_vars):
                         np.savetxt(pr_fn + '.csv', gcm_prec_adj, delimiter="\n")
     
                     # ----- DECADAL ICE THICKNESS STATS FOR OVERDEEPENINGS -----
-                    if args.export_binned_data and glacier_rgi_table.Area > pygem_prms['out']['export_binned_area_threshold']:
+                    if args.export_binned_data and glacier_rgi_table.Area > pygem_prms['sim']['out']['export_binned_area_threshold']:
                         
                         # Distance from top of glacier downglacier
                         output_glac_bin_dist = np.arange(nfls[0].nx) * nfls[0].dx_meter

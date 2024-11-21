@@ -717,16 +717,16 @@ def run(list_packed_vars):
                     gdir.deltah['model_inds_map'] = [(index_map[val1], index_map[val2]) for val1, val2 in gdir.deltah['dates']]
 
                     # get glen_a, as dynamics will need to be on to get thickness changes
-                    if pygem_prms['out']['use_reg_glena']:
-                        glena_df = pd.read_csv(pygem_prms['root'] + pygem_prms['out']['glena_reg_relpath'])                    
+                    if pygem_prms['sim']['oggm_dynamics']['use_reg_glena']:
+                        glena_df = pd.read_csv(pygem_prms['root'] + ['sim']['oggm_dynamics']['glena_reg_relpath'])                    
                         glena_O1regions = [int(x) for x in glena_df.O1Region.values]
                         assert glacier_rgi_table.O1Region in glena_O1regions, ' O1 region not in glena_df'
                         glena_idx = np.where(glena_O1regions == glacier_rgi_table.O1Region)[0][0]
                         glen_a_multiplier = glena_df.loc[glena_idx,'glens_a_multiplier']
                         fs = glena_df.loc[glena_idx,'fs']
                     else:
-                        fs = pygem_prms['out']['fs']
-                        glen_a_multiplier = pygem_prms['out']['glen_a_multiplier']
+                        fs = ['sim']['oggm_dynamics']['fs']
+                        glen_a_multiplier = ['sim']['oggm_dynamics']['glen_a_multiplier']
                         
             except Exception as err:
                 fls = None  # set fls to None as to not proceed with calibration
