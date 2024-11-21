@@ -532,16 +532,16 @@ def run(list_packed_vars):
 
                     # CFL number (may use different values for calving to prevent errors)
                     if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_calving']:
-                        cfg.PARAMS['cfl_number'] = ['sim']['oggm_dynamics']['cfl_number']
+                        cfg.PARAMS['cfl_number'] = pygem_prms['sim']['oggm_dynamics']['cfl_number']
                     else:
-                        cfg.PARAMS['cfl_number'] = ['sim']['oggm_dynamics']['cfl_number_calving']
+                        cfg.PARAMS['cfl_number'] = pygem_prms['sim']['oggm_dynamics']['cfl_number_calving']
 
                     
                     if debug:
                         print('cfl number:', cfg.PARAMS['cfl_number'])
                         
-                    if ['sim']['oggm_dynamics']['use_reg_glena']:
-                        glena_df = pd.read_csv(f"{pygem_prms['root']}/{['sim']['oggm_dynamics']['glena_reg_relpath']}")                    
+                    if pygem_prms['sim']['oggm_dynamics']['use_reg_glena']:
+                        glena_df = pd.read_csv(f"{pygem_prms['root']}/{pygem_prms['sim']['oggm_dynamics']['glena_reg_relpath']}")                    
                         glena_O1regions = [int(x) for x in glena_df.O1Region.values]
                         assert glacier_rgi_table.O1Region in glena_O1regions, glacier_str + ' O1 region not in glena_df'
                         glena_idx = np.where(glena_O1regions == glacier_rgi_table.O1Region)[0][0]
@@ -549,8 +549,8 @@ def run(list_packed_vars):
                         fs = glena_df.loc[glena_idx,'fs']
                     else:
                         args.option_dynamics = None
-                        fs = ['sim']['oggm_dynamics']['fs']
-                        glen_a_multiplier = ['sim']['oggm_dynamics']['glen_a_multiplier']
+                        fs = pygem_prms['sim']['oggm_dynamics']['fs']
+                        glen_a_multiplier = pygem_prms['sim']['oggm_dynamics']['glen_a_multiplier']
     
                 # Time attributes and values
                 if pygem_prms['climate']['gcm_wateryear'] == 'hydro':
@@ -1346,7 +1346,8 @@ def main():
     if args.rgi_glac_number:
         glac_no = args.rgi_glac_number
         # format appropriately
-        glac_no = [f"{g:.5f}" if g >= 10 else f"0{g:.5f}" for g in glac_no]    
+        glac_no = [float(g) for g in glac_no]
+        glac_no = [f"{g:.5f}" if g >= 10 else f"0{g:.5f}" for g in glac_no]
     elif args.rgi_glac_number_fn is not None:
         with open(args.rgi_glac_number_fn, 'r') as f:
             glac_no = json.load(f)
