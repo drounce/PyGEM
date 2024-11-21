@@ -5,7 +5,7 @@ PyGEM's configuration file (***~/PyGEM/config.yaml***) is where the user is able
 ```{warning}
 The only configuration setting a user must modify before running PyGEM is the **root** data path.
 ```
-The configuration is loosely organized to have the most frequently changed items at the top of the file, while also separating the file into organized chunks/keys. The general organization (by dictionary primary key) is:
+The configuration is loosely organized to have the most frequently changed items at the top of the file, while also separating the file into organized chunks/keys. The general organization (by primary dictionary key) is:
 * [user](input_user_info_target): user information
 * [setup](input_glacier_selection_target): glacier selection
 * [oggm](input_oggm_target): OGGM settings
@@ -44,7 +44,6 @@ Several options exist to specify the glaciers, but they generally fall into spec
 | :--- | :--- | :--- |
 | rgi_regionsO1 | list of int | 1st order region number |
 | rgi_regionsO2 | list of int or 'all' | 2nd order region number ('all' means to include all subregions) |
-| rgi_glac_number | list of str or 'all' | glacier number (e.g., '00001') ('all' means to include all glaciers in a given region/subregion) |
 | glac_no_skip | list of str or None | glacier numbers (e.g., '1.00001') of any glaciers to exclude |
 | glac_no | list or None | glacier numbers (e.g., '1.00001') of glaciers to run |
 
