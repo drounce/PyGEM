@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Mon Feb  3 14:00:14 2020
+Python Glacier Evolution Model (PyGEM)
 
-@author: davidrounce
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
 """
 from collections import OrderedDict
 from time import gmtime, strftime

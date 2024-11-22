@@ -7,7 +7,6 @@ Distrubted under the MIT lisence
 
 Find the optimal values of glens_a_multiplier to match the consensus ice thickness estimates 
 """
-
 # Built-in libraries
 import argparse
 from collections import OrderedDict

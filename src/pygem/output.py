@@ -1,16 +1,15 @@
-#!/usr/bin/env python3
 """
-Created on Sept 19 2023
-Updated Mar 29 2024
+Python Glacier Evolution Model (PyGEM)
 
-@author: btobers mrweathers drounce
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
 
 PyGEM classes and subclasses for model output datasets
 
 For glacier simulations:
 The two main parent classes are single_glacier(object) and compiled_regional(object)
 Both of these have several subclasses which will inherit the necessary parent information
-
 """
 from dataclasses import dataclass
 from scipy.stats import median_abs_deviation

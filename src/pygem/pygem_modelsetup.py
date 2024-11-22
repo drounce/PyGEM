@@ -7,7 +7,6 @@ Distrubted under the MIT lisence
 
 List of functions used to set up different aspects of the model
 """
-
 # Built-in libaries
 import os
 # External libraries

@@ -7,7 +7,6 @@ Distrubted under the MIT lisence
 
 NASA Operation IceBridge data and processing class
 """
-
 import re, os, glob, json, pickle, datetime, warnings, sys
 import numpy as np
 import pandas as pd

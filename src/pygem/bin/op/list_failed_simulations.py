@@ -7,7 +7,6 @@ Distrubted under the MIT lisence
 
 script to check for failed glaciers for a given simulation and export a pickle file containing a list of said glacier numbers to be reprocessed
 """
-
 # imports
 import os
 import glob

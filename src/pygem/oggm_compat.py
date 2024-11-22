@@ -1,4 +1,12 @@
-""" PYGEM-OGGGM COMPATIBILITY FUNCTIONS """
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
+
+PYGEM-OGGGM COMPATIBILITY FUNCTIONS
+"""
 # External libraries
 import numpy as np
 import pandas as pd

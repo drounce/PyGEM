@@ -1,5 +1,12 @@
-"""class of climate data and functions associated with manipulating the dataset to be in the proper format"""
+"""
+Python Glacier Evolution Model (PyGEM)
 
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
+
+class of climate data and functions associated with manipulating the dataset to be in the proper format
+"""
 import os
 # External libraries
 import pandas as pd

@@ -7,7 +7,6 @@ Distrubted under the MIT lisence
 
 Run bias adjustments a given climate dataset
 """
-
 # Built-in libraries
 import os
 import sys

@@ -7,7 +7,6 @@ Distrubted under the MIT lisence
 
 Run model calibration
 """
-
 # Built-in libraries
 import argparse
 import inspect

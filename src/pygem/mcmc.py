@@ -1,4 +1,12 @@
-"""Markov chain Monte Carlo methods"""
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
+
+Markov chain Monte Carlo methods
+"""
 import sys
 import copy
 import torch
