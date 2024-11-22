@@ -331,14 +331,14 @@ def run(list_packed_vars):
     
     # ----- Other Climate Datasets (Air temperature variability [degC] and Lapse rate [K m-1])
     # Air temperature variability [degC]
-    if pygem_prms['mbmod']['option_ablation'] != 2:
+    if pygem_prms['mb']['option_ablation'] != 2:
         gcm_tempstd = np.zeros((main_glac_rgi.shape[0],dates_table.shape[0]))
         ref_tempstd = np.zeros((main_glac_rgi.shape[0],dates_table_ref.shape[0]))
-    elif pygem_prms['mbmod']['option_ablation'] == 2 and gcm_name in ['ERA5']:
+    elif pygem_prms['mb']['option_ablation'] == 2 and gcm_name in ['ERA5']:
         gcm_tempstd, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.tempstd_fn, gcm.tempstd_vn,
                                                                         main_glac_rgi, dates_table)
         ref_tempstd = gcm_tempstd
-    elif pygem_prms['mbmod']['option_ablation'] == 2 and args.ref_gcm_name in ['ERA5']:
+    elif pygem_prms['mb']['option_ablation'] == 2 and args.ref_gcm_name in ['ERA5']:
         # Compute temp std based on reference climate data
         ref_tempstd, ref_dates = ref_gcm.importGCMvarnearestneighbor_xarray(ref_gcm.tempstd_fn, ref_gcm.tempstd_vn,
                                                                             main_glac_rgi, dates_table_ref)
@@ -613,7 +613,7 @@ def run(list_packed_vars):
                     # ----- ICE THICKNESS INVERSION using OGGM -----
                     if args.option_dynamics is not None:
                         # Apply inversion_filter on mass balance with debris to avoid negative flux
-                        if pygem_prms['mbmod']['include_debris']:
+                        if pygem_prms['mb']['include_debris']:
                             inversion_filter = True
                         else:
                             inversion_filter = False
@@ -751,9 +751,6 @@ def run(list_packed_vars):
                                                 water_level=water_level,
                                                 spinupyears=pygem_prms['climate']['ref_spinupyears']
                                                 )
-                                # if oggm_version > 1.301:
-                                #     diag = ev_model.run_until_and_store(nyears)
-                                # else:
                                 _, diag = ev_model.run_until_and_store(nyears)
                                 ev_model.mb_model.glac_wide_volume_annual = diag.volume_m3.values
                                 ev_model.mb_model.glac_wide_area_annual = diag.area_m2.values
@@ -782,9 +779,6 @@ def run(list_packed_vars):
                                                 is_tidewater=gdir.is_tidewater,
                                                 water_level=water_level
                                                 )
-                                # if oggm_version > 1.301:
-                                #     diag = ev_model.run_until_and_store(nyears)
-                                # else:
                                 _, diag = ev_model.run_until_and_store(nyears)
                                 ev_model.mb_model.glac_wide_volume_annual = diag.volume_m3.values
                                 ev_model.mb_model.glac_wide_area_annual = diag.area_m2.values
@@ -820,11 +814,8 @@ def run(list_packed_vars):
                         if debug:
                             print('New glacier vol', ev_model.volume_m3)
                             graphics.plot_modeloutput_section(ev_model)
-                           
+                            plt.show()
                         try:
-                            # if oggm_version > 1.301:
-                            #     diag = ev_model.run_until_and_store(nyears)
-                            # else:
                             _, diag = ev_model.run_until_and_store(nyears)
 #                            print('shape of volume:', ev_model.mb_model.glac_wide_volume_annual.shape, diag.volume_m3.shape)
                             ev_model.mb_model.glac_wide_volume_annual = diag.volume_m3.values
@@ -907,8 +898,6 @@ def run(list_packed_vars):
             #                    graphics.plot_modeloutput_map(gdir, model=ev_model)
                                 plt.figure()
                                 diag.volume_m3.plot()
-                                plt.figure()
-    #                                diag.area_m2.plot()
                                 plt.show()
             
                             # Post-process data to ensure mass is conserved and update accordingly for ignored mass losses

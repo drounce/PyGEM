@@ -328,7 +328,7 @@ class glacierwide_stats(single_glacier):
                                                         'temporal_resolution': 'monthly',
                                                         'comment': 'off-glacier runoff from area where glacier no longer exists'}
             
-        if pygem_prms['out']['export_extra_vars']:
+        if pygem_prms['sim']['out']['export_extra_vars']:
             self.output_coords_dict['glac_prec_monthly'] = collections.OrderedDict([('glac', self.glac_values), 
                                                                             ('time',  self.time_values)])
             self.output_attrs_dict['glac_prec_monthly'] = {
@@ -666,7 +666,7 @@ class regional_monthly_massbal(compiled_regional):
     """
 
 
-def calc_stats_array(data, stats_cns=pygem_prms['sim']['sim_stats']):
+def calc_stats_array(data, stats_cns=pygem_prms['sim']['out']['sim_stats']):
     """
     Calculate stats for a given variable
 

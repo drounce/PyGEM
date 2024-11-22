@@ -28,6 +28,8 @@ setup:
   rgi_region02: all
   glac_no_skip: null                              # optionally specify rgi glacier numbers to skip
   glac_no: null                                   # either `null` or a list of rgi glacier numbers, including the region # (e.g., 1.00570)
+    # - 1.00570
+    # - 1.22193                                   
   min_glac_area_km2: 0                            # glacies below the specified are threshold will be excluded
   # Types of glaciers to include (true) or exclude (false)
   include_landterm: true                          # Switch to include land-terminating glaciers
@@ -121,7 +123,7 @@ calib:
   # emulator params
   emulator_params:
     emulator_sims: 100                            # Number of simulations to develop the emulator
-    overwrite_em_sims: true                      # Overwrite emulator simulations
+    overwrite_em_sims: true                       # Overwrite emulator simulations
     opt_hh2015_mod: true                          # Option to also perform the HH2015_mod calibration using the emulator
     tbias_step: 0.5                               # tbias step size
     tbias_init: 0                                 # tbias initial value
@@ -221,17 +223,17 @@ sim:
                                                   # 2: HH2015 methods
                                                   # 3: quantile delta mapping
   nsims: 1                                        # number of simulations (note, defaults to 1 if ['calib']['option_calibration'] != 'MCMC')
-  sim_stats:                                      # Output statistics of simulations (options include any of the following 'mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%', 'mad')
-    - median
-    - mad
   # ===== OUTPUT OPTIONS =====
   out:
+    sim_stats:                                    # Output statistics of simulations (options include any of the following 'mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%', 'mad')
+      - median
+      - mad
     # export options (booleans)
-    export_all_simiters: false                      # Exprort individual simulation results (false exports median and MAD from all sim_iters)
-    export_extra_vars: true                         # Option to export extra variables (temp, prec, melt, acc, etc.)
-    export_binned_data: false                       # Export binned ice thickness
-    export_binned_components: false                 # Export binned mass balance components (accumulation, melt, refreeze)
-    export_binned_area_threshold: 0                 # Area threshold for exporting binned ice thickness
+    export_all_simiters: false                    # Exprort individual simulation results (false exports median and MAD from all sim_iters)
+    export_extra_vars: true                       # Option to export extra variables (temp, prec, melt, acc, etc.)
+    export_binned_data: false                     # Export binned ice thickness
+    export_binned_components: false               # Export binned mass balance components (accumulation, melt, refreeze)
+    export_binned_area_threshold: 0               # Area threshold for exporting binned ice thickness
   # ===== OGGM DYNAMICS =====
   oggm_dynamics:
     cfl_number: 0.02
@@ -246,15 +248,15 @@ sim:
   terminus_percentage: 20                         # glacier (%) considered terminus (20% in HH2015), used to size advancing new bins
   # ===== MODEL PARAMETERS =====
   params:
-    use_constant_lapserate: false                   # false: use spatially and temporally varying lapse rate, true: use constant value specified below
-    kp: 1                                           # precipitation factor [-] (referred to as k_p in Radic etal 2013; c_prec in HH2015)
-    tbias: 5                                        # temperature bias [deg C]
-    ddfsnow: 0.0041                                 # degree-day factor of snow [m w.e. d-1 degC-1]
-    ddfsnow_iceratio: 0.7                           # Ratio degree-day factor snow snow to ice (Note, ddfice = ddfsnow / ddfsnow_iceratio)
-    precgrad: 0.0001                                # precipitation gradient on glacier [m-1]
-    lapserate: -0.0065                              # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [K m-1]
-    tsnow_threshold: 1                              # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
-    calving_k: 0.7                                  # frontal ablation rate [yr-1]
+    use_constant_lapserate: false                 # false: use spatially and temporally varying lapse rate, true: use constant value specified below
+    kp: 1                                         # precipitation factor [-] (referred to as k_p in Radic etal 2013; c_prec in HH2015)
+    tbias: 5                                      # temperature bias [deg C]
+    ddfsnow: 0.0041                               # degree-day factor of snow [m w.e. d-1 degC-1]
+    ddfsnow_iceratio: 0.7                         # Ratio degree-day factor snow snow to ice (Note, ddfice = ddfsnow / ddfsnow_iceratio)
+    precgrad: 0.0001                              # precipitation gradient on glacier [m-1]
+    lapserate: -0.0065                            # temperature lapse rate for both gcm to glacier and on glacier between elevation bins [K m-1]
+    tsnow_threshold: 1                            # temperature threshold for snow [deg C] (HH2015 used 1.5 degC +/- 1 degC)
+    calving_k: 0.7                                # frontal ablation rate [yr-1]
 
 # ===== MASS BALANCE MODEL OPTIONS =====
 mb:
@@ -343,14 +345,14 @@ time:
 constants:
   density_ice: 900                                # Density of ice [kg m-3] (or Gt / 1000 km3)
   density_water: 1000                             # Density of water [kg m-3]
-  area_ocean: 362.5e+12                            # Area of ocean [m2] (Cogley, 2012 from Marzeion et al. 2020)
+  area_ocean: 362.5e+12                           # Area of ocean [m2] (Cogley, 2012 from Marzeion et al. 2020)
   k_ice: 2.33                                     # Thermal conductivity of ice [J s-1 K-1 m-1] recall (W = J s-1)
   k_air: 0.023                                    # Thermal conductivity of air [J s-1 K-1 m-1] (Mellor, 1997)
   #k_air: 0.001                                   # Thermal conductivity of air [J s-1 K-1 m-1]
   ch_ice: 1890000                                 # Volumetric heat capacity of ice [J K-1 m-3] (density=900, heat_capacity=2100 J K-1 kg-1)
   ch_air: 1297                                    # Volumetric Heat capacity of air [J K-1 m-3] (density=1.29, heat_capacity=1005 J K-1 kg-1)
   Lh_rf: 333550                                   # Latent heat of fusion [J kg-1]
-  tolerance: 1.0e-12                                # Model tolerance (used to remove low values caused by rounding errors)
+  tolerance: 1.0e-12                              # Model tolerance (used to remove low values caused by rounding errors)
   gravity: 9.81                                   # Gravity [m s-2]
   pressure_std: 101325                            # Standard pressure [Pa]
   temp_std: 288.15                                # Standard temperature [K]
