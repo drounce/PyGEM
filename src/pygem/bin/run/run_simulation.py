@@ -1197,13 +1197,6 @@ def run(list_packed_vars):
                     # export merged netcdf glacierwide stats
                     output_stats.save_xr_ds(output_stats.get_fn().replace('SETS',f'{nsims}sets') + 'all.nc')
 
-                    # export tas_mon and pr_mon
-                    if realization is not None:
-                        tas_fn = output_stats.get_outdir() + 'tas_mon_' + output_stats.get_fn().replace('SETS_','')
-                        pr_fn = output_stats.get_outdir() + 'pr_mon_' + output_stats.get_fn().replace('SETS_','')
-                        np.savetxt(tas_fn + '.csv', gcm_temp_adj, delimiter="\n")
-                        np.savetxt(pr_fn + '.csv', gcm_prec_adj, delimiter="\n")
-    
                     # ----- DECADAL ICE THICKNESS STATS FOR OVERDEEPENINGS -----
                     if args.export_binned_data and glacier_rgi_table.Area > pygem_prms['sim']['out']['export_binned_area_threshold']:
                         
@@ -1400,9 +1393,9 @@ def main():
             for count, glac_no_lst in enumerate(glac_no_lsts):
                 list_packed_vars.append([count, glac_no_lst, gcm_name, realizations])
                
+        print('Processing with ' + str(num_cores) + ' cores...')
         # Parallel processing
         if num_cores > 1:
-            print('Processing in parallel with ' + str(num_cores) + ' cores...')
             with multiprocessing.Pool(num_cores) as p:
                 p.map(run,list_packed_vars)
         # If not in parallel, then only should be one loop

@@ -17,6 +17,7 @@ import xarray as xr
 import numpy as np
 import pygem
 from datetime import datetime
+import multiprocessing
 
 # pygem imports
 import pygem
@@ -26,7 +27,6 @@ config.ensure_config()
 # read the config
 pygem_prms = config.read_config()
 import pygem.pygem_modelsetup as modelsetup
-
 
 rgi_reg_dict = {'all':'Global',
                 'all_no519':'Global, excl. GRL and ANT',
@@ -53,7 +53,9 @@ rgi_reg_dict = {'all':'Global',
                 }
 
 
-def main(reg, simpath, gcm, scenario, calibration, bias_adj, gcm_startyear, gcm_endyear, vars):
+def run(args):
+    # unpack arguments
+    reg, simpath, gcms, scenario, calibration, bias_adj, gcm_startyear, gcm_endyear, vars = args
 
     # #%% ----- PROCESS DATASETS FOR INDIVIDUAL GLACIERS AND ELEVATION BINS -----
     comppath = simpath + 'compile/'
@@ -88,9 +90,7 @@ def main(reg, simpath, gcm, scenario, calibration, bias_adj, gcm_startyear, gcm_
         glacno_list_batches[i+1].pop(0)
 
     # open up a simulation file to get time for prepoluating aggregated data below - make sure gcm has scenario of interest
-    if gcm:
-        gcms = [gcm]
-    else:
+    if gcms is None:
         gcms = os.listdir(base_dir)
     time_values = None
     while time_values is None:        
@@ -646,19 +646,19 @@ def main(reg, simpath, gcm, scenario, calibration, bias_adj, gcm_startyear, gcm_
                     os.remove(vn_fp + fn)
 
 
-if __name__=='__main__':
+def main():
     start = time.time()
 
     # Set up CLI
     parser = argparse.ArgumentParser(
-    description="""description: program for compiling regional stats from the python glacier evolution model (PyGEM)\n\nexample call: $python compile_simulations -rgi_region=<##> -scenario=<SCENARIO> -simpath=</path/to/sims/> -gcm_startyear=<YYYY> -gcm_endyear=<YYYY>""",
+    description="""description: program for compiling regional stats from the python glacier evolution model (PyGEM)\n\nexample call: $python compile_simulations -rgi_region 01 02 -scenario ssp345 ssp585 -gcm_startyear2000 -gcm_endyear 2100 -vars glac_mass_annual glac_area_annual""",
     formatter_class=argparse.RawTextHelpFormatter)
     requiredNamed = parser.add_argument_group('required named arguments')
     requiredNamed.add_argument('-rgi_region01', type=int, default=pygem_prms['setup']['rgi_region01'],
                         help='Randoph Glacier Inventory region (can take multiple, e.g. `-run_region01 1 2 3`)', nargs='+')
-    parser.add_argument('-gcm_name', type=str, default=None, 
-                        help='GCM name to compile results from (ex. ERA5 or CESM2)')
-    parser.add_argument('-scenario', action='store', type=str, default=None,
+    parser.add_argument('-gcm_name', type=str, default=None, nargs='+', 
+                        help='GCM name to compile results from (ex. ERA5 CESM2)')
+    parser.add_argument('-scenario', action='store', type=str, default=None, nargs='+',
                         help='rcp or ssp scenario used for model run (ex. rcp26 or ssp585)')
     parser.add_argument('-gcm_startyear', action='store', type=int, default=pygem_prms['climate']['gcm_startyear'],
                         help='start year for the model run')
@@ -675,24 +675,19 @@ if __name__=='__main__':
     parser.add_argument('-vars',type=str, help='comm delimited list of PyGEM variables to compile (ex. "monthly_mass","annual_area")', 
                         choices=['glac_runoff_monthly','offglac_runoff_monthly','glac_acc_monthly','glac_melt_monthly','glac_refreeze_monthly','glac_frontalablation_monthly','glac_massbaltotal_monthly','glac_prec_monthly','glac_mass_monthly','glac_mass_annual','glac_area_annual'],
                         nargs='+')
-    args = parser.parse_args()
+    parser.add_argument('-ncores', action='store', type=int, default=1,
+                        help='number of simultaneous processes (cores) to use')
 
+    args = parser.parse_args()
     simpath = args.sim_path
     region = args.rgi_region01
-    gcm = args.gcm_name
+    gcms = args.gcm_name
     scenario = args.scenario
     calib = args.option_calibration
-    bias_adj = args.bias_adj
+    bias_adj = args.option_bias_adjustment
     gcm_startyear = args.gcm_startyear
     gcm_endyear = args.gcm_endyear
     vars = args.vars
-
-    if gcm in ['ERA5', 'ERA-Interim', 'COAWST']:
-        scenario = None
-        bias_adj = 0
-
-    if scenario:
-        gcm = None
 
     if not simpath:
         simpath = pygem_prms['root'] + '/Output/simulations/'
@@ -703,18 +698,38 @@ if __name__=='__main__':
     if not isinstance(region, list):
         region = [region]
 
+    if not isinstance(gcms, list):
+        gcms = [gcms]
+
+    if not isinstance(scenario, list):
+        scenario = [scenario]
+
     if not vars:
         vars = ['glac_runoff_monthly','offglac_runoff_monthly','glac_acc_monthly','glac_melt_monthly','glac_refreeze_monthly','glac_frontalablation_monthly','glac_massbaltotal_monthly','glac_prec_monthly','glac_mass_monthly','glac_mass_annual','glac_area_annual']
 
-    for reg in region:
-        main(reg=reg,
-             simpath=simpath,
-             gcm=gcm,
-             scenario=scenario,
-             bias_adj=bias_adj,
-             gcm_startyear=gcm_startyear,
-             gcm_endyear=gcm_endyear,
-             vars=vars)
+    # get number of jobs and split into desired number of cores
+    njobs = int(len(region) * len(scenario))
+    # number of cores for parallel processing
+    if args.ncores > 1:
+        num_cores = int(np.min([njobs, args.ncores]))
+    else:
+        num_cores = 1
+    # pack variables for multiprocessing
+    list_packed_vars = []
+    i=0
+    for sce in scenario:
+        for reg in region:
+            list_packed_vars.append([reg, simpath, gcms, sce, calib, bias_adj, gcm_startyear, gcm_endyear, vars])
+            print(f'job {i}:', list_packed_vars[-1])
+            i+=1
+
+    # parallel processing
+    print('Processing with ' + str(num_cores) + ' cores...')
+    with multiprocessing.Pool(num_cores) as p:
+        p.map(run,list_packed_vars)     
 
     end = time.time()
     print(f'Total runtime: {np.round(end - start,2)} seconds')
+
+if __name__=='__main__':
+    main()
