@@ -55,7 +55,7 @@ rgi_reg_dict = {'all':'Global',
 
 def run(args):
     # unpack arguments
-    reg, simpath, gcms, scenario, calibration, bias_adj, gcm_startyear, gcm_endyear, vars = args
+    reg, simpath, gcms, realization, scenario, calibration, bias_adj, gcm_startyear, gcm_endyear, vars = args
 
     # #%% ----- PROCESS DATASETS FOR INDIVIDUAL GLACIERS AND ELEVATION BINS -----
     comppath = simpath + 'compile/'
@@ -89,9 +89,6 @@ def run(args):
         glacno_list_batches[i].append(glacno_list_batches[i+1][0])
         glacno_list_batches[i+1].pop(0)
 
-    # open up a simulation file to get time for prepoluating aggregated data below - make sure gcm has scenario of interest
-    if gcms is None:
-        gcms = os.listdir(base_dir)
     time_values = None
     while time_values is None:        
         for gcm in gcms:
@@ -101,6 +98,7 @@ def run(args):
                 else:
                     # remove the gcm from our gcm list if the desired scenario is not contained
                     gcms.remove(gcm)
+                    print(f'scenario {scenario} not found for {gcm}, skipping')
             else:
                 fn = glob.glob(base_dir + gcm  + "/stats/" + f'*{gcm}_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc')[0]
             ds_glac = xr.open_dataset(fn)
@@ -651,15 +649,17 @@ def main():
 
     # Set up CLI
     parser = argparse.ArgumentParser(
-    description="""description: program for compiling regional stats from the python glacier evolution model (PyGEM)\n\nexample call: $python compile_simulations -rgi_region 01 02 -scenario ssp345 ssp585 -gcm_startyear2000 -gcm_endyear 2100 -vars glac_mass_annual glac_area_annual""",
+    description="""description: program for compiling regional stats from the python glacier evolution model (PyGEM)\nnote, this script is not embarrassingly parallel\nit is currently set up to be parallelized by splitting into n jobs based on the number of regions and scenarios scecified\nfor example, the call below could be parallelized into 4 jobs (2 regions x 2 scenarios)\n\nexample call: $python compile_simulations -rgi_region 01 02 -scenario ssp345 ssp585 -gcm_startyear2000 -gcm_endyear 2100 -ncores 4 -vars glac_mass_annual glac_area_annual""",
     formatter_class=argparse.RawTextHelpFormatter)
     requiredNamed = parser.add_argument_group('required named arguments')
-    requiredNamed.add_argument('-rgi_region01', type=int, default=pygem_prms['setup']['rgi_region01'],
-                        help='Randoph Glacier Inventory region (can take multiple, e.g. `-run_region01 1 2 3`)', nargs='+')
-    parser.add_argument('-gcm_name', type=str, default=None, nargs='+', 
-                        help='GCM name to compile results from (ex. ERA5 CESM2)')
-    parser.add_argument('-scenario', action='store', type=str, default=None, nargs='+',
-                        help='rcp or ssp scenario used for model run (ex. rcp26 or ssp585)')
+    requiredNamed.add_argument('-rgi_region01', type=int, default=None, required=True, nargs='+',
+                        help='Randoph Glacier Inventory region (can take multiple, e.g. "1 2 3")')
+    requiredNamed.add_argument('-gcm_name', type=str, default=None, required=True, nargs='+', 
+                        help='GCM name for which to compile simulations (can take multiple, ex. "ERA5" or "CESM2")')
+    requiredNamed.add_argument('-scenario', action='store', type=str, default=None, required=True, nargs='+',
+                        help='rcp or ssp scenario used for model run (can take multiple, ex. "ssp245 ssp585")')
+    parser.add_argument('-realization', action='store', type=str, default=None, nargs='+',
+                        help='realization from large ensemble used for model run (cant take multiple, ex. "r1i1p1f1 r2i1p1f1 r3i1p1f1")')
     parser.add_argument('-gcm_startyear', action='store', type=int, default=pygem_prms['climate']['gcm_startyear'],
                         help='start year for the model run')
     parser.add_argument('-gcm_endyear', action='store', type=int, default=pygem_prms['climate']['gcm_endyear'],
@@ -669,20 +669,19 @@ def main():
     parser.add_argument('-option_calibration', action='store', type=str, default=pygem_prms['calib']['option_calibration'],
                         help='calibration option ("emulator", "MCMC", "HH2015", "HH2015mod", "None")')
     parser.add_argument('-option_bias_adjustment', action='store', type=int, default=pygem_prms['sim']['option_bias_adjustment'],
-                        help='Bias adjustment option (options: `0`, `1`, `2`, `3`. 0: no adjustment, \
-                                    1: new prec scheme and temp building on HH2015, \
-                                    2: HH2015 methods, 3: quantile delta mapping)')
-    parser.add_argument('-vars',type=str, help='comm delimited list of PyGEM variables to compile (ex. "monthly_mass","annual_area")', 
+                        help='Bias adjustment option (options: 0, "1", "2", "3".\n0: no adjustment\n1: new prec scheme and temp building on HH2015\n2: HH2015 methods\n3: quantile delta mapping)')
+    parser.add_argument('-vars',type=str, help='comm delimited list of PyGEM variables to compile (can take multiple, ex. "monthly_mass annual_area")', 
                         choices=['glac_runoff_monthly','offglac_runoff_monthly','glac_acc_monthly','glac_melt_monthly','glac_refreeze_monthly','glac_frontalablation_monthly','glac_massbaltotal_monthly','glac_prec_monthly','glac_mass_monthly','glac_mass_annual','glac_area_annual'],
                         nargs='+')
     parser.add_argument('-ncores', action='store', type=int, default=1,
-                        help='number of simultaneous processes (cores) to use')
+                        help='number of simultaneous processes (cores) to use, defualt is 1, ie. no parallelization')
 
     args = parser.parse_args()
     simpath = args.sim_path
     region = args.rgi_region01
     gcms = args.gcm_name
     scenario = args.scenario
+    realization = args.realization
     calib = args.option_calibration
     bias_adj = args.option_bias_adjustment
     gcm_startyear = args.gcm_startyear
@@ -704,6 +703,9 @@ def main():
     if not isinstance(scenario, list):
         scenario = [scenario]
 
+    if realization and not isinstance(realization, list):
+        realization = [realization]
+
     if not vars:
         vars = ['glac_runoff_monthly','offglac_runoff_monthly','glac_acc_monthly','glac_melt_monthly','glac_refreeze_monthly','glac_frontalablation_monthly','glac_massbaltotal_monthly','glac_prec_monthly','glac_mass_monthly','glac_mass_annual','glac_area_annual']
 
@@ -716,11 +718,12 @@ def main():
         num_cores = 1
     # pack variables for multiprocessing
     list_packed_vars = []
+    kwargs=['region', 'simpath', 'gcms', 'realization', 'scenario', 'calib', 'bias_adj', 'gcm_startyear', 'gcm_endyear', 'vars']
     i=0
     for sce in scenario:
         for reg in region:
-            list_packed_vars.append([reg, simpath, gcms, sce, calib, bias_adj, gcm_startyear, gcm_endyear, vars])
-            print(f'job {i}:', list_packed_vars[-1])
+            list_packed_vars.append([reg, simpath, gcms, realization, sce, calib, bias_adj, gcm_startyear, gcm_endyear, vars])
+            print(f'job {i}:', [f'{name}={val}' for name, val in zip(kwargs,list_packed_vars[-1])])
             i+=1
 
     # parallel processing
