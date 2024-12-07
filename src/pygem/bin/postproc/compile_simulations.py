@@ -561,16 +561,16 @@ def run(args):
             ds.lat.attrs['units'] = 'degrees_north'
             
             # save batch
-            nsidc_glac_fp = comppath + '/glacier_stats/' + var + '/' + str(reg).zfill(2) + '/'
-            if not os.path.exists(nsidc_glac_fp):
-                os.makedirs(nsidc_glac_fp, exist_ok=True)
+            vn_fp = f'{comppath}/glacier_stats/{var}/{str(reg).zfill(2)}/'
+            if not os.path.exists(vn_fp):
+                os.makedirs(vn_fp, exist_ok=True)
                 
             if realizations[0]:
                 ds_fn = f'R{str(reg).zfill(2)}_{var}_{gcms[0]}_{scenario}_Batch-{str(batch_start)}-{str(batch_end)}_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_')
             else:
                 ds_fn = f'R{str(reg).zfill(2)}_{var}_{scenario}_Batch-{str(batch_start)}-{str(batch_end)}_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_')
 
-            ds.to_netcdf(nsidc_glac_fp + ds_fn)
+            ds.to_netcdf(vn_fp + ds_fn)
 
         loop_end = time.time()
         print(f'Batch {nbatch} runtime:\t{np.round(loop_end - loop_start,2)} seconds')
@@ -596,7 +596,7 @@ def run(args):
             
                 ds = None
                 for fn in fn_merge_list:
-                    ds_batch = xr.open_dataset(vn_fp + fn)
+                    ds_batch = xr.open_dataset(fn)
                     
                     if ds is None:
                         ds = ds_batch
@@ -604,12 +604,12 @@ def run(args):
                         ds = xr.concat([ds, ds_batch], dim="glacier")
                 # save
                 ds_fn = fn.split('Batch')[0][:-1] + f'_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'
-                ds.to_netcdf(vn_fp + ds_fn)
+                ds.to_netcdf(ds_fn)
                 
                 ds_batch.close()
                 
                 for fn in fn_merge_list:
-                    os.remove(vn_fp + fn)
+                    os.remove(fn)
 
 
 def main():
