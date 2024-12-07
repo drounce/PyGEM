@@ -102,6 +102,7 @@ def run(args):
         fn = glob.glob(base_dir + gcm  + "/" + scenario  + "/stats/" + f'*{gcm}_{scenario}_{realizations[0]}_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_'))[0]
     else:
         fn = glob.glob(base_dir + gcm  + "/stats/" + f'*{gcm}_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc')[0]
+    nsets = fn.split('/')[-1].split('_')[-4]
 
     ds_glac = xr.open_dataset(fn)
     year_values = ds_glac.year.values
@@ -160,7 +161,7 @@ def run(args):
             ### LEVEL III ###
             for realization in realizations:
                 print(f'GCM: {gcm} {realization}')
-                fps = glob.glob(sim_dir + f'*{gcm}_{scenario}_{realization}_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_'))
+                fps = glob.glob(sim_dir + f'*{gcm}_{scenario}_{realization}_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_'))
 
                 # during 0th batch, print the regional stats of glaciers and area successfully simulated for all regional glaciers for given gcm scenario
                 if nbatch==0:
@@ -193,7 +194,7 @@ def run(args):
                 for i, glacno in enumerate(glacno_list):
                     # get glacier string and file name
                     glacier_str = '{0:0.5f}'.format(float(glacno))
-                    glacno_fn = f'{sim_dir}/{glacier_str}_{gcm}_{scenario}_{realization}_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_')
+                    glacno_fn = f'{sim_dir}/{glacier_str}_{gcm}_{scenario}_{realization}_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_')
                     # try to load all glaciers in region
                     try:
                         # open netcdf file
@@ -330,7 +331,8 @@ def run(args):
                         lon=(["glacier"], cenlon_list),
                         lat=(["glacier"], cenlat_list),
                         time=tvals,
-                )    
+                ) 
+                coord_order = ["realization","glacier","time"]
             else:
                 coords_dict=dict(
                         RGIId=(["glacier"], rgiid_list),
@@ -339,12 +341,13 @@ def run(args):
                         lat=(["glacier"], cenlat_list),
                         time=tvals,
                 ) 
+                coord_order = ["model","glacier","time"]
 
             #glac_runoff_monthly
             if var=='glac_runoff_monthly':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_runoff_monthly=(["model", "glacier", "time"], reg_glac_allgcms_runoff_monthly),
+                                glac_runoff_monthly=(coord_order, reg_glac_allgcms_runoff_monthly),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -360,7 +363,7 @@ def run(args):
             elif var=='offglac_runoff_monthly':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                offglac_runoff_monthly=(["model", "glacier", "time"], reg_offglac_allgcms_runoff_monthly),
+                                offglac_runoff_monthly=(coord_order, reg_offglac_allgcms_runoff_monthly),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -376,7 +379,7 @@ def run(args):
             elif var=='glac_acc_monthly':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_acc_monthly=(["model", "glacier", "time"], reg_glac_allgcms_acc_monthly),
+                                glac_acc_monthly=(coord_order, reg_glac_allgcms_acc_monthly),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -392,7 +395,7 @@ def run(args):
             elif var=='glac_melt_monthly':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_melt_monthly=(["model", "glacier", "time"], reg_glac_allgcms_melt_monthly),
+                                glac_melt_monthly=(coord_order, reg_glac_allgcms_melt_monthly),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -407,7 +410,7 @@ def run(args):
             elif var=='glac_refreeze_monthly':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_refreeze_monthly=(["model", "glacier", "time"], reg_glac_allgcms_refreeze_monthly),
+                                glac_refreeze_monthly=(coord_order, reg_glac_allgcms_refreeze_monthly),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -422,7 +425,7 @@ def run(args):
             elif var=='glac_frontalablation_monthly':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_frontalablation_monthly=(["model", "glacier", "time"], reg_glac_allgcms_frontalablation_monthly),
+                                glac_frontalablation_monthly=(coord_order, reg_glac_allgcms_frontalablation_monthly),
                                 crs = np.nan
                                 ),
                                 coords=dict(
@@ -446,7 +449,7 @@ def run(args):
             elif var=='glac_massbaltotal_monthly':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_massbaltotal_monthly=(["model", "glacier", "time"], reg_glac_allgcms_massbaltotal_monthly),
+                                glac_massbaltotal_monthly=(coord_order, reg_glac_allgcms_massbaltotal_monthly),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -463,7 +466,7 @@ def run(args):
             elif var=='glac_prec_monthly':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_prec_monthly=(["model", "glacier", "time"], reg_glac_allgcms_prec_monthly),
+                                glac_prec_monthly=(coord_order, reg_glac_allgcms_prec_monthly),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -479,7 +482,7 @@ def run(args):
             elif var=='glac_mass_monthly':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_mass_monthly=(["model", "glacier", "time"], reg_glac_allgcms_mass_monthly),
+                                glac_mass_monthly=(coord_order, reg_glac_allgcms_mass_monthly),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -495,7 +498,7 @@ def run(args):
             elif var=='glac_area_annual':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_area_annual=(["model", "glacier", "time"], reg_glac_allgcms_area_annual),
+                                glac_area_annual=(coord_order, reg_glac_allgcms_area_annual),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -511,7 +514,7 @@ def run(args):
             elif var=='glac_mass_annual':
                 ds = xr.Dataset(
                         data_vars=dict(
-                                glac_mass_annual=(["model", "glacier", "time"], reg_glac_allgcms_mass_annual),
+                                glac_mass_annual=(coord_order, reg_glac_allgcms_mass_annual),
                                 crs = np.nan
                                 ),
                                 coords=coords_dict,
@@ -545,7 +548,7 @@ def run(args):
             ds.RGIId.attrs['cf_role'] = 'timeseries_id'
 
             if realizations[0]:
-                ds.Climate_Model.attrs['long_name'] = f'{gcm[0]} General Circulation Model realization'
+                ds.Climate_Model.attrs['long_name'] = f'{gcms[0]} General Circulation Model realization'
             else:
                 ds.Climate_Model.attrs['long_name'] = 'General Circulation Model realization'
             
@@ -563,9 +566,9 @@ def run(args):
                 os.makedirs(nsidc_glac_fp, exist_ok=True)
                 
             if realizations[0]:
-                ds_fn = f'R{str(reg).zfill(2)}_{var}_{gcm[0]}_{scenario}_Batch-{str(batch_start)}-{str(batch_end)}_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_')
+                ds_fn = f'R{str(reg).zfill(2)}_{var}_{gcms[0]}_{scenario}_Batch-{str(batch_start)}-{str(batch_end)}_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_')
             else:
-                ds_fn = f'R{str(reg).zfill(2)}_{var}_{scenario}_Batch-{str(batch_start)}-{str(batch_end)}_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_')
+                ds_fn = f'R{str(reg).zfill(2)}_{var}_{scenario}_Batch-{str(batch_start)}-{str(batch_end)}_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_')
 
             ds.to_netcdf(nsidc_glac_fp + ds_fn)
 
@@ -583,9 +586,9 @@ def run(args):
             fn_merge_list_start = []
 
             if realizations[0]:
-                fn_merge_list = glob.glob(f'{vn_fp}/R{str(reg).zfill(2)}_{vn}_{gcm[0]}_{scenario}_Batch-*_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_'))
+                fn_merge_list = glob.glob(f'{vn_fp}/R{str(reg).zfill(2)}_{vn}_{gcms[0]}_{scenario}_Batch-*_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_'))
             else:
-                fn_merge_list = glob.glob(f'{vn_fp}/R{str(reg).zfill(2)}_{vn}_{scenario}_Batch-*_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_'))
+                fn_merge_list = glob.glob(f'{vn_fp}/R{str(reg).zfill(2)}_{vn}_{scenario}_Batch-*_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'.replace('__','_'))
             fn_merge_list_start = [int(f.split('-')[-2]) for f in fn_merge_list]
         
             if len(fn_merge_list) > 0:
@@ -600,7 +603,7 @@ def run(args):
                     else:
                         ds = xr.concat([ds, ds_batch], dim="glacier")
                 # save
-                ds_fn = fn.split('Batch')[0][:-1] + f'_{calibration}_ba{bias_adj}_*_{gcm_startyear}_{gcm_endyear}_all.nc'
+                ds_fn = fn.split('Batch')[0][:-1] + f'_{calibration}_ba{bias_adj}_{nsets}_{gcm_startyear}_{gcm_endyear}_all.nc'
                 ds.to_netcdf(vn_fp + ds_fn)
                 
                 ds_batch.close()
