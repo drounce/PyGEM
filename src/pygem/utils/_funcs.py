@@ -8,6 +8,7 @@ Distrubted under the MIT lisence
 Functions that didn't fit into other modules
 """
 import numpy as np
+import json
 # Local libraries
 import pygem.setup.config as config
 # Read the config
@@ -52,3 +53,39 @@ def annualweightedmean_array(var, dates_table):
               'Exiting the model run.\n')
         exit()
     return var_annual
+
+
+
+import json
+
+def append_json(file_path, new_key, new_value):
+    """
+    Opens a JSON file, reads its content, adds a new key-value pair,
+    and writes the updated data back to the file.
+    
+    :param file_path: Path to the JSON file
+    :param new_key: The key to add
+    :param new_value: The value to add
+    """
+    try:
+        # Read the existing data
+        with open(file_path, "r") as file:
+            data = json.load(file)
+
+        # Ensure the JSON data is a dictionary
+        if not isinstance(data, dict):
+            raise ValueError("JSON file must contain a dictionary at the top level.")
+
+        # Add the new key-value pair
+        data[new_key] = new_value
+
+        # Write the updated data back to the file
+        with open(file_path, "w") as file:
+            json.dump(data, file)
+            
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' was not found.")
+    except json.JSONDecodeError:
+        print("Error: The file does not contain valid JSON.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")

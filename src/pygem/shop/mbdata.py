@@ -8,6 +8,7 @@ Distrubted under the MIT lisence
 # Built-in libaries
 import argparse
 import os
+import json
 import logging
 # External libraries
 from datetime import datetime, timedelta
@@ -37,9 +38,9 @@ TO-DO LIST:
 # Module logger
 log = logging.getLogger(__name__)
 
-# Add the new name "mb_obs" to the list of things that the GlacierDirectory understands
-if not 'mb_obs' in cfg.BASENAMES:
-    cfg.BASENAMES['mb_obs'] = ('mb_data.pkl', 'Mass balance observations')
+# Add the new name "mb_calib_pygem" to the list of things that the GlacierDirectory understands
+if not 'mb_calib_pygem' in cfg.BASENAMES:
+    cfg.BASENAMES['mb_calib_pygem'] = ('mb_calib_pygem.json', 'Mass balance observations for model calibration')
     
     
 def getparser():
@@ -57,7 +58,7 @@ def getparser():
     return parser
         
     
-@entity_task(log, writes=['mb_obs'])
+@entity_task(log, writes=['mb_calib_pygem'])
 def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
     """Select specific mass balance and add observations to the given glacier directory
     
@@ -113,19 +114,16 @@ def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
         nyears = (t2_datetime + timedelta(days=1) - t1_datetime).days / 365.25
 
         # Record data
-        mbdata = {'mb_mwea': mb_mwea,
-                  'mb_mwea_err': mb_mwea_err,
-                  'mb_clim_mwea': mb_clim_mwea,
-                  'mb_clim_mwea_err': mb_clim_mwea_err,
+        mbdata = {'mb_mwea': float(mb_mwea),
+                  'mb_mwea_err': float(mb_mwea_err),
+                  'mb_clim_mwea': float(mb_clim_mwea),
+                  'mb_clim_mwea_err': float(mb_clim_mwea_err),
                   't1_str': t1_str,
                   't2_str': t2_str,
-                  't1_datetime': t1_datetime,
-                  't2_datetime': t2_datetime,
                   'nyears': nyears}
-        
-        pkl_fn = gdir.get_filepath('mb_obs')
-        with open(pkl_fn, 'wb') as f:
-            pickle.dump(mbdata, f)
+        mb_fn = gdir.get_filepath('mb_calib_pygem')
+        with open(mb_fn, 'w') as f:
+            json.dump(mbdata, f)
 
 
 #@entity_task(log, writes=['mb_obs'])

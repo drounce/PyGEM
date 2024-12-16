@@ -17,6 +17,7 @@ import time
 import math
 import warnings
 import pickle
+from datetime import datetime, timedelta
 # External libraries
 import pandas as pd
 import json
@@ -41,6 +42,7 @@ from pygem.massbalance import PyGEMMassBalance
 from pygem.oggm_compat import single_flowline_glacier_directory, single_flowline_glacier_directory_with_calving
 import pygem.pygem_modelsetup as modelsetup
 from pygem.shop import debris, mbdata, icethickness, oib
+from pygem.utils._funcs import append_json
 
 from oggm import cfg
 from oggm import graphics
@@ -138,7 +140,7 @@ def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
     mbmod = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table, fls=fls, option_areaconstant=True)
     years = np.arange(0, int(gdir.dates_table.shape[0]/12))
     for year in years:
-        mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=0, year=year, debug=False)
+        mbmod.get_annual_mb(fls[0].surface_h, fls=fls, fl_id=0, year=year)
     
     # Option for must melt condition
     if return_tbias_mustmelt:
@@ -270,9 +272,13 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore')
         bin_thick = np.column_stack([stats.binned_statistic(x=nfls[0].surface_h, values=x, statistic=np.nanmean, bins=bin_edges)[0] for x in bin_thick.T])
-    
+
+    # interpolate over empty bins
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    interp_bin_thick = np.column_stack([np.interpolate.interp1d(bin_centers[~np.isnan(x)],x[~np.isnan(x)], kind='linear', fill_value="extrapolate")(bin_centers) for x in bin_thick.T])
+
     # difference each set of inds in diff_inds_map
-    binned_dh = np.column_stack([bin_thick[:,tup[1]] - bin_thick[:,tup[0]] for tup in diff_inds_map])
+    binned_dh = np.column_stack([interp_bin_thick[:,tup[1]] - interp_bin_thick[:,tup[0]] for tup in diff_inds_map])
 
     return mb_mwea, binned_dh
 
@@ -612,29 +618,27 @@ def run(list_packed_vars):
             # ----- Calibration data -----
             try:
             # for batman in [0]:
-
-                mbdata_fn = gdir.get_filepath('mb_obs')
-
+                mbdata_fn = gdir.get_filepath('mb_calib_pygem')
                 if not os.path.exists(mbdata_fn):
                     # Compute all the stuff
-                        list_tasks = [          
-                            # Consensus ice thickness
-                            icethickness.consensus_gridded,
-                            # Mass balance data
-                            mbdata.mb_df_to_gdir
-                        ]
-                        
-                        # Debris tasks
-                        if pygem_prms['mb']['include_debris']:
-                            list_tasks.append(debris.debris_to_gdir)
-                            list_tasks.append(debris.debris_binned)
+                    list_tasks = [          
+                        # Consensus ice thickness
+                        icethickness.consensus_gridded,
+                        # Mass balance data
+                        mbdata.mb_df_to_gdir
+                    ]
 
-                        for task in list_tasks:
-                            workflow.execute_entity_task(task, gdir)
-            
-                with open(mbdata_fn, 'rb') as f:
-                    gdir.mbdata = pickle.load(f)
-                        
+                    # Debris tasks
+                    if pygem_prms['mb']['include_debris']:
+                        list_tasks.append(debris.debris_to_gdir)
+                        list_tasks.append(debris.debris_binned)
+
+                    for task in list_tasks:
+                        workflow.execute_entity_task(task, gdir)
+
+                with open(mbdata_fn, 'r') as f:
+                    gdir.mbdata = json.load(f)
+
                 # Non-tidewater glaciers
                 if not gdir.is_tidewater:
                     # Load data
@@ -647,6 +651,8 @@ def run(list_packed_vars):
                     mb_obs_mwea_err = gdir.mbdata['mb_clim_mwea_err']
                     
                 # Add time indices consistent with dates_table for mb calculations
+                gdir.mbdata['t1_datetime'] = pd.to_datetime(gdir.mbdata['t1_str'])
+                gdir.mbdata['t2_datetime'] = pd.to_datetime(gdir.mbdata['t2_str']) - timedelta(days=1)
                 t1_year = gdir.mbdata['t1_datetime'].year
                 t1_month = gdir.mbdata['t1_datetime'].month
                 t2_year = gdir.mbdata['t2_datetime'].year
@@ -655,11 +661,10 @@ def run(list_packed_vars):
                 t2_idx = dates_table[(t2_year == dates_table['year']) & (t2_month == dates_table['month'])].index.values[0]
                 # Record indices
                 gdir.mbdata['t1_idx'] = t1_idx
-                gdir.mbdata['t2_idx'] = t2_idx                    
+                gdir.mbdata['t2_idx'] = t2_idx
                     
                 if debug:
-                    print('  mb_data (mwea): ' + str(np.round(mb_obs_mwea,2)) + ' +/- ' + str(np.round(mb_obs_mwea_err,2)))
-                
+                    print('  mb_data (mwea): ' + str(np.round(mb_obs_mwea,2)) + ' +/- ' + str(np.round(mb_obs_mwea_err,2)))             
                     
             except:
                 gdir.mbdata = None
@@ -678,7 +683,7 @@ def run(list_packed_vars):
             fls = None
 
         if debug:
-            assert os.path.exists(gdir.get_filepath('mb_obs')), 'Mass balance data missing. Check dataset and column names'
+            assert os.path.exists(mbdata_fn), 'Mass balance data missing. Check dataset and column names'
 
         # oib deltah data
         if args.option_calibration == 'MCMC' and args.oib:
