@@ -57,7 +57,7 @@ class PyGEMMassBalance(MassBalanceModel):
 
         super(PyGEMMassBalance, self).__init__()
         self.valid_bounds = [-1e4, 2e4]  # in m
-        self.hemisphere = 'nh'
+        self.hemisphere = gdir.hemisphere
 
         # Glacier data
         self.modelprms = modelprms
@@ -175,7 +175,7 @@ class PyGEMMassBalance(MassBalanceModel):
 
 
     def get_annual_mb(self, heights, year=None, fls=None, fl_id=None,
-                      debug=False, option_areaconstant=False):
+                      debug=pygem_prms['debug']['mb'], option_areaconstant=False):
         """FIXED FORMAT FOR THE FLOWLINE MODEL
 
         Returns annual climatic mass balance [m ice per second]

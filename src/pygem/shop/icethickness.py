@@ -32,7 +32,7 @@ if not 'consensus_h' in cfg.BASENAMES:
 log = logging.getLogger(__name__)
 
 @entity_task(log, writes=['consensus_mass'])
-def consensus_gridded(gdir, h_consensus_fp=pygem_prms['calib']['data']['icethickness']['h_consensus_relpath'], add_mass=True, add_to_gridded=True):
+def consensus_gridded(gdir, h_consensus_fp=f"{pygem_prms['root']}/{pygem_prms['calib']['data']['icethickness']['h_consensus_relpath']}", add_mass=True, add_to_gridded=True):
     """Bin consensus ice thickness and add total glacier mass to the given glacier directory
     
     Updates the 'inversion_flowlines' save file and creates new consensus_mass.pkl

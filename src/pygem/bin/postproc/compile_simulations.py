@@ -548,9 +548,9 @@ def run(args):
             ds.RGIId.attrs['cf_role'] = 'timeseries_id'
 
             if realizations[0]:
-                ds.Climate_Model.attrs['long_name'] = f'{gcms[0]} General Circulation Model realization'
+                ds.Climate_Model.attrs['long_name'] = f'{gcms[0]} realization'
             else:
-                ds.Climate_Model.attrs['long_name'] = 'General Circulation Model realization'
+                ds.Climate_Model.attrs['long_name'] = 'General Circulation Model'
             
             ds.lon.attrs['standard_name'] = 'longitude'
             ds.lon.attrs['long_name'] = 'longitude of glacier center'
