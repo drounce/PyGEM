@@ -149,6 +149,7 @@ class PyGEMMassBalance(MassBalanceModel):
 
         # Surface type DDF dictionary (manipulate this function for calibration or for each glacier)
         self.surfacetype_ddf_dict = self._surfacetypeDDFdict(self.modelprms)
+        self.surfacetype, self.firnline_idx = self._surfacetypebinsinitial(self.heights)
 
         # Refreezing specific layers
         if pygem_prms['mb']['option_refreezing'] == 'HH2015':
