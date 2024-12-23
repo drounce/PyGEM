@@ -2,7 +2,8 @@
 
 import argparse
 import os
-import pickle
+import json
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,37 +18,6 @@ config.ensure_config()
 pygem_prms = config.read_config()
 import pygem.pygem_modelsetup as modelsetup
 
-
-def getparser():
-    """
-    Use argparse to add arguments from the command line
-
-    Parameters
-    ----------
-    rgi_regionsO1_single : int
-        single RGI region
-
-    Returns
-    -------
-    Object containing arguments and their respective values.
-    """
-    parser = argparse.ArgumentParser(description="run calibration in parallel")
-    # add arguments
-    parser.add_argument('-rgi_regionsO1_single', action='store', type=int, default=None,
-                        help='RGI order 1 region')
-    return parser
-
-# RGI regions
-parser = getparser()
-args = parser.parse_args()
-
-if args.rgi_regionsO1_single is None:
-    rgi_regionsO1 = pygem_prms.rgi_regionsO1
-else:
-    rgi_regionsO1 = [args.rgi_regionsO1_single]
-    
-print('rgi_regionsO1:', rgi_regionsO1)
-    
 # Region dictionary for titles
 reg_dict = {1:'Alaska',
             2:'W CA/USA',
@@ -69,15 +39,29 @@ reg_dict = {1:'Alaska',
             18:'New Zealand',
             19:'Antarctica'}
 
-# Process each region
-for reg in rgi_regionsO1:
+# FUNCTIONS
+def getparser():
+    """
+    Use argparse to add arguments from the command line
+    """
+    parser = argparse.ArgumentParser(description="run calibration in parallel")
+    # add arguments
+    parser.add_argument('-rgi_region01', type=int, default=pygem_prms['setup']['rgi_region01'],
+                        help='Randoph Glacier Inventory region (can take multiple, e.g. `-run_region01 1 2 3`)', nargs='+')
+
+    # flags
+    parser.add_argument('-v', '--debug', action='store_true',
+                        help='Flag for debugging')
+    return parser
+
+
+def run(reg, debug=False):
 
     # Calibration filepath
     modelprms_fp = pygem_prms.output_filepath + 'calibration/' + str(reg).zfill(2) + '/'
-#    modelprms_fp = '/Users/drounce/Documents/HiMAT/spc_backup/calibration/' + str(reg).zfill(2) + '/'
     
     # Load glaciers
-    glac_list = [x.split('-')[0] for x in os.listdir(modelprms_fp) if x.endswith('-modelprms_dict.pkl')]
+    glac_list = [x.split('-')[0] for x in os.listdir(modelprms_fp) if x.endswith('-modelprms_dict.json')]
     glac_list = sorted(glac_list)
 
     main_glac_rgi = modelsetup.selectglaciersrgitable(glac_no=glac_list)
@@ -97,9 +81,9 @@ for reg in rgi_regionsO1:
         glac_str = str(int(rgino_str.split('.')[0])) + '.' + rgino_str.split('.')[1]
         
         # Load model parameters
-        modelprms_fn = glac_str + '-modelprms_dict.pkl'
-        with open(modelprms_fp + modelprms_fn, 'rb') as f:
-            modelprms_dict = pickle.load(f)
+        modelprms_fn = glac_str + '-modelprms_dict.json'
+        with open(modelprms_fp + modelprms_fn, 'r') as f:
+            modelprms_dict = json.load(f)
         modelprms = modelprms_dict[pygem_prms.option_calibration]
         
 ##        modelprms_fp_em = pygem_prms.output_filepath + 'calibration/' + str(reg).zfill(2) + '-emulator/'
@@ -297,118 +281,137 @@ for reg in rgi_regionsO1:
             priors_df = priors_df.sort_values(['O1Region', 'O2Region'], ascending=[True, True])
             priors_df.reset_index(inplace=True, drop=True)
             priors_df.to_csv(pygem_prms.priors_reg_fullfn, index=False)
-    
-    #%% ===== REGIONAL PRIOR: PRECIPITATION FACTOR ======
-    nbins = 50    
-    ncols = 3
-    nrows = int(np.ceil(len(rgi_regionsO2)/ncols))
-    priors_df_regO1 = priors_df.loc[priors_df['O1Region'] == reg]
-    
-    fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.5, 'hspace':0.5})
-    
-    nrow = 0
-    ncol = 0
-    for nreg, regO2 in enumerate(rgi_regionsO2):
-        priors_df_regO2 = priors_df_regO1.loc[priors_df['O2Region'] == regO2]
-        kp_values = main_glac_rgi.loc[main_glac_rgi['O2Region'] == regO2, 'kp'].values
-        nglaciers = kp_values.shape[0]
 
-        # Plot histogram
-        counts, bins, patches = ax[nrow,ncol].hist(kp_values, facecolor='grey', edgecolor='grey', 
-                                                   linewidth=0.1, bins=nbins, density=True)
+    
+    def plot_priors():
+        pass
+
+        # ===== REGIONAL PRIOR: PRECIPITATION FACTOR ======
+        nbins = 50    
+        ncols = 3
+        nrows = int(np.ceil(len(rgi_regionsO2)/ncols))
+        priors_df_regO1 = priors_df.loc[priors_df['O1Region'] == reg]
         
-        # Plot gamma distribution
-        alpha = priors_df_regO2.kp_alpha.values[0]
-        beta = priors_df_regO2.kp_beta.values[0]
-        rv = stats.gamma(alpha, scale=1/beta)
-        ax[nrow,ncol].plot(bins, rv.pdf(bins), color='k')
-        # add alpha and beta as text
-        gammatext = (r'$\alpha$=' + str(np.round(alpha,2)) + '\n' + r'$\beta$=' + str(np.round(beta,2))
-                     + '\n$n$=' + str(nglaciers))
-        ax[nrow,ncol].text(0.98, 0.95, gammatext, size=10, horizontalalignment='right', 
-                           verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+        fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.5, 'hspace':0.5})
         
-        # Subplot title
-        title_str = reg_dict[reg] + ' (' + str(regO2) + ')'
-        ax[nrow,ncol].text(0.5, 1.01, title_str, size=10, horizontalalignment='center', 
-                           verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+        nrow = 0
+        ncol = 0
+        for nreg, regO2 in enumerate(rgi_regionsO2):
+            priors_df_regO2 = priors_df_regO1.loc[priors_df['O2Region'] == regO2]
+            kp_values = main_glac_rgi.loc[main_glac_rgi['O2Region'] == regO2, 'kp'].values
+            nglaciers = kp_values.shape[0]
 
-        # Adjust row and column
-        ncol += 1
-        if ncol == ncols:
-            nrow += 1
-            ncol = 0
-
-    # Remove extra plots
-    if len(rgi_regionsO2)%ncols > 0:
-        n_extras = ncols-len(rgi_regionsO2)%ncols
-        if n_extras > 0:
-            for nextra in np.arange(0,n_extras):
-                ax[nrow,ncol].axis('off')
-                ncol += 1
+            # Plot histogram
+            counts, bins, patches = ax[nrow,ncol].hist(kp_values, facecolor='grey', edgecolor='grey', 
+                                                    linewidth=0.1, bins=nbins, density=True)
             
-    # Labels
-    fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
-    fig.text(0.5, 0.04, '$k_{p}$ (-)', va='center', ha='center', size=12)
-        
-    # Save figure
-    if os.path.exists(fig_fp) == False:
-        os.makedirs(fig_fp)    
-    fig.set_size_inches(6, 6)
-    fig.savefig(fig_fp + 'priors_kp_O2Regions-' + str(reg) + '.png', bbox_inches='tight', dpi=300)
-    
-    #%% ===== REGIONAL PRIOR: TEMPERATURE BIAS ======
-    fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.3, 'hspace':0.3})
-    
-    nrow = 0
-    ncol = 0
-    for nreg, regO2 in enumerate(rgi_regionsO2):
-        
-        priors_df_regO2 = priors_df_regO1.loc[priors_df['O2Region'] == regO2]
-        tbias_values = main_glac_rgi.loc[main_glac_rgi['O2Region'] == regO2, 'tbias'].values
-        nglaciers = tbias_values.shape[0]
-        
-        # Plot histogram
-        counts, bins, patches = ax[nrow,ncol].hist(tbias_values, facecolor='grey', edgecolor='grey', 
-                                                   linewidth=0.1, bins=nbins, density=True)
-        
-        # Plot gamma distribution
-        mu = priors_df_regO2.tbias_mean.values[0]
-        sigma = priors_df_regO2.tbias_std.values[0]
-        rv = stats.norm(loc=mu, scale=sigma)
-        ax[nrow,ncol].plot(bins, rv.pdf(bins), color='k')
-        # add alpha and beta as text
-        normtext = (r'$\mu$=' + str(np.round(mu,2)) + '\n' + r'$\sigma$=' + str(np.round(sigma,2))
-                    + '\n$n$=' + str(nglaciers))
-        ax[nrow,ncol].text(0.98, 0.95, normtext, size=10, horizontalalignment='right', 
-                           verticalalignment='top', transform=ax[nrow,ncol].transAxes)
-        
-        # Title
-        title_str = reg_dict[reg] + ' (' + str(regO2) + ')'
-        ax[nrow,ncol].text(0.5, 1.01, title_str, size=10, horizontalalignment='center', 
-                           verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
-        
-        # Adjust row and column
-        ncol += 1
-        if ncol == ncols:
-            nrow += 1
-            ncol = 0
-
-    # Remove extra plots
-    if len(rgi_regionsO2)%ncols > 0:
-        n_extras = ncols-len(rgi_regionsO2)%ncols
-        if n_extras > 0:
-            for nextra in np.arange(0,n_extras):
-                ax[nrow,ncol].axis('off')
-                ncol += 1
+            # Plot gamma distribution
+            alpha = priors_df_regO2.kp_alpha.values[0]
+            beta = priors_df_regO2.kp_beta.values[0]
+            rv = stats.gamma(alpha, scale=1/beta)
+            ax[nrow,ncol].plot(bins, rv.pdf(bins), color='k')
+            # add alpha and beta as text
+            gammatext = (r'$\alpha$=' + str(np.round(alpha,2)) + '\n' + r'$\beta$=' + str(np.round(beta,2))
+                        + '\n$n$=' + str(nglaciers))
+            ax[nrow,ncol].text(0.98, 0.95, gammatext, size=10, horizontalalignment='right', 
+                            verticalalignment='top', transform=ax[nrow,ncol].transAxes)
             
-    # Labels
-    fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
-    fig.text(0.5, 0.04, '$T_{bias}$ ($^\circ$C)', va='center', ha='center', size=12)
+            # Subplot title
+            title_str = reg_dict[reg] + ' (' + str(regO2) + ')'
+            ax[nrow,ncol].text(0.5, 1.01, title_str, size=10, horizontalalignment='center', 
+                            verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+
+            # Adjust row and column
+            ncol += 1
+            if ncol == ncols:
+                nrow += 1
+                ncol = 0
+
+        # Remove extra plots
+        if len(rgi_regionsO2)%ncols > 0:
+            n_extras = ncols-len(rgi_regionsO2)%ncols
+            if n_extras > 0:
+                for nextra in np.arange(0,n_extras):
+                    ax[nrow,ncol].axis('off')
+                    ncol += 1
+                
+        # Labels
+        fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
+        fig.text(0.5, 0.04, '$k_{p}$ (-)', va='center', ha='center', size=12)
+            
+        # Save figure
+        if os.path.exists(fig_fp) == False:
+            os.makedirs(fig_fp)    
+        fig.set_size_inches(6, 6)
+        fig.savefig(fig_fp + 'priors_kp_O2Regions-' + str(reg) + '.png', bbox_inches='tight', dpi=300)
+
+        # ===== REGIONAL PRIOR: TEMPERATURE BIAS ======
+        fig, ax = plt.subplots(nrows, ncols, squeeze=False, gridspec_kw={'wspace':0.3, 'hspace':0.3})
         
-    # Save figure
-    if os.path.exists(fig_fp) == False:
-        os.makedirs(fig_fp)    
-    fig.set_size_inches(6, 6)
-    fig.savefig(fig_fp + 'priors_tbias_O2Regions-' + str(reg) + '.png', bbox_inches='tight', dpi=300)
+        nrow = 0
+        ncol = 0
+        for nreg, regO2 in enumerate(rgi_regionsO2):
+            
+            priors_df_regO2 = priors_df_regO1.loc[priors_df['O2Region'] == regO2]
+            tbias_values = main_glac_rgi.loc[main_glac_rgi['O2Region'] == regO2, 'tbias'].values
+            nglaciers = tbias_values.shape[0]
+            
+            # Plot histogram
+            counts, bins, patches = ax[nrow,ncol].hist(tbias_values, facecolor='grey', edgecolor='grey', 
+                                                    linewidth=0.1, bins=nbins, density=True)
+            
+            # Plot gamma distribution
+            mu = priors_df_regO2.tbias_mean.values[0]
+            sigma = priors_df_regO2.tbias_std.values[0]
+            rv = stats.norm(loc=mu, scale=sigma)
+            ax[nrow,ncol].plot(bins, rv.pdf(bins), color='k')
+            # add alpha and beta as text
+            normtext = (r'$\mu$=' + str(np.round(mu,2)) + '\n' + r'$\sigma$=' + str(np.round(sigma,2))
+                        + '\n$n$=' + str(nglaciers))
+            ax[nrow,ncol].text(0.98, 0.95, normtext, size=10, horizontalalignment='right', 
+                            verticalalignment='top', transform=ax[nrow,ncol].transAxes)
+            
+            # Title
+            title_str = reg_dict[reg] + ' (' + str(regO2) + ')'
+            ax[nrow,ncol].text(0.5, 1.01, title_str, size=10, horizontalalignment='center', 
+                            verticalalignment='bottom', transform=ax[nrow,ncol].transAxes)
+            
+            # Adjust row and column
+            ncol += 1
+            if ncol == ncols:
+                nrow += 1
+                ncol = 0
+
+        # Remove extra plots
+        if len(rgi_regionsO2)%ncols > 0:
+            n_extras = ncols-len(rgi_regionsO2)%ncols
+            if n_extras > 0:
+                for nextra in np.arange(0,n_extras):
+                    ax[nrow,ncol].axis('off')
+                    ncol += 1
+                
+        # Labels
+        fig.text(0.04, 0.5, 'Probability Density', va='center', ha='center', rotation='vertical', size=12)
+        fig.text(0.5, 0.04, '$T_{bias}$ ($^\circ$C)', va='center', ha='center', size=12)
+            
+        # Save figure
+        if os.path.exists(fig_fp) == False:
+            os.makedirs(fig_fp)    
+        fig.set_size_inches(6, 6)
+        fig.savefig(fig_fp + 'priors_tbias_O2Regions-' + str(reg) + '.png', bbox_inches='tight', dpi=300)
     
+def main():
+    parser = getparser()
+    args = parser.parse_args()
+    time_start = time.time()
+
+    # get priors for each region
+    for reg in args.rgi_region01:
+        if args.debug:
+            print('Region:', reg)
+        run(reg, args.debug)
+
+    print('\n\n------\nTotal processing time:', time.time()-time_start, 's')
+
+if __name__ == "__main__":
+    main()    
