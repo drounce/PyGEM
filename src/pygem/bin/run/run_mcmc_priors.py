@@ -4,7 +4,8 @@ import argparse
 import os
 import json
 import time
-
+import multiprocessing
+from functools import partial
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -48,7 +49,8 @@ def getparser():
     # add arguments
     parser.add_argument('-rgi_region01', type=int, default=pygem_prms['setup']['rgi_region01'],
                         help='Randoph Glacier Inventory region (can take multiple, e.g. `-run_region01 1 2 3`)', nargs='+')
-
+    parser.add_argument('-ncores', action='store', type=int, default=1,
+                        help='number of simultaneous processes (cores) to use')
     # flags
     parser.add_argument('-v', '--debug', action='store_true',
                         help='Flag for debugging')
@@ -405,11 +407,16 @@ def main():
     args = parser.parse_args()
     time_start = time.time()
 
-    # get priors for each region
-    for reg in args.rgi_region01:
-        if args.debug:
-            print('Region:', reg)
-        run(reg, args.debug)
+    # number of cores for parallel processing
+    if args.ncores > 1:
+        ncores = int(np.min([len(args.rgi_region01), args.ncores]))
+    else:
+        ncores = 1
+
+    # Parallel processing
+    print('Processing with ' + str(args.ncores) + ' cores...')
+    with multiprocessing.Pool(args.ncores) as p:
+        p.map(partial(run,debug=args.debug),args.rgi_region01)
 
     print('\n\n------\nTotal processing time:', time.time()-time_start, 's')
 
