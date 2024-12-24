@@ -104,6 +104,11 @@ def getparser():
                         help='calibration option ("emulator", "MCMC", "HH2015", "HH2015mod", "None")')
     parser.add_argument('-nchains',action='store',type=int,default=pygem_prms['calib']['MCMC_params']['n_chains'],
                         help='number of chains in MCMC calibration')
+    parser.add_argument('-chain_length',action='store',type=int,default=pygem_prms['calib']['MCMC_params']['mcmc_sample_no'],
+                        help='number of samples in a chain for MCMC calibration')
+    parser.add_argument('-burn_pct',action='store',type=int,default=pygem_prms['calib']['MCMC_params']['mcmc_burn_pct'],
+                    help='burn-in percentage for MCMC calibration')
+    
     # flags
     parser.add_argument('-oib', action='store_true', default=pygem_prms['calib']['MCMC_params']['option_calib_binned_dh'],
                         help='Flag to calibrate against Operation IceBridge data')
@@ -1483,9 +1488,9 @@ def run(list_packed_vars):
                         # draw samples
                         m_chain_z, pred_chain, m_primes_z, pred_primes, _, ar = sampler.sample(initial_guesses_z, 
                                                                                                     mb.log_posterior, 
-                                                                                                    n_samples=pygem_prms['calib']['MCMC_params']['mcmc_sample_no'], 
+                                                                                                    n_samples=args.chain_length, 
                                                                                                     h=pygem_prms['calib']['MCMC_params']['mcmc_step'], 
-                                                                                                    burnin=int(pygem_prms['calib']['MCMC_params']['mcmc_burn_pct']/100*pygem_prms['calib']['MCMC_params']['mcmc_sample_no']), 
+                                                                                                    burnin=int(args.burn_pct/100*args.chain_length), 
                                                                                                     thin_factor=pygem_prms['calib']['MCMC_params']['thin_interval'], 
                                                                                                     progress_bar=args.progress_bar)
 
