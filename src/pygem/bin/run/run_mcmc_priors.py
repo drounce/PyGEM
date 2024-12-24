@@ -366,9 +366,9 @@ def main():
         ncores = 1
 
     # Parallel processing
-    print('Processing with ' + str(args.ncores) + ' cores...')
+    print('Processing with ' + str(ncores) + ' cores...')
     partial_function = partial(run, option_calibration=args.option_calibration, priors_reg_outpath=args.priors_reg_outpath, debug=args.debug, plot=args.plot)
-    with multiprocessing.Pool(args.ncores) as p:
+    with multiprocessing.Pool(ncores) as p:
         p.map(partial_function, args.rgi_region01)
 
     print('\n\n------\nTotal processing time:', time.time()-time_start, 's')
