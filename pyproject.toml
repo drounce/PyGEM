@@ -16,7 +16,6 @@ repository = "https://github.com/drounce/PyGEM"
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 PyYAML = "^6.0.2"
-oggm = "^1.6.2"
 salem = "^0.3.11"
 tables = "^3.10.1"
 geopandas = "^1.0.1"

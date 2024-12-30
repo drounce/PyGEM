@@ -68,12 +68,12 @@ climate:
   paths:
     # ERA4 (default reference climate data)
     era5_relpath: /climate_data/ERA5/
-    era5_temp_fn: ERA5_temp_monthly_1940_2023.nc
+    era5_temp_fn: ERA5_temp_monthly.nc
     era5_tempstd_fn: ERA5_tempstd_monthly.nc
-    era5_prec_fn: ERA5_totalprecip_monthly_1940_2023.nc
+    era5_prec_fn: ERA5_totalprecip_monthly.nc
     era5_elev_fn: ERA5_geopotential.nc
-    era5_pressureleveltemp_fn: ERA5_pressureleveltemp_monthly_2020_2023.nc
-    era5_lr_fn: ERA5_lapserates_monthly_1940_2023.nc
+    era5_pressureleveltemp_fn: ERA5_pressureleveltemp_monthly.nc
+    era5_lr_fn: ERA5_lapserates_monthly.nc
     # CMIP5 (GCM data)
     cmip5_relpath: /climate_data/cmip5/
     cmip5_fp_var_ending: _r1i1p1_monNG/
