@@ -23,27 +23,20 @@ pip install pygem
 
 This will install all PyGEM dependencies within your conda environment, and set up PyGEM command line tools to run core model scripts.
 
-Note, [sample files](https://drive.google.com/drive/folders/13kiU00Zz2swN5OzwXiWIQTj_JLEHnDgZ) are produced to support trial runs and model testing.
+### Setup
+Following PyPI installation, a setup script should to be executed.
 
-### Example notebooks
-Following PyPI installation, download a series of example demonstration notebooks by running the following command from the command line:
+The setup script accomplishes two things:
+1. Initializes the PyGEM configuration file *~/PyGEM/config.yaml*. If this file already exists, an overwrite prompt will appear.
+2. Downloads and unzips a series of sample data files, which can also be manually downloaded [here](https://drive.google.com/file/d/1NUbAzHSeK5NAEWm90vPMmFpzjrP0EAiZ).
+
+Run the setup script by entering the following in the terminal:
 ```
-download_notebooks
-```
-
-After doing so, you may find a set of Jupyter notebooks in ***~/PyGEM/example_notebooks/*** which can be referenced and utilized for demonstrational purposes on how to run the Python Glacier Evolution Model and perform several analyses.
-
-### Configuration file
-***Note, this step is not required, as PyGEM's configuration file will be initialized by default the first time any PyGEM project script is run.***
-
-The first time a PyGEM script is run, a configuration file will be initialized within ***~/PyGEM/***. The preceding step will initialze this configuration file. If skipped, users may manually initialize their configuration file in python like so (note, first enter `python` from the command line with your pygem conda environment activated):
-```
-import pygem.setup.config as config
-config.ensure_config()
+setup
 ```
 
-The configuration file can now be found at ***~/PyGEM/config.yaml***
-
+### Demonstration Notebooks
+A series of accompanying Jupyter notebooks have been produces for demonstrating the functionality of PyGEM. These can be acquired and installed from [Github](link).
 
 # Developing PyGEM
 Are you interested in contributing to the development of PyGEM? If so, we recommend forking the [PyGEM's github repository](https://github.com/PyGEM-Community/PyGEM) and then [cloning the github repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) onto your local machine.

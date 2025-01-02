@@ -34,18 +34,18 @@ jupyter = "^1.1.1"
 arviz = "^0.20.0"
 
 [tool.poetry.scripts]
+setup = "pygem.bin.op.setup:main"
 run_calibration_icethickness_consensus = "pygem.bin.run.run_calibration_icethickness_consensus:main"
 run_calibration_frontalablation = "pygem.bin.run.run_calibration_frontalablation:main"
 run_calibration = "pygem.bin.run.run_calibration:main"
 run_mcmc_priors = "pygem.bin.run.run_mcmc_priors:main"
 run_simulation = "pygem.bin.run.run_simulation:main"
-download_notebooks = "pygem.bin.op.copy_notebooks:main"
-list_failed_simulations = "pygem.bin.op.list_failed_simulations:main"
-duplicate_gdirs = "pygem.bin.op.duplicate_gdirs:main"
 process_monthly_thickness = "pygem.bin.postproc.process_monthly_thickness:main"
 process_monthly_mass = "pygem.bin.postproc.process_monthly_mass:main"
 distribute_ice = "pygem.bin.postproc.distribute_ice:main"
 compile_simulations = "pygem.bin.postproc.compile_simulations:main"
+list_failed_simulations = "pygem.bin.op.list_failed_simulations:main"
+duplicate_gdirs = "pygem.bin.op.duplicate_gdirs:main"
 
 [build-system]
 requires = ["poetry-core"]
