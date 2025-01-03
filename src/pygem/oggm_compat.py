@@ -106,7 +106,7 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrit
             mbdata.mb_df_to_gdir]
         
         # Debris tasks
-        if pygem_prms['mbmod']['include_debris']:
+        if pygem_prms['mb']['include_debris']:
             list_tasks.append(debris.debris_to_gdir)
             list_tasks.append(debris.debris_binned)
             
