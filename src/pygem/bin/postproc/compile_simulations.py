@@ -112,7 +112,7 @@ def run(args):
     missing_vars = list(set(vars) - set(ds_vars))
     if len(missing_vars) > 0:
         vars = list(set(vars).intersection(ds_vars))
-        raise ValueError(f'Requested variables are missing: {missing_vars}')
+        print(f'Warning: Requested variables are missing: {missing_vars}')
     ############################################################
 
     print(f'Compiling GCMS: {gcms}')
