@@ -23,6 +23,7 @@ import pandas as pd
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.interpolate import interp1d
 from scipy.optimize import minimize
 from scipy import stats
 import torch
@@ -280,7 +281,7 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
 
     # interpolate over empty bins
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-    interp_bin_thick = np.column_stack([np.interpolate.interp1d(bin_centers[~np.isnan(x)],x[~np.isnan(x)], kind='linear', fill_value="extrapolate")(bin_centers) for x in bin_thick.T])
+    interp_bin_thick = np.column_stack([interp1d(bin_centers[~np.isnan(x)],x[~np.isnan(x)], kind='linear', fill_value="extrapolate")(bin_centers) for x in bin_thick.T])
 
     # difference each set of inds in diff_inds_map
     binned_dh = np.column_stack([interp_bin_thick[:,tup[1]] - interp_bin_thick[:,tup[0]] for tup in diff_inds_map])

@@ -194,9 +194,9 @@ def run(list_packed_vars):
     # Unpack variables
     parser = getparser()
     args = parser.parse_args()
-    # ensure option_calibration was passed appropraite value
-    args.option_calibration = None if args.option_calibration == "None" or args.option_calibration == "null" else args.option_calibration
-    args.option_dynamics = None if args.option_dynamics == "None" or args.option_dynamics == "null" else args.option_dynamics
+    # ensure option_calibration and option_dynamics were passed appropraite value
+    args.option_calibration = None if args.option_calibration.lower() == "none" or args.option_calibration.lower() == "null" else args.option_calibration
+    args.option_dynamics = None if args.option_dynamics.lower() == "none" or args.option_dynamics.lower() == "null" else args.option_dynamics
     count = list_packed_vars[0]
     glac_no = list_packed_vars[1]
     gcm_name = list_packed_vars[2]

@@ -152,7 +152,7 @@ class mbPosterior:
     def update_modelprms(self, m):
         for i, k in enumerate(['tbias','kp','ddfsnow']):
             self.mb_args[1][k] = float(m[i])
-        self.mb_args[1]['ddfice'] = self.mb_args[1]['ddfsnow'] / pygem_prms['mod']['ddfsnow_iceratio'] 
+        self.mb_args[1]['ddfice'] = self.mb_args[1]['ddfsnow'] / pygem_prms['sim']['params']['ddfsnow_iceratio'] 
 
     # get mb_pred
     def get_mb_pred(self, m):
