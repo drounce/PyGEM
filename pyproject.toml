@@ -10,8 +10,8 @@ packages = [
 ]
 
 [tool.poetry.urls]
-documentation = "https://pygem.readthedocs.io/"
-repository = "https://github.com/drounce/PyGEM"
+Documentation = "https://pygem.readthedocs.io/"
+Repository = "https://github.com/drounce/PyGEM"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
@@ -36,6 +36,7 @@ oggm = "^1.6.2"
 
 [tool.poetry.scripts]
 setup = "pygem.bin.op.setup:main"
+fetch_mbdata = "pygem.bin.op.fetch_mbdata:main"
 run_calibration_icethickness_consensus = "pygem.bin.run.run_calibration_icethickness_consensus:main"
 run_calibration_frontalablation = "pygem.bin.run.run_calibration_frontalablation:main"
 run_calibration = "pygem.bin.run.run_calibration:main"
