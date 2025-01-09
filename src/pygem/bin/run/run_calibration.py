@@ -121,12 +121,13 @@ def getparser():
                         help='Flag for debugging')
     return parser
 
+
 def safe_float(value):
     try:
         return float(value)
     except (ValueError, TypeError):
         return None
-    
+
 
 def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
                  option_areaconstant=1, return_tbias_mustmelt=False, return_tbias_mustmelt_wmb=False):
@@ -172,7 +173,7 @@ def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
 
 def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplier=None, fs=None, diff_inds_map=None, bin_edges=None, debug=False):
     """
-    Run the ice thickness inversion and mass balance model to get binned annual ice thickness evolution
+    Run the ice thickness inversion and mass balance model to get binned annual ice thickness change
     Convert to monthly thickness by assuming that the flux divergence is constant throughout the year
     """
     nyears = int(gdir.dates_table.shape[0]/12) # number of years from dates table
@@ -224,7 +225,8 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
     try:
         # run glacier dynamics model forward
         ev_model.run_until_and_store(nyears)
-        mb_mwea = mbmod.glac_wide_massbaltotal[gdir.mbdata['t1_idx']:gdir.mbdata['t2_idx']+1].sum() / mbmod.glac_wide_area_annual[0] / nyears
+        with np.errstate(invalid='ignore'):
+            mb_mwea = mbmod.glac_wide_massbaltotal[gdir.mbdata['t1_idx']:gdir.mbdata['t2_idx']+1].sum() / mbmod.glac_wide_area_annual[0] / nyears
 
     # if there is an issue evaluating the dynamics model for a given parameter set in MCMC calibration, 
     # return -inf for mb_mwea and binned_dh, so MCMC calibration won't accept given parameters
@@ -279,7 +281,7 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
         warnings.filterwarnings('ignore')
         bin_thick = np.column_stack([stats.binned_statistic(x=nfls[0].surface_h, values=x, statistic=np.nanmean, bins=bin_edges)[0] for x in bin_thick.T])
 
-    # interpolate over empty bins
+    # interpolate over any empty bins
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
     interp_bin_thick = np.column_stack([interp1d(bin_centers[~np.isnan(x)],x[~np.isnan(x)], kind='linear', fill_value="extrapolate")(bin_centers) for x in bin_thick.T])
 
@@ -723,7 +725,7 @@ def run(list_packed_vars):
                     gdir.deltah['bin_area'] = icebridge._get_area()
                     # create a dictionary that maps datetime values in gdir.dates_table to their indices
                     index_map = {value: idx for idx, value in enumerate(gdir.dates_table.date.tolist())}
-                    # map each element in the gdir.deltah['dates'] to its index in gdir.dates_table - these inds will be used to difference model results in MCMC calib.
+                    # map each element in the gdir.deltah['dates'] to its index in gdir.dates_table - these inds will be used to difference model results in MCMC calib
                     gdir.deltah['model_inds_map'] = [(index_map[val1], index_map[val2]) for val1, val2 in gdir.deltah['dates']]
 
                     # get glen_a, as dynamics will need to be on to get thickness changes

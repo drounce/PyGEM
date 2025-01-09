@@ -1,0 +1,17 @@
+pyyaml
+oggm
+salem
+tables
+geopandas
+xarray
+pandas
+numpy
+scipy
+matplotlib
+rasterio
+pyproj
+torch
+gpytorch
+scikit-learn
+tqdm
+jupyter
