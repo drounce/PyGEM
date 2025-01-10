@@ -123,15 +123,19 @@ def run(simpath, debug=False):
         except Exception as err:
             print(err)
 
-        oggm_diag_fp = gdir.get_filepath('fl_diagnostics', filesuffix='_from_pygem')
+        # create OGGM formatted flowline diagnostic dataset from PyGEM simulation
         pygem_fl_diag = pygem_to_oggm(os.path.join(pygem_path,pygem_fn),debug=debug)
 
+        ###
+        ### OGGM preprocessing steps before redistributing ice thickness form simulation
+        ###
         # This is to add a new topography to the file (smoothed differently)
         workflow.execute_entity_task(distribute_2d.add_smoothed_glacier_topo, gdir)
         # This is to get the bed map at the start of the simulation
         workflow.execute_entity_task(tasks.distribute_thickness_per_altitude, gdir)
         # This is to prepare the glacier directory for the interpolation (needs to be done only once)
         workflow.execute_entity_task(distribute_2d.assign_points_to_band, gdir)
+        ###
         # distribute simulation to 2d
         ds = workflow.execute_entity_task(
         distribute_2d.distribute_thickness_from_simulation,

@@ -1,78 +1,44 @@
 """
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
 Process the WGMS data to connect with RGIIds and evaluate potential precipitation biases
 
-"""
+This is somewhat of a legacy script, since it is hardcoded and relies on outdated RGI and WGMS data
 
+"""
 # Built-in libraries
 import argparse
 import os
+import sys
 # External libraries
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from scipy.stats import median_abs_deviation
-# Local libraries
-import class_climate
-import pygem.pygem_input as pygem_prms
+# pygem imports
+from pygem import class_climate
+import pygem.setup.config as config
+# check for config
+config.ensure_config()
+# read the config
+pygem_prms = config.read_config()
 import pygem.pygem_modelsetup as modelsetup
 
 
-#%% ----- ARGUMENT PARSER -----
-def getparser():
+def subset_winter(wgms_eee_fp='', wgms_ee_fp='', wgms_e_fp='',  wgms_id_fp='', wgms_ee_winter_fp='', wgms_ee_winter_fp_subset='', subset_time_value=20000000):
     """
-    Use argparse to add arguments from the command line
-    
-    Parameters
-    ----------
-    subset_winter : int
-        option to process wgms winter data (1=yes, 0=no)
-    estimate_kp : int
-        option to estimate precipitation factors from winter data (1=yes, 0=no)
-        
-    Returns
-    -------
-    Object containing arguments and their respective values.
+    subset winter mass balance data from WGMS
     """
-    parser = argparse.ArgumentParser(description="select pre-processing options")
-    # add arguments
-    parser.add_argument('-subset_winter', action='store', type=int, default=0,
-                        help='option to process wgms winter data (1=yes, 0=no)')
-    parser.add_argument('-estimate_kp', action='store', type=int, default=0,
-                        help='option to estimate precipitation factors from winter data (1=yes, 0=no)')
-    return parser
-
-parser = getparser()
-args = parser.parse_args()
-
-
-#%% ----- INPUT DATA FOR EACH OPTION s-----
-if args.subset_winter == 1 or args.estimate_kp == 1:
-    """
-    This is a preprocessing step prior to estimating the precipitation factor
-    """
-    # ===== WGMS DATA =====
-    wgms_fp = pygem_prms.main_directory +  '/../WGMS/DOI-WGMS-FoG-2020-08/'
-    wgms_eee_fn = 'WGMS-FoG-2020-08-EEE-MASS-BALANCE-POINT.csv'
-    wgms_ee_fn = 'WGMS-FoG-2020-08-EE-MASS-BALANCE.csv'
-    wgms_e_fn = 'WGMS-FoG-2020-08-E-MASS-BALANCE-OVERVIEW.csv'
-    wgms_id_fn = 'WGMS-FoG-2020-08-AA-GLACIER_ID_LUT.csv'
-    
-    wgms_output_fp = pygem_prms.output_filepath + 'wgms/'
-    wgms_ee_winter_fn = 'WGMS-FoG-2019-12-EE-MASS-BALANCE-winter_processed.csv'
-    wgms_ee_winter_fn_subset = wgms_ee_winter_fn.replace('.csv', '-subset.csv')
-    wgms_ee_winter_fn_kp = wgms_ee_winter_fn.replace('.csv', '-subset-kp.csv')
-    wgms_reg_kp_stats_fn = 'WGMS-FoG-2019-12-reg_kp_summary.csv'
-    subset_time_value = 20000000
-
-
-#%% ----- PROCESS WINTER DATA -----
-if args.subset_winter == 1:
     # Load data 
-    wgms_e_df = pd.read_csv(wgms_fp + wgms_e_fn, encoding='unicode_escape')
-    wgms_ee_df_raw = pd.read_csv(wgms_fp + wgms_ee_fn, encoding='unicode_escape')
-    wgms_eee_df_raw = pd.read_csv(wgms_fp + wgms_eee_fn, encoding='unicode_escape')
-    wgms_id_df = pd.read_csv(wgms_fp + wgms_id_fn, encoding='unicode_escape')
+    wgms_e_df = pd.read_csv(wgms_e_fp, encoding='unicode_escape')
+    wgms_ee_df_raw = pd.read_csv(wgms_ee_fp, encoding='unicode_escape')
+    wgms_eee_df_raw = pd.read_csv(wgms_eee_fp, encoding='unicode_escape')
+    wgms_id_df = pd.read_csv(wgms_id_fp, encoding='unicode_escape')
     
     # Map dictionary
     wgms_id_dict = dict(zip(wgms_id_df.WGMS_ID, wgms_id_df.RGI_ID))
@@ -82,8 +48,8 @@ if args.subset_winter == 1:
     wgms_eee_df_raw = wgms_eee_df_raw.dropna(subset=['rgiid_raw'])
     
     # Link RGIv5.0 with RGIv6.0
-    rgi60_fp = pygem_prms.main_directory +  '/../RGI/rgi60/00_rgi60_attribs/'
-    rgi50_fp = pygem_prms.main_directory +  '/../RGI/00_rgi50_attribs/'
+    rgi60_fp = pygem_prms['root'] +  '/RGI/rgi60/00_rgi60_attribs/'
+    rgi50_fp = pygem_prms['root'] +  '/RGI/00_rgi50_attribs/'
     
     # Process each region
     regions_str = ['01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18']
@@ -155,33 +121,29 @@ if args.subset_winter == 1:
         if e_idx is not None:
             wgms_ee_df_winter.loc[nrow,wgms_e_cns2add] = wgms_e_df.loc[e_idx,wgms_e_cns2add]
     
-    # Export data
-    if not os.path.exists(wgms_output_fp):
-        os.makedirs(wgms_output_fp)
-    wgms_ee_df_winter.to_csv(wgms_output_fp + wgms_ee_winter_fn, index=False)
+    wgms_ee_df_winter.to_csv(wgms_ee_winter_fp, index=False)
                 
     # Export subset of data
     wgms_ee_df_winter_subset = wgms_ee_df_winter.loc[wgms_ee_df_winter['BEGIN_PERIOD'] > subset_time_value]
     wgms_ee_df_winter_subset = wgms_ee_df_winter_subset.dropna(subset=['END_WINTER'])
-    wgms_ee_df_winter_subset.to_csv(wgms_output_fp + wgms_ee_winter_fn_subset, index=False)
+    wgms_ee_df_winter_subset.to_csv(wgms_ee_winter_fp_subset, index=False)
 
 
-#%% ----- WINTER PRECIPITATION COMPARISON -----
-if args.estimate_kp == 1:
+def est_kp(wgms_ee_winter_fp_subset='', wgms_ee_winter_fp_kp='', wgms_reg_kp_stats_fp=''):
     """
     This is used to estimate the precipitation factor for the bounds of HH2015_mod
     """
     # Load data
-    assert os.path.exists(wgms_output_fp + wgms_ee_winter_fn_subset), 'wgms_ee_winter_fn_subset does not exist!'
-    wgms_df = pd.read_csv(wgms_output_fp + wgms_ee_winter_fn_subset, encoding='unicode_escape')
+    assert os.path.exists(wgms_ee_winter_fp_subset), 'wgms_ee_winter_fn_subset does not exist!'
+    wgms_df = pd.read_csv(wgms_ee_winter_fp_subset, encoding='unicode_escape')
     
     # Process dates
-    wgms_df.loc[:,'BEGIN_PERIOD'] = wgms_df.loc[:,'BEGIN_PERIOD'].values.astype(np.int).astype(str)
+    wgms_df.loc[:,'BEGIN_PERIOD'] = wgms_df.loc[:,'BEGIN_PERIOD'].values.astype(int).astype(str)
     wgms_df['BEGIN_YEAR'] = [int(x[0:4]) for x in wgms_df.loc[:,'BEGIN_PERIOD']]
     wgms_df['BEGIN_MONTH'] = [int(x[4:6]) for x in list(wgms_df.loc[:,'BEGIN_PERIOD'])]
     wgms_df['BEGIN_DAY'] = [int(x[6:]) for x in list(wgms_df.loc[:,'BEGIN_PERIOD'])]
     wgms_df['BEGIN_YEARMONTH'] = [x[0:6] for x in list(wgms_df.loc[:,'BEGIN_PERIOD'])]
-    wgms_df.loc[:,'END_WINTER'] = wgms_df.loc[:,'END_WINTER'].values.astype(np.int).astype(str)
+    wgms_df.loc[:,'END_WINTER'] = wgms_df.loc[:,'END_WINTER'].values.astype(int).astype(str)
     wgms_df['END_YEAR'] = [int(x[0:4]) for x in wgms_df.loc[:,'END_WINTER']]
     wgms_df['END_MONTH'] = [int(x[4:6]) for x in list(wgms_df.loc[:,'END_WINTER'])]
     wgms_df['END_DAY'] = [int(x[6:]) for x in list(wgms_df.loc[:,'END_WINTER'])]
@@ -195,14 +157,14 @@ if args.estimate_kp == 1:
     
     # ===== TIME PERIOD =====
     dates_table = modelsetup.datesmodelrun(
-            startyear=pygem_prms.ref_startyear, endyear=pygem_prms.ref_endyear, spinupyears=0,
-            option_wateryear=pygem_prms.gcm_wateryear)
+            startyear=pygem_prms['climate']['ref_startyear'], endyear=pygem_prms['climate']['ref_endyear'], spinupyears=0,
+            option_wateryear=pygem_prms['climate']['ref_wateryear'])
     dates_table_yearmo = [str(dates_table.loc[x,'year']) + str(dates_table.loc[x,'month']).zfill(2) 
                           for x in range(dates_table.shape[0])]
     
     # ===== LOAD CLIMATE DATA =====
     # Climate class
-    gcm = class_climate.GCM(name=pygem_prms.ref_gcm_name)
+    gcm = class_climate.GCM(name=pygem_prms['climate']['ref_gcm_name'])
     
     # Air temperature [degC]
     gcm_temp, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.temp_fn, gcm.temp_vn, main_glac_rgi,
@@ -216,7 +178,7 @@ if args.estimate_kp == 1:
     gcm_lr, gcm_dates = gcm.importGCMvarnearestneighbor_xarray(gcm.lr_fn, gcm.lr_vn, main_glac_rgi, dates_table)
     
     # ===== PROCESS THE OBSERVATIONS ======
-    prec_cn = pygem_prms.ref_gcm_name + '_prec'
+    prec_cn = pygem_prms['climate']['ref_gcm_name'] + '_prec'
     wgms_df[prec_cn] = np.nan
     wgms_df['kp'] = np.nan
     wgms_df['ndays'] = np.nan
@@ -277,9 +239,9 @@ if args.estimate_kp == 1:
     # Drop nan values
     wgms_df_wkp = wgms_df.dropna(subset=['kp']).copy()
     wgms_df_wkp.reset_index(inplace=True, drop=True)
-    if not os.path.exists(wgms_output_fp):
-        os.makedirs(wgms_output_fp)
-    wgms_df_wkp.to_csv(wgms_output_fp + wgms_ee_winter_fn_kp, index=False)
+
+
+    wgms_df_wkp.to_csv(wgms_ee_winter_fp_kp, index=False)
 
     # Calculate stats for all and each region
     wgms_df_wkp['reg'] = [x.split('-')[1].split('.')[0] for x in wgms_df_wkp['rgiid'].values]
@@ -328,4 +290,57 @@ if args.estimate_kp == 1:
         print('  min :', np.min(wgms_df_wkp_reg.kp.values))
         print('  max :', np.max(wgms_df_wkp_reg.kp.values))
         
-    reg_kp_df.to_csv(wgms_output_fp + wgms_reg_kp_stats_fn, index=False)
+    reg_kp_df.to_csv(wgms_reg_kp_stats_fp, index=False)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="estimate precipitation factors from WGMS winter mass balance data")
+
+    # ===== WGMS DATA =====
+    # these are hardcoded for the format downloaded from WGMS for their 2020-08 dataset, would need to be updated for newer data
+    wgms_fp = f"{pygem_prms['root']}/WGMS/"
+    # inputs
+    wgms_dsn = 'DOI-WGMS-FoG-2020-08/'
+    wgms_eee_fp = wgms_fp+wgms_dsn+ 'WGMS-FoG-2020-08-EEE-MASS-BALANCE-POINT.csv'
+    wgms_ee_fp = wgms_fp+wgms_dsn+ 'WGMS-FoG-2020-08-EE-MASS-BALANCE.csv'
+    wgms_e_fp = wgms_fp+wgms_dsn+ 'WGMS-FoG-2020-08-E-MASS-BALANCE-OVERVIEW.csv'
+    wgms_id_fp = wgms_fp+wgms_dsn+ 'WGMS-FoG-2020-08-AA-GLACIER_ID_LUT.csv'
+    in_fps = [x for x in [wgms_eee_fp, wgms_ee_fp, wgms_e_fp, wgms_id_fp]]
+
+    # outputs
+    wgms_ee_winter_fp = wgms_fp+ 'WGMS-FoG-2019-12-EE-MASS-BALANCE-winter_processed.csv'
+    wgms_ee_winter_fp_subset = wgms_ee_winter_fp.replace('.csv', '-subset.csv')
+    wgms_ee_winter_fp_kp = wgms_ee_winter_fp.replace('.csv', '-subset-kp.csv')
+    wgms_reg_kp_stats_fp = wgms_fp+ 'WGMS-FoG-2019-12-reg_kp_summary.csv'
+
+    out_subset_fps = [wgms_ee_winter_fp, wgms_ee_winter_fp_subset]
+    output_kp_fps = [wgms_ee_winter_fp_kp,wgms_reg_kp_stats_fp]
+    
+    subset_time_value = 20000000
+
+    # if not all outputs already exist, subset the input data and create the necessary outputs
+    if not all(os.path.exists(filepath) for filepath in out_subset_fps):
+        missing = False
+        for fp in in_fps:
+            if not os.path.isfile(fp):
+                print(f'Missing required WGMS datafile: {fp}')
+                missing = True
+        if missing:
+            sys.exit(1)
+
+        subset_winter(wgms_eee_fp=wgms_eee_fp, 
+                      wgms_ee_fp=wgms_ee_fp, 
+                      wgms_e_fp=wgms_e_fp,  
+                      wgms_id_fp=wgms_id_fp, 
+                      wgms_ee_winter_fp=wgms_ee_winter_fp, 
+                      wgms_ee_winter_fp_subset=wgms_ee_winter_fp_subset, 
+                      subset_time_value=subset_time_value)
+    
+    if not all(os.path.exists(filepath) for filepath in output_kp_fps):
+        est_kp(wgms_ee_winter_fp_subset=wgms_ee_winter_fp_subset, 
+               wgms_ee_winter_fp_kp=wgms_ee_winter_fp_kp,
+               wgms_reg_kp_stats_fp=wgms_reg_kp_stats_fp)
+
+
+if __name__ == "__main__":
+    main()

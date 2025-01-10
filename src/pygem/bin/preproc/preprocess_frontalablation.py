@@ -2634,6 +2634,7 @@ if args.option_scrap:
 
 
 ###### below was brought over from preprocess_wgms_mbdata.py, need to incorporate here.
+###### I am not sure what this does differently than what was in process_frontalablation.... what was used to produce df_pergla_global_20yr-filled-facorrected.csv?
 
 if args.mb_data_removeFA == 1:
     # ===== WILL CALVING DATA =====

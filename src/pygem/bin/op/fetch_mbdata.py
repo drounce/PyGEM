@@ -65,7 +65,7 @@ def run(fn='', debug=False, overwrite=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="preprocessing script grabs filled Hugonnet et al. 2021 geodetic mass balance data from OGGM and converts to a format PyGEM utilizes")
+    parser = argparse.ArgumentParser(description="grab filled Hugonnet et al. 2021 geodetic mass balance data from OGGM and converts to a format PyGEM utilizes")
     # add arguments
     requiredNamed = parser.add_argument_group('required named arguments')
     requiredNamed.add_argument('-fname', type=str, required=True,
