@@ -52,7 +52,6 @@ from oggm import utils
 from oggm import workflow
 from oggm.core.flowline import FluxBasedModel
 from oggm.core.massbalance import apparent_mb_from_any_mb
-from oggm.core.inversion import find_inversion_calving_from_any_mb
 #from oggm.core import climate
 #from oggm.core.flowline import FluxBasedModel
 #from oggm.core.inversion import calving_flux_from_depth
@@ -182,7 +181,7 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
     mbmod_inv = PyGEMMassBalance(gdir, modelprms, glacier_rgi_table,
                                     fls=fls, option_areaconstant=True,
                                     inversion_filter=pygem_prms['mb']['include_debris'])
-    if not gdir.is_tidewater or not pygem_prms['setup']['include_calving']:
+    if not gdir.is_tidewater or not pygem_prms['setup']['include_frontalablation']:
         # Arbitrariliy shift the MB profile up (or down) until mass balance is zero (equilibrium for inversion)
         apparent_mb_from_any_mb(gdir, mb_years=np.arange(nyears), mb_model=mbmod_inv)
         tasks.prepare_for_inversion(gdir)
@@ -191,7 +190,7 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
     else:
         cfg.PARAMS['use_kcalving_for_inversion'] = True
         cfg.PARAMS['use_kcalving_for_run'] = True
-        out_calving = find_inversion_calving_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears),
+        tasks.find_inversion_calving_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears),
                                                             glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
         
     tasks.init_present_time_glacier(gdir) # adds bins below
@@ -604,7 +603,7 @@ def run(list_packed_vars):
 
         # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====        
         try:
-            if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_calving']:
+            if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_frontalablation']:
                 gdir = single_flowline_glacier_directory(glacier_str)
                 gdir.is_tidewater = False
             else:
@@ -625,7 +624,6 @@ def run(list_packed_vars):
 
             # ----- Calibration data -----
             try:
-            # for batman in [0]:
                 mbdata_fn = gdir.get_filepath('mb_calib_pygem')
                 if not os.path.exists(mbdata_fn):
                     # Compute all the stuff

@@ -58,7 +58,6 @@ from oggm import tasks
 from oggm import utils
 from oggm.core.massbalance import apparent_mb_from_any_mb
 from oggm.core.flowline import FluxBasedModel, SemiImplicitModel
-from oggm.core.inversion import find_inversion_calving_from_any_mb
 
 cfg.PARAMS['hydro_month_nh']=1
 cfg.PARAMS['hydro_month_sh']=1
@@ -643,7 +642,7 @@ def run(list_packed_vars):
                         else:
                             cfg.PARAMS['use_kcalving_for_inversion'] = True
                             cfg.PARAMS['use_kcalving_for_run'] = True
-                            out_calving = find_inversion_calving_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears_ref),
+                            tasks.find_inversion_calving_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears_ref),
                                                                               glen_a=cfg.PARAMS['glen_a']*glen_a_multiplier, fs=fs)
                                 
                         # ----- INDENTED TO BE JUST WITH DYNAMICS -----
