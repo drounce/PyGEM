@@ -646,6 +646,7 @@ def run(list_packed_vars):
                     gdir.mbdata = json.load(f)
 
                 # Non-tidewater glaciers
+                # Note: the first time this would be run (prior to run_calibration_frontalablation, pygem_prms['include_frontalablation] would need to be False)
                 if not gdir.is_tidewater:
                     # Load data
                     mb_obs_mwea = gdir.mbdata['mb_mwea']

@@ -49,20 +49,21 @@ def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2021'):
         where to write the data
     """
     # get dataset name (could potentially be swapped with others besides Hugonnet21)
-    hug_fn = 'df_pergla_global_20yr-filled.csv'
-    mbdata_fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['massbalance']['hugonnet2021_relpath']}/{hug_fn}"
-    mbdata_fp_fa = mbdata_fp.replace('.csv','-facorrected.csv')
+    mbdata_fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['massbalance']['hugonnet2021_relpath']}"
+    mbdata_fp_fa = mbdata_fp + pygem_prms['calib']['data']['massbalance']['hugonnet2021_facorrected_fn']
     if pygem_prms['setup']['include_frontalablation'] and os.path.exists(mbdata_fp_fa):
         mbdata_fp = mbdata_fp_fa
+    else:
+        mbdata_fp = mbdata_fp + pygem_prms['calib']['data']['massbalance']['hugonnet2021_fn']
 
     assert os.path.exists(mbdata_fp), "Error, mass balance dataset does not exist: {mbdata_fp}"
     assert 'hugonnet2021' in mbdata_fp.lower(), "Error, mass balance dataset not yet supported: {mbdata_fp}"
     rgiid_cn = 'rgiid'
     mb_cn = 'mb_mwea'
     mberr_cn = 'mb_mwea_err'
-    mb_clim_cn = 'mb_clim_mwea' # or fa_corr?
-    mberr_clim_cn = 'mb_clim_mwea_err' # or fa_corr?
-
+    mb_clim_cn = 'mb_clim_mwea'
+    mberr_clim_cn = 'mb_clim_mwea_err'
+    
     # read reference mass balance dataset and pull data of interest
     mb_df = pd.read_csv(mbdata_fp)
     mb_df_rgiids = list(mb_df[rgiid_cn])

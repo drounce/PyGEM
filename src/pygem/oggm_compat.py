@@ -83,6 +83,7 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrit
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
+            gdir.read_pickle('model_flowlines')
             # If the above works the directory is already processed, return
             return gdir
         except:
@@ -181,6 +182,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['ogg
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
+            gdir.read_pickle('model_flowlines')
             # If the above works the directory is already processed, return
             return gdir
         except:

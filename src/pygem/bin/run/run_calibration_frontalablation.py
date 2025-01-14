@@ -626,19 +626,19 @@ def run_opt_fa(main_glac_rgi_ind, args, calving_k, calving_k_bndlow, calving_k_b
     return output_df, calving_k
 
 
-def merge_data(calving_fp='', verbose=False):
-    calving_fn1 = 'Northern_hemisphere_calving_flux_Kochtitzky_et_al_for_David_Rounce_with_melt_v14-wromainMB.csv'
-    calving_fn2 = 'frontalablation_glacier_data_minowa2021.csv'
-    calving_fn3 = 'frontalablation_glacier_data_osmanoglu.csv'
+def merge_data(frontalablation_fp='', verbose=False):
+    frontalablation_fn1 = 'Northern_hemisphere_calving_flux_Kochtitzky_et_al_for_David_Rounce_with_melt_v14-wromainMB.csv'
+    frontalablation_fn2 = 'frontalablation_glacier_data_minowa2021.csv'
+    frontalablation_fn3 = 'frontalablation_glacier_data_osmanoglu.csv'
     
     fa_glac_data_cns_subset = ['RGIId','fa_gta_obs', 'fa_gta_obs_unc',
                                'Romain_gta_mbtot', 'Romain_gta_mbclim','Romain_mwea_mbtot', 'Romain_mwea_mbclim', 
                                'thick_measured_yn', 'start_date', 'end_date', 'source']
     
     # Load datasets
-    fa_glac_data1 = pd.read_csv(calving_fp + calving_fn1)
-    fa_glac_data2 = pd.read_csv(calving_fp + calving_fn2)
-    fa_glac_data3 = pd.read_csv(calving_fp + calving_fn3)
+    fa_glac_data1 = pd.read_csv(frontalablation_fp + frontalablation_fn1)
+    fa_glac_data2 = pd.read_csv(frontalablation_fp + frontalablation_fn2)
+    fa_glac_data3 = pd.read_csv(frontalablation_fp + frontalablation_fn3)
 
     # Kochtitzky data
     fa_data_df1 = pd.DataFrame(np.zeros((fa_glac_data1.shape[0],len(fa_glac_data_cns_subset))), columns=fa_glac_data_cns_subset)
@@ -677,19 +677,19 @@ def merge_data(calving_fp='', verbose=False):
     # Concatenate datasets
     fa_data_df = pd.concat([fa_data_df1, fa_data_df2, fa_data_df3], axis=0)
 
-    out_fn = calving_fn1.replace('.csv','-w17_19.csv')
+    out_fn = frontalablation_fn1.replace('.csv','-w17_19.csv')
     # Export frontal ablation data for Will
-    fa_data_df.to_csv(calving_fp + out_fn, index=False)
+    fa_data_df.to_csv(frontalablation_fp + out_fn, index=False)
     if verbose:
-        print(f'Combined frontal ablation dataset exported: {calving_fp+out_fn}')
+        print(f'Combined frontal ablation dataset exported: {frontalablation_fp+out_fn}')
     return out_fn
 
 
-def calib_ind_calving_k(regions, args=None, calving_fp='', calving_fn='', output_fp='', hugonnet2021_fp=''):
+def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablation_fn='', output_fp='', hugonnet2021_fp=''):
     verbose=args.verbose
     overwrite=args.overwrite
     # Load calving glacier data
-    fa_glac_data = pd.read_csv(calving_fp + calving_fn)
+    fa_glac_data = pd.read_csv(frontalablation_fp + frontalablation_fn)
     mb_data = pd.read_csv(hugonnet2021_fp)
     fa_glac_data['O1Region'] = [int(x.split('-')[1].split('.')[0]) for x in fa_glac_data.RGIId.values]
     
@@ -1122,7 +1122,7 @@ def calib_ind_calving_k(regions, args=None, calving_fp='', calving_fn='', output
                 output_df_missing['fa_gta_obs'] = np.nan
                 rgi_area_dict = dict(zip(main_glac_rgi_missing.RGIId, main_glac_rgi_missing.Area))
                 output_df_missing['area_km2'] = output_df_missing['RGIId'].map(rgi_area_dict)
-                rgi_mbobs_dict = dict(zip(mb_data['RGIId'],mb_data['mb_mwea']))
+                rgi_mbobs_dict = dict(zip(mb_data['rgiid'],mb_data['mb_mwea']))
                 output_df_missing['mb_clim_mwea_obs'] = output_df_missing['RGIId'].map(rgi_mbobs_dict)
                 output_df_missing['mb_clim_gta_obs'] = [mwea_to_gta(output_df_missing.loc[x,'mb_clim_mwea_obs'],
                                                                     output_df_missing.loc[x,'area_km2']*1e6) for x in output_df_missing.index]
@@ -1693,10 +1693,10 @@ def merge_ind_calving_k(regions=list(range(1,20)), output_fp='', verbose=False):
     return
 
 # ----- UPDATE MASS BALANCE DATA WITH FRONTAL ABLATION ESTIMATES -----
-def update_mbdata(regions=list(range(1,20)), calving_fp='', calving_fn='', hugonnet2021_fp='', verbose=False):
+def update_mbdata(regions=list(range(1,20)), frontalablation_fp='', frontalablation_fn='', hugonnet2021_fp='', hugonnet2021_facorr_fp='', verbose=False):
     # Load calving glacier data (already quality controlled during calibration)
-    assert os.path.exists(calving_fp + calving_fn), 'Calibrated frontal ablation output dataset does not exist'
-    fa_glac_data = pd.read_csv(calving_fp + calving_fn)
+    assert os.path.exists(frontalablation_fp + frontalablation_fn), 'Calibrated frontal ablation output dataset does not exist'
+    fa_glac_data = pd.read_csv(frontalablation_fp + frontalablation_fn)
 
     # Load mass balance data
     mb_data = pd.read_csv(hugonnet2021_fp)
@@ -1725,8 +1725,7 @@ def update_mbdata(regions=list(range(1,20)), calving_fp='', calving_fn='', hugon
                     'mb_romain:', np.round(mb_data.loc[mb_idx,'mb_romain_mwea'],2))
 
     # Export the updated dataset
-    mb_data.to_csv(hugonnet2021_fp.replace('.csv','-facorrected.csv'), index=False)
-
+    mb_data.to_csv(hugonnet2021_facorr_fp, index=False)
     # Update gdirs
     for nglac, rgiid in enumerate(fa_glac_data.RGIId):
         
@@ -1895,7 +1894,9 @@ def main():
                         help='reference period starting year for calibration (typically 2000)')
     parser.add_argument('-ref_endyear', action='store', type=int, default=pygem_prms['climate']['ref_endyear'],
                         help='reference period ending year for calibration (typically 2019)')
-    parser.add_argument('-hugonnet2021_fn', action='store', type=str, default='df_pergla_global_20yr-filled.csv',
+    parser.add_argument('-hugonnet2021_fn', action='store', type=str, default=f"{pygem_prms['calib']['data']['massbalance']['hugonnet2021_fn']}",
+                        help='reference mass balance data file name (default: df_pergla_global_20yr-filled.csv)')
+    parser.add_argument('-hugonnet2021_facorrected_fn', action='store', type=str, default=f"{pygem_prms['calib']['data']['massbalance']['hugonnet2021_facorrected_fn']}",
                         help='reference mass balance data file name (default: df_pergla_global_20yr-filled.csv)')
     parser.add_argument('-ncores', action='store', type=int, default=1,
                         help='number of simultaneous processes (cores) to use, defualt is 1, ie. no parallelization')
@@ -1914,17 +1915,18 @@ def main():
     if args.ncores > 1:
         args.ncores = int(np.min([njobs, args.ncores]))
 
-    # data paths
-    calving_fp = pygem_prms['root'] + '/calving_data/'
-    output_fp = calving_fp + '/analysis/'
+    # data paths # change caliving file paths to 'frontalablation' (eg. 19-calving_cal_ind -> 19-frontalablation_cal_ind)
+    frontalablation_fp = pygem_prms['root'] + '/frontalablation_data/'
+    output_fp = frontalablation_fp + '/analysis/'
     hugonnet2021_fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['massbalance']['hugonnet2021_relpath']}/{args.hugonnet2021_fn}"
+    hugonnet2021_facorr_fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['massbalance']['hugonnet2021_relpath']}/{args.hugonnet2021_facorrected_fn}"
     os.makedirs(output_fp,exist_ok=True)
 
     # marge input calving datasets
-    merged_calving_data_fn = merge_data(calving_fp=calving_fp, verbose=args.verbose)
+    merged_calving_data_fn = merge_data(frontalablation_fp=frontalablation_fp, verbose=args.verbose)
 
     # calibrate each individual glacier's calving_k parameter
-    calib_ind_calving_k_partial = partial(calib_ind_calving_k, args=args, calving_fp=calving_fp, calving_fn=merged_calving_data_fn, output_fp=output_fp, hugonnet2021_fp=hugonnet2021_fp)
+    calib_ind_calving_k_partial = partial(calib_ind_calving_k, args=args, frontalablation_fp=frontalablation_fp, frontalablation_fn=merged_calving_data_fn, output_fp=output_fp, hugonnet2021_fp=hugonnet2021_fp)
     with multiprocessing.Pool(args.ncores) as p:
         p.map(calib_ind_calving_k_partial, args.rgi_region01)
 
@@ -1932,7 +1934,7 @@ def main():
     merge_ind_calving_k(regions=args.rgi_region01, output_fp=output_fp, verbose=args.verbose)
 
     # # update reference mass balance data accordingly
-    # update_mbdata(regions=regions, calving_fp=output_fp, calving_fn=all_calving_cal_fn, hugonnet2021_fp=hugonnet2021_fp, verbose=args.verbose)
+    # update_mbdata(regions=regions, frontalablation_fp=output_fp, frontalablation_fn=all_calving_cal_fn, hugonnet2021_fp=hugonnet2021_fp, hugonnet2021_facorr_fp=hugonnet2021_facorr_fp, verbose=args.verbose)
     # # plot results
     # plot_calving_k_allregions(output_fp=output_fp)
 

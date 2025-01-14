@@ -295,7 +295,9 @@ def est_kp(wgms_ee_winter_fp_subset='', wgms_ee_winter_fp_kp='', wgms_reg_kp_sta
 
 def main():
     parser = argparse.ArgumentParser(description="estimate precipitation factors from WGMS winter mass balance data")
-
+    parser.add_argument('-o', '--overwrite', action='store_true',
+                        help='Flag to overwrite existing data')
+    args = parser.parse_args()
     # ===== WGMS DATA =====
     # these are hardcoded for the format downloaded from WGMS for their 2020-08 dataset, would need to be updated for newer data
     wgms_fp = f"{pygem_prms['root']}/WGMS/"
@@ -336,7 +338,7 @@ def main():
                       wgms_ee_winter_fp_subset=wgms_ee_winter_fp_subset, 
                       subset_time_value=subset_time_value)
     
-    if not all(os.path.exists(filepath) for filepath in output_kp_fps):
+    if not all(os.path.exists(filepath) for filepath in output_kp_fps) or args.overwrite:
         est_kp(wgms_ee_winter_fp_subset=wgms_ee_winter_fp_subset, 
                wgms_ee_winter_fp_kp=wgms_ee_winter_fp_kp,
                wgms_reg_kp_stats_fp=wgms_reg_kp_stats_fp)

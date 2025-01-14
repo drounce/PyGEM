@@ -58,10 +58,11 @@ def run(fp='', debug=False, overwrite=False):
     mbdf_subset= mbdf_subset.rename(columns={'dmdtda':'mb_mwea',
                                             'err_dmdtda':'mb_mwea_err'})
 
-    if len(fn.split('.')) == 1:
-        fn+='.csv'
+    if fp[-4:] != '.csv':
+        fp += '.csv'
+
     if os.path.isfile(fp) and not overwrite:
-        raise FileExistsError(f'The filled global geodetic mass balance file already exists, pass `-o` to overwrite, or pass a different file name: {hugonnet2021_fp+fn}')
+        raise FileExistsError(f'The filled global geodetic mass balance file already exists, pass `-o` to overwrite, or pass a different file name: {fp}')
     
     mbdf_subset.to_csv(fp, index=False)
     if debug:
@@ -72,7 +73,7 @@ def run(fp='', debug=False, overwrite=False):
 def main():
     parser = argparse.ArgumentParser(description="grab filled Hugonnet et al. 2021 geodetic mass balance data from OGGM and converts to a format PyGEM utilizes")
     # add arguments
-    parser.add_argument('-fname', action='store', type=str, default='df_pergla_global_20yr-filled.csv',
+    parser.add_argument('-fname', action='store', type=str, default=f"{pygem_prms['calib']['data']['massbalance']['hugonnet2021_fn']}",
                         help='Reference mass balance data file name (default: df_pergla_global_20yr-filled.csv)')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='Flag to overwrite existing geodetic mass balance data')

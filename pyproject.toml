@@ -37,7 +37,7 @@ oggm = "^1.6.2"
 [tool.poetry.scripts]
 setup = "pygem.bin.op.setup:main"
 preproc_fetch_mbdata = "pygem.bin.preproc.preproc_fetch_mbdata:main"
-preproc_wgms_estimate_kp = "pygem.bin.preproc.preproc_wgms_estimate_kp.main"
+preproc_wgms_estimate_kp = "pygem.bin.preproc.preproc_wgms_estimate_kp:main"
 run_calibration_reg_glena = "pygem.bin.run.run_calibration_reg_glena:main"
 run_calibration_frontalablation = "pygem.bin.run.run_calibration_frontalablation:main"
 run_calibration = "pygem.bin.run.run_calibration:main"
