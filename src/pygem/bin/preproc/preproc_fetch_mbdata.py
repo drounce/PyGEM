@@ -1,8 +1,12 @@
 """
-Process the WGMS data to connect with RGIIds and evaluate potential precipitation biases
+Python Glacier Evolution Model (PyGEM)
 
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+Fetch filled Hugonnet reference mass balance data
 """
-
 # Built-in libraries
 import argparse
 import os
@@ -23,11 +27,7 @@ pygem_prms = config.read_config()
 import pygem.pygem_modelsetup as modelsetup
 
 
-# hugonnet filepath
-hugonnet_fp = f"{pygem_prms['root']}/DEMs/Hugonnet2020/"
-
-
-def run(fn='', debug=False, overwrite=False):
+def run(fp='', debug=False, overwrite=False):
     """
     pull geodetic mass balance data from OGGM
     The original 'raw' were acquired and combined from https://doi.org/10.6096/13 (time series/dh_<RGI_REGION01>_rgi60_pergla_rates)
@@ -46,37 +46,44 @@ def run(fn='', debug=False, overwrite=False):
         print(mbdf.head())
 
     # pull only 2000-2020 period
-    mbdf_subset = mbdf[mbdf.period=='2010-01-01_2020-01-01']
+    mbdf_subset = mbdf[mbdf.period=='2000-01-01_2020-01-01']
 
-    # reset the index and rename the resulting column to 'rgiid'
-    mbdf_subset = mbdf_subset.reset_index().rename(columns={'index': 'rgiid'})
+    # reset the index
+    mbdf_subset = mbdf_subset.reset_index()
 
-    # sort by the 'rgiid' column
+    # sort by the rgiid column
     mbdf_subset = mbdf_subset.sort_values(by='rgiid')
+
+    # rename some keys to work with what other scripts/functions expect
+    mbdf_subset= mbdf_subset.rename(columns={'dmdtda':'mb_mwea',
+                                            'err_dmdtda':'mb_mwea_err'})
 
     if len(fn.split('.')) == 1:
         fn+='.csv'
-    if os.path.isfile(hugonnet_fp+fn) and not overwrite:
-        raise FileExistsError(f'The filled global geodetic mass balance file already exists, pass `-o` to overwrite: {hugonnet_fp+fn}')
+    if os.path.isfile(fp) and not overwrite:
+        raise FileExistsError(f'The filled global geodetic mass balance file already exists, pass `-o` to overwrite, or pass a different file name: {hugonnet2021_fp+fn}')
     
-    mbdf_subset.to_csv(hugonnet_fp+fn, index=False)
+    mbdf_subset.to_csv(fp, index=False)
     if debug:
-        print(f'Filled global geodetic mass balance data saved to: {hugonnet_fp+fn}')
+        print(f'Filled global geodetic mass balance data saved to: {fp}')
+        print(mbdf_subset.head())
 
 
 def main():
     parser = argparse.ArgumentParser(description="grab filled Hugonnet et al. 2021 geodetic mass balance data from OGGM and converts to a format PyGEM utilizes")
     # add arguments
-    requiredNamed = parser.add_argument_group('required named arguments')
-    requiredNamed.add_argument('-fname', type=str, required=True,
-                        help='Output file name')
+    parser.add_argument('-fname', action='store', type=str, default='df_pergla_global_20yr-filled.csv',
+                        help='Reference mass balance data file name (default: df_pergla_global_20yr-filled.csv)')
     parser.add_argument('-o', '--overwrite', action='store_true',
                         help='Flag to overwrite existing geodetic mass balance data')
     parser.add_argument('-v', '--debug', action='store_true',
                         help='Flag for debugging')
     args = parser.parse_args()
 
-    run(args.fname, args.debug, args.overwrite)
+    # hugonnet filepath
+    fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['massbalance']['hugonnet2021_relpath']}/{args.fname}"
+
+    run(fp, args.debug, args.overwrite)
 
 
 if __name__ == "__main__":

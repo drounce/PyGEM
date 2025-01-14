@@ -7,12 +7,13 @@ Distrubted under the MIT lisence
 
 PYGEM-OGGGM COMPATIBILITY FUNCTIONS
 """
+import os
 # External libraries
 import numpy as np
 import pandas as pd
 import netCDF4
 from oggm import cfg, utils
-from oggm import workflow
+from oggm import workflow, tasks
 #from oggm import tasks
 from oggm.cfg import SEC_IN_YEAR
 from oggm.core.massbalance import MassBalanceModel
@@ -114,7 +115,11 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrit
             workflow.execute_entity_task(task, gdirs)
             
         gdir = gdirs[0]
-    
+        try:
+            gdir.read_pickle('model_flowlines')
+        except FileNotFoundError:
+            l3_proc(gdir)
+
         return gdir
         
 
@@ -204,8 +209,40 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['ogg
         for task in list_tasks:
             # The order matters!
             workflow.execute_entity_task(task, gdirs)
-            
-        return gdirs[0]        
+
+        gdir = gdirs[0]
+        try:
+            gdir.read_pickle('model_flowlines')
+        except FileNotFoundError:
+            l3_proc(gdir)
+        
+        return gdir
+
+
+def l3_proc(gdir):
+    """
+    OGGGM L3 preprocessing steps
+    """
+    # process climate_hisotrical data to gdir
+    workflow.execute_entity_task(tasks.process_climate_data, gdir);
+
+    # process mb_calib data from geodetic mass balance
+    workflow.execute_entity_task(tasks.mb_calibration_from_geodetic_mb,
+                                gdir, informed_threestep=True, overwrite_gdir=True,
+                                );
+
+    # glacier bed inversion
+    workflow.execute_entity_task(tasks.apparent_mb_from_any_mb, gdir);
+    workflow.calibrate_inversion_from_consensus(
+        gdir,
+        apply_fs_on_mismatch=True,
+        error_on_mismatch=True,  # if you running many glaciers some might not work
+        filter_inversion_output=True,  # this partly filters the overdeepening due to
+        # the equilibrium assumption for retreating glaciers (see. Figure 5 of Maussion et al. 2019)
+        volume_m3_reference=None,  # here you could provide your own total volume estimate in m3
+    );
+    # after inversion, merge data from preprocessing tasks form mode_flowlines
+    workflow.execute_entity_task(tasks.init_present_time_glacier, gdir);
 
 
 def create_empty_glacier_directory(rgi_id):

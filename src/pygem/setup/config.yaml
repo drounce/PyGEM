@@ -35,7 +35,7 @@ setup:
   include_landterm: true                          # Switch to include land-terminating glaciers
   include_laketerm: true                          # Switch to include lake-terminating glaciers
   include_tidewater: true                         # Switch to include marine-terminating glaciers
-  include_calving: true                           # Switch to ignore calving and treat tidewater glaciers as land-terminating
+  include_frontalablation: true                   # Switch to ignore calving and treat tidewater glaciers as land-terminating
 
 # ===== OGGM SETTINGS =====
 oggm:
@@ -187,17 +187,9 @@ calib:
   
   # calibration datasets
   data:
-    # hugonnet geodetic mass balance
-    hugonnet:
-      hugonnet_relpath: /DEMs/Hugonnet2020/df_pergla_global_20yr-filled-FAcorrected.csv   # relative to main data path
-      hugonnet_mb_cn: mb_mwea
-      hugonnet_mb_err_cn: mb_mwea_err
-      hugonnet_rgi_glacno_cn: RGIId
-      hugonnet_mb_clim_cn: mb_clim_mwea
-      hugonnet_mb_clim_err_cn: mb_clim_mwea_err
-      hugonnet_time1_cn: t1
-      hugonnet_time2_cn: t2
-      hugonnet_area_cn: area_km2
+    # mass balance data
+    massbalance:
+      hugonnet2021_relpath: /DEMs/Hugonnet2021/df_pergla_global_20yr-filled.csv   # relative to main data path
     # operation icebridge altimetric surface elevations
     oib:
       oib_relpath: /OIB/lidar_cop30_deltas/       # relative to main data path
