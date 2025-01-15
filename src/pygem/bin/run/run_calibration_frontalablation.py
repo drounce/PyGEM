@@ -811,7 +811,8 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
             # ---- FIRST ROUND CALIBRATION -----
             # ----- OPTIMIZE CALVING_K BASED ON INDIVIDUAL GLACIER FRONTAL ABLATION DATA -----
             for nglac in np.arange(main_glac_rgi.shape[0]):
-
+                failed_glacs = []
+                glacno = main_glac_rgi.loc[nglac,'RGIId_float']
 #                if main_glac_rgi.loc[nglac,'RGIId'] in ['RGI60-03.00108']:
                 try:
                     # Reset bounds
@@ -938,6 +939,7 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
                     
                         output_df_all.loc[nglac,'calving_k_nmad'] = calving_k_nmad
                 except:
+                    failed_glacs.append(glacno)
                     pass
 
 #            # Glaciers at bounds, have calving_k_nmad based on regional mean
@@ -947,6 +949,11 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
         
             # ----- EXPORT MODEL RESULTS -----
             output_df_all.to_csv(output_fp + output_fn, index=False)
+
+            # Write list of failed glaciers
+            with open(output_fp + output_fn[:-4] + "failed.txt", "w") as f:
+                for item in failed_glacs:
+                    f.write(f"{item}\n")
         
         else:
             output_df_all = pd.read_csv(output_fp + output_fn)
