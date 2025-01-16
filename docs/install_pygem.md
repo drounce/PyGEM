@@ -1,6 +1,6 @@
 (install_pygem_target)=
 # Installing PyGEM
-The Python Glacier Evolution Model has been packaged using Poetry, such that all dependencies should install seamlessly.  It is recommended that users create a [Anaconda](https://anaconda.org/) environment from which to install the model dependencies and core code. [(see model structure)](model_structure_and_workflow_target) for specifics on the model code structure.
+The Python Glacier Evolution Model has been packaged using Poetry and is hosted on the Python Package Index (PyPI), such that all dependencies should install seamlessly. It is recommended that users create a [Anaconda](https://anaconda.org/) environment from which to install the model dependencies and core code.
 
 ### Setup Conda Environment
 Anaconda is a Python dependency management tool. An Anaconda (conda) environment is essentially a directory that contains a specific collection of installed packages. The use of environments reduces issues caused by package dependencies. It is recommended that users first create conda environment from which to install PyGEM and its dependencies (if you do not yet have conda installed, see [conda's documentation](https://docs.conda.io/projects/conda/en/latest/user-guide/install) for instructions).  We recommend a conda environment with python >=3.10, <3.13.
@@ -16,7 +16,7 @@ Ensure you've activated your PyGEM environment
 conda activate pygem
 ```
 
-Next, install PyGEM via the Python Package Index ([PyPI](https://pypi.org/project/pygem/)):
+Next, install PyGEM via [PyPI](https://pypi.org/project/pygem/):
 ```
 pip install pygem
 ```
@@ -28,7 +28,7 @@ Following PyPI installation, a setup script should to be executed.
 
 The setup script accomplishes two things:
 1. Initializes the PyGEM configuration file *~/PyGEM/config.yaml*. If this file already exists, an overwrite prompt will appear.
-2. Downloads and unzips a series of sample data files to *~/PyGEM/*, which can also be manually downloaded [here](https://drive.google.com/file/d/1NUbAzHSeK5NAEWm90vPMmFpzjrP0EAiZ).
+2. Downloads and unzips a series of sample data files to *~/PyGEM/*, which can also be manually downloaded [here](https://drive.google.com/drive/folders/1qzxDPxlBqIXBRbNz3mJTHu1lmc7Zm6AM?usp=drive_link).
 
 Run the setup script by entering the following in the terminal:
 ```
