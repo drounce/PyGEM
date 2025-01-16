@@ -11,9 +11,25 @@ import requests
 import zipfile
 import os,sys
 import shutil
+from ruamel.yaml import YAML
 # set up config.yaml
 import pygem.setup.config as config
 config.ensure_config(overwrite=True)
+
+def update_config_root(conf_path, datapath):
+    yaml = YAML()
+    yaml.preserve_quotes = True  # Preserve quotes around string values
+    
+    # Read the YAML file
+    with open(conf_path, 'r') as file:
+        config = yaml.load(file)
+
+    # Update the key with the new value
+    config['root'] = datapath
+
+    # Save the updated configuration back to the file
+    with open(conf_path, 'w') as file:
+        yaml.dump(config, file)
 
 def print_file_tree(start_path, indent=""):
     # Loop through all files and directories in the current directory
@@ -84,16 +100,6 @@ def download_and_unzip_from_google_drive(file_id, output_dir):
         tmppath = os.path.join(output_dir, 'tmp')
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(tmppath)
-        # Remove __MACOSX folder if it exists
-        macosx_path = os.path.join(tmppath, "__MACOSX")
-        if os.path.exists(macosx_path):
-            shutil.rmtree(macosx_path)
-        # Remove all .DS_Store files
-        for root, dirs, files in os.walk(tmppath):
-            for file in files:
-                if file == ".DS_Store":
-                    file_path = os.path.join(root, file)
-                    os.remove(file_path)
 
         # get root dir name of zipped files
         dir = [item for item in os.listdir(tmppath) if os.path.isdir(os.path.join(tmppath, item))][0]
@@ -113,7 +119,7 @@ def main():
     # Define the base directory
     basedir = os.path.join(os.path.expanduser('~'), 'PyGEM')
     # Google Drive file id for sample dataset
-    file_id = "1qzxDPxlBqIXBRbNz3mJTHu1lmc7Zm6AM"
+    file_id = "1Wu4ZqpOKxnc4EYhcRHQbwGq95FoOxMfZ"
     # download and unzip
     out = download_and_unzip_from_google_drive(file_id, basedir)
 
@@ -124,6 +130,9 @@ def main():
 
     else:
         print(f'Error downloading PyGEM sample dataset.')
+
+    # update root path in config.yaml
+    update_config_root(config.config_file, out+'/sample_data/')
     
 if __name__ == "__main__":
     main()

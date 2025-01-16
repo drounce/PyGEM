@@ -83,7 +83,6 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrit
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
-            gdir.read_pickle('model_flowlines')
             # If the above works the directory is already processed, return
             return gdir
         except:
@@ -115,7 +114,7 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrit
         for task in list_tasks:
             workflow.execute_entity_task(task, gdirs)
 
-        return gdir[0]
+        return gdirs[0]
         
 
 
@@ -177,7 +176,6 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['ogg
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
-            gdir.read_pickle('model_flowlines')
             # If the above works the directory is already processed, return
             return gdir
         except:
@@ -202,7 +200,7 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['ogg
         # Mass balance data with facorrected kwarg
         workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdirs, **{"facorrected": facorrected})
         
-        return gdir[0]
+        return gdirs[0]
 
 
 def l3_proc(gdir):
