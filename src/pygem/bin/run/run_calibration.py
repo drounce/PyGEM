@@ -170,7 +170,7 @@ def mb_mwea_calc(gdir, modelprms, glacier_rgi_table, fls=None, t1=None, t2=None,
         return mb_mwea
 
 
-def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplier=None, fs=None, diff_inds_map=None, bin_edges=None, debug=False):
+def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplier=None, fs=None, diff_inds_map=None, bin_edges=None, bin_centers=None, debug=False):
     """
     Run the ice thickness inversion and mass balance model to get binned annual ice thickness change
     Convert to monthly thickness by assuming that the flux divergence is constant throughout the year
@@ -281,7 +281,6 @@ def get_binned_dh(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplie
         bin_thick = np.column_stack([stats.binned_statistic(x=nfls[0].surface_h, values=x, statistic=np.nanmean, bins=bin_edges)[0] for x in bin_thick.T])
 
     # interpolate over any empty bins
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
     interp_bin_thick = np.column_stack([interp1d(bin_centers[~np.isnan(x)],x[~np.isnan(x)], kind='linear', fill_value="extrapolate")(bin_centers) for x in bin_thick.T])
 
     # difference each set of inds in diff_inds_map
@@ -714,13 +713,16 @@ def run(list_packed_vars):
                         raise ValueError("Must be at least two individual OIB surveys to difference.")
                     # double difference to remove the COP30 signal from the relative OIB surface elevation changes
                     icebridge._dbl_diff()
-                    # return icebridge.dbl_diffs as gdir object
+                    # convert to mass changes
+                    icebridge._elevchange_to_masschange(ela=tasks.compute_ela(gdir, ys=args.ref_startyear, ye=args.ref_endyear).mean())
+                    # return icebridge.dbl_diffs and attach to gdir
                     gdir.deltah = icebridge._get_dbldiffs()
                     # ensure data to calibrate against
-                    if gdir.deltah['dh'] is None:
+                    if gdir.deltah['dm'] is None:
                         raise ValueError("No valid OIB data to calibrate against.")
                     # store bin_edges and bin_area
                     gdir.deltah['bin_edges'] = icebridge._get_edges()
+                    gdir.deltah['bin_centers'] = icebridge._get_centers()
                     gdir.deltah['bin_area'] = icebridge._get_area()
                     # create a dictionary that maps datetime values in gdir.dates_table to their indices
                     index_map = {value: idx for idx, value in enumerate(gdir.dates_table.date.tolist())}

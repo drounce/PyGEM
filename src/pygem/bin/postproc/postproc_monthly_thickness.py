@@ -116,7 +116,8 @@ def get_binned_monthly(bin_massbalclim_monthly, bin_massbalclim_annual, bin_mass
     bin_thick_monthly =  running_delta_thick_monthly + bin_thick_annual[:,:,0][:,:,np.newaxis] 
 
     ### get monthly mass ###
-    # note, this requires knowledge of binned glacier area
+    # note, binned monthly thickness is currently per unit area
+    # obtaining binned monthyl mass requires knowledge of binned glacier area
     # we do not have monthly binned area (as glacier dynamics are performed on an annual timestep in PyGEM),
     # so we'll resort to using the annual binned glacier mass and thickness in order to get to binned glacier area
     ########################

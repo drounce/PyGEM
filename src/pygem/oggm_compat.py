@@ -114,14 +114,8 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrit
             
         for task in list_tasks:
             workflow.execute_entity_task(task, gdirs)
-            
-        gdir = gdirs[0]
-        try:
-            gdir.read_pickle('model_flowlines')
-        except FileNotFoundError:
-            l3_proc(gdir)
 
-        return gdir
+        return gdir[0]
         
 
 
@@ -129,7 +123,8 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['ogg
                                                    prepro_border=pygem_prms['oggm']['border'], k_calving=1,
                                                    logging_level= pygem_prms['oggm']['logging_level'], 
                                                    has_internet= pygem_prms['oggm']['has_internet'],
-                                                   working_dir=pygem_prms['root'] + pygem_prms['oggm']['oggm_gdir_relpath']):
+                                                   working_dir=pygem_prms['root'] + pygem_prms['oggm']['oggm_gdir_relpath'],
+                                                   facorrected=pygem_prms['setup']['include_frontalablation']):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     k_calving is free variable!
@@ -200,28 +195,18 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['ogg
         
         if not gdirs[0].is_tidewater:
             raise ValueError(f'{rgi_id} is not tidewater!')
-            
-        # Compute all the stuff
-        list_tasks = [
-            # Consensus ice thickness
-            icethickness.consensus_gridded,
-            # Mass balance data
-            mbdata.mb_df_to_gdir]
-        
-        for task in list_tasks:
-            # The order matters!
-            workflow.execute_entity_task(task, gdirs)
 
-        gdir = gdirs[0]
-        try:
-            gdir.read_pickle('model_flowlines')
-        except FileNotFoundError:
-            l3_proc(gdir)
+        # entity tasks - order matters
+        # Consensus ice thickness
+        workflow.execute_entity_task(icethickness.consensus_gridded, gdirs)
+        # Mass balance data with facorrected kwarg
+        workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdirs, **{"facorrected": facorrected})
         
-        return gdir
+        return gdir[0]
 
 
 def l3_proc(gdir):
+    return
     """
     OGGGM L3 preprocessing steps
     """

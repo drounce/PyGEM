@@ -152,7 +152,8 @@ def reg_calving_flux(main_glac_rgi, calving_k, args, fa_glac_data_reg=None,
 
         gdir = single_flowline_glacier_directory_with_calving(glacier_str, 
                                                               logging_level='CRITICAL',
-                                                              reset=reset_gdir
+                                                              reset=reset_gdir,
+                                                              facorrected=False
                                                               )
         gdir.is_tidewater = True
         cfg.PARAMS['use_kcalving_for_inversion'] = True
@@ -177,8 +178,22 @@ def reg_calving_flux(main_glac_rgi, calving_k, args, fa_glac_data_reg=None,
         if (fls is not None) and (glacier_area.sum() > 0):
             
             # ----- Model parameters -----
+            # Use the calibrated model parameters (although they were calibrated without accounting for calving)
+            if args.prms_from_glac_cal:
+                modelprms_fn = glacier_str + '-modelprms_dict.json'
+                modelprms_fp = (pygem_prms['root'] + '/Output/calibration/' + glacier_str.split('.')[0].zfill(2) 
+                                + '/')
+                if not os.path.exists(modelprms_fp + modelprms_fn):
+                    # try using regional priors
+                    args.prms_from_reg_priors = True
+                    break
+                with open(modelprms_fp + modelprms_fn, 'r') as f:
+                    modelprms_dict = json.load(f)
+                modelprms_em = modelprms_dict['emulator']
+                kp_value = modelprms_em['kp'][0]
+                tbias_value = modelprms_em['tbias'][0]
             # Use most likely parameters from initial calibration to force the mass balance gradient for the inversion
-            if args.prms_from_reg_priors:
+            elif args.prms_from_reg_priors:
                 if pygem_prms['calib']['priors_reg_fn'] is not None:
                     # Load priors
                     priors_df = pd.read_csv(pygem_prms['root'] + '/Output/calibration/' + pygem_prms['calib']['priors_reg_fn'])
@@ -186,17 +201,7 @@ def reg_calving_flux(main_glac_rgi, calving_k, args, fa_glac_data_reg=None,
                                           (priors_df.O2Region == glacier_rgi_table['O2Region']))[0][0]
                     kp_value = priors_df.loc[priors_idx,'kp_med']
                     tbias_value = priors_df.loc[priors_idx,'tbias_med']
-            # Use the calibrated model parameters (although they were calibrated without accounting for calving)
-            elif args.prms_from_glac_cal:
-                modelprms_fn = glacier_str + '-modelprms_dict.json'
-                modelprms_fp = (pygem_prms['root'] + '/Output/calibration/' + glacier_str.split('.')[0].zfill(2) 
-                                + '/')
-                assert os.path.exists(modelprms_fp + modelprms_fn), f'modelprms_dict file does not exist: {modelprms_fp + modelprms_fn}'
-                with open(modelprms_fp + modelprms_fn, 'r') as f:
-                    modelprms_dict = json.load(f)
-                modelprms_em = modelprms_dict['emulator']
-                kp_value = modelprms_em['kp'][0]
-                tbias_value = modelprms_em['tbias'][0]
+
             
             # Set model parameters
             modelprms = {'kp': kp_value,
@@ -626,10 +631,15 @@ def run_opt_fa(main_glac_rgi_ind, args, calving_k, calving_k_bndlow, calving_k_b
     return output_df, calving_k
 
 
-def merge_data(frontalablation_fp='', verbose=False):
+def merge_data(frontalablation_fp='', overwrite=False, verbose=False):
     frontalablation_fn1 = 'Northern_hemisphere_calving_flux_Kochtitzky_et_al_for_David_Rounce_with_melt_v14-wromainMB.csv'
     frontalablation_fn2 = 'frontalablation_glacier_data_minowa2021.csv'
     frontalablation_fn3 = 'frontalablation_glacier_data_osmanoglu.csv'
+    out_fn = frontalablation_fn1.replace('.csv','-w17_19.csv')
+    if os.path.isfile(frontalablation_fp + out_fn) and not overwrite:
+        if verbose:
+            print(f'Combined frontal ablation dataset already exists, pass `-o` to overwrite: {frontalablation_fp+out_fn}')
+        return out_fn
     
     fa_glac_data_cns_subset = ['RGIId','fa_gta_obs', 'fa_gta_obs_unc',
                                'Romain_gta_mbtot', 'Romain_gta_mbclim','Romain_mwea_mbtot', 'Romain_mwea_mbclim', 
@@ -677,7 +687,7 @@ def merge_data(frontalablation_fp='', verbose=False):
     # Concatenate datasets
     fa_data_df = pd.concat([fa_data_df1, fa_data_df2, fa_data_df3], axis=0)
 
-    out_fn = frontalablation_fn1.replace('.csv','-w17_19.csv')
+
     # Export frontal ablation data for Will
     fa_data_df.to_csv(frontalablation_fp + out_fn, index=False)
     if verbose:
@@ -698,10 +708,11 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
     calving_k_step_set = np.copy(calving_k_step_gl)
 
     for reg in [regions]:
+        # skip over any regions we don't have data for
         if reg not in fa_glac_data['O1Region'].values.tolist():
             continue
 
-        output_fn = str(reg) + '-calving_cal_ind.csv'
+        output_fn = str(reg) + '-frontalablation_cal_ind.csv'
         # Regional data
         fa_glac_data_reg = fa_glac_data.loc[fa_glac_data['O1Region'] == reg, :].copy()
         fa_glac_data_reg.reset_index(inplace=True, drop=True)
@@ -810,10 +821,9 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
             
             # ---- FIRST ROUND CALIBRATION -----
             # ----- OPTIMIZE CALVING_K BASED ON INDIVIDUAL GLACIER FRONTAL ABLATION DATA -----
+            failed_glacs = []
             for nglac in np.arange(main_glac_rgi.shape[0]):
-                failed_glacs = []
-                glacno = main_glac_rgi.loc[nglac,'RGIId_float']
-#                if main_glac_rgi.loc[nglac,'RGIId'] in ['RGI60-03.00108']:
+                glacier_str = '{0:0.5f}'.format(main_glac_rgi.loc[nglac,'RGIId_float'])
                 try:
                     # Reset bounds
                     calving_k = calving_k_init
@@ -939,7 +949,7 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
                     
                         output_df_all.loc[nglac,'calving_k_nmad'] = calving_k_nmad
                 except:
-                    failed_glacs.append(glacno)
+                    failed_glacs.append(glacier_str)
                     pass
 
 #            # Glaciers at bounds, have calving_k_nmad based on regional mean
@@ -951,9 +961,10 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
             output_df_all.to_csv(output_fp + output_fn, index=False)
 
             # Write list of failed glaciers
-            with open(output_fp + output_fn[:-4] + "failed.txt", "w") as f:
-                for item in failed_glacs:
-                    f.write(f"{item}\n")
+            if len(failed_glacs)>0:
+                with open(output_fp + output_fn[:-4] + "-failed.txt", "w") as f:
+                    for item in failed_glacs:
+                        f.write(f"{item}\n")
         
         else:
             output_df_all = pd.read_csv(output_fp + output_fn)
@@ -967,7 +978,12 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
                                                    (output_df_all['calving_k'] < calving_k_bndhigh_set), :]
         
         rgiids_good = list(output_df_all_good.RGIId)
-            
+        
+        # if no good glaciers, don't create plot, and delete regional `-frontalablation_cal_ind.csv` file
+        if len(rgiids_good)<1:
+            os.remove(output_fp + output_fn)
+            continue
+
         calving_k_reg_mean = output_df_all_good.calving_k.mean()
         if verbose:
             print(' calving_k mean/med:', np.round(calving_k_reg_mean,2), 
@@ -1073,7 +1089,7 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
         
         # Save figure
         fig.set_size_inches(6,6)
-        fig_fullfn = output_fp + str(reg) + '-calving_glac_compare-cal_ind-good.png'
+        fig_fullfn = output_fp + str(reg) + '-frontalablation_glac_compare-cal_ind-good.png'
         fig.savefig(fig_fullfn, bbox_inches='tight', dpi=300)
         
         # ----- REPLACE UPPER BOUND CALVING_K WITH MEDIAN CALVING_K -----
@@ -1138,10 +1154,10 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
     
                 # Start with median value
                 calving_k_med = np.median(output_df_all.loc[output_df_all['O1Region']==reg,'calving_k'])
+                failed_glacs = []
                 for nglac, rgiid in enumerate(rgiids_missing):
-                    
-#                    if rgiid in ['RGI60-01.21008']:
-                    for batman in [0]:
+                    glacier_str = rgiid.split('-')[1]
+                    try:            
                         main_glac_rgi_ind = modelsetup.selectglaciersrgitable(glac_no=[rgiid.split('-')[1]])
                         # Estimate frontal ablation for missing glaciers
                         output_df, reg_calving_gta_mod, reg_calving_gta_obs = (
@@ -1189,8 +1205,9 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
                             
                             # Select individual glacier
                             rgiid_ind = main_glac_rgi_ind.loc[0,'RGIId']
-                            fa_glac_data_ind = pd.DataFrame(np.zeros((1,len(fa_glac_data_reg.columns))), 
-                                                            columns=fa_glac_data_reg.columns)
+                            # fa_glac_data_ind = pd.DataFrame(np.zeros((1,len(fa_glac_data_reg.columns))), 
+                            #                                 columns=fa_glac_data_reg.columns)
+                            fa_glac_data_ind = pd.DataFrame(columns=fa_glac_data_reg.columns)
                             fa_glac_data_ind.loc[0,'RGIId'] = rgiid_ind
         
                             # Check bounds
@@ -1331,9 +1348,17 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
                                 # Adjust calving_k_nmad if calving_k is very low to avoid poor values
                                 if output_df_missing.loc[nglac,'calving_k'] < calving_k_nmad_missing:
                                     output_df_missing.loc[nglac,'calving_k_nmad'] = output_df_missing.loc[nglac,'calving_k'] - calving_k_bndlow_set    
-          
+                    except:
+                        failed_glacs.append(glacier_str)
+                        pass
                 # Export 
                 output_df_missing.to_csv(output_fp + output_fn_missing, index=False)
+
+                # Write list of failed glaciers
+                if len(failed_glacs)>0:
+                    with open(output_fp + output_fn_missing[:-4] + "-failed.txt", "w") as f:
+                        for item in failed_glacs:
+                            f.write(f"{item}\n")
             else:
                 output_df_missing = pd.read_csv(output_fp + output_fn_missing)
 
@@ -1382,7 +1407,7 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
                 output_df_missing['fa_gta_obs'] = np.nan
                 rgi_area_dict = dict(zip(main_glac_rgi_missing.RGIId, main_glac_rgi_missing.Area))
                 output_df_missing['area_km2'] = output_df_missing['RGIId'].map(rgi_area_dict)
-                rgi_mbobs_dict = dict(zip(mb_data['RGIId'],mb_data['mb_mwea']))
+                rgi_mbobs_dict = dict(zip(mb_data['rgiid'],mb_data['mb_mwea']))
                 output_df_missing['mb_clim_mwea_obs'] = output_df_missing['RGIId'].map(rgi_mbobs_dict)
                 output_df_missing['mb_clim_gta_obs'] = [mwea_to_gta(output_df_missing.loc[x,'mb_clim_mwea_obs'],
                                                                     output_df_missing.loc[x,'area_km2']*1e6) for x in output_df_missing.index]
@@ -1400,14 +1425,7 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
                 # Start with median value
                 calving_k_med = np.median(output_df_all.loc[output_df_all['O1Region']==reg,'calving_k'])
                 for nglac, rgiid in enumerate(rgiids_missing):
-                    
-#                    if rgiid in ['RGI60-19.00227']:
-#                    if rgiid in ['RGI60-19.01721']:
-#                    glacno = rgiid.split('-')[1]
-#                    if glacno in ['19.01721', '19.00418', '19.00169', '19.00156', '19.00029', '19.00746', '19.00707', 
-#                                 '19.00748', '19.00113', '19.00562', '19.00160', '19.00432', '19.00417', '19.00103']:
-#                    if glacno in ['19.00707']:
-                    for batman in [0]:
+                    try:
                         main_glac_rgi_ind = modelsetup.selectglaciersrgitable(glac_no=[rgiid.split('-')[1]])
                         area_km2 = main_glac_rgi_ind.loc[0,'Area']
                         # Estimate frontal ablation for missing glaciers
@@ -1453,8 +1471,9 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
                             
                             # Select individual glacier
                             rgiid_ind = main_glac_rgi_ind.loc[0,'RGIId']
-                            fa_glac_data_ind = pd.DataFrame(np.zeros((1,len(fa_glac_data_reg.columns))), 
-                                                            columns=fa_glac_data_reg.columns)
+                            # fa_glac_data_ind = pd.DataFrame(np.zeros((1,len(fa_glac_data_reg.columns))), 
+                            #                                 columns=fa_glac_data_reg.columns)
+                            fa_glac_data_ind = pd.DataFrame(columns=fa_glac_data_reg.columns)
                             fa_glac_data_ind.loc[0,'RGIId'] = rgiid_ind
         
                             # Check bounds
@@ -1559,7 +1578,8 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
 #                        ax[0,0].set_xlabel('calving_k', size=12)     
 #                        ax[0,0].set_ylabel('mb_fa_mwea', size=12)
 #                        plt.show()
-
+                    except:
+                        pass
                 # Export 
                 output_df_missing.to_csv(output_fp + output_fn_missing, index=False)
             else:
@@ -1639,7 +1659,6 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
         ax[0,1].set_xlabel('$k_{f}$ (yr$^{-1}$)', size=12)
         ax[0,1].set_ylabel('Count (glaciers)', size=12)
         
-        
         # ----- CALVING_K VS MB_CLIM -----
         ax[1,0].scatter(output_df_all['calving_k'], output_df_all['mb_clim_mwea'], 
                         color='k', marker='o', linewidth=1, facecolor='none', 
@@ -1657,14 +1676,18 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
         
         # Save figure
         fig.set_size_inches(6,6)
-        fig_fullfn = output_fp + str(reg) + '-calving_glac_compare-cal_ind.png'
+        fig_fullfn = output_fp + str(reg) + '-frontalablation_glac_compare-cal_ind.png'
         fig.savefig(fig_fullfn, bbox_inches='tight', dpi=300)
+        plt.close(fig)
 
 
 # ----- MERGE CALIBRATED CALVING DATASETS -----
-def merge_ind_calving_k(regions=list(range(1,20)), output_fp='', verbose=False):
-    
-    for nreg, output_fn_reg in enumerate(sorted(glob.glob(f'{output_fp}/*-calving_cal_ind.csv'))):
+def merge_ind_calving_k(regions=list(range(1,20)), output_fp='', merged_calving_k_fn='', verbose=False):
+    # get list of all regional frontal ablation calibration file names
+    output_reg_fns = sorted(glob.glob(f'{output_fp}/*-frontalablation_cal_ind.csv'))
+    output_reg_fns = [x.split('/')[-1] for x in output_reg_fns]
+    # loop through and merge
+    for nreg, output_fn_reg in enumerate(output_reg_fns):
         
         # Load quality controlled frontal ablation data         
         output_df_reg = pd.read_csv(output_fp + output_fn_reg)
@@ -1692,22 +1715,25 @@ def merge_ind_calving_k(regions=list(range(1,20)), output_fp='', verbose=False):
             
             output_df_all = pd.concat([output_df_all, output_df_reg_missing], axis=0)
     
-    output_fn_all = 'all-calving_cal_ind.csv'
-    output_df_all.to_csv(output_fp + output_fn_all, index=0)
+    output_df_all.to_csv(output_fp + merged_calving_k_fn, index=0)
     if verbose:
-        print(f'Merged calving calibration exported: {output_fp+output_fn_all}')
+        print(f'Merged calving calibration exported: {output_fp+merged_calving_k_fn}')
     
     return
 
+
 # ----- UPDATE MASS BALANCE DATA WITH FRONTAL ABLATION ESTIMATES -----
-def update_mbdata(regions=list(range(1,20)), frontalablation_fp='', frontalablation_fn='', hugonnet2021_fp='', hugonnet2021_facorr_fp='', verbose=False):
+def update_mbdata(regions=list(range(1,20)), frontalablation_fp='', frontalablation_fn='', hugonnet2021_fp='', hugonnet2021_facorr_fp='', ncores=1, overwrite=False, verbose=False):
     # Load calving glacier data (already quality controlled during calibration)
     assert os.path.exists(frontalablation_fp + frontalablation_fn), 'Calibrated frontal ablation output dataset does not exist'
     fa_glac_data = pd.read_csv(frontalablation_fp + frontalablation_fn)
-
-    # Load mass balance data
-    mb_data = pd.read_csv(hugonnet2021_fp)
-    mb_rgiids = list(mb_data.RGIId)
+    # check if fa corrected mass balance data already exists
+    if os.path.exists(hugonnet2021_facorr_fp):
+        assert overwrite, f'Frontal ablation corrected mass balance dataset already exists!\t{hugonnet2021_facorr_fp}\nPass `-o` to overwrite, or pass a different filename for `hugonnet2021_facorrected_fn`'
+        mb_data = pd.read_csv(hugonnet2021_facorr_fp)
+    else:
+        mb_data = pd.read_csv(hugonnet2021_fp)
+    mb_rgiids = list(mb_data.rgiid)
 
     # Record prior data
     mb_data['mb_romain_mwea'] = mb_data['mb_mwea']
@@ -1733,7 +1759,9 @@ def update_mbdata(regions=list(range(1,20)), frontalablation_fp='', frontalablat
 
     # Export the updated dataset
     mb_data.to_csv(hugonnet2021_facorr_fp, index=False)
+
     # Update gdirs
+    glac_strs = []
     for nglac, rgiid in enumerate(fa_glac_data.RGIId):
         
         O1region = int(rgiid.split('-')[1].split('.')[0])
@@ -1741,12 +1769,14 @@ def update_mbdata(regions=list(range(1,20)), frontalablation_fp='', frontalablat
         
             # Select subsets of data
             glacier_str = rgiid.split('-')[1]
-    
-            gdir = single_flowline_glacier_directory_with_calving(glacier_str, 
-                                                                  reset=True
-                                                                  )
-    
+            glac_strs.append(glacier_str)
+    # paralllelize
+    func_ = partial(single_flowline_glacier_directory_with_calving, reset=True, facorrected=True)
+    with multiprocessing.Pool(ncores) as p:
+        p.map(func_, glac_strs)
+
     return
+
 
 # plot calving_k by region
 def plot_calving_k_allregions(output_fp=''):
@@ -1769,12 +1799,11 @@ def plot_calving_k_allregions(output_fp=''):
         if ax not in [ax9]:
             reg = regions_ordered[nax]  
             
-            calving_k_fn = str(reg) + '-calving_cal_ind.csv'
-            calving_k_fn_missing = calving_k_fn.replace('.csv','-missing.csv')
-        
-            output_df_all_good = pd.read_csv(output_fp + calving_k_fn)
-    #        calving_k_df_missing = pd.read_csv(output_fp + calving_k_fn_missing)
-            
+            calving_k_fn = str(reg) + '-frontalablation_cal_ind.csv'
+            if not os.path.isfile(output_fp+calving_k_fn):
+                print(f'fronal ablation file missing: {output_fp+calving_k_fn}')
+                continue
+            output_df_all_good = pd.read_csv(output_fp + calving_k_fn)            
             
             # ----- PLOT RESULTS FOR EACH GLACIER -----
     #        plot_max_raw = np.max([output_df_all_good.calving_flux_Gta.max(), output_df_all_good.fa_gta_obs.max()])
@@ -1815,8 +1844,6 @@ def plot_calving_k_allregions(output_fp=''):
         
         ax.tick_params(axis='both', which='major', direction='inout', right=True)
         ax.tick_params(axis='both', which='minor', direction='in', right=True)
-
-            
     
     #        # ----- Histogram -----
     ##        nbins = 25
@@ -1855,7 +1882,6 @@ def plot_calving_k_allregions(output_fp=''):
     #        ax.set_ylim(0,1.1)
     #        ax.yaxis.set_major_locator(MultipleLocator(0.2))
     #        ax.yaxis.set_minor_locator(MultipleLocator(0.1))
-            
         
         # Legend
         if ax in [ax9]:
@@ -1880,11 +1906,11 @@ def plot_calving_k_allregions(output_fp=''):
     fig.text(0.5,0.04,'Observed frontal ablation (Gt yr$^{-1}$)', fontsize=12, horizontalalignment='center', verticalalignment='bottom')
     fig.text(0.04,0.5,'Modeled frontal ablation (Gt yr$^{-1}$)', size=12, horizontalalignment='center', verticalalignment='center', rotation=90)
         
-        
     # Save figure
     fig_fn = ('allregions_calving_ObsMod.png')
     fig.set_size_inches(6.5,5.5)
     fig.savefig(output_fp + fig_fn, bbox_inches='tight', dpi=300)
+    plt.close(fig)
 
     return
 
@@ -1922,15 +1948,16 @@ def main():
     if args.ncores > 1:
         args.ncores = int(np.min([njobs, args.ncores]))
 
-    # data paths # change caliving file paths to 'frontalablation' (eg. 19-calving_cal_ind -> 19-frontalablation_cal_ind)
-    frontalablation_fp = pygem_prms['root'] + '/frontalablation_data/'
+    # data paths
+    frontalablation_fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['frontalablation']['frontalablation_relpath']}"
+    frontalablation_cal_fn = pygem_prms['calib']['data']['frontalablation']['frontalablation_cal_fn']
     output_fp = frontalablation_fp + '/analysis/'
     hugonnet2021_fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['massbalance']['hugonnet2021_relpath']}/{args.hugonnet2021_fn}"
     hugonnet2021_facorr_fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['massbalance']['hugonnet2021_relpath']}/{args.hugonnet2021_facorrected_fn}"
     os.makedirs(output_fp,exist_ok=True)
 
     # marge input calving datasets
-    merged_calving_data_fn = merge_data(frontalablation_fp=frontalablation_fp, verbose=args.verbose)
+    merged_calving_data_fn = merge_data(frontalablation_fp=frontalablation_fp, overwrite=args.overwrite, verbose=args.verbose)
 
     # calibrate each individual glacier's calving_k parameter
     calib_ind_calving_k_partial = partial(calib_ind_calving_k, args=args, frontalablation_fp=frontalablation_fp, frontalablation_fn=merged_calving_data_fn, output_fp=output_fp, hugonnet2021_fp=hugonnet2021_fp)
@@ -1938,13 +1965,13 @@ def main():
         p.map(calib_ind_calving_k_partial, args.rgi_region01)
 
     # merge all individual calving_k calibration results by region
-    merge_ind_calving_k(regions=args.rgi_region01, output_fp=output_fp, verbose=args.verbose)
+    merge_ind_calving_k(regions=args.rgi_region01, output_fp=output_fp, merged_calving_k_fn=frontalablation_cal_fn, verbose=args.verbose)
 
-    # # update reference mass balance data accordingly
-    # update_mbdata(regions=regions, frontalablation_fp=output_fp, frontalablation_fn=all_calving_cal_fn, hugonnet2021_fp=hugonnet2021_fp, hugonnet2021_facorr_fp=hugonnet2021_facorr_fp, verbose=args.verbose)
+    # update reference mass balance data accordingly
+    update_mbdata(regions=args.rgi_region01, frontalablation_fp=output_fp, frontalablation_fn=frontalablation_cal_fn, hugonnet2021_fp=hugonnet2021_fp, hugonnet2021_facorr_fp=hugonnet2021_facorr_fp, ncores=args.ncores, overwrite=args.overwrite, verbose=args.verbose)
+
     # # plot results
-    # plot_calving_k_allregions(output_fp=output_fp)
-
+    plot_calving_k_allregions(output_fp=output_fp)
 
 if __name__ == "__main__":
     main()

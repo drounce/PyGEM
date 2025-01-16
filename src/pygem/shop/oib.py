@@ -244,6 +244,21 @@ class oib:
             self.dbl_diffs['sigma'] = None
 
 
+    def _elevchange_to_masschange(self, ela, density_ablation=pygem_prms['constants']['density_ice'], density_accumulation=700):
+        # convert elevation changes to mass change using piecewise density conversion
+        if self.dbl_diffs['dh'] is not None:
+            # populate density conversion column corresponding to bin center elevation
+            conversion_factor = np.ones(len(self.bin_centers))
+            conversion_factor[np.where(self.bin_centers<ela)] = density_ablation
+            conversion_factor[np.where(self.bin_centers>=ela)] = density_accumulation
+            # get change in mass per unit area as (dz  * rho) [dmass / dm2]
+            self.dbl_diffs['dmda'] = self.dbl_diffs['dh'] * conversion_factor
+            self.dbl_diffs['dmda_err'] = self.dbl_diffs['sigmas'] * conversion_factor
+        else:
+            self.dbl_diffs['dmda'] = None
+            self._dbl_diff['dmda_err'] = None
+
+
 def _filter_on_pixel_count(arr, pctl = 15):
     """
     filter oib diffs by perntile pixel count

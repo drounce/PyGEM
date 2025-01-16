@@ -40,7 +40,7 @@ if not 'mb_calib_pygem' in cfg.BASENAMES:
 
     
 @entity_task(log, writes=['mb_calib_pygem'])
-def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2021'):
+def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2021', facorrected=pygem_prms['setup']['include_frontalablation']):
     """Select specific mass balance and add observations to the given glacier directory
     
     Parameters
@@ -51,7 +51,7 @@ def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2021'):
     # get dataset name (could potentially be swapped with others besides Hugonnet21)
     mbdata_fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['massbalance']['hugonnet2021_relpath']}"
     mbdata_fp_fa = mbdata_fp + pygem_prms['calib']['data']['massbalance']['hugonnet2021_facorrected_fn']
-    if pygem_prms['setup']['include_frontalablation'] and os.path.exists(mbdata_fp_fa):
+    if facorrected and os.path.exists(mbdata_fp_fa):
         mbdata_fp = mbdata_fp_fa
     else:
         mbdata_fp = mbdata_fp + pygem_prms['calib']['data']['massbalance']['hugonnet2021_fn']
