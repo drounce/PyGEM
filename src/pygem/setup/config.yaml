@@ -35,7 +35,9 @@ setup:
   include_landterm: true                          # Switch to include land-terminating glaciers
   include_laketerm: true                          # Switch to include lake-terminating glaciers
   include_tidewater: true                         # Switch to include marine-terminating glaciers
-  include_frontalablation: true                   # Switch to ignore calving and treat tidewater glaciers as land-terminating
+  include_frontalablation: true                   # Switch to ignore calving and treat tidewater glaciers as land-terminating 
+                                                  # note, calibration parameters from Rounc et al. (2023) already accounted for frontal ablation, 
+                                                  # and thus one cannot ignore frontal ablation if using them (must use parameters from calibration neglecting frontal ablation).
 
 # ===== OGGM SETTINGS =====
 oggm:
