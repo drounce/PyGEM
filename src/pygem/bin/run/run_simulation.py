@@ -64,14 +64,11 @@ cfg.PARAMS['hydro_month_sh']=1
 cfg.PARAMS['trapezoid_lambdas'] = 1
 
 # ----- FUNCTIONS -----
-def parse_input(value):
-    try:
-        # Try to interpret the value as a list of integers
-        int_list = list(map(int, value.split(',')))
-        return int_list
-    except ValueError:
-        # If that fails, treat it as a string
-        return value
+def none_or_value(value):
+    """Custom type function to handle 'none' or 'null' as None."""
+    if value.lower() in {"none", "null"}:
+        return None
+    return value
     
 def getparser():
     """
@@ -125,9 +122,9 @@ def getparser():
                         help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-gcm_list_fn', action='store', type=str, default=pygem_prms['climate']['ref_gcm_name'],
                         help='text file full of commands to run (ex. CanESM2 or CESM2)')
-    parser.add_argument('-gcm_name', action='store', type=str, default=None,
+    parser.add_argument('-gcm_name', action='store', type=str, default=pygem_prms['climate']['gcm_name'],
                         help='GCM name used for model run')
-    parser.add_argument('-scenario', action='store', type=str, default=None,
+    parser.add_argument('-scenario', action='store', type=none_or_value, default=pygem_prms['climate']['scenario'],
                         help='rcp or ssp scenario used for model run (ex. rcp26 or ssp585)')
     parser.add_argument('-realization', action='store', type=str, default=None,
                         help='realization from large ensemble used for model run (ex. 1011.001 or 1301.020)')
@@ -151,10 +148,12 @@ def getparser():
                         help='Degree-day factor of snow')
     parser.add_argument('-oggm_working_dir', action='store', type=str, default=f"{pygem_prms['root']}/{pygem_prms['oggm']['oggm_gdir_relpath']}",
                         help='Specify OGGM working dir - useful if performing a grid search and have duplicated glacier directories')
-    parser.add_argument('-option_calibration', action='store', type=str, default=pygem_prms['calib']['option_calibration'],
+    parser.add_argument('-option_calibration', action='store', type=none_or_value, default=pygem_prms['calib']['option_calibration'],
                         help='calibration option ("emulator", "MCMC", "HH2015", "HH2015mod", "None")')
-    parser.add_argument('-option_dynamics', action='store', type=str, default=pygem_prms['sim']['option_dynamics'],
+    parser.add_argument('-option_dynamics', action='store', type=none_or_value, default=pygem_prms['sim']['option_dynamics'],
                         help='glacier dynamics scheme (options: ``OGGM`, `MassRedistributionCurves`, `None`)')
+    parser.add_argument('-use_reg_glena', action='store', type=bool, default=pygem_prms['sim']['oggm_dynamics']['use_reg_glena'],
+                        help='Take the glacier flow parameterization from regionally calibrated priors (boolean: `0` or `1`, `True` or `False`)')
     parser.add_argument('-option_bias_adjustment', action='store', type=int, default=pygem_prms['sim']['option_bias_adjustment'],
                         help='Bias adjustment option (options: `0`, `1`, `2`, `3`. 0: no adjustment, \
                                     1: new prec scheme and temp building on HH2015, \
@@ -193,9 +192,6 @@ def run(list_packed_vars):
     # Unpack variables
     parser = getparser()
     args = parser.parse_args()
-    # ensure option_calibration and option_dynamics were passed appropraite value
-    args.option_calibration = None if args.option_calibration.lower() == "none" or args.option_calibration.lower() == "null" else args.option_calibration
-    args.option_dynamics = None if args.option_dynamics.lower() == "none" or args.option_dynamics.lower() == "null" else args.option_dynamics
     count = list_packed_vars[0]
     glac_no = list_packed_vars[1]
     gcm_name = list_packed_vars[2]
@@ -540,7 +536,7 @@ def run(list_packed_vars):
                     if debug:
                         print('cfl number:', cfg.PARAMS['cfl_number'])
                         
-                    if pygem_prms['sim']['oggm_dynamics']['use_reg_glena']:
+                    if args.use_reg_glena:
                         glena_df = pd.read_csv(f"{pygem_prms['root']}/{pygem_prms['sim']['oggm_dynamics']['glena_reg_relpath']}")                    
                         glena_O1regions = [int(x) for x in glena_df.O1Region.values]
                         assert glacier_rgi_table.O1Region in glena_O1regions, glacier_str + ' O1 region not in glena_df'
