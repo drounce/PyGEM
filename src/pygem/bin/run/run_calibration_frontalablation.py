@@ -978,11 +978,6 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
                                                    (output_df_all['calving_k'] < calving_k_bndhigh_set), :]
         
         rgiids_good = list(output_df_all_good.RGIId)
-        
-        # if no good glaciers, don't create plot, and delete regional `-frontalablation_cal_ind.csv` file
-        if len(rgiids_good)<1:
-            os.remove(output_fp + output_fn)
-            continue
 
         calving_k_reg_mean = output_df_all_good.calving_k.mean()
         if verbose:
@@ -991,106 +986,106 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
         
         output_df_all['calving_flux_Gta_rnd1'] = output_df_all['calving_flux_Gta'].copy()
         output_df_all['calving_k_rnd1'] = output_df_all['calving_k'].copy()
-            
-        
+       
         # ----- PLOT RESULTS FOR EACH GLACIER -----
-        with np.errstate(all='ignore'):
-            plot_max_raw = np.max([output_df_all_good.calving_flux_Gta.max(), output_df_all_good.fa_gta_obs.max()])
-            plot_max = 10**np.ceil(np.log10(plot_max_raw))
+        if len(rgiids_good)>0:
+            with np.errstate(all='ignore'):
+                plot_max_raw = np.max([output_df_all_good.calving_flux_Gta.max(), output_df_all_good.fa_gta_obs.max()])
+                plot_max = 10**np.ceil(np.log10(plot_max_raw))
 
-            plot_min_raw = np.max([output_df_all_good.calving_flux_Gta.min(), output_df_all_good.fa_gta_obs.min()])
-            plot_min = 10**np.floor(np.log10(plot_min_raw))
-        if plot_min < 1e-3:
-            plot_min = 1e-4
+                plot_min_raw = np.max([output_df_all_good.calving_flux_Gta.min(), output_df_all_good.fa_gta_obs.min()])
+                plot_min = 10**np.floor(np.log10(plot_min_raw))
+            if plot_min < 1e-3:
+                plot_min = 1e-4
 
-        x_min, x_max = plot_min, plot_max
-        
-        fig, ax = plt.subplots(2, 2, squeeze=False, gridspec_kw = {'wspace':0.4, 'hspace':0.4})
-        
-        # ----- Scatter plot -----
-        # Marker size
-        glac_area_all = output_df_all_good['area_km2'].values
-        s_sizes = [10,50,250,1000]
-        s_byarea = np.zeros(glac_area_all.shape) + s_sizes[3]
-        s_byarea[(glac_area_all < 10)] = s_sizes[0]
-        s_byarea[(glac_area_all >= 10) & (glac_area_all < 100)] = s_sizes[1]
-        s_byarea[(glac_area_all >= 100) & (glac_area_all < 1000)] = s_sizes[2]
-        
-        sc = ax[0,0].scatter(output_df_all_good['fa_gta_obs'], output_df_all_good['calving_flux_Gta'], 
-                             color='k', marker='o', linewidth=1, facecolor='none', 
-                             s=s_byarea, clip_on=True)
-        # Labels
-        ax[0,0].set_xlabel('Observed $A_{f}$ (Gt/yr)', size=12)    
-        ax[0,0].set_ylabel('Modeled $A_{f}$ (Gt/yr)', size=12)
-        ax[0,0].set_xlim(x_min,x_max)
-        ax[0,0].set_ylim(x_min,x_max)
-        ax[0,0].plot([x_min, x_max], [x_min, x_max], color='k', linewidth=0.5, zorder=1)
-        # Log scale
-        ax[0,0].set_xscale('log')
-        ax[0,0].set_yscale('log')
-        
-        # Legend
-        obs_labels = ['< 10', '10-10$^{2}$', '10$^{2}$-10$^{3}$', '> 10$^{3}$']
-        for nlabel, obs_label in enumerate(obs_labels):
-            ax[0,0].scatter([-10],[-10], color='grey', marker='o', linewidth=1, 
-                            facecolor='none', s=s_sizes[nlabel], zorder=3, label=obs_label)
-        ax[0,0].text(0.06, 0.98, 'Area (km$^{2}$)', size=12, horizontalalignment='left', verticalalignment='top', 
-                     transform=ax[0,0].transAxes, color='grey')
-        leg = ax[0,0].legend(loc='upper left', ncol=1, fontsize=10, frameon=False,
-                             handletextpad=1, borderpad=0.25, labelspacing=0.4, bbox_to_anchor=(0.0, 0.93),
-                             labelcolor='grey')
+            x_min, x_max = plot_min, plot_max
+            
+            fig, ax = plt.subplots(2, 2, squeeze=False, gridspec_kw = {'wspace':0.4, 'hspace':0.4})
+            
+            # ----- Scatter plot -----
+            # Marker size
+            glac_area_all = output_df_all_good['area_km2'].values
+            s_sizes = [10,50,250,1000]
+            s_byarea = np.zeros(glac_area_all.shape) + s_sizes[3]
+            s_byarea[(glac_area_all < 10)] = s_sizes[0]
+            s_byarea[(glac_area_all >= 10) & (glac_area_all < 100)] = s_sizes[1]
+            s_byarea[(glac_area_all >= 100) & (glac_area_all < 1000)] = s_sizes[2]
+            
+            sc = ax[0,0].scatter(output_df_all_good['fa_gta_obs'], output_df_all_good['calving_flux_Gta'], 
+                                color='k', marker='o', linewidth=1, facecolor='none', 
+                                s=s_byarea, clip_on=True)
+            # Labels
+            ax[0,0].set_xlabel('Observed $A_{f}$ (Gt/yr)', size=12)    
+            ax[0,0].set_ylabel('Modeled $A_{f}$ (Gt/yr)', size=12)
+            ax[0,0].set_xlim(x_min,x_max)
+            ax[0,0].set_ylim(x_min,x_max)
+            ax[0,0].plot([x_min, x_max], [x_min, x_max], color='k', linewidth=0.5, zorder=1)
+            # Log scale
+            ax[0,0].set_xscale('log')
+            ax[0,0].set_yscale('log')
+            
+            # Legend
+            obs_labels = ['< 10', '10-10$^{2}$', '10$^{2}$-10$^{3}$', '> 10$^{3}$']
+            for nlabel, obs_label in enumerate(obs_labels):
+                ax[0,0].scatter([-10],[-10], color='grey', marker='o', linewidth=1, 
+                                facecolor='none', s=s_sizes[nlabel], zorder=3, label=obs_label)
+            ax[0,0].text(0.06, 0.98, 'Area (km$^{2}$)', size=12, horizontalalignment='left', verticalalignment='top', 
+                        transform=ax[0,0].transAxes, color='grey')
+            leg = ax[0,0].legend(loc='upper left', ncol=1, fontsize=10, frameon=False,
+                                handletextpad=1, borderpad=0.25, labelspacing=0.4, bbox_to_anchor=(0.0, 0.93),
+                                labelcolor='grey')
 
-        # ----- Histogram -----
-#        nbins = 25
-#        ax[0,1].hist(output_df_all_good['calving_k'], bins=nbins, color='grey', edgecolor='k')
-        vn_bins = np.arange(0, np.max([1,output_df_all_good.calving_k.max()]) + 0.1, 0.1)
-        hist, bins = np.histogram(output_df_all_good.loc[output_df_all_good['no_errors'] == 1, 'calving_k'], bins=vn_bins)
-        ax[0,1].bar(x=vn_bins[:-1] + 0.1/2, height=hist, width=(bins[1]-bins[0]), 
-                             align='center', edgecolor='black', color='grey')
-        ax[0,1].set_xticks(np.arange(0,np.max([1,vn_bins.max()])+0.1, 1))
-        ax[0,1].set_xticks(vn_bins, minor=True)
-        ax[0,1].set_xlim(vn_bins.min(), np.max([1,vn_bins.max()]))
-        if hist.max() < 40:
-            y_major_interval = 5
-            y_max = np.ceil(hist.max()/y_major_interval)*y_major_interval
-            ax[0,1].set_yticks(np.arange(0,y_max+y_major_interval,y_major_interval))
-        elif hist.max() > 40:
-            y_major_interval = 10
-            y_max = np.ceil(hist.max()/y_major_interval)*y_major_interval
-            ax[0,1].set_yticks(np.arange(0,y_max+y_major_interval,y_major_interval))
-        
-        # Labels
-        ax[0,1].set_xlabel('$k_{f}$ (yr$^{-1}$)', size=12)
-        ax[0,1].set_ylabel('Count (glaciers)', size=12)
-        
-        # ----- CALVING_K VS MB_CLIM -----
-        ax[1,0].scatter(output_df_all_good['calving_k'], output_df_all_good['mb_clim_mwea'], 
-                        color='k', marker='o', linewidth=1, facecolor='none', 
-                        s=s_byarea, clip_on=True)
-        ax[1,0].set_xlabel('$k_{f}$ (yr$^{-1}$)', size=12)
-        ax[1,0].set_ylabel('$B_{clim}$ (mwea)', size=12)
-        
-        # ----- CALVING_K VS AREA -----
-        ax[1,1].scatter(output_df_all_good['area_km2'], output_df_all_good['calving_k'], 
-                        color='k', marker='o', linewidth=1, facecolor='none', 
-                        s=s_byarea, clip_on=True)
-        ax[1,1].set_xlabel('Area (km2)', size=12)
-        ax[1,1].set_ylabel('$k_{f}$ (yr$^{-1}$)', size=12)
-        
-        # Correlation
-        slope, intercept, r_value, p_value, std_err = linregress(output_df_all_good['area_km2'], 
-                                                                 output_df_all_good['calving_k'],)
-        if verbose:
-            print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,5), 
-                'intercept = ', np.round(intercept,5), 'p_value = ', np.round(p_value,6))
-        area_min = 0
-        area_max = output_df_all_good.area_km2.max()
-        ax[1,1].plot([area_min, area_max], [intercept+slope*area_min, intercept+slope*area_max], color='k')
-        
-        # Save figure
-        fig.set_size_inches(6,6)
-        fig_fullfn = output_fp + str(reg) + '-frontalablation_glac_compare-cal_ind-good.png'
-        fig.savefig(fig_fullfn, bbox_inches='tight', dpi=300)
+            # ----- Histogram -----
+    #        nbins = 25
+    #        ax[0,1].hist(output_df_all_good['calving_k'], bins=nbins, color='grey', edgecolor='k')
+            vn_bins = np.arange(0, np.max([1,output_df_all_good.calving_k.max()]) + 0.1, 0.1)
+            hist, bins = np.histogram(output_df_all_good.loc[output_df_all_good['no_errors'] == 1, 'calving_k'], bins=vn_bins)
+            ax[0,1].bar(x=vn_bins[:-1] + 0.1/2, height=hist, width=(bins[1]-bins[0]), 
+                                align='center', edgecolor='black', color='grey')
+            ax[0,1].set_xticks(np.arange(0,np.max([1,vn_bins.max()])+0.1, 1))
+            ax[0,1].set_xticks(vn_bins, minor=True)
+            ax[0,1].set_xlim(vn_bins.min(), np.max([1,vn_bins.max()]))
+            if hist.max() < 40:
+                y_major_interval = 5
+                y_max = np.ceil(hist.max()/y_major_interval)*y_major_interval
+                ax[0,1].set_yticks(np.arange(0,y_max+y_major_interval,y_major_interval))
+            elif hist.max() > 40:
+                y_major_interval = 10
+                y_max = np.ceil(hist.max()/y_major_interval)*y_major_interval
+                ax[0,1].set_yticks(np.arange(0,y_max+y_major_interval,y_major_interval))
+            
+            # Labels
+            ax[0,1].set_xlabel('$k_{f}$ (yr$^{-1}$)', size=12)
+            ax[0,1].set_ylabel('Count (glaciers)', size=12)
+            
+            # ----- CALVING_K VS MB_CLIM -----
+            ax[1,0].scatter(output_df_all_good['calving_k'], output_df_all_good['mb_clim_mwea'], 
+                            color='k', marker='o', linewidth=1, facecolor='none', 
+                            s=s_byarea, clip_on=True)
+            ax[1,0].set_xlabel('$k_{f}$ (yr$^{-1}$)', size=12)
+            ax[1,0].set_ylabel('$B_{clim}$ (mwea)', size=12)
+            
+            # ----- CALVING_K VS AREA -----
+            ax[1,1].scatter(output_df_all_good['area_km2'], output_df_all_good['calving_k'], 
+                            color='k', marker='o', linewidth=1, facecolor='none', 
+                            s=s_byarea, clip_on=True)
+            ax[1,1].set_xlabel('Area (km2)', size=12)
+            ax[1,1].set_ylabel('$k_{f}$ (yr$^{-1}$)', size=12)
+            
+            # Correlation
+            slope, intercept, r_value, p_value, std_err = linregress(output_df_all_good['area_km2'], 
+                                                                    output_df_all_good['calving_k'],)
+            if verbose:
+                print('  r_value =', np.round(r_value,2), 'slope = ', np.round(slope,5), 
+                    'intercept = ', np.round(intercept,5), 'p_value = ', np.round(p_value,6))
+            area_min = 0
+            area_max = output_df_all_good.area_km2.max()
+            ax[1,1].plot([area_min, area_max], [intercept+slope*area_min, intercept+slope*area_max], color='k')
+            
+            # Save figure
+            fig.set_size_inches(6,6)
+            fig_fullfn = output_fp + str(reg) + '-frontalablation_glac_compare-cal_ind-good.png'
+            fig.savefig(fig_fullfn, bbox_inches='tight', dpi=300)
         
         # ----- REPLACE UPPER BOUND CALVING_K WITH MEDIAN CALVING_K -----
         rgiids_bndhigh = list(output_df_all.loc[output_df_all['calving_k'] == calving_k_bndhigh_set,'RGIId'].values)
@@ -1128,7 +1123,8 @@ def calib_ind_calving_k(regions, args=None, frontalablation_fp='', frontalablati
             rgiids_processed = list(output_df_all.RGIId)
             rgiids_all = list(main_glac_rgi_all.RGIId)
             rgiids_missing = [x for x in rgiids_all if x not in rgiids_processed]
-            
+            if len(rgiids_missing) == 0:
+                break
             glac_no_missing = [x.split('-')[1] for x in rgiids_missing]
             main_glac_rgi_missing = modelsetup.selectglaciersrgitable(glac_no=glac_no_missing)
             
@@ -1801,7 +1797,6 @@ def plot_calving_k_allregions(output_fp=''):
             
             calving_k_fn = str(reg) + '-frontalablation_cal_ind.csv'
             if not os.path.isfile(output_fp+calving_k_fn):
-                print(f'fronal ablation file missing: {output_fp+calving_k_fn}')
                 continue
             output_df_all_good = pd.read_csv(output_fp + calving_k_fn)            
             

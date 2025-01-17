@@ -644,17 +644,16 @@ def run(list_packed_vars):
                 with open(mbdata_fn, 'r') as f:
                     gdir.mbdata = json.load(f)
 
-                # Non-tidewater glaciers
-                # Note: the first time this would be run (prior to run_calibration_frontalablation, pygem_prms['include_frontalablation] would need to be False)
-                if not gdir.is_tidewater:
+                # Tidewater glaciers - use climatic mass balance since calving_k already calibrated separately
+                if gdir.is_tidewater:
+                    assert 'mb_clim_mwea' in gdir.mbdata.keys(), 'include_frontalablation is set as true, but fontal ablation has yet to be calibrated.'
+                    mb_obs_mwea = gdir.mbdata['mb_clim_mwea']
+                    mb_obs_mwea_err = gdir.mbdata['mb_clim_mwea_err']
+                # non-tidewater - use geodetic mass balance
+                else:
                     # Load data
                     mb_obs_mwea = gdir.mbdata['mb_mwea']
                     mb_obs_mwea_err = gdir.mbdata['mb_mwea_err']
-                # Tidewater glaciers
-                #  use climatic mass balance since calving_k already calibrated separately
-                else:
-                    mb_obs_mwea = gdir.mbdata['mb_clim_mwea']
-                    mb_obs_mwea_err = gdir.mbdata['mb_clim_mwea_err']
                     
                 # Add time indices consistent with dates_table for mb calculations
                 gdir.mbdata['t1_datetime'] = pd.to_datetime(gdir.mbdata['t1_str'])
@@ -672,7 +671,7 @@ def run(list_packed_vars):
                 if debug:
                     print('  mb_data (mwea): ' + str(np.round(mb_obs_mwea,2)) + ' +/- ' + str(np.round(mb_obs_mwea_err,2)))             
                     
-            except:
+            except Exception as err:
                 gdir.mbdata = None
                 
                 # LOG FAILURE
@@ -681,7 +680,7 @@ def run(list_packed_vars):
                     os.makedirs(fail_fp, exist_ok=True)
                 txt_fn_fail = glacier_str + "-cal_fail.txt"
                 with open(fail_fp + txt_fn_fail, "w") as text_file:
-                    text_file.write(glacier_str + ' was missing mass balance data.')
+                    text_file.write(f'Error with mass balance data: {err}')
                     
                 print('\n' + glacier_str + ' mass balance data missing. Check dataset and column names.\n')
 
