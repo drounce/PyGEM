@@ -28,7 +28,7 @@ Following PyPI installation, a setup script should to be executed.
 
 The setup script accomplishes two things:
 1. Initializes the PyGEM configuration file *~/PyGEM/config.yaml*. If this file already exists, an overwrite prompt will appear.
-2. Downloads and unzips a series of sample data files to *~/PyGEM/*, which can also be manually downloaded [here](https://drive.google.com/drive/folders/1qzxDPxlBqIXBRbNz3mJTHu1lmc7Zm6AM?usp=drive_link).
+2. Downloads and unzips a series of sample data files to *~/PyGEM/*, which can also be manually downloaded [here](https://drive.google.com/file/d/1Wu4ZqpOKxnc4EYhcRHQbwGq95FoOxMfZ/view?usp=drive_link).
 
 Run the setup script by entering the following in the terminal:
 ```

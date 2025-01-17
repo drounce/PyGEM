@@ -4,14 +4,14 @@ The Python Glacier Evolution Model is written in Python 3. The model is availabl
 
 Several command line scripts are set up upon installation for running the model. See the [Install_PyGEM](install_pygem_target) section for more details on installing the model.
 
-Model parameters are specified via the configuration file (***~/PyGEM/config.yaml***), and a number of key parameters can also be passed to model scripts as command line arguments. The configuration file is [well documented](pygem_config_overview_target) and [sample files](https://drive.google.com/drive/folders/13kiU00Zz2swN5OzwXiWIQTj_JLEHnDgZ) are produced to support trial runs. 
+Model parameters are specified via the configuration file (***~/PyGEM/config.yaml***), and a number of key parameters can also be passed to model scripts as command line arguments. The configuration file is [well documented](pygem_config_overview_target). 
 
 ## Spatial and Temporal Resolution
 PyGEM models each glacier independently using a monthly timestep and elevation bins. We plan to add options to include daily timesteps in the near future and plan to develop new calibration options that can leverage regional datasets as well.
 
 (directory_structure_target)=
 ## Directory structure
-Currently, the model does not have a “required” set of directories. The relative paths for each dataset used by the model are defined within the user's [configuration file](pygem_config_overview_target), and can be modified as desired. For simplicity, we recommend that users implement the same directory structure as the developers (see [sample files](https://drive.google.com/drive/folders/13kiU00Zz2swN5OzwXiWIQTj_JLEHnDgZ)):
+Currently, the model does not have a “required” set of directories. The relative paths for each dataset used by the model are defined within the user's [configuration file](pygem_config_overview_target), and can be modified as desired. For simplicity, we recommend that users implement the same directory structure as the developers (see [sample files](https://drive.google.com/file/d/1Wu4ZqpOKxnc4EYhcRHQbwGq95FoOxMfZ/view?usp=drive_link)):
 
 ~/pygem_data/<br>
 ├ [DEMs](input_mb_data_target): geodetic mass balance data derived from DEM differencing that is used for calibration.<br>
