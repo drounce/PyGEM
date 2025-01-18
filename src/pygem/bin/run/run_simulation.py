@@ -383,7 +383,7 @@ def run(list_packed_vars):
         # for batman in [0]:
 
             # ===== Load glacier data: area (km2), ice thickness (m), width (km) =====
-            if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_calving']:
+            if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_frontalablation']:
                 gdir = single_flowline_glacier_directory(glacier_str, working_dir=args.oggm_working_dir)
                 gdir.is_tidewater = False
                 calving_k = None
@@ -466,12 +466,13 @@ def run(list_packed_vars):
                         nsims = 1
                         
                     # Calving parameter
-                    if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_calving']:
+                    if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_frontalablation']:
                         calving_k = None
                     else:
                         # Load quality controlled frontal ablation data 
-                        assert os.path.exists(f"{pygem_prms['root']}/{pygem_prms['calib']['data']['calving']['calving_relpath']}"), 'Calibrated calving dataset does not exist'
-                        calving_df = pd.read_csv(f"{pygem_prms['root']}/{pygem_prms['calib']['data']['calving']['calving_relpath']}")
+                        fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['frontalablation']['frontalablation_relpath']}/analysis/{pygem_prms['calib']['data']['frontalablation']['frontalablation_cal_fn']}"
+                        assert os.path.exists(fp), 'Calibrated calving dataset does not exist'
+                        calving_df = pd.read_csv(fp)
                         calving_rgiids = list(calving_df.RGIId)
                         
                         # Use calibrated value if individual data available
@@ -527,7 +528,7 @@ def run(list_packed_vars):
                 if args.option_dynamics in ['OGGM', 'MassRedistributionCurves']:
 
                     # CFL number (may use different values for calving to prevent errors)
-                    if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_calving']:
+                    if not glacier_rgi_table['TermType'] in [1,5] or not pygem_prms['setup']['include_frontalablation']:
                         cfg.PARAMS['cfl_number'] = pygem_prms['sim']['oggm_dynamics']['cfl_number']
                     else:
                         cfg.PARAMS['cfl_number'] = pygem_prms['sim']['oggm_dynamics']['cfl_number_calving']
@@ -628,7 +629,7 @@ def run(list_packed_vars):
 #                            plt.show()
 
                         # Non-tidewater glaciers
-                        if not gdir.is_tidewater or not pygem_prms['setup']['include_calving']:
+                        if not gdir.is_tidewater or not pygem_prms['setup']['include_frontalablation']:
                             # Arbitrariliy shift the MB profile up (or down) until mass balance is zero (equilibrium for inversion)
                             apparent_mb_from_any_mb(gdir, mb_model=mbmod_inv, mb_years=np.arange(nyears_ref))
                             tasks.prepare_for_inversion(gdir)
