@@ -127,7 +127,7 @@ class oib:
                 mask = _filter_on_pixel_count(counts, filter_count_pctl)
                 diffs[mask] = np.nan
                 # uncertainty represented by IQR
-                sigmas = np.asarray(self.oib_dict[ssn][yr]['bin_vals']['bin_interquartile_range_diffs_vec']) # take 2x binned interquartile range diffs as sigma_obs
+                sigmas = np.asarray(self.oib_dict[ssn][yr]['bin_vals']['bin_interquartile_range_diffs_vec'])
                 sigmas[mask] = np.nan
                 # add masked diffs to master dictionary
                 self.oib_diffs[self._date_check(dt_obj)] = (diffs,sigmas)
@@ -209,7 +209,7 @@ class oib:
 
 
     # double difference all oib diffs from the same season 1+ year apart
-    def _dbl_diff(self, months=np.arange(13)):
+    def _dbl_diff(self, months=range(1,13)):
         # prepopulate dbl_diffs dictionary object will structure with dates, dh, sigma
         # where dates is a tuple for each double differenced array in the format of (date1,date2),
         # where date1's cop30 differences were subtracted from date2's to get the dh values for that time span,
@@ -231,7 +231,8 @@ class oib:
                 if year_diff >= 1:
                     self.dbl_diffs['dates'].append((date1,date2))
                     self.dbl_diffs['dh'].append(self.oib_diffs[date2][0] - self.oib_diffs[date1][0])
-                    self.dbl_diffs['sigma'].append((self.oib_diffs[date2][1] + self.oib_diffs[date1][1]) / 2)
+                    # self.dbl_diffs['sigma'].append((self.oib_diffs[date2][1] + self.oib_diffs[date1][1]) / 2)
+                    self.dbl_diffs['sigma'].append(self.oib_diffs[date2][1] + self.oib_diffs[date1][1])
         # column stack dh and sigmas into single 2d array
         if len(self.dbl_diffs['dh'])>0:
             self.dbl_diffs['dh'] = np.column_stack(self.dbl_diffs['dh'])
@@ -252,8 +253,8 @@ class oib:
             conversion_factor[np.where(self.bin_centers<ela)] = density_ablation
             conversion_factor[np.where(self.bin_centers>=ela)] = density_accumulation
             # get change in mass per unit area as (dz  * rho) [dmass / dm2]
-            self.dbl_diffs['dmda'] = self.dbl_diffs['dh'] * conversion_factor
-            self.dbl_diffs['dmda_err'] = self.dbl_diffs['sigmas'] * conversion_factor
+            self.dbl_diffs['dmda'] = self.dbl_diffs['dh'] * conversion_factor[:,np.newaxis]
+            self.dbl_diffs['dmda_err'] = self.dbl_diffs['sigma'] * conversion_factor[:,np.newaxis]
         else:
             self.dbl_diffs['dmda'] = None
             self._dbl_diff['dmda_err'] = None

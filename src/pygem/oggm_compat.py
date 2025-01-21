@@ -16,6 +16,7 @@ from oggm import cfg, utils
 from oggm import workflow, tasks
 #from oggm import tasks
 from oggm.cfg import SEC_IN_YEAR
+from oggm.core import flowline
 from oggm.core.massbalance import MassBalanceModel
 #from oggm.shop import rgitopo
 from pygem.shop import debris, mbdata, icethickness
@@ -204,7 +205,6 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['ogg
 
 
 def l3_proc(gdir):
-    return
     """
     OGGGM L3 preprocessing steps
     """
@@ -228,6 +228,22 @@ def l3_proc(gdir):
     );
     # after inversion, merge data from preprocessing tasks form mode_flowlines
     workflow.execute_entity_task(tasks.init_present_time_glacier, gdir);
+
+
+def oggm_spinup(gdir):
+    # perform OGGM dynamic spinup and return flowline model at year 2000
+    # define mb_model for spinup
+    workflow.execute_entity_task(tasks.run_dynamic_spinup,
+                            gdir,
+                            spinup_start_yr=1979,  # When to start the spinup
+                            minimise_for='area',  # what target to match at the RGI date
+                            output_filesuffix='_dynamic_area',  # Where to write the output
+                            ye=2020,  # When the simulation should stop
+                            # first_guess_t_spinup = , could be passed as input argument for each step in the sampler based on prior tbias, current default first guess is -2
+    )
+    fmd_dynamic = flowline.FileModel(gdir.get_filepath('model_geometry', filesuffix='_dynamic_area'))
+    fmd_dynamic.run_until(2000)
+    return fmd_dynamic.fls # flowlines after dynamic spinup at year 2000
 
 
 def create_empty_glacier_directory(rgi_id):
