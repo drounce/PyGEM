@@ -644,7 +644,8 @@ def run(list_packed_vars):
                                 
                         # ----- INDENTED TO BE JUST WITH DYNAMICS -----
                         tasks.init_present_time_glacier(gdir) # adds bins below
-                        debris.debris_binned(gdir, fl_str='model_flowlines')  # add debris enhancement factors to flowlines
+                        if pygem_prms['mb']['include_debris']:
+                            debris.debris_binned(gdir, fl_str='model_flowlines')  # add debris enhancement factors to flowlines
         
                         try:
                             nfls = gdir.read_pickle('model_flowlines')
