@@ -68,7 +68,7 @@ def getparser():
     ncores (optional) : int
         number of cores to use in parallels
     rgi_glac_number_fn : str
-        filename of .json file containing a list of glacier numbers which is used to run batches on the supercomputer
+        filepath of .json file containing a list of glacier numbers which is used to run batches on the supercomputer
     rgi_glac_number : str
         rgi glacier number to run
     option_calibration : str
@@ -95,7 +95,7 @@ def getparser():
     parser.add_argument('-ref_endyear', action='store', type=int, default=pygem_prms['climate']['ref_endyear'],
                         help='reference period ending year for calibration (typically 2019)')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
-                        help='Filename containing list of rgi_glac_number, helpful for running batches on spc'),
+                        help='filepath containing list of rgi_glac_number, helpful for running batches on spc'),
     parser.add_argument('-rgi_glac_number', action='store', type=float, default=pygem_prms['setup']['glac_no'], nargs='+',
                         help='Randoph Glacier Inventory glacier number (can take multiple)')
     parser.add_argument('-ncores', action='store', type=int, default=1,

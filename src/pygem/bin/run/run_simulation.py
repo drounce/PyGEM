@@ -90,7 +90,7 @@ def getparser():
     ncores (optional) : int
         number of cores to use in parallels
     rgi_glac_number_fn (optional) : str
-        filename of .pkl file containing a list of glacier numbers that used to run batches on the supercomputer
+        filepath of .json file containing a list of glacier numbers that used to run batches on the supercomputer
     batch_number (optional): int
         batch number used to differentiate output on supercomputer
     option_ordered : int
@@ -119,7 +119,7 @@ def getparser():
     parser.add_argument('-ref_endyear', action='store', type=int, default=pygem_prms['climate']['ref_endyear'],
                         help='reference period ending year for calibration (typically 2019)')
     parser.add_argument('-rgi_glac_number_fn', action='store', type=str, default=None,
-                        help='Filename containing list of rgi_glac_number, helpful for running batches on spc')
+                        help='filepath containing list of rgi_glac_number, helpful for running batches on spc')
     parser.add_argument('-gcm_list_fn', action='store', type=str, default=pygem_prms['climate']['ref_gcm_name'],
                         help='text file full of commands to run (ex. CanESM2 or CESM2)')
     parser.add_argument('-gcm_name', action='store', type=str, default=pygem_prms['climate']['gcm_name'],

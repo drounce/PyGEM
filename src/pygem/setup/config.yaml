@@ -59,6 +59,7 @@ climate:
   ref_spinupyears: 0                              # spin up years
   # GCM period used for simulation run
   gcm_name: ERA5                                  # simulation climate dataset
+  scenario: null                                  # simulation scenario
   gcm_startyear: 2000                             # first year of model run (simulation dataset)
   gcm_endyear: 2019                               # last year of model run (simulation dataset)
   gcm_wateryear: calendar                         # options for years: 'calendar', 'hydro', 'custom'
