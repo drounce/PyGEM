@@ -202,7 +202,7 @@ calib:
       oib_filter_pctl: 10                         # pixel count percentile filter - for each survey
     # frontal ablation
     frontalablation:
-      frontalablation_relpath: /frontalablation_data/analysis/                                      # relative to main data path
+      frontalablation_relpath: /frontalablation_data/                                               # relative to main data path
       frontalablation_cal_fn: all-frontalablation_cal_ind.csv                                       # merged frontalablation calibration data (produced by run_calibration_frontalablation.py)
     # ice thickness
     icethickness:
