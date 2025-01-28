@@ -37,7 +37,7 @@ if not 'debris_ed' in cfg.BASENAMES:
     cfg.BASENAMES['debris_ed'] = ('debris_ed.tif', 'Raster of debris enhancement factor data')
 
 @entity_task(log, writes=['debris_hd', 'debris_ed'])
-def debris_to_gdir(gdir, debris_dir=f'{pygem_prms['root']}/{pygem_prms['mb']['debris_relpath']}', add_to_gridded=True, hd_max=5, hd_min=0, ed_max=10, ed_min=0):
+def debris_to_gdir(gdir, debris_dir=f"{pygem_prms['root']}/{pygem_prms['mb']['debris_relpath']}", add_to_gridded=True, hd_max=5, hd_min=0, ed_max=10, ed_min=0):
     """Reproject the debris thickness and enhancement factor files to the given glacier directory
     
     Variables are exported as new files in the glacier directory.
