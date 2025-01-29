@@ -36,7 +36,7 @@ oggm = "^1.6.2"
 ruamel-yaml = "^0.18.10"
 
 [tool.poetry.scripts]
-setup = "pygem.bin.op.setup:main"
+initialize = "pygem.bin.op.initialize:main"
 preproc_fetch_mbdata = "pygem.bin.preproc.preproc_fetch_mbdata:main"
 preproc_wgms_estimate_kp = "pygem.bin.preproc.preproc_wgms_estimate_kp:main"
 run_calibration_reg_glena = "pygem.bin.run.run_calibration_reg_glena:main"

@@ -5,7 +5,7 @@ copyright © 2024 Brandon Tober <btober@cmu.edu> David Rounce <drounce@cmu.edu>
 
 Distrubted under the MIT lisence
 
-Setup script (ensure config.yaml and get sample datasets)
+initialization script (ensure config.yaml and get sample datasets)
 """
 import requests
 import zipfile
@@ -126,13 +126,19 @@ def main():
     if out:
         print(f"Downloaded PyGEM sample dataset:")
         print(os.path.abspath(out))
-        print_file_tree(out)
+        try:
+            print_file_tree(out)
+        except:
+            pass
 
     else:
         print(f'Error downloading PyGEM sample dataset.')
 
     # update root path in config.yaml
-    update_config_root(config.config_file, out+'/sample_data/')
+    try:
+        update_config_root(config.config_file, out+'/sample_data/')
+    except:
+        pass
     
 if __name__ == "__main__":
     main()
