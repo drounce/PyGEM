@@ -747,22 +747,6 @@ def run(list_packed_vars):
             # ----- Calibration data -----
             try:
                 mbdata_fn = gdir.get_filepath('mb_calib_pygem')
-                if not os.path.exists(mbdata_fn):
-                    # Compute all the stuff
-                    list_tasks = [          
-                        # Consensus ice thickness
-                        icethickness.consensus_gridded,
-                        # Mass balance data
-                        mbdata.mb_df_to_gdir
-                    ]
-
-                    # Debris tasks
-                    if pygem_prms['mb']['include_debris']:
-                        list_tasks.append(debris.debris_to_gdir)
-                        list_tasks.append(debris.debris_binned)
-
-                    for task in list_tasks:
-                        workflow.execute_entity_task(task, gdir)
 
                 with open(mbdata_fn, 'r') as f:
                     gdir.mbdata = json.load(f)

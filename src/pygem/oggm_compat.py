@@ -79,43 +79,36 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrit
     # temporary directory for testing (deleted on computer restart)
     cfg.PATHS['working_dir'] = working_dir
 
-    # Check if folder is already processed
+    # check if gdir is already processed
     if not reset:
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
-            # If the above works the directory is already processed, return
-            return gdir
+
         except:
-            process_gdir = True
+            reset = True
         
-    else:
-        process_gdir = True
-    
-    if process_gdir:
+    if reset:
         # Start after the prepro task level
         base_url = pygem_prms['oggm']['base_url']
 
         cfg.PARAMS['has_internet'] =  pygem_prms['oggm']['has_internet']
-        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
-                                                  prepro_base_url=base_url, prepro_rgi_version='62')
+        gdir = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
+                                                  prepro_base_url=base_url, prepro_rgi_version='62')[0]
+    
+    # go through shop tasks to process auxiliary datasets to gdir if necessary
+    # consensus glacier mass
+    if not os.path.isfile(gdir.get_filepath('consensus_mass')):
+        workflow.execute_entity_task(icethickness.consensus_gridded, gdir)
+    # mass balance calibration data
+    if not os.path.isfile(gdir.get_filepath('mb_calib_pygem')):
+        workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdir)
+    # debris thickness and melt enhancement factors
+    if not os.path.isfile(gdir.get_filepath('debris_ed')) or os.path.isfile(gdir.get_filepath('debris_hd')):
+        workflow.execute_entity_task(debris.debris_to_gdir, gdir)
+        workflow.execute_entity_task(debris.debris_binned, gdir)
 
-        # Compute all the stuff
-        list_tasks = [          
-            # Consensus ice thickness
-            icethickness.consensus_gridded,
-            # Mass balance data
-            mbdata.mb_df_to_gdir]
-        
-        # Debris tasks
-        if pygem_prms['mb']['include_debris']:
-            list_tasks.append(debris.debris_to_gdir)
-            list_tasks.append(debris.debris_binned)
-            
-        for task in list_tasks:
-            workflow.execute_entity_task(task, gdirs)
-
-        return gdirs[0]
+    return gdir
         
 
 
@@ -172,36 +165,36 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['ogg
     # temporary directory for testing (deleted on computer restart)
     cfg.PATHS['working_dir'] = working_dir
     
-    # Check if folder is already processed
+    # check if gdir is already processed
     if not reset:
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
-            # If the above works the directory is already processed, return
-            return gdir
+
         except:
-            process_gdir = True
+            reset = True
         
-    else:
-        process_gdir = True
-    
-    if process_gdir:
+    if reset:
         # Start after the prepro task level
         base_url = pygem_prms['oggm']['base_url']
 
-        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
-                                                  prepro_base_url=base_url, prepro_rgi_version='62')
+        cfg.PARAMS['has_internet'] =  pygem_prms['oggm']['has_internet']
+        gdir = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
+                                                  prepro_base_url=base_url, prepro_rgi_version='62')[0]
         
-        if not gdirs[0].is_tidewater:
+        if not gdir.is_tidewater:
             raise ValueError(f'{rgi_id} is not tidewater!')
 
-        # entity tasks - order matters
-        # Consensus ice thickness
-        workflow.execute_entity_task(icethickness.consensus_gridded, gdirs)
-        # Mass balance data with facorrected kwarg
-        workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdirs, **{"facorrected": facorrected})
-        
-        return gdirs[0]
+    # go through shop tasks to process auxiliary datasets to gdir if necessary
+    # consensus glacier mass
+    if not os.path.isfile(gdir.get_filepath('consensus_mass')):
+        workflow.execute_entity_task(icethickness.consensus_gridded, gdir)
+
+    # mass balance calibration data (note facorrected kwarg)
+    if not os.path.isfile(gdir.get_filepath('mb_calib_pygem')):
+        workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdir, **{"facorrected": facorrected})
+
+    return gdir
 
 
 def l3_proc(gdir):
