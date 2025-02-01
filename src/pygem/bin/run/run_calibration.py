@@ -368,7 +368,7 @@ def get_dmda(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplier=Non
 
     ### get monthly ice thickness
     # grab components of interest
-    h_annual = mbmod.glac_bin_icethickness_annual # Glacier thickness [m ice]
+    h_annual = mbmod.glac_bin_icethickness_annual # glacier thickness [m ice]
 
     dotb_monthly = mbmod.glac_bin_massbalclim # climatic mass balance [m w.e.] per month
     # convert to m ice
@@ -377,10 +377,10 @@ def get_dmda(gdir, modelprms, glacier_rgi_table, fls=None, glen_a_multiplier=Non
     # obtain annual mass balance rate, sum monthly for each year
     dotb_annual = dotb_monthly.reshape(dotb_monthly.shape[0], dotb_monthly.shape[1]//12,-1).sum(2) # climatic mass balance [m ice a^-1]
 
-    # Compute the thickness change per year
+    # compute the thickness change per year
     delta_h_annual = np.diff(h_annual, axis=1)  # [m ice a^-1] (nbins, nyears-1)
 
-    # Compute flux divergence for each bin
+    # compute flux divergence for each bin
     flux_div_annual = dotb_annual - delta_h_annual  # [m ice a^-1]
 
     ### to get monthly thickness and mass we require monthly flux divergence ###

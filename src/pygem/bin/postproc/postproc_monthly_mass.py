@@ -5,7 +5,7 @@ copyright © 2024 Brandon Tober <btober@cmu.edu> David Rounce <drounce@cmu.edu>
 
 Distrubted under the MIT lisence
 
-derive monthly glacier mass for PyGEM simulation using annual glacier mass and monthly total mass balance
+derive monthly glacierwide mass for PyGEM simulation using annual glacier mass and monthly total mass balance
 """
 # Built-in libraries
 import argparse
@@ -36,12 +36,12 @@ def getparser():
     """
     Use argparse to add arguments from the command line
     """
-    parser = argparse.ArgumentParser(description="process monthly glacier mass from annual mass and total monthly mass balance")
+    parser = argparse.ArgumentParser(description="process monthly glacierwide mass from annual mass and total monthly mass balance")
     # add arguments
     parser.add_argument('-simpath', action='store', type=str, nargs='+',
                         help='path to PyGEM simulation (can take multiple)')
     parser.add_argument('-simdir', action='store', type=str, default=None,
-                        help='directory with glacier-wide simulation outputs for which to process monthly mass')
+                        help='directory with glacierwide simulation outputs for which to process monthly mass')
     parser.add_argument('-ncores', action='store', type=int, default=1,
                         help='number of simultaneous processes (cores) to use')
 
