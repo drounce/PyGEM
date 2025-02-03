@@ -144,7 +144,7 @@ def reg_calving_flux(main_glac_rgi, calving_k, args, fa_glac_data_reg=None,
     output_df['mb_mwea_fa_asl_lost'] = 0.
     for nglac in np.arange(main_glac_rgi.shape[0]):
         
-        print('\n',main_glac_rgi.loc[main_glac_rgi.index.values[nglac],'RGIId'])
+        if args.verbose: print('\n',main_glac_rgi.loc[main_glac_rgi.index.values[nglac],'RGIId'])
         
         # Select subsets of data
         glacier_rgi_table = main_glac_rgi.loc[main_glac_rgi.index.values[nglac], :]
@@ -685,8 +685,8 @@ def merge_data(frontalablation_fp='', overwrite=False, verbose=False):
     fa_data_df3.sort_values('RGIId', inplace=True)
     
     # Concatenate datasets
-    fa_data_df = pd.concat([fa_data_df1, fa_data_df2, fa_data_df3], axis=0)
-
+    dfs = [fa_data_df1, fa_data_df2, fa_data_df3]
+    fa_data_df = pd.concat([df for df in dfs if not df.empty], axis=0)
 
     # Export frontal ablation data for Will
     fa_data_df.to_csv(frontalablation_fp + out_fn, index=False)
