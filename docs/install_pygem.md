@@ -24,7 +24,7 @@ pip install pygem
 This will install all PyGEM dependencies within your conda environment, and set up PyGEM command line tools to run core model scripts.
 
 ### Setup
-Following PyPI installation, an initialization script should to be executed.
+Following installation, an initialization script should to be executed.
 
 The initialization script accomplishes two things:
 1. Initializes the PyGEM configuration file *~/PyGEM/config.yaml*. If this file already exists, an overwrite prompt will appear.
