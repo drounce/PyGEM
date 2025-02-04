@@ -54,24 +54,10 @@ To support model testing and demonstration, a series of Jupyter notebooks can be
 
 ***
 
-About
------
+### About
 
-:Version:
-    .. image:: https://img.shields.io/pypi/v/pygem.svg
-        :target: https://pypi.python.org/pypi/pygem
-        :alt: Pypi version
-
-    .. image:: https://img.shields.io/pypi/pyversions/pygem.svg
-        :target: https://pypi.python.org/pypi/pygem
-        :alt: Supported python versions
-
-:Citation:
-    .. image:: https://img.shields.io/badge/Citation-Rounce%20et%20al.%20(2023;%20Science)%20paper-orange.svg
-        :target: https://www.science.org/doi/10.1126/science.abo1324
-        :alt: Rounce et al. (2023; Science)
-
-:License:
-    .. image:: https://img.shields.io/pypi/l/pygem.svg
-        :target: https://github.com/PyGEM-Community/PyGEM/blob/master/LICENSE
-        :alt: BSD-3-Clause License
+|  |  |
+|---|---|
+| **Version** | [![Pypi version](https://img.shields.io/pypi/v/pygem.svg)](https://pypi.python.org/pypi/pygem) &nbsp; [![Supported python versions](https://img.shields.io/pypi/pyversions/pygem.svg)](https://pypi.python.org/pypi/pygem) |
+| **Citation** | [![Rounce et al. (2023; Science)](https://img.shields.io/badge/Citation-Rounce%20et%20al.%20(2023;%20Science)%20paper-orange.svg)](https://www.science.org/doi/10.1126/science.abo1324) |
+| **License** | [![BSD-3-Clause License](https://img.shields.io/pypi/l/pygem.svg)](https://github.com/PyGEM-Community/PyGEM/blob/master/LICENSE) |
