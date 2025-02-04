@@ -2,7 +2,7 @@
 
 Overview: Python Glacier Evolution Model (PyGEM) is an open-source glacier evolution model coded in Python that models the transient evolution of glaciers. Each glacier is modeled independently using a monthly timestep. PyGEM has a modular framework that allows different schemes to be used for model calibration or model physics (e.g., climatic mass balance, glacier dynamics).
 
-Manual: Details concerning the model physics, installation, and running the model may be found here: [https://github.com/drounce/PyGEM/wiki](https://pygem.readthedocs.io/en/latest/)
+Manual: Details concerning the model physics, installation, and running the model may be found [here](https://pygem.readthedocs.io/en/latest/).
 
 Usage: PyGEM is meant for large-scale glacier evolution modeling.  PyGEM<1.0.0 are no longer being actively being supported. We recommend using the new documentation listed above and contacting the lead developer (David Rounce) if you're interested in using the version that is actively being developed.
 
@@ -59,5 +59,8 @@ To support model testing and demonstration, a series of Jupyter notebooks can be
 |  |  |
 |---|---|
 | **Version** | [![Pypi version](https://img.shields.io/pypi/v/pygem.svg)](https://pypi.python.org/pypi/pygem) &nbsp; [![Supported python versions](https://img.shields.io/pypi/pyversions/pygem.svg)](https://pypi.python.org/pypi/pygem) |
-| **Citation** | [![Rounce et al. (2023; Science)](https://img.shields.io/badge/Citation-Rounce%20et%20al.%20(2023;%20Science)%20paper-orange.svg)](https://www.science.org/doi/10.1126/science.abo1324) |
+| **Citation** | [![Rounce et al. (2023; Science)](https://img.shields.io/badge/citation-Rounce%20et%20al.%20(2023;%20Science)%20paper-orange.svg)](https://www.science.org/doi/10.1126/science.abo1324) |
 | **License** | [![BSD-3-Clause License](https://img.shields.io/pypi/l/pygem.svg)](https://github.com/PyGEM-Community/PyGEM/blob/master/LICENSE) |
+| **Systems** | - Ubuntu 20.04, 22.04 <br> - Red Hat Enterprise Linux (RHEL) 8.8 <br> - macOS (Intel & Apple Silicon)|
+
+>**Note:** We suggest that Windows users install PyGEM using either the Windows Subsystem for Linux or Oracle VirtualBox. 
