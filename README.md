@@ -34,6 +34,8 @@ initialize
 ***
 
 ### Development
+Please report any bugs [here](https://github.com/PyGEM-Community/PyGEM/issues).
+
 If you are interested in contributing to further development of PyGEM, we recommend forking [PyGEM](https://github.com/PyGEM-Community/PyGEM) and then [cloning](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) onto your local machine.
 
 Note, if PyGEM was already installed via PyPI, first uninstall:
@@ -45,6 +47,7 @@ You can then use pip to install your locally cloned fork of PyGEM in 'editable' 
 ```
 pip install -e /path/to/your/cloned/pygem/fork/
 ```
+
 
 ***
 
