@@ -23,8 +23,7 @@ Currently, the model does not have a “required” set of directories. The rela
 ├ [climate_data](climate_data_target): reference and future climate data<br>
 └ [debris_data](input_debris_data_target): debris thickness and sub-debris melt enhancement factors.<br>
 
-```
-{warning}
+```{warning}
 If you use a different file structure and do not update the relative file paths in the *~/PyGEM/config.yaml*, you will get an error and PyGEM will not run!
 ```
 
