@@ -24,7 +24,7 @@ width: 100%
 - **analyze_glacier_change_byWatershed.ipynb** <br>This notebook can be used to aggregate glacier mass, area, and runoff into watersheds; specifically, it will create new netcdf files per watershed such that after the initial aggregation, analyses can be performed much more rapidly. The notebook continues to show an example plot of glacier mass, area, and runoff changes for each watershed in an example region:
 ```{figure} _static/R06_change.png
 ---
-width: 100%
+width: 50%
 ---
 ```
 ```{note}

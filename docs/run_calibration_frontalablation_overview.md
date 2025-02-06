@@ -14,7 +14,7 @@ Lastly, the climatic-basal mass balance data is updated by removing the frontal 
 
 To perform the frontal ablation calibration steps outlined above, simply call the run_calibration_frontalablation python script (by default all regions are calibrated):
 ```
-run_calibration_frontalablation  (optionally pass -rgi_region01 <region>)
+run_calibration_frontalablation  #optionally pass -rgi_region01 <region>
 ```
 
 ## Special Considerations

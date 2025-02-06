@@ -116,7 +116,7 @@ The hindcast option will flip the climate data array so 1960-2000 would run 2000
 | Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
 | `calib.option_calibration` | `string` | Calibration option ('emulator', 'MCMC', 'HH2015', 'HH2015mod', 'null') |
-| `calib.priors_reg_fn` | `string` | Prior distribution (specify filename, relative to `path/Output/calibration/`, or set to `null`) |
+| `calib.priors_reg_fn` | `string` | Prior distribution (specify filename, relative to `root/Output/calibration/`, or set to `null`) |
 
 ### HH2015 Parameters
 
