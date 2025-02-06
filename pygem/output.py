@@ -1,18 +1,16 @@
-#!/usr/bin/env python3
 """
-Created on Sept 19 2023
-Updated Mar 29 2024
+Python Glacier Evolution Model (PyGEM)
 
-@author: btobers mrweathers drounce
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
 
 PyGEM classes and subclasses for model output datasets
 
 For glacier simulations:
 The two main parent classes are single_glacier(object) and compiled_regional(object)
 Both of these have several subclasses which will inherit the necessary parent information
-
 """
-import pygem_input as pygem_prms
 from dataclasses import dataclass
 from scipy.stats import median_abs_deviation
 from datetime import datetime
@@ -20,6 +18,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import os, types, json, cftime, collections
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 ### single glacier output parent class ###
 @dataclass
@@ -33,17 +34,20 @@ class single_glacier:
     gcm_name : str
     scenario : str
     realization : str
-    sim_iters : int
+    nsims : int
     modelprms : dict
-    gcm_bc_startyear : int
+    ref_startyear : int
+    ref_endyear : int
     gcm_startyear : int
     gcm_endyear: int
+    option_calibration: str
+    option_bias_adjustment: str
 
     def __post_init__(self):
         self.glac_values = np.array([self.glacier_rgi_table.name])
         self.glacier_str = '{0:0.5f}'.format(self.glacier_rgi_table['RGIId_float'])
         self.reg_str  = str(self.glacier_rgi_table.O1Region).zfill(2)
-        self.outdir = pygem_prms.output_sim_fp
+        self.outdir = pygem_prms['root'] + '/Output/simulations/'
         self.set_fn()
         self.set_time_vals()
         self.model_params_record()
@@ -56,19 +60,17 @@ class single_glacier:
             self.outfn += f'{self.scenario}_'
         if self.realization:
             self.outfn += f'{self.realization}_'
-        if pygem_prms.option_calibration:
-            self.outfn += f'{pygem_prms.option_calibration}_'
+        if self.option_calibration:
+            self.outfn += f'{self.option_calibration}_'
         else:
             self.outfn += f'kp{self.modelprms["kp"]}_ddfsnow{self.modelprms["ddfsnow"]}_tbias{self.modelprms["tbias"]}_'
         if self.gcm_name not in ['ERA-Interim', 'ERA5', 'COAWST']:
-            self.outfn += f'ba{pygem_prms.option_bias_adjustment}_'
-            yr0 = self.gcm_bc_startyear
+            self.outfn += f'ba{self.option_bias_adjustment}_'
         else:
             self.outfn += 'ba0_'
-            yr0 = self.gcm_startyear
-        if pygem_prms.option_calibration:
+        if self.option_calibration:
             self.outfn += 'SETS_'
-        self.outfn += f'{yr0}_'
+        self.outfn += f'{self.gcm_startyear}_'
         self.outfn += f'{self.gcm_endyear}_'
 
     # return output dataset filename
@@ -83,47 +85,43 @@ class single_glacier:
 
     # set dataset time value coordiantes
     def set_time_vals(self):
-        if pygem_prms.gcm_wateryear == 'hydro':
+        if pygem_prms['climate']['gcm_wateryear'] == 'hydro':
             self.year_type = 'water year'
             self.annual_columns = np.unique(self.dates_table['wateryear'].values)[0:int(self.dates_table.shape[0]/12)]
-        elif pygem_prms.gcm_wateryear == 'calendar':
+        elif pygem_prms['climate']['gcm_wateryear'] == 'calendar':
             self.year_type = 'calendar year'
             self.annual_columns = np.unique(self.dates_table['year'].values)[0:int(self.dates_table.shape[0]/12)]
-        elif pygem_prms.gcm_wateryear == 'custom':
+        elif pygem_prms['climate']['gcm_wateryear'] == 'custom':
             self.year_type = 'custom year'
-        self.time_values = self.dates_table.loc[pygem_prms.gcm_spinupyears*12:self.dates_table.shape[0]+1,'date'].tolist()
+        self.time_values = self.dates_table.loc[pygem_prms['climate']['gcm_spinupyears']*12:self.dates_table.shape[0]+1,'date'].tolist()
         self.time_values = [cftime.DatetimeNoLeap(x.year, x.month, x.day) for x in self.time_values]
         # append additional year to self.year_values to account for mass and area at end of period
-        self.year_values = self.annual_columns[pygem_prms.gcm_spinupyears:self.annual_columns.shape[0]]
+        self.year_values = self.annual_columns[pygem_prms['climate']['gcm_spinupyears']:self.annual_columns.shape[0]]
         self.year_values = np.concatenate((self.year_values, np.array([self.annual_columns[-1] + 1])))
 
     # record all model parameters from run_simualtion and pygem_input
     def model_params_record(self):
-        substrings = ['user_info', 'rgi', 'glac_n', 'fp', 'fn', 'filepath', 'directory','url','logging','overwrite','hugonnet']  # substrings to look for in pygem_prms that don't necessarily need to store
         # get all locally defined variables from the pygem_prms, excluding imports, functions, and classes
-        self.mdl_params_dict = {
-            var: value 
-            for var, value in vars(pygem_prms).items() 
-            if not var.startswith('__') and 
-            not isinstance(value, (types.ModuleType, types.FunctionType, type)) and 
-            not any(substring.lower() in var.lower() for substring in substrings)
-        }
+        self.mdl_params_dict = {}
         # overwrite variables that are possibly different from pygem_input
-        self.mdl_params_dict['gcm_bc_startyear'] = self.gcm_bc_startyear
+        self.mdl_params_dict['ref_startyear'] = self.ref_startyear
+        self.mdl_params_dict['ref_endyear'] = self.ref_endyear
         self.mdl_params_dict['gcm_startyear'] = self.gcm_startyear
         self.mdl_params_dict['gcm_endyear'] = self.gcm_endyear
         self.mdl_params_dict['gcm_name'] = self.gcm_name
         self.mdl_params_dict['realization'] = self.realization
         self.mdl_params_dict['scenario'] = self.scenario
+        self.mdl_params_dict['option_calibration'] = self.option_calibration
+        self.mdl_params_dict['option_bias_adjustment'] = self.option_bias_adjustment
         # record manually defined modelprms if calibration option is None
-        if not pygem_prms.option_calibration:
+        if not self.option_calibration:
             self.update_modelparams_record()
 
     # update model_params_record
     def update_modelparams_record(self):
         for key, value in self.modelprms.items():
             self.mdl_params_dict[key] = value
-        
+
     # initialize boilerplate coordinate and attribute dictionaries - these will be the same for both glacier-wide and binned outputs
     def init_dicts(self):
         self.output_coords_dict = collections.OrderedDict()
@@ -205,8 +203,8 @@ class single_glacier:
         self.output_xr_ds['Area'].values = np.array([self.glacier_rgi_table.Area * 1e6])
     
         self.output_xr_ds.attrs = {'source': f'PyGEMv{self.pygem_version}',
-                        'institution': pygem_prms.user_info['institution'],
-                        'history': f'Created by {pygem_prms.user_info["name"]} ({pygem_prms.user_info["email"]}) on ' + datetime.today().strftime('%Y-%m-%d'),
+                        'institution': pygem_prms['user']['institution'],
+                        'history': f"Created by {pygem_prms['user']['name']} ({pygem_prms['user']['email']}) on " + datetime.today().strftime('%Y-%m-%d'),
                         'references': 'doi:10.1126/science.abo1324',
                         'model_parameters':json.dumps(self.mdl_params_dict)}
 
@@ -286,7 +284,7 @@ class glacierwide_stats(single_glacier):
                                                         'units': 'm3',
                                                         'temporal_resolution': 'monthly',
                                                         'comment': 'off-glacier runoff from area where glacier no longer exists'}
-        if self.sim_iters > 1:
+        if self.nsims > 1:
             self.output_coords_dict['glac_runoff_monthly_mad'] = collections.OrderedDict([('glac', self.glac_values), 
                                                                                     ('time',  self.time_values)])
             self.output_attrs_dict['glac_runoff_monthly_mad'] = {
@@ -330,7 +328,7 @@ class glacierwide_stats(single_glacier):
                                                         'temporal_resolution': 'monthly',
                                                         'comment': 'off-glacier runoff from area where glacier no longer exists'}
             
-        if pygem_prms.export_extra_vars:
+        if pygem_prms['sim']['out']['export_extra_vars']:
             self.output_coords_dict['glac_prec_monthly'] = collections.OrderedDict([('glac', self.glac_values), 
                                                                             ('time',  self.time_values)])
             self.output_attrs_dict['glac_prec_monthly'] = {
@@ -424,7 +422,7 @@ class glacierwide_stats(single_glacier):
                                                         'temporal_resolution': 'monthly',
                                                         'comment': 'snow remaining accounting for new accumulation, melt, and refreeze'}
 
-            if self.sim_iters > 1:
+            if self.nsims > 1:
                 self.output_coords_dict['glac_prec_monthly_mad'] = collections.OrderedDict([('glac', self.glac_values), 
                                                                                     ('time',  self.time_values)])
                 self.output_attrs_dict['glac_prec_monthly_mad'] =  {
@@ -612,7 +610,7 @@ class binned_stats(single_glacier):
                                                             'temporal_resolution': 'monthly',
                                                             'comment': 'monthly refreeze from the PyGEM mass balance module'}
         
-        if self.sim_iters > 1:
+        if self.nsims > 1:
             self.output_coords_dict['bin_mass_annual_mad'] = (
             collections.OrderedDict([('glac', self.glac_values), ('bin', self.bin_values), ('year', self.year_values)]))
             self.output_attrs_dict['bin_mass_annual_mad'] = {
@@ -668,7 +666,7 @@ class regional_monthly_massbal(compiled_regional):
     """
 
 
-def calc_stats_array(data, stats_cns=['median', 'mad']):
+def calc_stats_array(data, stats_cns=pygem_prms['sim']['out']['sim_stats']):
     """
     Calculate stats for a given variable
 

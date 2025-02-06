@@ -1,6 +1,14 @@
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+"""
 # Built-in libaries
 import argparse
 import os
+import json
 import logging
 # External libraries
 from datetime import datetime, timedelta
@@ -14,39 +22,25 @@ from oggm import cfg
 from oggm.utils import entity_task
 #from oggm.core.gis import rasterio_to_gdir
 #from oggm.utils import ncDataset
-import pygem_input as pygem_prms
+# pygem imports
+import pygem.setup.config as config
+# check for config
+config.ensure_config()
+# read the config
+pygem_prms = config.read_config()
 import pygem.pygem_modelsetup as modelsetup
 
-"""
-TO-DO LIST:
-  - modify class_mbdata to work with shop
-"""
 
 # Module logger
 log = logging.getLogger(__name__)
 
-# Add the new name "mb_obs" to the list of things that the GlacierDirectory understands
-if not 'mb_obs' in cfg.BASENAMES:
-    cfg.BASENAMES['mb_obs'] = ('mb_data.pkl', 'Mass balance observations')
+# Add the new name "mb_calib_pygem" to the list of things that the GlacierDirectory understands
+if not 'mb_calib_pygem' in cfg.BASENAMES:
+    cfg.BASENAMES['mb_calib_pygem'] = ('mb_calib_pygem.json', 'Mass balance observations for model calibration')
+
     
-    
-def getparser():
-    """
-    Use argparse to add arguments from the command line
-    
-    Parameters
-    ----------
-    hugonnnet2020_subset : int
-        Switch for processing hugonnet2020 data set into easier csv format (default = 0 (no))
-    """
-    parser = argparse.ArgumentParser(description="select pre-processing options")
-    parser.add_argument('-hugonnet2020_subset', action='store', type=int, default=0,
-                        help='option to process hugonnet2020 data or not (1=yes, 0=no)')
-    return parser
-        
-    
-@entity_task(log, writes=['mb_obs'])
-def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
+@entity_task(log, writes=['mb_calib_pygem'])
+def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2021', facorrected=pygem_prms['setup']['include_frontalablation']):
     """Select specific mass balance and add observations to the given glacier directory
     
     Parameters
@@ -54,20 +48,24 @@ def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
     gdir : :py:class:`oggm.GlacierDirectory`
         where to write the data
     """
-    if mb_dataset in ['Hugonnet2020']:
-        mbdata_fp = pygem_prms.hugonnet_fp
-        mbdata_fn = pygem_prms.hugonnet_fn
-        rgiid_cn = pygem_prms.hugonnet_rgi_glacno_cn
-        mb_cn = pygem_prms.hugonnet_mb_cn
-        mberr_cn = pygem_prms.hugonnet_mb_err_cn
-        mb_clim_cn = pygem_prms.hugonnet_mb_clim_cn
-        mberr_clim_cn = pygem_prms.hugonnet_mb_clim_err_cn
-        t1_cn = pygem_prms.hugonnet_time1_cn
-        t2_cn = pygem_prms.hugonnet_time2_cn
+    # get dataset name (could potentially be swapped with others besides Hugonnet21)
+    mbdata_fp = f"{pygem_prms['root']}/{pygem_prms['calib']['data']['massbalance']['hugonnet2021_relpath']}"
+    mbdata_fp_fa = mbdata_fp + pygem_prms['calib']['data']['massbalance']['hugonnet2021_facorrected_fn']
+    if facorrected and os.path.exists(mbdata_fp_fa):
+        mbdata_fp = mbdata_fp_fa
+    else:
+        mbdata_fp = mbdata_fp + pygem_prms['calib']['data']['massbalance']['hugonnet2021_fn']
+
+    assert os.path.exists(mbdata_fp), "Error, mass balance dataset does not exist: {mbdata_fp}"
+    assert 'hugonnet2021' in mbdata_fp.lower(), "Error, mass balance dataset not yet supported: {mbdata_fp}"
+    rgiid_cn = 'rgiid'
+    mb_cn = 'mb_mwea'
+    mberr_cn = 'mb_mwea_err'
+    mb_clim_cn = 'mb_clim_mwea'
+    mberr_clim_cn = 'mb_clim_mwea_err'
     
-    assert os.path.exists(mbdata_fp + mbdata_fn), "Error: mb dataset does not exist."
-    
-    mb_df = pd.read_csv(mbdata_fp + mbdata_fn)
+    # read reference mass balance dataset and pull data of interest
+    mb_df = pd.read_csv(mbdata_fp)
     mb_df_rgiids = list(mb_df[rgiid_cn])
 
     if gdir.rgi_id in mb_df_rgiids:
@@ -78,21 +76,16 @@ def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
         mb_mwea = mb_df.loc[rgiid_idx, mb_cn]
         mb_mwea_err = mb_df.loc[rgiid_idx, mberr_cn]
         
-        assert mb_clim_cn in mb_df.columns, mb_clim_cn + ' not a column in mb_df'
-        mb_clim_mwea = mb_df.loc[rgiid_idx, mb_clim_cn]
-        mb_clim_mwea_err = mb_df.loc[rgiid_idx, mberr_clim_cn]
+        if mb_clim_cn in mb_df.columns:
+            mb_clim_mwea = mb_df.loc[rgiid_idx, mb_clim_cn]
+            mb_clim_mwea_err = mb_df.loc[rgiid_idx, mberr_clim_cn]
+        else:
+            mb_clim_mwea = None
+            mb_clim_mwea_err = None
         
-        t1_str = mb_df.loc[rgiid_idx, t1_cn]
-        t2_str = mb_df.loc[rgiid_idx, t2_cn]  
-        
+        t1_str, t2_str = mb_df.loc[rgiid_idx, 'period'].split('_')        
         t1_datetime = pd.to_datetime(t1_str)
         t2_datetime = pd.to_datetime(t2_str)
-#        t1_datetime = pd.to_datetime(pd.DataFrame({'year':[t1_str.split('-')[0]], 
-#                                                   'month':[t1_str.split('-')[1]], 
-#                                                   'day':[t1_str.split('-')[2]]}))[0]
-#        t2_datetime = pd.to_datetime(pd.DataFrame({'year':[t2_str.split('-')[0]], 
-#                                                   'month':[t2_str.split('-')[1]], 
-#                                                   'day':[t2_str.split('-')[2]]}))[0]
 
         # remove one day from t2 datetime for proper indexing (ex. 2001-01-01 want to run through 2000-12-31)
         t2_datetime = t2_datetime - timedelta(days=1)
@@ -100,19 +93,22 @@ def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
         nyears = (t2_datetime + timedelta(days=1) - t1_datetime).days / 365.25
 
         # Record data
-        mbdata = {'mb_mwea': mb_mwea,
-                  'mb_mwea_err': mb_mwea_err,
-                  'mb_clim_mwea': mb_clim_mwea,
-                  'mb_clim_mwea_err': mb_clim_mwea_err,
-                  't1_str': t1_str,
-                  't2_str': t2_str,
-                  't1_datetime': t1_datetime,
-                  't2_datetime': t2_datetime,
-                  'nyears': nyears}
-        
-        pkl_fn = gdir.get_filepath('mb_obs')
-        with open(pkl_fn, 'wb') as f:
-            pickle.dump(mbdata, f)
+        mbdata = {
+            key: value 
+            for key, value in {
+                'mb_mwea': float(mb_mwea),
+                'mb_mwea_err': float(mb_mwea_err),
+                'mb_clim_mwea': float(mb_clim_mwea) if mb_clim_mwea is not None else None,
+                'mb_clim_mwea_err': float(mb_clim_mwea_err) if mb_clim_mwea_err is not None else None,
+                't1_str': t1_str,
+                't2_str': t2_str,
+                'nyears': nyears,
+            }.items()
+            if value is not None
+        }
+        mb_fn = gdir.get_filepath('mb_calib_pygem')
+        with open(mb_fn, 'w') as f:
+            json.dump(mbdata, f)
 
 
 #@entity_task(log, writes=['mb_obs'])
@@ -272,22 +268,3 @@ def mb_df_to_gdir(gdir, mb_dataset='Hugonnet2020'):
 #        print(' - extrapolate for missing or outlier glaciers by region')
         
         
-        
-#%%
-if __name__ == '__main__':
-    parser = getparser()
-    args = parser.parse_args()
-    
-    if args.hugonnet2020_subset == 1:
-        mbdata_fullfn = pygem_prms.hugonnet_fp + 'df_pergla_global_10yr_20yr.csv'
-        mb_df = pd.read_csv(mbdata_fullfn)
-        # Pre-process Hugonnet2020 data to easier format of data we want
-        df_20yr = mb_df[mb_df['period'] == '2000-01-01_2020-01-01'].copy()
-        df_20yr['t1'] = np.nan
-        df_20yr['t2'] = np.nan
-        df_20yr['t1'] = [x.split('_')[0] for x in df_20yr['period'].values]
-        df_20yr['t2'] = [x.split('_')[1] for x in df_20yr['period'].values]
-        
-        # Export results
-        df_20yr_fn = 'df_pergla_global_20yr.csv'
-        df_20yr.to_csv(pygem_prms.hugonnet_fp + df_20yr_fn, index=False)

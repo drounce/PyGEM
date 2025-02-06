@@ -1,5 +1,12 @@
-"""Run bias adjustments a given climate dataset"""
+"""
+Python Glacier Evolution Model (PyGEM)
 
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
+Run bias adjustments a given climate dataset
+"""
 # Built-in libraries
 import os
 import sys
@@ -9,15 +16,10 @@ import math
 import numpy as np
 from scipy.ndimage import uniform_filter
 from scipy.stats import percentileofscore
-
-try:
-    import pygem
-except:
-    sys.path.append(os.getcwd() + '/../PyGEM/')
-    
-# Local libraries
-import pygem_input as pygem_prms
-
+# load pygem config
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()
 
 #%% FUNCTIONS
 def annual_avg_2darray(x):
@@ -48,7 +50,7 @@ def monthly_std_2darray(x):
     return x.reshape(-1,12).transpose().reshape(-1,int(x.shape[1]/12)).std(1).reshape(12,-1).transpose()
 
     
-def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table, 
+def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table, gcm_startyear, ref_startyear,
                         ref_spinupyears=0, gcm_spinupyears=0, debug=False):
     """
     Huss and Hock (2015) temperature bias correction based on mean and interannual variability
@@ -105,14 +107,14 @@ def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_tab
     # if/else statement for whether or not the full GCM period is the same as the simulation period
     #   create GCM subset for applying bias-correction (e.g., 2000-2100),
     #   that does not include the earlier reference years (e.g., 1981-2000)
-    if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
+    if gcm_startyear == ref_startyear:
         bc_temp = gcm_temp
     else:
-        if pygem_prms.gcm_wateryear == 'hydro':
+        if pygem_prms['climate']['gcm_wateryear'] == 'hydro':
             dates_cn = 'wateryear'
         else:
             dates_cn = 'year'
-        sim_idx_start = dates_table[dates_cn].to_list().index(pygem_prms.gcm_startyear)
+        sim_idx_start = dates_table[dates_cn].to_list().index(gcm_startyear)
         bc_temp = gcm_temp[:,sim_idx_start:]
 
     # Monthly temperature bias adjusted according to monthly average
@@ -140,7 +142,7 @@ def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_tab
     gcm_temp_biasadj_subset = (
             gcm_temp_biasadj[:,gcm_subset_idx_start:gcm_subset_idx_end+1][:,ref_spinupyears*12:])
 
-    if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
+    if gcm_startyear == ref_startyear:
         if debug:
             print((np.mean(gcm_temp_biasadj_subset, axis=1) - np.mean(ref_temp[:,ref_spinupyears*12:], axis=1)))
         assert np.max(np.abs(np.mean(gcm_temp_biasadj_subset, axis=1) - 
@@ -153,7 +155,7 @@ def temp_biasadj_HH2015(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_tab
     return gcm_temp_biasadj, gcm_elev_biasadj
 
 
-def prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table,
+def prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table, gcm_startyear, ref_startyear,
                         ref_spinupyears=0, gcm_spinupyears=0):
     """
     Huss and Hock (2015) precipitation bias correction based on mean (multiplicative)
@@ -197,14 +199,14 @@ def prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_tab
     # if/else statement for whether or not the full GCM period is the same as the simulation period  
     #   create GCM subset for applying bias-correction (e.g., 2000-2100),
     #   that does not include the earlier reference years (e.g., 1985-2000)
-    if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
+    if gcm_startyear == ref_startyear:
         bc_prec = gcm_prec
     else:
-        if pygem_prms.gcm_wateryear == 'hydro':
+        if pygem_prms['climate']['gcm_wateryear'] == 'hydro':
             dates_cn = 'wateryear'
         else:
             dates_cn = 'year'
-        sim_idx_start = dates_table[dates_cn].to_list().index(pygem_prms.gcm_startyear)
+        sim_idx_start = dates_table[dates_cn].to_list().index(gcm_startyear)
         bc_prec = gcm_prec[:,sim_idx_start:]
     
     # Bias adjusted precipitation accounting for differences in monthly mean
@@ -225,7 +227,7 @@ def prec_biasadj_HH2015(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_tab
     return gcm_prec_biasadj, gcm_elev_biasadj
 
 
-def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table,
+def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table, gcm_startyear, ref_startyear,
                       ref_spinupyears=0, gcm_spinupyears=0):
     """
     Precipitation bias correction based on mean with limited maximum
@@ -269,14 +271,14 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     # if/else statement for whether or not the full GCM period is the same as the simulation period  
     #   create GCM subset for applying bias-correction (e.g., 2000-2100),
     #   that does not include the earlier reference years (e.g., 1985-2000)
-    if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
+    if gcm_startyear == ref_startyear:
         bc_prec = gcm_prec
     else:
-        if pygem_prms.gcm_wateryear == 'hydro':
+        if pygem_prms['climate']['gcm_wateryear'] == 'hydro':
             dates_cn = 'wateryear'
         else:
             dates_cn = 'year'
-        sim_idx_start = dates_table[dates_cn].to_list().index(pygem_prms.gcm_startyear)
+        sim_idx_start = dates_table[dates_cn].to_list().index(gcm_startyear)
         bc_prec = gcm_prec[:,sim_idx_start:]
     
     # Bias adjusted precipitation accounting for differences in monthly mean
@@ -329,7 +331,7 @@ def prec_biasadj_opt1(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table
     return gcm_prec_biasadj, gcm_elev_biasadj
 
     
-def temp_biasadj_QDM(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table,
+def temp_biasadj_QDM(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table, gcm_startyear, ref_startyear,
                      ref_spinupyears=0, gcm_spinupyears=0):
     """
     Cannon et al. (2015) temperature bias correction based on quantile delta mapping
@@ -377,14 +379,14 @@ def temp_biasadj_QDM(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table,
     # if/else statement for whether or not the full GCM period is the same as the simulation period
     #   create GCM subset for applying bias-correction (e.g., 2000-2100),
     #   that does not include the earlier reference years (e.g., 1981-2000)
-    if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
+    if gcm_startyear == ref_startyear:
         bc_temp = gcm_temp
     else:
-        if pygem_prms.gcm_wateryear == 'hydro':
+        if pygem_prms['climate']['gcm_wateryear'] == 'hydro':
             dates_cn = 'wateryear'
         else:
             dates_cn = 'year'
-        sim_idx_start = dates_table[dates_cn].to_list().index(pygem_prms.gcm_startyear)
+        sim_idx_start = dates_table[dates_cn].to_list().index(gcm_startyear)
         bc_temp = gcm_temp[:,sim_idx_start:]
     
     # create an empty array for the bias-corrected GCM data
@@ -434,7 +436,7 @@ def temp_biasadj_QDM(ref_temp, ref_elev, gcm_temp, dates_table_ref, dates_table,
     return gcm_temp_biasadj, gcm_elev_biasadj
     
 
-def prec_biasadj_QDM(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table,
+def prec_biasadj_QDM(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table, gcm_startyear, ref_startyear,
                      ref_spinupyears=0, gcm_spinupyears=0):
     """
     Cannon et al. (2015) precipitation bias correction based on quantile delta mapping
@@ -483,14 +485,14 @@ def prec_biasadj_QDM(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table,
     # if/else statement for whether or not the full GCM period is the same as the simulation period
     #   create GCM subset for applying bias-correction (e.g., 2000-2100),
     #   that does not include the earlier reference years (e.g., 1981-2000)
-    if pygem_prms.gcm_startyear == pygem_prms.gcm_bc_startyear:
+    if gcm_startyear == ref_startyear:
         bc_prec = gcm_prec
     else:
-        if pygem_prms.gcm_wateryear == 'hydro':
+        if pygem_prms['climate']['gcm_wateryear'] == 'hydro':
             dates_cn = 'wateryear'
         else:
             dates_cn = 'year'
-        sim_idx_start = dates_table[dates_cn].to_list().index(pygem_prms.gcm_startyear)
+        sim_idx_start = dates_table[dates_cn].to_list().index(gcm_startyear)
         bc_prec = gcm_prec[:,sim_idx_start:]
         
     # create an empty array for the bias-corrected GCM data
@@ -532,7 +534,7 @@ def prec_biasadj_QDM(ref_prec, ref_elev, gcm_prec, dates_table_ref, dates_table,
     return gcm_prec_biasadj, gcm_elev_biasadj 
     
 
-def monthly_avg_array_rolled(ref_array, dates_table_ref, dates_table):
+def monthly_avg_array_rolled(ref_array, dates_table_ref, dates_table, gcm_startyear, ref_startyear):
     """ Monthly average array from reference data rolled to ensure proper months 
     
     Parameters
@@ -560,12 +562,12 @@ def monthly_avg_array_rolled(ref_array, dates_table_ref, dates_table):
     # if/else statement for whether or not the full GCM period is the same as the simulation period
     #   create GCM subset for applying bias-correction (e.g., 2000-2100),
     #   that does not include the earlier reference years (e.g., 1981-2000)
-    if pygem_prms.gcm_startyear != pygem_prms.gcm_bc_startyear:
-        if pygem_prms.gcm_wateryear == 'hydro':
+    if gcm_startyear != ref_startyear:
+        if pygem_prms['climate']['gcm_wateryear'] == 'hydro':
             dates_cn = 'wateryear'
         else:
             dates_cn = 'year'
-        sim_idx_start = dates_table[dates_cn].to_list().index(pygem_prms.gcm_startyear)
+        sim_idx_start = dates_table[dates_cn].to_list().index(gcm_startyear)
         gcm_array = gcm_array[:,sim_idx_start:]
     
     return gcm_array

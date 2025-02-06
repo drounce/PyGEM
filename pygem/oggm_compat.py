@@ -1,24 +1,38 @@
-""" PYGEM-OGGGM COMPATIBILITY FUNCTIONS """
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
+
+PYGEM-OGGGM COMPATIBILITY FUNCTIONS
+"""
+import os
 # External libraries
 import numpy as np
 import pandas as pd
 import netCDF4
-# Local libraries
-import pygem_input as pygem_prms
 from oggm import cfg, utils
-from oggm import workflow
+from oggm import workflow, tasks
 #from oggm import tasks
 from oggm.cfg import SEC_IN_YEAR
+from oggm.core import flowline
 from oggm.core.massbalance import MassBalanceModel
 #from oggm.shop import rgitopo
 from pygem.shop import debris, mbdata, icethickness
+# Local libraries
+import pygem.setup.config as config
+# read config
+pygem_prms = config.read_config()
+
 
 class CompatGlacDir:
     def __init__(self, rgiid):
         self.rgiid = rgiid
            
-def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, prepro_border=pygem_prms.oggm_border, 
-                                      logging_level=pygem_prms.logging_level, has_internet=pygem_prms.has_internet, working_dir=pygem_prms.oggm_gdir_fp):
+def single_flowline_glacier_directory(rgi_id, reset=pygem_prms['oggm']['overwrite_gdirs'], prepro_border=pygem_prms['oggm']['border'], 
+                                      logging_level= pygem_prms['oggm']['logging_level'], has_internet= pygem_prms['oggm']['has_internet'], 
+                                      working_dir=f"{pygem_prms['root']}/{pygem_prms['oggm']['oggm_gdir_relpath']}"):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     Parameters
@@ -65,53 +79,45 @@ def single_flowline_glacier_directory(rgi_id, reset=pygem_prms.overwrite_gdirs, 
     # temporary directory for testing (deleted on computer restart)
     cfg.PATHS['working_dir'] = working_dir
 
-    # Check if folder is already processed
+    # check if gdir is already processed
     if not reset:
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
-            # If the above works the directory is already processed, return
-            return gdir
+
         except:
-            process_gdir = True
+            reset = True
         
-    else:
-        process_gdir = True
-    
-    if process_gdir:
+    if reset:
         # Start after the prepro task level
-        base_url = pygem_prms.oggm_base_url
+        base_url = pygem_prms['oggm']['base_url']
 
-        cfg.PARAMS['has_internet'] = pygem_prms.has_internet
-        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
-                                                  prepro_base_url=base_url, prepro_rgi_version='62')
-
-        # Compute all the stuff
-        list_tasks = [          
-            # Consensus ice thickness
-            icethickness.consensus_gridded,
-            # Mass balance data
-            mbdata.mb_df_to_gdir]
-        
-        # Debris tasks
-        if pygem_prms.include_debris:
-            list_tasks.append(debris.debris_to_gdir)
-            list_tasks.append(debris.debris_binned)
-            
-        for task in list_tasks:
-            workflow.execute_entity_task(task, gdirs)
-            
-        gdir = gdirs[0]
+        cfg.PARAMS['has_internet'] =  pygem_prms['oggm']['has_internet']
+        gdir = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
+                                                  prepro_base_url=base_url, prepro_rgi_version='62')[0]
     
-        return gdir
+    # go through shop tasks to process auxiliary datasets to gdir if necessary
+    # consensus glacier mass
+    if not os.path.isfile(gdir.get_filepath('consensus_mass')):
+        workflow.execute_entity_task(icethickness.consensus_gridded, gdir)
+    # mass balance calibration data
+    if not os.path.isfile(gdir.get_filepath('mb_calib_pygem')):
+        workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdir)
+    # debris thickness and melt enhancement factors
+    if not os.path.isfile(gdir.get_filepath('debris_ed')) or os.path.isfile(gdir.get_filepath('debris_hd')):
+        workflow.execute_entity_task(debris.debris_to_gdir, gdir)
+        workflow.execute_entity_task(debris.debris_binned, gdir)
+
+    return gdir
         
 
 
-def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.overwrite_gdirs, 
-                                                   prepro_border=pygem_prms.oggm_border, k_calving=1,
-                                                   logging_level=pygem_prms.logging_level, 
-                                                   has_internet=pygem_prms.has_internet,
-                                                   working_dir=pygem_prms.oggm_gdir_fp):
+def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms['oggm']['overwrite_gdirs'], 
+                                                   prepro_border=pygem_prms['oggm']['border'], k_calving=1,
+                                                   logging_level= pygem_prms['oggm']['logging_level'], 
+                                                   has_internet= pygem_prms['oggm']['has_internet'],
+                                                   working_dir=pygem_prms['root'] + pygem_prms['oggm']['oggm_gdir_relpath'],
+                                                   facorrected=pygem_prms['setup']['include_frontalablation']):
     """Prepare a GlacierDirectory for PyGEM (single flowline to start with)
 
     k_calving is free variable!
@@ -159,41 +165,78 @@ def single_flowline_glacier_directory_with_calving(rgi_id, reset=pygem_prms.over
     # temporary directory for testing (deleted on computer restart)
     cfg.PATHS['working_dir'] = working_dir
     
-    # Check if folder is already processed
+    # check if gdir is already processed
     if not reset:
         try:
             gdir = utils.GlacierDirectory(rgi_id)
             gdir.read_pickle('inversion_flowlines')
-            # If the above works the directory is already processed, return
-            return gdir
-        except:
-            process_gdir = True
-        
-    else:
-        process_gdir = True
-    
-    if process_gdir:
-        # Start after the prepro task level
-        base_url = pygem_prms.oggm_base_url
 
-        gdirs = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
-                                                  prepro_base_url=base_url, prepro_rgi_version='62')
+        except:
+            reset = True
         
-        if not gdirs[0].is_tidewater:
+    if reset:
+        # Start after the prepro task level
+        base_url = pygem_prms['oggm']['base_url']
+
+        cfg.PARAMS['has_internet'] =  pygem_prms['oggm']['has_internet']
+        gdir = workflow.init_glacier_directories([rgi_id], from_prepro_level=2, prepro_border=cfg.PARAMS['border'], 
+                                                  prepro_base_url=base_url, prepro_rgi_version='62')[0]
+        
+        if not gdir.is_tidewater:
             raise ValueError(f'{rgi_id} is not tidewater!')
-            
-        # Compute all the stuff
-        list_tasks = [
-            # Consensus ice thickness
-            icethickness.consensus_gridded,
-            # Mass balance data
-            mbdata.mb_df_to_gdir]
-        
-        for task in list_tasks:
-            # The order matters!
-            workflow.execute_entity_task(task, gdirs)
-            
-        return gdirs[0]        
+
+    # go through shop tasks to process auxiliary datasets to gdir if necessary
+    # consensus glacier mass
+    if not os.path.isfile(gdir.get_filepath('consensus_mass')):
+        workflow.execute_entity_task(icethickness.consensus_gridded, gdir)
+
+    # mass balance calibration data (note facorrected kwarg)
+    if not os.path.isfile(gdir.get_filepath('mb_calib_pygem')):
+        workflow.execute_entity_task(mbdata.mb_df_to_gdir, gdir, **{"facorrected": facorrected})
+
+    return gdir
+
+
+def l3_proc(gdir):
+    """
+    OGGGM L3 preprocessing steps
+    """
+    # process climate_hisotrical data to gdir
+    workflow.execute_entity_task(tasks.process_climate_data, gdir);
+
+    # process mb_calib data from geodetic mass balance
+    workflow.execute_entity_task(tasks.mb_calibration_from_geodetic_mb,
+                                gdir, informed_threestep=True, overwrite_gdir=True,
+                                );
+
+    # glacier bed inversion
+    workflow.execute_entity_task(tasks.apparent_mb_from_any_mb, gdir);
+    workflow.calibrate_inversion_from_consensus(
+        gdir,
+        apply_fs_on_mismatch=True,
+        error_on_mismatch=True,  # if you running many glaciers some might not work
+        filter_inversion_output=True,  # this partly filters the overdeepening due to
+        # the equilibrium assumption for retreating glaciers (see. Figure 5 of Maussion et al. 2019)
+        volume_m3_reference=None,  # here you could provide your own total volume estimate in m3
+    );
+    # after inversion, merge data from preprocessing tasks form mode_flowlines
+    workflow.execute_entity_task(tasks.init_present_time_glacier, gdir);
+
+
+def oggm_spinup(gdir):
+    # perform OGGM dynamic spinup and return flowline model at year 2000
+    # define mb_model for spinup
+    workflow.execute_entity_task(tasks.run_dynamic_spinup,
+                            gdir,
+                            spinup_start_yr=1979,  # When to start the spinup
+                            minimise_for='area',  # what target to match at the RGI date
+                            output_filesuffix='_dynamic_area',  # Where to write the output
+                            ye=2020,  # When the simulation should stop
+                            # first_guess_t_spinup = , could be passed as input argument for each step in the sampler based on prior tbias, current default first guess is -2
+    )
+    fmd_dynamic = flowline.FileModel(gdir.get_filepath('model_geometry', filesuffix='_dynamic_area'))
+    fmd_dynamic.run_until(2000)
+    return fmd_dynamic.fls # flowlines after dynamic spinup at year 2000
 
 
 def create_empty_glacier_directory(rgi_id):

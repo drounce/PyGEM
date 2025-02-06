@@ -1,11 +1,18 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
 Functions that didn't fit into other modules
 """
-import pygem_input as pygem_prms
 import numpy as np
-
+import json
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 def annualweightedmean_array(var, dates_table):
     """
@@ -24,7 +31,7 @@ def annualweightedmean_array(var, dates_table):
     var_annual : np.ndarray
         Annual weighted mean of variable
     """        
-    if pygem_prms.timestep == 'monthly':
+    if pygem_prms['time']['timestep'] == 'monthly':
         dayspermonth = dates_table['daysinmonth'].values.reshape(-1,12)
         #  creates matrix (rows-years, columns-months) of the number of days per month
         daysperyear = dayspermonth.sum(axis=1)
@@ -41,8 +48,44 @@ def annualweightedmean_array(var, dates_table):
         # If averaging a single year, then reshape so it returns a 1d array
         if var_annual.shape[1] == 1:
             var_annual = var_annual.reshape(var_annual.shape[0])
-    elif pygem_prms.timestep == 'daily':
+    elif pygem_prms['time']['timestep'] == 'daily':
         print('\nError: need to code the groupbyyearsum and groupbyyearmean for daily timestep.'
               'Exiting the model run.\n')
         exit()
     return var_annual
+
+
+
+import json
+
+def append_json(file_path, new_key, new_value):
+    """
+    Opens a JSON file, reads its content, adds a new key-value pair,
+    and writes the updated data back to the file.
+    
+    :param file_path: Path to the JSON file
+    :param new_key: The key to add
+    :param new_value: The value to add
+    """
+    try:
+        # Read the existing data
+        with open(file_path, "r") as file:
+            data = json.load(file)
+
+        # Ensure the JSON data is a dictionary
+        if not isinstance(data, dict):
+            raise ValueError("JSON file must contain a dictionary at the top level.")
+
+        # Add the new key-value pair
+        data[new_key] = new_value
+
+        # Write the updated data back to the file
+        with open(file_path, "w") as file:
+            json.dump(data, file)
+            
+    except FileNotFoundError:
+        print(f"Error: The file '{file_path}' was not found.")
+    except json.JSONDecodeError:
+        print("Error: The file does not contain valid JSON.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")

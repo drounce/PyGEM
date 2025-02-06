@@ -1,11 +1,12 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+
 Functions of different ways to select glaciers
-
-@author: drounce
 """
-
 # Built-in libraries
 import os
 import pickle 

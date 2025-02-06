@@ -19,7 +19,7 @@ For future (e.g., 2000-2100) model runs, PyGEM currently uses an ensemble of Gen
 | [Ice thickness data](input_thickness_data_target) (optional) </em>| <em>Spatially distributed ice thickness data <br>Used to calibrate creep parameter to match volume of existing ice thickness dataset </em>| [Farinotti et al. (2019)](https://www.nature.com/articles/s41561-019-0300-3)|
 
 ```{note}
-A sample of all relevant data to perform a test run of the model is provided [here](https://drive.google.com/file/d/159zS-oGWLHG9nzkFdsf6Uh4-w9lJSt8H/view?usp=sharing). The different sources of data required to run the model are provided below including instructions on where to download the data. We recommend reviewing the sample data to address any questions you may have concerning the structure of the datasets.
+A sample of all relevant data to perform a test run of the model is provided [here](https://drive.google.com/file/d/1Wu4ZqpOKxnc4EYhcRHQbwGq95FoOxMfZ/view?usp=drive_link). The different sources of data required to run the model are provided below including instructions on where to download the data. We recommend reviewing the sample data to address any questions you may have concerning the structure of the datasets. Complete model input datasets can be found [here](https://cmu.box.com/s/p8aiby5s9f3n6ycgmhknbgo4htk3pn9j)
 ```
 
 (input_glacier_inventory_target)=
@@ -33,7 +33,7 @@ The mass balance model can be run with information concerning glacier hypsometry
 There are several options for pre-processed data from OGGM and we recommend you read the documentation in [OGGM Shop](https://docs.oggm.org/en/stable/shop.html). The model is currently configured to use Level 2 data with a border value of 40 m using elevation bands.  OGGM will automatically download the glacier directories based on the link you specify in the input file; however, if you would like to download them in advance (e.g., if your supercomputing environment does not allow you to access the internet within the script), then you may use the following as an example of how you can download these data to your local computer from OGGM’s server:
 
 ```
-wget -r --no-parent https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.4/L1-L2_files/elev_bands/RGI62/b_240/L2/ 
+wget -r --no-parent https://cluster.klima.uni-bremen.de/~oggm/gdirs/oggm_v1.6/L1-L2_files/elev_bands/RGI62/b_240/L2/ 
 ```
 
 (climate_data_target)=
@@ -59,10 +59,10 @@ Monthly precipitation can be downloaded directly. This is used to calculate accu
 Orography can be downloaded directly. This is used to account for elevation differences between the climate data pixel and the glaciers.
 
 ### Lapse rates
-Monthly air temperature lapse rates are derived from monthly air temperature at each pressure level from 300 to 1000 hPa ([Huss and Hock, 2015](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full)). The air temperature at various pressure levels can be downloaded and then processed using the 'createlapserates' option from **preprocess_ecmwf_data.py** in the **PyGEM-Scripts** respoitory. These lapse rates are used to adjust the air temperature for differences in elevations between the climate pixel and the glacier as well as for various elevation bins on the glacier.
+Monthly air temperature lapse rates are derived from monthly air temperature at each pressure level from 300 to 1000 hPa ([Huss and Hock, 2015](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full)). These lapse rates are used to adjust the air temperature for differences in elevations between the climate pixel and the glacier as well as for various elevation bins on the glacier.
 
 ### Monthly temperature standard deviation
-Monthly air temperature standard deviation is an optional product, which is only required if you plan to account for the monthly temperature variations within ablation like was done in [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full). These monthly data are derived from hourly near-surface air temperature. Hourly near-surface air temperature can be downloaded and processed using the 'createtempstd' option from **preprocess_ecmwf_data.py** in the **PyGEM-Scripts** respoitory. Note that the hourly data is quite large and therefore this step will take considerable time to download and process the data.
+Monthly air temperature standard deviation is an optional product, which is only required if you plan to account for the monthly temperature variations within ablation like was done in [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full). These monthly data are derived from hourly near-surface air temperature.
 
 ## Climate Data (Future)
 The projected climate data has been developed using general circulation models (GCMs) from the Coupled Model Intercomparison Project Phase 5 (CMIP5), which uses Representative Concentration Pathways (RCPs) and CMIP Phase 6 (CMIP6), which uses Shared Socioeconomic Pathways (SSPs). While the use of RCPs may be of interest for comparison with previous studies, we recommend using SSPs moving forward.
@@ -85,16 +85,16 @@ Model parameters need to be calibrated and results should be validated using som
 
 The model was originally developed to integrate large-scale systematic glacier-wide mass balance data from 2000-2018 in High Mountain Asia [(Shean et al. 2020)](https://www.frontiersin.org/articles/10.3389/feart.2019.00363/full) and now uses a global dataset from 2000-2019 [(Hugonnet et al. 2021)](https://www.nature.com/articles/s41586-021-03436-z). The default frontal ablation data is currently from various datasets spanning 2000 to 2020 from the Northern Hemisphere [(Kochtitzky et al. 2022)](https://www.nature.com/articles/s41467-022-33231-x), South America [(Minowa et al. 2021)](https://www.sciencedirect.com/science/article/pii/S0012821X21000704), and Antarctica [(Osmanoglu et al. 2013;](https://www.cambridge.org/core/journals/annals-of-glaciology/article/surface-velocity-and-ice-discharge-of-the-ice-cap-on-king-george-island-antarctica/62E511405ADD31A43FF52CDBC727A9D0) [2014)](https://tc.copernicus.org/articles/8/1807/2014/). For model validation, annual and seasonal glaciological glacier-wide mass balance data from 1979 to 2019 have been used [(WGMS 2021)](https://wgms.ch/data_databaseversions/).
 
-The current file structure for both the geodetic and frontal ablation data are .csv files. It's important to enter all the relevant information within the “Calibration Datasets” section of **pygem_input.py**. The key information is the glacier's RGIId, mass balance in m water equivalent (w.e.) yr$^{-1}$, mass balance error/uncertainty, initial time, end time, and area of the glacier. Processing of these data for each glacier is done in the "shop" directory under the **mbdata.py** script. We recommend reviewing the sample mass balance data for additional information on file structure.
+The current file structure for both the geodetic and frontal ablation data are .csv files. It's important to enter all the relevant information within the “calib” section of *~/PyGEM/config.yaml*. The key information is the glacier's RGIId, mass balance in m water equivalent (w.e.) yr$^{-1}$, mass balance error/uncertainty, initial time, end time, and area of the glacier. Processing of these data for each glacier is done within *pygem.shop.mbdata.py*. We recommend reviewing the sample mass balance data for additional information on file structure.
 
 ### Validation data
 The model is currently developed to use glacier-wide annual and seasonal mass balance data for validation from the World Glacier Monitoring Service ([WGMS](https://wgms.ch/data_databaseversions/)).
 
-In addition to its use for model validation, the WGMS winter mass balance data is also used to constrain the initial calibration that is used to estimate the prior distributions for the Markov Chain Monte Carlo simulations. This processing is performed in **‘run_preprocessing_wgms_mbdata.py’** using the ‘-estimate_kp’ option.
+In addition to its use for model validation, the WGMS winter mass balance data is also used to constrain the initial calibration that is used to estimate the prior distributions for the Markov Chain Monte Carlo simulations. This processing is performed in PyGEM's *preproc_wgms_estimate_kp.py* script.
 
 (input_debris_data_target)=
 ## Debris Thickness Data
-For debris-covered glaciers, spatially distributed sub-debris melt enhancement factors are required. These files are provided by [Rounce et al. (2021)](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2020GL091311) as .tif files. There are currently scripts in the “shop” directory that process the .tif files and aggregate them to elevation bins to be consistent with the glacier directory structure of OGGM. If using a different dataset, this pre-processing would need to be added.
+For debris-covered glaciers, spatially distributed sub-debris melt enhancement factors are required. These files are provided by [Rounce et al. (2021)](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2020GL091311) as .tif files. *pygem.shop.debris.py* processes the .tif files and aggregates them to elevation bins to be consistent with the glacier directory structure of OGGM. If using a different dataset, this pre-processing would need to be added.
 
 (input_fa_data_target)=
 ## Frontal Ablation Data

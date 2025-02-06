@@ -1,6 +1,12 @@
-"""Python Glacier Evolution Model (PyGEM)
-
-License: MIT
 """
+Python Glacier Evolution Model (PyGEM)
 
-__version__ = '0.2.5'
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
+"""
+from importlib.metadata import version
+try:
+    __version__ = version(__name__)
+except:
+    __version__ = None

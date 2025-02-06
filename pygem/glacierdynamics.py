@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Mon Feb  3 14:00:14 2020
+Python Glacier Evolution Model (PyGEM)
 
-@author: davidrounce
+copyright © 2018 David Rounce <drounce@cmu.edu
+
+Distrubted under the MIT lisence
 """
 from collections import OrderedDict
 from time import gmtime, strftime
@@ -17,7 +17,10 @@ from oggm import cfg, utils
 from oggm.core.flowline import FlowlineModel
 from oggm.exceptions import InvalidParamsError
 from oggm import __version__
-import pygem_input as pygem_prms
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 cfg.initialize()
 
@@ -188,9 +191,9 @@ class MassRedistributionCurveModel(FlowlineModel):
             months = [months]
             cmonths = [cmonths]
         nm = len(monthly_time)
-        sects = [(np.zeros((ny, fl.nx)) * np.NaN) for fl in self.fls]
-        widths = [(np.zeros((ny, fl.nx)) * np.NaN) for fl in self.fls]
-        bucket = [(np.zeros(ny) * np.NaN) for _ in self.fls]
+        sects = [(np.zeros((ny, fl.nx)) * np.nan) for fl in self.fls]
+        widths = [(np.zeros((ny, fl.nx)) * np.nan) for fl in self.fls]
+        bucket = [(np.zeros(ny) * np.nan) for _ in self.fls]
         diag_ds = xr.Dataset()
 
         # Global attributes
@@ -216,36 +219,35 @@ class MassRedistributionCurveModel(FlowlineModel):
         diag_ds['calendar_month'].attrs['description'] = 'Calendar month'
 
         # Variables and attributes
-        diag_ds['volume_m3'] = ('time', np.zeros(nm) * np.NaN)
+        diag_ds['volume_m3'] = ('time', np.zeros(nm) * np.nan)
         diag_ds['volume_m3'].attrs['description'] = 'Total glacier volume'
         diag_ds['volume_m3'].attrs['unit'] = 'm 3'
-        if self.is_tidewater:
-            diag_ds['volume_bsl_m3'] = ('time', np.zeros(nm) * np.NaN)
-            diag_ds['volume_bsl_m3'].attrs['description'] = ('Glacier volume '
-                                                             'below '
-                                                             'sea-level')
-            diag_ds['volume_bsl_m3'].attrs['unit'] = 'm 3'
-            diag_ds['volume_bwl_m3'] = ('time', np.zeros(nm) * np.NaN)
-            diag_ds['volume_bwl_m3'].attrs['description'] = ('Glacier volume '
-                                                             'below ')
-            diag_ds['volume_bwl_m3'].attrs['unit'] = 'm 3'
+        diag_ds['volume_bsl_m3'] = ('time', np.zeros(nm) * np.nan)
+        diag_ds['volume_bsl_m3'].attrs['description'] = ('Glacier volume '
+                                                            'below '
+                                                            'sea-level')
+        diag_ds['volume_bsl_m3'].attrs['unit'] = 'm 3'
+        diag_ds['volume_bwl_m3'] = ('time', np.zeros(nm) * np.nan)
+        diag_ds['volume_bwl_m3'].attrs['description'] = ('Glacier volume '
+                                                            'below ')
+        diag_ds['volume_bwl_m3'].attrs['unit'] = 'm 3'
 
-        diag_ds['area_m2'] = ('time', np.zeros(nm) * np.NaN)
+        diag_ds['area_m2'] = ('time', np.zeros(nm) * np.nan)
         diag_ds['area_m2'].attrs['description'] = 'Total glacier area'
         diag_ds['area_m2'].attrs['unit'] = 'm 2'
-        diag_ds['length_m'] = ('time', np.zeros(nm) * np.NaN)
+        diag_ds['length_m'] = ('time', np.zeros(nm) * np.nan)
         diag_ds['length_m'].attrs['description'] = 'Glacier length'
         diag_ds['length_m'].attrs['unit'] = 'm 3'
-        diag_ds['ela_m'] = ('time', np.zeros(nm) * np.NaN)
+        diag_ds['ela_m'] = ('time', np.zeros(nm) * np.nan)
         diag_ds['ela_m'].attrs['description'] = ('Annual Equilibrium Line '
                                                  'Altitude  (ELA)')
         diag_ds['ela_m'].attrs['unit'] = 'm a.s.l'
         if self.is_tidewater:
-            diag_ds['calving_m3'] = ('time', np.zeros(nm) * np.NaN)
+            diag_ds['calving_m3'] = ('time', np.zeros(nm) * np.nan)
             diag_ds['calving_m3'].attrs['description'] = ('Total accumulated '
                                                           'calving flux')
             diag_ds['calving_m3'].attrs['unit'] = 'm 3'
-            diag_ds['calving_rate_myr'] = ('time', np.zeros(nm) * np.NaN)
+            diag_ds['calving_rate_myr'] = ('time', np.zeros(nm) * np.nan)
             diag_ds['calving_rate_myr'].attrs['description'] = 'Calving rate'
             diag_ds['calving_rate_myr'].attrs['unit'] = 'm yr-1'
 
@@ -381,7 +383,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                         if fa_m3 > vol_last:
                             # Record frontal ablation (m3 w.e.) in mass balance model for output
                             self.mb_model.glac_bin_frontalablation[last_idx,int(12*(year+1)-1)] = (
-                                    vol_last * pygem_prms.density_ice / pygem_prms.density_water)
+                                    vol_last * pygem_prms['constants']['density_ice'] / pygem_prms['constants']['density_water'])
                             # Update ice thickness and section area
                             section_t0[last_idx] = 0
                             self.fls[fl_id].section = section_t0 
@@ -395,7 +397,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                             self.fls[fl_id].section = section_t0 
                             # Record frontal ablation(m3 w.e.)
                             self.mb_model.glac_bin_frontalablation[last_idx,int(12*(year+1)-1)] = (
-                                    fa_m3 * pygem_prms.density_ice / pygem_prms.density_water)
+                                    fa_m3 * pygem_prms['constants']['density_ice'] / pygem_prms['constants']['density_water'])
                             # Frontal ablation bucket now empty
                             fa_m3 = 0
                         
@@ -526,7 +528,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                     glac_idx_bsl = np.where((fl.thick > 0) & (fl.bed_h < self.water_level))[0]
                     q_calving_max = np.sum(section[glac_idx_bsl]) * fl.dx_meter
                     
-                    if q_calving > q_calving_max + pygem_prms.tolerance:
+                    if q_calving > q_calving_max + pygem_prms['constants']['tolerance']:
                         q_calving = q_calving_max
         
                     # Add to the bucket and the diagnostics
@@ -650,7 +652,7 @@ class MassRedistributionCurveModel(FlowlineModel):
         #    2. If additional volume after adding new bin, then redistribute mass gain across all bins again,
         #       i.e., increase the ice thickness and width
         #    3. Repeat adding a new bin and redistributing the mass until no addiitonal volume is left
-        while (icethickness_change > pygem_prms.icethickness_advancethreshold).any() == True: 
+        while (icethickness_change > pygem_prms['sim']['icethickness_advancethreshold']).any() == True: 
             if debug:
                 print('advancing glacier')
                 
@@ -666,12 +668,12 @@ class MassRedistributionCurveModel(FlowlineModel):
                 print('width_t0_raw:', width_t0_raw,'\n\n')
             
             # Index bins that are advancing
-            icethickness_change[icethickness_change <= pygem_prms.icethickness_advancethreshold] = 0
+            icethickness_change[icethickness_change <= pygem_prms['sim']['icethickness_advancethreshold']] = 0
             glac_idx_advance = icethickness_change.nonzero()[0]
             
             # Update ice thickness based on maximum advance threshold [m ice]
             self.fls[0].thick[glac_idx_advance] = (self.fls[0].thick[glac_idx_advance] - 
-                           (icethickness_change[glac_idx_advance] - pygem_prms.icethickness_advancethreshold))
+                           (icethickness_change[glac_idx_advance] - pygem_prms['sim']['icethickness_advancethreshold']))
             glacier_area_t1 = self.fls[0].widths_m.copy() * self.fls[0].dx_meter
             
             # Advance volume [m3]
@@ -773,7 +775,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                 glac_idx_terminus = (
                         glac_idx_t0[(heights[glac_idx_t0] - heights[glac_idx_t0].min()) / 
                                     (heights[glac_idx_t0].max() - heights[glac_idx_t0].min()) * 100 
-                                    < pygem_prms.terminus_percentage])
+                                    < pygem_prms['sim']['terminus_percentage']])
                 # For glaciers with so few bands that the terminus is not identified (ex. <= 4 bands for 20% threshold),
                 #  then use the information from all the bands
                 if glac_idx_terminus.shape[0] <= 1:
@@ -793,7 +795,7 @@ class MassRedistributionCurveModel(FlowlineModel):
                     glac_idx_terminus_initial = (
                         glac_idx_initial[(heights[glac_idx_initial] - heights[glac_idx_initial].min()) / 
                                     (heights[glac_idx_initial].max() - heights[glac_idx_initial].min()) * 100 
-                                    < pygem_prms.terminus_percentage])
+                                    < pygem_prms['sim']['terminus_percentage']])
                     if glac_idx_terminus_initial.shape[0] <= 1:
                         glac_idx_terminus_initial = glac_idx_initial.copy()
                         
@@ -936,7 +938,7 @@ class MassRedistributionCurveModel(FlowlineModel):
         bin_volumechange_remaining = (bin_volumechange - (self.fls[0].section * self.fls[0].dx_meter - 
                                                           section_t0 * self.fls[0].dx_meter))
         # remove values below tolerance to avoid rounding errors
-        bin_volumechange_remaining[abs(bin_volumechange_remaining) < pygem_prms.tolerance] = 0
+        bin_volumechange_remaining[abs(bin_volumechange_remaining) < pygem_prms['constants']['tolerance']] = 0
         # Glacier volume change remaining - if less than zero, then needed for retreat
         glacier_volumechange_remaining = bin_volumechange_remaining.sum()  
         

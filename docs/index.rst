@@ -22,6 +22,7 @@ Welcome to pygem's documentation!
    model_output
    install_pygem
    test_pygem
+   configuration
    scripts_overview
    limitations
    faqs

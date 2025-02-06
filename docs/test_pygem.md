@@ -1,18 +1,8 @@
 ﻿(test_model_target)=
 # Test Model
-Once the conda environment is [properly installed](install_pygem_target) and you have an understanding of the model components, you are ready to run the model. As described in the [model workflow](model_workflow_target), the model is meant to be run as a sequence of commands from the command line. To test if the model is properly installed and become familiar with the data, sample data for a test run are provided for Khumbu Glacier (RGI60-15.03733) [(download sample data)](https://drive.google.com/file/d/159zS-oGWLHG9nzkFdsf6Uh4-w9lJSt8H/view?usp=sharing). Below are two test workflows for the simple and advanced calibration schemes, and one additional calibrating and running simulations for marine-terminating ("tidewater") glaciers. Sample data for a test run are provided for Khumbu Glacier (RGI60-15.03733) [(download tidewater sample data)](https://drive.google.com/file/d/1Y9mVw9whEq7b4LURbOCxq-qopSwxoTnZ/view?usp=sharing).
+Once the conda environment is [properly installed](install_pygem_target) and you have an understanding of the model components, you are ready to run the model. Various Jupyter Notebooks are provided for testing PyGEM in a separate [GitHub repository](https://github.com/PyGEM-Community/PyGEM-notebooks). 
 
-```{toctree}
----
-caption: Test Case:
-maxdepth: 2
----
-
-test_pygem_simple
-test_pygem_advanced
-test_pygem_tidewater
-```
-
-```{warning}
-If your environment is not set up properly, errors will arise related to missing modules. We recommend that you work through adding the missing modules and use StackOverflow to identify any additional debugging issues related to potential missing modules or module dependencies.
-```
+The following notebooks are intended to allow for introduction and testing of PyGEM and may be run using sample data that should have been downloaded during model installation and setup (see [here](https://pygem.readthedocs.io/en/latest/install_pygem.html)), but can also be downloaded directly [here](https://drive.google.com/file/d/1Wu4ZqpOKxnc4EYhcRHQbwGq95FoOxMfZ/view?usp=drive_link).<br>
+- [simple_test](https://github.com/PyGEM-Community/PyGEM-notebooks/blob/main/simple_test.ipynb): simple introductory PyGEM test run using provided sample data for Khumbu Glacier<br>
+- [advanced_test](https://github.com/PyGEM-Community/PyGEM-notebooks/blob/main/advanced_test.ipynb): a more advanced PyGEM test run, demonstrating Bayesian inference calibration and simulation, using provided sample data for Khumbu Glacier<br>
+- [advanced_test_tw](https://github.com/PyGEM-Community/PyGEM-notebooks/blob/main/advanced_test_tw.ipynb): demonstrates calibration of the frontal ablation parameterization, using provided sample data for LeConte Glacier<br>

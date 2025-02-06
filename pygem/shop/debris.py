@@ -1,3 +1,10 @@
+"""
+Python Glacier Evolution Model (PyGEM)
+
+copyright © 2018 David Rounce <drounce@cmu.edu>
+
+Distrubted under the MIT lisence
+"""
 import os
 import logging
 
@@ -9,7 +16,10 @@ from oggm import cfg
 from oggm.utils import entity_task
 from oggm.core.gis import rasterio_to_gdir
 from oggm.utils import ncDataset
-import pygem_input as pygem_prms
+# Local libraries
+import pygem.setup.config as config
+# Read the config
+pygem_prms = config.read_config()  # This reads the configuration file
 
 """
 To-do list:
@@ -27,7 +37,7 @@ if not 'debris_ed' in cfg.BASENAMES:
     cfg.BASENAMES['debris_ed'] = ('debris_ed.tif', 'Raster of debris enhancement factor data')
 
 @entity_task(log, writes=['debris_hd', 'debris_ed'])
-def debris_to_gdir(gdir, debris_dir=pygem_prms.debris_fp, add_to_gridded=True, hd_max=5, hd_min=0, ed_max=10, ed_min=0):
+def debris_to_gdir(gdir, debris_dir=f"{pygem_prms['root']}/{pygem_prms['mb']['debris_relpath']}", add_to_gridded=True, hd_max=5, hd_min=0, ed_max=10, ed_min=0):
     """Reproject the debris thickness and enhancement factor files to the given glacier directory
     
     Variables are exported as new files in the glacier directory.

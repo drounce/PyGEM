@@ -1,28 +1,56 @@
-[build-system]
-build-backend = 'setuptools.build_meta'
-requires = [
-    "setuptools>=61",
-    "setuptools_scm[toml]>=7.0",
-    "wheel",
-]
-
-[tool.setuptools_scm]
-
-[project]
+[tool.poetry]
 name = "pygem"
-version = "0.3.0"
-authors = [
-  { name="David Rounce", email="drounce@cmu.edu" },
-]
-description = "Python Glacier Evolution Model for large-scale glacier modeling"
+version = "1.0.0"
+description = "Python Glacier Evolution Model (PyGEM)"
+authors = ["David Rounce <drounce@cmu.edu>,Brandon Tober <btober@cmu.edu>"]
+license = "MIT License"
 readme = "README.md"
-requires-python = ">=3.7"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+packages = [
+    { include = "pygem" }
 ]
-dynamic = ["license", "dependencies"]
 
-[project.urls]
-"Homepage" = "https://github.com/drounce/PyGEM"
+[tool.poetry.urls]
+Documentation = "https://pygem.readthedocs.io/"
+Repository = "https://github.com/PyGEM-Community/PyGEM"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+PyYAML = "^6.0.2"
+salem = "^0.3.11"
+tables = "^3.10.1"
+geopandas = "^1.0.1"
+xarray = "^2024.10.0"
+pandas = "^2.2.3"
+numpy = "<2.0"
+scipy = "^1.14.1"
+matplotlib = "^3.9.2"
+rasterio = "^1.4.2"
+pyproj = "^3.7.0"
+torch = ">=2.0.0,<=2.2.2"
+gpytorch = "^1.13"
+scikit-learn = "^1.5.2"
+tqdm = "^4.66.6"
+jupyter = "^1.1.1"
+arviz = "^0.20.0"
+oggm = "^1.6.2"
+ruamel-yaml = "^0.18.10"
+
+[tool.poetry.scripts]
+initialize = "pygem.bin.op.initialize:main"
+preproc_fetch_mbdata = "pygem.bin.preproc.preproc_fetch_mbdata:main"
+preproc_wgms_estimate_kp = "pygem.bin.preproc.preproc_wgms_estimate_kp:main"
+run_calibration_reg_glena = "pygem.bin.run.run_calibration_reg_glena:main"
+run_calibration_frontalablation = "pygem.bin.run.run_calibration_frontalablation:main"
+run_calibration = "pygem.bin.run.run_calibration:main"
+run_mcmc_priors = "pygem.bin.run.run_mcmc_priors:main"
+run_simulation = "pygem.bin.run.run_simulation:main"
+postproc_monthly_mass = "pygem.bin.postproc.postproc_monthly_mass:main"
+postproc_binned_monthly_mass = "pygem.bin.postproc.postproc_binned_monthly_mass:main"
+postproc_distribute_ice = "pygem.bin.postproc.postproc_distribute_ice:main"
+postproc_compile_simulations = "pygem.bin.postproc.postproc_compile_simulations:main"
+list_failed_simulations = "pygem.bin.op.list_failed_simulations:main"
+duplicate_gdirs = "pygem.bin.op.duplicate_gdirs:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

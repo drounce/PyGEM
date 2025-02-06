@@ -1,19 +1,45 @@
 (install_pygem_target)=
 # Installing PyGEM
-The model is stored in two repositories [(see model structure)](model_structure_and_workflow_target) that are installed via PyPI and github as described below.
+The Python Glacier Evolution Model has been packaged using Poetry and is hosted on the Python Package Index ([PyPI](https://pypi.org/project/pygem/)), such that all dependencies should install seamlessly. It is recommended that users create a [Anaconda](https://anaconda.org/) environment from which to install the model dependencies and core code.
 
-## Setup Conda Environment
-A conda environment is a directory that contains a specific collection of installed packages. The use of environments reduces issues caused by package dependencies. The model is designed to be compatible with OGGM. We therefore get started by following the [installation instructions from OGGM](https://docs.oggm.org/en/stable/installing-oggm.html).
+### Setup Conda Environment
+Anaconda is a Python dependency management tool. An Anaconda (conda) environment is essentially a directory that contains a specific collection of installed packages. The use of environments reduces issues caused by package dependencies. It is recommended that users first create conda environment from which to install PyGEM and its dependencies (if you do not yet have conda installed, see [conda's documentation](https://docs.conda.io/projects/conda/en/latest/user-guide/install) for instructions).  We recommend a conda environment with python >=3.10, <3.13.
 
-Once your conda environment is setup for OGGM, add the core of PyGEM using pip.
+A new conda environment can be created from the command line such as:
+```
+conda create --name <environment_name> python=3.12
+```
+
+### PyPI installation
+Ensure you've activated your PyGEM environment
+```
+conda activate <environment_name>
+```
+
+Next, install PyGEM via [PyPI](https://pypi.org/project/pygem/):
 ```
 pip install pygem
 ```
 
-This will provide you with a conda environment that has the basic functionality to run simple calibration options (e.g., 'HH2015', 'HH2015mod') and simulations. If you want to use the emulators and Bayesian inference, the advanced environment is required.
+This will install all PyGEM dependencies within your conda environment, and set up PyGEM command line tools to run core model scripts.
 
-### Developing PyGEM
-Are you interested in developing PyGEM? If so, we recommend forking the [PyGEM's github repository](https://github.com/PyGEM-Community/PyGEM) and then [cloning the github repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) onto your local machine.
+### Setup
+Following installation, an initialization script should to be executed.
+
+The initialization script accomplishes two things:
+1. Initializes the PyGEM configuration file *~/PyGEM/config.yaml*. If this file already exists, an overwrite prompt will appear.
+2. Downloads and unzips a series of sample data files to *~/PyGEM/*, which can also be manually downloaded [here](https://drive.google.com/file/d/1Wu4ZqpOKxnc4EYhcRHQbwGq95FoOxMfZ/view?usp=drive_link).
+
+Run the initialization script by entering the following in the terminal:
+```
+initialize
+```
+
+### Demonstration Notebooks
+A series of accompanying Jupyter notebooks have been produces for demonstrating the functionality of PyGEM. These can be acquired and installed from [GitHub](https://github.com/PyGEM-Community/PyGEM-notebooks).
+
+# Developing PyGEM
+Are you interested in contributing to the development of PyGEM? If so, we recommend forking the [PyGEM's GitHub repository](https://github.com/PyGEM-Community/PyGEM) and then [cloning the GitHub repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) onto your local machine.
 
 Note, if PyGEM was already installed via PyPI, first uninstall:
 ```
@@ -25,48 +51,5 @@ You can then use pip to install your locally cloned fork of PyGEM in 'editable' 
 pip install -e /path/to/your/PyGEM/clone
 ```
 
-### Advanced environment: GPyTorch (emulator only)
-If you want to use the emulators additional packages are required. The simplest way to construct this environment is to add <em>- gpytorch</em> to the oggm_env.yml. Then create the environment using:
-```
-conda env create -f oggm_env_wemulator.yml
-```
-
-The only way to find out if your package dependencies work is to test it by running the model. Make sure to install PyGEM-Scripts and then [test the model](test_model_target).
-
-**If your environment is not set up properly, errors will arise related to missing modules. We recommend that you work through adding the missing modules and use StackOverflow to identify any additional debugging issues related to potential missing modules or module dependencies.** As of July 2023, adding GPyTorch to OGGM's existing environment was quite simple using the .yml file provided by [OGGM](https://docs.oggm.org/en/stable/installing-oggm.html).
-
-
-### Advanced environment: PyMC2 and GPyTorch
-If you want to use the emulators or Bayesian inference associated with PyGEM additional packages are required.
-
-```{warning}
-The current dependencies are fairly tricky as PyMC2 is now fairly old and no longer supported. We anticipate developing code that relies on more user-friendly packages in the future, but for the time being have patience and do your best to work through the environment issues.
-```
-PyMC2 requires Python3.8. Therefore, you may want to re-install your original environment and explicitly specify Python 3.8. Once your environment is setup, activate your environment.
-
-Next, install the modules required for the emulator.
-```
-pip install torch
-pip install gpytorch
-```
-
-Next, install the modules required for Bayesian inference.
-```
-pip install pymc
-```
-
-```{warning}
-You may try to replace pip install with conda install as conda may help solve dependencies. However, creating this environment can take a long time (> 1 hr), so be patient.
-```
-
-The only way to find out if your package dependencies work is to test it by running the model. Make sure to install PyGEM-Scripts and then [test the model](test_model_target).
-
-**If your environment is not set up properly, errors will arise related to missing modules. We recommend that you work through adding the missing modules and use StackOverflow to identify any additional debugging issues related to potential missing modules or module dependencies.** Getting a correct package installed took the lead developer over a day and unfortunately other users have commented that the directions used by the lead developer have not worked for others due to newer computers or different operating systems.
-
-
-## Install PyGEM-Scripts
-The scripts that are used to run PyGEM are located in the [PyGEM-Scripts repository](https://github.com/PyGEM-Community/PyGEM-scripts) on github. To run the model, you can either (i) clone the repository or (ii) fork the repository to develop/add your own scripts. For instructions, follow github’s instructions on [cloning](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) or [forking a repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo). Once the repository is installed on your local machine, you can run the model from this directory.
-
-```{note}
-Be sure that your [directory structure](directory_structure_target) is setup properly before you try running the model!
-```
+Installing a package in editable mode (also called development mode) creates a symbolic link to your source code directory (*/path/to/your/PyGEM/clone*), rather than copying the package files into the site-packages directory. This allows you to modify the package code without reinstalling it. Changes to the source code take effect immediately without needing to reinstall the package, thus efficiently facilitating development.<br><br>
+Pull requests can  be made to [PyGEM's GitHub repository](https://github.com/PyGEM-Community/PyGEM).
