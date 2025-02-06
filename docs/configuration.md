@@ -346,4 +346,3 @@ The hindcast option will flip the climate data array so 1960-2000 would run 2000
 | :--- | :--- | :--- |
 | `debug.refreeze` | `boolean` | Debug option for refreezing module |
 | `debug.mb` | `boolean` | Debug option for mass balance calculations |
----

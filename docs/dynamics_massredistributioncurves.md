@@ -4,7 +4,7 @@ The mass redistribution curves in PyGEM follow those developed by [Huss and Hock
 ```{math}
 \Delta h = (h_{n} + a_{HH2015})^{\gamma} + b_{HH2015} \cdot (h_{n} + a_{HH2015}) + c_{HH2015}
 ```
-where $h_{n}$ is the normalized elevation according to $\frac{z_{max} - z_{bin}}{z_{max} - z_{min}}$ and $a_{HH2015)$, $b_{HH2015)$, $c_{HH2015)$, and $\gamma$ are all calibrated coefficients based on 34 glaciers in the Swiss Alps. These coefficients vary depending on the size of the glacier ([Huss et al., 2010]((https://hess.copernicus.org/articles/14/815/2010/hess-14-815-2010.html))). In order to ensure that mass is conserved, i.e., the integration of the elevation change and glacier area (A) of each bin over all the elevation bins ($nbins$) is equal to the glacier-wide volume change ($\Delta V$), an ice thickness scaling factor ($f_{s,HH2015}$) must be computed:
+where $h_{n}$ is the normalized elevation according to $\frac{z_{max} - z_{bin}}{z_{max} - z_{min}}$ and $a_{HH2015)$, $b_{HH2015)$, $c_{HH2015)$, and $\gamma$ are all calibrated coefficients based on 34 glaciers in the Swiss Alps. These coefficients vary depending on the size of the glacier ([Huss et al. (2010)](https://hess.copernicus.org/articles/14/815/2010/hess-14-815-2010.html)). In order to ensure that mass is conserved, i.e., the integration of the elevation change and glacier area (A) of each bin over all the elevation bins ($nbins$) is equal to the glacier-wide volume change ($\Delta V$), an ice thickness scaling factor ($f_{s,HH2015}$) must be computed:
 ```{math}
 f_{s,HH2015} = \frac{\Delta V}{\sum_{i=0}^{nbins} A_{i} \cdot \Delta h_{i}}
 ```
