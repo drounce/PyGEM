@@ -24,7 +24,7 @@ print(modelprms_dict[pygem_prms.option_calibration][‘kp’])
 The calibration options are each discussed below.  We recommend using the MCMC calibration option (Rounce et al. [2020a](https://www.cambridge.org/core/journals/journal-of-glaciology/article/quantifying-parameter-uncertainty-in-a-largescale-glacier-evolution-model-using-bayesian-inference-application-to-high-mountain-asia/61D8956E9A6C27CC1A5AEBFCDADC0432), [2020b](https://www.frontiersin.org/articles/10.3389/feart.2019.00331/full), [2023](https://www.science.org/doi/10.1126/science.abo1324)) as this enables the user to quantify the uncertainty associated with the model parameters in the simulations; however, it is very computationally expensive. The methods from [Huss and Hock (2015)](https://www.frontiersin.org/articles/10.3389/feart.2015.00054/full) provide a computationally cheap alternative. 
 
 ```{note}
-Running these options is performed using **run_calibration.py** (see [Model Workflow](workflow_cal_prms_target)). Additionally, there are two other calibration scripts to calibrate the [ice viscosity model parameter](workflow_cal_glena_target) using the **run_calibration_icethickness_consensus.py** and the [frontal ablation parameter](calibration_frontalablation_target) for marine-terminating glaciers using the **run_calibration_frontalablation.py**.
+Running these options is performed using *run_calibration.py* (see [Model Workflow](workflow_cal_prms_target)). Additionally, there are two other calibration scripts to calibrate the [ice viscosity model parameter](workflow_cal_glena_target) using the *run_calibration_icethickness_consensus.py* and the [frontal ablation parameter](calibration_frontalablation_target) for marine-terminating glaciers using the *run_calibration_frontalablation.py*.
 ```
 
 (HH2015_target)=
@@ -43,7 +43,7 @@ However, if you plan to use the MCMC methods, you are suggested to use the **‘
 The calibration option **‘emulator’** creates an independent emulator for each glacier that is derived by performing 100 present-day simulations based on randomly sampled model parameter sets and then fitting a Gaussian Process to these parameter-response pairs. This model replaces the mass balance model within the MCMC sampler (see Bayesian inference using MCMC below), which tests showed reduces the computational expense by two orders of magnitude. In the event that a single set of model parameters is desired, the emulator is also used to derive a set of model parameters following the same steps as ‘HH2015mod’.
 
 ```{note}
-The ‘emulator’ calibration option will generate both the .pkl file of the model parmaters as well as the model simulations and emulators for each glacier stored in a subdirectory named 'emulator'.
+The ‘emulator’ calibration option will generate both the .json file of the model parmaters as well as the model simulations and emulators for each glacier stored in a subdirectory named 'emulator'.
 ```
 
 ```{note}
@@ -54,7 +54,7 @@ The ‘emulator’ calibration option needs to be run before the ‘MCMC’ opti
 ## Bayesian inference using Markov Chain Monte Carlo methods
 The calibration option **‘MCMC’** is the recommended option. Details of the methods are provided by Rounce et al. ([2020a](https://www.cambridge.org/core/journals/journal-of-glaciology/article/quantifying-parameter-uncertainty-in-a-largescale-glacier-evolution-model-using-bayesian-inference-application-to-high-mountain-asia/61D8956E9A6C27CC1A5AEBFCDADC0432), [2023](https://www.science.org/doi/10.1126/science.abo1324)). In short, Bayesian inference is performed using Markov Chain Monte Carlo (MCMC) methods, which requires a mass balance observation (including the uncertainty represented by a standard deviation) and prior distributions. In an ideal world, we would have enough data to use broad prior distributions (e.g., uniform distributions), but unfortunately the model is overparameterized meaning there are an infinite number of parameter sets that give us a perfect fit. We therefore must use an empirical Bayes approach by which we use a simple optimization scheme (the **‘HH2015mod’** calibration option) to generate our prior distributions at the regional scale, and then use these prior distributions for the Bayesian inference. The prior distribution for the degree-day factor is based on previous data ([Braithwaite 2008](https://www.cambridge.org/core/journals/journal-of-glaciology/article/temperature-and-precipitation-climate-at-the-equilibriumline-altitude-of-glaciers-expressed-by-the-degreeday-factor-for-melting-snow/6C2362F61B7DE7F153247A039736D54C)), while the temperature bias and precipitation factor are derived using a simple optimization scheme based on each RGI Order 2 subregion. The temperature bias assumes a normal distribution and the precipitation factor assumes a gamma distribution to ensure positivity. Glacier-wide winter mass balance data ([WGMS 2020](https://wgms.ch/data_databaseversions/)) are used to determine a reasonable upper-level constraint for the precipitation factor for the simple optimization scheme.
 
-The MCMC methods thus require several steps. First, set `['calib']['option_calibration'] = emulator` in *~/PyGEM/config.yaml* (or pass as command-line arguemnt, as shown below). This creates an emulator that helps speed up the simulations within the MCMC methods and helps generate an initial calibration to generate the regional priors. Run this initial calibration:
+The MCMC methods thus require several steps. First, set `calib.option_calibration = emulator` in *~/PyGEM/config.yaml* (or pass as command-line arguemnt, as shown below). This creates an emulator that helps speed up the simulations within the MCMC methods and helps generate an initial calibration to generate the regional priors. Run this initial calibration:
 ```
 run_calibration -option_calibration emulator
 ```
@@ -76,7 +76,7 @@ In order to reduce the file size, the parameter sets are thinned by a factor of 
 
 (cal_custom_target)=
 ## Customized Calibration Routines
-As new observations become available, we envision the calibration routines will need to change to leverage these observations. The only real limitation in developing a calibration routine is that the dictionary stored as a .pkl file needs to be consistent such that the calibration option is consistent with the run_simulation.py script.
+As new observations become available, we envision the calibration routines will need to change to leverage these observations. The only real limitation in developing a calibration routine is that the dictionary stored as a .json file needs to be consistent such that the calibration option is consistent with the run_simulation.py script.
 
 (calibration_frontalablation_target)=
 ## Frontal Ablation Parameter for Marine-terminating Glaciers

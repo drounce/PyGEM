@@ -1,6 +1,6 @@
 (install_pygem_target)=
 # Installing PyGEM
-The Python Glacier Evolution Model has been packaged using Poetry and is hosted on the Python Package Index (PyPI), such that all dependencies should install seamlessly. It is recommended that users create a [Anaconda](https://anaconda.org/) environment from which to install the model dependencies and core code.
+The Python Glacier Evolution Model has been packaged using Poetry and is hosted on the Python Package Index ([PyPI](https://pypi.org/project/pygem/)), such that all dependencies should install seamlessly. It is recommended that users create a [Anaconda](https://anaconda.org/) environment from which to install the model dependencies and core code.
 
 ### Setup Conda Environment
 Anaconda is a Python dependency management tool. An Anaconda (conda) environment is essentially a directory that contains a specific collection of installed packages. The use of environments reduces issues caused by package dependencies. It is recommended that users first create conda environment from which to install PyGEM and its dependencies (if you do not yet have conda installed, see [conda's documentation](https://docs.conda.io/projects/conda/en/latest/user-guide/install) for instructions).  We recommend a conda environment with python >=3.10, <3.13.

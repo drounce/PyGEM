@@ -30,7 +30,7 @@ setup:
   glac_no: null                                   # either `null` or a list of rgi glacier numbers, including the region # (e.g., 1.00570)
     # - 1.00570
     # - 1.22193                                   
-  min_glac_area_km2: 0                            # glacies below the specified are threshold will be excluded
+  min_glac_area_km2: 0                            # glacies below the specified area threshold will be excluded
   # Types of glaciers to include (true) or exclude (false)
   include_landterm: true                          # Switch to include land-terminating glaciers
   include_laketerm: true                          # Switch to include lake-terminating glaciers

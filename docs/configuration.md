@@ -1,11 +1,12 @@
 (pygem_config_overview_target)=
 # Configuration
-PyGEM's configuration file (***~/PyGEM/config.yaml***) is where the user is able to specify the glaciers to model, choose model parameterizations and calibration options, specify relative filepaths and filenames for the model to function, and specify other model details and constants. The configuration settings are loaded to PyGEM as a dictionary object.
+PyGEM's configuration file (*~/PyGEM/config.yaml*) is where the user is able to specify the glaciers to model, choose model parameterizations and calibration options, specify relative filepaths and filenames for the model to function, and specify other model details and constants. The configuration settings are loaded to PyGEM as a dictionary object.
 
 ```{warning}
-The only configuration setting a user must modify before running PyGEM is the **root** data path.
+The only configuration setting a user must modify before running PyGEM is the **root** data path. Most other common parameter settings can be passed to PyGEM's operational scripts as command-line arguments.
 ```
 The configuration is loosely organized to have the most frequently changed items at the top of the file, while also separating the file into organized chunks/keys. The general organization (by primary dictionary key) is:
+* [root](input_rootpath_target): root filepath - all other input and ouput filepaths are relative to this
 * [user](input_user_info_target): user information
 * [setup](input_glacier_selection_target): glacier selection
 * [oggm](input_oggm_target): OGGM settings
@@ -19,413 +20,331 @@ The configuration is loosely organized to have the most frequently changed items
 * [debug](input_debugging_options): debugging options
 
 ```{note}
-**config.yaml** is heavily commented, so this information should hopefully be clear when modifying variables within the file itself.
+*config.yaml* is heavily commented, so this information should hopefully be clear when modifying variables within the file itself.
 ```
 
-(input_user_info_target)=
-## user
-User information settings.
-| Variable | Format/Options | Description |
+#### General Formatting Rules
+
+- **Boolean values:** Either `true` or `false`
+- **Exponential values:** Should be formatted as `##.#e+#` (e.g., `1.2e+3` for 1200)
+- **Infinity values:** Represented as `.inf` or `-.inf`
+- **Null values:** Represented as `null` (imported as `None` in Python)
+- **Lists:** Indicated with a `-` before each item
+---
+
+(input_rootpath_target)=
+## Root Path
+
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| name | str | user's name |
-| institution | str | user's institution |
-| email | str | user's email address |
+| `root` | `string` | Base path for input and output data. Must be modified to the appropriate location. |
+---
+
+(input_user_info_target)=
+## User Information
+
+| Variable | Type | Comment/Note |
+| :--- | :--- | :--- |
+| `user.name` | `string` | User's name |
+| `user.institution` | `string` | Institution name |
+| `user.email` | `string` | Contact email |
+
 ```{note}
 The user information is strictly for bookkeeping purposes. This information is stored within each model output file.
 ```
+---
 
 (input_glacier_selection_target)=
-## setup
-Several options exist to specify the glaciers, but they generally fall into specifying based on the RGI regions or glacier numbers. Additional options exist to include/exclude certain types of glaciers for detailed studies.
+## Glacier Selection
 
-**Specify glaciers**
-
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| rgi_regionsO1 | list of int | 1st order region number |
-| rgi_regionsO2 | list of int or 'all' | 2nd order region number ('all' means to include all subregions) |
-| glac_no_skip | list of str or None | glacier numbers (e.g., '1.00001') of any glaciers to exclude |
-| glac_no | list or None | glacier numbers (e.g., '1.00001') of glaciers to run |
-
+| `setup.rgi_region01` | `list` of `integers` | List of RGI region numbers to include |
+| `setup.rgi_region02` | `list` of `integers` or `"all"` | List of RGI region numbers or `"all"` to include all regions |
+| `setup.glac_no_skip` | `null` or `list` of `strings` | Glacier numbers to skip |
+| `setup.glac_no` | `null` or `list` of `strings` | List of RGI glacier numbers (e.g., `1.00570`) |
+| `setup.min_glac_area_km2` | `float` | Minimum glacier area (km$^{2}$) threshold |
+| `setup.include_landterm` | `boolean` | Include land-terminating glaciers |
+| `setup.include_laketerm` | `boolean` | Include lake-terminating glaciers |
+| `setup.include_tidewater` | `boolean` | Include marine-terminating glaciers |
+| `setup.include_frontalablation` | `boolean` | Ignore calving and treat tidewater glaciers as land-terminating |
 ```{warning}
 Set glac_no will always overwrite the rgi regions, so if you want to use the rgi region options, then set glac_no=None
 ```
+---
 
-**Specify types of glaciers**
+(input_oggm_target)=
+## OGGM Settings
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| include_landterm | [True, False] | switch to include land-terminating glaciers |
-| include_laketerm | [True, False] | switch to include lake-terminating glaciers |
-| include_tidewater | [True, False] | switch to include marine-terminating glaciers |
-| ignore_calving | [True, False] | switch to ignore calving and treat marine-terminating glaciers as land-terminating |
-  
-**OGGM Glacier Directory Filepath**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| oggm_base_url | str | filepath to OGGM's server with glacier directories |
-| logging_level | str | logging level for OGGM. Options: DEBUG, INFO, WARNING, ERROR, WORKFLOW, CRITICAL (recommended WORKFLOW) |
-
+| `oggm.base_url` | `string` | URL for OGGM glacier directories |
+| `oggm.logging_level` | `string` | Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `WORKFLOW`, `CRITICAL`) |
+| `oggm.border` | `integer` | Border size (options: `10`, `80`, `160`, `240`) |
+| `oggm.oggm_gdir_relpath` | `string` | Relative path to OGGM glacier directories |
+| `oggm.overwrite_gdirs` | `boolean` | Overwrite glacier directories if they exist |
+| `oggm.has_internet` | `boolean` | Model has internet access to download data from OGGM's server |
+---
 
 (input_climate_data_time_target)=
 ## Climate Data and Time Periods
-**Reference climate data**
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| ref_gcm_name | ['ERA5'] | reference climate dataset |
-| ref_startyear | int | first year of model run (reference dataset) |
-| ref_endyear | int | last year of model run (reference dataset) |
-| ref_wateryear | ['calendar', 'hydro', 'custom'] | defining the calendar being used. If using custom, additional details required (see [Model Time Period Details](input_model_time_details_target)) |
-| ref_spinupyears | int | number of spin up years (suggest 0) |
-
-**Future climate data**
-<br>Note that this is separate to account for bias corrections between reference and future climate data.
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| gcm_startyear | int | first year of model run |
-| gcm_endyear | int | last year of model run |
-| gcm_wateryear | ['calendar', 'hydro', 'custom'] | defining the calendar being used. If using custom, additional details required (see [Model Time Period Details](input_model_time_details_target) |
-| gcm_spinupyears | int | number of spin up years (suggest 0) |
-| constantarea_years | int | number of years to not let the area or volume change (suggest 0) |
-
-**Hindcast options**
-<br>These options will flip the climate data array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct; however, due to nonlinearities a run starting at 1960 would not provide the same mass change and area at 2000.
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| hindcast | [True, False] | switch to run hindcast simulation |
-
+| `climate.ref_gcm_name` | `string` | Reference climate dataset (`ERA5`, etc.) |
+| `climate.ref_startyear` | `integer` | Start year for reference dataset |
+| `climate.ref_endyear` | `integer` | End year for reference dataset |
+| `climate.ref_wateryear` | `string` | Type of year (`calendar`, `hydro`, `custom`) |
+| `climate.ref_spinupyears` | `integer` | Number of spin-up years |
+| `climate.gcm_name` | `string` | GCM dataset used for simulations |
+| `climate.scenario` | `null` or `string` | Climate scenario |
+| `climate.gcm_startyear` | `integer` | Start year for GCM dataset |
+| `climate.gcm_endyear` | `integer` | End year for GCM dataset |
+| `climate.gcm_wateryear` | `string` | Year type (`calendar`, `hydro`, `custom`) |
+| `climate.constantarea_years` | `integer` | Years to keep glacier area constant |
+| `climate.gcm_spinupyears` | `integer` | Number of spin-up years for simulation |
+| `climate.hindcast` | `boolean` | Enable or disable hindcasting |
+| `climate.paths` | `string` | Relative filepaths, filenames and variable names for climate datasets |
+```{note}
+The hindcast option will flip the climate data array so 1960-2000 would run 2000-1960 ensuring that glacier area at 2000 is correct; however, due to nonlinearities a run starting at 1960 would not provide the same mass change and area at 2000..
+```
+---
 
 (input_cal_options_target)=
 ## Calibration Options
-<br>These variables specify the calibration option as well as important details concerning the options or output files.
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| option_calibration | ['emulator', 'MCMC', 'MCMC_fullsim' 'HH2015', 'HH2015mod'] | calibration option |
-| priors_reg_fullfn | str | filepath to where the prior distributions for the MCMC are stored. Note this is used in the run_calibration.py for MCMC as well as for the run_calibration_frontalablation.py in case preference is to use regional parameters instead of individual parameters. |
+| `calib.option_calibration` | `string` | Calibration option ('emulator', 'MCMC', 'HH2015', 'HH2015mod', 'null') |
+| `calib.priors_reg_fn` | `string` | Prior distribution (specify filename, relative to `path/Output/calibration/`, or set to `null`) |
 
-**HH2015-specific options**
+### HH2015 Parameters
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| tbias_init | float |  initial temperature bias |
-| tbias_step | float | step for coarse optimization search |
-| kp_init | float | initial precipitation factor |
-| kp_bndlow | float | lower bound for precipitation factor |
-| kp_bndhigh | float | upper bound for precipitation factor |
-| ddfsnow_init | float | initial degree-day factor of snow |
-| ddfsnow_bndlow | float | lower bound for degree-day factor of snow |
-| ddfsnow_bndhigh | float | upper bound for degree-day factor of snow |
-  
-```{warning}
-Huss and Hock (2015) uses a ratio of the degree-day factor of ice to snow of 2. If you want to use this same calibration framework, then you need to set ddfsnow_iceratio=0.5 in [model parameters below](input_model_prms_target)
-```
-    
-**HH2015mod-specific options**
-<br>Some variables have been described above. Only variables shown below:
+| `calib.HH2015_params.tbias_init` | `float` | Initial temperature bias |
+| `calib.HH2015_params.tbias_step` | `float` | Temperature bias step size |
+| `calib.HH2015_params.kp_init` | `float` | Initial precipitation factor |
+| `calib.HH2015_params.kp_bndlow` | `float` | Lower bound for precipitation factor |
+| `calib.HH2015_params.kp_bndhigh` | `float` | Upper bound for precipitation factor |
+| `calib.HH2015_params.ddfsnow_init` | `float` | Initial degree-day factor for snow |
+| `calib.HH2015_params.ddfsnow_bndlow` | `float` | Lower bound for degree-day factor for snow |
+| `calib.HH2015_params.ddfsnow_bndhigh` | `float` | Upper bound for degree-day factor for snow |
 
-| Variable | Format/Options | Description |
+### HH2015mod Parameters
+
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| method_opt | ['SLSQP', 'L-BFGS-B'] | SciPy optimization scheme |
-| params2opt | ['tbias', 'kp'] | parameters to optimize |
-| ftol_opt | float | tolerance for SciPy optimization scheme |
-| eps_opt | float | epsilon (adjust variables for jacobian) for SciPy optimization scheme (0.01 works) |
-    
-**emulator-specific options**
-<br>Some variables have been described above. Only variables shown below: 
+| `calib.HH2015mod_params.tbias_init` | `float` | Initial temperature bias |
+| `calib.HH2015mod_params.tbias_step` | `float` | Temperature bias step size |
+| `calib.HH2015mod_params.kp_init` | `float` | Initial precipitation factor |
+| `calib.HH2015mod_params.kp_bndlow` | `float` | Lower bound for precipitation factor |
+| `calib.HH2015mod_params.kp_bndhigh` | `float` | Upper bound for precipitation factor |
+| `calib.HH2015mod_params.ddfsnow_init`| `float` | Initial degree-day factor for snow |
+| `calib.HH2015mod_params.method_opt` | `string` | SciPy optimization scheme ('SLSQP' or 'L-BFGS-B') |
+| `calib.HH2015mod_params.params2opt` | `list` of `strings` | Parameters to optimize (e.g., 'tbias', 'kp') |
+| `calib.HH2015mod_params.ftol_opt` | `float` | Tolerance for SciPy optimization scheme |
+| `calib.HH2015mod_params.eps_opt` | `float` | Epsilon for SciPy optimization scheme (e.g., 1e-6) |
 
-| Variable | Format/Options | Description |
+### Emulator Parameters
+
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| emulator_sims | int |  Number of simulations to develop the emulator |
-| overwrite_em_sims | [True, False] | switch to overwrite emulator simulations |
-| opt_hh2015_mod | [True, False] | switch to also perform the HH2015_mod calibration using the emulator |
-| emulator_fp | str | filepath to store emulator details |
-| option_areaconstant | [True, False] | switch to keep area constant or evolve |
+| `calib.emulator_params.emulator_sims` | `integer` | Number of simulations to develop the emulator |
+| `calib.emulator_params.overwrite_em_sims` | `boolean` | Whether to overwrite emulator simulations |
+| `calib.emulator_params.opt_hh2015_mod` | `boolean` | Option to also perform HH2015_mod calibration using emulator |
+| `calib.emulator_params.tbias_step` | `float` | Temperature bias step size |
+| `calib.emulator_params.tbias_init` | `float` | Initial temperature bias |
+| `calib.emulator_params.kp_init` | `float` | Initial precipitation factor |
+| `calib.emulator_params.kp_bndlow` | `float` | Lower bound for precipitation factor |
+| `calib.emulator_params.kp_bndhigh` | `float` | Upper bound for precipitation factor |
+| `calib.emulator_params.ddfsnow_init` | `float` | Initial degree-day factor for snow |
+| `calib.emulator_params.option_areaconstant` | `boolean` | Option to keep area constant or evolve |
+| `calib.emulator_params.tbias_disttype` | `string` | Temperature bias distribution type ('truncnormal', 'uniform') |
+| `calib.emulator_params.tbias_sigma` | `float` | Temperature bias standard deviation |
+| `calib.emulator_params.kp_gamma_alpha` | `float` | Precipitation factor gamma distribution alpha |
+| `calib.emulator_params.kp_gamma_beta` | `float` | Precipitation factor gamma distribution beta |
+| `calib.emulator_params.ddfsnow_disttype` | `string` | Degree-day factor for snow distribution type ('truncnormal') |
+| `calib.emulator_params.ddfsnow_mu` | `float` | Degree-day factor for snow mean |
+| `calib.emulator_params.ddfsnow_sigma` | `float` | Degree-day factor for snow standard deviation |
+| `calib.emulator_params.ddfsnow_bndlow` | `float` | Lower bound for degree-day factor for snow |
+| `calib.emulator_params.ddfsnow_bndhigh` | `float` | Upper bound for degree-day factor for snow |
+| `calib.emulator_params.method_opt` | `string` | SciPy optimization scheme ('SLSQP' or 'L-BFGS-B') |
+| `calib.emulator_params.params2opt` | `list` of `strings` | Parameters to optimize (e.g., 'tbias', 'kp') |
+| `calib.emulator_params.ftol_opt` | `float` | Tolerance for SciPy optimization scheme |
+| `calib.emulator_params.eps_opt` | `float` | Epsilon for SciPy optimization scheme |
 
-Prior distributions:
+### MCMC Parameters
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| tbias_disttype | ['truncnormal', 'uniform'] | temperature bias prior distribution |
-| tbias_sigma | float | temperature bias standard deviation for truncnormal distribution |
-| kp_gamma_alpha | float | precipitation factor gamma distribution alpha |
-| kp_gamma_beta | float | precipitation factor gamma distribution beta |
-| ddfsnow_disttype | ['truncnormal']  | degree-day factor of snow distribution |
-| ddfsnow_mu | float | degree-day factor of snow mean |
-| ddfsnow_sigma | float | degree-day factor of snow standard deviation |
-| ddfsnow_bndlow | float | degree-day factor of snow lower bound |
-| ddfsnow_bndhigh | float | degree-day factor of snow upper bound |
+| `calib.MCMC_params.option_use_emulator` | `boolean` | Switch to emulator instead of full mass balance model |
+| `calib.MCMC_params.option_calib_binned_dh` | `boolean` | Calibrate against binned \(\delta h\) observations along with geodetic mass balance |
+| `calib.MCMC_params.emulator_sims` | `integer` | Number of emulator simulations |
+| `calib.MCMC_params.tbias_step` | `float` | Temperature bias step size |
+| `calib.MCMC_params.tbias_stepsmall` | `float` | Small temperature bias step size |
+| `calib.MCMC_params.option_areaconstant` | `boolean` | Option to keep area constant or evolve |
+| `calib.MCMC_params.mcmc_step` | `float` | MCMC step size (in terms of standard deviation) |
+| `calib.MCMC_params.n_chains` | `integer` | Number of MCMC chains (min 1, max 3) |
+| `calib.MCMC_params.mcmc_sample_no` | `integer` | Number of MCMC steps |
+| `calib.MCMC_params.mcmc_burn_pct` | `float` | Percentage of steps to burn-in (0 records all steps) |
+| `calib.MCMC_params.thin_interval` | `integer` | Thin interval for reducing file size |
+| `calib.MCMC_params.ddfsnow_disttype` | `string` | Degree-day factor for snow distribution type ('truncnormal', 'uniform') |
+| `calib.MCMC_params.ddfsnow_mu` | `float` | Degree-day factor for snow mean |
+| `calib.MCMC_params.ddfsnow_sigma` | `float` | Degree-day factor for snow standard deviation |
+| `calib.MCMC_params.ddfsnow_bndlow` | `float` | Lower bound for degree-day factor for snow |
+| `calib.MCMC_params.ddfsnow_bndhigh` | `float` | Upper bound for degree-day factor for snow |
+| `calib.MCMC_params.kp_disttype` | `string` | Precipitation factor distribution type ('gamma', 'lognormal', 'uniform') |
+| `calib.MCMC_params.tbias_disttype` | `string` | Temperature bias distribution type ('normal', 'truncnormal', 'uniform') |
+| `calib.MCMC_params.tbias_mu` | `float` | Temperature bias mean |
+| `calib.MCMC_params.tbias_sigma` | `float` | Temperature bias standard deviation |
+| `calib.MCMC_params.tbias_bndlow` | `float` | Lower bound for temperature bias |
+| `calib.MCMC_params.tbias_bndhigh` | `float` | Upper bound for temperature bias |
+| `calib.MCMC_params.kp_gamma_alpha` | `float` | Precipitation factor gamma distribution alpha |
+| `calib.MCMC_params.kp_gamma_beta` | `float` | Precipitation factor gamma distribution beta |
+| `calib.MCMC_params.kp_lognorm_mu` | `float` | Precipitation factor lognormal distribution mean |
+| `calib.MCMC_params.kp_lognorm_tau` | `float` | Precipitation factor lognormal distribution tau |
+| `calib.MCMC_params.kp_mu` | `float` | Precipitation factor normal distribution mean |
+| `calib.MCMC_params.kp_sigma` | `float` | Precipitation factor normal distribution standard deviation |
+| `calib.MCMC_params.kp_bndlow` | `float` | Lower bound for precipitation factor |
+| `calib.MCMC_params.kp_bndhigh` | `float` | Upper bound for precipitation factor |
 
-**MCMC and MCMC_fullsim - specific options**
-<br>Some variables have been described above. Only variables shown below:
+### Calibration Datasets
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| tbias_stepsmall | float | temperature bias small stepsize to avoid infeasible starting set of parameters for Markov Chain |
-| n_chains | int | number of chains (min 1, max 3) |
-| mcmc_sample_no | int | number of steps (10000 was found to be sufficient in HMA) |
-| mcmc_burn_no | int | number of steps to burn-in (0 records all steps in chain) |
-| mcmc_step | [None, 'am'] | Markov Chain step option (None uses default, while am refers to adaptive metropolis algorithm) |
-| thin_interval | int | thin interval if need to reduce file size (best to leave at 1 if space allows) |
-| ddfsnow_start | ddfsnow_mu | degree-day factor of snow initial chain value |
-| kp_disttype | ['gamma', 'lognormal', 'uniform'] | precipitation factor distribution type |
-| kp_start | float | precipitation factor initial chain value |
-| tbias_disttype | ['normal', 'truncnormal', 'uniform'] | temperature bias distribution type |
-| tbias_start | float | temperature bias initial chain value |
+| `calib.data.massbalance.hugonnet2021_relpath` | `string` | Path to Hugonnet (2021) mass balance data |
+| `calib.data.massbalance.hugonnet2021_fn` | `string` | Filename for Hugonnet (2021) mass balance data |
+| `calib.data.massbalance.hugonnet2021_facorrected_fn` | `string` | Filename for corrected Hugonnet (2021) mass balance data |
+| `calib.data.oib.oib_relpath` | `string` | Path to OIB lidar data |
+| `calib.data.oib.oib_rebin` | `integer` | Elevation rebinning in meters |
+| `calib.data.oib.oib_filter_pctl` | `float` | Pixel count percentile filter |
+| `calib.data.frontalablation.frontalablation_relpath` | `string` | Path to frontal ablation data |
+| `calib.data.frontalablation.frontalablation_cal_fn` | `string` | Filename for frontal ablation calibration data |
+| `calib.data.icethickness.h_consensus_relpath` | `string` | Path to ice thickness data |
 
-**Calibration Dataset**
-<br>This section will be updated as additional datasets are incorporated. For now, the following are used:
+### Ice Thickness Calibration
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| hugonnet_fp | str | filepath to pre-processed Hugonnet et al. (2021) data |
-| hugonnet_fn | str | filename of pre-processed Hugonnet et al. (2021) data |
-| hugonnet_mb_cn | str | mass balance column name |
-| hugonnet_mb_err_cn | str | mass balance uncertainty column name |
-| hugonnet_rgi_glacno_cn | str | RGIId or glacier number column name |
-| hugonnet_mb_clim_cn | str | climatic mass balance column name |
-| hugonnet_mb_clim_err_cn | str | climatic mass balance uncertainty column name |
-| hugonnet_time1_cn | str | observation start time column name |
-| hugonnet_time2_cn | str | observation end time column name |
-| hugonnet_area_cn | str | glacier area column name |
-  
-**Calibration Frontal Ablation Parameter**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| calving_fp | str | filepath to pre-processed frontal ablation parameters |
-| calving_fn | str | filename of pre-processed frontal ablation parameters |
-| icethickness_cal_frac_byarea | float | regional glacier area fraction that is used to calibrate the ice thickness (e.g., 0.9 means only the largest 90% of glaciers by area will be used to calibrate glen's a for that region) |
-
+| `calib.icethickness_cal_frac_byarea` | `float` | Regional glacier area fraction used for ice thickness calibration (e.g., 0.9 means the largest 90% of glaciers by area) |
+---
 
 (input_sim_dyn_options_target)=
-# Simulation and Glacier Dynamics Options
-| Variable | Format/Options | Description |
+## Simulation Options
+
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| option_dynamics | ['OGGM', 'MassRedistributionCurves', None] | glacier dynamics scheme option |
-    
-**MCMC-specific**
+| `sim.option_dynamics` | `null` or `string` | Glacier dynamics scheme (`OGGM`, `MassRedistributionCurves`, `null`) |
+| `sim.option_bias_adjustment` | `integer` | Bias adjustment option (`0`, `1`, `2`, `3`) |
+| `sim.nsims` | `integer` | Number of simulations |
 
-| Variable | Format/Options | Description |
+### Output Options
+
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| sim_iters | int | number of simulations |
-| sim_burn | int | number of burn-in (if burn-in is done in MCMC sampling, then don't do here) |
+| `sim.out.sim_stats` | `list` | Output statistics (`mean`, `std`, `median`, etc.) |
+| `sim.out.export_all_simiters` | `boolean` | Export all simulation results |
+| `sim.out.export_extra_vars` | `boolean` | Export extra variables (temp, prec, melt, etc.) |
+| `sim.out.export_binned_data` | `boolean` | Export binned ice thickness |
+| `sim.out.export_binned_components` | `boolean` | Export mass balance components |
 
-**General Parameters**
+### Model Parameters
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| output_sim_fp | str | output filepath to store simulations |
-| sim_stat_cns | ['mean', 'std', '2.5%', '25%', 'median', '75%', '97.5%'] | names of statistics to record for simulations with multiple parameter sets |
-| export_essential_data | [True, False] | switch to export essential data (ex. mass balance components, ElA, etc.) |
-| export_binned_thickness | [True, False] | switch to export binned datasets |
-| export_binned_area_threshold | float | area threshold for exporting binned thicknesses |
-| export_extra_vars | [True, False] | switch to export extra variables (temp, prec, melt, acc, etc.) |
-
-**Bias Correction**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| option_bias_adjustment | [0, 1, 2] | bias correction option (0: no adjustment, 1: new prec scheme and temp building on HH2015, 2: HH2015 methods) |
-
-**OGGM Glacier Dynamics Parameters**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| cfl_number | float | time step threshold (seconds) |
-| cfl_number_calving | float | time step threshold (seconds) for marine-terimating glaciers |
-| glena_reg_fullfn | str | full filepath and name of Glen's parameter A values |
-| use_reg_glena | [True, False] | switch to use regionally calibrated Glen's parameter A |
-| fs | float | sliding parameter |
-| glen_a_multiplier | float | Glen's parameter A multiplier |
-
-**Mass Redistribution Curve Parameters**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| icethickness_advancethreshold | float | advancing glacier ice thickness change threshold (m) |
-| terminus_percentage | float | precentage of glacier area considered to be terminus (used to size advancing new bins) |
-
-
-(input_model_prms_target)=
-## Model Parameters
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| use_calibrated_modelparams | [True, False] | switch to use calibrated model parameters |
-| use_constant_lapserate | [True, False] | switch to use constant value specified below or not |
-| kp | float | precipitation factor (-) |
-| tbias | float | temperature bias (deg C) |
-| ddfsnow | float | degree-day factor of snow (m w.e. d$^{-1}$ degC$^{-1}$) |
-| ddfsnow_iceratio | float | ratio degree-day factor snow snow to ice |
-| ddfice | ddfsnow / ddfsnow_iceratio | degree-day factor of ice (m w.e. d$^{-1}$ degC$^{-1}$) |
-| precgrad | float | precipitation gradient on glacier (m$^{-1}$) |
-| lapserate | float | temperature lapse rate for both gcm to glacier and on glacier between elevation bins (K m$^{-1}$) |
-| tsnow_threshold | float | temperature threshold for snow (deg C) |
-| calving_k | float | frontal ablation rate (yr$^{-1}$) |
-
+| `params.use_constant_lapserate` | `boolean` | Use constant or variable lapse rate |
+| `params.kp` | `float` | Precipitation factor |
+| `params.tbias` | `float` | Temperature bias (°C) |
+| `params.ddfsnow` | `float` | Snow degree-day factor (m w.e. d$^{-1}$ °C$^{-1}$) |
+| `params.ddfsnow_iceratio` | `float` | Ratio of snow to ice degree-day factor |
+---
 
 (input_mb_model_options_target)=
 ## Mass Balance Model Options
-**Surface Type Options**
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| option_surfacetype_initial | 1 | initial surface type option (1: median elevation distinguishes firn/ice, 2: mean elevation) |
-| include_firn | [True, False] | switch to include firn or treat it as snow |
-| include_debris | [True, False] | switch to account for debris with sub-debris melt factors or not |
-  
-  
-**Downscaling Options**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| option_elev_ref_downscale | ['Zmed', 'Zmax', 'Zmin'] | reference elevation for downscaling climate variables to glacier |
-| option_temp2bins | [1] | downscale temperature to bins options (1: use lr_gcm and lr_glac to adjust temp from gcm to the glacier bins) |
-| option_adjusttemp_surfelev | [0, 1] | switch to adjust temperatures based on surface elevation changes or not |
-| option_prec2bins | [1] | downscale precipitation to bins (currently only based on precipitation factor and precipitation gradient) |
-| option_preclimit | [0, 1] | switch to limit the uppermost 25% using an expontial function |
-
-**Accumulation Options**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| option_accumulation | [1, 2] | accumulation threshold option: (1) single threshold or (2) +/- 1 degree linear interpolation |
-
-**Ablation Options**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| option_ablation | [1, 2] | compute ablation using (1) monthly temperature or (2) superimposed daily temperatures |
-| option_ddf_firn | [0, 1] | estimate degree-day factor of firn by (0) degree-day factor of snow or (2) mean of degree-day factor of snow and ice |
-
-**Refreezing Options** (options: 'Woodward' or 'HH2015')
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| option_refreezing | ['Woodward', 'HH2015'] | compute refreezing using annual air temperatures ('Woodward') or heat conduction ('HH2015') |
-
-Woodward-specific options:
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| rf_month | int | month to reset refreeze |
-
-HH2015-specific options:
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| rf_layers | int | number of layers for refreezing model (8 is sufficient according to Matthias Huss and some tests) |
-| rf_dz | float | layer thickness (m) |
-| rf_dsc | int | number of time steps for numerical stability (3 is sufficient - Matthias) |
-| rf_meltcrit | float | critical amount of melt (m w.e.) for initializing refreezing module |
-| pp | float | additional refreeze water to account for water refreezing at bare-ice surface |
-| rf_dens_top | float | snow density at surface (kg m$^{-3}$) |
-| rf_dens_bot | float | snow density at bottom refreezing layer (kg m$^{-3}$) |
-| option_rf_limit_meltsnow | [0, 1] | switch to limit the amount of refreezing to the amount of snow melt |
-
-
-(input_climate_data_files_target)=
-## Climate Data Filepaths and Filenames
-Here is where you should add information for any new datasets as well as adding functionality to class_climate.py
-
-**ERA5**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| era5_fp | str | ERA5 filepath |
-| era5_temp_fn |  str | ERA5 temperature filename | 
-| era5_tempstd_fn |  str | ERA5 temperature daily standard deviation filename | 
-| era5_prec_fn | str | ERA5 precipitation filename | 
-|  era5_elev_fn |  str | ERA5 elevation filename | 
-|  era5_pressureleveltemp_fn |  str | ERA5 pressure level temperature filename | 
-|  era5_lr_fn |  str | ERA5 lapse rate filename | 
-
-**CMIP5 (GCM Data)**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| cmip5_fp_var_prefix | str | filepath prefix for CMIP5 variables (temperature, precipitation) |
-| cmip5_fp_var_ending | str | filepath ending for CMIP5 variables (temperature, precipitation) |
-| cmip5_fp_fx_prefix | str | filepath prefix for CMIP5 fixed variables (elevation) |
-| cmip5_fp_fx_ending | str | filepath ending for CMIP5 fixed variables (elevation |
-
-**CMIP6 (GCM Data)**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-|cmip6_fp_prefix | str | filepath prefix for CMIP6 variables |
-
+| `mb.option_surfacetype_initial` | `integer` | 1: median elevation (default), 2: mean elevation |
+| `mb.include_firn` | `boolean` | `true`: firn included, `false`: firn is modeled as snow |
+| `mb.include_debris` | `boolean` | `true`: account for debris with melt factors, `false`: do not account for debris |
+| `mb.debris_relpath` | `string` | Path to debris dataset |
+| `mb.option_elev_ref_downscale` | `string` | `'Zmed'`, `'Zmax'`, or `'Zmin'` for median, max, or min glacier elevations |
+| `mb.option_temp2bins` | `integer` | `1`: adjust temp from GCM to glacier bins using lapse rates |
+| `mb.option_adjusttemp_surfelev` | `integer` | `1`: adjust temps based on surface elevation changes, `0`: no adjustment |
+| `mb.option_prec2bins` | `integer` | `1`: adjust precipitation from GCM to glacier bins |
+| `mb.option_preclimit` | `integer` | `1`: limit uppermost 25% using an exponential function |
+| `mb.option_accumulation` | `integer` | `1`: single threshold, `2`: threshold ± 1°C using linear interpolation |
+| `mb.option_ablation` | `integer` | `1`: monthly temp, `2`: superimposed daily temps enabling melt near 0°C |
+| `mb.option_ddf_firn` | `integer` | `0`: ddf_firn = ddf_snow, `1`: ddf_firn = mean of ddf_snow and ddf_ice |
+| `mb.option_refreezing` | `string` | `'Woodward'`: annual air temp (Woodward et al. 1997), `'HH2015'`: heat conduction (Huss & Hock 2015) |
+| `mb.Woodard_rf_opts.rf_month` | `integer` | Refreezing month |
+| `mb.HH2015_rf_opts.rf_layers` | `integer` | Number of refreezing layers (default: 8) |
+| `mb.HH2015_rf_opts.rf_dz` | `integer` | Layer thickness (m) |
+| `mb.HH2015_rf_opts.rf_dsc` | `integer` | Number of time steps for numerical stability |
+| `mb.HH2015_rf_opts.rf_meltcrit` | `float` | Critical melt amount (m w.e.) to initialize refreezing |
+| `mb.HH2015_rf_opts.pp` | `float` | Additional refreeze water fraction for bare ice |
+| `mb.HH2015_rf_opts.rf_dens_top` | `integer` | Snow density at surface (kg/m³) |
+| `mb.HH2015_rf_opts.rf_dens_bot` | `integer` | Snow density at bottom refreezing layer (kg/m³) |
+| `mb.HH2015_rf_opts.option_rf_limit_meltsnow` | `integer` | Refreezing limit option |
+---
 
 (input_glacier_data_target)=
-## Glacier Data
-**Randolph Glacier Inventory**
+## RGI Glacier Data
 
-| Variable | Format/Options | Description |
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| rgi_fp | str | filepath to regional attributes files |
-| rgi_lat_colname | str | RGI latitude column name |
-| rgi_lon_colname | str | RGI longitude column name' |
-| elev_colname | str | elevation column name |
-| indexname | str | index column name |
-| rgi_O1Id_colname | str | glacier number column name |
-| rgi_glacno_float_colname | str | glacier number as float column name |
-| rgi_cols_drop | list of str | column names from table to drop <br>(e.g., ['GLIMSId','BgnDate','EndDate','Status','Linkages','Name'] or []) |
+| `rgi.rgi_relpath` | `string` | Filepath for RGI files |
+| `rgi.rgi_lat_colname` | `string` | Name of latitude column |
+| `rgi.rgi_lon_colname` | `string` | Name of longitude column (360-based) |
+| `rgi.elev_colname` | `string` | Name of elevation column |
+| `rgi.indexname` | `string` | Name of glacier index column |
+| `rgi.rgi_O1Id_colname` | `string` | Name of glacier ID column |
+| `rgi.rgi_glacno_float_colname` | `string` | Name of floating-point glacier ID column |
+| `rgi.rgi_cols_drop` | `list` of `strings` | Columns to drop from RGI dataset |
+---
 
-**Ice Thickness Data**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| h_consensus_fp | str | filepath to consensus ice thickness estimates |
-| binsize | int | elevation bin height (m) |
-| hyps_data | 'OGGM' | hypsometry dataset |
-| oggm_gdir_fp | str | OGGM glacier directories filepath |
-| overwrite_gdirs | [True, False] | switch to overwrite glacier directories |
-
-**Debris Data**
-
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| debris_fp | str | filepath to debris data |
-    
-    
 (input_model_time_details_target)=
 ## Model Time Period Details
-| Variable | Format/Options | Description |
-| :--- | :--- | :--- |
-| option_leapyear | [0, 1] | option to (1) include leap year days or (0) exclude leap years so February always has 28 days |
-| startmonthday | str | start month and day for custom calendars (e.g., '06-01') |
-| endmonthday | str | end month and day for custom calendars (e.g., '05-31') |
-| wateryear_month_start | int | month starting for hydrological calendar
-| winter_month_start | int | first month of winter |
-| summer_month_start | int | first month of summer |
-| option_dates | [1, 2] | use dates from (1) date table (first of each month) or (2) dates from climate data
-| timestep | 'monthly' | model timestep |
 
+| Variable | Type | Comment/Note |
+| :--- | :--- | :--- |
+| `time.option_leapyear` | `integer` | `1`: include leap years, `0`: exclude leap years (February always 28 days) |
+| `time.startmonthday` | `string` | Start date (MM-DD), used with custom calendars |
+| `time.endmonthday` | `string` | End date (MM-DD), used with custom calendars |
+| `time.wateryear_month_start` | `integer` | Water year start month |
+| `time.winter_month_start` | `integer` | First month of winter |
+| `time.summer_month_start` | `integer` | First month of summer |
+| `time.option_dates` | `integer` | `1`: Use dates from date table (1st of each month), `2`: Use dates from climate data |
+| `time.timestep` | `string` | Time step (currently only `'monthly'` is supported) |
+---
 
 (input_model_constants_target)=
 ## Model Constants
-| Variable | Format/Options | Description |
+
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| density_ice | float | density of ice (kg m$^{-3}$) |
-| density_water | float | density of water (kg m$^{-3}$) |
-| area_ocean | float | area of ocean |
-| k_ice | float | thermal conductivity of ice (J s$^{-1}$ K$^{-1}$ m$^{-1}$) |
-| k_air | float | thermal conductivity of air (J s$^{-1}$ K$^{-1}$ m$^{-1}$) |
-| ch_ice | float | volumetric heat capacity of ice (J K$^{-1}$ m$^{-3}$) |
-| ch_air | float | volumetric Heat capacity of air (J K$^{-1}$ m$^{-3}$) |
-| Lh_rf | float | latent heat of fusion (J kg$^{-1}$) |
-| tolerance | float | model tolerance <br>(used to remove low values caused by rounding errors) |
-| gravity | float | gravity (m s$^{-2}$) |
-| pressure_std | float | standard pressure (Pa) |
-| temp_std | float | standard temperature (K) |
-| R_gas | float | universal gas constant (J mol$^{-1}$ K$^{-1}$) |
-| molarmass_air | float | molar mass of Earth's air (kg mol$^{-1}$) |
+| `constants.density_ice` | `integer` | Density of ice (kg/m³) |
+| `constants.density_water` | `integer` | Density of water (kg/m³) |
+| `constants.area_ocean` | `float` | Ocean surface area (m$^{2}$) |
+| `constants.k_ice` | `float` | Thermal conductivity of ice (J s$^{-1}$ K$^{-1}$ m$^{-1}$) |
+| `constants.k_air` | `float` | Thermal conductivity of air (J s$^{-1}$ K$^{-1}$ m$^{-1}$) |
+| `constants.ch_ice` | `integer` | Volumetric heat capacity of ice (J K$^{-1}$ m$^{-3}$) |
+| `constants.ch_air` | `integer` | Volumetric heat capacity of air (J K$^{-1}$ m$^{-3}$) |
+| `constants.Lh_rf` | `integer` | Latent heat of fusion (J/kg) |
+| `constants.tolerance` | `float` | Model tolerance (used to remove rounding errors) |
+| `constants.gravity` | `float` | Gravity (m s$^{-2}$) |
+| `constants.pressure_std` | `integer` | Standard atmospheric pressure (Pa) |
+| `constants.temp_std` | `float` | Standard temperature (K) |
+| `constants.R_gas` | `float` | Universal gas constant (J mol$^{-1}$ K$^{-1}$) |
+| `constants.molarmass_air` | `float` | Molar mass of Earth's air (kg/mol) |
+---
 
 (input_debugging_options)=
 ## Debugging Options
-| Variable | Format/Options | Description |
+
+| Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| debug_refreeze | [True, False] | Used for separate debugging of the heat conduction refreezing scheme |
-| debug_mb | [True, False] | Used for separate debugging of the mass balance calculations |
+| `debug.refreeze` | `boolean` | Debug option for refreezing module |
+| `debug.mb` | `boolean` | Debug option for mass balance calculations |
+---

@@ -4,7 +4,7 @@ The Python Glacier Evolution Model is written in Python 3. The model is availabl
 
 Several command line scripts are set up upon installation for running the model. See the [Install_PyGEM](install_pygem_target) section for more details on installing the model.
 
-Model parameters are specified via the configuration file (***~/PyGEM/config.yaml***), and a number of key parameters can also be passed to model scripts as command line arguments. The configuration file is [well documented](pygem_config_overview_target). 
+Model parameters are specified via the configuration file (*~/PyGEM/config.yaml*), and a number of key parameters can also be passed to model scripts as command line arguments. The configuration file is [well documented](pygem_config_overview_target). 
 
 ## Spatial and Temporal Resolution
 PyGEM models each glacier independently using a monthly timestep and elevation bins. We plan to add options to include daily timesteps in the near future and plan to develop new calibration options that can leverage regional datasets as well.
@@ -25,12 +25,12 @@ Currently, the model does not have a “required” set of directories. The rela
 
 ```
 {warning}
-If you use a different file structure and do not update the relative file paths in the **~/PyGEM/config.yaml**, you will get an error and PyGEM will not run!
+If you use a different file structure and do not update the relative file paths in the *~/PyGEM/config.yaml*, you will get an error and PyGEM will not run!
 ```
 
 (model_workflow_target)=
 ## Model Workflow
-The model code itself is heavily commented with the hope that the code is easy to follow and develop further. After [installing PyGEM](install_pygem_target), downloading the required [input files](model_inputs_target), and setting up the [directory structure](directory_structure_target) (or modifying the **~/PyGEM/config.yaml** with your preferred directory structure) you are ready to run the code! Generally speaking, the workflow includes:
+The model code itself is heavily commented with the hope that the code is easy to follow and develop further. After [installing PyGEM](install_pygem_target), downloading the required [input files](model_inputs_target), and setting up the [directory structure](directory_structure_target) (or modifying the *~/PyGEM/config.yaml* with your preferred directory structure) you are ready to run the code! Generally speaking, the workflow includes:
 * [Pre-process data](preprocessing_target) <em>(optional if including more data)</em>
 * [Set up configuration file](config_workflow_target)
 * [Calibrate frontal ablation parameter](workflow_cal_frontalablation_target) <em>(optional for marine-terimating glaciers)</em>
@@ -45,31 +45,31 @@ The model code itself is heavily commented with the hope that the code is easy t
 ### Pre-processing 
 We rely heavily on [OGGM's pre-processing modules](https://docs.oggm.org/en/stable/shop.html), which are state-of-the-art. For most people, these glacier directories will be sufficient to get started. However, there are times when we work with different datasets and need to do our own pre-processing. For example, the following script corrects the geodetic mass balance from [Hugonnet et al. (2021)](https://www.nature.com/articles/s41586-021-03436-z) to account for the mass lost below the water level due to frontal ablation from [Kochtitzky et al. (2022)](https://www.nature.com/articles/s41467-022-33231-x).
 ```
-python run_preprocessing_wgms_mbdata.py -mb_data_removeFA=1
+run_calibration_frontalablation
 ```
 
 
 (config_workflow_target)=
 ### Set up configuration file
-***~/PyGEM/config.yaml*** is PyGEM's configuration file where the user can specify the glaciers/regions to model; model physics, calibration, and simulation options; relative filepaths for relevant datasets; etc. 
+*~/PyGEM/config.yaml* is PyGEM's configuration file where the user can specify the glaciers/regions to model; model physics, calibration, and simulation options; relative filepaths for relevant datasets; etc. 
 
-The only critical component of the configuration file which must be set prior to running PyGEM is the user's root path to their PyGEM datasets (the absolute path to the root ***~/pygem_data/*** directory shown [above](directory_structure_target)).
+The only critical component of the configuration file which must be set prior to running PyGEM is the user's `root` path to their PyGEM datasets (the absolute path to the root *~/pygem_data/* directory shown [above](directory_structure_target)).
 
 For more details, see the [configuration file overview](pygem_config_overview_target).
 
 ```{note}
-The first time you process glacier directories (e.g., happens automatically with the run_calibration.py), you want to set <em>overwrite_gdirs=True</em> in ***~/PyGEM/config.yaml***. This will add the mass balance and consensus ice thickness data to the glacier directories.  To avoid redownloading/reprocessing the glacier directories every time, after performed once set <em>overwrite_gdirs=False</em>.
+The first time you process glacier directories (e.g., happens automatically with the run_calibration.py), you want to set <em>overwrite_gdirs=True</em> in *~/PyGEM/config.yaml*. This will add the mass balance and consensus ice thickness data to the glacier directories.  To avoid redownloading/reprocessing the glacier directories every time, after performed once set <em>overwrite_gdirs=False</em>.
 ```
 
 (workflow_cal_prms_target)=
 ### Calibrate mass balance model parameters
-The model parameters (degree-day factor of snow, precipitation factor, and temperature bias) must be calibrated for model results to be meaningful. This is done using **run_calibration.py**. Several options exist (see [Model Calibration](calibration_target) for specific details), but generally speaking the <em>option_calibration</em> will be specified in **pygem_input.py** and then the following is run:
+The model parameters (degree-day factor of snow, precipitation factor, and temperature bias) must be calibrated for model results to be meaningful. This is done using *run_calibration.py*. Several options exist (see [Model Calibration](calibration_target) for specific details), but generally speaking the <em>option_calibration</em> will be specified in *~/PyGEM/config.yaml* or passed as a command-line argument as follows: 
 ```
-run_calibration
+run_calibration -option_calibration <calib_option>
 ```
 
 If successful, the script will run without error and output the following:
-* ../Output/calibration/\[RGI Order 1 region\]/\[glac_no\]-model_prms.pkl 
+* ../Output/calibration/\[RGI Order 1 region\]/\[glac_no\]-model_prms.json 
 * additional files will be generated if using the emulator
 
 For more details, see the [run_calibration.py Script Overview](run_calibration_target).
@@ -77,30 +77,14 @@ For more details, see the [run_calibration.py Script Overview](run_calibration_t
 
 (workflow_cal_frontalablation_target)=
 ### Calibrate frontal ablation parameter
-**(Optional)** If you want to account for frontal ablation associated with marine-terminating glaciers, then the frontal ablation parameter needs to be calibrated. This is done using **run_calibration_frontalablation.py** with the following steps:
+**(Optional)** If you want to account for frontal ablation associated with marine-terminating glaciers, then the frontal ablation parameter needs to be calibrated. This is done using *run_calibration_frontalablation.py*:
 
-First, merge the frontal ablation data together into a single directory:
 ```
-python run_calibration_frontalablation.py   (set option_merge_data = True)
-```
-Calibrate the frontal ablation parameter for each marine-terminating glacier:
-```
-python run_calibration_frontalablation.py   (set option_ind_calving_k = True)
-```
-Merge all the frontal ablation parameters into a single file:
-```
-python run_calibration_frontalablation.py   (set option_merge_calving_k = True)
-```
-Update the climatic-basal mass balance data by removing the frontal ablation from the total mass change:
-```
-python run_calibration_frontalablation.py   (set option_update_mb_data = True)
-```
-```{note}
-The run_calibration_frontalablation.py script is hard-coded with True/False options so one must manually go into the script and adjust the options. 
+run_calibration_frontalablation  (optionally pass -rgi_region01 <region>)
 ```
 If successful, the script will run without error and output the following:
-* ../calving_data/analysis/all-calving_cal_ind.csv
-* ../DEMs/Hugonnet2020/df_pergla_20yr-filled-FAcorrected.csv
+* ../frontalablation_data/analysis/all-frontalablation_cal_ind.csv
+* ../DEMs/Hugonnet2021/df_pergla_global_20yr-filled-frontalablation-corrected.csv
 
 For more details, see the [run_calibration_frontalablation.py Script Overview](run_calibration_fa_overview_target).
 
@@ -113,18 +97,18 @@ Circularity issues exist in calibrating the frontal ablation parameter as the ma
 ### Calibrate ice viscosity model parameter
 The ice viscosity ("Glen A") model parameter is calibrated such that the ice volume estimated using the calibrated mass balance gradients are consistent with the consensus ice volume estimates ([Farinotti et al. 2019]((https://www.nature.com/articles/s41561-019-0300-3))) for each RGI region. This is done by running the following:
 ```
-run_calibration_icethickness_consensus
+run_calibration_reg_glena
 ```
 
 If successful, the script will run without error and output the following:
 * ../Output/calibration/‘glena_region.csv’ 
 
-For more details, see the [run_calibration_icethickness.py Script Overview](run_calibration_icethickness_overview_target).
+For more details, see the [run_calibration_reg_glena.py Script Overview](run_calibration_reg_glena_overview_target).
 
 
 (workflow_sim_target)=
 ### Run model simulation
-Model simulations are performed using run_simulation.py. If no GCMs are specified in the command line, the default will be to run a model simulation with the reference data (e.g., ERA5). We currently recommend that <br><em>**historical simulations**</em> be performed without evolving the glacier geometry; thus, <em>option_dynamics = None</em> in **pygem_input.py** and the <em>ref_startyear</em> and <em>ref_endyear</em> are used to set the length of the simulation. The simulation can then be run using the following:
+Model simulations are performed using run_simulation.py. If no GCMs are specified in the command line, the default will be to run a model simulation with the reference data (e.g., ERA5). We currently recommend that <br><em>**historical simulations**</em> be performed without evolving the glacier geometry; thus, <em>option_dynamics = None</em> in *~/PyGEM/config.yaml* and the <em>ref_startyear</em> and <em>ref_endyear</em> are used to set the length of the simulation. The simulation can then be run using the following:
 ```
 run_simulation
 ```
@@ -137,33 +121,21 @@ For future simulations, at a minimum the user should specify the dynamical optio
 ```
 If successful, the script will run without error and output the following:
 * ../Output/simulation/\[RGI Order 1 region\]/\[GCM name\]/\[Scenario\]/stats/\[glac_no\]_\[GCM name\]_\[Scenario\]_\[Calibration Option\]_ba\[bias adjustment option\]_\[number of simulations\]_\[start year\]_\[end year\]_all.nc
-* additional netcdf files may be output based on the user specifications in pygem_input.py
+* additional netcdf files may be output based on the user specifications in *~/PyGEM/config.yaml*
 
 For more details, see the [run_simulation.py Script Overview](run_simulation_target).
 
 
 (workflow_post_target)=
 ### Post-process output
-There are currently several scripts available to process the datasets (e.g., merge them into regional files, create multi-GCM means and standard deviations for each SSP). While these scripts are well documented in line, they still need to be cleaned up for more widespread use.  An example:
-```
-python process_simulation.py
-```
+There are currently several scripts available to post-process PyGEM simulations. To aggregate simulations by RGI region, climate scenario, and variable, run the *postproc_compile_simulations.py* script. For example to compile all Alaska's glacier mass, area, runoff, etc. for various scenarios we would run the following:
 
+ ```
+compile_simulations -rgi_region 01 -scenario ssp245 ssp370 ssp585
+ ```
 
 (workflow_analyze_target)=
 ### Analyze output
-All users will analyze PyGEM output in different ways. The following is thus not meant to be an exhaustive list of analyses, but rather to provide some general scripts to produce diagnostic figures of mass, area, runoff, and ice thickness change. These scripts will also help you get familiar with working with the model and post-processed outputs. We are currently provide these scripts as Jupyter Notebooks, so you can visualize the expected output and use this to guide your efforts. These will be listed in <em>PyGEM-scripts</em> beginning with "analyze_". For example:
-* **analyze_glacier_change_byRGIRegion.ipynb**
-  - This notebook shows mass, area, and runoff changes with model output aggregated to RGI regions. Note that this notebook relies on [post-processed output](workflow_post_target).
-* **analyze_glacier_change_byWatershed.ipynb**
-  - This notebook shows mass, area, and runoff changes with model output aggregated to user-specified groups (watersheds are used in this example). Note that this notebook relies on [post-processed output](workflow_post_target). 
-<br>For individual glacier changes, we recommend:
-* **analyze_glacier_change_CrossSection.ipynb**
-  - This notebook shows a cross section of ice thickness change and normalized mass change for a single glacier.
-
-At present, publication-quality figures of mass, area, and runoff change are also provided in case you want to investigate more complex figures. Figure options and pathways are hard-coded within these scripts. An example:
-```
-python analysis_Science_figs.py
-```
+All users will analyze PyGEM output in different ways. Various Jupyter Notebooks are provided for analyzing PyGEM results in a separate [GitHub repository](https://github.com/PyGEM-Community/PyGEM-notebooks). The repositories analysis notebooks (those which have the prefix "analze_") are thus not meant to be an exhaustive list of analyses, but rather to provide some general scripts to produce diagnostic figures of mass, area, runoff, and ice thickness change. These notebooks will also help you get familiar with working with the model and post-processed outputs.
 
 For more detail, see [Model Output Section](model_output_overview_target).

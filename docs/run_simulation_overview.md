@@ -3,9 +3,9 @@
 This script will run the glacier evolution model for the reference climate data or for future climate scenarios. If successful, the script will run without errors and generate one or more netcdf files. The user has the option to export essential statistics (e.g., area, mass, runoff, mass balance components)and/or binned data (e.g., ice thickness, area, mass, mass balance). The output general output will be:
 * ../Output/simulations/\[gcm_name\]/\[scenario\]/stats/\[glac_no\]...-all.nc
 
-When running the script, the GCM and scenario need to be passed via the command line as follows:
+When running the script, the GCM and scenario can be specified in the *~/PyGEM/config.yaml* configuration file or passed via the command line as follows:
 ```
-python run_simulation.py -gcm_name=[insert_gcm_name] -scenario=[insert_scenario]
+run_simulation -gcm_name <gcm_names> -scenario <scenario_names>
 ```
 
 ## Script Structure

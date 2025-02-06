@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath('../pygem/'))
 project = 'pygem'
 copyright = '2023, David Rounce'
 author = 'David Rounce'
-release = '0.2.5'
+release = '1.0.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -58,10 +58,9 @@ html_theme = 'sphinx_book_theme'
 html_static_path = ['_static']
 
 html_theme_options = {
-    "repository_url": "https://github.com/drounce/PyGEM",
+    "repository_url": "https://github.com/PyGEM-Community/PyGEM",
     "use_repository_button": True,
     "show_nav_level":2,
-    
     "max_depth":3,
     "navigation_depth":3,
 #    "show_toc_level":2,
