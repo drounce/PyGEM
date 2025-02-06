@@ -10,7 +10,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../pygem/'))
 
-project = 'pygem'
+project = 'PyGEM'
 copyright = '2023, David Rounce'
 author = 'David Rounce'
 release = '1.0.0'
@@ -37,12 +37,6 @@ myst_enable_extensions = [
     "fieldlist",
     "html_admonition",
     "html_image",
-#    "linkify",
-#    "replacements",
-#    "smartquotes",
-#    "strikethrough",
-#    "substitution",
-#    "tasklist",
 ]
 
 #templates_path = ['_templates']
@@ -62,13 +56,4 @@ html_theme_options = {
     "use_repository_button": True,
     "show_nav_level":2,
     "navigation_depth":3,
-#    "show_toc_level":2,
-#    'collapse_navigation': True,
-#    'sticky_navigation': True,
-#    'navigation_depth': 4,
-#    "use_issues_button": True,
-#    "use_edit_page_button": True,
-#    "path_to_docs": "docs",
-#    # "home_page_in_toc": True,
-#    "toc_title": 'On this page',
     }
