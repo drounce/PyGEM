@@ -1,4 +1,4 @@
-name: sphinx
+name: pygem_rtd
 channels:
   - defaults
 dependencies:
@@ -190,4 +190,3 @@ dependencies:
       - widgetsnbextension==4.0.13
       - xarray==2024.11.0
       - xarray-einstats==0.8.0
-prefix: /Users/btober/miniconda3/envs/sphinx
