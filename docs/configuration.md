@@ -179,7 +179,6 @@ The hindcast option will flip the climate data array so 1960-2000 would run 2000
 | Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
 | `calib.MCMC_params.option_use_emulator` | `boolean` | Switch to emulator instead of full mass balance model |
-| `calib.MCMC_params.option_calib_binned_dh` | `boolean` | Calibrate against binned \(\delta h\) observations along with geodetic mass balance |
 | `calib.MCMC_params.emulator_sims` | `integer` | Number of emulator simulations |
 | `calib.MCMC_params.tbias_step` | `float` | Temperature bias step size |
 | `calib.MCMC_params.tbias_stepsmall` | `float` | Small temperature bias step size |
@@ -255,8 +254,8 @@ The hindcast option will flip the climate data array so 1960-2000 would run 2000
 | :--- | :--- | :--- |
 | `params.use_constant_lapserate` | `boolean` | Use constant or variable lapse rate |
 | `params.kp` | `float` | Precipitation factor |
-| `params.tbias` | `float` | Temperature bias (°C) |
-| `params.ddfsnow` | `float` | Snow degree-day factor (m w.e. d$^{-1}$ °C$^{-1}$) |
+| `params.tbias` | `float` | Temperature bias ($^\circ$C) |
+| `params.ddfsnow` | `float` | Snow degree-day factor (m w.e. d$^{-1}$ $^\circ$C$^{-1}$) |
 | `params.ddfsnow_iceratio` | `float` | Ratio of snow to ice degree-day factor |
 ---
 
@@ -274,8 +273,8 @@ The hindcast option will flip the climate data array so 1960-2000 would run 2000
 | `mb.option_adjusttemp_surfelev` | `integer` | `1`: adjust temps based on surface elevation changes, `0`: no adjustment |
 | `mb.option_prec2bins` | `integer` | `1`: adjust precipitation from GCM to glacier bins |
 | `mb.option_preclimit` | `integer` | `1`: limit uppermost 25% using an exponential function |
-| `mb.option_accumulation` | `integer` | `1`: single threshold, `2`: threshold ± 1°C using linear interpolation |
-| `mb.option_ablation` | `integer` | `1`: monthly temp, `2`: superimposed daily temps enabling melt near 0°C |
+| `mb.option_accumulation` | `integer` | `1`: single threshold, `2`: threshold ± 1$^\circ$C using linear interpolation |
+| `mb.option_ablation` | `integer` | `1`: monthly temp, `2`: superimposed daily temps enabling melt near 0$^\circ$C |
 | `mb.option_ddf_firn` | `integer` | `0`: ddf_firn = ddf_snow, `1`: ddf_firn = mean of ddf_snow and ddf_ice |
 | `mb.option_refreezing` | `string` | `'Woodward'`: annual air temp (Woodward et al. 1997), `'HH2015'`: heat conduction (Huss & Hock 2015) |
 | `mb.Woodard_rf_opts.rf_month` | `integer` | Refreezing month |
@@ -284,8 +283,8 @@ The hindcast option will flip the climate data array so 1960-2000 would run 2000
 | `mb.HH2015_rf_opts.rf_dsc` | `integer` | Number of time steps for numerical stability |
 | `mb.HH2015_rf_opts.rf_meltcrit` | `float` | Critical melt amount (m w.e.) to initialize refreezing |
 | `mb.HH2015_rf_opts.pp` | `float` | Additional refreeze water fraction for bare ice |
-| `mb.HH2015_rf_opts.rf_dens_top` | `integer` | Snow density at surface (kg/m³) |
-| `mb.HH2015_rf_opts.rf_dens_bot` | `integer` | Snow density at bottom refreezing layer (kg/m³) |
+| `mb.HH2015_rf_opts.rf_dens_top` | `integer` | Snow density at surface (kg m$^{-3}$) |
+| `mb.HH2015_rf_opts.rf_dens_bot` | `integer` | Snow density at bottom refreezing layer (kg m$^{-3}$) |
 | `mb.HH2015_rf_opts.option_rf_limit_meltsnow` | `integer` | Refreezing limit option |
 ---
 
@@ -324,14 +323,14 @@ The hindcast option will flip the climate data array so 1960-2000 would run 2000
 
 | Variable | Type | Comment/Note |
 | :--- | :--- | :--- |
-| `constants.density_ice` | `integer` | Density of ice (kg/m³) |
-| `constants.density_water` | `integer` | Density of water (kg/m³) |
+| `constants.density_ice` | `integer` | Density of ice (kg m$^{-3}$) |
+| `constants.density_water` | `integer` | Density of water (kg m$^{-3}$) |
 | `constants.area_ocean` | `float` | Ocean surface area (m$^{2}$) |
 | `constants.k_ice` | `float` | Thermal conductivity of ice (J s$^{-1}$ K$^{-1}$ m$^{-1}$) |
 | `constants.k_air` | `float` | Thermal conductivity of air (J s$^{-1}$ K$^{-1}$ m$^{-1}$) |
 | `constants.ch_ice` | `integer` | Volumetric heat capacity of ice (J K$^{-1}$ m$^{-3}$) |
 | `constants.ch_air` | `integer` | Volumetric heat capacity of air (J K$^{-1}$ m$^{-3}$) |
-| `constants.Lh_rf` | `integer` | Latent heat of fusion (J/kg) |
+| `constants.Lh_rf` | `integer` | Latent heat of fusion (J kg$^{-1}$) |
 | `constants.tolerance` | `float` | Model tolerance (used to remove rounding errors) |
 | `constants.gravity` | `float` | Gravity (m s$^{-2}$) |
 | `constants.pressure_std` | `integer` | Standard atmospheric pressure (Pa) |

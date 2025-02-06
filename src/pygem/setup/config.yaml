@@ -154,7 +154,6 @@ calib:
   # MCMC params
   MCMC_params:
     option_use_emulator: true                     # use emulator or full model (if true, calibration must have first been run with option_calibretion=='emulator')
-    option_calib_binned_dh: false                 # calibrate against binned \delta h observations along with geodetic mass balance
     emulator_sims: 100
     tbias_step: 0.1
     tbias_stepsmall: 0.05
