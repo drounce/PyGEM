@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath('../pygem/'))
 project = 'PyGEM'
 copyright = '2023, David Rounce'
 author = 'David Rounce'
-release = '1.0.0'
+release = '1.0.1'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
