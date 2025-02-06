@@ -75,7 +75,7 @@ To support model testing and demonstration, a suite of Jupyter notebooks can be 
   <tr>
     <td style="width: 50%;"><b>License</b></td>
     <td style="width: 50%;">
-      <a href="https://github.com/PyGEM-Community/PyGEM/blob/master/LICENSE"><img src="https://img.shields.io/pypi/l/pygem.svg"></a>
+      <a href="https://github.com/PyGEM-Community/PyGEM/blob/master/LICENSE.txt"><img src="https://img.shields.io/pypi/l/pygem.svg"></a>
     </td>
   </tr>
   <tr>
