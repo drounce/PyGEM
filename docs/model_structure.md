@@ -95,7 +95,7 @@ Circularity issues exist in calibrating the frontal ablation parameter as the ma
 
 (workflow_cal_glena_target)=
 ### Calibrate ice viscosity model parameter
-The ice viscosity ("Glen A") model parameter is calibrated such that the ice volume estimated using the calibrated mass balance gradients are consistent with the consensus ice volume estimates ([Farinotti et al. 2019]((https://www.nature.com/articles/s41561-019-0300-3))) for each RGI region. This is done by running the following:
+The ice viscosity ("Glen A") model parameter is calibrated such that the ice volume estimated using the calibrated mass balance gradients are consistent with the consensus ice volume estimates ([Farinotti et al. (2019)](https://www.nature.com/articles/s41561-019-0300-3)) for each RGI region. This is done by running the following:
 ```
 run_calibration_reg_glena
 ```
