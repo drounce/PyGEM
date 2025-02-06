@@ -1,13 +1,47 @@
 name: pygem_rtd
 channels:
-  - defaults
+  - conda-forge
 dependencies:
-  - python>=3.10,<3.13
+  - python >=3.8, <3.10
+  - jupyter
+  - jupyterlab
+  - numpy
+  - scipy
+  - pandas
+  - shapely
+  - matplotlib
+  - Pillow
+  - netcdf4
+  - scikit-image
+  - scikit-learn
+  - configobj
+  - xarray
+  - pytest
+  - dask
+  - bottleneck
+  - pyproj
+  - cartopy
+  - geopandas
+  - rasterio
+  - rioxarray
+  - xarray
+  - seaborn
+  - pytables
+  - salem
+  - motionless
+  - sphinx
+  - sphinx-book-theme>=0.3.3
+  - ipython
+  - numpydoc
+  - seaborn
+  - sphinx-intl
+  - sphinx-reredirects
   - pip
   - pip:
-      - pygem
-      - sphinx
-      - sphinx_book_theme
-      - sphinx_togglebutton
-      - myst-parser
-      - numpydoc
+    - joblib
+    - progressbar2
+    - sphinx-togglebutton
+    - sphinx-book-theme
+    - myst-parser
+    - oggm
+    - pygem
