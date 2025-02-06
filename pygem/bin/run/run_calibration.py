@@ -1242,6 +1242,8 @@ def run(list_packed_vars):
                 # -------------------
                 # mass balance observation and standard deviation
                 obs = [(torch.tensor([mb_obs_mwea]),torch.tensor([mb_obs_mwea_err]))]
+                # if there are more observations to calibrate against, simply append a tuple of (obs, variance) to obs list
+                # e.g. obs.append((torch.tensor(dmda_array),torch.tensor(dmda_err_array)))
                 if pygem_prms['calib']['MCMC_params']['option_use_emulator']:
                     mbfxn = mbEmulator.eval                                 # returns (mb_mwea)
                     mbargs = None                                           # no additional arguments for mbEmulator.eval()
@@ -1264,7 +1266,6 @@ def run(list_packed_vars):
                 # ----- run MCMC -----
                 # --------------------               
                 try:
-                # for batman in [0]:
                     ### loop over chains, adjust initial guesses accordingly. done in a while loop as to repeat a chain up to one time if it remained stuck throughout ###
                     n_chain=0
                     repeat=False
