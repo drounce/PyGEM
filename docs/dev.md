@@ -1,5 +1,5 @@
 (dev_pygem_target)=
-# Developing
+# Development
 Are you interested in contributing to the development of PyGEM? If so, we recommend forking the [PyGEM's GitHub repository](https://github.com/PyGEM-Community/PyGEM) and then [cloning the GitHub repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) onto your local machine.
 
 Note, if PyGEM was already installed via PyPI, first uninstall:
