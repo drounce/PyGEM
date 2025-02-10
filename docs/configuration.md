@@ -1,5 +1,5 @@
 (pygem_config_overview_target)=
-# Configuration
+# Configuration File
 PyGEM's configuration file (*~/PyGEM/config.yaml*) is where the user is able to specify the glaciers to model, choose model parameterizations and calibration options, specify relative filepaths and filenames for the model to function, and specify other model details and constants. The configuration settings are loaded to PyGEM as a dictionary object.
 
 ```{warning}

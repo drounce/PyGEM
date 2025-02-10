@@ -160,6 +160,8 @@ def getparser():
                                     2: HH2015 methods, 3: quantile delta mapping)')
     parser.add_argument('-nsims', action='store', type=int, default=pygem_prms['sim']['nsims'],
                         help='number of simulations (note, defaults to 1 if `option_calibration` != `MCMC`)')
+    parser.add_argument('-modelprms_fp', action='store', type=str, default=None,
+                        help='model parameters filepath')
     # flags
     parser.add_argument('-export_all_simiters', action='store_true',
                         help='Flag to export data from all simulations', default=pygem_prms['sim']['out']['export_all_simiters'])  
@@ -424,14 +426,14 @@ def run(list_packed_vars):
                 
                 # Load model parameters
                 if args.option_calibration:
-                    
-                    modelprms_fn = glacier_str + '-modelprms_dict.json'
-                    modelprms_fp = (pygem_prms['root'] + '/Output/calibration/' + glacier_str.split('.')[0].zfill(2) 
-                                    + '/')
-                    modelprms_fullfn = modelprms_fp + modelprms_fn
+                    modelprms_fp = args.modelprms_fp
+                    if not modelprms_fp:                    
+                        modelprms_fn = glacier_str + '-modelprms_dict.json'
+                        modelprms_fp = (pygem_prms['root'] + '/Output/calibration/' + glacier_str.split('.')[0].zfill(2) 
+                                        + '/') + modelprms_fn
     
-                    assert os.path.exists(modelprms_fullfn), 'Calibrated parameters do not exist.'
-                    with open(modelprms_fullfn, 'r') as f:
+                    assert os.path.exists(modelprms_fp), 'Calibrated parameters do not exist.'
+                    with open(modelprms_fp, 'r') as f:
                         modelprms_dict = json.load(f)
     
                     assert args.option_calibration in modelprms_dict, ('Error: ' + args.option_calibration +
