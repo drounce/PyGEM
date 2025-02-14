@@ -34,6 +34,7 @@ jupyter = "^1.1.1"
 arviz = "^0.20.0"
 oggm = "^1.6.2"
 ruamel-yaml = "^0.18.10"
+ruff = ">0.9.6"
 
 [tool.poetry.scripts]
 initialize = "pygem.bin.op.initialize:main"
@@ -54,3 +55,15 @@ duplicate_gdirs = "pygem.bin.op.duplicate_gdirs:main"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+  "B",  # flake8-bugbear
+  "C",  # mccabe complexity
+  "E", "W",  # Pycodestyle
+  "F",  # Pyflakes
+  "I",  # isort
+]
