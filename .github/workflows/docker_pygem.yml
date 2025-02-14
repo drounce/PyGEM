@@ -54,4 +54,4 @@ jobs:
           # push: ${{ github.ref == 'refs/heads/master' }}
           no-cache: true
           file: 'docker/Dockerfile'
-          tags: 'ghcr.io/PyGEM-Community/pygem:latest'
+          tags: 'ghcr.io/pygem-community/pygem:latest'
