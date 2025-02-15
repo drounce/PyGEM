@@ -39,10 +39,6 @@ jobs:
         id: checkout
         uses: actions/checkout@v4
 
-      - name: 'Check out PyGEM-notebooks'
-        run: |
-          git clone https://github.com/PyGEM-Community/PyGEM-notebooks $GITHUB_NOTEBOOKS_PATH
-
       - name: 'Test PyGEM installation'
         run: |
           . /home/ubuntu/pygem_venv/bin/activate
@@ -54,6 +50,10 @@ jobs:
         run: |
           . /home/ubuntu/pygem_venv/bin/activate
           ruff check
+
+      - name: 'Check out PyGEM-notebooks'
+        run: |
+          git clone https://github.com/PyGEM-Community/PyGEM-notebooks $GITHUB_NOTEBOOKS_PATH
 
       - name: 'Run tests'
         run: |
