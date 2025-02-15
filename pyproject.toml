@@ -37,6 +37,8 @@ ruamel-yaml = "^0.18.10"
 pytest = ">=8.3.4"
 coverage = ">=7.6.12"
 ruff = ">=0.9.6"
+pytest-cov = ">=6.0.0"
+nbmake = ">=1.5.5"
 
 [tool.poetry.scripts]
 initialize = "pygem.bin.op.initialize:main"
@@ -86,3 +88,8 @@ ignore = [
     "E722",  # Using bare `except`
     "F841",  # Local variable assigned to but never used
 ]
+
+[tool.coverage.report]
+omit = ["pygem/tests/*"]
+show_missing = true
+skip_empty = true

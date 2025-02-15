@@ -31,6 +31,8 @@ jobs:
     container:
       image: ghcr.io/pygem-community/pygem:latest
       options: --user root
+    env:
+      GITHUB_NOTEBOOKS_PATH: $HOME/PyGEM-notebooks
 
     steps:
       - name: 'Check out the repo'
@@ -49,10 +51,12 @@ jobs:
           . /home/ubuntu/pygem_venv/bin/activate
           ruff check
 
+      - name: 'Check out PyGEM-notebooks'
+        run: |
+          git clone https://github.com/PyGEM-Community/PyGEM-notebooks $GITHUB_NOTEBOOKS_PATH
+
       - name: 'Run tests'
         run: |
           . /home/ubuntu/pygem_venv/bin/activate
           python -m coverage erase
-          python -m coverage run --source=pygem --omit=pygem/tests/* \
-            -m pytest -v --durations=20 pygem/tests
-          python -m coverage report -m
+          python -m pytest --cov=pygem -v --durations=20 pygem/tests
