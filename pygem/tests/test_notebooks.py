@@ -4,7 +4,7 @@ import subprocess
 import pytest
 
 # Get all notebooks in the PyGEM-notebooks repository
-nb_dir = os.path.join(os.path.expanduser("~"), "PyGEM-notebooks")
+nb_dir = os.environ["GITHUB_NOTEBOOKS_PATH"] or os.path.join(os.path.expanduser("~"), "PyGEM-notebooks")
 notebooks = [f for f in os.listdir(nb_dir) if f.endswith(".ipynb")]
 
 @pytest.mark.parametrize("notebook", notebooks)
