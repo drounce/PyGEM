@@ -90,7 +90,7 @@ ignore = [
 ]
 
 [tool.coverage.run]
-omit = ["pygem/tests/*"]
+omit = ["./pygem/tests/*"]
 
 [tool.coverage.report]
 show_missing = true
