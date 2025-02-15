@@ -89,9 +89,7 @@ ignore = [
     "F841",  # Local variable assigned to but never used
 ]
 
-[tool.coverage.run]
-omit = ["./pygem/tests/*"]
-
 [tool.coverage.report]
+omit = ["pygem/tests/*"]
 show_missing = true
 skip_empty = true
